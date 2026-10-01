@@ -2272,6 +2272,24 @@ export class Race {
     })).map(r => (r.dsq ? { ...r, gap: 'DSQ' } : r.dnf ? { ...r, gap: 'DNF' } : r));
   }
 
+  // Compile every shader behind the loading screen. A normal frame only compiles what the camera sees, so the rest
+  // (a building round the corner, leaves in the shadow map) would compile mid-race the moment it first came into
+  // view: a stutter of up to a few hundred ms, typically as a drift swings the camera round. One frame with nothing
+  // culled or hidden draws (and so compiles) everything, shadow casters included; the next update puts it back.
+  // (After a normal frame: three.js draws the shadow map before it sets up the frame's lights, so in a scene's very
+  // first frame the shadow shaders are built for "no lights" and every later frame wants different ones.)
+  warmUp(post, settings) {
+    const S = { ...settings, trails: false }; // (no frame trails: the everything-on frame mustn't linger on screen)
+    this.render(post, S);
+    const off = [], hidden = [];
+    this.scene.traverse(o => { if (o.frustumCulled) { o.frustumCulled = false; off.push(o); } if (!o.visible) { o.visible = true; hidden.push(o); } });
+    try { this.render(post, S); } finally {
+      for (const o of off) o.frustumCulled = true;
+      for (const o of hidden) o.visible = false;
+    }
+    this.render(post, S); // (and a normal one over it, so the trails' history doesn't hold the everything-on frame)
+  }
+
   render(post, settings) {
     const trails = settings.trails ? 0.22 + Math.min(0.28, (this.focus.phys.speed || 0) * 0.004) : 0;
     this.camera.aspect = post.r.domElement.width / post.r.domElement.height;

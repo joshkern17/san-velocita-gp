@@ -667,7 +667,9 @@ kbd.dpad.h { background: linear-gradient(#8e97ab, #8e97ab) center / 7px 100% no-
 @keyframes drift-pulse { 0% { transform: skewX(-14deg) scale(1.8); filter: brightness(1.8); } 100% { transform: skewX(-14deg) scale(1); } }
 .drift-meter { position: relative; display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 6px; }
 .drift-bar { position: relative; width: 250px; height: 9px; background: rgba(255,255,255,.12); transform: skewX(-14deg); }
-.drift-bar i { position: absolute; top: 0; bottom: 0; width: 50%; background: var(--tier); box-shadow: 0 0 10px var(--tier); transition: transform .06s linear; }
+/* (the bars get their own layers: they move every frame, and moving them in the banner's layer re-painted its blurred
+   shadows each time, which cost frames all through a drift) */
+.drift-bar i { position: absolute; top: 0; bottom: 0; width: 50%; background: var(--tier); box-shadow: 0 0 10px var(--tier); transition: transform .06s linear; will-change: transform; }
 .drift-bar i.l { right: 50%; transform-origin: 100% 50%; }
 .drift-bar i.r { left: 50%; transform-origin: 0 50%; }
 .drift-bar em { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: #fff; }
@@ -678,7 +680,7 @@ kbd.dpad.h { background: linear-gradient(#8e97ab, #8e97ab) center / 7px 100% no-
 .drift-chain.big .drift-ang { color: #ffd84a; }
 .drift-grace { position: relative; width: 250px; height: 4px; margin: 6px auto 0; background: rgba(0,0,0,.5); overflow: hidden; opacity: 0; transition: opacity .15s; transform: skewX(-14deg); }
 .drift-chain.grace .drift-grace { opacity: 1; }
-.drift-grace i { display: block; height: 100%; background: #fff; transform-origin: 0 50%; }
+.drift-grace i { display: block; height: 100%; background: #fff; transform-origin: 0 50%; will-change: transform; }
 .hud-row.drift-total { position: relative; }
 .hud-row.drift-total .lbl { color: #ffd84a; }
 .hud-row.drift-total .val { color: #fff; text-shadow: var(--outline), 0 0 14px rgba(255,216,74,.5); }

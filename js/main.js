@@ -1700,8 +1700,9 @@ function startRace(track, cfg, ret, quick = false) {
         ...(cfg.extra || {}),
       }, renderer);
       sim.aidBonus = bonusNow(); // (the lowest you race with counts: see noteAidBonus)
-      // warm-up render so shaders compile behind the loading screen
+      // warm-up render so shaders compile behind the loading screen (all of them, not just what the start camera sees)
       sim.update(0.016, { steer: 0, throttle: 0, brake: 0 }, {});
+      sim.warmUp(post, settings);
       sim.render(post, settings);
       hud.setTrack(sim.T, sim.A, sim.world.roadLines);
       hud.reset(cfg.mode === 'race' ? 'race' : cfg.mode === 'quali' || cfg.mode === 'practice' ? 'quali' : 'test');
