@@ -18,7 +18,9 @@ This writes `models/garage-start.blend`. Open it, **Save As** your own file (re-
   press Numpad 0 to look through it, F12 to render it). Anything named `GUIDE...` is left out by the game, so
   there's no need to delete them before exporting.
 - **Hooks** collection: the parts the game fills in. Move them, resize them, give them frames (see below).
-- **Garage** collection: a starter floor and bay lines. Replace them with your own model.
+- **Garage** collection: a starter floor and bay lines. Replace them with your own model: walls, ceiling,
+  doors, benches, anything. The guides hide from renders; hide them in the viewport too (the eye icon)
+  whenever they're in the way.
 
 Already have a garage model? File → Append (or Import) it into the template, then line it up with the guides.
 
@@ -54,16 +56,24 @@ replaced). All are optional.
 - Principled BSDF with image textures only. Procedural nodes don't export: bake them to images first.
 - Keep **Metallic at 0** (or close). There's no reflection map, so metallic surfaces look black. Fake metal with a
   light grey base colour and low roughness.
-- **Lights from Blender are ignored.** The garage keeps its own (sky light, a key light from above-left, light
-  from the door, a warm light at the back). For light panels and screens use **Emission**. For depth, **bake
-  ambient occlusion / shadows** into your textures. Nothing in the garage casts real-time shadows.
+- **Lighting, two ways:**
+  - *No lights in your model:* the garage uses its own (sky light, a key light from above-left, light from the
+    door, a warm light at the back). Bright and even.
+  - *Your own lights (moody):* add Point / Spot lights in Blender. If the model has any, the game switches its
+    own off and uses only yours, plus a very faint fill so dark corners aren't pure black. For a light bulb:
+    a small sphere with **Emission** (strength 20–40: that's the glow you see, bloom adds a halo) and a
+    **Point light** just inside it (that's what lights the walls and the car). Emission alone lights nothing in
+    the game. Watts carry over roughly: a 300 W bulb about 3 m up lights the car in a warm pool. Set the
+    light's colour in Blender (warm orange for old bulbs, cold blue-white for strip lights).
+  - Nothing casts real-time shadows. For darker corners and contact shadows, **bake ambient occlusion**
+    into your textures.
 - Glass: set the material's Blend Mode / Render Method to Blended and lower Alpha.
 
 ## Export
 
 File → Export → glTF 2.0:
 - Format **glTF Binary (.glb)**, save as `models/garage.glb`.
-- Include: leave Cameras and Punctual Lights off.
+- Include: Cameras off. **Punctual Lights on** if you added your own lights.
 - Transform: **+Y Up** on.
 - Data → Mesh: **Apply Modifiers** on.
 - **Compression (Draco) OFF.** The game can't decode compressed meshes and the model won't load.

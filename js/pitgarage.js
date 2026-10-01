@@ -8,6 +8,7 @@ const hex = (c) => '#' + (c >>> 0).toString(16).padStart(6, '0');
 const TYRE_CSS = { soft: '#e0302a', medium: '#f2d22a', hard: '#f0f0f0', wet: '#3a8af0' };
 // the room: x across (-W/2..W/2), z from the back wall (-D) to the door (0), the car in the middle facing the door
 const W = 12, D = 14, H = 4.6, CAR_Z = -6.5;
+const BULB_SCALE = 0.0006; // exported point / spot light intensity -> the game's (a 300 W Blender bulb ≈ 10)
 
 // your own garage model (Blender -> models/garage.glb, metres, the door facing Blender -Y, the floor at Z = 0, the
 // car's spot at the origin; see docs/GARAGE-MODEL.md for the named hooks). The single-file build carries it in
@@ -35,10 +36,11 @@ export class PitGarage {
     this.t = 0; this.car = null; this.active = false;
     this.shift = 0.2; // the car sits to the right of the menu
     // lights: the ceiling panels + daylight through the door
-    this.scene.add(new THREE.HemisphereLight(0xdfe6ff, 0x3a3a40, 0.9));
-    const key = new THREE.DirectionalLight(0xfff4e6, 1.1); key.position.set(-3, 8, 4); this.scene.add(key);
-    const door = new THREE.DirectionalLight(0xcfe0ff, 0.7); door.position.set(0, 3, 12); this.scene.add(door);
-    const back = new THREE.PointLight(0xffe2b0, 0.6, 14); back.position.set(0, 3.6, -8); this.scene.add(back);
+    const hemi = new THREE.HemisphereLight(0xdfe6ff, 0x3a3a40, 0.9);
+    const key = new THREE.DirectionalLight(0xfff4e6, 1.1); key.position.set(-3, 8, 4);
+    const door = new THREE.DirectionalLight(0xcfe0ff, 0.7); door.position.set(0, 3, 12);
+    const back = new THREE.PointLight(0xffe2b0, 0.6, 14); back.position.set(0, 3.6, -8);
+    this.lights = [hemi, key, door, back]; this.scene.add(...this.lights);
     this.buildRoom();
   }
 
@@ -110,13 +112,17 @@ export class PitGarage {
     box(0.12, 0.12, 0.5, lam(0x303035), -1.9, 0.06, CAR_Z + 2.8);
   }
 
-  // swap the default room for your model, hooking up its named parts:
+  // swap the default room for your model (and its lights, if it has any), hooking up its named parts:
   //   GUIDE* (object) left out, TV_Screen* (object) the live timing, TeamBand* (object) the team banner,
   //   materials TeamMain* / TeamAccent* the team's colours, TyreBand* the compound you'll go out on
   useRoom(m) {
-    const drop = [];
-    m.traverse(o => { if (o.isLight || o.isCamera || (o.name || '').startsWith('GUIDE')) drop.push(o); });
-    for (const o of drop) o.removeFromParent(); // (the garage keeps its own lights; GUIDE_ objects are modelling aids)
+    const drop = []; let lit = false;
+    m.traverse(o => { if (o.isCamera || (o.name || '').startsWith('GUIDE')) drop.push(o); else if (o.isLight) lit = true; });
+    for (const o of drop) o.removeFromParent(); // (GUIDE_ objects are modelling aids)
+    // a model with its own lights is lit by them alone (plus a faint fill so the shadows aren't pitch black)
+    // (Blender's exporter writes bulbs in physical units, ~54 per watt; the game's lights are tuned far lower)
+    m.traverse(o => { if (o.isPointLight || o.isSpotLight) o.intensity *= BULB_SCALE; });
+    if (lit) { for (const l of this.lights) l.visible = false; this.scene.add(new THREE.HemisphereLight(0xc8d0ff, 0x202024, 0.12)); }
     this.room.clear(); this.tyreBands = []; this.teamMats = [];
     // glTF uvs are flipped vs canvas textures
     this.tvTex.flipY = false; this.tvTex.needsUpdate = true;
@@ -125,7 +131,7 @@ export class PitGarage {
       if (!o.isMesh) return;
       const name = o.name || (o.parent && o.parent.name) || '';
       if (name.startsWith('TV_Screen')) { o.material = new THREE.MeshBasicMaterial({ map: this.tvTex }); return; }
-      if (name.startsWith('TeamBand')) { o.material = new THREE.MeshBasicMaterial({ map: this.bandTex }); return; }
+      if (name.startsWith('TeamBand')) { o.material = new THREE.MeshLambertMaterial({ map: this.bandTex }); return; } // (painted on, so it takes the room's light)
       for (const mat of Array.isArray(o.material) ? o.material : [o.material]) {
         const n = mat.name || '';
         if (n.startsWith('TyreBand')) this.tyreBands.push({ material: mat });
