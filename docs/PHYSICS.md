@@ -62,8 +62,9 @@ Replace the bicycle with four tyres and a sprung body.
   Use realistic figures for each car's type and check against real-world references (skidpad g, braking distance,
   body roll per g, 0-100).
 
-**Current step:** stage 2 not started yet (the user said go on 2026-09-30; tests + handoff were set up first).
-Update this line as work progresses (e.g. "2a: per-wheel loads done, wheel spin per wheel in progress").
+**Stage 2 is in progress on the branch `physics-stage2`** (`git fetch && git checkout physics-stage2`, or locally the
+worktree `../Racing Game (physics stage 2)`). Its copy of this file has the current step. `main` stays on the stable
+stage 1 physics (the user plays from it) until stage 2 is finished, checked and merged.
 
 ## Remaining fudges (to remove, and which stage removes them)
 
