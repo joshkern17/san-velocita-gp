@@ -6,7 +6,7 @@ import { AI_AIDS } from './aids.js';
 // ---------------- physics ----------------
 
 // bump whenever the physics changes how a car drives: learned AI speed plans saved by an older version are relearned
-export const PHYS_VERSION = 6;
+export const PHYS_VERSION = 7;
 
 export const CARSPEC = {
   mass: 740, inertia: 1100, a: 1.85, b: 1.75, L: 3.6, cgh: 0.22,
@@ -480,7 +480,10 @@ export class CarPhysics {
       // it hooks up
       const kdw = fd >= 1 ? Math.max(KS[0] * sgnU, KS[1] * sgnU) : fd > 0 ? Math.max(KS[0] * sgnU, KS[1] * sgnU, KS[2] * sgnU, KS[3] * sgnU) : Math.max(KS[2] * sgnU, KS[3] * sgnU);
       const e = (kdw - tcT) / kp;
-      tcK = tcOn && e > 0 ? Math.max(0.05, tcK - h * 30 * e) : Math.min(1, tcK + h * (tcOn ? 6 : 50));
+      // (the power comes back as the slip falls under the target, slower the closer it is, so it settles at the torque
+      // the tyres can take instead of cutting and restoring it several times a second: that pulsing, through a
+      // limited-slip diff whose lock follows the torque, kicked the rear from side to side)
+      tcK = tcOn && e > 0 ? Math.max(0.05, tcK - h * 30 * e) : Math.min(1, tcK + h * (tcOn ? 6 * Math.min(1, -e * 2) : 50));
       let TdF = drF, TdR = drR;
       if (tcOn) { const lF = tcK * limF, lR = tcK * limR; if (TdF > lF) { TdF = lF; tcAct = true; } if (TdR > lR) { TdR = lR; tcAct = true; } }
       // tyre forces from each wheel's slip

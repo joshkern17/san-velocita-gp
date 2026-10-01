@@ -47,8 +47,14 @@ const gt = (o) => ({
   drag: 0.46, roll: 18, power: 450000, maxForce: 13500, maxSteer: 0.42,
   gears: [0, 26, 37, 48, 59, 71, 88], redline: 8800, idle: 1400, torque: NA, drive: 0, box: 'sequential', shift: 0.06,
   slipFall: 1.4, slipPeak: 0.09, slipFallR: 1.25, slipPeakR: 0.1, brakeF: 0.68,
-  track: 1.6, rideHz: [2.4, 2.6], damp: 0.65, rollGrad: 1.2, unsprung: 35, rollBias: 0.05, rcH: 0.05, antiDive: 0.35, antiSquat: 0.35, // (a '90s GT racer: stiff, low, little roll)
-  lsd: [120, 0.45, 0.25], // (a 1.5-way racing diff)
+  // (a '90s GT racer: stiff, low, little roll; the rear bar a little softer than the front's weight share, so the
+  // outside rear isn't left carrying nearly all of the rear's load in a fast corner: with the diff sending the power to
+  // it, the car stepped out on every straight and exit)
+  track: 1.6, rideHz: [2.4, 2.6], damp: 0.65, rollGrad: 1.2, unsprung: 35, rollBias: 0.12, rcH: 0.05, antiDive: 0.35, antiSquat: 0.35,
+  // (a clutch diff locked by its preload and off the throttle, not harder on the power: these cars put a lot of their
+  // weight on the outside rear in a fast corner, and a diff that sends the power there too spun them on the exits and
+  // fishtailed them on the straights, traction control or not)
+  lsd: [120, 0, 0.25],
   aeroH: [0.025, 0.012], aeroYaw: 3, // (splitter, flat floor, wing)
   drift: true, driftMax: 0, ...o,
 });

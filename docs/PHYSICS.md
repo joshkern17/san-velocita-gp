@@ -72,7 +72,7 @@ F1 dirty air / DRS / ERS, tyre temperatures, learning the AI plans in a Web Work
 - **Limited-slip differential** (`physics.js`, the axle mode solve): clutch-type (Salisbury). The clutches pass up to
   `preload + lock × |torque through the diff|` between the two wheels (`lsd: [preload N·m, power lock, coast lock]`;
   coast = engine braking). Implicit friction on the wheels' difference mode, so a locked pair stays locked at any step.
-  Replaces the old viscous `diffVisc`. Values: F1 [100, 0.5, 0.3]; GT1 [120, 0.45, 0.25] (1.5-way); road default
+  Replaces the old viscous `diffVisc`. Values: F1 [100, 0.5, 0.3]; GT1 [120, 0, 0.25] (was 0.45 power lock: see the follow-up below); road default
   [50, 0.3, 0.15]; Kaze [80, 0.45, 0.3]; Pony (Torsen) [20, 0.43, 0.43]; 964 [60, 0.4, 0.4]; M5 [40, 0.25, 0.25];
   Testa Rossa [50, 0.4, 0.2]; GT-R rear [60, 0.35, 0.2], front open (`lsdF`); vans open. Effect: a bit more power
   oversteer on exits (both rears driven, the inside one no longer spins off the torque), a touch of push on the power
@@ -97,6 +97,20 @@ F1 dirty air / DRS / ERS, tyre temperatures, learning the AI plans in a Web Work
   GT cars are much slower where the carve helped**: Maple Ridge M1 sim lap 66.9 → 78.0 s, Kaze 79.0 → 90.4 s; Auburn M1
   softs reference 1:40.0 → 1:47.6 (the old one wasn't drivable by a player). F1 unchanged (it never had the carve).
   Difficulty levels are still fractions of the learned limit, so "Hard" is now 94.5% of what the car can really do.
+- **Follow-up (user: M1 ProCar on Standard aids "slipping and sliding like crazy while just accelerating,
+  fishtailing")**, `PHYS_VERSION` 7, `PROTO` 20. Reproduced with `.devtest/padrun.mjs` (drives the real game, Auburn,
+  stepping `sim.update` with a pad-like driver that floors it below the plan: counts slides > 5° and side-to-side swings
+  over 4 min; runs vary by about ±25 swings, so compare sums over several cars). Old physics: M1 / Aventus / BX300
+  51 swings, 25 s sliding; stage 3 as released 274 / 66 s. Cause: the diff's **power lock** together with **traction
+  control**. With TC off, LSD and open diff behaved alike; with TC on, the TC cut and restored the torque several times
+  a second (bang-bang recovery at 6/s), the power lock followed the torque, and in a fast corner the GT cars carry ~80% of
+  the rear's load on the outside wheel, where a locked diff sends the drive: a yaw moment into the turn, pulsing. Fixes:
+  TC recovers in proportion to how far under its slip target the wheels are (`6 · min(1, −2e)`: it settles instead of
+  cycling); GT diffs `[120, 0, 0.25]` (preload + coast only); GT `rollBias` 0.12 (softer rear bar: fast-kink slides 5.4
+  → 4.5°, no cornering grip lost). Result: GT 25-55 swings (M1 alone 12-20, old 11), street + F1 ≈ old. Trade-off: the
+  GT cars no longer hold a drift with TC on (they do with TC off); road cars do. Tried and rejected: TC on the tyres'
+  combined slip (worse: 117 swings on the M1), softer power lock 0.15-0.25 (still 60-86), drift-mode TC on the mean
+  wheel slip (no help).
 
 What stage 2 is, and what was learned getting there:
 - **Four wheels** (`js/physics.js`): per-wheel load / slip angle / spin / slip ratio / ABS; each axle pair solved as
@@ -168,7 +182,10 @@ What stage 2 is, and what was learned getting there:
 
 - Steady cornering (Kaze `jsport` ~108 km/h): ~1.15-1.2 g at the limit (no arcade grip since stage 3), front limited
   (mild understeer) [1.15-1.17 g].
-- Held drift (`driftHold`): every rear-drive road / GT car holds ~23° for the whole run without spinning [all 6.8 s].
+- Held drift (`driftHold`): every rear-drive road car holds ~23° for the whole run, TC on or off; GT cars with TC off
+  (with TC High it catches the slide in ~1 s: their diffs don't lock on the power) [6.8 s; GT TC High ~1 s].
+- Pad driver in the real game (`node .devtest/padrun.mjs <car> 240`): no worse than the old physics' fishtails
+  (M1 ~10-20 swings per 4 min on Auburn, Standard aids).
 - Aero balance (`aero`): moves forward 2-3% under hard braking (GT), back on power; total ≈ kd·u² (±5%).
 - Stops from 126 km/h (road car): ABS clearly shorter than locked (~50 m vs ~57 m); a stamp without ABS locks the
   fronts (not the rears: proportioning valve); F1 ABS ~29 m.
@@ -203,6 +220,8 @@ What stage 2 is, and what was learned getting there:
   5, `PROTO` 18.
 - 2026-10-01: stage 3 done: limited-slip diffs, aero map, drift / AI carve + push + `gripK` removed, AI throttle skills.
   `PHYS_VERSION` 6, `PROTO` 19. Suite re-baselined (new groups `driftHold`, `aero`).
+- 2026-10-01: fishtailing fix (smoother TC, GT diffs without power lock, GT softer rear bar). `PHYS_VERSION` 7,
+  `PROTO` 20. `.devtest/padrun.mjs` added.
 - Note: another local Claude session works on the same repo (pit lane, garages, practice sessions: mostly
   `race.js` pit / session code, `main.js` garage menus, `js/pitgarage.js`). Before editing shared files, `git pull`
   and check `git log`; keep edits to your own areas; whoever finishes last rebuilds `dist/` and takes the next
