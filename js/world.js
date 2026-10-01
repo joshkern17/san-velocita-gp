@@ -992,7 +992,7 @@ export function buildWorld(track, T, A, opts = {}) {
     const e = { id: p.id, x: p.x, z: p.z, y: (p.lit ? surfAt(p.x, p.z) + 0.005 : groundHeight(p.x, p.z) - 0.02) + (p.y || 0), rot: p.rot || 0, s: p.s || 1, tx: p.tx, tz: p.tz, sp: p.sp, round: p.round, mv: p.mv };
     envPl.push(e); if (e.mv) movers.push(e);
   }
-  addEnvInstances(root, envPl, { night });
+  const envCells = addEnvInstances(root, envPl, { night });
   addContactShadows(root, envPl, groundHeight, night);
   if (real.paving && real.paving.length) buildPaving(root, real.paving, groundHeight, tx);
   // blowing litter, steam, pigeons, glowing vending machines (the setting's Ambient life slider)
@@ -1056,6 +1056,7 @@ export function buildWorld(track, T, A, opts = {}) {
   let t = 0;
   function update(dt, camera, moving, cars) {
     t += dt;
+    envCells.update(camera);
     clouds.update(dt, camera);
     if (shadowsOn && camera) { // keep the shadow box centred just ahead of the camera, snapped to its texels (no shimmer)
       camera.getWorldDirection(_sdir);

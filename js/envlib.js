@@ -128,14 +128,42 @@ export const envModel = (id) => models.get(id);
 
 // ---------------- drawing ----------------
 // placements: [{ id, x, y, z, rot, sx, sy, sz }] (rot about +Y; scale per axis, default 1)
-// Everything with the same model shares one InstancedMesh per material. Returns stats.
+// Everything with the same model shares one InstancedMesh per material, per cell of the map; each draw costs far
+// more than a few hundred triangles, so the cells are sized by how heavy the model is (a 30-triangle tree: one batch
+// per km square, a 2,000-triangle building: per 160 m). The cells are groups that update(camera) shows or hides as a
+// whole. Small things also have a draw distance: past it they'd be a few pixels tall (a 1 m flower at 200 m is under
+// 3 pixels at 448p), so ground cover and street clutter far off are skipped. Returns stats + update.
+const REACH = [[1.3, 200], [4, 480]]; // [size up to (m), drawn up to (m)]; bigger: to the horizon
+const reachOf = (a, p) => {
+  if (!a) return Infinity;
+  const s = Math.max(a.h * (p.sy ?? p.s ?? 1), 0.5 * Math.max(a.w * (p.sx ?? p.s ?? 1), a.d * (p.sz ?? p.s ?? 1)));
+  for (const [size, far] of REACH) if (s <= size) return far;
+  return Infinity;
+};
+const trisOf = (id) => { let n = 0; for (const p of models.get(id)) n += (p.geo.index ? p.geo.index.count : p.geo.attributes.position.count) / 3; return n; };
+const cellSize = (id, far) => { if (far < Infinity) return 160; const n = trisOf(id); return n <= 150 ? 960 : n <= 600 ? 480 : n <= 3000 ? 320 : 160; };
+// The scenery never moves (loose rubbish moves inside its batch), but three.js re-walks and re-multiplies every
+// object's matrix each frame: thousands of batches on a well-decorated map. A cell works its matrices out once.
+function frozenMatrices(force) {
+  if (this._frozen) return;
+  THREE.Object3D.prototype.updateMatrixWorld.call(this, true); this._frozen = true;
+}
 export function addEnvInstances(root, placements, opts = {}) {
-  // one batch per model per 160 m tile of the map, so what's off screen (or outside the shadow area) is skipped
-  const groups = new Map(), CH = 160;
+  const groups = new Map(), cells = new Map(), sizes = new Map();
   for (const p of placements) {
     if (!models.has(p.id)) continue;
-    const a0 = byId.get(p.id), key = a0 && (a0.cat === 'skyline' || a0.w > 60) ? p.id : p.id + '|' + Math.floor(p.x / CH) + ',' + Math.floor(p.z / CH);
-    let a = groups.get(key); if (!a) groups.set(key, a = []); a.push(p);
+    const a0 = byId.get(p.id), far = reachOf(a0, p), whole = a0 && (a0.cat === 'skyline' || a0.w > 60); // (the skyline: one batch each)
+    let CH = sizes.get(p.id + far); if (!CH) sizes.set(p.id + far, CH = cellSize(p.id, far));
+    const ix = Math.floor(p.x / CH), iz = Math.floor(p.z / CH), cell = whole ? 'all' : far + '|' + CH + '|' + ix + ',' + iz;
+    const key = p.id + '|' + cell;
+    let a = groups.get(key); if (!a) groups.set(key, a = Object.assign([], { cell })); a.push(p);
+    // (the camera test: the square's corner radius plus a margin for tall / overhanging models and wandering rubbish)
+    if (!cells.has(cell)) cells.set(cell, whole || far === Infinity ? null : { far, x: (ix + 0.5) * CH, z: (iz + 0.5) * CH, r: CH * Math.SQRT1_2 + 30 });
+  }
+  const cellGroups = [], groupOf = new Map();
+  for (const [cell, c] of cells) {
+    const g = new THREE.Group(); g.name = 'env-cell'; g.updateMatrixWorld = frozenMatrices; root.add(g); groupOf.set(cell, g);
+    if (c) { g.userData = c; cellGroups.push(g); }
   }
   const m4 = new THREE.Matrix4();
   const nightMats = new Map();
@@ -149,19 +177,26 @@ export function addEnvInstances(root, placements, opts = {}) {
   for (const [key, list] of groups) {
     const id = list[0].id, a = byId.get(id);
     for (const part of models.get(id)) {
-      const im = new THREE.InstancedMesh(part.geo, matFor(part.mat), list.length);
+      const im = new THREE.InstancedMesh(part.geo, matFor(part.mat), list.length); im.name = id;
       list.forEach((p, k) => {
         im.setMatrixAt(k, envMatrix(p, a, m4));
         if (p.mv) (p._h ||= []).push([im, k]); // things that move later (rolling cans, blowing bags) keep their slots
       });
       im.computeBoundingSphere();
       if (list.some(p => p.mv)) im.boundingSphere.radius += 25; // (loose rubbish can wander a bit)
-      im.castShadow = a ? a.cat !== 'skyline' && a.cls !== 'litter' : true;
-      root.add(im); draws++;
+      // (ground cover and litter don't cast sun shadows: too small to see in the shadow map, but every one of them
+      // is drawn again into it. Their soft contact shadows stay.)
+      im.castShadow = a ? a.cat !== 'skyline' && a.cls !== 'litter' && a.cat !== 'grass' && reachOf(a, list[0]) > REACH[0][1] : true;
+      groupOf.get(list.cell).add(im); draws++;
     }
     count += list.length;
   }
-  return { draws, count };
+  // show the cells in reach of this camera (no camera: all of them)
+  const update = (camera) => {
+    const cx = camera ? camera.position.x : 0, cz = camera ? camera.position.z : 0;
+    for (const g of cellGroups) { const u = g.userData; g.visible = !camera || Math.hypot(u.x - cx, u.z - cz) - u.r < u.far; }
+  };
+  return { draws, count, update };
 }
 
 // Placement matrix. p: { x, y (surface height), z, rot (yaw), s | sx sy sz, tx / tz (tilt about local x / z),
