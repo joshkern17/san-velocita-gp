@@ -9,7 +9,7 @@
 //   gears = top speed per gear (m/s), redline / idle rpm, torque = [[rpm fraction, torque multiplier]...]
 //   drive = front share of the drive (0 rear-wheel drive, 1 front-wheel drive, 0.35 = AWD)
 //   box = gearbox type (seamless | sequential | dual-clutch | manual | automatic), shift = s of reduced drive per change
-import { CARSPEC } from './car.js';
+import { CARSPEC } from './physics.js';
 
 export const CLASSES = {
   f1:     { label: 'Formula',  short: 'F1' },

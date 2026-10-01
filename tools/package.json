@@ -1,1 +1,1 @@
-{ "name": "svgp-tools", "private": true, "type": "module", "devDependencies": { "esbuild": "^0.24.0" } }
+{"name":"svgp-tools","private":true,"type":"module","devDependencies":{"esbuild":"^0.24.0","playwright-core":"^1.63.0"}}
