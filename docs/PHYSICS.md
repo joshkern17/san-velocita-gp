@@ -62,8 +62,20 @@ Replace the bicycle with four tyres and a sprung body.
   Use realistic figures for each car's type and check against real-world references (skidpad g, braking distance,
   body roll per g, 0-100).
 
-**Current step:** stage 2 not started yet (the user said go on 2026-09-30; tests + handoff were set up first).
-Update this line as work progresses (e.g. "2a: per-wheel loads done, wheel spin per wheel in progress").
+**Where the work happens:** branch `physics-stage2` (a git worktree next to the main folder:
+`../Racing Game (physics stage 2)`), so `main`, which the user plays from, stays on the stable stage 1 physics until
+stage 2 is finished and checked. Merge into `main` at the end (see the release checklist).
+
+**Current step:** 2a written (four wheels in `js/physics.js`: per-wheel loads / slip angles / spin / slip ratio / ABS,
+axle pair solved as mean + difference modes with a viscous LSD `diffVisc` on the driven axle; brakes inside the mode
+solve). Straight-line stops, launches and steady cornering match stage 1. **Known 2a gap, expected to resolve in 2b:**
+braking while turning now turns no more than coasting (25° vs stage 1's 38°, Kaze, `brakeTurn`). Measured cause: the
+light inside front reaches its limit first, ABS eases it, and the heavier outside wheels brake harder; that
+left / right braking yaw moment (~+2.5 kNm) cancels most of the turning moment (~-3 kNm). That's real physics; a real
+car still rotates on the brakes because the full braking weight transfer loads the fronts and lightens the rears, and
+`pitchK` (0.55-0.7) still cuts that transfer. With `pitchK: 1`, brake-turn goes back to ~34° but the fast kink slide
+doubles (8° → 15°). Don't tune 2a around this: 2b replaces `pitchK` / `pitchV` / `axLT` with real springs + dampers
+(timing) and should land both. Next: 2b (sprung body).
 
 ## Remaining fudges (to remove, and which stage removes them)
 
