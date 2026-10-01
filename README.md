@@ -169,6 +169,9 @@ rear wing, halo and wheels; pick a livery pattern, three colours, race number an
 scroll to zoom. Your build is what you race (or pick a team in Race Setup to race in their colours).
 AI teams each get their own mix of parts. The suspension arms move as the car rolls, dives and rides kerbs.
 
+**Pit garage:** during practice and qualifying you wait in your team's garage. Build your own in Blender and
+export it to `models/garage.glb` (see `docs/GARAGE-MODEL.md`; `tools/garage-template.py` makes a starter file).
+
 **Livery Designer** (Garage → Livery Designer):
 - **Team:** team name (shown in results and online), title sponsor, number, three colours, pattern.
 - **Decals:** import **PNG or SVG** logos (SVGs stay sharp) or add **text** decals (5 fonts, colour, outline).

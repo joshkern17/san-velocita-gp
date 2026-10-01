@@ -9,8 +9,9 @@ const TYRE_CSS = { soft: '#e0302a', medium: '#f2d22a', hard: '#f0f0f0', wet: '#3
 // the room: x across (-W/2..W/2), z from the back wall (-D) to the door (0), the car in the middle facing the door
 const W = 12, D = 14, H = 4.6, CAR_Z = -6.5;
 
-// your own garage model (Blender -> models/garage.glb, metres, the door facing +z, the floor at y = 0, the car's spot
-// at the origin). The single-file build carries it in window.__SVGP_GARAGE_GLB.
+// your own garage model (Blender -> models/garage.glb, metres, the door facing Blender -Y, the floor at Z = 0, the
+// car's spot at the origin; see docs/GARAGE-MODEL.md for the named hooks). The single-file build carries it in
+// window.__SVGP_GARAGE_GLB.
 let roomLoad = null;
 function loadRoom() {
   if (roomLoad) return roomLoad;
@@ -109,8 +110,39 @@ export class PitGarage {
     box(0.12, 0.12, 0.5, lam(0x303035), -1.9, 0.06, CAR_Z + 2.8);
   }
 
+  // swap the default room for your model, hooking up its named parts:
+  //   GUIDE* (object) left out, TV_Screen* (object) the live timing, TeamBand* (object) the team banner,
+  //   materials TeamMain* / TeamAccent* the team's colours, TyreBand* the compound you'll go out on
+  useRoom(m) {
+    const drop = [];
+    m.traverse(o => { if (o.isLight || o.isCamera || (o.name || '').startsWith('GUIDE')) drop.push(o); });
+    for (const o of drop) o.removeFromParent(); // (the garage keeps its own lights; GUIDE_ objects are modelling aids)
+    this.room.clear(); this.tyreBands = []; this.teamMats = [];
+    // glTF uvs are flipped vs canvas textures
+    this.tvTex.flipY = false; this.tvTex.needsUpdate = true;
+    this.bandTex.flipY = false; this.bandTex.needsUpdate = true;
+    m.traverse(o => {
+      if (!o.isMesh) return;
+      const name = o.name || (o.parent && o.parent.name) || '';
+      if (name.startsWith('TV_Screen')) { o.material = new THREE.MeshBasicMaterial({ map: this.tvTex }); return; }
+      if (name.startsWith('TeamBand')) { o.material = new THREE.MeshBasicMaterial({ map: this.bandTex }); return; }
+      for (const mat of Array.isArray(o.material) ? o.material : [o.material]) {
+        const n = mat.name || '';
+        if (n.startsWith('TyreBand')) this.tyreBands.push({ material: mat });
+        else if (n.startsWith('TeamMain')) this.teamMats.push([mat, 'main']);
+        else if (n.startsWith('TeamAccent')) this.teamMats.push([mat, 'accent']);
+      }
+    });
+    m.position.z = CAR_Z; // (the car's spot is the model's origin)
+    this.room.add(m); this.custom = true;
+    if (this.team) this.setTeam(this.team);
+    if (this.tyre) this.setTyre(this.tyre);
+  }
+
   // paint the floor bay + back wall in the team's colours
   setTeam(team) {
+    this.team = team;
+    for (const [mat, k] of this.teamMats || []) mat.color.set(k === 'main' ? team.main : (team.accent ?? 0xffffff));
     const g = this.floorCanvas.getContext('2d'), c = hex(team.main), a = hex(team.accent ?? 0xffffff);
     g.fillStyle = '#5b5f68'; g.fillRect(0, 0, 256, 384);
     for (let k = 0; k < 900; k++) { g.fillStyle = `rgba(255,255,255,${Math.random() * 0.05})`; g.fillRect(Math.random() * 256, Math.random() * 384, 2, 2); }
@@ -127,7 +159,7 @@ export class PitGarage {
     b.font = "20px Anton"; b.fillStyle = 'rgba(255,255,255,.85)'; b.fillText('SAN VELOCITA GRAND PRIX', 256, 108);
     this.bandTex.needsUpdate = true;
   }
-  setTyre(c) { for (const b of this.tyreBands) b.material.color.set(TYRE_CSS[c] || '#f2d22a'); }
+  setTyre(c) { this.tyre = c; for (const b of this.tyreBands) b.material.color.set(TYRE_CSS[c] || '#f2d22a'); }
   // the wall monitor: the session's timing screen
   setTiming(title, rows) {
     const g = this.tvCanvas.getContext('2d');
@@ -150,7 +182,7 @@ export class PitGarage {
   open(cfg, team, tyre, dmg) {
     this.active = true; this.t = 0;
     // (your own garage model, the first time the garage opens)
-    if (!this.custom) loadRoom().then(m => { if (m && !this.custom) { this.room.clear(); this.room.add(m); this.custom = true; } });
+    if (!this.custom) loadRoom().then(m => { if (m && !this.custom) this.useRoom(m); });
     if (this.car) { this.bay.remove(this.car.group); this.car.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
     this.car = buildF1(cfg, { texSize: 1024 });
     this.car.group.position.set(0, 0, CAR_Z);
