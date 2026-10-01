@@ -16,7 +16,19 @@ import { LapRecorder, addLap, lapKey, bestLap, loadPB, lapPoseAt } from './telem
 
 const STEP = 1 / 240;
 // pace = fraction of the learned per-track limit
+// grip > 1 is an edge (Legend / Alien): the AI learns each circuit with it (a plan of its own: limitsFor), so it uses it.
+// Since the honest physics (stage 3) the road / GT AI's best is a little under a quick human's (it doesn't find the
+// fastest line through fast S-bends yet), so the top two levels get a small, labelled edge. Measured on the user's
+// circuit in the M1 (their best 1:44.5): Rookie ~1:53, Pro ~1:49.5, Legend ~1:46, Alien ~1:44-1:45.
 const DIFF = {
+  easy:   { pace: 0.85, power: 0.95, grip: 1, spread: 0.03, rubber: true },
+  medium: { pace: 0.93, power: 0.98, grip: 1, spread: 0.025, rubber: true },
+  hard:   { pace: 1, power: 1.01, grip: 1.03, spread: 0.015, rubber: false },
+  alien:  { pace: 1, power: 1.04, grip: 1.07, spread: 0.006, rubber: false },
+};
+// the F1 class keeps its table from before (its AI never had the cornering help the road / GT AI lost in stage 3)
+const diffFor = (opts) => { const D = (CARS[carId(opts.car)] || CARS.f1).cls === 'f1' ? DIFF_F1 : DIFF; return D[opts.difficulty] || D.medium; };
+const DIFF_F1 = {
   easy:   { pace: 0.8,  power: 0.94, grip: 0.97, spread: 0.03, rubber: true },
   medium: { pace: 0.875, power: 0.97, grip: 0.99, spread: 0.025, rubber: true },
   hard:   { pace: 0.945, power: 1.0, grip: 1.0, spread: 0.015, rubber: false },
@@ -91,7 +103,7 @@ export class Race {
     this.corners = findCorners(T);
     this.rec = opts.mode !== 'attract' ? new LapRecorder(T) : null; // your laps, sample by sample (telemetry.js: Lap Review)
     this.cars = [];
-    this.diff = DIFF[opts.difficulty] || DIFF.medium;
+    this.diff = diffFor(opts);
     this.mistakeP = this.mode === 'race' ? (MISTAKE[opts.difficulty] ?? MISTAKE.medium) * (MISTAKES[opts.aiMistakes || 'normal'] ?? 1) : 0;
     this.limits = {}; // learned speed plan per car type
     this.lineV = this.limitsFor(this.mainCarId());
@@ -205,24 +217,27 @@ export class Race {
     if (this.net) { const g = this.net.grid.find(g => g.k === 'h' && g.id === this.net.myId); return carId(g && g.car); }
     return carId(this.opts.car);
   }
-  limitsFor(id) {
+  // grip: the AI's grip edge from the difficulty (DIFF.grip): learned with it, so the plan uses it
+  limitsFor(id, grip = 1) {
     if (!CARS[id]) id = 'f1';
     if (id === 'svgp') id = 'f1'; // same physics
-    if (!this.limits[id]) {
+    const lk = grip === 1 ? id : `${id}|g${grip}`;
+    if (!this.limits[lk]) {
       // (learned once per play session for each circuit, car and weather: practice, qualifying and the race reuse it)
-      const key = this.limitsKey(id);
+      const key = this.limitsKey(id) + (grip === 1 ? '' : `|g${grip}`);
       let hit = LIMITS_CACHE.get(key);
       if (this.opts.freshPlans) hit = null; // (dev benches: always learn)
       else if (!hit && (hit = loadPlan(key))) LIMITS_CACHE.set(key, hit);
-      if (hit) { this.limits[id] = hit.V; (this.limitMeta ||= {})[id] = hit.meta; this.learnRounds = hit.rounds; return hit.V; }
+      if (hit) { this.limits[lk] = hit.V; if (grip === 1 || !(this.limitMeta || {})[id]) (this.limitMeta ||= {})[id] = hit.meta; this.learnRounds = hit.rounds; return hit.V; }
       const prev = this.lineV, w = this.wearPerM, rg = this.refGrip;
-      this.limits[id] = this.learnLimits(CARS[id].spec);
-      (this.limitMeta ||= {})[id] = { w: this.wearPerM, g: this.refGrip }; // (tyre use / grip of this car here: for its strategy)
-      const fresh = { V: this.limits[id], meta: this.limitMeta[id], rounds: this.learnRounds };
+      this.limits[lk] = this.learnLimits(CARS[id].spec, grip);
+      const meta = { w: this.wearPerM, g: this.refGrip }; // (tyre use / grip of this car here: for its strategy)
+      if (grip === 1 || !(this.limitMeta || {})[id]) (this.limitMeta ||= {})[id] = meta;
+      const fresh = { V: this.limits[lk], meta, rounds: this.learnRounds };
       LIMITS_CACHE.set(key, fresh); savePlan(key, fresh);
       if (prev) { this.lineV = prev; this.wearPerM = w; this.refGrip = rg; }
     }
-    return this.limits[id];
+    return this.limits[lk];
   }
   // the circuit's shape (a cheap fingerprint of its samples, so an edited circuit with the same name learns afresh)
   limitsKey(id) {
@@ -230,7 +245,7 @@ export class Race {
     for (let i = 0; i < T.N; i += 7) h = (h * 31 + Math.round(T.X[i] * 10) * 7 + Math.round(T.Z[i] * 10) + Math.round(T.W[i] * 10)) | 0;
     return `${this.track.name}|${T.N}|${h}|${this.rain ? 1 : 0}|${id}`;
   }
-  learnLimits(spec = CARSPEC) {
+  learnLimits(spec = CARSPEC, gripEdge = 1) {
     const T = this.T, N = T.N, grip = this.rain ? 0.97 : 1;
     const vmax = Math.min(95, spec.gears[spec.gears.length - 1] * 0.99);
     const base = computeSpeedProfile(T, this.line, { mu: spec.mu * 1.36 * grip, kdm: spec.kd / spec.mass, vmax, brake: 1.05 }).V;
@@ -261,7 +276,7 @@ export class Race {
       phys: new CarPhysics(spec), lineV: V, idx: 0, i: 0, f: 0, s: 0, y: 0, lap: 1, cpNext: 1, surface: 'road', onRoad: true, progress: 0, hitCd: 1e9, lapTimes: [], best: Infinity, lapStart: 0,
       ai: { pace: 1, bias: 0, over: 0, stuckT: 0, react: 0 }, isPlayer: false, model: { group: { position: new THREE.Vector3() }, setDamage() {} },
     };
-    car.phys.rain = this.rain; car.phys.wearK = 0; car.phys.isAI = true; car.phys.fitTyres(this.rain ? 'wet' : 'medium');
+    car.phys.rain = this.rain; car.phys.wearK = 0; car.phys.isAI = true; car.phys.gripMul = gripEdge; car.phys.fitTyres(this.rain ? 'wet' : 'medium');
     this.refGrip = car.phys.gripNow();
     const flying = (idx) => {
       car.phys.place(T.X[idx] + T.RX[idx] * this.line[idx], T.Z[idx] + T.RZ[idx] * this.line[idx], Math.atan2(T.FX[idx], T.FZ[idx]));
@@ -328,7 +343,7 @@ export class Race {
   // line to line. Point-to-point: a standing start from the grid, timed start line to finish line.
   // (rec: a LapRecorder to record the lap with: the Lap Review's reference lap)
   simLap(id, { pace = 1, power = 1, grip = 1, tyre = 'soft', rec = null } = {}) {
-    const T = this.T, N = T.N, spec = CARS[id].spec, V = this.limitsFor(id);
+    const T = this.T, N = T.N, spec = CARS[id].spec, V = this.limitsFor(id, grip);
     const saved = { state: this.state, dmg: this.damageK, laps: this.laps, err: this.mistakeP, rc: this.rc };
     this.state = 'racing'; this.damageK = 0; this.laps = Infinity; this.mistakeP = 0; this.rc = null;
     const car = {
@@ -405,7 +420,7 @@ export class Race {
     model.shadow.position.y = 0.03;
     this.scene.add(model.group);
     const car = {
-      phys, model, team, teamIdx, isPlayer, carId: id, lineV: this.limitsFor(id), name: extra.name || (isPlayer ? (this.opts.playerName || 'YOU') : team.driver),
+      phys, model, team, teamIdx, isPlayer, carId: id, lineV: this.limitsFor(id, !isPlayer && !extra.human ? this.diff.grip : 1), name: extra.name || (isPlayer ? (this.opts.playerName || 'YOU') : team.driver),
       remote: !!extra.remote, human: !!(extra.human || isPlayer), key: extra.key || null,
       idx: g.idx, i: g.idx, f: 0, s: g.s, lap: 0, cpNext: 1, lapStart: 0, lapTimes: [], best: Infinity, last: 0,
       finished: false, finishTime: 0, progress: -10, surface: 'road', onRoad: true,
@@ -453,7 +468,7 @@ export class Race {
   }
   commitCar(cfg) {
     const before = (CARS[this.player.carId] || CARS.f1).cls; // (the class the grid was built for)
-    this.opts.car = { ...cfg };
+    this.opts.car = { ...cfg }; this.diff = diffFor(this.opts); // (the F1 class has its own difficulty table)
     if (this.net) { const g = this.net.grid.find(g => g.k === 'h' && g.id === this.net.myId); if (g) g.car = { ...cfg }; }
     const id = this.mainCarId();
     this.lineV = this.limitsFor(id);

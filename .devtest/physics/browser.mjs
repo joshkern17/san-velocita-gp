@@ -4,7 +4,8 @@
 //                                                     offs per 5 laps, learning rounds (40 = didn't converge)
 //   node .devtest/physics/browser.mjs ref [car] [tyre]  the Lap Review reference lap on .devtest/auburn2.json (the
 //                                                     user's circuit): time and faults (0 = clean) at each pace
-//   node .devtest/physics/browser.mjs load           race build time incl. AI learning (first time / cached)
+//   node .devtest/physics/browser.mjs load [diff]    race build time incl. AI learning (first time / cached; diff
+//                                                     = easy | medium | hard | alien, default medium)
 //   node .devtest/physics/browser.mjs cpu            physics cost in the browser (ms per simulated minute, one car)
 //
 // Targets: AI 0-4 offs per 5 laps at 95-97% pace, learning under 40 rounds; reference faults 0-2; load times in
@@ -45,11 +46,11 @@ try {
   } else if (mode === 'load') {
     await pg.goto(`${URL}/index.html`); await pg.waitForTimeout(4000);
     for (const [label, aiChassis] of [['one class', 'class'], ['all classes mixed', 'multi'], ['again (cached)', 'multi']]) {
-      const ms = await pg.evaluate(async (aiChassis) => {
+      const ms = await pg.evaluate(async ([aiChassis, difficulty]) => {
         const { Race } = await import('/js/race.js'); const t = await (await fetch('/.devtest/auburn2.json')).json();
-        const t0 = performance.now(); new Race(t, { mode: 'race', laps: 3, opponents: 11, difficulty: 'medium', aiChassis, car: { ...window.__svgp.settings.car, chassis: 'm1procar' } }, null);
+        const t0 = performance.now(); new Race(t, { mode: 'race', laps: 3, opponents: 11, difficulty, aiChassis, car: { ...window.__svgp.settings.car, chassis: 'm1procar' } }, null);
         return Math.round(performance.now() - t0);
-      }, aiChassis);
+      }, [aiChassis, a1 || 'medium']);
       console.log(label.padEnd(20), ms + ' ms to build the race at Auburn (AI learning included)');
     }
   }

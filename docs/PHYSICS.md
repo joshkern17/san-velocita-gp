@@ -222,6 +222,25 @@ What stage 2 is, and what was learned getting there:
   `PHYS_VERSION` 6, `PROTO` 19. Suite re-baselined (new groups `driftHold`, `aero`).
 - 2026-10-01: fishtailing fix (smoother TC, GT diffs without power lock, GT softer rear bar). `PHYS_VERSION` 7,
   `PROTO` 20. `.devtest/padrun.mjs` added.
+- 2026-10-01: AI difficulty recalibrated for the honest physics (user: Pro and Legend GT AI "no contest" at Auburn;
+  their M1 best 1:44.5, read from Lap Review's saved PB, AI best 1:47.2). Road / GT table: Rookie pace 0.85, Pro 0.93,
+  Legend pace 1 + grip 1.03 / power 1.01, Alien grip 1.07 / power 1.04; the F1 class keeps the old table (`DIFF_F1`).
+  A grip edge is learned with (`limitsFor(id, grip)`, plans saved per edge), else it barely helps. Measured (M1 /
+  Aventus, Auburn): Rookie 1:53, Pro 1:49.5, Legend 1:46.4 / 1:45.5, Alien ~1:45 / 1:44. The edge is in the
+  Difficulty description. (User agreed: "both, staged": labelled edge now, honest AI improvements later.)
+
+## Next: the AI's line through fast S-bends (where the edge should come from instead)
+
+Comparing the user's Auburn PB with the AI lap: 1.6 s of the 2.8 s gap is one fast S-bend (samples ~100-300) the user
+takes flat at ~252 km/h on an even ~1.8-2.3 g path, while the minimum-curvature line has kinks there (a moment of
+~5 g at that speed: the track centreline's own corner leaks into the line) and swings full width; the AI learns to
+brake to ~150. Forced flat, the AI lags the line at the apex and runs off on the swing back. Tried and rejected (all
+slower: 107.2 → 107.0-114 s): narrower margins (to 0.3 m, with looser learning edge checks), node spacing 12-24 m,
+world-space smoothing of the line, speed-weighted min curvature (v^2-v^6), weighting by how straight the centreline is
+over ±40-60 m, wider curvature span in the speed plan, finer learning steps, sharper AI pedals, harder braking plan.
+Ideas: learn the line too (per-section lateral nudges kept when the lap is faster, like the speed plan), or optimise
+the line with the real physics (`simLap` laps) offline per circuit. Then shrink the Legend / Alien edge.
+Note: the street-car AI at Auburn already had 20-70 `lapFaults` (wide by 0.3-1 m) at full pace before this change.
 - Note: another local Claude session works on the same repo (pit lane, garages, practice sessions: mostly
   `race.js` pit / session code, `main.js` garage menus, `js/pitgarage.js`). Before editing shared files, `git pull`
   and check `git log`; keep edits to your own areas; whoever finishes last rebuilds `dist/` and takes the next
