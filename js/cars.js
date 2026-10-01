@@ -42,7 +42,7 @@ const gt = (o) => ({
   drag: 0.46, roll: 18, power: 450000, maxForce: 13500, maxSteer: 0.42,
   gears: [0, 26, 37, 48, 59, 71, 88], redline: 8800, idle: 1400, torque: NA, drive: 0, box: 'sequential', shift: 0.06,
   slipFall: 1.4, slipPeak: 0.09, slipFallR: 1.25, slipPeakR: 0.1, brakeF: 0.68,
-  track: 1.6, rideHz: [2.4, 2.6], damp: 0.45, rollGrad: 1.2, unsprung: 35, rollBias: 0.05, // (a '90s GT racer: stiff, low, little roll)
+  track: 1.6, rideHz: [2.4, 2.6], damp: 0.65, rollGrad: 1.2, unsprung: 35, rollBias: 0.05, rcH: 0.05, antiDive: 0.35, antiSquat: 0.35, // (a '90s GT racer: stiff, low, little roll)
   drift: true, driftMax: 0, driftPush: 0.6, driftCarve: 0.15, gripK: 1.06, ...o,
 });
 const street = (o) => ({
@@ -50,7 +50,7 @@ const street = (o) => ({
   drag: 0.4, roll: 22, power: 300000, maxForce: 11500, maxSteer: 0.48,
   gears: [0, 17, 28, 39, 51, 63, 78], redline: 7200, idle: 900, torque: NA, drive: 0, box: 'manual', shift: 0.16,
   slipFall: 1.4, slipPeak: 0.1, slipFallR: 1.22, slipPeakR: 0.11, brakeF: 0.7,
-  track: 1.55, rideHz: [1.6, 1.8], damp: 0.5, rollGrad: 2.8, unsprung: 40, // (a road car: comfortable springs, leans in corners)
+  track: 1.55, rideHz: [1.6, 1.8], damp: 0.65, rollGrad: 2.2, unsprung: 40, rcH: 0.08, antiDive: 0.3, antiSquat: 0.3, // (a road car: comfortable springs, leans in corners)
   drift: true, driftMax: 0, driftPush: 0.8, driftCarve: 0.2, gripK: 1.08, ...o,
 });
 
@@ -83,9 +83,9 @@ export const CARS = {
     spec: street({ mass: 1720, power: 294000, torque: V8, a: 1.4, b: 1.44, cgh: 0.5, drag: 0.38, redline: 7000, gears: [0, 17, 28, 40, 52, 64, 78] }) },
 
   transit: { name: 'Works Van ’99', cls: 'fun', sound: 'diesel', glb: true, paint: false,
-    spec: street({ mass: 1950, power: 95000, torque: DIESEL, drive: 0, cgh: 0.8, track: 1.7, rideHz: [1.3, 1.5], rollGrad: 5, unsprung: 55, mu: 1.05, kd: 0, drag: 0.62, a: 1.55, b: 1.45, maxSteer: 0.5, redline: 4600, idle: 800, shift: 0.22, gears: [0, 13, 22, 32, 41, 50] }) },
+    spec: street({ mass: 1950, power: 95000, torque: DIESEL, drive: 0, cgh: 0.8, track: 1.7, rideHz: [1.3, 1.5], damp: 0.45, rollGrad: 5, unsprung: 55, rcH: 0.12, antiDive: 0.15, antiSquat: 0.15, mu: 1.05, kd: 0, drag: 0.62, a: 1.55, b: 1.45, maxSteer: 0.5, redline: 4600, idle: 800, shift: 0.22, gears: [0, 13, 22, 32, 41, 50] }) },
   hearse:  { name: 'Caprice Hearse', cls: 'fun', sound: 'v8truck', glb: true, paint: false,
-    spec: street({ mass: 2250, power: 150000, torque: V8, cgh: 0.62, rideHz: [1.2, 1.4], rollGrad: 5.5, unsprung: 50, mu: 1.16, kd: 0, drag: 0.5, a: 1.6, b: 1.75, redline: 5200, idle: 700, gears: [0, 15, 27, 40, 55], box: 'automatic', shift: 0.3 }) },
+    spec: street({ mass: 2250, power: 150000, torque: V8, cgh: 0.62, rideHz: [1.2, 1.4], damp: 0.45, rollGrad: 5.5, unsprung: 50, rcH: 0.12, antiDive: 0.15, antiSquat: 0.15, mu: 1.16, kd: 0, drag: 0.5, a: 1.6, b: 1.75, redline: 5200, idle: 700, gears: [0, 15, 27, 40, 55], box: 'automatic', shift: 0.3 }) },
 };
 // every spec gets its wheelbase + yaw inertia filled in
 for (const c of Object.values(CARS)) {

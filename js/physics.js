@@ -6,7 +6,7 @@ import { AI_AIDS } from './aids.js';
 // ---------------- physics ----------------
 
 // bump whenever the physics changes how a car drives: learned AI speed plans saved by an older version are relearned
-export const PHYS_VERSION = 4;
+export const PHYS_VERSION = 5;
 
 export const CARSPEC = {
   mass: 740, inertia: 1100, a: 1.85, b: 1.75, L: 3.6, cgh: 0.22,
@@ -18,7 +18,7 @@ export const CARSPEC = {
   slipFall: 1.4, slipPeak: 0.085, slipFallR: 1.3, slipPeakR: 0.09, brakeF: 0.64,
   engineI: 0.05, // (a Formula car's small, light engine: little inertia to spin up through the gearbox)
   // suspension: stiff, on a stiff chassis (aero needs the ride height held): ~4.5-5 Hz, half a degree of roll per g
-  track: 1.6, rideHz: [4.5, 5], damp: 0.5, rollGrad: 0.5, unsprung: 20, rollBias: 0.05,
+  track: 1.6, rideHz: [4.5, 5], damp: 0.6, rollGrad: 0.5, unsprung: 20, rollBias: 0.05, rcH: 0.04, antiDive: 0.5, antiSquat: 0.5,
 };
 
 const G = 9.81;
@@ -111,6 +111,11 @@ export class CarPhysics {
   //                         are set up with the front a little stiffer than its weight share, so at the limit the front
   //                         lets go first (stable understeer): road cars ~0.1, race cars ~0.05 (more neutral, more grip)
   //   unsprung              kg per corner (wheel, tyre, brake, hub, half the links); track m; cgh m
+  //   rcH                   roll-centre height, m: the links carry the cornering load transfer that acts below it
+  //                         straight to the tyres, so only the rest leans the body on its springs (road ~0.08, F1 ~0.04)
+  //   antiDive / antiSquat  share of the braking / accelerating load transfer the links carry instead of the springs
+  //                         (0.2-0.5): the tyres' loads shift just the same, the nose dives / squats that much less
+  //   tyreK                 the tyre's vertical stiffness, N/m
   setupSuspension() {
     const P = this.p, tw = P.track ?? 1.6, mu = P.unsprung ?? 40, ms = P.mass - 4 * mu, h = P.cgh; // (mu here: unsprung kg per corner)
     const [fF, fR] = P.rideHz ?? [1.7, 1.9], z = P.damp ?? 0.4;
@@ -118,9 +123,10 @@ export class CarPhysics {
     const kF = mcF * (2 * Math.PI * fF) ** 2, kR = mcR * (2 * Math.PI * fR) ** 2;
     const cF = 2 * z * Math.sqrt(kF * mcF), cR = 2 * z * Math.sqrt(kR * mcR);
     // roll stiffness for the roll gradient, shared by rollF; the springs give k·tw²/2 per axle, the bars the rest
-    const Kroll = ms * G * h / ((P.rollGrad ?? 2.5) * Math.PI / 180), rollF = P.rollF ?? Math.min(0.8, P.b / P.L + (P.rollBias ?? 0.1));
+    const rc = Math.min(h * 0.8, P.rcH ?? 0.08);
+    const Kroll = ms * G * (h - rc) / ((P.rollGrad ?? 2.5) * Math.PI / 180), rollF = P.rollF ?? Math.min(0.8, P.b / P.L + (P.rollBias ?? 0.1));
     const arbF = Math.max(0, (rollF * Kroll - kF * tw * tw / 2) / (tw * tw)), arbR = Math.max(0, ((1 - rollF) * Kroll - kR * tw * tw / 2) / (tw * tw));
-    this.susp = { tw, ms, h, kF, kR, cF, cR, arbF, arbR, Ixx: ms * (tw / 2) ** 2 * 0.6, Iyy: ms * (P.L / 2) ** 2,
+    this.susp = { tw, ms, h, rc, antiD: P.antiDive ?? 0.3, antiS: P.antiSquat ?? 0.3, kF, kR, cF, cR, arbF, arbR, Ixx: ms * (tw / 2) ** 2 * 0.6, Iyy: ms * (P.L / 2) ** 2,
       nF: P.mass * G * P.b / P.L / 2, nR: P.mass * G * P.a / P.L / 2 };
     // each wheel: its unsprung mass on the tyre's own spring (tyreK N/m, ~200-300k: the tyre is the stiffest spring in
     // the car), so a kerb's stripes shake the wheel and only some of that reaches the body, and a wheel can leave the road
@@ -128,6 +134,7 @@ export class CarPhysics {
     Object.assign(this.susp, { mu, kt, ct: 2 * 0.05 * Math.sqrt(kt * mu) });
     this.body = { z: 0, th: 0, ph: 0, vz: 0, vth: 0, vph: 0 }; // heave (m, up), pitch (rad, nose up), roll (rad, +v side up)
     this.wz = new Float64Array(4); this.wv = new Float64Array(4); this.wr = new Float64Array(4); // wheel height / speed, road height
+    this.we = new Float64Array(4); // the road height each tyre actually rides (enveloped: see bodyStep)
     this.suspFS = new Float64Array(4); // each corner's suspension force on the body beyond its static share (N, up)
     this.suspF = new Float64Array(4); // each tyre's load beyond its static share (N): what step() reads
   }
@@ -135,17 +142,28 @@ export class CarPhysics {
   // (springs, dampers, bars) between each corner of the body and its wheel; the body pushed by the car's acceleration at
   // its centre-of-mass height and by the downforce; each wheel between its spring and its tyre on the road (zr: the
   // ground's height under each wheel, m, or none for a flat road); then the load each tyre will carry next step
-  bodyStep(dt, ax, ay, Df, Dr, zr = null) {
-    const S = this.susp, B = this.body, P = this.p, F = this.suspF, FS = this.suspFS, tw = S.tw, WZ = this.wz, WV = this.wv, WR = this.wr;
+  bodyStep(dt, ax, ay, Df, Dr, zr = null, speed = 0) {
+    const S = this.susp, B = this.body, P = this.p, F = this.suspF, FS = this.suspFS, tw = S.tw, WZ = this.wz, WV = this.wv, WR = this.wr, WE = this.we;
     const h = dt / 2;
+    // the links' share of the load transfer (roll centre, anti-dive / anti-squat): straight from the body to each wheel,
+    // without leaning the body on its springs. Cornering: below the roll-centre height, each axle by its share of the
+    // car's weight; braking / accelerating: the anti share
+    const gyF = S.ms * P.b / P.L * ay * S.rc / tw, gyR = S.ms * P.a / P.L * ay * S.rc / tw;
+    const gx = S.ms * ax * S.h * (ax < 0 ? S.antiD : S.antiS) / P.L / 2;
+    // tyre enveloping: a tyre doesn't follow a step or a sharp edge in the road instantly, it wraps round it and rolls up
+    // over about its own contact length, so the road height it rides climbs at most ~35° per metre travelled
+    const climb = Math.max(0.5, speed) * 0.7 * dt;
+    if (zr) for (let i = 0; i < 4; i++) WE[i] += Math.max(-climb, Math.min(climb, zr[i] - WE[i]));
+    else WE.fill(0);
     for (let sub = 0; sub < 2; sub++) {
       // each corner: compression (+ = squashed: wheel up toward the body) and its rate; spring + damper + bar
       for (let ax2 = 0; ax2 < 2; ax2++) {
         const x = ax2 ? -P.b : P.a, k = ax2 ? S.kR : S.kF, c = ax2 ? S.cR : S.cF, arb = ax2 ? S.arbR : S.arbF, L = ax2 * 2, Rw = L + 1;
         const zb = B.z + x * B.th, vb = B.vz + x * B.vth, rz = (tw / 2) * B.ph, rv = (tw / 2) * B.vph;
         const sL = WZ[L] - (zb + rz), sR = WZ[Rw] - (zb - rz), vL = WV[L] - (vb + rv), vR = WV[Rw] - (vb - rv);
-        FS[L] = k * sL + c * vL + arb * (sL - sR);
-        FS[Rw] = k * sR + c * vR - arb * (sL - sR);
+        const gl = ax2 ? gx : -gx, gy = ax2 ? gyR : gyF;
+        FS[L] = k * sL + c * vL + arb * (sL - sR) + gl - gy;
+        FS[Rw] = k * sR + c * vR - arb * (sL - sR) + gl + gy;
       }
       let Fz = -(Df + Dr), Mth = -Df * P.a + Dr * P.b + S.ms * ax * S.h, Mph = S.ms * ay * S.h;
       for (let i = 0; i < 4; i++) { const x = i < 2 ? P.a : -P.b, y = (i & 1 ? -1 : 1) * tw / 2; Fz += FS[i]; Mth += x * FS[i]; Mph += y * FS[i]; }
@@ -153,7 +171,7 @@ export class CarPhysics {
       B.z += B.vz * h; B.th += B.vth * h; B.ph += B.vph * h;
       // each wheel: the tyre pushes it up off the road (never pulls: a wheel can lift), the spring pushes it down
       for (let i = 0; i < 4; i++) {
-        const z0 = zr ? zr[i] : 0, vr = sub === 0 ? (z0 - WR[i]) / dt : 0; if (sub === 0) WR[i] = z0;
+        const z0 = WE[i], vr = sub === 0 ? (z0 - WR[i]) / dt : 0; if (sub === 0) WR[i] = z0;
         const n0 = i < 2 ? S.nF : S.nR;
         const Ft = Math.max(-n0, S.kt * (z0 - WZ[i]) + S.ct * (vr - WV[i])); // (beyond the static load)
         WV[i] += (Ft - FS[i]) / S.mu * h; WZ[i] += WV[i] * h;
@@ -183,7 +201,7 @@ export class CarPhysics {
 
   // (the wheels pick up the car's speed on the next step: callers set a velocity straight after placing)
   place(x, z, h) { this.x = x; this.z = z; this.h = h; this.vx = this.vz = this.r = 0; this.gear = 1; this.steer = 0; this.wInit = false;
-    if (this.body) { Object.assign(this.body, { z: 0, th: 0, ph: 0, vz: 0, vth: 0, vph: 0 }); this.suspF.fill(0); this.suspFS.fill(0); this.wz.fill(0); this.wv.fill(0); this.wr.fill(0); } }
+    if (this.body) { Object.assign(this.body, { z: 0, th: 0, ph: 0, vz: 0, vth: 0, vph: 0 }); this.suspF.fill(0); this.suspFS.fill(0); this.wz.fill(0); this.wv.fill(0); this.wr.fill(0); this.we.fill(0); } }
 
   shift(dir) {
     if (dir > 0 && this.gear < this.p.gears.length - 1 && this.gear >= 1) { this.gear++; this.shiftT = this.p.shift ?? 0.07; }
@@ -524,7 +542,7 @@ export class CarPhysics {
     Fx += P.mass * env.gF; Fy += P.mass * env.gL;
 
     const axL = Fx / P.mass, ayL = Fy / P.mass;
-    this.bodyStep(dt, axL, ayL, Df, Dr, EW ? EW.z : null);
+    this.bodyStep(dt, axL, ayL, Df, Dr, EW ? EW.z : null, speed);
     this.axPrev += (axL - this.axPrev) * Math.min(1, dt * 12);
     this.ayPrev += (ayL - this.ayPrev) * Math.min(1, dt * 12);
     this.vx += (axL * sn + ayL * cs) * dt;

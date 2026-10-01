@@ -96,6 +96,14 @@ What stage 2 is, and what was learned getting there:
   lift; grass / gravel drag acts per wheel (two wheels off pull the car toward that side). Grass sits 8 cm below the
   road, undulating over ~4 / 7 m. The model's wheels follow the physics wheels (`bump`), and the old hand-made kerb /
   grass height offsets and random jitter in `placeModel` are gone (online rivals: centre-based height).
+- **Follow-up (user: "looks too bouncy", sidewalks too tall / abrupt)**: suspension geometry added (`rcH` roll
+  centre, `antiDive` / `antiSquat`: the links carry that share of the load transfer straight to the tyres, so the
+  tyres' loads shift the same but the body leans / dives less); road cars `rollGrad` 2.2 (sports car), damping 0.65
+  road / GT, 0.6 F1, vans 0.45 (rebound past level after braking 2-8% instead of 11-18%); tyre enveloping (the road
+  height a tyre rides climbs at most ~35° per metre: steps and edges are rolled over, not jumped). Kerb / sidewalk
+  heights are shared constants in `world.js` (`KERB_H` 0.05, `WALK_H` 0.10 (was 0.16), `WALK_RAMP` 0.9 m (was 0.5),
+  `STREET_CURB` 0.14 (was 0.17)); a circuit sidewalk's ramp starts at the kerb's top, and public-road sidewalks are
+  in the physics (`world.streetStep`). `PHYS_VERSION` 5, `PROTO` 18.
 - Dev tools added: `.devtest/physics/ailog.mjs` (AI learning log + off-track points, `TRACE=1 FROM= TO=` to log a
   section, `TRACK=auburn`), `browser.mjs cpu` (+ `.devtest/physics/cpu.html`).
 

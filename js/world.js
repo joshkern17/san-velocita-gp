@@ -18,6 +18,10 @@ import { applyPSXMaterial } from '../vendor/psx/src/PSXMaterial.js';
 // ---------- small utils ----------
 function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+// kerb / sidewalk heights above the road, m, shared by the scenery and the physics (race.js groundZ): the circuit's
+// painted kerb rises to KERB_H at its outer edge; a circuit sidewalk ramps from there (or the road) up to WALK_H over
+// WALK_RAMP; a public road's granite curb stands STREET_CURB over its gutter
+export const KERB_H = 0.05, WALK_H = 0.1, WALK_RAMP = 0.9, STREET_CURB = 0.14;
 const smoothstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -139,6 +143,7 @@ export function setWorldOptions(o) { Object.assign(WORLD_OPTS, o); }
 
 // ---------- main build ----------
 export function buildWorld(track, T, A, opts = {}) {
+  let streetStep = () => null; // (set once the streets are built: see below)
   const tx = getTextures();
   const env = track.env;
   const P = envParams(env);
@@ -644,7 +649,7 @@ export function buildWorld(track, T, A, opts = {}) {
         if (A.pit && A.pit.side === side && (A.pit.REG[i] >= 0 || A.pit.REG[j] >= 0)) continue;
         const p = (k, s, lift) => [T.X[k] + T.RX[k] * s, surfY(k, side * T.W[k] / 2) + lift, T.Z[k] + T.RZ[k] * s];
         const si = side * T.W[i] / 2, sj = side * T.W[j] / 2;
-        const a = p(i, si, 0.012), b = p(j, sj, 0.012), c = p(i, si + side * kw, 0.062), d = p(j, sj + side * kw, 0.062);
+        const a = p(i, si, 0.012), b = p(j, sj, 0.012), c = p(i, si + side * kw, KERB_H + 0.012), d = p(j, sj + side * kw, KERB_H + 0.012);
         const vi = T.D[i] / 8, vj = (j === 0 ? T.L : T.D[j]) / 8;
         if (side > 0) { kp.push(...a, ...c, ...b, ...b, ...c, ...d); ku.push(0, vi, 1, vi, 0, vj, 0, vj, 1, vi, 1, vj); }
         else { kp.push(...a, ...b, ...c, ...b, ...d, ...c); ku.push(0, vi, 0, vj, 1, vi, 0, vj, 1, vj, 1, vi); }
@@ -953,16 +958,21 @@ export function buildWorld(track, T, A, opts = {}) {
   // street surfaces (road deck and raised sidewalks) for things lying on them
   const rGrid = new Map(), RC = 12;
   if (roadL) for (const pc of roadL.pieces) { if (!pc.y) continue; pc.s.forEach((q, k) => { if (q.elev) return; const key = Math.floor(q.x / RC) + ',' + Math.floor(q.z / RC); let a = rGrid.get(key); if (!a) rGrid.set(key, a = []); a.push([q.x, q.z, pc.y[k], q.tx, q.tz, pc.w / 2, pc.walk]); }); }
-  const streetAt = (x, z) => {
+  // the nearest street sample to a point (within 4 m) and how far across it the point is, or null
+  const streetNear = (x, z) => {
     let best = null, bd = 16;
     for (let cx = Math.floor(x / RC) - 1; cx <= Math.floor(x / RC) + 1; cx++) for (let cz = Math.floor(z / RC) - 1; cz <= Math.floor(z / RC) + 1; cz++) {
       const a = rGrid.get(cx + ',' + cz); if (!a) continue;
       for (const r of a) { const d = (r[0] - x) ** 2 + (r[1] - z) ** 2; if (d < bd) { bd = d; best = r; } }
     }
-    if (!best) return null;
-    const lat = Math.abs((x - best[0]) * -best[4] + (z - best[1]) * best[3]);
-    return lat < best[5] ? best[2] + 0.045 : lat < best[5] + best[6] + 0.1 ? best[2] + 0.175 : null;
+    return best && { r: best, lat: Math.abs((x - best[0]) * -best[4] + (z - best[1]) * best[3]) };
   };
+  const streetAt = (x, z) => {
+    const n = streetNear(x, z); if (!n) return null;
+    return n.lat < n.r[5] ? n.r[2] + 0.045 : n.lat < n.r[5] + n.r[6] + 0.1 ? n.r[2] + STREET_CURB + 0.005 : null;
+  };
+  // a public road's sidewalk step under a point, m above its road deck (0 on the deck, null off the streets)
+  streetStep = (x, z) => { const n = streetNear(x, z); if (!n) return null; return n.lat < n.r[5] ? 0 : n.lat < n.r[5] + n.r[6] + 0.1 ? STREET_CURB - 0.04 : null; };
   const surfAt = (x, z) => { // top of the track surface if the point is on it, else a street / sidewalk, else the ground
     const st = streetAt(x, z); if (st !== null) return st;
     let bj = -1, bd = Infinity;
@@ -972,8 +982,8 @@ export function buildWorld(track, T, A, opts = {}) {
     const lat = (x - T.X[bj]) * T.RX[bj] + (z - T.Z[bj]) * T.RZ[bj], side = lat < 0 ? -1 : 1, al = Math.abs(lat);
     const top = surfY(bj, Math.max(-T.W[bj] / 2, Math.min(T.W[bj] / 2, lat))) + 0.02;
     const we = walkEdge(T, A, env, bj, side); // on the circuit's raised sidewalk?
-    if (we >= 0 && al >= we && al <= we + walkWidth(T, A, env, bj, side) + 0.2) return top + 0.16;
-    if (A.KERB[bj] && al > T.W[bj] / 2 && al < T.W[bj] / 2 + 1.3) return top + 0.06;
+    if (we >= 0 && al >= we && al <= we + walkWidth(T, A, env, bj, side) + 0.2) return top + WALK_H;
+    if (A.KERB[bj] && al > T.W[bj] / 2 && al < T.W[bj] / 2 + 1.3) return top + KERB_H + 0.01;
     return al < T.W[bj] / 2 + 1.5 ? Math.max(g, top) : g;
   };
   const movers = [];
@@ -1093,7 +1103,7 @@ export function buildWorld(track, T, A, opts = {}) {
   if (shadowsOn) root.traverse(o => { if ((o.isMesh || o.isInstancedMesh) && o.material && !o.material.transparent && !(o.material.isMeshBasicMaterial)) o.receiveShadow = true; });
   const roadAt = (x, z) => !!(roadL && roadL.onGroundRoad(x, z, -1.6));
   const roadLines = roadL ? roadL.pieces.map(pc => pc.s.map(q => [q.x, q.z])) : [];
-  return { root, fog, P, update, groundHeight, paintAt, roadAt, roadLines, tvCams, startLights, life, boards: distBoards, center: new THREE.Vector3(cx, 0, cz), bounds: { minX, maxX, minZ, maxZ } };
+  return { root, fog, P, update, groundHeight, paintAt, roadAt, streetStep: (x, z) => streetStep(x, z), roadLines, tvCams, startLights, life, boards: distBoards, center: new THREE.Vector3(cx, 0, cz), bounds: { minX, maxX, minZ, maxZ } };
 }
 
 // ---------- textures local to world ----------
@@ -1933,7 +1943,7 @@ function buildRoads(root, L, tx, lamps, step, theme, gh, T, A, env) {
   const capW = step * 2.7 + 1;
   const quad = (buf, a, b, c, d, uv) => { buf.p.push(...a, ...b, ...c, ...b, ...d, ...c); if (uv) buf.u.push(...uv[0], ...uv[1], ...uv[2], ...uv[1], ...uv[3], ...uv[2]); };
   const wuv = (p) => [p[0] / 8, p[2] / 8]; // asphalt is mapped in world space, so pieces and junction aprons join seamlessly
-  const CURB = 0.17, GUT = 0.4, KTOP = 0.26;
+  const CURB = STREET_CURB, GUT = 0.4, KTOP = 0.26;
   // Kerbed sidewalk along a kerb line: pts [{ x, z, y, nx, nz, d }] (y = road surface, n = unit normal out of
   // the road). Gutter channel on the road side, granite kerb (face + top), paving slabs, outer edge into the ground.
   // pts[i].wk (optional) scales the width, so a sidewalk can taper away to nothing at its end
@@ -2114,7 +2124,7 @@ function buildWalkways(root, T, A, env, surfY, groundHeight, tx) {
   const q = (buf, a, b, c, d) => buf.p.push(...a, ...b, ...c, ...b, ...d, ...c);
   const qu = (buf, a, b, c, d, u0, u1, v0, v1) => { buf.p.push(...a, ...b, ...c, ...b, ...d, ...c); buf.u.push(u0, v0, u1, v0, u0, v1, u1, v0, u1, v1, u0, v1); };
   const P = (k, s, dy) => [T.X[k] + T.RX[k] * s, surfY(k, Math.max(-T.W[k] / 2, Math.min(T.W[k] / 2, s))) + dy, T.Z[k] + T.RZ[k] * s];
-  const H = 0.16;
+  const H = WALK_H;
   for (const side of [-1, 1]) for (let i = 0; i < N; i++) {
     if (i === T.cut) continue; // (point-to-point: the run-off end doesn't join the back of the grid)
     const j = (i + 1) % N;
@@ -2124,10 +2134,11 @@ function buildWalkways(root, T, A, env, surfY, groundHeight, tx) {
     if (wi < 0.8 || wj < 0.8) continue;
     const s = side, o = (k, e, w) => s * (e + w);
     // painted kerb ramp up from the track (like a street circuit's pavement edge), top, outer face
-    const R = 0.5, a0 = P(i, s * (ei + R), H), b0 = P(j, s * (ej + R), H), a1 = P(i, o(i, ei, wi), H), b1 = P(j, o(j, ej, wj), H);
+    const R = WALK_RAMP, a0 = P(i, s * (ei + R), H), b0 = P(j, s * (ej + R), H), a1 = P(i, o(i, ei, wi), H), b1 = P(j, o(j, ej, wj), H);
     const vi0 = T.D[i] / 2, vj0 = (j === 0 ? T.L : T.D[j]) / 2;
     qu(top, a0, b0, a1, b1, vi0, vj0, R / 2, (wi + wj) / 4);
-    const k0 = P(i, s * ei, 0.012), k1 = P(j, s * ej, 0.012), vi = T.D[i] / 8, vj = (j === 0 ? T.L : T.D[j]) / 8;
+    // (the ramp starts from the kerb's top where there's a kerb, so the two make one smooth climb)
+    const k0 = P(i, s * ei, A.KERB[i] ? KERB_H + 0.012 : 0.012), k1 = P(j, s * ej, A.KERB[j] ? KERB_H + 0.012 : 0.012), vi = T.D[i] / 8, vj = (j === 0 ? T.L : T.D[j]) / 8;
     qu(ramp, k0, k1, a0, b0, 0, 0, vi, vj);
     ramp.u.splice(ramp.u.length - 12, 12, 0, vi, 0, vj, 1, vi, 0, vj, 1, vj, 1, vi);
     const over = A.OVERPASS && A.OVERPASS[i] && A.OVERPASS[j];

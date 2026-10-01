@@ -1,7 +1,7 @@
 // Race session: world + cars + AI + rules + cameras
 import * as THREE from 'three';
 import { sampleTrack, analyzeTrack, computeRacingLine, computeSpeedProfile, surfaceY, gridSlot, circDist, buildPitLane, OPEN_END_WALL } from './track.js';
-import { buildWorld, walkEdge, walkWidth } from './world.js';
+import { buildWorld, walkEdge, walkWidth, KERB_H, WALK_H, WALK_RAMP } from './world.js';
 import { applyRoadsToCircuit, raiseTrackOverRoads } from './roads.js';
 import { Spray } from './weatherfx.js';
 import { CarPhysics, CARSPEC, TEAMS, TYRES, wearGrip, tyreGrip, LOCK_K, PHYS_VERSION } from './car.js';
@@ -877,14 +877,19 @@ export class Race {
   // the ground's height at one spot relative to the road surface, m: kerbs ramp up and rumble in time with their stripes
   // (d: distance along the track), a sidewalk is a step up, off-road sits lower (eased down over the first metre past
   // the edge) and grass / gravel / sand are bumpy
-  groundZ(kind, idx, s, d) {
-    if (kind === 'road' || kind === 'public') return 0;
+  // (x, z: world position, for a public road's sidewalks)
+  groundZ(kind, idx, s, d, x = 0, z = 0) {
+    if (kind === 'road') return 0;
+    if (kind === 'public') return this.world.streetStep?.(x, z) ?? 0;
     const T = this.T, A = this.A, half = T.W[idx] / 2, as = Math.abs(s);
-    if (kind === 'kerb') return 0.05 * Math.min(1, Math.max(0, (as - half) / 1.3)) + 0.012 * Math.abs(Math.sin(d * Math.PI / 2));
-    if (kind === 'walk') { const we = walkEdge(T, A, this.track.env, idx, s < 0 ? -1 : 1); return 0.16 * Math.min(1, Math.max(0, (as - we) / 0.5)); }
+    if (kind === 'kerb') return KERB_H * Math.min(1, Math.max(0, (as - half) / 1.3)) + 0.008 * Math.abs(Math.sin(d * Math.PI / 2));
+    if (kind === 'walk') { // (a ramp from the kerb's top, or the road, up to the sidewalk: one smooth climb)
+      const we = walkEdge(T, A, this.track.env, idx, s < 0 ? -1 : 1), base = A.KERB[idx] ? KERB_H : 0;
+      return base + (WALK_H - base) * Math.min(1, Math.max(0, (as - we) / WALK_RAMP));
+    }
     const kerb = A.KERB[idx], edge = half + (kerb ? 1.3 : 0), t = Math.min(1, Math.max(0, (as - edge) / 1.2));
     const rough = kind === 'city' ? 0 : 0.01 * t * (Math.sin(1.57 * d + 1.3 * s) + Math.sin(0.9 * d - 0.7 * s)); // (undulations ~4 and ~7 m long)
-    return (kerb ? 0.05 : 0) * (1 - t) - 0.08 * t + rough;
+    return (kerb ? KERB_H : 0) * (1 - t) - 0.08 * t + rough;
   }
 
   surfaceEnv(car) {
@@ -916,7 +921,7 @@ export class Race {
       const along = dx * T.FX[i0] + dz * T.FZ[i0], sW = car.s + dx * T.RX[i0] + dz * T.RZ[i0];
       const iW = (i0 + Math.round(along / T.ds) + N) % N;
       const kind = this.surfaceKind(iW, sW, p.x + dx, p.z + dz), sf = SURFACES[kind];
-      G.mu[w] = sf[0]; G.drag[w] = sf[1]; G.z[w] = this.groundZ(kind, iW, sW, d0 + along);
+      G.mu[w] = sf[0]; G.drag[w] = sf[1]; G.z[w] = this.groundZ(kind, iW, sW, d0 + along, p.x + dx, p.z + dz);
       if (kind === 'kerb') car.rumble = 1;
     }
     return G;
@@ -1851,7 +1856,7 @@ export class Race {
     let y = surfaceY(T, i, car.f, car.s) + this.A.LIFT[car.idx];
     // (kerbs, sidewalks, grass: each wheel rides the ground under it in the physics, and the body follows on its springs.
     // An online rival's physics doesn't run here: sit it on the ground under its centre)
-    if (car.remote) { const kind = this.surfaceKind(car.idx, car.s, p.x, p.z); y += this.groundZ(kind, car.idx, car.s, T.D[car.i] + car.f * T.ds); car.rumble = kind === 'kerb' ? 1 : 0; }
+    if (car.remote) { const kind = this.surfaceKind(car.idx, car.s, p.x, p.z); y += this.groundZ(kind, car.idx, car.s, T.D[car.i] + car.f * T.ds, p.x, p.z); car.rumble = kind === 'kerb' ? 1 : 0; }
     car.y = y;
     const slope = (T.Y[j] - T.Y[i]) / T.ds;
     const bank = T.B[i] + (T.B[j] - T.B[i]) * car.f;

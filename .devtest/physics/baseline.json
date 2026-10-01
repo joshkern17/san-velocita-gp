@@ -6,29 +6,29 @@
    "slipR": 1.2
   },
   "jsport steer 0.3": {
-   "g": 1.24,
-   "slipF": 4.2,
-   "slipR": 2.2
+   "g": 1.25,
+   "slipF": 4.3,
+   "slipR": 2.3
   },
   "jsport steer 0.6": {
-   "g": 1.22,
-   "slipF": 8.2,
-   "slipR": 2.2
+   "g": 1.23,
+   "slipF": 8.3,
+   "slipR": 2.3
   },
   "mustang steer 0.15": {
-   "g": 0.9,
+   "g": 0.91,
    "slipF": 1.7,
-   "slipR": 1.2
+   "slipR": 1.3
   },
   "mustang steer 0.3": {
-   "g": 1.2,
-   "slipF": 4.5,
-   "slipR": 2.5
+   "g": 1.21,
+   "slipF": 4.6,
+   "slipR": 2.6
   },
   "mustang steer 0.6": {
    "g": 1.18,
-   "slipF": 8.5,
-   "slipR": 2.4
+   "slipF": 8.6,
+   "slipR": 2.5
   },
   "m1procar steer 0.15": {
    "g": 1,
@@ -36,13 +36,13 @@
    "slipR": 0.9
   },
   "m1procar steer 0.3": {
-   "g": 1.51,
-   "slipF": 3,
-   "slipR": 1.8
+   "g": 1.53,
+   "slipF": 3.1,
+   "slipR": 1.9
   },
   "m1procar steer 0.6": {
-   "g": 1.55,
-   "slipF": 6.6,
+   "g": 1.57,
+   "slipF": 6.7,
    "slipR": 2
   },
   "f1 steer 0.15": {
@@ -51,52 +51,52 @@
    "slipR": 0.7
   },
   "f1 steer 0.3": {
-   "g": 2.47,
+   "g": 2.46,
    "slipF": 1.9,
    "slipR": 1.6
   },
   "f1 steer 0.6": {
-   "g": 2.99,
+   "g": 3,
    "slipF": 6.3,
    "slipR": 4.2
   }
  },
  "stop": {
   "jsport ABS on brake 1": {
-   "m": 44.9,
+   "m": 44.8,
    "lockedS": 0
   },
   "jsport ABS off brake 1": {
-   "m": 53.7,
-   "lockedS": 2.83
+   "m": 53.5,
+   "lockedS": 2.82
   },
   "jsport ABS off brake 0.7": {
-   "m": 52.6,
-   "lockedS": 2.79
+   "m": 52.3,
+   "lockedS": 2.78
   },
   "mustang ABS on brake 1": {
    "m": 47,
    "lockedS": 0
   },
   "mustang ABS off brake 1": {
-   "m": 56.6,
+   "m": 56.5,
    "lockedS": 2.98
   },
   "mustang ABS off brake 0.7": {
-   "m": 55.3,
-   "lockedS": 2.95
+   "m": 55.2,
+   "lockedS": 2.94
   },
   "m1procar ABS on brake 1": {
    "m": 36.2,
    "lockedS": 0
   },
   "m1procar ABS off brake 1": {
-   "m": 43.5,
+   "m": 43.4,
    "lockedS": 2.31
   },
   "m1procar ABS off brake 0.7": {
-   "m": 43.2,
-   "lockedS": 2.28
+   "m": 43,
+   "lockedS": 2.27
   },
   "f1 ABS on brake 1": {
    "m": 28.7,
@@ -113,40 +113,40 @@
  },
  "brakeTurn": {
   "jsport ABS on": {
-   "headingDeg": 30.7,
-   "maxSlideDeg": 2.6
+   "headingDeg": 30.4,
+   "maxSlideDeg": 2.9
   },
   "jsport ABS off": {
    "headingDeg": 0.1,
    "maxSlideDeg": 0.1
   },
   "mustang ABS on": {
-   "headingDeg": 29.4,
-   "maxSlideDeg": 2.9
+   "headingDeg": 29.3,
+   "maxSlideDeg": 3.3
   },
   "mustang ABS off": {
    "headingDeg": 0.1,
    "maxSlideDeg": 0.1
   },
   "m1procar ABS on": {
-   "headingDeg": 37.4,
-   "maxSlideDeg": 1.8
+   "headingDeg": 37.6,
+   "maxSlideDeg": 1.9
   },
   "m1procar ABS off": {
    "headingDeg": 1.6,
    "maxSlideDeg": 1.3
   },
   "aventus ABS on": {
-   "headingDeg": 36.8,
-   "maxSlideDeg": 1.5
+   "headingDeg": 37,
+   "maxSlideDeg": 1.7
   },
   "aventus ABS off": {
    "headingDeg": 1.3,
    "maxSlideDeg": 0.9
   },
   "f1 ABS on": {
-   "headingDeg": 26,
-   "maxSlideDeg": 3.8
+   "headingDeg": 26.1,
+   "maxSlideDeg": 3.7
   },
   "f1 ABS off": {
    "headingDeg": 2.8,
@@ -206,35 +206,35 @@
    "swings": 0
   },
   "m1procar TC high SC on 90km/h": {
-   "maxSlideDeg": 1.7,
+   "maxSlideDeg": 1.8,
    "swings": 0
   },
   "m1procar TC low SC on 54km/h": {
    "maxSlideDeg": 1.5,
-   "swings": 1
+   "swings": 0
   },
   "m1procar TC low SC on 90km/h": {
-   "maxSlideDeg": 3.8,
+   "maxSlideDeg": 4,
    "swings": 0
   },
   "m1procar TC off SC on 54km/h": {
-   "maxSlideDeg": 7.2,
+   "maxSlideDeg": 7.5,
    "swings": 1
   },
   "m1procar TC off SC on 90km/h": {
-   "maxSlideDeg": 6.9,
+   "maxSlideDeg": 7.1,
    "swings": 0
   },
   "m1procar TC off SC off 54km/h": {
-   "maxSlideDeg": 36.5,
+   "maxSlideDeg": 50.6,
    "swings": 1
   },
   "m1procar TC off SC off 90km/h": {
-   "maxSlideDeg": 82,
+   "maxSlideDeg": 81.9,
    "swings": 0
   },
   "jsport TC high SC on 54km/h": {
-   "maxSlideDeg": 1.6,
+   "maxSlideDeg": 1.5,
    "swings": 0
   },
   "jsport TC high SC on 90km/h": {
@@ -242,27 +242,27 @@
    "swings": 0
   },
   "jsport TC low SC on 54km/h": {
-   "maxSlideDeg": 1.6,
-   "swings": 1
+   "maxSlideDeg": 1.5,
+   "swings": 0
   },
   "jsport TC low SC on 90km/h": {
-   "maxSlideDeg": 4.6,
+   "maxSlideDeg": 4.7,
    "swings": 0
   },
   "jsport TC off SC on 54km/h": {
-   "maxSlideDeg": 6.8,
+   "maxSlideDeg": 7.1,
    "swings": 1
   },
   "jsport TC off SC on 90km/h": {
-   "maxSlideDeg": 6.3,
+   "maxSlideDeg": 6.4,
    "swings": 0
   },
   "jsport TC off SC off 54km/h": {
-   "maxSlideDeg": 78.3,
+   "maxSlideDeg": 78.2,
    "swings": 1
   },
   "jsport TC off SC off 90km/h": {
-   "maxSlideDeg": 57.1,
+   "maxSlideDeg": 63.9,
    "swings": 0
   },
   "mustang TC high SC on 54km/h": {
@@ -270,7 +270,7 @@
    "swings": 0
   },
   "mustang TC high SC on 90km/h": {
-   "maxSlideDeg": 2.5,
+   "maxSlideDeg": 2.7,
    "swings": 0
   },
   "mustang TC low SC on 54km/h": {
@@ -278,27 +278,27 @@
    "swings": 0
   },
   "mustang TC low SC on 90km/h": {
-   "maxSlideDeg": 5.1,
+   "maxSlideDeg": 5.3,
    "swings": 0
   },
   "mustang TC off SC on 54km/h": {
-   "maxSlideDeg": 5.9,
+   "maxSlideDeg": 6.1,
    "swings": 1
   },
   "mustang TC off SC on 90km/h": {
-   "maxSlideDeg": 6.4,
+   "maxSlideDeg": 6.6,
    "swings": 0
   },
   "mustang TC off SC off 54km/h": {
-   "maxSlideDeg": 78.1,
+   "maxSlideDeg": 78,
    "swings": 1
   },
   "mustang TC off SC off 90km/h": {
-   "maxSlideDeg": 68.6,
+   "maxSlideDeg": 74.6,
    "swings": 0
   },
   "rs964 TC high SC on 54km/h": {
-   "maxSlideDeg": 0.6,
+   "maxSlideDeg": 0.5,
    "swings": 0
   },
   "rs964 TC high SC on 90km/h": {
@@ -306,7 +306,7 @@
    "swings": 0
   },
   "rs964 TC low SC on 54km/h": {
-   "maxSlideDeg": 0.6,
+   "maxSlideDeg": 0.5,
    "swings": 0
   },
   "rs964 TC low SC on 90km/h": {
@@ -314,7 +314,7 @@
    "swings": 0
   },
   "rs964 TC off SC on 54km/h": {
-   "maxSlideDeg": 0.6,
+   "maxSlideDeg": 0.5,
    "swings": 0
   },
   "rs964 TC off SC on 90km/h": {
@@ -322,7 +322,7 @@
    "swings": 0
   },
   "rs964 TC off SC off 54km/h": {
-   "maxSlideDeg": 0.6,
+   "maxSlideDeg": 0.5,
    "swings": 0
   },
   "rs964 TC off SC off 90km/h": {
@@ -365,27 +365,27 @@
  "kink": {
   "m1procar": {
    "fastKinkDeg": 4.2,
-   "trailBrakeDeg": 3.1
+   "trailBrakeDeg": 3
   },
   "aventus": {
    "fastKinkDeg": 4.1,
-   "trailBrakeDeg": 3.4
+   "trailBrakeDeg": 3.1
   },
   "bx300": {
-   "fastKinkDeg": 3.8,
-   "trailBrakeDeg": 3.3
+   "fastKinkDeg": 4,
+   "trailBrakeDeg": 3.1
   },
   "rmx": {
-   "fastKinkDeg": 3.8,
-   "trailBrakeDeg": 3.5
+   "fastKinkDeg": 4,
+   "trailBrakeDeg": 3.4
   },
   "jsport": {
-   "fastKinkDeg": 5.4,
-   "trailBrakeDeg": 4.5
+   "fastKinkDeg": 5.8,
+   "trailBrakeDeg": 4.2
   },
   "mustang": {
-   "fastKinkDeg": 5.8,
-   "trailBrakeDeg": 4.7
+   "fastKinkDeg": 6.4,
+   "trailBrakeDeg": 4.3
   }
  },
  "stability": {
@@ -402,7 +402,7 @@
    "nan": false
   },
   "f1 270km/h": {
-   "maxSlideDeg": 2.9,
+   "maxSlideDeg": 2.8,
    "yawAfter": 0,
    "flips": 0,
    "nan": false
@@ -420,7 +420,7 @@
    "nan": false
   },
   "svgp 270km/h": {
-   "maxSlideDeg": 2.9,
+   "maxSlideDeg": 2.8,
    "yawAfter": 0,
    "flips": 0,
    "nan": false
@@ -432,98 +432,98 @@
    "nan": false
   },
   "aventus 180km/h": {
-   "maxSlideDeg": 3.1,
-   "yawAfter": 0,
+   "maxSlideDeg": 3.3,
+   "yawAfter": 0.01,
    "flips": 0,
    "nan": false
   },
   "aventus 270km/h": {
-   "maxSlideDeg": 3.6,
-   "yawAfter": 0.03,
-   "flips": 1,
+   "maxSlideDeg": 3.8,
+   "yawAfter": 0.09,
+   "flips": 2,
    "nan": false
   },
   "bx300 90km/h": {
-   "maxSlideDeg": 2.1,
+   "maxSlideDeg": 2.2,
    "yawAfter": 0,
    "flips": 0,
    "nan": false
   },
   "bx300 180km/h": {
-   "maxSlideDeg": 3,
+   "maxSlideDeg": 3.1,
    "yawAfter": 0,
    "flips": 0,
    "nan": false
   },
   "bx300 270km/h": {
-   "maxSlideDeg": 3.3,
-   "yawAfter": 0.02,
+   "maxSlideDeg": 3.4,
+   "yawAfter": 0.04,
    "flips": 1,
    "nan": false
   },
   "rmx 90km/h": {
-   "maxSlideDeg": 1.2,
+   "maxSlideDeg": 1.3,
    "yawAfter": 0,
    "flips": 0,
    "nan": false
   },
   "rmx 180km/h": {
-   "maxSlideDeg": 3,
+   "maxSlideDeg": 3.1,
    "yawAfter": 0.01,
    "flips": 0,
    "nan": false
   },
   "rmx 270km/h": {
-   "maxSlideDeg": 3.7,
-   "yawAfter": 0.04,
+   "maxSlideDeg": 3.8,
+   "yawAfter": 0.13,
    "flips": 2,
    "nan": false
   },
   "m1procar 90km/h": {
-   "maxSlideDeg": 1.9,
+   "maxSlideDeg": 2,
    "yawAfter": 0,
    "flips": 0,
    "nan": false
   },
   "m1procar 180km/h": {
-   "maxSlideDeg": 3,
-   "yawAfter": 0,
+   "maxSlideDeg": 3.1,
+   "yawAfter": 0.01,
    "flips": 0,
    "nan": false
   },
   "m1procar 270km/h": {
-   "maxSlideDeg": 3.7,
-   "yawAfter": 0.06,
+   "maxSlideDeg": 3.8,
+   "yawAfter": 0.17,
    "flips": 2,
    "nan": false
   },
   "testarossa 90km/h": {
-   "maxSlideDeg": 2.3,
+   "maxSlideDeg": 2.2,
    "yawAfter": 0,
    "flips": 0,
    "nan": false
   },
   "testarossa 180km/h": {
    "maxSlideDeg": 3.4,
-   "yawAfter": 0.06,
+   "yawAfter": 0.07,
    "flips": 2,
    "nan": false
   },
   "testarossa 270km/h": {
-   "maxSlideDeg": 6,
+   "maxSlideDeg": 6.1,
    "yawAfter": 0.24,
    "flips": 1,
    "nan": false
   },
   "jsport 90km/h": {
-   "maxSlideDeg": 2.4,
+   "maxSlideDeg": 2.3,
    "yawAfter": 0,
    "flips": 0,
    "nan": false
   },
   "jsport 180km/h": {
-   "maxSlideDeg": 3.4,
-   "yawAfter": 0.07,
+   "maxSlideDeg": 3.5,
+   "yawAfter": 0.12,
    "flips": 2,
    "nan": false
   },
@@ -534,154 +534,154 @@
    "nan": false
   },
   "rs964 180km/h": {
-   "maxSlideDeg": 2.9,
+   "maxSlideDeg": 3,
    "yawAfter": 0.02,
    "flips": 1,
    "nan": false
   },
   "gtr 90km/h": {
-   "maxSlideDeg": 1.8,
+   "maxSlideDeg": 1.6,
    "yawAfter": 0,
    "flips": 0,
    "nan": false
   },
   "gtr 180km/h": {
-   "maxSlideDeg": 3.4,
-   "yawAfter": 0.05,
+   "maxSlideDeg": 3.2,
+   "yawAfter": 0.04,
    "flips": 1,
    "nan": false
   },
   "gtr 270km/h": {
-   "maxSlideDeg": 4,
-   "yawAfter": 0.15,
+   "maxSlideDeg": 4.1,
+   "yawAfter": 0.16,
    "flips": 2,
    "nan": false
   },
   "mustang 90km/h": {
-   "maxSlideDeg": 2,
+   "maxSlideDeg": 2.4,
    "yawAfter": 0,
    "flips": 0,
    "nan": false
   },
   "mustang 180km/h": {
-   "maxSlideDeg": 3.6,
-   "yawAfter": 0.15,
+   "maxSlideDeg": 3.7,
+   "yawAfter": 0.18,
    "flips": 1,
    "nan": false
   },
   "m5 90km/h": {
-   "maxSlideDeg": 2,
+   "maxSlideDeg": 1.9,
    "yawAfter": 0,
    "flips": 0,
    "nan": false
   },
   "m5 180km/h": {
-   "maxSlideDeg": 3.5,
-   "yawAfter": 0.03,
-   "flips": 1,
+   "maxSlideDeg": 3.4,
+   "yawAfter": 0.04,
+   "flips": 2,
    "nan": false
   },
   "transit 90km/h": {
-   "maxSlideDeg": 2.7,
+   "maxSlideDeg": 2.6,
    "yawAfter": 0,
    "flips": 0,
    "nan": false
   },
   "hearse 90km/h": {
-   "maxSlideDeg": 2.1,
+   "maxSlideDeg": 2,
    "yawAfter": 0,
    "flips": 0,
    "nan": false
   },
   "hearse 180km/h": {
-   "maxSlideDeg": 4.3,
-   "yawAfter": 0.05,
-   "flips": 1,
+   "maxSlideDeg": 4.1,
+   "yawAfter": 0.11,
+   "flips": 2,
    "nan": false
   }
  },
  "flick": {
   "jsport": {
-   "0.6s": 10.4,
-   "1s": 7.2,
-   "1.5s": -1.4
+   "0.6s": 12.2,
+   "1s": 13.4,
+   "1.5s": -1.2
   },
   "mustang": {
-   "0.6s": 10.9,
-   "1s": 9,
-   "1.5s": -1.8
+   "0.6s": 12.4,
+   "1s": 14.6,
+   "1.5s": -1.2
   },
   "m1procar": {
-   "0.6s": 15.8,
-   "1s": 24.3,
-   "1.5s": 18.4
+   "0.6s": 17,
+   "1s": 26.4,
+   "1.5s": 21.3
   },
   "rs964": {
-   "0.6s": 3.1,
-   "1s": -0.7,
-   "1.5s": -0.4
+   "0.6s": 3.6,
+   "1s": -0.8,
+   "1.5s": -0.3
   }
  },
  "drift": {
   "jsport TC high thr 0.5": {
-   "1.1s": "25.9° 20.7m/s",
-   "2.1s": "26.9° 18.7m/s",
-   "3.1s": "0.9° 18m/s"
+   "1.1s": "29.4° 20.3m/s",
+   "2.1s": "30° 17m/s",
+   "3.1s": "1° 16.6m/s"
   },
   "jsport TC high thr 1": {
-   "1.1s": "26.3° 21m/s",
-   "2.1s": "23.8° 19.6m/s",
-   "3.1s": "-0.4° 20.4m/s"
+   "1.1s": "29.3° 20.6m/s",
+   "2.1s": "26.2° 18.2m/s",
+   "3.1s": "0° 19m/s"
   },
   "jsport TC off thr 0.5": {
-   "1.1s": "31.8° 20.7m/s",
-   "2.1s": "48.5° 17.5m/s",
-   "3.1s": "46° 13.1m/s"
+   "1.1s": "34.2° 20.5m/s",
+   "2.1s": "58.4° 16.6m/s",
+   "3.1s": "65.5° 9.4m/s"
   },
   "jsport TC off thr 1": {
-   "1.1s": "35.3° 21.6m/s",
-   "2.1s": "67.4° 17.8m/s",
-   "3.1s": "-3.8° 11m/s"
+   "1.1s": "37.6° 21.4m/s",
+   "2.1s": "55.6° 16.7m/s",
+   "3.1s": "-3.8° 10.8m/s"
   },
   "mustang TC high thr 0.5": {
-   "1.1s": "29° 20.3m/s",
-   "2.1s": "32.8° 17.1m/s",
-   "3.1s": "2° 15.8m/s"
+   "1.1s": "31.9° 20.1m/s",
+   "2.1s": "37° 15.7m/s",
+   "3.1s": "1.9° 14.3m/s"
   },
   "mustang TC high thr 1": {
-   "1.1s": "29.4° 20.7m/s",
-   "2.1s": "29.6° 18.1m/s",
-   "3.1s": "0.4° 18.2m/s"
+   "1.1s": "31.9° 20.4m/s",
+   "2.1s": "32.8° 16.8m/s",
+   "3.1s": "0.7° 16.9m/s"
   },
   "mustang TC off thr 0.5": {
-   "1.1s": "32.9° 20.3m/s",
-   "2.1s": "48.1° 16.7m/s",
-   "3.1s": "37.3° 12.5m/s"
+   "1.1s": "34.9° 20.1m/s",
+   "2.1s": "57.1° 15.9m/s",
+   "3.1s": "58.7° 9.7m/s"
   },
   "mustang TC off thr 1": {
-   "1.1s": "36.2° 21.3m/s",
-   "2.1s": "65.9° 17.2m/s",
+   "1.1s": "38.1° 21.1m/s",
+   "2.1s": "55.9° 16.4m/s",
    "3.1s": "-3.8° 9.6m/s"
   },
   "m1procar TC high thr 0.5": {
-   "1.1s": "32.8° 19.7m/s",
-   "2.1s": "23.1° 15.4m/s",
-   "3.1s": "1° 17.2m/s"
+   "1.1s": "34.9° 19.4m/s",
+   "2.1s": "25.9° 14m/s",
+   "3.1s": "1.2° 15.7m/s"
   },
   "m1procar TC high thr 1": {
-   "1.1s": "32.7° 20m/s",
-   "2.1s": "21.1° 16.3m/s",
-   "3.1s": "0.1° 20m/s"
+   "1.1s": "34.8° 19.7m/s",
+   "2.1s": "23.2° 15m/s",
+   "3.1s": "0.4° 18.7m/s"
   },
   "m1procar TC off thr 0.5": {
-   "1.1s": "39.1° 20.2m/s",
-   "2.1s": "75.5° 15.4m/s",
-   "3.1s": "-11.1° 5.8m/s"
+   "1.1s": "41.5° 20m/s",
+   "2.1s": "71.6° 14.2m/s",
+   "3.1s": "-2.9° 7.5m/s"
   },
   "m1procar TC off thr 1": {
-   "1.1s": "45.7° 21.5m/s",
-   "2.1s": "7° 14.4m/s",
-   "3.1s": "-3° 7.4m/s"
+   "1.1s": "47.7° 21.3m/s",
+   "2.1s": "1.1° 14.1m/s",
+   "3.1s": "-3° 6.9m/s"
   }
  },
  "grip": {
@@ -693,30 +693,30 @@
   },
   "brisk corner": {
    "useF": 0.71,
-   "useR": 0.67,
-   "slipF": 0.3,
+   "useR": 0.68,
+   "slipF": 0.31,
    "slipR": 0.23
   },
   "on the limit": {
-   "useF": 0.94,
-   "useR": 0.85,
-   "slipF": 0.58,
-   "slipR": 0.37
+   "useF": 0.95,
+   "useR": 0.87,
+   "slipF": 0.59,
+   "slipR": 0.39
   },
   "understeer": {
-   "useF": 0.99,
-   "useR": 0.9,
-   "slipF": 1.42,
-   "slipR": 0.47
+   "useF": 0.98,
+   "useR": 0.91,
+   "slipF": 1.43,
+   "slipR": 0.49
   },
   "power out of a slow corner": {
    "useF": 0.99,
    "useR": 1,
-   "slipF": 0.78,
+   "slipF": 0.77,
    "slipR": 1.25
   }
  },
  "speed": {
-  "msPerMinute": 23
+  "msPerMinute": 21
  }
 }
