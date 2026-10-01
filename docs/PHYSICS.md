@@ -62,14 +62,10 @@ Replace the bicycle with four tyres and a sprung body.
   Use realistic figures for each car's type and check against real-world references (skidpad g, braking distance,
   body roll per g, 0-100).
 
-**Where the work happens:** branch `physics-stage2` (a git worktree next to the main folder:
-`../Racing Game (physics stage 2)`), so `main`, which the user plays from, stays on the stable stage 1 physics until
-stage 2 is finished and checked. Merge into `main` at the end (see the release checklist).
+**Current step:** stage 2 (2a + 2b + 2c) **done and released** (merged to `main`, `PHYS_VERSION` 4, `PROTO` 17).
+Next: stage 3 (aero map + LSD), **only after the user says go**.
 
-**Current step:** 2a + 2b done and checked (not yet released to `main`). Next: 2c (per-wheel kerbs / bumps), then
-the release checklist and merge.
-
-What 2a + 2b are, and what was learned getting there:
+What stage 2 is, and what was learned getting there:
 - **Four wheels** (`js/physics.js`): per-wheel load / slip angle / spin / slip ratio / ABS; each axle pair solved as
   mean + difference modes (engine inertia on the mean, viscous LSD `diffVisc` on the driven pair); brakes inside the
   mode solve (a brake stops a wheel, never reverses it). Rear ABS is **select-low** (both rears get the pressure that
@@ -94,6 +90,12 @@ What 2a + 2b are, and what was learned getting there:
   faults 0; `load` 4.0 s one class / 8.1 s mixed / 1.4 s cached (stage 1: 3.9 / 6.6 / 1.4); CPU 18 ms/sim-min.
 - Open-loop drift script (`drift` group, TC off, steering held) ends in different places than stage 1: no driver is
   correcting it, so it isn't a regression signal. Drift feel is stage 3's job (LSD + removing the carve cheats).
+- **2c, per-wheel road**: `race.js` `wheelGround` gives the physics each wheel's surface grip, drag and ground height
+  (`surfaceKind` / `groundZ` / `SURFACES`; well inside the track edges it's skipped: all flat road). Each wheel is an
+  unsprung mass on the tyre's spring (`tyreK`, default 230 kN/m), so kerb stripes shake the wheels and a wheel can
+  lift; grass / gravel drag acts per wheel (two wheels off pull the car toward that side). Grass sits 8 cm below the
+  road, undulating over ~4 / 7 m. The model's wheels follow the physics wheels (`bump`), and the old hand-made kerb /
+  grass height offsets and random jitter in `placeModel` are gone (online rivals: centre-based height).
 - Dev tools added: `.devtest/physics/ailog.mjs` (AI learning log + off-track points, `TRACE=1 FROM= TO=` to log a
   section, `TRACK=auburn`), `browser.mjs cpu` (+ `.devtest/physics/cpu.html`).
 
@@ -112,28 +114,28 @@ What 2a + 2b are, and what was learned getting there:
 
 - `node .devtest/physics/suite.mjs`: plain-node scenarios (cornering, stops, brake + turn, launches, corner exits,
   fast kinks, lane-change stability, handbrake flick, held drift, rumble grip signal, CPU cost). Compares with
-  `.devtest/physics/baseline.json` (the stage 1 state) and prints only what moved. `--save` to re-baseline once a
+  `.devtest/physics/baseline.json` (the stage 2 state) and prints only what moved. `--save` to re-baseline once a
   change is accepted; `--only=stop,exit` for some groups.
 - `node .devtest/physics/browser.mjs ai | ref | load`: in-game checks (needs Chrome and `cd tools && npm install`).
   The AI learning bench, the Lap Review reference on the user's circuit `.devtest/auburn2.json` (they race the M1
   ProCar, `m1procar`, on softs there), and race build times.
 
-### Targets (stage 1 end state, what changes must keep meeting)
+### Targets (what changes must keep meeting; stage 2 numbers in brackets)
 
-- Steady cornering (Kaze `jsport` ~108 km/h): ~1.25 g at the limit, front limited (mild understeer), not more.
+- Steady cornering (Kaze `jsport` ~108 km/h): ~1.25 g at the limit, front limited (mild understeer), not more [1.22-1.30 g].
 - Stops from 126 km/h (road car): ABS clearly shorter than locked (~50 m vs ~57 m); a stamp without ABS locks the
   fronts (not the rears: proportioning valve); F1 ABS ~29 m.
-- Brake + turn: turns ~30° in 1.2 s with ABS, ~0° with ABS off (locked fronts don't steer); slide under ~12°.
-- Fast kink (brake while turning at 245 km/h then power): every GT / road car under ~10°.
+- Brake + turn: turns ~30° in 1.2 s with ABS, ~0° with ABS off (locked fronts don't steer); slide under ~12° [Kaze 30.6°, slide 2.5°].
+- Fast kink (brake while turning at 245 km/h then power): every GT / road car under ~10° [4-5°].
 - Corner exits with SC on: under ~7° even with TC off; TC High 2-5° (the rear working at its limit, not swinging).
   With TC + SC off the rear is the player's to manage (big slides are correct).
 - Lane-change flick: settles, no oscillation (`flips` small, `yawAfter` ~0 by 2 s), never NaN.
 - Rumble grip signal: silent cruising / brisk corners, light from ~88% grip use, strong past the peak.
-- AI (`browser.mjs ai`): learns in under 40 rounds for every car, 0-4 offs per 5 laps at 95-97% pace.
-- Reference lap (`browser.mjs ref`): M1 on softs at Auburn clean (faults 0-2), ~1:46.
-- Load (`browser.mjs load`): first-time Auburn race ~4.4 s one class / ~6.7 s mixed; cached ~1.4 s. Don't make it
-  much worse (idea for later: learn in a Web Worker).
-- CPU: ~30 ms per simulated minute per car (12 cars at 240 Hz must stay smooth).
+- AI (`browser.mjs ai`): learns in under 40 rounds for every car, 0-4 offs per 5 laps at 95-97% pace [7-19 rounds, 0 offs].
+- Reference lap (`browser.mjs ref`): M1 on softs at Auburn clean (faults 0-2) [1:40.2, faults 0].
+- Load (`browser.mjs load`): first-time Auburn race ~4.4 s one class / ~6.7 s mixed; cached ~1.4 s [4.3 / 8.5 / 1.4].
+  Don't make it much worse (idea for later: learn in a Web Worker).
+- CPU: ~30 ms per simulated minute per car (12 cars at 240 Hz must stay smooth) [~20, warmed up].
 
 ## Releasing a physics change (checklist)
 
@@ -148,6 +150,8 @@ What 2a + 2b are, and what was learned getting there:
 
 - 2026-09-30: stage 1 done (+ follow-up: full weight transfer under acceleration, SC engine cut, rumble on grip use).
   `PHYS_VERSION` 3, `PROTO` 16. Physics moved to `js/physics.js`; test suite + this doc added.
+- 2026-09-30: stage 2 done: four tyres on a sprung body, per-wheel kerbs / grass, SC braking, AI steering damping.
+  `PHYS_VERSION` 4, `PROTO` 17. Suite re-baselined to this state.
 - Note: another local Claude session works on the same repo (pit lane, garages, practice sessions: mostly
   `race.js` pit / session code, `main.js` garage menus, `js/pitgarage.js`). Before editing shared files, `git pull`
   and check `git log`; keep edits to your own areas; whoever finishes last rebuilds `dist/` and takes the next

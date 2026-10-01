@@ -63,6 +63,9 @@ export function buildScenery(track) {
   return { T, world, scene, dispose: () => scene.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose()); }) };
 }
 
+// grip (× the tyres') and drag (N per m/s) of each surface beside the track (Race.surfaceKind)
+const SURFACES = { road: [1, 0], kerb: [0.96, 0], walk: [0.92, 10], public: [0.95, 15], city: [0.85, 30], grass: [0.58, 120], gravel: [0.5, 260], sand: [0.55, 190] };
+
 export class Race {
   constructor(track, opts, renderer) {
     this.opts = opts;
@@ -852,33 +855,71 @@ export class Race {
   }
 
   // ---------- per-car physics env ----------
+  // what's at one spot beside / on the track (track point idx, s m from its centre line, world x / z): 'road', 'walk'
+  // (a city sidewalk), 'kerb', 'public' (a public road's concrete), 'city' (city concrete), 'grass', 'gravel', 'sand'
+  surfaceKind(idx, s, x, z) {
+    const T = this.T, A = this.A, env = this.track.env, half = T.W[idx] / 2, as = Math.abs(s);
+    if (as <= half) return 'road';
+    const side = s < 0 ? -1 : 1, we = walkEdge(T, A, env, idx, side);
+    if (we >= 0 && as >= we && as <= we + walkWidth(T, A, env, idx, side)) return 'walk';
+    const pit = this.pit;
+    if (pit && pit.REG[idx] >= 0 && s * pit.side > half) return 'road';
+    if (A.KERB[idx] && as < half + 1.3) return 'kerb';
+    if (A.BRIDGE[idx]) return 'road';
+    if (this.world.roadAt(x, z)) return 'public';
+    if (this.world.paintAt(x, z) > 0.5) return 'grass'; // painted grass
+    if (env.theme === 'city') return 'city';
+    if (Math.abs(T.K[idx]) > 1 / 90) return 'gravel';
+    if (env.theme === 'desert') return 'sand';
+    if (env.theme === 'coast' && this.world.groundHeight(x, z) < 1.2) return 'sand';
+    return 'grass';
+  }
+  // the ground's height at one spot relative to the road surface, m: kerbs ramp up and rumble in time with their stripes
+  // (d: distance along the track), a sidewalk is a step up, off-road sits lower (eased down over the first metre past
+  // the edge) and grass / gravel / sand are bumpy
+  groundZ(kind, idx, s, d) {
+    if (kind === 'road' || kind === 'public') return 0;
+    const T = this.T, A = this.A, half = T.W[idx] / 2, as = Math.abs(s);
+    if (kind === 'kerb') return 0.05 * Math.min(1, Math.max(0, (as - half) / 1.3)) + 0.012 * Math.abs(Math.sin(d * Math.PI / 2));
+    if (kind === 'walk') { const we = walkEdge(T, A, this.track.env, idx, s < 0 ? -1 : 1); return 0.16 * Math.min(1, Math.max(0, (as - we) / 0.5)); }
+    const kerb = A.KERB[idx], edge = half + (kerb ? 1.3 : 0), t = Math.min(1, Math.max(0, (as - edge) / 1.2));
+    const rough = kind === 'city' ? 0 : 0.01 * t * (Math.sin(1.57 * d + 1.3 * s) + Math.sin(0.9 * d - 0.7 * s)); // (undulations ~4 and ~7 m long)
+    return (kerb ? 0.05 : 0) * (1 - t) - 0.08 * t + rough;
+  }
+
   surfaceEnv(car) {
-    const T = this.T, A = this.A, i = car.i, j = i === T.cut ? i : (i + 1) % T.N;
-    const half = T.W[car.idx] / 2, as = Math.abs(car.s);
-    let mu = 1, drag = 0, surface = 'road';
-    const theme = this.track.env.theme;
-    const pit = this.pit, inPitArea = pit && pit.REG[car.idx] >= 0 && car.s * pit.side > half;
-    const side = car.s < 0 ? -1 : 1, we = as > half ? walkEdge(T, A, this.track.env, car.idx, side) : -1;
-    if (we >= 0 && as >= we && as <= we + walkWidth(T, A, this.track.env, car.idx, side)) { surface = 'walk'; mu = 0.92; drag = 10; car.walkT = Math.min(1, (as - we) / 0.5); }
-    else if (as > half && !inPitArea) {
-      if (A.KERB[car.idx] && as < half + 1.3) { surface = 'kerb'; mu = 0.96; }
-      else if (A.BRIDGE[car.idx]) { surface = 'road'; }
-      else if (this.world.roadAt(car.phys.x, car.phys.z)) { surface = 'concrete'; mu = 0.95; drag = 15; car.publicRoad = true; } // a public road
-      else if (this.world.paintAt(car.phys.x, car.phys.z) > 0.5) { surface = 'grass'; mu = 0.58; drag = 120; } // painted grass
-      else if (theme === 'city') { surface = 'concrete'; mu = 0.85; drag = 30; }
-      else if (Math.abs(T.K[car.idx]) > 1 / 90) { surface = 'gravel'; mu = 0.5; drag = 260; }
-      else if (theme === 'desert') { surface = 'sand'; mu = 0.55; drag = 190; }
-      else if (theme === 'coast' && this.world.groundHeight(car.phys.x, car.phys.z) < 1.2) { surface = 'sand'; mu = 0.55; drag = 190; }
-      else { surface = 'grass'; mu = 0.58; drag = 120; }
-    }
-    if (surface !== 'concrete') car.publicRoad = false;
-    car.surface = surface; car.onRoad = surface === 'road' || surface === 'kerb' || surface === 'walk';
+    const T = this.T, i = car.i, j = i === T.cut ? i : (i + 1) % T.N, p = car.phys;
+    const kind = this.surfaceKind(car.idx, car.s, p.x, p.z), [mu, drag] = SURFACES[kind];
+    car.surface = kind === 'public' || kind === 'city' ? 'concrete' : kind;
+    car.publicRoad = kind === 'public';
+    car.onRoad = kind === 'road' || kind === 'kerb' || kind === 'walk';
     const slope = (T.Y[j] - T.Y[i]) / T.ds;
     const bank = car.onRoad ? T.B[i] : 0;
     const gx = -9.81 * (slope * T.FX[i] + Math.sin(bank) * T.RX[i]);
     const gz = -9.81 * (slope * T.FZ[i] + Math.sin(bank) * T.RZ[i]);
-    const h = car.phys.h, sn = Math.sin(h), cs = Math.cos(h);
-    return { mu, extraDrag: drag, gF: gx * sn + gz * cs, gL: gx * cs - gz * sn };
+    const h = p.h, sn = Math.sin(h), cs = Math.cos(h);
+    return { mu, extraDrag: drag, gF: gx * sn + gz * cs, gL: gx * cs - gz * sn, wheels: this.wheelGround(car) };
+  }
+  // what's under each wheel (FL FR RL RR): surface grip, drag and the ground's height, for the physics (the kerbs and
+  // grass work on each wheel: two wheels on a kerb lift that side, two in the gravel drag the car toward it). Well
+  // inside the track edges every wheel is on flat road, so that's all it does there.
+  wheelGround(car) {
+    const T = this.T, p = car.phys, P = p.p, N = T.N;
+    const G = car.ground || (car.ground = { mu: new Float64Array(4).fill(1), drag: new Float64Array(4), z: new Float64Array(4), rough: false, flat: true });
+    car.rumble = 0;
+    if (Math.abs(car.s) + 2 < T.W[car.idx] / 2) { if (!G.flat) { G.mu.fill(1); G.drag.fill(0); G.z.fill(0); G.flat = true; } return G; }
+    G.flat = false;
+    const i0 = car.idx, sn = Math.sin(p.h), cs = Math.cos(p.h), tw = p.susp.tw, d0 = T.D[car.i] + car.f * T.ds;
+    for (let w = 0; w < 4; w++) {
+      const xw = w < 2 ? P.a : -P.b, yw = (w & 1 ? -1 : 1) * tw / 2;
+      const dx = sn * xw + cs * yw, dz = cs * xw - sn * yw; // (the car's +v side is world (cos h, -sin h))
+      const along = dx * T.FX[i0] + dz * T.FZ[i0], sW = car.s + dx * T.RX[i0] + dz * T.RZ[i0];
+      const iW = (i0 + Math.round(along / T.ds) + N) % N;
+      const kind = this.surfaceKind(iW, sW, p.x + dx, p.z + dz), sf = SURFACES[kind];
+      G.mu[w] = sf[0]; G.drag[w] = sf[1]; G.z[w] = this.groundZ(kind, iW, sW, d0 + along);
+      if (kind === 'kerb') car.rumble = 1;
+    }
+    return G;
   }
 
   barriers(car) {
@@ -1808,21 +1849,9 @@ export class Race {
     const T = this.T, p = car.phys, m = car.model;
     const i = car.i, j = i === T.cut ? i : (i + 1) % T.N;
     let y = surfaceY(T, i, car.f, car.s) + this.A.LIFT[car.idx];
-    const half = T.W[car.idx] / 2, as = Math.abs(car.s);
-    car.rumble = 0;
-    if (car.surface === 'walk') { y += 0.16 * (car.walkT ?? 1); car.rumble = car.walkT < 1 ? 0.012 * Math.abs(Math.sin((T.D[car.i] + car.f * T.ds) * Math.PI / 2)) * Math.min(1, p.speed / 15) : 0; } // up the kerb ramp onto the sidewalk
-    else if (car.surface === 'kerb') {
-      // ride up the kerb's slope + a rumble in time with the stripes
-      const k = Math.min(1, Math.max(0, (as - half) / 1.3));
-      y += 0.05 * k;
-      car.rumble = 0.014 * Math.abs(Math.sin((T.D[car.i] + car.f * T.ds) * Math.PI / 2)) * Math.min(1, p.speed / 15);
-    } else if (!car.onRoad && !this.A.BRIDGE[car.idx] && !car.publicRoad) { // (a junction apron is level with the track edge)
-      // grass/gravel sits a touch lower: ease down over the first metre, no step
-      const kerb = this.A.KERB[car.idx], edge = half + (kerb ? 1.3 : 0);
-      const t = Math.min(1, Math.max(0, (as - edge) / 1.2));
-      y += (kerb ? 0.05 : 0) * (1 - t) - 0.12 * t; // continue down from the kerb's outer lip
-    }
-    if (!car.onRoad && p.speed > 5) y += (Math.random() - 0.5) * 0.04 * Math.min(1, p.speed / 30);
+    // (kerbs, sidewalks, grass: each wheel rides the ground under it in the physics, and the body follows on its springs.
+    // An online rival's physics doesn't run here: sit it on the ground under its centre)
+    if (car.remote) { const kind = this.surfaceKind(car.idx, car.s, p.x, p.z); y += this.groundZ(kind, car.idx, car.s, T.D[car.i] + car.f * T.ds); car.rumble = kind === 'kerb' ? 1 : 0; }
     car.y = y;
     const slope = (T.Y[j] - T.Y[i]) / T.ds;
     const bank = T.B[i] + (T.B[j] - T.B[i]) * car.f;
@@ -1839,10 +1868,13 @@ export class Race {
     m.group.position.set(p.x, y, p.z);
     // suspension: the body rolls / pitches / bounces exactly as the physics' sprung body does (the same springs, dampers
     // and anti-roll bars that set each tyre's load), plus the kerb rumble; the wheels stay planted
+    const bump = car.bump || (car.bump = [0, 0, 0, 0]);
+    // (each wheel on screen follows its physics wheel; the model's +x side is the physics' left, FL FR RL RR = 0 1 2 3)
+    if (p.wz) m.wheels?.forEach((w, k) => { bump[k] = p.wz[(w.front ? 0 : 2) + (w.pivot.position.x > 0 ? 0 : 1)]; });
     m.animate({
       steer: p.delta, spin: p.u * Math.min(dt, 0.05),
       roll: p.roll || 0, pitch: -(p.pitch || 0),
-      heave: (p.heave || 0) + (car.rumble || 0),
+      heave: p.heave || 0, bump,
     });
     const braking = p.braking > 0.1 && p.u > 1;
     const flash = this.rain && (Math.floor(this.raceTime * 4) % 2 === 0);

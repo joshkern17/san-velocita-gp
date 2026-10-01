@@ -9,7 +9,7 @@ export const AIDS = {
   tc: { label: 'Traction Control', short: 'TC', values: [['high', 'High'], ['low', 'Low'], ['off', 'Off']], bonus: { low: 3, off: 6 },
     desc: 'Cuts power when the rear tyres start to spin. <b>Low</b> lets them slip a little, <b>Off</b> is all down to your right foot. In road and GT cars it switches to a drift mode once you\'re properly sideways (or just used the handbrake): the rears can spin enough to hold the angle, but not enough to spin you.' },
   stab: { label: 'Stability Control', short: 'SC', values: [['on', 'On'], ['off', 'Off']], bonus: { off: 6 },
-    desc: 'Stops the car rotating faster than the tyres can hold and catches small slides. <b>Off</b>: a snap of oversteer is yours to catch.' },
+    desc: 'When the car starts rotating faster than the tyres can hold, brakes the outside front wheel and eases the power, catching small slides. <b>Off</b>: a snap of oversteer is yours to catch.' },
   cs: { label: 'Counter-Steer Help', short: 'CS', values: [['strong', 'Strong'], ['light', 'Light'], ['off', 'Off']], bonus: { light: 2, off: 4 },
     desc: 'Turns the front wheels toward the slide for you when the rear steps out. It steps aside as soon as you counter-steer yourself.' },
   brake: { label: 'Braking Assist', short: 'BA', values: [['on', 'On'], ['off', 'Off']], bonus: { off: 5 },

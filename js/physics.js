@@ -6,7 +6,7 @@ import { AI_AIDS } from './aids.js';
 // ---------------- physics ----------------
 
 // bump whenever the physics changes how a car drives: learned AI speed plans saved by an older version are relearned
-export const PHYS_VERSION = 3;
+export const PHYS_VERSION = 4;
 
 export const CARSPEC = {
   mass: 740, inertia: 1100, a: 1.85, b: 1.75, L: 3.6, cgh: 0.22,
@@ -112,7 +112,7 @@ export class CarPhysics {
   //                         lets go first (stable understeer): road cars ~0.1, race cars ~0.05 (more neutral, more grip)
   //   unsprung              kg per corner (wheel, tyre, brake, hub, half the links); track m; cgh m
   setupSuspension() {
-    const P = this.p, tw = P.track ?? 1.6, mu = P.unsprung ?? 40, ms = P.mass - 4 * mu, h = P.cgh;
+    const P = this.p, tw = P.track ?? 1.6, mu = P.unsprung ?? 40, ms = P.mass - 4 * mu, h = P.cgh; // (mu here: unsprung kg per corner)
     const [fF, fR] = P.rideHz ?? [1.7, 1.9], z = P.damp ?? 0.4;
     const mcF = ms * P.b / P.L / 2, mcR = ms * P.a / P.L / 2; // sprung mass on each front / rear corner
     const kF = mcF * (2 * Math.PI * fF) ** 2, kR = mcR * (2 * Math.PI * fR) ** 2;
@@ -122,28 +122,46 @@ export class CarPhysics {
     const arbF = Math.max(0, (rollF * Kroll - kF * tw * tw / 2) / (tw * tw)), arbR = Math.max(0, ((1 - rollF) * Kroll - kR * tw * tw / 2) / (tw * tw));
     this.susp = { tw, ms, h, kF, kR, cF, cR, arbF, arbR, Ixx: ms * (tw / 2) ** 2 * 0.6, Iyy: ms * (P.L / 2) ** 2,
       nF: P.mass * G * P.b / P.L / 2, nR: P.mass * G * P.a / P.L / 2 };
+    // each wheel: its unsprung mass on the tyre's own spring (tyreK N/m, ~200-300k: the tyre is the stiffest spring in
+    // the car), so a kerb's stripes shake the wheel and only some of that reaches the body, and a wheel can leave the road
+    const kt = P.tyreK ?? 230000;
+    Object.assign(this.susp, { mu, kt, ct: 2 * 0.05 * Math.sqrt(kt * mu) });
     this.body = { z: 0, th: 0, ph: 0, vz: 0, vth: 0, vph: 0 }; // heave (m, up), pitch (rad, nose up), roll (rad, +v side up)
-    this.suspF = new Float64Array(4); // each corner's suspension force on the body beyond its static share (N, up)
+    this.wz = new Float64Array(4); this.wv = new Float64Array(4); this.wr = new Float64Array(4); // wheel height / speed, road height
+    this.suspFS = new Float64Array(4); // each corner's suspension force on the body beyond its static share (N, up)
+    this.suspF = new Float64Array(4); // each tyre's load beyond its static share (N): what step() reads
   }
-  // the body for one step: the suspension's forces (springs, dampers, bars) against the push of the car's acceleration
-  // at its centre-of-mass height and the downforce; then the forces each tyre will carry next step
-  bodyStep(dt, ax, ay, Df, Dr) {
-    const S = this.susp, B = this.body, P = this.p, F = this.suspF, tw = S.tw;
-    let Fz = -(Df + Dr), Mth = -Df * P.a + Dr * P.b + S.ms * ax * S.h, Mph = S.ms * ay * S.h;
-    for (let i = 0; i < 4; i++) { const x = i < 2 ? P.a : -P.b, y = (i & 1 ? -1 : 1) * tw / 2; Fz += F[i]; Mth += x * F[i]; Mph += y * F[i]; }
-    B.vz += Fz / S.ms * dt; B.vth += Mth / S.Iyy * dt; B.vph += Mph / S.Ixx * dt;
-    B.z += B.vz * dt; B.th += B.vth * dt; B.ph += B.vph * dt;
-    // each corner: compression (+ = squashed) and its rate, the spring + damper, the anti-roll bar across the axle
-    for (let ax2 = 0; ax2 < 2; ax2++) {
-      const x = ax2 ? -P.b : P.a, k = ax2 ? S.kR : S.kF, c = ax2 ? S.cR : S.cF, arb = ax2 ? S.arbR : S.arbF;
-      const sL = -(B.z + x * B.th + (tw / 2) * B.ph), sR = -(B.z + x * B.th - (tw / 2) * B.ph);
-      const vL = -(B.vz + x * B.vth + (tw / 2) * B.vph), vR = -(B.vz + x * B.vth - (tw / 2) * B.vph);
-      F[ax2 * 2] = k * sL + c * vL + arb * (sL - sR);
-      F[ax2 * 2 + 1] = k * sR + c * vR - arb * (sL - sR);
+  // the body and wheels for one step (two half steps: the wheels on their tyres are quick): the suspension's forces
+  // (springs, dampers, bars) between each corner of the body and its wheel; the body pushed by the car's acceleration at
+  // its centre-of-mass height and by the downforce; each wheel between its spring and its tyre on the road (zr: the
+  // ground's height under each wheel, m, or none for a flat road); then the load each tyre will carry next step
+  bodyStep(dt, ax, ay, Df, Dr, zr = null) {
+    const S = this.susp, B = this.body, P = this.p, F = this.suspF, FS = this.suspFS, tw = S.tw, WZ = this.wz, WV = this.wv, WR = this.wr;
+    const h = dt / 2;
+    for (let sub = 0; sub < 2; sub++) {
+      // each corner: compression (+ = squashed: wheel up toward the body) and its rate; spring + damper + bar
+      for (let ax2 = 0; ax2 < 2; ax2++) {
+        const x = ax2 ? -P.b : P.a, k = ax2 ? S.kR : S.kF, c = ax2 ? S.cR : S.cF, arb = ax2 ? S.arbR : S.arbF, L = ax2 * 2, Rw = L + 1;
+        const zb = B.z + x * B.th, vb = B.vz + x * B.vth, rz = (tw / 2) * B.ph, rv = (tw / 2) * B.vph;
+        const sL = WZ[L] - (zb + rz), sR = WZ[Rw] - (zb - rz), vL = WV[L] - (vb + rv), vR = WV[Rw] - (vb - rv);
+        FS[L] = k * sL + c * vL + arb * (sL - sR);
+        FS[Rw] = k * sR + c * vR - arb * (sL - sR);
+      }
+      let Fz = -(Df + Dr), Mth = -Df * P.a + Dr * P.b + S.ms * ax * S.h, Mph = S.ms * ay * S.h;
+      for (let i = 0; i < 4; i++) { const x = i < 2 ? P.a : -P.b, y = (i & 1 ? -1 : 1) * tw / 2; Fz += FS[i]; Mth += x * FS[i]; Mph += y * FS[i]; }
+      B.vz += Fz / S.ms * h; B.vth += Mth / S.Iyy * h; B.vph += Mph / S.Ixx * h;
+      B.z += B.vz * h; B.th += B.vth * h; B.ph += B.vph * h;
+      // each wheel: the tyre pushes it up off the road (never pulls: a wheel can lift), the spring pushes it down
+      for (let i = 0; i < 4; i++) {
+        const z0 = zr ? zr[i] : 0, vr = sub === 0 ? (z0 - WR[i]) / dt : 0; if (sub === 0) WR[i] = z0;
+        const n0 = i < 2 ? S.nF : S.nR;
+        const Ft = Math.max(-n0, S.kt * (z0 - WZ[i]) + S.ct * (vr - WV[i])); // (beyond the static load)
+        WV[i] += (Ft - FS[i]) / S.mu * h; WZ[i] += WV[i] * h;
+        F[i] = Ft;
+      }
     }
-    this.pitch = B.th; this.roll = B.ph; this.heave = B.z; // (for the car model on screen)
+    this.pitch = B.th; this.roll = B.ph; this.heave = B.z; // (for the car model on screen; the wheels: wz)
   }
-
   // the body for a car this machine doesn't simulate (an online rival): the same suspension, pushed by the g-forces and
   // speed it sends (in small steps, so the stiffest springs stay stable at any frame rate)
   bodyFromG(dt) {
@@ -165,7 +183,7 @@ export class CarPhysics {
 
   // (the wheels pick up the car's speed on the next step: callers set a velocity straight after placing)
   place(x, z, h) { this.x = x; this.z = z; this.h = h; this.vx = this.vz = this.r = 0; this.gear = 1; this.steer = 0; this.wInit = false;
-    if (this.body) { Object.assign(this.body, { z: 0, th: 0, ph: 0, vz: 0, vth: 0, vph: 0 }); this.suspF.fill(0); } }
+    if (this.body) { Object.assign(this.body, { z: 0, th: 0, ph: 0, vz: 0, vth: 0, vph: 0 }); this.suspF.fill(0); this.suspFS.fill(0); this.wz.fill(0); this.wv.fill(0); this.wr.fill(0); } }
 
   shift(dir) {
     if (dir > 0 && this.gear < this.p.gears.length - 1 && this.gear >= 1) { this.gear++; this.shiftT = this.p.shift ?? 0.07; }
@@ -174,7 +192,9 @@ export class CarPhysics {
   }
 
   // ctl: steer (-1..1, +right), throttle, brake (0..1)
-  // env: mu (surface multiplier), extraDrag, gF/gL (gravity accel in car frame)
+  // env: mu (surface multiplier), extraDrag, gF/gL (gravity accel in car frame); optional wheels: { mu, drag, z }
+  // (Float64Array(4) each, FL FR RL RR: the surface grip and drag under each wheel, and the ground's height there
+  // relative to the road, m: kerbs, grass, bumps). Without it every wheel gets mu / extraDrag on a flat road.
   step(dt, ctl, env) {
     const P = this.p;
     const sn = Math.sin(this.h), cs = Math.cos(this.h);
@@ -249,11 +269,12 @@ export class CarPhysics {
     const aFp = P.slipPeak ?? 0.169, aRp = P.slipPeakR ?? aFp;
     const tgF = tg * wearGrip(ty.wf), tgR = tg * wearGrip(ty.wr) * P.rearGrip;
     const WN = W4.n, WC = W4.cap, WA = W4.a, WSY = W4.sy, WU = W4.u, WY = W4.y, WX = W4.x, SF = this.suspF;
+    const EW = env.wheels, muW = EW ? EW.mu : null;
     for (let i = 0; i < 4; i++) {
       const front = i < 2, side = (i & 1) ? -1 : 1, y = side * tw / 2;
       const n = Math.max(0, (front ? S.nF : S.nR) + SF[i]);
       WN[i] = n; WY[i] = y; WX[i] = front ? P.a : -P.b;
-      WC[i] = mu * n * (front ? tgF : tgR) * Math.max(0.75, Math.min(1.25, 1 - LS * (Math.max(n, 1) / (front ? S.nF + Df / 2 : S.nR + Dr / 2) - 1)));
+      WC[i] = (muW ? P.mu * muW[i] * this.gripMul : mu) * n * (front ? tgF : tgR) * Math.max(0.75, Math.min(1.25, 1 - LS * (Math.max(n, 1) / (front ? S.nF + Df / 2 : S.nR + Dr / 2) - 1)));
       const ui = u - this.r * y, uAi = Math.max(Math.abs(ui), 4);
       WU[i] = ui;
       WA[i] = front ? Math.atan2(v + P.a * this.r, uAi) - delta * sgn : Math.atan2(v - P.b * this.r, uAi);
@@ -482,7 +503,11 @@ export class CarPhysics {
     }
     const Fxf = FXs[0] + FXs[1], Fyf = FYs[0] + FYs[1], Fxr = FXs[2] + FXs[3], Fyr = FYs[2] + FYs[3]; // (axle totals: wear)
     const dragK = P.drag * (1 - 0.12 * dm.rw) * this.dragMul * (1 - 0.3 * this.slip);
-    let Fx = FXB - dragK * u * Math.abs(u) - P.roll * u - env.extraDrag * u;
+    let Fx = FXB - dragK * u * Math.abs(u) - P.roll * u;
+    // grass / gravel drag: on each wheel when the track says what's under each (a pair of wheels in the gravel drags
+    // that side back, and turns the car toward it), else on the car as a whole
+    if (EW) for (let i = 0; i < 4; i++) { const f = EW.drag[i] / 4 * u; Fx -= f; Tz += WY[i] * f; }
+    else Fx -= env.extraDrag * u;
     // keep a held drift from scrubbing all the speed away (an arcade cheat: real slides are slower)
     if (drifty && thr > 0 && u > 5) Fx += P.mass * (P.driftPush ?? 0) * thr * slideW;
 
@@ -499,7 +524,7 @@ export class CarPhysics {
     Fx += P.mass * env.gF; Fy += P.mass * env.gL;
 
     const axL = Fx / P.mass, ayL = Fy / P.mass;
-    this.bodyStep(dt, axL, ayL, Df, Dr);
+    this.bodyStep(dt, axL, ayL, Df, Dr, EW ? EW.z : null);
     this.axPrev += (axL - this.axPrev) * Math.min(1, dt * 12);
     this.ayPrev += (ayL - this.ayPrev) * Math.min(1, dt * 12);
     this.vx += (axL * sn + ayL * cs) * dt;
