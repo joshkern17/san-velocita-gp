@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engine Sound Bench</title>
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script>
+<style>
+  :root { --bg: #0b1220; --panel: #131d33; --line: #243353; --ink: #e8eefb; --dim: #8ea0c4; --gold: #e8b13a; --red: #e1261c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 Arial, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  p.sub { color: var(--dim); margin: 0 0 20px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+  label { display: block; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+  select, button { font: inherit; color: var(--ink); background: #1b2745; border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; }
+  select { width: 100%; }
+  button { cursor: pointer; }
+  button:hover { border-color: #4a6aa8; }
+  button.on { background: var(--gold); color: #111; border-color: var(--gold); font-weight: 700; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row > * { flex: 1 1 auto; }
+  .seg { display: flex; gap: 0; }
+  .seg button { border-radius: 0; flex: 1; }
+  .seg button:first-child { border-radius: 8px 0 0 8px; }
+  .seg button:last-child { border-radius: 0 8px 8px 0; }
+  input[type=range] { width: 100%; accent-color: var(--gold); }
+  .meter { display: flex; justify-content: space-between; font-size: 13px; color: var(--dim); margin-top: 4px; }
+  .big { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stats { display: flex; gap: 28px; align-items: baseline; }
+  .stats small { display: block; color: var(--dim); font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; }
+  #play { background: var(--red); border-color: var(--red); font-weight: 700; min-width: 120px; }
+  #play.on { background: #2a3a5e; border-color: var(--line); color: var(--ink); }
+  .note { color: var(--dim); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Engine Sound Bench</h1>
+  <p class="sub">Pick a car, press Start, then use the buttons or drag the sliders. Compare the two sound models.</p>
+
+  <div class="card">
+    <div class="row">
+      <div style="flex: 2 1 260px"><label for="car">Car</label><select id="car"></select></div>
+      <div style="flex: 1 1 200px"><label>Sound model</label>
+        <div class="seg"><button id="m-phys" class="on">Physical (new)</button><button id="m-loop">Pulse loops</button></div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="margin-bottom: 14px">
+      <button id="play">Start</button>
+      <button data-run="idle">Idle</button>
+      <button data-run="blip">Throttle blips</button>
+      <button data-run="pull">Pull through the gears</button>
+      <button data-run="lift">Rev high, then lift</button>
+    </div>
+    <div class="stats" style="margin-bottom: 12px">
+      <div><small>RPM</small><span class="big" id="rpm-v">0</span></div>
+      <div><small>Gear</small><span class="big" id="gear-v">N</span></div>
+      <div><small>Speed</small><span class="big" id="spd-v">0</span> <span class="note">km/h</span></div>
+    </div>
+    <label for="rpm">RPM (manual)</label>
+    <input type="range" id="rpm" min="0" max="1" step="0.001" value="0">
+    <div class="meter"><span id="rpm-lo"></span><span id="rpm-hi"></span></div>
+    <label for="thr" style="margin-top: 12px">Throttle (manual)</label>
+    <input type="range" id="thr" min="0" max="1" step="0.01" value="0">
+    <p class="note">Moving a slider stops the automatic run. Headphones help: a lot of the character is in the low end.</p>
+  </div>
+</main>
+<script type="module">
+import { initAudio, EngineVoice, setEngineModel } from '../js/audio.js';
+import { CARS } from '../js/cars.js';
+
+const $ = (id) => document.getElementById(id);
+const sel = $('car');
+for (const [id, c] of Object.entries(CARS)) sel.add(new Option(`${c.name}  (${c.sound})`, id));
+sel.value = 'm1procar';
+
+let voice = null, model = 'phys', on = false, run = null, runT = 0;
+const st = { rpm: 0, thr: 0, v: 0, g: 1, shiftT: 0 };
+const spec = () => CARS[sel.value].spec;
+
+function makeVoice() {
+  if (voice) voice.stop();
+  setEngineModel(model);
+  voice = new EngineVoice(true, CARS[sel.value].sound);
+}
+function resetCar() { const s = spec(); Object.assign(st, { rpm: s.idle, thr: 0, v: 0, g: 1, shiftT: 0 }); $('rpm-lo').textContent = s.idle; $('rpm-hi').textContent = s.redline; }
+sel.onchange = () => { resetCar(); if (on) makeVoice(); };
+for (const [id, m] of [['m-phys', 'phys'], ['m-loop', 'loop']]) $(id).onclick = () => {
+  model = m; $('m-phys').classList.toggle('on', m === 'phys'); $('m-loop').classList.toggle('on', m === 'loop'); if (on) makeVoice();
+};
+$('play').onclick = () => {
+  initAudio(); on = !on;
+  $('play').textContent = on ? 'Stop' : 'Start'; $('play').classList.toggle('on', on);
+  if (on) { resetCar(); makeVoice(); run = 'idle'; } else if (voice) { voice.stop(); voice = null; }
+};
+document.querySelectorAll('[data-run]').forEach(b => b.onclick = () => { if (!on) $('play').click(); resetCar(); run = b.dataset.run; runT = 0; });
+$('rpm').oninput = () => { run = null; const s = spec(); st.rpm = s.idle + (+$('rpm').value) * (s.redline - s.idle); };
+$('thr').oninput = () => { run = null; st.thr = +$('thr').value; };
+
+// a small drag race for the automatic runs: the car's own power, gears and shift time
+function step(dt) {
+  const s = spec();
+  runT += dt;
+  if (run === 'idle') { st.thr = 0; st.rpm = s.idle; }
+  else if (run === 'blip') {
+    const k = runT % 1.6; st.thr = k < 0.35 ? 1 : 0;
+    st.rpm += ((st.thr ? s.redline * 0.8 : s.idle) - st.rpm) * (1 - Math.exp(-dt * (st.thr ? 7 : 3)));
+  } else if (run === 'lift') {
+    st.thr = runT < 2.2 ? 1 : 0;
+    const want = runT < 2.2 ? s.redline * 0.93 : s.idle;
+    st.rpm += (want - st.rpm) * (1 - Math.exp(-dt * (runT < 2.2 ? 2.5 : 1.2)));
+    if (runT > 6) runT = 0;
+  } else if (run === 'pull') {
+    const pulling = runT < 12;
+    st.thr = pulling && st.shiftT <= 0 ? 1 : 0;
+    const top = s.gears[st.g];
+    const a = pulling ? (st.shiftT > 0 ? 0 : Math.min(9, s.power / s.mass / Math.max(st.v, 4))) - s.drag * st.v * st.v / s.mass : -3.5;
+    st.v = Math.max(0, st.v + a * dt);
+    st.rpm = Math.max(s.idle, Math.min(s.redline, st.v / top * s.redline));
+    if (st.v < 7 && pulling) st.rpm = Math.max(st.rpm, s.idle + (s.redline * 0.5 - s.idle) * (1 - st.v / 7)); // clutch slip
+    st.shiftT -= dt;
+    if (pulling && st.rpm > s.redline - 400 && st.g < s.gears.length - 1) { st.g++; st.shiftT = s.shift ?? 0.07; }
+    if (!pulling && st.g > 1 && st.v < s.gears[st.g - 1] * 0.7) st.g--;
+    if (runT > 16) { runT = 0; st.v = 0; st.g = 1; }
+  }
+  if (run) { $('rpm').value = (st.rpm - s.idle) / (s.redline - s.idle); $('thr').value = st.thr; }
+}
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (on && voice) {
+    step(dt);
+    const s = spec();
+    voice.update({ engine: CARS[sel.value].sound, rpm: st.rpm, idle: s.idle, redline: s.redline, throttle: st.thr, speed: st.v, slip: 0, onRoad: true, gain: 1 });
+    $('rpm-v').textContent = Math.round(st.rpm);
+    $('gear-v').textContent = run === 'pull' ? st.g : 'N';
+    $('spd-v').textContent = Math.round(st.v * 3.6);
+  }
+  requestAnimationFrame(frame);
+}
+resetCar();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

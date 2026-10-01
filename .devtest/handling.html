@@ -1,0 +1,111 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Handling bench</title>
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script>
+</head><body><pre id="out"></pre>
+<script type="module">
+// Scripted manoeuvres on flat tarmac for every car: how well does it stop, turn in, hold a corner, drift.
+import { CarPhysics } from '../js/car.js';
+import { CARS } from '../js/cars.js';
+const P = new URLSearchParams(location.search);
+const ids = (P.get('ids') || Object.keys(CARS).filter(k => k !== 'svgp').join(',')).split(',');
+const tc = P.get('tc') !== '0';
+const DT = 1 / 240, env = { mu: 1, extraDrag: 0, gF: 0, gL: 0 };
+const deg = (r) => r * 180 / Math.PI;
+function car(id, speed) {
+  const p = new CarPhysics(CARS[id].spec); p.place(0, 0, 0); p.tc = tc; p.auto = true; p.wearK = 0;
+  p.vz = speed; p.u = speed; p.speed = speed;
+  // right gear for the speed
+  const G = p.p.gears; p.gear = 1; while (p.gear < G.length - 1 && speed > G[p.gear] * 0.85) p.gear++;
+  return p;
+}
+// run a control script (t -> ctl) for T seconds; returns stats
+function run(p, T, script) {
+  let maxB = 0, spun = false, t = 0, dist = 0, maxR = 0;
+  for (; t < T; t += DT) {
+    const c = { analog: true, ...script(t, p) };
+    p.step(DT, c, env);
+    const b = Math.abs(Math.atan2(p.v, Math.max(0.5, Math.abs(p.u))));
+    if (p.speed > 3) { maxB = Math.max(maxB, b); if (b > 1.2) spun = true; }
+    maxR = Math.max(maxR, Math.abs(p.r));
+    dist += p.speed * DT;
+  }
+  return { maxB: deg(maxB), spun, dist, speed: p.speed, t };
+}
+const rows = [];
+if (P.get('score')) {
+  // drift scoring on real physics: drift one way, swing it into the other (a transition), straighten -> bank;
+  // then a second drift that ends in a crash
+  const { DriftScore } = await import('../js/drift.js');
+  const id = ids[0], p = car(id, 22), D = new DriftScore(), c0 = { phys: p, onRoad: true, surface: 'road' }, log = [];
+  let maxA = 0;
+  for (let t = 0; t < 12; t += DT) {
+    let c;
+    if (t < 0.35) c = { steer: 0.9, throttle: 0.3, handbrake: 1 };
+    else if (t < 2.2) c = { steer: 0.5, throttle: 0.9 };
+    else if (t < 2.45) c = { steer: -1, throttle: 0.4, handbrake: 1 }; // flick it the other way
+    else if (t < 2.9) c = { steer: -1, throttle: 1 };
+    else if (t < 4.2) c = { steer: -0.5, throttle: 0.9 };
+    else if (t < 6.5) c = { steer: 0, throttle: 0.3 };            // straighten: chain banks after the grace
+    else if (t < 6.85) c = { steer: 0.9, throttle: 0.3, handbrake: 1 };
+    else c = { steer: 0.5, throttle: 0.9 };
+    if (t > 8.5 && t < 8.52) c0.impact = 9;                      // crash
+    p.step(DT, { analog: true, brake: 0, ...c }, env);
+    D.update(DT, c0, true);
+    maxA = Math.max(maxA, D.angle);
+    if (P.get('score') === '2' && t > 1.8 && t < 4.4 && Math.round(t / DT) % 24 === 0) log.push(`  t=${t.toFixed(1)} beta=${(Math.atan2(p.v, Math.abs(p.u)) * 57.3).toFixed(0)} spd=${(p.speed * 3.6).toFixed(0)} active=${D.active} drifting=${D.drifting}`);
+    for (const e of D.events.splice(0)) log.push(`t=${t.toFixed(2)} ${e.type} ${JSON.stringify(e).slice(0, 110)}  [chain ${D.value} x${D.mult}]`);
+  }
+  window.result = log.join('\n') + `\ntotal=${D.total} best=${D.best} maxAngle=${maxA.toFixed(0)}`; window.done = true;
+  throw 0;
+}
+if (P.get('trace')) {
+  // one drift attempt, printed over time. mode: 'hold' = keep steering into the corner, 'cs' = simple counter-steer driver
+  const id = ids[0], p = car(id, +(P.get('v') || 22)), out = [], mode = P.get('trace');
+  for (let t = 0, k = 0; t < 7; t += DT, k++) {
+    const b = Math.atan2(p.v, Math.max(0.5, Math.abs(p.u)));
+    const hbT = +(P.get('hb') || 0.35), thr = +(P.get('thr') || 0.85);
+    const c = t < hbT ? { steer: 0.9, throttle: 0.3, brake: 0, handbrake: 1 }
+      : mode === 'hold' ? { steer: 0.5, throttle: thr, brake: 0 } : { steer: Math.max(-1, Math.min(1, 0.35 - b * 1.6)), throttle: thr, brake: 0 };
+    const th0 = Math.atan2(p.vx, p.vz);
+    p.step(DT, { analog: true, ...c }, env);
+    // path radius from how fast the direction of travel turns
+    let dth = Math.atan2(p.vx, p.vz) - th0; dth = Math.atan2(Math.sin(dth), Math.cos(dth));
+    window._rad = (window._rad || []); window._rad.push(p.speed * DT / Math.max(1e-6, Math.abs(dth)));
+    if (k % 24 === 0) { const rs = window._rad.splice(0), R = rs.reduce((a, v) => a + Math.min(v, 999), 0) / rs.length;
+      out.push(`t=${t.toFixed(1)} beta=${deg(b).toFixed(0)} r=${p.r.toFixed(2)} v=${(p.speed * 3.6).toFixed(0)} R=${R.toFixed(0)}m delta=${deg(p.delta).toFixed(0)} steer=${c.steer.toFixed(2)}`); }
+  }
+  window.result = out.join('\n'); window.done = true;
+  throw 0;
+}
+for (const id of ids) {
+  const r = { id };
+  // A: full brake from 30 m/s (108 km/h)
+  { const p = car(id, 30); let d = 0, t = 0; while (p.speed > 0.5 && t < 20) { p.step(DT, { analog: true, steer: 0, throttle: 0, brake: 1 }, env); d += p.speed * DT; t += DT; } r.stop = d.toFixed(1) + 'm'; }
+  // B: trail-braking turn-in at 28 m/s
+  { const p = car(id, 28); const s = run(p, 2, (t) => ({ steer: Math.min(0.6, t * 2), throttle: 0, brake: t < 1.2 ? 0.7 : 0 })); r.trailB = s.maxB.toFixed(0) + (s.spun ? ' SPIN' : ''); }
+  // C: steady corner at 25 m/s, half lock, throttle to hold speed
+  { const p = car(id, 25); const s = run(p, 3, (t, p) => ({ steer: Math.min(0.5, t), throttle: p.speed < 25 ? 0.6 : 0.2, brake: 0 })); r.corner = s.maxB.toFixed(0) + (s.spun ? ' SPIN' : '') + ' ' + (s.speed * 3.6).toFixed(0) + 'kmh'; }
+  // D: power out of a slow corner: 14 m/s, 70% lock, full throttle
+  { const p = car(id, 14); const s = run(p, 2.5, (t) => ({ steer: 0.7, throttle: t > 0.3 ? 1 : 0.2, brake: 0 })); r.powerOut = s.maxB.toFixed(0) + (s.spun ? ' SPIN' : ''); }
+  // E: lift-off mid-corner at 30 m/s
+  { const p = car(id, 30); const s = run(p, 3, (t) => ({ steer: Math.min(0.45, t), throttle: t < 1.5 ? 0.7 : 0, brake: 0 })); r.lift = s.maxB.toFixed(0) + (s.spun ? ' SPIN' : ''); }
+  // F: drift attempt: 22 m/s, handbrake flick + steer, then throttle + counter-steer by feel (a simple driver: steer
+  // against the slide proportionally, throttle on); held angle between 1.5 s and 4 s
+  { const p = car(id, 22); let held = [], spun = false;
+    for (let t = 0; t < 4; t += DT) {
+      const b = Math.atan2(p.v, Math.max(0.5, Math.abs(p.u)));
+      const c = t < 0.35 ? { steer: 0.9, throttle: 0.3, brake: 0, handbrake: 1 } : { steer: 0.5, throttle: 0.9, brake: 0 };
+      p.step(DT, { analog: true, ...c }, env);
+      if (t > 1.5) held.push(Math.abs(deg(b)));
+      if (Math.abs(b) > 1.2 && p.speed > 3) spun = true;
+    }
+    const avg = held.reduce((a, v) => a + v, 0) / held.length;
+    r.drift = (spun ? 'SPIN ' : '') + avg.toFixed(0) + 'deg ' + (p.speed * 3.6).toFixed(0) + 'kmh';
+  }
+  rows.push(r);
+}
+const cols = ['id', 'stop', 'trailB', 'corner', 'powerOut', 'lift', 'drift'];
+document.getElementById('out').textContent = [cols.join('\t'), ...rows.map(r => cols.map(c => r[c]).join('\t'))].join('\n');
+window.result = document.getElementById('out').textContent;
+window.done = true;
+</script></body></html>

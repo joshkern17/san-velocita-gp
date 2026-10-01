@@ -1,0 +1,58 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Road cars</title>
+<style>body{margin:0;background:#223}canvas{display:block}</style>
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script>
+</head><body>
+<script type="module">
+import * as THREE from 'three';
+import { buildF1 } from '../js/carmodel.js';
+import { loadRoadCar } from '../js/roadcar.js';
+const P = new URLSearchParams(location.search);
+const ids = (P.get('ids') || 'aventus,bx300,testarossa,rs964,gtr,mustang').split(',');
+const paint = P.get('paint') || '';
+window.__SVGP_CARS = Object.fromEntries(ids.map(id => [id, '../models/cars/' + id + '.glb']));
+const views = [[5.5, 1.6, 5.5], [-6.5, 1.2, 0.3], [0.5, 1.4, -7], [2.5, 6, 3]];
+const W = 1600, H = 150 * ids.length * 1.5;
+const R = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+R.setSize(W, H); R.outputColorSpace = THREE.SRGBColorSpace; document.body.appendChild(R.domElement); R.setScissorTest(true);
+const tw = W / views.length, th = H / ids.length;
+for (let i = 0; i < ids.length; i++) {
+  await loadRoadCar(ids[i]);
+  const scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xb8c8ff, 0x302820, 1.1));
+  const sun = new THREE.DirectionalLight(0xfff0dc, 1.8); sun.position.set(4, 7, 5); scene.add(sun);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshLambertMaterial({ color: 0x555a60 })); ground.rotation.x = -Math.PI / 2; scene.add(ground);
+  const m = buildF1({ chassis: ids[i], main: 0x1d4fb8, paint }, {});
+  scene.add(m.group);
+  if (P.get('hide') === 'wheels') m.wheels.forEach(w => w.pivot.visible = false);
+  if (P.get('hide') === 'body') m.body.visible = false;
+  views.forEach((v, k) => {
+    const cam = new THREE.PerspectiveCamera(30, tw / th, 0.1, 100); cam.position.set(...v); cam.lookAt(0, 0.5, 0);
+    const x = k * tw, y = H - (i + 1) * th;
+    R.setViewport(x, y, tw, th); R.setScissor(x, y, tw, th); R.setClearColor(0x3a4050); R.clear(); R.render(scene, cam);
+  });
+}
+window.report = [];
+for (const id of ids) {
+  const m = buildF1({ chassis: id, main: 0x1d4fb8 }, {});
+  for (const w of m.wheels) {
+    const b = new THREE.Box3(), v = new THREE.Vector3();
+    w.mesh.traverse(o => { if (!o.isMesh) return; const P = o.geometry.attributes.position, I = o.geometry.index, n = I ? I.count : P.count; for (let k = 0; k < n; k++) b.expandByPoint(v.fromBufferAttribute(P, I ? I.getX(k) : k)); });
+    // axle direction: the smallest-spread axis of the vertices (Jacobi eigen solve of the 3x3 covariance)
+    const pts = []; w.mesh.traverse(o => { if (!o.isMesh) return; const P = o.geometry.attributes.position, I = o.geometry.index, n = I ? I.count : P.count; for (let k = 0; k < n; k++) pts.push(new THREE.Vector3().fromBufferAttribute(P, I ? I.getX(k) : k)); });
+    const mu = pts.reduce((a, q) => a.add(q), new THREE.Vector3()).divideScalar(pts.length);
+    const C = [[0,0,0],[0,0,0],[0,0,0]]; for (const q of pts) { const d = [q.x-mu.x, q.y-mu.y, q.z-mu.z]; for (let i=0;i<3;i++) for (let j=0;j<3;j++) C[i][j] += d[i]*d[j]; }
+    let A = C.map(r => r.slice()), V = [[1,0,0],[0,1,0],[0,0,1]];
+    for (let it = 0; it < 50; it++) { let p=0,q=1; if (Math.abs(A[0][2])>Math.abs(A[p][q])) {p=0;q=2;} if (Math.abs(A[1][2])>Math.abs(A[p][q])) {p=1;q=2;} if (Math.abs(A[p][q])<1e-12) break;
+      const th = 0.5*Math.atan2(2*A[p][q], A[q][q]-A[p][p]), c=Math.cos(th), sn=Math.sin(th);
+      for (let k=0;k<3;k++){ const akp=A[k][p], akq=A[k][q]; A[k][p]=c*akp-sn*akq; A[k][q]=sn*akp+c*akq; }
+      for (let k=0;k<3;k++){ const apk=A[p][k], aqk=A[q][k]; A[p][k]=c*apk-sn*aqk; A[q][k]=sn*apk+c*aqk; }
+      for (let k=0;k<3;k++){ const vkp=V[k][p], vkq=V[k][q]; V[k][p]=c*vkp-sn*vkq; V[k][q]=sn*vkp+c*vkq; } }
+    let mi = 0; for (let k = 1; k < 3; k++) if (A[k][k] < A[mi][mi]) mi = k;
+    const ax = [V[0][mi], V[1][mi], V[2][mi]], tilt = Math.acos(Math.min(1, Math.abs(ax[0]))) * 180 / Math.PI;
+    window.report.push(`${id} ${w.corner} axleTilt=${tilt.toFixed(1)}deg axle=(${ax.map(a=>a.toFixed(2))})`);
+    window.report.push(`${id} ${w.corner} off(y,z)=${((b.max.y + b.min.y) / 2).toFixed(3)},${((b.max.z + b.min.z) / 2).toFixed(3)} dia(y,z)=${(b.max.y - b.min.y).toFixed(2)},${(b.max.z - b.min.z).toFixed(2)} width=${(b.max.x - b.min.x).toFixed(2)}`);
+  }
+}
+window.done = true;
+</script></body></html>

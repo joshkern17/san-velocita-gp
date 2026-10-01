@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+
+# Build output (regenerate with: node tools/build.mjs)
+dist/
+
+# Dependencies (reinstall with: cd tools && npm install)
+node_modules/
+
+# Python / tooling caches
+__pycache__/
+*.pyc
+.playwright-mcp/

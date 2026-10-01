@@ -1,0 +1,206 @@
+{
+ "aventus": {
+  "title": "PS1 GT1-Style Model - 1992 Emery Aventus",
+  "author": "Aike (https://sketchfab.com/anathlyst)",
+  "license": "SKETCHFAB Standard (https://sketchfab.com/licenses)",
+  "source": "https://sketchfab.com/3d-models/ps1-gt1-style-model-1992-emery-aventus-297520b5f6d74629a1670fd39572c096",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   1.96,
+   1.32,
+   4.8
+  ]
+ },
+ "bx300": {
+  "title": "PS1 GT1-Style Model - 1996 Horai BX300",
+  "author": "Aike (https://sketchfab.com/anathlyst)",
+  "license": "SKETCHFAB Standard (https://sketchfab.com/licenses)",
+  "source": "https://sketchfab.com/3d-models/ps1-gt1-style-model-1996-horai-bx300-6dae04e452c84b4fa5efce32145a25f4",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   1.89,
+   1.27,
+   4.5
+  ]
+ },
+ "rmx": {
+  "title": "PS1 GT1-Style Model - 1994 Kineto RM-X",
+  "author": "Aike (https://sketchfab.com/anathlyst)",
+  "license": "SKETCHFAB Standard",
+  "source": "",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   1.99,
+   1.23,
+   4.4
+  ]
+ },
+ "testarossa": {
+  "title": "Low Poly PS1-Syle Testarossa",
+  "author": "Namahoi (https://sketchfab.com/Namahoi)",
+  "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+  "source": "https://sketchfab.com/3d-models/low-poly-ps1-syle-testarossa-20a0ac8e68d14c8d82fe4b5d30435704",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   2.1,
+   1.02,
+   4.49
+  ]
+ },
+ "jsport": {
+  "title": "Japanese Low-Poly Sports Car",
+  "author": "egor.zuyev (https://sketchfab.com/egor.zuyev33)",
+  "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+  "source": "https://sketchfab.com/3d-models/japanese-low-poly-sports-car-be624b3cfd5a4132bf0e02c9788d6869",
+  "wheels": [
+   "FR",
+   "FL",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   2.06,
+   1.2,
+   4.45
+  ]
+ },
+ "rs964": {
+  "title": "Porsche 911 964 Carrera RS Club Sport",
+  "author": "egor.zuyev33 (https://sketchfab.com/egor.zuyev33)",
+  "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+  "source": "https://sketchfab.com/3d-models/porsche-911-964-carrera-rs-club-sport-3a50e3692aaf4ceaa20c032a8f4ce1bc",
+  "wheels": [
+   "FL",
+   "FR",
+   "RR",
+   "RL"
+  ],
+  "size": [
+   1.85,
+   1.17,
+   4.25
+  ]
+ },
+ "gtr": {
+  "title": "Nissan GT-R (PS1 Low-Poly)",
+  "author": "Evgeniy (https://sketchfab.com/evgeniyy)",
+  "license": "CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)",
+  "source": "https://sketchfab.com/3d-models/nissan-gt-r-ps1-low-poly-d1f8a458410c410284be5f152a76eba0",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   2.07,
+   1.23,
+   4.71
+  ]
+ },
+ "mustang": {
+  "title": "2016 Ford Mustang GT 5.0",
+  "author": "3DCars (https://sketchfab.com/3DCarss)",
+  "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+  "source": "https://sketchfab.com/3d-models/2016-ford-mustang-gt-50-c34504ee1e404f549dac3a130468ea0c",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   2.08,
+   1.39,
+   4.78
+  ]
+ },
+ "m5": {
+  "title": "BMW M5 (E39) [GT2/PSX Style]",
+  "author": "Samuel M. Liberato (https://sketchfab.com/SMLiberato)",
+  "license": "CC-BY-NC-ND-4.0 (http://creativecommons.org/licenses/by-nc-nd/4.0/)",
+  "source": "https://sketchfab.com/3d-models/bmw-m5-e39-gt2psx-style-59ea3ead89784ec3baa3437ce0093308",
+  "wheels": [
+   "RL",
+   "RR",
+   "FL",
+   "FR"
+  ],
+  "size": [
+   1.93,
+   1.24,
+   4.78
+  ]
+ },
+ "transit": {
+  "title": "Ford Transit 1999",
+  "author": "LEON elenaisakova248 (https://sketchfab.com/elenaisakova248)",
+  "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+  "source": "https://sketchfab.com/3d-models/ford-transit-1999-eedfac8024df43e88f9d92b1b3686478",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   2.13,
+   1.81,
+   4.8
+  ]
+ },
+ "hearse": {
+  "title": "PSX Caprice Hearse",
+  "author": "shinpansen (https://sketchfab.com/shinpansen)",
+  "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+  "source": "https://sketchfab.com/3d-models/psx-caprice-hearse-3780f0430f614a439f7fd65fa76c56b4",
+  "wheels": [
+   "RR",
+   "FR",
+   "FL",
+   "RL"
+  ],
+  "size": [
+   2.04,
+   1.25,
+   5.6
+  ]
+ },
+ "m1procar": {
+  "title": "BMW M1 ProCar (custom, made in Blender)",
+  "author": "you",
+  "license": "own work",
+  "source": "",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   1.78,
+   1.18,
+   4.36
+  ]
+ }
+}

@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>San Velocita Grand Prix</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><rect width=%2216%22 height=%2216%22 fill=%22%23000%22/><text x=%223%22 y=%2213%22 font-size=%2213%22 fill=%22%23e8b13a%22 font-family=%22serif%22>S</text></svg>">
+<link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="css/style.css">
+<script src="vendor/peerjs.min.js"></script>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js", "postprocessing": "./vendor/postprocessing/index.js" } }</script>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="scan"></div>
+<div id="toast"></div>
+
+<!-- BOOT -->
+<section id="s-boot" class="screen">
+  <div class="boot-inner">
+    <div class="boot-legal" id="boot-legal">
+      <p>SAN VELOCITA GRAND PRIX</p>
+      <p>A fan-made tribute to the racing games of the early 2000s.</p>
+      <p>All teams, drivers and sponsors are fictitious.</p>
+    </div>
+    <div class="logo" id="boot-logo">
+      <div class="logo-top">San Velocita</div>
+      <div class="logo-band"><span>GRAND PRIX</span></div>
+    </div>
+    <div class="press" id="boot-press">PRESS ENTER</div>
+  </div>
+</section>
+
+<!-- MAIN MENU -->
+<section id="s-main" class="screen menu-screen">
+  <div class="menu-shade"></div>
+  <div class="logo small">
+    <div class="logo-top">San Velocita</div>
+    <div class="logo-band"><span>GRAND PRIX</span></div>
+  </div>
+  <div class="menu-col">
+    <div class="menu" id="m-main"></div>
+  </div>
+  <div class="footer-hints"><span>&#8593;&#8595; NAVIGATE</span><span>ENTER SELECT</span><span>ESC BACK</span></div>
+  <div class="version">v1.0 &middot; PAL/NTSC</div>
+</section>
+
+<!-- RACE SETUP -->
+<section id="s-setup" class="screen menu-screen">
+  <div class="menu-shade full"></div>
+  <h1 class="gothic">Race Setup</h1>
+  <div class="setup-wrap">
+    <div class="panel track-list-panel">
+      <div class="panel-title">CIRCUITS</div>
+      <div class="menu" id="m-tracks"></div>
+    </div>
+    <div class="panel preview-panel">
+      <canvas id="setup-preview" width="360" height="260"></canvas>
+      <div id="setup-info" class="setup-info"></div>
+    </div>
+    <div class="panel options-panel">
+      <div class="panel-title">RACE OPTIONS</div>
+      <div class="menu" id="m-setup"></div>
+    </div>
+  </div>
+  <div class="footer-hints"><span>&#8593;&#8595; NAVIGATE</span><span>&#8592;&#8594; CHANGE</span><span>TAB SWITCH PANEL</span><span>ENTER SELECT</span><span>ESC BACK</span></div>
+</section>
+
+<!-- CAREER HUB -->
+<section id="s-career" class="screen menu-screen">
+  <div class="menu-shade full"></div>
+  <h1 class="gothic">Career</h1>
+  <div class="career-wrap">
+    <div class="panel narrow"><div class="menu" id="m-career"></div></div>
+    <div class="panel career-info" id="career-info"></div>
+  </div>
+  <div class="footer-hints"><span>&#8593;&#8595; NAVIGATE</span><span>&#8592;&#8594; CHANGE</span><span>ENTER SELECT</span><span>ESC BACK</span></div>
+</section>
+
+<!-- ONLINE -->
+<section id="s-online" class="screen menu-screen">
+  <div class="menu-shade full"></div>
+  <h1 class="gothic">Online</h1>
+  <div class="career-wrap">
+    <div class="panel narrow"><div class="menu" id="m-online"></div></div>
+    <div class="panel career-info online-info">
+      <h3>RACE YOUR FRIENDS</h3>
+      <label class="field"><span>YOUR NAME</span><input id="on-name" maxlength="14" spellcheck="false" autocomplete="off"></label>
+      <label class="field"><span>ROOM CODE <small>(to join a friend)</small></span><input id="on-code" maxlength="5" spellcheck="false" autocomplete="off" placeholder="ABCDE"></label>
+      <div class="on-status" id="on-status"></div>
+      <p><b>Host</b> a room and send your friend the 5-letter code. They pick <b>Join</b> and type it in. Up to 8 drivers, the rest of the grid can be filled with AI.</p>
+      <p class="dim">Cars connect directly peer-to-peer. The public PeerJS server is only used to introduce the two computers. Everyone should run the same version of the game.</p>
+    </div>
+  </div>
+  <div class="footer-hints"><span>&#8593;&#8595; NAVIGATE</span><span>ENTER SELECT</span><span>ESC BACK</span></div>
+</section>
+
+<!-- LOBBY -->
+<section id="s-lobby" class="screen menu-screen">
+  <div class="menu-shade full dark"></div>
+  <h1 class="gothic">Lobby</h1>
+  <div class="pad-top"><div><span class="lbl">ROOM CODE</span><span class="code" id="lob-code">-----</span></div></div>
+  <div class="pad-wrap">
+    <div class="panel pad-menu"><div class="menu" id="m-lobby"></div></div>
+    <div class="panel preview-panel lobby-track">
+      <canvas id="lob-preview" width="360" height="220"></canvas>
+      <div id="lob-info" class="setup-info"></div>
+    </div>
+    <div class="panel pad-standings">
+      <div class="panel-title">DRIVERS</div><table id="lob-players"></table>
+      <div class="panel-title" style="margin-top:16px">SESSION POINTS</div><table id="lob-points"></table>
+    </div>
+  </div>
+  <div class="footer-hints"><span>&#8593;&#8595; NAVIGATE</span><span>&#8592;&#8594; CHANGE</span><span>ENTER SELECT</span><span>ESC LEAVE</span></div>
+</section>
+
+<!-- PADDOCK (between rounds) -->
+<section id="s-paddock" class="screen menu-screen">
+  <div class="menu-shade full dark"></div>
+  <h1 class="gothic" id="pad-title">Paddock</h1>
+  <div class="pad-top" id="pad-top"></div>
+  <div class="pad-wrap">
+    <div class="panel pad-menu"><div class="menu" id="m-paddock"></div></div>
+    <div class="panel pad-next" id="pad-next"></div>
+    <div class="panel pad-standings"><div class="panel-title">CHAMPIONSHIP</div><table id="pad-table"></table></div>
+  </div>
+  <div class="footer-hints"><span>&#8593;&#8595; NAVIGATE</span><span>&#8592;&#8594; CHANGE</span><span>ENTER SELECT</span></div>
+</section>
+
+<!-- UPGRADES -->
+<section id="s-shop" class="screen menu-screen">
+  <div class="menu-shade full dark"></div>
+  <h1 class="gothic">Upgrades</h1>
+  <div class="pad-top" id="shop-top"></div>
+  <div class="panel center-panel shop-panel"><div class="menu" id="m-shop"></div><div class="shop-desc" id="shop-desc"></div></div>
+  <div class="footer-hints"><span>&#8593;&#8595; NAVIGATE</span><span>ENTER BUY</span><span>ESC BACK</span></div>
+</section>
+
+<!-- PERK DRAFT -->
+<section id="s-draft" class="screen menu-screen">
+  <div class="menu-shade full dark"></div>
+  <h1 class="gothic">Pick A Perk</h1>
+  <div class="draft-sub">One card after every race. Perks stack for the rest of the run.</div>
+  <div class="cards" id="cards"></div>
+  <div class="footer-hints"><span>&#8592;&#8594; CHOOSE</span><span>ENTER TAKE</span></div>
+</section>
+
+<!-- ROUND SUMMARY / SEASON END -->
+<section id="s-round" class="screen menu-screen">
+  <div class="menu-shade full dark"></div>
+  <h1 class="gothic" id="round-title">Round Complete</h1>
+  <div class="round-wrap">
+    <div class="panel"><table id="round-table"></table></div>
+    <div class="round-side">
+      <div class="panel" id="round-info"></div>
+      <div class="panel narrow"><div class="menu" id="m-round"></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- GARAGE -->
+<section id="s-garage" class="screen menu-screen">
+  <div class="garage-shade"></div>
+  <h1 class="gothic">Garage</h1>
+  <div class="panel garage-panel">
+    <div class="panel-title">YOUR CAR</div>
+    <div class="menu" id="m-garage"></div>
+  </div>
+  <div class="garage-hint">DRAG TO ROTATE &middot; SCROLL TO ZOOM</div>
+  <div class="footer-hints"><span>&#8593;&#8595; NAVIGATE</span><span>&#8592;&#8594; CHANGE</span><span>ESC SAVE &amp; BACK</span></div>
+</section>
+
+<!-- LIVERY DESIGNER (over the garage turntable) -->
+<section id="s-livery" class="screen">
+  <div class="lv-top">
+    <div class="ed-brand gothic">Livery Designer</div>
+    <div class="lv-views" id="lv-views">
+      <button data-v="three">3/4</button><button data-v="left">Left</button><button data-v="right">Right</button><button data-v="top">Top</button><button data-v="rear">Rear</button><button data-v="front">Front</button><button data-v="helmet">Helmet</button><button data-v="driver">Driver</button>
+    </div>
+    <div class="lv-btns"><button id="lv-done" class="hot">Done</button></div>
+  </div>
+  <div class="lv-hint" id="lv-hint">Pick a decal, then <b>click the car</b> to place it. Drag on the car to slide it. Drag anywhere else to spin the car, scroll to zoom.</div>
+  <div class="lv-side">
+    <div class="ed-tabs" id="lv-tabs"><button data-tab="team" class="on">Team</button><button data-tab="decals">Decals</button><button data-tab="helmet">Helmet</button><button data-tab="suit">Suit</button><button data-tab="files">Files</button></div>
+    <div class="ed-tab" id="lv-tab"></div>
+  </div>
+  <div class="lv-toast" id="lv-toast"></div>
+  <input type="file" id="lv-file" accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg" hidden>
+  <input type="file" id="lv-import" accept=".json,application/json" hidden>
+</section>
+
+<!-- OPTIONS -->
+<section id="s-options" class="screen menu-screen">
+  <div class="menu-shade full"></div>
+  <h1 class="gothic">Options</h1>
+  <div class="panel center-panel">
+    <div class="menu" id="m-options"></div>
+  </div>
+  <div class="footer-hints"><span>&#8593;&#8595; NAVIGATE</span><span>&#8592;&#8594; CHANGE</span><span>ESC BACK</span></div>
+</section>
+
+<!-- CREDITS -->
+<section id="s-credits" class="screen menu-screen">
+  <div class="menu-shade full"></div>
+  <h1 class="gothic">Credits</h1>
+  <div class="panel center-panel help-panel">
+    <p class="credits-intro">Scenery models from Sketchfab, used under their licences (CC BY 4.0 unless noted). Thank you to their authors:</p>
+    <div id="credits-list" class="credits-list"></div>
+    <p class="credits-intro" style="margin-top:14px">Rendering libraries:</p>
+    <div class="credits-list">
+      <div><b>postprocessing</b><br>&copy; 2015&ndash;2026 Raoul van R&uuml;schen (pmndrs) <span>&middot; Zlib</span></div>
+      <div><b>threejs-psx-shader</b><br>&copy; 2026 psx-shader contributors <span>&middot; MIT</span></div>
+      <div><b>three-retropass</b><br>&copy; 2025 Mesmotronic Limited <span>&middot; BSD 2-Clause</span></div>
+      <div><b>procedural-clouds-threejs</b> (cloud shading reference)<br>&copy; 2026 Kingsley <span>&middot; MIT</span></div>
+      <div><b>three.js</b><br>&copy; three.js authors <span>&middot; MIT</span></div>
+    </div>
+  </div>
+  <div class="footer-hints"><span>ESC BACK</span></div>
+</section>
+
+<!-- HELP -->
+<section id="s-help" class="screen menu-screen">
+  <div class="menu-shade full"></div>
+  <h1 class="gothic">How To Play</h1>
+  <div class="panel center-panel help-panel">
+    <div class="help-cols">
+      <div>
+        <h3>DRIVING</h3>
+        <table>
+          <tr><td>W / &#8593;</td><td>Throttle</td></tr>
+          <tr><td>S / &#8595;</td><td>Brake &middot; hold to reverse</td></tr>
+          <tr><td>SPACE</td><td>Handbrake &middot; flick it to start a drift</td></tr>
+          <tr><td>A D / &#8592; &#8594;</td><td>Steer</td></tr>
+          <tr><td>E / Q</td><td>Shift up / down (manual)</td></tr>
+          <tr><td>C</td><td>Change camera</td></tr>
+          <tr><td>R</td><td>Reset car to track</td></tr>
+          <tr><td>L</td><td>Racing line: full / braking only / off</td></tr>
+          <tr><td>M</td><td>Minimap zoom (satellite / street map in Options)</td></tr>
+          <tr><td>Slipstream</td><td>Tuck in behind a car on a straight for extra speed</td></tr>
+          <tr><td>Pit lane</td><td>Drive into the pit entry to box &middot; the crew drives you in; pick tyres &amp; repairs with the arrows</td></tr>
+          <tr><td>ESC / P</td><td>Pause</td></tr>
+          <tr><td>F</td><td>Toggle fullscreen</td></tr>
+        </table>
+        <h3>GAMEPAD</h3>
+        <table>
+          <tr><td>Left stick</td><td>Steer</td></tr>
+          <tr><td>RT</td><td>Throttle</td></tr>
+          <tr><td>LT / X</td><td>Brake</td></tr>
+          <tr><td>A / &#10005;</td><td>Handbrake</td></tr>
+          <tr><td>RB / LB</td><td>Shift up / down</td></tr>
+          <tr><td>Y</td><td>Camera &middot; Back: reset &middot; Start: pause</td></tr>
+          <tr><td>D-pad up / down</td><td>Racing line toggle / minimap zoom</td></tr>
+        </table>
+      </div>
+      <div>
+        <h3>TRACK EDITOR</h3>
+        <table>
+          <tr><td>DRAW</td><td>Drag to sketch a circuit loop</td></tr>
+          <tr><td>EDIT</td><td>Drag nodes &middot; double-click road to add &middot; DEL removes</td></tr>
+          <tr><td>SHIFT</td><td>Click / drag-box to multi-select nodes</td></tr>
+          <tr><td>PROPS</td><td>Place scenery &middot; Q/E rotate &middot; right-click removes</td></tr>
+          <tr><td>ZONES</td><td>Draw a line to spawn houses, shops, towers or trees along it</td></tr>
+          <tr><td>PAINT</td><td>Paint grass onto the ground &middot; [ ] brush size</td></tr>
+          <tr><td>ROADS</td><td>Draw streets &middot; they stop at the circuit's barriers</td></tr>
+          <tr><td>PROPS</td><td>Click a building: drag to move &middot; Q/E rotate &middot; DEL remove</td></tr>
+          <tr><td>MAP tab</td><td>Search your town, trace real streets, import real buildings</td></tr>
+          <tr><td>Profile</td><td>Drag nodes in the elevation graph</td></tr>
+          <tr><td>Wheel / RMB</td><td>Zoom / pan the map</td></tr>
+          <tr><td>Ctrl+Z / Y</td><td>Undo / redo</td></tr>
+        </table>
+        <p class="tip">Tip: raise one part of a crossing track 5m+ above the other and a bridge is built automatically.</p>
+        <h3>ONLINE</h3>
+        <table>
+          <tr><td>Host Game</td><td>Get a 5-letter room code &middot; send it to your friends</td></tr>
+          <tr><td>Join Game</td><td>Type the code &middot; press Enter</td></tr>
+          <tr><td>In the race</td><td>No pausing &middot; ESC opens the menu while your car slows down</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="footer-hints"><span>ESC BACK</span></div>
+</section>
+
+<!-- LOADING -->
+<section id="s-loading" class="screen">
+  <div class="load-art">
+    <canvas id="load-canvas" width="960" height="540"></canvas>
+    <div class="load-name gothic" id="load-name"></div>
+    <div class="load-sub" id="load-sub"></div>
+  </div>
+  <div class="load-tip" id="load-tip"></div>
+  <div class="load-bar"><div id="load-fill"></div></div>
+</section>
+
+<!-- HUD -->
+<section id="hud" class="screen">
+  <div class="hud-tr">
+    <div class="hud-pos pd" id="h-pos"></div>
+    <div class="hud-rows">
+      <div class="hud-row"><span class="lbl">LAP</span><span class="pd val" id="h-lap"></span></div>
+      <div class="hud-row"><span class="lbl">TIME</span><span class="pd val" id="h-time"></span></div>
+      <div class="hud-row"><span class="lbl">LAST</span><span class="pd val sm" id="h-last"></span></div>
+      <div class="hud-row"><span class="lbl">BEST</span><span class="pd val sm" id="h-best"></span></div>
+    </div>
+  </div>
+  <div class="hud-tower" id="h-tower"></div>
+  <div class="hud-bl"><canvas id="radar" width="200" height="200"></canvas></div>
+  <div class="hud-br">
+    <div class="gear-box"><div class="gear pd" id="h-gear">N</div></div>
+    <div class="speed-wrap">
+      <div class="speed pd" id="h-speed">0</div>
+      <div class="unit" id="h-unit">KM/H</div>
+      <div class="tow" id="h-tow">SLIPSTREAM</div>
+    </div>
+    <div class="rpm-bar"><div class="rpm-fill" id="h-rpm"></div><div class="rpm-seg"></div></div>
+  </div>
+  <div class="hud-car"><div class="hud-plan" id="h-plan"></div><canvas id="h-car" width="104" height="150"></canvas></div>
+  <div class="pitbox" id="h-pit"></div>
+  <div class="helpbox" id="h-help"></div>
+  <div class="lights" id="h-lights"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="center-msg" id="h-center"></div>
+  <div class="split" id="h-split"></div>
+  <div class="area-name gothic" id="h-area"></div>
+  <div class="wrongway pd" id="h-wrong">WRONG WAY</div>
+</section>
+
+<!-- CAR SELECT (over the grid, before the strategy) -->
+<section id="s-carsel" class="screen">
+  <div class="cs-shade"></div>
+  <div class="cs-head">
+    <div class="cs-title gothic">Choose Your Car</div>
+    <div class="cs-sub pd"><span id="cs-track"></span><span id="cs-cond"></span></div>
+  </div>
+  <div class="cs-info" id="cs-info"></div>
+  <div class="cs-bottom">
+    <div class="cs-row"><div class="cs-tabs" id="cs-tabs"></div><div class="cs-go pd" id="cs-go">Select Car &#9656;</div></div>
+    <div class="cs-cars" id="cs-cars"></div>
+  </div>
+  <div class="footer-hints"><span>&#8592;&#8594; CAR</span><span>&#8593;&#8595; / LB RB CLASS</span><span>ENTER SELECT</span><span id="cs-back">ESC BACK</span></div>
+</section>
+
+<!-- PRE-RACE STRATEGY (over the grid) -->
+<section id="s-strat" class="screen">
+  <div class="strat-shade"></div>
+  <div class="strat-panel">
+    <div class="strat-tabs"><span class="wrench">&#9874;</span><span class="tab">Race Strategy</span></div>
+    <div class="strat-fore"><b>SESSION FORECAST</b><div id="st-fore"></div></div>
+    <div class="menu" id="m-strat"></div>
+    <div class="strat-foot"><div><small>Race</small><b id="st-track"></b></div><div class="cond" id="st-cond"></div></div>
+  </div>
+  <div class="strat-timer" id="st-timer"></div>
+  <div class="footer-hints"><span>&#8593;&#8595; SELECT</span><span>&#8592;&#8594; EDIT CUSTOM</span><span>ENTER CONFIRM &amp; GO</span></div>
+</section>
+
+<!-- PAUSE -->
+<section id="s-pause" class="screen menu-screen">
+  <div class="menu-shade full dark"></div>
+  <h1 class="gothic">Paused</h1>
+  <div class="panel center-panel narrow"><div class="menu" id="m-pause"></div></div>
+</section>
+
+<!-- RESULTS -->
+<section id="s-results" class="screen menu-screen">
+  <div class="menu-shade full dark"></div>
+  <h1 class="gothic">Race Results</h1>
+  <div class="results-wrap">
+    <div class="panel results-panel"><table id="results-table"></table></div>
+    <div class="panel narrow"><div class="menu" id="m-results"></div></div>
+  </div>
+</section>
+
+<!-- EDITOR -->
+<section id="s-editor" class="screen">
+  <div class="ed-top">
+    <div class="ed-brand gothic">Circuit Designer</div>
+    <input id="ed-name" class="ed-name" spellcheck="false" maxlength="40">
+    <div class="ed-btns">
+      <button data-act="new">New</button>
+      <button data-act="presets">Presets</button>
+      <button data-act="open">Open</button>
+      <button data-act="save">Save</button>
+      <button data-act="export">Export</button>
+      <button data-act="import">Import</button>
+      <span class="sep"></span>
+      <button data-act="undo" title="Ctrl+Z">Undo</button>
+      <button data-act="redo" title="Ctrl+Y">Redo</button>
+      <span class="sep"></span>
+      <button data-act="test" class="hot">Test Drive</button>
+      <button data-act="race" class="hot">Race It</button>
+      <button data-act="exit">Exit</button>
+    </div>
+  </div>
+  <div class="ed-tools" id="ed-tools">
+    <button data-tool="draw" title="Draw (1)"><b>1</b>DRAW</button>
+    <button data-tool="edit" title="Edit nodes (2)"><b>2</b>EDIT</button>
+    <button data-tool="props" title="Props (3)"><b>3</b>PROPS</button>
+    <button data-tool="zones" title="Building zones (4)"><b>4</b>ZONES</button>
+    <button data-tool="paint" title="Paint grass (6)"><b>6</b>PAINT</button>
+    <button data-tool="roads" title="Roads (7)"><b>7</b>ROADS</button>
+    <button data-tool="pan" title="Pan (5)"><b>5</b>PAN</button>
+    <div class="ed-tool-sep"></div>
+    <button data-act="smooth" title="Smooth all nodes">SMOOTH</button>
+    <button data-act="simplify" title="Remove redundant nodes">SIMPLIFY</button>
+    <button data-act="reverse" title="Reverse direction">REVERSE</button>
+    <button data-act="autobank" title="Bank every corner automatically">AUTO BANK</button>
+    <button data-act="flatten" title="Reset all elevation">FLATTEN</button>
+    <button data-act="fit" title="Frame track (F)">FRAME</button>
+    <button data-act="grid" title="Grid snap (G)" id="ed-grid">SNAP</button>
+  </div>
+  <div class="ed-canvas-wrap" id="ed-wrap">
+    <canvas id="ed-canvas"></canvas>
+    <div class="ed-hint" id="ed-hint"></div>
+    <div class="ed-props-palette" id="ed-palette"></div>
+    <div class="ed-scale" id="ed-scale"></div>
+    <div class="ed-attr" id="ed-attr"></div>
+  </div>
+  <div class="ed-side" id="ed-side">
+    <div class="ed-tabs">
+      <button data-tab="node" class="on">NODE</button>
+      <button data-tab="track">CIRCUIT</button>
+      <button data-tab="world">WORLD</button>
+      <button data-tab="map">MAP</button>
+    </div>
+    <div class="ed-tab" id="tab-node"></div>
+    <div class="ed-tab" id="tab-track" hidden></div>
+    <div class="ed-tab" id="tab-world" hidden></div>
+    <div class="ed-tab" id="tab-map" hidden></div>
+    <div class="ed-stats" id="ed-stats"></div>
+  </div>
+  <div class="ed-profile">
+    <div class="ed-profile-label">ELEVATION PROFILE <span>&middot; drag nodes up/down</span></div>
+    <canvas id="ed-profile"></canvas>
+  </div>
+  <div class="ed-modal" id="ed-modal" hidden><div class="ed-modal-box" id="ed-modal-box"></div></div>
+  <div class="ed-toast" id="ed-toast"></div>
+  <input type="file" id="ed-file" accept=".json,application/json" hidden>
+</section>
+
+<div id="fade"></div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

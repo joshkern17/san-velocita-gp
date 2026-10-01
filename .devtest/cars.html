@@ -1,0 +1,31 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Cars</title>
+<style>body{margin:0;background:#223}canvas{display:block}</style>
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script>
+</head><body>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
+const ids = ['aventus','bx300','rmx','testarossa','jsport','rs964','gtr','mustang','m5','transit','hearse'];
+const R = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+R.setSize(1600, 900); R.outputColorSpace = THREE.SRGBColorSpace; document.body.appendChild(R.domElement);
+R.setScissorTest(true);
+const cols = 4, rows = 3, tw = 400, th = 300;
+const ov = document.createElement('canvas'); ov.width = 1600; ov.height = 900; ov.style.cssText = 'position:absolute;left:0;top:0'; document.body.appendChild(ov);
+const ctx = ov.getContext('2d'); ctx.font = 'bold 16px monospace'; ctx.fillStyle = '#ff0';
+for (let i = 0; i < ids.length; i++) {
+  const g = await new GLTFLoader().loadAsync('../models/cars/' + ids[i] + '.glb');
+  const scene = new THREE.Scene(); scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 2)); scene.add(g.scene);
+  // ground grid + axis: red arrow = +Z (front), green = +X (left)
+  scene.add(new THREE.GridHelper(8, 8, 0x888888, 0x555555));
+  scene.add(new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0.02,2.6), 1, 0xff0000));
+  scene.add(new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(1.2,0.02,0), 0.8, 0x00ff00));
+  g.scene.traverse(o => { if (o.isMesh && /Wheel_F/.test(o.name)) o.material = new THREE.MeshBasicMaterial({ color: 0xff00ff }); });
+  const cam = new THREE.PerspectiveCamera(35, tw / th, 0.1, 100);
+  cam.position.set(6, 3.2, 6.5); cam.lookAt(0, 0.5, 0);
+  const x = (i % cols) * tw, y = 900 - (Math.floor(i / cols) + 1) * th;
+  R.setViewport(x, y, tw, th); R.setScissor(x, y, tw, th); R.setClearColor(0x3a4050); R.clear(); R.render(scene, cam);
+  ctx.fillText(ids[i], (i % cols) * tw + 8, Math.floor(i / cols) * th + 20);
+}
+window.done = true;
+</script></body></html>

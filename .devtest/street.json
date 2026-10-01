@@ -1,0 +1,4 @@
+{ "jobs": [
+  { "name": "sday", "theme": "grass", "opts": { "setting": "town", "noRoads": true, "set": { "furniture": 0.8, "litter": 0.7, "life": 1, "streetTrees": 0.3 } }, "shots": 3, "every": 700, "pick": 3 },
+  { "name": "snight", "theme": "city", "time": "night", "opts": { "setting": "city", "noRoads": true, "set": { "furniture": 0.8, "litter": 0.7, "life": 1 } }, "pick": 4, "shots": 2 }
+] }

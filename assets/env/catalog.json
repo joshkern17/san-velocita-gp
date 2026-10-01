@@ -1,0 +1,5779 @@
+{
+ "packs": {
+  "buildings": {
+   "title": "Buildings",
+   "author": "Elbolillo (https://sketchfab.com/Elbolilloduro)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/buildings-53fdd165f327434e9a88873253f710a5"
+  },
+  "buildings__ps1_asset_pack": {
+   "title": "Buildings | PS1 Asset Pack",
+   "author": "McPato (https://sketchfab.com/McPato)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/buildings-ps1-asset-pack-ce7ff457a9d649d886feec1ba955dd48"
+  },
+  "downtown_buildings_set_-_low_poly_model": {
+   "title": "Downtown Buildings Set - Low Poly model",
+   "author": "Daniel Zhabotinsky (https://sketchfab.com/DanielZhabotinsky)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/downtown-buildings-set-low-poly-model-7378e7fb9c914c39880d9913a6f4e1d6"
+  },
+  "industrial_buildings_set_-_low_poly_models": {
+   "title": "Industrial Buildings Set - Low poly models",
+   "author": "Daniel Zhabotinsky (https://sketchfab.com/DanielZhabotinsky)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/industrial-buildings-set-low-poly-models-e0b0d0342be24e6c923319991a2a4d3d"
+  },
+  "street_city_7_for_games_free": {
+   "title": "street city (7) for games FREE",
+   "author": "dasy444 (https://sketchfab.com/dasy444)",
+   "license": "SKETCHFAB Standard (https://sketchfab.com/licenses)",
+   "source": "https://sketchfab.com/3d-models/street-city-7-for-games-free-493a69b451284ff88346c7b3e4e1b5a7"
+  },
+  "street_city_buildings_8": {
+   "title": "street city buildings (8)",
+   "author": "dasy444 (https://sketchfab.com/dasy444)",
+   "license": "SKETCHFAB Standard (https://sketchfab.com/licenses)",
+   "source": "https://sketchfab.com/3d-models/street-city-buildings-8-873c5f14ec464966a11a4d772d187270"
+  },
+  "laundry_props": {
+   "title": "Laundry Props",
+   "author": "Elbolillo (https://sketchfab.com/Elbolilloduro)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/laundry-props-fd3ab2d26dfc48da80a98afa159d84b2"
+  },
+  "casa_abandonada_2": {
+   "title": "Casa Abandonada 2",
+   "author": "Elbolillo (https://sketchfab.com/Elbolilloduro)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/casa-abandonada-2-4693205b30fe48b9ae9e79a70fa946aa"
+  },
+  "psx_abandoned_church": {
+   "title": "PSX Abandoned Church",
+   "author": "IIShazlyII (https://sketchfab.com/iishazlyii)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/psx-abandoned-church-4947e2994961439a914550a436b7d9b0"
+  },
+  "psx_japanese_warehouse": {
+   "title": "PSX Japanese Warehouse",
+   "author": "Shazly (https://sketchfab.com/Shazly)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/psx-japanese-warehouse-eca5946cca97444e9766bc816beb5aa7"
+  },
+  "psx_industrial_pack": {
+   "title": "PSX Industrial Pack",
+   "author": "domi236 (https://sketchfab.com/domi236)",
+   "license": "SKETCHFAB Standard (https://sketchfab.com/licenses)",
+   "source": "https://sketchfab.com/3d-models/psx-industrial-pack-6094b482067b4d48af05028147754cb2"
+  },
+  "city_at_night_low_poly_skyscrapers": {
+   "title": "city at night low poly skyscrapers",
+   "author": "dasy444 (https://sketchfab.com/dasy444)",
+   "license": "SKETCHFAB Standard (https://sketchfab.com/licenses)",
+   "source": "https://sketchfab.com/3d-models/city-at-night-low-poly-skyscrapers-dc1294de66194054961c16aa74fda2cb"
+  },
+  "pine_trees_pack__ps1_low_poly": {
+   "title": "Pine Trees Pack | PS1 Low Poly",
+   "author": "Vova Truestory (https://sketchfab.com/FlowOff)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/pine-trees-pack-ps1-low-poly-347d7f6122af4bf684f752df2dd0eb5a"
+  },
+  "trees_and_bush_pack_lowpoly": {
+   "title": "Trees and bush Pack LOWPOLY",
+   "author": "EFX (https://sketchfab.com/evan4129)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/trees-and-bush-pack-lowpoly-f2a25ee70df440c9ab03d57aba2dc3f2"
+  },
+  "low_poly_vegetation_patch": {
+   "title": "low poly vegetation patch",
+   "author": "ztrztr (https://sketchfab.com/ztrztr3)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/low-poly-vegetation-patch-7ebbe6e318ee459099b3711d7157b69b"
+  },
+  "ultimate_retro_tree_pack": {
+   "title": "Ultimate Retro Tree Pack",
+   "author": "unknown (no licence file in the download)",
+   "license": "see the original download page",
+   "source": ""
+  },
+  "low_poly_forest_tree_pack": {
+   "title": "Low Poly Forest Tree Pack",
+   "author": "99.Miles (https://sketchfab.com/99.Miles)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/low-poly-forest-tree-pack-5ff5a51e74324845a4e4905f182dfb2b"
+  },
+  "psx_birch_tree": {
+   "title": "PSX Birch Tree",
+   "author": "Arimantos (https://sketchfab.com/Arimantos)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/psx-birch-tree-029c523a48054e05b95f1fbd9e987226"
+  },
+  "low-poly_urban_street_props_pack_ps1_style": {
+   "title": "Low-poly Urban Street Props Pack (PS1 Style)",
+   "author": "S1lMoon (https://sketchfab.com/s1lmoon)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/low-poly-urban-street-props-pack-ps1-style-381b65d98a5b4e3886ac2acace7e5c74"
+  },
+  "street_phone": {
+   "title": "Street phone",
+   "author": "Henry VIII (https://sketchfab.com/henryviii)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/street-phone-3d0294a547cb46ba83e16faeba8aaa04"
+  },
+  "vending_machine_psx": {
+   "title": "Vending Machine PSX",
+   "author": "alonsojose12play4 (https://sketchfab.com/alonsojose12play4)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/vending-machine-psx-3af4cef8f4314c53b07c1c807060c46a"
+  },
+  "dumpster": {
+   "title": "Dumpster",
+   "author": "txnomod (https://sketchfab.com/txnomod)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/dumpster-337b3a4424b745699cda776545070e04"
+  },
+  "psx_style_concrete_barriers": {
+   "title": "PSX style concrete barriers",
+   "author": "valse kamerplant (https://sketchfab.com/valsekamerplant)",
+   "license": "SKETCHFAB Standard (https://sketchfab.com/licenses)",
+   "source": "https://sketchfab.com/3d-models/psx-style-concrete-barriers-2bf0913fdbf24805ba7a8f54ff5244b9"
+  },
+  "psx_style_chain_fence": {
+   "title": "psx style chain fence",
+   "author": "mrpeanut (https://sketchfab.com/mrpeanut)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/psx-style-chain-fence-57d3e84f276d46c6b4bab1e502d9a4d5"
+  },
+  "low_poly_street_gameready_6": {
+   "title": "low poly street gameready (6)",
+   "author": "dasy444 (https://sketchfab.com/dasy444)",
+   "license": "SKETCHFAB Standard (https://sketchfab.com/licenses)",
+   "source": "https://sketchfab.com/3d-models/low-poly-street-gameready-6-8070aa74a8724379aaf70008fa33bd6d"
+  },
+  "trash_and_debris": {
+   "title": "Trash and Debris",
+   "author": "mcsteegs (https://sketchfab.com/mcsteegs)",
+   "license": "SKETCHFAB Standard (https://sketchfab.com/licenses)",
+   "source": "https://sketchfab.com/3d-models/trash-and-debris-831a2b9fb9cd413abb5f178e8d3eb3f6"
+  },
+  "taiwan_style_signboard_lowpoly": {
+   "title": "Taiwan style Signboard (lowpoly)",
+   "author": "Solarliu (https://sketchfab.com/jacky15621419)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/taiwan-style-signboard-lowpoly-7eeac0582f7746ffafcdf1091f882a5d"
+  },
+  "pack_japanes_city": {
+   "title": "Pack japanes city",
+   "author": "Denzo082 (https://sketchfab.com/Denzo082)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/pack-japanes-city-0a10a8d14f8c4583839bfaece096e530"
+  },
+  "ford_transit_1999": {
+   "title": "Ford Transit 1999",
+   "author": "LEON elenaisakova248 (https://sketchfab.com/elenaisakova248)",
+   "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+   "source": "https://sketchfab.com/3d-models/ford-transit-1999-eedfac8024df43e88f9d92b1b3686478"
+  }
+ },
+ "assets": [
+  {
+   "cat": "building",
+   "cls": "midrise",
+   "tags": [
+    "town",
+    "city",
+    "downtown"
+   ],
+   "id": "eb_block_03",
+   "pack": "buildings",
+   "w": 23.19,
+   "h": 18.8,
+   "d": 17.15,
+   "tris": 256
+  },
+  {
+   "cat": "building",
+   "cls": "midrise",
+   "tags": [
+    "town",
+    "city",
+    "downtown"
+   ],
+   "id": "eb_block_01",
+   "pack": "buildings",
+   "w": 34.05,
+   "h": 23.55,
+   "d": 19.51,
+   "tris": 162
+  },
+  {
+   "cat": "building",
+   "cls": "midrise",
+   "tags": [
+    "town",
+    "city",
+    "downtown"
+   ],
+   "id": "eb_block_00",
+   "pack": "buildings",
+   "w": 28.18,
+   "h": 19.6,
+   "d": 19.43,
+   "tris": 196
+  },
+  {
+   "cat": "building",
+   "cls": "midrise",
+   "tags": [
+    "town",
+    "city",
+    "downtown"
+   ],
+   "id": "eb_block_02",
+   "pack": "buildings",
+   "w": 40.8,
+   "h": 26.34,
+   "d": 22.88,
+   "tris": 546
+  },
+  {
+   "cat": "building",
+   "cls": "midrise",
+   "tags": [
+    "town",
+    "city",
+    "downtown"
+   ],
+   "id": "eb_block_04",
+   "pack": "buildings",
+   "w": 25.49,
+   "h": 18.56,
+   "d": 18.15,
+   "tris": 162
+  },
+  {
+   "cat": "building",
+   "cls": "shop",
+   "tags": [
+    "town",
+    "city",
+    "downtown"
+   ],
+   "id": "eb_block_09",
+   "pack": "buildings",
+   "w": 16.89,
+   "h": 11.89,
+   "d": 13.86,
+   "tris": 236
+  },
+  {
+   "cat": "building",
+   "cls": "midrise",
+   "tags": [
+    "town",
+    "city",
+    "downtown"
+   ],
+   "id": "eb_block_05",
+   "pack": "buildings",
+   "w": 29.79,
+   "h": 18.82,
+   "d": 19.1,
+   "tris": 360
+  },
+  {
+   "cat": "building",
+   "cls": "shop",
+   "tags": [
+    "town",
+    "city",
+    "downtown"
+   ],
+   "id": "eb_block_07",
+   "pack": "buildings",
+   "w": 24.88,
+   "h": 14.8,
+   "d": 16.24,
+   "tris": 220
+  },
+  {
+   "cat": "building",
+   "cls": "shop",
+   "tags": [
+    "town",
+    "city",
+    "downtown"
+   ],
+   "id": "eb_block_08",
+   "pack": "buildings",
+   "w": 15.52,
+   "h": 12.97,
+   "d": 13.95,
+   "tris": 126
+  },
+  {
+   "cat": "building",
+   "cls": "midrise",
+   "tags": [
+    "town",
+    "city",
+    "downtown"
+   ],
+   "id": "eb_block_06",
+   "pack": "buildings",
+   "w": 33.45,
+   "h": 14.47,
+   "d": 18.67,
+   "tris": 204
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "town",
+    "city",
+    "suburb"
+   ],
+   "id": "mp_condo_a",
+   "cls": "midrise",
+   "pack": "buildings__ps1_asset_pack",
+   "w": 16.03,
+   "h": 20.62,
+   "d": 35.59,
+   "tris": 555
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "town",
+    "city",
+    "suburb"
+   ],
+   "id": "mp_condo_b",
+   "cls": "midrise",
+   "pack": "buildings__ps1_asset_pack",
+   "w": 24.03,
+   "h": 22.42,
+   "d": 35.59,
+   "tris": 867
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "town",
+    "city",
+    "suburb"
+   ],
+   "id": "mp_condo_c",
+   "cls": "midrise",
+   "pack": "buildings__ps1_asset_pack",
+   "w": 16.03,
+   "h": 20.62,
+   "d": 35.59,
+   "tris": 555
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "town",
+    "city",
+    "suburb"
+   ],
+   "id": "mp_condo_d",
+   "cls": "midrise",
+   "pack": "buildings__ps1_asset_pack",
+   "w": 24.03,
+   "h": 22.42,
+   "d": 35.59,
+   "tris": 867
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "town",
+    "city",
+    "suburb"
+   ],
+   "id": "mp_condo_small",
+   "cls": "midrise",
+   "pack": "buildings__ps1_asset_pack",
+   "w": 8.88,
+   "h": 13.2,
+   "d": 15.49,
+   "tris": 960
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown",
+    "town"
+   ],
+   "id": "mp_hotel",
+   "cls": "midrise",
+   "pack": "buildings__ps1_asset_pack",
+   "w": 30.31,
+   "h": 30.01,
+   "d": 27.37,
+   "tris": 5034
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "town",
+    "city",
+    "suburb"
+   ],
+   "id": "mp_restaurant",
+   "cls": "kiosk",
+   "pack": "buildings__ps1_asset_pack",
+   "w": 6,
+   "h": 4.21,
+   "d": 7.5,
+   "tris": 804
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "town",
+    "city",
+    "suburb"
+   ],
+   "id": "mp_polleria",
+   "cls": "shop",
+   "pack": "buildings__ps1_asset_pack",
+   "w": 14.1,
+   "h": 13.05,
+   "d": 17.15,
+   "tris": 748
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "town",
+    "city",
+    "suburb"
+   ],
+   "id": "mp_bar",
+   "cls": "shop",
+   "pack": "buildings__ps1_asset_pack",
+   "w": 10.88,
+   "h": 7.04,
+   "d": 14.26,
+   "tris": 476
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "town",
+    "city",
+    "suburb"
+   ],
+   "id": "mp_pizzeria",
+   "cls": "shop",
+   "pack": "buildings__ps1_asset_pack",
+   "w": 11.48,
+   "h": 5.87,
+   "d": 11.33,
+   "tris": 718
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "town",
+    "city",
+    "suburb"
+   ],
+   "id": "mp_kiosk",
+   "cls": "kiosk",
+   "pack": "buildings__ps1_asset_pack",
+   "w": 5.7,
+   "h": 4,
+   "d": 6.3,
+   "tris": 578
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "town",
+    "city",
+    "suburb"
+   ],
+   "id": "mp_pharmacy",
+   "cls": "shop",
+   "pack": "buildings__ps1_asset_pack",
+   "w": 10.2,
+   "h": 5,
+   "d": 10.07,
+   "tris": 474
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "town",
+    "city",
+    "suburb"
+   ],
+   "id": "mp_burger",
+   "cls": "shop",
+   "pack": "buildings__ps1_asset_pack",
+   "w": 12.05,
+   "h": 6.2,
+   "d": 18.91,
+   "tris": 442
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "town",
+    "city",
+    "suburb"
+   ],
+   "id": "mp_corner_shop",
+   "cls": "kiosk",
+   "pack": "buildings__ps1_asset_pack",
+   "w": 8.14,
+   "h": 4,
+   "d": 8.04,
+   "tris": 1016
+  },
+  {
+   "cat": "lamp",
+   "cls": "street",
+   "tags": [
+    "town",
+    "city",
+    "suburb",
+    "downtown"
+   ],
+   "id": "mp_lamp",
+   "pack": "buildings__ps1_asset_pack",
+   "w": 0.33,
+   "h": 9.74,
+   "d": 1.42,
+   "tris": 476
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown",
+    "town"
+   ],
+   "id": "dt_brownstone_a",
+   "cls": "midrise",
+   "pack": "downtown_buildings_set_-_low_poly_model",
+   "w": 52.98,
+   "h": 24.71,
+   "d": 19.35,
+   "tris": 3086
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown",
+    "town"
+   ],
+   "id": "dt_brownstone_b",
+   "cls": "midrise",
+   "pack": "downtown_buildings_set_-_low_poly_model",
+   "w": 14.72,
+   "h": 26.25,
+   "d": 39.83,
+   "tris": 3261
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "dt_classic",
+   "cls": "highrise",
+   "pack": "downtown_buildings_set_-_low_poly_model",
+   "w": 38.81,
+   "h": 44.86,
+   "d": 31.56,
+   "tris": 2758
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "dt_flatiron",
+   "cls": "tower",
+   "w": 56.53,
+   "pack": "downtown_buildings_set_-_low_poly_model",
+   "h": 85.89,
+   "d": 40.59,
+   "tris": 15328
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "dt_mall",
+   "cls": "midrise",
+   "pack": "downtown_buildings_set_-_low_poly_model",
+   "w": 31.67,
+   "h": 17.74,
+   "d": 31.59,
+   "tris": 1437
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "dt_modern_2",
+   "cls": "midrise",
+   "pack": "downtown_buildings_set_-_low_poly_model",
+   "w": 10,
+   "h": 21.24,
+   "d": 21.45,
+   "tris": 825
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "dt_modern_3",
+   "cls": "midrise",
+   "pack": "downtown_buildings_set_-_low_poly_model",
+   "w": 13.31,
+   "h": 18.39,
+   "d": 23.03,
+   "tris": 466
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "dt_modern_4",
+   "cls": "tower",
+   "pack": "downtown_buildings_set_-_low_poly_model",
+   "w": 38.72,
+   "h": 80.74,
+   "d": 38.86,
+   "tris": 1900
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "dt_modern_5",
+   "cls": "tower",
+   "pack": "downtown_buildings_set_-_low_poly_model",
+   "w": 35.7,
+   "h": 102.26,
+   "d": 35.7,
+   "tris": 2080
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "dt_modern_5b",
+   "cls": "highrise",
+   "pack": "downtown_buildings_set_-_low_poly_model",
+   "w": 35.7,
+   "h": 55.86,
+   "d": 35.7,
+   "tris": 1376
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "dt_public",
+   "cls": "midrise",
+   "pack": "downtown_buildings_set_-_low_poly_model",
+   "w": 35.18,
+   "h": 25.78,
+   "d": 35.18,
+   "tris": 838
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown",
+    "town"
+   ],
+   "id": "dt_resi_2",
+   "cls": "midrise",
+   "pack": "downtown_buildings_set_-_low_poly_model",
+   "w": 31.62,
+   "h": 29.88,
+   "d": 31.62,
+   "tris": 1369
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown",
+    "town"
+   ],
+   "id": "dt_resi_3",
+   "cls": "midrise",
+   "pack": "downtown_buildings_set_-_low_poly_model",
+   "w": 36.95,
+   "h": 27.88,
+   "d": 36.95,
+   "tris": 1682
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown",
+    "town"
+   ],
+   "id": "dt_resi_4",
+   "cls": "midrise",
+   "pack": "downtown_buildings_set_-_low_poly_model",
+   "w": 36.95,
+   "h": 27.88,
+   "d": 36.95,
+   "tris": 1698
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "dt_brutal",
+   "cls": "midrise",
+   "pack": "downtown_buildings_set_-_low_poly_model",
+   "w": 39.22,
+   "h": 21.89,
+   "d": 38.69,
+   "tris": 3216
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "dt_modern_1",
+   "cls": "highrise",
+   "pack": "downtown_buildings_set_-_low_poly_model",
+   "w": 26.18,
+   "h": 37.07,
+   "d": 23.51,
+   "tris": 689
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "dt_modern_1b",
+   "cls": "highrise",
+   "pack": "downtown_buildings_set_-_low_poly_model",
+   "w": 26.18,
+   "h": 64.44,
+   "d": 23.51,
+   "tris": 1133
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "dt_artdeco",
+   "cls": "highrise",
+   "pack": "downtown_buildings_set_-_low_poly_model",
+   "w": 18.02,
+   "h": 45.07,
+   "d": 31.35,
+   "tris": 2418
+  },
+  {
+   "cat": "building",
+   "cls": "industrial",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_building_1",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 27.02,
+   "h": 16.63,
+   "d": 47.54,
+   "tris": 1986
+  },
+  {
+   "cat": "building",
+   "cls": "industrial",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_building_10",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 43.5,
+   "h": 25.83,
+   "d": 83.27,
+   "tris": 2420
+  },
+  {
+   "cat": "building",
+   "cls": "industrial",
+   "tags": [
+    "industrial",
+    "docks",
+    "town"
+   ],
+   "id": "in_duplex",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 20.89,
+   "h": 8.76,
+   "d": 9.47,
+   "tris": 268
+  },
+  {
+   "cat": "building",
+   "cls": "warehouse",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_factory_1",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 46.53,
+   "h": 24.73,
+   "d": 95.3,
+   "tris": 3647
+  },
+  {
+   "cat": "building",
+   "cls": "warehouse",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_factory_2",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 33,
+   "h": 18.27,
+   "d": 135.8,
+   "tris": 864
+  },
+  {
+   "cat": "building",
+   "cls": "kiosk",
+   "tags": [
+    "industrial",
+    "docks",
+    "country"
+   ],
+   "id": "in_hut_2",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 4.9,
+   "h": 3.93,
+   "d": 4.62,
+   "tris": 162
+  },
+  {
+   "cat": "building",
+   "cls": "kiosk",
+   "tags": [
+    "industrial",
+    "docks",
+    "country"
+   ],
+   "id": "in_hut_3",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 7.88,
+   "h": 4.29,
+   "d": 9.97,
+   "tris": 149
+  },
+  {
+   "cat": "building",
+   "cls": "warehouse",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_long_4",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 35.14,
+   "h": 5.88,
+   "d": 14.97,
+   "tris": 678
+  },
+  {
+   "cat": "building",
+   "cls": "warehouse",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_hangar",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 49.78,
+   "h": 12.89,
+   "d": 59.96,
+   "tris": 1134
+  },
+  {
+   "cat": "building",
+   "cls": "warehouse",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_terminal",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 53.43,
+   "h": 7.88,
+   "d": 15.84,
+   "tris": 844
+  },
+  {
+   "cat": "building",
+   "cls": "kiosk",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_trailer",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 11.28,
+   "h": 3.93,
+   "d": 5.8,
+   "tris": 188
+  },
+  {
+   "cat": "building",
+   "cls": "warehouse",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_shed",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 14.85,
+   "h": 9.75,
+   "d": 27.77,
+   "tris": 720
+  },
+  {
+   "cat": "building",
+   "cls": "industrial",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_plant_1",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 18.34,
+   "h": 15.04,
+   "d": 11.81,
+   "tris": 888
+  },
+  {
+   "cat": "building",
+   "cls": "industrial",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_plant_2",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 28.68,
+   "h": 9.71,
+   "d": 12.21,
+   "tris": 1638
+  },
+  {
+   "cat": "building",
+   "cls": "warehouse",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_warehouse_1",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 33.83,
+   "h": 11.12,
+   "d": 13.36,
+   "tris": 366
+  },
+  {
+   "cat": "building",
+   "cls": "warehouse",
+   "tags": [
+    "industrial",
+    "docks",
+    "country"
+   ],
+   "id": "in_warehouse_3",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 24.44,
+   "h": 12.49,
+   "d": 25.22,
+   "tris": 302
+  },
+  {
+   "cat": "building",
+   "cls": "warehouse",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_warehouse_4",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 42.08,
+   "h": 9.38,
+   "d": 13.59,
+   "tris": 344
+  },
+  {
+   "cat": "building",
+   "cls": "warehouse",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_warehouse_5",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 33,
+   "h": 11.68,
+   "d": 54.94,
+   "tris": 1440
+  },
+  {
+   "cat": "building",
+   "cls": "kiosk",
+   "tags": [
+    "industrial",
+    "docks",
+    "country"
+   ],
+   "id": "in_warehouse_small",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 7.48,
+   "h": 5.04,
+   "d": 10.46,
+   "tris": 185
+  },
+  {
+   "cat": "landmark",
+   "tags": [
+    "docks"
+   ],
+   "id": "in_crane",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 9.43,
+   "h": 18.6,
+   "d": 20.95,
+   "tris": 2558
+  },
+  {
+   "cat": "landmark",
+   "tags": [
+    "industrial",
+    "country",
+    "town"
+   ],
+   "id": "in_radio",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 4.65,
+   "h": 24.06,
+   "d": 4.31,
+   "tris": 1894
+  },
+  {
+   "cat": "landmark",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_tank_1",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 17.74,
+   "h": 15.22,
+   "d": 17.79,
+   "tris": 404
+  },
+  {
+   "cat": "landmark",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_tank_2",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 19.78,
+   "h": 17.14,
+   "d": 19.78,
+   "tris": 1536
+  },
+  {
+   "cat": "landmark",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_substation",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 11.8,
+   "h": 4.23,
+   "d": 4.43,
+   "tris": 988
+  },
+  {
+   "cat": "landmark",
+   "tags": [
+    "industrial",
+    "country",
+    "town"
+   ],
+   "id": "in_watertower",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 9.79,
+   "h": 24.26,
+   "d": 9.75,
+   "tris": 586
+  },
+  {
+   "cat": "landmark",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_powerplant",
+   "w": 99.29,
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "h": 89.08,
+   "d": 191.09,
+   "tris": 3058
+  },
+  {
+   "cat": "landmark",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_chimney_5",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 4.66,
+   "h": 19.02,
+   "d": 4.68,
+   "tris": 424
+  },
+  {
+   "cat": "landmark",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_chimney_4",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 4.58,
+   "h": 18.65,
+   "d": 4.6,
+   "tris": 492
+  },
+  {
+   "cat": "landmark",
+   "tags": [
+    "industrial",
+    "country"
+   ],
+   "id": "in_silo",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 3.05,
+   "h": 8.9,
+   "d": 3.19,
+   "tris": 231
+  },
+  {
+   "cat": "landmark",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "in_tank_3",
+   "pack": "industrial_buildings_set_-_low_poly_models",
+   "w": 5.96,
+   "h": 7.32,
+   "d": 6.75,
+   "tris": 232
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_3",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 11.43,
+   "h": 11.51,
+   "d": 11.68,
+   "tris": 1110
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_5",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 14.49,
+   "h": 11.25,
+   "d": 14.22,
+   "tris": 2490
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_8",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 12.95,
+   "h": 8,
+   "d": 13.49,
+   "tris": 626
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_11",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 14.22,
+   "h": 11.25,
+   "d": 14.49,
+   "tris": 2490
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_14",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 15.92,
+   "h": 11.51,
+   "d": 16.03,
+   "tris": 1110
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_16",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 18.12,
+   "h": 8,
+   "d": 18.38,
+   "tris": 626
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_19",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 18.64,
+   "h": 11.25,
+   "d": 18.79,
+   "tris": 2490
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_22",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 16.05,
+   "h": 11.51,
+   "d": 15.95,
+   "tris": 1110
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_24",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 11.68,
+   "h": 11.51,
+   "d": 11.43,
+   "tris": 1110
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_26",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 13.49,
+   "h": 8,
+   "d": 12.95,
+   "tris": 626
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_29",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 20.23,
+   "h": 11.25,
+   "d": 20.19,
+   "tris": 2490
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_41",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 13.61,
+   "h": 8,
+   "d": 13.08,
+   "tris": 626
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_84",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 11.54,
+   "h": 11.52,
+   "d": 12.88,
+   "tris": 5972
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_87",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 6.63,
+   "h": 8.17,
+   "d": 7.37,
+   "tris": 862
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_91",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 10.25,
+   "h": 11.2,
+   "d": 11.85,
+   "tris": 1110
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_100",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 7.08,
+   "h": 10.66,
+   "d": 10.31,
+   "tris": 1117
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_102",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 12.88,
+   "h": 11.52,
+   "d": 11.54,
+   "tris": 5972
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_105",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 7.37,
+   "h": 8.17,
+   "d": 6.63,
+   "tris": 862
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_107",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 14.49,
+   "h": 11.2,
+   "d": 15.15,
+   "tris": 1110
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_110",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 10.31,
+   "h": 10.66,
+   "d": 7.08,
+   "tris": 1117
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_117",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 11.79,
+   "h": 7.69,
+   "d": 11.54,
+   "tris": 3882
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_123",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 5.49,
+   "h": 7.69,
+   "d": 11.54,
+   "tris": 3884
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_132",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 13.07,
+   "h": 11.52,
+   "d": 11.72,
+   "tris": 5972
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_135",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 9.7,
+   "h": 8.17,
+   "d": 9.86,
+   "tris": 862
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_137",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 11.85,
+   "h": 11.2,
+   "d": 10.25,
+   "tris": 1110
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_140",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 10.74,
+   "h": 10.66,
+   "d": 12.19,
+   "tris": 1117
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_145",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 16.04,
+   "h": 11.52,
+   "d": 14.96,
+   "tris": 5972
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "town"
+   ],
+   "id": "sc_block_148",
+   "cls": "shop",
+   "pack": "street_city_7_for_games_free",
+   "w": 15.48,
+   "h": 11.52,
+   "d": 16.18,
+   "tris": 5972
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "sc_panel_32",
+   "cls": "highrise",
+   "pack": "street_city_7_for_games_free",
+   "w": 36.64,
+   "h": 36.57,
+   "d": 41.03,
+   "tris": 80
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "sc_panel_35",
+   "cls": "highrise",
+   "pack": "street_city_7_for_games_free",
+   "w": 40.42,
+   "h": 36.57,
+   "d": 25.58,
+   "tris": 80
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "sc_panel_38",
+   "cls": "highrise",
+   "pack": "street_city_7_for_games_free",
+   "w": 22.61,
+   "h": 36.57,
+   "d": 37.72,
+   "tris": 80
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "sc_panel_53",
+   "cls": "highrise",
+   "pack": "street_city_7_for_games_free",
+   "w": 37.54,
+   "h": 36.57,
+   "d": 40.64,
+   "tris": 80
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "sc_panel_151",
+   "cls": "highrise",
+   "pack": "street_city_7_for_games_free",
+   "w": 19.03,
+   "h": 55.83,
+   "d": 46.91,
+   "tris": 56
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "sc_panel_153",
+   "cls": "highrise",
+   "pack": "street_city_7_for_games_free",
+   "w": 47.29,
+   "h": 55.83,
+   "d": 43.7,
+   "tris": 56
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "sc_panel_155",
+   "cls": "highrise",
+   "pack": "street_city_7_for_games_free",
+   "w": 46.73,
+   "h": 55.83,
+   "d": 44.49,
+   "tris": 56
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "city",
+    "downtown"
+   ],
+   "id": "sc_panel_157",
+   "cls": "highrise",
+   "pack": "street_city_7_for_games_free",
+   "w": 49.57,
+   "h": 55.83,
+   "d": 37.81,
+   "tris": 56
+  },
+  {
+   "cat": "prop",
+   "cls": "bin",
+   "tags": [
+    "city",
+    "town",
+    "suburb",
+    "downtown"
+   ],
+   "id": "sc_bin",
+   "pack": "street_city_7_for_games_free",
+   "w": 0.73,
+   "h": 0.88,
+   "d": 0.73,
+   "tris": 212
+  },
+  {
+   "cat": "lamp",
+   "cls": "street",
+   "tags": [
+    "city",
+    "town",
+    "downtown",
+    "industrial"
+   ],
+   "id": "sc_lamp",
+   "pack": "street_city_7_for_games_free",
+   "w": 1.86,
+   "h": 5.88,
+   "d": 0.92,
+   "tris": 368
+  },
+  {
+   "cat": "building",
+   "cls": "highrise",
+   "tags": [
+    "city",
+    "industrial"
+   ],
+   "id": "pb_block_3",
+   "pack": "street_city_buildings_8",
+   "w": 42.42,
+   "h": 29.76,
+   "d": 18.15,
+   "tris": 6815
+  },
+  {
+   "cat": "building",
+   "cls": "highrise",
+   "tags": [
+    "city",
+    "industrial"
+   ],
+   "id": "pb_block_7",
+   "pack": "street_city_buildings_8",
+   "w": 18.15,
+   "h": 29.76,
+   "d": 42.42,
+   "tris": 6805
+  },
+  {
+   "cat": "building",
+   "cls": "highrise",
+   "tags": [
+    "city",
+    "industrial"
+   ],
+   "id": "pb_block_11",
+   "pack": "street_city_buildings_8",
+   "w": 10.32,
+   "h": 26.55,
+   "d": 21.93,
+   "tris": 2153
+  },
+  {
+   "cat": "building",
+   "cls": "highrise",
+   "tags": [
+    "city",
+    "industrial"
+   ],
+   "id": "pb_block_19",
+   "pack": "street_city_buildings_8",
+   "w": 21.93,
+   "h": 26.55,
+   "d": 10.32,
+   "tris": 2080
+  },
+  {
+   "cat": "building",
+   "cls": "highrise",
+   "tags": [
+    "city",
+    "industrial"
+   ],
+   "id": "pb_block_59",
+   "pack": "street_city_buildings_8",
+   "w": 22.87,
+   "h": 26.55,
+   "d": 12.54,
+   "tris": 2111
+  },
+  {
+   "cat": "building",
+   "cls": "highrise",
+   "tags": [
+    "city",
+    "industrial"
+   ],
+   "id": "pb_block_63",
+   "pack": "street_city_buildings_8",
+   "w": 21.06,
+   "h": 26.55,
+   "d": 19.63,
+   "tris": 2109
+  },
+  {
+   "cat": "building",
+   "cls": "highrise",
+   "tags": [
+    "city",
+    "industrial"
+   ],
+   "id": "pb_block_71",
+   "pack": "street_city_buildings_8",
+   "w": 39.95,
+   "h": 29.76,
+   "d": 40.33,
+   "tris": 6811
+  },
+  {
+   "cat": "building",
+   "cls": "midrise",
+   "tags": [
+    "city",
+    "industrial"
+   ],
+   "id": "pb_slab_79",
+   "pack": "street_city_buildings_8",
+   "w": 33.23,
+   "h": 39.05,
+   "d": 16.66,
+   "tris": 323
+  },
+  {
+   "cat": "building",
+   "cls": "midrise",
+   "tags": [
+    "city",
+    "industrial"
+   ],
+   "id": "pb_slab_81",
+   "pack": "street_city_buildings_8",
+   "w": 39.11,
+   "h": 26.03,
+   "d": 16.87,
+   "tris": 206
+  },
+  {
+   "cat": "building",
+   "cls": "midrise",
+   "tags": [
+    "city",
+    "industrial"
+   ],
+   "id": "pb_slab_89",
+   "pack": "street_city_buildings_8",
+   "w": 16.87,
+   "h": 26.03,
+   "d": 39.11,
+   "tris": 205
+  },
+  {
+   "cat": "building",
+   "cls": "midrise",
+   "tags": [
+    "city",
+    "industrial"
+   ],
+   "id": "pb_slab_105",
+   "pack": "street_city_buildings_8",
+   "w": 32.66,
+   "h": 39.05,
+   "d": 21.39,
+   "tris": 324
+  },
+  {
+   "cat": "building",
+   "cls": "midrise",
+   "tags": [
+    "city",
+    "industrial"
+   ],
+   "id": "pb_slab_109",
+   "pack": "street_city_buildings_8",
+   "w": 61.16,
+   "h": 91.05,
+   "d": 56.88,
+   "tris": 12
+  },
+  {
+   "cat": "building",
+   "cls": "shop",
+   "tags": [
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "lp_shops_a",
+   "pack": "laundry_props",
+   "w": 20.78,
+   "h": 6.08,
+   "d": 29.27,
+   "tris": 12
+  },
+  {
+   "cat": "building",
+   "cls": "shop",
+   "tags": [
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "lp_shops_b",
+   "pack": "laundry_props",
+   "w": 20.04,
+   "h": 5.86,
+   "d": 28.22,
+   "tris": 20
+  },
+  {
+   "cat": "building",
+   "cls": "shop",
+   "tags": [
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "lp_shops_c",
+   "pack": "laundry_props",
+   "w": 12.35,
+   "h": 4.8,
+   "d": 38.48,
+   "tris": 20
+  },
+  {
+   "cat": "building",
+   "cls": "house",
+   "tags": [
+    "town",
+    "suburb",
+    "country"
+   ],
+   "id": "lp_house",
+   "pack": "laundry_props",
+   "w": 14.04,
+   "h": 4.97,
+   "d": 14.51,
+   "tris": 20
+  },
+  {
+   "cat": "building",
+   "cls": "midrise",
+   "tags": [
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "lp_shops_e",
+   "pack": "laundry_props",
+   "w": 22.72,
+   "h": 8.65,
+   "d": 35.58,
+   "tris": 12
+  },
+  {
+   "cat": "building",
+   "cls": "kiosk",
+   "tags": [
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "lp_laundromat",
+   "pack": "laundry_props",
+   "w": 12.31,
+   "h": 5.08,
+   "d": 16.69,
+   "tris": 243
+  },
+  {
+   "cat": "tree",
+   "cls": "thin",
+   "tags": [
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "lp_tree_a",
+   "pack": "laundry_props",
+   "w": 6.88,
+   "h": 14.15,
+   "d": 6.88,
+   "tris": 13
+  },
+  {
+   "cat": "tree",
+   "cls": "thin",
+   "tags": [
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "lp_tree_b",
+   "pack": "laundry_props",
+   "w": 4.57,
+   "h": 13.32,
+   "d": 4.57,
+   "tris": 13
+  },
+  {
+   "cat": "tree",
+   "cls": "thin",
+   "tags": [
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "lp_tree_c",
+   "pack": "laundry_props",
+   "w": 4.08,
+   "h": 12.29,
+   "d": 4.02,
+   "tris": 13
+  },
+  {
+   "cat": "bush",
+   "tags": [
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "lp_shrub",
+   "pack": "laundry_props",
+   "w": 4.29,
+   "h": 2.55,
+   "d": 3.95,
+   "tris": 48
+  },
+  {
+   "cat": "bush",
+   "tags": [
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "lp_flowers",
+   "pack": "laundry_props",
+   "w": 3.32,
+   "h": 2,
+   "d": 4.12,
+   "tris": 48
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "lp_vending",
+   "cls": "vending",
+   "pack": "laundry_props",
+   "w": 1.3,
+   "h": 2.38,
+   "d": 0.76,
+   "tris": 12
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "lp_bin",
+   "cls": "bin",
+   "pack": "laundry_props",
+   "w": 0.62,
+   "h": 0.78,
+   "d": 0.63,
+   "tris": 52
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "lp_bag_a",
+   "cls": "bags",
+   "pack": "laundry_props",
+   "w": 0.55,
+   "h": 0.52,
+   "d": 0.48,
+   "tris": 49
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "lp_bag_b",
+   "cls": "bags",
+   "pack": "laundry_props",
+   "w": 0.48,
+   "h": 0.44,
+   "d": 0.47,
+   "tris": 49
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "lp_bag_c",
+   "cls": "bags",
+   "pack": "laundry_props",
+   "w": 0.47,
+   "h": 0.41,
+   "d": 0.38,
+   "tris": 49
+  },
+  {
+   "cat": "lamp",
+   "cls": "street",
+   "tags": [
+    "town",
+    "suburb"
+   ],
+   "id": "lp_lamp",
+   "pack": "laundry_props",
+   "w": 2.9,
+   "h": 8.64,
+   "d": 0.34,
+   "tris": 153
+  },
+  {
+   "cat": "building",
+   "cls": "house",
+   "tags": [
+    "town",
+    "suburb",
+    "country",
+    "desert"
+   ],
+   "id": "casa_house",
+   "pack": "casa_abandonada_2",
+   "w": 7.19,
+   "h": 8.94,
+   "d": 12.53,
+   "tris": 1296
+  },
+  {
+   "cat": "landmark",
+   "tags": [
+    "town",
+    "country",
+    "forest",
+    "desert"
+   ],
+   "id": "church",
+   "pack": "psx_abandoned_church",
+   "w": 8.76,
+   "h": 15.52,
+   "d": 16.46,
+   "tris": 441
+  },
+  {
+   "cat": "building",
+   "cls": "warehouse",
+   "tags": [
+    "industrial",
+    "docks",
+    "japan",
+    "country"
+   ],
+   "id": "jp_warehouse",
+   "pack": "psx_japanese_warehouse",
+   "w": 17.59,
+   "h": 5.87,
+   "d": 12.77,
+   "tris": 540
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "industrial",
+    "docks",
+    "country"
+   ],
+   "id": "pi_garage",
+   "cls": "warehouse",
+   "pack": "psx_industrial_pack",
+   "w": 17.01,
+   "h": 11.55,
+   "d": 24.99,
+   "tris": 314
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "industrial",
+    "docks",
+    "country"
+   ],
+   "id": "pi_workshop",
+   "cls": "warehouse",
+   "pack": "psx_industrial_pack",
+   "w": 27.95,
+   "h": 17.17,
+   "d": 30.3,
+   "tris": 504
+  },
+  {
+   "cat": "building",
+   "tags": [
+    "industrial",
+    "docks",
+    "country"
+   ],
+   "id": "pi_shed",
+   "cls": "warehouse",
+   "pack": "psx_industrial_pack",
+   "w": 29.72,
+   "h": 10.19,
+   "d": 19.19,
+   "tris": 262
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "pi_container",
+   "cls": "container",
+   "pack": "psx_industrial_pack",
+   "w": 5.14,
+   "h": 4.57,
+   "d": 12.91,
+   "tris": 12
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "pi_skip_a",
+   "cls": "dumpster",
+   "pack": "psx_industrial_pack",
+   "w": 5.14,
+   "h": 4.57,
+   "d": 12.91,
+   "tris": 28
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "industrial",
+    "docks"
+   ],
+   "id": "pi_skip_b",
+   "cls": "dumpster",
+   "pack": "psx_industrial_pack",
+   "w": 5.15,
+   "h": 4.57,
+   "d": 12.91,
+   "tris": 168
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "industrial",
+    "docks",
+    "city",
+    "town"
+   ],
+   "id": "pi_panel",
+   "cls": "panel",
+   "pack": "psx_industrial_pack",
+   "w": 0.95,
+   "h": 3.02,
+   "d": 1.54,
+   "tris": 12
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "industrial",
+    "city",
+    "town"
+   ],
+   "id": "pi_ac",
+   "cls": "ac",
+   "pack": "psx_industrial_pack",
+   "w": 0.79,
+   "h": 1.95,
+   "d": 1.49,
+   "tris": 64
+  },
+  {
+   "cat": "landmark",
+   "tags": [
+    "industrial",
+    "docks",
+    "country"
+   ],
+   "id": "pi_silo",
+   "pack": "psx_industrial_pack",
+   "w": 8.84,
+   "h": 19.47,
+   "d": 8.78,
+   "tris": 666
+  },
+  {
+   "cat": "skyline",
+   "tags": [
+    "city",
+    "downtown",
+    "night"
+   ],
+   "id": "ns_tower_3",
+   "pack": "city_at_night_low_poly_skyscrapers",
+   "w": 29.08,
+   "h": 69.02,
+   "d": 29.08,
+   "tris": 80
+  },
+  {
+   "cat": "skyline",
+   "tags": [
+    "city",
+    "downtown",
+    "night"
+   ],
+   "id": "ns_tower_6",
+   "pack": "city_at_night_low_poly_skyscrapers",
+   "w": 25.61,
+   "h": 102.56,
+   "d": 18.51,
+   "tris": 304
+  },
+  {
+   "cat": "skyline",
+   "tags": [
+    "city",
+    "downtown",
+    "night"
+   ],
+   "id": "ns_tower_9",
+   "pack": "city_at_night_low_poly_skyscrapers",
+   "w": 19.09,
+   "h": 82.11,
+   "d": 19.09,
+   "tris": 28
+  },
+  {
+   "cat": "skyline",
+   "tags": [
+    "city",
+    "downtown",
+    "night"
+   ],
+   "id": "ns_tower_12",
+   "pack": "city_at_night_low_poly_skyscrapers",
+   "w": 25.12,
+   "h": 102.56,
+   "d": 16.7,
+   "tris": 304
+  },
+  {
+   "cat": "skyline",
+   "tags": [
+    "city",
+    "downtown",
+    "night"
+   ],
+   "id": "ns_tower_15",
+   "pack": "city_at_night_low_poly_skyscrapers",
+   "w": 19.52,
+   "h": 68.51,
+   "d": 19.52,
+   "tris": 16
+  },
+  {
+   "cat": "skyline",
+   "tags": [
+    "city",
+    "downtown",
+    "night"
+   ],
+   "id": "ns_tower_17",
+   "pack": "city_at_night_low_poly_skyscrapers",
+   "w": 15.01,
+   "h": 47.56,
+   "d": 15.01,
+   "tris": 44
+  },
+  {
+   "cat": "skyline",
+   "tags": [
+    "city",
+    "downtown",
+    "night"
+   ],
+   "id": "ns_tower_19",
+   "pack": "city_at_night_low_poly_skyscrapers",
+   "w": 14.75,
+   "h": 101.83,
+   "d": 14.75,
+   "tris": 16
+  },
+  {
+   "cat": "skyline",
+   "tags": [
+    "city",
+    "downtown",
+    "night"
+   ],
+   "id": "ns_tower_21",
+   "pack": "city_at_night_low_poly_skyscrapers",
+   "w": 21.99,
+   "h": 105.72,
+   "d": 21.99,
+   "tris": 80
+  },
+  {
+   "cat": "skyline",
+   "tags": [
+    "city",
+    "downtown",
+    "night"
+   ],
+   "id": "ns_tower_24",
+   "pack": "city_at_night_low_poly_skyscrapers",
+   "w": 25.63,
+   "h": 64.97,
+   "d": 25.63,
+   "tris": 28
+  },
+  {
+   "cat": "skyline",
+   "tags": [
+    "city",
+    "downtown",
+    "night"
+   ],
+   "id": "ns_block_27",
+   "pack": "city_at_night_low_poly_skyscrapers",
+   "w": 16.74,
+   "h": 13.33,
+   "d": 4.56,
+   "tris": 20
+  },
+  {
+   "cat": "skyline",
+   "tags": [
+    "city",
+    "downtown",
+    "night"
+   ],
+   "id": "ns_block_29",
+   "pack": "city_at_night_low_poly_skyscrapers",
+   "w": 11.74,
+   "h": 17.2,
+   "d": 9.01,
+   "tris": 36
+  },
+  {
+   "cat": "skyline",
+   "tags": [
+    "city",
+    "downtown",
+    "night"
+   ],
+   "id": "ns_block_31",
+   "pack": "city_at_night_low_poly_skyscrapers",
+   "w": 10.41,
+   "h": 20.86,
+   "d": 11,
+   "tris": 20
+  },
+  {
+   "cat": "skyline",
+   "tags": [
+    "city",
+    "downtown",
+    "night"
+   ],
+   "id": "ns_block_33",
+   "pack": "city_at_night_low_poly_skyscrapers",
+   "w": 7.41,
+   "h": 15.5,
+   "d": 8.35,
+   "tris": 20
+  },
+  {
+   "cat": "skyline",
+   "tags": [
+    "city",
+    "downtown",
+    "night"
+   ],
+   "id": "ns_block_35",
+   "pack": "city_at_night_low_poly_skyscrapers",
+   "w": 7.76,
+   "h": 13.51,
+   "d": 9.74,
+   "tris": 36
+  },
+  {
+   "cat": "skyline",
+   "tags": [
+    "city",
+    "downtown",
+    "night"
+   ],
+   "id": "ns_block_37",
+   "pack": "city_at_night_low_poly_skyscrapers",
+   "w": 17.13,
+   "h": 11.35,
+   "d": 12.13,
+   "tris": 20
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb"
+   ],
+   "id": "pine_a",
+   "pack": "pine_trees_pack__ps1_low_poly",
+   "w": 10.4,
+   "h": 13.48,
+   "d": 10.25,
+   "tris": 154
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb"
+   ],
+   "id": "pine_b",
+   "pack": "pine_trees_pack__ps1_low_poly",
+   "w": 9.97,
+   "h": 17.92,
+   "d": 9.67,
+   "tris": 100
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb"
+   ],
+   "id": "pine_c",
+   "pack": "pine_trees_pack__ps1_low_poly",
+   "w": 9.31,
+   "h": 11.39,
+   "d": 10.78,
+   "tris": 99
+  },
+  {
+   "cat": "tree",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb"
+   ],
+   "id": "tb_pine_a",
+   "cls": "pine",
+   "pack": "trees_and_bush_pack_lowpoly",
+   "w": 11.75,
+   "h": 16,
+   "d": 10.58,
+   "tris": 8
+  },
+  {
+   "cat": "tree",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb"
+   ],
+   "id": "tb_pine_b",
+   "cls": "pine",
+   "pack": "trees_and_bush_pack_lowpoly",
+   "w": 8.73,
+   "h": 14,
+   "d": 9.92,
+   "tris": 16
+  },
+  {
+   "cat": "tree",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "tb_oak",
+   "cls": "broad",
+   "pack": "trees_and_bush_pack_lowpoly",
+   "w": 9.97,
+   "h": 9,
+   "d": 9.61,
+   "tris": 12
+  },
+  {
+   "cat": "tree",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "tb_tree_small",
+   "cls": "broad",
+   "pack": "trees_and_bush_pack_lowpoly",
+   "w": 7.2,
+   "h": 6.5,
+   "d": 7.09,
+   "tris": 12
+  },
+  {
+   "cat": "bush",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "tb_bush_big",
+   "pack": "trees_and_bush_pack_lowpoly",
+   "w": 2.67,
+   "h": 1.6,
+   "d": 3.09,
+   "tris": 52
+  },
+  {
+   "cat": "bush",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "tb_bush_flower",
+   "pack": "trees_and_bush_pack_lowpoly",
+   "w": 1.53,
+   "h": 1.2,
+   "d": 1.54,
+   "tris": 10
+  },
+  {
+   "cat": "bush",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "tb_bush_med",
+   "pack": "trees_and_bush_pack_lowpoly",
+   "w": 2.04,
+   "h": 1.5,
+   "d": 2.86,
+   "tris": 18
+  },
+  {
+   "cat": "bush",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "tb_bush_med2",
+   "pack": "trees_and_bush_pack_lowpoly",
+   "w": 1.51,
+   "h": 1.4,
+   "d": 2.02,
+   "tris": 18
+  },
+  {
+   "cat": "bush",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "tb_bush_small",
+   "pack": "trees_and_bush_pack_lowpoly",
+   "w": 1.27,
+   "h": 0.9,
+   "d": 1.32,
+   "tris": 8
+  },
+  {
+   "cat": "bush",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "tb_bush_small2",
+   "pack": "trees_and_bush_pack_lowpoly",
+   "w": 1.27,
+   "h": 0.9,
+   "d": 1.82,
+   "tris": 8
+  },
+  {
+   "cat": "bush",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "city"
+   ],
+   "id": "tb_bush_mound",
+   "pack": "trees_and_bush_pack_lowpoly",
+   "w": 2.93,
+   "h": 2,
+   "d": 3.99,
+   "tris": 50
+  },
+  {
+   "cat": "tree",
+   "cls": "broad",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb"
+   ],
+   "id": "vp_tree_a",
+   "pack": "low_poly_vegetation_patch",
+   "w": 12.3,
+   "h": 9.52,
+   "d": 11.3,
+   "tris": 24
+  },
+  {
+   "cat": "tree",
+   "cls": "broad",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb"
+   ],
+   "id": "vp_tree_b",
+   "pack": "low_poly_vegetation_patch",
+   "w": 6.68,
+   "h": 6.68,
+   "d": 6.45,
+   "tris": 4
+  },
+  {
+   "cat": "bush",
+   "tags": [
+    "forest",
+    "country",
+    "suburb"
+   ],
+   "id": "vp_bush_a",
+   "pack": "low_poly_vegetation_patch",
+   "w": 3.81,
+   "h": 2.6,
+   "d": 4,
+   "tris": 158
+  },
+  {
+   "cat": "bush",
+   "tags": [
+    "forest",
+    "country",
+    "suburb"
+   ],
+   "id": "vp_bush_b",
+   "pack": "low_poly_vegetation_patch",
+   "w": 2.11,
+   "h": 1.8,
+   "d": 1.93,
+   "tris": 24
+  },
+  {
+   "cat": "bush",
+   "tags": [
+    "forest",
+    "country",
+    "suburb"
+   ],
+   "id": "vp_bush_c",
+   "pack": "low_poly_vegetation_patch",
+   "w": 4.7,
+   "h": 2.2,
+   "d": 3.18,
+   "tris": 18
+  },
+  {
+   "cat": "bush",
+   "tags": [
+    "forest",
+    "country",
+    "suburb"
+   ],
+   "id": "vp_plant",
+   "pack": "low_poly_vegetation_patch",
+   "w": 2,
+   "h": 1,
+   "d": 1.97,
+   "tris": 233
+  },
+  {
+   "cat": "tree",
+   "cls": "blossom",
+   "tags": [
+    "blossom",
+    "japan",
+    "park",
+    "town"
+   ],
+   "id": "rt_blossom_067",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 5.75,
+   "h": 8,
+   "d": 5.75,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "blossom",
+   "tags": [
+    "blossom",
+    "japan",
+    "park",
+    "town"
+   ],
+   "id": "rt_blossom_068",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 5.39,
+   "h": 7.5,
+   "d": 5.39,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "blossom",
+   "tags": [
+    "blossom",
+    "japan",
+    "park",
+    "town"
+   ],
+   "id": "rt_blossom_069",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 5.75,
+   "h": 8,
+   "d": 5.75,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "blossom",
+   "tags": [
+    "blossom",
+    "japan",
+    "park",
+    "town"
+   ],
+   "id": "rt_blossom_070",
+   "w": 5.39,
+   "pack": "ultimate_retro_tree_pack",
+   "h": 7.5,
+   "d": 5.39,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "blossom",
+   "tags": [
+    "blossom",
+    "japan",
+    "park",
+    "town"
+   ],
+   "id": "rt_blossom_071",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 5.3,
+   "h": 7,
+   "d": 5.03,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "blossom",
+   "tags": [
+    "blossom",
+    "japan",
+    "park",
+    "town"
+   ],
+   "id": "rt_blossom_072",
+   "w": 5.8,
+   "pack": "ultimate_retro_tree_pack",
+   "h": 7.5,
+   "d": 5.39,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "blossom",
+   "tags": [
+    "blossom",
+    "japan",
+    "park",
+    "town"
+   ],
+   "id": "rt_blossom_073",
+   "w": 5.42,
+   "pack": "ultimate_retro_tree_pack",
+   "h": 7,
+   "d": 5.03,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "blossom",
+   "tags": [
+    "blossom",
+    "japan",
+    "park",
+    "town"
+   ],
+   "id": "rt_blossom_074",
+   "w": 4.67,
+   "pack": "ultimate_retro_tree_pack",
+   "h": 6.5,
+   "d": 4.67,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "autumn",
+   "tags": [
+    "autumn",
+    "forest",
+    "country",
+    "town"
+   ],
+   "id": "rt_autumn_011",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 4.78,
+   "h": 9,
+   "d": 4.76,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "autumn",
+   "tags": [
+    "autumn",
+    "forest",
+    "country",
+    "town"
+   ],
+   "id": "rt_autumn_012",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 7.05,
+   "h": 10,
+   "d": 6.91,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "autumn",
+   "tags": [
+    "autumn",
+    "forest",
+    "country",
+    "town"
+   ],
+   "id": "rt_autumn_013",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 8.67,
+   "h": 10.5,
+   "d": 8.67,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "autumn",
+   "tags": [
+    "autumn",
+    "forest",
+    "country",
+    "town"
+   ],
+   "id": "rt_autumn_014",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 7.68,
+   "h": 11,
+   "d": 7.58,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "autumn",
+   "tags": [
+    "autumn",
+    "forest",
+    "country",
+    "town"
+   ],
+   "id": "rt_autumn_015",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 8.39,
+   "h": 9.5,
+   "d": 6.65,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "autumn",
+   "tags": [
+    "autumn",
+    "forest",
+    "country",
+    "town"
+   ],
+   "id": "rt_autumn_016",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 5.95,
+   "h": 8.5,
+   "d": 5.95,
+   "tris": 38
+  },
+  {
+   "cat": "tree",
+   "cls": "autumn",
+   "tags": [
+    "autumn",
+    "forest",
+    "country",
+    "town"
+   ],
+   "id": "rt_autumn_017",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 7,
+   "h": 10,
+   "d": 7,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "autumn",
+   "tags": [
+    "autumn",
+    "forest",
+    "country",
+    "town"
+   ],
+   "id": "rt_autumn_019",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 7.58,
+   "h": 11,
+   "d": 7.58,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "autumn",
+   "tags": [
+    "autumn",
+    "forest",
+    "country",
+    "town"
+   ],
+   "id": "rt_autumn_020",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.91,
+   "h": 10,
+   "d": 6.91,
+   "tris": 38
+  },
+  {
+   "cat": "tree",
+   "cls": "autumn",
+   "tags": [
+    "autumn",
+    "forest",
+    "country",
+    "town"
+   ],
+   "id": "rt_autumn_021",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.54,
+   "h": 9.5,
+   "d": 6.54,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "autumn",
+   "tags": [
+    "autumn",
+    "forest",
+    "country",
+    "town"
+   ],
+   "id": "rt_autumn_025",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 7.87,
+   "h": 10,
+   "d": 7.41,
+   "tris": 38
+  },
+  {
+   "cat": "tree",
+   "cls": "autumn",
+   "tags": [
+    "autumn",
+    "forest",
+    "country",
+    "town"
+   ],
+   "id": "rt_autumn_026",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.61,
+   "h": 9,
+   "d": 6.41,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "autumn",
+   "tags": [
+    "autumn",
+    "forest",
+    "country",
+    "town"
+   ],
+   "id": "rt_autumn_028",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 7.73,
+   "h": 10,
+   "d": 6.89,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "autumn",
+   "tags": [
+    "autumn",
+    "forest",
+    "country",
+    "town"
+   ],
+   "id": "rt_autumn_030",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 7.71,
+   "h": 10.5,
+   "d": 7.23,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "broad",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "park",
+    "city"
+   ],
+   "id": "rt_broad_018",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 3.69,
+   "h": 8,
+   "d": 3.69,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "broad",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "park",
+    "city"
+   ],
+   "id": "rt_broad_023",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.2,
+   "h": 9,
+   "d": 6.2,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "broad",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "park",
+    "city"
+   ],
+   "id": "rt_broad_024",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.18,
+   "h": 8.5,
+   "d": 5.91,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "broad",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "park",
+    "city"
+   ],
+   "id": "rt_broad_027",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.96,
+   "h": 9,
+   "d": 6.61,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "broad",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "park",
+    "city"
+   ],
+   "id": "rt_broad_080",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.47,
+   "h": 9,
+   "d": 6.47,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "broad",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "park",
+    "city"
+   ],
+   "id": "rt_broad_082",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 7.91,
+   "h": 11,
+   "d": 7.91,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "broad",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "park",
+    "city"
+   ],
+   "id": "rt_broad_083",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 8.01,
+   "h": 10,
+   "d": 7.19,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "broad",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "park",
+    "city"
+   ],
+   "id": "rt_broad_085",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 7.89,
+   "h": 9.5,
+   "d": 7.89,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "broad",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "park",
+    "city"
+   ],
+   "id": "rt_broad_086",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 7.35,
+   "h": 9.5,
+   "d": 6.83,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "broad",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "park",
+    "city"
+   ],
+   "id": "rt_broad_095",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.94,
+   "h": 10,
+   "d": 6.94,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "broad",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "park",
+    "city"
+   ],
+   "id": "rt_broad_097",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.74,
+   "h": 9,
+   "d": 6.25,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "broad",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "park",
+    "city"
+   ],
+   "id": "rt_broad_098",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 8.55,
+   "h": 10,
+   "d": 6.94,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "broad",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "park",
+    "city"
+   ],
+   "id": "rt_broad_106",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.94,
+   "h": 10,
+   "d": 6.94,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "broad",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "park",
+    "city"
+   ],
+   "id": "rt_broad_110",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.94,
+   "h": 10,
+   "d": 6.94,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "broad",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "park",
+    "city"
+   ],
+   "id": "rt_broad_113",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.25,
+   "h": 9,
+   "d": 6.25,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "broad",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "park",
+    "city"
+   ],
+   "id": "rt_broad_114",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.94,
+   "h": 10,
+   "d": 6.94,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "broad",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "suburb",
+    "park",
+    "city"
+   ],
+   "id": "rt_broad_119",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 7.34,
+   "h": 9.5,
+   "d": 6.59,
+   "tris": 38
+  },
+  {
+   "cat": "tree",
+   "cls": "palm",
+   "tags": [
+    "coast",
+    "tropical",
+    "desert"
+   ],
+   "id": "rt_palm_031",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 4.87,
+   "h": 11,
+   "d": 4.71,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "palm",
+   "tags": [
+    "coast",
+    "tropical",
+    "desert"
+   ],
+   "id": "rt_palm_032",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.19,
+   "h": 12,
+   "d": 6.02,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "palm",
+   "tags": [
+    "coast",
+    "tropical",
+    "desert"
+   ],
+   "id": "rt_palm_033",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.28,
+   "h": 10.5,
+   "d": 5.73,
+   "tris": 38
+  },
+  {
+   "cat": "tree",
+   "cls": "palm",
+   "tags": [
+    "coast",
+    "tropical",
+    "desert"
+   ],
+   "id": "rt_palm_034",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 5.03,
+   "h": 12,
+   "d": 5.03,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "palm",
+   "tags": [
+    "coast",
+    "tropical",
+    "desert"
+   ],
+   "id": "rt_palm_035",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 4.97,
+   "h": 11.5,
+   "d": 4.82,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "palm",
+   "tags": [
+    "coast",
+    "tropical",
+    "desert"
+   ],
+   "id": "rt_palm_036",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 5.58,
+   "h": 10,
+   "d": 5.58,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "palm",
+   "tags": [
+    "coast",
+    "tropical",
+    "desert"
+   ],
+   "id": "rt_palm_038",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 5.24,
+   "h": 12.5,
+   "d": 5.24,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "desert",
+   "tags": [
+    "desert"
+   ],
+   "id": "rt_desert_043",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 2.78,
+   "h": 5,
+   "d": 2.78,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "desert",
+   "tags": [
+    "desert"
+   ],
+   "id": "rt_desert_049",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 4.13,
+   "h": 6,
+   "d": 4.13,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "desert",
+   "tags": [
+    "desert"
+   ],
+   "id": "rt_desert_050",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 5.53,
+   "h": 6.5,
+   "d": 4.47,
+   "tris": 38
+  },
+  {
+   "cat": "tree",
+   "cls": "desert",
+   "tags": [
+    "desert"
+   ],
+   "id": "rt_desert_051",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 4.32,
+   "h": 6,
+   "d": 4.13,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "desert",
+   "tags": [
+    "desert"
+   ],
+   "id": "rt_desert_047",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 5.22,
+   "h": 7.5,
+   "d": 5.22,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "bare",
+   "tags": [
+    "winter",
+    "forest",
+    "country",
+    "town"
+   ],
+   "id": "rt_bare_001",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.61,
+   "h": 9,
+   "d": 7.02,
+   "tris": 22
+  },
+  {
+   "cat": "tree",
+   "cls": "bare",
+   "tags": [
+    "winter",
+    "forest",
+    "country",
+    "town"
+   ],
+   "id": "rt_bare_003",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 7,
+   "h": 10,
+   "d": 7,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "bare",
+   "tags": [
+    "winter",
+    "forest",
+    "country",
+    "town"
+   ],
+   "id": "rt_bare_005",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 9.51,
+   "h": 10,
+   "d": 8.37,
+   "tris": 38
+  },
+  {
+   "cat": "tree",
+   "cls": "bare",
+   "tags": [
+    "winter",
+    "forest",
+    "country",
+    "town"
+   ],
+   "id": "rt_bare_008",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.87,
+   "h": 9.5,
+   "d": 6.65,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "bare",
+   "tags": [
+    "winter",
+    "forest",
+    "country",
+    "town"
+   ],
+   "id": "rt_bare_009",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.3,
+   "h": 9,
+   "d": 6.3,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "rt_pine_045",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 5.58,
+   "h": 12,
+   "d": 5.58,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "rt_pine_055",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.09,
+   "h": 13,
+   "d": 6.09,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "rt_pine_056",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 7.03,
+   "h": 15,
+   "d": 7.03,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "rt_pine_057",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 7.95,
+   "h": 14,
+   "d": 7.25,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "rt_pine_059",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 5.15,
+   "h": 11,
+   "d": 5.15,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "rt_pine_060",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 5.62,
+   "h": 12,
+   "d": 5.62,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "rt_pine_061",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 7.38,
+   "h": 13,
+   "d": 6.74,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "rt_pine_062",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 4.04,
+   "h": 12,
+   "d": 4.04,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "rt_pine_063",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 5.15,
+   "h": 11,
+   "d": 5.15,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "rt_pine_064",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.56,
+   "h": 14,
+   "d": 6.56,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "rt_pine_066",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.42,
+   "h": 12,
+   "d": 6.42,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "willow",
+   "tags": [
+    "park",
+    "country",
+    "town"
+   ],
+   "id": "rt_willow_076",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 6.47,
+   "h": 9,
+   "d": 6.47,
+   "tris": 30
+  },
+  {
+   "cat": "bush",
+   "cls": "flower",
+   "tags": [
+    "blossom",
+    "park",
+    "town"
+   ],
+   "id": "rt_bush_flower",
+   "pack": "ultimate_retro_tree_pack",
+   "w": 2.4,
+   "h": 3,
+   "d": 2.16,
+   "tris": 30
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "fp_fir_a",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 4.55,
+   "h": 17,
+   "d": 4.61,
+   "tris": 108
+  },
+  {
+   "cat": "tree",
+   "cls": "autumn",
+   "tags": [
+    "autumn",
+    "forest",
+    "country"
+   ],
+   "id": "fp_larch_a",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 6.62,
+   "h": 17,
+   "d": 6.62,
+   "tris": 101
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "fp_fir_c",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 4.89,
+   "h": 12,
+   "d": 4.9,
+   "tris": 36
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "fp_fir_d",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 4.37,
+   "h": 17,
+   "d": 4.61,
+   "tris": 109
+  },
+  {
+   "cat": "tree",
+   "cls": "autumn",
+   "tags": [
+    "autumn",
+    "forest",
+    "country"
+   ],
+   "id": "fp_larch_b",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 6.97,
+   "h": 15,
+   "d": 6.97,
+   "tris": 109
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "fp_fir_f",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 5.6,
+   "h": 21,
+   "d": 5.4,
+   "tris": 109
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "fp_fir_g",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 4.02,
+   "h": 17,
+   "d": 4,
+   "tris": 113
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "fp_fir_h",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 4.25,
+   "h": 17,
+   "d": 4.26,
+   "tris": 109
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "fp_pine_tall",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 5.53,
+   "h": 18,
+   "d": 5.3,
+   "tris": 630
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "fp_pine_mid",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 7.63,
+   "h": 14,
+   "d": 7.64,
+   "tris": 624
+  },
+  {
+   "cat": "tree",
+   "cls": "pine",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "fp_pine_small",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 4.58,
+   "h": 8,
+   "d": 4.23,
+   "tris": 624
+  },
+  {
+   "cat": "tree",
+   "cls": "autumn",
+   "tags": [
+    "autumn",
+    "forest",
+    "country"
+   ],
+   "id": "fp_aspen",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 5.58,
+   "h": 10,
+   "d": 6.46,
+   "tris": 285
+  },
+  {
+   "cat": "bush",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "fp_sapling",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 1.97,
+   "h": 3,
+   "d": 1.97,
+   "tris": 40
+  },
+  {
+   "cat": "bush",
+   "tags": [
+    "forest",
+    "country",
+    "mountain"
+   ],
+   "id": "fp_shrub",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 2,
+   "h": 1.4,
+   "d": 1.65,
+   "tris": 92
+  },
+  {
+   "cat": "grass",
+   "tags": [
+    "forest",
+    "country",
+    "mountain",
+    "park"
+   ],
+   "id": "fp_grass_a",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 2.13,
+   "h": 0.9,
+   "d": 0.9,
+   "tris": 6
+  },
+  {
+   "cat": "grass",
+   "tags": [
+    "forest",
+    "country",
+    "mountain",
+    "park"
+   ],
+   "id": "fp_grass_b",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 0.72,
+   "h": 0.8,
+   "d": 0.56,
+   "tris": 24
+  },
+  {
+   "cat": "grass",
+   "tags": [
+    "forest",
+    "country",
+    "mountain",
+    "park"
+   ],
+   "id": "fp_grass_c",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 1.1,
+   "h": 0.9,
+   "d": 0.98,
+   "tris": 67
+  },
+  {
+   "cat": "rock",
+   "tags": [
+    "forest",
+    "country",
+    "mountain",
+    "desert"
+   ],
+   "id": "fp_rock_a",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 1.77,
+   "h": 1.07,
+   "d": 1.65,
+   "tris": 127
+  },
+  {
+   "cat": "rock",
+   "tags": [
+    "forest",
+    "country",
+    "mountain",
+    "desert"
+   ],
+   "id": "fp_rock_b",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 1.44,
+   "h": 0.85,
+   "d": 1.21,
+   "tris": 63
+  },
+  {
+   "cat": "rock",
+   "tags": [
+    "forest",
+    "country",
+    "mountain",
+    "desert"
+   ],
+   "id": "fp_rock_c",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 1.29,
+   "h": 0.57,
+   "d": 2.11,
+   "tris": 97
+  },
+  {
+   "cat": "rock",
+   "tags": [
+    "forest",
+    "country",
+    "mountain",
+    "desert"
+   ],
+   "id": "fp_rock_d",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 1.34,
+   "h": 0.91,
+   "d": 1.64,
+   "tris": 99
+  },
+  {
+   "cat": "rock",
+   "tags": [
+    "forest",
+    "country",
+    "mountain",
+    "desert"
+   ],
+   "id": "fp_rock_e",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 1.14,
+   "h": 0.63,
+   "d": 0.88,
+   "tris": 34
+  },
+  {
+   "cat": "rock",
+   "tags": [
+    "forest",
+    "country",
+    "mountain",
+    "desert"
+   ],
+   "id": "fp_rock_f",
+   "pack": "low_poly_forest_tree_pack",
+   "w": 1.32,
+   "h": 0.61,
+   "d": 0.99,
+   "tris": 51
+  },
+  {
+   "cat": "tree",
+   "cls": "birch",
+   "tags": [
+    "forest",
+    "country",
+    "town",
+    "park"
+   ],
+   "id": "birch",
+   "pack": "psx_birch_tree",
+   "w": 9.53,
+   "h": 12,
+   "d": 9.53,
+   "tris": 54
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "town",
+    "suburb",
+    "downtown"
+   ],
+   "id": "up_phonebox_a",
+   "cls": "phone",
+   "pack": "low-poly_urban_street_props_pack_ps1_style",
+   "w": 0.8,
+   "h": 2,
+   "d": 0.8,
+   "tris": 133
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "town",
+    "suburb",
+    "downtown"
+   ],
+   "id": "up_phonebox_b",
+   "cls": "phone",
+   "pack": "low-poly_urban_street_props_pack_ps1_style",
+   "w": 0.8,
+   "h": 2,
+   "d": 0.8,
+   "tris": 133
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "town",
+    "suburb",
+    "downtown"
+   ],
+   "id": "up_phonebox_broken",
+   "cls": "phone",
+   "w": 0.96,
+   "pack": "low-poly_urban_street_props_pack_ps1_style",
+   "h": 1.87,
+   "d": 0.8,
+   "tris": 113
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "town",
+    "suburb",
+    "downtown"
+   ],
+   "id": "up_meter_a",
+   "cls": "meter",
+   "pack": "low-poly_urban_street_props_pack_ps1_style",
+   "w": 0.52,
+   "h": 1.3,
+   "d": 0.49,
+   "tris": 45
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "town",
+    "suburb",
+    "downtown"
+   ],
+   "id": "up_meter_b",
+   "cls": "meter",
+   "pack": "low-poly_urban_street_props_pack_ps1_style",
+   "w": 0.33,
+   "h": 1.6,
+   "d": 0.29,
+   "tris": 45
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "town",
+    "suburb",
+    "downtown"
+   ],
+   "id": "up_meter_c",
+   "cls": "meter",
+   "pack": "low-poly_urban_street_props_pack_ps1_style",
+   "w": 0.52,
+   "h": 1.3,
+   "d": 0.49,
+   "tris": 45
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "town",
+    "suburb",
+    "downtown"
+   ],
+   "id": "up_mailbox_a",
+   "cls": "mailbox",
+   "pack": "low-poly_urban_street_props_pack_ps1_style",
+   "w": 0.4,
+   "h": 0.96,
+   "d": 0.4,
+   "tris": 48
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "town",
+    "suburb",
+    "downtown"
+   ],
+   "id": "up_mailbox_b",
+   "cls": "mailbox",
+   "w": 0.64,
+   "pack": "low-poly_urban_street_props_pack_ps1_style",
+   "h": 0.89,
+   "d": 0.4,
+   "tris": 78
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "town",
+    "suburb",
+    "downtown"
+   ],
+   "id": "up_newsbox",
+   "cls": "mailbox",
+   "pack": "low-poly_urban_street_props_pack_ps1_style",
+   "w": 0.4,
+   "h": 0.47,
+   "d": 0.4,
+   "tris": 73
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "town",
+    "suburb",
+    "downtown"
+   ],
+   "id": "up_soda_a",
+   "cls": "vending",
+   "pack": "low-poly_urban_street_props_pack_ps1_style",
+   "w": 1,
+   "h": 1.8,
+   "d": 1,
+   "tris": 38
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "town",
+    "suburb",
+    "downtown"
+   ],
+   "id": "up_soda_b",
+   "cls": "vending",
+   "pack": "low-poly_urban_street_props_pack_ps1_style",
+   "w": 1,
+   "h": 1.8,
+   "d": 1,
+   "tris": 38
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "town",
+    "suburb",
+    "downtown"
+   ],
+   "id": "up_soda_c",
+   "cls": "vending",
+   "w": 1,
+   "pack": "low-poly_urban_street_props_pack_ps1_style",
+   "h": 1.8,
+   "d": 1,
+   "tris": 36
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "town",
+    "suburb",
+    "downtown"
+   ],
+   "id": "up_bin_a",
+   "cls": "bin",
+   "pack": "low-poly_urban_street_props_pack_ps1_style",
+   "w": 0.55,
+   "h": 0.69,
+   "d": 0.55,
+   "tris": 76
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "town",
+    "suburb",
+    "downtown"
+   ],
+   "id": "up_bin_b",
+   "cls": "bin",
+   "pack": "low-poly_urban_street_props_pack_ps1_style",
+   "w": 0.59,
+   "h": 0.76,
+   "d": 0.55,
+   "tris": 92
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "town",
+    "suburb",
+    "downtown"
+   ],
+   "id": "up_bin_c",
+   "cls": "bin",
+   "pack": "low-poly_urban_street_props_pack_ps1_style",
+   "w": 0.58,
+   "h": 0.73,
+   "d": 0.52,
+   "tris": 64
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "town",
+    "industrial",
+    "docks"
+   ],
+   "id": "up_barrier_a",
+   "cls": "barrier",
+   "pack": "low-poly_urban_street_props_pack_ps1_style",
+   "w": 2,
+   "h": 1,
+   "d": 0.7,
+   "tris": 20
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks"
+   ],
+   "id": "up_barrier_b",
+   "cls": "barrier",
+   "pack": "low-poly_urban_street_props_pack_ps1_style",
+   "w": 2,
+   "h": 1,
+   "d": 0.7,
+   "tris": 36
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks"
+   ],
+   "id": "up_barrier_c",
+   "cls": "barrier",
+   "pack": "low-poly_urban_street_props_pack_ps1_style",
+   "w": 2,
+   "h": 1,
+   "d": 0.7,
+   "tris": 52
+  },
+  {
+   "cat": "prop",
+   "cls": "phone",
+   "tags": [
+    "city",
+    "town",
+    "suburb",
+    "downtown"
+   ],
+   "id": "payphone",
+   "pack": "street_phone",
+   "w": 0.73,
+   "h": 2.2,
+   "d": 0.72,
+   "tris": 728
+  },
+  {
+   "cat": "prop",
+   "cls": "vending",
+   "tags": [
+    "city",
+    "town",
+    "suburb",
+    "japan",
+    "downtown"
+   ],
+   "id": "vending_psx",
+   "pack": "vending_machine_psx",
+   "w": 1.01,
+   "h": 2,
+   "d": 0.81,
+   "tris": 104
+  },
+  {
+   "cat": "prop",
+   "cls": "dumpster",
+   "tags": [
+    "city",
+    "town",
+    "industrial",
+    "downtown"
+   ],
+   "id": "dumpster",
+   "pack": "dumpster",
+   "w": 1.43,
+   "h": 1.37,
+   "d": 2.11,
+   "tris": 540
+  },
+  {
+   "cat": "prop",
+   "cls": "barrier",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "downtown"
+   ],
+   "id": "jersey_a",
+   "pack": "psx_style_concrete_barriers",
+   "w": 2.98,
+   "h": 1.36,
+   "d": 0.98,
+   "tris": 44
+  },
+  {
+   "cat": "prop",
+   "cls": "barrier",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "downtown"
+   ],
+   "id": "jersey_b",
+   "pack": "psx_style_concrete_barriers",
+   "w": 2.98,
+   "h": 1.36,
+   "d": 0.98,
+   "tris": 44
+  },
+  {
+   "cat": "prop",
+   "cls": "barrier",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "downtown"
+   ],
+   "id": "jersey_broken_a",
+   "w": 2.98,
+   "pack": "psx_style_concrete_barriers",
+   "h": 1.36,
+   "d": 0.98,
+   "tris": 126
+  },
+  {
+   "cat": "prop",
+   "cls": "barrier",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "downtown"
+   ],
+   "id": "jersey_broken_b",
+   "w": 2.98,
+   "pack": "psx_style_concrete_barriers",
+   "h": 1.36,
+   "d": 0.98,
+   "tris": 126
+  },
+  {
+   "cat": "fence",
+   "cls": "chain",
+   "tags": [
+    "industrial",
+    "docks",
+    "city",
+    "country"
+   ],
+   "id": "fence_chain_a",
+   "pack": "psx_style_chain_fence",
+   "w": 3.37,
+   "h": 2.08,
+   "d": 0.05,
+   "tris": 46
+  },
+  {
+   "cat": "fence",
+   "cls": "chain",
+   "tags": [
+    "industrial",
+    "docks",
+    "city",
+    "country"
+   ],
+   "id": "fence_chain_b",
+   "pack": "psx_style_chain_fence",
+   "w": 3.37,
+   "h": 2.08,
+   "d": 0.05,
+   "tris": 34
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "industrial",
+    "docks",
+    "city"
+   ],
+   "id": "crate_3",
+   "cls": "crate",
+   "pack": "low_poly_street_gameready_6",
+   "w": 1.01,
+   "h": 0.76,
+   "d": 1.01,
+   "tris": 12
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "industrial",
+    "docks",
+    "city"
+   ],
+   "id": "crate_7",
+   "cls": "crate",
+   "pack": "low_poly_street_gameready_6",
+   "w": 0.85,
+   "h": 0.76,
+   "d": 0.85,
+   "tris": 12
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "industrial",
+    "docks",
+    "city"
+   ],
+   "id": "crate_19",
+   "cls": "crate",
+   "pack": "low_poly_street_gameready_6",
+   "w": 0.78,
+   "h": 0.76,
+   "d": 0.78,
+   "tris": 12
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "industrial",
+    "docks",
+    "city"
+   ],
+   "id": "barrel_25",
+   "cls": "barrel",
+   "pack": "low_poly_street_gameready_6",
+   "w": 0.74,
+   "h": 0.82,
+   "d": 0.74,
+   "tris": 284
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "industrial",
+    "docks",
+    "city"
+   ],
+   "id": "barrel_27",
+   "cls": "barrel",
+   "pack": "low_poly_street_gameready_6",
+   "w": 0.62,
+   "h": 1.01,
+   "d": 0.62,
+   "tris": 284
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "industrial",
+    "docks",
+    "city"
+   ],
+   "id": "barrel_29",
+   "cls": "barrel",
+   "pack": "low_poly_street_gameready_6",
+   "w": 0.57,
+   "h": 0.6,
+   "d": 0.57,
+   "tris": 92
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_barrier",
+   "cls": "barrier",
+   "pack": "trash_and_debris",
+   "w": 1.87,
+   "h": 1.36,
+   "d": 1.05,
+   "tris": 20
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_barrier_broken",
+   "cls": "barrier",
+   "w": 1.84,
+   "pack": "trash_and_debris",
+   "h": 1.34,
+   "d": 1.04,
+   "tris": 430
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_box_a",
+   "cls": "trash",
+   "pack": "trash_and_debris",
+   "w": 0.75,
+   "h": 0.55,
+   "d": 0.55,
+   "tris": 12
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_box_b",
+   "cls": "trash",
+   "pack": "trash_and_debris",
+   "w": 0.75,
+   "h": 0.77,
+   "d": 0.55,
+   "tris": 48
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_box_c",
+   "cls": "trash",
+   "pack": "trash_and_debris",
+   "w": 0.75,
+   "h": 0.27,
+   "d": 0.43,
+   "tris": 20
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_cinder",
+   "cls": "debris",
+   "pack": "trash_and_debris",
+   "w": 0.27,
+   "h": 0.47,
+   "d": 0.2,
+   "tris": 132
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_rubble_a",
+   "cls": "debris",
+   "pack": "trash_and_debris",
+   "w": 1.55,
+   "h": 0.24,
+   "d": 1.45,
+   "tris": 36
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_rubble_b",
+   "cls": "debris",
+   "pack": "trash_and_debris",
+   "w": 1.69,
+   "h": 0.3,
+   "d": 2.23,
+   "tris": 284
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_bag_a",
+   "cls": "bags",
+   "pack": "trash_and_debris",
+   "w": 0.67,
+   "h": 0.5,
+   "d": 0.6,
+   "tris": 100
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_bag_b",
+   "cls": "bags",
+   "pack": "trash_and_debris",
+   "w": 0.57,
+   "h": 0.46,
+   "d": 0.47,
+   "tris": 100
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_tyre_a",
+   "cls": "tyre",
+   "pack": "trash_and_debris",
+   "w": 0.73,
+   "h": 0.17,
+   "d": 0.73,
+   "tris": 60
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_tyre_b",
+   "cls": "tyre",
+   "pack": "trash_and_debris",
+   "w": 0.73,
+   "h": 0.17,
+   "d": 0.73,
+   "tris": 96
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_planks",
+   "cls": "debris",
+   "pack": "trash_and_debris",
+   "w": 0.42,
+   "h": 0.09,
+   "d": 2.53,
+   "tris": 12
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_gascan",
+   "cls": "trash",
+   "pack": "trash_and_debris",
+   "w": 0.36,
+   "h": 0.57,
+   "d": 0.11,
+   "tris": 56
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_news2",
+   "cls": "litter",
+   "pack": "trash_and_debris",
+   "w": 0.46,
+   "h": 0,
+   "d": 0.5,
+   "tris": 2
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_paper",
+   "cls": "litter",
+   "pack": "trash_and_debris",
+   "w": 0.5,
+   "h": 0,
+   "d": 0.35,
+   "tris": 2
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_flatcan",
+   "cls": "litter",
+   "pack": "trash_and_debris",
+   "w": 0.33,
+   "h": 0,
+   "d": 0.28,
+   "tris": 2
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_can_1_crushed",
+   "cls": "junk",
+   "pack": "trash_and_debris",
+   "w": 0.13,
+   "h": 0.33,
+   "d": 0.17,
+   "tris": 32
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_can_3_crushed",
+   "cls": "junk",
+   "pack": "trash_and_debris",
+   "w": 0.16,
+   "h": 0.26,
+   "d": 0.21,
+   "tris": 32
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_can_4_crushed",
+   "cls": "junk",
+   "pack": "trash_and_debris",
+   "w": 0.18,
+   "h": 0.34,
+   "d": 0.16,
+   "tris": 32
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_can_6",
+   "cls": "junk",
+   "pack": "trash_and_debris",
+   "w": 0.15,
+   "h": 0.26,
+   "d": 0.17,
+   "tris": 20
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_coffee_cup_crushed",
+   "cls": "junk",
+   "pack": "trash_and_debris",
+   "w": 0.17,
+   "h": 0.38,
+   "d": 0.24,
+   "tris": 68
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_soda_cup_crushed",
+   "cls": "junk",
+   "pack": "trash_and_debris",
+   "w": 0.17,
+   "h": 0.53,
+   "d": 0.21,
+   "tris": 70
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_glassbottle_2",
+   "cls": "junk",
+   "pack": "trash_and_debris",
+   "w": 0.18,
+   "h": 0.63,
+   "d": 0.21,
+   "tris": 80
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_glassbottle_3_broken",
+   "cls": "junk",
+   "pack": "trash_and_debris",
+   "w": 0.19,
+   "h": 0.41,
+   "d": 0.2,
+   "tris": 90
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_chip_bag_1",
+   "cls": "junk",
+   "pack": "trash_and_debris",
+   "w": 0.38,
+   "h": 0.39,
+   "d": 0.21,
+   "tris": 44
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_chip_bag_4",
+   "cls": "junk",
+   "pack": "trash_and_debris",
+   "w": 0.33,
+   "h": 0.37,
+   "d": 0.09,
+   "tris": 44
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_paper_bag_3",
+   "cls": "junk",
+   "pack": "trash_and_debris",
+   "w": 0.36,
+   "h": 0.12,
+   "d": 0.4,
+   "tris": 60
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_cardboardbox_4",
+   "cls": "junk",
+   "pack": "trash_and_debris",
+   "w": 0.63,
+   "h": 0.11,
+   "d": 0.36,
+   "tris": 20
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_news",
+   "cls": "litter",
+   "pack": "trash_and_debris",
+   "w": 1,
+   "h": 0,
+   "d": 0.46,
+   "tris": 2
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_litter_a",
+   "cls": "litter",
+   "pack": "trash_and_debris",
+   "w": 0.66,
+   "h": 0,
+   "d": 0.66,
+   "tris": 2
+  },
+  {
+   "cat": "prop",
+   "tags": [
+    "city",
+    "industrial",
+    "docks",
+    "town",
+    "downtown"
+   ],
+   "id": "td_litter_b",
+   "cls": "litter",
+   "pack": "trash_and_debris",
+   "w": 0.65,
+   "h": 0,
+   "d": 0.65,
+   "tris": 2
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan",
+    "city"
+   ],
+   "id": "tw_board31",
+   "pack": "taiwan_style_signboard_lowpoly",
+   "w": 1.01,
+   "h": 2.42,
+   "d": 0.09,
+   "tris": 12
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan",
+    "city"
+   ],
+   "id": "tw_board30",
+   "pack": "taiwan_style_signboard_lowpoly",
+   "w": 2.78,
+   "h": 1.59,
+   "d": 0.18,
+   "tris": 96
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan",
+    "city"
+   ],
+   "id": "tw_board26",
+   "pack": "taiwan_style_signboard_lowpoly",
+   "w": 2.02,
+   "h": 0.49,
+   "d": 0.18,
+   "tris": 82
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan",
+    "city"
+   ],
+   "id": "tw_board24",
+   "pack": "taiwan_style_signboard_lowpoly",
+   "w": 1.41,
+   "h": 1.1,
+   "d": 0.14,
+   "tris": 212
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan",
+    "city"
+   ],
+   "id": "tw_board22",
+   "pack": "taiwan_style_signboard_lowpoly",
+   "w": 3.09,
+   "h": 1.3,
+   "d": 0.1,
+   "tris": 108
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan",
+    "city"
+   ],
+   "id": "tw_board19",
+   "pack": "taiwan_style_signboard_lowpoly",
+   "w": 1.95,
+   "h": 0.65,
+   "d": 0.06,
+   "tris": 12
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan",
+    "city"
+   ],
+   "id": "tw_board17",
+   "pack": "taiwan_style_signboard_lowpoly",
+   "w": 2.43,
+   "h": 2.19,
+   "d": 0.65,
+   "tris": 244
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan",
+    "city"
+   ],
+   "id": "tw_board14",
+   "pack": "taiwan_style_signboard_lowpoly",
+   "w": 3.12,
+   "h": 2.06,
+   "d": 0.08,
+   "tris": 96
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan",
+    "city"
+   ],
+   "id": "tw_board12",
+   "pack": "taiwan_style_signboard_lowpoly",
+   "w": 2.1,
+   "h": 2.19,
+   "d": 0.17,
+   "tris": 132
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan",
+    "city"
+   ],
+   "id": "tw_board11",
+   "pack": "taiwan_style_signboard_lowpoly",
+   "w": 1.55,
+   "h": 1.35,
+   "d": 0.08,
+   "tris": 108
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan",
+    "city"
+   ],
+   "id": "tw_board10",
+   "pack": "taiwan_style_signboard_lowpoly",
+   "w": 1.73,
+   "h": 0.92,
+   "d": 0.64,
+   "tris": 108
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan",
+    "city"
+   ],
+   "id": "tw_board09",
+   "pack": "taiwan_style_signboard_lowpoly",
+   "w": 1.55,
+   "h": 1.35,
+   "d": 0.08,
+   "tris": 108
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan",
+    "city"
+   ],
+   "id": "tw_board07",
+   "pack": "taiwan_style_signboard_lowpoly",
+   "w": 3.86,
+   "h": 2.02,
+   "d": 0.3,
+   "tris": 142
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan",
+    "city"
+   ],
+   "id": "tw_board04",
+   "pack": "taiwan_style_signboard_lowpoly",
+   "w": 3.13,
+   "h": 1.73,
+   "d": 0.11,
+   "tris": 216
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan",
+    "city"
+   ],
+   "id": "tw_board03",
+   "pack": "taiwan_style_signboard_lowpoly",
+   "w": 3.13,
+   "h": 1.34,
+   "d": 0.12,
+   "tris": 96
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan",
+    "city"
+   ],
+   "id": "tw_board02",
+   "pack": "taiwan_style_signboard_lowpoly",
+   "w": 1.11,
+   "h": 4.12,
+   "d": 0.08,
+   "tris": 180
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan",
+    "city"
+   ],
+   "id": "tw_board01",
+   "pack": "taiwan_style_signboard_lowpoly",
+   "w": 1.45,
+   "h": 3.9,
+   "d": 0.08,
+   "tris": 156
+  },
+  {
+   "cat": "building",
+   "cls": "facade",
+   "tags": [
+    "japan"
+   ],
+   "id": "jp_wall1",
+   "pack": "pack_japanes_city",
+   "w": 4.11,
+   "h": 5.31,
+   "d": 2.16,
+   "tris": 72
+  },
+  {
+   "cat": "building",
+   "cls": "facade",
+   "tags": [
+    "japan"
+   ],
+   "id": "jp_wall2",
+   "pack": "pack_japanes_city",
+   "w": 3.92,
+   "h": 5.31,
+   "d": 1.03,
+   "tris": 44
+  },
+  {
+   "cat": "building",
+   "cls": "facade",
+   "tags": [
+    "japan"
+   ],
+   "id": "jp_wall3",
+   "pack": "pack_japanes_city",
+   "w": 3.92,
+   "h": 5.31,
+   "d": 1.03,
+   "tris": 46
+  },
+  {
+   "cat": "building",
+   "cls": "facade",
+   "tags": [
+    "japan"
+   ],
+   "id": "jp_wall4",
+   "pack": "pack_japanes_city",
+   "w": 3.92,
+   "h": 5.31,
+   "d": 1.03,
+   "tris": 46
+  },
+  {
+   "cat": "building",
+   "cls": "facade",
+   "tags": [
+    "japan"
+   ],
+   "id": "jp_wall5",
+   "pack": "pack_japanes_city",
+   "w": 4.93,
+   "h": 5.31,
+   "d": 2.14,
+   "tris": 52
+  },
+  {
+   "cat": "building",
+   "cls": "facade",
+   "tags": [
+    "japan"
+   ],
+   "id": "jp_wall6",
+   "pack": "pack_japanes_city",
+   "w": 4.93,
+   "h": 5.31,
+   "d": 2.14,
+   "tris": 54
+  },
+  {
+   "cat": "lamp",
+   "cls": "street",
+   "tags": [
+    "japan"
+   ],
+   "id": "jp_lamp",
+   "pack": "pack_japanes_city",
+   "w": 0.66,
+   "h": 7.83,
+   "d": 1.96,
+   "tris": 28
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan"
+   ],
+   "id": "jp_sign_a",
+   "pack": "pack_japanes_city",
+   "w": 3.12,
+   "h": 0.92,
+   "d": 0.14,
+   "tris": 12
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan"
+   ],
+   "id": "jp_sign_b",
+   "pack": "pack_japanes_city",
+   "w": 3.12,
+   "h": 0.92,
+   "d": 0.14,
+   "tris": 12
+  },
+  {
+   "cat": "sign",
+   "tags": [
+    "japan"
+   ],
+   "id": "jp_sign_c",
+   "pack": "pack_japanes_city",
+   "w": 3.12,
+   "h": 0.92,
+   "d": 0.14,
+   "tris": 12
+  },
+  {
+   "cat": "vehicle",
+   "cls": "van",
+   "tags": [
+    "city",
+    "town",
+    "industrial",
+    "suburb",
+    "docks"
+   ],
+   "id": "van_transit",
+   "pack": "ford_transit_1999",
+   "w": 1.87,
+   "h": 1.88,
+   "d": 4.22,
+   "tris": 1916
+  }
+ ]
+}

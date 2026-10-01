@@ -1,0 +1,5 @@
+{ "jobs": [
+  { "name": "a1", "theme": "grass", "time": "dusk", "opts": { "setting": "town", "noRoads": true }, "shots": 3, "every": 1500 },
+  { "name": "a2", "theme": "city", "time": "night", "opts": { "setting": "city", "noRoads": true }, "shots": 2, "every": 1500 },
+  { "name": "a3", "theme": "grass", "time": "day", "opts": { "setting": "town", "noRoads": true }, "shots": 2, "every": 1500 }
+] }
