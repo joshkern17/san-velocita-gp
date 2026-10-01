@@ -118,14 +118,19 @@ function makeTemplate(id, scene) {
   if (bodyMap && CARS[id].paint) {
     const img = bodyMap.image, c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
     const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0);
-    const d = g.getImageData(0, 0, c.width, c.height).data, bins = new Float32Array(36); let sat = 0;
+    const d = g.getImageData(0, 0, c.width, c.height).data, bins = new Float32Array(36); let sat = 0, white = 0, n = 0;
     for (let i = 0; i < d.length; i += 16) {
-      const [h, s, l] = hsl(d[i], d[i + 1], d[i + 2]);
+      const [h, s, l] = hsl(d[i], d[i + 1], d[i + 2]); n++;
       if (s > 0.35 && l > 0.12 && l < 0.85) { bins[Math.floor(h * 36) % 36]++; sat++; }
+      if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) < 30 && l > 0.6) white++;
     }
     let best = 0; for (let k = 1; k < 36; k++) if (bins[k] > bins[best]) best = k;
     const share = (bins[best] + bins[(best + 1) % 36] + bins[(best + 35) % 36]) / Math.max(1, sat);
-    if (sat > 50 && share > 0.4) T.paintHue = { hue: (best + 0.5) / 36, canvas: c, data: g.getImageData(0, 0, c.width, c.height), flipY: bodyMap.flipY, wrapS: bodyMap.wrapS, wrapT: bodyMap.wrapT };
+    const P = { canvas: c, data: g.getImageData(0, 0, c.width, c.height), flipY: bodyMap.flipY, wrapS: bodyMap.wrapS, wrapT: bodyMap.wrapT };
+    // a white car (mostly light neutral texels, colour only in badges / lamps): the whites are the paint, the photo's
+    // greys its shading
+    if (white > n * 0.3 && sat < n * 0.1) T.paintHue = { ...P, white: true };
+    else if (sat > 50 && share > 0.4) T.paintHue = { ...P, hue: (best + 0.5) / 36 };
   }
   T.textures = {};
   return T;
@@ -210,8 +215,20 @@ function paintedTexture(T, colour) {
   const [th, ts, tl] = hsl((colour >> 16) & 255, (colour >> 8) & 255, colour & 255);
   // lightness of the original paint's mid-tone, so shading is kept relative to it
   const base = 0.45;
+  const cr = (colour >> 16) & 255, cg = (colour >> 8) & 255, cb = colour & 255;
   for (let i = 0; i < src.length; i += 4) {
     const [h, s, l] = hsl(src[i], src[i + 1], src[i + 2]);
+    if (P.white) {
+      // paint = light and neutral (soft edges into trim / glass / lamps); the colour multiplied by the texel's
+      // lightness relative to clean white keeps the panel shading. (Neutral = low chroma: HSL saturation blows up
+      // near white, so a faintly blue highlight would read as a badge.)
+      const ch = (Math.max(src[i], src[i + 1], src[i + 2]) - Math.min(src[i], src[i + 1], src[i + 2])) / 255;
+      const k = Math.min(1, Math.max(0, (0.2 - ch) / 0.08)) * Math.min(1, Math.max(0, (l - 0.34) / 0.14));
+      const sh = Math.min(1.08, l / 0.9);
+      o[i] = src[i] + (Math.min(255, cr * sh) - src[i]) * k; o[i + 1] = src[i + 1] + (Math.min(255, cg * sh) - src[i + 1]) * k; o[i + 2] = src[i + 2] + (Math.min(255, cb * sh) - src[i + 2]) * k;
+      o[i + 3] = src[i + 3];
+      continue;
+    }
     let dh = Math.abs(h - P.hue); dh = Math.min(dh, 1 - dh);
     if (s > 0.25 && dh < 0.07) {
       const nl = Math.max(0, Math.min(1, tl + (l - base) * (tl < 0.2 || tl > 0.85 ? 0.5 : 0.9)));
