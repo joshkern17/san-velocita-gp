@@ -134,6 +134,43 @@ const GROUPS = {
     }
     return out;
   },
+  // a drift held by a driver (closed loop, after a handbrake flick): counter-steer toward zero front slip, more when
+  // past the target angle; throttle up when under it. Can it be held for the whole run, at what angle, speed, g?
+  // (stage 3 removed the drift carve / push cheats: a held drift corners a little under grip driving, and slows)
+  driftHold() {
+    const out = {};
+    for (const id of ['jsport', 'mustang', 'm1procar', 'aventus', 'testarossa', 'm5']) for (const tc of ['off', 'high']) {
+      const p = car(id, { aids: tc === 'off' ? { tc: 'off', stab: 'off', cs: 'off' } : {}, v: 22, gear: 2 });
+      let s = 0, held = 0, spun = false, sv = 0, sb = 0, sr = 0, n = 0, ie = 0;
+      drive(p, 8, (t, p) => {
+        if (t < 0.6) return { steer: 0.6, throttle: 1, handbrake: t > 0.3 ? 1 : 0 };
+        if (!s) s = Math.sign(p.beta) || 1;
+        const e = p.beta * s - 0.45; ie += e * DT;
+        const zs = Math.atan2(p.v + p.p.a * p.r, Math.max(Math.abs(p.u), 4)), dd = zs + s * (0.6 * e - 0.1 * p.r * s - 0.08);
+        return { steer: Math.max(-1, Math.min(1, -dd / (p.p.maxSteer * 1.25))), throttle: Math.max(0, Math.min(1, 0.5 - e - 0.2 * ie)), pad: false };
+      }, (t, p) => {
+        if (t <= 1.2) return; const b = p.beta * s;
+        if (Math.abs(p.beta) < 0.12) return false; if (b > 1.3) { spun = true; return false; }
+        held = t - 1.2; sv += p.speed; sb += b; sr += Math.abs(p.r); n++;
+      });
+      const v = sv / Math.max(1, n), r = sr / Math.max(1, n);
+      out[`${id} TC ${tc}`] = { heldS: r1(held), spun, angleDeg: deg(sb / Math.max(1, n)), kmh: Math.round(v * 3.6), g: r2(v * r / 9.81) };
+    }
+    return out;
+  },
+  // the aero map: front share of the downforce cruising at ~230 km/h, braking hard, then on full power (the balance
+  // moves forward as the nose dips), and total downforce over kd·u² (≈ 1 at the reference ride height)
+  aero() {
+    const out = {};
+    for (const id of ['f1', 'm1procar', 'aventus']) {
+      const p = car(id, { v: 64, gear: 5 }), at = {};
+      drive(p, 3.5, (t) => ({ brake: t > 1.5 && t < 2.5 ? 1 : 0, throttle: t > 1.5 && t < 2.5 ? 0 : t > 2.5 ? 1 : 0.6 }), (t, p) => {
+        for (const [k, tk] of [['cruise', 1.4], ['braking', 1.8], ['power', 3.3]]) if (Math.abs(t - tk) < DT / 2) at[k] = `${(p.Df / (p.Df + p.Dr) * 100).toFixed(1)}% x${((p.Df + p.Dr) / (p.p.kd * p.u * p.u)).toFixed(2)}`;
+      });
+      out[id] = at;
+    }
+    return out;
+  },
   // what the pad's grip rumble reads (share of grip used, slip past the peak) in everyday situations
   grip() {
     const out = {};
@@ -171,7 +208,7 @@ let moved = 0;
 const walk = (a, b, path) => {
   if (typeof a === 'object' && a) { for (const k of Object.keys(a)) walk(a[k], b ? b[k] : undefined, path + ' / ' + k); return; }
   if (path.startsWith('speed')) return;
-  const changed = typeof a === 'number' ? b === undefined || Math.abs(a - b) > Math.max(0.05 * Math.abs(b), 0.6) : a !== b;
+  const changed = typeof a === 'number' ? b === undefined || Math.abs(a - b) > Math.max(0.05 * Math.abs(b), Math.abs(b) < 3 ? 0.04 : 0.6) : a !== b;
   if (changed) { moved++; console.log(`  ${path.slice(3)}: ${b === undefined ? '(new)' : b} -> ${a}`); }
 };
 for (const [k, v] of Object.entries(results)) {

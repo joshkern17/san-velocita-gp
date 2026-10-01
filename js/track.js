@@ -537,9 +537,7 @@ export function computeSpeedProfile(T, O, car) {
     const la = Math.hypot(bx - ax, bz - az), lb = Math.hypot(cx - bx, cz - bz), lc = Math.hypot(cx - ax, cz - az);
     const kap = (4 * A) / Math.max(1e-6, la * lb * lc);
     const den = kap - mu * kdm;
-    // (carve: extra turn rate in rad/s the car gets on top of its tyres, so v²k = mu(g + kdm v²) + carve v)
-    const w = car.carve || 0;
-    V[i] = den <= 0 ? vmax : Math.min(vmax, (w + Math.sqrt(w * w + 4 * den * mu * g)) / (2 * den));
+    V[i] = den <= 0 ? vmax : Math.min(vmax, Math.sqrt(mu * g / den));
   }
   // braking pass (backwards, twice around for closed loop). Point-to-point: stop by the end of the run-off.
   const cut = T.cut ?? -1;

@@ -30,20 +30,27 @@ const DIESEL = [[0, 0.7], [0.25, 1], [0.6, 0.95], [1, 0.7]];
 // fronts), brakeF = front brake share, loadK = tyre load sensitivity, rollF = front share of the roll stiffness (the
 // anti-roll bars; default: front weight share; higher = more understeer), suspension: track, rideHz [front, rear] (ride
 // frequency), damp (damping ratio), rollGrad (degrees of roll per g), unsprung (kg per corner): see setupSuspension, drift = the drift system (throttle steers the slide, light counter-steer assist, slide limiter at
-// driftMax rad), driftSlip = the rear wheelspin traction control's drift mode allows (slip ratio), driftPush = speed kept while drifting
-// (m/s² at full throttle), driftCarve = how strongly a held drift is drawn round the corner
+// driftMax rad), driftSlip = the rear wheelspin traction control's drift mode allows (slip ratio)
 // Wheels (defaults in CarPhysics.step; all optional): wheelR m, wheelI kg m² per axle, engineI kg m² (its inertia through
 // the gearbox), kappaPeak = slip ratio of peak grip, relaxX = tyre relaxation length m, slipFallX = how much grip a
 // locked / spinning tyre keeps along the road (1.5 ≈ 75%), brakeK = brake torque (× the car's grip, 1.5 locks it at low
 // speed), brakeKnee = where the proportioning valve starts cutting the rear pressure, handbrakeK = handbrake torque
 // (× footbrake), engineBrake = engine braking off the throttle (× maxForce)
+// Differential: lsd = the driven axle's limited-slip diff [preload N·m, power lock, coast lock] (lock = share of the
+// torque through it the clutches can pass between the wheels: 0 open, ~0.25 a road car's LSD, ~0.45 a race diff;
+// coast lower = turns in more easily off the throttle; a "1.5-way" diff), lsdF = the front axle's on four-wheel drive
+// Aero map (CarPhysics.aero): kd / aeroF are at the car's reference ride height (squashed by its downforce at ~200
+// km/h); aeroH [front, rear] = share of each axle's downforce gained per cm lower (ground effect), aeroYaw = how fast
+// downforce is lost as the car slides sideways (1 − aeroYaw·β²)
 const gt = (o) => ({
   mass: 1080, a: 1.42, b: 1.28, cgh: 0.38, mu: 1.58, rearGrip: 1.05, kd: 0.85, aeroF: 0.42,
   drag: 0.46, roll: 18, power: 450000, maxForce: 13500, maxSteer: 0.42,
   gears: [0, 26, 37, 48, 59, 71, 88], redline: 8800, idle: 1400, torque: NA, drive: 0, box: 'sequential', shift: 0.06,
   slipFall: 1.4, slipPeak: 0.09, slipFallR: 1.25, slipPeakR: 0.1, brakeF: 0.68,
   track: 1.6, rideHz: [2.4, 2.6], damp: 0.65, rollGrad: 1.2, unsprung: 35, rollBias: 0.05, rcH: 0.05, antiDive: 0.35, antiSquat: 0.35, // (a '90s GT racer: stiff, low, little roll)
-  drift: true, driftMax: 0, driftPush: 0.6, driftCarve: 0.15, gripK: 1.06, ...o,
+  lsd: [120, 0.45, 0.25], // (a 1.5-way racing diff)
+  aeroH: [0.025, 0.012], aeroYaw: 3, // (splitter, flat floor, wing)
+  drift: true, driftMax: 0, ...o,
 });
 const street = (o) => ({
   mass: 1450, a: 1.3, b: 1.4, cgh: 0.48, mu: 1.33, rearGrip: 1.03, kd: 0.14, aeroF: 0.45,
@@ -51,7 +58,9 @@ const street = (o) => ({
   gears: [0, 17, 28, 39, 51, 63, 78], redline: 7200, idle: 900, torque: NA, drive: 0, box: 'manual', shift: 0.16,
   slipFall: 1.4, slipPeak: 0.1, slipFallR: 1.22, slipPeakR: 0.11, brakeF: 0.7,
   track: 1.55, rideHz: [1.6, 1.8], damp: 0.65, rollGrad: 2.2, unsprung: 40, rcH: 0.08, antiDive: 0.3, antiSquat: 0.3, // (a road car: comfortable springs, leans in corners)
-  drift: true, driftMax: 0, driftPush: 0.8, driftCarve: 0.2, gripK: 1.08, ...o,
+  lsd: [50, 0.3, 0.15], // (a performance road car's clutch LSD)
+  aeroH: [0.01, 0.005], aeroYaw: 2, // (a little lip and spoiler)
+  drift: true, driftMax: 0, ...o,
 });
 
 // id -> { name, cls, sound (engine profile in engines.js), chassis (model builder key), spec, paint: can it be repainted,
@@ -70,27 +79,26 @@ export const CARS = {
     spec: gt({ gears: [0, 28, 43, 57, 71, 88], box: 'manual', shift: 0.14, mass: 1020, power: 400000, kd: 0.75, drag: 0.45, torque: NA, redline: 9000, a: 1.3, b: 1.13, rearGrip: 1.07, brakeF: 0.62 }) },
 
   testarossa: { name: 'Testa Rossa', cls: 'street', sound: 'flat12', glb: true, paint: true,
-    spec: street({ mass: 1510, power: 290000, cgh: 0.44, a: 1.4, b: 1.15, mu: 1.35, kd: 0.18, redline: 7400, gears: [0, 20, 34, 48, 63, 80], torque: NA }) },
+    spec: street({ lsd: [50, 0.4, 0.2], mass: 1510, power: 290000, cgh: 0.44, a: 1.4, b: 1.15, mu: 1.35, kd: 0.18, redline: 7400, gears: [0, 20, 34, 48, 63, 80], torque: NA }) },
   jsport:  { name: 'Kaze Sports Coupe', cls: 'street', sound: 'i4turbo', glb: true, paint: false,
-    spec: street({ mass: 1400, power: 280000, torque: TURBO, a: 1.3, b: 1.3, redline: 7000, gears: [0, 19, 32, 45, 60, 78] }) },
+    spec: street({ lsd: [80, 0.45, 0.3], mass: 1400, power: 280000, torque: TURBO, a: 1.3, b: 1.3, redline: 7000, gears: [0, 19, 32, 45, 60, 78] }) },
   rs964:   { name: 'Neun Elf RS', cls: 'street', sound: 'flat6', glb: true, paint: true,
-    spec: street({ mass: 1220, power: 195000, a: 1.5, b: 0.8, rearGrip: 1.08, cgh: 0.45, drag: 0.37, brakeF: 0.56, redline: 6900, gears: [0, 18, 30, 42, 55, 72] }) },
+    spec: street({ lsd: [60, 0.4, 0.4], mass: 1220, power: 195000, a: 1.5, b: 0.8, rearGrip: 1.08, cgh: 0.45, drag: 0.37, brakeF: 0.56, redline: 6900, gears: [0, 18, 30, 42, 55, 72] }) },
   gtr:     { name: 'Godzilla R35', cls: 'street', sound: 'v6turbo', glb: true, paint: false, archFix: true, cutout: 0.5,
-    spec: street({ mass: 1740, power: 400000, torque: TURBO, drive: 0.4, mu: 1.37, kd: 0.2, maxForce: 16500, a: 1.3, b: 1.48, redline: 7000, gears: [0, 18, 30, 42, 54, 66, 86], box: 'dual-clutch', shift: 0.05 }) },
+    spec: street({ lsd: [60, 0.35, 0.2], lsdF: [0, 0, 0], mass: 1740, power: 400000, torque: TURBO, drive: 0.4, mu: 1.37, kd: 0.2, maxForce: 16500, a: 1.3, b: 1.48, redline: 7000, gears: [0, 18, 30, 42, 54, 66, 86], box: 'dual-clutch', shift: 0.05 }) },
   mustang: { name: 'Pony GT 5.0', cls: 'street', sound: 'v8cross', glb: true, paint: true, bodyWheels: 'move', wheelW: 0.3,
-    spec: street({ mass: 1690, power: 320000, torque: V8, a: 1.36, b: 1.36, mu: 1.28, rearGrip: 1.0, redline: 7000, gears: [0, 18, 29, 40, 52, 64, 76] }) },
+    spec: street({ lsd: [20, 0.43, 0.43], mass: 1690, power: 320000, torque: V8, a: 1.36, b: 1.36, mu: 1.28, rearGrip: 1.0, redline: 7000, gears: [0, 18, 29, 40, 52, 64, 76] }) },
   m5:      { name: 'Bavaria M5 E39', cls: 'street', sound: 'v8cross', glb: true, paint: false, straighten: true, // CC BY-NC-ND: shown unmodified, never repainted
-    spec: street({ mass: 1720, power: 294000, torque: V8, a: 1.4, b: 1.44, cgh: 0.5, drag: 0.38, redline: 7000, gears: [0, 17, 28, 40, 52, 64, 78] }) },
+    spec: street({ lsd: [40, 0.25, 0.25], mass: 1720, power: 294000, torque: V8, a: 1.4, b: 1.44, cgh: 0.5, drag: 0.38, redline: 7000, gears: [0, 17, 28, 40, 52, 64, 78] }) },
 
   transit: { name: 'Works Van ’99', cls: 'fun', sound: 'diesel', glb: true, paint: false,
-    spec: street({ mass: 1950, power: 95000, torque: DIESEL, drive: 0, cgh: 0.8, track: 1.7, rideHz: [1.3, 1.5], damp: 0.45, rollGrad: 5, unsprung: 55, rcH: 0.12, antiDive: 0.15, antiSquat: 0.15, mu: 1.05, kd: 0, drag: 0.62, a: 1.55, b: 1.45, maxSteer: 0.5, redline: 4600, idle: 800, shift: 0.22, gears: [0, 13, 22, 32, 41, 50] }) },
+    spec: street({ lsd: [0, 0, 0], mass: 1950, power: 95000, torque: DIESEL, drive: 0, cgh: 0.8, track: 1.7, rideHz: [1.3, 1.5], damp: 0.45, rollGrad: 5, unsprung: 55, rcH: 0.12, antiDive: 0.15, antiSquat: 0.15, mu: 1.05, kd: 0, drag: 0.62, a: 1.55, b: 1.45, maxSteer: 0.5, redline: 4600, idle: 800, shift: 0.22, gears: [0, 13, 22, 32, 41, 50] }) },
   hearse:  { name: 'Caprice Hearse', cls: 'fun', sound: 'v8truck', glb: true, paint: false,
-    spec: street({ mass: 2250, power: 150000, torque: V8, cgh: 0.62, rideHz: [1.2, 1.4], damp: 0.45, rollGrad: 5.5, unsprung: 50, rcH: 0.12, antiDive: 0.15, antiSquat: 0.15, mu: 1.16, kd: 0, drag: 0.5, a: 1.6, b: 1.75, redline: 5200, idle: 700, gears: [0, 15, 27, 40, 55], box: 'automatic', shift: 0.3 }) },
+    spec: street({ lsd: [0, 0, 0], mass: 2250, power: 150000, torque: V8, cgh: 0.62, rideHz: [1.2, 1.4], damp: 0.45, rollGrad: 5.5, unsprung: 50, rcH: 0.12, antiDive: 0.15, antiSquat: 0.15, mu: 1.16, kd: 0, drag: 0.5, a: 1.6, b: 1.75, redline: 5200, idle: 700, gears: [0, 15, 27, 40, 55], box: 'automatic', shift: 0.3 }) },
 };
 // every spec gets its wheelbase + yaw inertia filled in
 for (const c of Object.values(CARS)) {
   const s = c.spec;
-  if (s.gripK && !s._gripped) { s.mu *= s.gripK; s._gripped = true; } // arcade grip: a touch more than the real car
   s.L = s.a + s.b;
   // yaw inertia: radius of gyration ~1.25 m for a road car (lower made them twitchy)
   if (!s.inertia) s.inertia = s.mass * 1.55;

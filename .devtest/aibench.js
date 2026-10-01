@@ -12,7 +12,7 @@ export function lap(race, id, V, pace = 1) {
     phys: new CarPhysics(spec), lineV: V, idx: 0, i: 0, f: 0, s: 0, y: 0, lap: 1, cpNext: 1, surface: 'road', onRoad: true, progress: 0, hitCd: 1e9, lapTimes: [], best: Infinity, lapStart: 0,
     ai: { pace, bias: 0, over: 0, stuckT: 0, react: 0, aggr: 0 }, isPlayer: false, model: { group: { position: new THREE.Vector3() }, setDamage() {} },
   };
-  car.phys.wearK = 0; car.phys.aiCarve = 0.8; car.phys.fitTyres('medium');
+  car.phys.wearK = 0; car.phys.isAI = true; car.phys.fitTyres('medium');
   const i0 = 0;
   car.phys.place(T.X[i0] + T.RX[i0] * race.line[i0], T.Z[i0] + T.RZ[i0] * race.line[i0], Math.atan2(T.FX[i0], T.FZ[i0]));
   const v0 = V[i0] * 0.9; car.phys.vx = T.FX[i0] * v0; car.phys.vz = T.FZ[i0] * v0; car.phys.gear = Math.min(5, spec.gears.length - 1);
@@ -59,7 +59,7 @@ export function diag({ track = 0, id = 'mustang' } = {}) {
   const V = race.limitsFor(id), T = race.T, N = T.N, spec = CARS[id].spec;
   const car = { phys: new CarPhysics(spec), lineV: V, idx: 0, i: 0, f: 0, s: 0, y: 0, lap: 1, cpNext: 1, surface: 'road', onRoad: true, progress: 0, hitCd: 1e9, lapTimes: [], best: Infinity, lapStart: 0,
     ai: { pace: 1, bias: 0, over: 0, stuckT: 0, react: 0, aggr: 0 }, isPlayer: false, model: { group: { position: new THREE.Vector3() }, setDamage() {} } };
-  car.phys.wearK = 0; car.phys.aiCarve = 0.8; car.phys.fitTyres('medium');
+  car.phys.wearK = 0; car.phys.isAI = true; car.phys.fitTyres('medium');
   car.phys.place(T.X[0] + T.RX[0] * race.line[0], T.Z[0] + T.RZ[0] * race.line[0], Math.atan2(T.FX[0], T.FZ[0]));
   car.phys.vx = T.FX[0] * V[0] * 0.9; car.phys.vz = T.FZ[0] * V[0] * 0.9; car.phys.gear = 4; race.updateTracker(car, true);
   race.state = 'racing'; race.damageK = 0; race.laps = Infinity; race.cars = [];

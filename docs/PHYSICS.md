@@ -31,7 +31,7 @@ on.
 Conventions in `CarPhysics.step`: `u` forward speed, `v` sideways speed (car frame), `r` yaw rate, `h` heading,
 `beta` body slip angle, `delta` front wheel angle. Slip angles `af` / `ar`; slip ratios `kF` / `kR` (+ = wheel faster
 than the road). `useF` / `useR` = share of each axle's grip in use, `gripF` / `gripR` = combined slip over its peak
-(both read by the rumble). The model is still a **bicycle** (one tyre per axle) until stage 2.
+(both read by the rumble). Four tyres (FL FR RL RR) on a sprung body since stage 2.
 
 ## The plan
 
@@ -40,9 +40,10 @@ than the road). `useF` / `useR` = share of each axle's grip in use, `gripF` / `g
    method (`tyreForce`); fixed brake torque + proportioning valve; ABS as a slip controller with EBD / cornering
    brake control; TC as a slip controller (with a drift mode for players: handbrake / >20° sideways; never for AI);
    stability control engine cut; engine braking; clutch-in handbrake; autobox on road speed.
-2. **Stage 2: four tyres on a sprung body (NEXT, see below).**
-3. **Stage 3: aero + differential.** Downforce that varies with ride height / pitch (front / rear balance shifts as the
-   nose dips), a limited-slip differential (power / coast lock) → replaces `driftCarve`, `driftPush`, `aiCarve`.
+2. **Stage 2: four tyres on a sprung body (DONE, see below).**
+3. **Stage 3: aero + differential (DONE, see below).** Downforce that varies with ride height / pitch / yaw, a
+   clutch-type limited-slip differential (preload + power / coast lock); `driftCarve`, `driftPush`, `aiCarve` and
+   `gripK` removed.
 
 ### Stage 2 in detail
 
@@ -62,12 +63,44 @@ Replace the bicycle with four tyres and a sprung body.
   Use realistic figures for each car's type and check against real-world references (skidpad g, braking distance,
   body roll per g, 0-100).
 
-**Current step:** stage 2 (2a + 2b + 2c) **done and released** (merged to `main`, `PHYS_VERSION` 4, `PROTO` 17).
-Next: stage 3 (aero map + LSD), **only after the user says go**.
+**Current step:** stages 1-3 **done and released** (merged to `main`, `PHYS_VERSION` 6, `PROTO` 19). The agreed
+physics plan is complete; what's next is the user's call (ideas: retune AI difficulty once they've raced the honest AI,
+F1 dirty air / DRS / ERS, tyre temperatures, learning the AI plans in a Web Worker for faster first loads).
+
+### Stage 3 in detail (2026-10-01)
+
+- **Limited-slip differential** (`physics.js`, the axle mode solve): clutch-type (Salisbury). The clutches pass up to
+  `preload + lock × |torque through the diff|` between the two wheels (`lsd: [preload N·m, power lock, coast lock]`;
+  coast = engine braking). Implicit friction on the wheels' difference mode, so a locked pair stays locked at any step.
+  Replaces the old viscous `diffVisc`. Values: F1 [100, 0.5, 0.3]; GT1 [120, 0.45, 0.25] (1.5-way); road default
+  [50, 0.3, 0.15]; Kaze [80, 0.45, 0.3]; Pony (Torsen) [20, 0.43, 0.43]; 964 [60, 0.4, 0.4]; M5 [40, 0.25, 0.25];
+  Testa Rossa [50, 0.4, 0.2]; GT-R rear [60, 0.35, 0.2], front open (`lsdF`); vans open. Effect: a bit more power
+  oversteer on exits (both rears driven, the inside one no longer spins off the torque), a touch of push on the power
+  in slow corners, and the car takes ~0.2 s longer to straighten after a fast flick (no oscillation).
+- **Aero map** (`CarPhysics.aero`): `kd` / `aeroF` hold at the reference ride height (each axle squashed by its
+  downforce at ~200 km/h, `susp.zRefF/R`); `aeroH [front, rear]` = share gained per cm lower (F1 [0.04, 0.02], GT
+  [0.025, 0.012], road [0.01, 0.005]), clamped 0.7-1.3; `aeroYaw` = loss when sideways, 1 − aeroYaw·β² (F1 4, GT 3,
+  road 2). Under hard braking the GT balance moves ~42% → ~44.5% front, F1 ~49 → 49.5%, and back past cruise on power.
+  Online rivals' bodies use it too (`bodyFromG`).
+- **Removed:** `driftCarve` (a held drift's direction of travel turned toward the nose), `driftPush` (free speed while
+  drifting), `aiCarve` / `AI_CARVE` (AI turned round corners 0.12 rad/s faster than its tyres: worth ~0.4-0.75 g at
+  30-60 m/s!), the `carve` term in `computeSpeedProfile`, `gripK` (+6% GT / +8% road grip). AI cars are flagged
+  `phys.isAI` instead (it keeps them out of the TC's drift mode).
+- **AI driver** (`aiControls`), skills it needed without the carve: eases the throttle when the rears are at their limit
+  and working harder than the fronts (power oversteer); lifts (fully if need be) when the fronts are at their limit, the
+  car is turning less than the line needs, it's > 0.5 m outside its line and < 2 m from the outside edge. (A version
+  with a 30% throttle floor kept the car pushing wide whatever its speed plan said, so learning never converged; a
+  version without the edge condition lifted the F1 too often in fast corners: −2.5%.)
+- **Consequences (measured):** grip driving 6-8% less cornering g in road / GT cars (Kaze 1.25 → 1.17 g, M1 1.57 →
+  1.46 g), stops ~7% longer. Held drifts (closed-loop `driftHold`): 22-25° for the whole run in every rear-drive car,
+  at 1.1-1.2 g (road) / 1.4 g (GT), losing speed (was 1.4-1.7 g and gaining speed). **AI and reference laps in road /
+  GT cars are much slower where the carve helped**: Maple Ridge M1 sim lap 66.9 → 78.0 s, Kaze 79.0 → 90.4 s; Auburn M1
+  softs reference 1:40.0 → 1:47.6 (the old one wasn't drivable by a player). F1 unchanged (it never had the carve).
+  Difficulty levels are still fractions of the learned limit, so "Hard" is now 94.5% of what the car can really do.
 
 What stage 2 is, and what was learned getting there:
 - **Four wheels** (`js/physics.js`): per-wheel load / slip angle / spin / slip ratio / ABS; each axle pair solved as
-  mean + difference modes (engine inertia on the mean, viscous LSD `diffVisc` on the driven pair); brakes inside the
+  mean + difference modes (engine inertia on the mean, the diff on the driven pair: viscous in stage 2, a clutch LSD since stage 3); brakes inside the
   mode solve (a brake stops a wheel, never reverses it). Rear ABS is **select-low** (both rears get the pressure that
   suits the one with less grip, as real ABS does), so braking never twists the car.
 - **Sprung body** (`setupSuspension` / `bodyStep`): heave / pitch / roll on a spring + damper per corner and an
@@ -113,24 +146,30 @@ What stage 2 is, and what was learned getting there:
 |---|---|---|
 | ~~`pitchK` + `pitchV` + `axLT` lag~~ | | removed in 2b (springs + dampers) |
 | ~~`ltLoss`~~; `rollF` is now a real setup figure (anti-roll bar split) | | 2b |
-| `rearGrip` multiplier (1.0-1.08: wider rear tyres, roughly), `gripK` (arcade grip ×1.06-1.08) | `cars.js` | still there after 2b; ask the user about `gripK` |
+| `rearGrip` multiplier (1.0-1.08: wider rear tyres, roughly) | `cars.js` | still there (stands in for wider rear tyres) |
+| ~~`gripK`~~ | | removed in 3 (user agreed) |
 | yaw damping `r *= 1 - dt*0.25`, the 1.6× yaw cap with SC off, kinematic blend at walking pace, low-speed lateral fade | `physics.js` | 2a/2b (re-check; low-speed handling may still need something) |
-| `driftCarve`, `driftPush`, `aiCarve` (drift arcade cheats; AI gets carve to keep up with drifting players) | `physics.js`, `race.js` | 3 |
+| ~~`driftCarve`, `driftPush`, `aiCarve`~~ | | removed in 3 (LSD + aero map) |
+| `lowStop` direct stop at walking pace, TC drift mode's slip target | `physics.js` | stay (a tyre model can't hold a car still; the drift mode is what real cars' drift modes do) |
 | Counter-steer help, steering assist, stability yaw cap / slide limiter, braking assist | aids | stay: they're the aids layer, by design |
 
 ## Testing
 
 - `node .devtest/physics/suite.mjs`: plain-node scenarios (cornering, stops, brake + turn, launches, corner exits,
-  fast kinks, lane-change stability, handbrake flick, held drift, rumble grip signal, CPU cost). Compares with
+  fast kinks, lane-change stability, handbrake flick, held drift (open loop), `driftHold` (a closed-loop driver
+  holding ~25°), `aero` (downforce balance cruising / braking / on power), rumble grip signal, CPU cost). Compares with
   `.devtest/physics/baseline.json` (the stage 2 state) and prints only what moved. `--save` to re-baseline once a
   change is accepted; `--only=stop,exit` for some groups.
 - `node .devtest/physics/browser.mjs ai | ref | load`: in-game checks (needs Chrome and `cd tools && npm install`).
   The AI learning bench, the Lap Review reference on the user's circuit `.devtest/auburn2.json` (they race the M1
   ProCar, `m1procar`, on softs there), and race build times.
 
-### Targets (what changes must keep meeting; stage 2 numbers in brackets)
+### Targets (what changes must keep meeting; stage 3 numbers in brackets)
 
-- Steady cornering (Kaze `jsport` ~108 km/h): ~1.25 g at the limit, front limited (mild understeer), not more [1.22-1.30 g].
+- Steady cornering (Kaze `jsport` ~108 km/h): ~1.15-1.2 g at the limit (no arcade grip since stage 3), front limited
+  (mild understeer) [1.15-1.17 g].
+- Held drift (`driftHold`): every rear-drive road / GT car holds ~23° for the whole run without spinning [all 6.8 s].
+- Aero balance (`aero`): moves forward 2-3% under hard braking (GT), back on power; total ≈ kd·u² (±5%).
 - Stops from 126 km/h (road car): ABS clearly shorter than locked (~50 m vs ~57 m); a stamp without ABS locks the
   fronts (not the rears: proportioning valve); F1 ABS ~29 m.
 - Brake + turn: turns ~30° in 1.2 s with ABS, ~0° with ABS off (locked fronts don't steer); slide under ~12° [Kaze 30.6°, slide 2.5°].
@@ -139,9 +178,9 @@ What stage 2 is, and what was learned getting there:
   With TC + SC off the rear is the player's to manage (big slides are correct).
 - Lane-change flick: settles, no oscillation (`flips` small, `yawAfter` ~0 by 2 s), never NaN.
 - Rumble grip signal: silent cruising / brisk corners, light from ~88% grip use, strong past the peak.
-- AI (`browser.mjs ai`): learns in under 40 rounds for every car, 0-4 offs per 5 laps at 95-97% pace [7-19 rounds, 0 offs].
-- Reference lap (`browser.mjs ref`): M1 on softs at Auburn clean (faults 0-2) [1:40.2, faults 0].
-- Load (`browser.mjs load`): first-time Auburn race ~4.4 s one class / ~6.7 s mixed; cached ~1.4 s [4.3 / 8.5 / 1.4].
+- AI (`browser.mjs ai`): learns in under 40 rounds for every car, 0-4 offs per 5 laps at 95-97% pace [12-26 rounds, 0-1 offs].
+- Reference lap (`browser.mjs ref`): M1 on softs at Auburn clean (faults 0-2) [1:47.6, faults 0].
+- Load (`browser.mjs load`): first-time Auburn race ~4.4 s one class / ~6.7 s mixed; cached ~1.4 s [4.4 / 8.3 / 1.4].
   Don't make it much worse (idea for later: learn in a Web Worker).
 - CPU: ~30 ms per simulated minute per car (12 cars at 240 Hz must stay smooth) [~20, warmed up].
 
@@ -160,6 +199,10 @@ What stage 2 is, and what was learned getting there:
   `PHYS_VERSION` 3, `PROTO` 16. Physics moved to `js/physics.js`; test suite + this doc added.
 - 2026-09-30: stage 2 done: four tyres on a sprung body, per-wheel kerbs / grass, SC braking, AI steering damping.
   `PHYS_VERSION` 4, `PROTO` 17. Suite re-baselined to this state.
+- 2026-09-30: stage 2 follow-up (suspension geometry, firmer damping, tyre enveloping, lower sidewalks). `PHYS_VERSION`
+  5, `PROTO` 18.
+- 2026-10-01: stage 3 done: limited-slip diffs, aero map, drift / AI carve + push + `gripK` removed, AI throttle skills.
+  `PHYS_VERSION` 6, `PROTO` 19. Suite re-baselined (new groups `driftHold`, `aero`).
 - Note: another local Claude session works on the same repo (pit lane, garages, practice sessions: mostly
   `race.js` pit / session code, `main.js` garage menus, `js/pitgarage.js`). Before editing shared files, `git pull`
   and check `git log`; keep edits to your own areas; whoever finishes last rebuilds `dist/` and takes the next

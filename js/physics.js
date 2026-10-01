@@ -6,7 +6,7 @@ import { AI_AIDS } from './aids.js';
 // ---------------- physics ----------------
 
 // bump whenever the physics changes how a car drives: learned AI speed plans saved by an older version are relearned
-export const PHYS_VERSION = 5;
+export const PHYS_VERSION = 6;
 
 export const CARSPEC = {
   mass: 740, inertia: 1100, a: 1.85, b: 1.75, L: 3.6, cgh: 0.22,
@@ -17,6 +17,8 @@ export const CARSPEC = {
   // handling (see cars.js): slicks peak early (~5°) and the fronts fall away past it; the rears stay a touch flatter
   slipFall: 1.4, slipPeak: 0.085, slipFallR: 1.3, slipPeakR: 0.09, brakeF: 0.64,
   engineI: 0.05, // (a Formula car's small, light engine: little inertia to spin up through the gearbox)
+  lsd: [100, 0.5, 0.3], // (a race diff: locks well on power for traction, less off it so the car still turns in)
+  aeroH: [0.04, 0.02], aeroYaw: 4, // (wings + floor close to the road: ride height matters a lot; stalls when sideways)
   // suspension: stiff, on a stiff chassis (aero needs the ride height held): ~4.5-5 Hz, half a degree of roll per g
   track: 1.6, rideHz: [4.5, 5], damp: 0.6, rollGrad: 0.5, unsprung: 20, rollBias: 0.05, rcH: 0.04, antiDive: 0.5, antiSquat: 0.5,
 };
@@ -93,12 +95,12 @@ export class CarPhysics {
     this.aidT = { abs: 0, tc: 0, stab: 0, cs: 0, steer: 0, brake: 0 }; // > 0 while an aid is stepping in (for the HUD)
     this.lockF = false; this.lockR = false; // wheels locked under braking (ABS off)
     this.powerMul = 1; this.gripMul = 1;
-    this.aiCarve = 0; // AI drivers of drift cars: share of the drift carve they get while gripping (see step)
+    this.isAI = false; // an AI driver: never gets the drift mode of the traction control (it doesn't drift on purpose)
     this.tyre = { c: 'medium', wf: 1, wr: 1 };
     this.dmg = { fw: 0, rw: 0, ch: 0 };
     this.pull = Math.random() < 0.5 ? -1 : 1;
     this.wearK = 1; this.rain = false;
-    this.dfMul = 1; this.dragMul = 1; this.brakeMul = 1;
+    this.dfMul = 1; this.dragMul = 1; this.brakeMul = 1; this.Df = this.Dr = 0;
     this.slip = 0; // 0..1 slipstream from a car ahead (set by the race each frame)
   }
 
@@ -132,6 +134,11 @@ export class CarPhysics {
     // the car), so a kerb's stripes shake the wheel and only some of that reaches the body, and a wheel can leave the road
     const kt = P.tyreK ?? 230000;
     Object.assign(this.susp, { mu, kt, ct: 2 * 0.05 * Math.sqrt(kt * mu) });
+    // the aero map's reference ride heights: where each axle sits (relative to standing still: springs and tyres
+    // squashed) under its downforce at ~200 km/h (or the car's top speed if lower), the height kd and aeroF describe
+    const vRef = Math.min(55, P.gears[P.gears.length - 1] * 0.9) ** 2, aF = P.aeroF ?? P.b / P.L;
+    this.susp.zRefF = -P.kd * aF * vRef / 2 * (1 / kF + 1 / kt);
+    this.susp.zRefR = -P.kd * (1 - aF) * vRef / 2 * (1 / kR + 1 / kt);
     this.body = { z: 0, th: 0, ph: 0, vz: 0, vth: 0, vph: 0 }; // heave (m, up), pitch (rad, nose up), roll (rad, +v side up)
     this.wz = new Float64Array(4); this.wv = new Float64Array(4); this.wr = new Float64Array(4); // wheel height / speed, road height
     this.we = new Float64Array(4); // the road height each tyre actually rides (enveloped: see bodyStep)
@@ -183,8 +190,22 @@ export class CarPhysics {
   // the body for a car this machine doesn't simulate (an online rival): the same suspension, pushed by the g-forces and
   // speed it sends (in small steps, so the stiffest springs stay stable at any frame rate)
   bodyFromG(dt) {
-    const P = this.p, D = P.kd * (this.dfMul ?? 1) * this.u * this.u, aF = P.aeroF ?? P.b / P.L;
-    for (let n = Math.min(12, Math.ceil(Math.min(dt, 0.05) * 240)), k = 0; k < n; k++) this.bodyStep(Math.min(dt, 0.05) / n, (this.lonG || 0) * G, (this.latG || 0) * G, D * aF, D * (1 - aF));
+    for (let n = Math.min(12, Math.ceil(Math.min(dt, 0.05) * 240)), k = 0; k < n; k++) { this.aero(this.u, 0); this.bodyStep(Math.min(dt, 0.05) / n, (this.lonG || 0) * G, (this.latG || 0) * G, this.Df, this.Dr); }
+  }
+  // Downforce on each axle (N, into this.Df / this.Dr), from the car's aero map. kd·u² is the car's downforce at its
+  // reference ride height (see setupSuspension), shared front / rear by aeroF. Two things move it from there:
+  //   ride height (aeroH [front, rear]: the share each axle gains per cm lower): a wing or a floor close to the road
+  //     works harder (ground effect), so when the nose dips under braking the front gains downforce and the rear, lifted,
+  //     loses some: the balance moves forward into a corner and back on the power out of it. Bumps and kerbs move it too.
+  //   yaw (aeroYaw: the loss at the body's slip angle β, as 1 − aeroYaw·β²): wings and floors are made to work with
+  //     the air coming straight at them; sideways they stall, so a car sliding (or drifting) loses much of its downforce.
+  // Damage to a wing takes away part of that axle's share (as before).
+  aero(u, beta) {
+    const P = this.p, S = this.susp, B = this.body, D = P.kd * this.dfMul * u * u, aF = P.aeroF ?? P.b / P.L, H = P.aeroH;
+    const yaw = Math.max(0.3, 1 - (P.aeroYaw ?? 0) * beta * beta);
+    const hF = H ? Math.max(0.7, Math.min(1.3, 1 + H[0] * (S.zRefF - (B.z + P.a * B.th)) * 100)) : 1;
+    const hR = H ? Math.max(0.7, Math.min(1.3, 1 + H[1] * (S.zRefR - (B.z - P.b * B.th)) * 100)) : 1;
+    this.Df = D * aF * hF * yaw * (1 - 0.55 * this.dmg.fw); this.Dr = D * (1 - aF) * hR * yaw * (1 - 0.55 * this.dmg.rw);
   }
 
   setAids(a) { this.aidBase = { ...a }; this.aid = { ...a }; }
@@ -264,9 +285,9 @@ export class CarPhysics {
     // loads
     const mu = P.mu * env.mu * this.gripMul;
     const dm = this.dmg, ty = this.tyre;
-    const W = P.mass * G, D = P.kd * this.dfMul * u * u;
-    const aF = P.aeroF ?? P.b / P.L;
-    const Df = D * aF * (1 - 0.55 * dm.fw), Dr = D * (1 - aF) * (1 - 0.55 * dm.rw);
+    const W = P.mass * G;
+    this.aero(u, beta);
+    const Df = this.Df, Dr = this.Dr;
     const N = W + Df + Dr;
     // ---- the body on its springs: what each tyre carries ----
     // The sprung body bounces, pitches and rolls on a spring + damper at each corner, with an anti-roll bar across each
@@ -355,8 +376,15 @@ export class CarPhysics {
     // while turning trades steering for stopping, the way a real tyre does.
     // Each axle's pair moves in two ways (the standard way to split it): together (the mean speed: carries the engine's
     // inertia through the gearbox on a driven axle) and against each other (the difference: just the wheels, held back by
-    // the differential: a viscous limited-slip diff on the driven axle, diffVisc N·m·s/rad; a free axle's wheels are
-    // independent). With both wheels alike it's exactly stage 1's axle model.
+    // the differential on a driven axle; a free axle's wheels are independent). With both wheels alike it's exactly
+    // stage 1's axle model.
+    // The differential on a driven axle is a clutch-type limited-slip diff (the Salisbury type most performance and race
+    // cars use): its clutches lock the two wheels together up to a friction torque made of a preload plus a share of the
+    // torque going through it, a bigger share on power (`lsd[1]`) than off it (`lsd[2]`, coast: engine braking). Once
+    // one wheel's road torque differs from the other's by more than that, the wheels slip against each other. An open
+    // diff is lsd [0, 0, 0]: the inside wheel of a corner, unloaded, spins up on power. A locked one: the pair is a solid
+    // axle that pushes on power and holds a slide. What it does to the car is how the rear behaves on and off the power
+    // in a corner (and in a drift).
     // ABS (one channel per wheel) and traction control are real controllers on top.
     const kp = kpk, sigma = P.relaxX ?? 0.12;
     const wI = P.wheelI ?? 2.2; // kg m² per axle (two wheels, hubs, brakes)
@@ -379,7 +407,7 @@ export class CarPhysics {
     // side grip and the car spins. A snap of oversteer on its own is still caught the normal way.
     this.hbT = hb > 0.2 ? 1.5 : Math.max(0, (this.hbT || 0) - dt);
     // (never for the AI: it doesn't drift on purpose, so its traction control always catches a slide)
-    const drifting = drifty && !this.aiCarve && (this.hbT > 0 || Math.abs(beta) > 0.35);
+    const drifting = drifty && !this.isAI && (this.hbT > 0 || Math.abs(beta) > 0.35);
     const tcOn = A.tc > 0 && drive > 0;
     const tcTarget = drifting ? (A.tc >= 1 ? P.driftSlip ?? 0.35 : (P.driftSlip ?? 0.35) * 1.6) : kp * (A.tc >= 1 ? 1.1 : 1.45);
     const syF = (WSY[0] + WSY[1]) / 2, syR = (WSY[2] + WSY[3]) / 2;
@@ -427,7 +455,9 @@ export class CarPhysics {
     const escK = drive > 0 ? this.escK : 1;
     const drF = drive * R * fd * escK, drR = clutchIn ? 0 : drive * R * (1 - fd) * escK; // (per axle, split evenly by the diff)
     const CF = this.nCF, BF = this.nBF, CR = this.nCR, BRr = this.nBR;
-    const cDiff = P.diffVisc ?? 60;
+    // the diff on each driven axle: [preload N·m, power lock, coast lock] (lock = the share of the torque through the diff
+    // that its clutches can pass between the wheels). A non-driven axle's wheels turn freely.
+    const lsdR = P.lsd ?? [60, 0.3, 0.15], lsdF = P.lsdF ?? [0, 0, 0];
     const FXs = W4.fx, FYs = W4.fy, TB = W4.tb;
     FXs.fill(0); FYs.fill(0);
     let absAct = false, tcAct = false, tcK = this.tcK;
@@ -462,13 +492,19 @@ export class CarPhysics {
       // (left − right road torque on the wheels alone, the diff's viscous coupling holding them together); then the brakes
       // (a brake can stop a wheel, never turn it backwards)
       for (let ax = 0; ax < 2; ax++) {
-        const L = ax * 2, Rw = L + 1, Iax = ax ? IR : IF, Td = ax ? TdR : TdF, c = ax ? (fd < 1 ? cDiff : 0) : (fd > 0 ? cDiff : 0);
+        const L = ax * 2, Rw = L + 1, Iax = ax ? IR : IF, Td = ax ? TdR : TdF, Dl = ax ? (fd < 1 ? lsdR : null) : (fd > 0 ? lsdF : null);
+        // the most the diff's clutches can pass from one wheel to the other (the difference in torque they allow, each way)
+        const Tlock = Dl ? Dl[0] + (Td >= 0 ? Dl[1] : Dl[2]) * Math.abs(Td) : 0;
         // (the brakes act against each wheel's spin in the same sums, so a driven pair's engine inertia slows with them)
         const wL0 = WS[L], wR0 = WS[Rw];
         const TL = Td / 2 - W4.sfx[L] * R - Math.sign(wL0) * TB[L], TR = Td / 2 - W4.sfx[Rw] * R - Math.sign(wR0) * TB[Rw];
         let m = (wL0 + wR0) / 2, d = (wL0 - wR0) / 2;
         m += h * (TL + TR) / Iax;
-        d = (d + h * (TL - TR) / wI) / (1 + h * 4 * c / wI);
+        // the difference: free, then the clutches' friction (−Tc on the left wheel, +Tc on the right) takes out as much of
+        // it as they can hold (implicit, so locked wheels stay locked at any step size)
+        d += h * (TL - TR) / wI;
+        const Tc = Math.max(-Tlock / 2, Math.min(Tlock / 2, d * wI / (2 * h)));
+        d -= 2 * h * Tc / wI;
         // a brake can stop a wheel, never turn it backwards (it holds a stopped wheel until the road torque beats it)
         let wl = m + d, wr = m - d;
         if (TB[L] > 0 && (wl * wL0 < 0 || (wL0 === 0 && Math.abs(W4.sfx[L] * R) <= TB[L]))) wl = 0;
@@ -526,8 +562,6 @@ export class CarPhysics {
     // that side back, and turns the car toward it), else on the car as a whole
     if (EW) for (let i = 0; i < 4; i++) { const f = EW.drag[i] / 4 * u; Fx -= f; Tz += WY[i] * f; }
     else Fx -= env.extraDrag * u;
-    // keep a held drift from scrubbing all the speed away (an arcade cheat: real slides are slower)
-    if (drifty && thr > 0 && u > 5) Fx += P.mass * (P.driftPush ?? 0) * thr * slideW;
 
     // tyre wear: more when the tyre is worked hard, much more when it's sliding
     if (this.wearK > 0 && speed > 1) {
@@ -587,32 +621,6 @@ export class CarPhysics {
       this.vx = u * sn + v * cs; this.vz = u * cs - v * sn;
     }
 
-    // drift carve, eased in: the longer you hold a drift on the throttle, the more your direction of travel is drawn
-    // toward where the nose points (into the corner), so long corners can be held without being pushed wide. Nothing
-    // for the first ~0.4 s (flicks and short slides feel untouched), full strength after ~2 s, fades fast on exit.
-    if (drifty && this.drifting && thr > 0.2) this.driftT = (this.driftT || 0) + dt;
-    else this.driftT = Math.max(0, (this.driftT || 0) - dt * 3);
-    if (drifty && P.driftCarve && !this.aiCarve && this.driftT > 0.4 && thr > 0 && speed > 8) {
-      const x = Math.min(1, (this.driftT - 0.4) / 1.6), ramp = x * x * (3 - 2 * x);
-      const b2 = Math.atan2(this.vx * Math.cos(this.h) - this.vz * Math.sin(this.h), this.vx * Math.sin(this.h) + this.vz * Math.cos(this.h));
-      const phi = -Math.sign(b2) * Math.min(Math.abs(b2) * 0.5, P.driftCarve * ramp * thr * slideW * dt);
-      const c = Math.cos(phi), s = Math.sin(phi), vx = this.vx;
-      this.vx = vx * c + this.vz * s; this.vz = -vx * s + this.vz * c;
-      this.h += phi * 0.5; // the nose follows half-way, so the drift angle is kept
-    }
-    // the AI can't hold a drift, so it gets the carve's extra cornering while gripping instead: near the tyres' limit
-    // its direction of travel (and the nose with it, so it doesn't look sideways) is drawn round the corner the way a
-    // held drift's would be. Without this a drifting player corners at about twice the AI's g in the road cars.
-    // (a slide counts as being at the limit too, so it doesn't cut out the moment the car steps sideways)
-    if (this.aiCarve && drifty && P.driftCarve && speed > 8) {
-      const use = Math.min(1, Math.max(slideW, (Math.abs(ayL) / (mu * N / P.mass) - 0.5) / 0.35));
-      if (use > 0) {
-        const phi = Math.sign(ayL) * P.driftCarve * this.aiCarve * use * dt;
-        const c = Math.cos(phi), s = Math.sin(phi), vx = this.vx;
-        this.vx = vx * c + this.vz * s; this.vz = -vx * s + this.vz * c;
-        this.h += phi;
-      }
-    }
     this.h += this.r * dt;
     this.x += this.vx * dt;
     this.z += this.vz * dt;

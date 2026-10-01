@@ -25,7 +25,6 @@ const DIFF = {
 // AI mistakes: chance per corner of braking too late / running wide / spinning, by difficulty (x the AI Mistakes option)
 const MISTAKE = { easy: 0.03, medium: 0.022, hard: 0.014, alien: 0.008 };
 const MISTAKES = { off: 0, normal: 1, frequent: 2.2 };
-// the AI's share of the drift carve (car.js): the cornering a player gets from holding a drift in the road cars
 // learned AI speed plans: kept for the play session, and saved in the browser between sessions (the most recent 40
 // circuit + car + weather combinations, ~10 KB each), so a race you've run before loads without relearning
 const LIMITS_CACHE = new Map(), PLANS_KEY = 'svgp.aiPlans';
@@ -45,7 +44,6 @@ function savePlan(key, hit) {
     localStorage.setItem(PLANS_KEY, JSON.stringify(all));
   } catch (err) {}
 }
-const AI_CARVE = 0.8;
 export const TYRE_FIT = 20; // seconds of a session to fit a new set of tyres in the garage
 const CAMS = ['chase', 'far', 'tcam', 'bumper'];
 const lerpAngle = (a, b, t) => { let d = ((b - a + Math.PI) % (Math.PI * 2)); if (d < 0) d += Math.PI * 2; return a + (d - Math.PI) * t; };
@@ -235,8 +233,7 @@ export class Race {
   learnLimits(spec = CARSPEC) {
     const T = this.T, N = T.N, grip = this.rain ? 0.97 : 1;
     const vmax = Math.min(95, spec.gears[spec.gears.length - 1] * 0.99);
-    const carve = spec.drift && spec.driftCarve ? spec.driftCarve * AI_CARVE : 0;
-    const base = computeSpeedProfile(T, this.line, { mu: spec.mu * 1.36 * grip, kdm: spec.kd / spec.mass, vmax, brake: 1.05, carve }).V;
+    const base = computeSpeedProfile(T, this.line, { mu: spec.mu * 1.36 * grip, kdm: spec.kd / spec.mass, vmax, brake: 1.05 }).V;
     // scale: how far this car can go past (or must stay under) the textbook speed at each point. It's learned both ways:
     // clean stretches are pushed faster each lap until they go wrong once; that level (minus a margin) becomes the
     // ceiling there. (Only ever slowing down left road cars well under what they can really do.)
@@ -264,7 +261,7 @@ export class Race {
       phys: new CarPhysics(spec), lineV: V, idx: 0, i: 0, f: 0, s: 0, y: 0, lap: 1, cpNext: 1, surface: 'road', onRoad: true, progress: 0, hitCd: 1e9, lapTimes: [], best: Infinity, lapStart: 0,
       ai: { pace: 1, bias: 0, over: 0, stuckT: 0, react: 0 }, isPlayer: false, model: { group: { position: new THREE.Vector3() }, setDamage() {} },
     };
-    car.phys.rain = this.rain; car.phys.wearK = 0; car.phys.aiCarve = AI_CARVE; car.phys.fitTyres(this.rain ? 'wet' : 'medium');
+    car.phys.rain = this.rain; car.phys.wearK = 0; car.phys.isAI = true; car.phys.fitTyres(this.rain ? 'wet' : 'medium');
     this.refGrip = car.phys.gripNow();
     const flying = (idx) => {
       car.phys.place(T.X[idx] + T.RX[idx] * this.line[idx], T.Z[idx] + T.RZ[idx] * this.line[idx], Math.atan2(T.FX[idx], T.FZ[idx]));
@@ -339,7 +336,7 @@ export class Race {
       ai: { pace, bias: 0, over: 0, stuckT: 0, react: 0, errCd: 1e9 }, isPlayer: false, model: { group: { position: new THREE.Vector3() }, setDamage() {} },
     };
     const p = car.phys;
-    p.rain = this.rain; p.wearK = 0; p.aiCarve = AI_CARVE; p.powerMul = power; p.gripMul = grip; p.fitTyres(this.rain ? 'wet' : tyre);
+    p.rain = this.rain; p.wearK = 0; p.isAI = true; p.powerMul = power; p.gripMul = grip; p.fitTyres(this.rain ? 'wet' : tyre);
     let start = -1, time = Infinity, t = 0, lastIdx;
     if (T.open) {
       const g = gridSlot(T, 0); p.place(g.x, g.z, g.heading); car.idx = g.idx;
@@ -398,7 +395,7 @@ export class Race {
     } else if (!extra.human) {
       phys.powerMul = this.opts.aiSetup?.[teamIdx]?.power ?? this.diff.power * (1 - Math.random() * this.diff.spread * 0.5);
       phys.gripMul = this.diff.grip;
-      phys.aiCarve = AI_CARVE;
+      phys.isAI = true;
     }
     phys.rain = this.rain; phys.wearK = this.wearK * (mods ? mods.wear : 1);
     const model = buildF1(cfg, { texSize: isPlayer ? 1024 : 512, low: !isPlayer && !extra.human && this.cars.length > 5 });
@@ -1577,6 +1574,17 @@ export class Race {
     let throttle = err > 0 ? Math.min(1, 0.3 + err * 0.35) : 0;
     let brake = err < -0.6 ? Math.min(1, -err * 0.4) : 0;
     if (p.slipR > 0.14) throttle *= 0.6;
+    // like a driver feeling the rear: when the rears are at their limit and working harder than the fronts (power
+    // oversteer on the way, in a fast sweeper or out of a slow corner), ease the throttle until they hook up
+    const rearOver = p.gripR - Math.max(0.9, p.gripF);
+    if (rearOver > 0) throttle *= Math.max(0.25, 1 - rearOver * 4);
+    // ...and the front: when the fronts are at their limit, the car is turning less than the line needs and it's ending
+    // up outside its line, near the edge (pushing wide on the power, which a locked diff makes worse), ease off (all the way, if need be: lifting puts weight on the
+    // fronts) so they can turn it
+    const kNow = p.r / Math.max(Math.abs(p.u), 5), push = kap * kNow > 0 && Math.abs(kap) > 0.004 ? 1 - Math.abs(kNow / kap) : 0;
+    const out = Math.sign(p.delta), wide = (car.s - (this.line[car.idx] + ai.bias + ai.over + (ai.def || 0))) * out; // (m outside its line)
+    const room = T.W[car.idx] / 2 - car.s * out; // (m to the outside edge)
+    if (p.gripF > 0.9 && push > 0.1 && wide > 0.5 && room < 2) throttle *= Math.max(0, 1 - (push - 0.1) * 4 * Math.min(1, wide - 0.5));
     // squeezed on like a driver, not stamped: the throttle comes in over ~0.35 s in a corner (quicker on a straight),
     // the brake trails off rather than dropping; lifting and braking are still instant
     const turning = Math.min(1, Math.abs(steer) * 3);
