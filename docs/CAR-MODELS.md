@@ -78,3 +78,19 @@ A model can leave panels out; decals placed on a missing panel simply aren't dra
 **This livery's texture** (same tab) downloads the painted atlas, which is handy for checking a new unwrap.
 The designer's click-to-place works on any model whose livery material uses `livTex`, because it raycasts
 to a UV and asks `uvToPanel()` which panel it hit.
+
+## Road and GT cars with a full livery (`livery: true`)
+
+A road / GT car (`models/cars/<id>.glb`, `js/roadcar.js`) can wear the whole livery too, not just your main
+colour. The M1 ProCar does. What the model needs:
+
+- **A white body photo/texture.** White texels are the paint; everything coloured or dark (glass, lamps, grille,
+  badges, black trim) is kept as photographed, and the photo's greys shade the new paint.
+- **Unique UVs on the painted surfaces:** left and right must not share texels (a mirrored unwrap would put a
+  door number on both doors, one backwards). Faces whose UVs collapse to a point or a line are fine; they take
+  the main colour (the M1's wing and rear deck are like that).
+
+Then set `paint: true, livery: true` in `js/cars.js`. The panels are fixed for every GT car: **Bonnet, roof +
+wing** (seen from above), **Left / Right side**, **Nose**, **Tail**. `liveryLabels` places the race number on
+the bonnet / doors and the sponsor on the flanks (`[along 0 rear .. 1 nose, across 0 top .. 1 bottom]`).
+The livery is painted at 2048 px for your car and 1024 for the AI.

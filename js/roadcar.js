@@ -7,7 +7,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { CHASSIS, driverKit, carLights, blobShadow } from './carmodel.js';
-import { fillLivery } from './livery.js';
+import { fillLivery, paintCar } from './livery.js';
 import { CARS } from './cars.js';
 
 const TPL = {}, loading = {};
@@ -133,7 +133,166 @@ function makeTemplate(id, scene) {
     else if (sat > 50 && share > 0.4) T.paintHue = { ...P, hue: (best + 0.5) / 36 };
   }
   T.textures = {};
+  if (bodyMap && CARS[id].livery && T.paintHue && T.paintHue.white) T.liv = liveryTemplate(id, T, bodyMap);
   return T;
+}
+
+// a white body texel: how much of it is paint (k: 0 = trim / glass / lamp, 1 = paint) and its shading relative to
+// clean white (sh). Neutral = low chroma: HSL saturation blows up near white, so a faintly blue highlight would
+// read as a badge.
+function whitePaint(r, g, b) {
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 510;
+  return [Math.min(1, Math.max(0, (0.2 - (mx - mn) / 255) / 0.08)) * Math.min(1, Math.max(0, (l - 0.34) / 0.14)), Math.min(1.08, l / 0.9)];
+}
+
+// ---------------- full liveries on a white car (livery: true) ----------------
+// Like the imported F1 car (glbcar.js): every texel of the body texture knows where it sits on the car, so the
+// livery's panels are projected onto the surface and every saved livery / decal ports over. The livery is then laid
+// over the photo through its paint mask (whitePaint): glass, lamps, grille and badges stay as photographed, and the
+// photo's greys shade the new paint. Needs a body texture with unique UVs (no mirrored halves).
+const PICK_RES = 1024; // texel map resolution for the designer's click-to-place
+function liveryTemplate(id, T, map) {
+  const bb = T.bb, zF = bb.max.z + 0.02, zR = bb.min.z - 0.02, top = bb.max.y + 0.02, half = Math.max(bb.max.x, -bb.min.x) + 0.02, len = zF - zR;
+  // proj(x, y, z) -> panel metres (x right, y down, as seen from outside)
+  const panels = {
+    top:   { W: half * 2, H: len, role: 'top', nose: 'top', label: 'Bonnet, roof + wing', proj: (x, y, z) => [half - x, zF - z] },
+    sideL: { W: len, H: top, role: 'side', nose: 'left', pair: 'sideR', label: 'Left side', proj: (x, y, z) => [zF - z, top - y] },
+    sideR: { W: len, H: top, role: 'side', nose: 'right', pair: 'sideL', label: 'Right side', proj: (x, y, z) => [z - zR, top - y] },
+    front: { W: half * 2, H: top, role: 'end', label: 'Nose', proj: (x, y, z) => [x + half, top - y] },
+    rear:  { W: half * 2, H: top, role: 'end', label: 'Tail', proj: (x, y, z) => [half - x, top - y] },
+  };
+  const L = { id, T, map, panels, names: Object.keys(panels), parts: T.body.filter(p => p.map === map), maps: {} };
+  L.def = {
+    id: 'road-' + id, aspect: 1, projected: true, panels, startPanel: 'sideL',
+    labels: CARS[id].liveryLabels || {},
+    paintProjected: (canvas, cfg, drawPanel) => paintProjected(L, canvas, cfg, drawPanel),
+    // designer click-to-place: body uv -> panel + metres
+    uvToPanel(u, v) {
+      const R = PICK_RES, m = texelMap(L, R), px = Math.min(R - 1, Math.max(0, (u * R) | 0)), py = Math.min(R - 1, Math.max(0, (vRow(L, v) * R) | 0));
+      const i = py * R + px, k = m.panel[i];
+      return k ? { panel: L.names[k - 1], x: m.X[i], y: m.Y[i] } : null;
+    },
+    // which panel covers which part of the body texture (for modellers)
+    template() {
+      const R = PICK_RES, m = texelMap(L, R), c = document.createElement('canvas'); c.width = c.height = R;
+      const g = c.getContext('2d'), img = g.createImageData(R, R);
+      const cols = [[40, 44, 52], [224, 80, 80], [80, 160, 224], [224, 176, 64], [96, 192, 112], [176, 112, 224]];
+      for (let i = 0; i < R * R; i++) { const cc = cols[m.panel[i] % cols.length], a = 0.35 + 0.65 * m.mask[i]; img.data.set([cc[0] * a, cc[1] * a, cc[2] * a, 255], i * 4); }
+      g.putImageData(img, 0, 0);
+      g.font = 'bold 22px Arial';
+      L.names.forEach((n, k) => { const cc = cols[(k + 1) % cols.length]; g.fillStyle = `rgb(${cc})`; g.fillRect(12, 12 + k * 28, 20, 20); g.fillStyle = '#fff'; g.fillText(panels[n].label, 40, 30 + k * 28); });
+      return c;
+    },
+  };
+  return L;
+}
+// texture row of a uv's v (glTF textures aren't flipped: v = 0 is the top row)
+const vRow = (L, v) => (L.map.flipY ? 1 - v : v);
+
+// which panel a surface point belongs to
+function assignPanel(x, nx, ny, nz) {
+  if (ny > 0.55) return 'top';
+  if (Math.abs(nz) > 0.6 && Math.abs(nz) > Math.abs(nx)) return nz > 0 ? 'front' : 'rear';
+  return (Math.abs(nx) > 0.2 ? nx > 0 : x >= 0) ? 'sideL' : 'sideR';
+}
+
+// per-texel map at a resolution: panel index + panel metres, and the photo with its paint mask; built once, cached
+function texelMap(L, R) {
+  if (L.maps[R]) return L.maps[R];
+  const n = R * R, panel = new Uint8Array(n), X = new Float32Array(n), Y = new Float32Array(n);
+  const idxOf = Object.fromEntries(L.names.map((nm, k) => [nm, k + 1])), SOLID = L.names.length + 1;
+  const solid = [];
+  for (const p of L.parts) {
+    const g = p.geo, P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv, I = g.index;
+    const cnt = I ? I.count : P.count;
+    for (let t = 0; t < cnt; t += 3) {
+      const ids = [0, 1, 2].map(k => I ? I.getX(t + k) : t + k);
+      const us = ids.map(i => U.getX(i) * R), vs = ids.map(i => vRow(L, U.getY(i)) * R);
+      const [x0, x1, x2] = us, [y0, y1, y2] = vs;
+      const den = (y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2);
+      // collapsed uvs (the face samples one texel or a line of them, e.g. the M1's wing + rear deck): those texels
+      // take the main colour
+      if (Math.abs(den) < 1e-6) {
+        for (const [ax, ay, bx, by] of [[x0, y0, x1, y1], [x1, y1, x2, y2], [x2, y2, x0, y0]]) {
+          const steps = Math.ceil(Math.hypot(bx - ax, by - ay) * 2) + 1;
+          for (let s = 0; s <= steps; s++) solid.push(ax + (bx - ax) * s / steps, ay + (by - ay) * s / steps);
+        }
+        continue;
+      }
+      // one panel per triangle (from its face normal), so a decal never splits across a seam inside a face
+      const [i0, i1, i2] = ids;
+      const nx = N.getX(i0) + N.getX(i1) + N.getX(i2), ny = N.getY(i0) + N.getY(i1) + N.getY(i2), nz = N.getZ(i0) + N.getZ(i1) + N.getZ(i2), nl = Math.hypot(nx, ny, nz) || 1;
+      const name = assignPanel((P.getX(i0) + P.getX(i1) + P.getX(i2)) / 3, nx / nl, ny / nl, nz / nl), pn = L.panels[name];
+      const minX = Math.max(0, Math.floor(Math.min(...us)) - 1), maxX = Math.min(R - 1, Math.ceil(Math.max(...us)) + 1);
+      const minY = Math.max(0, Math.floor(Math.min(...vs)) - 1), maxY = Math.min(R - 1, Math.ceil(Math.max(...vs)) + 1);
+      // texels whose centre is inside, plus (if nothing else has them) texels the triangle only touches: slivers
+      // thinner than a texel cover no centre at all (the M1's rear deck is a strip along the side photo's top edge)
+      const ad = Math.abs(den), ta = 0.71 * Math.hypot(x1 - x2, y1 - y2) / ad, tb = 0.71 * Math.hypot(x2 - x0, y2 - y0) / ad, tc = 0.71 * Math.hypot(x0 - x1, y0 - y1) / ad;
+      for (let py = minY; py <= maxY; py++) for (let px = minX; px <= maxX; px++) {
+        const cx = px + 0.5, cy = py + 0.5, id = py * R + px;
+        const a = ((y1 - y2) * (cx - x2) + (x2 - x1) * (cy - y2)) / den, b = ((y2 - y0) * (cx - x2) + (x0 - x2) * (cy - y2)) / den, c = 1 - a - b;
+        if (a < -0.02 || b < -0.02 || c < -0.02) { if (panel[id] || a < -ta || b < -tb || c < -tc) continue; }
+        const x = P.getX(i0) * a + P.getX(i1) * b + P.getX(i2) * c, y = P.getY(i0) * a + P.getY(i1) * b + P.getY(i2) * c, z = P.getZ(i0) * a + P.getZ(i1) * b + P.getZ(i2) * c;
+        const [sx, sy] = pn.proj(x, y, z);
+        panel[id] = idxOf[name]; X[id] = Math.min(pn.W, Math.max(0, sx)); Y[id] = Math.min(pn.H, Math.max(0, sy));
+      }
+    }
+  }
+  for (let s = 0; s < solid.length; s += 2) {
+    const cx = Math.min(R - 1, solid[s] | 0), cy = Math.min(R - 1, solid[s + 1] | 0);
+    for (let py = Math.max(0, cy - 1); py <= Math.min(R - 1, cy + 1); py++) for (let px = Math.max(0, cx - 1); px <= Math.min(R - 1, cx + 1); px++) panel[py * R + px] = SOLID;
+  }
+  // grow islands by a few texels so filtering never shows seams
+  for (let pass = 0; pass < 3; pass++) {
+    const src = panel.slice();
+    for (let py = 0; py < R; py++) for (let px = 0; px < R; px++) {
+      const id = py * R + px; if (src[id]) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const qx = px + dx, qy = py + dy; if (qx < 0 || qy < 0 || qx >= R || qy >= R) continue;
+        const q = qy * R + qx; if (src[q]) { panel[id] = src[q]; X[id] = X[q]; Y[id] = Y[q]; break; }
+      }
+    }
+  }
+  // the photo at this resolution (stretched to the square, the same uv space) + its paint mask
+  const c = document.createElement('canvas'); c.width = c.height = R;
+  const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(L.map.image, 0, 0, R, R);
+  const photo = g.getImageData(0, 0, R, R).data, list = [], kl = [], sl = [];
+  let mask = null; if (R === PICK_RES) mask = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const [kk, s] = whitePaint(photo[i * 4], photo[i * 4 + 1], photo[i * 4 + 2]);
+    if (mask) mask[i] = kk;
+    if (panel[i] && kk > 0) { list.push(i); kl.push(kk); sl.push(s); }
+  }
+  // kept per paintable texel only (the full-size tables only at the designer's pick resolution)
+  const m = { photo, list: Uint32Array.from(list), k: Float32Array.from(kl), sh: Float32Array.from(sl),
+    lp: Uint8Array.from(list, i => panel[i]), lx: Float32Array.from(list, i => X[i]), ly: Float32Array.from(list, i => Y[i]) };
+  if (mask) Object.assign(m, { panel, X, Y, mask });
+  return (L.maps[R] = m);
+}
+
+function paintProjected(L, canvas, cfg, drawPanel) {
+  const R = canvas.width, m = texelMap(L, R), ppm = Math.max(40, R / 8);
+  // each panel drawn on its own canvas (in metres), then looked up per texel
+  const datas = [null];
+  for (const name of L.names) {
+    const p = L.panels[name], pc = document.createElement('canvas');
+    pc.width = Math.max(2, Math.ceil(p.W * ppm)); pc.height = Math.max(2, Math.ceil(p.H * ppm));
+    const g = pc.getContext('2d', { willReadFrequently: true });
+    g.setTransform(ppm, 0, 0, ppm, 0, 0); g.beginPath(); g.rect(0, 0, p.W, p.H); g.clip();
+    drawPanel(g, name, p);
+    datas.push({ d: g.getImageData(0, 0, pc.width, pc.height).data, w: pc.width, h: pc.height });
+  }
+  const mc = (cfg.main ?? 0) >>> 0;
+  datas.push({ d: [(mc >> 16) & 255, (mc >> 8) & 255, mc & 255, 255], w: 1, h: 1 }); // texelMap's SOLID
+  const ctx = canvas.getContext('2d'), out = ctx.createImageData(R, R), o = out.data;
+  o.set(m.photo); // everything that isn't paint stays as photographed
+  const { photo, list, k, sh, lp, lx, ly } = m;
+  for (let n = 0; n < list.length; n++) {
+    const j = list[n] * 4, D = datas[lp[n]];
+    const q = (Math.min(D.h - 1, (ly[n] * ppm) | 0) * D.w + Math.min(D.w - 1, (lx[n] * ppm) | 0)) * 4, kk = k[n], s = sh[n];
+    o[j] = photo[j] + (D.d[q] * s - photo[j]) * kk; o[j + 1] = photo[j + 1] + (D.d[q + 1] * s - photo[j + 1]) * kk; o[j + 2] = photo[j + 2] + (D.d[q + 2] * s - photo[j + 2]) * kk;
+  }
+  ctx.putImageData(out, 0, 0);
 }
 
 // where the glows go: the middle of each lamp object (split into left / right if it spans the car), just outside its
@@ -219,12 +378,8 @@ function paintedTexture(T, colour) {
   for (let i = 0; i < src.length; i += 4) {
     const [h, s, l] = hsl(src[i], src[i + 1], src[i + 2]);
     if (P.white) {
-      // paint = light and neutral (soft edges into trim / glass / lamps); the colour multiplied by the texel's
-      // lightness relative to clean white keeps the panel shading. (Neutral = low chroma: HSL saturation blows up
-      // near white, so a faintly blue highlight would read as a badge.)
-      const ch = (Math.max(src[i], src[i + 1], src[i + 2]) - Math.min(src[i], src[i + 1], src[i + 2])) / 255;
-      const k = Math.min(1, Math.max(0, (0.2 - ch) / 0.08)) * Math.min(1, Math.max(0, (l - 0.34) / 0.14));
-      const sh = Math.min(1.08, l / 0.9);
+      // the paint takes the colour, shaded like the photo's white (whitePaint)
+      const [k, sh] = whitePaint(src[i], src[i + 1], src[i + 2]);
       o[i] = src[i] + (Math.min(255, cr * sh) - src[i]) * k; o[i + 1] = src[i + 1] + (Math.min(255, cg * sh) - src[i + 1]) * k; o[i + 2] = src[i + 2] + (Math.min(255, cb * sh) - src[i + 2]) * k;
       o[i + 3] = src[i + 3];
       continue;
@@ -246,14 +401,14 @@ function paintedTexture(T, colour) {
 
 const shared = new Map();
 // bodywork gets a glossy clear-coat look (like the F1 car's paint); tyres / wheels stay matt
-function matFor(p, map, shiny = true) {
+function matFor(p, map, shiny = true, cache = true) {
   const key = (map ? map.uuid : 'none') + p.color + p.double + p.cutoff + p.blend + shiny + (p.emissive ? p.emissive.uuid : '');
-  if (shared.has(key)) return shared.get(key);
+  if (cache && shared.has(key)) return shared.get(key);
   // (the colour multiplies the texture, as in glTF: e.g. the Kaze's interior is a white texture tinted black)
   const m = new THREE.MeshPhongMaterial({ map, color: p.color, side: p.double ? THREE.DoubleSide : THREE.FrontSide, transparent: p.blend, alphaTest: p.cutoff,
     specular: shiny ? 0x4a4a4a : 0x111111, shininess: shiny ? 70 : 10 });
   if (p.emissive) { m.emissiveMap = p.emissive; m.emissive = new THREE.Color(0xffffff); }
-  shared.set(key, m);
+  if (cache) shared.set(key, m);
   return m;
 }
 
@@ -261,8 +416,29 @@ function buildRoadCar(id, cfg, opts = {}) {
   cfg = fillLivery({ ...cfg });
   const T = TPL[id];
   const group = new THREE.Group(), body = new THREE.Group(); group.add(body);
-  const painted = T.paintHue && cfg.paint !== 'stock' ? paintedTexture(T, cfg.main) : null;
-  for (const p of T.body) body.add(new THREE.Mesh(p.geo, matFor(p, painted && p.map ? painted : p.map)));
+  // a full livery (livery: true cars) is painted into this car's own canvas over the photo (sharper than the AI's)
+  let livCanvas = null, livTex = null, later = 0;
+  const livMats = new Map();
+  if (T.liv) {
+    livCanvas = document.createElement('canvas'); livCanvas.width = livCanvas.height = opts.texSize >= 1024 ? 2048 : opts.texSize && opts.texSize < 512 ? 512 : 1024;
+    livTex = new THREE.CanvasTexture(livCanvas); livTex.colorSpace = THREE.SRGBColorSpace; livTex.anisotropy = 4;
+    livTex.flipY = T.liv.map.flipY; livTex.wrapS = T.liv.map.wrapS; livTex.wrapT = T.liv.map.wrapT;
+  }
+  const paintLiv = () => {
+    const again = () => { if (later) return; later = setTimeout(() => { later = 0; paintLiv(); }, 30); };
+    paintCar(livCanvas, cfg, T.liv.def, again); livTex.needsUpdate = true;
+  };
+  if (T.liv && cfg.paint !== 'stock') paintLiv();
+  // each body part's material for the current paint: the livery, the re-tinted texture, or the original
+  const skin = (p) => {
+    if (!p.map || !T.paintHue || cfg.paint === 'stock') return matFor(p, p.map);
+    if (!T.liv) return matFor(p, paintedTexture(T, cfg.main));
+    if (p.map !== T.liv.map) return matFor(p, p.map);
+    // (not in the shared cache: the texture belongs to this car)
+    if (!livMats.has(p)) livMats.set(p, matFor(p, livTex, true, false));
+    return livMats.get(p);
+  };
+  for (const p of T.body) body.add(new THREE.Mesh(p.geo, skin(p)));
   const wheels = [];
   for (const c of ['FL', 'FR', 'RL', 'RR']) {
     const info = T.wheelInfo[c], list = T.wheels[c]; if (!info) continue;
@@ -307,7 +483,7 @@ function buildRoadCar(id, cfg, opts = {}) {
   const shadow = blobShadow((T.bb.max.x - T.bb.min.x) + 0.7, (T.bb.max.z - T.bb.min.z) + 0.9);
   const dummy = new THREE.Group();
   const model = { group, body, wheels, shadow, lightMat: lights.lightMat, tail: lights.tail, coronaMat: lights.coronaMat, fwing: dummy, rwing: dummy,
-    cfg, road: true, helmet: kit.helmet, visorMat: kit.visorMat, suitTex: kit.suitTex, limbTex: kit.limbTex, armTex: kit.armTex, helTex: kit.helTex, helCanvas: kit.helCanvas };
+    cfg, road: true, livery: livCanvas, livTex, def: T.liv ? T.liv.def : undefined, helmet: kit.helmet, visorMat: kit.visorMat, suitTex: kit.suitTex, limbTex: kit.limbTex, armTex: kit.armTex, helTex: kit.helTex, helCanvas: kit.helCanvas };
   model.setCompound = () => {};
   model.setLights = setLights;
   model.setDamage = (d) => { body.rotation.z = (d.ch || 0) * 0.03 * (model.pull || 1); };
@@ -315,8 +491,8 @@ function buildRoadCar(id, cfg, opts = {}) {
     if (L && L !== model.cfg) Object.assign(model.cfg, fillLivery(L));
     kit.repaint(model.cfg, () => {});
     if (!T.paintHue) return;
-    const tex = model.cfg.paint !== 'stock' ? paintedTexture(T, model.cfg.main) : null;
-    body.children.forEach((m, k) => { const p = T.body[k]; if (p && p.map) m.material = matFor(p, tex || p.map); });
+    if (T.liv && cfg.paint !== 'stock') paintLiv();
+    body.children.forEach((m, k) => { const p = T.body[k]; if (p && p.map) m.material = skin(p); });
   };
   // road cars are softer: more roll and pitch than the F1 car
   model.animate = ({ steer = 0, spin = 0, pitch = 0, roll = 0, heave = 0, bump = [0, 0, 0, 0] } = {}) => {

@@ -218,6 +218,8 @@ export function panelArt(g, name, p, cfg, model, onReady) {
   }
   if (L.showSponsor && sp) {
     if (name === 'podL' || name === 'podR') label(0.5, 0.42, sp, Math.min(0.13, PH * 0.3), Math.min(1.2, PW * 0.6), acc, true);
+    // (cars without sidepods, e.g. GT cars: on the flanks instead)
+    if (lab.sideSponsor && (name === 'sideL' || name === 'sideR')) label(...lab.sideSponsor, sp, 0.12, 1.1, acc, true);
     if (name === 'rwing') label(0.5, 0.5, sp, Math.min(0.13, PH * 0.4), PW * 0.88, main);
     if (name === 'plateL' || name === 'plateR') label(0.5, 0.6, sp, Math.min(0.1, PH * 0.3), PW * 0.85, acc);
     if (name === 'coverL' || name === 'coverR') label(0.55, 0.45, String(L.teamName || '').toUpperCase().slice(0, 18), Math.min(0.08, PH * 0.25), Math.min(1.1, PW * 0.6), acc);

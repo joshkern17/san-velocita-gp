@@ -336,7 +336,7 @@ const BODY_DESC = 'Bodywork parts. These swap on the SVGP Classic F1 car only.';
 menus['s-garage'] = [new Menu($('m-garage'), [
   { label: 'Car', head: true, disabled: true },
   { label: 'Car', values: CAR_CHOICES, get: () => settings.car.chassis || 'custom', set: v => { settings.car.chassis = v; classicOnly(); garage.setCar(settings.car); },
-    desc: 'The car you drive. You can also switch on the grid before every race. Road and GT cars keep their own paint; F1 cars wear your livery.' },
+    desc: 'The car you drive. You can also switch on the grid before every race. F1 cars and the M1 ProCar wear your livery; other cars keep their own paint.' },
   { label: 'Class', values: Object.entries(CLASSES).map(([k, c]) => [k, c.label]), get: () => carOf(settings.car).cls, set: () => {}, disabled: true },
   { label: 'Bodywork', head: true, disabled: true },
   part('Nose', 'nose', true, BODY_DESC), part('Front Wing', 'fwing', true, BODY_DESC), part('Sidepods', 'pods', true, BODY_DESC), part('Engine Cover', 'cover', true, BODY_DESC), part('Rear Wing', 'rwing', true, BODY_DESC), part('Halo', 'halo', true, BODY_DESC),
@@ -355,7 +355,8 @@ function classicOnly() {
   for (const it of menus['s-garage'][0].items) {
     if (['Nose', 'Front Wing', 'Sidepods', 'Engine Cover', 'Rear Wing', 'Halo', 'Wheels'].includes(it.label)) it.disabled = custom || road;
     // road cars keep their own paint job: only the main colour (on cars that can be repainted)
-    if (['Livery Designer', 'Pattern', 'Accent', 'Detail', 'Number', 'Sponsor', 'Rim Colour'].includes(it.label)) it.disabled = road;
+    if (['Livery Designer', 'Pattern', 'Accent', 'Detail', 'Number', 'Sponsor'].includes(it.label)) it.disabled = road && !C.livery;
+    if (it.label === 'Rim Colour') it.disabled = road;
     if (it.label === 'Main') it.disabled = road && !C.paint;
   }
   menus['s-garage'][0].render();
@@ -1478,7 +1479,7 @@ function renderCarSelect(swap = false) {
   $('cs-tabs').innerHTML = classList().map(k => `<span data-cls="${k}" class="${k === cls ? 'on' : ''}" style="--c:${CLASS_COL[k]}">${CLASSES[k].label}</span>`).join('');
   $('cs-cars').innerHTML = carsOfClass(cls).map(k => `<div class="cs-card${k === id ? ' on' : ''}${k === cur ? ' cur' : ''}" data-id="${k}" style="--c:${col}"><small>${CLASSES[cls].short}</small><b>${CARS[k].name}</b></div>`).join('');
   const drive = s.drive >= 0.99 ? 'Front-wheel drive' : s.drive > 0.01 ? 'All-wheel drive' : 'Rear-wheel drive';
-  const paint = C.cls === 'f1' ? 'Your livery' : C.paint ? 'Takes your colour' : 'Original livery';
+  const paint = C.cls === 'f1' || C.livery ? 'Your livery' : C.paint ? 'Takes your colour' : 'Original livery';
   const cr = CAR_CREDITS[id];
   const row = (label, key, v, text, inv) => `<div class="cs-stat"><span>${label}</span><i><b style="--w:${statBar(key, v, inv)}"></b></i><em>${text}</em></div>`;
   const info = $('cs-info');

@@ -81,7 +81,8 @@ export const CARS = {
     spec: gt({ mass: 1040, power: 430000, kd: 0.95, drag: 0.47, mu: 1.61, redline: 9200, torque: NA, a: 1.36, b: 1.3 }) },
   rmx:     { name: 'Kineto RM-X ’94', cls: 'gt1', sound: 'i6turbo', glb: true, paint: false, bodyWheels: 'drop',
     spec: gt({ mass: 1180, power: 500000, kd: 0.7, drag: 0.43, torque: TURBO, drive: 0.3, redline: 8000, a: 1.4, b: 1.32, rearGrip: 1.02 }) },
-  m1procar: { name: 'Bavaria M1 ProCar ’79', cls: 'gt1', sound: 'i6', glb: true, paint: true, // your Blender model: white photo livery (takes your colour) + Light_* lamps
+  m1procar: { name: 'Bavaria M1 ProCar ’79', cls: 'gt1', sound: 'i6', glb: true, paint: true, livery: true, // your Blender model: white photo, wears your full livery (see roadcar.js) + Light_* lamps
+    liveryLabels: { topNumber: [0.78, 0.5], sideNumber: [0.55, 0.5], sideSponsor: [0.55, 0.8] },
     spec: gt({ gears: [0, 28, 43, 57, 71, 88], box: 'manual', shift: 0.14, mass: 1020, power: 400000, kd: 0.75, drag: 0.45, torque: NA, redline: 9000, a: 1.3, b: 1.13, rearGrip: 1.07, brakeF: 0.62 }) },
 
   testarossa: { name: 'Testa Rossa', cls: 'street', sound: 'flat12', glb: true, paint: true,

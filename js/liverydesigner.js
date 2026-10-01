@@ -180,9 +180,9 @@ export class LiveryDesigner {
   }
   addDecal(d) {
     const c = this.car;
-    // start on the left sidepod (the most visible spot), mirrored to the right one
-    const p = this.def.panels.podL;
-    c.decals.push({ id: 'd' + Math.random().toString(36).slice(2, 8), panel: 'podL', x: p.W * 0.5, y: p.H * 0.4, size: 0.5, rot: 0, opacity: 1, mirror: true, flip: false, ...d });
+    // start on the left sidepod (the most visible spot; the flank on cars without one), mirrored to the right one
+    const pn = this.def.startPanel || 'podL', p = this.def.panels[pn];
+    c.decals.push({ id: 'd' + Math.random().toString(36).slice(2, 8), panel: pn, x: p.W * 0.5, y: p.H * 0.4, size: 0.5, rot: 0, opacity: 1, mirror: true, flip: false, ...d });
     this.sel = c.decals.length - 1;
     sfx.select(); this.changed(true);
     this.toast('NOW CLICK ON THE CAR TO PLACE IT');
