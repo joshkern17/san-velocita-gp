@@ -113,9 +113,15 @@ export class PitGarage {
   }
 
   // swap the default room for your model (and its lights, if it has any), hooking up its named parts:
-  //   GUIDE* (object) left out, TV_Screen* (object) the live timing, TeamBand* (object) the team banner,
+  //   GUIDE_GameView (camera) the shot, other GUIDE* (objects) left out, TV_Screen* (object) the live timing, TeamBand* (object) the team banner,
   //   materials TeamMain* / TeamAccent* the team's colours, TyreBand* the compound you'll go out on
   useRoom(m) {
+    // the game's camera: GUIDE_GameView, wherever you put it in Blender (export with Cameras on)
+    m.position.z = CAR_Z; // (the car's spot is the model's origin)
+    m.updateMatrixWorld(true);
+    let cam = null;
+    m.traverse(o => { if (!cam && o.isCamera && /^(GUIDE_GameView|GameView)/.test(o.name || (o.parent && o.parent.name) || '')) cam = o; });
+    this.view = cam ? this.viewFrom(cam) : null;
     const drop = []; let lit = false;
     m.traverse(o => { if (o.isCamera || (o.name || '').startsWith('GUIDE')) drop.push(o); else if (o.isLight) lit = true; });
     for (const o of drop) o.removeFromParent(); // (GUIDE_ objects are modelling aids)
@@ -139,10 +145,17 @@ export class PitGarage {
         else if (n.startsWith('TeamAccent')) this.teamMats.push([mat, 'accent']);
       }
     });
-    m.position.z = CAR_Z; // (the car's spot is the model's origin)
     this.room.add(m); this.custom = true;
     if (this.team) this.setTeam(this.team);
     if (this.tyre) this.setTyre(this.tyre);
+  }
+
+  // your camera's shot, drifting a little around the point it looks at (above the car)
+  viewFrom(cam) {
+    const pos = cam.getWorldPosition(new THREE.Vector3()), quat = cam.getWorldQuaternion(new THREE.Quaternion());
+    const f = new THREE.Vector3(0, 0, -1).applyQuaternion(quat), h = f.x * f.x + f.z * f.z;
+    const s = h > 1e-4 ? Math.max(0.5, -(pos.x * f.x + (pos.z - CAR_Z) * f.z) / h) : 5; // nearest the car's spot
+    return { pos, quat, pivot: pos.clone().addScaledVector(f, s), fov: cam.fov };
   }
 
   // paint the floor bay + back wall in the team's colours
@@ -201,6 +214,15 @@ export class PitGarage {
   update(dt) {
     if (!this.active) return;
     this.t += dt;
+    if (this.view) {
+      const v = this.view, yaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.sin(this.t * 0.12) * 0.05);
+      this.camera.position.copy(v.pos).sub(v.pivot).applyQuaternion(yaw).add(v.pivot);
+      this.camera.position.y += Math.sin(this.t * 0.2) * 0.04;
+      this.camera.quaternion.copy(yaw).multiply(v.quat);
+      this.camera.fov = v.fov;
+      if (this.car) this.car.animate({ steer: 0, spin: 0, heave: Math.sin(this.t * 1.6) * 0.003, pitch: 0, roll: 0 });
+      return;
+    }
     // a slow drift around the front three-quarter (staying inside the room)
     const a = 0.62 + Math.sin(this.t * 0.12) * 0.1, r = 7.4;
     const tgt = new THREE.Vector3(0, 0.5, CAR_Z);

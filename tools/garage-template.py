@@ -72,7 +72,7 @@ box('GUIDE_CameraKeepClear', guides, (2.0, 1.6, 1.0), (4.3, -5.95, 2.0), wire=Tr
 label('DOOR SIDE  (-Y)', guides, (0, -6.5, 3.2))
 label('BACK WALL  (+Y)', guides, (0, 7.4, 3.8))
 
-# the game's view: 40 deg vertical fov, 16:9, the car pushed right of the menu
+# the game's camera (move it to change the shot): 40 deg vertical fov, 16:9, the car pushed right of the menu
 cam = bpy.data.cameras.new('GUIDE_GameView')
 cam.sensor_fit = 'VERTICAL'; cam.angle_y = math.radians(40); cam.shift_x = -0.2; cam.clip_start = 0.1
 co = bpy.data.objects.new('GUIDE_GameView', cam); guides.objects.link(co)
@@ -111,5 +111,5 @@ print('saved', out)
 if '--export' in args:
     path = os.path.abspath(args[args.index('--export') + 1])
     bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', export_apply=True, export_yup=True,
-                              export_cameras=False, export_lights=False, export_draco_mesh_compression_enable=False)
+                              export_cameras=True, export_lights=True, export_draco_mesh_compression_enable=False)
     print('exported', path)

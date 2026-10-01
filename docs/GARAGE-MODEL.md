@@ -14,8 +14,8 @@ This writes `models/garage-start.blend`. Open it, **Save As** your own file (re-
 `garage-start.blend`), and build your garage around what's there:
 
 - **GUIDES** collection: a car-sized red block (`GUIDE_Car`, the cone is the nose), the placeholder room as a
-  wireframe, the box the camera drifts in (`GUIDE_CameraKeepClear`) and the game's camera (`GUIDE_GameView`:
-  press Numpad 0 to look through it, F12 to render it). Anything named `GUIDE...` is left out by the game, so
+  wireframe, the box the default camera drifts in (`GUIDE_CameraKeepClear`) and the game's camera (`GUIDE_GameView`:
+  press Numpad 0 to look through it, F12 to render it; move it to change the shot). Anything named `GUIDE...` is left out by the game, so
   there's no need to delete them before exporting.
 - **Hooks** collection: the parts the game fills in. Move them, resize them, give them frames (see below).
 - **Garage** collection: a starter floor and bay lines. Replace them with your own model: walls, ceiling,
@@ -29,9 +29,11 @@ Already have a garage model? File → Append (or Import) it into the template, t
 - **Metres**, floor at **Z = 0**, the **car's spot at the origin**, the car's nose (and the door) towards **−Y**.
 - Apply all transforms before exporting (Object → Apply → All Transforms), or at least scale.
 - Don't model a car; the player's car is put on the spot.
-- **The camera** sits about 4–5 m to the car's right and 5.5–6.5 m towards the door, 2 m up, looking back at
-  the car. Keep `GUIDE_CameraKeepClear` empty, and keep walls further out than it (front wall at least 7 m from
-  the origin, the right wall at least 5.5 m). The door is behind the camera, so you won't see out of it.
+- **The camera is yours:** `GUIDE_GameView` is the game's camera. Move it (and `GUIDE_CameraTarget`, the
+  empty it points at) until Numpad 0 shows the shot you want, and change its field of view for a small room.
+  The game uses exactly that shot and drifts slowly around it (a few degrees), so keep about half a metre
+  between the camera and any wall. Export with **Cameras on**. Without it (or if you delete the camera) the
+  game falls back to its own shot, which needs the full-size room.
 - **What's on screen:** the menu covers the left third and an info panel covers the top right. The car, the floor
   around it and the back wall behind it are what you see most. Put your best detail there.
 
@@ -44,7 +46,8 @@ Already have a garage model? File → Append (or Import) it into the template, t
 | `TeamMain...` | material | colour set to the team's main colour |
 | `TeamAccent...` | material | colour set to the team's accent colour |
 | `TyreBand...` | material | colour set to the compound you'll go out on |
-| `GUIDE...` | object | left out |
+| `GUIDE_GameView` | camera | the garage shot |
+| `GUIDE...` (others) | object | left out |
 
 The names only have to *start* with these (`TV_Screen.001`, `TeamMain_Walls` are fine). Keep `TV_Screen` and
 `TeamBand` as simple planes with their default 0–1 UVs, facing into the room. Model a bezel or frame around
@@ -73,7 +76,7 @@ replaced). All are optional.
 
 File → Export → glTF 2.0:
 - Format **glTF Binary (.glb)**, save as `models/garage.glb`.
-- Include: Cameras off. **Punctual Lights on** if you added your own lights.
+- Include: **Cameras on** (your shot). **Punctual Lights on** if you added your own lights.
 - Transform: **+Y Up** on.
 - Data → Mesh: **Apply Modifiers** on.
 - **Compression (Draco) OFF.** The game can't decode compressed meshes and the model won't load.
