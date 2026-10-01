@@ -1,0 +1,8 @@
+<!doctype html><meta charset="utf-8"><script type="importmap">{"imports":{"three":"../../vendor/three.module.min.js"}}</script>
+<script type="module">
+// dev: physics steps per second in the browser (node .devtest/physics/browser.mjs cpu)
+import { CarPhysics } from '../../js/physics.js'; import { CARS } from '../../js/cars.js'; import { AI_AIDS, physAids } from '../../js/aids.js';
+window.cpu = () => { const out = {}; for (const id of ['m1procar', 'jsport', 'f1']) { const p = new CarPhysics(CARS[id].spec); p.setAids(physAids(AI_AIDS)); p.place(0, 0, 0); p.vz = 30; p.gear = 3;
+  const t0 = performance.now(); for (let i = 0; i < 240 * 60; i++) p.step(1 / 240, { steer: Math.sin(i / 300) * 0.4, throttle: 0.7, brake: i % 2400 > 2000 ? 1 : 0, handbrake: 0, analog: true }, { mu: 1, extraDrag: 0, gF: 0, gL: 0 });
+  out[id] = Math.round(performance.now() - t0) + ' ms/sim-minute'; } return out; };
+</script>

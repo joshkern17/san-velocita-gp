@@ -10,13 +10,15 @@ export const PHYS_VERSION = 3;
 
 export const CARSPEC = {
   mass: 740, inertia: 1100, a: 1.85, b: 1.75, L: 3.6, cgh: 0.22,
-  mu: 1.75, kd: 2.2, rearGrip: 1.08, drag: 0.9, roll: 14,
+  mu: 1.79, kd: 2.2, rearGrip: 1.08, drag: 0.9, roll: 14,
   power: 720000, maxForce: 14000, maxSteer: 0.36,
   gears: [0, 24, 34, 43, 52, 61, 70, 80, 94],
   redline: 12500, idle: 4000, box: 'seamless', shift: 0.03,
   // handling (see cars.js): slicks peak early (~5°) and the fronts fall away past it; the rears stay a touch flatter
   slipFall: 1.4, slipPeak: 0.085, slipFallR: 1.3, slipPeakR: 0.09, brakeF: 0.64,
   engineI: 0.05, // (a Formula car's small, light engine: little inertia to spin up through the gearbox)
+  // suspension: stiff, on a stiff chassis (aero needs the ride height held): ~4.5-5 Hz, half a degree of roll per g
+  track: 1.6, rideHz: [4.5, 5], damp: 0.5, rollGrad: 0.5, unsprung: 20, rollBias: 0.05,
 };
 
 const G = 9.81;
@@ -53,9 +55,12 @@ const TF = [0, 0];
 // per-wheel scratch for CarPhysics.step (steps never run inside each other, so one set serves every car)
 const W4 = {}; for (const k of ['n', 'cap', 'a', 'sy', 'u', 'y', 'x', 'abt', 'lim', 'fx', 'fy', 'tb', 'sfx']) W4[k] = new Float64Array(4);
 function tyreForce(cap, C, B, CX, BX, sx, sy) {
-  const s = Math.hypot(sx, sy);
-  if (s < 1e-6) { TF[0] = TF[1] = 0; return; }
-  const wx = sx * sx / (s * s), f = Math.sin(C * Math.atan(B * s)) * (1 - wx) + Math.sin(CX * Math.atan(BX * s)) * wx;
+  const s2 = sx * sx + sy * sy;
+  if (s2 < 1e-12) { TF[0] = TF[1] = 0; return; }
+  const s = Math.sqrt(s2), wx = sx * sx / s2;
+  // (one curve when the slip is almost all one way, as it mostly is: half the trig)
+  const f = wx < 1e-3 ? Math.sin(C * Math.atan(B * s)) : wx > 0.999 ? Math.sin(CX * Math.atan(BX * s))
+    : Math.sin(C * Math.atan(B * s)) * (1 - wx) + Math.sin(CX * Math.atan(BX * s)) * wx;
   const F = cap * f / s; TF[0] = F * sx; TF[1] = -F * sy;
 }
 
@@ -76,7 +81,9 @@ export class CarPhysics {
     this.vx = 0; this.vz = 0; this.r = 0;
     this.steer = 0; this.delta = 0;
     this.gear = 1; this.rpm = spec.idle; this.shiftT = 0; this.revT = 0;
-    this.axPrev = 0; this.ayPrev = 0; this.axLT = 0; this.loadT = 0;
+    this.axPrev = 0; this.ayPrev = 0; this.loadT = 0;
+    this.escK = 1; this.escB = 0; this.pitch = 0; this.roll = 0; this.heave = 0;
+    this.setupSuspension();
     this.u = 0; this.v = 0; this.speed = 0;
     this.slipF = 0; this.slipR = 0; this.spin = 0; this.braking = 0; this.throttle = 0;
     this.auto = true;
@@ -95,6 +102,55 @@ export class CarPhysics {
     this.slip = 0; // 0..1 slipstream from a car ahead (set by the race each frame)
   }
 
+  // The suspension, from the numbers an engineer would quote (all optional in the spec; class defaults in cars.js):
+  //   rideHz [front, rear]  natural frequency of each end on its springs (road car ~1.5-1.8, GT racer ~2.5, F1 ~4.5)
+  //   damp                  damping ratio (0.3 soft road car .. 0.6 race car)
+  //   rollGrad              body roll per g of cornering, degrees (road ~3, sports ~2, GT racer ~1.2, F1 ~0.5)
+  //   rollF                 the front's share of the roll stiffness (the anti-roll bars): more = more understeer.
+  //   rollBias              ...or set relative to the weight split (default): front share = front weight share + this. Cars
+  //                         are set up with the front a little stiffer than its weight share, so at the limit the front
+  //                         lets go first (stable understeer): road cars ~0.1, race cars ~0.05 (more neutral, more grip)
+  //   unsprung              kg per corner (wheel, tyre, brake, hub, half the links); track m; cgh m
+  setupSuspension() {
+    const P = this.p, tw = P.track ?? 1.6, mu = P.unsprung ?? 40, ms = P.mass - 4 * mu, h = P.cgh;
+    const [fF, fR] = P.rideHz ?? [1.7, 1.9], z = P.damp ?? 0.4;
+    const mcF = ms * P.b / P.L / 2, mcR = ms * P.a / P.L / 2; // sprung mass on each front / rear corner
+    const kF = mcF * (2 * Math.PI * fF) ** 2, kR = mcR * (2 * Math.PI * fR) ** 2;
+    const cF = 2 * z * Math.sqrt(kF * mcF), cR = 2 * z * Math.sqrt(kR * mcR);
+    // roll stiffness for the roll gradient, shared by rollF; the springs give k·tw²/2 per axle, the bars the rest
+    const Kroll = ms * G * h / ((P.rollGrad ?? 2.5) * Math.PI / 180), rollF = P.rollF ?? Math.min(0.8, P.b / P.L + (P.rollBias ?? 0.1));
+    const arbF = Math.max(0, (rollF * Kroll - kF * tw * tw / 2) / (tw * tw)), arbR = Math.max(0, ((1 - rollF) * Kroll - kR * tw * tw / 2) / (tw * tw));
+    this.susp = { tw, ms, h, kF, kR, cF, cR, arbF, arbR, Ixx: ms * (tw / 2) ** 2 * 0.6, Iyy: ms * (P.L / 2) ** 2,
+      nF: P.mass * G * P.b / P.L / 2, nR: P.mass * G * P.a / P.L / 2 };
+    this.body = { z: 0, th: 0, ph: 0, vz: 0, vth: 0, vph: 0 }; // heave (m, up), pitch (rad, nose up), roll (rad, +v side up)
+    this.suspF = new Float64Array(4); // each corner's suspension force on the body beyond its static share (N, up)
+  }
+  // the body for one step: the suspension's forces (springs, dampers, bars) against the push of the car's acceleration
+  // at its centre-of-mass height and the downforce; then the forces each tyre will carry next step
+  bodyStep(dt, ax, ay, Df, Dr) {
+    const S = this.susp, B = this.body, P = this.p, F = this.suspF, tw = S.tw;
+    let Fz = -(Df + Dr), Mth = -Df * P.a + Dr * P.b + S.ms * ax * S.h, Mph = S.ms * ay * S.h;
+    for (let i = 0; i < 4; i++) { const x = i < 2 ? P.a : -P.b, y = (i & 1 ? -1 : 1) * tw / 2; Fz += F[i]; Mth += x * F[i]; Mph += y * F[i]; }
+    B.vz += Fz / S.ms * dt; B.vth += Mth / S.Iyy * dt; B.vph += Mph / S.Ixx * dt;
+    B.z += B.vz * dt; B.th += B.vth * dt; B.ph += B.vph * dt;
+    // each corner: compression (+ = squashed) and its rate, the spring + damper, the anti-roll bar across the axle
+    for (let ax2 = 0; ax2 < 2; ax2++) {
+      const x = ax2 ? -P.b : P.a, k = ax2 ? S.kR : S.kF, c = ax2 ? S.cR : S.cF, arb = ax2 ? S.arbR : S.arbF;
+      const sL = -(B.z + x * B.th + (tw / 2) * B.ph), sR = -(B.z + x * B.th - (tw / 2) * B.ph);
+      const vL = -(B.vz + x * B.vth + (tw / 2) * B.vph), vR = -(B.vz + x * B.vth - (tw / 2) * B.vph);
+      F[ax2 * 2] = k * sL + c * vL + arb * (sL - sR);
+      F[ax2 * 2 + 1] = k * sR + c * vR - arb * (sL - sR);
+    }
+    this.pitch = B.th; this.roll = B.ph; this.heave = B.z; // (for the car model on screen)
+  }
+
+  // the body for a car this machine doesn't simulate (an online rival): the same suspension, pushed by the g-forces and
+  // speed it sends (in small steps, so the stiffest springs stay stable at any frame rate)
+  bodyFromG(dt) {
+    const P = this.p, D = P.kd * (this.dfMul ?? 1) * this.u * this.u, aF = P.aeroF ?? P.b / P.L;
+    for (let n = Math.min(12, Math.ceil(Math.min(dt, 0.05) * 240)), k = 0; k < n; k++) this.bodyStep(Math.min(dt, 0.05) / n, (this.lonG || 0) * G, (this.latG || 0) * G, D * aF, D * (1 - aF));
+  }
+
   setAids(a) { this.aidBase = { ...a }; this.aid = { ...a }; }
   get tc() { return this.aid.stab; }
   set tc(v) { this.aid = v ? { ...this.aidBase } : { ...this.aidBase, tc: 0, stab: false }; }
@@ -108,7 +164,8 @@ export class CarPhysics {
   }
 
   // (the wheels pick up the car's speed on the next step: callers set a velocity straight after placing)
-  place(x, z, h) { this.x = x; this.z = z; this.h = h; this.vx = this.vz = this.r = 0; this.gear = 1; this.steer = 0; this.wInit = false; }
+  place(x, z, h) { this.x = x; this.z = z; this.h = h; this.vx = this.vz = this.r = 0; this.gear = 1; this.steer = 0; this.wInit = false;
+    if (this.body) { Object.assign(this.body, { z: 0, th: 0, ph: 0, vz: 0, vth: 0, vph: 0 }); this.suspF.fill(0); } }
 
   shift(dir) {
     if (dir > 0 && this.gear < this.p.gears.length - 1 && this.gear >= 1) { this.gear++; this.shiftT = this.p.shift ?? 0.07; }
@@ -173,33 +230,17 @@ export class CarPhysics {
     const aF = P.aeroF ?? P.b / P.L;
     const Df = D * aF * (1 - 0.55 * dm.fw), Dr = D * (1 - aF) * (1 - 0.55 * dm.rw);
     const N = W + Df + Dr;
-    // front/rear load transfer follows the g on the springs (axLT settles in ~0.25 s, like a car pitching on its
-    // dampers, instead of the instant shift it used to be)
-    // (pitchK: road cars' suspension anti-dive / arcade softening, so braking doesn't unload the rear so hard it spins)
-    // (and less of it at high speed: downforce and the springs' stiffer end hold the car flatter, so braking into a
-    // fast kink doesn't unload the rear enough to swap ends; full effect below ~110 km/h, two-thirds by ~235)
-    const pitchV = 1 - 0.35 * Math.min(1, Math.max(0, (Math.abs(u) - 30) / 35));
-    // (only when braking: pulling away, the full m·a·h/L goes onto the rears, whatever the springs do; the softening was
-    // only ever meant for the brakes, and it left the rears light just as you powered out of a corner)
-    const tr = P.mass * this.axLT * P.cgh / P.L * (this.axLT < 0 ? (P.pitchK ?? 1) * pitchV : 1);
-    const Nf0 = W * P.b / P.L + Df, Nr0 = W * P.a / P.L + Dr; // axle loads with no transfer
-    const Nf = Math.max(0.15 * N, Nf0 - tr);
-    const Nr = Math.max(0.15 * N, Nr0 + tr);
-    // load sensitivity: a tyre gives less grip per kilo the more it's loaded, so the axle that gains load under braking
-    // gains less grip than the other loses (it's what keeps a braking car from swapping ends)
-    const LS = P.loadK ?? 0.2, lsK = (n, n0) => Math.max(0.75, Math.min(1.25, 1 - LS * (n / n0 - 1)));
+    // ---- the body on its springs: what each tyre carries ----
+    // The sprung body bounces, pitches and rolls on a spring + damper at each corner, with an anti-roll bar across each
+    // axle (stiffnesses from the car's ride frequency, damping ratio and roll gradient: see the constructor). Braking,
+    // accelerating and cornering push on the body at its centre-of-mass height; downforce presses on it too. Each tyre
+    // carries its static share of the car plus whatever its corner's suspension is pushing (state from the last step:
+    // see the end of step), so weight transfer, its timing and the front / rear split of it in corners all come out of
+    // the suspension. Load sensitivity is per tyre (loadK): a tyre gives less grip per kilo the more it carries, so the
+    // outside tyre gains less than the inside one loses (what costs a leaning car grip, and keeps a braking one straight).
+    const LS = P.loadK ?? 0.15;
     const tg = tyreGrip(ty.c, this.rain) * (1 - 0.08 * dm.ch);
-    const gF = tg * wearGrip(ty.wf) * lsK(Nf, Nf0), gR = tg * wearGrip(ty.wr) * lsK(Nr, Nr0);
-
-    // ---- four tyres ----
-    // Each wheel (0 front-left, 1 front-right, 2 rear-left, 3 rear-right; "left" = the +v side) has its own load, slip
-    // angle, spin and slip ratio. Loads: the axle's (the front / rear transfer above) split left / right by the
-    // lateral transfer m·ay·h / track, shared between the axles by rollF (until stage 2b's sprung body works it out
-    // from the springs and anti-roll bars). Load sensitivity is per tyre (loadK): the outside tyre gains less grip than
-    // the inside one loses, which is the real reason a leaning car loses grip.
-    const tw = P.track ?? 1.6, rollF = P.rollF ?? P.b / P.L;
-    const dLat = P.mass * this.ayPrev * P.cgh / tw; // signed: load moves to the -v side when accelerating toward +v
-    this.loadT = Math.min(1, 2 * Math.abs(dLat) / N);
+    const S = this.susp, tw = S.tw;
     const hb = ctl.handbrake || 0;
     const uA = Math.max(Math.abs(u), 4);
     const sgn = u >= 0 ? 1 : -1;
@@ -207,17 +248,18 @@ export class CarPhysics {
     const ar = Math.atan2(v - P.b * this.r, uA);
     const aFp = P.slipPeak ?? 0.169, aRp = P.slipPeakR ?? aFp;
     const tgF = tg * wearGrip(ty.wf), tgR = tg * wearGrip(ty.wr) * P.rearGrip;
-    const WN = W4.n, WC = W4.cap, WA = W4.a, WSY = W4.sy, WU = W4.u, WY = W4.y, WX = W4.x;
+    const WN = W4.n, WC = W4.cap, WA = W4.a, WSY = W4.sy, WU = W4.u, WY = W4.y, WX = W4.x, SF = this.suspF;
     for (let i = 0; i < 4; i++) {
       const front = i < 2, side = (i & 1) ? -1 : 1, y = side * tw / 2;
-      const Na = front ? Nf : Nr, n = Math.max(0, Na / 2 - side * dLat * (front ? rollF : 1 - rollF));
+      const n = Math.max(0, (front ? S.nF : S.nR) + SF[i]);
       WN[i] = n; WY[i] = y; WX[i] = front ? P.a : -P.b;
-      WC[i] = mu * n * (front ? tgF : tgR) * lsK(Math.max(n, 1), (front ? Nf0 : Nr0) / 2);
+      WC[i] = mu * n * (front ? tgF : tgR) * Math.max(0.75, Math.min(1.25, 1 - LS * (Math.max(n, 1) / (front ? S.nF + Df / 2 : S.nR + Dr / 2) - 1)));
       const ui = u - this.r * y, uAi = Math.max(Math.abs(ui), 4);
       WU[i] = ui;
       WA[i] = front ? Math.atan2(v + P.a * this.r, uAi) - delta * sgn : Math.atan2(v - P.b * this.r, uAi);
       WSY[i] = WA[i] / (front ? aFp : aRp);
     }
+    this.loadT = Math.min(1, Math.max(Math.abs(WN[0] - WN[1]) / Math.max(1, WN[0] + WN[1]), Math.abs(WN[2] - WN[3]) / Math.max(1, WN[2] + WN[3])));
     const capF = WC[0] + WC[1], capR = WC[2] + WC[3];
 
     // throttle / brake / reverse
@@ -333,6 +375,16 @@ export class CarPhysics {
     const escOn = A.stab && !drifting && drive > 0 && fd < 1, escE = Math.abs(syR) - 0.9;
     this.escK = escOn && escE > 0 ? Math.max(0.2, (this.escK ?? 1) - dt * 10 * escE) : Math.min(1, (this.escK ?? 1) + dt * 3);
     if (this.escK < 0.9 && thr > 0.3) aT.stab = 0.25;
+    // ...and its brake (what real ESC mostly is): when the rear is past its grip and the car is rotating faster than the
+    // steering asks for (the yaw rate the front wheels' angle gives, capped by what the tyres can hold), it brakes the
+    // outside front wheel, whose drag swings the nose back out. Any pedal: lifting off can start a slide too.
+    const au0 = Math.abs(u);
+    const rRef = Math.max(-1, Math.min(1, u * delta / P.L / Math.max(1e-3, 0.85 * mu * G / Math.max(au0, 1)))) * 0.85 * mu * G / Math.max(au0, 1);
+    const yawE = Math.sign(this.r) === Math.sign(rRef) || Math.abs(rRef) < 0.02 ? Math.abs(this.r) - Math.abs(rRef) : Math.abs(this.r);
+    const escBt = A.stab && !drifting && au0 > 5 && escE > 0 && yawE > 0.03 ? Math.min(1, escE * 3) * Math.min(1, (yawE - 0.03) / 0.12) : 0;
+    this.escB = (this.escB ?? 0) + (escBt - (this.escB ?? 0)) * Math.min(1, dt * 25);
+    const escW = this.r > 0 ? 1 : 0; // (the outside front: the right one when rotating to the left)
+    if (this.escB > 0.1) aT.stab = 0.25;
     const escK = drive > 0 ? this.escK : 1;
     const drF = drive * R * fd * escK, drR = clutchIn ? 0 : drive * R * (1 - fd) * escK; // (per axle, split evenly by the diff)
     const CF = this.nCF, BF = this.nBF, CR = this.nCR, BRr = this.nBR;
@@ -341,14 +393,20 @@ export class CarPhysics {
     FXs.fill(0); FYs.fill(0);
     let absAct = false, tcAct = false, tcK = this.tcK;
     for (let k = 0; k < nSub; k++) {
-      // ABS: each wheel's pressure eases off in proportion to how far past the target it is, and builds back
+      // ABS: each wheel's pressure eases off in proportion to how far past the target it is, and builds back. The fronts
+      // are controlled one by one; the rears "select-low", like real ABS: both get the pressure that suits the one with
+      // less grip, so braking the back of the car never twists it
       for (let i = 0; i < 4; i++) {
         if (hasABS && braking > 0.05) { const e = (ABT[i] - KS[i] * sgnU) / kp; AB[i] = e > 0 ? Math.max(0.2, AB[i] - h * 40 * e) : Math.min(1, AB[i] + h * 2); }
         else AB[i] = 1;
+      }
+      if (hasABS) AB[2] = AB[3] = Math.min(AB[2], AB[3]);
+      for (let i = 0; i < 4; i++) {
         let tb = i < 2 ? pedF : pedR;
         if (hasABS && tb > AB[i] * LIM[i]) { tb = AB[i] * LIM[i]; if (AB[i] < 0.98) absAct = true; }
         TB[i] = tb + (i >= 2 ? hbT : 0);
       }
+      if (this.escB > 0.01) TB[escW] = Math.max(TB[escW], this.escB * 0.8 * WC[escW] * R);
       // TC: engine torque eases off in proportion to the worst driven wheel's spin past the target, and comes back as
       // it hooks up
       const kdw = fd >= 1 ? Math.max(KS[0] * sgnU, KS[1] * sgnU) : fd > 0 ? Math.max(KS[0] * sgnU, KS[1] * sgnU, KS[2] * sgnU, KS[3] * sgnU) : Math.max(KS[2] * sgnU, KS[3] * sgnU);
@@ -441,9 +499,9 @@ export class CarPhysics {
     Fx += P.mass * env.gF; Fy += P.mass * env.gL;
 
     const axL = Fx / P.mass, ayL = Fy / P.mass;
+    this.bodyStep(dt, axL, ayL, Df, Dr);
     this.axPrev += (axL - this.axPrev) * Math.min(1, dt * 12);
     this.ayPrev += (ayL - this.ayPrev) * Math.min(1, dt * 12);
-    this.axLT += (this.axPrev - this.axLT) * Math.min(1, dt * 5);
     this.vx += (axL * sn + ayL * cs) * dt;
     this.vz += (axL * cs - ayL * sn) * dt;
     this.r += (Tz / P.inertia) * dt;

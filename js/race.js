@@ -1379,6 +1379,7 @@ export class Race {
     p.delta = s.d; p.rpm = s.rpm; p.throttle = s.th; p.braking = s.b; p.gear = s.g; p.latG = s.lg; p.lonG = s.ng;
     p.u = p.vx * Math.sin(p.h) + p.vz * Math.cos(p.h); p.speed = Math.hypot(p.vx, p.vz);
     p.slipR = s.sl ? 0.2 : 0; p.slipF = 0; p.spin = 0;
+    p.bodyFromG(dt); // (their body leans on its springs from the g-forces they send)
     if (s.ty !== p.tyre.c) { p.fitTyres(s.ty); car.model.setCompound(s.ty); }
     p.tyre.wf = p.tyre.wr = s.tw;
     const d = p.dmg;
@@ -1489,9 +1490,20 @@ export class Race {
     const sn = Math.sin(p.h), cs = Math.cos(p.h);
     const fwd = dx * sn + dz * cs, left = dx * cs - dz * sn;
     const alpha = Math.atan2(left, fwd);
-    const delta = Math.atan((2 * p.p.L * Math.sin(alpha)) / Ld);
+    // pure pursuit (steer for the arc through a point ahead), damped by the yaw rate: take off steering when the car
+    // is already rotating faster than that arc needs, add some when it's slower, like a driver feeling the car turn.
+    // Without it the steering chases the car's own response at speed and the car weaves.
+    const kap = 2 * Math.sin(alpha) / Ld;
+    const delta = Math.atan(p.p.L * kap) - 0.6 * p.p.L * (p.r - p.u * kap) / Math.max(Math.abs(p.u), 5);
     const maxLock = p.p.maxSteer / (1 + Math.abs(p.u) * LOCK_K);
     let steer = Math.max(-1, Math.min(1, -delta / maxLock));
+    // like a good driver, never turn the fronts past their peak grip (past it they only scrub and push wide: it's what
+    // the Steering Assist does for players), except in a slide, where they go where the catch needs them
+    if (p.speed > 8 && Math.abs(p.beta) < 0.12) {
+      const zeroSlip = Math.atan2(p.u * Math.tan(p.beta) + p.p.a * p.r, Math.max(Math.abs(p.u), 4)), pk = (p.p.slipPeak ?? 0.169) * 1.05;
+      const want = -steer * maxLock, held = Math.max(zeroSlip - pk, Math.min(zeroSlip + pk, want));
+      if (held !== want) steer = Math.max(-1, Math.min(1, -held / maxLock));
+    }
     // speed target
     const la = (car.idx + Math.round((6 + u * 0.3) / T.ds)) % N;
     const gk = Math.sqrt(p.gripNow() / (this.refGrip || 1) * (1 - 0.4 * Math.max(p.dmg.fw, p.dmg.rw)) * (1 - 0.1 * p.dmg.ch));
@@ -1825,20 +1837,12 @@ export class Race {
     if (dt >= 1) car.q.copy(q); else car.q.slerp(q, Math.min(1, dt * 14));
     m.group.quaternion.copy(car.q);
     m.group.position.set(p.x, y, p.z);
-    // suspension: body rolls / pitches / rumbles on its springs, wheels stay planted. The G forces jump the moment you
-    // brake or turn in, so the body follows them on a damped spring (settles in ~0.3 s, a touch of overshoot)
-    const sus = car.sus || (car.sus = { p: 0, pv: 0, r: 0, rv: 0 });
-    const tp = THREE.MathUtils.clamp(-(p.lonG || 0), -5, 5) * 0.008, tr = THREE.MathUtils.clamp(p.latG || 0, -5, 5) * 0.011;
-    if (dt >= 1) Object.assign(sus, { p: tp, pv: 0, r: tr, rv: 0 });
-    else {
-      const w = 11, z = 0.7, h = Math.min(dt, 0.05);
-      sus.pv += ((tp - sus.p) * w * w - 2 * z * w * sus.pv) * h; sus.p += sus.pv * h;
-      sus.rv += ((tr - sus.r) * w * w - 2 * z * w * sus.rv) * h; sus.r += sus.rv * h;
-    }
+    // suspension: the body rolls / pitches / bounces exactly as the physics' sprung body does (the same springs, dampers
+    // and anti-roll bars that set each tyre's load), plus the kerb rumble; the wheels stay planted
     m.animate({
       steer: p.delta, spin: p.u * Math.min(dt, 0.05),
-      roll: sus.r, pitch: sus.p,
-      heave: car.rumble || 0,
+      roll: p.roll || 0, pitch: -(p.pitch || 0),
+      heave: (p.heave || 0) + (car.rumble || 0),
     });
     const braking = p.braking > 0.1 && p.u > 1;
     const flash = this.rain && (Math.floor(this.raceTime * 4) % 2 === 0);

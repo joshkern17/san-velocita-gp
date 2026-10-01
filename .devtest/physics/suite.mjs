@@ -151,8 +151,9 @@ const GROUPS = {
   },
   // cost: ms per simulated minute of driving (one car)
   speed() {
+    // (warmed up first, on a minute of the same driving: otherwise this mostly measures the JIT compiling the code)
     const p = car('mustang', { v: 40, gear: 4 });
-    drive(p, 10, (t) => ({ throttle: 0.7, steer: Math.sin(t) * 0.3 }));
+    for (let k = 0; k < 2; k++) drive(p, 60, (t) => ({ throttle: 0.7, brake: Math.sin(t * 0.8) > 0.8 ? 1 : 0, steer: Math.sin(t) * 0.3 }));
     const t0 = performance.now();
     drive(p, 60, (t) => ({ throttle: 0.7, brake: Math.sin(t * 0.8) > 0.8 ? 1 : 0, steer: Math.sin(t) * 0.3 }));
     return { msPerMinute: Math.round(performance.now() - t0) };

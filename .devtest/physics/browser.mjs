@@ -5,6 +5,7 @@
 //   node .devtest/physics/browser.mjs ref [car] [tyre]  the Lap Review reference lap on .devtest/auburn2.json (the
 //                                                     user's circuit): time and faults (0 = clean) at each pace
 //   node .devtest/physics/browser.mjs load           race build time incl. AI learning (first time / cached)
+//   node .devtest/physics/browser.mjs cpu            physics cost in the browser (ms per simulated minute, one car)
 //
 // Targets: AI 0-4 offs per 5 laps at 95-97% pace, learning under 40 rounds; reference faults 0-2; load times in
 // docs/PHYSICS.md.
@@ -38,6 +39,9 @@ try {
       return lines;
     }, [a1 || 'm1procar', a2 || 'soft']);
     out.forEach(l => console.log(l));
+  } else if (mode === 'cpu') {
+    await pg.goto(`${URL}/.devtest/physics/cpu.html`); await pg.waitForTimeout(800);
+    for (let k = 0; k < 2; k++) console.log(JSON.stringify(await pg.evaluate(() => window.cpu())));
   } else if (mode === 'load') {
     await pg.goto(`${URL}/index.html`); await pg.waitForTimeout(4000);
     for (const [label, aiChassis] of [['one class', 'class'], ['all classes mixed', 'multi'], ['again (cached)', 'multi']]) {

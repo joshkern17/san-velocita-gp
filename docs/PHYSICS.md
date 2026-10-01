@@ -66,24 +66,44 @@ Replace the bicycle with four tyres and a sprung body.
 `../Racing Game (physics stage 2)`), so `main`, which the user plays from, stays on the stable stage 1 physics until
 stage 2 is finished and checked. Merge into `main` at the end (see the release checklist).
 
-**Current step:** 2a written (four wheels in `js/physics.js`: per-wheel loads / slip angles / spin / slip ratio / ABS,
-axle pair solved as mean + difference modes with a viscous LSD `diffVisc` on the driven axle; brakes inside the mode
-solve). Straight-line stops, launches and steady cornering match stage 1. **Known 2a gap, expected to resolve in 2b:**
-braking while turning now turns no more than coasting (25° vs stage 1's 38°, Kaze, `brakeTurn`). Measured cause: the
-light inside front reaches its limit first, ABS eases it, and the heavier outside wheels brake harder; that
-left / right braking yaw moment (~+2.5 kNm) cancels most of the turning moment (~-3 kNm). That's real physics; a real
-car still rotates on the brakes because the full braking weight transfer loads the fronts and lightens the rears, and
-`pitchK` (0.55-0.7) still cuts that transfer. With `pitchK: 1`, brake-turn goes back to ~34° but the fast kink slide
-doubles (8° → 15°). Don't tune 2a around this: 2b replaces `pitchK` / `pitchV` / `axLT` with real springs + dampers
-(timing) and should land both. Next: 2b (sprung body).
+**Current step:** 2a + 2b done and checked (not yet released to `main`). Next: 2c (per-wheel kerbs / bumps), then
+the release checklist and merge.
+
+What 2a + 2b are, and what was learned getting there:
+- **Four wheels** (`js/physics.js`): per-wheel load / slip angle / spin / slip ratio / ABS; each axle pair solved as
+  mean + difference modes (engine inertia on the mean, viscous LSD `diffVisc` on the driven pair); brakes inside the
+  mode solve (a brake stops a wheel, never reverses it). Rear ABS is **select-low** (both rears get the pressure that
+  suits the one with less grip, as real ABS does), so braking never twists the car.
+- **Sprung body** (`setupSuspension` / `bodyStep`): heave / pitch / roll on a spring + damper per corner and an
+  anti-roll bar per axle, all derived from engineer's numbers per car (`rideHz`, `damp`, `rollGrad`, `rollF` or
+  `rollBias`, `unsprung`, `track`; class defaults in `cars.js`, the F1's in `CARSPEC`). Tyre loads = static share +
+  the suspension's force at that corner, so weight transfer and its timing come from the springs. `pitchK`, `pitchV`,
+  `axLT`, `ltLoss` are gone. The car model's body roll / pitch / heave on screen now come from this (`race.js`
+  `placeModel`), and online rivals' bodies run the same suspension from the g-forces they send (`bodyFromG`).
+- **Roll stiffness split** defaults to front weight share + `rollBias` (road 0.1, GT / F1 0.05): real cars are set up
+  so the front lets go first. With a neutral split (bias 0) the road cars spun in fast lane changes.
+- **Road-car damping 0.5** (was 0.35): at 0.35 the AI's steering and the roll lag fell into a slow weave at 160 km/h.
+- **Tyre calibration**: per-tyre load sensitivity (`loadK` 0.15) costs more grip than the old blanket roll loss, so
+  every car's `mu` was raised ~5-7% (F1 2%) to keep its stage 1 cornering g.
+- **Stability control brakes the outside front** (`escB`) when the rear is past its grip and the car rotates faster
+  than the steering asks (plus the old engine cut). This is what real ESC does; it brought SC-on exits back in target.
+- **AI driver** (`race.js` `aiControls`): yaw-rate damping on its pure-pursuit steering (stops weaving at speed), and it
+  never turns the fronts past their peak slip angle (like the Steering Assist, but as driver skill). Result: 0 offs
+  for every car at every pace on the bench, learning in 7-18 rounds.
+- Measured (2026-09-30): suite all within targets; `browser.mjs ai` 0 offs everywhere; `ref` M1 softs Auburn 1:40.2,
+  faults 0; `load` 4.0 s one class / 8.1 s mixed / 1.4 s cached (stage 1: 3.9 / 6.6 / 1.4); CPU 18 ms/sim-min.
+- Open-loop drift script (`drift` group, TC off, steering held) ends in different places than stage 1: no driver is
+  correcting it, so it isn't a regression signal. Drift feel is stage 3's job (LSD + removing the carve cheats).
+- Dev tools added: `.devtest/physics/ailog.mjs` (AI learning log + off-track points, `TRACE=1 FROM= TO=` to log a
+  section, `TRACK=auburn`), `browser.mjs cpu` (+ `.devtest/physics/cpu.html`).
 
 ## Remaining fudges (to remove, and which stage removes them)
 
 | Fudge | Where | Removed by |
 |---|---|---|
-| `pitchK` (braking weight transfer scaled down) + `pitchV` (less at high speed) + `axLT` 0.25 s lag | `physics.js` loads | 2b |
-| `rollF` / `ltLoss` (roll balance + grip lost to roll as one formula) | `physics.js` loads | 2b |
-| `rearGrip` multiplier, `gripK` (arcade grip ×1.06-1.08) | `cars.js` | 2b (re-tune), keep `gripK` only if the user wants |
+| ~~`pitchK` + `pitchV` + `axLT` lag~~ | | removed in 2b (springs + dampers) |
+| ~~`ltLoss`~~; `rollF` is now a real setup figure (anti-roll bar split) | | 2b |
+| `rearGrip` multiplier (1.0-1.08: wider rear tyres, roughly), `gripK` (arcade grip ×1.06-1.08) | `cars.js` | still there after 2b; ask the user about `gripK` |
 | yaw damping `r *= 1 - dt*0.25`, the 1.6× yaw cap with SC off, kinematic blend at walking pace, low-speed lateral fade | `physics.js` | 2a/2b (re-check; low-speed handling may still need something) |
 | `driftCarve`, `driftPush`, `aiCarve` (drift arcade cheats; AI gets carve to keep up with drifting players) | `physics.js`, `race.js` | 3 |
 | Counter-steer help, steering assist, stability yaw cap / slide limiter, braking assist | aids | stay: they're the aids layer, by design |
