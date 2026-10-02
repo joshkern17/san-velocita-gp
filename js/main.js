@@ -345,7 +345,7 @@ menus['s-garage'] = [new Menu($('m-garage'), [
   { label: 'Livery Designer', cls: 'action', action: () => openLivery(), desc: 'Place decals (your own PNG or SVG too), design the helmet and suit, and save whole team liveries.' },
   part('Pattern', 'pattern', false, 'The paint pattern your three colours are laid out in.'), paintOpt('Main', 'main', 'The main body colour.'), paintOpt('Accent', 'accent', 'The second colour of the pattern.'), paintOpt('Detail', 'third', 'Stripes, pinstripes and small details.'),
   { label: 'Number', values: Array.from({ length: 99 }, (_, i) => [i + 1, String(i + 1)]), get: () => settings.car.number, set: v => { settings.car.number = v; garage.car.repaint(settings.car); }, desc: 'Your race number.' },
-  { label: 'Sponsor', values: SPONSORS.map(s => [s, s]), get: () => settings.car.sponsor, set: v => { settings.car.sponsor = v; garage.car.repaint(settings.car); }, desc: 'The title sponsor on the sidepods and wing.' },
+  { label: 'Sponsor', values: SPONSORS.map(s => [s, s]), get: () => settings.car.sponsor, set: v => { settings.car.sponsor = v; garage.car.repaint(settings.car); }, desc: 'The title sponsor sticker. Hide it, or the race numbers, in the Livery Designer.' },
 ], { desc: 'd-garage' })];
 menus['s-garage'][0].i = 1;
 // bodywork swaps only exist on the classic car; grey them out while your own model is selected

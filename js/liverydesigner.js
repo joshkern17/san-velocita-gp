@@ -103,7 +103,7 @@ export class LiveryDesigner {
       <h4>PATTERN</h4>
       ${this.seg('lv-pat', PATTERNS, c.pattern)}
       ${this.check('lv-shown', 'Race numbers on the car', c.showNumber)}
-      ${this.check('lv-shows', 'Sponsor + team name on pods, wings, cover', c.showSponsor)}
+      ${this.check('lv-shows', 'Sponsor + team name stickers', c.showSponsor)}
       <p class="muted">Add your own logos and stickers in DECALS. Bodywork parts are in the Garage menu.</p>`;
   }
   bind_team() {
