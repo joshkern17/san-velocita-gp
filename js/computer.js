@@ -178,9 +178,15 @@ export class Computer {
     task.innerHTML = `<span class="pc-start">SV</span>${app ? `<span class="pc-tb on">${app.label}</span>` : ''}<span class="pc-clock">${esc(this.clock())}</span>`;
     win.hidden = !app;
     if (app) {
+      // re-drawing the same page (a field changed, a list item picked) keeps its panes scrolled where they were
+      const where = this.app === 'mail' ? 'mail' : this.app + ':' + this.url(), keepScroll = where === this.lastWhere ? [...win.querySelectorAll('*')].map(e => e.scrollTop) : null;
+      this.lastWhere = where;
       const body = this.app === 'mail' ? this.mailApp() : this.browser();
       win.innerHTML = `<div class="pc-title"><span>${app.title}${this.app !== 'mail' ? ' &mdash; ' + esc(this.url()) : ''}</span><i data-nav data-act="close" data-key="close">&times;</i></div>${body}`;
-    }
+      if (keepScroll) win.querySelectorAll('*').forEach((e, i) => { if (keepScroll[i]) e.scrollTop = keepScroll[i]; });
+      if (this.app === 'mail' && this.page.mail !== this.lastMail) { const b = win.querySelector('.pc-mbody'); if (b) b.scrollTop = 0; } // (a different email starts at its top)
+      this.lastMail = this.page.mail;
+    } else this.lastWhere = null;
     // focus: what you had, else the first thing worth selecting
     const els = this.navs();
     const keep = this.curKey && els.find(e => e.dataset.key === this.curKey);
