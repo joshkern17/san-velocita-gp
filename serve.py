@@ -9,8 +9,11 @@
 Saves: on the game's own port (8000) the game mirrors everything it saves (tracks, liveries, careers, settings,
 your livery images) into saves/ next to this file, and restores from it if the browser's storage comes back empty.
 A dated copy is kept each day for two weeks (saves/history/). Other ports (test servers) don't touch saves/.
+
+Character voices (llm.py): "Sign in with ChatGPT" for the game's LLM layer, on /__llm/* and /auth/callback. The account's
+tokens are kept in saves/llm/ (a temp folder for test servers).
 """
-import http.server, socketserver, webbrowser, os, sys, threading, time, json, re, shutil, datetime
+import http.server, socketserver, webbrowser, os, sys, threading, time, json, re, shutil, datetime, tempfile
 
 PORT = next((int(a) for a in sys.argv[1:] if a.isdigit()), 8000)
 AUTO_EXIT = '--auto-exit' in sys.argv
@@ -19,6 +22,9 @@ last_ping = time.time()
 SAVES = os.path.join(os.getcwd(), 'saves') if PORT == 8000 or '--saves' in sys.argv else None
 LS, ASSETS = (os.path.join(SAVES, 'storage'), os.path.join(SAVES, 'assets')) if SAVES else (None, None)
 lock = threading.Lock()
+sys.path.insert(0, os.getcwd())
+import llm
+VOICES = llm.Voices(os.path.join(SAVES, 'llm') if SAVES else os.path.join(tempfile.gettempdir(), f'svgp-llm-{PORT}'), PORT)
 
 def safe(name):
     return re.sub(r'[^A-Za-z0-9._-]', '_', name)[:120]
@@ -53,6 +59,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_response(200); self.send_header('Content-Type', 'application/json'); self.end_headers()
             self.wfile.write(b'{"ok":true}' if ok else b'{"ok":false}')
             return
+        if self.path.startswith('/auth/callback'):
+            from urllib.parse import urlparse, parse_qs
+            q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+            ok, msg = VOICES.callback(q)
+            page = llm.PAGE.format(title='Signed in' if ok else 'Sign-in didn\'t work',
+                                   body=(f'Character voices will use {msg}\'s ChatGPT plan. You can close this tab and go back to the game.' if ok else msg))
+            return self.reply(page, 'text/html; charset=utf-8')
+        if self.path.startswith('/__llm/status'):
+            return self.reply(json.dumps(VOICES.status()), 'application/json')
         if self.path.startswith('/__saves') and SAVES:
             # everything saved: { keys: { key: text }, assets: [id] }
             out = {'keys': {}, 'assets': []}
@@ -76,10 +91,23 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         # /__save?k=key (body: the value), /__del?k=key, /__asset?id=id (body: the image's data URL)
         from urllib.parse import urlparse, parse_qs
-        if not SAVES:
-            self.send_response(404); self.end_headers(); return
         u = urlparse(self.path); q = parse_qs(u.query)
         body = self.rfile.read(int(self.headers.get('Content-Length') or 0)).decode('utf-8')
+        # character voices: /__llm/signin, /__llm/say { instructions, input }, /__llm/signout
+        if u.path.startswith('/__llm/'):
+            if u.path == '/__llm/signin':
+                return self.reply(json.dumps({'url': VOICES.start()}), 'application/json')
+            if u.path == '/__llm/signout':
+                VOICES.signout(); return self.reply('{"ok":true}', 'application/json')
+            if u.path == '/__llm/say':
+                try:
+                    a = json.loads(body or '{}')
+                except Exception:
+                    a = {}
+                return self.reply(json.dumps(VOICES.say(str(a.get('instructions') or ''), str(a.get('input') or ''))), 'application/json')
+            self.send_response(404); self.end_headers(); return
+        if not SAVES:
+            self.send_response(404); self.end_headers(); return
         with lock:
             os.makedirs(LS, exist_ok=True); os.makedirs(ASSETS, exist_ok=True)
             daily_copy()

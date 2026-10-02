@@ -17,6 +17,7 @@ import { Garage } from './garage.js';
 import { PitGarage } from './pitgarage.js';
 import { Computer } from './computer.js';
 import { restoreSaves, exportBackup, importBackup } from './backup.js';
+import { voiceState, voiceStatus, voiceSignIn, voiceSignOut, voiceWorld } from './voice.js';
 import { carPhoto } from './carphoto.js';
 import { PARTS, DEFAULT_CAR, chassisReady } from './carmodel.js';
 import * as CAREER from './career.js';
@@ -38,6 +39,7 @@ const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 
 // ---------------- your saves: restored from saves/ (serve.py) if the browser lost them, then mirrored there ----------------
 const backup = await restoreSaves();
+voiceStatus(); // (character voices: is serve.py here, and is someone signed in with ChatGPT?)
 
 // ---------------- settings ----------------
 const DEFAULTS = {
@@ -54,7 +56,7 @@ if (settings.team === 0 || settings.team === undefined) settings.team = 'garage'
 if (!settings.carsV) { if (settings.aiChassis === 'custom') settings.aiChassis = 'class'; settings.carsV = 1; }
 // driver aids: old saves had one on/off 'tc' switch
 if (!settings.aids) settings.aids = aidsOf(settings);
-settings.ghost ??= 'best'; settings.vibration ??= 'normal'; settings.steerCurve ??= 'normal'; settings.deadzone ??= 'normal'; settings.steerSpeed ??= 'normal';
+settings.ghost ??= 'best'; settings.voices ??= 'written'; settings.vibration ??= 'normal'; settings.steerCurve ??= 'normal'; settings.deadzone ??= 'normal'; settings.steerSpeed ??= 'normal';
 const applyPadFeel = () => { padFeel.curve = STEER_CURVES[settings.steerCurve] ?? 1.6; padFeel.dz = DEADZONES[settings.deadzone] ?? 0.12; padFeel.lag = STEER_LAGS[settings.steerSpeed] ?? 0.05; };
 applyPadFeel();
 const saveSettings = () => { try { localStorage.setItem('svgp.settings', JSON.stringify(settings)); } catch (e) {} };
@@ -487,6 +489,14 @@ const OPTION_TABS = [
       get desc() { return `Everything in one file: tracks, liveries, careers, settings and your images. ${backup.online ? 'Your saves are also kept automatically in the game folder (saves/).' : ''}`; } },
     { label: 'Import Backup', confirm: 'Replace what\'s here with the file? Select again', action: () => importBackup().then(r => { if (!r) return; if (r.error) return toast(r.error); toast(`Restored ${r.keys} saves and ${r.assets} images. Reloading...`); setTimeout(() => location.reload(), 1600); }),
       desc: 'Load a backup file you exported. Anything in it replaces what the game has now.' },
+    { label: 'Character Voices', head: true },
+    { label: 'Voices', values: [['written', 'Written'], ['chatgpt', 'ChatGPT']], get: () => settings.voices, set: v => { settings.voices = v; saveSettings(); runVoices(); },
+      get desc() { return `World Career's messages. <b>Written</b>: as written. <b>ChatGPT</b>: characters reword their own messages in their own voice (Danny so far), using your ChatGPT plan. The facts never change; if anything goes wrong the written version stays. ${voiceLine()}`; } },
+    { get label() { return voiceState.signedIn ? 'Sign Out Of ChatGPT' : 'Sign In With ChatGPT'; },
+      action: () => voiceState.signedIn ? voiceSignOut().then(() => { toast('Signed out of ChatGPT.'); menus['s-options']?.[0]?.render(); })
+        : voiceState.server === false ? toast('Character voices need the game\'s own server (the San Velocita GP app, or serve.py).')
+        : voiceSignIn((ok) => { if (ok) { settings.voices = 'chatgpt'; saveSettings(); toast(`Signed in with ChatGPT${voiceState.email ? ` as <b>${voiceState.email}</b>` : ''}.`); runVoices(); } menus['s-options']?.[0]?.render(); }).then(ok => ok && toast('Sign in on the page that just opened, then come back.')),
+      get desc() { return voiceState.signedIn ? `Signed in${voiceState.email ? ` as <b>${voiceState.email}</b>` : ''}${voiceState.model ? ` (${voiceState.model})` : ''}. Rewording counts against your ChatGPT plan's allowance; you can set a limit for this app in ChatGPT's settings.` : 'Opens OpenAI\'s sign-in page in your browser. Needs ChatGPT Plus or Pro. Your account stays on this computer (saves/llm/), never in the game\'s saves.'; } },
   ]],
   ['Aids', [
     presetItem(' Pick a preset, or set each aid below.'),
@@ -1641,6 +1651,19 @@ function renderHub() {
   }
   renderWeekStrip();
   renderHubMenu();
+  runVoices();
+}
+// character voices: reword the new messages (js/voice.js), then show them as they land
+function voiceLine() {
+  if (voiceState.server === false) return 'Needs the game\'s own server (the San Velocita GP app, or serve.py).';
+  if (!voiceState.signedIn) return 'Not signed in.';
+  return { limit: 'Your ChatGPT plan\'s limit for now has been reached: written versions until it resets.', plan: 'This ChatGPT account doesn\'t include plan usage (it needs Plus or Pro).', signin: 'ChatGPT needs you to sign in again.' }[voiceState.error] || '';
+}
+function runVoices() {
+  if (!world || settings.voices !== 'chatgpt' || !voiceState.signedIn) return;
+  const w = world, B = WC.briefing(w), st = WC.seriesStandings(w, w.player.series), cp = st.findIndex(e => e.pid === 'P') + 1;
+  const ctx = `${w.player.name.split(' ')[0]}, owner-driver of ${w.teams[w.player.team].name} in the ${seriesName(w.player.series)}, ${w.year} season, round ${w.round + 1} of ${w.opts.len}. ${cp && w.series[w.player.series].results.length ? `${ord(cp)} in the championship.` : 'No races yet.'} ${w.money ? `Bank: ${WC.money$(w.money.balance)}.` : ''} ${B.watch.slice(0, 2).map(x => x.text).join('. ')}`;
+  voiceWorld(w, ctx, () => { saveWorld(); if (screen === 's-hub') { renderHubMenu(); if (pc.isOpen) pc.render(); } });
 }
 // the week, as a calendar across the top: what each day went on, today, race day
 function renderWeekStrip() {
@@ -3267,4 +3290,4 @@ requestAnimationFrame(frame);
 // debug handle
 window.__svgp = { get world() { return world; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; } } };
+  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), voiceState } };
