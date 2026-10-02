@@ -122,7 +122,11 @@ class TrailsPass extends Pass {
     this.blendMat = new THREE.ShaderMaterial({
       uniforms: { tNew: { value: null }, tPrev: { value: null }, k: { value: 0 } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 1.0, 1.0); }',
-      fragmentShader: 'uniform sampler2D tNew, tPrev; uniform float k; varying vec2 vUv; void main(){ gl_FragColor = mix(texture2D(tNew, vUv), texture2D(tPrev, vUv), k); }',
+      // NaN/Inf guard: one bad pixel (a degenerate normal, a half-float overflow) would otherwise live in the history
+      // forever (mix(new, NaN, 0) is still NaN) and the bloom smears it over the whole screen: a black 3D view for good
+      fragmentShader: /* glsl */ `uniform sampler2D tNew, tPrev; uniform float k; varying vec2 vUv;
+        vec4 clean(vec4 c) { return (any(isnan(c)) || any(isinf(c))) ? vec4(0.0, 0.0, 0.0, 1.0) : clamp(c, 0.0, 64000.0); }
+        void main(){ vec4 n = clean(texture2D(tNew, vUv)); gl_FragColor = k > 0.0 ? mix(n, clean(texture2D(tPrev, vUv)), k) : n; }`,
       depthTest: false, depthWrite: false,
     });
     this.copyMat = new CopyMaterial();

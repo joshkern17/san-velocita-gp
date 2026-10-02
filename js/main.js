@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { PS2Post } from './post.js';
 import { Race, TYRE_FIT, buildScenery } from './race.js';
-import { HUD, fmtTime, RADAR_ZOOMS } from './hud.js';
+import { HUD, fmtTime, RADAR_ZOOMS, readThemeColours } from './hud.js';
 import { Editor } from './editor.js';
 import { initInput, pressed, isDown, clearEdges, pollGamepad, driveControls, gp, device, onDevice, rumble, padFeel, STEER_CURVES, DEADZONES, STEER_LAGS } from './input.js';
 import { lapKey, lapsFor, loadPB, referenceLap, analyze } from './telemetry.js';
@@ -15,6 +15,8 @@ import { Garage } from './garage.js';
 import { PitGarage } from './pitgarage.js';
 import { PARTS, DEFAULT_CAR, chassisReady } from './carmodel.js';
 import * as CAREER from './career.js';
+import * as WC from './wcareer.js';
+import { Phone } from './phone.js';
 import { Net, PROTO } from './net.js';
 import { LiveryDesigner } from './liverydesigner.js';
 import { loadCustomCar, customCarStatus } from './glbcar.js';
@@ -31,13 +33,14 @@ const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 
 // ---------------- settings ----------------
 const DEFAULTS = {
-  res: 'ps2', filter: 'soft', trails: true, scan: false, dither: true, retro: 'psx', palette: 128, psxMat: 'strong', crt: 'flat', grain: 'light', rays: true, fringe: true, shadows: true, look: 'arcade', units: 'kmh', gearbox: 'auto', tc: true,
+  uiTheme: 'red', res: 'ps2', filter: 'soft', trails: true, scan: false, dither: true, retro: 'psx', palette: 128, psxMat: 'strong', crt: 'flat', grain: 'light', rays: true, fringe: true, shadows: true, look: 'arcade', units: 'kmh', gearbox: 'auto', tc: true,
   volume: 7, music: 5, camera: 'chase', racingLine: 'full', wear: 'normal', damage: 'normal', startTyre: 'auto', drift: 'off', aiChassis: 'class', rules: 'arcade', aiMistakes: 'normal', quali: 0, radarMap: 'satellite', radarZoom: 'normal', car: null, difficulty: 'medium', grid: 'back', team: 0, time: 'track', weather: 'track',
 };
 let settings = { ...DEFAULTS };
 try { settings = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('svgp.settings') || '{}') }; } catch (e) {}
 settings.car = { ...DEFAULT_CAR, ...(settings.car || {}) };
 if (settings.grain === true) settings.grain = 'medium'; else if (settings.grain === false) settings.grain = 'off';
+document.documentElement.dataset.theme = settings.uiTheme; // (before the first screen, so the boot screen is already in your colours)
 if (settings.team === 0 || settings.team === undefined) settings.team = 'garage';
 // (new car classes: the AI now follows your class by default)
 if (!settings.carsV) { if (settings.aiChassis === 'custom') settings.aiChassis = 'class'; settings.carsV = 1; }
@@ -61,6 +64,7 @@ function applyVideo() {
   applyPsxMaterials(settings.psxMat);
   setWorldOptions({ shadows: settings.shadows });
   document.body.classList.toggle('no-scan', !settings.scan);
+  document.documentElement.dataset.theme = settings.uiTheme; readThemeColours(); // (css/sv.css: the blue palette)
   setVolume(settings.volume / 10); setMusicVolume(settings.music / 10);
   hud.units = settings.units;
   hud.radarMap = settings.radarMap; hud.radarZoom = settings.radarZoom;
@@ -105,15 +109,15 @@ function fadeTo(fn, ms = 320) {
 
 // ---------------- button prompts (keyboard keys or pad buttons, whichever you used last) ----------------
 const GLYPHS = {
-  kb: { nav: '<kbd>&#8593;</kbd><kbd>&#8595;</kbd>', lr: '<kbd>&#8592;</kbd><kbd>&#8594;</kbd>', ok: '<kbd>Enter</kbd>', back: '<kbd>Esc</kbd>', tab: '<kbd>Q</kbd><kbd>E</kbd>', view: '<kbd>V</kbd>', scrub: '<kbd>Z</kbd><kbd>X</kbd>', cls: '<kbd>&#8593;</kbd><kbd>&#8595;</kbd>' },
-  pad: { nav: '<kbd class="dpad"></kbd>', lr: '<kbd class="dpad h"></kbd>', ok: '<kbd class="pb a">A</kbd>', back: '<kbd class="pb b">B</kbd>', tab: '<kbd class="pl">LB</kbd><kbd class="pl">RB</kbd>', view: '<kbd class="pb y">Y</kbd>', scrub: '<kbd class="pl">LT</kbd><kbd class="pl">RT</kbd>', cls: '<kbd class="pl">LB</kbd><kbd class="pl">RB</kbd>' },
+  kb: { nav: '<kbd>&#8593;</kbd><kbd>&#8595;</kbd>', lr: '<kbd>&#8592;</kbd><kbd>&#8594;</kbd>', ok: '<kbd>Enter</kbd>', back: '<kbd>Esc</kbd>', tab: '<kbd>Q</kbd><kbd>E</kbd>', view: '<kbd>V</kbd>', scrub: '<kbd>Z</kbd><kbd>X</kbd>', cls: '<kbd>&#8593;</kbd><kbd>&#8595;</kbd>', phone: '<kbd>P</kbd>' },
+  pad: { nav: '<kbd class="dpad"></kbd>', lr: '<kbd class="dpad h"></kbd>', ok: '<kbd class="pb a">A</kbd>', back: '<kbd class="pb b">B</kbd>', tab: '<kbd class="pl">LB</kbd><kbd class="pl">RB</kbd>', view: '<kbd class="pb y">Y</kbd>', scrub: '<kbd class="pl">LT</kbd><kbd class="pl">RT</kbd>', cls: '<kbd class="pl">LB</kbd><kbd class="pl">RB</kbd>', phone: '<kbd class="pb y">Y</kbd>' },
 };
 // per screen: [glyph, label] pairs; a function for screens whose prompts change
 const HINTS = {
   's-main': [['nav', 'Navigate'], ['ok', 'Select']],
   's-setup': () => [['nav', 'Circuit'], ['ok', 'Choose circuit'], ['back', fromEditor ? 'Back to editor' : 'Back']],
   's-raceset': () => [['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ['back', fromEditor ? 'Back to editor' : 'Circuits']],
-  's-career': [['tab', 'Career / Grand Prix'], ['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ['back', 'Back']],
+  's-career': [['tab', 'Career type'], ['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ['back', 'Back']],
   's-online': [['nav', 'Navigate'], ['ok', 'Select'], ['back', 'Back']],
   's-lobby': () => [['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ['back', net && net.isHost ? 'Close room' : 'Leave room']],
   's-paddock': [['nav', 'Navigate'], ['ok', 'Select']],
@@ -133,7 +137,7 @@ function renderHints() {
   const el = document.querySelector(`#${screen} .footer-hints`); if (!el) return;
   let h = HINTS[screen]; if (typeof h === 'function') h = h();
   const G = GLYPHS[device.kind] || GLYPHS.kb;
-  el.innerHTML = (h || []).map(([g, label]) => `<span class="hint${['ok', 'back', 'tab', 'view'].includes(g) ? ' click' : ''}" data-g="${g}">${G[g]}<em>${label}</em></span>`).join('');
+  el.innerHTML = (h || []).map(([g, label]) => `<span class="hint${['ok', 'back', 'tab', 'view', 'phone'].includes(g) ? ' click' : ''}" data-g="${g}">${G[g]}<em>${label}</em></span>`).join('');
 }
 onDevice(() => renderHints());
 // the prompts double as buttons for mouse players
@@ -143,6 +147,7 @@ document.addEventListener('click', (e) => {
   if (g === 'back') { if (backs[screen]) backs[screen](); }
   else if (g === 'tab') { if (tabbers[screen]) tabbers[screen](1); else cycleFocus(1); }
   else if (g === 'view') { if (screen === 's-review') toggleReviewView(); }
+  else if (g === 'phone') togglePhone();
   else if (g === 'ok') {
     if (screen === 's-draft') takeDraft(); else if (screen === 's-carsel') confirmCar();
     else { const l = menus[screen]; if (l) l[focusIdx[screen] || 0].activate(); }
@@ -166,8 +171,9 @@ class Menu {
     this.el.innerHTML = this.items.map((it, k) => {
       if (it.head) return `<div class="item head" data-k="${k}">${it.label}</div>`;
       const cls = ['item', it.values ? 'opt' : '', it.cls || '', k === this.i ? 'sel' : '', it.disabled ? 'disabled' : ''].join(' ');
-      const val = it.values ? `<span class="val"><i class="arr" data-d="-1">&#9664;</i><span class="vt">${this.valText(it)}</span><i class="arr" data-d="1">&#9654;</i></span>` : '';
-      return `<div class="${cls}${it.armed ? ' armed' : ''}" data-k="${k}"><span class="lbl">${it.armed ? it.confirm : it.label}</span>${val}</div>`;
+      const val = it.values ? `<span class="val"><i class="arr" data-d="-1">&#8249;</i><span class="vt">${this.valText(it)}</span><i class="arr" data-d="1">&#8250;</i></span>` : '';
+      const idesc = this.opts.inlineDesc && k === this.i && it.desc ? `<span class="idesc">${it.desc}</span>` : '';
+      return `<div class="${cls}${it.armed ? ' armed' : ''}" data-k="${k}"><span class="lbl">${it.armed ? it.confirm : it.label}</span>${val}${idesc}</div>`;
     }).join('');
     this.el.classList.toggle('inactive', !this.active);
     this.el.querySelectorAll('.item:not(.head)').forEach(div => {
@@ -279,13 +285,17 @@ const MAIN_ITEMS = [
   { label: 'How To Play', action: () => fadeTo(() => { openHelp(0); }, 200), desc: 'Controls for keyboard and controller, and racing tips.' },
   { label: 'Credits', action: () => fadeTo(() => { fillCredits(); show('s-credits'); }, 200), desc: 'The artists and libraries behind the game.' },
 ];
-menus['s-main'] = [new Menu($('m-main'), MAIN_ITEMS, { desc: 'd-main' })];
+// the highlighted entry's description sits right under it (see .main-menu .idesc)
+menus['s-main'] = [new Menu($('m-main'), MAIN_ITEMS, { inlineDesc: true })];
 // a saved championship goes straight to the top of the menu
 function buildMainMenu() {
   const m = menus['s-main'][0], items = [];
+  const wsave = WC.loadWorld();
+  if (wsave) items.push({ label: 'Continue Career', cls: 'cont', desc: `${wsave.player.name} · ${wsave.year} ${WC.seriesById(wsave.player.series).name} · ${wsave.over ? 'season complete' : 'round ' + (wsave.round + 1) + ' of ' + wsave.opts.len}.`,
+    action: () => { world = wsave; careerTab = 0; openHub(); } });
   for (const kind of ['career', 'gp']) {
     const run = CAREER.loadRun(kind);
-    if (run && !run.over) items.push({ label: `Continue ${kind === 'gp' ? 'Grand Prix' : 'Career'}`, cls: 'cont',
+    if (run && !run.over) items.push({ label: `Continue ${kind === 'gp' ? 'Grand Prix' : 'Challenge'}`, cls: 'cont',
       desc: `Round ${run.round + 1} of ${run.schedule.length}: ${run.schedule[run.round].name}.`, action: () => { career = run; fadeTo(() => { renderPaddock(); show('s-paddock'); }, 200); } });
   }
   // keep the highlighted entry, unless a saved run just appeared or went away (then offer to continue it)
@@ -301,7 +311,7 @@ $('main-car').onclick = () => { if (screen === 's-main') { sfx.select(); openGar
 backs['s-help'] = () => { sfx.back(); fadeTo(() => show('s-main'), 200); };
 backs['s-credits'] = () => { sfx.back(); fadeTo(() => show('s-main'), 200); };
 // how to play: tabbed pages
-const HELP_PAGES = [['drive', 'Controls'], ['craft', 'Race Craft'], ['aids', 'Driver Aids'], ['flags', 'Flags & Rules'], ['editor', 'Track Editor'], ['online', 'Online']];
+const HELP_PAGES = [['drive', 'Controls'], ['craft', 'Race Craft'], ['aids', 'Driver Aids'], ['flags', 'Flags & Rules'], ['editor', 'Track Editor'], ['career', 'Career'], ['online', 'Online']];
 let helpPage = 0;
 function openHelp(k) {
   helpPage = k;
@@ -314,7 +324,7 @@ tabbers['s-help'] = (d) => { sfx.move(); openHelp((helpPage + d + HELP_PAGES.len
 function fillCredits() {
   const c = envCatalog(), el = $('credits-list');
   const esc = (t) => String(t || '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
-  const packs = [...(c ? Object.values(c.packs) : []), ...Object.values(CAR_CREDITS)];
+  const packs = [...(c ? Object.values(c.packs) : []), ...Object.values(CAR_CREDITS), { title: 'PSX Mobile Phone', author: 'Retro Assets Library', license: 'see pack' }];
   el.innerHTML = packs.length ? packs.sort((a, b) => a.title.localeCompare(b.title)).map(p => {
     const author = (p.author || '').replace(/\s*\(https?:[^)]*\)/, ''), lic = (p.license || '').replace(/\s*\(https?:[^)]*\)/, '').replace(/^CC-BY-?(.*)-4\.0$/, (m, x) => 'CC BY' + (x ? '-' + x : '') + ' 4.0').replace(/^CC-BY-4\.0$/, 'CC BY 4.0');
     return `<div><b>${esc(p.title)}</b><br>by ${esc(author)} <span>&middot; ${esc(lic)}</span></div>`;
@@ -380,13 +390,14 @@ assets.load(liveryAssetIds(settings.car));
 function openGarage(from = 's-main') { garageReturn = from; fadeTo(() => { disposeSim(); show('s-garage'); garage.open(settings.car); classicOnly(); }); }
 let garageReturn = 's-main';
 backs['s-garage'] = () => { sfx.back(); saveSettings(); fadeTo(() => { garage.close(); if (garageReturn === 's-paddock') { renderPaddock(); show('s-paddock'); startAttract(); }
+    else if (garageReturn === 's-hub' && world) { startAttract(); renderHub(); show('s-hub'); }
     else if (garageReturn === 's-lobby' && lobby) { onGarageDoneOnline(); startAttract(); renderLobby(); show('s-lobby'); } else { startAttract(); show('s-main'); } garageReturn = 's-main'; }); };
 
 // ---------------- options ----------------
 let optionsReturn = 's-main';
 const onOff = [[true, 'ON'], [false, 'OFF']];
 const LOOK_DESC = 'Changing this switches the look to Custom.';
-const meter = (v, n = 10) => `<span class="meter">${Array.from({ length: n }, (_, i) => `<i class="${i < v ? 'on' : ''}"></i>`).join('')}</span>`;
+const meter = (v, n = 10) => `<span class="meter" style="--n:${n}">${Array.from({ length: n }, (_, i) => `<i class="${i < v ? 'on' : ''}" style="--k:${i}"></i>`).join('')}</span>`;
 const GRID_VALS = [['back', 'Back of grid'], ['random', 'Random'], ['pole', 'Pole position']];
 const GRID_DESC = 'Where you start. With qualifying on, your qualifying lap decides it.';
 // race weekends: what's in them, and how long the sessions run ([practice, qualifying] seconds)
@@ -476,6 +487,8 @@ const OPTION_TABS = [
       desc: 'How fast the wheels follow the stick. <b>Smooth</b> takes the twitch out of quick thumb movements.' },
   ]],
   ['Display', [
+    { label: 'UI Colour', values: [['red', 'Red'], ['blue', 'Blue']], get: () => settings.uiTheme, set: v => { settings.uiTheme = v; applyVideo(); saveSettings(); },
+      desc: 'The colour of menus and the HUD. <b>Red</b>: red type with cyan accents. <b>Blue</b>: the other way round.' },
     { label: 'Screen Look', values: [['arcade', 'Arcade Sunset'], ['retro', 'RetroPass Palette'], ['crt', 'PS2 CRT'], ['film', 'Film'], ['light', 'Light (fast)'], ['off', 'Effects Off'], ['custom', 'Custom']], get: () => settings.look, set: v => { settings.look = v; applyLook(v); applyVideo(); saveSettings(); menus['s-options'][0].render(); }, desc: 'A preset for all the video settings at once. Pick <b>Light</b> if the game runs slowly.' },
     { label: 'Resolution', values: [['r240', 'PS1 240p'], ['r288', 'PS1 288p'], ['r360', 'Arcade 360p'], ['ps2', 'PS2 448p'], ['hd', 'HD 720p'], ['native', 'Native']], get: () => settings.res, set: v => { settings.res = v; settings.look = 'custom'; applyVideo(); saveSettings(); }, desc: 'The resolution the 3D view renders at. Lower is chunkier and faster. ' + LOOK_DESC },
     { label: 'Upscaling', values: [['sharp', 'Sharp pixels'], ['soft', 'Soft (CRT)']], get: () => settings.filter, set: v => { settings.filter = v; applyVideo(); saveSettings(); }, desc: 'How the low-resolution picture is stretched to your screen.' },
@@ -764,7 +777,7 @@ function showQualiResults() {
   const items = practice
     ? [{ label: 'Continue To Qualifying', cls: 'action primary', action: () => { keepWeekend(); startSession('quali'); }, desc: 'Same car, same field: now it counts.' }]
     : [{ label: 'Start The Race', cls: 'action primary', action: toRace, desc: 'Line up on the grid you just set.' }];
-  if (weekend.ret !== 'career') items.push(
+  if (weekend.ret !== 'career' && weekend.ret !== 'world') items.push(
     { label: practice ? 'Practice Again' : 'Qualify Again', action: () => { keepWeekend(); startSession(kind); }, desc: 'Another go at the session.' },
     { label: 'Main Menu', action: () => { weekend = null; quitToMenu(); } });
   show('s-results');
@@ -796,7 +809,7 @@ function openPitGarage() {
   show('s-pitgarage');
 }
 function renderGarageMenu() {
-  const q = sim.quali, quick = raceReturn !== 'career';
+  const q = sim.quali, quick = raceReturn !== 'career' && raceReturn !== 'world';
   pgSkipLbl = q.left > 330 ? 'Skip 5 Minutes' : 'Skip To The End';
   const items = [
     { label: 'Flying Lap', cls: 'action primary', action: () => goOut('flying'), desc: 'Straight onto a flying lap: the clock starts at the line.' },
@@ -853,15 +866,15 @@ function renderGarageInfo() {
   // the car: each part, how bad, how long to fix; the tyres on it (and what goes on when you go out)
   if (!pgTiming) {
     const pl = sim.player, d = pl.phys.dmg, w = sim.garageWork(pl), t = pl.phys.tyre;
-    const col = (x) => x < 0.15 ? '#5ad84a' : x < 0.45 ? '#f2a03a' : '#ff4a3a';
-    const part = (name, x, secs) => `<div class="pg-row"><span>${name}</span><i class="pg-bar"><b style="width:${Math.round((1 - x) * 100)}%;background:${col(x)}"></b></i><em>${secs ? mmss(secs) : 'OK'}</em></div>`;
+    const col = (x) => x < 0.15 ? 'var(--sv-good)' : x < 0.45 ? 'var(--sv-hot)' : 'var(--sv-bad)';
+    const part = (name, x, secs) => `<div class="pg-row"><span>${name}</span><i class="pg-bar"><b style="width:${Math.round((1 - x) * 100)}%;background:${col(x)};color:${col(x)}"></b></i><em>${secs ? mmss(secs) : 'OK'}</em></div>`;
     const wear = Math.min(t.wf, t.wr);
     const next = pgTyre === 'keep' ? 'Keeping this set' : `New ${capit(pgTyre)} on the way out · ${mmss(TYRE_FIT)}`;
     const key = [d.fw, d.rw, d.ch, wear, t.c, pgTyre].map(v => typeof v === 'number' ? v.toFixed(2) : v).join();
     if (key !== pgWorkKey) {
       pgWorkKey = key;
       $('pg-car').innerHTML = `<div class="panel-title">CAR</div>` + part('Front wing', d.fw, w.fw) + part('Rear wing', d.rw, w.rw) + part('Suspension', d.ch, w.ch)
-        + `<div class="pg-row"><span>${tyreDot(t.c)}${capit(t.c)} tyres</span><i class="pg-bar"><b style="width:${Math.round(wear * 100)}%;background:${wear > 0.6 ? '#5ad84a' : wear > 0.3 ? '#f2c83a' : '#ff4a3a'}"></b></i><em>${Math.round(wear * 100)}%</em></div>`
+        + `<div class="pg-row"><span>${tyreDot(t.c)}${capit(t.c)} tyres</span><i class="pg-bar"><b style="width:${Math.round(wear * 100)}%;background:${wear > 0.6 ? 'var(--sv-good)' : wear > 0.3 ? 'var(--sv-hot)' : 'var(--sv-bad)'};color:${wear > 0.6 ? 'var(--sv-good)' : wear > 0.3 ? 'var(--sv-hot)' : 'var(--sv-bad)'}"></b></i><em>${Math.round(wear * 100)}%</em></div>`
         + `<p class="pg-note">${next}</p>`;
     }
   }
@@ -898,7 +911,7 @@ function careerInfo(kind) {
        ${feat('&#9873;', 'F1 points', '25-18-15-12-10-8-6-4-2-1, plus 1 for the fastest lap.')}
        ${feat('&#9636;', 'Race weekends', 'Qualifying (and practice, if you like) sets the grid. Race only: the back in round 1, then championship order.')}
        ${feat('&#9881;', 'Your settings', 'Pick the circuits, race length and AI difficulty.')}`
-    : `<h3>CAREER</h3><p class="lead">A season on random circuits in random weather. The AI gets faster every round and every run plays differently.</p>
+    : `<h3>CHALLENGE</h3><p class="lead">A season on random circuits in random weather. The AI gets faster every round and every run plays differently.</p>
        ${feat('&#9733;', 'Keep the boss happy', 'The Team Principal sets a target each round. Miss it and you lose a star. Lose all three and you\'re fired.')}
        ${feat('$', 'Prize money', 'Buy upgrades between races: engine, aero, suspension, tyres, durability and pit crew.')}
        ${feat('&#9830;', 'Perk cards', 'Pick one card after every race. Perks stack for the rest of the run.')}`;
@@ -909,10 +922,17 @@ function openCareer(switching = false) {
   const items = [];
   const cont = (run, name) => ({ label: `Continue ${name}<small>RND ${run.round + 1}/${run.schedule.length}</small>`, cls: 'cont', k: run.kind === 'gp' ? 'gp' : 'c',
     desc: `Pick up where you left off: round ${run.round + 1}, ${run.schedule[run.round].name}.`, action: () => { career = run; fadeTo(() => { renderPaddock(); show('s-paddock'); }, 200); } });
-  // two tabs (Q / E, LB / RB): Career and Grand Prix, each with its saved run to continue and its new-season options
-  const gp = careerTab === 1;
-  tabRow($('career-tabs'), ['Career', 'Grand Prix'], careerTab, (k) => { careerTab = k; openCareer(true); });
-  if (!gp && saved && !saved.over) items.push(cont(saved, 'Career'));
+  // three tabs (Q / E, LB / RB): World Career (the endless one), Challenge (a roguelike season) and Grand Prix
+  tabRow($('career-tabs'), ['World Career', 'Challenge', 'Grand Prix'], careerTab, (k) => { careerTab = k; openCareer(true); });
+  if (careerTab === 0) {
+    const m = menus['s-career'][0], items = worldItems(WC.loadWorld());
+    m.setItems(items); m.i = items.findIndex(it => !it.disabled && !it.head); m.render();
+    worldInfo();
+    if (!switching) fadeTo(() => { if (!sim) startAttract(); show('s-career'); }, 200);
+    return;
+  }
+  const gp = careerTab === 2;
+  if (!gp && saved && !saved.over) items.push(cont(saved, 'Challenge'));
   if (gp && savedGP && !savedGP.over) items.push(cont(savedGP, 'Grand Prix'));
   const over = (run) => run && !run.over ? ' This replaces the run you have saved.' : '';
   if (!gp) items.push(
@@ -944,7 +964,7 @@ function openCareer(switching = false) {
   if (!switching) fadeTo(() => { if (!sim) startAttract(); show('s-career'); }, 200);
 }
 let careerTab = 0;
-tabbers['s-career'] = (d) => { sfx.move(); careerTab = (careerTab + d + 2) % 2; openCareer(true); };
+tabbers['s-career'] = (d) => { sfx.move(); careerTab = (careerTab + d + 3) % 3; openCareer(true); };
 menus['s-career'] = [new Menu($('m-career'), [], { desc: 'd-career' })];
 backs['s-career'] = () => { sfx.back(); fadeTo(() => show('s-main'), 200); };
 const reservedTeam = () => (settings.team === 'garage' || settings.team === undefined ? 0 : +settings.team);
@@ -1088,7 +1108,7 @@ function careerRoundDone(retired = false) {
   if (c.kind === 'career' && out.money) {
     info += `<div class="big ${out.hit ? 'ok' : 'bad'}">${out.hit ? 'TARGET MET' : 'TARGET MISSED'}</div>
       <div class="row"><span>Team Principal wanted</span><span>P${out.target}</span></div>
-      <div class="row"><span>Patience</span><span style="color:#ffd66b">${starsHtml(c.stars)}</span></div>
+      <div class="row"><span>Patience</span><span style="color:var(--sv-amber)">${starsHtml(c.stars)}</span></div>
       <div class="row"><span>Prize money</span><span class="money">${money(out.money.prize)}</span></div>
       ${out.money.gained ? `<div class="row"><span>Places gained</span><span class="money">+${money(out.money.gained)}</span></div>` : ''}
       ${out.money.flBonus ? `<div class="row"><span>Fastest lap</span><span class="money">+${money(out.money.flBonus)}</span></div>` : ''}
@@ -1126,6 +1146,296 @@ function showSeasonEnd() {
   if (!c.fired && pos === 1) sfx.finish();
   fadeTo(() => { disposeSim(); startAttract(); show('s-round'); });
 }
+
+// ---------------- World Career: the hub between rounds, driver profiles, the phone ----------------
+// js/wcareer.js keeps the world (people, teams, three series, results, news and texts); this is its UI.
+let world = null;
+let hubTab = 0, drvTab = 0;
+const worldOpts = { len: 6, difficulty: 'medium', laps: 5, weekend: 'quali', prac: 1200, quali: 600, pool: 'presets', name: '' };
+const NAT_NAME = { ITA: 'Italy', GBR: 'Britain', JPN: 'Japan', BRA: 'Brazil', GER: 'Germany', FRA: 'France', ESP: 'Spain', SWE: 'Sweden', POL: 'Poland', NGA: 'Nigeria', USA: 'USA', AUS: 'Australia', MEX: 'Mexico', KOR: 'Korea' };
+const worldPool = () => trackPool(world ? world.opts.pool : worldOpts.pool);
+const saveWorld = () => { if (world) WC.saveWorld(world); };
+const seriesName = (sid) => WC.seriesById(sid).name;
+const ord = (p) => p + (['th', 'st', 'nd', 'rd'][(p % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][p % 100] || 'th');
+
+// the phone: texts and news from the world, choices answered by reply
+const phone = new Phone({
+  msgs: () => world ? world.msgs : [],
+  news: () => world ? world.news : [],
+  status: () => !world ? '' : world.over ? `${world.year} END` : `R${world.round + 1}/${world.opts.len} ${world.year}`,
+  read: () => { saveWorld(); renderHubMenu(); },
+  choose: (m, key) => {
+    if (m.offer) {
+      WC.answerOffer(world, key);
+      WC.text(world, m.from, key === 'move' ? 'Great. We will send the paperwork over. See you on the grid.' : 'Understood. The offer stands for next year if you change your mind.');
+      phone.buzz();
+    }
+    saveWorld(); renderHub();
+  },
+  sfx: { move: () => sfx.move(), select: () => sfx.select(), back: () => sfx.back(), buzz: () => { sfx.buzz(); rumble(0.35, 0.1); setTimeout(() => rumble(0, 0), 300); } },
+});
+const PHONE_SCREENS = ['s-hub', 's-drivers'];
+function togglePhone() { if (phone.isOpen) phone.close(); else phone.open(); renderHints(); }
+function phoneInput() {
+  if (pressed('KeyP') || pressed('GP3')) { togglePhone(); return true; }
+  if (!phone.isOpen) return false;
+  const up = pressed('ArrowUp') | pressed('KeyW') | pressed('GP12') | pressed('GPSU'), down = pressed('ArrowDown') | pressed('KeyS') | pressed('GP13') | pressed('GPSD');
+  const ok = pressed('Enter') | pressed('Space') | pressed('GP0'), back = pressed('Escape') | pressed('Backspace') | pressed('GP1');
+  const was = phone.isOpen;
+  phone.input({ up, down, ok, back });
+  if (was !== phone.isOpen) renderHints();
+  return true;
+}
+const phoneHints = [['nav', 'Scroll'], ['ok', 'Select'], ['back', 'Back'], ['phone', 'Put away']];
+HINTS['s-hub'] = () => phone.isOpen ? phoneHints : [['tab', 'Tabs'], ['nav', 'Navigate'], ['ok', 'Select'], ['phone', 'Phone']];
+HINTS['s-drivers'] = () => phone.isOpen ? phoneHints : [['tab', 'Series'], ['nav', 'Driver'], ['back', 'Back'], ['phone', 'Phone']];
+
+// ---- new career (Career screen, World Career tab) ----
+function worldItems(saved) {
+  const items = [];
+  if (saved) items.push({ label: `Continue<small>${saved.year} · ${saved.over ? 'SEASON OVER' : 'RND ' + (saved.round + 1) + '/' + saved.opts.len}</small>`, cls: 'cont',
+    desc: `${saved.player.name}, ${seriesName(saved.player.series)}. ${saved.over ? 'The season is over: the next one is waiting.' : `Next: round ${saved.round + 1}, ${saved.series[saved.player.series].cal[saved.round].name}.`}`, action: () => { world = saved; openHub(); } });
+  items.push(
+    { label: 'New Career', head: true },
+    { label: 'Your Name', show: () => (worldOpts.name || defaultName()).toUpperCase(), values: [[0, '']], get: () => 0, set: () => focusName(), action: () => focusName(), desc: 'Select to type your name. It goes on the timing screens and in the news.' },
+    { label: 'Season Length', values: WC.SEASON_LENGTHS.map(n => [n, n + ' rounds']), get: () => worldOpts.len, set: v => worldOpts.len = v, desc: 'Rounds in every season, in every series.' },
+    { label: 'Difficulty', values: Object.entries(DIFF_LABEL), get: () => worldOpts.difficulty, set: v => worldOpts.difficulty = v, desc: 'The pace of the field. Higher series have better drivers on top of this, so it gets harder as you climb.' },
+    { label: 'Race Laps', values: [3, 5, 8, 12, 15, 20].map(v => [v, String(v)]), get: () => worldOpts.laps, set: v => worldOpts.laps = v, desc: 'Laps in every race (point-to-point circuits are one run).' },
+    { label: 'Weekend', values: WEEKEND_VALS, get: () => worldOpts.weekend, set: v => { worldOpts.weekend = v; menus['s-career'][0].render(); }, desc: WEEKEND_DESC + ' <b>Race only</b>: the grid is in championship order.' },
+    { label: 'Practice', values: PRAC_VALS, get: () => worldOpts.prac, set: v => worldOpts.prac = v, desc: PRAC_DESC, get disabled() { return worldOpts.weekend !== 'full'; } },
+    { label: 'Qualifying', values: QUALI_VALS, get: () => worldOpts.quali, set: v => worldOpts.quali = v, desc: QUALI_DESC, get disabled() { return worldOpts.weekend === 'race'; } },
+    { label: 'Circuits', values: [['presets', 'Presets'], ['all', 'Presets + Mine'], ['mine', 'My Circuits']], get: () => worldOpts.pool, set: v => worldOpts.pool = v, desc: 'Which circuits the calendars are drawn from.' },
+    { label: 'Start Career', cls: 'action primary', confirm: saved ? 'Replace your career? Select again' : null, action: () => startWorld(), desc: 'Start in the Street Cup with your own team.' + (saved ? ' <span class="bad">This replaces your saved career.</span>' : '') },
+  );
+  return items;
+}
+const defaultName = () => (settings.driverName || 'Driver');
+function focusName() {
+  const el = $('w-name'); if (!el) return;
+  el.value = worldOpts.name || defaultName(); el.focus(); el.select();
+}
+function worldInfo() {
+  const el = $('career-info');
+  const feat = (ico, t, d) => `<div class="feat"><i>${ico}</i><div><b>${t}</b><span>${d}</span></div></div>`;
+  el.innerHTML = `<h3>WORLD CAREER</h3><p class="lead">A motorsport world that keeps going. Start your own team in the Street Cup and climb, season after season, for as long as you like.</p>
+    <label class="field w-name-field"><span>YOUR NAME</span><input id="w-name" maxlength="18" spellcheck="false" autocomplete="off" placeholder="${defaultName().toUpperCase()}"></label>
+    ${feat('&#9873;', 'Three series', 'Street Cup, GT Championship and Formula SV. Finish in the top three to be offered a step up.')}
+    ${feat('&#9775;', 'Real people', 'Every driver ages, improves, peaks and retires. Rookies arrive. Your record against each one is kept.')}
+    ${feat('&#9742;', 'Your phone', 'Texts from your teammate and rivals, the news, and offers you answer by reply.')}`;
+  const inp = $('w-name');
+  inp.onkeydown = (e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); inp.blur(); } e.stopPropagation(); };
+  inp.onblur = () => { const v = inp.value.trim().replace(/\s+/g, ' '); if (v) { worldOpts.name = v; settings.driverName = v; saveSettings(); } menus['s-career'][0].render(); };
+}
+function startWorld() {
+  const name = worldOpts.name || defaultName();
+  world = WC.newWorld({ name, len: worldOpts.len, difficulty: worldOpts.difficulty, laps: worldOpts.laps, weekend: worldOpts.weekend, pracLen: worldOpts.prac, qualiLen: worldOpts.quali, pool: worldOpts.pool,
+    teamName: settings.car.teamName && settings.car.teamName !== 'Your Team' ? settings.car.teamName : `${name.split(' ').pop()} Racing`, colors: [settings.car.main, settings.car.accent], seed: Date.now() }, worldPool());
+  saveWorld();
+  openHub(true);
+}
+
+// ---- the hub ----
+function openHub(first = false) {
+  fadeTo(() => {
+    if (!sim || sim.mode !== 'attract') { disposeSim(); startAttract(); }
+    hubTab = world.over ? 4 : 0;
+    renderHub(); show('s-hub');
+    const n = WC.unread(world);
+    if (n) setTimeout(() => { if (screen === 's-hub') phone.buzz(); }, first ? 900 : 500);
+  }, 200);
+}
+function hubTabs() { return world.over ? ['Next Round', 'Standings', 'Teams', 'Other Series', 'Season Review'] : ['Next Round', 'Standings', 'Teams', 'Other Series']; }
+function renderHub() {
+  if (!world) return;
+  const w = world, sid = w.player.series, S = w.series[sid];
+  $('hub-title').textContent = seriesName(sid);
+  $('hub-sub').textContent = `${w.year} season · ${w.over ? 'season complete' : `round ${w.round + 1} of ${w.opts.len}`} · ${w.teams[w.player.team].name}`;
+  const tabs = hubTabs(); hubTab = Math.min(hubTab, tabs.length - 1);
+  tabRow($('hub-tabs'), tabs, hubTab, (k) => { hubTab = k; renderHub(); });
+  $('hub-body').innerHTML = [hubNext, hubStandings, hubTeams, hubOthers, hubReview][hubTab]();
+  renderHubMenu();
+}
+tabbers['s-hub'] = (d) => { sfx.move(); hubTab = (hubTab + d + hubTabs().length) % hubTabs().length; renderHub(); };
+function renderHubMenu() {
+  if (!world) return;
+  const w = world, sid = w.player.series, n = WC.unread(w);
+  const items = [];
+  if (!w.over) {
+    const r = w.series[sid].cal[w.round];
+    items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), desc: `${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}` });
+  } else {
+    const off = w.player.offer;
+    items.push({ label: `Start ${w.year + 1} Season`, cls: 'action primary', action: () => beginNextSeason(),
+      desc: off && !off.answer ? `First answer the ${seriesName(off.to)} offer on your phone.` : 'Everyone a year older. Retirements, promotions and rookies, then a new calendar.' });
+  }
+  items.push(
+    { label: `Phone${n ? `<small>${n} NEW</small>` : ''}`, action: () => { phone.open(); renderHints(); }, desc: 'Texts, the news and offers. Press <b>P</b> / <b>Y</b> any time.' },
+    { label: 'Driver Profiles', action: () => openDrivers(), desc: 'Every driver in the world: their stats, their history, and their record against you.' },
+    { label: 'Garage', action: () => openGarage('s-hub'), desc: `Your car and livery. In the ${seriesName(sid)} you race ${CLASSES[WC.seriesById(sid).cls].label} cars.` },
+    presetItem(' Set each aid in Options > Aids.'),
+  );
+  if (!w.over) items.push({ label: 'Sim Rest Of Season', confirm: 'Simulate it all? Select again', action: () => simWorldSeason(), desc: 'For testing: simulates every remaining round, your races too (you as a mid-field driver).' });
+  items.push({ label: 'Save & Quit', action: () => { saveWorld(); quitToMenu(); }, desc: 'Your career is saved. Continue it from the main menu.' });
+  const m = menus['s-hub'][0], keep = m.items[m.i]?.label?.replace(/<small>.*$/, '');
+  m.setItems(items, true);
+  const k = items.findIndex(it => it.label.replace(/<small>.*$/, '') === keep); if (k >= 0) { m.i = k; m.render(); }
+}
+menus['s-hub'] = [new Menu($('m-hub'), [], { desc: 'd-hub' })];
+backs['s-hub'] = () => {};
+const cellW = (k, v) => `<div><small>${k}</small><b>${v}</b></div>`;
+const swatchOf = (tid) => `<span class="swatch" style="background:${hex(world.teams[tid]?.main ?? 0x888888)}"></span>`;
+function hubNext() {
+  const w = world, sid = w.player.series, S = w.series[sid];
+  const mateId = w.teams[w.player.team].drivers.find(d => d !== 'P'), mate = w.people[mateId], h = mateId ? WC.h2hOf(w, mateId) : null;
+  const pips = S.cal.map((c, k) => `<i class="${k < w.round ? 'done' : k === w.round && !w.over ? 'now' : ''}" title="${c.name}"></i>`).join('');
+  let top = '';
+  if (!w.over) {
+    const r = S.cal[w.round], tr = worldPool().find(t => t.name === r.name);
+    top = `<div class="panel-title">ROUND ${w.round + 1} OF ${w.opts.len}</div><div class="season-pips">${pips}</div>
+      <div class="ti-name">${r.name}</div><div class="ti-chips"><span>${tr ? THEMES[tr.env.theme].label : ''}</span><span class="wx-chip">${r.time} &middot; ${r.weather}</span></div>
+      <div class="ti-grid three">${cellW('Laps', tr && tr.open ? '1 run' : w.opts.laps)}${cellW('Opposition', DIFF_LABEL[w.opts.difficulty])}${cellW('Teammate', mate ? `${mate.last}<small> ${h.ahead}-${h.behind}</small>` : '&mdash;')}</div>`;
+  } else top = `<div class="panel-title">SEASON COMPLETE</div><div class="season-pips">${pips}</div>`;
+  const rows = S.cal.map((c, k) => {
+    const res = S.results.find(x => x.round === k), win = res && res.rows.find(x => x.pos === 1 && !x.dnf), me = res && res.rows.find(x => x.pid === 'P');
+    return `<tr class="${k === w.round && !w.over ? 'now' : ''}"><td class="p">${k + 1}</td><td>${c.name}</td><td class="dim">${c.weather === 'clear' ? c.time : c.weather}</td><td>${win ? WC.displayName(w, win.pid, true) : ''}</td><td class="n">${me ? (me.dnf ? 'DNF' : 'P' + me.pos) : ''}</td></tr>`;
+  }).join('');
+  return `${top}<div class="panel-title" style="margin-top:16px">CALENDAR</div><table class="tbl hub-cal"><tr><th>RD</th><th>CIRCUIT</th><th>CONDITIONS</th><th>WINNER</th><th class="r">YOU</th></tr>${rows}</table>`;
+}
+function standTable(sid, limit = 99) {
+  const w = world, st = WC.seriesStandings(w, sid);
+  if (!w.series[sid].results.length) return `<table class="tbl"><tr><td class="empty">No races yet.</td></tr></table>`;
+  return `<table class="tbl"><tr><th>POS</th><th>DRIVER</th><th>TEAM</th><th class="r">WINS</th><th class="r">PTS</th></tr>` + st.slice(0, limit).map((e, k) => {
+    const tid = WC.teamOfPid(w, e.pid);
+    return `<tr class="${e.pid === 'P' ? 'me' : ''}"><td class="p">${posBadge(k + 1)}</td><td>${swatchOf(tid)}${WC.displayName(w, e.pid, true)}</td><td>${w.teams[tid]?.name || ''}</td><td class="n">${e.wins}</td><td class="n">${e.pts}</td></tr>`;
+  }).join('') + '</table>';
+}
+function hubStandings() { return `<div class="panel-title">DRIVERS' CHAMPIONSHIP</div>` + standTable(world.player.series); }
+function hubTeams() {
+  const w = world, sid = w.player.series, st = WC.teamStandings(w, sid);
+  const list = st.length ? st : w.series[sid].teams.map(tid => ({ tid, pts: 0, wins: 0 }));
+  return `<div class="panel-title">TEAMS' CHAMPIONSHIP</div><table class="tbl"><tr><th>POS</th><th>TEAM</th><th>DRIVERS</th><th class="r">WINS</th><th class="r">PTS</th></tr>` + list.map((e, k) => {
+    const t = w.teams[e.tid];
+    return `<tr class="${t.mine ? 'me' : ''}"><td class="p">${posBadge(k + 1)}</td><td>${swatchOf(e.tid)}${t.name}</td><td>${t.drivers.map(d => WC.displayName(w, d, true).split(' ').pop()).join(' / ')}</td><td class="n">${e.wins}</td><td class="n">${e.pts}</td></tr>`;
+  }).join('') + '</table>';
+}
+function hubOthers() {
+  return WC.SERIES.filter(s => s.id !== world.player.series).map(s => `<div class="panel-title" style="margin-top:4px">${s.name.toUpperCase()}</div>${standTable(s.id, 5)}`).join('<div style="height:14px"></div>');
+}
+function hubReview() {
+  const w = world, sum = w.seasons.at(-1); if (!sum) return '';
+  const champ = WC.SERIES.map(s => { const pid = sum.champs[s.id], tid = sum.teamChamps[s.id]; return `<tr><td>${s.name}</td><td>${pid ? WC.displayName(w, pid, true) : ''}</td><td>${tid ? w.teams[tid].name : ''}</td></tr>`; }).join('');
+  const you = sum.you, off = w.player.offer;
+  return `<div class="panel-title">YOUR ${sum.year}</div>
+    <div class="ti-grid three">${cellW('Championship', you ? ord(you.pos) : '&mdash;')}${cellW('Points', you ? you.pts : 0)}${cellW('Wins', you ? you.wins : 0)}</div>
+    ${off ? `<p class="hub-note">${off.answer === 'move' ? `You're moving up to the <b>${seriesName(off.to)}</b>.` : off.answer === 'stay' ? `You're staying in the ${seriesName(w.player.series)}.` : `The <b>${seriesName(off.to)}</b> has made you an offer. Answer it on your phone.`}</p>` : ''}
+    <div class="panel-title" style="margin-top:16px">CHAMPIONS</div><table class="tbl"><tr><th>SERIES</th><th>DRIVER</th><th>TEAM</th></tr>${champ}</table>`;
+}
+function beginNextSeason() {
+  const off = world.player.offer;
+  if (off && !off.answer) { const m = world.msgs.find(x => x.offer && !x.answer); phone.open('msg', m); renderHints(); return; }
+  WC.nextSeason(world, worldPool());
+  saveWorld(); sfx.best();
+  openHub();
+}
+function simWorldSeason() {
+  while (!world.over) WC.simPlayerRound(world);
+  saveWorld(); hubTab = 4; renderHub(); phone.buzz();
+}
+
+// ---- a round ----
+function startWorldRound() {
+  const w = world, sid = w.player.series, r = w.series[sid].cal[w.round];
+  const base = worldPool().find(t => t.name === r.name) || presetTracks()[0];
+  const track = cloneTrack(base); track.env.time = r.time; track.env.weather = r.weather;
+  // your team wears your livery (and name, once you've set one in the Livery Designer)
+  const mine = w.teams[w.player.team]; mine.main = settings.car.main; mine.accent = settings.car.accent;
+  if (settings.car.teamName && settings.car.teamName !== 'Your Team') mine.name = settings.car.teamName;
+  const ent = WC.raceEntries(w);
+  const clsCars = carsOfClass(WC.seriesById(sid).cls);
+  for (const e of Object.values(ent.entries)) e.chassis = WC.seriesById(sid).cls === 'f1' ? 'custom' : chassisKey(clsCars[e.teamNo % clsCars.length]);
+  // race only: the grid in championship order after round 1 (pid -> slot)
+  let gridOrder = null;
+  if (w.round > 0 && w.opts.weekend === 'race') {
+    const slotOf = Object.fromEntries(Object.entries(ent.entries).map(([slot, e]) => [e.pid, +slot]));
+    gridOrder = WC.seriesStandings(w, sid).map(e => e.pid === 'P' ? 'P' : slotOf[e.pid]).filter(x => x !== undefined);
+  }
+  const cls = WC.seriesById(sid).cls;
+  // your car: the one in your garage if it's the right class, otherwise the first of the class (you can change it on the grid)
+  const car = CARS[carId(settings.car)]?.cls === cls ? { ...settings.car } : { ...settings.car, chassis: chassisKey(carsOfClass(cls)[0]) };
+  const brief = `<b>${seriesName(sid).toUpperCase()} &middot; ROUND ${w.round + 1} OF ${w.opts.len}</b>`;
+  const race = { mode: 'race', laps: w.opts.laps, opponents: 11, brief, pick: true, onlyClass: cls,
+    extra: { car, difficulty: w.opts.difficulty, grid: 'back', team: 'garage', roster: ent.roster, entries: ent.entries, teamPace: ent.teamPace, gridOrder, aiChassis: 'class', playerName: w.player.name.split(' ').pop().toUpperCase() } };
+  phone.hide();
+  if (w.opts.weekend !== 'race') return startWeekend(track, race, 'world', w.opts.weekend, [w.opts.pracLen, w.opts.qualiLen]);
+  weekend = null;
+  startRace(track, race, 'world');
+}
+function worldRoundDone(retired = false) {
+  const w = world; if (!w || !sim) return;
+  let res = sim.results();
+  if (retired) { const me = res.find(r => r.isPlayer); res = res.filter(r => !r.isPlayer).concat([{ ...me, gap: 'DNF', time: null, dnf: true }]); res.forEach((r, k) => r.pos = k + 1); }
+  const sid = w.player.series, round = w.round, trackName = w.series[sid].cal[round].name;
+  const out = WC.recordPlayerRound(w, res, sim.log || []);
+  saveWorld();
+  sim.setPaused(true);
+  const scored = w.series[sid].results.find(x => x.round === round), ptsOf = (pid) => scored.rows.find(r => r.pid === pid)?.pts || 0;
+  $('round-title').textContent = 'Round Complete';
+  $('round-sub').textContent = `${seriesName(sid)} · round ${round + 1} of ${w.opts.len} · ${trackName}`;
+  $('round-table').innerHTML = `<tr><th>POS</th><th>DRIVER</th><th>TEAM</th><th class="r">PTS</th></tr>` + res.map(r => {
+    const pid = r.isPlayer ? 'P' : r.pid, fl = scored.rows.find(x => x.pid === pid)?.fl;
+    return `<tr class="${r.isPlayer ? 'me' : ''}"><td class="p">${posBadge(r.pos)}</td><td><span class="swatch" style="background:${hex(r.color)}"></span>${pid ? WC.displayName(w, pid, true) : r.name}${fl ? ' <span class="fl">FASTEST LAP</span>' : ''}${r.pen || r.dt ? ` <span class="pen">${penText(r)}</span>` : ''}${r.dsq ? ' <span class="pen">DSQ</span>' : ''}</td><td>${r.team}</td><td class="n">${pid && ptsOf(pid) ? '+' + ptsOf(pid) : ''}</td></tr>`;
+  }).join('');
+  const me = out.me, st = WC.seriesStandings(w, sid), cp = st.findIndex(e => e.pid === 'P') + 1;
+  const mateId = w.teams[w.player.team].drivers.find(d => d !== 'P'), mr = scored.rows.find(r => r.pid === mateId);
+  const n = WC.unread(w);
+  $('round-info').innerHTML = `<div class="big-pos">${!me || me.dnf ? (me && me.dsq ? 'DSQ' : 'DNF') : 'P' + me.pos}<small>${!me || me.dnf ? 'RETIRED' : 'FINISHED'}</small></div>
+    <div class="row"><span>Points</span><span>${me ? '+' + me.pts : 0}</span></div>
+    <div class="row"><span>Championship</span><span>${ord(cp)} &middot; ${st[cp - 1]?.pts ?? 0} pts</span></div>
+    ${mr ? `<div class="row"><span>${w.people[mateId].last}</span><span>${mr.dnf ? 'DNF' : 'P' + mr.pos}</span></div>` : ''}
+    ${n ? `<div class="row"><span>Phone</span><span>${n} new</span></div>` : ''}`;
+  menus['s-round'][0].setItems([{ label: out.over ? 'Season Review' : 'Continue', cls: 'action primary', action: () => openHub() }]);
+  show('s-round');
+  if (me && !me.dnf && me.pos <= 3) sfx.finish();
+}
+
+// ---- driver profiles ----
+function openDrivers() { drvTab = WC.SERIES.findIndex(s => s.id === world.player.series); renderDrivers(); fadeTo(() => show('s-drivers'), 150); }
+const drvTabNames = () => ['Street Cup', 'GT', 'Formula', 'Retired'];
+function drvList() {
+  const w = world;
+  if (drvTab < WC.SERIES.length) {
+    const sid = WC.SERIES[drvTab].id, st = WC.seriesStandings(w, sid);
+    const order = st.length ? st.map(e => e.pid) : [];
+    for (const tid of w.series[sid].teams) for (const pid of w.teams[tid].drivers) if (!order.includes(pid)) order.push(pid);
+    return order.filter(pid => pid === 'P' || (w.people[pid] && !w.people[pid].retired && WC.teamOfPid(w, pid) && w.teams[WC.teamOfPid(w, pid)].series === sid));
+  }
+  return Object.values(w.people).filter(p => p.retired && (p.starts > 0)).sort((a, b) => b.titles - a.titles || b.wins - a.wins || b.starts - a.starts).slice(0, 40).map(p => p.id);
+}
+function renderDrivers() {
+  const w = world, list = drvList();
+  tabRow($('drv-tabs'), drvTabNames(), drvTab, (k) => { drvTab = k; renderDrivers(); });
+  $('drv-sub').textContent = drvTab < WC.SERIES.length ? `${WC.SERIES[drvTab].name} · ${w.year}` : 'Retired drivers · the legends first';
+  const m = menus['s-drivers'][0];
+  m.setItems(list.map(pid => ({ label: `${WC.displayName(w, pid, true)}${pid === 'P' ? '<small>YOU</small>' : ''}`, pid })), false);
+  if (!list.length) $('drv-body').innerHTML = '<p class="hub-note">Nobody here yet.</p>';
+  else showDriver(list[0]);
+}
+function showDriver(pid) {
+  const w = world, isP = pid === 'P', p = isP ? null : w.people[pid], c = isP ? w.player : p;
+  const tid = isP ? w.player.team : p.team, t = tid ? w.teams[tid] : null;
+  const stat = (k, v) => `<div class="drv-stat"><span>${k}</span>${meter(Math.round(v / 10))}<em>${Math.round(v)}</em></div>`;
+  const hist = c.hist.slice().reverse().slice(0, 8).map(h => `<tr><td class="p">${h.y}</td><td>${seriesName(h.s)}</td><td>${h.team}</td><td class="n">${ord(h.pos)}</td><td class="n">${h.wins}</td><td class="n">${h.pts}</td></tr>`).join('');
+  const h = !isP ? WC.h2hOf(w, pid) : null;
+  $('drv-body').innerHTML = `<div class="ti-name">${isP ? w.player.name : WC.nameOf(p)}</div>
+    <div class="ti-chips">${isP ? '<span>You</span>' : `<span>${NAT_NAME[p.nat] || p.nat}</span><span>Age ${WC.ageOf(w, p)}</span>`}<span>${p && p.retired ? 'Retired ' + p.retiredYear : t ? t.name : 'No seat'}</span></div>
+    ${isP ? '' : `<div class="drv-stats">${stat('Pace', p.pace)}${stat('Consistency', p.cons)}${stat('Racecraft', p.craft)}${stat('Wet', p.wet)}${stat('Aggression', p.aggr)}</div>`}
+    <div class="ti-grid four" style="margin-top:14px">${cellW('Starts', c.starts)}${cellW('Wins', c.wins)}${cellW('Podiums', c.pods)}${cellW('Titles', c.titles)}</div>
+    ${h && h.races ? `<div class="panel-title" style="margin-top:16px">AGAINST YOU</div><div class="ti-grid four">${cellW('Races', h.races)}${cellW('Ahead of you', h.behind)}${cellW('Passes', `${h.youPassed}<small> / ${h.passedYou}</small>`)}${cellW('Contact', `${h.contacts}<small>${h.hitYou ? ' · hit you ' + h.hitYou : ''}</small>`)}</div>` : ''}
+    <div class="panel-title" style="margin-top:16px">CAREER</div>${hist ? `<table class="tbl"><tr><th>YEAR</th><th>SERIES</th><th>TEAM</th><th class="r">POS</th><th class="r">WINS</th><th class="r">PTS</th></tr>${hist}</table>` : '<p class="hub-note">No full seasons yet.</p>'}`;
+}
+menus['s-drivers'] = [new Menu($('m-drivers'), [], { onMove: (it) => showDriver(it.pid) })];
+tabbers['s-drivers'] = (d) => { sfx.move(); drvTab = (drvTab + d + drvTabNames().length) % drvTabNames().length; renderDrivers(); };
+backs['s-drivers'] = () => { sfx.back(); renderHub(); fadeTo(() => show('s-hub'), 150); };
 
 // ---------------- online ----------------
 let net = null;          // Net connection (null when offline)
@@ -1447,6 +1757,7 @@ let csel = null; // { cls, id, shownId, t, blip }
 const carReady = (id) => id === 'svgp' || (id === 'f1' ? customCarStatus() === 'ready' : chassisReady(id));
 const carsOfClass = (cls) => Object.keys(CARS).filter(id => CARS[id].cls === cls && carReady(id));
 const classList = () => Object.keys(CLASSES).filter(k => carsOfClass(k).length);
+const selClasses = () => csel && csel.only ? [csel.only] : classList();
 // stats, with bars scaled across the whole garage
 const carStats = (id) => {
   const s = CARS[id].spec;
@@ -1464,11 +1775,14 @@ function statBar(key, v, invert = false) {
   return (10 + 90 * f).toFixed(1) + '%';
 }
 function openCarSelect() {
-  const want = carId(settings.car), id = carReady(want) ? want : 'svgp';
-  csel = { cls: CARS[id].cls, id, shownId: carId(sim.opts.car), t: 0, blip: 0 };
+  const only = lastRace && lastRace.cfg.onlyClass; // (World Career: the series decides the class)
+  const want = carId(settings.car);
+  let id = carReady(want) ? want : 'svgp';
+  if (only && CARS[id].cls !== only) id = carId(sim.opts.car) in CARS && CARS[carId(sim.opts.car)].cls === only ? carId(sim.opts.car) : carsOfClass(only)[0];
+  csel = { cls: CARS[id].cls, id, shownId: carId(sim.opts.car), t: 0, blip: 0, only };
   const env = sim.track.env;
   $('cs-track').textContent = sim.track.name;
-  $('cs-cond').textContent = `${sim.mode === 'test' ? 'Time Trial' : sim.laps + (sim.laps === 1 ? ' Lap' : ' Laps')} · ${env.time} · ${env.weather}`;
+  $('cs-cond').textContent = `${sim.mode === 'test' ? 'Time Trial' : sim.quali ? SESSION_NAME[sim.quali.kind] : sim.laps + (sim.laps === 1 ? ' Lap' : ' Laps')} · ${env.time} · ${env.weather}`;
   $('cs-go').innerHTML = 'Select Car &#9656;';
   renderCarSelect(true);
   show('s-carsel');
@@ -1476,7 +1790,7 @@ function openCarSelect() {
 function renderCarSelect(swap = false) {
   const { cls, id } = csel, C = CARS[id], st = carStats(id), s = C.spec, col = CLASS_COL[cls] || '#2a7fd0';
   const cur = carId(settings.car), mph = settings.units === 'mph';
-  $('cs-tabs').innerHTML = classList().map(k => `<span data-cls="${k}" class="${k === cls ? 'on' : ''}" style="--c:${CLASS_COL[k]}">${CLASSES[k].label}</span>`).join('');
+  $('cs-tabs').innerHTML = selClasses().map(k => `<span data-cls="${k}" class="${k === cls ? 'on' : ''}" style="--c:${CLASS_COL[k]}">${CLASSES[k].label}</span>`).join('');
   $('cs-cars').innerHTML = carsOfClass(cls).map(k => `<div class="cs-card${k === id ? ' on' : ''}${k === cur ? ' cur' : ''}" data-id="${k}" style="--c:${col}"><small>${CLASSES[cls].short}</small><b>${CARS[k].name}</b></div>`).join('');
   const drive = s.drive >= 0.99 ? 'Front-wheel drive' : s.drive > 0.01 ? 'All-wheel drive' : 'Rear-wheel drive';
   const paint = C.cls === 'f1' || C.livery ? 'Your livery' : C.paint ? 'Takes your colour' : 'Original livery';
@@ -1519,7 +1833,7 @@ function carSelectInput(dt) {
   if (ok) { confirmCar(); return; }
   const list = carsOfClass(csel.cls), i = list.indexOf(csel.id);
   if (left || right) pickSelCar(list[(i + (right ? 1 : -1) + list.length) % list.length]);
-  if (up || down) { const cl = classList(), k = cl.indexOf(csel.cls); setSelClass(cl[(k + (down ? 1 : -1) + cl.length) % cl.length]); }
+  if (up || down) { const cl = selClasses(), k = cl.indexOf(csel.cls); setSelClass(cl[(k + (down ? 1 : -1) + cl.length) % cl.length]); }
   // the car on the grid follows (a short wait so scrolling past cars doesn't build every one), with a throttle blip
   csel.t += dt; csel.blip = Math.max(0, csel.blip - dt);
   if (csel.id !== csel.shownId && csel.t > 0.12) {
@@ -1686,9 +2000,9 @@ function startRace(track, cfg, ret, quick = false) {
     getPostcard(pcKey(track, { time: track.env.time, weather: track.env.weather })).then(v => v || getPostcard(pcKey(track, pickConditions(track))))
       .then(v => { if (v && screen === 's-loading') { li.src = v; li.classList.add('on'); } });
     const fill = $('load-fill');
-    fill.style.width = '0%';
+    fill.style.setProperty('--v', 0);
     let p = 0;
-    const iv = setInterval(() => { p = Math.min(p + 4 + Math.random() * 6, 90); fill.style.width = p + '%'; }, 60);
+    const iv = setInterval(() => { p = Math.min(p + 4 + Math.random() * 6, 90); fill.style.setProperty('--v', p / 100); }, 60);
     setTimeout(async () => {
       await loadEnvModels(); // the setting's models (usually loaded long before)
       const t0 = performance.now();
@@ -1710,7 +2024,7 @@ function startRace(track, cfg, ret, quick = false) {
       driftHud.reset(); if (sim.drift) driftHud.show(); else driftHud.hide();
       const wait = Math.max(0, 1300 - (performance.now() - t0));
       setTimeout(() => {
-        clearInterval(iv); fill.style.width = '100%';
+        clearInterval(iv); fill.style.setProperty('--v', 1);
         setTimeout(() => fadeTo(enterRace), 250);
       }, wait);
     }, 120);
@@ -1787,7 +2101,7 @@ function handleRaceEvents() {
     else if (ev.type === 'go') {
       hud.lights(0, true); setTimeout(() => hud.lights(0, false), 700);
       hud.center('GO!', 'go', 900);
-      if (raceReturn === 'career' && lastRace.cfg.brief) setTimeout(() => hud.help(lastRace.cfg.brief, 7000), 1200);
+      if ((raceReturn === 'career' || raceReturn === 'world') && lastRace.cfg.brief) setTimeout(() => hud.help(lastRace.cfg.brief, 7000), 1200);
       if (!localStorage.getItem('svgp.seenHelp')) {
         localStorage.setItem('svgp.seenHelp', '1');
         hud.help(device.kind === 'pad' ? 'Squeeze <b>RT</b> to accelerate and <b>LT</b> to brake. Steer with the <b>left stick</b>.<br>Press <b>Y</b> to change camera and <b>View</b> if you get stuck.'
@@ -1811,7 +2125,7 @@ function handleRaceEvents() {
       const ds = sim.drift ? ` &middot; DRIFT ${Math.round(sim.drift.total).toLocaleString('en-US')}` : '';
       const pen = ev.pen ? ` &middot; +${ev.pen}s PENALTY TO ADD` : '';
       hud.center(p === 1 ? `WINNER!<span class="sub">${pen ? 'ACROSS THE LINE FIRST' + pen : 'RACE PASSED &middot; RESPECT +'}${ds}</span>` : `${p}${o} PLACE<span class="sub">RACE COMPLETE${pen}${ds}</span>`, p === 1 ? '' : 'white', 4500);
-    } else if (ev.type === 'results') { if (raceReturn === 'career') careerRoundDone(); else if (raceReturn === 'online') { if (screen !== 's-results') showNetResults(); } else showResults(); }
+    } else if (ev.type === 'results') { if (raceReturn === 'world') worldRoundDone(); else if (raceReturn === 'career') careerRoundDone(); else if (raceReturn === 'online') { if (screen !== 's-results') showNetResults(); } else showResults(); }
     else if (ev.type === 'qflag') { if (ev.onLap) hud.center('CHEQUERED FLAG<span class="sub">FINISH THIS LAP</span>', 'white', 2600); }
     else if (ev.type === 'qpole') { sim.rc.say(`${ev.kind === 'practice' ? 'Fastest' : 'Provisional pole'} · ${ev.name} · ${fmtTime(ev.time, 3)}`, { cls: 'g', me: ev.name === sim.player?.name }); }
     else if (ev.type === 'garage') { if (!ev.first && screen === 'hud') fadeTo(() => openPitGarage(), 250); }
@@ -1897,7 +2211,7 @@ function pauseInfo() {
       <p class="tip" style="margin:12px 0 0">${practice ? 'Practice doesn\'t set the grid: learn the circuit and find your pace.' : 'Your best lap sets your grid slot.'} Laps that break track limits don't count.</p>`;
     return;
   }
-  $('pause-sub').textContent = `${sim.track.name} · ${raceReturn === 'online' ? 'the race goes on while this menu is open' : race ? (raceReturn === 'career' ? 'Career round ' + (career.round + 1) : 'Quick Race') : raceReturn === 'editor' ? 'Test drive' : 'Time Trial'}`;
+  $('pause-sub').textContent = `${sim.track.name} · ${raceReturn === 'online' ? 'the race goes on while this menu is open' : race ? (raceReturn === 'career' ? 'Challenge round ' + (career.round + 1) : raceReturn === 'world' ? `${WC.seriesById(world.player.series).name} round ${world.round + 1}` : 'Quick Race') : raceReturn === 'editor' ? 'Test drive' : 'Time Trial'}`;
   const cell = (k, v) => `<div><small>${k}</small><b>${v}</b></div>`;
   const tyre = hs && hs.tyre ? `<span class="tyre-dot" style="background:${TYRE_COL[hs.tyre.c]}"></span>${hs.tyre.c}` : '&mdash;';
   const key = (kb, gp) => pad ? gp : kb;
@@ -1936,18 +2250,18 @@ function pause() {
     const nm = SESSION_NAME[sim.quali.kind].toLowerCase();
     const end = { label: 'End Session', confirm: 'End it? Select again', action: () => { resume(); sim.qualiEnd(); }, desc: `Finish ${nm} now. The AI still post their laps.` };
     const box = sim.T.open ? [] : [{ label: 'Return To Garage', action: () => { sim.setPaused(false); sim.enterGarage(sim.player); openPitGarage(); }, desc: 'Back to your box: change tyres, watch the timing, go out again when you like.' }];
-    menus['s-pause'][0].setItems(raceReturn === 'career' ? [{ label: 'Resume', cls: 'action primary', action: resume }, ...box, end, opts]
+    menus['s-pause'][0].setItems(raceReturn === 'career' || raceReturn === 'world' ? [{ label: 'Resume', cls: 'action primary', action: resume }, ...box, end, opts]
       : [{ label: 'Resume', cls: 'action primary', action: resume }, ...box, end,
          { label: 'Restart Session', confirm: 'Restart? Select again', action: () => { if (weekend.car || weekend.roster) keepWeekend(); startSession(weekend.stage); }, desc: `The ${nm} session again from the start.` },
          opts, { label: 'Quit', confirm: 'Quit? Select again', action: () => { weekend = null; quitToMenu(); }, desc: 'Back to the main menu.' }]);
     pauseInfo(); show('s-pause'); sfx.back();
     return;
   }
-  if (raceReturn === 'career') {
+  if (raceReturn === 'career' || raceReturn === 'world') {
     menus['s-pause'][0].setItems([
       { label: 'Resume', cls: 'action primary', action: resume },
       opts,
-      { label: 'Retire', confirm: 'Retire? Select again', action: () => careerRoundDone(true), desc: 'You will be classified last in this round.' },
+      { label: 'Retire', confirm: 'Retire? Select again', action: () => raceReturn === 'world' ? worldRoundDone(true) : careerRoundDone(true), desc: 'You will be classified last in this round.' },
     ]);
   } else menus['s-pause'][0].setItems([
     { label: 'Resume', cls: 'action primary', action: resume },
@@ -2266,6 +2580,10 @@ function frame(now) {
   } else if (screen === 's-garage' || screen === 's-livery') {
     if (screen === 's-garage') menuInput(); else clearEdges();
     garage.update(dt);
+  } else if (PHONE_SCREENS.includes(screen)) {
+    // World Career: the phone takes the controls while it's up (P / Y raises and lowers it)
+    if (!phoneInput()) menuInput();
+    if (sim && sim.mode === 'attract') sim.update(dt, {}, {});
   } else if (screen !== 's-editor') {
     menuInput();
     if (sim && sim.mode === 'attract') sim.update(dt, {}, {});
@@ -2276,6 +2594,8 @@ function frame(now) {
   if (screen === 'hud' && sim && !sim.paused && sim.mode !== 'attract') { const [a, b] = sim.feel(), k = VIBES[settings.vibration] ?? 0.8; rumble(a * k, b * k); }
   else if (now > vibeTestUntil) rumble(0, 0);
   setMusicScene(musicScene()); updateMusic(dt);
+  if (PHONE_SCREENS.includes(screen) && world) phone.show(); else phone.hide();
+  phone.update(dt);
   netTick(dt);
   if (screen === 's-garage' || screen === 's-livery') garage.render();
   else if (screen === 's-pitgarage' || (screen === 's-review' && reviewFrom === 's-pitgarage')) pitGarage.render();
@@ -2288,7 +2608,7 @@ function frame(now) {
 applyVideo();
 // make sure the game fonts are ready before the first frame (canvas text needs them too)
 Promise.race([
-  Promise.all([...["40px 'Pirata One'", "40px Anton", "16px Arimo", "bold 16px Arimo", "16px VT323"].map(f => document.fonts.load(f)), loadCustomCar(), loadRoadCars(), loadEnvCatalog()]),
+  Promise.all([...["40px 'Pirata One'", "40px Anton", "16px Arimo", "bold 16px Arimo", "16px VT323", "40px 'SV Display'", "40px 'SV UI'", "500 40px 'SV UI'", "16px 'SV Body'", "500 16px 'SV Body'", "bold 16px 'SV Body'", "16px 'SV Num'", "500 16px 'SV Num'"].map(f => document.fonts.load(f)), loadCustomCar(), loadRoadCars(), loadEnvCatalog()]),
   new Promise(r => setTimeout(r, 2500)),
 ]).then(() => { boot(); loadEnvModels(); }); // scenery models keep loading in the background (a race waits for them)
 // keep the local server alive while the game is open (it auto-exits after the window closes)
@@ -2296,6 +2616,6 @@ if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) setInterval(() => fetc
 requestAnimationFrame(frame);
 
 // debug handle
-window.__svgp = { get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, openEditor, show, get screen() { return screen; },
+window.__svgp = { get world() { return world; }, get phone() { return phone; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
   dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; } } };

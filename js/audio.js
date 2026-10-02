@@ -351,4 +351,6 @@ export const sfx = {
   place: () => tone(980, 0.05, 'square', 0.05),
   del: () => tone(300, 0.08, 'square', 0.06, 0.6),
   error: () => { tone(200, 0.15, 'square', 0.08); tone(160, 0.2, 'square', 0.08, 0, 0.15); },
+  // the career phone: a vibrate (low buzz pulses) and the old two-note message tone
+  buzz: () => { for (let i = 0; i < 3; i++) tone(92, 0.16, 'sawtooth', 0.045, 0, i * 0.24); tone(1318, 0.07, 'square', 0.035, 0, 0.8); tone(1760, 0.1, 'square', 0.035, 0, 0.9); },
 };

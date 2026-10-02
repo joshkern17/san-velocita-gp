@@ -7,16 +7,26 @@ export function fmtTime(t, dp = 2) {
   const m = Math.floor(t / 60), s = t - m * 60;
   return m + ':' + (s < 10 ? '0' : '') + s.toFixed(dp);
 }
-const ord = (n) => { const s = ['TH', 'ST', 'ND', 'RD'], v = n % 100; return s[(v - 20) % 10] || s[v] || s[0]; };
+const pad2 = (n) => String(n).padStart(2, '0');
+// tower name: the surname in full ("M. OKAFOR" -> OKAFOR); you stay YOU
+const code = (r) => r.isPlayer ? 'YOU' : String(r.name).trim().split(/\s+/).pop().toUpperCase() || r.name;
+// canvas drawing uses the design system's colours and fonts (css/sv.css)
+const SV = { red: '#ff2b00', hot: '#ff6a1c', amber: '#ffc21a', cyan: '#2d36f2', good: '#2d36f2', blue: '#2d36f2', bad: '#ff2d6f', ink: '#05060c' };
+// (re-read from the stylesheet when the UI colour changes: Options > Display > UI Colour)
+export function readThemeColours() {
+  const cs = getComputedStyle(document.documentElement), v = (k) => cs.getPropertyValue(k).trim();
+  Object.assign(SV, { red: v('--sv-red'), hot: v('--sv-hot'), amber: v('--sv-amber'), cyan: v('--sv-cyan'), good: v('--sv-good') || v('--sv-cyan'), blue: v('--sv-map'), bad: v('--sv-bad') });
+}
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 const RADAR_ZOOM = { near: 1.35, normal: 1, far: 0.62, vfar: 0.36 };
 export const RADAR_ZOOMS = ['near', 'normal', 'far', 'vfar'];
+const TOWER_HEAD = '<div class="h"><span class="n">POS</span><span class="nm">DRIVER</span><span class="g">GAP</span></div>';
 const TYRE_CSS = { soft: '#e0302a', medium: '#f2d22a', hard: '#f0f0f0', wet: '#3a8af0' };
 
 export class HUD {
   constructor() {
     this.el = {
-      pos: $('h-pos'), lap: $('h-lap'), time: $('h-time'), last: $('h-last'), best: $('h-best'),
+      pos: $('h-pos'), posLbl: $('h-poslbl'), lap: $('h-lap'), time: $('h-time'), last: $('h-last'), best: $('h-best'),
       speed: $('h-speed'), gear: $('h-gear'), rpm: $('h-rpm'), unit: $('h-unit'), tower: $('h-tower'),
       help: $('h-help'), lights: $('h-lights'), center: $('h-center'), split: $('h-split'), area: $('h-area'), wrong: $('h-wrong'),
       timeLbl: $('h-timelbl'), penRow: $('h-penrow'), pen: $('h-pen'), deltaRow: $('h-deltarow'), delta: $('h-delta'),
@@ -97,15 +107,16 @@ export class HUD {
     this.quali = s.quali;
     const E = this.el;
     const Q = s.quali;
-    if (this.mode === 'race') this.set('pos', E.pos, `${s.pos}<small>${ord(s.pos)}</small><small style="color:#aab6ca">/${s.total}</small>`, true);
+    this.set('poslbl', E.posLbl, this.mode === 'race' ? 'POSITION' : Q ? 'SESSION' : 'MODE');
+    if (this.mode === 'race') this.set('pos', E.pos, `${pad2(s.pos)}<small> / ${pad2(s.total)}</small>`, true);
     else if (Q) {
-      // the session clock where your position goes (red in the last minute, the chequered flag at zero)
+      // the session clock where your position goes (bad-red in the last minute, the chequered flag at zero)
       const c = Q.left <= 0 ? '<span class="qclock end">FLAG</span>' : `<span class="qclock${Q.left < 60 ? ' late' : ''}">${fmtTime(Math.ceil(Q.left), 0)}</span>`;
       this.set('pos', E.pos, c, true);
     }
-    else this.set('pos', E.pos, `<small style="font-size:34px;color:#fff">TIME TRIAL</small>`, true);
+    else this.set('pos', E.pos, `<small class="tt">TIME TRIAL</small>`, true);
     if (Q) this.set('lap', E.lap, `<span class="qstat">${Q.status}</span>`, true);
-    else this.set('lap', E.lap, this.mode === 'race' ? `${s.lap}/${s.laps}` : `${Math.max(1, race.player.lap)}`);
+    else this.set('lap', E.lap, this.mode === 'race' ? `${pad2(s.lap)} / ${pad2(s.laps)}` : pad2(Math.max(1, race.player.lap)));
     // live delta to your best lap (qualifying, time trial)
     const dl = s.delta;
     E.deltaRow.classList.toggle('on', dl !== null && dl !== undefined);
@@ -114,7 +125,7 @@ export class HUD {
     this.set('last', E.last, s.last > 0 ? fmtTime(s.last) : '\u2014');
     const rc = s.rc;
     const invalid = !!(rc && rc.invalid && !s.pitting);
-    if (this.cache.inv !== invalid) { this.cache.inv = invalid; E.timeLbl.textContent = invalid ? 'INVALID' : 'TIME'; E.timeLbl.classList.toggle('void', invalid); E.time.classList.toggle('void', invalid); }
+    if (this.cache.inv !== invalid) { this.cache.inv = invalid; E.timeLbl.textContent = invalid ? 'LAP DELETED' : 'LAP TIME'; E.timeLbl.classList.toggle('void', invalid); E.time.classList.toggle('void', invalid); }
     E.last.classList.toggle('void', !!s.lastInvalid);
     // what you owe: time (served at your next stop) and / or a drive-through
     const pen = rc && rc.pen > 0 && !s.penServing ? rc.pen : 0, dt = rc && rc.dt;
@@ -131,21 +142,21 @@ export class HUD {
     this.set('gear', E.gear, s.gear === -1 ? 'R' : s.speed < 0.5 && s.gear === 1 ? 'N' : String(s.gear));
     const r = Math.max(0, Math.min(1, (s.rpm - 4000) / 8500));
     const rw = Math.round(r * 100);
-    if (this.cache.rpm !== rw) { this.cache.rpm = rw; E.rpm.style.width = rw + '%'; E.rpm.classList.toggle('hot', r > 0.93); }
+    if (this.cache.rpm !== rw) { this.cache.rpm = rw; E.rpm.style.setProperty('--v', (rw / 100).toFixed(2)); E.rpm.classList.toggle('hot', r > 0.93); }
     E.wrong.classList.toggle('on', !!s.wrongWay);
     this.aids(s.aids);
     if (Q) {
       // timing screen: pole time, then gaps; a time just set flashes purple
       const now = race.raceTime;
-      const html = Q.rows.slice(0, 12).map(r => {
+      const html = TOWER_HEAD.replace('GAP', 'TIME') + Q.rows.slice(0, 12).map(r => {
         const t = !isFinite(r.best) ? '\u2014' : r.pos === 1 ? fmtTime(r.best, 3) : '+' + r.gap.toFixed(3);
         const fresh = r.flash !== undefined && now - r.flash < 3;
-        return `<div class="r${r.isPlayer ? ' me' : ''}${fresh ? ' new' : ''}"><span class="n">${r.pos}</span><span class="c" style="background:${hex(r.color)}"></span><span class="nm">${r.name}</span><span class="g q">${t}</span></div>`;
+        return `<div class="r${r.isPlayer ? ' me' : ''}${fresh ? ' new' : ''}"><span class="n">${r.pos}</span><span class="c" style="background:${hex(r.color)}"></span><span class="nm">${code(r)}</span><span class="g q">${t}</span></div>`;
       }).join('');
       if (this.cache.towerT === undefined || performance.now() - this.cache.towerT > 250) { this.cache.towerT = performance.now(); this.set('tower', E.tower, html, true); }
     } else if (this.mode === 'race') {
-      const html = s.standings.slice(0, 12).map(r =>
-        `<div class="r${r.isPlayer ? ' me' : ''}"><span class="n">${r.pos}</span><span class="c" style="background:${hex(r.color)}"></span><span class="nm">${r.name}</span>${r.pit ? '<span class="pt">PIT</span>' : ''}${r.pen ? `<span class="pn">+${r.pen}s</span>` : ''}${r.dt ? '<span class="pn">DT</span>' : ''}${s.wear ? `<span class="ty" style="background:${TYRE_CSS[r.tyre]}">${r.tyre[0].toUpperCase()}</span>` : ''}<span class="g">${r.gap}</span></div>`).join('');
+      const html = TOWER_HEAD + s.standings.slice(0, 12).map(r =>
+        `<div class="r${r.isPlayer ? ' me' : ''}"><span class="n">${r.pos}</span><span class="c" style="background:${hex(r.color)}"></span><span class="nm">${code(r)}</span>${r.pit ? '<span class="pt">PIT</span>' : ''}${r.pen ? `<span class="pn">+${r.pen}s</span>` : ''}${r.dt ? '<span class="pn">DT</span>' : ''}${s.wear ? `<span class="ty" style="background:${TYRE_CSS[r.tyre]}">${r.tyre[0].toUpperCase()}</span>` : ''}<span class="g">${r.gap || '\u2014'}</span></div>`).join('');
       if (this.cache.towerT === undefined || performance.now() - this.cache.towerT > 250) { this.cache.towerT = performance.now(); this.set('tower', E.tower, html, true); }
     }
     this.drawRadar(race);
@@ -196,34 +207,40 @@ export class HUD {
     setTimeout(() => { el.classList.remove('on'); setTimeout(() => { el.remove(); this.feedEls = this.feedEls.filter(e => e !== el); }, 350); }, me ? 6500 : 4500);
   }
 
-  // top-down car: tyre wear per axle, wing / chassis damage
+  // top-down car: tyre wear per axle (% beside each axle), wing / chassis damage
   drawCar(s) {
     const c = this.cc, W = this.carCv.width, H = this.carCv.height;
     const show = s.wear || s.damage;
     this.carCv.style.display = show ? '' : 'none';
     if (!show) return;
-    const key = [s.tyre.c, (s.tyre.wf * 50) | 0, (s.tyre.wr * 50) | 0, (s.dmg.fw * 20) | 0, (s.dmg.rw * 20) | 0, (s.dmg.ch * 20) | 0].join();
+    const key = [SV.red, s.tyre.c, (s.tyre.wf * 50) | 0, (s.tyre.wr * 50) | 0, (s.dmg.fw * 20) | 0, (s.dmg.rw * 20) | 0, (s.dmg.ch * 20) | 0].join();
     if (this.cache.car === key) return; this.cache.car = key;
     c.clearRect(0, 0, W, H);
-    c.fillStyle = 'rgba(0,0,0,0.62)'; c.fillRect(0, 0, W, H);
-    const wearCol = (w) => w > 0.6 ? '#5ad84a' : w > 0.3 ? '#f2c83a' : '#ff4a3a';
-    const dmgCol = (d) => d < 0.15 ? '#9aa6b8' : d < 0.45 ? '#f2a03a' : '#ff3a2a';
-    const cx = W / 2;
-    // front wing
-    if (s.dmg.fw < 0.72) { c.fillStyle = dmgCol(s.dmg.fw); c.fillRect(cx - 34, 14, 68, 7); } else { c.strokeStyle = '#ff3a2a'; c.setLineDash([4, 3]); c.strokeRect(cx - 34, 14, 68, 7); c.setLineDash([]); }
-    // body
-    c.fillStyle = dmgCol(s.dmg.ch);
-    c.beginPath(); c.moveTo(cx - 5, 22); c.lineTo(cx + 5, 22); c.lineTo(cx + 13, 70); c.lineTo(cx + 18, 100); c.lineTo(cx + 10, 120); c.lineTo(cx - 10, 120); c.lineTo(cx - 18, 100); c.lineTo(cx - 13, 70); c.closePath(); c.fill();
-    // rear wing
-    if (s.dmg.rw < 0.72) { c.fillStyle = dmgCol(s.dmg.rw); c.fillRect(cx - 24, 122, 48, 8); } else { c.strokeStyle = '#ff3a2a'; c.setLineDash([4, 3]); c.strokeRect(cx - 24, 122, 48, 8); c.setLineDash([]); }
+    const wearCol = (w) => w > 0.6 ? SV.good : w > 0.3 ? SV.amber : SV.bad;
+    const dmgCol = (d) => d < 0.15 ? SV.blue : d < 0.45 ? SV.amber : SV.bad;
+    const cx = W / 2, y0 = 6;
+    c.shadowBlur = 3;
+    const glow = (col) => { c.fillStyle = col; c.shadowColor = col; };
+    // front wing, body, rear wing
+    const wing = (x, y, w, h, d) => { if (d < 0.72) { glow(dmgCol(d)); c.fillRect(x, y, w, h); } else { c.strokeStyle = c.shadowColor = SV.bad; c.setLineDash([4, 3]); c.strokeRect(x, y, w, h); c.setLineDash([]); } };
+    wing(cx - 30, y0 + 4, 60, 6, s.dmg.fw);
+    glow(dmgCol(s.dmg.ch));
+    c.beginPath(); c.moveTo(cx - 4, y0 + 11); c.lineTo(cx + 4, y0 + 11); c.lineTo(cx + 11, y0 + 56); c.lineTo(cx + 15, y0 + 86); c.lineTo(cx + 9, y0 + 104); c.lineTo(cx - 9, y0 + 104); c.lineTo(cx - 15, y0 + 86); c.lineTo(cx - 11, y0 + 56); c.closePath(); c.fill();
+    wing(cx - 21, y0 + 106, 42, 7, s.dmg.rw);
     // tyres
-    const tyre = (x, y, w, h, wear) => { c.fillStyle = s.wear ? wearCol(wear) : '#777'; c.fillRect(x, y, w, h); c.strokeStyle = '#000'; c.lineWidth = 2; c.strokeRect(x, y, w, h); };
-    tyre(cx - 33, 30, 14, 24, s.tyre.wf); tyre(cx + 19, 30, 14, 24, s.tyre.wf);
-    tyre(cx - 36, 88, 16, 28, s.tyre.wr); tyre(cx + 20, 88, 16, 28, s.tyre.wr);
-    // compound + %
-    c.font = '16px Anton'; c.textAlign = 'center';
-    c.fillStyle = TYRE_CSS[s.tyre.c]; c.fillText(s.tyre.c.toUpperCase(), cx, 146);
-    if (s.wear) { c.font = '11px Arimo'; c.fillStyle = '#fff'; c.fillText(Math.round(s.tyre.wf * 100) + '%', cx, 64); c.fillText(Math.round(s.tyre.wr * 100) + '%', cx, 86); }
+    const tyre = (x, y, w, h, wear) => { glow(s.wear ? wearCol(wear) : '#6a6a72'); c.fillRect(x, y, w, h); };
+    tyre(cx - 30, y0 + 18, 12, 22, s.tyre.wf); tyre(cx + 18, y0 + 18, 12, 22, s.tyre.wf);
+    tyre(cx - 32, y0 + 70, 14, 26, s.tyre.wr); tyre(cx + 18, y0 + 70, 14, 26, s.tyre.wr);
+    // wear % either side, the compound underneath
+    c.textBaseline = 'middle';
+    if (s.wear) {
+      c.font = "500 15px 'SV UI'"; glow(SV.red);
+      const pf = Math.round(s.tyre.wf * 100) + '%', pr = Math.round(s.tyre.wr * 100) + '%';
+      c.textAlign = 'right'; c.fillText(pf, cx - 36, y0 + 30); c.fillText(pr, cx - 38, y0 + 84);
+      c.textAlign = 'left'; c.fillText(pf, cx + 36, y0 + 30); c.fillText(pr, cx + 38, y0 + 84);
+    }
+    c.font = "500 17px 'SV UI'"; c.textAlign = 'center'; glow(TYRE_CSS[s.tyre.c]); c.fillText(s.tyre.c.toUpperCase(), cx, H - 12);
+    c.shadowBlur = 0;
   }
 
   pitMenu(s, sel, open) {
@@ -256,7 +273,7 @@ export class HUD {
   }
 
   drawRadar(race) {
-    const c = this.rc, W = this.radar.width, R = W / 2 - 6;
+    const c = this.rc, W = this.radar.width, R = W / 2 - 6; // (room for the ring's soft edge)
     const pl = race.player || race.focus, p = pl.phys;
     c.clearRect(0, 0, W, W);
     c.save();
@@ -264,9 +281,9 @@ export class HUD {
     const mapStyle = this.radarMap && this.radarMap !== 'off' && race.track.geo ? this.radarMap : null;
     // background
     const th = race.track.env.theme;
-    c.fillStyle = th === 'coast' ? '#3a6f86' : th === 'desert' ? '#a88458' : th === 'city' ? '#56585e' : '#5d7a44';
-    if (mapStyle) c.fillStyle = '#1a1d22';
-    c.globalAlpha = 0.82; c.fillRect(0, 0, W, W); c.globalAlpha = 1;
+    c.fillStyle = th === 'coast' ? '#0a1420' : th === 'desert' ? '#1a1008' : th === 'city' ? '#0e0c14' : '#0a120c';
+    if (mapStyle) c.fillStyle = '#0c0b10';
+    c.globalAlpha = 0.72; c.fillRect(0, 0, W, W); c.globalAlpha = 1;
     const zk = RADAR_ZOOM[this.radarZoom] ?? 1;
     const zoom = (0.42 + Math.max(0, 1 - p.speed / 80) * 0.15) * zk;
     c.translate(W / 2, W / 2);
@@ -281,9 +298,12 @@ export class HUD {
     }
     c.lineJoin = 'round'; c.lineCap = 'round';
     const lw = 1 / Math.sqrt(zk); // keep lines readable when zoomed out
-    if (this.roadPath) { c.strokeStyle = mapStyle ? 'rgba(0,0,0,.45)' : 'rgba(0,0,0,.35)'; c.lineWidth = 11 * lw; c.stroke(this.roadPath); c.strokeStyle = mapStyle ? 'rgba(210,210,200,.55)' : '#9a9c9e'; c.lineWidth = 6 * lw; c.stroke(this.roadPath); }
-    if (mapStyle) { c.globalAlpha = 0.75; c.strokeStyle = '#000'; c.lineWidth = 16 * lw; c.stroke(this.path); c.strokeStyle = '#f2f2f2'; c.lineWidth = 9 * lw; c.stroke(this.path); c.globalAlpha = 1; }
-    else { c.strokeStyle = '#000'; c.lineWidth = 26 * lw; c.stroke(this.path); c.strokeStyle = '#d6d6d6'; c.lineWidth = 17 * lw; c.stroke(this.path); }
+    if (this.roadPath) { c.globalAlpha = 0.22; c.strokeStyle = SV.red; c.lineWidth = 6 * lw; c.stroke(this.roadPath); c.globalAlpha = 1; }
+    // the circuit: a glowing blue line (shadow blur is in screen pixels, so it survives the zoom)
+    c.shadowColor = SV.blue; c.shadowBlur = 4;
+    c.globalAlpha = 0.35; c.strokeStyle = SV.blue; c.lineWidth = (mapStyle ? 16 : 24) * lw; c.stroke(this.path); c.globalAlpha = 1;
+    c.strokeStyle = SV.blue; c.lineWidth = (mapStyle ? 7 : 11) * lw; c.stroke(this.path);
+    c.shadowBlur = 0;
     // marshal sectors showing a flag
     const rc = race.rc;
     if (rc && rc.on && rc.flag.some(f => f)) {
@@ -298,8 +318,7 @@ export class HUD {
     // pit lane: grey, or blue when the racing line is on (it's where the blue guide line goes)
     if (this.pitPath) {
       const lineOn = race.lineMode && race.lineMode !== 'off';
-      c.strokeStyle = '#000'; c.lineWidth = 12 * lw; c.stroke(this.pitPath);
-      c.strokeStyle = lineOn ? '#3a9cff' : '#8d939c'; c.lineWidth = 6.5 * lw; c.stroke(this.pitPath);
+      c.strokeStyle = lineOn ? SV.cyan : SV.blue; c.lineWidth = 5 * lw; c.stroke(this.pitPath);
     }
     // start line (point-to-point: and the finish line)
     const T = race.T;
@@ -311,24 +330,26 @@ export class HUD {
     // blips
     for (const car of race.cars) {
       if (car === pl || car.gone) continue;
-      const s = 11 / zoom;
-      c.fillStyle = '#000'; c.fillRect(car.phys.x - s / 2 - 2 / zoom, car.phys.z - s / 2 - 2 / zoom, s + 4 / zoom, s + 4 / zoom);
-      c.fillStyle = hex(car.team.main === 0x121214 ? 0x555555 : car.team.main); c.fillRect(car.phys.x - s / 2, car.phys.z - s / 2, s, s);
+      const s = 6 / zoom, col = hex(car.team.main === 0x121214 ? 0x8a8a96 : car.team.main);
+      c.beginPath(); c.arc(car.phys.x, car.phys.z, s + 1.5 / zoom, 0, Math.PI * 2); c.fillStyle = SV.ink; c.fill();
+      c.beginPath(); c.arc(car.phys.x, car.phys.z, s, 0, Math.PI * 2); c.fillStyle = col; c.shadowColor = col; c.shadowBlur = 3; c.fill(); c.shadowBlur = 0;
     }
     c.restore();
-    // ring
-    c.lineWidth = 6; c.strokeStyle = '#000'; c.beginPath(); c.arc(W / 2, W / 2, R, 0, Math.PI * 2); c.stroke();
-    c.lineWidth = 2; c.strokeStyle = 'rgba(255,255,255,.35)'; c.beginPath(); c.arc(W / 2, W / 2, R - 4, 0, Math.PI * 2); c.stroke();
-    // player arrow
-    c.save(); c.translate(W / 2, W / 2);
-    c.beginPath(); c.moveTo(0, -11); c.lineTo(8, 9); c.lineTo(0, 4); c.lineTo(-8, 9); c.closePath();
-    c.fillStyle = '#fff'; c.strokeStyle = '#000'; c.lineWidth = 3; c.stroke(); c.fill();
-    c.restore();
-    // north marker
+    // ring: a glowing red hairline with compass ticks that turn with the map
     const th2 = p.h - Math.PI;
-    const nx = W / 2 + Math.sin(th2) * (R - 2), ny = W / 2 - Math.cos(th2) * (R - 2);
-    c.beginPath(); c.arc(nx, ny, 10, 0, Math.PI * 2); c.fillStyle = '#000'; c.fill();
-    c.fillStyle = '#fff'; c.font = 'bold 13px Arimo'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('N', nx, ny + 1);
+    c.save(); c.translate(W / 2, W / 2);
+    c.shadowColor = SV.red; c.shadowBlur = 4; c.strokeStyle = SV.red; c.lineWidth = 2;
+    c.beginPath(); c.arc(0, 0, R, 0, Math.PI * 2); c.stroke();
+    c.lineWidth = 2;
+    for (let k = 0; k < 8; k++) { const a = th2 + k * Math.PI / 4, l = k % 2 ? 6 : 10; c.beginPath(); c.moveTo(Math.sin(a) * R, -Math.cos(a) * R); c.lineTo(Math.sin(a) * (R - l), -Math.cos(a) * (R - l)); c.stroke(); }
+    // player arrow
+    c.beginPath(); c.moveTo(0, -12); c.lineTo(8, 9); c.lineTo(0, 4); c.lineTo(-8, 9); c.closePath();
+    c.shadowColor = SV.hot; c.shadowBlur = 4; c.fillStyle = SV.hot; c.fill();
+    // north marker, just inside the ring
+    c.shadowColor = SV.red; c.shadowBlur = 3; c.fillStyle = SV.red;
+    c.font = "500 15px 'SV UI'"; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('N', Math.sin(th2) * (R - 18), -Math.cos(th2) * (R - 18) + 1);
+    c.restore();
   }
 
   buildSectorPaths(race) {

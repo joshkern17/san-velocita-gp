@@ -881,7 +881,7 @@ export class Editor {
     if (this.selZone < 0 || !this.scen) { el.innerHTML = ''; return; }
     const k = this.scen.buildings.filter(b => b.zi === this.selZone).length, r = this.scen.rejected.filter(b => b.zi === this.selZone).length;
     const z = this.track.zones[this.selZone];
-    el.innerHTML = ZONE_TYPES[z.kind].trees ? '' : `<b>${k}</b> buildings in this zone${r ? ` · <span style="color:#ff8a70">${r} skipped (on track)</span>` : ''}`;
+    el.innerHTML = ZONE_TYPES[z.kind].trees ? '' : `<b>${k}</b> buildings in this zone${r ? ` · <span style="color:var(--sv-bad)">${r} skipped (on track)</span>` : ''}`;
   }
   renderZoneTab() {
     const el = $('tab-node');
@@ -944,7 +944,7 @@ export class Editor {
       <div class="m-search"><input id="map-q" placeholder="Search a town, street or circuit…" spellcheck="false"><button id="map-go">Go</button></div>
       <div class="map-results" id="map-results"></div>
       <div class="seg"><button id="map-me">Use My Location</button></div>
-      <div class="map-cur">${g ? '&#9679; ' + esc(g.label || 'Custom location') + `<br><span style="color:#7f8ca6">${g.lat.toFixed(5)}, ${g.lon.toFixed(5)}</span>` : '<span style="color:#7f8ca6">No real location yet — search for your home town to put the circuit on the map.</span>'}</div>
+      <div class="map-cur">${g ? '&#9679; ' + esc(g.label || 'Custom location') + `<br><span style="color:var(--sv-red-dim)">${g.lat.toFixed(5)}, ${g.lon.toFixed(5)}</span>` : '<span style="color:#7f8ca6">No real location yet — search for your home town to put the circuit on the map.</span>'}</div>
       <h4 style="margin-top:14px">MAP LAYER</h4>
       <div class="fld"><div class="seg" id="map-style">${[['off', 'Off'], ['streets', 'Streets'], ['satellite', 'Satellite']].map(([k, l]) => `<button data-v="${k}" class="${t.map.style === k ? 'on' : ''}" ${!g && k !== 'off' ? 'disabled' : ''}>${l}</button>`).join('')}</div></div>
       ${fld('Map opacity', 'map-op', 0.1, 1, 0.05, t.map.opacity, '')}
@@ -962,7 +962,7 @@ export class Editor {
     const showResults = () => {
       const box = $('map-results'), res = this.searchRes || [];
       if (res.length < 2) { box.innerHTML = ''; return; }
-      box.innerHTML = '<div class="r" style="color:#7f8ca6;cursor:default">Not the right place? Pick another:</div>' +
+      box.innerHTML = '<div class="r" style="color:var(--sv-red-dim);cursor:default">Not the right place? Pick another:</div>' +
         res.map((r, i) => `<div class="r" data-i="${i}">${i === this.searchPick ? '&#9658; ' : ''}${esc(r.label)}</div>`).join('');
       box.querySelectorAll('[data-i]').forEach(d => d.addEventListener('click', () => { this.searchPick = +d.dataset.i; this.setLocation(res[this.searchPick]); }));
     };
@@ -1043,7 +1043,7 @@ export class Editor {
     if (!terr) return `<p class="muted">Project the real hills and valleys of this place onto the circuit, and shape the land around it to match.</p>
       <button id="elev-get" class="hot wide">Get Real Elevation</button><div class="map-status" id="elev-status"></div>`;
     return `<div class="map-cur">Real climb along the circuit: <b>${st.real.toFixed(0)} m</b> (lowest point ${st.asl.toFixed(0)} m above sea level)<br>
-        In game: <b>${st.range.toFixed(0)} m</b> &middot; steepest ${st.grade.toFixed(0)}%${st.grade > 22 ? ' <span style="color:#ff8a5a">(very steep!)</span>' : ''}</div>
+        In game: <b>${st.range.toFixed(0)} m</b> &middot; steepest ${st.grade.toFixed(0)}%${st.grade > 22 ? ' <span style="color:var(--sv-bad)">(very steep!)</span>' : ''}</div>
       ${fld('Exaggeration', 'elev-x', 0.25, EXAG_MAX, 0.25, terr.exag, 'x')}
       <div class="fld"><div class="seg" id="elev-ground"><button data-v="1" class="${terr.ground !== false ? 'on' : ''}">Real ground around track</button><button data-v="0" class="${terr.ground === false ? 'on' : ''}">Road only</button></div></div>
       <div class="seg"><button id="elev-reapply">Re-project onto track</button><button id="elev-clear">Remove</button></div>
@@ -2017,7 +2017,7 @@ export class Editor {
       LENGTH <b>${(s.length / 1000).toFixed(2)} km</b> &middot; CORNERS <b>${s.turns}</b><br>
       ELEVATION <b>${Math.round(s.elevMin) || 0}–${Math.round(s.elevMax) || 0} m</b> &middot; BRIDGES <b>${bridges ? Math.round(bridges) + ' m' : 'none'}</b><br>
       NODES <b>${this.track.points.length}</b> &middot; PROPS <b>${this.track.props.length}</b><br>
-      ${this.scen ? `BUILDINGS <b>${this.scen.buildings.length}</b> &middot; TREES <b>${this.scen.trees.length}</b>${this.scen.rejected.length ? ` <span style="color:#ff8a70">(${this.scen.rejected.length} on track, removed)</span>` : ''}<br>` : ''}
+      ${this.scen ? `BUILDINGS <b>${this.scen.buildings.length}</b> &middot; TREES <b>${this.scen.trees.length}</b>${this.scen.rejected.length ? ` <span style="color:var(--sv-bad)">(${this.scen.rejected.length} on track, removed)</span>` : ''}<br>` : ''}
       ${this.T.open ? 'POINT-TO-POINT &middot; ONE RUN' : `PIT LANE <b>${this.pit ? Math.round(this.pit.length) + ' m (' + (this.pit.side > 0 ? 'right' : 'left') + ')' : 'none'}</b>`}<br>
       ${this.T.open ? 'EST. RUN' : 'EST. LAP'} <b>${this.lapEst ? fmtTime(this.lapEst) : '…'}</b>
       ${this.track.env.pits !== false && !this.pit && !this.T.open ? '<div class="warn">! No room for a pit lane near the start line — give the start straight some space, or turn pits off.</div>' : ''}

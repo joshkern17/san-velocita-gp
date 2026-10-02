@@ -103,6 +103,7 @@ export class Race {
     this.corners = findCorners(T);
     this.rec = opts.mode !== 'attract' ? new LapRecorder(T) : null; // your laps, sample by sample (telemetry.js: Lap Review)
     this.cars = [];
+    this.log = []; // incidents between named drivers (World Career's ledger)
     this.diff = diffFor(opts);
     this.mistakeP = this.mode === 'race' ? (MISTAKE[opts.difficulty] ?? MISTAKE.medium) * (MISTAKES[opts.aiMistakes || 'normal'] ?? 1) : 0;
     this.limits = {}; // learned speed plan per car type
@@ -164,7 +165,7 @@ export class Race {
     order.forEach((k, slot) => {
       const isPlayer = k === 'P';
       const teamIdx = isPlayer ? reserved : k;
-      this.addCar(isPlayer ? this.playerTeamObj : TEAMS[teamIdx], slot, isPlayer, teamIdx);
+      this.addCar(isPlayer ? this.playerTeamObj : this.teamFor(teamIdx), slot, isPlayer, teamIdx);
     });
     }
     this.player = this.cars.find(c => c.isPlayer) || null;
@@ -378,9 +379,13 @@ export class Race {
 
   // the AI field: 'class' = cars from the same class as yours (the F1 grid drives your F1 model), 'custom' / 'svgp' /
   // 'mixed' = the F1 models, 'multi' = every class mixed. Picked from the team index, so every online client agrees.
+  // World Career: race slots carry real people (their own team, colours and name) instead of the stock TEAMS
+  teamFor(teamIdx) { return this.opts.entries?.[teamIdx]?.team || TEAMS[teamIdx]; }
   aiChassisFor(teamIdx) {
     const ai = this.opts.aiChassis || 'class';
     const main = this.opts.aiClassCar || this.mainCarId(), cls = (CARS[main] || CARS.f1).cls;
+    const ent = this.opts.entries?.[teamIdx];
+    if (ent && ent.chassis && ai === 'class') return ent.chassis; // (World Career: a team's two cars are the same model)
     if (ai === 'mixed') return teamIdx % 2 ? 'custom' : 'svgp';
     if (ai === 'custom' || ai === 'svgp') return ai;
     if (ai === 'multi') { const all = Object.keys(CARS).filter(k => k !== 'svgp'); return chassisKey(all[teamIdx % all.length]); }
@@ -432,6 +437,10 @@ export class Race {
       basePower: phys.powerMul, launch: !!(mods && mods.launch), extra,
     };
     if (car.ai && this.opts.teamPace) car.ai.pace *= this.opts.teamPace[teamIdx] || 1;
+    // World Career: who's driving (their record is kept by pid), how hard they defend, how often they slip up
+    const ent = !isPlayer && !extra.human ? this.opts.entries?.[teamIdx] : null;
+    car.pid = isPlayer ? 'P' : ent ? ent.pid : null;
+    if (car.ai && ent) { car.ai.aggr = ent.aggr; car.ai.mk = ent.mistakes; }
     if (car.ai && this.opts.aiSetup?.[teamIdx]) car.ai.pace = this.opts.aiSetup[teamIdx].pace; // (as fast as they were in qualifying)
     // starting tyres
     let start = this.rain ? 'wet' : 'medium';
@@ -595,7 +604,7 @@ export class Race {
     const R = Math.random, pl = this.player, dur = q.time;
     // the field
     q.field = this.qualiTeams.map((t) => {
-      const team = TEAMS[t], id = carId({ ...teamCar(team, t), chassis: this.aiChassisFor(t) });
+      const team = this.teamFor(t), id = carId({ ...teamCar(team, t), chassis: this.aiChassisFor(t) });
       // (the same driver all weekend: practice hands its pace / power on to qualifying through opts.aiSetup)
       const pre = this.opts.aiSetup && this.opts.aiSetup[t];
       const pace = pre ? pre.pace : this.diff.pace * (1 - R() * this.diff.spread) * (this.opts.teamPace ? this.opts.teamPace[t] || 1 : 1);
@@ -1653,12 +1662,28 @@ export class Race {
     if (Math.max(p.dmg.fw, p.dmg.rw, p.dmg.ch) > 0.3) k *= 1.3;
     if (car.lap === 1) k *= 1.5;
     if (this.cars.some(o => o !== car && !o.gone && !o.pitting && car.progress - o.progress > 0 && car.progress - o.progress < 15)) k *= 1.4;
-    if (Math.random() > this.mistakeP * k) return null;
+    if (Math.random() > this.mistakeP * k * (ai.mk ?? 1)) return null;
     const r = Math.random();
     const type = r < 0.45 ? 'wide' : r < 0.85 ? 'late' : 'spin';
     ai.errCd = 15;
     ai.err = { type, c: cor, dir: cor.dir, t: 0, phase: 0, dur: 7, over: 1.07 + Math.random() * 0.08, far: 1.5 + Math.random() * 2.5 };
     return ai.err;
+  }
+
+  // the incident log (World Career keeps it): overtakes between you and another driver, on track (not in the pits)
+  notePasses(prev, now) {
+    const me = this.player, a = prev.indexOf(me), b = now.indexOf(me);
+    // (the first seconds sort the grid out, and a jump of several places in one frame is a reset or the pits, not racing)
+    if (a === b || me.pitting || me.gone || me.lap < 1 || this.raceTime < 8 || Math.abs(a - b) > 2) return;
+    const t = this.raceTime, lo = Math.min(a, b), hi = Math.max(a, b);
+    for (let k = lo; k <= hi; k++) {
+      const o = prev[k]; if (o === me || o.pitting || o.gone || !o.pid) continue;
+      const key = o.pid; this.passT = this.passT || {};
+      if (t - (this.passT[key] ?? -99) < 4) continue; // (side by side through a corner: one pass, not five)
+      this.passT[key] = t;
+      // a = who made the pass, b = who was passed
+      this.log.push(b < a ? { type: 'pass', a: 'P', b: o.pid, lap: me.lap, t } : { type: 'pass', a: o.pid, b: 'P', lap: me.lap, t });
+    }
   }
 
   resetCar(car) {
@@ -1758,6 +1783,7 @@ export class Race {
       if ((car.runoffT > 2.5 && car.phys.speed < 4) || car.runoffT > 12) this.restartRun(car);
     }
     const order = [...this.cars].sort((a, b) => b.progress - a.progress);
+    if (this.order && this.mode === 'race' && this.state === 'racing' && this.player) this.notePasses(this.order, order);
     order.forEach((c, k) => c.pos = k + 1);
     this.order = order;
     if (this.rc) this.rc.update(dt);
@@ -2285,7 +2311,7 @@ export class Race {
     // leader's distance: a finished car stopped counting at the flag
     const lapsDown = (w, c) => Math.floor(((w.finished ? laps * L : w.raw ?? w.progress) - (c.raw ?? c.progress)) / L);
     return list.map((c, k) => ({
-      pos: k + 1, name: c.name, team: c.team.name, color: c.team.main, isPlayer: c.isPlayer,
+      pos: k + 1, name: c.name, team: c.team.name, color: c.team.main, isPlayer: c.isPlayer, pid: c.pid || null,
       time: c.finished ? time(c) : null,
       gap: k === 0 ? '' : c.finished && win.finished ? '+' + (time(c) - time(win)).toFixed(3) : lapsDown(win, c) >= 1 ? '+' + lapsDown(win, c) + ' LAP' : 'DNF',
       pen: (c.penTotal || 0) + (c.dt ? 20 : 0), dt: c.dtTotal || 0, dsq: !!c.dsq,

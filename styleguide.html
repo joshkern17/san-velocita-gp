@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>San Velocita Styleguide</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- the live design system: the same three stylesheets the game loads (rules: docs/DESIGN.md) -->
+<link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="css/sv.css">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  html, body { overflow: auto; height: auto; user-select: text; -webkit-user-select: text; }
+  body { background: radial-gradient(ellipse at 70% 20%, #1a0d1e, var(--sv-ink) 60%); padding: 56px var(--edge) 120px; }
+  .sg-sec { margin: 0 0 72px; }
+  .sg-h { display: flex; align-items: baseline; gap: var(--s4); margin-bottom: var(--s6); padding-bottom: var(--s2); border-bottom: 1px solid var(--sv-rule); }
+  .sg-h code { margin-left: auto; font: 500 13px var(--f-body); color: var(--sv-red-dim); }
+  .sg-row { display: flex; flex-wrap: wrap; gap: var(--s8); align-items: flex-start; }
+  .sg-tok { width: 150px; }
+  .sg-tok i { display: block; height: 56px; margin-bottom: var(--s2); }
+  .sg-tok b { display: block; font: 500 15px var(--f-ui); text-transform: uppercase; color: var(--sv-red); }
+  .sg-tok span { font: 500 12px var(--f-body); color: var(--sv-red-dim); }
+  .sg-note { font: 500 var(--t-body)/1.5 var(--f-body); color: var(--sv-red-dim); max-width: 640px; margin: 0 0 var(--s4); }
+  .sg-box { position: relative; width: 420px; }
+  .sg-hints { position: static; height: auto; background: none; padding: 0; }
+  .sg-type > div { margin-bottom: var(--s4); }
+</style>
+</head>
+<body>
+
+<section class="sg-sec">
+  <div class="logo" style="text-align:left;display:inline-block">
+    <div class="logo-top">San Velocita</div>
+    <div class="logo-band"><span>GRAND PRIX</span><i class="logo-line"></i><i class="sv-signal"></i></div>
+  </div>
+  <p class="sg-note" style="margin-top:var(--s6)">The "neon signal" design language. Everything here is drawn by the game's own stylesheets
+    (<b>css/sv.css</b> tokens, <b>css/style.css</b> components), so this page is always current. Rules: <b>docs/DESIGN.md</b>.</p>
+</section>
+
+<section class="sg-sec">
+  <div class="sg-h"><span class="sv-title">Colour</span><code>--sv-*</code></div>
+  <div class="sg-row">
+    <div class="sg-tok"><i style="background:linear-gradient(180deg,#ff8a2a,var(--sv-hot),var(--sv-hot-deep))"></i><b>Hot</b><span>titles, hero numbers</span></div>
+    <div class="sg-tok"><i style="background:var(--sv-red)"></i><b>Red #FF2B00</b><span>default: rows, labels, rules</span></div>
+    <div class="sg-tok"><i style="background:var(--sv-red-dim)"></i><b>Red dim</b><span>secondary, heads, units</span></div>
+    <div class="sg-tok"><i style="background:var(--sv-amber)"></i><b>Amber</b><span>focus, one per list</span></div>
+    <div class="sg-tok"><i style="background:var(--sv-cyan)"></i><b>Cyan</b><span>cursor, live, good</span></div>
+    <div class="sg-tok"><i style="background:var(--sv-signal)"></i><b>Signal</b><span>meters only</span></div>
+    <div class="sg-tok"><i style="background:var(--sv-bad)"></i><b>Bad</b><span>slower, damage</span></div>
+    <div class="sg-tok"><i style="background:var(--sv-best)"></i><b>Best</b><span>personal best</span></div>
+    <div class="sg-tok"><i style="background:var(--sv-paper)"></i><b>Paper</b><span>text on a red bar</span></div>
+  </div>
+</section>
+
+<section class="sg-sec sg-type">
+  <div class="sg-h"><span class="sv-title">Type</span><code>--f-display · --f-ui · --f-body · --f-num · tracking -2%</code></div>
+  <div class="scr-head" style="position:static"><h1>Garage</h1><div class="scr-sub">Build and paint your car</div></div>
+  <div class="sv-title">SVGP Classic</div>
+  <div class="sv-label">Front wing &nbsp; Sidepods &nbsp; Rear wing</div>
+  <div class="sv-caption">Formula</div>
+  <div class="sv-body">Swap bodywork on the SVGP Classic. Sentences use the body face, sentence case.</div>
+  <div class="sv-num sv-label" style="font-family:var(--f-num);font-size:22px">1:17.960 &nbsp; +0.482 &nbsp; 1:11.111</div>
+</section>
+
+<section class="sg-sec">
+  <div class="sg-h"><span class="sv-title">Menus</span><code>Menu widget · .main-menu · .panel .menu</code></div>
+  <div class="sg-row">
+    <div class="menu main-menu" style="margin-left:48px">
+      <div class="item sel"><span class="lbl">Quick Race</span><span class="idesc">Any circuit, your rules.</span></div>
+      <div class="item"><span class="lbl">Career</span></div>
+      <div class="item"><span class="lbl">Online</span></div>
+      <div class="item gap"><span class="lbl">Options</span></div>
+    </div>
+    <div class="panel sg-box">
+      <div class="menu">
+        <div class="item head">Bodywork</div>
+        <div class="item opt"><span class="lbl">Nose</span><span class="val"><i class="arr">&#8249;</i><span class="vt">Classic</span><i class="arr">&#8250;</i></span></div>
+        <div class="item opt sel"><span class="lbl">Front wing</span><span class="val"><i class="arr">&#8249;</i><span class="vt">Classic</span><i class="arr">&#8250;</i></span></div>
+        <div class="item opt"><span class="lbl">Volume</span><span class="val"><i class="arr">&#8249;</i><span class="vt"><span class="meter" style="--n:10"><i class="on" style="--k:0"></i><i class="on" style="--k:1"></i><i class="on" style="--k:2"></i><i class="on" style="--k:3"></i><i class="on" style="--k:4"></i><i class="on" style="--k:5"></i><i class="on" style="--k:6"></i><i style="--k:7"></i><i style="--k:8"></i><i style="--k:9"></i></span></span><i class="arr">&#8250;</i></span></div>
+        <div class="item action primary"><span class="lbl">Start race</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sg-sec">
+  <div class="sg-h"><span class="sv-title">Tabs, prompts, meters</span><code>.tabs · kbd · .sv-signal · .sv-swatch</code></div>
+  <div class="tabs" style="max-width:520px"><span>Car</span><span class="on">Bodywork</span><span>Livery</span></div>
+  <div class="sg-row" style="margin:var(--s6) 0;gap:var(--s4)"><button class="sv-btn">Save</button><button class="sv-btn sel">Focused / hover</button><button class="sv-btn hot">Load circuit</button><button class="sv-btn" disabled>Disabled</button></div>
+  <div class="footer-hints sg-hints" style="margin:var(--s6) 0">
+    <span class="hint"><kbd>&#8593;</kbd><kbd>&#8595;</kbd><em>Navigate</em></span>
+    <span class="hint"><kbd>&#8592;</kbd><kbd>&#8594;</kbd><em>Change</em></span>
+    <span class="hint"><kbd>Enter</kbd><em>Select</em></span>
+    <span class="hint"><kbd class="pb a">A</kbd><em>Select</em></span>
+    <span class="hint"><kbd class="pb b">B</kbd><em>Back</em></span>
+    <span class="hint"><kbd class="pl">LB</kbd><kbd class="pl">RB</kbd><em>Section</em></span>
+    <span class="hint"><kbd class="dpad"></kbd><em>Navigate</em></span>
+  </div>
+  <div class="sg-row" style="align-items:center">
+    <i class="sv-signal" style="--v:1"></i><i class="sv-signal" style="--v:.62"></i><i class="sv-signal" style="--v:.25;--n:24;width:300px"></i>
+    <span><i class="sv-swatch on" style="--c:#d8200a"></i> <i class="sv-swatch" style="--c:#efeae0"></i> <i class="sv-swatch" style="--c:#1a1a1a"></i> <i class="sv-swatch" style="--c:#c99a20"></i></span>
+  </div>
+</section>
+
+<section class="sg-sec">
+  <div class="sg-h"><span class="sv-title">Data</span><code>.ti-grid · .tbl · .ti-chips</code></div>
+  <div class="sg-row">
+    <div style="width:520px">
+      <div class="ti-name">Sakura Pass</div>
+      <div class="ti-chips"><span>Countryside</span><span>Point-to-point</span><span class="wx-chip">Day · Clear</span></div>
+      <div class="ti-grid four"><div><small>Position</small><b>03 / 12</b></div><div><small>Best lap</small><b>1:17.960</b></div><div><small>Gap to pole</small><b>+0.482</b></div><div><small>Laps</small><b>4</b></div></div>
+    </div>
+    <table class="tbl" style="width:380px">
+      <tr><th>Pos</th><th>Driver</th><th class="r">Gap</th></tr>
+      <tr><td class="p"><span class="pos p1">1</span></td><td>Lem</td><td class="t">-----</td></tr>
+      <tr><td class="p"><span class="pos p2">2</span></td><td>Sak</td><td class="t">+2.16</td></tr>
+      <tr class="me"><td class="p"><span class="pos">3</span></td><td>You</td><td class="t">+5.37</td></tr>
+      <tr><td class="p"><span class="pos">4</span></td><td>Tor</td><td class="t">+6.81</td></tr>
+    </table>
+  </div>
+</section>
+
+</body>
+</html>

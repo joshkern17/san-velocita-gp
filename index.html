@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><rect width=%2216%22 height=%2216%22 fill=%22%23000%22/><text x=%223%22 y=%2213%22 font-size=%2213%22 fill=%22%23e8b13a%22 font-family=%22serif%22>S</text></svg>">
 <link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="css/sv.css">
 <link rel="stylesheet" href="css/style.css">
 <script src="vendor/peerjs.min.js"></script>
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js", "postprocessing": "./vendor/postprocessing/index.js" } }</script>
@@ -25,7 +26,7 @@
     </div>
     <div class="logo" id="boot-logo">
       <div class="logo-top">San Velocita</div>
-      <div class="logo-band"><span>GRAND PRIX</span></div>
+      <div class="logo-band"><span>GRAND PRIX</span><i class="logo-line"></i><i class="sv-signal"></i></div>
     </div>
     <div class="press" id="boot-press">PRESS ENTER</div>
   </div>
@@ -36,10 +37,9 @@
   <div class="menu-shade"></div>
   <div class="logo small">
     <div class="logo-top">San Velocita</div>
-    <div class="logo-band"><span>GRAND PRIX</span></div>
+    <div class="logo-band"><span>GRAND PRIX</span><i class="logo-line"></i><i class="sv-signal"></i></div>
   </div>
   <div class="menu-col"><div class="menu main-menu" id="m-main"></div></div>
-  <div class="main-desc" id="d-main"></div>
   <div class="main-car" id="main-car"></div>
   <div class="footer-hints"></div>
   <div class="version">v1.0 &middot; PAL/NTSC</div>
@@ -82,7 +82,7 @@
 <!-- CAREER HUB -->
 <section id="s-career" class="screen menu-screen">
   <div class="menu-shade full"></div>
-  <header class="scr-head"><h1 class="gothic">Career</h1><p class="scr-sub">Championship seasons &middot; win the title, keep your seat</p></header>
+  <header class="scr-head"><h1 class="gothic">Career</h1><p class="scr-sub">Your career &middot; a challenge season &middot; a Grand Prix</p></header>
   <div class="career-wrap">
     <div class="panel narrow"><div class="tabs" id="career-tabs"></div><div class="menu" id="m-career"></div></div>
     <div class="panel career-info" id="career-info"></div>
@@ -175,6 +175,29 @@
       <div class="panel" id="round-info"></div>
       <div class="panel narrow"><div class="menu" id="m-round"></div></div>
     </div>
+  </div>
+  <div class="footer-hints"></div>
+</section>
+
+<!-- WORLD CAREER: the hub between rounds -->
+<section id="s-hub" class="screen menu-screen">
+  <div class="menu-shade full dark"></div>
+  <header class="scr-head"><h1 class="gothic" id="hub-title">Street Cup</h1><p class="scr-sub" id="hub-sub"></p></header>
+  <div class="hub-wrap">
+    <div class="panel hub-menu"><div class="menu" id="m-hub"></div></div>
+    <div class="panel hub-main"><div class="tabs" id="hub-tabs"></div><div class="hub-body" id="hub-body"></div></div>
+  </div>
+  <div class="desc-bar hub-desc" id="d-hub"></div>
+  <div class="footer-hints"></div>
+</section>
+
+<!-- WORLD CAREER: driver profiles -->
+<section id="s-drivers" class="screen menu-screen">
+  <div class="menu-shade full dark"></div>
+  <header class="scr-head"><h1 class="gothic">Drivers</h1><p class="scr-sub" id="drv-sub"></p></header>
+  <div class="hub-wrap">
+    <div class="panel hub-menu drv-menu"><div class="tabs" id="drv-tabs"></div><div class="menu" id="m-drivers"></div></div>
+    <div class="panel hub-main"><div class="hub-body" id="drv-body"></div></div>
   </div>
   <div class="footer-hints"></div>
 </section>
@@ -318,6 +341,14 @@
       </table>
       <p class="tip">Tip: raise one part of a crossing 5 m or more above the other and a bridge is built automatically.</p>
     </div>
+    <div class="help-page" data-page="career" hidden>
+      <div class="tips">
+        <div><h4>A world that keeps going</h4><p>World Career has no end. Every driver ages, gets quicker, peaks and retires; rookies come up through the series. The other series race every round too, whether you're in them or not.</p></div>
+        <div><h4>The ladder</h4><p><b>Street Cup</b>, <b>GT Championship</b>, <b>Formula SV</b>. Finish a season in the top three and the series above offers your team a place. You can take it or stay.</p></div>
+        <div><h4>Your phone</h4><p>Texts from your teammate, rivals and the series arrive between rounds. Press <b>P</b> (<b>Y</b> on a pad) in the hub to raise it. Offers are answered by reply.</p></div>
+        <div><h4>Your record</h4><p>Driver Profiles shows every driver's stats and history, and their record against you: who finished ahead, passes both ways and contact.</p></div>
+      </div>
+    </div>
     <div class="help-page" data-page="online" hidden>
       <div class="tips">
         <div><h4>Host a game</h4><p>Pick <b>Host Game</b> to open a room. Send the 5-letter room code to your friends. You choose the circuit, laps, AI and weather in the lobby.</p></div>
@@ -332,7 +363,7 @@
 
 <!-- LOADING -->
 <section id="s-loading" class="screen">
-  <div class="load-art">
+  <div class="load-art sv-frame">
     <canvas id="load-canvas" width="960" height="540"></canvas>
     <img id="load-img" class="pc-img" alt="">
     <div class="load-name gothic" id="load-name"></div>
@@ -346,30 +377,37 @@
 
 <!-- HUD -->
 <section id="hud" class="screen">
-  <div class="hud-tr">
-    <div class="hud-pos pd" id="h-pos"></div>
+  <!-- top right: position (or the session clock), then the lap block -->
+  <div class="hud-tr sv-frame">
+    <div class="hud-cap" id="h-poslbl">POSITION</div>
+    <div class="hud-pos" id="h-pos"></div>
     <div class="hud-rows">
-      <div class="hud-row"><span class="lbl">LAP</span><span class="pd val" id="h-lap"></span></div>
-      <div class="hud-row"><span class="lbl" id="h-timelbl">TIME</span><span class="pd val" id="h-time"></span></div>
-      <div class="hud-row"><span class="lbl">LAST</span><span class="pd val sm" id="h-last"></span></div>
-      <div class="hud-row"><span class="lbl">BEST</span><span class="pd val sm" id="h-best"></span></div>
-      <div class="hud-row delta-row" id="h-deltarow"><span class="lbl">DELTA</span><span class="pd val sm" id="h-delta"></span></div>
-      <div class="hud-row pen-row" id="h-penrow"><span class="lbl">PENALTY</span><span class="pd val sm" id="h-pen"></span></div>
+      <div class="hud-row"><span class="lbl">LAP</span><span class="val" id="h-lap"></span></div>
+      <div class="hud-row"><span class="lbl">LAST</span><span class="val" id="h-last"></span></div>
+      <div class="hud-row"><span class="lbl">BEST</span><span class="val" id="h-best"></span></div>
+      <div class="hud-row pen-row" id="h-penrow"><span class="lbl">PENALTY</span><span class="val" id="h-pen"></span></div>
     </div>
   </div>
-  <div class="hud-tower" id="h-tower"></div>
-  <div class="hud-bl"><canvas id="radar" width="200" height="200"></canvas></div>
+  <!-- top centre: the current lap time, big (a rear-view mirror can sit above it later: --mirror-h) -->
+  <div class="hud-tc sv-frame" id="h-tc">
+    <div class="hud-cap" id="h-timelbl">LAP TIME</div>
+    <div class="laptime" id="h-time"></div>
+    <div class="tc-delta" id="h-deltarow"><span id="h-delta"></span></div>
+  </div>
+  <div class="hud-tower sv-frame" id="h-tower"></div>
+  <div class="hud-bl"><canvas id="radar" width="176" height="176"></canvas></div>
+  <!-- bottom right: car status | gear | speed, the rev meter and driver aids underneath -->
   <div class="hud-br">
-    <div class="gear-box"><div class="gear pd" id="h-gear">N</div></div>
+    <div class="hud-car"><div class="hud-plan" id="h-plan"></div><canvas id="h-car" width="150" height="150"></canvas></div>
+    <div class="hud-gear"><div class="hud-cap">GEAR</div><div class="gear" id="h-gear">N</div></div>
     <div class="speed-wrap">
-      <div class="speed pd" id="h-speed">0</div>
-      <div class="unit" id="h-unit">KM/H</div>
+      <div class="hud-cap">SPEED</div>
+      <div class="speed-line"><span class="speed" id="h-speed">0</span><span class="unit" id="h-unit">KM/H</span></div>
       <div class="tow" id="h-tow">SLIPSTREAM</div>
     </div>
-    <div class="rpm-bar"><div class="rpm-fill" id="h-rpm"></div><div class="rpm-seg"></div></div>
+    <div class="rpm-row"><span class="hud-cap">RPM</span><i class="rpm-bar" id="h-rpm"></i></div>
     <div class="aids" id="h-aids"><i data-k="abs">ABS</i><i data-k="tc">TC</i><i data-k="stab">SC</i><i data-k="cs">CS</i><i data-k="brake">BA</i><i data-k="steer">SA</i></div>
   </div>
-  <div class="hud-car"><div class="hud-plan" id="h-plan"></div><canvas id="h-car" width="104" height="150"></canvas></div>
   <div class="pitbox" id="h-pit"></div>
   <div class="helpbox" id="h-help"></div>
   <div class="rc-top">

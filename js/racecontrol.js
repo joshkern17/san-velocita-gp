@@ -448,6 +448,7 @@ export class RaceControl {
     this.cases = this.cases.filter(c => {
       if (now - c.t < 2.5) return true;
       const d = c.vic.phys.dmg, hurt = d.fw + d.rw + d.ch - c.dmg0 > 0.15 || (c.vic.rc && (c.vic.rc.last ?? -99) >= c.t);
+      if (c.hit.pid && c.vic.pid) this.race.log.push({ type: 'contact', a: c.hit.pid, b: c.vic.pid, blame: !!hurt, where: c.where, t: now });
       if (!c.hit.gone && !c.hit.dsq && hurt) this.penalise(c.hit, PEN, `caused a collision (${c.where.replace('Turn ', 'T')})`);
       else if (c.hit.isPlayer || c.vic.isPlayer) this.say('Incident reviewed · no further action', { me: true, cls: 'g' });
       return false;

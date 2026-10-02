@@ -22,6 +22,7 @@ const inlineScript = (code, type = '') => `<script${type ? ` type="${type}"` : '
 let html = read('index.html');
 const swap = (from, to) => { if (!html.includes(from)) throw new Error('build: not found in index.html: ' + from); html = html.replace(from, () => to); };
 swap('<link rel="stylesheet" href="css/fonts.css">', `<style>${read('css/fonts.css')}</style>`);
+swap('<link rel="stylesheet" href="css/sv.css">', `<style>${read('css/sv.css')}</style>`);
 swap('<link rel="stylesheet" href="css/style.css">', `<style>${read('css/style.css')}</style>`);
 swap('<script src="vendor/peerjs.min.js"></script>', inlineScript(read('vendor/peerjs.min.js')));
 html = html.replace(/<script type="importmap">[\s\S]*?<\/script>\n?/, '');
@@ -40,6 +41,9 @@ if (fs.existsSync(path.join(envDir, 'catalog.json'))) {
 // your garage model (models/garage.glb), if there is one: read from window.__SVGP_GARAGE_GLB (js/pitgarage.js)
 const garagePath = path.join(root, 'models/garage.glb');
 const garageTag = fs.existsSync(garagePath) ? inlineScript(`window.__SVGP_GARAGE_GLB = "data:model/gltf-binary;base64,${fs.readFileSync(garagePath).toString('base64')}";`) : '';
+// the career phone (models/phone.glb): window.__SVGP_PHONE_GLB (js/phone.js)
+const phonePath = path.join(root, 'models/phone.glb');
+const phoneTag = fs.existsSync(phonePath) ? inlineScript(`window.__SVGP_PHONE_GLB = "data:model/gltf-binary;base64,${fs.readFileSync(phonePath).toString('base64')}";`) : '';
 // the GT / street / utility cars (models/cars/*.glb), read from window.__SVGP_CARS
 const carsDir = path.join(root, 'models/cars');
 const carGlbs = {};
@@ -47,7 +51,7 @@ if (fs.existsSync(carsDir)) for (const f of fs.readdirSync(carsDir)) if (f.endsW
 const carsTag = inlineScript(`window.__SVGP_CARS = ${JSON.stringify(carGlbs)};`);
 // the soundtrack is too big to inline: it goes in a music/ folder beside the HTML (js/audio.js reads __SVGP_MUSIC_DIR)
 const musicTag = inlineScript(`window.__SVGP_MUSIC_DIR = 'music/';`);
-swap('<script type="module" src="js/main.js"></script>', glbTag + garageTag + envTag + carsTag + musicTag + inlineScript(js, 'module'));
+swap('<script type="module" src="js/main.js"></script>', glbTag + garageTag + phoneTag + envTag + carsTag + musicTag + inlineScript(js, 'module'));
 
 fs.mkdirSync(dist, { recursive: true });
 const name = 'San Velocita GP.html';

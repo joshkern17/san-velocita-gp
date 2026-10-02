@@ -1,0 +1,144 @@
+/* =====================================================================================
+   SAN VELOCITA design system — "neon signal"
+   Tokens + primitives every screen is built from. Rules and examples: docs/DESIGN.md,
+   live reference: styleguide.html. Loaded before style.css; screens never invent their
+   own colours, fonts or glows, they pick from here.
+   ===================================================================================== */
+:root {
+  /* ---- colour: one hot hue family, one cool accent ---- */
+  --sv-hot-top: #ff8a2a;        /* top of title gradients */
+  --sv-hot: #ff6a1c;            /* titles + hero numbers */
+  --sv-hot-deep: #ff3d0c;       /* lower half of title gradients */
+  --sv-red: #ff2b00;            /* the signal colour: labels, menu items, rules, keycaps */
+  --sv-red-dim: #c93216;        /* secondary text, units, inactive items */
+  --sv-red-faint: color-mix(in srgb, var(--sv-red) 22%, transparent);
+  --sv-amber: #ffc21a;          /* focus: whatever is highlighted right now */
+  --sv-cyan: #2d36f2;           /* the accent (SV blue): the cursor, chevrons, "live"/"saved"/positive */
+  --sv-blue: #1f6bff;
+  --sv-violet: #7a35ff;
+  --sv-paper: #fff1e8;          /* text sitting on a solid red fill, nowhere else */
+  --sv-good: var(--sv-cyan);    /* faster, OK, gained */
+  --sv-bad: #ff2d6f;            /* slower, damage, penalties (pinker than --sv-red so it reads as different) */
+  --sv-best: #b66dff;           /* personal / session best (racing convention: purple) */
+  --sv-ink: #05060c;            /* page black */
+  --sv-shade: rgba(4, 3, 8, .74);
+  --sv-plate: rgba(6, 4, 10, .58);   /* the only "panel" fill: a dark plate behind text over bright scenes */
+  --sv-rule: color-mix(in srgb, var(--sv-red) 60%, transparent);
+  --sv-signal-glow: rgba(45, 54, 242, .7);
+  --sv-map: #2d36f2;            /* the circuit line on the HUD map, the car on the car-status diagram */
+  --sv-signal: linear-gradient(90deg, #a9b0ff 0%, #6a72ff 30%, #2d36f2 65%, #5a1fd6 100%);
+
+  /* ---- soft text: the letters are two blurred copies of themselves stacked, in exactly their own colour ----
+     (the crisp fill is hidden wherever these are used), so type reads soft and lit, never razor-sharp. Never a dark
+     drop-shadow. Layer 1 draws the letter, layer 2 thickens and softens it; blur grows a little with text size. */
+  --sv-glow: 0 0 max(.5px, .025em) currentColor, 0 0 max(1px, .06em) currentColor;
+  --sv-glow-hud: var(--sv-glow);
+  /* dark text on a filled (amber) button: the same two soft layers, in ink */
+  --sv-glow-ink: 0 0 max(.5px, .025em) var(--sv-ink), 0 0 max(1px, .06em) var(--sv-ink);
+  /* a touch softer: menu rows and the GRAND PRIX caption */
+  --sv-glow-strong: 0 0 max(.8px, .04em) currentColor, 0 0 max(1.6px, .1em) currentColor;
+  /* sentences: the same two layers, tighter, so small text stays readable */
+  --sv-glow-body: 0 0 .4px currentColor, 0 0 .9px currentColor;
+  --sv-glow-box: 0 0 2px currentColor, 0 0 4px currentColor, inset 0 0 2px currentColor;
+  --sv-glow-line: 0 0 2px var(--sv-red), 0 0 4px var(--sv-red);
+  --sv-glow-fill: 0 0 3px currentColor, 0 0 6px currentColor;
+  /* titles are gradient-filled, so they soften with a filter in their own hot colour */
+  --sv-glow-title: blur(.6px) drop-shadow(0 0 2px var(--sv-hot));
+
+  /* ---- type: role families (tools/build-fonts.py), tight tracking ---- */
+  --f-display: 'SV Display', 'Helvetica Neue', Arial, sans-serif;
+  --f-ui: 'SV UI', 'Helvetica Neue', Arial, sans-serif;
+  --f-body: 'SV Body', 'Helvetica Neue', Arial, sans-serif;
+  --f-num: 'SV Num', 'Helvetica Neue', Arial, sans-serif;
+  --track: -0.02em;             /* the house tracking: everything, condensed or not */
+  --track-caption: .34em;       /* the one exception: spaced captions (G R A N D  P R I X) */
+
+  /* type scale (px at --ui 1) */
+  --t-hero: 104px;  --t-title: 72px;  --t-head: 30px;  --t-item: 30px;
+  --t-row: 20px;    --t-label: 15px;  --t-caption: 14px; --t-body: 15px; --t-small: 12px;
+
+  /* spacing: 4px grid; screens sit on a 5% side margin */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px; --s12: 48px;
+  --edge: 5%;
+
+  /* motion: snappy, never bouncy */
+  --m-fast: .08s; --m-med: .18s; --m-slow: .35s; --ease: cubic-bezier(.2, .8, .2, 1);
+}
+
+/* ---- UI Colour: Blue (Options > Display). The blue takes over everything the red did; the red becomes the accent ---- */
+:root[data-theme="blue"] {
+  /* SV blue #2D36F2 carries the type; titles run from a pale tint down into it */
+  --sv-hot-top: #b3b7ff; --sv-hot: #6a71ff; --sv-hot-deep: #2d36f2;
+  --sv-red: #2d36f2; --sv-red-dim: #3a41b8;
+  --sv-cyan: #ff2b00;
+  --sv-good: #4dffa0;
+  --sv-paper: #eef0ff;
+  --sv-signal-glow: rgba(255, 43, 0, .7);
+  --sv-map: #ff2b00;
+  --sv-signal: linear-gradient(90deg, #ffb070 0%, #ff7a2a 30%, #ff2b00 65%, #c8002e 100%);
+}
+
+/* ---------- base ---------- */
+body { font-family: var(--f-body); letter-spacing: var(--track); color: var(--sv-red); font-kerning: normal; }
+
+/* ---------- type roles ---------- */
+.sv-hero { font: 700 var(--t-hero)/.86 var(--f-display); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-hot);
+  background: linear-gradient(180deg, var(--sv-hot-top) 0%, var(--sv-hot) 45%, var(--sv-hot-deep) 100%); -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; filter: var(--sv-glow-title); }
+.sv-title { font: 500 var(--t-head)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+.sv-caption { font: 500 var(--t-caption)/1 var(--f-ui); letter-spacing: var(--track-caption); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+.sv-label { font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+.sv-body { font: 500 var(--t-body)/1.45 var(--f-body); letter-spacing: var(--track); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; }
+.sv-num { font-family: var(--f-num); font-variant-numeric: tabular-nums; }
+.sv-cyan { color: var(--sv-cyan); } .sv-amber { color: var(--sv-amber); } .sv-dim { color: var(--sv-red-dim); }
+
+/* ---------- the cursor: a cyan play-triangle in front of the focused row ---------- */
+.sv-cursor { display: inline-block; width: 0; height: 0; border-left: .5em solid var(--sv-cyan); border-top: .32em solid transparent; border-bottom: .32em solid transparent;
+  filter: drop-shadow(0 0 2px var(--sv-cyan)); }
+
+/* ---------- rule: a glowing hairline ---------- */
+.sv-rule { height: 2px; border: 0; margin: 0; background: var(--sv-red); box-shadow: var(--sv-glow-line); }
+
+/* ---------- signal meter: segmented cyan→violet bar (rpm, wear, level, progress) ----------
+   <i class="sv-signal" style="--v:.6"></i>   --v = fill 0..1, --n = segment count */
+.sv-signal { --v: 1; --n: 14; display: inline-block; width: 168px; height: 26px; vertical-align: middle;
+  background: var(--sv-signal);
+  -webkit-mask: linear-gradient(90deg, #000 calc(var(--v) * 100%), rgba(0,0,0,.16) 0), repeating-linear-gradient(90deg, #000 0 calc(100% / var(--n) - 4px), transparent 0 calc(100% / var(--n)));
+  -webkit-mask-composite: source-in; mask-composite: intersect;
+  filter: drop-shadow(0 0 2px var(--sv-signal-glow)); }
+
+/* ---------- keycap prompt ---------- */
+.sv-key { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 28px; padding: 0 7px; border: 2px solid currentColor; border-radius: 3px;
+  font: 500 15px/1 var(--f-ui); letter-spacing: 0; text-transform: uppercase; color: var(--sv-red); box-shadow: var(--sv-glow-box); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+
+/* ---------- button: outlined at rest; hover / focus fills it amber with ink text ----------
+   <button class="sv-btn">Save</button>   (.on = latched, .hot = primary) */
+.sv-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--s2); padding: 6px 14px 5px; border: 1.5px solid currentColor; border-radius: 3px; background: transparent;
+  font: 500 15px/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; box-shadow: var(--sv-glow-box); cursor: pointer;
+  transition: background var(--m-fast), color var(--m-fast), box-shadow var(--m-fast); }
+.sv-btn.hot { color: var(--sv-hot); }
+.sv-btn:hover, .sv-btn:focus-visible, .sv-btn.sel, .sv-btn.on { color: var(--sv-amber); background: var(--sv-amber); outline: none; }
+.sv-btn:hover, .sv-btn:focus-visible, .sv-btn.sel, .sv-btn.on { box-shadow: var(--sv-glow-fill); text-shadow: var(--sv-glow-ink); }
+.sv-btn:hover, .sv-btn:focus-visible, .sv-btn.sel, .sv-btn.on { -webkit-text-fill-color: transparent; }
+.sv-btn[disabled] { opacity: .35; cursor: not-allowed; background: transparent; box-shadow: none; }
+
+/* ---------- frame: a crisp dark box with glowing corner brackets ----------
+   <div class="sv-frame">…</div>   (--frame-c = bracket colour, --frame-l = bracket length) */
+.sv-frame { position: relative; background: rgba(5, 3, 8, .72); }
+.sv-frame::after { --l: var(--frame-l, 14px); --c: var(--frame-c, var(--sv-red)); content: ''; position: absolute; inset: -1px; pointer-events: none;
+  background: linear-gradient(var(--c), var(--c)) top left / var(--l) 2px, linear-gradient(var(--c), var(--c)) top left / 2px var(--l),
+    linear-gradient(var(--c), var(--c)) top right / var(--l) 2px, linear-gradient(var(--c), var(--c)) top right / 2px var(--l),
+    linear-gradient(var(--c), var(--c)) bottom left / var(--l) 2px, linear-gradient(var(--c), var(--c)) bottom left / 2px var(--l),
+    linear-gradient(var(--c), var(--c)) bottom right / var(--l) 2px, linear-gradient(var(--c), var(--c)) bottom right / 2px var(--l);
+  background-repeat: no-repeat; filter: drop-shadow(0 0 2px var(--c)); }
+
+/* ---------- colour swatch ---------- */
+.sv-swatch { display: inline-block; width: 40px; height: 40px; background: var(--c, #888); outline: 2px solid transparent; outline-offset: 3px; }
+.sv-swatch.on { outline-color: var(--sv-cyan); }
+
+/* ---------- stat strip: LABEL over VALUE, split by glowing verticals ---------- */
+.sv-stats { display: flex; align-items: stretch; }
+.sv-stats > div { padding: 0 var(--s5); border-left: 2px solid var(--sv-red); box-shadow: -4px 0 6px -4px color-mix(in srgb, var(--sv-red) 60%, transparent); }
+.sv-stats > div:first-child { padding-left: 0; border-left: 0; box-shadow: none; }
+.sv-stats small { display: block; font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; margin-bottom: var(--s1); }
+.sv-stats b { display: block; font: 700 30px/1 var(--f-ui); letter-spacing: var(--track); color: var(--sv-hot); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
