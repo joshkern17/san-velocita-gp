@@ -104,9 +104,9 @@ export class Phone {
     if (ok && n) { this.pick(items[this.sel]); this.dirty = true; }
   }
   items() {
-    if (this.page === 'home') return [{ k: 'msgs', t: 'Messages' }, { k: 'news', t: 'News' }, { k: 'exit', t: 'Put away' }];
+    if (this.page === 'home') return [{ k: 'msgs', t: 'Messages' }, ...(this.src.news ? [{ k: 'news', t: 'News' }] : []), { k: 'exit', t: 'Put away' }]; // (World Career's news is on the computer)
     if (this.page === 'msgs') return this.src.msgs().map(m => ({ k: 'm', m }));
-    if (this.page === 'news') return this.src.news().map(n => ({ k: 'n', n }));
+    if (this.page === 'news') return (this.src.news ? this.src.news() : []).map(n => ({ k: 'n', n }));
     if (this.page === 'msg' && this.cur?.choices && !this.cur.answer) return this.cur.choices.map(([key, t]) => ({ k: 'c', key, t }));
     return [];
   }
@@ -217,9 +217,10 @@ export class Phone {
     const k = this.k, open = Math.max(0, (k - 0.35) / 0.65), peek = Math.min(1, k / 0.35);
     const t = performance.now() / 1000;
     // hidden (below the frame) -> peek (small, bottom right, the screen showing) -> open (big, facing you)
-    const sc = 0.55 + 0.45 * open;
+    // (resting: low and small, just its screen above the edge, so it doesn't cover the garage)
+    const sc = 0.45 + 0.55 * open;
     this.rig.scale.setScalar(sc);
-    this.rig.position.set(0.045 * (1 - open), -0.46 + 0.33 * peek + 0.13 * open + Math.sin(t * 1.3) * 0.003, 0);
+    this.rig.position.set(0.06 * (1 - open), -0.46 + 0.2 * peek + 0.26 * open + Math.sin(t * 1.3) * 0.003, 0);
     this.rig.rotation.set(-0.3 + 0.24 * open, -0.34 + 0.26 * open, 0.1 * (1 - open));
     if (this.buzzT > 0) { this.rig.rotation.z += Math.sin(t * 90) * 0.035 * Math.min(1, this.buzzT * 2); this.rig.position.x += Math.sin(t * 77) * 0.003; }
     if (this.dirty || this.buzzT > 0 || (this.state !== 'open' && Math.floor(t * 3.3) !== this.blink)) { this.blink = Math.floor(t * 3.3); this.drawLCD(); this.dirty = false; }
