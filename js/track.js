@@ -602,6 +602,9 @@ export function buildPitLane(T, A, env) {
       if (A.BRIDGE[i] || !(sd < 0 ? A.HAS_L[i] : A.HAS_R[i])) { ok = false; break; }
       // no tight corner on the pit side
       if (sd * T.K[i] > 0 && 1 / Math.abs(T.K[i]) < laneC(i) + PIT.width + 25) { ok = false; break; }
+      // the way in (the entry ramp and the start of the wall) on a straight or a gentle bend: a tight corner there,
+      // either way, sends cars running wide on its exit into the pit entry
+      if (k - k0 < nRamp + Math.round(30 / ds) && Math.abs(T.K[i]) > 1 / 120) { ok = false; break; }
       // room: nothing else of the circuit where the lane and garages go
       const out = laneC(i) + PIT.width / 2 + 16;
       for (const o of [laneC(i), out]) {

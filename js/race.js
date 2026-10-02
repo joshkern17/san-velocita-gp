@@ -1,6 +1,6 @@
 // Race session: world + cars + AI + rules + cameras
 import * as THREE from 'three';
-import { sampleTrack, analyzeTrack, computeRacingLine, computeSpeedProfile, surfaceY, gridSlot, circDist, buildPitLane, OPEN_END_WALL } from './track.js';
+import { sampleTrack, analyzeTrack, computeRacingLine, computeSpeedProfile, surfaceY, gridSlot, circDist, buildPitLane, OPEN_END_WALL, PIT } from './track.js';
 import { buildWorld, walkEdge, walkWidth, KERB_H, WALK_H, WALK_RAMP } from './world.js';
 import { applyRoadsToCircuit, raiseTrackOverRoads } from './roads.js';
 import { Spray } from './weatherfx.js';
@@ -972,7 +972,8 @@ export class Race {
     const pit = this.pit; if (!pit) return;
     const i = car.idx, w = pit.WALL[i];
     const ss = car.s * pit.side;
-    if (isNaN(w)) { car.laneSide = ss > this.T.W[i] / 2 + 0.3; return; }
+    // (before the wall starts: which side of where it will stand. Running wide over the kerb isn't the pit lane)
+    if (isNaN(w)) { car.laneSide = ss > this.T.W[i] / 2 + (pit.REG[i] >= 0 ? PIT.wallGap : 0.3); return; }
     if (car.laneSide === undefined) car.laneSide = ss > w;
     const T = this.T;
     if (car.laneSide && ss < w + 1.0) { const d = w + 1.0 - ss; const rx = -T.RX[i] * pit.side, rz = -T.RZ[i] * pit.side; car.phys.x -= rx * d; car.phys.z -= rz * d; car.s += pit.side * d; this.bounce(car, rx, rz, -pit.side, d); }
