@@ -1300,6 +1300,16 @@ let optSub = false;  // ... or Career Options
 let gig = null;      // a gig being driven: { g, t, ref, comfort, lc, lapComfort, dmg, lat, lon }
 const worldOpts = { len: 6, difficulty: 'medium', laps: 5, weekend: 'quali', prac: 1200, quali: 600, pool: 'presets', name: '' };
 const worldPool = () => trackPool(world ? world.opts.pool : worldOpts.pool);
+// a calendar's circuit: from the career's pool, else any circuit the game knows (a calendar made from another pool, a
+// circuit since renamed)
+const findCalTrack = (name) => worldPool().find(t => t.name === name) || [...presetTracks(), ...savedTracks(), ...realTracks()].find(t => t.name === name) || null;
+// ... and for a round about to be driven: if it's gone altogether, the first preset stands in and the calendar says so
+// (so the emails and the results name the circuit you actually raced)
+function calTrack(R) {
+  let base = findCalTrack(R.name);
+  if (!base) { base = presetTracks()[0]; R.name = base.name; R.theme = base.env.theme; saveWorld(); }
+  return base;
+}
 const saveWorld = () => { if (world) WC.saveWorld(world); };
 const seriesName = (sid) => WC.seriesById(sid).name;
 const ord = (p) => p + (['th', 'st', 'nd', 'rd'][(p % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][p % 100] || 'th');
@@ -1522,7 +1532,7 @@ function startWorld() {
   const name = settings.driverName || 'Driver';
   const streetCars = carsOfClass('street').map(id => ({ key: chassisKey(id), name: CARS[id].name, value: Math.round(12000 + CARS[id].spec.power * 0.11) }));
   world = WC.newWorld({ name, len: worldOpts.len, difficulty: worldOpts.difficulty, laps: worldOpts.laps, weekend: worldOpts.weekend, pracLen: worldOpts.prac, qualiLen: worldOpts.quali, pool: worldOpts.pool,
-    teamName: `${name.split(' ').pop()} Racing`, colors: [settings.car.main, settings.car.accent], seed: Date.now(), streetCars }, worldPool());
+    teamName: `${name.split(' ').pop()} Racing`, colors: [settings.car.main, settings.car.accent], seed: Date.now(), streetCars }, trackPool(worldOpts.pool)); // (this career's choice, not the last one loaded)
   saveWorld();
   fadeTo(() => { enterHub(); const m = world.mail.find(x => x.link && x.link[0] === 'registry'); setTimeout(() => { if (screen === 's-hub') sitDown('mail', m && m.id); }, 700); }, 200);
 }
@@ -1665,6 +1675,9 @@ function runVoices() {
   const ctx = `${w.player.name.split(' ')[0]}, owner-driver of ${w.teams[w.player.team].name} in the ${seriesName(w.player.series)}, ${w.year} season, round ${w.round + 1} of ${w.opts.len}. ${cp && w.series[w.player.series].results.length ? `${ord(cp)} in the championship.` : 'No races yet.'} ${w.money ? `Bank: ${WC.money$(w.money.balance)}.` : ''} ${B.watch.slice(0, 2).map(x => x.text).join('. ')}`;
   voiceWorld(w, ctx, () => { saveWorld(); if (screen === 's-hub') { renderHubMenu(); if (pc.isOpen) pc.render(); } });
 }
+// (the next circuit's samples, kept: the garage redraws often)
+const hubTrackCache = new Map();
+const hubTrackT = (tr) => { if (!hubTrackCache.has(tr.name)) hubTrackCache.set(tr.name, sampleTrack(tr)); return hubTrackCache.get(tr.name); };
 // the week, as a calendar across the top: what each day went on, today, race day
 function renderWeekStrip() {
   const w = world, el = $('hub-week'), on = !!founded(w) && !w.over && hubMode === 'room';
@@ -1680,9 +1693,13 @@ function renderWeekStrip() {
     return `<div class="wk-day${today ? ' today' : ''}"><small>${d}</small><b>${today ? 'Today' : 'Free'}</b><em>&nbsp;</em></div>`;
   }).join('');
   const B = WC.briefing(w), tg = B.targets.slice(0, 3).map(t => `<div class="br-row tg"><span><b>${t.who}:</b> ${t.text.charAt(0).toLowerCase() + t.text.slice(1)}</span>${t.amt ? `<em>+${WC.money$(t.amt)}</em>` : ''}</div>`).join('');
-  el.innerHTML = `<div class="wk-head"><span>Round ${w.round + 1}: ${R.name} &middot; ${R.time}, ${R.weather}</span><b>${left ? `${left} day${left === 1 ? '' : 's'} left` : 'Race day next'}</b></div>
+  const tr = findCalTrack(R.name), T = tr ? hubTrackT(tr) : null, km = T ? (trackStats(T).length / 1000).toFixed(1) : null;
+  el.innerHTML = `<div class="wk-head"><span>The week before round ${w.round + 1} of ${w.opts.len}</span><b>${left ? `${left} day${left === 1 ? '' : 's'} left` : 'Race day next'}</b></div>
     <div class="wk-days">${days}<div class="wk-day race"><small>Sat</small><b>Race</b><em>Round ${w.round + 1}</em></div></div>
-    <div class="wk-targets"><div class="panel-title">This weekend</div>${tg || '<div class="br-none">No targets set. Race well.</div>'}</div>`;
+    <div class="wk-targets"><canvas class="wk-map" width="180" height="132"></canvas><div class="wk-tg">
+      <div class="wk-track">${R.name}</div><div class="wk-cond">${tr ? THEMES[tr.env.theme].label : ''}${km ? ` &middot; ${km} km${T.open ? ', point to point' : ''}` : ''} &middot; ${R.time}, ${R.weather}</div>
+      ${tg || '<div class="br-none">No targets set. Race well.</div>'}</div></div>`;
+  if (T) drawTrackMap(T, el.querySelector('.wk-map'));
 }
 function renderHubMenu() {
   if (!world) return;
@@ -1842,7 +1859,7 @@ function startWorldRound() {
   wkUse = { trackside: 0, laps: 0, damage: 0, seen: null, carry: null };
   updateLogoShown();
   if (w.staff) { WC.managerRestock(w); WC.runPayroll(w); saveWorld(); }
-  const base = worldPool().find(t => t.name === r.name) || presetTracks()[0];
+  const base = calTrack(r);
   const track = cloneTrack(base); track.env.time = r.time; track.env.weather = r.weather;
   // your team wears your livery
   const mine = w.teams[w.player.team], wc = worldCar(); mine.main = wc.main; mine.accent = wc.accent;
@@ -2060,7 +2077,7 @@ function startTestDay() {
   const w = world, R = w.series[w.player.series].cal[w.round];
   if (!WC.bookTest(w)) return;
   saveWorld();
-  const base = worldPool().find(t => t.name === R.name) || presetTracks()[0];
+  const base = calTrack(R);
   const track = cloneTrack(base); track.env.time = R.time; track.env.weather = R.weather;
   phone.hide();
   startRace(track, { mode: 'test', pick: false, brief: `<b>TEST DAY &middot; ${R.name.toUpperCase()}</b><br>Five laps or more finds a setup for the race. Pause to end the day.`, extra: { car: worldCar(), mods: WC.carMods(w) } }, 'testday');
@@ -3290,4 +3307,4 @@ requestAnimationFrame(frame);
 // debug handle
 window.__svgp = { get world() { return world; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), voiceState } };
+  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub() } };
