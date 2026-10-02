@@ -1480,3 +1480,9 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .sp-logo { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
 .sp-logo img { height: 28px; border: 1px solid #ccc; background: #eee; }
 .sp-logo span { font-size: 12px; font-weight: bold; }
+/* the Team app's Drivers tab */
+.dv-chip { display: inline-block; margin-left: 4px; padding: 0 5px; font-size: 10px; font-weight: bold; color: #fff; background: #4a4f5a; border-radius: 2px; vertical-align: 1px; }
+.dv-mate { grid-template-columns: 1fr 130px 120px auto; }
+.dv-h { margin: 14px 0 4px; font-size: 13px; border-bottom: 1px solid #999; }
+.dv-row { grid-template-columns: 1fr 130px auto; }
+.db-traits { margin: 0 0 10px; font-size: 13px; color: #333; line-height: 1.7; }

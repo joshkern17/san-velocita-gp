@@ -68,8 +68,111 @@ function makePerson(w, { age, series, lvl }) {
     starts: 0, wins: 0, pods: 0, titles: 0, hist: [],
   };
   w.people[id] = p;
+  giveTraits(w, p);
   return p;
 }
+// ---------------- traits: who a driver is, beyond the numbers ----------------
+export const TRAITS = {
+  digger:    { name: 'Digger', desc: 'Quick, and knows it. Complains to the press when things go wrong, and wants to be number one.' },
+  loyal:     { name: 'Loyal', desc: 'Sticks with a team through bad times. Asks for less, forgives late pay.' },
+  hothead:   { name: 'Hothead', desc: 'Brilliant wheel to wheel, and in the wall more often than most.' },
+  rainman:   { name: 'Rain master', desc: 'Comes alive in the wet.' },
+  mentor:    { name: 'Mentor', desc: 'An old hand. Their teammate goes quicker for having them around.' },
+  metronome: { name: 'Metronome', desc: 'Same lap time, every lap. Rarely spectacular.' },
+  paydriver: { name: 'Pay driver', desc: 'Brings their own money. Not always the quickest.' },
+};
+function giveTraits(w, p) {
+  p.traits = [];
+  const age = ageOf(w, p), roll = () => rng(w);
+  if (roll() < 0.14) { p.traits.push('digger'); p.pace = clamp(p.pace + 2, 20, 99); p.pot = clamp(p.pot + 2, 20, 99); }
+  if (roll() < 0.12 && !p.traits.includes('digger')) p.traits.push('loyal');
+  if (roll() < 0.12) { p.traits.push('hothead'); p.aggr = clamp(p.aggr + 22, 8, 98); p.cons = clamp(p.cons - 8, 20, 96); }
+  if (roll() < 0.1) { p.traits.push('rainman'); p.wet = clamp(p.wet + 22, 15, 99); }
+  if (age >= 30 && roll() < 0.3) p.traits.push('mentor');
+  if (roll() < 0.1 && !p.traits.includes('hothead')) { p.traits.push('metronome'); p.cons = clamp(p.cons + 12, 20, 98); p.craft = clamp(p.craft - 5, 20, 96); }
+  if (roll() < 0.08) { p.traits.push('paydriver'); p.pace = clamp(p.pace - 4, 20, 99); }
+  if (p.traits.length > 2) p.traits.length = 2;
+}
+export const people = (w) => w.people;
+export const traitsOf = (w, p) => { if (p && !p.traits) giveTraits(w, p); return p ? p.traits : []; };
+// ---------------- your teammate: contracts and the driver market ----------------
+// w.mate: { pid, wage (a round; 0 for a pay driver), fee (a pay driver's money, a season), until (last season),
+// pay ('full' | 'half' | 'hold'), owed, morale }. Free agents can be signed any time; between seasons (the season
+// over), drivers from other teams in your series and below too. Releasing someone mid-contract costs their wages to
+// the end of the season, and drivers hear about it.
+const DRIVER_WAGE = (pace) => Math.max(250, Math.round((300 + (pace - 40) * 65) / 50) * 50);
+export function mateOf(w) {
+  const pid = w.teams[w.player.team]?.drivers.find(d => d !== 'P'); if (!pid) return null;
+  if (!w.mate || w.mate.pid !== pid) {
+    // (a contract for whoever is in the seat: the pay driver you inherited, or someone the series placed there)
+    const pd = w.payDriver && w.payDriver.pid === pid ? w.payDriver : null;
+    w.mate = { pid, wage: pd ? 0 : askOf(w, w.people[pid]).wage, fee: pd ? pd.fee : 0, until: w.year, pay: 'full', owed: 0, morale: 65 };
+  }
+  return w.mate;
+}
+// what a driver wants: a wage a round (scaled to your series), or a pay driver's money a season
+export function askOf(w, p) {
+  const k = WAGE_K[w.player.series] || 1, t = traitsOf(w, p);
+  if (t.includes('paydriver')) return { wage: 0, fee: Math.round((25000 + (60 - Math.min(60, p.pace)) * 900) * (k > 1 ? k * 0.6 : 1) / 500) * 500 };
+  let wage = DRIVER_WAGE(p.pace) * k;
+  if (t.includes('digger')) wage *= 1.3; if (t.includes('loyal')) wage *= 0.8; if (p.titles) wage *= 1 + 0.15 * p.titles;
+  return { wage: Math.round(wage / 50) * 50, fee: 0 };
+}
+export function driverMarket(w) {
+  const S = seriesById(w.player.series), mateId = mateOf(w)?.pid;
+  const ok = (sid) => sid && seriesById(sid) && seriesById(sid).tier <= S.tier;
+  return Object.values(w.people).filter(p => !p.retired && p.id !== mateId && ageOf(w, p) < 40 && (
+    (!p.team && (p.series === null || ok(p.series))) || (w.over && p.team && p.team !== w.player.team && ok(w.teams[p.team]?.series))))
+    .sort((a, b) => b.pace - a.pace).slice(0, 14);
+}
+// will they sign? (an offer of their ask, or lowball = 75% of it)
+export function offerDriver(w, pid, lowball = false) {
+  const p = w.people[pid], a = askOf(w, p), h = h2hOf(w, pid);
+  if (grudgeOf(w, pid) >= 3) return { ok: false, why: `${p.first} won't drive for you. Not after the way you've raced them.` };
+  if (drepOf(w) < 25 && !traitsOf(w, p).includes('paydriver')) return { ok: false, why: `${p.first} has heard how you treat drivers, and isn't interested.` };
+  if (lowball && rng(w) > (p.team ? 0.15 : 0.45) + (traitsOf(w, p).includes('loyal') ? 0.1 : 0)) { w.drep = clamp(drepOf(w) - 1, 0, 100); return { ok: false, why: `${p.first} turned the offer down. "That's not serious money."` }; }
+  // sign them: the seat's current driver is let go
+  const cur = mateOf(w), team = w.teams[w.player.team];
+  let comp = 0;
+  if (cur) {
+    const q = w.people[cur.pid], left = cur.until >= w.year && !w.over ? (w.opts.len - w.round) : 0;
+    comp = left * cur.wage + (cur.owed || 0);
+    if (comp) pay(w, -comp, `Released ${q.first} ${q.last}: rest of the contract`);
+    if (left) { w.drep = clamp(drepOf(w) - 8, 0, 100); news(w, `${team.name.toUpperCase()} DROPS ${q.last.toUpperCase()}`, `${nameOf(q)} is out of the team mid-season.`); }
+    team.drivers = team.drivers.filter(d => d !== cur.pid); q.team = null;
+    text(w, q.first, traitsOf(w, q).includes('loyal') ? `I'd have stuck with you. Good luck.` : left ? `Mid-season? Wow. Thanks for nothing.` : `Fair enough. See you on track.`);
+  }
+  if (p.team) { const from = w.teams[p.team]; from.drivers = from.drivers.filter(d => d !== pid); }
+  p.team = team.id; p.series = w.player.series; team.drivers.push(pid);
+  const wage = lowball ? Math.round(a.wage * 0.75 / 50) * 50 : a.wage, fee = lowball ? a.fee : a.fee;
+  w.mate = { pid, wage, fee, until: w.year + (w.over ? 1 : 0), pay: 'full', owed: 0, morale: lowball ? 55 : 75 };
+  w.payDriver = null;
+  if (fee) pay(w, fee, `${p.first} ${p.last}: seat money`);
+  mail(w, `${p.first} ${p.last}`, `${p.first.toLowerCase()}.${p.last.toLowerCase()}@coolmail.sv`, 'Contract', [fee ? `Deal. My backers will send ${money$(fee)}.` : `Signed. ${money$(wage)} a round, through ${w.mate.until}. Let's go racing.`, p.first]);
+  news(w, `${p.last.toUpperCase()} JOINS ${team.name.toUpperCase()}`, `${nameOf(p)} signs for the ${seriesById(w.player.series).name} team${fee ? ', bringing sponsorship with them' : ''}.`);
+  return { ok: true, comp };
+}
+export function extendMate(w) { const m = mateOf(w); if (!m) return; const a = askOf(w, w.people[m.pid]); m.wage = a.wage; m.until = Math.max(m.until, w.year) + 1; m.morale = clamp(m.morale + 10, 0, 100); w.drep = clamp(drepOf(w) + 2, 0, 100); }
+export function setMatePay(w, mode) { const m = mateOf(w); if (m) m.pay = mode; }
+// the teammate's payroll line (runPayroll): their mood shows in their form
+function payMate(w) {
+  const m = mateOf(w); if (!m || !m.wage) { if (m) m.morale = clamp(m.morale + 1, 0, 100); return; }
+  const p = w.people[m.pid], t = traitsOf(w, p), wage = m.wage;
+  const paid = m.pay === 'full' ? wage : m.pay === 'half' ? Math.round(wage / 2) : 0;
+  if (paid) pay(w, -paid, `Payroll: ${p.first} ${p.last} (driver)${paid < wage ? ', part' : ''}`);
+  m.owed += wage - paid;
+  m.morale = clamp(m.morale + (paid === wage ? 3 : (t.includes('loyal') ? -5 : -14) * (paid ? 0.6 : 1)), 0, 100);
+  if (paid < wage) w.drep = clamp(drepOf(w) - 1.5, 0, 100);
+  p.form = (p.form || 0) + (m.morale - 60) / 40;
+  if (t.includes('digger') && m.morale < 35 && !m.moaned) { m.moaned = true; news(w, `${p.last.toUpperCase()} UNHAPPY AT ${w.teams[w.player.team].name.toUpperCase()}`, `"I'm not being paid and I'm not being listened to," ${nameOf(p)} tells the Wire.`); }
+}
+
+// ---------------- grudges: what drivers remember about you ----------------
+// Dirty moves the stewards missed (forcing off, bump and runs, brake tests: race.js) and blamed contact add to a
+// driver's grudge against you; it fades a little every season. Holding one, they race harder, and they tell people.
+export const DIRTY = { forcedoff: ['forced off the track', 1.5], bumprun: ['bump and run', 1.2], braketest: ['brake test', 1] };
+export const drepOf = (w) => (w.drep ??= 50); // (your reputation with drivers, 0-100)
+export const grudgeOf = (w, pid) => (w.h2h[pid] && w.h2h[pid].grudge) || 0;
 export const ageOf = (w, p) => w.year - p.born;
 export const nameOf = (p) => p ? `${p.first} ${p.last}` : '';
 export const shortName = (p) => p ? `${p.first[0]}. ${p.last}`.toUpperCase() : '';
@@ -170,14 +273,20 @@ export function newCalendars(w, trackPool) {
 export function rating(w, pid) {
   if (pid === 'P') return null;
   const p = w.people[pid], t = w.teams[p.team];
-  return p.pace * 0.6 + (t ? t.car : 50) * 0.25 + 15 + (p.form || 0);
+  return p.pace * 0.6 + (t ? t.car : 50) * 0.25 + 15 + (p.form || 0) + (mateMentored(w, pid) ? 1 : 0);
+}
+// does this driver have a mentor in the other seat?
+function mateMentored(w, pid) {
+  const p = w.people[pid], t = p && w.teams[p.team]; if (!t) return false;
+  return t.drivers.some(d => d !== pid && d !== 'P' && w.people[d]?.traits?.includes('mentor'));
 }
 // race.js knobs for an AI driver: pace multiplier on the difficulty's pace, aggression, mistake rate
 export function raceKnobs(w, pid, rain) {
   const p = w.people[pid], r = rating(w, pid);
   let pace = clamp(1 - (95 - r) * 0.0011, 0.88, 1);
   if (rain) pace *= 1 + (p.wet - 50) * 0.0004;
-  return { pace, aggr: clamp(0.15 + p.aggr / 100 * 0.85, 0.1, 1), mistakes: clamp(1.8 - p.cons / 100 * 1.4, 0.35, 1.6) };
+  const mentor = mateMentored(w, pid) ? 1.004 : 1; // (a mentor in the other seat)
+  return { pace: Math.min(1, pace * mentor), aggr: clamp(0.15 + p.aggr / 100 * 0.85 + grudgeOf(w, pid) * 0.06, 0.1, 1), mistakes: clamp(1.8 - p.cons / 100 * 1.4, 0.35, 1.6) };
 }
 
 // the entry list of your series this round: 11 AI drivers in race slots 1..11 (slot 0 is yours), teammates side by side
@@ -270,7 +379,22 @@ function logLedger(w, e) {
     const other = e.a === 'P' ? e.b : e.a, h = h2hOf(w, other);
     if (e.type === 'contact') { h.contacts++; if (e.blame) { if (e.a === 'P') h.youHit++; else h.hitYou++; } }
     if (e.type === 'pass') { if (e.a === 'P') h.youPassed++; else h.passedYou++; }
+    if (DIRTY[e.type] && e.a === 'P') { h.dirty = (h.dirty || 0) + 1; h.grudge = (h.grudge || 0) + DIRTY[e.type][1]; w.drep = clamp(drepOf(w) - 3, 0, 100); }
+    if (e.type === 'contact' && e.blame && e.a === 'P') h.grudge = (h.grudge || 0) + 0.6;
   }
+}
+// after your race: the people you wronged say something (one text a round, the worst)
+function grudgeTexts(w, log) {
+  const mine = log.filter(e => DIRTY[e.type] && e.a === 'P' && w.people[e.b]);
+  if (!mine.length) return;
+  const e = mine.sort((a, b) => DIRTY[b.type][1] - DIRTY[a.type][1])[0], p = w.people[e.b], h = h2hOf(w, e.b), track = w.series[w.player.series].cal[w.round]?.name || '';
+  const lines = {
+    forcedoff: [`You put me on the grass at ${track}. The stewards missed it. I didn't.`, `Nice move at ${track}. Pushing me off the road. I'll remember that.`],
+    bumprun: [`You punted me out of the way at ${track}. That's how you pass now?`, `Lift off next time. I was there first.`],
+    braketest: [`Brake testing me? Really? Grow up.`, `You stood on the brakes in front of me on a straight. Try that again.`],
+  }[e.type];
+  text(w, p.first, h.grudge >= 3 ? `${pickLine(w, lines)} And it's not the first time.` : pickLine(w, lines));
+  if (h.grudge >= 4 && !h.went) { h.went = true; news(w, `${p.last.toUpperCase()} HITS OUT AT ${w.player.name.split(' ').pop().toUpperCase()}`, `${nameOf(p)} says ${w.player.name} "races dirty and gets away with it".`); w.drep = clamp(drepOf(w) - 4, 0, 100); }
 }
 export function h2hOf(w, pid) { return w.h2h[pid] || (w.h2h[pid] = { races: 0, ahead: 0, behind: 0, contacts: 0, youHit: 0, hitYou: 0, youPassed: 0, passedYou: 0 }); }
 
@@ -286,6 +410,7 @@ export function recordPlayerRound(w, res, log = [], use = null) {
   const known = rows.filter(r => r.pid);
   scoreRound(w, sid, known);
   for (const e of log) if (e.a && e.b) logLedger(w, { s: sid, ...e });
+  grudgeTexts(w, log);
   const me = known.find(r => r.pid === 'P');
   for (const r of known) if (r.pid !== 'P' && me) { const h = h2hOf(w, r.pid); h.races++; if (r.dnf && !me.dnf || (!me.dnf && me.pos < r.pos)) h.ahead++; else h.behind++; }
   const u = use || simUse(w), bill = w.money ? settleRound(w, u, me) : null;
@@ -361,6 +486,9 @@ export function nextSeason(w, trackPool) {
     if (good) mail(w, sp.name, sponsorAddr(sp.name), `${w.year + 1} season`, [`Thank you for a good season. We'd like to continue in ${w.year + 1} on the same terms.`, sp.name], { sponsorOffer: { sid: d.sid, slot: d.slot, fee: d.fee, bonus: d.bonus }, choices: [['yes', 'Renew'], ['no', 'Decline']] });
   }
   w.deals = [];
+  { const m = w.mate, t = w.teams[w.player.team];
+    if (m && m.until < w.year + 1 && t.drivers.includes(m.pid)) { const q = w.people[m.pid]; t.drivers = t.drivers.filter(d => d !== m.pid); q.team = null; w.mate = null; w.payDriver = null; text(w, q.first, `My contract's up. Thanks for the ride.`); } }
+  for (const h of Object.values(w.h2h)) if (h.grudge) { h.grudge = +(h.grudge * 0.5).toFixed(2); if (h.grudge < 0.3) h.grudge = 0; h.went = false; }
   w.year++; w.round = 0; w.over = false;
   annuityDay(w);
   if (w.staff) w.jobs = makeJobs(w);
@@ -375,6 +503,8 @@ export function nextSeason(w, trackPool) {
     p.pace = clamp(p.pace, 20, 99);
     p.form = gauss(w) * 2.2; // (a good year or a bad one: confidence, luck, the car suiting them)
     p.cons = clamp(p.cons + (age < 30 ? 1.5 : 0.3) + gauss(w) * 1.2, 20, 97);
+    // (old hands become mentors)
+    if (age >= 30 && traitsOf(w, p).length < 2 && !p.traits.includes('mentor') && rng(w) < 0.12) p.traits.push('mentor');
     p.craft = clamp(p.craft + (age < 31 ? 1.2 : -0.3) + gauss(w), 20, 97);
   }
   // retirements: past their age, or out of a seat and going nowhere
@@ -397,7 +527,7 @@ export function nextSeason(w, trackPool) {
     const s = SERIES[tier], below = SERIES[tier - 1], above = SERIES[tier + 1];
     // drop the bottom two of this series (to the series below, if they're young enough to care)
     if (below) {
-      const bottom = prevStand[s.id].filter(pid => pid !== 'P' && w.people[pid] && !w.people[pid].retired && w.people[pid].team && w.teams[w.people[pid].team].series === s.id).slice(-2);
+      const bottom = prevStand[s.id].filter(pid => pid !== 'P' && w.people[pid] && !w.people[pid].retired && w.people[pid].team && w.people[pid].team !== w.player.team && w.teams[w.people[pid].team].series === s.id).slice(-2);
       for (const pid of bottom) { const p = w.people[pid], t = w.teams[p.team]; t.drivers = t.drivers.filter(x => x !== pid); p.team = null; p.series = below.id; moves.push({ kind: 'down', pid, from: s.id, to: below.id }); }
     }
     // fill empty seats: candidates from the series below (by last season's standing, with a dash of luck), then free agents
@@ -867,6 +997,7 @@ export const payrollShort = (w) => (w.staff || []).length > 0 && w.money && w.mo
 export function runPayroll(w) {
   if (!w.staff || w.paidRound === w.year * 100 + w.round) return;
   w.paidRound = w.year * 100 + w.round;
+  payMate(w);
   if (w.wageClaims) { pay(w, -w.wageClaims, 'Labour board: wage claims from former staff'); w.wageClaims = 0; }
   for (const x of w.staff.slice()) {
     const wage = wageNow(w, x), soft = x.danny ? 0.5 : 1;

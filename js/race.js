@@ -1710,7 +1710,38 @@ export class Race {
       this.passT[key] = t;
       // a = who made the pass, b = who was passed
       this.log.push(b < a ? { type: 'pass', a: 'P', b: o.pid, lap: me.lap, t } : { type: 'pass', a: o.pid, b: 'P', lap: me.lap, t });
+      // past them right after hitting them from behind: a bump and run
+      if (b < a && t - ((this.bumpT || {})[o.pid] ?? -99) < 3) this.dirty('bumprun', o);
     }
+  }
+
+  // Dirty driving the stewards don't flag, by you (World Career remembers it: grudges, reputation). Forcing someone off:
+  // alongside them, moving across at them, and they go off the road a moment later. A brake test: braking hard where
+  // nobody brakes (well below the speed plan's limit... no: well under it isn't a braking zone) with someone right behind.
+  // (A bump and run is in notePasses, from the stewards' contact cases: racecontrol sets bumpT.)
+  dirtyCheck(dt) {
+    const me = this.player; if (!me || me.gone || me.pitting || me.finished || this.raceTime < 8 || !dt) return;
+    const t = this.raceTime, ds = this.squeeze || (this.squeeze = {});
+    const vs = (me.s - (me.prevS ?? me.s)) / dt; me.prevS = me.s;
+    for (const o of this.cars) {
+      if (o === me || o.gone || o.pitting || !o.pid) continue;
+      const dp = o.progress - me.progress, gap = o.s - me.s;
+      // alongside, close, and closing the gap sideways
+      if (Math.abs(dp) < 4.5 && Math.abs(gap) < 2.7 && Math.sign(vs) === Math.sign(gap) && Math.abs(vs) > 1.2 && o.onRoad) ds[o.pid] = t;
+      if (!o.onRoad && o.wasOn && t - (ds[o.pid] ?? -99) < 1.3) { ds[o.pid] = -99; this.dirty('forcedoff', o); }
+      o.wasOn = o.onRoad;
+      // brake test: hard on the brakes, someone 3-25 m behind and closing, and the track ahead isn't a braking zone
+      if (dp < -3 && dp > -25 && (me.ctl?.brake || 0) > 0.75 && (me.phys.speed || 0) > 18 && (o.phys.speed || 0) > (me.phys.speed || 0)) {
+        const ahead = this.lineV[(me.idx + Math.round(60 / this.T.ds)) % this.T.N] ?? 99;
+        if (ahead > (me.phys.speed || 0) * 1.05) this.dirty('braketest', o);
+      }
+    }
+  }
+  dirty(kind, o) {
+    const t = this.raceTime, k = kind + o.pid, last = this.dirtyT || (this.dirtyT = {});
+    if (t - (last[k] ?? -99) < 8) return;
+    last[k] = t;
+    this.log.push({ type: kind, a: 'P', b: o.pid, lap: this.player.lap, t });
   }
 
   resetCar(car) {
@@ -1810,7 +1841,7 @@ export class Race {
       if ((car.runoffT > 2.5 && car.phys.speed < 4) || car.runoffT > 12) this.restartRun(car);
     }
     const order = [...this.cars].sort((a, b) => b.progress - a.progress);
-    if (this.order && this.mode === 'race' && this.state === 'racing' && this.player) this.notePasses(this.order, order);
+    if (this.order && this.mode === 'race' && this.state === 'racing' && this.player) { this.notePasses(this.order, order); this.dirtyCheck(dt); }
     order.forEach((c, k) => c.pos = k + 1);
     this.order = order;
     if (this.rc) this.rc.update(dt);

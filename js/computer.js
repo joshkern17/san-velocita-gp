@@ -30,8 +30,8 @@ const APPS = [
     .map(([id, label]) => ({ id, label, title: 'Web Browser', hidden: true, site: true })),
 ];
 // the Team app's tabs (and the names they used to have as apps of their own, for links into them)
-const TEAM_TABS = [['overview', 'Overview'], ['car', 'Car'], ['tyres', 'Tyres'], ['staff', 'Staff'], ['sponsors', 'Sponsors'], ['data', 'Data']];
-const TEAM_ALIAS = { workshop: 'car', tyres: 'tyres', staff: 'staff', telemetry: 'data', sponsors: 'sponsors' };
+const TEAM_TABS = [['overview', 'Overview'], ['car', 'Car'], ['tyres', 'Tyres'], ['drivers', 'Drivers'], ['staff', 'Staff'], ['sponsors', 'Sponsors'], ['data', 'Data']];
+const TEAM_ALIAS = { workshop: 'car', tyres: 'tyres', staff: 'staff', telemetry: 'data', sponsors: 'sponsors', drivers: 'drivers' };
 // the Internet's home page
 const BOOKMARKS = [['news', 'The Paddock Wire', 'Motorsport news'], ['series', 'Series websites', 'Standings, teams, calendars, champions'], ['drivers', 'Velocita Driver Database', 'Every driver, every season'],
   ['classifieds', 'SVList', 'Cars and parts, by owner'], ['parts', 'Speed Parts Direct', 'Performance parts'], ['jobs', 'SVJobs', 'Hire staff'], ['bank', 'First Velocita Bank', 'Business banking']];
@@ -188,6 +188,10 @@ export class Computer {
   markRead(id) { const m = (this.w.mail || []).find(x => x.id === id); if (m && !m.read) { m.read = true; this.src.changed?.(); } }
   act(a, arg) {
     if (a === 'app') { this.stack = []; this.launch(arg); return; }
+    if (a === 'dsign' || a === 'dlow' || a === 'mextend') {
+      const k = a + ':' + arg; if (this.armed !== k) { this.armed = k; this.curKey = k; this.render(); this.src.sfx?.move?.(); return; }
+      this.armed = null; this.src.drivers?.(a, arg); this.curKey = null; this.render(); return;
+    }
     if (a === 'logo') { const [what, sid] = arg.split(':'); this.src.logo?.(what, sid); return; }
     if (a === 'mailto') { this.follow('mail', { mail: arg }); this.markRead(arg); this.render(); return; }
     if (a === 'ttab') { this.page = { tab: arg, file: null }; this.hist = []; this.armed = null; this.curKey = 'ttab-' + arg; this.render(); this.src.sfx?.move?.(); return; }
@@ -326,6 +330,7 @@ export class Computer {
     if (field === 'home') { const k = Object.keys(WC.TOWNS); f.home = wrap(k, k.indexOf(f.home) + d); }
     else if (field === 'background') { const k = Object.keys(WC.BACKGROUNDS); f.background = wrap(k, k.indexOf(f.background) + d); }
     else if (field === 'years') f.years = Math.max(1, Math.min(30, f.years + d));
+    else if (field === 'mpay') { const m = WC.mateOf(this.w); if (m) { const k = WC.PAY_MODES.map(x => x[0]); this.src.drivers?.('pay', wrap(k, k.indexOf(m.pay) + d)); } }
     else if (field.startsWith('q-')) { const c = field.slice(2), o = this.order; o[c] = Math.max(0, Math.min(8, (o[c] || 0) + d)); this.orderArmed = false; }
     else if (field.startsWith('pay-')) { const id = field.slice(4), x = (this.w.staff || []).find(s => s.id === id); if (x) { const k = WC.PAY_MODES.map(m => m[0]); this.src.staff?.('pay', id, wrap(k, k.indexOf(x.pay) + d)); } }
     else if (field === 'c0' || field === 'c1') { const i = +field[1]; f.colors[i] = wrap(PALETTE, Math.max(0, PALETTE.indexOf(f.colors[i])) + d); }
@@ -413,7 +418,7 @@ export class Computer {
   teamFrame() {
     const tab = this.page.tab || 'overview';
     const tabs = TEAM_TABS.map(([k, n]) => `<span class="tw-tab${k === tab ? ' on' : ''}" data-nav data-act="ttab" data-arg="${k}" data-key="ttab-${k}">${n}</span>`).join('');
-    const body = tab === 'car' ? this.workshopApp() : tab === 'tyres' ? `<div class="tm">${this.tyreTab()}</div>` : tab === 'staff' ? this.teamApp() : tab === 'sponsors' ? this.sponsorTab() : tab === 'data' ? this.telApp() : this.overview();
+    const body = tab === 'car' ? this.workshopApp() : tab === 'tyres' ? `<div class="tm">${this.tyreTab()}</div>` : tab === 'staff' ? this.teamApp() : tab === 'sponsors' ? this.sponsorTab() : tab === 'drivers' ? this.driversTab() : tab === 'data' ? this.telApp() : this.overview();
     return `<div class="tw"><div class="tw-tabs">${tabs}</div>${body}</div>`;
   }
   // the whole team at a glance, each part a way into its tab
@@ -434,6 +439,33 @@ export class Computer {
         ${card('sponsors', 'Sponsors', (() => { const d = WC.dealsOf(w); return d.length ? d.map(x => `<span>${esc(WC.sponsorName(x.sid))} &middot; ${WC.money$(x.fee)} a round</span>`).join('') : '<span>None yet</span>'; })() + `<span>Standing: ${standWord(WC.repOf(w))}</span>`, 'Deals and targets')}
         ${card('data', 'Data', `<span>${files} session file${files === 1 ? '' : 's'}</span><span>${lvl ? `Read by ${esc(WC.staffOf(w, 'engineer').first)}` : 'Unreadable without a data engineer'}</span>`, 'Telemetry')}
       </div></div>`;
+  }
+  // drivers: your teammate (contract, mood, pay), your reputation with drivers, who's available, who has it in for you
+  driversTab() {
+    const w = this.w, m = WC.mateOf(w), drep = WC.drepOf(w);
+    if (!w.founding?.reg) return '<div class="tm"><p class="pc-empty">Register the team first.</p></div>';
+    const chips = (p) => WC.traitsOf(w, p).map(t => `<span class="dv-chip" title="${esc(WC.TRAITS[t].desc)}">${esc(WC.TRAITS[t].name)}</span>`).join('');
+    const quick = (p) => p.pace >= 75 ? 'very quick' : p.pace >= 65 ? 'quick' : p.pace >= 55 ? 'decent' : p.pace >= 45 ? 'average' : 'slow';
+    const btn = (a, arg, label, armed) => `<button class="pc-btn sm" data-nav data-act="${a}" data-arg="${arg}" data-key="${a}:${arg}">${this.armed === a + ':' + arg ? armed : label}</button>`;
+    let me = '<div class="tm-row vacant"><div class="tm-who"><b>Second seat</b><small>Empty.</small></div></div>';
+    if (m) {
+      const p = WC.people(w)[m.pid], h = WC.h2hOf(w, m.pid), mood = m.morale >= 70 ? 'happy' : m.morale >= 45 ? 'fine' : m.morale >= 25 ? 'unhappy' : 'furious';
+      const last = m.until <= w.year;
+      me = `<div class="tm-row dv-mate"><div class="tm-who"><b>${esc(p.first)} ${esc(p.last)} ${chips(p)}</b><small>${WC.ageOf(w, p)} &middot; ${quick(p)} &middot; ${m.fee ? `brought ${WC.money$(m.fee)} for the seat` : `${WC.money$(m.wage)} a round`} &middot; contract to the end of ${m.until}${h.races ? ` &middot; ahead of you ${h.behind} of ${h.races}` : ''}</small></div>
+        <div class="tm-mood ${mood}"><i><b style="width:${m.morale}%"></b></i><small>${mood}${m.owed ? ` &middot; owed <span class="neg">${WC.money$(m.owed)}</span>` : ''}</small></div>
+        ${m.wage ? `<div class="tm-pay" data-nav data-cycle="mpay" data-key="mpay"><i data-act="cyc" data-arg="mpay:-1">&#9664;</i><b>${WC.PAY_MODES.find(x => x[0] === m.pay)[1]}</b><i data-act="cyc" data-arg="mpay:1">&#9654;</i></div>` : '<div></div>'}
+        <div class="tm-acts">${last && !m.fee ? btn('mextend', '1', `Extend (${WC.money$(WC.askOf(w, p).wage)} a round)`, 'Sure? Select again') : ''}</div></div>`;
+    }
+    const market = WC.driverMarket(w).map(p => {
+      const a = WC.askOf(w, p), t = p.team ? w.teams[p.team] : null, g = WC.grudgeOf(w, p.id);
+      return `<div class="jb-row dv-row"><div><b>${esc(p.first)} ${esc(p.last)}</b>, ${WC.ageOf(w, p)} ${chips(p)}<small>${quick(p)} &middot; ${t ? esc(t.name) : 'no seat'} &middot; ${p.wins} win${p.wins === 1 ? '' : 's'}${g >= 1 ? ` &middot; <span class="neg">${g >= 3 ? 'won\'t talk to you' : 'holds a grudge'}</span>` : ''}</small></div>
+        <div class="jb-meta">${a.fee ? `brings ${WC.money$(a.fee)}` : `asks ${WC.money$(a.wage)} a round`}</div>
+        <div class="tm-acts">${btn('dsign', p.id, a.fee ? 'Sign' : 'Offer', m ? `Replace ${esc(WC.people(w)[m.pid].first)}?` : 'Sure?')}${a.fee ? '' : btn('dlow', p.id, 'Lowball', '75%? Select again')}</div></div>`;
+    }).join('');
+    return `<div class="tm"><div class="tm-head"><b>Drivers</b><small>Your reputation with drivers: ${drep >= 70 ? 'good' : drep >= 45 ? 'fine' : drep >= 25 ? 'poor' : 'bad'}. Paying late, dropping people mid-season and dirty racing all get around.</small></div>
+      <div class="tm-list">${me}</div>
+      <h3 class="dv-h">${w.over ? 'Available for next season' : 'Free agents'}</h3>${market || '<p class="pc-empty">Nobody available right now.</p>'}
+      <p class="tm-note">${w.over ? 'Between seasons you can approach drivers on other teams too.' : 'During the season only drivers without a seat are free. Between seasons, everyone in your series and below.'} Dropping your teammate mid-season means paying their wages to the end of it.</p></div>`;
   }
   // sponsors: your standing, each deal and this round's target, offers waiting in Mail
   sponsorTab() {
@@ -652,9 +684,10 @@ export class Computer {
     return `<div class="db-page" data-nav data-scroll data-key="dbpage" data-first>
       <h1>${esc(isP ? w.player.name : WC.nameOf(p))}</h1>
       <div class="db-facts">${isP ? 'You' : `${NAT[p.nat] || p.nat} &middot; age ${WC.ageOf(w, p)}`} &middot; ${p && p.retired ? 'retired ' + p.retiredYear : t ? esc(t.name) : 'no seat'}</div>
+      ${isP ? '' : `<div class="db-traits">${WC.traitsOf(w, p).map(k => `<span class="dv-chip">${esc(WC.TRAITS[k].name)}</span> ${esc(WC.TRAITS[k].desc)}`).join('<br>')}${WC.grudgeOf(w, pid) >= 1 ? `<br><span class="neg">Holds a grudge against you.</span>` : ''}</div>`}
       <div class="db-cells"><div><small>Starts</small><b>${c.starts}</b></div><div><small>Wins</small><b>${c.wins}</b></div><div><small>Podiums</small><b>${c.pods}</b></div><div><small>Titles</small><b>${c.titles}</b></div></div>
       ${isP ? '' : `<h2>Scouting report</h2>${bar('Pace', p.pace)}${bar('Consistency', p.cons)}${bar('Racecraft', p.craft)}${bar('Wet weather', p.wet)}${bar('Aggression', p.aggr)}`}
-      ${h && h.races ? `<h2>Against you</h2><div class="db-cells"><div><small>Races</small><b>${h.races}</b></div><div><small>Ahead of you</small><b>${h.behind}</b></div><div><small>Passes</small><b>${h.youPassed} / ${h.passedYou}</b></div><div><small>Contact</small><b>${h.contacts}</b></div></div>` : ''}
+      ${h && h.races ? `<h2>Against you</h2><div class="db-cells"><div><small>Races</small><b>${h.races}</b></div><div><small>Ahead of you</small><b>${h.behind}</b></div><div><small>Passes</small><b>${h.youPassed} / ${h.passedYou}</b></div><div><small>Contact</small><b>${h.contacts}</b></div></div>${h.dirty ? `<p class="neg">You've driven them off the road or worse ${h.dirty} time${h.dirty === 1 ? '' : 's'}.</p>` : ''}` : ''}
       <h2>Career</h2>${hist ? `<table class="pc-tbl"><tr><th>YEAR</th><th>SERIES</th><th>TEAM</th><th class="r">POS</th><th class="r">WINS</th><th class="r">PTS</th></tr>${hist}</table>` : '<p class="pc-empty">No full seasons yet.</p>'}
     </div>`;
   }
@@ -668,7 +701,7 @@ export class Computer {
   // the styles the snapshot needs (the computer's own rules; it uses system fonts, so nothing to embed)
   css() {
     if (this._css) return this._css;
-    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl|tm|jb|tl|tr|ws|sp|tw|ov|hp|sw)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
+    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl|tm|jb|tl|tr|ws|sp|tw|ov|hp|sw|dv)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
     for (const sh of document.styleSheets) { let rules; try { rules = sh.cssRules; } catch (e) { continue; } for (const r of rules) if (r.selectorText && want.test(r.selectorText)) out.push(r.cssText); }
     return (this._css = out.join('\n'));
   }

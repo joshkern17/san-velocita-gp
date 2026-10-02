@@ -442,6 +442,7 @@ export class RaceControl {
     if (old) { old.v = Math.max(old.v, closing); return; }
     const d = vic.phys.dmg;
     this.cases.push({ hit, vic, t: now, v: closing, dmg0: d.fw + d.rw + d.ch, where: this.where(hit.idx) });
+    if (hit.isPlayer && vic.pid) (this.race.bumpT ||= {})[vic.pid] = now; // (for a bump and run: race.js notePasses)
     if (hit.isPlayer || vic.isPlayer) this.say(`Incident · ${hit.isPlayer ? 'You' : hit.name} and ${vic.isPlayer ? 'you' : vic.name} · under investigation`, { me: true, cls: 'inv' });
   }
   stewards(now) {

@@ -1357,6 +1357,13 @@ const pc = new Computer({
     else if (what === 'fitpart') { const part = [...WC.catalogue(world), ...(world.usedParts || [])].find(x => x.id === arg); if (part) WC.buyFit(world, part); }
     sfx.select(); saveWorld(); renderHub();
   },
+  // the Team app's Drivers tab: sign, lowball, extend, pay
+  drivers: (what, arg) => {
+    if (what === 'pay') WC.setMatePay(world, arg);
+    else if (what === 'mextend') { WC.extendMate(world); sfx.best(); }
+    else { const r = WC.offerDriver(world, arg, what === 'dlow'); if (!r.ok) { toast(r.why, 5000); sfx.back(); } else { sfx.best(); renderHub(); } }
+    saveWorld(); renderHubMenu();
+  },
   order: (o) => { const cost = WC.orderTyres(world, o); if (cost) { sfx.best(); saveWorld(); renderHub(); } },
   // the Team app and SVJobs: hire, let go, pay back, payroll instructions
   staff: (what, id, mode) => {
