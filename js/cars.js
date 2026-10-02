@@ -86,8 +86,8 @@ export const CARS = {
     liveryLabels: { topNumber: [0.78, 0.5], sideNumber: [0.55, 0.5], sideSponsor: [0.55, 0.8] },
     spec: gt({ gears: [0, 28, 43, 57, 71, 88], box: 'manual', shift: 0.14, mass: 1020, power: 400000, kd: 0.75, drag: 0.45, torque: NA, redline: 9000, a: 1.3, b: 1.13, rearGrip: 1.07, brakeF: 0.62 }) },
   // your Blender model (Group 5, '78 long tail): white photo, wears your full livery. The M1's opposite at the same pace:
-  // one big turbo (lag, then a hard hit), a long slow 4-speed, the engine out back (pushes in, can step out on a lift),
-  // a slippery long tail with less downforce: fast on the straights, harder work in the corners
+  // one big turbo (late boost, held to redline), a long slow 4-speed, the engine out back (pushes in, can step out on a
+  // lift), a slippery long tail under a big wing: fast on the straights, harder work out of slow corners
   porsche935: { name: 'Porsche 935', cls: 'gt1', sound: 'flat6turbo', glb: true, paint: true, livery: true,
     liveryLabels: { topNumber: [0.78, 0.5], sideNumber: [0.55, 0.5], sideSponsor: [0.55, 0.8] },
     spec: gt({ gears: [0, 33, 53, 73, 93], box: 'manual', shift: 0.18, mass: 1030, power: 480000, kd: 0.9, drag: 0.43, torque: BIGTURBO, redline: 7800, a: 1.44, b: 0.96, rearGrip: 1.1, brakeF: 0.56 }) },
