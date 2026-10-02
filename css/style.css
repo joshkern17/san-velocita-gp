@@ -1084,11 +1084,6 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .hub-note b { color: var(--sv-amber); font-weight: 500; }
 .ti-grid.four { grid-template-columns: repeat(4, 1fr); }
 .ti-grid.four b { white-space: nowrap; }
-.w-name-field { margin: 4px 0 14px; }
-.w-name-field span { display: block; font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; margin-bottom: var(--s2); }
-.w-name-field input { width: 340px; font: 500 26px/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-hot); background: rgba(5,3,8,.6); border: 1.5px solid var(--sv-red); border-radius: 3px; box-shadow: 0 0 2px var(--sv-red), 0 0 4px var(--sv-red); padding: 8px 12px 6px; outline: none; text-shadow: var(--sv-glow); -webkit-text-fill-color: currentColor; }
-.w-name-field input::placeholder { color: var(--sv-red-dim); -webkit-text-fill-color: var(--sv-red-dim); opacity: .55; }
-.w-name-field input:focus { border-color: var(--sv-amber); color: var(--sv-amber); box-shadow: 0 0 3px var(--sv-amber), 0 0 8px color-mix(in srgb, var(--sv-amber) 60%, transparent); }
 /* the phone: its own little low-res canvas, bottom right, upscaled with hard pixels */
 #phone-cv { position: fixed; right: calc(var(--edge) - 60px); bottom: 0; z-index: 40; display: none; image-rendering: pixelated; cursor: pointer; filter: drop-shadow(0 0 18px rgba(0,0,0,.6)); }
 #phone-cv.open { cursor: default; }
@@ -1100,7 +1095,7 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 
 /* ---------------- the garage computer (js/computer.js): a late-90s desktop on the CRT ---------------- */
 /* (its own look, not the neon signal: it's a thing in the world. 760 x 600, scaled onto the monitor's glass) */
-/* (every rule here starts #pc or .pc- .nw- .ss- .db- .bk-: the screen's snapshot copies only those, js/computer.js css()) */
+/* (every rule here starts #pc or .pc- .nw- .ss- .db- .bk- .rg- .cl-: the screen's snapshot copies only those, js/computer.js css()) */
 #pc { position: fixed; z-index: 30; overflow: hidden; border-radius: 1.6% / 2%; opacity: 0; transition: opacity .18s; background: #06262b; }
 #pc.on { opacity: 1; }
 /* normally the screen you see is the monitor's texture (a snapshot of this): the DOM stays on the glass, invisible, for the mouse */
@@ -1233,6 +1228,50 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .bk-txw { max-height: 230px; overflow-y: auto; }
 .bk-txw.f { box-shadow: inset 3px 0 0 #1d3f9a; }
 .bk-tx td.d { white-space: nowrap; color: #666; }
+/* Form SV-1: the Business Registry (a government site, lovingly maintained since 1957) */
+.rg-head { padding: 10px 16px; background: #e8e4d4; border-bottom: 3px double #5a5440; }
+.rg-head b { display: block; font: bold 20px 'Times New Roman', Times, serif; color: #2a2a6a; }
+.rg-head small { color: #5a5440; font-style: italic; }
+.rg-body { padding: 10px 18px 16px; font-family: 'Times New Roman', Times, serif; font-size: 15px; }
+.rg-body h1 { margin: 2px 0 6px; font-size: 20px; }
+.rg-body h2 { margin: 14px 0 4px; font-size: 14px; font-family: Arial, sans-serif; text-transform: uppercase; color: #2a2a6a; border-bottom: 1px solid #aaa; }
+.rg-small { margin: 0 0 4px; font-size: 12px; color: #666; font-style: italic; }
+.rg-field { display: grid; grid-template-columns: 170px 1fr; align-items: center; gap: 2px 10px; padding: 5px 6px; margin: 2px 0; border: 1px dotted transparent; }
+.rg-field label { font: 13px Arial, sans-serif; color: #333; }
+.rg-field small { grid-column: 2; font-size: 12px; color: #555; }
+.rg-field small em { color: #1a5a2a; font-style: normal; }
+.rg-field.f { background: #fff7cf; border-color: #111; }
+.rg-box { position: relative; display: flex; align-items: center; height: 24px; padding: 0 6px; background: #fff; border: 2px inset #d8d4c4; font: 14px 'Courier New', Courier, monospace; text-transform: uppercase; }
+.rg-box input { position: absolute; inset: 0; opacity: 0; width: 100%; border: 0; }
+.rg-caret { display: none; width: 8px; height: 15px; margin-left: 1px; background: #111; }
+.rg-field.typing .rg-caret { display: inline-block; }
+.rg-field.typing .rg-box { outline: 2px solid #1d3f9a; }
+.rg-cyc { display: flex; align-items: center; gap: 10px; font: 14px Arial, sans-serif; }
+.rg-cyc i { font-style: normal; color: #2a2a6a; cursor: pointer; padding: 0 4px; }
+.rg-cyc b { min-width: 120px; text-align: center; font-weight: bold; }
+.rg-sw { display: inline-block; width: 60px; height: 16px; vertical-align: middle; border: 1px solid #333; }
+.rg-submit { margin-top: 14px; display: flex; align-items: center; gap: 12px; }
+/* SVList: the classifieds (purple, plain, unbothered) */
+.cl-head { padding: 8px 14px; border-bottom: 1px solid #ccc; }
+.cl-head b { font: bold 22px Arial, sans-serif; color: #7a2cc8; margin-right: 10px; }
+.cl-head small { color: #555; }
+.cl-list { padding: 4px 14px 14px; }
+.cl-row { display: grid; grid-template-columns: 90px 1fr; gap: 0 8px; padding: 6px 4px; border-bottom: 1px solid #eee; }
+.cl-row a { color: #00c; text-decoration: underline; }
+.cl-row small { grid-column: 2; color: #777; }
+.cl-row.f { background: #f1e8ff; outline: 1px dotted #111; }
+.cl-price { font-weight: bold; color: #1a7a2a; }
+.cl-note { margin: 8px 14px 0; color: #7a2cc8; font-style: italic; }
+.cl-ad { padding: 10px 16px; max-height: 330px; overflow-y: auto; }
+.cl-ad h1 { margin: 0 0 8px; font-size: 18px; }
+.cl-ad h1 small { font-weight: normal; color: #777; }
+.cl-photo { height: 90px; display: grid; place-items: center; background: #eee; border: 1px solid #ccc; color: #999; margin-bottom: 8px; }
+.cl-attrs td { padding: 1px 8px 1px 0; color: #555; }
+.cl-fine { font-size: 11px; color: #888; }
+.cl-ad.f { box-shadow: inset 3px 0 0 #7a2cc8; }
+.cl-buy { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 8px 16px 12px; border-top: 1px solid #ddd; }
+.cl-buy small { color: #666; }
+.pc-note { margin: 0; color: #8a5a00; }
 /* the driver database */
 .db-head { padding: 10px 14px; background: #ffd23a; border-bottom: 2px solid #111; }
 .db-head b { display: block; font: bold 22px Arial, Helvetica, sans-serif; }
@@ -1272,3 +1311,6 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .pc-tag.new span { animation: pc-tag-pulse 1.6s ease-in-out infinite; }
 @keyframes pc-tag-pulse { 50% { box-shadow: 0 0 3px var(--sv-red), 0 0 12px var(--sv-red); } }
 #s-hub.seated .pc-tag { opacity: 0; pointer-events: none; }
+/* the hub's getting-started checklist */
+.hub-steps .row { display: flex; justify-content: space-between; font: 500 var(--t-body)/1.9 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; border-bottom: 1px solid color-mix(in srgb, var(--sv-red) 25%, transparent); }
+.hub-steps .row .ok { color: var(--sv-cyan); }

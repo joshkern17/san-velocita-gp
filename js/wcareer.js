@@ -81,6 +81,7 @@ export function newWorld(opts, trackPool) {
     opts: { len: opts.len || 6, difficulty: opts.difficulty || 'medium', laps: opts.laps || 5, weekend: opts.weekend || 'quali', pracLen: opts.pracLen || 1200, qualiLen: opts.qualiLen || 600, pool: opts.pool || 'presets' },
     people: {}, teams: {}, series: {}, news: [], msgs: [], mail: [], ledger: [], h2h: {}, seasons: [],
     player: { name: (opts.name || 'Driver').trim(), number: opts.number || 7, series: 'street', team: 'T0', starts: 0, wins: 0, pods: 0, titles: 0, hist: [], offer: null } };
+  w.streetCars = opts.streetCars || []; // (the street-class cars, for the classifieds: [{ key, name, value }])
   // teams: yours in the Street Cup, 17 more across the ladder
   const pool = TEAM_POOL.slice(); for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rng(w) * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
   let k = 0;
@@ -113,6 +114,13 @@ export function newWorld(opts, trackPool) {
   newCalendars(w, trackPool);
   seasonOpenNews(w);
   startMoney(w);
+  w.founding = { reg: false, car: false };
+  mail(w, 'San Velocita Business Registry', 'no-reply@registry.sv.gov', 'Action required: Form SV-1',
+    [`Our records show that you intend to operate a motor racing team in the Province of San Velocita.`,
+     `Before you can enter a series, open a business account or receive winnings as a business, you must complete Form SV-1 (Registration of a Sporting Enterprise). The form takes about four minutes. Our average processing time is eleven weeks.`,
+     `A processing fee of $250 applies. The fee is non-refundable, including in the event that your registration is processed.`,
+     `San Velocita Business Registry. Here to help, by appointment.`],
+    { link: ['registry', 'Open Form SV-1'] });
   return w;
 }
 
@@ -126,7 +134,7 @@ export function newCalendars(w, trackPool) {
       const name = order[r % order.length], tr = trackPool.find(t => t.name === name);
       const x = rng(w), time = x < 0.55 ? (tr?.env?.time || 'day') : x < 0.8 ? 'dusk' : 'night';
       const y = rng(w), weather = y < 0.7 ? 'clear' : y < 0.85 ? 'overcast' : y < 0.95 ? 'rain' : 'fog';
-      cal.push({ name, time, weather });
+      cal.push({ name, time, weather, theme: tr?.env?.theme || 'grass' });
     }
     w.series[s.id].cal = cal;
     w.series[s.id].results = [];
@@ -312,6 +320,7 @@ export function nextSeason(w, trackPool) {
   const prevTeams = {}; for (const sr of SERIES) prevTeams[sr.id] = teamStandings(w, sr.id).map(e => e.tid).filter(t => w.teams[t]?.series === sr.id);
   w.year++; w.round = 0; w.over = false;
   annuityDay(w);
+  if (w.payDriver && w.teams[w.player.team].drivers.includes(w.payDriver.pid)) { const p = w.people[w.payDriver.pid]; if (p) pay(w, w.payDriver.fee, `Seat fee for ${p.first} ${p.last}`); }
   // people: grow, peak, fade
   for (const p of Object.values(w.people)) {
     if (p.retired) continue;
@@ -398,7 +407,7 @@ export const COSTS = {
   formula: { entry: 40000, travel: 15000, crew: 90000, tyre: 6000, fuelLap: 300, repair: 450000, prize: [200000, 140000, 100000, 80000, 65000, 50000, 40000, 30000, 20000, 15000] },
 };
 // the annuity is a year's money; seasons of other lengths get it in proportion (a 12-round year pays twice a 6)
-const annuityPay = (w) => Math.round(LOTTERY.annuity * w.opts.len / 6 / 100) * 100;
+const annuityPay = (w) => Math.round(LOTTERY.annuity * (w.money?.loophole || 1) * w.opts.len / 6 / 100) * 100;
 export const money$ = (n) => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString('en-US');
 const BANK = 'First Velocita Bank', BANK_ADDR = 'statements@firstvelocita.sv';
 function startMoney(w) {
@@ -409,6 +418,7 @@ function startMoney(w) {
      `Before we can pay you, we need to know how you'd like to receive it:`,
      `LUMP SUM: the cash value of the jackpot, paid now. After tax you'll receive ${money$(LOTTERY.lump)}, in one payment.`,
      `ANNUITY: the full jackpot, paid in ${LOTTERY.years} yearly instalments. Spread out, far less of it goes in tax: you'll receive ${money$(LOTTERY.annuity)} a year (${money$(LOTTERY.annuity * LOTTERY.years)} in total), the first payment now.`,
+     `Of the advertised jackpot, the Province retains a portion as a Prosperity Contribution, which funds the Lottery's advertising.`,
      `This choice is final. Most winners take the lump sum. Most winners also don't start a racing team.`, `Winner Services, San Velocita State Lottery`],
     { lottery: true, choices: [['lump', `Lump sum: ${money$(LOTTERY.lump)} now`], ['annuity', `Annuity: ${money$(LOTTERY.annuity)} a year for ${LOTTERY.years} years`]] });
 }
@@ -421,7 +431,9 @@ function pay(w, amt, what) {
 export function claimLottery(w, choice) {
   const m = w.money; if (m.choice) return;
   m.choice = choice;
-  if (choice === 'lump') pay(w, LOTTERY.lump, 'State Lottery: lump sum');
+  const k = bgOf(w).lottery || 1;
+  if (k !== 1) m.loophole = k;
+  if (choice === 'lump') pay(w, Math.round(LOTTERY.lump * k), 'State Lottery: lump sum' + (k !== 1 ? ' (with a loophole)' : ''));
   else { m.annuityLeft = LOTTERY.years; annuityDay(w); }
 }
 function annuityDay(w) {
@@ -441,16 +453,17 @@ export function sellAnnuity(w) {
 // a weekend's bill: use = { sets, laps, damage: 0..1 of a write-off, aidPct: the driver-aids prize bonus (%) }, me = your
 // classified row (prize money)
 export function settleRound(w, use, me) {
-  const c = COSTS[w.player.series], trackName = w.series[w.player.series].cal[w.round].name;
+  const c = COSTS[w.player.series], R = w.series[w.player.series].cal[w.round], trackName = R.name, bg = bgOf(w);
+  const home = isHome(w, R);
   const items = [
-    ['Entry fee', -c.entry], ['Travel and freight', -c.travel], ['Crew', -c.crew],
+    ['Entry fee', -c.entry], [home ? 'Travel (home race: you drove)' : 'Travel and freight', home ? 0 : -c.travel], ['Crew', -c.crew],
     [`Tyres (${use.sets} set${use.sets === 1 ? '' : 's'})`, -use.sets * c.tyre],
-    [`Fuel (${use.laps} lap${use.laps === 1 ? '' : 's'})`, -Math.round(use.laps * c.fuelLap)],
+    [`Fuel (${use.laps} lap${use.laps === 1 ? '' : 's'})`, -Math.round(use.laps * c.fuelLap * (bg.fuel || 1))],
   ];
-  if (use.damage > 0.005) items.push(['Repairs', -Math.round(use.damage * c.repair / 100) * 100]);
+  if (use.damage > 0.005) items.push([bg.repair ? 'Repairs (mostly done yourself)' : 'Repairs', -Math.round(use.damage * c.repair * (bg.repair || 1) / 100) * 100]);
   const base = me && !me.dnf ? c.prize[me.pos - 1] || 0 : 0, pct = Math.max(0, use.aidPct || 0);
-  const prize = Math.round(base * (1 + pct / 100) / 10) * 10;
-  if (prize) items.push([`Prize money (P${me.pos}${pct ? `, +${pct}% for fewer aids` : ''})`, prize]);
+  const prize = Math.round(base * (1 + pct / 100) * (bg.prize || 1) * (home ? 1.1 : 1) / 10) * 10;
+  if (prize) items.push([`Prize money (P${me.pos}${pct ? `, +${pct}% for fewer aids` : ''}${home ? ', home crowd' : ''})`, prize]);
   const before = w.money.balance;
   for (const [what, amt] of items) if (amt) pay(w, amt, `${trackName}: ${what[0].toLowerCase() + what.slice(1)}`);
   // overdrawn: the bank charges for it
@@ -464,6 +477,96 @@ export function settleRound(w, use, me) {
 }
 // a round you didn't drive yourself (Sim Rest Of Season): a plain weekend, no damage
 export const simUse = (w) => ({ sets: w.opts.weekend === 'full' ? 4 : w.opts.weekend === 'quali' ? 2 : 1, laps: w.opts.laps + (w.opts.weekend === 'full' ? 18 : w.opts.weekend === 'quali' ? 6 : 0), damage: 0 });
+
+// ---------------- founding: the paperwork, the backstory, the car ----------------
+// Form SV-1 (the registry website on the computer) sets the team's name, colours, home town, your background and a
+// little backstory. Then your buddy finds you a car in the classifieds. Small perks: see TOWNS and BACKGROUNDS.
+export const TOWNS = {
+  pinewood: { name: 'Pinewood Falls', theme: 'grass', blurb: 'Two traffic lights. One of them works.' },
+  gulch:    { name: 'Dry Gulch', theme: 'desert', blurb: 'Famous for its outlet mall, and its other outlet mall.' },
+  city:     { name: 'Velocita City', theme: 'city', blurb: 'Rent: yes.' },
+  azure:    { name: 'Port Azure', theme: 'coast', blurb: 'Where yachts go to be looked at.' },
+};
+export const HOME_PERK = 'Home races (circuits like home): no travel bill and 10% more prize money.';
+export const BACKGROUNDS = {
+  mechanic:   { name: 'Mechanic', perk: 'Repairs cost 30% less. You do most of them yourself.', repair: 0.7 },
+  accountant: { name: 'Accountant', perk: 'You found a loophole: 8% more from the lottery. It is legal. Probably.', lottery: 1.08 },
+  salesman:   { name: 'Car salesman', perk: 'Cars cost you 15% less. You know every trick, because you invented most of them.', cars: 0.85 },
+  karting:    { name: 'Ex-karting kid', perk: '10% more prize money. The press loves a comeback nobody asked for.', prize: 1.1 },
+  simracer:   { name: 'Sim racer', perk: 'Fuel costs half as much. You did most of these laps at home already.', fuel: 0.5 },
+};
+const bgOf = (w) => BACKGROUNDS[w.background] || {};
+const isHome = (w, R) => !!(w.home && R && R.theme && TOWNS[w.home]?.theme === R.theme);
+export const homeRound = (w, R) => isHome(w, R);
+export const EX_NAMES = ['Dana', 'Chris', 'Jordan', 'Sam', 'Alex', 'Morgan', 'Casey', 'Robin', 'Jamie', 'Taylor'];
+// the form, filed: { name, team, colors: [main, accent], home, background, ex, years }
+export function registerTeam(w, f) {
+  if (w.founding?.reg) return;
+  w.founding = { ...(w.founding || {}), reg: true };
+  w.player.name = f.name; w.home = f.home; w.background = f.background; w.backstory = { ex: f.ex, years: f.years };
+  const t = w.teams[w.player.team]; t.name = f.team; [t.main, t.accent] = f.colors;
+  pay(w, -250, 'Business Registry: Form SV-1 processing fee');
+  const first = f.name.split(' ')[0];
+  mail(w, 'San Velocita Business Registry', 'no-reply@registry.sv.gov', `Registration confirmed: ${f.team}`,
+    [`Thank you for registering ${f.team}, a Sporting Enterprise based in ${TOWNS[f.home].name}.`, `Your processing fee of $250 has been collected. Your registration has been processed in four minutes, which is a record, and is being investigated.`, `San Velocita Business Registry`]);
+  mail(w, 'Hargreave & Webb, Family Law', 'office@hargreavewebb.sv', `${f.ex} v. ${f.name.split(' ').pop()}: a quick question`,
+    [`Dear ${first},`, `We act for ${f.ex}, as you know, and we'd like to thank you again for ${f.years} memorable year${f.years === 1 ? '' : 's'} of correspondence.`,
+     `It has come to our attention that you won the State Lottery shortly after the decree was finalised. Congratulations. My client asks us to confirm the date of the draw, "for no reason".`,
+     `My client also asks us to tell you that starting a racing team is "exactly the kind of thing" and that they "hope it goes really well". We are unable to clarify the tone.`, `Yours,`, `M. Hargreave`]);
+  // the second seat: a pay driver, with their parent's money
+  const mate = w.people[w.teams[w.player.team].drivers.find(d => d !== 'P')];
+  if (mate) {
+    const fee = 40000, biz = pickLine(w, ['Carpets & Flooring', 'Discount Mattresses', 'Lawn Ornaments', 'Premium Gutters', 'Self Storage']);
+    w.payDriver = { pid: mate.id, fee };
+    pay(w, fee, `${mate.last} ${biz}: seat fee for ${mate.first}`);
+    mail(w, `Gordon ${mate.last}`, `gordon@${mate.last.toLowerCase()}${biz.split(' ')[0].toLowerCase()}.sv`, `${mate.first}'s seat`,
+      [`Hello,`, `Please find enclosed ${money$(fee)} for ${mate.first}'s seat in your team, as discussed with ${mate.first}, who discussed it with me afterwards.`,
+       `${mate.first} tells me they are very fast. I have never seen them drive, because I am busy running ${mate.last} ${biz}, the third largest name in ${biz.toLowerCase()} in the province.`,
+       `They will bring their own car. Please put our name on it somewhere tasteful.`, `Gordon ${mate.last}`]);
+  }
+  // your buddy, who knows a guy
+  w.ads = makeAds(w);
+  mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'found u a car',
+    [`saw the lottery thing on the news. congrats man!!! also saw the divorce thing on the news. less congrats`,
+     `anyway if ur doing the racing team thing u need a car. there's some good ones on the classifieds rn. the cheap one is probably fine. probably`,
+     `ps i can be ur team manager. i have managed a team before (fantasy football, 2nd place)`],
+    { link: ['classifieds', 'Open the classifieds'] });
+}
+// the classifieds: a few used street cars, of very variable honesty
+const AD_BLURBS = [
+  ['Runs great. Drives great. Stops most of the time.', 0.62], ['One careful owner. Several careless ones before that.', 0.7],
+  ['Minor rust, nothing structural. Some structural.', 0.6], ['Garage kept. The garage was outside.', 0.72],
+  ['Recently serviced (by me). Comes with the manual and my notes in the manual.', 0.8], ['Never raced, never tracked, never driven above 40. Ignore the roll cage.', 0.86],
+  ['Selling because of a divorce. You know how it is.', 0.9], ['Immaculate. Serious buyers only. No lowballers. I know what I have.', 0.97],
+  ['Mechanic special. Bring a trailer, and a mechanic, and a priest.', 0.55], ['Price is firm. Price is flexible. Make an offer, then pay the price.', 0.82],
+];
+// the years each car was made (more or less), for the listings
+const AD_YEARS = { testarossa: [1984, 1991], jsport: [1993, 2002], rs964: [1989, 1994], gtr: [2008, 2012], mustang: [1987, 1993], m5: [1998, 2003] };
+const AD_SELLERS = ['Dale', 'Rick (not a dealer)', 'Bev', 'Tony', 'mike_cars_cash', 'Desmond', 'Pauline', 'Gaz'];
+const condWord = (c) => c >= 0.93 ? 'Like new' : c >= 0.82 ? 'Honest' : c >= 0.7 ? 'Tired' : 'Project';
+export const condName = condWord;
+function makeAds(w) {
+  const cars = w.streetCars || [];
+  const ads = [], blurbs = AD_BLURBS.slice().sort(() => rng(w) - 0.5);
+  for (let i = 0; i < Math.min(6, Math.max(3, cars.length)); i++) {
+    const car = cars[i % cars.length], [blurb, c0] = blurbs[i % blurbs.length];
+    const cond = clamp(c0 + (rng(w) - 0.5) * 0.08, 0.5, 0.99);
+    const price = Math.round(car.value * (0.45 + cond * 0.6) * (bgOf(w).cars || 1) / 100) * 100;
+    ads.push({ id: 'ad' + (w.nextId++), chassis: car.key, name: car.name, cond, price, miles: Math.round((1 - cond) * 260 + 25 + rng(w) * 40) * 1000, year: (([a, b]) => a + Math.floor(rng(w) * (b - a + 1)))(AD_YEARS[car.key] || [1986, 2003]), blurb, seller: AD_SELLERS[Math.floor(rng(w) * AD_SELLERS.length)] });
+  }
+  return ads.sort((a, b) => a.price - b.price);
+}
+export function buyCar(w, adId) {
+  const ad = (w.ads || []).find(a => a.id === adId); if (!ad || w.car) return false;
+  w.car = { chassis: ad.chassis, name: ad.name, cond: ad.cond, paid: ad.price, year: ad.year };
+  w.founding.car = true; w.ads = w.ads.filter(a => a !== ad);
+  pay(w, -ad.price, `Classifieds: ${ad.year} ${ad.name} (from ${ad.seller})`);
+  mail(w, ad.seller, `${ad.seller.split(' ')[0].toLowerCase().replace(/[^a-z_]/g, '')}@coolmail.sv`, `re: ${ad.year} ${ad.name}`,
+    [`pleasure doing business`, `keys are under the mat. bring ur own mat`, condWord(ad.cond) === 'Project' ? `if it makes a noise that's normal. if it stops making the noise call someone` : `no refunds no returns no take backs`]);
+  return true;
+}
+// how much a car's condition holds it back (power): a project car is about 4% down until R&D sorts it out
+export const condPower = (cond) => 0.9 + 0.1 * clamp(cond ?? 1, 0.5, 1);
 
 // ---------------- news (headlines) and texts (the phone) ----------------
 function news(w, head, body = '', extra = {}) { w.news.unshift({ y: w.year, r: w.round, when: whenOf(w), head, body, ...extra }); if (w.news.length > 120) w.news.length = 120; }
@@ -563,7 +666,35 @@ function seasonEndNews(w, sum) {
 }
 
 // ---------------- save ----------------
-const KEY = 'svgp.world';
-export function saveWorld(w) { try { localStorage.setItem(KEY, JSON.stringify(w)); return true; } catch (e) { return false; } }
-export function loadWorld() { try { const w = JSON.parse(localStorage.getItem(KEY)); if (!w || w.v !== 1) return null; w.mail = w.mail || []; if (!w.money) startMoney(w); return w; } catch (e) { return null; } }
-export function clearWorld() { localStorage.removeItem(KEY); }
+// several careers: each in its own slot, with an index for the career screen
+const OLD_KEY = 'svgp.world', INDEX = 'svgp.worlds', slot = (id) => 'svgp.world.' + id;
+const readIndex = () => { try { return JSON.parse(localStorage.getItem(INDEX)) || []; } catch (e) { return []; } };
+function migrate() {
+  try {
+    const old = localStorage.getItem(OLD_KEY); if (!old) return;
+    const w = JSON.parse(old); if (w && w.v === 1) saveWorld(w);
+    localStorage.removeItem(OLD_KEY);
+  } catch (e) {}
+}
+export function listWorlds() { migrate(); return readIndex(); }
+export function saveWorld(w) {
+  try {
+    w.id = w.id || 'w' + Date.now().toString(36);
+    localStorage.setItem(slot(w.id), JSON.stringify(w));
+    const idx = readIndex().filter(e => e.id !== w.id);
+    idx.unshift({ id: w.id, team: w.teams[w.player.team].name, name: w.player.name, year: w.year, series: w.player.series, round: w.round, len: w.opts.len, over: w.over, saved: Date.now() });
+    localStorage.setItem(INDEX, JSON.stringify(idx));
+    return true;
+  } catch (e) { return false; }
+}
+export function loadWorld(id) {
+  migrate();
+  try {
+    const w = JSON.parse(localStorage.getItem(slot(id))); if (!w || w.v !== 1) return null;
+    w.mail = w.mail || [];
+    if (!w.money) startMoney(w);
+    if (!w.founding) w.founding = { reg: true, car: true, legacy: true }; // (careers from before the founding: carry on as you were)
+    return w;
+  } catch (e) { return null; }
+}
+export function deleteWorld(id) { localStorage.removeItem(slot(id)); localStorage.setItem(INDEX, JSON.stringify(readIndex().filter(e => e.id !== id))); }

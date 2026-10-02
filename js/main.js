@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { PS2Post } from './post.js';
 import { Race, TYRE_FIT, buildScenery } from './race.js';
+import { realTracks, needsHydrate, hydrateReal, nameCorners } from './realtracks.js';
 import { HUD, fmtTime, RADAR_ZOOMS, readThemeColours } from './hud.js';
 import { Editor } from './editor.js';
 import { initInput, pressed, isDown, clearEdges, pollGamepad, driveControls, gp, device, onDevice, rumble, padFeel, STEER_CURVES, DEADZONES, STEER_LAGS } from './input.js';
@@ -291,7 +292,7 @@ menus['s-main'] = [new Menu($('m-main'), MAIN_ITEMS, { inlineDesc: true })];
 // a saved championship goes straight to the top of the menu
 function buildMainMenu() {
   const m = menus['s-main'][0], items = [];
-  const wsave = WC.loadWorld();
+  const last = WC.listWorlds()[0], wsave = last ? WC.loadWorld(last.id) : null;
   if (wsave) items.push({ label: 'Continue Career', cls: 'cont', desc: `${wsave.player.name} · ${wsave.year} ${WC.seriesById(wsave.player.series).name} · ${wsave.over ? 'season complete' : 'round ' + (wsave.round + 1) + ' of ' + wsave.opts.len}.`,
     action: () => { world = wsave; careerTab = 0; openHub(); } });
   for (const kind of ['career', 'gp']) {
@@ -368,6 +369,7 @@ function classicOnly() {
     // road cars keep their own paint job: only the main colour (on cars that can be repainted)
     if (['Livery Designer', 'Pattern', 'Accent', 'Detail', 'Number', 'Sponsor'].includes(it.label)) it.disabled = road && !C.livery;
     if (it.label === 'Rim Colour') it.disabled = road;
+    if (it.label === 'Car') it.disabled = !!(garageSwap && world && world.car); // (World Career: the car you bought)
     if (it.label === 'Main') it.disabled = road && !C.paint;
   }
   menus['s-garage'][0].render();
@@ -391,7 +393,7 @@ assets.load(liveryAssetIds(settings.car));
 function openGarage(from = 's-main') { garageReturn = from; fadeTo(() => { disposeSim(); show('s-garage'); garage.open(settings.car); classicOnly(); }); }
 let garageReturn = 's-main';
 backs['s-garage'] = () => { sfx.back(); saveSettings(); fadeTo(() => { garage.close(); if (garageReturn === 's-paddock') { renderPaddock(); show('s-paddock'); startAttract(); }
-    else if (garageReturn === 's-hub' && world) enterHub();
+    else if (garageReturn === 's-hub' && world) { closeWorldGarage(); enterHub(); }
     else if (garageReturn === 's-lobby' && lobby) { onGarageDoneOnline(); startAttract(); renderLobby(); show('s-lobby'); } else { startAttract(); show('s-main'); } garageReturn = 's-main'; }); };
 
 // ---------------- options ----------------
@@ -549,18 +551,25 @@ function savedTracks() { try { return JSON.parse(localStorage.getItem('svgp.trac
 function bestLaps() { try { return JSON.parse(localStorage.getItem('svgp.best')) || {}; } catch (e) { return {}; } }
 
 // Quick Race is two pages: pick a circuit (a picture of it + the live track behind the menu), then the rules
-const TAGS = { EDITOR: 'From the editor', PRESET: 'Built-in circuit', SAVED: 'One of your circuits' };
+const TAGS = { EDITOR: 'From the editor', PRESET: 'Built-in circuit', SAVED: 'One of your circuits', REAL: 'Real-world circuit' };
 function openSetup(track = null, { select = null, toSettings = false } = {}) {
   setupTracks = [];
   if (track) setupTracks.push({ t: track, tag: 'EDITOR' });
+  realTracks().forEach(t => setupTracks.push({ t, tag: 'REAL' }));
   presetTracks().forEach(t => setupTracks.push({ t, tag: 'PRESET' }));
   savedTracks().forEach(t => setupTracks.push({ t, tag: 'SAVED' }));
   const list = menus['s-setup'][0];
-  list.setItems(setupTracks.map((e, k) => ({ label: `${e.t.name}<small class="tag ${e.tag.toLowerCase()}">${e.tag === 'PRESET' ? '' : e.tag}</small>`, k,
-    action: () => openRaceSettings() })));
-  const k = select ? setupTracks.findIndex(e => e.t.name === select) : 0;
-  list.i = Math.max(0, k); list.render();
-  selectSetupTrack(list.i);
+  // real-world circuits and the originals each get a heading (only once there's more than one kind)
+  const heads = { REAL: 'Real-World Circuits', PRESET: 'San Velocita Originals', SAVED: 'Your Circuits' }, items = [];
+  const many = new Set(setupTracks.map(e => e.tag === 'EDITOR' ? 'PRESET' : e.tag)).size > 1;
+  setupTracks.forEach((e, k) => {
+    if (many && heads[e.tag] && (k === 0 || setupTracks[k - 1].tag !== e.tag)) items.push({ head: true, label: heads[e.tag] });
+    items.push({ label: `${e.t.name}<small class="tag ${e.tag.toLowerCase()}">${e.tag === 'PRESET' || e.tag === 'REAL' ? (e.t.real ? e.t.real.country : '') : e.tag}</small>`, k, action: () => openRaceSettings() });
+  });
+  list.setItems(items);
+  const k = Math.max(0, select ? setupTracks.findIndex(e => e.t.name === select) : 0);
+  list.i = Math.max(0, items.findIndex(it => it.k === k)); list.render();
+  selectSetupTrack(k);
   fadeTo(() => { if (!sim) startAttract(); if (toSettings) openRaceSettings(true); else show('s-setup'); }, 200);
 }
 function selectSetupTrack(k) {
@@ -583,7 +592,7 @@ function trackCard(t, st, cond) {
 function renderPick(t) {
   const T = sampleTrack(t), st = trackStats(T), cond = pickConditions(t), card = $('pick-card');
   card.querySelector('.pc-name').textContent = t.name;
-  card.querySelector('.pc-sub').textContent = `${TAGS[setupTracks[setupSel].tag]} · ${THEMES[t.env.theme].label}`;
+  card.querySelector('.pc-sub').textContent = `${TAGS[setupTracks[setupSel].tag]} · ${t.real ? t.real.country : THEMES[t.env.theme].label}`;
   drawTrackMap(T, card.querySelector('.pc-map'));
   $('pick-stats').innerHTML = trackCard(t, st, { time: t.env.time, weather: t.env.weather });
   showPostcard(card, t, cond);
@@ -659,8 +668,9 @@ function showPostcard(card, t, cond, develop = true) {
       // let the "developing" frame paint (its animation keeps running on the compositor while we work)
       requestAnimationFrame(() => requestAnimationFrame(() => {
         if (card.dataset.key !== key || screen !== 's-setup') { card.classList.remove('developing'); return; }
-        loadEnvModels().then(() => {
-          const url = capturePostcard(t, cond, key);
+        loadEnvModels().then(() => needsHydrate(t) ? hydrateReal(cloneTrack(t)).catch(() => t) : t).then((tt) => {
+          if (card.dataset.key !== key) { card.classList.remove('developing'); return; }
+          const url = capturePostcard(tt, cond, key);
           card.classList.remove('developing');
           if (url) put(url);
         });
@@ -950,7 +960,7 @@ function openCareer(switching = false) {
   // three tabs (Q / E, LB / RB): World Career (the endless one), Challenge (a roguelike season) and Grand Prix
   tabRow($('career-tabs'), ['World Career', 'Challenge', 'Grand Prix'], careerTab, (k) => { careerTab = k; openCareer(true); });
   if (careerTab === 0) {
-    const m = menus['s-career'][0], items = worldItems(WC.loadWorld());
+    const m = menus['s-career'][0], items = worldItems(WC.listWorlds());
     m.setItems(items); m.i = items.findIndex(it => !it.disabled && !it.head); m.render();
     worldInfo();
     if (!switching) fadeTo(() => { if (!sim) startAttract(); show('s-career'); }, 200);
@@ -1227,6 +1237,14 @@ const pc = new Computer({
   },
   changed: () => { saveWorld(); renderHubMenu(); },
   sell: () => { const cash = WC.sellAnnuity(world); if (cash) { sfx.best(); saveWorld(); renderHub(); } },
+  // Form SV-1 filed: the team takes its name and colours (and your livery starts in them)
+  register: (f) => {
+    WC.registerTeam(world, f);
+    world.livery = { ...settings.car, main: f.colors[0], accent: f.colors[1], teamName: f.team };
+    settings.driverName = f.name; saveSettings();
+    sfx.best(); saveWorld(); renderHub(); phone.buzz();
+  },
+  buy: (id) => { if (WC.buyCar(world, id)) { sfx.best(); saveWorld(); renderHub(); } },
   view: () => { if (screen === 's-hub') renderHints(); },
   sfx: { move: () => sfx.move(), select: () => sfx.select(), back: () => sfx.back() },
 });
@@ -1288,13 +1306,14 @@ $('s-hub').addEventListener('click', (e) => { if (onRoom(e)) sitDown(); });
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 // ---- new career (Career screen, World Career tab) ----
-function worldItems(saved) {
+let delPick = null;
+function worldItems(saves) {
   const items = [];
-  if (saved) items.push({ label: `Continue<small>${saved.year} · ${saved.over ? 'SEASON OVER' : 'RND ' + (saved.round + 1) + '/' + saved.opts.len}</small>`, cls: 'cont',
-    desc: `${saved.player.name}, ${seriesName(saved.player.series)}. ${saved.over ? 'The season is over: the next one is waiting.' : `Next: round ${saved.round + 1}, ${saved.series[saved.player.series].cal[saved.round].name}.`}`, action: () => { world = saved; openHub(); } });
+  if (saves.length) items.push({ label: 'Your Careers', head: true });
+  for (const e of saves.slice(0, 6)) items.push({ label: `${e.team}<small>${e.year} · ${e.over ? 'SEASON OVER' : 'RND ' + (e.round + 1) + '/' + e.len}</small>`, cls: 'cont',
+    desc: `${e.name}, ${seriesName(e.series)}. Pick it up where you left it.`, action: () => { const w = WC.loadWorld(e.id); if (w) { world = w; openHub(); } } });
   items.push(
     { label: 'New Career', head: true },
-    { label: 'Your Name', show: () => (worldOpts.name || defaultName()).toUpperCase(), values: [[0, '']], get: () => 0, set: () => focusName(), action: () => focusName(), desc: 'Select to type your name. It goes on the timing screens and in the news.' },
     { label: 'Season Length', values: WC.SEASON_LENGTHS.map(n => [n, n + ' rounds']), get: () => worldOpts.len, set: v => worldOpts.len = v, desc: 'Rounds in every season, in every series.' },
     { label: 'Difficulty', values: Object.entries(DIFF_LABEL), get: () => worldOpts.difficulty, set: v => worldOpts.difficulty = v, desc: 'The pace of the field. Higher series have better drivers on top of this, so it gets harder as you climb.' },
     { label: 'Race Laps', values: [3, 5, 8, 12, 15, 20].map(v => [v, String(v)]), get: () => worldOpts.laps, set: v => worldOpts.laps = v, desc: 'Laps in every race (point-to-point circuits are one run).' },
@@ -1302,46 +1321,56 @@ function worldItems(saved) {
     { label: 'Practice', values: PRAC_VALS, get: () => worldOpts.prac, set: v => worldOpts.prac = v, desc: PRAC_DESC, get disabled() { return worldOpts.weekend !== 'full'; } },
     { label: 'Qualifying', values: QUALI_VALS, get: () => worldOpts.quali, set: v => worldOpts.quali = v, desc: QUALI_DESC, get disabled() { return worldOpts.weekend === 'race'; } },
     { label: 'Circuits', values: [['presets', 'Presets'], ['all', 'Presets + Mine'], ['mine', 'My Circuits']], get: () => worldOpts.pool, set: v => worldOpts.pool = v, desc: 'Which circuits the calendars are drawn from.' },
-    { label: 'Start Career', cls: 'action primary', confirm: saved ? 'Replace your career? Select again' : null, action: () => startWorld(), desc: 'Start in the Street Cup with your own team.' + (saved ? ' <span class="bad">This replaces your saved career.</span>' : '') },
+    { label: 'Start Career', cls: 'action primary', action: () => startWorld(), desc: 'You won the lottery. Now ruin it: your name, your team and your first car are set up on the computer in your garage.' },
   );
+  if (saves.length) {
+    if (!saves.some(e => e.id === delPick)) delPick = saves[0].id;
+    items.push({ label: 'Delete Career', values: saves.map(e => [e.id, e.team]), get: () => delPick, set: v => delPick = v, confirm: 'Delete it for good? Select again',
+      action: () => { WC.deleteWorld(delPick); sfx.back(); openCareer(true); }, desc: 'Pick a career with left / right, then select twice. It can\'t be undone.' });
+  }
   return items;
-}
-const defaultName = () => (settings.driverName || 'Driver');
-function focusName() {
-  const el = $('w-name'); if (!el) return;
-  el.value = worldOpts.name || defaultName(); el.focus(); el.select();
 }
 function worldInfo() {
   const el = $('career-info');
   const feat = (ico, t, d) => `<div class="feat"><i>${ico}</i><div><b>${t}</b><span>${d}</span></div></div>`;
-  el.innerHTML = `<h3>WORLD CAREER</h3><p class="lead">A motorsport world that keeps going. Start your own team in the Street Cup and climb, season after season, for as long as you like.</p>
-    <label class="field w-name-field"><span>YOUR NAME</span><input id="w-name" maxlength="18" spellcheck="false" autocomplete="off" placeholder="${defaultName().toUpperCase()}"></label>
-    ${feat('&#9873;', 'Three series', 'Street Cup, GT Championship and Formula SV. Finish in the top three to be offered a step up.')}
-    ${feat('&#9775;', 'Real people', 'Every driver ages, improves, peaks and retires. Rookies arrive. Your record against each one is kept.')}
-    ${feat('&#9742;', 'Your phone', 'Texts from your teammate and rivals, the news, and offers you answer by reply.')}`;
-  const inp = $('w-name');
-  inp.onkeydown = (e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); inp.blur(); } e.stopPropagation(); };
-  inp.onblur = () => { const v = inp.value.trim().replace(/\s+/g, ' '); if (v) { worldOpts.name = v; settings.driverName = v; saveSettings(); } menus['s-career'][0].render(); };
+  el.innerHTML = `<h3>WORLD CAREER</h3><p class="lead">You won the lottery, got divorced, and decided to start a racing team. Run it from your garage for as long as the money lasts, and then some.</p>
+    ${feat('&#9873;', 'Three series', 'Street Cup, GT Championship and Formula SV. Finish in the top three to be offered a step up, if you can afford it.')}
+    ${feat('&#36;', 'Every lap costs', 'Entry, travel, the crew, tyres, fuel and repairs. Prize money comes back. The bank is watching.')}
+    ${feat('&#9636;', 'The computer', 'Email, the news, the classifieds, the bank. Most of the story happens on a screen in your garage.')}`;
 }
 function startWorld() {
-  const name = worldOpts.name || defaultName();
+  const name = settings.driverName || 'Driver';
+  const streetCars = carsOfClass('street').map(id => ({ key: chassisKey(id), name: CARS[id].name, value: Math.round(12000 + CARS[id].spec.power * 0.11) }));
   world = WC.newWorld({ name, len: worldOpts.len, difficulty: worldOpts.difficulty, laps: worldOpts.laps, weekend: worldOpts.weekend, pracLen: worldOpts.prac, qualiLen: worldOpts.quali, pool: worldOpts.pool,
-    teamName: settings.car.teamName && settings.car.teamName !== 'Your Team' ? settings.car.teamName : `${name.split(' ').pop()} Racing`, colors: [settings.car.main, settings.car.accent], seed: Date.now() }, worldPool());
+    teamName: `${name.split(' ').pop()} Racing`, colors: [settings.car.main, settings.car.accent], seed: Date.now(), streetCars }, worldPool());
   saveWorld();
-  fadeTo(() => { enterHub(); const m = world.mail.find(x => x.lottery); setTimeout(() => { if (screen === 's-hub') sitDown('mail', m && m.id); }, 700); }, 200);
+  fadeTo(() => { enterHub(); const m = world.mail.find(x => x.link && x.link[0] === 'registry'); setTimeout(() => { if (screen === 's-hub') sitDown('mail', m && m.id); }, 700); }, 200);
 }
 
 // ---- the hub: your garage ----
+// this career's car: its own livery (designed from the hub), on the chassis you bought
+function worldCar() {
+  const c = { ...(world.livery || settings.car) };
+  if (world.car) c.chassis = world.car.chassis;
+  return c;
+}
+// the garage from the hub edits this career's car, not the one in your other modes
+let garageSwap = null;
+function openWorldGarage() { garageSwap = settings.car; settings.car = worldCar(); openGarage('s-hub'); }
+function closeWorldGarage() {
+  if (!garageSwap) return;
+  world.livery = { ...settings.car }; world.liveryDone = true; settings.car = garageSwap; garageSwap = null;
+  saveSettings(); saveWorld();
+}
 // the car in the bay is your car for this series; the room is your garage model
 function hubCar() {
-  const cls = WC.seriesById(world.player.series).cls;
-  return CARS[carId(settings.car)]?.cls === cls ? { ...settings.car } : { ...settings.car, chassis: chassisKey(carsOfClass(cls)[0]) };
+  const cls = WC.seriesById(world.player.series).cls, car = worldCar();
+  return CARS[carId(car)]?.cls === cls ? car : { ...car, chassis: chassisKey(carsOfClass(cls)[0]) };
 }
 function enterHub() {
   disposeSim();
   const t = world.teams[world.player.team];
-  t.main = settings.car.main; t.accent = settings.car.accent;
-  if (settings.car.teamName && settings.car.teamName !== 'Your Team') t.name = settings.car.teamName;
+  if (world.livery) { t.main = world.livery.main; t.accent = world.livery.accent; }
   pitGarage.openHome(hubCar(), { main: t.main, accent: t.accent, name: t.name });
   pcSeat = false; pc.close(); $('s-hub').classList.remove('seated');
   renderHub(); show('s-hub');
@@ -1361,7 +1390,13 @@ function renderHub() {
   const pips = S.cal.map((c, k) => `<i class="${k < w.round ? 'done' : k === w.round && !w.over ? 'now' : ''}" title="${c.name}"></i>`).join('');
   const champ = cellW('Championship', cp ? `${ord(cp)}<small> ${st[cp - 1].pts} PTS</small>` : '&mdash;');
   const bank = w.money && w.money.choice ? cellW('Bank', `<span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span>`) : cellW('Bank', '&mdash;');
-  if (!w.over) {
+  const F = w.founding || {};
+  if (!founded(w)) {
+    const step = (done, t) => `<div class="row"><span>${t}</span><span class="${done ? 'ok' : ''}">${done ? 'DONE' : '&mdash;'}</span></div>`;
+    $('hub-card').innerHTML = `<div class="panel-title">GETTING STARTED</div><div class="hub-steps">
+      ${step(F.reg, 'Register the team')}${step(w.money && w.money.choice, 'Claim your winnings')}${step(F.car, 'Buy a car')}${step(!!w.livery && w.liveryDone, 'Paint it (optional)')}</div>
+      <p class="hub-note">It all happens on the <b>computer</b>.</p>`;
+  } else if (!w.over) {
     const r = S.cal[w.round], tr = worldPool().find(t => t.name === r.name);
     $('hub-card').innerHTML = `<div class="panel-title">NEXT &middot; ROUND ${w.round + 1} OF ${w.opts.len}</div><div class="season-pips">${pips}</div>
       <div class="ti-name">${r.name}</div><div class="ti-chips"><span>${tr ? THEMES[tr.env.theme].label : ''}</span><span class="wx-chip">${r.time} &middot; ${r.weather}</span></div>
@@ -1381,7 +1416,10 @@ function renderHubMenu() {
   const items = [];
   const off = w.player.offer, offerMail = off && !off.answer && (w.mail || []).find(m => m.offer && !m.answer);
   const claim = w.money && !w.money.choice && (w.mail || []).find(m => m.lottery && !m.answer);
-  if (claim) items.push({ label: 'Claim Your Winnings', cls: 'action primary', action: () => sitDown('mail', claim.id), desc: 'The State Lottery needs to know how you want your money. It\'s waiting in your email.' });
+  const F = w.founding || {};
+  if (!F.reg) items.push({ label: 'Register The Team', cls: 'action primary', action: () => sitDown('registry'), desc: 'Form SV-1, on the computer. Nothing happens in San Velocita without a form.' });
+  else if (claim) items.push({ label: 'Claim Your Winnings', cls: 'action primary', action: () => sitDown('mail', claim.id), desc: 'The State Lottery needs to know how you want your money. It\'s waiting in your email.' });
+  else if (!F.car) items.push({ label: 'Buy A Car', cls: 'action primary', action: () => sitDown('classifieds'), desc: 'Your buddy found some listings. The cheap one is "probably fine".' });
   else if (!w.over) {
     const r = w.series[sid].cal[w.round];
     items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), desc: `${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}` });
@@ -1392,7 +1430,7 @@ function renderHubMenu() {
   items.push(
     { label: `Computer${nm ? `<small>${nm} NEW</small>` : ''}`, action: () => sitDown(offerMail ? 'mail' : null, offerMail ? offerMail.id : null), desc: 'Sit down at the desk: your email, the news, the series\' websites and the driver database. You can also click the monitor.' },
     { label: `Phone${n ? `<small>${n} NEW</small>` : ''}`, action: () => { phone.open(); renderHints(); }, desc: 'Texts from your teammate, rivals and friends. Press <b>P</b> / <b>Y</b> any time.' },
-    { label: 'Car & Livery', action: () => openGarage('s-hub'), desc: `Your car and livery. In the ${seriesName(sid)} you race ${CLASSES[WC.seriesById(sid).cls].label} cars.` },
+    { label: 'Car & Livery', action: () => openWorldGarage(), desc: w.car ? `Your ${w.car.year} ${w.car.name}: paint it, design the livery, the helmet and the suit.` : `Your livery, helmet and suit. In the ${seriesName(sid)} you race ${CLASSES[WC.seriesById(sid).cls].label} cars.` },
     presetItem(' Set each aid in Options > Aids.'),
   );
   if (!w.over) items.push({ label: 'Sim Rest Of Season', confirm: 'Simulate it all? Select again', action: () => simWorldSeason(), desc: 'For testing: simulates every remaining round, your races too (you as a mid-field driver).' });
@@ -1405,6 +1443,8 @@ menus['s-hub'] = [new Menu($('m-hub'), [], { desc: 'd-hub' })];
 backs['s-hub'] = () => { if (pcSeat && pc.isOpen) { if (pc.app) { pc.back(); renderHints(); } else standUp(); } };
 tabbers['s-hub'] = (d) => { if (pc.isOpen) pc.flip(d); };
 const cellW = (k, v) => `<div><small>${k}</small><b>${v}</b></div>`;
+// ready to race: registered, paid, a car in the garage
+const founded = (w) => { const F = w.founding || {}; return F.reg && F.car && w.money && w.money.choice; };
 function beginNextSeason() {
   const off = world.player.offer;
   if (off && !off.answer) { const m = (world.mail || []).find(x => x.offer && !x.answer); sitDown('mail', m && m.id); return; }
@@ -1423,9 +1463,8 @@ function startWorldRound() {
   wkUse = { sets: 0, laps: 0, damage: 0, seen: null };
   const base = worldPool().find(t => t.name === r.name) || presetTracks()[0];
   const track = cloneTrack(base); track.env.time = r.time; track.env.weather = r.weather;
-  // your team wears your livery (and name, once you've set one in the Livery Designer)
-  const mine = w.teams[w.player.team]; mine.main = settings.car.main; mine.accent = settings.car.accent;
-  if (settings.car.teamName && settings.car.teamName !== 'Your Team') mine.name = settings.car.teamName;
+  // your team wears your livery
+  const mine = w.teams[w.player.team], wc = worldCar(); mine.main = wc.main; mine.accent = wc.accent;
   const ent = WC.raceEntries(w);
   const clsCars = carsOfClass(WC.seriesById(sid).cls);
   for (const e of Object.values(ent.entries)) e.chassis = WC.seriesById(sid).cls === 'f1' ? 'custom' : chassisKey(clsCars[e.teamNo % clsCars.length]);
@@ -1436,11 +1475,14 @@ function startWorldRound() {
     gridOrder = WC.seriesStandings(w, sid).map(e => e.pid === 'P' ? 'P' : slotOf[e.pid]).filter(x => x !== undefined);
   }
   const cls = WC.seriesById(sid).cls;
-  // your car: the one in your garage if it's the right class, otherwise the first of the class (you can change it on the grid)
-  const car = CARS[carId(settings.car)]?.cls === cls ? { ...settings.car } : { ...settings.car, chassis: chassisKey(carsOfClass(cls)[0]) };
+  // your car: the one you bought (its condition costs a little power); a car of the wrong class (you've moved up and not
+  // bought one yet) gets the car select instead
+  const owned = w.car && CARS[carId(wc)]?.cls === cls;
+  const car = CARS[carId(wc)]?.cls === cls ? wc : { ...wc, chassis: chassisKey(carsOfClass(cls)[0]) };
+  const mods = owned ? { power: WC.condPower(w.car.cond), downforce: 1, drag: 1, brake: 1, grip: 1, rainGrip: 1, wear: 1, damage: 1, pitTime: 0, slip: 1, softs: false, launch: false } : null;
   const brief = `<b>${seriesName(sid).toUpperCase()} &middot; ROUND ${w.round + 1} OF ${w.opts.len}</b>`;
-  const race = { mode: 'race', laps: w.opts.laps, opponents: 11, brief, pick: true, onlyClass: cls,
-    extra: { car, difficulty: w.opts.difficulty, grid: 'back', team: 'garage', roster: ent.roster, entries: ent.entries, teamPace: ent.teamPace, gridOrder, aiChassis: 'class', playerName: w.player.name.split(' ').pop().toUpperCase() } };
+  const race = { mode: 'race', laps: w.opts.laps, opponents: 11, brief, pick: !owned, onlyClass: cls,
+    extra: { car, mods, difficulty: w.opts.difficulty, grid: 'back', team: 'garage', roster: ent.roster, entries: ent.entries, teamPace: ent.teamPace, gridOrder, aiChassis: 'class', playerName: w.player.name.split(' ').pop().toUpperCase() } };
   phone.hide();
   if (w.opts.weekend !== 'race') return startWeekend(track, race, 'world', w.opts.weekend, [w.opts.pracLen, w.opts.qualiLen]);
   weekend = null;
@@ -1547,7 +1589,8 @@ function leaveOnline(msg) {
 }
 
 // host: circuits it can pick from
-function onlineTracks() { const l = [...presetTracks(), ...savedTracks()]; if (editorTrack) l.unshift(editorTrack); return l; }
+// (real circuits go light: everyone loads the scenery from their own copy)
+function onlineTracks() { const l = [...realTracks(), ...presetTracks(), ...savedTracks()]; if (editorTrack) l.unshift(editorTrack); return l; }
 function hostPickTrack(k) {
   const list = onlineTracks();
   lobby.set.track = Math.max(0, Math.min(list.length - 1, k));
@@ -2045,6 +2088,7 @@ function startRace(track, cfg, ret, quick = false) {
     const iv = setInterval(() => { p = Math.min(p + 4 + Math.random() * 6, 90); fill.style.setProperty('--v', p / 100); }, 60);
     setTimeout(async () => {
       await loadEnvModels(); // the setting's models (usually loaded long before)
+      if (needsHydrate(track)) track = await hydrateReal(cloneTrack(track)).catch(() => track); // a real circuit's hills + scenery
       const t0 = performance.now();
       sim = new Race(track, {
         mode: cfg.mode, laps: cfg.laps || track.env.laps || 3, opponents: cfg.opponents ?? track.env.opponents ?? 7, qualiTime: cfg.qualiTime, practiceTime: cfg.practiceTime,
@@ -2422,6 +2466,7 @@ function selectReviewLap(k) {
   rv.sel = Math.max(0, Math.min(rv.laps.length - 1, k));
   const lap = rv.laps[rv.sel], c = reviewCmp(lap);
   rv.c = c; rv.an = analyze(lap, c.lap, rv.T, rv.corners);
+  if (sim && sim.track) nameCorners(sim.track, rv.T, rv.an.corners); // real circuits: Turn 3 · Eau Rouge
   rv.focus = Math.min(rv.focus, rv.an.corners.length - 1);
   rv.map = null; rv.cursor = -1;
   renderReview();

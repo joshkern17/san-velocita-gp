@@ -24,14 +24,19 @@ const APPS = [
   { id: 'series', label: 'Series Site', title: 'Web Browser' },
   { id: 'drivers', label: 'Driver Database', title: 'Web Browser' },
   { id: 'bank', label: 'Bank', title: 'Web Browser' },
+  { id: 'classifieds', label: 'Classifieds', title: 'Web Browser' },
+  { id: 'registry', label: 'Registry', title: 'Web Browser', hidden: true }, // (reached from its email)
 ];
-const ICON_X = 22, ICON_Y = 20, ICON_STEP = 92;
+// team colours on Form SV-1
+const PALETTE = [0xc8141c, 0xf2f2f2, 0x15181d, 0x1d4fd8, 0xf2c21a, 0x18a058, 0xf06a12, 0x7a2cc8, 0x1fb5c8, 0xe0569a, 0x7a5a3a, 0x9aa2ad];
+const ICON_X = 22, ICON_Y = 16, ICON_STEP = 88;
 // little icons, drawn the same way on the desktop and the canvas
 const ICONS = {
   mail: [['#f4f1e4', 6, 14, 52, 36], ['#c9c2a6', 6, 14, 52, 4], ['path', '#8a8268', 'M6 14 L32 34 L58 14'], ['#d23a2a', 44, 6, 14, 14]],
   news: [['#ffffff', 10, 6, 44, 52], ['#1a1a1a', 15, 11, 34, 7], ['#9a9a9a', 15, 22, 34, 3], ['#9a9a9a', 15, 28, 34, 3], ['#9a9a9a', 15, 34, 22, 3], ['#c23', 40, 34, 9, 14], ['#9a9a9a', 15, 40, 22, 3], ['#9a9a9a', 15, 46, 22, 3]],
   series: [['#5a5a5a', 12, 6, 4, 54], ['#111', 16, 8, 36, 24], ['#fff', 16, 8, 9, 6], ['#fff', 34, 8, 9, 6], ['#fff', 25, 14, 9, 6], ['#fff', 43, 14, 9, 6], ['#fff', 16, 20, 9, 6], ['#fff', 34, 20, 9, 6], ['#fff', 25, 26, 9, 6], ['#fff', 43, 26, 9, 6]],
   drivers: [['#2a4fa0', 14, 10, 36, 34], ['#e8e8e8', 18, 20, 28, 12], ['#111', 20, 22, 24, 8], ['#2a4fa0', 10, 44, 44, 14]],
+  classifieds: [['#f4f1e4', 8, 8, 48, 48], ['#7a2cc8', 8, 8, 48, 10], ['#7a2cc8', 14, 24, 22, 3], ['#7a2cc8', 14, 32, 30, 3], ['#7a2cc8', 14, 40, 18, 3], ['#7a2cc8', 14, 48, 26, 3]],
   bank: [['#d8b54a', 8, 18, 48, 6], ['#e9e2c8', 12, 24, 6, 22], ['#e9e2c8', 24, 24, 6, 22], ['#e9e2c8', 34, 24, 6, 22], ['#e9e2c8', 46, 24, 6, 22], ['#d8b54a', 6, 46, 52, 8], ['#d8b54a', 28, 6, 8, 12]],
 };
 function iconSvg(id) {
@@ -73,7 +78,9 @@ export class Computer {
 
   // ---------- input ----------
   input({ up, down, left, right, ok, back, tabPrev, tabNext }) {
+    if (this.typing) return; // (a text field has the keyboard: Enter or Esc gives it back)
     if (back) { if (this.app) this.back(); else return 'stand'; return; }
+    if ((left || right) && this.cur && this.cur.dataset.cycle) { this.cycle(this.cur.dataset.cycle, right ? 1 : -1); return; }
     if (tabPrev || tabNext) { this.flip(tabNext ? 1 : -1); return; }
     if (up) this.move(0, -1); if (down) this.move(0, 1); if (left) this.move(-1, 0); if (right) this.move(1, 0);
     if (ok && this.cur) { const a = this.cur; if (a.dataset.act) { this.act(a.dataset.act, a.dataset.arg); } }
@@ -120,6 +127,8 @@ export class Computer {
       : app === 'news' ? { news: 'home' }
       : app === 'series' ? { s: w.player.series, tab: 'standings' }
       : app === 'bank' ? { bank: 'home' }
+      : app === 'classifieds' ? { ad: null }
+      : app === 'registry' ? { reg: 1 }
       : { db: w.player.series, pid: null };
     if (app === 'mail' && this.page.mail) this.markRead(this.page.mail);
     this.curKey = null; this.render(); this.src.sfx?.select?.();
@@ -146,6 +155,12 @@ export class Computer {
     if (a === 'tab') { this.hist = []; this.page = { ...this.page, tab: arg }; this.curKey = 'tab-' + arg; this.render(); this.src.sfx?.select?.(); return; }
     if (a === 'db') { this.page = { db: arg, pid: null }; this.hist = []; this.curKey = 'db-' + arg; this.render(); this.src.sfx?.select?.(); return; }
     if (a === 'driver') { this.go({ pid: arg }); this.src.sfx?.select?.(); return; }
+    if (a === 'open') { this.launch(arg); return; }
+    if (a === 'cyc') { const [f, d] = arg.split(':'); this.cycle(f, +d); return; }
+    if (a === 'type') { this.type(arg); return; }
+    if (a === 'file') { if (!this.formOk()) { this.src.sfx?.back?.(); return; } this.src.register?.({ ...this.form, name: this.form.name.trim(), team: this.form.team.trim(), ex: this.form.ex.trim() }); this.curKey = null; this.render(); return; }
+    if (a === 'ad') { this.go({ ad: arg }); this.buyArmed = false; this.src.sfx?.select?.(); return; }
+    if (a === 'buy') { if (!this.buyArmed) { this.buyArmed = true; this.curKey = 'buy'; this.render(); this.src.sfx?.move?.(); return; } this.buyArmed = false; this.src.buy?.(arg); this.page = { ad: null }; this.hist = []; this.curKey = null; this.render(); return; }
     // selling the annuity: select twice
     if (a === 'sell') { if (!this.sellArmed) { this.sellArmed = true; this.curKey = 'sell'; this.render(); this.src.sfx?.move?.(); return; } this.sellArmed = false; this.src.sell?.(); this.curKey = null; this.render(); return; }
   }
@@ -158,7 +173,7 @@ export class Computer {
     const desk = this.scr.querySelector('.pc-desk'), win = this.scr.querySelector('.pc-win'), task = this.scr.querySelector('.pc-task');
     const nMail = WC.unreadMail(w);
     desk.innerHTML = `<div class="pc-wall"><b>${esc(team.name)}</b><small>${esc(WC.seriesById(w.player.series).name)} &middot; ${w.year}</small></div>` +
-      APPS.map((a, k) => `<div class="pc-icon" data-nav data-act="app" data-arg="${a.id}" data-key="app-${a.id}" style="left:${ICON_X}px;top:${ICON_Y + k * ICON_STEP}px">${iconSvg(a.id)}<span>${a.label}</span>${a.id === 'mail' && nMail ? `<em>${nMail}</em>` : ''}</div>`).join('');
+      APPS.filter(a => !a.hidden).map((a, k) => `<div class="pc-icon" data-nav data-act="app" data-arg="${a.id}" data-key="app-${a.id}" style="left:${ICON_X}px;top:${ICON_Y + k * ICON_STEP}px">${iconSvg(a.id)}<span>${a.label}</span>${a.id === 'mail' && nMail ? `<em>${nMail}</em>` : ''}</div>`).join('');
     const app = APPS.find(a => a.id === this.app);
     task.innerHTML = `<span class="pc-start">SV</span>${app ? `<span class="pc-tb on">${app.label}</span>` : ''}<span class="pc-clock">${esc(this.clock())}</span>`;
     win.hidden = !app;
@@ -178,12 +193,16 @@ export class Computer {
   // Mail: the inbox on the left, the open email on the right
   mailApp() {
     const w = this.w, list = w.mail || [], cur = list.find(m => m.id === this.page.mail) || list[0];
-    const rows = list.map(m => `<div class="pc-mrow${m.read ? '' : ' unread'}${cur && m.id === cur.id ? ' sel' : ''}" data-nav data-act="mail" data-arg="${m.id}" data-key="mail-${m.id}"${cur && m.id === cur.id && !(cur.choices && !cur.answer) ? ' data-first' : ''}>
+    const rows = list.map(m => `<div class="pc-mrow${m.read ? '' : ' unread'}${cur && m.id === cur.id ? ' sel' : ''}" data-nav data-act="mail" data-arg="${m.id}" data-key="mail-${m.id}"${cur && m.id === cur.id && !(cur.choices && !cur.answer) && !cur.link ? ' data-first' : ''}>
       <b>${esc(m.from)}</b><span>${esc(m.subj)}</span><small>${esc(m.when || '')} ${m.y}</small></div>`).join('') || '<p class="pc-empty">No mail.</p>';
     const me = `${w.player.name.split(' ')[0].toLowerCase()}@${w.teams[w.player.team].name.toLowerCase().replace(/[^a-z]+/g, '')}.sv`;
     let read = '<p class="pc-empty">Select an email to read it.</p>';
     if (cur) {
-      const ch = cur.choices && !cur.answer ? `<div class="pc-reply">${cur.choices.map(([k, t], i) => `<button class="pc-btn" data-nav data-act="reply" data-arg="${cur.id}:${k}" data-key="reply-${k}"${i === 0 ? ' data-first' : ''}>${esc(t)}</button>`).join('')}</div>` : '';
+      const gated = cur.lottery && w.founding && !w.founding.reg;
+      const link = cur.link || (gated ? ['registry', 'Open Form SV-1'] : null);
+      const ch = gated ? `<div class="pc-reply"><p class="pc-note">The Lottery can't pay a business that doesn't exist yet. File Form SV-1 first.</p><button class="pc-btn" data-nav data-act="open" data-arg="registry" data-key="link" data-first>Open Form SV-1</button></div>`
+        : link && !(link[0] === 'registry' && w.founding?.reg) && !(link[0] === 'classifieds' && w.car) ? `<div class="pc-reply"><button class="pc-btn" data-nav data-act="open" data-arg="${link[0]}" data-key="link" data-first>${esc(link[1])} &rarr;</button></div>`
+        : cur.choices && !cur.answer ? `<div class="pc-reply">${cur.choices.map(([k, t], i) => `<button class="pc-btn" data-nav data-act="reply" data-arg="${cur.id}:${k}" data-key="reply-${k}"${i === 0 ? ' data-first' : ''}>${esc(t)}</button>`).join('')}</div>` : '';
       const ans = cur.answer ? `<p class="pc-sent">You replied: ${esc(cur.choices.find(c => c[0] === cur.answer)?.[1] || cur.answer)}</p>` : '';
       read = `<div class="pc-mhead"><div><small>From:</small> ${esc(cur.from)} &lt;${esc(cur.addr)}&gt;</div><div><small>To:</small> ${esc(me)}</div><div><small>Date:</small> ${esc(cur.when || '')} ${cur.y}</div><div class="subj">${esc(cur.subj)}</div></div>
         <div class="pc-mbody" data-nav data-scroll data-key="mbody">${(Array.isArray(cur.body) ? cur.body : [cur.body]).map(p => `<p>${esc(p)}</p>`).join('')}${this.billTable(cur.bill)}${this.reportTable(cur.report, cur.y)}${ans}</div>${ch}`;
@@ -197,10 +216,12 @@ export class Computer {
     if (this.app === 'news') return 'www.paddockwire.sv' + (p.news === 'home' ? '/' : `/story/${p.news}`);
     if (this.app === 'series') return `www.${WC.siteOf(WC.seriesById(p.s))}/${p.tab}`;
     if (this.app === 'bank') return 'secure.firstvelocita.sv/business/account';
+    if (this.app === 'classifieds') return 'svlist.sv/cars' + (p.ad ? '/' + p.ad : '');
+    if (this.app === 'registry') return 'www.registry.sv.gov/forms/SV-1.htm';
     return 'www.driverdb.sv' + (p.pid ? `/driver/${p.pid}` : `/${p.db}`);
   }
   browser() {
-    const site = this.app === 'news' ? this.newsSite() : this.app === 'series' ? this.seriesSite() : this.app === 'bank' ? this.bankSite() : this.driverSite();
+    const site = { news: () => this.newsSite(), series: () => this.seriesSite(), bank: () => this.bankSite(), classifieds: () => this.classSite(), registry: () => this.regSite() }[this.app]?.() ?? this.driverSite();
     return `<div class="pc-bar"><button class="pc-btn sm" data-nav data-act="back" data-key="bback">&larr; Back</button><div class="pc-url">http://${esc(this.url())}</div></div><div class="pc-page">${site}</div>`;
   }
 
@@ -218,6 +239,79 @@ export class Computer {
     return mast + `<div class="nw-lead" data-nav data-act="article" data-arg="0" data-key="art-0" data-first><small>LATEST &middot; ${esc(lead.when || '')} ${lead.y}</small><h1>${esc(cap(lead.head))}</h1><p>${esc(lead.body)}</p></div>
       <div class="nw-ad">YOUR LOGO HERE &middot; Advertise on the Wire &middot; call 555-0199</div><div class="nw-list">${rest}</div>`;
   }
+  // ---------- Form SV-1: the San Velocita Business Registry ----------
+  get form() {
+    const w = this.w, name = w.player.name;
+    if (this._form && this._formFor === w) return this._form;
+    this._formFor = w;
+    return (this._form = { name, team: `${name.split(' ').pop()} Racing`, colors: [w.teams[w.player.team].main, w.teams[w.player.team].accent], home: 'pinewood', background: 'mechanic', ex: WC.EX_NAMES[Math.floor(Math.random() * WC.EX_NAMES.length)], years: 7 });
+  }
+  formOk() { const f = this.form; return f.name.trim() && f.team.trim() && f.ex.trim(); }
+  cycle(field, d) {
+    const f = this.form, wrap = (a, i) => a[(i + a.length) % a.length];
+    if (field === 'home') { const k = Object.keys(WC.TOWNS); f.home = wrap(k, k.indexOf(f.home) + d); }
+    else if (field === 'background') { const k = Object.keys(WC.BACKGROUNDS); f.background = wrap(k, k.indexOf(f.background) + d); }
+    else if (field === 'years') f.years = Math.max(1, Math.min(30, f.years + d));
+    else if (field === 'c0' || field === 'c1') { const i = +field[1]; f.colors[i] = wrap(PALETTE, Math.max(0, PALETTE.indexOf(f.colors[i])) + d); }
+    this.curKey = 'f-' + field; this.render(); this.src.sfx?.move?.();
+  }
+  // typing into a text field: the real input takes the keyboard until Enter / Esc / a click elsewhere
+  type(field) {
+    const inp = this.scr.querySelector(`input[data-field="${field}"]`); if (!inp) return;
+    this.typing = field; inp.closest('.rg-field').classList.add('typing');
+    inp.focus(); inp.select(); // (typing replaces the default)
+    const done = () => { inp.removeEventListener('blur', done); this.typing = null; this.curKey = 'f-' + field; this.render(); };
+    inp.addEventListener('blur', done);
+    inp.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); inp.blur(); } };
+    inp.oninput = () => { this.form[field] = inp.value.slice(0, 24); inp.closest('.rg-field').querySelector('.rg-val').textContent = this.form[field]; this.snapSoon(); };
+    this.snapSoon();
+  }
+  regSite() {
+    const w = this.w, f = this.form;
+    const head = `<div class="rg-head"><b>San Velocita Business Registry</b><small>Province of San Velocita &middot; Department of Forms &middot; Est. 1957</small></div>`;
+    if (w.founding?.reg) {
+      const t = w.teams[w.player.team];
+      return head + `<div class="rg-body"><h1>Form SV-1: received</h1><p>Thank you. <b>${esc(t.name)}</b> is a registered Sporting Enterprise based in ${esc(WC.TOWNS[w.home]?.name || '')}.</p><p>You can't change your registration online. To amend it, visit any Registry office between 10:15 and 10:45 on alternate Wednesdays.</p></div>`;
+    }
+    const text = (k, label, hint) => `<div class="rg-field" data-nav data-act="type" data-arg="${k}" data-key="f-${k}"${k === 'name' ? ' data-first' : ''}><label>${label}</label><span class="rg-box"><span class="rg-val">${esc(f[k])}</span><span class="rg-caret"></span><input data-field="${k}" value="${esc(f[k])}" maxlength="24" spellcheck="false" autocomplete="off"></span>${hint ? `<small>${hint}</small>` : ''}</div>`;
+    const cyc = (k, label, val, hint) => `<div class="rg-field" data-nav data-cycle="${k}" data-key="f-${k}"><label>${label}</label><span class="rg-cyc"><i data-act="cyc" data-arg="${k}:-1">&#9664;</i><b>${val}</b><i data-act="cyc" data-arg="${k}:1">&#9654;</i></span>${hint ? `<small>${hint}</small>` : ''}</div>`;
+    const sw = (c) => `<i class="rg-sw" style="background:${hex(c)}"></i>`;
+    const T = WC.TOWNS[f.home], B = WC.BACKGROUNDS[f.background];
+    return head + `<div class="rg-body"><h1>Form SV-1: Registration of a Sporting Enterprise</h1>
+      <p class="rg-small">Please complete all sections in BLOCK CAPITALS. This form is not available in block capitals.</p>
+      <h2>Section A: the enterprise</h2>
+      ${text('team', 'Name of enterprise')}
+      ${cyc('c0', 'Principal colour', sw(f.colors[0]))}${cyc('c1', 'Secondary colour', sw(f.colors[1]), 'For the livery, the banners and anything else the Registry has no interest in.')}
+      ${cyc('home', 'Registered premises', esc(T.name), `${esc(T.blurb)} <em>${esc(WC.HOME_PERK)}</em>`)}
+      <h2>Section B: the proprietor</h2>
+      ${text('name', 'Full name')}
+      ${cyc('background', 'Previous occupation', esc(B.name), `<em>${esc(B.perk)}</em>`)}
+      <h2>Section C: marital history</h2>
+      <p class="rg-small">Required for no reason the Registry is able to share.</p>
+      ${text('ex', 'Former spouse')}
+      ${cyc('years', 'Years married', f.years)}
+      <div class="rg-submit"><button class="pc-btn" data-nav data-act="file" data-key="file">Submit Form SV-1 and pay $250</button>${this.formOk() ? '' : '<small class="neg">Please fill in every field.</small>'}</div></div>`;
+  }
+
+  // ---------- the classifieds: SVList ----------
+  classSite() {
+    const w = this.w, ads = w.ads || [], p = this.page;
+    const head = `<div class="cl-head"><b>SVList</b><small>san velocita &gt; for sale &gt; cars &amp; trucks &gt; by owner</small></div>`;
+    if (!w.founding?.reg) return head + '<p class="pc-empty">Register your team first (Form SV-1): the sellers want to know who\'s not paying them.</p>';
+    if (p.ad) {
+      const ad = ads.find(a => a.id === p.ad); if (!ad) return head + '<p class="pc-empty">This posting has been deleted by its author.</p>';
+      const can = !w.car, broke = w.money.balance < ad.price;
+      return head + `<div class="cl-ad" data-nav data-scroll data-key="adpage">
+        <h1>${ad.year} ${esc(ad.name)} &ndash; ${WC.money$(ad.price)} <small>(${esc(WC.TOWNS[['pinewood', 'gulch', 'city', 'azure'][ad.price % 4]].name)})</small></h1>
+        <div class="cl-photo">[ image not available ]</div>
+        <table class="cl-attrs"><tr><td>condition:</td><td><b>${WC.condName(ad.cond).toLowerCase()}</b></td></tr><tr><td>odometer:</td><td><b>${ad.miles.toLocaleString('en-US')}</b></td></tr><tr><td>title status:</td><td><b>${ad.cond < 0.62 ? 'it\'s complicated' : 'clean'}</b></td></tr><tr><td>seller:</td><td><b>${esc(ad.seller)}</b></td></tr></table>
+        <p>${esc(ad.blurb)}</p><p class="cl-fine">do NOT contact me with unsolicited services or offers. cash only. no test drives (insurance). post id: ${ad.id.slice(2)}${ad.price}</p></div>
+        <div class="cl-buy">${can ? `<button class="pc-btn" data-nav data-act="buy" data-arg="${ad.id}" data-key="buy" data-first>${this.buyArmed ? `Pay ${WC.money$(ad.price)}? Select again` : `Buy it: ${WC.money$(ad.price)}`}</button>${broke ? '<small class="neg">That\'s more than you have. The bank will notice.</small>' : ''}<small>Condition matters: a tired car is down on power until you sort it out.</small>` : '<small>You already have a car. Your garage has room for one, and so does your bank account.</small>'}</div>`;
+    }
+    const rows = ads.map((ad, k) => `<div class="cl-row" data-nav data-act="ad" data-arg="${ad.id}" data-key="ad-${ad.id}"${k === 0 ? ' data-first' : ''}><span class="cl-price">${WC.money$(ad.price)}</span><a>${ad.year} ${esc(ad.name)} &ndash; ${esc(ad.blurb.split('.')[0].toLowerCase())}</a><small>${WC.condName(ad.cond).toLowerCase()} &middot; ${Math.round(ad.miles / 1000)}k miles</small></div>`).join('');
+    return head + (w.car ? `<p class="cl-note">You bought a ${w.car.year} ${esc(w.car.name)}. The listings are still here, judging you.</p>` : '') + `<div class="cl-list">${rows || '<p class="pc-empty">Nothing for sale. Try again after payday.</p>'}</div>`;
+  }
+
   // a weekend's statement, line by line
   billTable(b) {
     if (!b) return '';
@@ -323,7 +417,7 @@ export class Computer {
   // the styles the snapshot needs (the computer's own rules; it uses system fonts, so nothing to embed)
   css() {
     if (this._css) return this._css;
-    const out = [], want = /#pc|\.(pc|nw|ss|db|bk)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
+    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
     for (const sh of document.styleSheets) { let rules; try { rules = sh.cssRules; } catch (e) { continue; } for (const r of rules) if (r.selectorText && want.test(r.selectorText)) out.push(r.cssText); }
     return (this._css = out.join('\n'));
   }
@@ -334,6 +428,7 @@ export class Computer {
     this.snapping = true;
     const clone = this.scr.cloneNode(true);
     clone.style.transform = 'none';
+    clone.querySelectorAll('input').forEach(e => e.remove()); // (the fields show their text in spans)
     // scrolled panes: an image can't scroll, so their contents are shifted up instead
     const live = this.scr.querySelectorAll('*'), cl = clone.querySelectorAll('*');
     live.forEach((e, i) => {
@@ -383,7 +478,7 @@ export class Computer {
     g.fillStyle = hex(team.main); g.fillRect(W - 30 - 120, H - TASK_H - 112, 120, 6);
     // icons
     const nMail = WC.unreadMail(w);
-    APPS.forEach((a, k) => {
+    APPS.filter(a => !a.hidden).forEach((a, k) => {
       const x = ICON_X + 8, y = ICON_Y + k * ICON_STEP + 4, s = 44 / 64;
       for (const p of ICONS[a.id]) {
         if (p[0] === 'path') { g.strokeStyle = p[1]; g.lineWidth = 3 * s; g.beginPath(); g.moveTo(x + 6 * s, y + 14 * s); g.lineTo(x + 32 * s, y + 34 * s); g.lineTo(x + 58 * s, y + 14 * s); g.stroke(); }
