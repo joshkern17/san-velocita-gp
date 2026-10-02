@@ -195,7 +195,7 @@ class Menu {
       div.addEventListener('click', (e) => {
         const it = this.items[k]; if (it.disabled) return;
         if (this.i !== k || !this.active) { this.focusMe(); this.i = k; this.opts.onMove && this.opts.onMove(it); }
-        if (it.values) { const a = e.target.closest('.arr'); this.change(a ? +a.dataset.d : 1); }
+        if (it.values) { const a = e.target.closest('.arr'); if (a) this.change(+a.dataset.d); else if (it.action) this.activate(); else this.change(1); }
         else this.activate();
       });
     });
@@ -221,7 +221,7 @@ class Menu {
   }
   activate() {
     const it = this.items[this.i]; if (!it || it.disabled) return;
-    if (it.values) return this.change(1);
+    if (it.values && !it.action) return this.change(1); // (a picker with an action: the arrows choose, select does it)
     // destructive choices ask twice
     if (it.confirm && !it.armed) { it.armed = true; sfx.move(); this.render(); return; }
     it.armed = false;
@@ -1286,7 +1286,6 @@ function showSeasonEnd() {
 // ---------------- World Career: the hub between rounds (your garage), the computer, the phone ----------------
 // js/wcareer.js keeps the world (people, teams, three series, results, news and texts); this is its UI.
 let world = null;
-let weekSub = false; // the hub menu is showing This Week (World Career's week, further down)
 let optSub = false;  // ... or Career Options
 let gig = null;      // a gig being driven: { g, t, ref, comfort, lc, lapComfort, dmg, lat, lon }
 const worldOpts = { len: 6, difficulty: 'medium', laps: 5, weekend: 'quali', prac: 1200, quali: 600, pool: 'presets', name: '' };
@@ -1629,7 +1628,7 @@ function renderHub() {
     // the team at a glance: the three things to build up, a hint, and what needs attention
     const B = WC.briefing(w), [gc, gr, gm] = B.goals;
     const cell = (g, v) => `<div><small>${g.label}</small><b>${v}</b><span class="br-bar"><i style="--v:${g.pct.toFixed(3)}"></i></span></div>`;
-    const wt = B.watch.slice(0, 3).map(x => `<div class="br-row ${x.bad ? 'bad' : 'warn'}"><i></i><span>${x.text}</span></div>`).join('') + (B.watch.length > 3 ? `<div class="br-more">and ${B.watch.length - 3} more</div>` : '');
+    const wt = B.watch.slice(0, 2).map(x => `<div class="br-row ${x.bad ? 'bad' : 'warn'}"><i></i><span>${x.text}</span></div>`).join('') + (B.watch.length > 2 ? `<div class="br-more">and ${B.watch.length - 2} more: ${B.watch.slice(2).map(x => x.text.split(':')[0].toLowerCase()).join(', ')}</div>` : '');
     $('hub-card').innerHTML = `<div class="panel-title">The team</div>
       <div class="ti-grid three br-goals">${cell(gc, cp ? `${ord(cp)}<small> ${st[cp - 1].pts} PTS</small>` : '&mdash;')}${cell(gr, gr.value)}${cell(gm, `<span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span>`)}</div>
       <p class="br-hint">${B.hint}</p>
@@ -1666,8 +1665,6 @@ function renderHubMenu() {
   if (!world) return;
   if (hubMode === 'car') return renderCarMenu();
   if (optSub) return renderOptMenu();
-  if (weekSub && founded(world) && WC.weekOpen(world)) return renderWeekMenu();
-  weekSub = false;
   const w = world, sid = w.player.series, n = WC.unread(w), nm = WC.unreadMail(w);
   const items = [];
   const off = w.player.offer, offerMail = off && !off.answer && (w.mail || []).find(m => m.offer && !m.answer);
@@ -1680,15 +1677,18 @@ function renderHubMenu() {
   else if (!w.over) {
     const r = w.series[sid].cal[w.round];
     const tg = WC.dealsOf(w).map(d => `<b>${WC.sponsorName(d.sid)}</b>: ${WC.objText(w, WC.dealObjective(w, d)).toLowerCase()}`).join(' · ');
-    const unplayed = WC.bookedGigs(w).length, left = WC.daysLeft(w);
-    items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), confirm: unplayed ? 'Skip the job? Select again' : null, desc: `${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}${WC.storyGoal(w) ? `<br><b>${WC.storyGoal(w).text}.</b>` : ''}${unplayed ? `<br><b>You have a booked job you haven't driven.</b> Race now and it's a no-show.` : left ? `<br>${left} day${left === 1 ? '' : 's'} of the week unused.` : ''}` });
-    items.push({ label: `This Week<small>${unplayed ? `${unplayed} BOOKED` : tyreShort(w) ? 'TYRES LOW' : `${left} DAY${left === 1 ? '' : 'S'} LEFT`}</small>`, action: () => { weekSub = true; sfx.select(); renderHubMenu(); }, desc: weekDesc(w) });
+    // the week: jobs you've booked, then today (pick what to do with it), then race day
+    const left = WC.daysLeft(w), booked = WC.bookedGigs(w);
+    for (const g of booked) items.push({ label: `Drive: ${WC.GIG_KINDS[g.kind].name}`, cls: 'action primary', action: () => startGig(g), desc: gigDesc(g) });
+    if (left > 0) items.push(dayItem(w, !booked.length));
+    else items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), desc: raceDesc(w) });
   } else {
     items.push({ label: `Start ${w.year + 1} Season`, cls: 'action primary', action: () => beginNextSeason(),
       desc: offerMail ? `First answer the ${seriesName(off.to)}'s email.` : 'Everyone a year older. Retirements, promotions and rookies, then a new calendar.' });
   }
   items.push(
     { label: `Computer${nm ? `<small>${nm} NEW</small>` : ''}`, action: () => sitDown(offerMail ? 'mail' : null, offerMail ? offerMail.id : null), desc: 'Sit down at the desk: Mail, Team (the car, tyres, staff, data) and the Internet. You can also click the monitor.' },
+    ...(founded(w) && !w.over && tyreShort(w) ? [{ label: 'Order Tyres<small>LOW</small>', action: () => sitDown('tyres'), desc: `In stock: ${WC.COMPOUNDS.map(c => `${WC.stockOf(w)[c]} ${c}`).join(', ')}. Order before the weekend (on the computer): trackside sets cost ${Math.round((WC.TRACKSIDE - 1) * 100)}% more. A team manager would order for you.` }] : []),
     { label: `Phone${n ? `<small>${n} NEW</small>` : ''}`, action: () => { phone.open(); renderHints(); }, desc: 'Texts from your teammate, rivals and friends. Press <b>P</b> / <b>Y</b> any time.' },
     ...(w.car ? [{ label: `Work On The Car${carNeedsWork(w) ? '<small>NEEDS WORK</small>' : ''}`, action: () => goToCar(), desc: 'Walk over to the car: each part\'s condition, rebuilds and new parts. Upgrades are bought on the computer.' }] : []),
     { label: 'Car & Livery', action: () => openWorldGarage(), desc: w.car ? `Your ${w.car.year} ${w.car.name}: paint it, design the livery, the helmet and the suit.` : `Your livery, helmet and suit. In the ${seriesName(sid)} you race ${CLASSES[WC.seriesById(sid).cls].label} cars.` },
@@ -1704,7 +1704,6 @@ backs['s-hub'] = () => {
   if (pcSeat && pc.isOpen) { if (pc.app) { pc.back(); renderHints(); } else standUp(); return; }
   if (hubMode === 'car') { if (carSub) { carSub = null; sfx.back(); renderHubMenu(); } else leaveCar(); }
   else if (optSub) { optSub = false; sfx.back(); renderHubMenu(); }
-  else if (weekSub) { weekSub = false; sfx.back(); renderHubMenu(); }
 };
 tabbers['s-hub'] = (d) => { if (pc.isOpen) pc.flip(d); };
 const cellW = (k, v) => `<div><small>${k}</small><b>${v}</b></div>`;
@@ -1816,7 +1815,6 @@ function simWorldSeason() {
 
 // ---- a round ----
 function startWorldRound() {
-  weekSub = false;
   const w = world, sid = w.player.series, r = w.series[sid].cal[w.round];
   wkUse = { trackside: 0, laps: 0, damage: 0, seen: null, carry: null };
   updateLogoShown();
@@ -1901,22 +1899,35 @@ function worldRoundDone(retired = false) {
 
 // ---------------- the week: the hub's This Week menu, gigs (short drives) and test days ----------------
 const GIG_LINE = { courier: 'GigGo', hearse: 'Restwell Funeral Home', rides: 'SV Track Days', attack: 'Club time attack', street: 'Street race' };
-function renderWeekMenu() {
-  const w = world, left = WC.daysLeft(w), job = WC.dayJob(w), wk = WC.weekOf(w), R = w.series[w.player.series].cal[w.round];
-  const noDays = () => { sfx.error(); toast('No days left this week. Race day is next.'); };
-  const items = [{ label: `This Week<small>${left} DAY${left === 1 ? '' : 'S'} LEFT</small>`, head: true }];
-  for (const g of WC.bookedGigs(w)) items.push({ label: `Drive: ${WC.GIG_KINDS[g.kind].name}<small>BOOKED</small>`, cls: 'action primary', action: () => startGig(g), desc: gigDesc(g) });
-  items.push(
-    { label: `Day Job<small>${WC.money$(job.pay)}</small>`, action: () => { const r = WC.workDay(w); if (!r) return noDays(); sfx.select(); toast(`${job.name}: <b>+${WC.money$(r.amt)}</b>${r.note ? '. ' + r.note : ''}`); saveWorld(); renderHub(); },
-      desc: `${job.name}. A day's pay for a day of your week.` },
-    ...(tyreShort(w) ? [{ label: 'Order Tyres<small>LOW</small>', action: () => sitDown('tyres'), desc: `In stock: ${WC.COMPOUNDS.map(c => `${WC.stockOf(w)[c]} ${c}`).join(', ')}. Order before the weekend (on the computer): trackside sets cost ${Math.round((WC.TRACKSIDE - 1) * 100)}% more. A team manager would order for you.` }] : []),
-    { label: 'Find Work', action: () => left > 0 ? sitDown('giggo') : noDays(), desc: `GigGo, on the computer: courier runs and other driving jobs, paid when you've driven them. Your rating: ${WC.gigRating(w).toFixed(2)}.` },
-    ...(!wk.tested ? [{ label: `Test Day<small>${WC.money$(WC.testCost(w))}</small>`, confirm: 'Book it? Select again', action: () => left > 0 ? startTestDay() : noDays(),
-      desc: `Hire ${R.name} for the day, plus fuel and wear. Do five laps or more and you find a setup for the race: a little more grip at ${R.name}. Pause to end the day.` }] : []),
-    { label: 'Back', action: () => { weekSub = false; sfx.back(); renderHubMenu(); }, desc: 'Back to the garage.' },
-  );
-  const m = menus['s-hub'][0]; m.setItems(items, true);
-  if (m.i >= items.length || items[m.i]?.head) { m.i = 1; m.render(); }
+// today: one row that asks what to do with the day (left/right to choose, select to do it)
+let dayPick = 'work';
+const DAY_FULL = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday' };
+function raceDesc(w) {
+  const r = w.series[w.player.series].cal[w.round], g = WC.storyGoal(w);
+  return `Round ${w.round + 1}: ${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}${g ? `<br><b>${g.text}.</b>` : ''}`;
+}
+function dayChoices(w, canRace) {
+  const job = WC.dayJob(w), P = WC.carParts(w), wk = WC.weekOf(w), R = w.series[w.player.series].cal[w.round];
+  const worst = P ? WC.PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)[0] : null;
+  const done = (msg) => { sfx.select(); if (msg) toast(msg); saveWorld(); renderHub(); };
+  const out = [['work', `Day job +${WC.money$(job.pay)}`, `${job.name}. A day's pay for a day of your week.`,
+    () => { const r = WC.workDay(w); done(`${job.name}: <b>+${WC.money$(r.amt)}</b>${r.note ? '. ' + r.note : ''}`); }]];
+  out.push(['gig', 'Find work', `GigGo, on the computer: courier runs and funeral transport, ${WC.gigRating(w) < 4.2 ? 'fewer while your account is under review' : 'better paid than the day job'}. Taking one uses the day. Your rating: ${WC.gigRating(w).toFixed(2)}.`, () => sitDown('giggo')]);
+  if (worst && P[worst].cond < 0.75) out.push(['fix', `Rebuild the ${WC.PARTS[worst].name.toLowerCase()} -${WC.money$(WC.selfCost(w, worst))}`,
+    `Your ${WC.PARTS[worst].name.toLowerCase()} is at ${Math.round(P[worst].cond * 100)}%. Do it yourself: parts only, and the day. ${w.background === 'mechanic' ? 'You know what you\'re doing: back to good.' : 'You\'ll get it back to OK.'} (A shop would charge ${WC.money$(WC.rebuildCost(w, worst))}.)`,
+    () => { WC.rebuildSelf(w, worst); sfx.best(); done(); }]);
+  if (!wk.tested) out.push(['test', `Test day -${WC.money$(WC.testCost(w))}`, `Hire ${R.name} for the day, plus fuel and wear. Do five laps or more and you find a setup: a little more grip there this weekend. Pause to end the day.`, () => startTestDay()]);
+  out.push(['off', 'Day off', 'Nothing. It\'s allowed.', () => { WC.spendDay(w, 'A day off', 'Day off'); done(); }]);
+  if (canRace) out.push(['race', 'Go to race day', `Leave the rest of the week. ${raceDesc(w)}`, () => startWorldRound()]);
+  return out;
+}
+function dayItem(w, canRace) {
+  const ch = dayChoices(w, canRace), wk = WC.weekOf(w), left = WC.daysLeft(w);
+  if (!ch.some(c => c[0] === dayPick)) dayPick = ch[0][0];
+  const cur = ch.find(c => c[0] === dayPick);
+  return { label: `${DAY_FULL[WC.DAY_NAMES[wk.used]] || 'Today'}`, cls: 'action primary day', values: ch.map(c => [c[0], c[1]]), get: () => dayPick, set: (v) => { dayPick = v; renderHubMenu(); },
+    action: () => cur[3](), confirm: dayPick === 'race' ? 'Race now? Select again' : dayPick === 'test' ? 'Book it? Select again' : null,
+    desc: `${cur[2]}<br><small>${left} day${left === 1 ? '' : 's'} before race day. &#8249; &#8250; to choose, select to do it.</small>` };
 }
 // Career Options: difficulty, aids, the test button
 function renderOptMenu() {
@@ -1928,10 +1939,6 @@ function renderOptMenu() {
     { label: 'Back', action: () => { optSub = false; sfx.back(); renderHubMenu(); }, desc: 'Back to the garage.' }];
   const m = menus['s-hub'][0]; m.setItems(items, true);
   if (m.i >= items.length || items[m.i]?.head) { m.i = 1; m.render(); }
-}
-function weekDesc(w) {
-  const wk = WC.weekOf(w), left = WC.daysLeft(w), log = wk.log.map(e => `${WC.DAY_NAMES[e.day] || ''}: ${e.what}${e.amt ? ` (${e.amt > 0 ? '+' : ''}${WC.money$(e.amt)})` : ''}`);
-  return `${left ? `${left} day${left === 1 ? '' : 's'} before race day: work, gigs, a test day, or rest.` : 'Your week is full. Race day is next.'}${log.length ? '<br>' + log.join(' · ') : ''}`;
 }
 function gigDesc(g) {
   if (g.kind === 'courier') return `${g.client}: ${g.what}. ${g.laps} lap${g.laps === 1 ? '' : 's'} of town in GigGo's van.${g.fragile ? ' Fragile: damage comes off the fare.' : ''}${g.urgent ? ' Urgent: the time is tight.' : ''} Fare ${WC.money$(g.pay)}, before GigGo's fee.`;
@@ -2018,7 +2025,7 @@ function weekResult(title, sub, rows, extra, net) {
   $('round-info').innerHTML = `<div class="big-pos">${net >= 0 ? '+' : '-'}${WC.money$(Math.abs(net)).replace('-', '')}<small>THE DAY</small></div>${extra}
     <div class="row"><span>Bank balance</span><span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span></div>
     <div class="row"><span>This week</span><span>${WC.daysLeft(w)} day${WC.daysLeft(w) === 1 ? '' : 's'} left</span></div>`;
-  menus['s-round'][0].setItems([{ label: 'Continue', cls: 'action primary', action: () => { weekSub = true; openHub(); } }]);
+  menus['s-round'][0].setItems([{ label: 'Continue', cls: 'action primary', action: () => openHub() }]);
   show('s-round');
 }
 // a test day: the next round's circuit, your car, as many laps as you like
