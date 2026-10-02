@@ -1557,3 +1557,7 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .br-bar i { display: block; height: 100%; width: calc(var(--v) * 100%); background: var(--sv-red); box-shadow: var(--sv-glow-line); }
 #s-hub .hub-week { transition: opacity .3s; }
 #s-hub.seated .hub-week { opacity: 0; pointer-events: none; }
+
+/* a description's headline: what the highlighted choice is, in full (the garage's day picker) */
+.desc-bar .dh { display: block; margin-bottom: 4px; font: 500 var(--t-row)/1.15 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-amber); }
+.desc-bar .dk { color: var(--sv-red-dim); }

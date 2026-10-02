@@ -1907,18 +1907,19 @@ function raceDesc(w) {
   return `Round ${w.round + 1}: ${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}${g ? `<br><b>${g.text}.</b>` : ''}`;
 }
 function dayChoices(w, canRace) {
+  // [key, the picker's short name, the headline (yellow, over the description), the description, what it does]
   const job = WC.dayJob(w), P = WC.carParts(w), wk = WC.weekOf(w), R = w.series[w.player.series].cal[w.round];
   const worst = P ? WC.PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)[0] : null;
   const done = (msg) => { sfx.select(); if (msg) toast(msg); saveWorld(); renderHub(); };
-  const out = [['work', `Day job +${WC.money$(job.pay)}`, `${job.name}. A day's pay for a day of your week.`,
+  const out = [['work', 'Day job', `${job.name} &middot; +${WC.money$(job.pay)}`, `A day's pay for a day of your week.`,
     () => { const r = WC.workDay(w); done(`${job.name}: <b>+${WC.money$(r.amt)}</b>${r.note ? '. ' + r.note : ''}`); }]];
-  out.push(['gig', 'Find work', `GigGo, on the computer: courier runs and funeral transport, ${WC.gigRating(w) < 4.2 ? 'fewer while your account is under review' : 'better paid than the day job'}. Taking one uses the day. Your rating: ${WC.gigRating(w).toFixed(2)}.`, () => sitDown('giggo')]);
-  if (worst && P[worst].cond < 0.75) out.push(['fix', `Rebuild the ${WC.PARTS[worst].name.toLowerCase()} -${WC.money$(WC.selfCost(w, worst))}`,
-    `Your ${WC.PARTS[worst].name.toLowerCase()} is at ${Math.round(P[worst].cond * 100)}%. Do it yourself: parts only, and the day. ${w.background === 'mechanic' ? 'You know what you\'re doing: back to good.' : 'You\'ll get it back to OK.'} (A shop would charge ${WC.money$(WC.rebuildCost(w, worst))}.)`,
+  out.push(['gig', 'Find work', `GigGo &middot; rating ${WC.gigRating(w).toFixed(2)}`, `Courier runs and funeral transport, on the computer. ${WC.gigRating(w) < 4.2 ? 'Fewer jobs while your account is under review.' : 'Better paid than the day job.'} Taking one uses the day.`, () => sitDown('giggo')]);
+  if (worst && P[worst].cond < 0.75) out.push(['fix', 'Rebuild', `Rebuild the ${WC.PARTS[worst].name.toLowerCase()} yourself &middot; &minus;${WC.money$(WC.selfCost(w, worst))}`,
+    `It's at ${Math.round(P[worst].cond * 100)}%. Parts only, and the day. ${w.background === 'mechanic' ? 'You know what you\'re doing: back to good.' : 'You\'ll get it back to OK.'} A shop would charge ${WC.money$(WC.rebuildCost(w, worst))}.`,
     () => { WC.rebuildSelf(w, worst); sfx.best(); done(); }]);
-  if (!wk.tested) out.push(['test', `Test day -${WC.money$(WC.testCost(w))}`, `Hire ${R.name} for the day, plus fuel and wear. Do five laps or more and you find a setup: a little more grip there this weekend. Pause to end the day.`, () => startTestDay()]);
-  out.push(['off', 'Day off', 'Nothing. It\'s allowed.', () => { WC.spendDay(w, 'A day off', 'Day off'); done(); }]);
-  if (canRace) out.push(['race', 'Go to race day', `Leave the rest of the week. ${raceDesc(w)}`, () => startWorldRound()]);
+  if (!wk.tested) out.push(['test', 'Test day', `Test day at ${R.name} &middot; &minus;${WC.money$(WC.testCost(w))}`, `Track hire, plus fuel and wear. Do five laps or more and you find a setup: a little more grip there this weekend. Pause to end the day.`, () => startTestDay()]);
+  out.push(['off', 'Day off', 'A day off', 'Nothing. It\'s allowed.', () => { WC.spendDay(w, 'A day off', 'Day off'); done(); }]);
+  if (canRace) out.push(['race', 'Race day', `Go to race day &middot; round ${w.round + 1}`, `Leave the rest of the week. ${raceDesc(w)}`, () => startWorldRound()]);
   return out;
 }
 function dayItem(w, canRace) {
@@ -1926,8 +1927,8 @@ function dayItem(w, canRace) {
   if (!ch.some(c => c[0] === dayPick)) dayPick = ch[0][0];
   const cur = ch.find(c => c[0] === dayPick);
   return { label: `${DAY_FULL[WC.DAY_NAMES[wk.used]] || 'Today'}`, cls: 'action primary day', values: ch.map(c => [c[0], c[1]]), get: () => dayPick, set: (v) => { dayPick = v; renderHubMenu(); },
-    action: () => cur[3](), confirm: dayPick === 'race' ? 'Race now? Select again' : dayPick === 'test' ? 'Book it? Select again' : null,
-    desc: `${cur[2]}<br><small>${left} day${left === 1 ? '' : 's'} before race day. &#8249; &#8250; to choose, select to do it.</small>` };
+    action: () => cur[4](), confirm: dayPick === 'race' ? 'Race now? Select again' : dayPick === 'test' ? 'Book it? Select again' : null,
+    desc: `<span class="dh">${cur[2]}</span>${cur[3]} <span class="dk">${left} day${left === 1 ? '' : 's'} before race day &middot; &#8249; &#8250; to choose</span>` };
 }
 // Career Options: difficulty, aids, the test button
 function renderOptMenu() {
