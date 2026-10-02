@@ -250,6 +250,26 @@ Monaco keeps the smooth line in every class (the model's hairpins are off), Suzu
 (`svgp.aiLines`, `LINE_VERSION`); plans learned on them are keyed `|l<LINE_VERSION>`. The menu backdrop never fits.
 Clean AI laps, pace 1, no edge, smooth -> fitted: Auburn GT-R 2:03.0 -> 2:01.7, M1 1:47.0 -> 1:45.3, Aventus 1:47.4
 -> 1:45.7, F1 1:27.2 -> 1:24.2; Suzuka M1 -1.7, F1 -2.4; Spa M1 -1.5, F1 -2.1; Maple Ridge -0.8..-2.2.
+**AI skill as technique (2026-10-02, `js/aiskill.js`).** The user asked why the AI drifts 2-6 m wide on exits. It's
+not sloppiness at top skill: its learning (speeds pushed until it nears the edge) spends any spare room on speed.
+Tried: throttle patience (ease off when the fronts saturate and it drifts: 1-4 s slower, drifted more) and shorter /
+longer steering look-ahead (no gain): both dropped, the clean AI stays as it was. Instead, lower skill is shown as
+flaws on top of it (`car.ai.skill`, applied in aiControls): `imp` (on the power early; with full traction control
+it's free, so an impatient driver's TC is cut to 1 - imp/2), `wander` (the line drifts up to that many m, a new error
+every 120-240 m), `brake` (braking-zone target speed x 1 +- that). Costs vary a lot by car (devstat.mjs, 6-lap
+averages): full flaws M1 +0.2 s with TC at half / +6 s with TC off, F1 +3-10 s; scaled per class in aiskill.js.
+Pace multipliers vary as much: an M1 at Auburn loses nothing at 0.97, an Aventus 0.7%; an F1 0.8% at 0.91. So
+`Race.paceCurve` measures each car's curve on the circuit (clean 2-lap sims at 1 / 0.97 / 0.94 / 0.88, cached in
+`svgp.paceCurves`) and `techPace` sets each driver's pace from it. World Career (`wcareer.raceKnobs`): the rating's
+gap (`ratingGap`: the old pace multiplier's cost in a GT1 car, so the career's balance is unchanged and the Formula
+field is no longer flat), flaws from pace (impatience; hothead +0.25) and consistency (wander / braking; metronome
+half), counted as at most 40% of the gap (measuring flaw costs with hidden laps was too noisy: one off outweighs
+everything). Dice-roll mistakes a little rarer (1.5 - cons x 1.1). Result (skillcheck.mjs, 4 laps): order follows
+rating in every class; a 45 rating 0.8-1.4% off (target 1.2%). Quick Race Rookie / Pro get flaws (tech 1 / 0.5)
+on top of their pace (making the pace up for them made Rookie winners ~4 s a lap quicker in an F1). Rookie races:
+no more incidents than without. Open: the career's rating gaps are tiny (whole fields within 0.3-0.9%, Formula SV
+0.09-0.41%), below the AI's lap-to-lap noise (~0.3-0.5%), so close drivers can swap order.
+
 **Traffic.** On its own the fitted line put more AI in the walls (F1 at Auburn 17 -> 52-59 wall hits per 2-lap race):
 cars off their line (alongside, pushed wide) still used the line's speeds, and the line runs nearer the edges. Fix in
 `aiControls`: off its line by more than 0.8 m, an AI takes the corner ahead slower, sqrt(1 - 2 (off - 0.8) k) (k: the

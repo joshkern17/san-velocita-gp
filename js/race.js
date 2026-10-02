@@ -13,6 +13,7 @@ import { getTextures } from './textures.js';
 import { RaceControl, findCorners, VSC_PACE } from './racecontrol.js';
 import { AI_AIDS, physAids } from './aids.js';
 import { fastLine, lineCar } from './raceline.js';
+import { technique, curveCost, curvePace } from './aiskill.js';
 import { LapRecorder, addLap, lapKey, bestLap, loadPB, lapPoseAt } from './telemetry.js';
 
 const STEP = 1 / 240;
@@ -25,9 +26,10 @@ const STEP = 1 / 240;
 // 1.04+1.02 2:00.2 / 1:43.5 / 1:43.9 / 1:22.7, 1.08+1.05 1:59.2 / 1:42.6 / 1:43.1 / 1:21.4,
 // 1.13+1.08 1:57.7 / 1:40.9 / 1:41.4 / 1:19.7.
 // Legend is a clean lap at your best, Alien beats it, Phantom and Godlike are for a career car with upgrades.
+// tech: Rookie and Pro drivers' technique flaws (aiskill.js), on top of their pace.
 const DIFF = {
-  easy:    { pace: 0.85, power: 0.95, grip: 1, spread: 0.03, rubber: true },
-  medium:  { pace: 0.93, power: 0.98, grip: 1, spread: 0.025, rubber: true },
+  easy:    { pace: 0.85, power: 0.95, grip: 1, spread: 0.03, rubber: true, tech: 1 },
+  medium:  { pace: 0.93, power: 0.98, grip: 1, spread: 0.025, rubber: true, tech: 0.5 },
   hard:    { pace: 1, power: 1, grip: 1, spread: 0.012, rubber: false },
   alien:   { pace: 1, power: 1.02, grip: 1.04, spread: 0.006, rubber: false },
   phantom: { pace: 1, power: 1.06, grip: 1.09, spread: 0.004, rubber: false },
@@ -37,8 +39,8 @@ const DIFF = {
 // top levels one step of edge below the road / GT table's
 const diffFor = (opts) => { const D = (CARS[carId(opts.car)] || CARS.f1).cls === 'f1' ? DIFF_F1 : DIFF; return D[opts.difficulty] || D.medium; };
 const DIFF_F1 = {
-  easy:    { pace: 0.8,  power: 0.94, grip: 0.97, spread: 0.03, rubber: true },
-  medium:  { pace: 0.875, power: 0.97, grip: 0.99, spread: 0.025, rubber: true },
+  easy:    { pace: 0.8,  power: 0.94, grip: 0.97, spread: 0.03, rubber: true, tech: 1 },
+  medium:  { pace: 0.875, power: 0.97, grip: 0.99, spread: 0.025, rubber: true, tech: 0.5 },
   hard:    { pace: 1, power: 1, grip: 1, spread: 0.012, rubber: false },
   alien:   { pace: 1, power: 1.01, grip: 1.03, spread: 0.006, rubber: false },
   phantom: { pace: 1, power: 1.04, grip: 1.07, spread: 0.004, rubber: false },
@@ -79,6 +81,18 @@ function saveLine(key, O) {
     const keys = Object.keys(all).sort((a, b) => all[b].when - all[a].when);
     for (const k of keys.slice(30)) delete all[k];
     localStorage.setItem(LINES_KEY, JSON.stringify(all));
+  } catch (err) {}
+}
+// cars' pace curves (Race.paceCurve), like the plans: kept for the session, the most recent 60 saved in the browser
+const PACE_CURVES = new Map(), CURVES_KEY = 'svgp.paceCurves';
+function loadCurve(key) { try { const e = JSON.parse(localStorage.getItem(CURVES_KEY) || '{}')[key]; return e && e.ver === PHYS_VERSION ? e.c : null; } catch (err) { return null; } }
+function saveCurve(key, c) {
+  try {
+    const all = JSON.parse(localStorage.getItem(CURVES_KEY) || '{}');
+    all[key] = { ver: PHYS_VERSION, when: Date.now(), c };
+    const keys = Object.keys(all).sort((a, b) => all[b].when - all[a].when);
+    for (const k of keys.slice(60)) delete all[k];
+    localStorage.setItem(CURVES_KEY, JSON.stringify(all));
   } catch (err) {}
 }
 export const TYRE_FIT = 20; // seconds of a session to fit a new set of tyres in the garage
@@ -430,16 +444,18 @@ export class Race {
   // the grid order matches how fast everyone really is). Closed loops: from a flying start well before the line, timed
   // line to line. Point-to-point: a standing start from the grid, timed start line to finish line.
   // (rec: a LapRecorder to record the lap with: the Lap Review's reference lap)
-  simLap(id, { pace = 1, power = 1, grip = 1, tyre = 'soft', rec = null } = {}) {
+  // (laps: on a closed loop, the average of that many laps in a row: a driver with random flaws needs a few)
+  simLap(id, { pace = 1, power = 1, grip = 1, tyre = 'soft', rec = null, skill = null, tc = null, laps = 1 } = {}) {
     const T = this.T, N = T.N, spec = CARS[id].spec, V = this.limitsFor(id, grip);
     const saved = { state: this.state, dmg: this.damageK, laps: this.laps, err: this.mistakeP, rc: this.rc };
     this.state = 'racing'; this.damageK = 0; this.laps = Infinity; this.mistakeP = 0; this.rc = null;
     const car = {
       phys: new CarPhysics(spec), lineV: V, idx: 0, i: 0, f: 0, s: 0, y: 0, lap: 1, cpNext: 1, surface: 'road', onRoad: true, progress: 0, hitCd: 1e9, lapTimes: [], best: Infinity, lapStart: 0,
-      ai: { pace, bias: 0, over: 0, stuckT: 0, react: 0, errCd: 1e9 }, isPlayer: false, model: { group: { position: new THREE.Vector3() }, setDamage() {} },
+      ai: { pace, bias: 0, over: 0, stuckT: 0, react: 0, errCd: 1e9, skill }, isPlayer: false, model: { group: { position: new THREE.Vector3() }, setDamage() {} },
     };
     const p = car.phys;
     p.rain = this.rain; p.wearK = 0; p.isAI = true; p.powerMul = power; p.gripMul = grip; p.fitTyres(this.rain ? 'wet' : tyre);
+    if (tc != null) p.setAids({ ...AI_AIDS, tc });
     let start = -1, time = Infinity, t = 0, lastIdx;
     if (T.open) {
       const g = gridSlot(T, 0); p.place(g.x, g.z, g.heading); car.idx = g.idx;
@@ -450,14 +466,15 @@ export class Race {
     }
     this.updateTracker(car, true); lastIdx = car.idx;
     const endAt = T.open ? T.finish : 0;
-    for (let f = 0; f < 60 * 240; f++) {
+    let done = 0; if (T.open) laps = 1;
+    for (let f = 0; f < 60 * 240 * laps; f++) {
       const ctl = this.aiControls(car, 1 / 60);
       for (let k = 0; k < 4; k++) { p.step(1 / 240, ctl, this.surfaceEnv(car)); this.updateTracker(car); this.barriers(car); if (rec && start >= 0) rec.sample(car, t, start); }
       t += 1 / 60;
       const prev = lastIdx, cur = car.idx; lastIdx = cur;
       if (start < 0) {
         if (T.open ? (prev > T.cut && cur <= T.cut && cur < T.finish / 2) : (prev > N * 0.75 && cur < N * 0.25)) start = t;
-      } else if (T.open ? (prev < endAt && cur >= endAt && cur <= T.cut) : (prev > N * 0.75 && cur < N * 0.25 && t - start > 5)) { time = t - start; break; }
+      } else if (T.open ? (prev < endAt && cur >= endAt && cur <= T.cut) : (prev > N * 0.75 && cur < N * 0.25 && t - start > 5 * (done + 1))) { if (++done >= laps) { time = (t - start) / laps; break; } }
     }
     if (rec) rec.lap = isFinite(time) ? rec.finish(car, time, { valid: true, ref: true }, start) : null;
     this.state = saved.state; this.damageK = saved.dmg; this.laps = saved.laps; this.mistakeP = saved.err; this.rc = saved.rc;
@@ -524,6 +541,12 @@ export class Race {
       basePower: phys.powerMul, launch: !!(mods && mods.launch), extra,
     };
     if (car.ai && this.opts.teamPace) car.ai.pace *= this.opts.teamPace[teamIdx] || 1;
+    // their technique (aiskill.js): World Career drivers from their ratings, Rookie / Pro fields from the difficulty
+    const tf = car.ai ? this.techFor(teamIdx, id) : null;
+    if (tf) {
+      car.ai.skill = tf.skill; if (tf.skill) phys.setAids({ ...AI_AIDS, tc: tf.tc });
+      if (!this.opts.aiSetup?.[teamIdx]) car.ai.pace = this.techPace(car.ai.pace, tf, id); // (else: qualifying's pace, below)
+    }
     // World Career: who's driving (their record is kept by pid), how hard they defend, how often they slip up
     const ent = !isPlayer && !extra.human ? this.opts.entries?.[teamIdx] : null;
     car.pid = isPlayer ? 'P' : ent ? ent.pid : null;
@@ -684,6 +707,48 @@ export class Race {
     return this.raceTime - car.lapStart - ref;
   }
 
+  // an AI driver's technique, the same all weekend: { skill (car.ai.skill), tc (traction control), cost (% a lap the
+  // flaws are counted as costing: aiskill.js' estimate, at most 40% of a World Career driver's gap), gap (% a lap: the
+  // World Career driver's gap to a clean lap, from their rating) }. A Rookie / Pro field gets flaws of about the
+  // difficulty's size on top of its pace (made up for, its winners got quicker: in an F1, ~4 s a lap). (Measuring what the flaws cost, with hidden laps, was
+  // too noisy to use: they're random, and a lap with one off costs more than a whole season of tidy ones.)
+  techFor(t, id) {
+    const memo = this.aiTech ||= {};
+    if (t in memo) return memo[t];
+    if (this.opts.noTech) return memo[t] = null; // (dev benches: everyone clean)
+    const pre = this.opts.aiSetup?.[t];
+    if (pre && 'tf' in pre) return memo[t] = pre.tf; // (the same driver all weekend)
+    const ent = this.opts.entries?.[t];
+    if (ent && (ent.skill || ent.gap)) {
+      const est = ent.skill ? technique(CARS[id]?.cls, 1, 1).cost * Math.min(1, (ent.skill.wander || 0) / 1.2 + (ent.skill.imp || 0)) / 2 : 0;
+      return memo[t] = { skill: ent.skill || null, tc: ent.tc ?? 1, cost: Math.min(est, 0.4 * (ent.gap || 0)), gap: ent.gap || 0 };
+    }
+    const k = !ent && this.diff.tech; if (!k) return memo[t] = null;
+    const r = technique(CARS[id]?.cls, k * (0.7 + Math.random() * 0.6), k * (0.7 + Math.random() * 0.6));
+    return memo[t] = r.skill ? { skill: r.skill, tc: r.tc, cost: 0, gap: 0 } : null; // (no pace made up: the flaws only add)
+  }
+  // the pace for a driver with technique tf: the lap time `pace` alone would give (plus their World Career gap), less
+  // what their flaws already cost, read off this car's measured pace curve
+  techPace(pace, tf, id) {
+    if (!tf) return pace;
+    const C = this.paceCurve(id).C;
+    return curvePace(C, Math.max(0, curveCost(C, Math.min(1, pace)) + (tf.gap || 0) - tf.cost)) * Math.max(1, pace);
+  }
+  // how much lap time a car loses here to a lower pace multiplier: clean hidden laps at 1, 0.97, 0.94 and 0.88 (cars
+  // differ a lot near 1: an M1 at Auburn loses nothing at 0.97, it can't reach the plan's speed in most places anyway)
+  paceCurve(id) {
+    const memo = this.paceCurves ||= {}, key = this.limitsKey(id) + `|g${this.diff.grip}|p${this.diff.power}`;
+    if (memo[id]) return memo[id];
+    const hit = PACE_CURVES.get(key) || loadCurve(key);
+    if (hit) return memo[id] = hit;
+    const lap = (pace) => this.simLap(id, { pace, power: this.diff.power, grip: this.diff.grip, tyre: 'soft', laps: 2 });
+    const t = lap(1), pt = (p, lo) => { const c = (lap(p) / t - 1) * 100; return isFinite(c) ? Math.max(lo, c) : lo + 1; };
+    const c0 = pt(0.97, 0.02), c1 = pt(0.94, c0 + 0.1), c2 = pt(0.88, c1 + 0.3);
+    memo[id] = { t, C: [[1, 0], [0.97, c0], [0.94, c1], [0.88, c2]].map(x => x.map(v => +v.toFixed(3))) };
+    PACE_CURVES.set(key, memo[id]); saveCurve(key, memo[id]);
+    return memo[id];
+  }
+
   // ---------- qualifying ----------
   // You on a clear track against the clock; the AI field's laps come from the physics (simLap) at the pace each of them
   // would race at, posted two or three times over the session like real runs. Out of the pit box to start.
@@ -696,9 +761,11 @@ export class Race {
       const team = this.teamFor(t), id = carId({ ...teamCar(team, t), chassis: this.aiChassisFor(t) });
       // (the same driver all weekend: practice hands its pace / power on to qualifying through opts.aiSetup)
       const pre = this.opts.aiSetup && this.opts.aiSetup[t];
-      const pace = pre ? pre.pace : this.diff.pace * (1 - R() * this.diff.spread) * (this.opts.teamPace ? this.opts.teamPace[t] || 1 : 1);
+      const pace0 = this.diff.pace * (1 - R() * this.diff.spread) * (this.opts.teamPace ? this.opts.teamPace[t] || 1 : 1);
       const power = pre ? pre.power : this.diff.power * (1 - R() * this.diff.spread * 0.5);
-      let pot = this.simLap(id, { pace, power, grip: this.diff.grip, tyre: 'soft' });
+      // (their technique costs what it costs in a race: the clean simulated lap, slowed by that much)
+      const tf = this.techFor(t, id), pace = pre ? pre.pace : this.techPace(pace0, tf, id);
+      let pot = this.simLap(id, { pace, power, grip: this.diff.grip, tyre: 'soft' }) * (1 + (tf ? tf.cost : 0) / 100);
       if (!isFinite(pot)) pot = this.baseLap() * 1.25;
       const plan = [], practice = q.kind === 'practice';
       // qualifying: 2-5 runs, early ones scruffier, the last the real thing. practice: a run every few minutes on
@@ -710,7 +777,7 @@ export class Race {
           : k === runs - 1 ? (R() - 0.35) * 0.006 : 0.004 + R() * 0.01 - k * 0.003;
         plan.push({ at, time: pot * (1 + slow), del: R() < 0.08 });
       }
-      return { teamIdx: t, name: team.driver, team, color: team.main, id, pace, power, pot, plan, best: Infinity, when: Infinity };
+      return { teamIdx: t, name: team.driver, team, color: team.main, id, pace, power, tf, pot, plan, best: Infinity, when: Infinity };
     });
     // you start in your garage (point-to-point, no pit lane: on the grid, runs from there)
     if (pl && !this.T.open) this.enterGarage(pl, true);
@@ -830,7 +897,7 @@ export class Race {
     return {
       gridOrder: this.qualiRows().map(r => r.key),
       roster: q.field.map(e => e.teamIdx),
-      aiSetup: Object.fromEntries(q.field.map(e => [e.teamIdx, { pace: e.pace, power: e.power }])),
+      aiSetup: Object.fromEntries(q.field.map(e => [e.teamIdx, { pace: e.pace, power: e.power, tf: e.tf }])),
     };
   }
 
@@ -1660,7 +1727,14 @@ export class Race {
     const Ld = 5 + u * 0.26;
     const j = (car.idx + Math.round(Ld / T.ds)) % N;
     const lim = T.W[j] / 2 - 1.3;
-    let off = Math.max(-lim, Math.min(lim, this.line[j] + ai.bias + ai.over + ai.def));
+    // a driver's technique (car.ai.skill: aiskill.js, techFor; none = the clean, quick AI):
+    // wander: a less precise driver's line drifts by up to this many metres, a new error every 120-240 m
+    const sk = ai.skill;
+    if (sk && sk.wander) {
+      if (!(car.progress < ai.wNext) || car.progress < ai.wNext - 400) { ai.wTgt = (Math.random() * 2 - 1) * sk.wander; ai.wNext = car.progress + 120 + Math.random() * 120; }
+      ai.wOff = (ai.wOff || 0) + (ai.wTgt - (ai.wOff || 0)) * Math.min(1, dt * 0.6);
+    }
+    let off = Math.max(-lim, Math.min(lim, this.line[j] + ai.bias + ai.over + ai.def + (ai.wOff || 0)));
     if (minOff > maxOff) { off = (minOff + maxOff) / 2; slowTo = Math.min(slowTo, Math.max(12, u - 1)); } // squeezed: ease off
     else off = Math.max(minOff, Math.min(maxOff, off));
     off = Math.max(-lim - 0.6, Math.min(lim + 0.6, off));
@@ -1692,6 +1766,13 @@ export class Race {
     let vt = LV[la] * ai.pace * gk;
     const vt2 = LV[(la + Math.round(15 / T.ds)) % N] * ai.pace * gk;
     vt = Math.min(vt, vt2 + 8);
+    // brake: how far a driver's braking points vary (each braking zone: the speed it aims for, x 1 + an error of about
+    // this size: over = in too fast and running wide, under = time lost)
+    if (sk && sk.brake) {
+      if (vt < p.u - 2) { if (!ai.bz) { ai.bz = true; ai.bErr = (Math.random() + Math.random() + Math.random() - 1.5) * 1.4 * sk.brake; } }
+      else if (vt > p.u + 1) ai.bz = false;
+      if (ai.bz) vt *= 1 + ai.bErr;
+    }
     if (oops && oops.type === 'late' && oops.phase === 0) vt *= oops.over; // braked too late: carries too much speed in
     // VSC: under the reference pace where the car is now (and where it's heading), slower still if the delta gets tight
     if (yellow === 'vsc') vt = Math.min(vt, Math.min(LV[car.idx], LV[la]) * VSC_PACE * ((car.vscDelta || 0) < 0.4 ? 0.86 : 0.95));
@@ -1734,10 +1815,13 @@ export class Race {
     const out = Math.sign(p.delta), wide = (car.s - (this.line[car.idx] + ai.bias + ai.over + (ai.def || 0))) * out; // (m outside its line)
     const room = T.W[car.idx] / 2 - car.s * out; // (m to the outside edge)
     if (p.gripF > 0.9 && push > 0.1 && wide > 0.5 && room < 2) throttle *= Math.max(0, 1 - (push - 0.1) * 4 * Math.min(1, wide - 0.5));
+    // impatience (0-1): on the power before the car is ready, ignoring that much of what the car is saying (a sliding
+    // rear, fronts washing wide)
+    if (sk && sk.imp && err > 0) throttle += sk.imp * (Math.min(1, 0.3 + err * 0.35) - throttle);
     // squeezed on like a driver, not stamped: the throttle comes in over ~0.35 s in a corner (quicker on a straight),
     // the brake trails off rather than dropping; lifting and braking are still instant
     const turning = Math.min(1, Math.abs(steer) * 3);
-    ai.thr = throttle > (ai.thr || 0) ? Math.min(throttle, (ai.thr || 0) + dt * (8 - 5 * turning)) : throttle;
+    ai.thr = throttle > (ai.thr || 0) ? Math.min(throttle, (ai.thr || 0) + dt * (8 - 5 * turning * (1 - (sk?.imp || 0)))) : throttle; // (an impatient driver stamps it)
     ai.brk = brake < (ai.brk || 0) ? Math.max(brake, (ai.brk || 0) - dt * 5) : brake;
     throttle = ai.thr; brake = ai.brk;
     if (brake > 0.05) throttle = 0;

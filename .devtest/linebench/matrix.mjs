@@ -6,7 +6,7 @@ const ROOT = '/Users/joshkern/Downloads/Racing Game';
 const { chromium } = await import(ROOT + '/tools/node_modules/playwright-core/index.mjs');
 const PORT = 8500 + Math.floor(Math.random() * 90);
 const server = spawn('python3', [ROOT + '/serve.py', String(PORT), '--no-browser'], { stdio: 'ignore', cwd: ROOT });
-await new Promise(r => setTimeout(r, 1200));
+await new Promise(r => setTimeout(r, 2500));
 const setups = JSON.parse(process.argv[2]), cars = (process.argv[3] || 'gtr,m1procar,f1').split(','), runs = +(process.argv[4] || 2), diff = process.argv[5] || 'hard', TRK = process.argv[6] || '/.devtest/auburn2.json';
 const b = await chromium.launch({ channel: 'chrome', headless: true });
 // (the dev server answers one request at a time: pages load their modules one after another, then run in parallel)
@@ -14,7 +14,7 @@ let loading = Promise.resolve();
 const job = async (id, su) => {
   const pg = await b.newPage();
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
-  const ready = loading.then(async () => { await pg.goto(`http://127.0.0.1:${PORT}/.devtest/handling.html`); await pg.evaluate(async () => { await import('/js/race.js'); await (await fetch('/.devtest/auburn2.json')).json(); }); });
+  const ready = loading.then(async () => { for (let k = 0; ; k++) { try { await pg.goto(`http://127.0.0.1:${PORT}/.devtest/handling.html`); await pg.evaluate(async () => { await import('/js/race.js'); }); return; } catch (e) { if (k >= 3) throw e; await new Promise(r => setTimeout(r, 1500)); } } });
   loading = ready.catch(() => {}); await ready;
   const r = await pg.evaluate(async ([id, su, runs, diff, TRK]) => {
     const { Race } = await import('/js/race.js'); const t = await (await fetch(TRK)).json();

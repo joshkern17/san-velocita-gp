@@ -4,6 +4,7 @@
 // rounds are simulated from the drivers' ratings. At the end of a season people age, retire, get promoted or dropped,
 // and rookies arrive. News and texts (shown on the phone) are written from what actually happened.
 // No story arcs yet (that's the director, later): this is the world they will read from.
+import { knobsFor, ratingGap } from './aiskill.js';
 
 // ---------------- data ----------------
 export const SEASON_LENGTHS = [4, 6, 8, 12];
@@ -294,26 +295,33 @@ function mateMentored(w, pid) {
   const p = w.people[pid], t = p && w.teams[p.team]; if (!t) return false;
   return t.drivers.some(d => d !== pid && d !== 'P' && w.people[d]?.traits?.includes('mentor'));
 }
-// race.js knobs for an AI driver: pace multiplier on the difficulty's pace, aggression, mistake rate
-export function raceKnobs(w, pid, rain) {
-  const p = w.people[pid], r = rating(w, pid);
-  let pace = clamp(1 - (95 - r) * 0.0011, 0.88, 1);
-  if (rain) pace *= 1 + (p.wet - 50) * 0.0004;
-  const mentor = mateMentored(w, pid) ? 1.004 : 1; // (a mentor in the other seat)
-  return { pace: Math.min(1, pace * mentor), aggr: clamp(0.15 + p.aggr / 100 * 0.85 + grudgeOf(w, pid) * 0.06, 0.1, 1), mistakes: clamp(1.8 - p.cons / 100 * 1.4, 0.35, 1.6) };
+// race.js knobs for an AI driver: their gap to a clean lap (%, from their rating), technique (aiskill.js: their flaws,
+// which cost part of it; race.js measures how much and sets the pace to make up the rest), a pace multiplier (the wet), aggression, mistake rate. Their pace rating sets
+// how impatient they are on the power (a hothead more so), consistency how much their line and braking points wander
+// (a metronome's half as much). cls: the series' class (each flaw costs a different amount in each).
+export function raceKnobs(w, pid, rain, cls = 'gt1') {
+  const p = w.people[pid], r = rating(w, pid), tr = traitsOf(w, p);
+  const f = clamp((88 - p.pace) / 40, 0, 1) + (tr.includes('hothead') ? 0.25 : 0);
+  const g = clamp((85 - p.cons) / 45, 0, 1) * (tr.includes('metronome') ? 0.5 : 1);
+  const k = knobsFor(cls, ratingGap(r), f, g);
+  // (on top: the wet, and a mentor in the other seat, as a pace multiplier)
+  const pace = (rain ? 1 + (p.wet - 50) * 0.0004 : 1) * (mateMentored(w, pid) ? 1.004 : 1);
+  // (the dice-roll mistakes are a little rarer than before: an inconsistent driver's own technique now makes some)
+  return { pace: Math.min(1.01, pace), gap: k.gap, skill: k.skill, tc: k.tc,
+    aggr: clamp(0.15 + p.aggr / 100 * 0.85 + grudgeOf(w, pid) * 0.06, 0.1, 1), mistakes: clamp(1.5 - p.cons / 100 * 1.1, 0.35, 1.3) };
 }
 
 // the entry list of your series this round: 11 AI drivers in race slots 1..11 (slot 0 is yours), teammates side by side
 export function raceEntries(w) {
-  const S = w.series[w.player.series], round = S.cal[w.round], rain = round.weather === 'rain';
+  const S = w.series[w.player.series], round = S.cal[w.round], rain = round.weather === 'rain', cls = seriesById(w.player.series).cls;
   const entries = {}, teamPace = {}, roster = [];
   let slot = 1;
   for (const tid of S.teams) {
     const t = w.teams[tid];
     for (const pid of t.drivers) {
       if (pid === 'P') continue;
-      const p = w.people[pid], k = raceKnobs(w, pid, rain);
-      entries[slot] = { pid, tid, teamNo: S.teams.indexOf(tid), name: shortName(p).replace(/^\w\. /, ''), team: { name: t.name, main: t.main, accent: t.accent, helmet: t.accent, driver: shortName(p) }, aggr: k.aggr, mistakes: k.mistakes };
+      const p = w.people[pid], k = raceKnobs(w, pid, rain, cls);
+      entries[slot] = { pid, tid, teamNo: S.teams.indexOf(tid), name: shortName(p).replace(/^\w\. /, ''), team: { name: t.name, main: t.main, accent: t.accent, helmet: t.accent, driver: shortName(p) }, aggr: k.aggr, mistakes: k.mistakes, gap: k.gap, skill: k.skill, tc: k.tc };
       teamPace[slot] = k.pace;
       roster.push(slot++);
     }
