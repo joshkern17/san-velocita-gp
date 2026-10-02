@@ -16,26 +16,35 @@ import { LapRecorder, addLap, lapKey, bestLap, loadPB, lapPoseAt } from './telem
 
 const STEP = 1 / 240;
 // pace = fraction of the learned per-track limit
-// grip > 1 is an edge (Legend / Alien): the AI learns each circuit with it (a plan of its own: limitsFor), so it uses it.
-// Since the honest physics (stage 3) the road / GT AI's best is a little under a quick human's (it doesn't find the
-// fastest line through fast S-bends yet), so the top two levels get a small, labelled edge. Measured on the user's
-// circuit in the M1 (their best 1:44.5): Rookie ~1:53, Pro ~1:49.5, Legend ~1:46, Alien ~1:44-1:45.
+// grip > 1 is an edge (Legend and up): the AI learns each circuit with it (a plan of its own: limitsFor), so it uses it.
+// Since the honest physics (stage 3) the AI's best is a little under a quick human's (it doesn't find the fastest line
+// through fast S-bends yet), so the top levels get a labelled edge. Pace alone tops out (in the F1, pace 0.945 and 0.99
+// lapped within a second), so the levels above Pro are spaced by the edge. Clean AI laps at Auburn (2026-10-02; the
+// user's M1 best is 1:44.5), GT-R / M1 / Aventus / F1:
+//   no edge 2:03.0 / 1:47.5 / 1:47.5 / 1:27.2   1.07+1.04 2:01.0 / 1:45.6 / 1:43.7 / 1:24.9
+//   1.12+1.07 1:59.0 / 1:43.7 / 1:42.2 / 1:23.4   1.18+1.10 1:57.3 / 1:42.0 / 1:41.3 / 1:22.0   1.25+1.14 1:55.8 / 1:40.3 / - / 1:20.3
+// Legend is a clean lap at your best, Alien beats it, Phantom and Godlike are for a career car with upgrades.
 const DIFF = {
-  easy:   { pace: 0.85, power: 0.95, grip: 1, spread: 0.03, rubber: true },
-  medium: { pace: 0.93, power: 0.98, grip: 1, spread: 0.025, rubber: true },
-  hard:   { pace: 1, power: 1.01, grip: 1.03, spread: 0.015, rubber: false },
-  alien:  { pace: 1, power: 1.04, grip: 1.07, spread: 0.006, rubber: false },
+  easy:    { pace: 0.85, power: 0.95, grip: 1, spread: 0.03, rubber: true },
+  medium:  { pace: 0.93, power: 0.98, grip: 1, spread: 0.025, rubber: true },
+  hard:    { pace: 1, power: 1.04, grip: 1.07, spread: 0.012, rubber: false },
+  alien:   { pace: 1, power: 1.07, grip: 1.12, spread: 0.006, rubber: false },
+  phantom: { pace: 1, power: 1.1, grip: 1.18, spread: 0.004, rubber: false },
+  godlike: { pace: 1, power: 1.14, grip: 1.25, spread: 0.003, rubber: false },
 };
-// the F1 class keeps its table from before (its AI never had the cornering help the road / GT AI lost in stage 3)
+// the F1 class: its own lower levels (its AI never had the cornering help the road / GT AI lost in stage 3), and the
+// top levels one step of edge below the road / GT table's
 const diffFor = (opts) => { const D = (CARS[carId(opts.car)] || CARS.f1).cls === 'f1' ? DIFF_F1 : DIFF; return D[opts.difficulty] || D.medium; };
 const DIFF_F1 = {
-  easy:   { pace: 0.8,  power: 0.94, grip: 0.97, spread: 0.03, rubber: true },
-  medium: { pace: 0.875, power: 0.97, grip: 0.99, spread: 0.025, rubber: true },
-  hard:   { pace: 0.945, power: 1.0, grip: 1.0, spread: 0.015, rubber: false },
-  alien:  { pace: 0.99, power: 1.0, grip: 1.0, spread: 0.006, rubber: false },
+  easy:    { pace: 0.8,  power: 0.94, grip: 0.97, spread: 0.03, rubber: true },
+  medium:  { pace: 0.875, power: 0.97, grip: 0.99, spread: 0.025, rubber: true },
+  hard:    { pace: 1, power: 1.01, grip: 1.03, spread: 0.012, rubber: false },
+  alien:   { pace: 1, power: 1.04, grip: 1.07, spread: 0.006, rubber: false },
+  phantom: { pace: 1, power: 1.07, grip: 1.12, spread: 0.004, rubber: false },
+  godlike: { pace: 1, power: 1.1, grip: 1.18, spread: 0.003, rubber: false },
 };
 // AI mistakes: chance per corner of braking too late / running wide / spinning, by difficulty (x the AI Mistakes option)
-const MISTAKE = { easy: 0.03, medium: 0.022, hard: 0.014, alien: 0.008 };
+const MISTAKE = { easy: 0.03, medium: 0.022, hard: 0.012, alien: 0.007, phantom: 0.005, godlike: 0.003 };
 const MISTAKES = { off: 0, normal: 1, frequent: 2.2 };
 // learned AI speed plans: kept for the play session, and saved in the browser between sessions (the most recent 40
 // circuit + car + weather combinations, ~10 KB each), so a race you've run before loads without relearning

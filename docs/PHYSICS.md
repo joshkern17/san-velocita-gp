@@ -228,6 +228,12 @@ What stage 2 is, and what was learned getting there:
   A grip edge is learned with (`limitsFor(id, grip)`, plans saved per edge), else it barely helps. Measured (M1 /
   Aventus, Auburn): Rookie 1:53, Pro 1:49.5, Legend 1:46.4 / 1:45.5, Alien ~1:45 / 1:44. The edge is in the
   Difficulty description. (User agreed: "both, staged": labelled edge now, honest AI improvements later.)
+- 2026-10-02: harder levels (user: Alien rivals them, Legend too easy, career needs levels you grow into). Measured
+  across classes (GT-R / M1 / Aventus / F1 at Auburn, the table is in race.js): every class gains ~1.7-2% a lap per
+  edge step and learns cleanly up to grip 1.25. Pace alone tops out (F1 pace 0.945 vs 0.99: 0.9 s), so levels above Pro
+  are spaced by the edge. Road / GT: Legend 1.07 / 1.04 (old Alien), Alien 1.12 / 1.07, new Phantom 1.18 / 1.10,
+  Godlike 1.25 / 1.14; F1 one step lower (Legend 1.03 / 1.01 ... Godlike 1.18 / 1.10). Fewer mistakes up the ladder.
+  World Career difficulty can now be changed from the hub.
 
 ## Next: the AI's line through fast S-bends (where the edge should come from instead)
 
