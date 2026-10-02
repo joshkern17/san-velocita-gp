@@ -77,7 +77,7 @@ export const shortName = (p) => p ? `${p.first[0]}. ${p.last}`.toUpperCase() : '
 // ---------------- new world ----------------
 // opts: { name, number, len, difficulty, laps, weekend, pracLen, qualiLen, pool, seed, teamName, colors: [main, accent] }
 export function newWorld(opts, trackPool) {
-  const w = { v: 1, kind: 'world', rs: (opts.seed || Date.now()) % 2147483646 + 1, nextId: 1, year: 2026, round: 0, over: false,
+  const w = { v: 1, kind: 'world', rs: (opts.seed || Date.now()) % 2147483646 + 1, nextId: 1, year: START_YEAR - PRE_YEARS, round: 0, over: false,
     opts: { len: opts.len || 6, difficulty: opts.difficulty || 'medium', laps: opts.laps || 5, weekend: opts.weekend || 'quali', pracLen: opts.pracLen || 1200, qualiLen: opts.qualiLen || 600, pool: opts.pool || 'presets' },
     people: {}, teams: {}, series: {}, news: [], msgs: [], mail: [], ledger: [], h2h: {}, seasons: [],
     player: { name: (opts.name || 'Driver').trim(), number: opts.number || 7, series: 'street', team: 'T0', starts: 0, wins: 0, pods: 0, titles: 0, hist: [], offer: null } };
@@ -88,10 +88,6 @@ export function newWorld(opts, trackPool) {
   for (const s of SERIES) {
     const ids = [];
     for (let t = 0; t < TEAMS_PER; t++) {
-      if (s.id === 'street' && t === 0) {
-        w.teams.T0 = { id: 'T0', name: opts.teamName || 'Your Team', main: opts.colors?.[0] ?? 0xc8141c, accent: opts.colors?.[1] ?? 0xf2f2f2, series: s.id, car: s.base - 4, mine: true, drivers: [] };
-        ids.push('T0'); continue;
-      }
       const [name, main, accent] = pool[k++];
       const id = 'T' + (k);
       w.teams[id] = { id, name, main, accent, series: s.id, car: clamp(s.base + gauss(w) * 5, 20, 98), drivers: [] };
@@ -99,11 +95,12 @@ export function newWorld(opts, trackPool) {
     }
     w.series[s.id] = { teams: ids, cal: [], results: [] };
   }
-  // drivers: two per team (your team: you + one AI teammate)
+  // your team: not in any series yet (it's founded once the history has run)
+  w.teams.T0 = { id: 'T0', name: opts.teamName || 'Your Team', main: opts.colors?.[0] ?? 0xc8141c, accent: opts.colors?.[1] ?? 0xf2f2f2, series: null, car: SERIES[0].base - 4, mine: true, drivers: ['P'] };
+  // drivers: two per team
   for (const s of SERIES) for (const tid of w.series[s.id].teams) {
     const t = w.teams[tid];
     for (let seat = 0; seat < SEATS; seat++) {
-      if (t.mine && seat === 0) { t.drivers.push('P'); continue; }
       const age = s.tier === 0 ? r0(18 + rng(w) * 9) : s.tier === 1 ? r0(21 + rng(w) * 13) : r0(22 + rng(w) * 14);
       const p = makePerson(w, { age, series: s.id, lvl: s.base + gauss(w) * s.spread * 0.4 });
       p.team = tid; t.drivers.push(p.id);
@@ -112,6 +109,7 @@ export function newWorld(opts, trackPool) {
   // a few free agents waiting for a seat
   for (let i = 0; i < 6; i++) makePerson(w, { age: r0(17 + rng(w) * 4), series: null, lvl: 42 + gauss(w) * 6 });
   newCalendars(w, trackPool);
+  prehistory(w, trackPool);
   seasonOpenNews(w);
   startMoney(w);
   w.founding = { reg: false, car: false };
@@ -122,6 +120,33 @@ export function newWorld(opts, trackPool) {
      `San Velocita Business Registry`],
     { link: ['registry', 'Open Form SV-1'] });
   return w;
+}
+
+// ---------------- the years before you ----------------
+// The world runs PRE_YEARS seasons on its own first, so everyone arrives with a career: starts, wins, titles, history
+// and grudges. The Street Cup team whose entry you buy races through them too, then folds; your team takes its place.
+const START_YEAR = 2026, PRE_YEARS = 10;
+function prehistory(w, trackPool) {
+  w.pre = true;
+  for (let y = 0; y < PRE_YEARS; y++) {
+    for (let r = 0; r < w.opts.len; r++) {
+      for (const s of SERIES) scoreRound(w, s.id, simRace(w, s.id));
+      roundNews(w, null);
+      w.round++;
+    }
+    seasonEnd(w);
+    nextSeason(w, trackPool);
+  }
+  // the old team folds: one of its drivers stays on (the seat comes with the entry), the other goes looking
+  const S = w.series.street, old = w.teams[S.teams[S.teams.length - 1]], mine = w.teams.T0;
+  const tst = w.seasons.at(-1)?.teamChamps;
+  S.teams = S.teams.map(t => t === old.id ? 'T0' : t); mine.series = 'street';
+  const [stay, go] = old.drivers.slice().sort((a, b) => ageOf(w, w.people[a]) - ageOf(w, w.people[b])); // (the younger one stays)
+  if (go && w.people[go]) w.people[go].team = null;
+  if (stay && w.people[stay]) { w.people[stay].team = 'T0'; mine.drivers.push(stay); }
+  old.drivers = []; old.series = null; old.folded = w.year - 1;
+  w.pre = false; w.prev = old.id; // (whose entry you bought)
+  news(w, `${old.name.toUpperCase()} CLOSES ITS DOORS`, `After ${PRE_YEARS}${tst ? '' : ''} seasons in the Street Cup, ${old.name} has stopped racing. The team's entry has been sold to a new owner.`);
 }
 
 // a season's calendar per series: circuits drawn from the pool, conditions rolled per round
@@ -571,11 +596,12 @@ export function buyCar(w, adId) {
 export const condPower = (cond) => 0.9 + 0.1 * clamp(cond ?? 1, 0.5, 1);
 
 // ---------------- news (headlines) and texts (the phone) ----------------
-function news(w, head, body = '', extra = {}) { w.news.unshift({ y: w.year, r: w.round, when: whenOf(w), head, body, ...extra }); if (w.news.length > 120) w.news.length = 120; }
+function news(w, head, body = '', extra = {}) { if (w.pre && w.year < START_YEAR - 2) return; w.news.unshift({ y: w.year, r: w.round, when: whenOf(w), head, body, ...extra }); if (w.news.length > 120) w.news.length = 120; }
 // an email (the garage computer): { from, addr, subj, body: [paragraphs], choices?, offer?, report? }
 // when it happened, as the inbox and the news site show it
 export const whenOf = (w) => w.round >= w.opts.len ? 'Season end' : w.series[w.player.series].results.some(x => x.round === w.round) ? `Round ${w.round + 1}` : w.round === 0 ? 'Pre-season' : `Round ${w.round}`;
 export function mail(w, from, addr, subj, body, extra = {}) {
+  if (w.pre) return;
   w.mail = w.mail || [];
   w.mail.unshift({ id: 'e' + (w.nextId++), y: w.year, r: w.round, when: whenOf(w), from, addr, subj, body, read: false, ...extra });
   if (w.mail.length > 150) w.mail.length = 150;
@@ -586,6 +612,7 @@ export const siteOf = (s) => s.name.toLowerCase().replace(/[^a-z]+/g, '-').repla
 const addrOf = (s, who) => `${who}@${siteOf(s)}`;
 // a text from someone: { from, body, choices?, offer? }
 export function text(w, from, body, extra = {}) {
+  if (w.pre) return;
   w.msgs.unshift({ id: 'm' + (w.nextId++), y: w.year, r: w.round, from, body, read: false, ...extra });
   if (w.msgs.length > 80) w.msgs.length = 80;
 }
@@ -595,9 +622,11 @@ const ord = (p) => p + (['th', 'st', 'nd', 'rd'][(p % 100 - 20) % 10] || ['th', 
 const pickLine = (w, a) => a[Math.floor(rng(w) * a.length)];
 
 function seasonOpenNews(w, moves = []) {
+  if (w.pre) return;
   const s = seriesById(w.player.series), S = w.series[s.id], mate = w.people[teammateOf(w)];
+  const prev = w.prev && !w.player.starts && w.teams[w.prev] ? `Your entry was previously held by ${w.teams[w.prev].name}. Their pit garage has been reassigned to you, along with any items left in it.` : '';
   mail(w, `${s.name} Office`, addrOf(s, 'office'), `Welcome to the ${w.year} season`,
-    [`Welcome to the ${w.year} ${s.name}.`, `${w.opts.len} rounds, ${S.teams.length * 2} drivers, ${S.teams.length} teams. The full calendar is on our website.`, `Round 1: ${S.cal[0].name}, ${S.cal[0].time}${S.cal[0].weather === 'clear' ? '' : ', ' + S.cal[0].weather}.`, `Good luck,`, `${s.name} Office`]);
+    [`Welcome to the ${w.year} ${s.name}.`, `${w.opts.len} rounds, ${S.teams.length * 2} drivers, ${S.teams.length} teams. The full calendar is on our website.`, ...(prev ? [prev] : []), `Round 1: ${S.cal[0].name}, ${S.cal[0].time}${S.cal[0].weather === 'clear' ? '' : ', ' + S.cal[0].weather}.`, `Good luck,`, `${s.name} Office`]);
   if (mate) {
     const fresh = !w.seasons.length || moves.some(m => m.pid === mate.id);
     text(w, mate.first, fresh ? pickLine(w, [`${mate.first} here. Looks like we're sharing a garage this year. Don't put me in the wall.`, `Hey, it's ${mate.first}. New season, new teammate. Let's make the others look slow.`, `${mate.first} ${mate.last}. I hear you're quick. We'll see.`])
