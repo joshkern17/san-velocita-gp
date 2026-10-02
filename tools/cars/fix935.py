@@ -30,7 +30,8 @@ for p in j['meshes'][body['mesh']]['primitives']:
     attrs = {k: read(v) for k, v in p['attributes'].items()}; I = read(p['indices']).ravel()
     P, U = attrs['POSITION'], attrs['TEXCOORD_0']; assert U.dtype == np.float32
     tri = I.reshape(-1, 3)
-    right = (P[tri, 0] < -0.02).all(1) & (U[tri, 1] * H > 726).all(1)   # right-side faces on the lower photo
+    # right-side faces on the lower side photo (bottom-right of the texture: the rear-view photo is bottom-left)
+    right = (P[tri, 0] < -0.02).all(1) & (U[tri, 1] * H > 726).all(1) & (U[tri, 0] * W > 0.415 * W).all(1)
     moved = int(right.sum())
     used_other = np.zeros(len(P), bool); used_other[tri[~right].ravel()] = True
     remap = {}; extra = []
