@@ -301,7 +301,7 @@ export function simPlayerRound(w) {
   scoreRound(w, w.player.series, rows);
   const me = rows.find(r => r.pid === 'P');
   for (const r of rows) if (r.pid !== 'P') { const h = h2hOf(w, r.pid); h.races++; if (r.dnf && !me.dnf || (!me.dnf && me.pos < r.pos)) h.ahead++; else h.behind++; }
-  if (w.money) { const u = { ...simUse(w), failed: f ? f.part : null }; settleRound(w, u, me); afterParts(w, u); }
+  if (w.money) { const u = { ...simUse(w), failed: f ? f.part : null, grid: me ? clamp(me.pos + Math.round(gauss(w) * 2), 1, 12) : null, blamed: rng(w) < 0.12 }; settleRound(w, u, me); afterParts(w, u); }
   return afterRound(w, me);
 }
 function afterRound(w, me) {
@@ -315,6 +315,7 @@ function afterRound(w, me) {
 
 // after a round: the car wears (and whatever broke needs fixing), your engineer measures, new used parts appear
 function afterParts(w, use) {
+  if (w.founding && !w.founding.legacy) sponsorOffers(w);
   if (!w.car) return;
   wearCar(w, use.laps || 0, use.damage || 0, use.failed || null);
   measureParts(w);
@@ -355,6 +356,11 @@ export function nextSeason(w, trackPool) {
   const moves = [];
   // last season's team standings, before anyone changes seats (a driver's results stay with the team they drove for)
   const prevTeams = {}; for (const sr of SERIES) prevTeams[sr.id] = teamStandings(w, sr.id).map(e => e.tid).filter(t => w.teams[t]?.series === sr.id);
+  for (const d of dealsOf(w).slice()) {
+    const sp = sponsorById(d.sid), good = d.met >= d.misses;
+    if (good) mail(w, sp.name, sponsorAddr(sp.name), `${w.year + 1} season`, [`Thank you for a good season. We'd like to continue in ${w.year + 1} on the same terms.`, sp.name], { sponsorOffer: { sid: d.sid, slot: d.slot, fee: d.fee, bonus: d.bonus }, choices: [['yes', 'Renew'], ['no', 'Decline']] });
+  }
+  w.deals = [];
   w.year++; w.round = 0; w.over = false;
   annuityDay(w);
   if (w.staff) w.jobs = makeJobs(w);
@@ -499,6 +505,7 @@ export function settleRound(w, use, me) {
     [`Fuel (${use.laps} lap${use.laps === 1 ? '' : 's'})`, -Math.round(use.laps * c.fuelLap * (bg.fuel || 1))],
   ];
   if (use.damage > 0.005) items.push([bg.repair ? 'Repairs (mostly done yourself)' : 'Repairs', -Math.round(use.damage * c.repair * (bg.repair || 1) * fx.repair / 100) * 100]);
+  for (const it of sponsorRound(w, use, me)) items.push(it);
   const base = me && !me.dnf ? c.prize[me.pos - 1] || 0 : 0, pct = Math.max(0, use.aidPct || 0);
   const prize = Math.round(base * (1 + pct / 100) * (bg.prize || 1) * (home ? 1.1 : 1) / 10) * 10;
   if (prize) items.push([`Prize money (P${me.pos}${pct ? `, +${pct}% for fewer aids` : ''}${home ? ', home crowd' : ''})`, prize]);
@@ -600,6 +607,8 @@ export function registerTeam(w, f) {
     [`Dear ${first},`, `As you know, we act for ${f.ex}.`,
      `It has come to our attention that you won the State Lottery shortly after the decree was finalised. Congratulations. My client has asked us to confirm the date of the draw.`,
      `My client also asks us to pass on that starting a racing team is "exactly the kind of thing," and that they hope it goes really well.`, `Yours,`, `M. Hargreave`]);
+  // a local business gets in touch
+  repOf(w); sponsorOffers(w, true);
   // the second seat: a pay driver, with their parent's money
   const mate = w.people[w.teams[w.player.team].drivers.find(d => d !== 'P')];
   if (mate) {
@@ -888,6 +897,122 @@ export function logTelemetry(w, t) {
   w.telemetry = w.telemetry || [];
   w.telemetry.unshift({ id: 't' + (w.nextId++), y: w.year, r: w.round, ...t });
   if (w.telemetry.length > 30) w.telemetry.length = 30;
+}
+
+// ---------------- sponsors ----------------
+// A title sponsor (on the car) and up to two associates. Each pays a fee a round for being seen, plus a bonus when you
+// meet that round's objective; miss too many and they walk. Who offers depends on your standing with sponsors (w.rep,
+// 0-100: results, objectives met, staying out of trouble): your home town's businesses first, bigger names later.
+// [name, home town (null: anyone), standing needed, fee (street, a round), patience (misses a season), objectives they like, colour]
+const SPONSOR_POOL = [
+  ["Dale's Tire & Lube", 'pinewood', 0, 1400, 3, ['finish', 'top'], 0x1f5c2a], ['Pinewood Feed & Seed', 'pinewood', 0, 1100, 4, ['finish', 'clean'], 0x7a5a2a],
+  ['Pine Hollow Credit Union', 'pinewood', 10, 2000, 2, ['top', 'beat'], 0x1d3f7a],
+  ['Gulch Outlet Center', 'gulch', 0, 1500, 3, ['top', 'gain'], 0xd8742a], ['Mesa Pawn & Gold', 'gulch', 0, 1200, 3, ['gain', 'beat'], 0xc8a020],
+  ['Desert Rose Motel', 'gulch', 10, 1800, 2, ['finish', 'clean'], 0xd04070],
+  ['Metro Cab Co.', 'city', 0, 1500, 3, ['finish', 'gain'], 0xf2c21a], ['Downtown Dental', 'city', 0, 1300, 4, ['clean', 'finish'], 0x2aa0c8],
+  ['Capital Self Storage', 'city', 10, 2000, 2, ['top', 'beat'], 0xe0601a],
+  ['Azure Marine Supply', 'azure', 0, 1500, 3, ['finish', 'top'], 0x1a6ab8], ['Harbour Fish Market', 'azure', 0, 1100, 4, ['finish', 'gain'], 0x2a8a8a],
+  ['Port Azure Yacht Brokers', 'azure', 10, 2200, 2, ['top', 'beat'], 0x14284a],
+  ['Hotline Pizza', null, 20, 2400, 3, ['gain', 'top'], 0xc8141c], ['Max Hardware', null, 25, 2600, 3, ['finish', 'clean'], 0xe08a1a],
+  ['Sunrise Insurance', null, 30, 3000, 2, ['clean', 'finish'], 0x2a4fa0], ['Volta Cola', null, 40, 4200, 2, ['top', 'lead'], 0xd01818],
+  ['Apex Energy', null, 45, 4500, 2, ['lead', 'gain'], 0x18c040], ['Velocita State Lottery', null, 50, 5000, 2, ['top', 'beat'], 0xf2d22a],
+  ['Gold Coast Airlines', null, 60, 6500, 2, ['top', 'clean'], 0x1a3a7a], ['Triton Watches', null, 70, 8000, 1, ['top', 'lead'], 0x111111],
+];
+const SPONSOR_K = { street: 1, gt: 3, formula: 9 };
+const ASSOC_K = 0.45;
+export const SPONSOR_SLOTS = ['title', 'assoc', 'assoc'];
+export const sponsorName = (id) => sponsorById(id)?.name || '';
+export const sponsorInfo = (id) => sponsorById(id);
+export const repOf = (w) => (w.rep ??= 15);
+export const dealsOf = (w) => (w.deals ??= []);
+const sponsorById = (id) => { const s = SPONSOR_POOL[+id.slice(2)]; return s && { id, name: s[0], town: s[1], rep: s[2], fee: s[3], patience: s[4], wants: s[5], color: s[6] }; };
+const sponsorAddr = (name) => `marketing@${name.toLowerCase().replace(/&/g, 'and').replace(/[^a-z]+/g, '')}.sv`;
+// what you're expected to manage this round: about where you stand in the championship (or mid-field to start)
+function expectedPos(w) {
+  const st = standings(w, w.player.series), k = st.findIndex(e => e.pid === 'P');
+  return w.series[w.player.series].results.length && k >= 0 ? k + 1 : 7;
+}
+// this round's objective for a deal (set once a round, so you can see it before you race)
+export function dealObjective(w, d) {
+  const key = w.year * 100 + w.round;
+  if (d.obj && d.obj.key === key) return d.obj;
+  const sp = sponsorById(d.sid), type = sp.wants[Math.floor(rng(w) * sp.wants.length)], ex = expectedPos(w);
+  const o = { key, type };
+  if (type === 'top') o.n = clamp(ex, 3, 10);
+  if (type === 'gain') o.n = 2;
+  if (type === 'beat') {
+    const ts = teamStandings(w, w.player.series), mine = ts.findIndex(e => e.tid === w.player.team);
+    const rival = ts[Math.max(0, (mine >= 0 ? mine : ts.length) - 1)] || ts[0];
+    o.tid = rival && rival.tid !== w.player.team ? rival.tid : w.series[w.player.series].teams.find(t => t !== w.player.team);
+  }
+  d.obj = o; return o;
+}
+export function objText(w, o) {
+  return o.type === 'top' ? `Finish in the top ${o.n}` : o.type === 'finish' ? 'Finish the race' : o.type === 'clean' ? 'Finish without causing contact'
+    : o.type === 'gain' ? `Gain ${o.n} places from your grid slot` : o.type === 'lead' ? 'Lead a lap' : `Beat both ${w.teams[o.tid]?.name || 'rival'} cars`;
+}
+// did you do it? r: { pos, dnf, grid, led, blamed }
+function objMet(w, o, r, rows) {
+  if (!r) return false;
+  if (o.type === 'top') return !r.dnf && r.pos <= o.n;
+  if (o.type === 'finish') return !r.dnf;
+  if (o.type === 'clean') return !r.dnf && !r.blamed;
+  if (o.type === 'gain') return !r.dnf && r.grid != null && r.grid - r.pos >= o.n;
+  if (o.type === 'lead') return (r.led || 0) > 0;
+  if (o.type === 'beat') { const theirs = rows.filter(x => teamOfPid(w, x.pid) === o.tid); return !r.dnf && theirs.every(x => x.dnf || x.pos > r.pos); }
+  return false;
+}
+// a round's sponsorship: fees and bonuses (bill items), standing, and the sponsors' patience
+function sponsorRound(w, use, me) {
+  const items = [], deals = dealsOf(w), rows = w.series[w.player.series].results.at(-1)?.rows || [], K = SPONSOR_K[w.player.series] || 1;
+  const r = me ? { ...me, grid: use.grid ?? null, led: use.led ?? (me.pos === 1 && !me.dnf ? 1 : 0), blamed: !!use.blamed } : null;
+  for (const d of deals.slice()) {
+    const sp = sponsorById(d.sid), o = dealObjective(w, d), met = objMet(w, o, r, rows);
+    items.push([`${sp.name} (${d.slot === 'title' ? 'title sponsor' : 'associate'})`, d.fee]);
+    if (met) { items.push([`${sp.name} bonus: ${objText(w, o).toLowerCase()}`, d.bonus]); d.met++; w.rep = clamp(repOf(w) + 1, 0, 100); }
+    else {
+      d.misses++; w.rep = clamp(repOf(w) - 1, 0, 100);
+      if (d.misses >= sp.patience + 1) {
+        w.deals = deals.filter(x => x !== d);
+        mail(w, sp.name, sponsorAddr(sp.name), 'Our partnership', [`We've reviewed our sponsorship of ${w.teams[w.player.team].name} and decided to end it, effective immediately.`, `We wish you the best for the rest of the season.`, sp.name]);
+        w.rep = clamp(repOf(w) - 4, 0, 100);
+      } else if (d.misses === sp.patience) mail(w, sp.name, sponsorAddr(sp.name), 'A word about results', [`We were hoping for more by now. ${d.met} of ${d.met + d.misses} targets met so far.`, `We'd like to see an improvement over the next round.`, sp.name]);
+    }
+    d.obj = null;
+  }
+  // standing: results matter most
+  if (me) w.rep = clamp(repOf(w) + (me.dnf ? -2 : me.pos <= 3 ? 4 : me.pos <= 6 ? 2 : me.pos <= 10 ? 1 : 0), 0, 100);
+  return items;
+}
+// new offers: more likely with a free slot and a good standing
+function sponsorOffers(w, force = false) {
+  const deals = dealsOf(w), free = SPONSOR_SLOTS.length - deals.length; if (!free) return;
+  const pending = (w.mail || []).filter(m => m.sponsorOffer && !m.answer).length; if (pending >= 2) return;
+  if (!force && rng(w) > 0.3 + repOf(w) / 250) return;
+  const S = seriesById(w.player.series), have = new Set([...deals.map(d => d.sid), ...(w.mail || []).filter(m => m.sponsorOffer && !m.answer).map(m => m.sponsorOffer.sid)]);
+  const cands = SPONSOR_POOL.map((x, i) => sponsorById('sp' + i)).filter(sp => !have.has(sp.id) && sp.rep <= repOf(w) && (sp.town ? sp.town === w.home && S.tier < 2 : true));
+  if (!cands.length) return;
+  const sp = cands.sort((a, b) => b.rep - a.rep + (rng(w) - 0.5) * 30)[0];
+  const title = !deals.some(d => d.slot === 'title') && (sp.rep >= 10 || !deals.length);
+  const fee = Math.round(sp.fee * (SPONSOR_K[w.player.series] || 1) * (title ? 1 : ASSOC_K) * (0.85 + repOf(w) / 200 + rng(w) * 0.2) / 50) * 50;
+  const offer = { sid: sp.id, slot: title ? 'title' : 'assoc', fee, bonus: Math.round(fee * 0.6 / 50) * 50 };
+  const local = sp.town ? `As a ${TOWNS[sp.town].name} business, we like to back local people.` : `We've been following your results.`;
+  mail(w, sp.name, sponsorAddr(sp.name), `Sponsorship: ${w.teams[w.player.team].name}`,
+    [`Hello,`, `${local} We'd like to sponsor ${w.teams[w.player.team].name} for the rest of the ${w.year} season${title ? ', as title sponsor (our name on the car)' : ', as an associate sponsor'}.`,
+     `We'd pay ${money$(fee)} a round, and ${money$(offer.bonus)} more each round you meet the target we set for that race (${sp.wants.map(x => ({ top: 'results', finish: 'finishing', clean: 'clean racing', gain: 'overtaking', lead: 'leading', beat: 'beating particular teams' })[x]).join(' and ')}, mostly).`,
+     sp.patience <= 1 ? 'We expect results.' : `We'd hope to see targets met more often than not.`, sp.name],
+    { sponsorOffer: offer, choices: [['yes', `Accept: ${money$(fee)} a round`], ['no', 'Decline']] });
+}
+export function answerSponsor(w, m, key) {
+  const o = m.sponsorOffer, sp = sponsorById(o.sid), deals = dealsOf(w);
+  if (key !== 'yes') return 'declined';
+  const titleTaken = deals.some(d => d.slot === 'title');
+  if (deals.length >= SPONSOR_SLOTS.length) return 'full';
+  const slot = o.slot === 'title' && titleTaken ? 'assoc' : o.slot;
+  deals.push({ sid: o.sid, slot, fee: slot === o.slot ? o.fee : Math.round(o.fee * ASSOC_K / 50) * 50, bonus: o.bonus, met: 0, misses: 0, since: w.year, obj: null });
+  if (slot === 'title') { news(w, `${sp.name.toUpperCase()} BACKS ${w.teams[w.player.team].name.toUpperCase()}`, `${sp.name} is the new title sponsor of the ${seriesById(w.player.series).name} team.`); }
+  mail(w, sp.name, sponsorAddr(sp.name), 'Welcome aboard', [`Delighted to be working with you. ${slot === 'title' ? 'Our name will be on the car from the next round.' : 'Our logo will be on the car from the next round.'}`, `Our target for each race will be in your team's sponsor page before the weekend.`, sp.name]);
+  return slot;
 }
 
 // ---------------- news (headlines) and texts (the phone) ----------------

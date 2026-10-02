@@ -30,8 +30,8 @@ const APPS = [
     .map(([id, label]) => ({ id, label, title: 'Web Browser', hidden: true, site: true })),
 ];
 // the Team app's tabs (and the names they used to have as apps of their own, for links into them)
-const TEAM_TABS = [['overview', 'Overview'], ['car', 'Car'], ['tyres', 'Tyres'], ['staff', 'Staff'], ['data', 'Data']];
-const TEAM_ALIAS = { workshop: 'car', tyres: 'tyres', staff: 'staff', telemetry: 'data' };
+const TEAM_TABS = [['overview', 'Overview'], ['car', 'Car'], ['tyres', 'Tyres'], ['staff', 'Staff'], ['sponsors', 'Sponsors'], ['data', 'Data']];
+const TEAM_ALIAS = { workshop: 'car', tyres: 'tyres', staff: 'staff', telemetry: 'data', sponsors: 'sponsors' };
 // the Internet's home page
 const BOOKMARKS = [['news', 'The Paddock Wire', 'Motorsport news'], ['series', 'Series websites', 'Standings, teams, calendars, champions'], ['drivers', 'Velocita Driver Database', 'Every driver, every season'],
   ['classifieds', 'SVList', 'Cars and parts, by owner'], ['parts', 'Speed Parts Direct', 'Performance parts'], ['jobs', 'SVJobs', 'Hire staff'], ['bank', 'First Velocita Bank', 'Business banking']];
@@ -45,6 +45,7 @@ const BM_ICON = {
   jobs: [['#1f6b8c', 1, 1, 14, 14], ['#fff', 4, 5, 8, 7], ['#1f6b8c', 6, 3, 4, 3], ['#fff', 7, 4, 2, 1]],
   bank: [['#0d2350', 1, 1, 14, 14], ['#d8b54a', 3, 4, 10, 2], ['#d8b54a', 4, 7, 2, 5], ['#d8b54a', 7, 7, 2, 5], ['#d8b54a', 10, 7, 2, 5], ['#d8b54a', 3, 12, 10, 1]],
 };
+const standWord = (r) => r < 15 ? 'unknown' : r < 30 ? 'local' : r < 45 ? 'noticed' : r < 60 ? 'respected' : r < 75 ? 'sought after' : 'a big name';
 const bmIcon = (id) => `<svg class="hp-ico" viewBox="0 0 16 16" width="24" height="24">${(BM_ICON[id] || []).map(r => `<rect x="${r[1]}" y="${r[2]}" width="${r[3]}" height="${r[4]}" fill="${r[0]}"/>`).join('')}</svg>`;
 // team colours on Form SV-1
 const PALETTE = [0xc8141c, 0xf2f2f2, 0x15181d, 0x1d4fd8, 0xf2c21a, 0x18a058, 0xf06a12, 0x7a2cc8, 0x1fb5c8, 0xe0569a, 0x7a5a3a, 0x9aa2ad];
@@ -187,6 +188,7 @@ export class Computer {
   markRead(id) { const m = (this.w.mail || []).find(x => x.id === id); if (m && !m.read) { m.read = true; this.src.changed?.(); } }
   act(a, arg) {
     if (a === 'app') { this.stack = []; this.launch(arg); return; }
+    if (a === 'mailto') { this.follow('mail', { mail: arg }); this.markRead(arg); this.render(); return; }
     if (a === 'ttab') { this.page = { tab: arg, file: null }; this.hist = []; this.armed = null; this.curKey = 'ttab-' + arg; this.render(); this.src.sfx?.move?.(); return; }
     if (a === 'bm') { this.follow(arg); return; }
     if (a === 'close') { this.back(); return; }
@@ -410,7 +412,7 @@ export class Computer {
   teamFrame() {
     const tab = this.page.tab || 'overview';
     const tabs = TEAM_TABS.map(([k, n]) => `<span class="tw-tab${k === tab ? ' on' : ''}" data-nav data-act="ttab" data-arg="${k}" data-key="ttab-${k}">${n}</span>`).join('');
-    const body = tab === 'car' ? this.workshopApp() : tab === 'tyres' ? `<div class="tm">${this.tyreTab()}</div>` : tab === 'staff' ? this.teamApp() : tab === 'data' ? this.telApp() : this.overview();
+    const body = tab === 'car' ? this.workshopApp() : tab === 'tyres' ? `<div class="tm">${this.tyreTab()}</div>` : tab === 'staff' ? this.teamApp() : tab === 'sponsors' ? this.sponsorTab() : tab === 'data' ? this.telApp() : this.overview();
     return `<div class="tw"><div class="tw-tabs">${tabs}</div>${body}</div>`;
   }
   // the whole team at a glance, each part a way into its tab
@@ -428,8 +430,26 @@ export class Computer {
         ${card('car', 'Car', P ? `<span>${esc(w.car.name)} &middot; ${WC.PARTS[worst].name.toLowerCase()} ${Math.round(P[worst].cond * 100)}%</span><span class="${risk >= 0.08 ? 'neg' : ''}">Risk of a failure: ${risk < 0.03 ? 'low' : risk < 0.08 ? 'some' : risk < 0.15 ? 'high' : 'very high'}</span>` : '<span>No car yet</span>', 'Workshop')}
         ${card('tyres', 'Tyres', `<span>In stock: ${WC.COMPOUNDS.map(c => `${st[c]} ${c}`).join(', ')}</span><span class="${short.length ? 'neg' : ''}">${short.length ? `Short of ${short.join(', ')} for the next round` : 'Enough for the next round'}</span>`, 'Stock and orders')}
         ${card('staff', 'Staff', staff.length ? staff.map(x => `<span>${esc(x.first)} &middot; ${WC.ROLES[x.role].name.toLowerCase()}${x.owed ? ` &middot; <span class="neg">owed</span>` : ''}</span>`).join('') : '<span>Nobody yet</span>', 'Payroll and hiring')}
+        ${card('sponsors', 'Sponsors', (() => { const d = WC.dealsOf(w); return d.length ? d.map(x => `<span>${esc(WC.sponsorName(x.sid))} &middot; ${WC.money$(x.fee)} a round</span>`).join('') : '<span>None yet</span>'; })() + `<span>Standing: ${standWord(WC.repOf(w))}</span>`, 'Deals and targets')}
         ${card('data', 'Data', `<span>${files} session file${files === 1 ? '' : 's'}</span><span>${lvl ? `Read by ${esc(WC.staffOf(w, 'engineer').first)}` : 'Unreadable without a data engineer'}</span>`, 'Telemetry')}
       </div></div>`;
+  }
+  // sponsors: your standing, each deal and this round's target, offers waiting in Mail
+  sponsorTab() {
+    const w = this.w, deals = WC.dealsOf(w), rep = WC.repOf(w), offers = (w.mail || []).filter(m => m.sponsorOffer && !m.answer);
+    if (!w.founding?.reg) return '<div class="tm"><p class="pc-empty">Register the team first.</p></div>';
+    const rows = WC.SPONSOR_SLOTS.map((slot, i) => {
+      const d = deals.filter(x => x.slot === slot)[slot === 'title' ? 0 : i - 1];
+      if (!d) return `<div class="tm-row vacant"><div class="tm-who"><b>${slot === 'title' ? 'Title sponsor' : 'Associate sponsor'}</b><small>Open. Offers come by email.</small></div></div>`;
+      const sp = WC.sponsorInfo(d.sid), o = WC.dealObjective(w, d);
+      return `<div class="tm-row sp-row"><div class="tm-who"><b><i class="sw" style="background:${hex(sp.color)}"></i>${esc(sp.name)}</b><small>${slot === 'title' ? 'Title sponsor' : 'Associate'} &middot; ${WC.money$(d.fee)} a round, ${WC.money$(d.bonus)} bonus &middot; targets met ${d.met}/${d.met + d.misses}${d.misses >= sp.patience ? ' &middot; <span class="neg">losing patience</span>' : ''}</small></div>
+        <div class="sp-target"><small>Next race</small><b>${esc(WC.objText(w, o))}</b></div></div>`;
+    }).join('');
+    return `<div class="tm"><div class="tm-head"><b>Sponsors</b><small>Standing with sponsors: ${standWord(rep)}</small></div>
+      <div class="sp-rep"><i><b style="width:${rep}%"></b></i></div>
+      <div class="tm-list">${rows}</div>
+      ${offers.length ? `<div class="tm-links"><button class="pc-btn sm" data-nav data-act="mailto" data-arg="${offers[0].id}" data-key="offers">${offers.length} offer${offers.length === 1 ? '' : 's'} waiting in Mail &rarr;</button></div>` : ''}
+      <p class="tm-note">Sponsors pay a fee every round, and a bonus when you meet their target for that race. Miss too many and they leave. Better results, met targets and clean racing bring bigger names.</p></div>`;
   }
   // the Internet's home page: bookmarks
   homePage() {
@@ -645,7 +665,7 @@ export class Computer {
   // the styles the snapshot needs (the computer's own rules; it uses system fonts, so nothing to embed)
   css() {
     if (this._css) return this._css;
-    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl|tm|jb|tl|tr|ws|sp|tw|ov|hp)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
+    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl|tm|jb|tl|tr|ws|sp|tw|ov|hp|sw)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
     for (const sh of document.styleSheets) { let rules; try { rules = sh.cssRules; } catch (e) { continue; } for (const r of rules) if (r.selectorText && want.test(r.selectorText)) out.push(r.cssText); }
     return (this._css = out.join('\n'));
   }

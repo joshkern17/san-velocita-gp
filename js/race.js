@@ -748,6 +748,7 @@ export class Race {
   }
 
   completeLap(car) {
+    if (this.mode === 'race' && this.order && this.order[0] === car) car.led = (car.led || 0) + 1; // (laps led: World Career's sponsors ask)
     const t = this.raceTime - car.lapStart;
     // (a lap where you broke track limits doesn't count as your best: race control deletes it)
     const valid = !car.lapInvalid;
@@ -2341,7 +2342,7 @@ export class Race {
       time: c.finished ? time(c) : null,
       gap: k === 0 ? '' : c.finished && win.finished ? '+' + (time(c) - time(win)).toFixed(3) : lapsDown(win, c) >= 1 ? '+' + lapsDown(win, c) + ' LAP' : 'DNF',
       pen: (c.penTotal || 0) + (c.dt ? 20 : 0), dt: c.dtTotal || 0, dsq: !!c.dsq,
-      best: c.best, pits: c.pits, cleanFinish: (c.maxDmg || 0) < 0.25 && !c.penTotal && !c.dtTotal,
+      best: c.best, pits: c.pits, led: c.led || 0, grid: c.startPos || null, cleanFinish: (c.maxDmg || 0) < 0.25 && !c.penTotal && !c.dtTotal,
       human: c.human, key: c.key, dnf: !!c.gone, finished: c.finished, lap: c.lap,
       drift: Math.round(c.isPlayer && this.drift ? this.drift.total : c.driftTotal || 0),
     })).map(r => (r.dsq ? { ...r, gap: 'DSQ' } : r.dnf ? { ...r, gap: 'DNF' } : r));

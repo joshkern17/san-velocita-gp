@@ -1328,6 +1328,7 @@ const pc = new Computer({
   answer: (m, key) => {
     m.answer = key;
     if (m.lottery) { WC.claimLottery(world, key); sfx.best(); renderHub(); }
+    if (m.sponsorOffer) { const r = WC.answerSponsor(world, m, key); if (r === 'full') toast('You have no free sponsor slots.'); else if (r !== 'declined') { sfx.best(); if (screen === 's-hub') pitGarage.setCar(hubCar()); } }
     if (m.offer) {
       WC.answerOffer(world, key);
       const mate = world.people[world.teams[world.player.team].drivers.find(d => d !== 'P')];
@@ -1487,6 +1488,9 @@ function startWorld() {
 function worldCar() {
   const c = { ...(world.livery || settings.car) };
   if (world.car) c.chassis = world.car.chassis;
+  // the title sponsor's name goes on the car (no title sponsor: whatever you've written there yourself)
+  const t = WC.dealsOf(world).find(d => d.slot === 'title');
+  if (t) c.sponsor = WC.sponsorName(t.sid).toUpperCase().replace(/^THE /, '').replace(/'S\b/, 'S').slice(0, 14);
   return c;
 }
 // the garage from the hub edits this career's car, not the one in your other modes
@@ -1564,7 +1568,8 @@ function renderHubMenu() {
   else if (!w.over && WC.payrollShort(w)) items.push({ label: 'Sort Out Payroll', cls: 'action primary', action: () => sitDown('staff'), desc: `Payroll is ${WC.money$(WC.payrollDue(w))} and you have ${WC.money$(w.money.balance)}. Decide who gets paid (Team, on the computer: the Staff tab).` });
   else if (!w.over) {
     const r = w.series[sid].cal[w.round];
-    items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), desc: `${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}` });
+    const tg = WC.dealsOf(w).map(d => `<b>${WC.sponsorName(d.sid)}</b>: ${WC.objText(w, WC.dealObjective(w, d)).toLowerCase()}`).join(' · ');
+    items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), desc: `${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}${tg ? `<br>Sponsor targets: ${tg}.` : ''}` });
   } else {
     items.push({ label: `Start ${w.year + 1} Season`, cls: 'action primary', action: () => beginNextSeason(),
       desc: offerMail ? `First answer the ${seriesName(off.to)}'s email.` : 'Everyone a year older. Retirements, promotions and rookies, then a new calendar.' });
@@ -1716,7 +1721,8 @@ function startWorldRound() {
   // (its parts: condition and upgrades; and whether one of them lets go this race)
   const mods = owned ? { ...WC.carMods(w), pitTime: w.staff ? WC.staffEffects(w).pitTime : 0 } : null;
   const failure = owned ? WC.rollFailure(w) : null;
-  const brief = `<b>${seriesName(sid).toUpperCase()} &middot; ROUND ${w.round + 1} OF ${w.opts.len}</b>`;
+  const tgs = WC.dealsOf(w).map(d => `${WC.sponsorName(d.sid)}: ${WC.objText(w, WC.dealObjective(w, d)).toLowerCase()}`);
+  const brief = `<b>${seriesName(sid).toUpperCase()} &middot; ROUND ${w.round + 1} OF ${w.opts.len}</b>${tgs.length ? '<br>' + tgs.join('<br>') : ''}`;
   const race = { mode: 'race', laps: w.opts.laps, opponents: 11, brief, pick: !owned, onlyClass: cls,
     extra: { car, mods, failure, difficulty: w.opts.difficulty, grid: 'back', team: 'garage', roster: ent.roster, entries: ent.entries, teamPace: ent.teamPace, gridOrder, aiChassis: 'class', playerName: w.player.name.split(' ').pop().toUpperCase() } };
   phone.hide();
@@ -1742,7 +1748,9 @@ function worldRoundDone(retired = false) {
   const sid = w.player.series, round = w.round, trackName = w.series[sid].cal[round].name;
   useSession();
   if (wkUse && wkUse.carry) WC.keepUsed(w, wkUse.carry); // (the race's last set goes on the shelf, for what it's worth)
-  const out = WC.recordPlayerRound(w, res, sim.log || [], wkUse && w.money ? { trackside: wkUse.trackside, laps: wkUse.laps, damage: wkUse.damage, failed: wkUse.failed || null, aidPct: Math.max(0, sim.aidBonus ?? 0) } : null);
+  const mine = res.find(r => r.isPlayer) || {}, blamed = (sim.log || []).some(e => e.type === 'contact' && e.blame && e.a === 'P');
+  const deals = WC.dealsOf(w).map(d => ({ name: WC.sponsorName(d.sid), obj: WC.objText(w, WC.dealObjective(w, d)) }));
+  const out = WC.recordPlayerRound(w, res, sim.log || [], wkUse && w.money ? { trackside: wkUse.trackside, laps: wkUse.laps, damage: wkUse.damage, failed: wkUse.failed || null, aidPct: Math.max(0, sim.aidBonus ?? 0), grid: mine.grid ?? null, led: mine.led || 0, blamed } : null);
   wkUse = null;
   saveWorld();
   sim.setPaused(true);
@@ -1760,6 +1768,7 @@ function worldRoundDone(retired = false) {
     <div class="row"><span>Points</span><span>${me ? '+' + me.pts : 0}</span></div>
     <div class="row"><span>Championship</span><span>${ord(cp)} &middot; ${st[cp - 1]?.pts ?? 0} pts</span></div>
     ${mr ? `<div class="row"><span>${w.people[mateId].last}</span><span>${mr.dnf ? 'DNF' : 'P' + mr.pos}</span></div>` : ''}
+    ${out.bill ? deals.map(d => { const got = out.bill.items.some(([t]) => t.startsWith(d.name + ' bonus')); return `<div class="row"><span>${d.name}: ${d.obj.toLowerCase()}</span><span class="${got ? 'ok' : 'bad'}">${got ? 'MET' : 'MISSED'}</span></div>`; }).join('') : ''}
     ${out.bill ? `<div class="row"><span>The weekend</span><span class="${out.bill.net < 0 ? 'bad' : 'ok'}">${out.bill.net > 0 ? '+' : ''}${WC.money$(out.bill.net)}</span></div><div class="row"><span>Bank balance</span><span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span></div>` : ''}
     ${n ? `<div class="row"><span>Phone</span><span>${n} new</span></div>` : ''}`;
   menus['s-round'][0].setItems([{ label: out.over ? 'Season Review' : 'Continue', cls: 'action primary', action: () => openHub() }]);

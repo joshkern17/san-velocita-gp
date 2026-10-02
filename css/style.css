@@ -1468,3 +1468,12 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 
 .hub-left .pg-menu .menu .item { font-size: 22px; line-height: 1.12; }
 .sp-fitted { padding: 2px 10px; color: #16742a; font-weight: bold; border: 1px solid #16742a; }
+/* the Team app's Sponsors tab */
+.sp-rep i { display: block; height: 10px; margin: 6px 0 4px; background: #e2e2e2; border: 1px solid #bbb; }
+.sp-rep i b { display: block; height: 100%; background: linear-gradient(90deg, #c06a10, #1d3f9a); }
+.tm-row.sp-row { grid-template-columns: 1fr 240px; }
+.tm-who .sw { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border: 1px solid #333; }
+.sp-target { padding: 4px 8px; background: #fff7cf; border: 1px solid #d8c070; }
+.sp-target small { display: block; font-size: 10px; color: #8a5a00; text-transform: uppercase; }
+.ov-grid { grid-template-columns: 1fr 1fr; }
+.ov-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
