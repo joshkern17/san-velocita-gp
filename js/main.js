@@ -7,7 +7,8 @@ import { HUD, fmtTime, RADAR_ZOOMS, readThemeColours } from './hud.js';
 import { Editor } from './editor.js';
 import { initInput, pressed, isDown, clearEdges, pollGamepad, driveControls, gp, device, onDevice, rumble, padFeel, STEER_CURVES, DEADZONES, STEER_LAGS } from './input.js';
 import { lapKey, lapsFor, loadPB, referenceLap, analyze } from './telemetry.js';
-import { drawChart, drawMap, notesHtml, fmtGap, fmtSpeed, drawLineMap, lineMapHit, lineMapZoom, lineMapPan, chartHit, popHtml, boardZones, lineRange } from './lapreview.js';
+import { drawChart, drawMap, notesHtml, fmtGap, fmtSpeed, drawLineMap, lineMapHit, lineMapZoom, lineMapPan, chartHit, popHtml, boardZones, lineRange, setScramble, tipText } from './lapreview.js';
+import { garbleTree } from './garble.js';
 import { AIDS, AID_KEYS, PRESETS, PRESET_VALS, aidsOf, presetOf, applyPreset, aidBonus, AID_RULES, AID_RULE_DESC, limitAids } from './aids.js';
 import { initAudio, sfx, setVolume, setMusicVolume, setMusicScene, updateMusic } from './audio.js';
 import { presetTracks, sampleTrack, trackStats, THEMES, cloneTrack } from './track.js';
@@ -808,9 +809,22 @@ const dmgOf = (d) => (d.fw + d.rw + d.ch) / 3; // (0..1: all three parts written
 function useSession() {
   if (!wkOn() || !sim || !sim.player || wkUse.seen === sim) return;
   const pl = sim.player; wkUse.seen = sim;
+  try { logSessionTelemetry(pl); } catch (e) { console.warn('telemetry log', e); }
   wkUse.laps += pl.lapTimes.length;
   wkUse.sets += 1 + (sim.mode === 'race' ? pl.pits : 0);
   wkUse.damage += sim.mode === 'race' ? Math.max(dmgOf(pl.phys.dmg), (pl.maxDmg || 0) / 3) : dmgOf(pl.phys.dmg);
+}
+// the session's best lap, analysed against the reference, kept for the computer's Telemetry app
+function logSessionTelemetry(pl) {
+  const key = lapKey(sim.track, sim.T, pl.carId), mine = lapsFor(key).filter(l => l.valid && l.time > 0);
+  const n = pl.lapTimes.length; if (!n || !mine.length) return;
+  const lap = mine.slice(-Math.max(1, n)).reduce((b, l) => (!b || l.time < b.time ? l : b), null);
+  const ref = sim.referenceTelemetry(pl.carId, lap.tyre || 'medium') || referenceLap(sim.T, pl.lineV || sim.lineV);
+  const an = analyze(lap, ref, sim.T, sim.corners.list);
+  if (sim.track) nameCorners(sim.track, sim.T, an.corners);
+  const kind = sim.quali ? sim.quali.kind : 'race';
+  WC.logTelemetry(world, { track: sim.track.name, kind, best: lap.time, ref: ref.time, top: an.top, laps: n, tyre: lap.tyre || '',
+    corners: an.corners.map(c => ({ name: c.name || `Turn ${c.n}`, loss: +c.loss.toFixed(3), tip: (c.tips && c.tips[0]) || '' })).sort((a, b) => b.loss - a.loss).slice(0, 5) });
 }
 // spent so far this weekend (tyres, fuel, repairs; the session in progress included)
 function wkSpend() {
@@ -1248,6 +1262,15 @@ const pc = new Computer({
     sfx.best(); saveWorld(); renderHub(); phone.buzz();
   },
   buy: (id) => { if (WC.buyCar(world, id)) { sfx.best(); saveWorld(); renderHub(); } },
+  // the Team app and SVJobs: hire, let go, pay back, payroll instructions
+  staff: (what, id, mode) => {
+    if (what === 'hire') WC.hireStaff(world, id);
+    else if (what === 'fire') WC.fireStaff(world, id);
+    else if (what === 'backpay') WC.payBack(world, id);
+    else if (what === 'pay') WC.setPay(world, id, mode);
+    if (what !== 'pay') sfx.select();
+    saveWorld(); renderHubMenu();
+  },
   photo: (ad) => {
     if (adPhotos.has(ad.id)) return adPhotos.get(ad.id);
     let src = null;
@@ -1410,7 +1433,7 @@ function renderHub() {
   if (!founded(w)) {
     const step = (done, t) => `<div class="row"><span>${t}</span><span class="${done ? 'ok' : ''}">${done ? 'DONE' : '&mdash;'}</span></div>`;
     $('hub-card').innerHTML = `<div class="panel-title">GETTING STARTED</div><div class="hub-steps">
-      ${step(F.reg, 'Register the team')}${step(w.money && w.money.choice, 'Claim your winnings')}${step(F.car, 'Buy a car')}${step(!!w.livery && w.liveryDone, 'Paint it (optional)')}</div>
+      ${step(F.reg, 'Register the team')}${step(w.money && w.money.choice, 'Claim your winnings')}${step(F.car, 'Buy a car')}${step(!!w.livery && w.liveryDone, 'Paint it (optional)')}${step((w.staff || []).length > 0, 'Hire staff (optional)')}</div>
       <p class="hub-note">It all happens on the <b>computer</b>.</p>`;
   } else if (!w.over) {
     const r = S.cal[w.round], tr = worldPool().find(t => t.name === r.name);
@@ -1436,6 +1459,7 @@ function renderHubMenu() {
   if (!F.reg) items.push({ label: 'Register The Team', cls: 'action primary', action: () => sitDown('registry'), desc: 'Form SV-1, on the computer.' });
   else if (claim) items.push({ label: 'Claim Your Winnings', cls: 'action primary', action: () => sitDown('mail', claim.id), desc: 'The State Lottery needs to know how you want your money. It\'s waiting in your email.' });
   else if (!F.car) items.push({ label: 'Buy A Car', cls: 'action primary', action: () => sitDown('classifieds'), desc: 'Danny sent you some listings. They\'re on the computer.' });
+  else if (!w.over && WC.payrollShort(w)) items.push({ label: 'Sort Out Payroll', cls: 'action primary', action: () => sitDown('team'), desc: `Payroll is ${WC.money$(WC.payrollDue(w))} and you have ${WC.money$(w.money.balance)}. Decide who gets paid (the Team app).` });
   else if (!w.over) {
     const r = w.series[sid].cal[w.round];
     items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), desc: `${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}` });
@@ -1477,6 +1501,7 @@ function simWorldSeason() {
 function startWorldRound() {
   const w = world, sid = w.player.series, r = w.series[sid].cal[w.round];
   wkUse = { sets: 0, laps: 0, damage: 0, seen: null };
+  if (w.staff) { WC.runPayroll(w); saveWorld(); }
   const base = worldPool().find(t => t.name === r.name) || presetTracks()[0];
   const track = cloneTrack(base); track.env.time = r.time; track.env.weather = r.weather;
   // your team wears your livery
@@ -1495,7 +1520,7 @@ function startWorldRound() {
   // bought one yet) gets the car select instead
   const owned = w.car && CARS[carId(wc)]?.cls === cls;
   const car = CARS[carId(wc)]?.cls === cls ? wc : { ...wc, chassis: chassisKey(carsOfClass(cls)[0]) };
-  const mods = owned ? { power: WC.condPower(w.car.cond), downforce: 1, drag: 1, brake: 1, grip: 1, rainGrip: 1, wear: 1, damage: 1, pitTime: 0, slip: 1, softs: false, launch: false } : null;
+  const mods = owned ? { power: WC.condPower(w.car.cond), downforce: 1, drag: 1, brake: 1, grip: 1, rainGrip: 1, wear: 1, damage: 1, pitTime: w.staff ? WC.staffEffects(w).pitTime : 0, slip: 1, softs: false, launch: false } : null;
   const brief = `<b>${seriesName(sid).toUpperCase()} &middot; ROUND ${w.round + 1} OF ${w.opts.len}</b>`;
   const race = { mode: 'race', laps: w.opts.laps, opponents: 11, brief, pick: !owned, onlyClass: cls,
     extra: { car, mods, difficulty: w.opts.difficulty, grid: 'back', team: 'garage', roster: ent.roster, entries: ent.entries, teamPace: ent.teamPace, gridOrder, aiChassis: 'class', playerName: w.player.name.split(' ').pop().toUpperCase() } };
@@ -2440,9 +2465,25 @@ document.addEventListener('keydown', () => initAudio(), { once: true });
 // Opened from the pit garage's Review Laps; the session carries on behind it.
 let reviewFrom = 's-pitgarage', rv = null, rvView = 'trace'; // (trace: the speed chart, line: the racing line map)
 const RV_CMP = { ref: 'Reference', best: 'Best today', pb: 'Best ever', prev: 'Lap before' };
+// World Career: how much of the review you can read depends on your data engineer (WC.dataLevel: 0 junk, 1 the charts,
+// 2 the notes too). Elsewhere it's all readable.
+let rvLevel = 2;
+const RV_JUNK = '.rv-laps .menu, #rv-sum, #rv-tabs, #rv-notes, #rv-pop, #rv-legend-trace, #rv-legend-line, #rv-sub, #d-review';
+const rvWatch = new MutationObserver(() => rvTidy());
+function rvTidy() {
+  if (screen !== 's-review') return;
+  rvWatch.disconnect();
+  if (rvLevel === 0) document.querySelectorAll(RV_JUNK).forEach(el => garbleTree(el));
+  else if (rvLevel === 1) { const n = $('rv-notes'); if (!n.querySelector('.rv-junior')) n.innerHTML = `<p class="rv-junior">${staffName('engineer')} reads the charts, not the driver. A senior data engineer would add notes here on where the time went.</p>`; }
+  if (rvLevel < 2) document.querySelectorAll(RV_JUNK).forEach(el => rvWatch.observe(el, { childList: true, subtree: true, characterData: true }));
+}
+const staffName = (role) => { const x = world && WC.staffOf(world, role); return x ? x.first : 'Your engineer'; };
 function openLapReview(from = 's-pitgarage') {
   if (!sim || !sim.player) return;
   reviewFrom = from;
+  rvLevel = raceReturn === 'world' && world ? WC.dataLevel(world) : 2;
+  setScramble(rvLevel === 0); $('rv-nodata').hidden = rvLevel !== 0;
+  requestAnimationFrame(() => rvTidy());
   const pl = sim.player, T = sim.T, key = lapKey(sim.track, T, pl.carId);
   rv = { key, T, corners: sim.corners.list, laps: lapsFor(key).slice(-14), carId: pl.carId, pb: loadPB(key, T), cmp: rv ? rv.cmp : 'ref', focus: -1, sel: 0, cursor: -1, map: null, boards: sim.world.boards || [] };
   rv.zones = boardZones(rv.boards, T);
@@ -2575,7 +2616,7 @@ function scrubReview(d) {
   lineCv.addEventListener('wheel', (e) => { if (!rv || !rv.map) return; e.preventDefault(); const [x, y] = local(e, lineCv); rv.map = lineMapZoom(lineCv, rv.map, x, y, Math.exp(-e.deltaY * 0.0015)); drawReviewPlots(); }, { passive: false });
 }
 menus['s-review'] = [new Menu($('m-review'), [], { desc: 'd-review', onMove: (it) => { if (it && it.k !== undefined) selectReviewLap(it.k); } })];
-backs['s-review'] = () => { sfx.back(); show(reviewFrom); if (reviewFrom === 's-pitgarage' && sim && sim.quali && sim.quali.done) showQualiResults(); };
+backs['s-review'] = () => { sfx.back(); rvWatch.disconnect(); setScramble(false); show(reviewFrom); if (reviewFrom === 's-pitgarage' && sim && sim.quali && sim.quali.done) showQualiResults(); };
 tabbers['s-review'] = (d) => { if (!rv || !rv.an) return; sfx.move(); const n = rv.an.corners.length + 1; rv.focus = ((rv.focus + 1 + d + n) % n) - 1; rv.map = null; rv.cursor = -1; renderReview(); };
 HINTS['s-review'] = () => [['nav', 'Lap'], ['tab', 'Corner'], ['view', rvView === 'line' ? 'Trace' : 'Line'], ['scrub', 'Scrub'], ['lr', 'Change'], ['back', reviewFrom === 's-pitgarage' ? 'Garage' : 'Back']];
 function reviewClock() {

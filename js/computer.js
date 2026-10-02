@@ -8,6 +8,8 @@
 // Controls: the d-pad / arrows move between anything you can select (spatially), A / Enter selects, B / Esc goes back
 // (or stands you up from the desktop), LB / RB flip a site's sections. The mouse works too.
 import * as WC from './wcareer.js';
+import { garble, hexDump } from './garble.js';
+import { tipText } from './lapreview.js';
 
 export const W = 760, H = 600; // the screen's resolution (the CRT's glass is about 1.27 : 1)
 const S = 2; // the texture's pixels per screen pixel (sharp enough to read sat at the desk)
@@ -25,17 +27,22 @@ const APPS = [
   { id: 'drivers', label: 'Driver Database', title: 'Web Browser' },
   { id: 'bank', label: 'Bank', title: 'Web Browser' },
   { id: 'classifieds', label: 'Classifieds', title: 'Web Browser' },
+  { id: 'team', label: 'Team', title: 'Team' },
+  { id: 'telemetry', label: 'Telemetry', title: 'Telemetry' },
+  { id: 'jobs', label: 'SVJobs', title: 'Web Browser', hidden: true }, // (reached from the Team app)
   { id: 'registry', label: 'Registry', title: 'Web Browser', hidden: true }, // (reached from its email)
 ];
 // team colours on Form SV-1
 const PALETTE = [0xc8141c, 0xf2f2f2, 0x15181d, 0x1d4fd8, 0xf2c21a, 0x18a058, 0xf06a12, 0x7a2cc8, 0x1fb5c8, 0xe0569a, 0x7a5a3a, 0x9aa2ad];
-const ICON_X = 22, ICON_Y = 16, ICON_STEP = 88;
+const ICON_X = 22, ICON_Y = 16, ICON_STEP = 88, ICON_ROWS = 6, ICON_COL = 96;
 // little icons, drawn the same way on the desktop and the canvas
 const ICONS = {
   mail: [['#f4f1e4', 6, 14, 52, 36], ['#c9c2a6', 6, 14, 52, 4], ['path', '#8a8268', 'M6 14 L32 34 L58 14'], ['#d23a2a', 44, 6, 14, 14]],
   news: [['#ffffff', 10, 6, 44, 52], ['#1a1a1a', 15, 11, 34, 7], ['#9a9a9a', 15, 22, 34, 3], ['#9a9a9a', 15, 28, 34, 3], ['#9a9a9a', 15, 34, 22, 3], ['#c23', 40, 34, 9, 14], ['#9a9a9a', 15, 40, 22, 3], ['#9a9a9a', 15, 46, 22, 3]],
   series: [['#5a5a5a', 12, 6, 4, 54], ['#111', 16, 8, 36, 24], ['#fff', 16, 8, 9, 6], ['#fff', 34, 8, 9, 6], ['#fff', 25, 14, 9, 6], ['#fff', 43, 14, 9, 6], ['#fff', 16, 20, 9, 6], ['#fff', 34, 20, 9, 6], ['#fff', 25, 26, 9, 6], ['#fff', 43, 26, 9, 6]],
   drivers: [['#2a4fa0', 14, 10, 36, 34], ['#e8e8e8', 18, 20, 28, 12], ['#111', 20, 22, 24, 8], ['#2a4fa0', 10, 44, 44, 14]],
+  team: [['#c8141c', 18, 8, 28, 20], ['#e8c9a8', 22, 12, 20, 14], ['#2a4fa0', 10, 32, 44, 24], ['#e8e8e8', 28, 34, 8, 20]],
+  telemetry: [['#101418', 6, 10, 52, 40], ['#3ddc84', 10, 36, 6, 3], ['#3ddc84', 16, 30, 6, 3], ['#3ddc84', 22, 22, 6, 3], ['#3ddc84', 28, 26, 6, 3], ['#3ddc84', 34, 16, 6, 3], ['#3ddc84', 40, 20, 6, 3], ['#3ddc84', 46, 14, 6, 3], ['#8a8f96', 22, 50, 20, 6]],
   classifieds: [['#f4f1e4', 8, 8, 48, 48], ['#7a2cc8', 8, 8, 48, 10], ['#7a2cc8', 14, 24, 22, 3], ['#7a2cc8', 14, 32, 30, 3], ['#7a2cc8', 14, 40, 18, 3], ['#7a2cc8', 14, 48, 26, 3]],
   bank: [['#d8b54a', 8, 18, 48, 6], ['#e9e2c8', 12, 24, 6, 22], ['#e9e2c8', 24, 24, 6, 22], ['#e9e2c8', 34, 24, 6, 22], ['#e9e2c8', 46, 24, 6, 22], ['#d8b54a', 6, 46, 52, 8], ['#d8b54a', 28, 6, 8, 12]],
 };
@@ -128,6 +135,9 @@ export class Computer {
       : app === 'series' ? { s: w.player.series, tab: 'standings' }
       : app === 'bank' ? { bank: 'home' }
       : app === 'classifieds' ? { ad: null }
+      : app === 'team' ? { team: 1 }
+      : app === 'jobs' ? { role: 'mechanic' }
+      : app === 'telemetry' ? { file: null }
       : app === 'registry' ? { reg: 1 }
       : { db: w.player.series, pid: null };
     if (app === 'mail' && this.page.mail) this.markRead(this.page.mail);
@@ -136,6 +146,7 @@ export class Computer {
   go(page) { this.hist.push(this.page); this.page = { ...this.page, ...page }; this.curKey = null; if (page.mail) this.markRead(page.mail); this.render(); }
   back() {
     if (this.hist.length && this.app !== 'mail') { this.page = this.hist.pop(); this.curKey = null; this.render(); }
+    else if (this.app === 'jobs') { this.launch('team'); }
     else { this.app = null; this.hist = []; this.curKey = 'app-' + (this._lastApp || 'mail'); this.render(); }
     this.src.sfx?.back?.();
   }
@@ -156,6 +167,12 @@ export class Computer {
     if (a === 'db') { this.page = { db: arg, pid: null }; this.hist = []; this.curKey = 'db-' + arg; this.render(); this.src.sfx?.select?.(); return; }
     if (a === 'driver') { this.go({ pid: arg }); this.src.sfx?.select?.(); return; }
     if (a === 'open') { this.launch(arg); return; }
+    if (a === 'jobs') { this.launch('jobs'); this.page = { role: arg }; this.render(); return; }
+    if (a === 'role') { this.page = { role: arg }; this.curKey = 'role-' + arg; this.render(); this.src.sfx?.move?.(); return; }
+    if (a === 'hire') { if (this.hireArmed !== arg) { this.hireArmed = arg; this.curKey = 'hire-' + arg; this.render(); this.src.sfx?.move?.(); return; } this.hireArmed = null; this.src.staff?.('hire', arg); this.launch('team'); return; }
+    if (a === 'fire') { if (this.fireArmed !== arg) { this.fireArmed = arg; this.curKey = 'fire-' + arg; this.render(); this.src.sfx?.move?.(); return; } this.fireArmed = null; this.src.staff?.('fire', arg); this.curKey = null; this.render(); return; }
+    if (a === 'backpay') { this.src.staff?.('backpay', arg); this.curKey = 'bp-' + arg; this.render(); return; }
+    if (a === 'file2') { this.go({ file: arg }); this.src.sfx?.select?.(); return; }
     if (a === 'cyc') { const [f, d] = arg.split(':'); this.cycle(f, +d); return; }
     if (a === 'type') { this.type(arg); return; }
     if (a === 'file') { if (!this.formOk()) { this.src.sfx?.back?.(); return; } this.src.register?.({ ...this.form, name: this.form.name.trim(), team: this.form.team.trim(), ex: this.form.ex.trim() }); this.curKey = null; this.render(); return; }
@@ -173,7 +190,7 @@ export class Computer {
     const desk = this.scr.querySelector('.pc-desk'), win = this.scr.querySelector('.pc-win'), task = this.scr.querySelector('.pc-task');
     const nMail = WC.unreadMail(w);
     desk.innerHTML = `<div class="pc-wall"><b>${esc(team.name)}</b><small>${esc(WC.seriesById(w.player.series).name)} &middot; ${w.year}</small></div>` +
-      APPS.filter(a => !a.hidden).map((a, k) => `<div class="pc-icon" data-nav data-act="app" data-arg="${a.id}" data-key="app-${a.id}" style="left:${ICON_X}px;top:${ICON_Y + k * ICON_STEP}px">${iconSvg(a.id)}<span>${a.label}</span>${a.id === 'mail' && nMail ? `<em>${nMail}</em>` : ''}</div>`).join('');
+      APPS.filter(a => !a.hidden).map((a, k) => `<div class="pc-icon" data-nav data-act="app" data-arg="${a.id}" data-key="app-${a.id}" style="left:${ICON_X + Math.floor(k / ICON_ROWS) * ICON_COL}px;top:${ICON_Y + (k % ICON_ROWS) * ICON_STEP}px">${iconSvg(a.id)}<span>${a.label}</span>${a.id === 'mail' && nMail ? `<em>${nMail}</em>` : ''}</div>`).join('');
     const app = APPS.find(a => a.id === this.app);
     task.innerHTML = `<span class="pc-start">SV</span>${app ? `<span class="pc-tb on">${app.label}</span>` : ''}<span class="pc-clock">${esc(this.clock())}</span>`;
     win.hidden = !app;
@@ -181,8 +198,9 @@ export class Computer {
       // re-drawing the same page (a field changed, a list item picked) keeps its panes scrolled where they were
       const where = this.app === 'mail' ? 'mail' : this.app + ':' + this.url(), keepScroll = where === this.lastWhere ? [...win.querySelectorAll('*')].map(e => e.scrollTop) : null;
       this.lastWhere = where;
-      const body = this.app === 'mail' ? this.mailApp() : this.browser();
-      win.innerHTML = `<div class="pc-title"><span>${app.title}${this.app !== 'mail' ? ' &mdash; ' + esc(this.url()) : ''}</span><i data-nav data-act="close" data-key="close">&times;</i></div>${body}`;
+      const body = this.app === 'mail' ? this.mailApp() : this.app === 'team' ? this.teamApp() : this.app === 'telemetry' ? this.telApp() : this.browser();
+      const plain = ['mail', 'team', 'telemetry'].includes(this.app);
+      win.innerHTML = `<div class="pc-title"><span>${app.title}${!plain ? ' &mdash; ' + esc(this.url()) : ''}</span><i data-nav data-act="close" data-key="close">&times;</i></div>${body}`;
       if (keepScroll) win.querySelectorAll('*').forEach((e, i) => { if (keepScroll[i]) e.scrollTop = keepScroll[i]; });
       if (this.app === 'mail' && this.page.mail !== this.lastMail) { const b = win.querySelector('.pc-mbody'); if (b) b.scrollTop = 0; } // (a different email starts at its top)
       this.lastMail = this.page.mail;
@@ -224,10 +242,11 @@ export class Computer {
     if (this.app === 'bank') return 'secure.firstvelocita.sv/business/account';
     if (this.app === 'classifieds') return 'svlist.sv/cars' + (p.ad ? '/' + p.ad : '');
     if (this.app === 'registry') return 'www.registry.sv.gov/forms/SV-1.htm';
+    if (this.app === 'jobs') return `www.svjobs.sv/motorsport/${p.role}`;
     return 'www.driverdb.sv' + (p.pid ? `/driver/${p.pid}` : `/${p.db}`);
   }
   browser() {
-    const site = { news: () => this.newsSite(), series: () => this.seriesSite(), bank: () => this.bankSite(), classifieds: () => this.classSite(), registry: () => this.regSite() }[this.app]?.() ?? this.driverSite();
+    const site = { jobs: () => this.jobsSite(), news: () => this.newsSite(), series: () => this.seriesSite(), bank: () => this.bankSite(), classifieds: () => this.classSite(), registry: () => this.regSite() }[this.app]?.() ?? this.driverSite();
     return `<div class="pc-bar"><button class="pc-btn sm" data-nav data-act="back" data-key="bback">&larr; Back</button><div class="pc-url">http://${esc(this.url())}</div></div><div class="pc-page">${site}</div>`;
   }
 
@@ -258,6 +277,7 @@ export class Computer {
     if (field === 'home') { const k = Object.keys(WC.TOWNS); f.home = wrap(k, k.indexOf(f.home) + d); }
     else if (field === 'background') { const k = Object.keys(WC.BACKGROUNDS); f.background = wrap(k, k.indexOf(f.background) + d); }
     else if (field === 'years') f.years = Math.max(1, Math.min(30, f.years + d));
+    else if (field.startsWith('pay-')) { const id = field.slice(4), x = (this.w.staff || []).find(s => s.id === id); if (x) { const k = WC.PAY_MODES.map(m => m[0]); this.src.staff?.('pay', id, wrap(k, k.indexOf(x.pay) + d)); } }
     else if (field === 'c0' || field === 'c1') { const i = +field[1]; f.colors[i] = wrap(PALETTE, Math.max(0, PALETTE.indexOf(f.colors[i])) + d); }
     this.curKey = 'f-' + field; this.render(); this.src.sfx?.move?.();
   }
@@ -296,6 +316,59 @@ export class Computer {
       ${text('ex', 'Former spouse')}
       ${cyc('years', 'Years married', f.years)}
       <div class="rg-submit"><button class="pc-btn" data-nav data-act="file" data-key="file">Submit Form SV-1 and pay $250</button>${this.formOk() ? '' : '<small class="neg">Please fill in every field.</small>'}</div></div>`;
+  }
+
+  // ---------- Team: your staff and the payroll ----------
+  teamApp() {
+    const w = this.w, staff = w.staff || [];
+    if (!w.founding?.reg) return '<div class="tm"><p class="pc-empty">Register the team first.</p></div>';
+    const roles = Object.keys(WC.ROLES);
+    const rows = roles.map(role => {
+      const x = WC.staffOf(w, role), R = WC.ROLES[role];
+      if (!x) return `<div class="tm-row vacant"><div class="tm-who"><b>${R.name}</b><small>Vacant &middot; ${esc(R.perk)}</small></div><button class="pc-btn sm" data-nav data-act="jobs" data-arg="${role}" data-key="find-${role}">Find one</button></div>`;
+      const mood = x.morale >= 70 ? 'happy' : x.morale >= 45 ? 'fine' : x.morale >= 25 ? 'unhappy' : 'furious';
+      return `<div class="tm-row"><div class="tm-who"><b>${esc(x.first)} ${esc(x.last)}</b><small>${R.name} &middot; skill ${'&#9733;'.repeat(x.skill)}${'&#9734;'.repeat(5 - x.skill)} &middot; ${WC.money$(WC.wageNow(w, x))} a round</small></div>
+        <div class="tm-mood ${mood}"><i><b style="width:${x.morale}%"></b></i><small>${mood}${x.owed ? ` &middot; owed <span class="neg">${WC.money$(x.owed)}</span>` : ''}</small></div>
+        <div class="tm-pay" data-nav data-cycle="pay-${x.id}" data-key="pay-${x.id}"><i data-act="cyc" data-arg="pay-${x.id}:-1">&#9664;</i><b>${WC.PAY_MODES.find(m => m[0] === x.pay)[1]}</b><i data-act="cyc" data-arg="pay-${x.id}:1">&#9654;</i></div>
+        <div class="tm-acts">${x.owed ? `<button class="pc-btn sm" data-nav data-act="backpay" data-arg="${x.id}" data-key="bp-${x.id}">Pay back ${WC.money$(x.owed)}</button>` : ''}<button class="pc-btn sm" data-nav data-act="fire" data-arg="${x.id}" data-key="fire-${x.id}">${this.fireArmed === x.id ? 'Sure? Select again' : 'Let go'}</button></div></div>`;
+    }).join('');
+    const due = WC.payrollDue(w), short = WC.payrollShort(w);
+    return `<div class="tm"><div class="tm-head"><b>${esc(w.teams[w.player.team].name)}</b><small>Staff and payroll</small></div>
+      <div class="tm-list">${rows}</div>
+      <div class="tm-foot ${short ? 'short' : ''}">Next payroll (as the next round starts): <b>${WC.money$(due)}</b> &middot; balance <b class="${w.money.balance < 0 ? 'neg' : ''}">${WC.money$(w.money.balance)}</b>${short ? `<br><span class="neg">That doesn't cover it. Pay someone half, or hold their wages this round.</span>` : ''}${w.wageClaims ? `<br>Includes ${WC.money$(w.wageClaims)} in wage claims from former staff.` : ''}</div>
+      <p class="tm-note">Pay on time and people stay happy. Half or hold and they're owed the rest, and they notice. Someone unhappy enough, and owed money, walks out.</p>
+      <div class="tm-links"><button class="pc-btn sm" data-nav data-act="open" data-arg="jobs" data-key="jobs">Applicants on SVJobs &rarr;</button></div></div>`;
+  }
+  // SVJobs: the applicants, by job
+  jobsSite() {
+    const w = this.w, role = this.page.role || 'mechanic', jobs = (w.jobs || []).filter(j => j.role === role);
+    const head = `<div class="jb-head"><b>SVJobs</b><small>Motorsport &middot; San Velocita</small></div>`;
+    const tabs = Object.keys(WC.ROLES).map(r => `<span class="jb-tab${r === role ? ' on' : ''}" data-nav data-act="role" data-arg="${r}" data-key="role-${r}">${WC.ROLES[r].name}</span>`).join('');
+    const cur = WC.staffOf(w, role);
+    const rows = jobs.map((j, k) => `<div class="jb-row"><div><b>${esc(j.first)} ${esc(j.last)}</b>, ${j.age}<small>${esc(j.cv)}</small></div>
+      <div class="jb-meta">skill ${'&#9733;'.repeat(j.skill)}${'&#9734;'.repeat(5 - j.skill)}<br>${WC.money$(WC.wageNow(w, j))} a round</div>
+      <button class="pc-btn sm" data-nav data-act="hire" data-arg="${j.id}" data-key="hire-${j.id}"${k === 0 ? ' data-first' : ''}>${this.hireArmed === j.id ? (cur ? `Replace ${esc(cur.first)}? Select again` : 'Hire? Select again') : 'Hire'}</button></div>`).join('');
+    return head + `<div class="jb-tabs">${tabs}</div><div class="jb-body"><p class="jb-perk">${esc(WC.ROLES[role].perk)}</p>${cur ? `<p class="jb-cur">You have one: ${esc(cur.first)} ${esc(cur.last)}. Hiring someone else lets ${esc(cur.first)} go.</p>` : ''}${rows || '<p class="pc-empty">No applicants this season.</p>'}</div>`;
+  }
+
+  // ---------- Telemetry: the session files (readable only with a data engineer) ----------
+  telApp() {
+    const w = this.w, files = w.telemetry || [], lvl = WC.dataLevel(w), eng = WC.staffOf(w, 'engineer');
+    const name = (t) => `R${t.r + 1}_${t.track.toUpperCase().replace(/[^A-Z0-9]+/g, '_').slice(0, 14)}_${t.kind.toUpperCase().slice(0, 5)}.DAT`;
+    const cur = files.find(t => t.id === this.page.file) || null;
+    const list = files.map((t, k) => `<div class="tl-row${cur && cur.id === t.id ? ' sel' : ''}" data-nav data-act="file2" data-arg="${t.id}" data-key="tf-${t.id}"${(!cur && k === 0) || (cur && cur.id === t.id) ? ' data-first' : ''}><b>${name(t)}</b><small>${t.y} &middot; ${(t.laps * 37 + 12)} KB</small></div>`).join('') || '<p class="pc-empty">No session data yet. Every session you drive is logged here.</p>';
+    let view = '';
+    if (!cur) view = `<p class="tl-hint">${lvl ? `${esc(eng.first)} has the data. Pick a session.` : 'Pick a file.'}</p>`;
+    else if (lvl === 0) view = `<div class="tl-raw" data-nav data-scroll data-key="tlraw"><div class="tl-chan">${['CH_00', 'CH_03', 'CH_07', 'CH_0A', 'CH_11'].map(c => `<span>${c}</span>`).join('')}</div><pre>${hexDump(cur.id + cur.best, 22)}</pre><p class="tl-junk">${esc(garble('Best lap ' + cur.best.toFixed(3) + ' reference ' + cur.ref.toFixed(3)))}</p></div>
+      <p class="tl-hint">You can't make sense of this. A data engineer could.</p>`;
+    else {
+      const gap = cur.best - cur.ref, mm = (t) => `${Math.floor(t / 60)}:${(t % 60).toFixed(3).padStart(6, '0')}`;
+      view = `<div class="tl-read" data-nav data-scroll data-key="tlread"><h2>${esc(cur.track)} &middot; ${cur.kind === 'quali' ? 'Qualifying' : cur.kind === 'practice' ? 'Practice' : 'Race'} ${cur.y}</h2>
+        <div class="db-cells"><div><small>Your best lap</small><b>${mm(cur.best)}</b></div><div><small>Reference</small><b>${mm(cur.ref)}</b></div><div><small>Gap</small><b class="${gap > 0 ? 'neg' : 'pos'}">${gap >= 0 ? '+' : '-'}${Math.abs(gap).toFixed(3)}</b></div><div><small>Laps</small><b>${cur.laps}</b></div></div>
+        <h3>Where the time went</h3><table class="pc-tbl"><tr><th>CORNER</th><th class="r">LOST</th>${lvl === 2 ? '<th>NOTE</th>' : ''}</tr>${cur.corners.map(c => `<tr><td>${esc(c.name)}</td><td class="r ${c.loss > 0 ? 'neg' : 'pos'}">${c.loss >= 0 ? '+' : '-'}${Math.abs(c.loss).toFixed(3)}</td>${lvl === 2 ? `<td class="tl-tip">${esc(tipText(c.tip || '', 'kmh'))}</td>` : ''}</tr>`).join('')}</table>
+        ${lvl === 2 ? `<p class="tl-sig">&mdash; ${esc(eng.first)}</p>` : `<p class="tl-hint">${esc(eng.first)} can show you where, not why. A senior engineer would.</p>`}</div>`;
+    }
+    return `<div class="tl"><div class="tl-files">${list}</div><div class="tl-view">${view}</div></div>`;
   }
 
   // ---------- the classifieds: SVList ----------
@@ -429,7 +502,7 @@ export class Computer {
   // the styles the snapshot needs (the computer's own rules; it uses system fonts, so nothing to embed)
   css() {
     if (this._css) return this._css;
-    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
+    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl|tm|jb|tl)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
     for (const sh of document.styleSheets) { let rules; try { rules = sh.cssRules; } catch (e) { continue; } for (const r of rules) if (r.selectorText && want.test(r.selectorText)) out.push(r.cssText); }
     return (this._css = out.join('\n'));
   }
@@ -497,7 +570,7 @@ export class Computer {
     // icons
     const nMail = WC.unreadMail(w);
     APPS.filter(a => !a.hidden).forEach((a, k) => {
-      const x = ICON_X + 8, y = ICON_Y + k * ICON_STEP + 4, s = 44 / 64;
+      const x = ICON_X + Math.floor(k / ICON_ROWS) * ICON_COL + 8, y = ICON_Y + (k % ICON_ROWS) * ICON_STEP + 4, s = 44 / 64;
       for (const p of ICONS[a.id]) {
         if (p[0] === 'path') { g.strokeStyle = p[1]; g.lineWidth = 3 * s; g.beginPath(); g.moveTo(x + 6 * s, y + 14 * s); g.lineTo(x + 32 * s, y + 34 * s); g.lineTo(x + 58 * s, y + 14 * s); g.stroke(); }
         else { g.fillStyle = p[0]; g.fillRect(x + p[1] * s, y + p[2] * s, p[3] * s, p[4] * s); }

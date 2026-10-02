@@ -1,6 +1,10 @@
 // Lap Review drawing: the speed trace (you against the comparison lap) with the time gap and your pedals under it,
 // the circuit map coloured by where you lost and gained, and the coaching notes (telemetry.js analyze()).
 
+import { garbleCanvas } from './garble.js';
+// World Career with no data engineer: the charts draw, but every label on them is junk (see garble.js)
+let scrambled = false;
+export const setScramble = (v) => { scrambled = !!v; };
 const COL = { you: '#ffd66b', cmp: '#7fa8ff', loss: '#ff5a4a', gain: '#3ddc84', grid: 'rgba(255,255,255,.07)', text: '#9fb0c8', thr: '#3ddc84', brk: '#ff5a4a' };
 
 export const fmtSpeed = (mps, units) => units === 'mph' ? `${Math.round(Math.abs(mps) * 2.23694)} mph` : `${Math.round(Math.abs(mps) * 3.6)} km/h`;
@@ -15,6 +19,7 @@ function fitCanvas(cv) {
   const dpr = Math.min(2, window.devicePixelRatio || 1), w = cv.clientWidth, h = cv.clientHeight;
   if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
   const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  garbleCanvas(g); g.__garbleOn = scrambled;
   return { g, w, h };
 }
 const niceStep = (range, target) => { const r = range / target, p = Math.pow(10, Math.floor(Math.log10(r))), m = r / p; return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p; };

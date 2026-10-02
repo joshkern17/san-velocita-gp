@@ -345,6 +345,7 @@ export function nextSeason(w, trackPool) {
   const prevTeams = {}; for (const sr of SERIES) prevTeams[sr.id] = teamStandings(w, sr.id).map(e => e.tid).filter(t => w.teams[t]?.series === sr.id);
   w.year++; w.round = 0; w.over = false;
   annuityDay(w);
+  if (w.staff) w.jobs = makeJobs(w);
   if (w.payDriver && w.teams[w.player.team].drivers.includes(w.payDriver.pid)) { const p = w.people[w.payDriver.pid]; if (p) pay(w, w.payDriver.fee, `Seat fee for ${p.first} ${p.last}`); }
   // people: grow, peak, fade
   for (const p of Object.values(w.people)) {
@@ -479,13 +480,13 @@ export function sellAnnuity(w) {
 // classified row (prize money)
 export function settleRound(w, use, me) {
   const c = COSTS[w.player.series], R = w.series[w.player.series].cal[w.round], trackName = R.name, bg = bgOf(w);
-  const home = isHome(w, R);
+  const home = isHome(w, R), fx = staffEffects(w);
   const items = [
-    ['Entry fee', -c.entry], [home ? 'Travel (home race: you drove)' : 'Travel and freight', home ? 0 : -c.travel], ['Crew', -c.crew],
+    ['Entry fee', -c.entry], [home ? 'Travel (home race: you drove)' : 'Travel and freight', home ? 0 : -Math.round(c.travel * fx.travel)], ['Pit crew (contract)', -c.crew],
     [`Tyres (${use.sets} set${use.sets === 1 ? '' : 's'})`, -use.sets * c.tyre],
     [`Fuel (${use.laps} lap${use.laps === 1 ? '' : 's'})`, -Math.round(use.laps * c.fuelLap * (bg.fuel || 1))],
   ];
-  if (use.damage > 0.005) items.push([bg.repair ? 'Repairs (mostly done yourself)' : 'Repairs', -Math.round(use.damage * c.repair * (bg.repair || 1) / 100) * 100]);
+  if (use.damage > 0.005) items.push([bg.repair ? 'Repairs (mostly done yourself)' : 'Repairs', -Math.round(use.damage * c.repair * (bg.repair || 1) * fx.repair / 100) * 100]);
   const base = me && !me.dnf ? c.prize[me.pos - 1] || 0 : 0, pct = Math.max(0, use.aidPct || 0);
   const prize = Math.round(base * (1 + pct / 100) * (bg.prize || 1) * (home ? 1.1 : 1) / 10) * 10;
   if (prize) items.push([`Prize money (P${me.pos}${pct ? `, +${pct}% for fewer aids` : ''}${home ? ', home crowd' : ''})`, prize]);
@@ -551,6 +552,7 @@ export function registerTeam(w, f) {
   }
   // your buddy, who knows a guy
   w.ads = makeAds(w);
+  w.staff = []; w.jobs = makeJobs(w);
   mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'found u a car',
     [`saw the lottery thing on the news. congrats man!!! also saw the divorce thing on the news. less congrats`,
      `anyway if ur doing the racing team thing u need a car. there's some good ones on the classifieds rn. the cheap one is probably fine. probably`,
@@ -594,6 +596,106 @@ export function buyCar(w, adId) {
 }
 // how much a car's condition holds it back (power): a project car is about 4% down until R&D sorts it out
 export const condPower = (cond) => 0.9 + 0.1 * clamp(cond ?? 1, 0.5, 1);
+
+// ---------------- staff and payroll ----------------
+// Three jobs. Each person has a skill (1-5), a wage per round and a morale (0-100). Payroll runs as a round starts,
+// by your standing instructions per person: pay on time, pay half, hold. Unpaid wages are owed; unhappy staff work
+// worse and, owed money, walk out (and someone tells the press).
+export const ROLES = {
+  manager:  { name: 'Team manager', perk: 'Handles the logistics: travel costs 20% less.' },
+  mechanic: { name: 'Chief mechanic', perk: 'Repairs cost less and pit stops are quicker, more so with a better one.' },
+  engineer: { name: 'Data engineer', perk: 'Reads the telemetry. A junior gives you the charts; a senior adds notes on where the time went.' },
+};
+const ROLE_WAGE = { manager: [700, 160], mechanic: [1300, 650], engineer: [1100, 550] }; // (street: base + per skill level)
+const WAGE_K = { street: 1, gt: 2.6, formula: 6.5 };
+export const PAY_MODES = [['full', 'On time'], ['half', 'Half'], ['hold', 'Hold']];
+const CV = {
+  manager: ['Ran logistics for a touring circus for six years.', 'Former events coordinator, municipal parks.', 'Twenty years in freight. Knows every weighbridge in the province.'],
+  mechanic: ['Fifteen years at a dealership service bay.', 'Ex-rally mechanic. Can rebuild a gearbox in a car park.', 'Built drag cars in his garage. Has opinions.', 'Former crew chief, defunct GT team. Available immediately.', 'Mechanical engineering degree. Has never held a wrench in anger.'],
+  engineer: ['Graduate, applied mathematics. First job.', 'Six years in sim racing esports, data analyst.', 'Former telemetry engineer, Formula SV. Left "by mutual agreement".', 'Wrote a thesis on tyre thermals nobody has read.', 'Used to work in insurance, modelling crash rates.'],
+};
+function staffPerson(w, role, skill) {
+  const nat = pick(w, NAT_KEYS), N = NATS[nat], [base, per] = ROLE_WAGE[role];
+  return { id: 's' + (w.nextId++), role, first: pick(w, N.f), last: pick(w, N.l), nat, age: r0(24 + rng(w) * 30), skill,
+    wage: Math.round((base + per * skill) * (0.9 + rng(w) * 0.2) / 50) * 50, cv: pick(w, CV[role]), morale: 70, owed: 0, pay: 'full' };
+}
+// applicants: two or three per job, refreshed each season (Danny applies to manage the team)
+function makeJobs(w) {
+  const jobs = [];
+  for (const role of Object.keys(ROLES)) for (let i = 0; i < (role === 'manager' ? 2 : 3); i++) jobs.push(staffPerson(w, role, clamp(r0(1 + rng(w) * 4.6), 1, 5)));
+  if (!w.dannyHired && !w.dannyGone) jobs.unshift({ id: 'sdanny', role: 'manager', first: 'Danny', last: 'Moretti', nat: 'USA', age: 34, skill: 2, wage: 650, morale: 90, owed: 0, pay: 'full', danny: true,
+    cv: 'Fantasy football league commissioner, 2019-present (2nd place). Will work for cheap. Your friend.' });
+  return jobs;
+}
+export const staffOf = (w, role) => (w.staff || []).find(x => x.role === role);
+export const wageNow = (w, x) => Math.round(x.wage * (WAGE_K[w.player.series] || 1) / 50) * 50;
+export function hireStaff(w, id) {
+  const c = (w.jobs || []).find(j => j.id === id); if (!c) return false;
+  const old = staffOf(w, c.role); if (old) fireStaff(w, old.id, true);
+  w.staff = w.staff || []; w.staff.push({ ...c, hired: w.year, morale: c.danny ? 95 : 70 });
+  w.jobs = w.jobs.filter(j => j !== c);
+  if (c.danny) { w.dannyHired = true; text(w, 'Danny', pickLine(w, [`no way!!! ur not gonna regret this`, `TEAM MANAGER. i'm telling my mom`])); }
+  else mail(w, `${c.first} ${c.last}`, `${c.first.toLowerCase()}.${c.last.toLowerCase()}@coolmail.sv`, `Re: ${ROLES[c.role].name}`, [`Thank you for the offer. I accept. I can start before the next round.`, `${c.first} ${c.last}`]);
+  return true;
+}
+// letting someone go: what you owe them is still owed (it's paid with the next payroll)
+export function fireStaff(w, id, replaced = false) {
+  const x = (w.staff || []).find(s => s.id === id); if (!x) return;
+  w.staff = w.staff.filter(s => s !== x);
+  if (x.owed > 0) w.wageClaims = (w.wageClaims || 0) + x.owed;
+  if (x.danny) { w.dannyGone = true; text(w, 'Danny', replaced ? `oh. ok. no that's fine. that makes sense` : `wow ok`); }
+}
+// the data engineer: how much of the telemetry you can read (0 nothing, 1 the charts, 2 the notes too)
+export function dataLevel(w) {
+  const e = staffOf(w, 'engineer'); if (!e) return 0;
+  return clamp((e.skill >= 3 ? 2 : 1) - (e.morale < 35 ? 1 : 0), 0, 2);
+}
+// what the staff do to the bills and the car
+export function staffEffects(w) {
+  const m = staffOf(w, 'mechanic'), mgr = staffOf(w, 'manager');
+  const sulk = m && m.morale < 35;
+  return { travel: mgr ? 0.8 : 1, repair: (m ? 1 - 0.06 * m.skill : 1.1) * (sulk ? 1.15 : 1), pitTime: m ? -0.25 * m.skill + (sulk ? 1 : 0) : 0.5 };
+}
+// the money payroll needs this round, by the instructions
+export function payrollDue(w) {
+  return (w.staff || []).reduce((a, x) => a + (x.pay === 'full' ? wageNow(w, x) : x.pay === 'half' ? Math.round(wageNow(w, x) / 2) : 0), 0) + (w.wageClaims || 0);
+}
+export const payrollShort = (w) => (w.staff || []).length > 0 && w.money && w.money.balance < payrollDue(w) - (w.wageClaims || 0); // (claims get paid regardless)
+// run it (as a round starts): pay, owe, and see who's had enough
+export function runPayroll(w) {
+  if (!w.staff || w.paidRound === w.year * 100 + w.round) return;
+  w.paidRound = w.year * 100 + w.round;
+  if (w.wageClaims) { pay(w, -w.wageClaims, 'Labour board: wage claims from former staff'); w.wageClaims = 0; }
+  for (const x of w.staff.slice()) {
+    const wage = wageNow(w, x), soft = x.danny ? 0.5 : 1;
+    const paid = x.pay === 'full' ? wage : x.pay === 'half' ? Math.round(wage / 2) : 0;
+    if (paid) pay(w, -paid, `Payroll: ${x.first} ${x.last} (${ROLES[x.role].name.toLowerCase()})${paid < wage ? ', part' : ''}`);
+    x.owed += wage - paid;
+    x.morale = clamp(x.morale + (paid === wage ? 4 : paid ? -9 * soft : -18 * soft), 0, 100);
+    if (paid < wage) x.unpaidRounds = (x.unpaidRounds || 0) + 1; else x.unpaidRounds = 0;
+    // walking out: miserable and owed money (Danny stays, and lets you know)
+    if (!x.danny && x.morale < 25 && x.owed > 0 && rng(w) < 0.45) {
+      mail(w, `${x.first} ${x.last}`, `${x.first.toLowerCase()}.${x.last.toLowerCase()}@coolmail.sv`, 'Resignation',
+        [`I'm resigning, effective immediately.`, `I am owed ${money$(x.owed)}. I've been advised to take it up with the labour board, and I have.`, `${x.first}`]);
+      if (x.owed >= wage * 2) news(w, `${w.teams[w.player.team].name.toUpperCase()} STAFF UNPAID, SOURCES SAY`, `A former ${ROLES[x.role].name.toLowerCase()} at the Street Cup newcomers says wages have gone unpaid for weeks.`);
+      fireStaff(w, x.id);
+    } else if (x.danny && x.unpaidRounds === 2) text(w, 'Danny', `hey so the payroll thing. no rush. just my landlord is asking`);
+  }
+}
+// paying back what's owed
+export function payBack(w, id) {
+  const x = (w.staff || []).find(s => s.id === id); if (!x || !x.owed) return;
+  pay(w, -x.owed, `Back pay: ${x.first} ${x.last}`); x.owed = 0; x.unpaidRounds = 0; x.morale = clamp(x.morale + 12, 0, 100);
+}
+export function setPay(w, id, mode) { const x = (w.staff || []).find(s => s.id === id); if (x) x.pay = mode; }
+
+// ---------------- telemetry: what the data engineer reads ----------------
+// a summary of each session's best lap against the reference, kept for the computer's Telemetry app
+export function logTelemetry(w, t) {
+  w.telemetry = w.telemetry || [];
+  w.telemetry.unshift({ id: 't' + (w.nextId++), y: w.year, r: w.round, ...t });
+  if (w.telemetry.length > 30) w.telemetry.length = 30;
+}
 
 // ---------------- news (headlines) and texts (the phone) ----------------
 function news(w, head, body = '', extra = {}) { if (w.pre && w.year < START_YEAR - 2) return; w.news.unshift({ y: w.year, r: w.round, when: whenOf(w), head, body, ...extra }); if (w.news.length > 120) w.news.length = 120; }
