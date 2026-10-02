@@ -767,7 +767,9 @@ function startWeekend(track, race, ret, format, len) {
 }
 function startSession(kind, first = false) {
   const w = weekend; w.stage = kind;
-  const extra = { ...(w.race.extra || {}), ...(w.car ? { car: w.car } : {}), ...(w.roster ? { roster: w.roster, aiSetup: w.aiSetup } : {}) };
+  const carry = wkOn() && kind === 'quali' && wkUse.carry && !first ? { startSet: wkUse.carry } : {};
+  if (wkOn()) wkUse.startNew = !carry.startSet;
+  const extra = { ...(w.race.extra || {}), ...(w.car ? { car: w.car } : {}), ...(w.roster ? { roster: w.roster, aiSetup: w.aiSetup } : {}), ...carry };
   startRace(w.track, { ...w.race, mode: kind, practiceTime: w.len[0], qualiTime: w.len[1], pick: first && w.race.pick, extra }, w.ret);
 }
 // what the next session keeps from this one
@@ -797,6 +799,7 @@ function showQualiResults() {
     + row(practice ? 'Next' : 'Race', practice ? `Qualifying &middot; ${Math.round(weekend.len[1] / 60)} min` : `${weekend.race.laps} lap${weekend.race.laps === 1 ? '' : 's'} &middot; ${n} cars`);
   const toRace = () => {
     const w = weekend, g = sim.qualiGrid();
+    if (wkOn()) wkUse.startNew = true;
     startRace(w.track, { ...w.race, mode: 'race', pick: false, fromQuali: true, extra: { ...(w.race.extra || {}), ...g, car: { ...sim.opts.car } } }, w.ret);
   };
   const items = practice
@@ -810,7 +813,8 @@ function showQualiResults() {
 }
 
 // ---------------- World Career: what a weekend uses (the bill: WC.settleRound) ----------------
-// Every session starts on a fresh set; new sets in the garage, tyre stops and repairs add to it; fuel is billed by the lap.
+// A session starts on a fresh set (qualifying: on the set practice ended on); new sets in the garage, tyre stops and
+// repairs add to it; fuel is billed by the lap. The garage's receipt shows each charge as it happens (pgReceipt).
 let wkUse = null;
 const wkOn = () => raceReturn === 'world' && wkUse && world && world.money;
 const dmgOf = (d) => (d.fw + d.rw + d.ch) / 3; // (0..1: all three parts written off)
@@ -820,7 +824,8 @@ function useSession() {
   const pl = sim.player; wkUse.seen = sim;
   try { logSessionTelemetry(pl); } catch (e) { console.warn('telemetry log', e); }
   wkUse.laps += pl.lapTimes.length;
-  wkUse.sets += 1 + (sim.mode === 'race' ? pl.pits : 0);
+  wkUse.sets += (wkUse.startNew === false ? 0 : 1) + (sim.mode === 'race' ? pl.pits : 0);
+  wkUse.carry = { ...pl.phys.tyre }; wkUse.startNew = true; // (what the next session can start on)
   wkUse.damage += sim.mode === 'race' ? Math.max(dmgOf(pl.phys.dmg), (pl.maxDmg || 0) / 3) : dmgOf(pl.phys.dmg);
 }
 // the session's best lap, analysed against the reference, kept for the computer's Telemetry app
@@ -838,27 +843,73 @@ function logSessionTelemetry(pl) {
 // spent so far this weekend (tyres, fuel, repairs; the session in progress included)
 function wkSpend() {
   const c = WC.COSTS[world.player.series], pl = sim && sim.player, live = pl && wkUse.seen !== sim;
-  const sets = wkUse.sets + (live ? 1 : 0), laps = wkUse.laps + (live ? pl.lapTimes.length : 0), dmg = wkUse.damage + (live ? dmgOf(pl.phys.dmg) : 0);
-  return sets * c.tyre + laps * c.fuelLap + Math.round(dmg * c.repair / 100) * 100;
+  const sets = wkUse.sets + (live && wkUse.startNew !== false ? 1 : 0), laps = wkUse.laps + (live ? pl.lapTimes.length : 0), dmg = wkUse.damage + (live ? dmgOf(pl.phys.dmg) : 0);
+  return sets * c.tyre + laps * c.fuelLap + WC.repairQuote(world, dmg);
 }
 
 // ---------------- the pit garage (practice / qualifying) ----------------
 // your box: go out on a flying lap or down the pit lane, pick tyres, watch the timing, skip ahead. The session goes on.
 const pitGarage = new PitGarage(renderer, post);
-let pgTyre = 'keep', pgInfoT = 0, pgTiming = false, pgSkipLbl = '', pgBusy = false, pgWorkKey = '';
+let pgView = 'main', pgInfoT = 0, pgTiming = false, pgSkipLbl = '', pgBusy = false, pgWorkKey = '';
 const PG_TYRE_COL = { soft: '#e0302a', medium: '#f2d22a', hard: '#f0f0f0', wet: '#3a8af0' };
 const capit = (c) => c[0].toUpperCase() + c.slice(1);
 const tyreDot = (c) => `<span class="tyre-dot" style="background:${PG_TYRE_COL[c]}"></span>`;
 const mmss = (t) => { t = Math.round(t); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
-// the tyres row: keep the set on the car, or a new set of any compound
-function pgTyreVals() {
-  const t = sim.player.phys.tyre, wear = Math.round(Math.min(t.wf, t.wr) * 100);
-  return [['keep', `${tyreDot(t.c)}Current ${wear}%`], ...['soft', 'medium', 'hard', 'wet'].map(c => [c, `${tyreDot(c)}New ${capit(c)}`])];
+// your tyres this weekend: the set on the car, used sets on the rack (what you took off, with their wear), new sets
+// (World Career: each one goes on the bill). The rack lasts the weekend (World Career) or the session.
+const rackOf = () => wkOn() ? (wkUse.rack = wkUse.rack || []) : (sim.__rack = sim.__rack || []);
+const pct = (t) => Math.round(Math.min(t.wf, t.wr) * 100);
+function tyreItems() {
+  const pl = sim.player, t = pl.phys.tyre, rack = rackOf(), price = wkOn() ? WC.tyreCost(world) : 0;
+  const items = [{ label: `On The Car<small>${capit(t.c)} &middot; ${pct(t)}%</small>`, head: true }];
+  items.push({ label: 'New Sets', head: true });
+  for (const c of ['soft', 'medium', 'hard', 'wet']) items.push({ label: `${tyreDot(c)}New ${capit(c)}${price ? `<small>${WC.money$(price)}</small>` : ''}`, action: () => fitTyre({ c, wf: 1, wr: 1, fresh: true }),
+    desc: `${{ soft: 'Fastest over a lap, wears quickest.', medium: 'The middle ground.', hard: 'Slowest, lasts longest.', wet: 'For rain. Overheats in the dry.' }[c]} The crew needs ${TYRE_FIT} seconds of the session.${price ? ` A new set costs <b>${WC.money$(price)}</b>.` : ''}` });
+  if (rack.length) {
+    items.push({ label: 'Used Sets', head: true });
+    rack.forEach((r, k) => items.push({ label: `${tyreDot(r.c)}${capit(r.c)}<small>${pct(r)}%</small>`, action: () => fitTyre(r, k), desc: `A set you ran earlier${wkOn() ? ' this weekend' : ''}. Free to put back on.` }));
+  }
+  items.push({ label: 'Back', action: () => { pgView = 'main'; sfx.back(); renderGarageMenu(); renderHints(); }, desc: 'Back to the garage.' });
+  return items;
+}
+// the crew fits a set now: a short progress bar, the session clock jumps on, the old set goes on the rack
+function fitTyre(set, rackIdx = -1) {
+  if (pgBusy) return;
+  const pl = sim.player; pgBusy = true; sfx.select();
+  const el = $('pg-work'), bar = $('pg-work-bar'), t0 = performance.now(), dur = 1300;
+  $('pg-work-t').textContent = `${set.fresh ? 'New' : 'Used'} ${capit(set.c)} · ${mmss(TYRE_FIT)}`; el.hidden = false; bar.style.width = '0%';
+  const tick = () => {
+    const k = Math.min(1, (performance.now() - t0) / dur);
+    bar.style.width = (k * 100).toFixed(1) + '%';
+    if (k < 1 && screen === 's-pitgarage') return requestAnimationFrame(tick);
+    if (!sim || !sim.player) return;
+    const rack = rackOf(), off = { c: pl.phys.tyre.c, wf: pl.phys.tyre.wf, wr: pl.phys.tyre.wr };
+    if (rackIdx >= 0) rack.splice(rackIdx, 1);
+    if (pct(off) > 10) rack.push(off);
+    rack.sort((a, b) => pct(b) - pct(a)); if (rack.length > 6) rack.length = 6;
+    sim.fitSet(pl, set);
+    if (pitGarage.car && pitGarage.car.setCompound) pitGarage.car.setCompound(set.c);
+    pitGarage.setTyre(set.c);
+    if (set.fresh && wkOn()) { wkUse.sets++; pgReceipt(`New ${set.c}s`, WC.tyreCost(world)); }
+    el.hidden = true; pgBusy = false; sfx.go(); pgView = 'main';
+    renderGarageMenu(); renderGarageInfo(); renderHints();
+  };
+  requestAnimationFrame(tick);
+}
+// World Career: each charge as it happens, and the weekend so far
+function pgReceipt(what, amt) {
+  if (!wkOn()) return;
+  if (what) (wkUse.receipt = wkUse.receipt || []).push([what, amt]);
+  const el = $('pg-receipt'), lines = (wkUse.receipt || []).slice(-4);
+  el.hidden = false;
+  el.innerHTML = `<div class="panel-title">THIS WEEKEND</div>` + lines.map(([w, a], k) => `<div class="pg-rline${what && k === lines.length - 1 ? ' fresh' : ''}"><span>${w}</span><b>${WC.money$(a)}</b></div>`).join('')
+    + `<div class="pg-rtot"><span>So far</span><b>${WC.money$(wkSpend())}</b></div><small>Tyres, fuel and repairs: on this round's bill. Balance ${WC.money$(world.money.balance)}.</small>`;
 }
 function openPitGarage() {
   if (!sim || !sim.quali || !sim.player) return;
   const pl = sim.player;
-  pgTyre = 'keep'; pgBusy = false; $('pg-work').hidden = true;
+  pgView = 'main'; pgBusy = false; $('pg-work').hidden = true;
+  $('pg-receipt').hidden = true; if (wkOn()) pgReceipt();
   pitGarage.open(pl.model.cfg || sim.opts.car, pl.team, pl.phys.tyre.c, pl.phys.dmg);
   pgTiming = false; $('pg-timing').hidden = true; $('pg-car').hidden = false;
   $('pg-title').textContent = SESSION_NAME[sim.quali.kind];
@@ -869,10 +920,12 @@ function openPitGarage() {
 function renderGarageMenu() {
   const q = sim.quali, quick = raceReturn !== 'career' && raceReturn !== 'world';
   pgSkipLbl = q.left > 330 ? 'Skip 5 Minutes' : 'Skip To The End';
+  if (pgView === 'tyres') { const m = menus['s-pitgarage'][0]; m.setItems(tyreItems(), false); m.i = m.items.findIndex(it => !it.head); m.render(); renderHints(); return; }
+  const t = sim.player.phys.tyre;
   const items = [
     { label: 'Flying Lap', cls: 'action primary', action: () => goOut('flying'), desc: 'Straight onto a flying lap: the clock starts at the line.' },
     ...(sim.pit ? [{ label: 'Drive Out', cls: 'action', action: () => goOut('drive'), desc: 'Down the pit lane and an out lap first, to get the tyres going.' }] : []),
-    { label: 'Tyres', values: pgTyreVals(), get: () => pgTyre, set: v => { pgTyre = v; pitGarage.setTyre(v === 'keep' ? sim.player.phys.tyre.c : v); renderGarageInfo(); }, desc: `Keep the set on the car, or fit a new set when you go out (${TYRE_FIT} seconds of the session). Softs are fastest over a lap.${wkOn() ? ` A new set costs <b>${WC.money$(WC.COSTS[world.player.series].tyre)}</b>.` : ''}` },
+    { label: `Tyres<small>${capit(t.c)} &middot; ${pct(t)}%</small>`, action: () => { pgView = 'tyres'; sfx.select(); renderGarageMenu(); }, desc: `Change tyres: a new set of any compound${wkOn() ? ` (${WC.money$(WC.tyreCost(world))} each)` : ''}, or one you ran earlier.` },
     repairItem(),
     presetItem(' Applies from your next run.'),
     { label: 'Timing', action: () => { pgTiming = !pgTiming; $('pg-timing').hidden = !pgTiming; $('pg-car').hidden = pgTiming; renderGarageInfo(); }, desc: 'The full timing screen for the session (select again for the car).' },
@@ -886,11 +939,11 @@ function renderGarageMenu() {
 }
 // the repair row: how long the crew needs (it comes off the session clock)
 function repairItem() {
-  const w = sim.garageWork(sim.player), tot = w.fw + w.rw + w.ch, q = sim.quali;
+  const w = sim.garageWork(sim.player), tot = w.fw + w.rw + w.ch, q = sim.quali, cost = wkOn() && tot ? WC.repairQuote(world, dmgOf(sim.player.phys.dmg)) : 0;
   return {
-    label: tot ? `Repair Damage · ${mmss(tot)}` : 'No Damage', disabled: !tot, action: () => repairNow(),
+    label: tot ? `Repair Damage<small>${mmss(tot)}${cost ? ' &middot; ' + WC.money$(cost) : ''}</small>` : 'No Damage', disabled: !tot, action: () => repairNow(),
     confirm: tot && tot >= q.left ? 'Longer than the session! Select again' : null,
-    desc: tot ? `The crew fixes the car. The session clock runs on ${mmss(tot)} meanwhile, and the AI keep setting times.` : 'Nothing to fix.',
+    desc: tot ? `The crew fixes the car. The session clock runs on ${mmss(tot)} meanwhile, and the AI keep setting times.${cost ? ` It costs <b>${WC.money$(cost)}</b>.` : ''}` : 'Nothing to fix.',
   };
 }
 // the crew at work: a short progress bar, then the clock jumps on by the repair time
@@ -905,7 +958,7 @@ function repairNow() {
     bar.style.width = (k * 100).toFixed(1) + '%';
     if (k < 1 && screen === 's-pitgarage') return requestAnimationFrame(tick);
     if (!sim || !sim.player) return;
-    if (wkOn()) wkUse.damage += dmgOf(sim.player.phys.dmg);
+    if (wkOn()) { const d = dmgOf(sim.player.phys.dmg); pgReceipt('Repairs', WC.repairQuote(world, d)); wkUse.damage += d; }
     sim.garageRepair(sim.player);
     pitGarage.setDamage(sim.player.phys.dmg);
     el.hidden = true; pgBusy = false; sfx.go();
@@ -928,14 +981,14 @@ function renderGarageInfo() {
     const col = (x) => x < 0.15 ? 'var(--sv-good)' : x < 0.45 ? 'var(--sv-hot)' : 'var(--sv-bad)';
     const part = (name, x, secs) => `<div class="pg-row"><span>${name}</span><i class="pg-bar"><b style="width:${Math.round((1 - x) * 100)}%;background:${col(x)};color:${col(x)}"></b></i><em>${secs ? mmss(secs) : 'OK'}</em></div>`;
     const wear = Math.min(t.wf, t.wr);
-    const next = pgTyre === 'keep' ? 'Keeping this set' : `New ${capit(pgTyre)} on the way out · ${mmss(TYRE_FIT)}`;
-    const key = [d.fw, d.rw, d.ch, wear, t.c, pgTyre, wkOn() ? wkSpend() : 0].map(v => typeof v === 'number' ? v.toFixed(2) : v).join();
+    const rack = rackOf(), next = rack.length ? `${rack.length} used set${rack.length === 1 ? '' : 's'} on the rack` : '';
+    const key = [d.fw, d.rw, d.ch, wear, t.c, rack.length, wkOn() ? wkSpend() : 0].map(v => typeof v === 'number' ? v.toFixed(2) : v).join();
     if (key !== pgWorkKey) {
       pgWorkKey = key;
       $('pg-car').innerHTML = `<div class="panel-title">CAR</div>` + part('Front wing', d.fw, w.fw) + part('Rear wing', d.rw, w.rw) + part('Suspension', d.ch, w.ch)
         + `<div class="pg-row"><span>${tyreDot(t.c)}${capit(t.c)} tyres</span><i class="pg-bar"><b style="width:${Math.round(wear * 100)}%;background:${wear > 0.6 ? 'var(--sv-good)' : wear > 0.3 ? 'var(--sv-hot)' : 'var(--sv-bad)'};color:${wear > 0.6 ? 'var(--sv-good)' : wear > 0.3 ? 'var(--sv-hot)' : 'var(--sv-bad)'}"></b></i><em>${Math.round(wear * 100)}%</em></div>`
-        + `<p class="pg-note">${next}</p>`
-        + (wkOn() ? `<p class="pg-note">This weekend so far: <b>${WC.money$(wkSpend())}</b> in tyres, fuel and repairs &middot; balance ${WC.money$(world.money.balance)}</p>` : '');
+        + (next ? `<p class="pg-note">${next}</p>` : '');
+      if (wkOn()) pgReceipt();
     }
   }
   if ((q.left > 330 ? 'Skip 5 Minutes' : 'Skip To The End') !== pgSkipLbl) renderGarageMenu();
@@ -943,12 +996,11 @@ function renderGarageInfo() {
 function goOut(how) {
   sfx.go();
   if (pgBusy) return;
-  if (pgTyre !== 'keep' && wkOn()) wkUse.sets++;
-  fadeTo(() => { pitGarage.close(); sim.leaveGarage(sim.player, how, pgTyre === 'keep' ? null : pgTyre); beginHud(); }, 250);
+  fadeTo(() => { pitGarage.close(); sim.leaveGarage(sim.player, how, null); beginHud(); }, 250);
 }
 menus['s-pitgarage'] = [new Menu($('m-pitgarage'), [], { desc: 'd-pitgarage' })];
-backs['s-pitgarage'] = () => {};
-HINTS['s-pitgarage'] = [['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select']];
+backs['s-pitgarage'] = () => { if (pgView !== 'main' && !pgBusy) { pgView = 'main'; sfx.back(); renderGarageMenu(); renderHints(); } };
+HINTS['s-pitgarage'] = () => pgView === 'tyres' ? [['nav', 'Navigate'], ['ok', 'Fit'], ['back', 'Back']] : [['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select']];
 
 // ---------------- career / grand prix ----------------
 let career = null;
@@ -2491,7 +2543,7 @@ function openLapReview(from = 's-pitgarage') {
   if (!sim || !sim.player) return;
   reviewFrom = from;
   rvLevel = raceReturn === 'world' && world ? WC.dataLevel(world) : 2;
-  setScramble(rvLevel === 0); $('rv-nodata').hidden = rvLevel !== 0;
+  setScramble(rvLevel === 0);
   requestAnimationFrame(() => rvTidy());
   const pl = sim.player, T = sim.T, key = lapKey(sim.track, T, pl.carId);
   rv = { key, T, corners: sim.corners.list, laps: lapsFor(key).slice(-14), carId: pl.carId, pb: loadPB(key, T), cmp: rv ? rv.cmp : 'ref', focus: -1, sel: 0, cursor: -1, map: null, boards: sim.world.boards || [] };
@@ -2501,6 +2553,7 @@ function openLapReview(from = 's-pitgarage') {
   const kind = sim.quali ? (sim.quali.kind === 'practice' ? 'Practice' : 'Qualifying') : sim.mode === 'test' ? 'Time Trial' : 'Race';
   $('rv-sub').textContent = `${sim.track.name} · ${CARS[pl.carId]?.name || ''} · ${kind}`;
   $('s-review').classList.toggle('empty', !rv.laps.length);
+  $('rv-nodata').hidden = rvLevel !== 0 || !rv.laps.length; // (no laps: there's nothing to not understand yet)
   const menu = menus['s-review'][0];
   const items = rv.laps.map((l, k) => ({
     k, cls: 'lap' + (k === best ? ' best' : '') + (l.valid ? '' : ' void'),

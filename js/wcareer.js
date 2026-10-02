@@ -501,6 +501,9 @@ export function settleRound(w, use, me) {
     { bill: { items, net, bal: w.money.balance } });
   return { items, net };
 }
+// what a repair (of this much damage: 0..1 of a write-off) costs, before you have it done
+export const repairQuote = (w, dmg) => Math.round(dmg * COSTS[w.player.series].repair * (bgOf(w).repair || 1) * staffEffects(w).repair / 100) * 100;
+export const tyreCost = (w) => COSTS[w.player.series].tyre;
 // a round you didn't drive yourself (Sim Rest Of Season): a plain weekend, no damage
 export const simUse = (w) => ({ sets: w.opts.weekend === 'full' ? 4 : w.opts.weekend === 'quali' ? 2 : 1, laps: w.opts.laps + (w.opts.weekend === 'full' ? 18 : w.opts.weekend === 'quali' ? 6 : 0), damage: 0 });
 

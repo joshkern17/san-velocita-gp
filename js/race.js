@@ -447,8 +447,10 @@ export class Race {
     if (isPlayer && this.opts.startTyre && this.opts.startTyre !== 'auto') start = this.opts.startTyre;
     if (isPlayer && mods && mods.softs && !this.rain) start = 'soft';
     if (isPlayer && (this.mode === 'quali' || this.mode === 'practice') && !this.rain) start = 'soft'; // (sessions: a fresh set of the fastest tyre)
+    if (isPlayer && this.opts.startSet) start = this.opts.startSet.c; // (World Career: qualifying starts on the set practice ended on)
     if (car.ai) { car.plan = this.planStrategy(); start = car.plan.stints[0].c; }
     phys.fitTyres(start); model.setCompound(start);
+    if (isPlayer && this.opts.startSet) { phys.tyre.wf = this.opts.startSet.wf; phys.tyre.wr = this.opts.startSet.wr; }
     this.cars.push(car);
     this.updateTracker(car, true);
     this.placeModel(car, 1);
@@ -649,6 +651,12 @@ export class Race {
   }
   // back out: 'flying' = straight onto a flying lap, 'drive' = down the pit lane from the box and an out lap.
   // tyre: a new set to fit first (TYRE_FIT seconds of the session), or null to keep the set on the car
+  // the crew fits a set in the garage (new, or a used one off the rack: { c, wf, wr }); the session clock runs on meanwhile
+  fitSet(car, set) {
+    this.skipTime(TYRE_FIT);
+    car.phys.fitTyres(set.c); car.phys.tyre.wf = set.wf ?? 1; car.phys.tyre.wr = set.wr ?? 1;
+    car.model.setCompound(set.c);
+  }
   leaveGarage(car, how, tyre) {
     if (tyre) { this.skipTime(TYRE_FIT); car.phys.fitTyres(tyre); car.model.setCompound(tyre); }
     car.inGarage = false; car.gone = false; car.model.group.visible = true;

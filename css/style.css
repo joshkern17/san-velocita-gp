@@ -1377,3 +1377,13 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .tl-sig { text-align: right; font-style: italic; color: #555; }
 .tl-hint { margin: 10px 14px; color: #666; }
 .tl-raw.f, .tl-read.f { box-shadow: inset 3px 0 0 #1d3f9a; }
+/* the pit garage's receipt (World Career): each charge as it happens, the weekend so far */
+.pg-receipt { position: absolute; right: 5%; top: calc(5% + 118px); width: 260px; padding: 10px 14px; background: rgba(5,3,8,.6); border: 0; box-shadow: none; }
+.pg-rline, .pg-rtot { display: flex; justify-content: space-between; font: 500 var(--t-body)/1.7 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+.pg-rline b { font-weight: 500; color: var(--sv-hot); }
+.pg-rline.fresh { animation: pg-fresh 1.6s ease-out; }
+@keyframes pg-fresh { 0%, 30% { color: var(--sv-amber); transform: translateX(-6px); } 100% { transform: none; } }
+.pg-rtot { margin-top: 4px; padding-top: 4px; border-top: 1px solid color-mix(in srgb, var(--sv-red) 40%, transparent); }
+.pg-rtot b { font-weight: 500; color: var(--sv-amber); }
+.pg-receipt small { display: block; margin-top: 4px; font: 500 var(--t-small)/1.35 var(--f-body); color: var(--sv-red-dim); -webkit-text-fill-color: currentColor; }
+.pg-menu .menu .item small { margin-left: 10px; font: 500 var(--t-small)/1 var(--f-ui); letter-spacing: var(--track); color: var(--sv-cyan); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
