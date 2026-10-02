@@ -35,6 +35,17 @@ const TEAM_ALIAS = { workshop: 'car', tyres: 'tyres', staff: 'staff', telemetry:
 // the Internet's home page
 const BOOKMARKS = [['news', 'The Paddock Wire', 'Motorsport news'], ['series', 'Series websites', 'Standings, teams, calendars, champions'], ['drivers', 'Velocita Driver Database', 'Every driver, every season'],
   ['classifieds', 'SVList', 'Cars and parts, by owner'], ['parts', 'Speed Parts Direct', 'Performance parts'], ['jobs', 'SVJobs', 'Hire staff'], ['bank', 'First Velocita Bank', 'Business banking']];
+// the bookmarks' little site icons (16 x 16, drawn as rects: [colour, x, y, w, h])
+const BM_ICON = {
+  news: [['#fff', 1, 1, 14, 14], ['#111', 3, 3, 10, 3], ['#888', 3, 8, 10, 1], ['#888', 3, 10, 10, 1], ['#c23', 9, 12, 4, 2]],
+  series: [['#555', 2, 1, 1, 14], ['#111', 3, 1, 11, 7], ['#fff', 3, 1, 3, 2], ['#fff', 9, 1, 3, 2], ['#fff', 6, 3, 3, 2], ['#fff', 12, 3, 2, 2], ['#fff', 3, 5, 3, 2], ['#fff', 9, 5, 3, 2]],
+  drivers: [['#ffd23a', 1, 1, 14, 14], ['#111', 4, 3, 8, 6], ['#e8e8e8', 5, 5, 6, 2], ['#111', 3, 10, 10, 4]],
+  classifieds: [['#7a2cc8', 1, 1, 14, 14], ['#fff', 4, 4, 8, 1], ['#fff', 4, 7, 8, 1], ['#fff', 4, 10, 5, 1]],
+  parts: [['#c8141c', 1, 1, 14, 14], ['#f06a12', 1, 8, 14, 7], ['#fff', 5, 3, 6, 10], ['#c8141c', 7, 5, 2, 6]],
+  jobs: [['#1f6b8c', 1, 1, 14, 14], ['#fff', 4, 5, 8, 7], ['#1f6b8c', 6, 3, 4, 3], ['#fff', 7, 4, 2, 1]],
+  bank: [['#0d2350', 1, 1, 14, 14], ['#d8b54a', 3, 4, 10, 2], ['#d8b54a', 4, 7, 2, 5], ['#d8b54a', 7, 7, 2, 5], ['#d8b54a', 10, 7, 2, 5], ['#d8b54a', 3, 12, 10, 1]],
+};
+const bmIcon = (id) => `<svg class="hp-ico" viewBox="0 0 16 16" width="24" height="24">${(BM_ICON[id] || []).map(r => `<rect x="${r[1]}" y="${r[2]}" width="${r[3]}" height="${r[4]}" fill="${r[0]}"/>`).join('')}</svg>`;
 // team colours on Form SV-1
 const PALETTE = [0xc8141c, 0xf2f2f2, 0x15181d, 0x1d4fd8, 0xf2c21a, 0x18a058, 0xf06a12, 0x7a2cc8, 0x1fb5c8, 0xe0569a, 0x7a5a3a, 0x9aa2ad];
 const ICON_X = 22, ICON_Y = 20, ICON_STEP = 96, ICON_ROWS = 6, ICON_COL = 96;
@@ -422,7 +433,7 @@ export class Computer {
   }
   // the Internet's home page: bookmarks
   homePage() {
-    const rows = BOOKMARKS.map(([id, name, sub], k) => `<div class="hp-bm" data-nav data-act="bm" data-arg="${id}" data-key="bm-${id}"${k === 0 ? ' data-first' : ''}><a>${esc(name)}</a><small>${esc(sub)}</small></div>`).join('');
+    const rows = BOOKMARKS.map(([id, name, sub], k) => `<div class="hp-bm" data-nav data-act="bm" data-arg="${id}" data-key="bm-${id}"${k === 0 ? ' data-first' : ''}>${bmIcon(id)}<div><a>${esc(name)}</a><small>${esc(sub)}</small></div></div>`).join('');
     return `<div class="hp"><div class="hp-head"><b>SVNet</b><small>Your home on the web &middot; ${esc(this.clock())}</small></div><div class="hp-body"><h2>Bookmarks</h2>${rows}</div></div>`;
   }
 

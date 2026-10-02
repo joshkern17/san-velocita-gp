@@ -10,7 +10,8 @@ const hex = (c) => '#' + (c >>> 0).toString(16).padStart(6, '0');
 const TYRE_CSS = { soft: '#e0302a', medium: '#f2d22a', hard: '#f0f0f0', wet: '#3a8af0' };
 // the room: x across (-W/2..W/2), z from the back wall (-D) to the door (0), the car in the middle facing the door
 const W = 12, D = 14, H = 4.6, CAR_Z = -6.5;
-const BULB_SCALE = 0.0006; // exported point / spot light intensity -> the game's (a 300 W Blender bulb ≈ 10)
+const BULB_SCALE = 0.0006;
+const ENGINE_REAR = new Set(['rs964', 'testarossa', 'custom', 'svgp']); // (cars with the engine behind the driver) // exported point / spot light intensity -> the game's (a 300 W Blender bulb ≈ 10)
 
 // your own garage model (Blender -> models/garage.glb, metres, the door facing Blender -Y, the floor at Z = 0, the
 // car's spot at the origin; see docs/GARAGE-MODEL.md for the named hooks). The single-file build carries it in
@@ -37,7 +38,7 @@ export class PitGarage {
     this.bay = new THREE.Group(); this.scene.add(this.bay);
     this.t = 0; this.car = null; this.active = false;
     this.shift = 0.2; // the car sits to the right of the menu
-    this.mode = 'pit'; this.zoomK = 0; this.zoomTo = 0; this.screen = null; this.pcTexes = [];
+    this.mode = 'pit'; this.shot = 'room'; this.blendK = 1; this.screen = null; this.pcTexes = [];
     // lights: the ceiling panels + daylight through the door
     const hemi = new THREE.HemisphereLight(0xdfe6ff, 0x3a3a40, 0.9);
     const key = new THREE.DirectionalLight(0xfff4e6, 1.1); key.position.set(-3, 8, 4);
@@ -212,13 +213,11 @@ export class PitGarage {
     }
     return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
-  // a point just above the monitor (CSS pixels), for the hub's tag; null when it's behind the camera
+  // a point just above the middle of the monitor (CSS pixels), for the hub's tag; null when it's behind the camera
   screenAnchor() {
-    const f = this.screenFrame(); if (!f) return null;
-    const p = f.c.clone().addScaledVector(f.up, f.h / 2 + 0.1).project(this.camera);
-    if (p.z > 1) return null;
-    const box = this.r.domElement.getBoundingClientRect();
-    return { x: box.left + (p.x + 1) / 2 * box.width, y: box.top + (1 - p.y) / 2 * box.height };
+    const m = this.screenHit || this.screen; if (!m) return null;
+    const bb = new THREE.Box3().setFromObject(m);
+    return this.toScreen(new THREE.Vector3((bb.min.x + bb.max.x) / 2, bb.max.y + 0.08, (bb.min.z + bb.max.z) / 2));
   }
   // did a click (CSS pixels) land on the monitor?
   hitScreen(cx, cy) {
@@ -229,16 +228,69 @@ export class PitGarage {
   }
 
   // ---------- your base (World Career) ----------
-  openHome(cfg, team) { this.open(cfg, team, 'medium', null); this.mode = 'home'; }
-  // 0: looking over the desk, 1: sat at the computer (the screen fills the view)
-  setZoom(on) { this.zoomTo = on ? 1 : 0; }
-  get seated() { return this.zoomK > 0.999 && this.zoomTo === 1; }
-  homePose(f, t) {
-    // the desk from over your shoulder, a little to the side (the menu is on the left, so the shot looks right)
-    const pos = f.c.clone().addScaledVector(f.n, 2.3).addScaledVector(f.up, 0.42).addScaledVector(f.side, 1.25);
-    const at = f.c.clone().addScaledVector(f.n, 0.25).addScaledVector(f.up, -0.2).addScaledVector(f.side, 0.15);
-    pos.addScaledVector(f.side, Math.sin(t * 0.12) * 0.12); pos.y += Math.sin(t * 0.2) * 0.03;
-    return { pos, at, fov: 50, shift: 0.18 };
+  // Three shots, blended between (about three quarters of a second): 'room' (the garage: your car, the desk behind
+  // it), 'seat' (sat at the computer: the screen fills the view) and 'car' (at the car, looking at one part).
+  openHome(cfg, team) {
+    this.open(cfg, team, 'medium', null); this.mode = 'home';
+    this.shot = 'room'; this.shotPart = null; this.blendK = 1; this.from = null;
+  }
+  setView(shot, part = null) {
+    if (shot === this.shot && part === this.shotPart) return;
+    this.from = { pos: this.camera.position.clone(), quat: this.camera.quaternion.clone(), fov: this.camera.fov, shift: this.shiftNow ?? 0.2 };
+    this.prevShot = this.shot; this.shot = shot; this.shotPart = part; this.blendK = 0;
+  }
+  setZoom(on) { this.setView(on ? 'seat' : 'room'); }
+  get settled() { return this.blendK >= 1; }
+  get seated() { return this.shot === 'seat' && this.settled; }
+  get atRoom() { return this.shot === 'room' && this.settled; }
+  get nearScreen() { return this.shot === 'seat' || (this.prevShot === 'seat' && !this.settled); }
+  get zoomK() { return this.shot === 'seat' ? this.blendK : this.prevShot === 'seat' ? 1 - this.blendK : 0; }
+  carCentre() { return new THREE.Vector3(0, 0.55, CAR_Z); }
+  roomPose(f, t) {
+    // from in front of the car, looking past it to the desk: the car in the middle, the computer behind
+    const C = this.carCentre(), D = f ? f.c.clone() : C.clone().add(new THREE.Vector3(-3, 0.6, -3));
+    const v = new THREE.Vector3(C.x - D.x, 0, C.z - D.z); if (v.lengthSq() < 0.01) v.set(0.6, 0, 0.8); v.normalize();
+    const at = C.clone().lerp(D, 0.38); at.y = 0.95;
+    const side = new THREE.Vector3(-v.z, 0, v.x);
+    const pos = at.clone().addScaledVector(v, 8.2).addScaledVector(side, Math.sin(t * 0.1) * 0.35); pos.y = 2.15 + Math.sin(t * 0.18) * 0.05;
+    return { pos, at, fov: 48, shift: 0.18 };
+  }
+  // at the car: looking at a part (or the whole car)
+  carPose(part) {
+    const C = this.carCentre();
+    if (!part) return { pos: C.clone().add(new THREE.Vector3(3.6, 1.7, 3.8)), at: C.clone(), fov: 46, shift: 0.18 };
+    const A = this.partAnchor(part) || C;
+    const dir = new THREE.Vector3(A.x - C.x, 0, A.z - C.z); if (dir.lengthSq() < 0.04) dir.set(1, 0, 0.3); dir.normalize();
+    const pos = A.clone().addScaledVector(dir, 3.6).add(new THREE.Vector3(0, 1.25, 0)).addScaledVector(new THREE.Vector3(-dir.z, 0, dir.x), 1.6);
+    return { pos, at: A.clone().lerp(C, 0.35), fov: 46, shift: 0.18 };
+  }
+  // where each part is on the car (world space), from the car's size; the engine where this car keeps it
+  partAnchor(part) {
+    if (!this.car) return null;
+    const bb = new THREE.Box3().setFromObject(this.car.group), L = bb.max.z - bb.min.z, cx = (bb.min.x + bb.max.x) / 2, cz = (bb.min.z + bb.max.z) / 2;
+    const rear = ENGINE_REAR.has(this.cfgChassis);
+    const at = {
+      engine: rear ? [cx, bb.max.y - 0.12, bb.min.z + 0.22 * L] : [cx, bb.max.y - 0.2, bb.max.z - 0.22 * L],
+      gearbox: [cx, bb.min.y + 0.32, rear ? bb.min.z + 0.36 * L : cz],
+      brakes: [bb.max.x - 0.04, bb.min.y + 0.34, bb.max.z - 0.17 * L],
+      suspension: [bb.max.x - 0.04, bb.min.y + 0.38, bb.min.z + 0.18 * L],
+      aero: [cx, bb.max.y - 0.05, bb.min.z + 0.06 * L],
+      chassis: [bb.max.x, (bb.min.y + bb.max.y) / 2, cz],
+    }[part];
+    return at ? new THREE.Vector3(...at) : null;
+  }
+  // a point in the world on the screen (CSS pixels), or null behind the camera
+  toScreen(p) {
+    const v = p.clone().project(this.camera); if (v.z > 1) return null;
+    const box = this.r.domElement.getBoundingClientRect();
+    return { x: box.left + (v.x + 1) / 2 * box.width, y: box.top + (1 - v.y) / 2 * box.height };
+  }
+  // did a click land on the car?
+  hitCar(cx, cy) {
+    if (!this.car) return false;
+    const box = this.r.domElement.getBoundingClientRect(), rc = new THREE.Raycaster();
+    rc.setFromCamera(new THREE.Vector2((cx - box.left) / box.width * 2 - 1, -(cy - box.top) / box.height * 2 + 1), this.camera);
+    return rc.intersectObject(this.car.group, true).length > 0;
   }
   seatPose(f, aspect) {
     // the glass fills 84% of the height, nudged up clear of the button prompts along the bottom
@@ -289,30 +341,35 @@ export class PitGarage {
   // bent / missing wings show on the car in the bay until the crew fixes them
   setDamage(d) { if (this.car && this.car.setDamage && d) this.car.setDamage(d); }
   open(cfg, team, tyre, dmg) {
-    this.active = true; this.t = 0; this.mode = 'pit'; this.zoomK = this.zoomTo = 0;
+    this.active = true; this.t = 0; this.mode = 'pit'; this.shot = 'room'; this.prevShot = null; this.blendK = 1; this.from = null;
     // (your own garage model, the first time the garage opens)
     if (!this.custom) loadRoom().then(m => { if (m && !this.custom) this.useRoom(m); });
-    if (this.car) { this.bay.remove(this.car.group); this.car.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
-    this.car = buildF1(cfg, { texSize: 1024 });
+    this.setCar(cfg);
     this.car.group.position.set(0, 0, CAR_Z);
     this.car.group.add(this.car.shadow); this.car.shadow.position.y = 0.01;
     if (this.car.setCompound) this.car.setCompound(tyre);
     this.bay.add(this.car.group);
     this.setTeam(team); this.setTyre(tyre); this.setDamage(dmg);
   }
-  close() { this.active = false; this.mode = 'pit'; this.zoomK = this.zoomTo = 0; }
+  // (a different car in the bay: the one you just bought)
+  setCar(cfg) {
+    if (this.car) { this.bay.remove(this.car.group); this.car.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+    this.car = buildF1(cfg, { texSize: 1024 }); this.cfgChassis = cfg.chassis || 'custom';
+    if (this.active && this.mode === 'home') { this.car.group.position.set(0, 0, CAR_Z); this.car.group.add(this.car.shadow); this.car.shadow.position.y = 0.01; this.bay.add(this.car.group); }
+  }
+  close() { this.active = false; this.mode = 'pit'; this.shot = 'room'; this.prevShot = null; this.blendK = 1; this.from = null; }
   update(dt) {
     if (!this.active) return;
     this.t += dt;
-    const f = this.mode === 'home' ? this.screenFrame() : null;
-    if (f) {
-      // the push in to the screen (and back): eased, about two thirds of a second
-      this.zoomK += Math.sign(this.zoomTo - this.zoomK) * Math.min(Math.abs(this.zoomTo - this.zoomK), dt / 0.65);
-      const k = this.zoomK * this.zoomK * (3 - 2 * this.zoomK), el = this.r.domElement;
-      const a = this.homePose(f, this.t), b = this.seatPose(f, el.width / el.height);
-      const look = (p) => new THREE.Matrix4().lookAt(p.pos, p.at, new THREE.Vector3(0, 1, 0));
+    if (this.mode === 'home') {
+      // the shot we're going to, blended in from wherever the camera was
+      const f = this.screenFrame(), el = this.r.domElement;
+      const b = this.shot === 'seat' && f ? this.seatPose(f, el.width / el.height) : this.shot === 'car' ? this.carPose(this.shotPart) : this.roomPose(f, this.t);
+      const look = (p) => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(p.pos, p.at, new THREE.Vector3(0, 1, 0)));
+      this.blendK = Math.min(1, this.blendK + dt / 0.75);
+      const k = this.blendK * this.blendK * (3 - 2 * this.blendK), a = this.from || { pos: b.pos, quat: look(b), fov: b.fov, shift: b.shift };
       this.camera.position.lerpVectors(a.pos, b.pos, k);
-      this.camera.quaternion.setFromRotationMatrix(look(a)).slerp(new THREE.Quaternion().setFromRotationMatrix(look(b)), k);
+      this.camera.quaternion.copy(a.quat).slerp(look(b), k);
       this.camera.fov = a.fov + (b.fov - a.fov) * k;
       this.shiftNow = a.shift + (b.shift - a.shift) * k;
       if (this.car) this.car.animate({ steer: 0, spin: 0, heave: Math.sin(this.t * 1.6) * 0.003, pitch: 0, roll: 0 });

@@ -1453,7 +1453,17 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .hp-head small { color: #dfe8ff; }
 .hp-body { padding: 10px 18px 16px; }
 .hp-body h2 { margin: 4px 0 8px; font-size: 14px; color: #444; border-bottom: 1px solid #ccc; }
-.hp-bm { padding: 6px 8px; border-bottom: 1px solid #eee; }
+.hp-bm { display: flex; align-items: center; gap: 12px; padding: 6px 8px; border-bottom: 1px solid #eee; }
+.hp-ico { flex: none; border: 1px solid #999; image-rendering: pixelated; }
 .hp-bm a { font-size: 16px; color: #1a0dab; text-decoration: underline; }
 .hp-bm small { display: block; color: #666; }
 .hp-bm.f { background: #fff3b8; outline: 1px dotted #111; }
+
+/* the hub's tags over the car's parts (as the computer's tag); the worn ones pulse */
+.car-tags { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
+.car-tag { pointer-events: auto; }
+.car-tag.bad span { animation: pc-tag-pulse 1.6s ease-in-out infinite; }
+.car-tag.bad small { color: var(--sv-bad); }
+#s-hub.seated .car-tags { opacity: 0; }
+
+.hub-left .pg-menu .menu .item { font-size: 22px; line-height: 1.12; }

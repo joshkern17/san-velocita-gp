@@ -1320,7 +1320,7 @@ function phoneInput() {
 }
 const phoneHints = [['nav', 'Scroll'], ['ok', 'Select'], ['back', 'Back'], ['phone', 'Put away']];
 HINTS['s-hub'] = () => pcSeat ? [['nav', 'Move'], ['ok', 'Select'], ...(pc.hasTabs ? [['tab', 'Sections']] : []), ['back', pc.app ? 'Back' : 'Stand up']]
-  : phone.isOpen ? phoneHints : [['nav', 'Navigate'], ['ok', 'Select'], ['phone', 'Phone']];
+  : phone.isOpen ? phoneHints : hubMode === 'car' ? [['nav', 'Part'], ['ok', 'Select'], ['back', 'Back']] : [['nav', 'Navigate'], ['ok', 'Select'], ['phone', 'Phone']];
 
 // the computer on the desk: Mail, the news, the series' websites, the driver database (js/computer.js)
 const pc = new Computer({
@@ -1344,7 +1344,7 @@ const pc = new Computer({
     settings.driverName = f.name; saveSettings();
     sfx.best(); saveWorld(); renderHub(); phone.buzz();
   },
-  buy: (id) => { if (WC.buyCar(world, id)) { sfx.best(); saveWorld(); renderHub(); } },
+  buy: (id) => { if (WC.buyCar(world, id)) { sfx.best(); saveWorld(); pitGarage.setCar(hubCar()); renderHub(); } },
   // the Workshop and the parts sites
   car: (what, arg) => {
     if (what === 'rebuild') WC.rebuildPart(world, arg);
@@ -1389,7 +1389,7 @@ function sitDown(app, arg) {
 let pcWant = null;
 function standUp() {
   if (!pcSeat) return;
-  pc.close(); pitGarage.refreshScreen(); pitGarage.setZoom(false);
+  pc.close(); pitGarage.refreshScreen(); pitGarage.setView(hubMode === 'car' ? 'car' : 'room', hubMode === 'car' ? carPart : null);
   pcSeat = false; $('s-hub').classList.remove('seated'); sfx.back(); renderHub(); renderHints();
 }
 function pcInput() {
@@ -1414,7 +1414,8 @@ function hubTick(dt) {
   if (pc.idleDirty) { pc.idleDirty = false; pitGarage.refreshScreen(); }
   // the neon tag over the monitor: there whenever you're standing in the room; lit up when the Computer item is
   // highlighted or the mouse is on the monitor; pulsing while there's unread mail
-  const tag = $('pc-tag'), at = !pcSeat && pitGarage.zoomK === 0 && !phone.isOpen ? pitGarage.screenAnchor() : null;
+  carTags();
+  const tag = $('pc-tag'), at = !pcSeat && hubMode === 'room' && pitGarage.atRoom && !phone.isOpen ? pitGarage.screenAnchor() : null;
   tag.hidden = !at;
   if (at) {
     tag.style.left = at.x + 'px'; tag.style.top = at.y + 'px';
@@ -1433,7 +1434,10 @@ $('s-hub').addEventListener('mousemove', (e) => {
 $('pc-tag').addEventListener('click', () => { if (screen === 's-hub' && !pcSeat) sitDown(); });
 // a click on the monitor sits you down (the hub's layer is over the 3D view, so it listens there, past its panels)
 const onRoom = (e) => screen === 's-hub' && world && !pcSeat && !phone.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitScreen(e.clientX, e.clientY);
-$('s-hub').addEventListener('click', (e) => { if (onRoom(e)) sitDown(); });
+$('s-hub').addEventListener('click', (e) => {
+  if (onRoom(e)) { sitDown(); return; }
+  if (screen === 's-hub' && world && world.car && !pcSeat && !phone.isOpen && hubMode === 'room' && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitCar(e.clientX, e.clientY)) goToCar();
+});
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 // ---- new career (Career screen, World Career tab) ----
@@ -1503,7 +1507,8 @@ function enterHub() {
   const t = world.teams[world.player.team];
   if (world.livery) { t.main = world.livery.main; t.accent = world.livery.accent; }
   pitGarage.openHome(hubCar(), { main: t.main, accent: t.accent, name: t.name });
-  pcSeat = false; pc.close(); $('s-hub').classList.remove('seated');
+  pcSeat = false; pc.close(); $('s-hub').classList.remove('seated', 'at-car');
+  hubMode = 'room'; carSub = null; carPart = null;
   renderHub(); show('s-hub');
 }
 function openHub(first = false) {
@@ -1522,7 +1527,12 @@ function renderHub() {
   const champ = cellW('Championship', cp ? `${ord(cp)}<small> ${st[cp - 1].pts} PTS</small>` : '&mdash;');
   const bank = w.money && w.money.choice ? cellW('Bank', `<span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span>`) : cellW('Bank', '&mdash;');
   const F = w.founding || {};
-  if (!founded(w)) {
+  if (hubMode === 'car' && w.car) {
+    const risk = WC.failRisk(w), m = WC.staffOf(w, 'mechanic');
+    $('hub-card').innerHTML = `<div class="panel-title">THE CAR</div><div class="ti-name">${w.car.year} ${w.car.name}</div>
+      <div class="ti-grid">${cellW('Failure risk', `<span class="${risk >= 0.08 ? 'bad' : ''}">${risk < 0.03 ? 'Low' : risk < 0.08 ? 'Some' : risk < 0.15 ? 'High' : 'Very high'}</span>`)}${cellW('Bank', WC.money$(w.money.balance))}</div>
+      <p class="hub-note">${m ? `${m.first} does the rebuilds.` : 'No chief mechanic: rebuilds go to a shop.'}</p>`;
+  } else if (!founded(w)) {
     const step = (done, t) => `<div class="row"><span>${t}</span><span class="${done ? 'ok' : ''}">${done ? 'DONE' : '&mdash;'}</span></div>`;
     $('hub-card').innerHTML = `<div class="panel-title">GETTING STARTED</div><div class="hub-steps">
       ${step(F.reg, 'Register the team')}${step(w.money && w.money.choice, 'Claim your winnings')}${step(F.car, 'Buy a car')}${step(!!w.livery && w.liveryDone, 'Paint it (optional)')}${step((w.staff || []).length > 0, 'Hire staff (optional)')}</div>
@@ -1531,7 +1541,7 @@ function renderHub() {
     const r = S.cal[w.round], tr = worldPool().find(t => t.name === r.name);
     $('hub-card').innerHTML = `<div class="panel-title">NEXT &middot; ROUND ${w.round + 1} OF ${w.opts.len}</div><div class="season-pips">${pips}</div>
       <div class="ti-name">${r.name}</div><div class="ti-chips"><span>${tr ? THEMES[tr.env.theme].label : ''}</span><span class="wx-chip">${r.time} &middot; ${r.weather}</span></div>
-      <div class="ti-grid">${champ}${bank}</div>${carNote(w)}${tyreNote(w)}`;
+      <div class="ti-grid">${champ}${bank}</div>`;
   } else {
     const sum = w.seasons.at(-1), you = sum && sum.you, off = w.player.offer;
     $('hub-card').innerHTML = `<div class="panel-title">${w.year} &middot; SEASON COMPLETE</div><div class="season-pips">${pips}</div>
@@ -1542,6 +1552,7 @@ function renderHub() {
 }
 function renderHubMenu() {
   if (!world) return;
+  if (hubMode === 'car') return renderCarMenu();
   const w = world, sid = w.player.series, n = WC.unread(w), nm = WC.unreadMail(w);
   const items = [];
   const off = w.player.offer, offerMail = off && !off.answer && (w.mail || []).find(m => m.offer && !m.answer);
@@ -1560,8 +1571,9 @@ function renderHubMenu() {
   }
   items.push(
     { label: `Computer${nm ? `<small>${nm} NEW</small>` : ''}`, action: () => sitDown(offerMail ? 'mail' : null, offerMail ? offerMail.id : null), desc: 'Sit down at the desk: Mail, Team (the car, tyres, staff, data) and the Internet. You can also click the monitor.' },
-    ...(founded(w) && tyreShort(w) ? [{ label: 'Order Tyres<small>LOW</small>', action: () => sitDown('tyres'), desc: 'You\'re short of tyres for the next round. Order on the computer (Team: the Tyres tab), or hire a team manager to do it.' }] : []),
+    ...(founded(w) && tyreShort(w) ? [{ label: 'Order Tyres<small>LOW</small>', action: () => sitDown('tyres'), desc: `In stock: ${WC.COMPOUNDS.map(c => `${WC.stockOf(w)[c]} ${c}`).join(', ')}. Order before the weekend (on the computer): trackside sets cost ${Math.round((WC.TRACKSIDE - 1) * 100)}% more. A team manager would order for you.` }] : []),
     { label: `Phone${n ? `<small>${n} NEW</small>` : ''}`, action: () => { phone.open(); renderHints(); }, desc: 'Texts from your teammate, rivals and friends. Press <b>P</b> / <b>Y</b> any time.' },
+    ...(w.car ? [{ label: `Work On The Car${carNeedsWork(w) ? '<small>NEEDS WORK</small>' : ''}`, action: () => goToCar(), desc: 'Walk over to the car: each part\'s condition, rebuilds and new parts. Upgrades are bought on the computer.' }] : []),
     { label: 'Car & Livery', action: () => openWorldGarage(), desc: w.car ? `Your ${w.car.year} ${w.car.name}: paint it, design the livery, the helmet and the suit.` : `Your livery, helmet and suit. In the ${seriesName(sid)} you race ${CLASSES[WC.seriesById(sid).cls].label} cars.` },
     presetItem(' Set each aid in Options > Aids.'),
   );
@@ -1571,8 +1583,11 @@ function renderHubMenu() {
   m.setItems(items, true);
   const k = items.findIndex(it => it.label.replace(/<small>.*$/, '') === keep); if (k >= 0) { m.i = k; m.render(); }
 }
-menus['s-hub'] = [new Menu($('m-hub'), [], { desc: 'd-hub' })];
-backs['s-hub'] = () => { if (pcSeat && pc.isOpen) { if (pc.app) { pc.back(); renderHints(); } else standUp(); } };
+menus['s-hub'] = [new Menu($('m-hub'), [], { desc: 'd-hub', onMove: (it) => { if (it && it.part && hubMode === 'car') { carPart = it.part; pitGarage.setView('car', it.part); } } })];
+backs['s-hub'] = () => {
+  if (pcSeat && pc.isOpen) { if (pc.app) { pc.back(); renderHints(); } else standUp(); return; }
+  if (hubMode === 'car') { if (carSub) { carSub = null; sfx.back(); renderHubMenu(); } else leaveCar(); }
+};
 tabbers['s-hub'] = (d) => { if (pc.isOpen) pc.flip(d); };
 const cellW = (k, v) => `<div><small>${k}</small><b>${v}</b></div>`;
 // short of tyres for the next round (and nobody ordering for you)?
@@ -1581,6 +1596,69 @@ function tyreShort(w) {
   const need = WC.tyreNeeds(w), st = WC.stockOf(w), short = WC.COMPOUNDS.filter(c => st[c] < need[c]);
   return short.length ? short : null;
 }
+// ---- at the car: the parts, tagged on the car itself, and the work you can do there ----
+let hubMode = 'room', carPart = null, carSub = null;
+const carNeedsWork = (w) => { const P = w.car && WC.carParts(w); return !!P && WC.PART_KEYS.some(k => P[k].cond < 0.5); };
+function goToCar(part = null) {
+  if (!world || !world.car) return;
+  hubMode = 'car'; carSub = part; carPart = part || 'engine';
+  $('s-hub').classList.add('at-car');
+  pitGarage.setView('car', carPart); sfx.select();
+  renderHub(); renderHints();
+}
+function leaveCar() {
+  hubMode = 'room'; carSub = null; carPart = null;
+  $('s-hub').classList.remove('at-car');
+  pitGarage.setView('room'); sfx.back();
+  renderHub(); renderHints();
+}
+const condWord = (c) => c >= 0.8 ? 'good' : c >= 0.6 ? 'fair' : c >= 0.4 ? 'worn' : c >= 0.2 ? 'bad' : 'shot';
+function renderCarMenu() {
+  const w = world, P = WC.carParts(w), m = menus['s-hub'][0], odds = WC.failOdds(w), lvl = WC.dataLevel(w);
+  let items;
+  if (!carSub) {
+    items = WC.PART_KEYS.map(k => {
+      const p = P[k], f = p.fit, c = Math.round(p.cond * 100);
+      return { label: `${WC.PARTS[k].name}<small>${c}%</small>`, part: k, action: () => { carSub = k; carPart = k; sfx.select(); renderHubMenu(); },
+        desc: `${WC.PARTS[k].name}: <b>${condWord(p.cond)}</b> (${c}%).${odds[k] != null ? (lvl === 2 ? ` ${(odds[k] * 100).toFixed(1)}% chance it fails next race.` : p.cond < 0.5 ? ' It could let go in a race.' : '') : ''}${f ? ` Fitted: <b>${f.name}</b>, "${f.feel}"${f.measured ? `, measured ${f.measured.val >= 0 ? '+' : ''}${(f.measured.val * 100).toFixed(1)}% ${f.measured.stat}` : ''}.` : ''}` };
+    });
+    items.push({ label: 'Shop For Upgrades', action: () => sitDown('parts'), desc: 'Speed Parts Direct and SVList, on the computer.' }, { label: 'Back', action: () => leaveCar(), desc: 'Back to the garage.' });
+  } else {
+    const k = carSub, p = P[k], mech = WC.staffOf(w, 'mechanic');
+    items = [
+      { label: `${WC.PARTS[k].name}<small>${Math.round(p.cond * 100)}%</small>`, head: true },
+      { label: `Rebuild<small>${WC.money$(WC.rebuildCost(w, k))}</small>`, part: k, confirm: 'Pay for it? Select again', action: () => { WC.rebuildPart(w, k); sfx.best(); saveWorld(); renderHub(); },
+        desc: mech ? `${mech.first} rebuilds it: back to good, not new.` : 'No chief mechanic: a shop rebuilds it (dearer, and only back to OK).' },
+      { label: `New ${WC.PARTS[k].name}<small>${WC.money$(WC.newPartCost(w, k))}</small>`, part: k, confirm: 'Pay for it? Select again', action: () => { WC.newPart(w, k); sfx.best(); saveWorld(); renderHub(); }, desc: 'A brand new part: 100%.' },
+      ...(p.fit ? [{ label: `Remove ${p.fit.name}`, part: k, confirm: 'Take it off? Select again', action: () => { WC.removeFit(w, k); saveWorld(); renderHub(); }, desc: 'Back to standard. The part is thrown away.' }] : []),
+      { label: 'Upgrades For It', part: k, action: () => sitDown('parts'), desc: 'Speed Parts Direct and SVList, on the computer.' },
+      { label: 'Back', part: k, action: () => { carSub = null; sfx.back(); renderHubMenu(); }, desc: 'The other parts.' },
+    ];
+  }
+  m.setItems(items, true);
+  const want = carSub ? 1 : Math.max(0, WC.PART_KEYS.indexOf(carPart));
+  if (m.i >= items.length || !carSub) { m.i = want; m.render(); }
+}
+// the tags over the car: in the room, the parts that need work; at the car, all of them (the one you're on lit up)
+function carTags() {
+  const box = $('car-tags'), w = world, P = w && w.car && screen === 's-hub' && !pcSeat && !phone.isOpen ? WC.carParts(w) : null;
+  const show = P ? WC.PART_KEYS.filter(k => hubMode === 'car' ? pitGarage.settled && k === carPart : pitGarage.atRoom && P[k].cond < 0.5) : [];
+  if (box.dataset.keys !== show.join()) {
+    box.dataset.keys = show.join();
+    box.innerHTML = show.map(k => `<div class="pc-tag car-tag" data-part="${k}"><span><b>${WC.PARTS[k].name.toUpperCase()}</b><small></small></span><i></i></div>`).join('');
+  }
+  for (const el of box.children) {
+    const k = el.dataset.part, a = pitGarage.partAnchor(k), at = a && pitGarage.toScreen(a.add(new THREE.Vector3(0, 0.25, 0)));
+    el.hidden = !at; if (!at) continue;
+    el.style.left = at.x + 'px'; el.style.top = at.y + 'px';
+    const c = Math.round(P[k].cond * 100), t = c + '%';
+    const sm = el.querySelector('small'); if (sm.textContent !== t) sm.textContent = t;
+    el.classList.toggle('hot', hubMode === 'car' && k === carPart);
+    el.classList.toggle('bad', P[k].cond < 0.5);
+  }
+}
+$('car-tags').addEventListener('click', (e) => { const t = e.target.closest('.car-tag'); if (!t) return; if (hubMode === 'car') { carPart = carSub = t.dataset.part; pitGarage.setView('car', carPart); renderHubMenu(); sfx.select(); } else goToCar(t.dataset.part); });
+
 // the car needs work (the riskiest part), from the Workshop's numbers
 function carNote(w) {
   const P = w.car && WC.carParts(w); if (!P || WC.failRisk(w) < 0.08) return '';
@@ -2863,7 +2941,7 @@ function frame(now) {
   setMusicScene(musicScene()); updateMusic(dt);
   if (PHONE_SCREENS.includes(screen) && world && !pcSeat) phone.show(); else phone.hide();
   // sat at the garage computer: the 3D view at full resolution, so the screen in the scene is readable
-  post.setSharp(screen === 's-hub' && (pcSeat || pitGarage.zoomK > 0));
+  post.setSharp(screen === 's-hub' && (pcSeat || pitGarage.nearScreen));
   phone.update(dt);
   netTick(dt);
   if (screen === 's-garage' || screen === 's-livery') garage.render();
