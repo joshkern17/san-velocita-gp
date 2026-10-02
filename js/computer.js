@@ -23,6 +23,7 @@ const APPS = [
   { id: 'news', label: 'Paddock Wire', title: 'Web Browser' },
   { id: 'series', label: 'Series Site', title: 'Web Browser' },
   { id: 'drivers', label: 'Driver Database', title: 'Web Browser' },
+  { id: 'bank', label: 'Bank', title: 'Web Browser' },
 ];
 const ICON_X = 22, ICON_Y = 20, ICON_STEP = 92;
 // little icons, drawn the same way on the desktop and the canvas
@@ -31,6 +32,7 @@ const ICONS = {
   news: [['#ffffff', 10, 6, 44, 52], ['#1a1a1a', 15, 11, 34, 7], ['#9a9a9a', 15, 22, 34, 3], ['#9a9a9a', 15, 28, 34, 3], ['#9a9a9a', 15, 34, 22, 3], ['#c23', 40, 34, 9, 14], ['#9a9a9a', 15, 40, 22, 3], ['#9a9a9a', 15, 46, 22, 3]],
   series: [['#5a5a5a', 12, 6, 4, 54], ['#111', 16, 8, 36, 24], ['#fff', 16, 8, 9, 6], ['#fff', 34, 8, 9, 6], ['#fff', 25, 14, 9, 6], ['#fff', 43, 14, 9, 6], ['#fff', 16, 20, 9, 6], ['#fff', 34, 20, 9, 6], ['#fff', 25, 26, 9, 6], ['#fff', 43, 26, 9, 6]],
   drivers: [['#2a4fa0', 14, 10, 36, 34], ['#e8e8e8', 18, 20, 28, 12], ['#111', 20, 22, 24, 8], ['#2a4fa0', 10, 44, 44, 14]],
+  bank: [['#d8b54a', 8, 18, 48, 6], ['#e9e2c8', 12, 24, 6, 22], ['#e9e2c8', 24, 24, 6, 22], ['#e9e2c8', 34, 24, 6, 22], ['#e9e2c8', 46, 24, 6, 22], ['#d8b54a', 6, 46, 52, 8], ['#d8b54a', 28, 6, 8, 12]],
 };
 function iconSvg(id) {
   return `<svg viewBox="0 0 64 64" width="44" height="44">${ICONS[id].map(p => p[0] === 'path' ? `<path d="${p[2]}" fill="none" stroke="${p[1]}" stroke-width="3"/>` : `<rect x="${p[1]}" y="${p[2]}" width="${p[3]}" height="${p[4]}" fill="${p[0]}"/>`).join('')}</svg>`;
@@ -117,6 +119,7 @@ export class Computer {
     this.page = app === 'mail' ? { mail: (w.mail || [])[0]?.id || null }
       : app === 'news' ? { news: 'home' }
       : app === 'series' ? { s: w.player.series, tab: 'standings' }
+      : app === 'bank' ? { bank: 'home' }
       : { db: w.player.series, pid: null };
     if (app === 'mail' && this.page.mail) this.markRead(this.page.mail);
     this.curKey = null; this.render(); this.src.sfx?.select?.();
@@ -143,6 +146,8 @@ export class Computer {
     if (a === 'tab') { this.hist = []; this.page = { ...this.page, tab: arg }; this.curKey = 'tab-' + arg; this.render(); this.src.sfx?.select?.(); return; }
     if (a === 'db') { this.page = { db: arg, pid: null }; this.hist = []; this.curKey = 'db-' + arg; this.render(); this.src.sfx?.select?.(); return; }
     if (a === 'driver') { this.go({ pid: arg }); this.src.sfx?.select?.(); return; }
+    // selling the annuity: select twice
+    if (a === 'sell') { if (!this.sellArmed) { this.sellArmed = true; this.curKey = 'sell'; this.render(); this.src.sfx?.move?.(); return; } this.sellArmed = false; this.src.sell?.(); this.curKey = null; this.render(); return; }
   }
 
   // ---------- drawing ----------
@@ -181,7 +186,7 @@ export class Computer {
       const ch = cur.choices && !cur.answer ? `<div class="pc-reply">${cur.choices.map(([k, t], i) => `<button class="pc-btn" data-nav data-act="reply" data-arg="${cur.id}:${k}" data-key="reply-${k}"${i === 0 ? ' data-first' : ''}>${esc(t)}</button>`).join('')}</div>` : '';
       const ans = cur.answer ? `<p class="pc-sent">You replied: ${esc(cur.choices.find(c => c[0] === cur.answer)?.[1] || cur.answer)}</p>` : '';
       read = `<div class="pc-mhead"><div><small>From:</small> ${esc(cur.from)} &lt;${esc(cur.addr)}&gt;</div><div><small>To:</small> ${esc(me)}</div><div><small>Date:</small> ${esc(cur.when || '')} ${cur.y}</div><div class="subj">${esc(cur.subj)}</div></div>
-        <div class="pc-mbody" data-nav data-scroll data-key="mbody">${(Array.isArray(cur.body) ? cur.body : [cur.body]).map(p => `<p>${esc(p)}</p>`).join('')}${this.reportTable(cur.report, cur.y)}${ans}</div>${ch}`;
+        <div class="pc-mbody" data-nav data-scroll data-key="mbody">${(Array.isArray(cur.body) ? cur.body : [cur.body]).map(p => `<p>${esc(p)}</p>`).join('')}${this.billTable(cur.bill)}${this.reportTable(cur.report, cur.y)}${ans}</div>${ch}`;
     }
     return `<div class="pc-mail"><div class="pc-mbar">Inbox (${WC.unreadMail(w)} unread)</div><div class="pc-mlist">${rows}</div><div class="pc-mread">${read}</div></div>`;
   }
@@ -191,10 +196,11 @@ export class Computer {
     const p = this.page;
     if (this.app === 'news') return 'www.paddockwire.sv' + (p.news === 'home' ? '/' : `/story/${p.news}`);
     if (this.app === 'series') return `www.${WC.siteOf(WC.seriesById(p.s))}/${p.tab}`;
+    if (this.app === 'bank') return 'secure.firstvelocita.sv/business/account';
     return 'www.driverdb.sv' + (p.pid ? `/driver/${p.pid}` : `/${p.db}`);
   }
   browser() {
-    const site = this.app === 'news' ? this.newsSite() : this.app === 'series' ? this.seriesSite() : this.driverSite();
+    const site = this.app === 'news' ? this.newsSite() : this.app === 'series' ? this.seriesSite() : this.app === 'bank' ? this.bankSite() : this.driverSite();
     return `<div class="pc-bar"><button class="pc-btn sm" data-nav data-act="back" data-key="bback">&larr; Back</button><div class="pc-url">http://${esc(this.url())}</div></div><div class="pc-page">${site}</div>`;
   }
 
@@ -211,6 +217,30 @@ export class Computer {
     const rest = items.slice(1, 40).map((n, k) => `<div class="nw-row" data-nav data-act="article" data-arg="${k + 1}" data-key="art-${k + 1}"><small>${esc(n.when || '')} ${n.y}</small><a>${esc(cap(n.head))}</a></div>`).join('');
     return mast + `<div class="nw-lead" data-nav data-act="article" data-arg="0" data-key="art-0" data-first><small>LATEST &middot; ${esc(lead.when || '')} ${lead.y}</small><h1>${esc(cap(lead.head))}</h1><p>${esc(lead.body)}</p></div>
       <div class="nw-ad">YOUR LOGO HERE &middot; Advertise on the Wire &middot; call 555-0199</div><div class="nw-list">${rest}</div>`;
+  }
+  // a weekend's statement, line by line
+  billTable(b) {
+    if (!b) return '';
+    return `<table class="pc-tbl bill">${b.items.map(([what, amt]) => `<tr><td>${esc(what)}</td><td class="r ${amt < 0 ? 'neg' : 'pos'}">${amt > 0 ? '+' : ''}${WC.money$(amt)}</td></tr>`).join('')}
+      <tr class="tot"><td>Net for the weekend</td><td class="r ${b.net < 0 ? 'neg' : 'pos'}">${b.net > 0 ? '+' : ''}${WC.money$(b.net)}</td></tr><tr class="tot"><td>Balance</td><td class="r ${b.bal < 0 ? 'neg' : ''}">${WC.money$(b.bal)}</td></tr></table>`;
+  }
+  // First Velocita Bank: the balance, the annuity (and the people who'd like to buy it), every transaction
+  bankSite() {
+    const w = this.w, m = w.money;
+    const head = `<div class="bk-head"><b>First Velocita Bank</b><small>Business Online &middot; ${esc(w.teams[w.player.team].name)}</small></div>`;
+    if (!m || !m.choice) return head + '<p class="pc-empty">No money in the account yet. Claim your lottery winnings first: the email from the State Lottery is in your inbox.</p>';
+    const season = m.tx.filter(t => t.y === w.year), inn = season.filter(t => t.amt > 0).reduce((a, t) => a + t.amt, 0), out = season.filter(t => t.amt < 0).reduce((a, t) => a + t.amt, 0);
+    const offer = WC.annuityOffer(w);
+    const ann = m.choice === 'annuity'
+      ? `<div class="bk-box"><b>State Lottery annuity</b><span>${m.annuityLeft} yearly payment${m.annuityLeft === 1 ? '' : 's'} still to come.</span></div>
+         ${offer ? `<div class="bk-ad"><b>QuickCash Settlements</b><span>Why wait for YOUR money? We'll pay you <u>${WC.money$(offer)}</u> TODAY for your remaining lottery payments!</span><button class="pc-btn" data-nav data-act="sell" data-key="sell">${this.sellArmed ? 'Are you sure? Select again' : 'Sell my payments'}</button></div>` : ''}`
+      : `<div class="bk-box"><b>State Lottery</b><span>Paid as a lump sum. There's no more coming.</span></div>`;
+    const rows = m.tx.slice(0, 60).map(t => `<tr><td class="d">${esc(t.when)} ${t.y}</td><td>${esc(t.what)}</td><td class="r ${t.amt < 0 ? 'neg' : 'pos'}">${t.amt > 0 ? '+' : ''}${WC.money$(t.amt)}</td><td class="r ${t.bal < 0 ? 'neg' : ''}">${WC.money$(t.bal)}</td></tr>`).join('');
+    return head + `<div class="bk-body">
+      <div class="db-cells bk-cells"><div><small>Balance</small><b class="${m.balance < 0 ? 'neg' : ''}">${WC.money$(m.balance)}</b></div><div><small>In this season</small><b class="pos">${WC.money$(inn)}</b></div><div><small>Out this season</small><b class="neg">${WC.money$(-out)}</b></div></div>
+      ${m.balance < 0 ? `<p class="bk-warn">Your account is overdrawn. Overdrawn balances are charged 1.5% a round plus a $250 fee.</p>` : ''}
+      ${ann}
+      <h2>Transactions</h2><div class="bk-txw" data-nav data-scroll data-key="tx" data-first><table class="pc-tbl bk-tx"><tr><th>WHEN</th><th>DESCRIPTION</th><th class="r">AMOUNT</th><th class="r">BALANCE</th></tr>${rows}</table></div></div>`;
   }
   // a round's classification (only while that season's results are still kept)
   reportTable(rep, y) {
@@ -293,7 +323,7 @@ export class Computer {
   // the styles the snapshot needs (the computer's own rules; it uses system fonts, so nothing to embed)
   css() {
     if (this._css) return this._css;
-    const out = [], want = /#pc|\.(pc|nw|ss|db)(-|\b)/;
+    const out = [], want = /#pc|\.(pc|nw|ss|db|bk)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
     for (const sh of document.styleSheets) { let rules; try { rules = sh.cssRules; } catch (e) { continue; } for (const r of rules) if (r.selectorText && want.test(r.selectorText)) out.push(r.cssText); }
     return (this._css = out.join('\n'));
   }

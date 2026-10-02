@@ -112,6 +112,7 @@ export function newWorld(opts, trackPool) {
   for (let i = 0; i < 6; i++) makePerson(w, { age: r0(17 + rng(w) * 4), series: null, lvl: 42 + gauss(w) * 6 });
   newCalendars(w, trackPool);
   seasonOpenNews(w);
+  startMoney(w);
   return w;
 }
 
@@ -242,7 +243,8 @@ export function h2hOf(w, pid) { return w.h2h[pid] || (w.h2h[pid] = { races: 0, a
 
 // ---------------- a round: your race, then everyone else's ----------------
 // res: race.js results() rows (with pid: 'P' for you), log: race.js incident log ([{ type, a, b, blame }] by pid)
-export function recordPlayerRound(w, res, log = []) {
+// use: what your weekend used (tyre sets, laps, damage), for the bill
+export function recordPlayerRound(w, res, log = [], use = null) {
   const sid = w.player.series;
   const rows = res.map(r => ({ pid: r.isPlayer ? 'P' : r.pid, pos: r.pos, dnf: !!(r.dnf || r.dsq), dsq: !!r.dsq, fl: false, best: r.best }));
   // fastest lap: the quickest best lap among the finishers
@@ -253,7 +255,8 @@ export function recordPlayerRound(w, res, log = []) {
   for (const e of log) if (e.a && e.b) logLedger(w, { s: sid, ...e });
   const me = known.find(r => r.pid === 'P');
   for (const r of known) if (r.pid !== 'P' && me) { const h = h2hOf(w, r.pid); h.races++; if (r.dnf && !me.dnf || (!me.dnf && me.pos < r.pos)) h.ahead++; else h.behind++; }
-  return afterRound(w, me);
+  const bill = w.money ? settleRound(w, use || simUse(w), me) : null;
+  return { ...afterRound(w, me), bill };
 }
 // testing: your race simulated too (you as a mid-field driver)
 export function simPlayerRound(w) {
@@ -261,6 +264,7 @@ export function simPlayerRound(w) {
   scoreRound(w, w.player.series, rows);
   const me = rows.find(r => r.pid === 'P');
   for (const r of rows) if (r.pid !== 'P') { const h = h2hOf(w, r.pid); h.races++; if (r.dnf && !me.dnf || (!me.dnf && me.pos < r.pos)) h.ahead++; else h.behind++; }
+  if (w.money) settleRound(w, simUse(w), me);
   return afterRound(w, me);
 }
 function afterRound(w, me) {
@@ -307,6 +311,7 @@ export function nextSeason(w, trackPool) {
   // last season's team standings, before anyone changes seats (a driver's results stay with the team they drove for)
   const prevTeams = {}; for (const sr of SERIES) prevTeams[sr.id] = teamStandings(w, sr.id).map(e => e.tid).filter(t => w.teams[t]?.series === sr.id);
   w.year++; w.round = 0; w.over = false;
+  annuityDay(w);
   // people: grow, peak, fade
   for (const p of Object.values(w.people)) {
     if (p.retired) continue;
@@ -381,6 +386,84 @@ export function nextSeason(w, trackPool) {
   seasonOpenNews(w, moves);
   return moves;
 }
+
+// ---------------- money ----------------
+// You won the lottery and spent it on a racing team. The opening choice (lump sum or annuity) is an email; every round
+// then costs money (entry, travel, the crew, tyres, fuel, repairs) and pays prize money. All in dollars; the scale is
+// set so the Street Cup is survivable on the winnings, and every step up needs more than you have (sponsors, later).
+export const LOTTERY = { jackpot: 3000000, lump: 825000, annuity: 70000, years: 30, saleRate: 0.25 }; // (selling the annuity: a quarter of what it's worth)
+export const COSTS = {
+  street:  { entry: 4000,  travel: 2000,  crew: 5000,  tyre: 900,  fuelLap: 35,  repair: 24000,  prize: [20000, 14000, 10000, 8000, 6500, 5000, 4000, 3000, 2000, 1500] },
+  gt:      { entry: 15000, travel: 6000,  crew: 22000, tyre: 3200, fuelLap: 120, repair: 110000, prize: [80000, 56000, 40000, 32000, 26000, 20000, 16000, 12000, 8000, 6000] },
+  formula: { entry: 40000, travel: 15000, crew: 90000, tyre: 6000, fuelLap: 300, repair: 450000, prize: [200000, 140000, 100000, 80000, 65000, 50000, 40000, 30000, 20000, 15000] },
+};
+// the annuity is a year's money; seasons of other lengths get it in proportion (a 12-round year pays twice a 6)
+const annuityPay = (w) => Math.round(LOTTERY.annuity * w.opts.len / 6 / 100) * 100;
+export const money$ = (n) => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString('en-US');
+const BANK = 'First Velocita Bank', BANK_ADDR = 'statements@firstvelocita.sv';
+function startMoney(w) {
+  w.money = { balance: 0, choice: null, annuityLeft: 0, tx: [] };
+  const first = w.player.name.split(' ')[0];
+  mail(w, 'San Velocita State Lottery', 'winners@svlottery.sv', 'Claiming your prize',
+    [`Dear ${first},`, `Congratulations again on your win in the State Lottery draw: a jackpot of ${money$(LOTTERY.jackpot)}.`,
+     `Before we can pay you, we need to know how you'd like to receive it:`,
+     `LUMP SUM: the cash value of the jackpot, paid now. After tax you'll receive ${money$(LOTTERY.lump)}, in one payment.`,
+     `ANNUITY: the full jackpot, paid in ${LOTTERY.years} yearly instalments. Spread out, far less of it goes in tax: you'll receive ${money$(LOTTERY.annuity)} a year (${money$(LOTTERY.annuity * LOTTERY.years)} in total), the first payment now.`,
+     `This choice is final. Most winners take the lump sum. Most winners also don't start a racing team.`, `Winner Services, San Velocita State Lottery`],
+    { lottery: true, choices: [['lump', `Lump sum: ${money$(LOTTERY.lump)} now`], ['annuity', `Annuity: ${money$(LOTTERY.annuity)} a year for ${LOTTERY.years} years`]] });
+}
+// money in or out, kept as the bank sees it
+function pay(w, amt, what) {
+  const m = w.money; m.balance += amt;
+  m.tx.unshift({ y: w.year, when: whenOf(w), what, amt, bal: m.balance });
+  if (m.tx.length > 200) m.tx.length = 200;
+}
+export function claimLottery(w, choice) {
+  const m = w.money; if (m.choice) return;
+  m.choice = choice;
+  if (choice === 'lump') pay(w, LOTTERY.lump, 'State Lottery: lump sum');
+  else { m.annuityLeft = LOTTERY.years; annuityDay(w); }
+}
+function annuityDay(w) {
+  const m = w.money; if (!m || m.choice !== 'annuity' || m.annuityLeft <= 0) return;
+  m.annuityLeft--; pay(w, annuityPay(w), `State Lottery: annuity payment (${m.annuityLeft} left)`);
+}
+// selling the rest of the annuity to a settlement company: cash now, a fraction of what it's worth
+export const annuityOffer = (w) => w.money.choice === 'annuity' && w.money.annuityLeft > 0 ? Math.round(annuityPay(w) * w.money.annuityLeft * LOTTERY.saleRate / 1000) * 1000 : 0;
+export function sellAnnuity(w) {
+  const cash = annuityOffer(w); if (!cash) return 0;
+  const left = w.money.annuityLeft; w.money.annuityLeft = 0;
+  pay(w, cash, `Settlement: ${left} future annuity payments sold`);
+  mail(w, 'QuickCash Settlements', 'deals@quickcash.sv', 'Your money is on its way!',
+    [`Great news!`, `We've bought your remaining ${left} lottery payments (worth ${money$(annuityPay(w) * left)}) for ${money$(cash)}, paid today.`, `It's your money. Why wait for it?`, `The QuickCash Team`]);
+  return cash;
+}
+// a weekend's bill: use = { sets, laps, damage: 0..1 of a write-off, aidPct: the driver-aids prize bonus (%) }, me = your
+// classified row (prize money)
+export function settleRound(w, use, me) {
+  const c = COSTS[w.player.series], trackName = w.series[w.player.series].cal[w.round].name;
+  const items = [
+    ['Entry fee', -c.entry], ['Travel and freight', -c.travel], ['Crew', -c.crew],
+    [`Tyres (${use.sets} set${use.sets === 1 ? '' : 's'})`, -use.sets * c.tyre],
+    [`Fuel (${use.laps} lap${use.laps === 1 ? '' : 's'})`, -Math.round(use.laps * c.fuelLap)],
+  ];
+  if (use.damage > 0.005) items.push(['Repairs', -Math.round(use.damage * c.repair / 100) * 100]);
+  const base = me && !me.dnf ? c.prize[me.pos - 1] || 0 : 0, pct = Math.max(0, use.aidPct || 0);
+  const prize = Math.round(base * (1 + pct / 100) / 10) * 10;
+  if (prize) items.push([`Prize money (P${me.pos}${pct ? `, +${pct}% for fewer aids` : ''})`, prize]);
+  const before = w.money.balance;
+  for (const [what, amt] of items) if (amt) pay(w, amt, `${trackName}: ${what[0].toLowerCase() + what.slice(1)}`);
+  // overdrawn: the bank charges for it
+  if (w.money.balance < 0) { const fee = Math.round(-w.money.balance * 0.015 / 10) * 10 + 250; pay(w, -fee, 'Overdraft interest and fee'); items.push(['Overdraft interest and fee', -fee]); }
+  const net = w.money.balance - before;
+  mail(w, BANK, BANK_ADDR, `Account activity: ${trackName}`,
+    [`Here is the activity on your business account for round ${w.round + 1}, ${trackName}.`,
+     w.money.balance < 0 ? `Your account is overdrawn by ${money$(-w.money.balance)}. Overdrawn balances are charged 1.5% a round plus a $250 fee. Please call your branch.` : `Your balance is ${money$(w.money.balance)}.`],
+    { bill: { items, net, bal: w.money.balance } });
+  return { items, net };
+}
+// a round you didn't drive yourself (Sim Rest Of Season): a plain weekend, no damage
+export const simUse = (w) => ({ sets: w.opts.weekend === 'full' ? 4 : w.opts.weekend === 'quali' ? 2 : 1, laps: w.opts.laps + (w.opts.weekend === 'full' ? 18 : w.opts.weekend === 'quali' ? 6 : 0), damage: 0 });
 
 // ---------------- news (headlines) and texts (the phone) ----------------
 function news(w, head, body = '', extra = {}) { w.news.unshift({ y: w.year, r: w.round, when: whenOf(w), head, body, ...extra }); if (w.news.length > 120) w.news.length = 120; }
@@ -482,5 +565,5 @@ function seasonEndNews(w, sum) {
 // ---------------- save ----------------
 const KEY = 'svgp.world';
 export function saveWorld(w) { try { localStorage.setItem(KEY, JSON.stringify(w)); return true; } catch (e) { return false; } }
-export function loadWorld() { try { const w = JSON.parse(localStorage.getItem(KEY)); if (!w || w.v !== 1) return null; w.mail = w.mail || []; return w; } catch (e) { return null; } }
+export function loadWorld() { try { const w = JSON.parse(localStorage.getItem(KEY)); if (!w || w.v !== 1) return null; w.mail = w.mail || []; if (!w.money) startMoney(w); return w; } catch (e) { return null; } }
 export function clearWorld() { localStorage.removeItem(KEY); }

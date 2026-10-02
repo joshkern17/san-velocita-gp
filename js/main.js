@@ -755,6 +755,7 @@ function keepWeekend() {
 const SESSION_NAME = { practice: 'Practice', quali: 'Qualifying' };
 function showQualiResults() {
   if (!sim || !sim.quali) return;
+  useSession();
   if (!weekend) weekend = { track: cloneTrack(lastRace.track), race: { ...lastRace.cfg, mode: 'race' }, ret: lastRace.ret, format: 'quali', len: [1200, sim.quali.time], stage: 'quali' };
   pitGarage.close();
   const kind = sim.quali.kind, practice = kind === 'practice';
@@ -783,6 +784,26 @@ function showQualiResults() {
     { label: 'Main Menu', action: () => { weekend = null; quitToMenu(); } });
   show('s-results');
   const m = menus['s-results'][0]; m.setItems(items); m.i = 0; m.render();
+}
+
+// ---------------- World Career: what a weekend uses (the bill: WC.settleRound) ----------------
+// Every session starts on a fresh set; new sets in the garage, tyre stops and repairs add to it; fuel is billed by the lap.
+let wkUse = null;
+const wkOn = () => raceReturn === 'world' && wkUse && world && world.money;
+const dmgOf = (d) => (d.fw + d.rw + d.ch) / 3; // (0..1: all three parts written off)
+// a session is over: add up what it used (once per session)
+function useSession() {
+  if (!wkOn() || !sim || !sim.player || wkUse.seen === sim) return;
+  const pl = sim.player; wkUse.seen = sim;
+  wkUse.laps += pl.lapTimes.length;
+  wkUse.sets += 1 + (sim.mode === 'race' ? pl.pits : 0);
+  wkUse.damage += sim.mode === 'race' ? Math.max(dmgOf(pl.phys.dmg), (pl.maxDmg || 0) / 3) : dmgOf(pl.phys.dmg);
+}
+// spent so far this weekend (tyres, fuel, repairs; the session in progress included)
+function wkSpend() {
+  const c = WC.COSTS[world.player.series], pl = sim && sim.player, live = pl && wkUse.seen !== sim;
+  const sets = wkUse.sets + (live ? 1 : 0), laps = wkUse.laps + (live ? pl.lapTimes.length : 0), dmg = wkUse.damage + (live ? dmgOf(pl.phys.dmg) : 0);
+  return sets * c.tyre + laps * c.fuelLap + Math.round(dmg * c.repair / 100) * 100;
 }
 
 // ---------------- the pit garage (practice / qualifying) ----------------
@@ -815,7 +836,7 @@ function renderGarageMenu() {
   const items = [
     { label: 'Flying Lap', cls: 'action primary', action: () => goOut('flying'), desc: 'Straight onto a flying lap: the clock starts at the line.' },
     ...(sim.pit ? [{ label: 'Drive Out', cls: 'action', action: () => goOut('drive'), desc: 'Down the pit lane and an out lap first, to get the tyres going.' }] : []),
-    { label: 'Tyres', values: pgTyreVals(), get: () => pgTyre, set: v => { pgTyre = v; pitGarage.setTyre(v === 'keep' ? sim.player.phys.tyre.c : v); renderGarageInfo(); }, desc: `Keep the set on the car, or fit a new set when you go out (${TYRE_FIT} seconds of the session). Softs are fastest over a lap.` },
+    { label: 'Tyres', values: pgTyreVals(), get: () => pgTyre, set: v => { pgTyre = v; pitGarage.setTyre(v === 'keep' ? sim.player.phys.tyre.c : v); renderGarageInfo(); }, desc: `Keep the set on the car, or fit a new set when you go out (${TYRE_FIT} seconds of the session). Softs are fastest over a lap.${wkOn() ? ` A new set costs <b>${WC.money$(WC.COSTS[world.player.series].tyre)}</b>.` : ''}` },
     repairItem(),
     presetItem(' Applies from your next run.'),
     { label: 'Timing', action: () => { pgTiming = !pgTiming; $('pg-timing').hidden = !pgTiming; $('pg-car').hidden = pgTiming; renderGarageInfo(); }, desc: 'The full timing screen for the session (select again for the car).' },
@@ -848,6 +869,7 @@ function repairNow() {
     bar.style.width = (k * 100).toFixed(1) + '%';
     if (k < 1 && screen === 's-pitgarage') return requestAnimationFrame(tick);
     if (!sim || !sim.player) return;
+    if (wkOn()) wkUse.damage += dmgOf(sim.player.phys.dmg);
     sim.garageRepair(sim.player);
     pitGarage.setDamage(sim.player.phys.dmg);
     el.hidden = true; pgBusy = false; sfx.go();
@@ -871,12 +893,13 @@ function renderGarageInfo() {
     const part = (name, x, secs) => `<div class="pg-row"><span>${name}</span><i class="pg-bar"><b style="width:${Math.round((1 - x) * 100)}%;background:${col(x)};color:${col(x)}"></b></i><em>${secs ? mmss(secs) : 'OK'}</em></div>`;
     const wear = Math.min(t.wf, t.wr);
     const next = pgTyre === 'keep' ? 'Keeping this set' : `New ${capit(pgTyre)} on the way out · ${mmss(TYRE_FIT)}`;
-    const key = [d.fw, d.rw, d.ch, wear, t.c, pgTyre].map(v => typeof v === 'number' ? v.toFixed(2) : v).join();
+    const key = [d.fw, d.rw, d.ch, wear, t.c, pgTyre, wkOn() ? wkSpend() : 0].map(v => typeof v === 'number' ? v.toFixed(2) : v).join();
     if (key !== pgWorkKey) {
       pgWorkKey = key;
       $('pg-car').innerHTML = `<div class="panel-title">CAR</div>` + part('Front wing', d.fw, w.fw) + part('Rear wing', d.rw, w.rw) + part('Suspension', d.ch, w.ch)
         + `<div class="pg-row"><span>${tyreDot(t.c)}${capit(t.c)} tyres</span><i class="pg-bar"><b style="width:${Math.round(wear * 100)}%;background:${wear > 0.6 ? 'var(--sv-good)' : wear > 0.3 ? 'var(--sv-hot)' : 'var(--sv-bad)'};color:${wear > 0.6 ? 'var(--sv-good)' : wear > 0.3 ? 'var(--sv-hot)' : 'var(--sv-bad)'}"></b></i><em>${Math.round(wear * 100)}%</em></div>`
-        + `<p class="pg-note">${next}</p>`;
+        + `<p class="pg-note">${next}</p>`
+        + (wkOn() ? `<p class="pg-note">This weekend so far: <b>${WC.money$(wkSpend())}</b> in tyres, fuel and repairs &middot; balance ${WC.money$(world.money.balance)}</p>` : '');
     }
   }
   if ((q.left > 330 ? 'Skip 5 Minutes' : 'Skip To The End') !== pgSkipLbl) renderGarageMenu();
@@ -884,6 +907,7 @@ function renderGarageInfo() {
 function goOut(how) {
   sfx.go();
   if (pgBusy) return;
+  if (pgTyre !== 'keep' && wkOn()) wkUse.sets++;
   fadeTo(() => { pitGarage.close(); sim.leaveGarage(sim.player, how, pgTyre === 'keep' ? null : pgTyre); beginHud(); }, 250);
 }
 menus['s-pitgarage'] = [new Menu($('m-pitgarage'), [], { desc: 'd-pitgarage' })];
@@ -1193,6 +1217,7 @@ const pc = new Computer({
   world: () => world,
   answer: (m, key) => {
     m.answer = key;
+    if (m.lottery) { WC.claimLottery(world, key); sfx.best(); renderHub(); }
     if (m.offer) {
       WC.answerOffer(world, key);
       const mate = world.people[world.teams[world.player.team].drivers.find(d => d !== 'P')];
@@ -1201,6 +1226,7 @@ const pc = new Computer({
     saveWorld(); renderHubMenu(); sfx.select();
   },
   changed: () => { saveWorld(); renderHubMenu(); },
+  sell: () => { const cash = WC.sellAnnuity(world); if (cash) { sfx.best(); saveWorld(); renderHub(); } },
   view: () => { if (screen === 's-hub') renderHints(); },
   sfx: { move: () => sfx.move(), select: () => sfx.select(), back: () => sfx.back() },
 });
@@ -1302,7 +1328,7 @@ function startWorld() {
   world = WC.newWorld({ name, len: worldOpts.len, difficulty: worldOpts.difficulty, laps: worldOpts.laps, weekend: worldOpts.weekend, pracLen: worldOpts.prac, qualiLen: worldOpts.quali, pool: worldOpts.pool,
     teamName: settings.car.teamName && settings.car.teamName !== 'Your Team' ? settings.car.teamName : `${name.split(' ').pop()} Racing`, colors: [settings.car.main, settings.car.accent], seed: Date.now() }, worldPool());
   saveWorld();
-  openHub(true);
+  fadeTo(() => { enterHub(); const m = world.mail.find(x => x.lottery); setTimeout(() => { if (screen === 's-hub') sitDown('mail', m && m.id); }, 700); }, 200);
 }
 
 // ---- the hub: your garage ----
@@ -1334,15 +1360,17 @@ function renderHub() {
   const st = WC.seriesStandings(w, sid), cp = S.results.length ? st.findIndex(e => e.pid === 'P') + 1 : 0;
   const pips = S.cal.map((c, k) => `<i class="${k < w.round ? 'done' : k === w.round && !w.over ? 'now' : ''}" title="${c.name}"></i>`).join('');
   const champ = cellW('Championship', cp ? `${ord(cp)}<small> ${st[cp - 1].pts} PTS</small>` : '&mdash;');
+  const bank = w.money && w.money.choice ? cellW('Bank', `<span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span>`) : cellW('Bank', '&mdash;');
   if (!w.over) {
     const r = S.cal[w.round], tr = worldPool().find(t => t.name === r.name);
     $('hub-card').innerHTML = `<div class="panel-title">NEXT &middot; ROUND ${w.round + 1} OF ${w.opts.len}</div><div class="season-pips">${pips}</div>
       <div class="ti-name">${r.name}</div><div class="ti-chips"><span>${tr ? THEMES[tr.env.theme].label : ''}</span><span class="wx-chip">${r.time} &middot; ${r.weather}</span></div>
-      <div class="ti-grid">${champ}${cellW('Laps', tr && tr.open ? '1 run' : w.opts.laps)}</div>`;
+      <div class="ti-grid">${champ}${bank}</div>
+      ${w.money && !w.money.choice ? `<p class="hub-note">You won the lottery. <b>Check your email</b> to claim it.</p>` : ''}`;
   } else {
     const sum = w.seasons.at(-1), you = sum && sum.you, off = w.player.offer;
     $('hub-card').innerHTML = `<div class="panel-title">${w.year} &middot; SEASON COMPLETE</div><div class="season-pips">${pips}</div>
-      <div class="ti-grid three">${cellW('Finished', you ? ord(you.pos) : '&mdash;')}${cellW('Points', you ? you.pts : 0)}${cellW('Wins', you ? you.wins : 0)}</div>
+      <div class="ti-grid three">${cellW('Finished', you ? ord(you.pos) : '&mdash;')}${cellW('Wins', you ? you.wins : 0)}${bank}</div>
       ${off ? `<p class="hub-note">${off.answer === 'move' ? `You're moving up to the <b>${seriesName(off.to)}</b>.` : off.answer === 'stay' ? `You're staying in the ${seriesName(sid)}.` : `The <b>${seriesName(off.to)}</b> has emailed you an offer.`}</p>` : ''}`;
   }
   renderHubMenu();
@@ -1352,7 +1380,9 @@ function renderHubMenu() {
   const w = world, sid = w.player.series, n = WC.unread(w), nm = WC.unreadMail(w);
   const items = [];
   const off = w.player.offer, offerMail = off && !off.answer && (w.mail || []).find(m => m.offer && !m.answer);
-  if (!w.over) {
+  const claim = w.money && !w.money.choice && (w.mail || []).find(m => m.lottery && !m.answer);
+  if (claim) items.push({ label: 'Claim Your Winnings', cls: 'action primary', action: () => sitDown('mail', claim.id), desc: 'The State Lottery needs to know how you want your money. It\'s waiting in your email.' });
+  else if (!w.over) {
     const r = w.series[sid].cal[w.round];
     items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), desc: `${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}` });
   } else {
@@ -1390,6 +1420,7 @@ function simWorldSeason() {
 // ---- a round ----
 function startWorldRound() {
   const w = world, sid = w.player.series, r = w.series[sid].cal[w.round];
+  wkUse = { sets: 0, laps: 0, damage: 0, seen: null };
   const base = worldPool().find(t => t.name === r.name) || presetTracks()[0];
   const track = cloneTrack(base); track.env.time = r.time; track.env.weather = r.weather;
   // your team wears your livery (and name, once you've set one in the Livery Designer)
@@ -1420,7 +1451,9 @@ function worldRoundDone(retired = false) {
   let res = sim.results();
   if (retired) { const me = res.find(r => r.isPlayer); res = res.filter(r => !r.isPlayer).concat([{ ...me, gap: 'DNF', time: null, dnf: true }]); res.forEach((r, k) => r.pos = k + 1); }
   const sid = w.player.series, round = w.round, trackName = w.series[sid].cal[round].name;
-  const out = WC.recordPlayerRound(w, res, sim.log || []);
+  useSession();
+  const out = WC.recordPlayerRound(w, res, sim.log || [], wkUse && w.money ? { sets: wkUse.sets, laps: wkUse.laps, damage: wkUse.damage, aidPct: Math.max(0, sim.aidBonus ?? 0) } : null);
+  wkUse = null;
   saveWorld();
   sim.setPaused(true);
   const scored = w.series[sid].results.find(x => x.round === round), ptsOf = (pid) => scored.rows.find(r => r.pid === pid)?.pts || 0;
@@ -1437,6 +1470,7 @@ function worldRoundDone(retired = false) {
     <div class="row"><span>Points</span><span>${me ? '+' + me.pts : 0}</span></div>
     <div class="row"><span>Championship</span><span>${ord(cp)} &middot; ${st[cp - 1]?.pts ?? 0} pts</span></div>
     ${mr ? `<div class="row"><span>${w.people[mateId].last}</span><span>${mr.dnf ? 'DNF' : 'P' + mr.pos}</span></div>` : ''}
+    ${out.bill ? `<div class="row"><span>The weekend</span><span class="${out.bill.net < 0 ? 'bad' : 'ok'}">${out.bill.net > 0 ? '+' : ''}${WC.money$(out.bill.net)}</span></div><div class="row"><span>Bank balance</span><span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span></div>` : ''}
     ${n ? `<div class="row"><span>Phone</span><span>${n} new</span></div>` : ''}`;
   menus['s-round'][0].setItems([{ label: out.over ? 'Season Review' : 'Continue', cls: 'action primary', action: () => openHub() }]);
   show('s-round');
