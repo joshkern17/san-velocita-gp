@@ -767,8 +767,7 @@ function startWeekend(track, race, ret, format, len) {
 }
 function startSession(kind, first = false) {
   const w = weekend; w.stage = kind;
-  const carry = wkOn() && kind === 'quali' && wkUse.carry && !first ? { startSet: wkUse.carry } : {};
-  if (wkOn()) wkUse.startNew = !carry.startSet;
+  const carry = w.ret === 'world' && wkUse && world && world.money ? { startSet: sessionSet(kind) } : {}; // (raceReturn isn't 'world' yet on the first session)
   const extra = { ...(w.race.extra || {}), ...(w.car ? { car: w.car } : {}), ...(w.roster ? { roster: w.roster, aiSetup: w.aiSetup } : {}), ...carry };
   startRace(w.track, { ...w.race, mode: kind, practiceTime: w.len[0], qualiTime: w.len[1], pick: first && w.race.pick, extra }, w.ret);
 }
@@ -799,7 +798,7 @@ function showQualiResults() {
     + row(practice ? 'Next' : 'Race', practice ? `Qualifying &middot; ${Math.round(weekend.len[1] / 60)} min` : `${weekend.race.laps} lap${weekend.race.laps === 1 ? '' : 's'} &middot; ${n} cars`);
   const toRace = () => {
     const w = weekend, g = sim.qualiGrid();
-    if (wkOn()) wkUse.startNew = true;
+    if (wkOn() && wkUse.carry) { WC.keepUsed(world, wkUse.carry); wkUse.carry = null; } // (the qualifying set comes off for the race)
     startRace(w.track, { ...w.race, mode: 'race', pick: false, fromQuali: true, extra: { ...(w.race.extra || {}), ...g, car: { ...sim.opts.car } } }, w.ret);
   };
   const items = practice
@@ -813,8 +812,9 @@ function showQualiResults() {
 }
 
 // ---------------- World Career: what a weekend uses (the bill: WC.settleRound) ----------------
-// A session starts on a fresh set (qualifying: on the set practice ended on); new sets in the garage, tyre stops and
-// repairs add to it; fuel is billed by the lap. The garage's receipt shows each charge as it happens (pgReceipt).
+// Tyres come from your stock (WC.stockOf / usedOf: ordered on the computer); a session starts on a set from it
+// (qualifying: on the set practice ended on); run out and the trackside service sells you one at a premium, which goes
+// on the bill with fuel (by the lap) and repairs. The garage's receipt shows each charge as it happens (pgReceipt).
 let wkUse = null;
 const wkOn = () => raceReturn === 'world' && wkUse && world && world.money;
 const dmgOf = (d) => (d.fw + d.rw + d.ch) / 3; // (0..1: all three parts written off)
@@ -824,8 +824,9 @@ function useSession() {
   const pl = sim.player; wkUse.seen = sim;
   try { logSessionTelemetry(pl); } catch (e) { console.warn('telemetry log', e); }
   wkUse.laps += pl.lapTimes.length;
-  wkUse.sets += (wkUse.startNew === false ? 0 : 1) + (sim.mode === 'race' ? pl.pits : 0);
-  wkUse.carry = { ...pl.phys.tyre }; wkUse.startNew = true; // (what the next session can start on)
+  // the race's sets come out of stock now (the start, each stop); short, and it was the trackside service
+  if (sim.mode === 'race') for (const c of pl.setsUsed || []) if (!WC.takeSet(world, c)) wkUse.trackside++;
+  wkUse.carry = { c: pl.phys.tyre.c, wf: pl.phys.tyre.wf, wr: pl.phys.tyre.wr }; // (what the next session can start on)
   wkUse.damage += sim.mode === 'race' ? Math.max(dmgOf(pl.phys.dmg), (pl.maxDmg || 0) / 3) : dmgOf(pl.phys.dmg);
 }
 // the session's best lap, analysed against the reference, kept for the computer's Telemetry app
@@ -843,8 +844,20 @@ function logSessionTelemetry(pl) {
 // spent so far this weekend (tyres, fuel, repairs; the session in progress included)
 function wkSpend() {
   const c = WC.COSTS[world.player.series], pl = sim && sim.player, live = pl && wkUse.seen !== sim;
-  const sets = wkUse.sets + (live && wkUse.startNew !== false ? 1 : 0), laps = wkUse.laps + (live ? pl.lapTimes.length : 0), dmg = wkUse.damage + (live ? dmgOf(pl.phys.dmg) : 0);
-  return sets * c.tyre + laps * c.fuelLap + WC.repairQuote(world, dmg);
+  const laps = wkUse.laps + (live ? pl.lapTimes.length : 0), dmg = wkUse.damage + (live ? dmgOf(pl.phys.dmg) : 0);
+  return wkUse.trackside * WC.buyTrackside(world) + laps * c.fuelLap + WC.repairQuote(world, dmg);
+}
+// the set a session starts on: practice's set again (qualifying), else a new one from stock (wets if it's raining),
+// else the best used one of that compound, else one from the trackside service
+function sessionSet(kind) {
+  if (kind === 'quali' && wkUse.carry) return wkUse.carry;
+  if (wkUse.carry) { WC.keepUsed(world, wkUse.carry); wkUse.carry = null; }
+  const c = weekend && weekend.track.env.weather === 'rain' ? 'wet' : 'soft';
+  if (WC.takeSet(world, c)) return { c, wf: 1, wr: 1 };
+  const u = WC.usedOf(world), k = u.findIndex(x => x.c === c);
+  if (k >= 0) return u.splice(k, 1)[0];
+  wkUse.trackside++; (wkUse.receipt = wkUse.receipt || []).push([`${capit(c)}s (trackside)`, WC.buyTrackside(world)]);
+  return { c, wf: 1, wr: 1 };
 }
 
 // ---------------- the pit garage (practice / qualifying) ----------------
@@ -857,17 +870,21 @@ const tyreDot = (c) => `<span class="tyre-dot" style="background:${PG_TYRE_COL[c
 const mmss = (t) => { t = Math.round(t); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
 // your tyres this weekend: the set on the car, used sets on the rack (what you took off, with their wear), new sets
 // (World Career: each one goes on the bill). The rack lasts the weekend (World Career) or the session.
-const rackOf = () => wkOn() ? (wkUse.rack = wkUse.rack || []) : (sim.__rack = sim.__rack || []);
+const rackOf = () => wkOn() ? WC.usedOf(world) : (sim.__rack = sim.__rack || []);
 const pct = (t) => Math.round(Math.min(t.wf, t.wr) * 100);
 function tyreItems() {
-  const pl = sim.player, t = pl.phys.tyre, rack = rackOf(), price = wkOn() ? WC.tyreCost(world) : 0;
+  const pl = sim.player, t = pl.phys.tyre, rack = rackOf(), world$ = wkOn(), st = world$ ? WC.stockOf(world) : null;
   const items = [{ label: `On The Car<small>${capit(t.c)} &middot; ${pct(t)}%</small>`, head: true }];
-  items.push({ label: 'New Sets', head: true });
-  for (const c of ['soft', 'medium', 'hard', 'wet']) items.push({ label: `${tyreDot(c)}New ${capit(c)}${price ? `<small>${WC.money$(price)}</small>` : ''}`, action: () => fitTyre({ c, wf: 1, wr: 1, fresh: true }),
-    desc: `${{ soft: 'Fastest over a lap, wears quickest.', medium: 'The middle ground.', hard: 'Slowest, lasts longest.', wet: 'For rain. Overheats in the dry.' }[c]} The crew needs ${TYRE_FIT} seconds of the session.${price ? ` A new set costs <b>${WC.money$(price)}</b>.` : ''}` });
+  items.push({ label: world$ ? 'New Sets In Stock' : 'New Sets', head: true });
+  for (const c of ['soft', 'medium', 'hard', 'wet']) {
+    const have = st ? st[c] : Infinity, buy = st && !have;
+    items.push({ label: `${tyreDot(c)}${buy ? capit(c) : 'New ' + capit(c)}${st ? `<small>${buy ? 'trackside ' + WC.money$(WC.buyTrackside(world)) : have + ' left'}</small>` : ''}`,
+      action: () => fitTyre({ c, wf: 1, wr: 1, fresh: true, buy }),
+      desc: `${{ soft: 'Fastest over a lap, wears quickest.', medium: 'The middle ground.', hard: 'Slowest, lasts longest.', wet: 'For rain. Overheats in the dry.' }[c]} The crew needs ${TYRE_FIT} seconds of the session.${buy ? ` You have none: the trackside service sells you a set for <b>${WC.money$(WC.buyTrackside(world))}</b> (order ahead on the computer for less).` : st ? ` From your stock: ${have} left.` : ''}` });
+  }
   if (rack.length) {
     items.push({ label: 'Used Sets', head: true });
-    rack.forEach((r, k) => items.push({ label: `${tyreDot(r.c)}${capit(r.c)}<small>${pct(r)}%</small>`, action: () => fitTyre(r, k), desc: `A set you ran earlier${wkOn() ? ' this weekend' : ''}. Free to put back on.` }));
+    rack.forEach((r, k) => items.push({ label: `${tyreDot(r.c)}${capit(r.c)}<small>${pct(r)}%</small>`, action: () => fitTyre(r, k), desc: `A set you ran earlier. Free to put back on.` }));
   }
   items.push({ label: 'Back', action: () => { pgView = 'main'; sfx.back(); renderGarageMenu(); renderHints(); }, desc: 'Back to the garage.' });
   return items;
@@ -885,12 +902,16 @@ function fitTyre(set, rackIdx = -1) {
     if (!sim || !sim.player) return;
     const rack = rackOf(), off = { c: pl.phys.tyre.c, wf: pl.phys.tyre.wf, wr: pl.phys.tyre.wr };
     if (rackIdx >= 0) rack.splice(rackIdx, 1);
-    if (pct(off) > 10) rack.push(off);
-    rack.sort((a, b) => pct(b) - pct(a)); if (rack.length > 6) rack.length = 6;
+    if (wkOn()) WC.keepUsed(world, off);
+    else { if (pct(off) > 10) rack.push(off); rack.sort((a, b) => pct(b) - pct(a)); if (rack.length > 6) rack.length = 6; }
     sim.fitSet(pl, set);
     if (pitGarage.car && pitGarage.car.setCompound) pitGarage.car.setCompound(set.c);
     pitGarage.setTyre(set.c);
-    if (set.fresh && wkOn()) { wkUse.sets++; pgReceipt(`New ${set.c}s`, WC.tyreCost(world)); }
+    if (set.fresh && wkOn()) {
+      if (set.buy || !WC.takeSet(world, set.c)) { wkUse.trackside++; pgReceipt(`${capit(set.c)}s (trackside)`, WC.buyTrackside(world)); }
+      else pgReceipt(`New ${set.c}s from stock`, 0);
+      saveWorld();
+    }
     el.hidden = true; pgBusy = false; sfx.go(); pgView = 'main';
     renderGarageMenu(); renderGarageInfo(); renderHints();
   };
@@ -902,8 +923,9 @@ function pgReceipt(what, amt) {
   if (what) (wkUse.receipt = wkUse.receipt || []).push([what, amt]);
   const el = $('pg-receipt'), lines = (wkUse.receipt || []).slice(-4);
   el.hidden = false;
-  el.innerHTML = `<div class="panel-title">THIS WEEKEND</div>` + lines.map(([w, a], k) => `<div class="pg-rline${what && k === lines.length - 1 ? ' fresh' : ''}"><span>${w}</span><b>${WC.money$(a)}</b></div>`).join('')
-    + `<div class="pg-rtot"><span>So far</span><b>${WC.money$(wkSpend())}</b></div><small>Tyres, fuel and repairs: on this round's bill. Balance ${WC.money$(world.money.balance)}.</small>`;
+  const st = WC.stockOf(world);
+  el.innerHTML = `<div class="panel-title">THIS WEEKEND</div>` + lines.map(([w, a], k) => `<div class="pg-rline${what && k === lines.length - 1 ? ' fresh' : ''}"><span>${w}</span><b>${a ? WC.money$(a) : 'paid'}</b></div>`).join('')
+    + `<div class="pg-rtot"><span>So far</span><b>${WC.money$(wkSpend())}</b></div><small>Fuel, repairs and trackside tyres go on this round's bill. In stock: ${['soft', 'medium', 'hard', 'wet'].map(c => `${st[c]} ${c}`).join(', ')}.</small>`;
 }
 function openPitGarage() {
   if (!sim || !sim.quali || !sim.player) return;
@@ -1323,6 +1345,7 @@ const pc = new Computer({
     sfx.best(); saveWorld(); renderHub(); phone.buzz();
   },
   buy: (id) => { if (WC.buyCar(world, id)) { sfx.best(); saveWorld(); renderHub(); } },
+  order: (o) => { const cost = WC.orderTyres(world, o); if (cost) { sfx.best(); saveWorld(); renderHub(); } },
   // the Team app and SVJobs: hire, let go, pay back, payroll instructions
   staff: (what, id, mode) => {
     if (what === 'hire') WC.hireStaff(world, id);
@@ -1500,8 +1523,7 @@ function renderHub() {
     const r = S.cal[w.round], tr = worldPool().find(t => t.name === r.name);
     $('hub-card').innerHTML = `<div class="panel-title">NEXT &middot; ROUND ${w.round + 1} OF ${w.opts.len}</div><div class="season-pips">${pips}</div>
       <div class="ti-name">${r.name}</div><div class="ti-chips"><span>${tr ? THEMES[tr.env.theme].label : ''}</span><span class="wx-chip">${r.time} &middot; ${r.weather}</span></div>
-      <div class="ti-grid">${champ}${bank}</div>
-      ${w.money && !w.money.choice ? `<p class="hub-note">You won the lottery. <b>Check your email</b> to claim it.</p>` : ''}`;
+      <div class="ti-grid">${champ}${bank}</div>${tyreNote(w)}`;
   } else {
     const sum = w.seasons.at(-1), you = sum && sum.you, off = w.player.offer;
     $('hub-card').innerHTML = `<div class="panel-title">${w.year} &middot; SEASON COMPLETE</div><div class="season-pips">${pips}</div>
@@ -1530,6 +1552,7 @@ function renderHubMenu() {
   }
   items.push(
     { label: `Computer${nm ? `<small>${nm} NEW</small>` : ''}`, action: () => sitDown(offerMail ? 'mail' : null, offerMail ? offerMail.id : null), desc: 'Sit down at the desk: your email, the news, the series\' websites and the driver database. You can also click the monitor.' },
+    ...(founded(w) && tyreShort(w) ? [{ label: 'Order Tyres<small>LOW</small>', action: () => sitDown('tyres'), desc: 'You\'re short of tyres for the next round. Order on the computer (Tyre Orders), or hire a team manager to do it.' }] : []),
     { label: `Phone${n ? `<small>${n} NEW</small>` : ''}`, action: () => { phone.open(); renderHints(); }, desc: 'Texts from your teammate, rivals and friends. Press <b>P</b> / <b>Y</b> any time.' },
     { label: 'Car & Livery', action: () => openWorldGarage(), desc: w.car ? `Your ${w.car.year} ${w.car.name}: paint it, design the livery, the helmet and the suit.` : `Your livery, helmet and suit. In the ${seriesName(sid)} you race ${CLASSES[WC.seriesById(sid).cls].label} cars.` },
     presetItem(' Set each aid in Options > Aids.'),
@@ -1544,6 +1567,17 @@ menus['s-hub'] = [new Menu($('m-hub'), [], { desc: 'd-hub' })];
 backs['s-hub'] = () => { if (pcSeat && pc.isOpen) { if (pc.app) { pc.back(); renderHints(); } else standUp(); } };
 tabbers['s-hub'] = (d) => { if (pc.isOpen) pc.flip(d); };
 const cellW = (k, v) => `<div><small>${k}</small><b>${v}</b></div>`;
+// short of tyres for the next round (and nobody ordering for you)?
+function tyreShort(w) {
+  if (w.over || !w.founding || w.founding.legacy || WC.staffOf(w, 'manager')) return null;
+  const need = WC.tyreNeeds(w), st = WC.stockOf(w), short = WC.COMPOUNDS.filter(c => st[c] < need[c]);
+  return short.length ? short : null;
+}
+function tyreNote(w) {
+  const short = tyreShort(w); if (!short) return '';
+  const st = WC.stockOf(w);
+  return `<p class="hub-note">Tyres in stock: ${WC.COMPOUNDS.map(c => `${st[c]} ${c}`).join(', ')}. <b>Order before the weekend</b>: trackside sets cost ${Math.round((WC.TRACKSIDE - 1) * 100)}% more.</p>`;
+}
 // ready to race: registered, paid, a car in the garage
 const founded = (w) => { const F = w.founding || {}; return F.reg && F.car && w.money && w.money.choice; };
 function beginNextSeason() {
@@ -1561,8 +1595,8 @@ function simWorldSeason() {
 // ---- a round ----
 function startWorldRound() {
   const w = world, sid = w.player.series, r = w.series[sid].cal[w.round];
-  wkUse = { sets: 0, laps: 0, damage: 0, seen: null };
-  if (w.staff) { WC.runPayroll(w); saveWorld(); }
+  wkUse = { trackside: 0, laps: 0, damage: 0, seen: null, carry: null };
+  if (w.staff) { WC.managerRestock(w); WC.runPayroll(w); saveWorld(); }
   const base = worldPool().find(t => t.name === r.name) || presetTracks()[0];
   const track = cloneTrack(base); track.env.time = r.time; track.env.weather = r.weather;
   // your team wears your livery
@@ -1596,7 +1630,8 @@ function worldRoundDone(retired = false) {
   if (retired) { const me = res.find(r => r.isPlayer); res = res.filter(r => !r.isPlayer).concat([{ ...me, gap: 'DNF', time: null, dnf: true }]); res.forEach((r, k) => r.pos = k + 1); }
   const sid = w.player.series, round = w.round, trackName = w.series[sid].cal[round].name;
   useSession();
-  const out = WC.recordPlayerRound(w, res, sim.log || [], wkUse && w.money ? { sets: wkUse.sets, laps: wkUse.laps, damage: wkUse.damage, aidPct: Math.max(0, sim.aidBonus ?? 0) } : null);
+  if (wkUse && wkUse.carry) WC.keepUsed(w, wkUse.carry); // (the race's last set goes on the shelf, for what it's worth)
+  const out = WC.recordPlayerRound(w, res, sim.log || [], wkUse && w.money ? { trackside: wkUse.trackside, laps: wkUse.laps, damage: wkUse.damage, aidPct: Math.max(0, sim.aidBonus ?? 0) } : null);
   wkUse = null;
   saveWorld();
   sim.setPaused(true);

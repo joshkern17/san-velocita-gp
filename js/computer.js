@@ -28,6 +28,7 @@ const APPS = [
   { id: 'bank', label: 'Bank', title: 'Web Browser' },
   { id: 'classifieds', label: 'Classifieds', title: 'Web Browser' },
   { id: 'team', label: 'Team', title: 'Team' },
+  { id: 'tyres', label: 'Tyre Orders', title: 'Web Browser' },
   { id: 'telemetry', label: 'Telemetry', title: 'Telemetry' },
   { id: 'jobs', label: 'SVJobs', title: 'Web Browser', hidden: true }, // (reached from the Team app)
   { id: 'registry', label: 'Registry', title: 'Web Browser', hidden: true }, // (reached from its email)
@@ -41,6 +42,7 @@ const ICONS = {
   news: [['#ffffff', 10, 6, 44, 52], ['#1a1a1a', 15, 11, 34, 7], ['#9a9a9a', 15, 22, 34, 3], ['#9a9a9a', 15, 28, 34, 3], ['#9a9a9a', 15, 34, 22, 3], ['#c23', 40, 34, 9, 14], ['#9a9a9a', 15, 40, 22, 3], ['#9a9a9a', 15, 46, 22, 3]],
   series: [['#5a5a5a', 12, 6, 4, 54], ['#111', 16, 8, 36, 24], ['#fff', 16, 8, 9, 6], ['#fff', 34, 8, 9, 6], ['#fff', 25, 14, 9, 6], ['#fff', 43, 14, 9, 6], ['#fff', 16, 20, 9, 6], ['#fff', 34, 20, 9, 6], ['#fff', 25, 26, 9, 6], ['#fff', 43, 26, 9, 6]],
   drivers: [['#2a4fa0', 14, 10, 36, 34], ['#e8e8e8', 18, 20, 28, 12], ['#111', 20, 22, 24, 8], ['#2a4fa0', 10, 44, 44, 14]],
+  tyres: [['#111', 10, 10, 44, 44], ['#3a3a3a', 18, 18, 28, 28], ['#c8c8c8', 26, 26, 12, 12], ['#e0302a', 10, 30, 6, 4], ['#f2d22a', 48, 30, 6, 4]],
   team: [['#c8141c', 18, 8, 28, 20], ['#e8c9a8', 22, 12, 20, 14], ['#2a4fa0', 10, 32, 44, 24], ['#e8e8e8', 28, 34, 8, 20]],
   telemetry: [['#101418', 6, 10, 52, 40], ['#3ddc84', 10, 36, 6, 3], ['#3ddc84', 16, 30, 6, 3], ['#3ddc84', 22, 22, 6, 3], ['#3ddc84', 28, 26, 6, 3], ['#3ddc84', 34, 16, 6, 3], ['#3ddc84', 40, 20, 6, 3], ['#3ddc84', 46, 14, 6, 3], ['#8a8f96', 22, 50, 20, 6]],
   classifieds: [['#f4f1e4', 8, 8, 48, 48], ['#7a2cc8', 8, 8, 48, 10], ['#7a2cc8', 14, 24, 22, 3], ['#7a2cc8', 14, 32, 30, 3], ['#7a2cc8', 14, 40, 18, 3], ['#7a2cc8', 14, 48, 26, 3]],
@@ -136,6 +138,7 @@ export class Computer {
       : app === 'bank' ? { bank: 'home' }
       : app === 'classifieds' ? { ad: null }
       : app === 'team' ? { team: 1 }
+      : app === 'tyres' ? { tyres: 1 }
       : app === 'jobs' ? { role: 'mechanic' }
       : app === 'telemetry' ? { file: null }
       : app === 'registry' ? { reg: 1 }
@@ -172,6 +175,7 @@ export class Computer {
     if (a === 'hire') { if (this.hireArmed !== arg) { this.hireArmed = arg; this.curKey = 'hire-' + arg; this.render(); this.src.sfx?.move?.(); return; } this.hireArmed = null; this.src.staff?.('hire', arg); this.launch('team'); return; }
     if (a === 'fire') { if (this.fireArmed !== arg) { this.fireArmed = arg; this.curKey = 'fire-' + arg; this.render(); this.src.sfx?.move?.(); return; } this.fireArmed = null; this.src.staff?.('fire', arg); this.curKey = null; this.render(); return; }
     if (a === 'backpay') { this.src.staff?.('backpay', arg); this.curKey = 'bp-' + arg; this.render(); return; }
+    if (a === 'placeorder') { const n = WC.COMPOUNDS.reduce((x, c) => x + (this.order[c] || 0), 0); if (!n) return; if (!this.orderArmed) { this.orderArmed = true; this.curKey = 'placeorder'; this.render(); this.src.sfx?.move?.(); return; } this.orderArmed = false; this.src.order?.({ ...this.order }); this._order = null; this.curKey = null; this.render(); return; }
     if (a === 'file2') { this.go({ file: arg }); this.src.sfx?.select?.(); return; }
     if (a === 'cyc') { const [f, d] = arg.split(':'); this.cycle(f, +d); return; }
     if (a === 'type') { this.type(arg); return; }
@@ -243,10 +247,11 @@ export class Computer {
     if (this.app === 'classifieds') return 'svlist.sv/cars' + (p.ad ? '/' + p.ad : '');
     if (this.app === 'registry') return 'www.registry.sv.gov/forms/SV-1.htm';
     if (this.app === 'jobs') return `www.svjobs.sv/motorsport/${p.role}`;
+    if (this.app === 'tyres') return 'trade.vtr.sv/orders';
     return 'www.driverdb.sv' + (p.pid ? `/driver/${p.pid}` : `/${p.db}`);
   }
   browser() {
-    const site = { jobs: () => this.jobsSite(), news: () => this.newsSite(), series: () => this.seriesSite(), bank: () => this.bankSite(), classifieds: () => this.classSite(), registry: () => this.regSite() }[this.app]?.() ?? this.driverSite();
+    const site = { tyres: () => this.tyreSite(), jobs: () => this.jobsSite(), news: () => this.newsSite(), series: () => this.seriesSite(), bank: () => this.bankSite(), classifieds: () => this.classSite(), registry: () => this.regSite() }[this.app]?.() ?? this.driverSite();
     return `<div class="pc-bar"><button class="pc-btn sm" data-nav data-act="back" data-key="bback">&larr; Back</button><div class="pc-url">http://${esc(this.url())}</div></div><div class="pc-page">${site}</div>`;
   }
 
@@ -277,6 +282,7 @@ export class Computer {
     if (field === 'home') { const k = Object.keys(WC.TOWNS); f.home = wrap(k, k.indexOf(f.home) + d); }
     else if (field === 'background') { const k = Object.keys(WC.BACKGROUNDS); f.background = wrap(k, k.indexOf(f.background) + d); }
     else if (field === 'years') f.years = Math.max(1, Math.min(30, f.years + d));
+    else if (field.startsWith('q-')) { const c = field.slice(2), o = this.order; o[c] = Math.max(0, Math.min(8, (o[c] || 0) + d)); this.orderArmed = false; }
     else if (field.startsWith('pay-')) { const id = field.slice(4), x = (this.w.staff || []).find(s => s.id === id); if (x) { const k = WC.PAY_MODES.map(m => m[0]); this.src.staff?.('pay', id, wrap(k, k.indexOf(x.pay) + d)); } }
     else if (field === 'c0' || field === 'c1') { const i = +field[1]; f.colors[i] = wrap(PALETTE, Math.max(0, PALETTE.indexOf(f.colors[i])) + d); }
     this.curKey = 'f-' + field; this.render(); this.src.sfx?.move?.();
@@ -339,6 +345,26 @@ export class Computer {
       <p class="tm-note">Pay on time and people stay happy. Half or hold and they're owed the rest, and they notice. Someone unhappy enough, and owed money, walks out.</p>
       <div class="tm-links"><button class="pc-btn sm" data-nav data-act="open" data-arg="jobs" data-key="jobs">Applicants on SVJobs &rarr;</button></div></div>`;
   }
+  // Velocita Tyre & Rubber: your stock, the next round's forecast, an order form
+  get order() { return this._order || (this._order = { soft: 0, medium: 0, hard: 0, wet: 0 }); }
+  tyreSite() {
+    const w = this.w, st = WC.stockOf(w), used = WC.usedOf(w), price = WC.tyreCost(w), o = this.order;
+    const head = `<div class="tr-head"><b>VELOCITA TYRE &amp; RUBBER</b><small>Trade orders &middot; account: ${esc(w.teams[w.player.team].name)}</small></div>`;
+    if (!w.founding?.reg) return head + '<p class="pc-empty">Trade accounts are for registered businesses only.</p>';
+    const S = w.series[w.player.series], R = !w.over ? S.cal[w.round] : null, need = R ? WC.tyreNeeds(w) : null;
+    const mgr = WC.staffOf(w, 'manager');
+    const rows = WC.COMPOUNDS.map(c => `<tr><td><i class="tr-dot ${c}"></i>${c[0].toUpperCase() + c.slice(1)}</td><td class="r">${st[c]}</td><td class="r">${used.filter(u => u.c === c).length}</td>${need ? `<td class="r">${need[c]}</td>` : ''}
+      <td><div class="tr-qty" data-nav data-cycle="q-${c}" data-key="q-${c}"${c === 'soft' ? ' data-first' : ''}><i data-act="cyc" data-arg="q-${c}:-1">&#9664;</i><b>${o[c] || 0}</b><i data-act="cyc" data-arg="q-${c}:1">&#9654;</i></div></td></tr>`).join('');
+    const n = WC.COMPOUNDS.reduce((x, c) => x + (o[c] || 0), 0);
+    return head + `<div class="tr-body">
+      ${R ? `<p class="tr-next">Next round: <b>${esc(R.name)}</b>, ${esc(R.time)}, forecast <b>${esc(R.weather)}</b>.</p>` : ''}
+      ${mgr ? `<p class="tr-mgr">${esc(mgr.first)} orders for each round. You can still order extra here.</p>` : ''}
+      <table class="pc-tbl tr-tbl"><tr><th>COMPOUND</th><th class="r">NEW IN STOCK</th><th class="r">USED</th>${need ? '<th class="r">A WEEKEND USES</th>' : ''}<th>ORDER</th></tr>${rows}</table>
+      <div class="tr-total">${n} set${n === 1 ? '' : 's'} &times; ${WC.money$(price)} = <b>${WC.money$(n * price)}</b>
+        <button class="pc-btn" data-nav data-act="placeorder" data-key="placeorder">${this.orderArmed ? 'Confirm order? Select again' : 'Place order'}</button></div>
+      <p class="tr-fine">Orders are delivered before your next round. Trackside service at events is charged at ${Math.round((WC.TRACKSIDE - 1) * 100)}% over list. Used sets are not accepted for return.</p></div>`;
+  }
+
   // SVJobs: the applicants, by job
   jobsSite() {
     const w = this.w, role = this.page.role || 'mechanic', jobs = (w.jobs || []).filter(j => j.role === role);
@@ -502,7 +528,7 @@ export class Computer {
   // the styles the snapshot needs (the computer's own rules; it uses system fonts, so nothing to embed)
   css() {
     if (this._css) return this._css;
-    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl|tm|jb|tl)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
+    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl|tm|jb|tl|tr)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
     for (const sh of document.styleSheets) { let rules; try { rules = sh.cssRules; } catch (e) { continue; } for (const r of rules) if (r.selectorText && want.test(r.selectorText)) out.push(r.cssText); }
     return (this._css = out.join('\n'));
   }

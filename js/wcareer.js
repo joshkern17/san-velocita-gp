@@ -483,7 +483,7 @@ export function settleRound(w, use, me) {
   const home = isHome(w, R), fx = staffEffects(w);
   const items = [
     ['Entry fee', -c.entry], [home ? 'Travel (home race: you drove)' : 'Travel and freight', home ? 0 : -Math.round(c.travel * fx.travel)], ['Pit crew (contract)', -c.crew],
-    [`Tyres (${use.sets} set${use.sets === 1 ? '' : 's'})`, -use.sets * c.tyre],
+    [`Tyres bought trackside (${use.trackside || 0} set${use.trackside === 1 ? '' : 's'})`, -Math.round((use.trackside || 0) * c.tyre * TRACKSIDE)],
     [`Fuel (${use.laps} lap${use.laps === 1 ? '' : 's'})`, -Math.round(use.laps * c.fuelLap * (bg.fuel || 1))],
   ];
   if (use.damage > 0.005) items.push([bg.repair ? 'Repairs (mostly done yourself)' : 'Repairs', -Math.round(use.damage * c.repair * (bg.repair || 1) * fx.repair / 100) * 100]);
@@ -504,8 +504,54 @@ export function settleRound(w, use, me) {
 // what a repair (of this much damage: 0..1 of a write-off) costs, before you have it done
 export const repairQuote = (w, dmg) => Math.round(dmg * COSTS[w.player.series].repair * (bgOf(w).repair || 1) * staffEffects(w).repair / 100) * 100;
 export const tyreCost = (w) => COSTS[w.player.series].tyre;
-// a round you didn't drive yourself (Sim Rest Of Season): a plain weekend, no damage
-export const simUse = (w) => ({ sets: w.opts.weekend === 'full' ? 4 : w.opts.weekend === 'quali' ? 2 : 1, laps: w.opts.laps + (w.opts.weekend === 'full' ? 18 : w.opts.weekend === 'quali' ? 6 : 0), damage: 0 });
+// a round you didn't drive yourself (Sim Rest Of Season): a plain weekend, no damage; the tyres come out of your stock
+export function simUse(w) {
+  const R = w.series[w.player.series].cal[w.round], wet = R && R.weather === 'rain';
+  const need = w.opts.weekend === 'full' ? 3 : w.opts.weekend === 'quali' ? 2 : 1;
+  let trackside = 0;
+  for (let i = 0; i < need; i++) if (!takeSet(w, wet ? 'wet' : i < need - 1 ? 'soft' : 'medium')) trackside++;
+  return { trackside, laps: w.opts.laps + (w.opts.weekend === 'full' ? 18 : w.opts.weekend === 'quali' ? 6 : 0), damage: 0 };
+}
+
+// ---------------- tyres: what you have, what you order ----------------
+// New sets in stock per compound, and used sets kept from earlier runs (with their wear). Order on the computer
+// (paid when ordered, there for the next round); run out at a weekend and the trackside service sells you one at a
+// premium. With a team manager, they keep you stocked for each round's forecast (and tell you what they ordered).
+export const COMPOUNDS = ['soft', 'medium', 'hard', 'wet'];
+export const TRACKSIDE = 1.5;
+export const stockOf = (w) => (w.tyreStock = w.tyreStock || { soft: 0, medium: 0, hard: 0, wet: 0 });
+export const usedOf = (w) => (w.usedTyres = w.usedTyres || []);
+// a new set off the shelf (false: there isn't one)
+export function takeSet(w, c) { const st = stockOf(w); if (st[c] > 0) { st[c]--; return true; } return false; }
+export function keepUsed(w, set) { const u = usedOf(w); if (Math.min(set.wf, set.wr) > 0.1) u.push({ c: set.c, wf: +set.wf.toFixed(3), wr: +set.wr.toFixed(3) }); u.sort((a, b) => Math.min(b.wf, b.wr) - Math.min(a.wf, a.wr)); if (u.length > 8) u.length = 8; }
+export function orderTyres(w, order) {
+  const n = COMPOUNDS.reduce((a, c) => a + (order[c] || 0), 0); if (!n) return 0;
+  const cost = n * COSTS[w.player.series].tyre, st = stockOf(w);
+  for (const c of COMPOUNDS) st[c] += order[c] || 0;
+  pay(w, -cost, `Velocita Tyre & Rubber: ${COMPOUNDS.filter(c => order[c]).map(c => `${order[c]} ${c}`).join(', ')}`);
+  return cost;
+}
+export const buyTrackside = (w) => Math.round(COSTS[w.player.series].tyre * TRACKSIDE);
+// what the next round needs: a soft for each session, a medium and a hard for the race, wets if it might rain
+export function tyreNeeds(w) {
+  const R = w.series[w.player.series].cal[w.round] || {}, wet = R.weather === 'rain' || R.weather === 'overcast';
+  const sessions = w.opts.weekend === 'full' ? 2 : w.opts.weekend === 'quali' ? 1 : 0;
+  return { soft: sessions + 1, medium: 1, hard: 1, wet: wet ? 2 : 0 };
+}
+// the team manager restocks for the next round (as you start it, or when the season rolls over)
+export function managerRestock(w) {
+  const m = staffOf(w, 'manager'); if (!m || w.restocked === w.year * 100 + w.round) return;
+  w.restocked = w.year * 100 + w.round;
+  const need = tyreNeeds(w), st = stockOf(w), order = {};
+  for (const c of COMPOUNDS) order[c] = Math.max(0, need[c] - st[c]);
+  const cost = orderTyres(w, order);
+  if (cost) mail(w, `${m.first} ${m.last}`, `${m.first.toLowerCase()}@${w.teams[w.player.team].name.toLowerCase().replace(/[^a-z]+/g, '')}.sv`, 'Tyres ordered',
+    [m.danny ? `ordered tyres for ${w.series[w.player.series].cal[w.round].name}:` : `I've ordered tyres for ${w.series[w.player.series].cal[w.round].name}:`,
+     COMPOUNDS.filter(c => order[c]).map(c => `${order[c]} ${c}`).join(', ') + ` (${money$(cost)}).`,
+     m.danny ? `forecast says ${w.series[w.player.series].cal[w.round].weather}. got u covered` : `The forecast is ${w.series[w.player.series].cal[w.round].weather}.`]);
+}
+
+// a round you didn't drive yourself: see simUse above
 
 // ---------------- founding: the paperwork, the backstory, the car ----------------
 // Form SV-1 (the registry website on the computer) sets the team's name, colours, home town, your background and a
@@ -556,6 +602,8 @@ export function registerTeam(w, f) {
   // your buddy, who knows a guy
   w.ads = makeAds(w);
   w.staff = []; w.jobs = makeJobs(w);
+  // (the previous team left a couple of things behind)
+  w.tyreStock = { soft: 0, medium: 0, hard: 0, wet: 0 }; w.usedTyres = [{ c: 'medium', wf: 0.72, wr: 0.7 }, { c: 'medium', wf: 0.55, wr: 0.58 }];
   mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'found u a car',
     [`saw the lottery thing on the news. congrats man!!! also saw the divorce thing on the news. less congrats`,
      `anyway if ur doing the racing team thing u need a car. there's some good ones on the classifieds rn. the cheap one is probably fine. probably`,

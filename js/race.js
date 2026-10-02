@@ -1197,6 +1197,7 @@ export class Race {
     const c = pl.plan.stints[0].c;
     pl.phys.fitTyres(c); pl.model.setCompound(c);
     pl.pitReq = null; pl.planRadio = {};
+    pl.setsUsed = [c]; // (the sets you used this race, for World Career's tyre stock: the start, then each stop)
   }
   confirmStrategy(plan) {
     if (plan) this.setPlayerPlan(plan);
@@ -1357,7 +1358,7 @@ export class Race {
       car.pitTimer -= dt;
       if (car.pitTimer <= 0) {
         const r = car.pitReq || {};
-        if (r.tyre) { car.phys.fitTyres(r.tyre); car.model.setCompound(r.tyre); }
+        if (r.tyre) { car.phys.fitTyres(r.tyre); car.model.setCompound(r.tyre); if (car.isPlayer) (car.setsUsed = car.setsUsed || []).push(r.tyre); }
         if (r.repair) { car.phys.dmg = { fw: 0, rw: 0, ch: 0 }; car.model.setDamage(car.phys.dmg); }
         car.pits++; car.pitPhase = 'out'; car.radio = {}; car.penServing = 0;
         if (car.isPlayer) this.events.push({ type: 'pitOut', time: car.pitTotal });
