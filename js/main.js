@@ -1422,7 +1422,7 @@ function hubTick(dt) {
   const tag = $('pc-tag'), at = !pcSeat && hubMode === 'room' && pitGarage.atRoom && !phone.isOpen ? pitGarage.screenAnchor() : null;
   tag.hidden = !at;
   if (at) {
-    tag.style.left = at.x + 'px'; tag.style.top = at.y + 'px';
+    const z = hubZoom(); tag.style.left = at.x / z + 'px'; tag.style.top = at.y / z + 'px';
     const m = menus['s-hub'][0], n = world ? WC.unreadMail(world) : 0;
     tag.classList.toggle('hot', pcHover || /^Computer/.test(m.items[m.i]?.label || ''));
     tag.classList.toggle('new', n > 0);
@@ -1711,7 +1711,7 @@ function carTags() {
   const worst = WC.PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)[0], k = el.dataset.part;
   const a = k ? pitGarage.partAnchor(k)?.add(new THREE.Vector3(0, 0.25, 0)) : pitGarage.carAnchor(), at = a && pitGarage.toScreen(a);
   el.hidden = !at; if (!at) return;
-  el.style.left = at.x + 'px'; el.style.top = at.y + 'px';
+  const z = hubZoom(); el.style.left = at.x / z + 'px'; el.style.top = at.y / z + 'px';
   const shown = k || (P[worst].cond < 0.5 ? worst : null);
   const b = k ? WC.PARTS[k].name.toUpperCase() : 'CAR', sm = shown ? `${k ? '' : WC.PARTS[shown].name.toUpperCase() + ' '}${Math.round(P[shown].cond * 100)}%` : '';
   if (el.querySelector('b').textContent !== b) el.querySelector('b').textContent = b;
@@ -1720,6 +1720,8 @@ function carTags() {
   el.classList.toggle('bad', !!shown && P[shown].cond < 0.5);
 }
 let carHover = false;
+// the hub screen is scaled to the window (CSS zoom): the tags inside it are placed in its own, unscaled pixels
+const hubZoom = () => parseFloat(getComputedStyle($('s-hub')).zoom) || 1;
 $('car-tags').addEventListener('click', (e) => { const t = e.target.closest('.car-tag'); if (!t) return; if (hubMode === 'car') { carSub = carPart; renderHubMenu(); sfx.select(); } else goToCar(); });
 
 // the car needs work (the riskiest part), from the Workshop's numbers
