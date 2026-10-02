@@ -37,6 +37,8 @@ export class LiveryDesigner {
     this.garage.shift = -0.13; this.garage.view('three');
     this.garage.onPick = (hit, phase) => this.onPick(hit, phase);
     this.render();
+    // (World Career: a sponsor's logo, ready to place)
+    if (this.pending) { const d = this.pending; this.pending = null; assets.load([d.asset]).then(() => this.addDecal({ asset: d.asset, name: d.name, size: 0.45 })); }
   }
   close() {
     if (!this.active) return;

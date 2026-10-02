@@ -188,6 +188,7 @@ export class Computer {
   markRead(id) { const m = (this.w.mail || []).find(x => x.id === id); if (m && !m.read) { m.read = true; this.src.changed?.(); } }
   act(a, arg) {
     if (a === 'app') { this.stack = []; this.launch(arg); return; }
+    if (a === 'logo') { const [what, sid] = arg.split(':'); this.src.logo?.(what, sid); return; }
     if (a === 'mailto') { this.follow('mail', { mail: arg }); this.markRead(arg); this.render(); return; }
     if (a === 'ttab') { this.page = { tab: arg, file: null }; this.hist = []; this.armed = null; this.curKey = 'ttab-' + arg; this.render(); this.src.sfx?.move?.(); return; }
     if (a === 'bm') { this.follow(arg); return; }
@@ -441,8 +442,10 @@ export class Computer {
     const rows = WC.SPONSOR_SLOTS.map((slot, i) => {
       const d = deals.filter(x => x.slot === slot)[slot === 'title' ? 0 : i - 1];
       if (!d) return `<div class="tm-row vacant"><div class="tm-who"><b>${slot === 'title' ? 'Title sponsor' : 'Associate sponsor'}</b><small>Open. Offers come by email.</small></div></div>`;
-      const sp = WC.sponsorInfo(d.sid), o = WC.dealObjective(w, d);
-      return `<div class="tm-row sp-row"><div class="tm-who"><b><i class="sw" style="background:${hex(sp.color)}"></i>${esc(sp.name)}</b><small>${slot === 'title' ? 'Title sponsor' : 'Associate'} &middot; ${WC.money$(d.fee)} a round, ${WC.money$(d.bonus)} bonus &middot; targets met ${d.met}/${d.met + d.misses}${d.misses >= sp.patience ? ' &middot; <span class="neg">losing patience</span>' : ''}</small></div>
+      const sp = WC.sponsorInfo(d.sid), o = WC.dealObjective(w, d), src = this.src.logoSrc?.(d.sid), on = this.src.logoOn?.(d.sid) ?? true, isTitle = slot === 'title';
+      return `<div class="tm-row sp-row"><div class="tm-who"><b>${esc(sp.name)}</b><small>${isTitle ? 'Title sponsor' : 'Associate'} &middot; ${WC.money$(d.fee)} a round, ${WC.money$(d.bonus)} bonus &middot; targets met ${d.met}/${d.met + d.misses}${d.misses >= sp.patience ? ' &middot; <span class="neg">losing patience</span>' : ''}</small>
+          <div class="sp-logo">${src ? `<img src="${src}">` : ''}<span class="${on ? 'pos' : 'neg'}">${isTitle ? 'Their name is on the car' : on ? 'Logo on the car' : 'Logo not on the car: they won\'t pay'}</span>
+          ${isTitle ? '' : `<button class="pc-btn sm" data-nav data-act="logo" data-arg="tocar:${d.sid}" data-key="lc-${d.sid}">${on ? 'Move it' : 'Put it on the car'}</button>`}<button class="pc-btn sm" data-nav data-act="logo" data-arg="upload:${d.sid}" data-key="lu-${d.sid}">Upload your own logo</button></div></div>
         <div class="sp-target"><small>Next race</small><b>${esc(WC.objText(w, o))}</b></div></div>`;
     }).join('');
     return `<div class="tm"><div class="tm-head"><b>Sponsors</b><small>Standing with sponsors: ${standWord(rep)}</small></div>

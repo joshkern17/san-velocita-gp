@@ -1477,3 +1477,6 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .sp-target small { display: block; font-size: 10px; color: #8a5a00; text-transform: uppercase; }
 .ov-grid { grid-template-columns: 1fr 1fr; }
 .ov-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.sp-logo { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.sp-logo img { height: 28px; border: 1px solid #ccc; background: #eee; }
+.sp-logo span { font-size: 12px; font-weight: bold; }

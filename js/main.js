@@ -28,7 +28,7 @@ import { loadCustomCar, customCarStatus } from './glbcar.js';
 import { loadRoadCars } from './roadcar.js';
 import { DriftHUD } from './drifthud.js';
 import { CARS, CLASSES, CAR_CREDITS, carId, carOf, chassisKey } from './cars.js';
-import { assets, liveryAssetIds } from './livery.js';
+import { assets, liveryAssetIds, importImageFile } from './livery.js';
 import { loadEnvCatalog, loadEnvModels, envCatalog } from './envlib.js';
 import { setWorldOptions } from './world.js';
 import { setVertexSnapEnabled, setJitterScale, setAffineAmount, setAffineCap, setAffineFade } from '../vendor/psx/src/PSXMaterial.js';
@@ -396,7 +396,7 @@ const designer = new LiveryDesigner({
 });
 let saveT = 0;
 const saveSettingsSoon = () => { clearTimeout(saveT); saveT = setTimeout(saveSettings, 400); };
-function openLivery() { fadeTo(() => { show('s-livery'); designer.open(); }, 200); }
+function openLivery() { fadeTo(() => { show('s-livery'); if (pendingDecal) { designer.pending = pendingDecal; pendingDecal = null; } designer.open(); }, 200); }
 assets.load(liveryAssetIds(settings.car));
 function openGarage(from = 's-main') { garageReturn = from; fadeTo(() => { disposeSim(); show('s-garage'); garage.open(settings.car); classicOnly(); }); }
 let garageReturn = 's-main';
@@ -1328,7 +1328,7 @@ const pc = new Computer({
   answer: (m, key) => {
     m.answer = key;
     if (m.lottery) { WC.claimLottery(world, key); sfx.best(); renderHub(); }
-    if (m.sponsorOffer) { const r = WC.answerSponsor(world, m, key); if (r === 'full') toast('You have no free sponsor slots.'); else if (r !== 'declined') { sfx.best(); if (screen === 's-hub') pitGarage.setCar(hubCar()); } }
+    if (m.sponsorOffer) { const r = WC.answerSponsor(world, m, key); updateLogoShown(); if (r === 'full') toast('You have no free sponsor slots.'); else if (r !== 'declined') { sfx.best(); if (screen === 's-hub') pitGarage.setCar(hubCar()); } }
     if (m.offer) {
       WC.answerOffer(world, key);
       const mate = world.people[world.teams[world.player.team].drivers.find(d => d !== 'P')];
@@ -1337,6 +1337,9 @@ const pc = new Computer({
     saveWorld(); renderHubMenu(); sfx.select();
   },
   changed: () => { saveWorld(); renderHubMenu(); },
+  logo: (what, sid) => { if (what === 'tocar') logoToCar(sid); else if (what === 'upload') uploadLogo(sid); },
+  logoSrc: (sid) => { const d = WC.dealsOf(world).find(x => x.sid === sid); return d ? assets.get(logoOf(d)) : null; },
+  logoOn: (sid) => !world.logoShown || world.logoShown.includes(sid),
   sell: () => { const cash = WC.sellAnnuity(world); if (cash) { sfx.best(); saveWorld(); renderHub(); } },
   // Form SV-1 filed: the team takes its name and colours (and your livery starts in them)
   register: (f) => {
@@ -1345,7 +1348,7 @@ const pc = new Computer({
     settings.driverName = f.name; saveSettings();
     sfx.best(); saveWorld(); renderHub(); phone.buzz();
   },
-  buy: (id) => { if (WC.buyCar(world, id)) { sfx.best(); saveWorld(); pitGarage.setCar(hubCar()); renderHub(); } },
+  buy: (id) => { if (WC.buyCar(world, id)) { sfx.best(); updateLogoShown(); saveWorld(); pitGarage.setCar(hubCar()); renderHub(); } },
   // the Workshop and the parts sites
   car: (what, arg) => {
     if (what === 'rebuild') WC.rebuildPart(world, arg);
@@ -1490,15 +1493,64 @@ function worldCar() {
   if (world.car) c.chassis = world.car.chassis;
   // the title sponsor's name goes on the car (no title sponsor: whatever you've written there yourself)
   const t = WC.dealsOf(world).find(d => d.slot === 'title');
-  if (t) c.sponsor = WC.sponsorName(t.sid).toUpperCase().replace(/^THE /, '').replace(/'S\b/, 'S').slice(0, 14);
+  if (t) { let n = ''; for (const wd of WC.sponsorName(t.sid).toUpperCase().replace(/'S\b/, 'S').split(' ')) { if ((n + ' ' + wd).trim().length > 14) break; n = (n + ' ' + wd).trim(); } c.sponsor = n || WC.sponsorName(t.sid).toUpperCase().slice(0, 14); } // (whole words that fit)
   return c;
 }
+// ---- sponsors' logos: one each (a plain one made up from their name and colour, or one you upload), on the car ----
+const canDecal = () => { const C = CARS[carId(worldCar())]; return !!C && (C.cls === 'f1' || !!C.livery); };
+function logoOf(d) {
+  if (d.logo && assets.has(d.logo)) return d.logo;
+  const id = 'spl' + d.sid;
+  if (!assets.has(id)) {
+    const sp = WC.sponsorInfo(d.sid), c = document.createElement('canvas'); c.width = 512; c.height = 160;
+    const g = c.getContext('2d'), col = '#' + sp.color.toString(16).padStart(6, '0');
+    g.fillStyle = col; g.beginPath(); g.roundRect(6, 6, 500, 148, 22); g.fill();
+    g.strokeStyle = '#fff'; g.lineWidth = 6; g.stroke();
+    let size = 70; const name = sp.name.toUpperCase();
+    g.font = `bold italic ${size}px Arial, sans-serif`; while (g.measureText(name).width > 450 && size > 20) { size -= 2; g.font = `bold italic ${size}px Arial, sans-serif`; }
+    g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(name, 256, 84);
+    assets.save(id, c.toDataURL('image/png'));
+  }
+  return d.logo || id;
+}
+// which sponsors are on the car (the title sponsor's name goes on by itself); null when the car can't carry logos
+function updateLogoShown() {
+  if (!world) return;
+  if (!world.car || !canDecal()) { world.logoShown = null; return; }
+  const on = new Set((worldCar().decals || []).map(x => x.asset).filter(Boolean));
+  world.logoShown = WC.dealsOf(world).filter(d => d.slot === 'title' || on.has(d.logo) || on.has('spl' + d.sid)).map(d => d.sid);
+}
+// the livery designer, opened with a sponsor's logo ready to place
+let pendingDecal = null;
+function logoToCar(sid) {
+  const d = WC.dealsOf(world).find(x => x.sid === sid); if (!d) return;
+  if (!canDecal()) { toast('This car only takes a paint colour: sponsors\' stickers go on the windows.'); return; }
+  pendingDecal = { asset: logoOf(d), name: WC.sponsorName(sid) };
+  standUp(); openWorldGarage(); setTimeout(() => openLivery(), 450);
+}
+async function uploadLogo(sid) {
+  const d = WC.dealsOf(world).find(x => x.sid === sid); if (!d) return;
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/png,image/jpeg,image/svg+xml,.svg';
+  inp.onchange = async () => {
+    const f = inp.files && inp.files[0]; if (!f) return;
+    try {
+      const a = await importImageFile(f), old = logoOf(d);
+      d.logo = a.id;
+      // the old logo on the car becomes the new one
+      if (world.livery && world.livery.decals) for (const x of world.livery.decals) if (x.asset === old) x.asset = a.id;
+      saveWorld(); updateLogoShown(); pc.render(); toast(`Logo for ${WC.sponsorName(sid)} saved.`);
+    } catch (e) { toast(e.message || 'Couldn\'t read that image.'); }
+  };
+  inp.click();
+}
+
 // the garage from the hub edits this career's car, not the one in your other modes
 let garageSwap = null;
 function openWorldGarage() { garageSwap = settings.car; settings.car = worldCar(); openGarage('s-hub'); }
 function closeWorldGarage() {
   if (!garageSwap) return;
   world.livery = { ...settings.car }; world.liveryDone = true; settings.car = garageSwap; garageSwap = null;
+  updateLogoShown();
   saveSettings(); saveWorld();
 }
 // the car in the bay is your car for this series; the room is your garage model
@@ -1507,7 +1559,7 @@ function hubCar() {
   return CARS[carId(car)]?.cls === cls ? car : { ...car, chassis: chassisKey(carsOfClass(cls)[0]) };
 }
 function enterHub() {
-  disposeSim();
+  disposeSim(); updateLogoShown();
   const t = world.teams[world.player.team];
   if (world.livery) { t.main = world.livery.main; t.accent = world.livery.accent; }
   pitGarage.openHome(hubCar(), { main: t.main, accent: t.accent, name: t.name });
@@ -1699,6 +1751,7 @@ function simWorldSeason() {
 function startWorldRound() {
   const w = world, sid = w.player.series, r = w.series[sid].cal[w.round];
   wkUse = { trackside: 0, laps: 0, damage: 0, seen: null, carry: null };
+  updateLogoShown();
   if (w.staff) { WC.managerRestock(w); WC.runPayroll(w); saveWorld(); }
   const base = worldPool().find(t => t.name === r.name) || presetTracks()[0];
   const track = cloneTrack(base); track.env.time = r.time; track.env.weather = r.weather;

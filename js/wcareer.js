@@ -968,6 +968,14 @@ function sponsorRound(w, use, me) {
   const r = me ? { ...me, grid: use.grid ?? null, led: use.led ?? (me.pos === 1 && !me.dnf ? 1 : 0), blamed: !!use.blamed } : null;
   for (const d of deals.slice()) {
     const sp = sponsorById(d.sid), o = dealObjective(w, d), met = objMet(w, o, r, rows);
+    // no logo on the car, no money (and they notice): w.logoShown is the sponsors on the car (main.js; null: can't tell)
+    if (w.logoShown && !w.logoShown.includes(d.sid)) {
+      items.push([`${sp.name}: logo not on the car, not paid`, 0]);
+      d.misses++; d.hidden = (d.hidden || 0) + 1; w.rep = clamp(repOf(w) - 2, 0, 100);
+      if (d.hidden >= 2) { w.deals = deals.filter(x => x !== d); w.rep = clamp(repOf(w) - 4, 0, 100); mail(w, sp.name, sponsorAddr(sp.name), 'Our partnership', [`Our logo still isn't on your car. We're paying for exposure we aren't getting, so we're ending the sponsorship.`, sp.name]); }
+      else mail(w, sp.name, sponsorAddr(sp.name), 'Where is our logo?', [`We watched the race and couldn't find our logo on the car. We don't pay for a round we weren't seen in.`, `Please have it on the car by the next round.`, sp.name]);
+      d.obj = null; continue;
+    }
     items.push([`${sp.name} (${d.slot === 'title' ? 'title sponsor' : 'associate'})`, d.fee]);
     if (met) { items.push([`${sp.name} bonus: ${objText(w, o).toLowerCase()}`, d.bonus]); d.met++; w.rep = clamp(repOf(w) + 1, 0, 100); }
     else {
