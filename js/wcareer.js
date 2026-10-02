@@ -600,7 +600,7 @@ export function nextSeason(w, trackPool) {
 // week's work (day job, gigs) is what keeps you going. Every step up needs more than you have (sponsors).
 export const LOTTERY = { jackpot: 400000, lump: 132000, annuity: 10000, years: 30, saleRate: 0.25 }; // (selling the annuity: a quarter of what it's worth)
 export const COSTS = {
-  street:  { entry: 4000,  travel: 2000,  crew: 3500,  tyre: 900,  fuelLap: 35,  repair: 24000,  prize: [8000, 5500, 4000, 3000, 2500, 2000, 1500, 1200, 1000, 800] },
+  street:  { entry: 4000,  travel: 2400,  crew: 3500,  tyre: 900,  fuelLap: 35,  repair: 24000,  prize: [8000, 5500, 4000, 3000, 2500, 2000, 1500, 1200, 1000, 800] },
   gt:      { entry: 15000, travel: 6000,  crew: 22000, tyre: 3200, fuelLap: 120, repair: 110000, prize: [80000, 56000, 40000, 32000, 26000, 20000, 16000, 12000, 8000, 6000] },
   formula: { entry: 40000, travel: 15000, crew: 90000, tyre: 6000, fuelLap: 300, repair: 450000, prize: [200000, 140000, 100000, 80000, 65000, 50000, 40000, 30000, 20000, 15000] },
 };
@@ -721,13 +721,13 @@ export function spendDay(w, what) { if (daysLeft(w) <= 0) return false; useDay(w
 
 // the day job: whatever you did before the lottery, a day at a time
 const DAY_JOBS = {
-  mechanic:   { name: 'A shift at Kowalski Auto Repair', pay: 290 },
-  accountant: { name: 'Freelance bookkeeping', pay: 340 },
-  salesman:   { name: 'A day on the lot at Velocita Motors', pay: 150, sale: [0.35, 650] },
-  karting:    { name: 'Instructing at Thunder Alley Karts', pay: 210 },
-  simracer:   { name: 'Online sim coaching', pay: 230 },
+  mechanic:   { name: 'A shift at Kowalski Auto Repair', pay: 340 },
+  accountant: { name: 'Freelance bookkeeping', pay: 400 },
+  salesman:   { name: 'A day on the lot at Velocita Motors', pay: 180, sale: [0.35, 700] },
+  karting:    { name: 'Instructing at Thunder Alley Karts', pay: 260 },
+  simracer:   { name: 'Online sim coaching', pay: 280 },
 };
-export const dayJob = (w) => DAY_JOBS[w.background] || { name: 'A shift at the Gas-N-Go', pay: 170 };
+export const dayJob = (w) => DAY_JOBS[w.background] || { name: 'A shift at the Gas-N-Go', pay: 210 };
 export function workDay(w) {
   if (daysLeft(w) <= 0) return null;
   const j = dayJob(w); let amt = j.pay, note = '';
@@ -763,16 +763,16 @@ function newGig(w, kind, o = {}) { return { id: 'g' + (w.nextId++), kind, laps: 
 function planWeek(w) {
   const wk = w.week, r = gigRating(w), K = { street: 1, gt: 2.5, formula: 6 }[w.player.series] || 1, broke = w.money.balance < 25000;
   // GigGo: two or three offers (one, under review)
-  const n = r < 4.2 ? 1 : r >= 4.8 ? 3 : 2;
+  const n = r < 4.2 ? 1 : r >= 4.8 ? 4 : 3;
   for (let i = 0; i < n; i++) {
-    if (i === n - 1 && rng(w) < 0.4) { wk.gigs.push(newGig(w, 'hearse', { client: 'Restwell Funeral Home', title: 'Funeral transport', what: 'Please arrive within the window. The family will be following.', pay: 850, window: [1.3, 1.65] })); continue; }
+    if (i === n - 1 && rng(w) < 0.4) { wk.gigs.push(newGig(w, 'hearse', { client: 'Restwell Funeral Home', title: 'Funeral transport', what: 'Please arrive within the window. The family will be following.', pay: 950, window: [1.3, 1.65] })); continue; }
     const [client, what, fragile, urgent] = pickLine(w, COURIER);
-    const fare = Math.round((480 + rng(w) * 380 + (urgent ? 200 : 0)) * (r >= 4.8 ? 1.1 : 1) / 10) * 10;
+    const fare = Math.round((560 + rng(w) * 440 + (urgent ? 220 : 0)) * (r >= 4.8 ? 1.1 : 1) / 10) * 10;
     wk.gigs.push(newGig(w, 'courier', { client, what, fragile, urgent, title: `${client}: ${what.toLowerCase()}`, pay: fare, laps: rng(w) < 0.4 ? 2 : 1, tight: urgent ? 1.3 : 1.45 }));
   }
   // track days and club events (your race car)
-  if (rng(w) < 0.45) offerGig(w, newGig(w, 'rides', { title: 'Passenger rides', client: 'SV Track Days', pay: 150, tip: 90, laps: 3, riders: [0, 1, 2].map(() => pickLine(w, RIDERS)) }), 'SV Track Days', 'bookings@svtrackdays.sv', 'Passenger rides this week?',
-    [`Hi,`, `We've got three customers booked in for passenger rides in a "real race car" this week and our usual driver has done his back in.`, `It's three laps, one passenger a lap. We pay ${money$(150)} a ride, and they tip if they enjoy it. They don't tip if they're sick.`, `Your car, your fuel, your tyres.`, `SV Track Days`]);
+  if (rng(w) < 0.55) offerGig(w, newGig(w, 'rides', { title: 'Passenger rides', client: 'SV Track Days', pay: 170, tip: 100, laps: 3, riders: [0, 1, 2].map(() => pickLine(w, RIDERS)) }), 'SV Track Days', 'bookings@svtrackdays.sv', 'Passenger rides this week?',
+    [`Hi,`, `We've got three customers booked in for passenger rides in a "real race car" this week and our usual driver has done his back in.`, `It's three laps, one passenger a lap. We pay ${money$(170)} a ride, and they tip if they enjoy it. They don't tip if they're sick.`, `Your car, your fuel, your tyres.`, `SV Track Days`]);
   else if (rng(w) < 0.4) offerGig(w, newGig(w, 'attack', { title: 'Time attack', client: `${TOWNS[w.home]?.name || 'Velocita'} Auto Club`, entry: 100, prizes: [2000, 1200, 500], laps: 3 }), `${TOWNS[w.home]?.name || 'Velocita'} Auto Club`, 'events@autoclub.sv', 'Time attack, members and guests',
     [`Our monthly time attack is on this week. Three laps, your best one counts.`, `Prize money: ${money$(2000)} for the gold time, ${money$(1200)} silver, ${money$(500)} bronze. Entry is ${money$(100)}. Guests welcome.`, `Guests welcome. Helmets compulsory.`, `The Committee`]);
   // Danny knows a guy (more often when money's short)
@@ -969,7 +969,7 @@ const TEMPTS = {
   shady: { base: 0.12, min: 0.3, ok: (w) => !dealsOf(w).some(d => d.shady) && dealsOf(w).length < SPONSOR_SLOTS.length,
     offer(w) {
       const name = pickLine(w, SHADY), i = SPONSOR_POOL.findIndex(s => s[0] === name), title = !dealsOf(w).some(d => d.slot === 'title');
-      const fee = Math.round(1500 * 3 * KS(w) * (title ? 1 : ASSOC_K) / 50) * 50;
+      const fee = Math.round(1500 * 4 * KS(w) * (title ? 1 : ASSOC_K) / 50) * 50;
       mail(w, name, sponsorAddr(name), 'Partnership opportunity',
         [`Hi!!`, `${name} is looking for an exciting young motorsport brand to grow with. That's you!`, `We'd pay ${money$(fee)} a round${title ? ' for the name on the car' : ' for a logo'}. No targets. We just want to be seen.`, `Payment terms are 30 days.`, `The ${name} Partnerships Team`],
         { tempt: 'shady', sid: 'sp' + i, fee, slot: title ? 'title' : 'assoc', choices: [['yes', `Accept: ${money$(fee)} a round`], ['no', 'Decline']] });
@@ -983,7 +983,7 @@ const TEMPTS = {
     } },
   bet: { base: 0.14, min: 0.3, ok: (w) => !w.bet && !w.over,
     offer(w) {
-      const stake = 1000 * KS(w);
+      const stake = 1500 * KS(w);
       mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'lenny',
         [`my guy lenny takes bets on the street cup. hes got u at long odds which is rude`, `top 5 this weekend pays 3 to 1. or (and im just saying this because lenny said it) finishing outside the top 8 pays 2 to 1`, `${money$(stake)} stake. cash`],
         { tempt: 'bet', stake, choices: [['for', 'Bet on yourself: top 5'], ['against', 'Bet against yourself: outside the top 8'], ['no', 'No']] });
@@ -1053,7 +1053,7 @@ function temptRound(w, use, me) {
   const dsq = (why) => { if (row) { row.pts = 0; row.dnf = true; row.dsq = true; } if (me) { me.dsq = true; me.pts = 0; } w.rep = clamp(repOf(w) - 6, 0, 100); w.scandal = nowIdx(w); };
   if (w.grey) {
     w.grey.uses++;
-    if (rng(w) < Math.min(0.12, 0.02 + 0.01 * w.grey.uses)) {
+    if (rng(w) < Math.min(0.035, 0.008 + 0.003 * w.grey.uses)) {
       dsq(); items.push(['Fine: illegal engine software', -2000 * K]); w.grey = null; flag(w, 'greyCaught');
       news(w, `${w.teams[w.player.team].name.toUpperCase()} DISQUALIFIED`, `Scrutineers found unapproved engine software on the car after the race at ${w.series[w.player.series].cal[w.round].name}. The team says it was fitted by a third party.`);
       text(w, 'Danny', `kev says he has never met u`);
@@ -1062,7 +1062,7 @@ function temptRound(w, use, me) {
   if (w.bet && w.bet.key === key && me) {
     const b = w.bet, won = b.type === 'for' ? !me.dnf && me.pos <= 5 : me.dnf || me.pos > 8;
     if (won) items.push([`Cash (Lenny): ${b.type === 'for' ? '3 to 1' : '2 to 1'}`, b.stake * (b.type === 'for' ? 4 : 3)]);
-    if (won && rng(w) < (b.type === 'against' ? 0.22 : 0.05)) {
+    if (won && rng(w) < (b.type === 'against' ? 0.12 : 0.03)) {
       items.push(['Fine: betting on your own race', -3000 * K]); dsq(); flag(w, 'betCaught');
       news(w, `INTEGRITY UNIT LOOKS AT ${w.teams[w.player.team].name.toUpperCase()}`, `Street Cup officials are looking into betting on the ${w.series[w.player.series].cal[w.round].name} round. ${w.player.name} has been fined and their result removed.`);
     }
@@ -1082,7 +1082,7 @@ function temptRound(w, use, me) {
 }
 // what follows you around: exposed lies, the fire investigation
 function consequences(w) {
-  if (w.lies && rng(w) < 0.02 * w.lies * (pressOf(w) < 0 ? 2 : 1)) {
+  if (w.lies && rng(w) < 0.006 * Math.min(4, w.lies) * (pressOf(w) < 0 ? 2 : 1)) {
     const lied = dealsOf(w).filter(d => d.lied);
     news(w, `${w.teams[w.player.team].name.toUpperCase()}'S AUDIENCE FIGURES "DON'T ADD UP"`, `The Paddock Wire has seen sponsorship reports claiming TV audiences larger than the Street Cup's actual broadcast reach.`);
     for (const d of lied) { const sp = sponsorById(d.sid); mail(w, sp.name, sponsorAddr(sp.name), 'Our partnership', [`We've read the article. We're ending our sponsorship, effective immediately, and our lawyers will be in touch about the figures.`, sp.name]); }
@@ -1090,7 +1090,7 @@ function consequences(w) {
   }
   if (w.fraud && !w.fraud.closed) {
     if (nowIdx(w) - w.fraud.since > 4) { w.fraud.closed = true; mail(w, 'Velocita Mutual Insurance', 'claims@velocitamutual.sv', 'Your claim: closed', [`Our investigation into the fire at your premises is now closed. The cause has been recorded as electrical.`, `Velocita Mutual`]); }
-    else if (rng(w) < 0.12) {
+    else if (rng(w) < 0.08) {
       w.fraud.closed = true; flag(w, 'fraudCaught');
       pay(w, -w.fraud.pay - 5000 * KS(w), 'Insurance claim reversed, and a fine');
       news(w, `TEAM OWNER CHARGED OVER GARAGE FIRE`, `${w.player.name}, owner of ${w.teams[w.player.team].name}, has been charged with insurance fraud. A fuel can and a receipt were recovered from the scene.`);
@@ -1454,7 +1454,7 @@ export function carParts(w) {
 export function carMods(w) {
   const P = carParts(w); if (!P) return null;
   const c = (k) => P[k].cond, g = (k, stat) => P[k].fit?.gains?.[stat] || 0, sum = (stat) => PART_KEYS.reduce((a, k) => a + g(k, stat), 0);
-  return { power: (0.9 + 0.1 * c('engine')) * (1 + sum('power')) * (w.grey ? 1.03 : 1), // (Kev's engine map)
+  return { power: (0.9 + 0.1 * c('engine')) * (1 + sum('power')) * (w.grey ? 1.04 : 1), // (Kev's engine map)
     grip: (0.96 + 0.04 * c('suspension')) * (1 + sum('grip')) * (w.week && w.week.key === weekKey(w) && w.week.setup ? 1.012 : 1), // (a test day found the setup)
     brake: (0.9 + 0.1 * c('brakes')) * (1 + sum('brake')),
     downforce: 1 + sum('downforce'), drag: 1 + sum('drag'), damage: (1.15 - 0.15 * c('chassis')) * (1 + sum('damage')), rainGrip: 1, wear: 1, slip: 1, softs: false, launch: false };

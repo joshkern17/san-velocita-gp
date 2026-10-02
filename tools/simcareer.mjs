@@ -72,10 +72,10 @@ function arcChoice(w, m, P) {
 // a gig, driven: how well depends on the driver
 function driveGig(w, g) {
   const q = () => 1.08 + SKILL * 0.25 + gauss() * 0.05, laps = g.laps;
-  const r = { finished: rnd() > 0.03, time: 0, ref: 1, dmg: Math.max(0, gauss() * 0.04), comfort: 100, lapTimes: [], lapComfort: [], won: false };
+  const r = { finished: rnd() > 0.03, time: 0, ref: 1, dmg: Math.max(0, gauss() * 0.02 + SKILL * 0.01), comfort: 100, lapTimes: [], lapComfort: [], won: false };
   if (g.kind === 'courier') { r.ref = laps; r.time = laps * q(); }
-  else if (g.kind === 'hearse') { r.ref = laps; r.time = laps * (1.4 + gauss() * 0.1); r.comfort = Math.min(100, 75 + gauss() * 15); }
-  else if (g.kind === 'rides') { for (let i = 0; i < laps; i++) { r.lapTimes.push(q()); r.lapComfort.push(Math.min(100, 70 + gauss() * 20)); } }
+  else if (g.kind === 'hearse') { r.ref = laps; r.time = laps * (1.4 + gauss() * 0.1); r.comfort = Math.min(100, 88 - SKILL * 10 + gauss() * 8); }
+  else if (g.kind === 'rides') { for (let i = 0; i < laps; i++) { r.lapTimes.push(q()); r.lapComfort.push(Math.min(100, 82 - SKILL * 10 + gauss() * 14)); } }
   else if (g.kind === 'attack') { for (let i = 0; i < laps; i++) r.lapTimes.push(q() - 0.03); }
   else { r.won = rnd() < 0.62 - SKILL * 0.4; r.lapTimes = [1, 1]; }
   return WC.gigDone(w, g.id, r);
@@ -84,18 +84,18 @@ function week(w, P) {
   WC.weekOf(w);
   answerAll(w, P);
   if (P.work !== 'none') {
-    for (const g of WC.bookedGigs(w)) driveGig(w, g);
+    for (const g of WC.bookedGigs(w)) w.simWork = (w.simWork || 0) + (driveGig(w, g)?.net || 0);
     // GigGo: take what's offered while there are days
-    for (const g of WC.weekOf(w).gigs.slice()) { if (WC.daysLeft(w) <= (P.work === 'some' ? 3 : 0)) break; if (WC.bookGig(w, g.id) === 'ok') driveGig(w, g); }
+    for (const g of WC.weekOf(w).gigs.slice()) { if (WC.daysLeft(w) <= (P.work === 'some' ? 3 : 0)) break; if (WC.bookGig(w, g.id) === 'ok') w.simWork = (w.simWork || 0) + (driveGig(w, g)?.net || 0); }
   }
   // the car: rebuild what's worn (yourself if you can spare the day)
   const parts = WC.carParts(w);
   if (parts) for (const k of WC.PART_KEYS) if (parts[k].cond < 0.55) {
-    if (P.diy && WC.daysLeft(w) > 0) WC.rebuildSelf(w, k);
+    if (P.diy && WC.daysLeft(w) > 0) { const save = WC.rebuildCost(w, k) - WC.selfCost(w, k); if (WC.rebuildSelf(w, k)) w.simWork = (w.simWork || 0) + save; } // (what doing it yourself saved counts as the week's work)
     else if (w.money.balance > WC.rebuildCost(w, k) * 2) WC.rebuildPart(w, k);
   }
   if (P.upgrades && w.money.balance > 60000) { const c = WC.catalogue(w).filter(x => !WC.isFitted(w, x)).sort((a, b) => a.price - b.price)[0]; if (c && c.price < w.money.balance * 0.2) WC.buyFit(w, c); }
-  if (P.work !== 'none') while (WC.daysLeft(w) > 0) WC.workDay(w);
+  if (P.work !== 'none') while (WC.daysLeft(w) > 0) w.simWork = (w.simWork || 0) + WC.workDay(w).amt;
   // tyres for the weekend
   const st = WC.stockOf(w), order = { soft: Math.max(0, 1 - st.soft), medium: Math.max(0, 1 - st.medium) };
   if (!WC.staffOf(w, 'manager')) WC.orderTyres(w, order);
@@ -132,7 +132,7 @@ function career(P, s) {
     out.bal.push(w.money.balance); out.pos.push(w.seasons.at(-1)?.you?.pos ?? null);
     answerAll(w, P); WC.nextSeason(w, POOL);
   }
-  out.end = w.money.balance; out.flags = { ...WC.record(w) }; out.rep = WC.repOf(w); out.arcs = (w.dir?.n || 0);
+  out.end = w.money.balance; out.work = (w.simWork || 0) / Math.max(1, out.rounds / 6); out.flags = { ...WC.record(w) }; out.rep = WC.repOf(w); out.arcs = (w.dir?.n || 0);
   out.dsq = w.series && Object.values(w.player.hist || []).length;
   return out;
 }
@@ -142,12 +142,12 @@ const med = (a) => { const b = a.filter(x => x != null).sort((x, y) => x - y); r
 const k$ = (n) => n == null ? '   -   ' : `${n < 0 ? '-' : ' '}$${Math.abs(Math.round(n / 1000))}k`.padStart(7);
 const pct = (n) => `${Math.round(n * 100)}%`.padStart(4);
 console.log(`${N} careers per policy, ${SEASONS} seasons of 6 rounds, driver skill ${SKILL} (0 = fastest). Lump sum ${k$(WC.LOTTERY.lump).trim()}.`);
-console.log(`policy    broke  start    end s1   end s2   end s3   lowest   finish s1  rep  arcs  caught  flags`);
+console.log(`policy    broke  start    end s1   end s2   end s3   lowest   finish s1  rep  arcs  work/yr  caught  flags`);
 for (const [name, P] of Object.entries(POLICIES)) {
   if (ONLY && name !== ONLY) continue;
   const runs = []; for (let i = 0; i < N; i++) runs.push(career(P, i + 1));
   const broke = runs.filter(r => r.broke != null), caught = runs.filter(r => r.flags.greyCaught || r.flags.betCaught || r.flags.fraudCaught || r.flags.liesCaught).length;
   const fl = {}; for (const r of runs) for (const [k, v] of Object.entries(r.flags)) fl[k] = (fl[k] || 0) + v;
-  console.log(`${name.padEnd(9)} ${pct(broke.length / N)}  ${k$(med(runs.map(r => r.start)))}  ${[0, 1, 2].map(i => k$(med(runs.map(r => r.bal[i])))).join('  ')}  ${k$(med(runs.map(r => r.low)))}  ${String(med(runs.map(r => r.pos[0])) ?? '-').padStart(6)}     ${String(Math.round(med(runs.map(r => r.rep)))).padStart(3)}  ${(runs.reduce((a, r) => a + r.arcs, 0) / N).toFixed(1).padStart(4)}  ${pct(caught / N)}   ${Object.entries(fl).map(([k, v]) => `${k} ${(v / N).toFixed(2)}`).join(', ')}`);
+  console.log(`${name.padEnd(9)} ${pct(broke.length / N)}  ${k$(med(runs.map(r => r.start)))}  ${[0, 1, 2].map(i => k$(med(runs.map(r => r.bal[i])))).join('  ')}  ${k$(med(runs.map(r => r.low)))}  ${String(med(runs.map(r => r.pos[0])) ?? '-').padStart(6)}     ${String(Math.round(med(runs.map(r => r.rep)))).padStart(3)}  ${(runs.reduce((a, r) => a + r.arcs, 0) / N).toFixed(1).padStart(4)}  ${k$(med(runs.map(r => r.work)))}  ${pct(caught / N)}   ${Object.entries(fl).map(([k, v]) => `${k} ${(v / N).toFixed(2)}`).join(', ')}`);
   if (ONLY) for (const [i, r] of runs.entries()) console.log(`  #${i + 1} ${r.broke != null ? `broke after ${r.broke} rounds` : 'ok'}  end ${k$(r.end)}  low ${k$(r.low)}  finish ${r.pos.join('/')}  ${JSON.stringify(r.flags)}`);
 }
