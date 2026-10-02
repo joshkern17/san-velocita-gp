@@ -50,6 +50,9 @@ export const ENGINES = {
   // flat six (air-cooled 911): the boxer's hollow, raspy growl
   flat6: { cyl: 6, fire: even(6), bank: alt(6), ring: 760, ring2: 1.09, decay: 0.002, thump: 0.6, rasp: 0.45, jitter: 0.04,
     bankAmp: 0.8, drive: 6, formants: [[240, 5, 1.1], [900, 4, 1.4], [2400, 2, 2]], lp: [950, 6500], turbo: 0, pops: 0.55, whine: 0, gain: 1 },
+  // flat six, single big turbo (935): the boxer growl, a little muffled, with the whistle and blow-off
+  flat6turbo: { cyl: 6, fire: even(6), bank: alt(6), ring: 740, ring2: 1.09, decay: 0.0021, thump: 0.6, rasp: 0.42, jitter: 0.04,
+    bankAmp: 0.8, drive: 6, formants: [[230, 5, 1.1], [880, 4, 1.4], [2300, 2, 2]], lp: [900, 6000], turbo: 1, flutter: 0, pops: 0.5, whine: 0, gain: 1 },
   // flat twelve (Testarossa): smooth, many pulses, a rich wail
   // (flat 12: steadier timing than the rest, or 12 pulses smear into noise; unequal bank headers give it growl)
   flat12: { cyl: 12, fire: even(12), bank: alt(12), ring: 1050, ring2: 1.03, decay: 0.0014, thump: 0.35, rasp: 0.25, jitter: 0.02,
@@ -124,6 +127,7 @@ export const PHYS = {
   v6turbo: { cyl: 6, gain: 0.7, phases: evenPh(6), extractors: [90, 120, 95, 125, 100, 115], straight: 140, action: 0.2, mix: [0.4, 1, 1] },
   v6na: { cyl: 6, gain: 0.408, phases: evenPh(6), extractors: [75, 80], intake: 85, exhaust: 85, straight: 100, action: 0.07, ignition: 0.013, mix: [1, 0.7, 1] },
   flat6: { cyl: 6, gain: 0.425, phases: evenPh(6), extractors: [80, 130, 85, 125, 90, 120], straight: 115, muffler: [12, 18, 24, 30], action: 0.1, mix: [0.8, 1, 1] },
+  flat6turbo: { cyl: 6, gain: 0.425, phases: evenPh(6), extractors: [80, 130, 85, 125, 90, 120], straight: 115, muffler: [12, 18, 24, 30], action: 0.18, mix: [0.8, 1, 1] },
   flat12: { cyl: 12, gain: 0.748, phases: evenPh(12), jitter: 0.45, extractors: [70, 90], intake: 80, exhaust: 80, straight: 110, action: 0.08, ignition: 0.013, mix: [0.8, 0.6, 1] },
   i4turbo: { cyl: 4, gain: 0.395, extractors: [100], straight: 128, action: 0.18, mix: [0.5, 1, 1] },
   diesel: { cyl: 4, gain: 0.13, phases: evenPh(4), extractors: [160], intake: 140, exhaust: 140, straight: 220, muffler: [25, 35, 45, 55], action: 0.3, ignition: 0.03, mix: [0.5, 1.6, 0.8] },

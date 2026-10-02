@@ -129,7 +129,7 @@ function makeTemplate(id, scene) {
     const P = { canvas: c, data: g.getImageData(0, 0, c.width, c.height), flipY: bodyMap.flipY, wrapS: bodyMap.wrapS, wrapT: bodyMap.wrapT };
     // a white car (mostly light neutral texels, colour only in badges / lamps): the whites are the paint, the photo's
     // greys its shading
-    if (white > n * 0.3 && sat < n * 0.1) T.paintHue = { ...P, white: true };
+    if (white > n * 0.3 && sat < n * 0.1) T.paintHue = { ...P, white: true, islands: paintIslands(P.data) };
     else if (sat > 50 && share > 0.4) T.paintHue = { ...P, hue: (best + 0.5) / 36 };
   }
   T.textures = {};
@@ -143,6 +143,29 @@ function makeTemplate(id, scene) {
 function whitePaint(r, g, b) {
   const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 510;
   return [Math.min(1, Math.max(0, (0.2 - (mx - mn) / 255) / 0.08)) * Math.min(1, Math.max(0, (l - 0.34) / 0.14)), Math.min(1.08, l / 0.9)];
+}
+
+// light specks that aren't part of a painted surface: lettering on the glass (the 935's windscreen banner), the white
+// of a badge. The photo's light texels in connected patches; patches smaller than ~0.02% of the texture are details,
+// kept as photographed (1 in the returned map), the big ones are bodywork.
+function paintIslands(img) {
+  const { width: w, height: h, data: d } = img, n = w * h, light = new Uint8Array(n), out = new Uint8Array(n);
+  for (let i = 0; i < n; i++) light[i] = whitePaint(d[i * 4], d[i * 4 + 1], d[i * 4 + 2])[0] > 0 ? 1 : 0;
+  const seen = new Uint8Array(n), stack = new Int32Array(n), min = Math.max(64, n * 0.0002);
+  for (let s = 0; s < n; s++) {
+    if (!light[s] || seen[s]) continue;
+    let top = 0, cnt = 0; stack[top++] = s; seen[s] = 1;
+    const patch = [];
+    while (top) {
+      const i = stack[--top], x = i % w; cnt++; if (cnt < min) patch.push(i);
+      if (x > 0 && light[i - 1] && !seen[i - 1]) { seen[i - 1] = 1; stack[top++] = i - 1; }
+      if (x < w - 1 && light[i + 1] && !seen[i + 1]) { seen[i + 1] = 1; stack[top++] = i + 1; }
+      if (i >= w && light[i - w] && !seen[i - w]) { seen[i - w] = 1; stack[top++] = i - w; }
+      if (i < n - w && light[i + w] && !seen[i + w]) { seen[i + w] = 1; stack[top++] = i + w; }
+    }
+    if (cnt < min) for (const i of patch) out[i] = 1;
+  }
+  return { map: out, w, h };
 }
 
 // ---------------- full liveries on a white car (livery: true) ----------------
@@ -201,6 +224,9 @@ function texelMap(L, R) {
   if (L.maps[R]) return L.maps[R];
   const n = R * R, panel = new Uint8Array(n), X = new Float32Array(n), Y = new Float32Array(n);
   const idxOf = Object.fromEntries(L.names.map((nm, k) => [nm, k + 1])), SOLID = L.names.length + 1;
+  // faces sharing texels (e.g. a nose face unwrapped onto the bonnet's tip in the top photo): the one the photo sees
+  // most squarely keeps them, i.e. the least stretched (3D area per texel)
+  const stretch = new Float32Array(n).fill(Infinity);
   const solid = [];
   for (const p of L.parts) {
     const g = p.geo, P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv, I = g.index;
@@ -227,11 +253,16 @@ function texelMap(L, R) {
       const minY = Math.max(0, Math.floor(Math.min(...vs)) - 1), maxY = Math.min(R - 1, Math.ceil(Math.max(...vs)) + 1);
       // texels whose centre is inside, plus (if nothing else has them) texels the triangle only touches: slivers
       // thinner than a texel cover no centre at all (the M1's rear deck is a strip along the side photo's top edge)
-      const ad = Math.abs(den), ta = 0.71 * Math.hypot(x1 - x2, y1 - y2) / ad, tb = 0.71 * Math.hypot(x2 - x0, y2 - y0) / ad, tc = 0.71 * Math.hypot(x0 - x1, y0 - y1) / ad;
+      const ad = Math.abs(den);
+      const e1x = P.getX(i1) - P.getX(i0), e1y = P.getY(i1) - P.getY(i0), e1z = P.getZ(i1) - P.getZ(i0), e2x = P.getX(i2) - P.getX(i0), e2y = P.getY(i2) - P.getY(i0), e2z = P.getZ(i2) - P.getZ(i0);
+      const st = Math.hypot(e1y * e2z - e1z * e2y, e1z * e2x - e1x * e2z, e1x * e2y - e1y * e2x) / ad;
+      const ta = 0.71 * Math.hypot(x1 - x2, y1 - y2) / ad, tb = 0.71 * Math.hypot(x2 - x0, y2 - y0) / ad, tc = 0.71 * Math.hypot(x0 - x1, y0 - y1) / ad;
       for (let py = minY; py <= maxY; py++) for (let px = minX; px <= maxX; px++) {
         const cx = px + 0.5, cy = py + 0.5, id = py * R + px;
         const a = ((y1 - y2) * (cx - x2) + (x2 - x1) * (cy - y2)) / den, b = ((y2 - y0) * (cx - x2) + (x0 - x2) * (cy - y2)) / den, c = 1 - a - b;
         if (a < -0.02 || b < -0.02 || c < -0.02) { if (panel[id] || a < -ta || b < -tb || c < -tc) continue; }
+        else if (st > stretch[id]) continue;
+        else stretch[id] = st;
         const x = P.getX(i0) * a + P.getX(i1) * b + P.getX(i2) * c, y = P.getY(i0) * a + P.getY(i1) * b + P.getY(i2) * c, z = P.getZ(i0) * a + P.getZ(i1) * b + P.getZ(i2) * c;
         const [sx, sy] = pn.proj(x, y, z);
         panel[id] = idxOf[name]; X[id] = Math.min(pn.W, Math.max(0, sx)); Y[id] = Math.min(pn.H, Math.max(0, sy));
@@ -258,8 +289,10 @@ function texelMap(L, R) {
   const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(L.map.image, 0, 0, R, R);
   const photo = g.getImageData(0, 0, R, R).data, list = [], kl = [], sl = [];
   let mask = null; if (R === PICK_RES) mask = new Float32Array(n);
+  const isl = L.T.paintHue.islands;
   for (let i = 0; i < n; i++) {
-    const [kk, s] = whitePaint(photo[i * 4], photo[i * 4 + 1], photo[i * 4 + 2]);
+    let [kk, s] = whitePaint(photo[i * 4], photo[i * 4 + 1], photo[i * 4 + 2]);
+    if (kk > 0 && isl.map[Math.min(isl.h - 1, ((i / R | 0) + 0.5) * isl.h / R | 0) * isl.w + Math.min(isl.w - 1, ((i % R) + 0.5) * isl.w / R | 0)]) kk = 0;
     if (mask) mask[i] = kk;
     if (panel[i] && kk > 0) { list.push(i); kl.push(kk); sl.push(s); }
   }
@@ -379,7 +412,8 @@ function paintedTexture(T, colour) {
     const [h, s, l] = hsl(src[i], src[i + 1], src[i + 2]);
     if (P.white) {
       // the paint takes the colour, shaded like the photo's white (whitePaint)
-      const [k, sh] = whitePaint(src[i], src[i + 1], src[i + 2]);
+      let [k, sh] = whitePaint(src[i], src[i + 1], src[i + 2]);
+      if (P.islands.map[i >> 2]) k = 0;
       o[i] = src[i] + (Math.min(255, cr * sh) - src[i]) * k; o[i + 1] = src[i + 1] + (Math.min(255, cg * sh) - src[i + 1]) * k; o[i + 2] = src[i + 2] + (Math.min(255, cb * sh) - src[i + 2]) * k;
       o[i + 3] = src[i + 3];
       continue;

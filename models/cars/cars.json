@@ -202,5 +202,22 @@
    1.18,
    4.36
   ]
+ },
+ "porsche935": {
+  "title": "Porsche 935 (custom, made in Blender)",
+  "author": "you",
+  "license": "own work",
+  "source": "",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   1.98,
+   1.34,
+   4.86
+  ]
  }
 }

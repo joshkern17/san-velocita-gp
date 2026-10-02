@@ -186,6 +186,9 @@ export function panelArt(g, name, p, cfg, model, onReady) {
       if (pat === 'stripe') { poly(g, P, [[0, 0.38], [1, 0.38], [1, 0.62], [0, 0.62]]); g.fillStyle = third; poly(g, P, [[0, 0.34], [1, 0.34], [1, 0.38], [0, 0.38]]); poly(g, P, [[0, 0.62], [1, 0.62], [1, 0.66], [0, 0.66]]); }
       else if (pat === 'arrow') poly(g, P, [[1, 0.5], [0.55, 0], [0.55, 0.2], [0.85, 0.5], [0.55, 0.8], [0.55, 1]]);
       else if (pat === 'sash') poly(g, P, [[0.6, 0.35], [1, 0.35], [1, 0.65], [0.6, 0.65]]);
+    } else if (p.role === 'end' && pat === 'stripe') {
+      // (a GT car's nose / tail face, seen head-on: the bonnet stripe carries on down it)
+      g.fillRect(PW * 0.38, 0, PW * 0.24, PH); g.fillStyle = third; g.fillRect(PW * 0.34, 0, PW * 0.04, PH); g.fillRect(PW * 0.62, 0, PW * 0.04, PH);
     } else {
       if (pat === 'split') poly(g, P, [[0, 0.5], [1, 0.5], [1, 1], [0, 1]]);
       else if (pat === 'sash' && p.role === 'side') poly(g, P, [[0.25, 1], [0.45, 1], [0.7, 0], [0.5, 0]]);

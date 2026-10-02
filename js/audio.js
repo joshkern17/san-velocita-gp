@@ -203,8 +203,9 @@ export class EngineVoice {
     if (E.turbo) {
       const want = thr * Math.max(0, Math.min(1, (x - 0.12) / 0.4));
       this.boost += (want - this.boost) * (1 - Math.exp(-dt * (want > this.boost ? 2.2 : 7)));
-      this.tw.frequency.setTargetAtTime(1600 + 6800 * this.boost, t, 0.05);
-      this.twG.gain.setTargetAtTime(E.turbo * this.boost * this.boost * 0.05, t, 0.05);
+      // (kept below ~3.5 kHz and soft: a pure tone up in the ear's most sensitive range was piercing)
+      this.tw.frequency.setTargetAtTime(1100 + 2400 * this.boost, t, 0.05);
+      this.twG.gain.setTargetAtTime(E.turbo * this.boost * this.boost * 0.03, t, 0.05);
       if (this.prevThr > 0.55 && thr < 0.25 && this.boost > 0.4) { this.blowOff(E.turbo * this.boost, E.flutter); this.boost *= 0.25; }
     } else this.twG.gain.setTargetAtTime(0, t, 0.05);
     // overrun crackle for a moment after lifting at high revs

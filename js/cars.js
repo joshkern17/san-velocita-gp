@@ -84,6 +84,11 @@ export const CARS = {
   m1procar: { name: 'Bavaria M1 ProCar ’79', cls: 'gt1', sound: 'i6', glb: true, paint: true, livery: true, // your Blender model: white photo, wears your full livery (see roadcar.js) + Light_* lamps
     liveryLabels: { topNumber: [0.78, 0.5], sideNumber: [0.55, 0.5], sideSponsor: [0.55, 0.8] },
     spec: gt({ gears: [0, 28, 43, 57, 71, 88], box: 'manual', shift: 0.14, mass: 1020, power: 400000, kd: 0.75, drag: 0.45, torque: NA, redline: 9000, a: 1.3, b: 1.13, rearGrip: 1.07, brakeF: 0.62 }) },
+  // your Blender model (Group 5, '78 long tail): white photo, wears your full livery. Rear-engined (about 40 / 60), a
+  // 4-speed and a big single turbo: slow off the line, then a lot of shove; the huge wing keeps the tail planted
+  porsche935: { name: 'Porsche 935', cls: 'gt1', sound: 'flat6turbo', glb: true, paint: true, livery: true,
+    liveryLabels: { topNumber: [0.78, 0.5], sideNumber: [0.55, 0.5], sideSponsor: [0.55, 0.8] },
+    spec: gt({ gears: [0, 34, 52, 70, 88], box: 'manual', shift: 0.15, mass: 1030, power: 470000, kd: 0.9, drag: 0.5, torque: TURBO, redline: 8200, a: 1.44, b: 0.96, rearGrip: 1.08, brakeF: 0.58 }) },
 
   testarossa: { name: 'Testa Rossa', cls: 'street', sound: 'flat12', glb: true, paint: true,
     spec: street({ lsd: [50, 0.4, 0.2], mass: 1510, power: 290000, cgh: 0.44, a: 1.4, b: 1.15, mu: 1.35, kd: 0.18, redline: 7400, gears: [0, 20, 34, 48, 63, 80], torque: NA }) },
