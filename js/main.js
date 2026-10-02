@@ -16,6 +16,7 @@ import { TEAMS } from './car.js';
 import { Garage } from './garage.js';
 import { PitGarage } from './pitgarage.js';
 import { Computer } from './computer.js';
+import { restoreSaves, exportBackup, importBackup } from './backup.js';
 import { carPhoto } from './carphoto.js';
 import { PARTS, DEFAULT_CAR, chassisReady } from './carmodel.js';
 import * as CAREER from './career.js';
@@ -34,6 +35,9 @@ import { setVertexSnapEnabled, setJitterScale, setAffineAmount, setAffineCap, se
 
 const $ = (id) => document.getElementById(id);
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
+
+// ---------------- your saves: restored from saves/ (serve.py) if the browser lost them, then mirrored there ----------------
+const backup = await restoreSaves();
 
 // ---------------- settings ----------------
 const DEFAULTS = {
@@ -477,6 +481,11 @@ const OPTION_TABS = [
     rulesItem(' Changes apply from the next race.'),
     mistakesItem(' Changes apply from the next race.'),
     { label: 'Speed Units', values: [['kmh', 'KM/H'], ['mph', 'MPH']], get: () => settings.units, set: v => { settings.units = v; applyVideo(); saveSettings(); }, desc: 'Speedometer units.' },
+    { label: 'Backup', head: true },
+    { label: 'Export Backup', action: () => exportBackup().then(n => toast(`Backup saved to your Downloads: ${n.keys} saves, ${n.assets} images.`)),
+      get desc() { return `Everything in one file: tracks, liveries, careers, settings and your images. ${backup.online ? 'Your saves are also kept automatically in the game folder (saves/).' : ''}`; } },
+    { label: 'Import Backup', confirm: 'Replace what\'s here with the file? Select again', action: () => importBackup().then(r => { if (!r) return; if (r.error) return toast(r.error); toast(`Restored ${r.keys} saves and ${r.assets} images. Reloading...`); setTimeout(() => location.reload(), 1600); }),
+      desc: 'Load a backup file you exported. Anything in it replaces what the game has now.' },
   ]],
   ['Aids', [
     presetItem(' Pick a preset, or set each aid below.'),

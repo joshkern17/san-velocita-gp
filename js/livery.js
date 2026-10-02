@@ -11,6 +11,7 @@
 //                                                // its right (s) / down (t) directions as seen from outside
 //                    W, H,                      // physical size in metres (keeps decals in proportion)
 //                    role, nose, pair, label }  // pattern hints, which edge points to the nose, mirror panel
+import { backupAsset } from './backup.js'; // (your images are kept in saves/ too)
 
 // ---------------- image assets (imported PNG / SVG) ----------------
 // Stored in IndexedDB (they can be big); kept in memory once loaded. Liveries reference them by id.
@@ -29,7 +30,7 @@ function db() {
   return dbp;
 }
 async function idbGet(id) { const d = await db(); if (!d) return null; return new Promise(res => { const q = d.transaction('assets').objectStore('assets').get(id); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }); }
-async function idbPut(id, v) { const d = await db(); if (!d) return; return new Promise(res => { const tx = d.transaction('assets', 'readwrite'); tx.objectStore('assets').put(v, id); tx.oncomplete = res; tx.onerror = res; }); }
+async function idbPut(id, v) { backupAsset(id, v); const d = await db(); if (!d) return; return new Promise(res => { const tx = d.transaction('assets', 'readwrite'); tx.objectStore('assets').put(v, id); tx.oncomplete = res; tx.onerror = res; }); }
 
 export const assets = {
   has: (id) => mem.has(id),

@@ -11,3 +11,9 @@ node_modules/
 __pycache__/
 *.pyc
 .playwright-mcp/
+
+# Real-circuit importer download cache
+tools/tracks/cache/
+
+# your saves (mirrored by serve.py): personal, not part of the game
+saves/
