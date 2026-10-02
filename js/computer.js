@@ -31,7 +31,7 @@ const APPS = [
 ];
 // the Team app's tabs (and the names they used to have as apps of their own, for links into them)
 const TEAM_TABS = [['overview', 'Overview'], ['car', 'Car'], ['tyres', 'Tyres'], ['drivers', 'Drivers'], ['staff', 'Staff'], ['sponsors', 'Sponsors'], ['data', 'Data']];
-const TEAM_ALIAS = { workshop: 'car', tyres: 'tyres', staff: 'staff', telemetry: 'data', sponsors: 'sponsors', drivers: 'drivers' };
+const TEAM_ALIAS = { workshop: 'car', tyres: 'tyres', staff: 'staff', telemetry: 'data', sponsors: 'sponsors', teamdrivers: 'drivers' }; // ('drivers' alone is the Driver Database website)
 // the Internet's home page
 const BOOKMARKS = [['news', 'The Paddock Wire', 'Motorsport news'], ['series', 'Series websites', 'Standings, teams, calendars, champions'], ['drivers', 'Velocita Driver Database', 'Every driver, every season'],
   ['classifieds', 'SVList', 'Cars and parts, by owner'], ['parts', 'Speed Parts Direct', 'Performance parts'], ['jobs', 'SVJobs', 'Hire staff'], ['bank', 'First Velocita Bank', 'Business banking']];
@@ -188,6 +188,7 @@ export class Computer {
   markRead(id) { const m = (this.w.mail || []).find(x => x.id === id); if (m && !m.read) { m.read = true; this.src.changed?.(); } }
   act(a, arg) {
     if (a === 'app') { this.stack = []; this.launch(arg); return; }
+    if (a === 'profile') { const p = this.w.people[arg]; this.follow('drivers', { db: p?.series || this.w.player.series, pid: arg }); this.src.sfx?.select?.(); return; }
     if (a === 'dsign' || a === 'dlow' || a === 'mextend') {
       const k = a + ':' + arg; if (this.armed !== k) { this.armed = k; this.curKey = k; this.render(); this.src.sfx?.move?.(); return; }
       this.armed = null; this.src.drivers?.(a, arg); this.curKey = null; this.render(); return;
@@ -334,7 +335,8 @@ export class Computer {
     else if (field.startsWith('q-')) { const c = field.slice(2), o = this.order; o[c] = Math.max(0, Math.min(8, (o[c] || 0) + d)); this.orderArmed = false; }
     else if (field.startsWith('pay-')) { const id = field.slice(4), x = (this.w.staff || []).find(s => s.id === id); if (x) { const k = WC.PAY_MODES.map(m => m[0]); this.src.staff?.('pay', id, wrap(k, k.indexOf(x.pay) + d)); } }
     else if (field === 'c0' || field === 'c1') { const i = +field[1]; f.colors[i] = wrap(PALETTE, Math.max(0, PALETTE.indexOf(f.colors[i])) + d); }
-    this.curKey = 'f-' + field; this.render(); this.src.sfx?.move?.();
+    this.curKey = ['home', 'background', 'years', 'c0', 'c1'].includes(field) ? 'f-' + field : field; // (the form's fields are keyed f-…; the rest by their own name)
+    this.render(); this.src.sfx?.move?.();
   }
   // typing into a text field: the real input takes the keyboard until Enter / Esc / a click elsewhere
   type(field) {
@@ -430,7 +432,7 @@ export class Computer {
     const card = (tab, title, body, cta) => `<div class="ov-card" data-nav data-act="ttab" data-arg="${tab}" data-key="ov-${tab}"><b>${title}</b>${body}<small>${cta} &rarr;</small></div>`;
     const worst = P ? WC.PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)[0] : null;
     const short = need ? WC.COMPOUNDS.filter(c => st[c] < need[c]) : [];
-    return `<div class="tm"><div class="tm-head"><b>${esc(w.teams[w.player.team].name)}</b><small>${esc(WC.seriesById(w.player.series).name)} &middot; ${w.year}${R ? ` &middot; next: round ${w.round + 1}, ${esc(R.name)} (${esc(R.weather)})` : ' &middot; season over'}</small></div>
+    return `<div class="tm"><div class="tm-head"><b>${esc(w.teams[w.player.team].name)}</b><small>${esc(WC.seriesById(w.player.series).name)} &middot; ${w.year}${R ? ` &middot; next: round ${w.round + 1}, ${esc(R.name)} (${esc(R.weather)})` : ' &middot; season over'} &middot; ${{ easy: 'Rookie', medium: 'Pro', hard: 'Legend', alien: 'Alien' }[w.opts.difficulty] || ''} difficulty</small></div>
       <div class="db-cells ov-cells"><div><small>Balance</small><b class="${m && m.balance < 0 ? 'neg' : ''}">${m && m.choice ? WC.money$(m.balance) : '&mdash;'}</b></div><div><small>Payroll a round</small><b>${WC.money$(due)}</b></div><div><small>Staff</small><b>${staff.length}/3</b></div></div>
       <div class="ov-grid">
         ${card('car', 'Car', P ? `<span>${esc(w.car.name)} &middot; ${WC.PARTS[worst].name.toLowerCase()} ${Math.round(P[worst].cond * 100)}%</span><span class="${risk >= 0.08 ? 'neg' : ''}">Risk of a failure: ${risk < 0.03 ? 'low' : risk < 0.08 ? 'some' : risk < 0.15 ? 'high' : 'very high'}</span>` : '<span>No car yet</span>', 'Workshop')}
@@ -451,14 +453,14 @@ export class Computer {
     if (m) {
       const p = WC.people(w)[m.pid], h = WC.h2hOf(w, m.pid), mood = m.morale >= 70 ? 'happy' : m.morale >= 45 ? 'fine' : m.morale >= 25 ? 'unhappy' : 'furious';
       const last = m.until <= w.year;
-      me = `<div class="tm-row dv-mate"><div class="tm-who"><b>${esc(p.first)} ${esc(p.last)} ${chips(p)}</b><small>${WC.ageOf(w, p)} &middot; ${quick(p)} &middot; ${m.fee ? `brought ${WC.money$(m.fee)} for the seat` : `${WC.money$(m.wage)} a round`} &middot; contract to the end of ${m.until}${h.races ? ` &middot; ahead of you ${h.behind} of ${h.races}` : ''}</small></div>
+      me = `<div class="tm-row dv-mate"><div class="tm-who"><b><a class="dv-name" data-nav data-act="profile" data-arg="${p.id}" data-key="pf-${p.id}">${esc(p.first)} ${esc(p.last)}</a> ${chips(p)}</b><small>${WC.ageOf(w, p)} &middot; ${quick(p)} &middot; ${m.fee ? `brought ${WC.money$(m.fee)} for the seat` : `${WC.money$(m.wage)} a round`} &middot; contract to the end of ${m.until}${h.races ? ` &middot; ahead of you ${h.behind} of ${h.races}` : ''}</small></div>
         <div class="tm-mood ${mood}"><i><b style="width:${m.morale}%"></b></i><small>${mood}${m.owed ? ` &middot; owed <span class="neg">${WC.money$(m.owed)}</span>` : ''}</small></div>
         ${m.wage ? `<div class="tm-pay" data-nav data-cycle="mpay" data-key="mpay"><i data-act="cyc" data-arg="mpay:-1">&#9664;</i><b>${WC.PAY_MODES.find(x => x[0] === m.pay)[1]}</b><i data-act="cyc" data-arg="mpay:1">&#9654;</i></div>` : '<div></div>'}
         <div class="tm-acts">${last && !m.fee ? btn('mextend', '1', `Extend (${WC.money$(WC.askOf(w, p).wage)} a round)`, 'Sure? Select again') : ''}</div></div>`;
     }
     const market = WC.driverMarket(w).map(p => {
       const a = WC.askOf(w, p), t = p.team ? w.teams[p.team] : null, g = WC.grudgeOf(w, p.id);
-      return `<div class="jb-row dv-row"><div><b>${esc(p.first)} ${esc(p.last)}</b>, ${WC.ageOf(w, p)} ${chips(p)}<small>${quick(p)} &middot; ${t ? esc(t.name) : 'no seat'} &middot; ${p.wins} win${p.wins === 1 ? '' : 's'}${g >= 1 ? ` &middot; <span class="neg">${g >= 3 ? 'won\'t talk to you' : 'holds a grudge'}</span>` : ''}</small></div>
+      return `<div class="jb-row dv-row"><div><b><a class="dv-name" data-nav data-act="profile" data-arg="${p.id}" data-key="pf-${p.id}">${esc(p.first)} ${esc(p.last)}</a></b>, ${WC.ageOf(w, p)} ${chips(p)}<small>${quick(p)} &middot; ${t ? esc(t.name) : 'no seat'} &middot; ${p.wins} win${p.wins === 1 ? '' : 's'}${g >= 1 ? ` &middot; <span class="neg">${g >= 3 ? 'won\'t talk to you' : 'holds a grudge'}</span>` : ''}</small></div>
         <div class="jb-meta">${a.fee ? `brings ${WC.money$(a.fee)}` : `asks ${WC.money$(a.wage)} a round`}</div>
         <div class="tm-acts">${btn('dsign', p.id, a.fee ? 'Sign' : 'Offer', m ? `Replace ${esc(WC.people(w)[m.pid].first)}?` : 'Sure?')}${a.fee ? '' : btn('dlow', p.id, 'Lowball', '75%? Select again')}</div></div>`;
     }).join('');
@@ -681,13 +683,25 @@ export class Computer {
     const bar = (k, v) => `<div class="db-stat"><span>${k}</span><i><b style="width:${Math.round(v)}%"></b></i><em>${Math.round(v)}</em></div>`;
     const hist = c.hist.slice().reverse().map(h => `<tr><td>${h.y}</td><td>${esc(WC.seriesById(h.s).name)}</td><td>${esc(h.team)}</td><td class="r">${ord(h.pos)}</td><td class="r">${h.wins}</td><td class="r">${h.pts}</td></tr>`).join('');
     const h = !isP ? WC.h2hOf(w, pid) : null;
+    // this season, round by round
+    const sid = isP ? w.player.series : p.series || (t && t.series), S = sid && w.series[sid];
+    const season = S ? S.cal.map((c, k) => { const res = S.results.find(r => r.round === k), row = res && res.rows.find(r => r.pid === pid); return `<td class="${row && !row.dnf && row.pos <= 3 ? 'pos' : ''}">${row ? (row.dnf ? 'DNF' : row.pos) : res ? '&ndash;' : ''}</td>`; }).join('') : '';
+    const mate = WC.mateOf(w), market = !isP && WC.driverMarket(w).some(x => x.id === pid), mine = !isP && mate && mate.pid === pid;
+    const ask = !isP ? WC.askOf(w, p) : null;
+    const status = isP ? 'You' : p.retired ? `Retired in ${p.retiredYear}` : mine ? `Your teammate &middot; ${mate.fee ? `brought ${WC.money$(mate.fee)}` : `${WC.money$(mate.wage)} a round`}, to the end of ${mate.until}` : p.team ? `Drives for ${esc(t.name)}${market ? ' &middot; available next season' : ''}` : 'Free agent';
+    const best = c.hist.length ? c.hist.reduce((b, h) => (!b || h.pos < b.pos ? h : b), null) : null;
+    const btn = (a, label, armed) => `<button class="pc-btn sm" data-nav data-act="${a}" data-arg="${pid}" data-key="${a}:${pid}">${this.armed === a + ':' + pid ? armed : label}</button>`;
     return `<div class="db-page" data-nav data-scroll data-key="dbpage" data-first>
       <h1>${esc(isP ? w.player.name : WC.nameOf(p))}</h1>
+      <div class="db-status">${status}</div>
+      ${market && !p.retired ? `<div class="db-offer"><span>${ask.fee ? `Brings ${WC.money$(ask.fee)} for a seat` : `Asks ${WC.money$(ask.wage)} a round`}</span>${btn('dsign', ask.fee ? 'Sign' : 'Offer', mate ? `Replace ${esc(w.people[mate.pid]?.first || '')}? Select again` : 'Sure? Select again')}${ask.fee ? '' : btn('dlow', 'Lowball', '75%? Select again')}</div>` : ''}
       <div class="db-facts">${isP ? 'You' : `${NAT[p.nat] || p.nat} &middot; age ${WC.ageOf(w, p)}`} &middot; ${p && p.retired ? 'retired ' + p.retiredYear : t ? esc(t.name) : 'no seat'}</div>
       ${isP ? '' : `<div class="db-traits">${WC.traitsOf(w, p).map(k => `<span class="dv-chip">${esc(WC.TRAITS[k].name)}</span> ${esc(WC.TRAITS[k].desc)}`).join('<br>')}${WC.grudgeOf(w, pid) >= 1 ? `<br><span class="neg">Holds a grudge against you.</span>` : ''}</div>`}
       <div class="db-cells"><div><small>Starts</small><b>${c.starts}</b></div><div><small>Wins</small><b>${c.wins}</b></div><div><small>Podiums</small><b>${c.pods}</b></div><div><small>Titles</small><b>${c.titles}</b></div></div>
       ${isP ? '' : `<h2>Scouting report</h2>${bar('Pace', p.pace)}${bar('Consistency', p.cons)}${bar('Racecraft', p.craft)}${bar('Wet weather', p.wet)}${bar('Aggression', p.aggr)}`}
       ${h && h.races ? `<h2>Against you</h2><div class="db-cells"><div><small>Races</small><b>${h.races}</b></div><div><small>Ahead of you</small><b>${h.behind}</b></div><div><small>Passes</small><b>${h.youPassed} / ${h.passedYou}</b></div><div><small>Contact</small><b>${h.contacts}</b></div></div>${h.dirty ? `<p class="neg">You've driven them off the road or worse ${h.dirty} time${h.dirty === 1 ? '' : 's'}.</p>` : ''}` : ''}
+      ${S && S.results.length ? `<h2>${w.year} ${esc(WC.seriesById(sid).name)}</h2><table class="pc-tbl db-season"><tr>${S.cal.map((c, k) => `<th>R${k + 1}</th>`).join('')}</tr><tr>${season}</tr></table>` : ''}
+      ${best ? `<p class="db-best">Best season: ${ord(best.pos)} in the ${esc(WC.seriesById(best.s).name)}, ${best.y} (${esc(best.team)}).</p>` : ''}
       <h2>Career</h2>${hist ? `<table class="pc-tbl"><tr><th>YEAR</th><th>SERIES</th><th>TEAM</th><th class="r">POS</th><th class="r">WINS</th><th class="r">PTS</th></tr>${hist}</table>` : '<p class="pc-empty">No full seasons yet.</p>'}
     </div>`;
   }

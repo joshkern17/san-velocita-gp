@@ -118,11 +118,24 @@ export function askOf(w, p) {
   if (t.includes('digger')) wage *= 1.3; if (t.includes('loyal')) wage *= 0.8; if (p.titles) wage *= 1 + 0.15 * p.titles;
   return { wage: Math.round(wage / 50) * 50, fee: 0 };
 }
+// the people without a seat: kept at about ten (juniors after a first seat, drivers who lost theirs, the odd veteran)
+function topUpFreeAgents(w) {
+  const free = Object.values(w.people).filter(p => !p.retired && !p.team && ageOf(w, p) < 37);
+  for (let i = free.length; i < 10; i++) {
+    const x = rng(w), s = rng(w) < 0.7 ? SERIES[0] : SERIES[1];
+    const age = x < 0.5 ? r0(17 + rng(w) * 3) : x < 0.85 ? r0(22 + rng(w) * 7) : r0(30 + rng(w) * 5);
+    const p = makePerson(w, { age, series: null, lvl: s.base - 4 + gauss(w) * 6 + (age > 21 ? 3 : 0) });
+    // (a career before you met them, for the older ones)
+    if (age > 21) { const yrs = Math.min(age - 19, 8); p.starts = r0(yrs * w.opts.len * (0.5 + rng(w) * 0.5)); p.wins = rng(w) < 0.3 ? r0(rng(w) * 4) : 0; p.pods = p.wins + r0(rng(w) * 5); p.series = null; }
+  }
+}
 export function driverMarket(w) {
   const S = seriesById(w.player.series), mateId = mateOf(w)?.pid;
   const ok = (sid) => sid && seriesById(sid) && seriesById(sid).tier <= S.tier;
+  // (without a seat, a driver from the series above will drop down for a drive)
+  const okFree = (sid) => !sid || (seriesById(sid) && seriesById(sid).tier <= S.tier + 1);
   return Object.values(w.people).filter(p => !p.retired && p.id !== mateId && ageOf(w, p) < 40 && (
-    (!p.team && (p.series === null || ok(p.series))) || (w.over && p.team && p.team !== w.player.team && ok(w.teams[p.team]?.series))))
+    (!p.team && okFree(p.series)) || (w.over && p.team && p.team !== w.player.team && ok(w.teams[p.team]?.series))))
     .sort((a, b) => b.pace - a.pace).slice(0, 14);
 }
 // will they sign? (an offer of their ask, or lowball = 75% of it)
@@ -240,6 +253,7 @@ function prehistory(w, trackPool) {
     seasonEnd(w);
     nextSeason(w, trackPool);
   }
+  topUpFreeAgents(w);
   // the old team folds: one of its drivers stays on (the seat comes with the entry), the other goes looking
   const S = w.series.street, old = w.teams[S.teams[S.teams.length - 1]], mine = w.teams.T0;
   const tst = w.seasons.at(-1)?.teamChamps;
@@ -566,6 +580,7 @@ export function nextSeason(w, trackPool) {
   w.player.offer = null;
   w.lastMoves = moves;
   newCalendars(w, trackPool);
+  if (!w.pre) topUpFreeAgents(w);
   seasonOpenNews(w, moves);
   return moves;
 }

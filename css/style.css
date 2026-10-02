@@ -1486,3 +1486,10 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .dv-h { margin: 14px 0 4px; font-size: 13px; border-bottom: 1px solid #999; }
 .dv-row { grid-template-columns: 1fr 130px auto; }
 .db-traits { margin: 0 0 10px; font-size: 13px; color: #333; line-height: 1.7; }
+.dv-name { color: #1a0dab; text-decoration: underline; cursor: pointer; }
+.dv-name.f { background: #fff3b8; outline: 1px dotted #111; }
+.db-status { font-weight: bold; margin: 2px 0 6px; }
+.db-offer { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 6px 10px; background: #fff7cf; border: 1px solid #d8c070; }
+.db-offer span { flex: 1; }
+.db-season td { text-align: center; }
+.db-best { color: #333; }
