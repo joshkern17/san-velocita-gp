@@ -363,7 +363,9 @@ function simRace(w, sid, withPlayer = false) {
   for (const tid of S.teams) for (const pid of w.teams[tid].drivers) if (pid !== 'P' || withPlayer) pids.push(pid);
   const field = pids.map(pid => {
     let r, p = w.people[pid];
-    if (pid === 'P') { const rs = pids.filter(x => x !== 'P').map(x => rating(w, x)).sort((a, b) => b - a); r = rs[Math.floor(rs.length * 0.4)]; p = { cons: 70, wet: 50, aggr: 50, craft: 60 }; }
+    // you (a simulated round): as good as the driver at w.simSkill down the field (0 = the best, default 0.4), give
+    // or take what your car's condition and upgrades are worth
+    if (pid === 'P') { const rs = pids.filter(x => x !== 'P').map(x => rating(w, x)).sort((a, b) => b - a), m = w.car ? carMods(w) : null; r = rs[Math.min(rs.length - 1, Math.floor(rs.length * (w.simSkill ?? 0.4)))] + (m ? (m.power - 1) * 30 + (m.grip - 1) * 40 : 0); p = { cons: 70, wet: 50, aggr: 50, craft: 60 }; }
     else r = rating(w, pid);
     let score = r + gauss(w) * (2.6 + (100 - p.cons) * 0.045) + (p.craft - 50) * 0.04;
     if (rain) score += (p.wet - 50) * 0.12 + gauss(w) * 2;
@@ -475,6 +477,12 @@ function seasonEnd(w) {
     });
   }
   w.seasons.push(summary);
+  // the series' prize fund, by championship position
+  const fund = SEASON_FUND[w.player.series], me = summary.you;
+  if (w.money && me && fund[me.pos - 1]) {
+    pay(w, fund[me.pos - 1], `${seriesById(w.player.series).name} prize fund: P${me.pos} in the championship`);
+    mail(w, `${seriesById(w.player.series).name} Office`, addrOf(seriesById(w.player.series), 'office'), `${w.year} prize fund`, [`Congratulations on finishing P${me.pos} in the ${w.year} championship. Your share of the prize fund, ${money$(fund[me.pos - 1])}, has been paid into your account.`, `${seriesById(w.player.series).name} Office`]);
+  }
   // your options: move up if you finished in the top three (and there's a series above)
   const tier = seriesById(w.player.series).tier, up = SERIES[tier + 1];
   const you = summary.you;
@@ -592,12 +600,18 @@ export function nextSeason(w, trackPool) {
 // week's work (day job, gigs) is what keeps you going. Every step up needs more than you have (sponsors).
 export const LOTTERY = { jackpot: 400000, lump: 132000, annuity: 10000, years: 30, saleRate: 0.25 }; // (selling the annuity: a quarter of what it's worth)
 export const COSTS = {
-  street:  { entry: 4000,  travel: 2000,  crew: 5000,  tyre: 900,  fuelLap: 35,  repair: 24000,  prize: [8000, 5500, 4000, 3000, 2500, 2000, 1500, 1200, 1000, 800] },
+  street:  { entry: 4000,  travel: 2000,  crew: 3500,  tyre: 900,  fuelLap: 35,  repair: 24000,  prize: [8000, 5500, 4000, 3000, 2500, 2000, 1500, 1200, 1000, 800] },
   gt:      { entry: 15000, travel: 6000,  crew: 22000, tyre: 3200, fuelLap: 120, repair: 110000, prize: [80000, 56000, 40000, 32000, 26000, 20000, 16000, 12000, 8000, 6000] },
   formula: { entry: 40000, travel: 15000, crew: 90000, tyre: 6000, fuelLap: 300, repair: 450000, prize: [200000, 140000, 100000, 80000, 65000, 50000, 40000, 30000, 20000, 15000] },
 };
 // the annuity is a year's money; seasons of other lengths get it in proportion (a 12-round year pays twice a 6)
 const annuityPay = (w) => Math.round(LOTTERY.annuity * (w.money?.loophole || 1) * w.opts.len / 6 / 100) * 100;
+// the end of the season: the series pays its prize fund by championship position
+const SEASON_FUND = {
+  street:  [25000, 16000, 11000, 8000, 6000, 4500, 3500, 2500, 1500, 1000],
+  gt:      [100000, 64000, 44000, 32000, 24000, 18000, 14000, 10000, 6000, 4000],
+  formula: [250000, 160000, 110000, 80000, 60000, 45000, 35000, 25000, 15000, 10000],
+};
 export const money$ = (n) => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString('en-US');
 const BANK = 'First Velocita Bank', BANK_ADDR = 'statements@firstvelocita.sv';
 function startMoney(w) {
@@ -652,6 +666,8 @@ export function settleRound(w, use, me) {
   ];
   if (use.damage > 0.005) items.push([bg.repair ? 'Repairs (mostly done yourself)' : 'Repairs', -Math.round(use.damage * c.repair * (bg.repair || 1) * fx.repair / 100) * 100]);
   for (const it of sponsorRound(w, use, me)) items.push(it);
+  for (const it of temptRound(w, use, me)) items.push(it);
+  arcRound(w, me);
   const base = me && !me.dnf ? c.prize[me.pos - 1] || 0 : 0, pct = Math.max(0, use.aidPct || 0);
   const prize = Math.round(base * (1 + pct / 100) * (bg.prize || 1) * (home ? 1.1 : 1) / 10) * 10;
   if (prize) items.push([`Prize money (P${me.pos}${pct ? `, +${pct}% for fewer aids` : ''}${home ? ', home crowd' : ''})`, prize]);
@@ -691,7 +707,9 @@ export function weekOf(w) {
     const prev = w.week;
     w.week = { key: weekKey(w), used: 0, log: [], booked: [], gigs: [], setup: false };
     if (prev && !w.pre) noShows(w, prev);
+    if (!w.pre) w.weekN = (w.weekN || 0) + 1;
     if (!w.pre && !w.over && w.car && w.money && w.money.choice) planWeek(w);
+    director(w);
   }
   return w.week;
 }
@@ -747,16 +765,16 @@ function planWeek(w) {
   // GigGo: two or three offers (one, under review)
   const n = r < 4.2 ? 1 : r >= 4.8 ? 3 : 2;
   for (let i = 0; i < n; i++) {
-    if (i === n - 1 && rng(w) < 0.4) { wk.gigs.push(newGig(w, 'hearse', { client: 'Restwell Funeral Home', title: 'Funeral transport', what: 'Please arrive within the window. The family will be following.', pay: 640, window: [1.3, 1.65] })); continue; }
+    if (i === n - 1 && rng(w) < 0.4) { wk.gigs.push(newGig(w, 'hearse', { client: 'Restwell Funeral Home', title: 'Funeral transport', what: 'Please arrive within the window. The family will be following.', pay: 850, window: [1.3, 1.65] })); continue; }
     const [client, what, fragile, urgent] = pickLine(w, COURIER);
-    const fare = Math.round((360 + rng(w) * 320 + (urgent ? 160 : 0)) * (r >= 4.8 ? 1.1 : 1) / 10) * 10;
+    const fare = Math.round((480 + rng(w) * 380 + (urgent ? 200 : 0)) * (r >= 4.8 ? 1.1 : 1) / 10) * 10;
     wk.gigs.push(newGig(w, 'courier', { client, what, fragile, urgent, title: `${client}: ${what.toLowerCase()}`, pay: fare, laps: rng(w) < 0.4 ? 2 : 1, tight: urgent ? 1.3 : 1.45 }));
   }
   // track days and club events (your race car)
-  if (rng(w) < 0.45) offerGig(w, newGig(w, 'rides', { title: 'Passenger rides', client: 'SV Track Days', pay: 110, tip: 70, laps: 3, riders: [0, 1, 2].map(() => pickLine(w, RIDERS)) }), 'SV Track Days', 'bookings@svtrackdays.sv', 'Passenger rides this week?',
-    [`Hi,`, `We've got three customers booked in for passenger rides in a "real race car" this week and our usual driver has done his back in.`, `It's three laps, one passenger a lap. We pay ${money$(110)} a ride, and they tip if they enjoy it. They don't tip if they're sick.`, `Your car, your fuel, your tyres.`, `SV Track Days`]);
-  else if (rng(w) < 0.4) offerGig(w, newGig(w, 'attack', { title: 'Time attack', client: `${TOWNS[w.home]?.name || 'Velocita'} Auto Club`, entry: 80, prizes: [1500, 800, 300], laps: 3 }), `${TOWNS[w.home]?.name || 'Velocita'} Auto Club`, 'events@autoclub.sv', 'Time attack, members and guests',
-    [`Our monthly time attack is on this week. Three laps, your best one counts.`, `Prize money: ${money$(1500)} for the gold time, ${money$(800)} silver, ${money$(300)} bronze. Entry is ${money$(80)}. Guests welcome.`, `Guests welcome. Helmets compulsory.`, `The Committee`]);
+  if (rng(w) < 0.45) offerGig(w, newGig(w, 'rides', { title: 'Passenger rides', client: 'SV Track Days', pay: 150, tip: 90, laps: 3, riders: [0, 1, 2].map(() => pickLine(w, RIDERS)) }), 'SV Track Days', 'bookings@svtrackdays.sv', 'Passenger rides this week?',
+    [`Hi,`, `We've got three customers booked in for passenger rides in a "real race car" this week and our usual driver has done his back in.`, `It's three laps, one passenger a lap. We pay ${money$(150)} a ride, and they tip if they enjoy it. They don't tip if they're sick.`, `Your car, your fuel, your tyres.`, `SV Track Days`]);
+  else if (rng(w) < 0.4) offerGig(w, newGig(w, 'attack', { title: 'Time attack', client: `${TOWNS[w.home]?.name || 'Velocita'} Auto Club`, entry: 100, prizes: [2000, 1200, 500], laps: 3 }), `${TOWNS[w.home]?.name || 'Velocita'} Auto Club`, 'events@autoclub.sv', 'Time attack, members and guests',
+    [`Our monthly time attack is on this week. Three laps, your best one counts.`, `Prize money: ${money$(2000)} for the gold time, ${money$(1200)} silver, ${money$(500)} bronze. Entry is ${money$(100)}. Guests welcome.`, `Guests welcome. Helmets compulsory.`, `The Committee`]);
   // Danny knows a guy (more often when money's short)
   if (rng(w) < (broke ? 0.5 : 0.22)) {
     const pot = Math.round((1200 + rng(w) * 1600) * (broke ? 1.25 : 1) * K / 100) * 100, who = pickLine(w, ['Vince', 'a guy called Marco', 'Big Steve', 'Tash', 'Dmitri', 'this kid Jayden']);
@@ -905,6 +923,371 @@ export function testDone(w, laps) {
   if (laps >= 5) weekOf(w).setup = true;
   return weekOf(w).setup;
 }
+
+// ---------------- temptations and the story director ----------------
+// Between rounds (as each week starts) the director looks at the world: it moves on the stories already running,
+// starts new ones when there's room, rolls the consequences of what you've done, and now and then puts a temptation
+// in front of you. How desperate you are decides how often temptations come and how good they look. Everything
+// arrives as mail (choices) or texts; answers come back through answerStory. Nothing here needs the race engine, so
+// seasons can be simulated (tools/simcareer.mjs).
+const KS = (w) => ({ street: 1, gt: 3, formula: 9 }[w.player.series] || 1);
+const nowIdx = (w) => w.weekN || 0;
+// what an average round costs you, after what comes in (sponsors, a mid-field prize), at today's prices
+export function roundBurn(w) {
+  const c = COSTS[w.player.series], m = mateOf(w);
+  const out = c.entry + c.travel * 0.7 + c.crew + c.tyre * 2.5 + c.fuelLap * 14 + c.repair * 0.08 + payrollDue(w) + (m && m.wage && m.pay !== 'hold' ? m.wage : 0)
+    + (w.loans || []).filter(l => !l.paid && !l.shark).reduce((a, l) => a + l.per, 0);
+  const inc = dealsOf(w).reduce((a, d) => a + d.fee, 0) + c.prize[5];
+  return Math.max(500, out - inc);
+}
+export const runwayOf = (w) => w.money ? w.money.balance / roundBurn(w) : 99;
+// 0 (comfortable) .. 1 (desperate)
+export function despOf(w) {
+  if (!w.money || !w.money.choice) return 0;
+  const r = runwayOf(w);
+  let d = r < 0 ? 1 : r < 1 ? 0.85 : r < 2 ? 0.65 : r < 4 ? 0.4 : r < 7 ? 0.2 : 0.05;
+  if ((w.staff || []).some(x => x.owed > 0)) d += 0.1;
+  if (dealsOf(w).some(x => x.misses >= (sponsorById(x.sid)?.patience || 9))) d += 0.05;
+  if ((w.loans || []).some(l => l.shark && !l.paid)) d += 0.1;
+  return clamp(d, 0, 1);
+}
+const flag = (w, k) => { (w.flags ??= {})[k] = (w.flags[k] || 0) + 1; };
+export const record = (w) => w.flags || {};
+export function removeGrey(w) { w.grey = null; }
+
+// ---------- the temptations ----------
+// base: weekly chance when desperate enough (scaled by how desperate); min: desperation below which it never comes
+const SHADY = ['Volt Rush Energy', 'Cloud Nine Vapor', 'QuickCash Loans', "Lucky Lou's Online Casino"];
+const TEMPTS = {
+  grey: { base: 0.16, min: 0.2, ok: (w) => w.car && !w.grey && !(w.flags?.greyCaught),
+    offer(w) {
+      const price = 1200 * KS(w);
+      mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'the chip',
+        [`my mate kev does engine maps. he plugged a laptop into a car at the gas station once and it went faster`, `he says ur car is leaving power on the table. ${money$(price)} fitted`, `its not technically legal. but technically nobody checks at street level. kev says`],
+        { tempt: 'grey', price, choices: [['yes', `Have Kev fit it (${money$(price)})`], ['no', 'No']] });
+    } },
+  shady: { base: 0.12, min: 0.3, ok: (w) => !dealsOf(w).some(d => d.shady) && dealsOf(w).length < SPONSOR_SLOTS.length,
+    offer(w) {
+      const name = pickLine(w, SHADY), i = SPONSOR_POOL.findIndex(s => s[0] === name), title = !dealsOf(w).some(d => d.slot === 'title');
+      const fee = Math.round(1500 * 3 * KS(w) * (title ? 1 : ASSOC_K) / 50) * 50;
+      mail(w, name, sponsorAddr(name), 'Partnership opportunity',
+        [`Hi!!`, `${name} is looking for an exciting young motorsport brand to grow with. That's you!`, `We'd pay ${money$(fee)} a round${title ? ' for the name on the car' : ' for a logo'}. No targets. We just want to be seen.`, `Payment terms are 30 days.`, `The ${name} Partnerships Team`],
+        { tempt: 'shady', sid: 'sp' + i, fee, slot: title ? 'title' : 'assoc', choices: [['yes', `Accept: ${money$(fee)} a round`], ['no', 'Decline']] });
+    } },
+  shark: { base: 0.3, min: 0.55, ok: (w) => !(w.loans || []).some(l => l.shark && !l.paid),
+    offer(w) {
+      const amt = 15000 * KS(w), back = 20000 * KS(w);
+      mail(w, 'Sal', 'sal.v@coolmail.sv', 'from sal (dannys cousin)',
+        [`Danny says you're having a hard time. I can help.`, `${money$(amt)} today. ${money$(back)} back in four rounds. No paperwork, no credit check.`, `I'm a reasonable person. Ask anyone. Ask Danny.`, `Sal`],
+        { tempt: 'shark', amt, back, choices: [['yes', `Take ${money$(amt)}`], ['no', 'No thanks']] });
+    } },
+  bet: { base: 0.14, min: 0.3, ok: (w) => !w.bet && !w.over,
+    offer(w) {
+      const stake = 1000 * KS(w);
+      mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'lenny',
+        [`my guy lenny takes bets on the street cup. hes got u at long odds which is rude`, `top 5 this weekend pays 3 to 1. or (and im just saying this because lenny said it) finishing outside the top 8 pays 2 to 1`, `${money$(stake)} stake. cash`],
+        { tempt: 'bet', stake, choices: [['for', 'Bet on yourself: top 5'], ['against', 'Bet against yourself: outside the top 8'], ['no', 'No']] });
+    } },
+  insure: { base: 0.08, min: 0.6, ok: (w) => w.car && !w.fraud && !w.flags?.fraudCaught,
+    offer(w) {
+      const pay = Math.round((w.car.paid || 20000) * 0.9 / 100) * 100;
+      mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'an idea (delete this)',
+        [`ok so a guy at the gas n go says cars catch fire all the time. especially old ones. especially in garages`, `ur insured for ${money$(pay)}. hes done it twice. third time is the charm he says`, `ill delete this email after u read it. i dont know how to do that actually`],
+        { tempt: 'insure', pay, choices: [['yes', 'Let the car "catch fire"'], ['no', 'No']] });
+    } },
+};
+function temptations(w) {
+  const d = despOf(w), cool = (w.tcool ??= {});
+  if (w.week.tempted) return;
+  for (const [id, T] of Object.entries(TEMPTS).sort(() => rng(w) - 0.5)) {
+    if (d < T.min || !T.ok(w) || (cool[id] || -99) > nowIdx(w) - 4) continue;
+    if (rng(w) < T.base * (0.4 + d * 1.6)) { T.offer(w); cool[id] = nowIdx(w); w.week.tempted = id; return; }
+  }
+}
+// your answer to a temptation (or a story's question): { msg } to show, { err } to undo the answer
+export function answerStory(w, m, key) {
+  if (m.tempt) return answerTempt(w, m, key);
+  if (m.arc) { const a = (w.dir?.arcs || []).find(x => x.id === m.arc); return a ? (ARCS[a.type].answer(w, a, m, key) || null) : null; }
+  if (m.inflate) return answerInflate(w, m, key);
+  return null;
+}
+function answerTempt(w, m, key) {
+  if (key === 'no') return null;
+  if (m.tempt === 'grey') { pay(w, -m.price, 'Engine map (cash)'); w.grey = { uses: 0 }; flag(w, 'grey'); return { msg: 'Kev fitted the map. The car pulls harder.' }; }
+  if (m.tempt === 'shady') {
+    const deals = dealsOf(w); if (deals.length >= SPONSOR_SLOTS.length) return { err: 'You have no free sponsor slots.' };
+    const slot = m.slot === 'title' && deals.some(d => d.slot === 'title') ? 'assoc' : m.slot, sp = sponsorById(m.sid);
+    deals.push({ sid: m.sid, slot, fee: m.fee, bonus: 0, met: 0, misses: 0, since: w.year, obj: null, shady: true, owed: 0 });
+    flag(w, 'shady');
+    // the respectable ones notice
+    for (const d of deals.filter(x => !x.shady)) if (rng(w) < 0.45) {
+      const o = sponsorById(d.sid); w.deals = dealsOf(w).filter(x => x !== d);
+      mail(w, o.name, sponsorAddr(o.name), 'Our partnership', [`We've seen the new name on your car. We don't think ${sp.name} is a good fit alongside ${o.name}, so we're ending our sponsorship, effective immediately.`, o.name]);
+    }
+    news(w, `${sp.name.toUpperCase()} JOINS ${w.teams[w.player.team].name.toUpperCase()}`, `The Street Cup team has a new ${slot === 'title' ? 'title ' : ''}partner.`);
+    return { msg: `${sp.name} is on board. Their logo needs to be on the car.` };
+  }
+  if (m.tempt === 'shark') { pay(w, m.amt, 'Loan (Sal)'); (w.loans ??= []).push({ shark: true, owe: m.back, due: nowIdx(w) + 4, missed: 0, paid: false }); flag(w, 'shark'); return { msg: `${money$(m.amt)} from Sal. ${money$(m.back)} back in four rounds.` }; }
+  if (m.tempt === 'bet') { pay(w, -m.stake, 'Cash (Lenny)'); w.bet = { type: key, stake: m.stake, key: w.year * 100 + w.round }; flag(w, key === 'against' ? 'betAgainst' : 'betFor'); return { msg: key === 'against' ? 'Lenny has your money. Finish outside the top 8.' : 'Lenny has your money. Finish in the top 5.' }; }
+  if (m.tempt === 'insure') {
+    pay(w, m.pay, `Insurance: ${w.car.year} ${w.car.name}, total loss (fire)`);
+    w.fraud = { since: nowIdx(w), pay: m.pay };
+    news(w, `FIRE AT ${(TOWNS[w.home]?.name || 'LOCAL').toUpperCase()} RACING GARAGE`, `A race car was destroyed in a fire overnight. Nobody was hurt. The cause is not yet known.`);
+    w.car = null; w.founding.car = false; w.ads = makeAds(w); w.grey = null; flag(w, 'insure');
+    return { msg: 'The car is gone. The money is in the bank. You need another car.' };
+  }
+  return null;
+}
+// the sponsor's "a word about results" email, with a way out
+function answerInflate(w, m, key) {
+  const d = dealsOf(w).find(x => x.sid === m.inflate); if (!d) return null;
+  const sp = sponsorById(d.sid);
+  if (key === 'inflate') { d.misses = Math.max(0, d.misses - 2); d.lied = true; w.lies = (w.lies || 0) + 1; flag(w, 'lies');
+    mail(w, sp.name, sponsorAddr(sp.name), 're: A word about results', [`Thanks for the figures. We hadn't realised the TV audience was that big. We're happy to carry on.`, sp.name]); return { msg: `${sp.name} are happy again.` }; }
+  mail(w, sp.name, sponsorAddr(sp.name), 're: A word about results', [`Thanks for being straight with us. We'll see how the next round goes.`, sp.name]);
+  return null;
+}
+// a round's consequences (bill items): scrutineering, bets, the shady sponsor, loans
+function temptRound(w, use, me) {
+  const items = [], K = KS(w), key = w.year * 100 + w.round, scored = w.series[w.player.series].results.find(x => x.round === w.round), row = scored?.rows.find(r => r.pid === 'P');
+  const dsq = (why) => { if (row) { row.pts = 0; row.dnf = true; row.dsq = true; } if (me) { me.dsq = true; me.pts = 0; } w.rep = clamp(repOf(w) - 6, 0, 100); w.scandal = nowIdx(w); };
+  if (w.grey) {
+    w.grey.uses++;
+    if (rng(w) < Math.min(0.12, 0.02 + 0.01 * w.grey.uses)) {
+      dsq(); items.push(['Fine: illegal engine software', -2000 * K]); w.grey = null; flag(w, 'greyCaught');
+      news(w, `${w.teams[w.player.team].name.toUpperCase()} DISQUALIFIED`, `Scrutineers found unapproved engine software on the car after the race at ${w.series[w.player.series].cal[w.round].name}. The team says it was fitted by a third party.`);
+      text(w, 'Danny', `kev says he has never met u`);
+    }
+  }
+  if (w.bet && w.bet.key === key && me) {
+    const b = w.bet, won = b.type === 'for' ? !me.dnf && me.pos <= 5 : me.dnf || me.pos > 8;
+    if (won) items.push([`Cash (Lenny): ${b.type === 'for' ? '3 to 1' : '2 to 1'}`, b.stake * (b.type === 'for' ? 4 : 3)]);
+    if (won && rng(w) < (b.type === 'against' ? 0.22 : 0.05)) {
+      items.push(['Fine: betting on your own race', -3000 * K]); dsq(); flag(w, 'betCaught');
+      news(w, `INTEGRITY UNIT LOOKS AT ${w.teams[w.player.team].name.toUpperCase()}`, `Street Cup officials are looking into betting on the ${w.series[w.player.series].cal[w.round].name} round. ${w.player.name} has been fined and their result removed.`);
+    }
+    w.bet = null;
+  }
+  // loans: the bank's instalments; Sal's due date
+  for (const l of (w.loans || []).filter(x => !x.paid)) {
+    if (!l.shark) { items.push([`Loan repayment (${BANK})`, -l.per]); l.left--; if (l.left <= 0) l.paid = true; continue; }
+    if (nowIdx(w) < l.due) continue;
+    if (w.money.balance >= l.owe) { items.push(['Loan repaid (Sal)', -l.owe]); l.paid = true; text(w, 'Sal', `Pleasure doing business.`); continue; }
+    l.missed++; l.due = nowIdx(w) + 1; l.owe += 3000 * K;
+    if (l.missed === 1) text(w, 'Sal', `You're late. That's fine. It's ${money$(l.owe)} now.`);
+    else if (l.missed === 2) { const P = carParts(w); if (P) P.chassis.cond = +Math.max(0.1, P.chassis.cond - 0.3).toFixed(3); text(w, 'Danny', `someone was at the garage last night. the car is ok. mostly. sal says hi`); }
+    else { const take = l.owe; items.push(['Collected (Sal)', -take]); l.paid = true; text(w, 'Danny', `sal took the money from ur account. i didnt know u could do that. he was very polite about it`); }
+  }
+  return items;
+}
+// what follows you around: exposed lies, the fire investigation
+function consequences(w) {
+  if (w.lies && rng(w) < 0.02 * w.lies * (pressOf(w) < 0 ? 2 : 1)) {
+    const lied = dealsOf(w).filter(d => d.lied);
+    news(w, `${w.teams[w.player.team].name.toUpperCase()}'S AUDIENCE FIGURES "DON'T ADD UP"`, `The Paddock Wire has seen sponsorship reports claiming TV audiences larger than the Street Cup's actual broadcast reach.`);
+    for (const d of lied) { const sp = sponsorById(d.sid); mail(w, sp.name, sponsorAddr(sp.name), 'Our partnership', [`We've read the article. We're ending our sponsorship, effective immediately, and our lawyers will be in touch about the figures.`, sp.name]); }
+    w.deals = dealsOf(w).filter(d => !d.lied); w.rep = clamp(repOf(w) - 8, 0, 100); w.lies = 0; w.scandal = nowIdx(w); flag(w, 'liesCaught');
+  }
+  if (w.fraud && !w.fraud.closed) {
+    if (nowIdx(w) - w.fraud.since > 4) { w.fraud.closed = true; mail(w, 'Velocita Mutual Insurance', 'claims@velocitamutual.sv', 'Your claim: closed', [`Our investigation into the fire at your premises is now closed. The cause has been recorded as electrical.`, `Velocita Mutual`]); }
+    else if (rng(w) < 0.12) {
+      w.fraud.closed = true; flag(w, 'fraudCaught');
+      pay(w, -w.fraud.pay - 5000 * KS(w), 'Insurance claim reversed, and a fine');
+      news(w, `TEAM OWNER CHARGED OVER GARAGE FIRE`, `${w.player.name}, owner of ${w.teams[w.player.team].name}, has been charged with insurance fraud. A fuel can and a receipt were recovered from the scene.`);
+      for (const d of dealsOf(w).slice()) if (rng(w) < 0.6) { const sp = sponsorById(d.sid); w.deals = dealsOf(w).filter(x => x !== d); mail(w, sp.name, sponsorAddr(sp.name), 'Our partnership', [`In light of the news, we're ending our sponsorship.`, sp.name]); }
+      w.rep = clamp(repOf(w) - 15, 0, 100); w.scandal = nowIdx(w);
+    }
+  }
+}
+// the bank: a business loan, if they like the look of you
+export function loanTerms(w) { const amt = 20000 * KS(w); return { amt, per: Math.round(amt * 1.12 / 6 / 50) * 50, rounds: 6 }; }
+export function applyLoan(w) {
+  const t = loanTerms(w);
+  if ((w.loans || []).some(l => !l.shark && !l.paid)) return { ok: false, why: 'You already have a loan with us.' };
+  const ok = w.money.balance > 0 && repOf(w) >= 12 && !w.scandal;
+  if (!ok) {
+    mail(w, BANK, BANK_ADDR, 'Your loan application', [`Thank you for applying for a business loan.`, `Following a review of your application, we are unable to offer you credit at this time. ${w.money.balance <= 0 ? 'Your account is overdrawn.' : w.scandal ? 'Our decision took into account information in the public domain.' : 'Your business does not yet have enough of a trading history.'}`, `You may reapply in the future.`]);
+    return { ok: false, why: 'The bank said no. The letter is in your mail.' };
+  }
+  pay(w, t.amt, `Business loan (${BANK})`);
+  (w.loans ??= []).push({ shark: false, amt: t.amt, per: t.per, left: t.rounds, paid: false });
+  mail(w, BANK, BANK_ADDR, 'Your loan', [`Your business loan of ${money$(t.amt)} has been paid into your account.`, `It will be repaid in ${t.rounds} instalments of ${money$(t.per)}, taken after each round.`]);
+  return { ok: true };
+}
+
+// ---------- the people in the story ----------
+const ADVISER = ['Gerald Pike, CFP', 'gerald@pikewealth.sv'];
+// your financial adviser: the voice of sense, at a few thresholds a season
+function adviser(w) {
+  const r = runwayOf(w), seen = (w.advised ??= {}), y = w.year;
+  const say = (k, body) => { if (seen[k] === y) return; seen[k] = y; mail(w, ADVISER[0], ADVISER[1], 'Checking in', body); };
+  if (w.money.balance < 0) say('neg', [`I see the account is overdrawn. I'd recommend reducing expenses immediately.`, `I'd also recommend not owning a racing team, but we've discussed that.`, `Gerald`]);
+  else if (r < 2) say('r2', [`A quick note. At your current rate of spending, the money lasts about ${Math.max(1, Math.floor(r))} more round${Math.floor(r) === 1 ? '' : 's'}.`, `Most of my clients who won the lottery bought a boat. A boat costs less than this.`, `Gerald`]);
+  else if (r < 5) say('r5', [`Just keeping an eye on things. You're spending about ${money$(roundBurn(w))} a round more than comes in, which gives you around ${Math.floor(r)} rounds.`, `Let me know if you want to talk about a budget.`, `Gerald`]);
+}
+export const pressOf = (w) => w.press || 0;
+// the old-money owner of a rival team: one per career, made when first needed
+function rivalOwner(w) {
+  if (w.rival && w.teams[w.rival.tid]?.series === w.player.series) return w.rival;
+  const S = w.series[w.player.series], tids = S.teams.filter(t => t !== w.player.team);
+  if (!tids.length) return null;
+  const st = teamStandings(w, w.player.series), tid = (st.find(e => e.tid !== w.player.team && tids.includes(e.tid)) || { tid: tids[0] }).tid;
+  const names = [['Charles', 'Ashby-Sterling'], ['Philippa', 'Vance-Holloway'], ['Rupert', 'Kingsley-Hume'], ['Margaret', 'Delacroix']];
+  const [first, last] = w.rival?.name ? w.rival.name : pickLine(w, names);
+  w.rival = { tid, name: [first, last] };
+  return w.rival;
+}
+const rivalName = (w) => w.rival ? w.rival.name.join(' ') : '';
+const rivalAddr = (w) => `${w.rival.name[0][0].toLowerCase()}.${w.rival.name[1].toLowerCase().replace(/[^a-z]/g, '')}@${w.teams[w.rival.tid].name.toLowerCase().replace(/[^a-z]+/g, '')}.sv`;
+const JOURNO = ['Nadia Okafor', 'nadia.okafor@paddockwire.sv'];
+const lastMe = (w) => { const r = w.series[w.player.series].results.at(-1); return r ? r.rows.find(x => x.pid === 'P') : null; };
+
+// ---------- arcs ----------
+// Each: kind (major/minor), cool (weeks before it can come again), trigger(w), start(w, a), step(w, a) (called each week
+// once a.at comes round), answer(w, a, m, key). A story that's waiting on you has a.wait = the mail id.
+const ARCS = {
+  rival: { kind: 'major', cool: 8,
+    trigger: (w) => w.round >= 2 && !!rivalOwner(w),
+    start(w, a) {
+      const R = rivalOwner(w), t = w.teams[R.tid];
+      mail(w, rivalName(w), rivalAddr(w), 'Welcome to the paddock',
+        [`I watched your car this weekend. Brave colours.`, `In my experience teams like yours last about a season and a half. I hope you're the exception.`, `If you'd like to sell your entry before then, do let me know. I'd give you a fair price for it, which is to say not much.`, `${R.name[0]} ${R.name[1]}`, `Team Owner, ${t.name}`]);
+      a.at = nowIdx(w) + 1;
+    },
+    step(w, a) {
+      const t = w.teams[w.rival.tid];
+      if (a.step === 0) {
+        a.step = 1; a.at = nowIdx(w) + 1;
+        const x = (w.staff || []).filter(s => !s.danny).sort((p, q) => q.skill - p.skill)[0];
+        if (!x) return;
+        a.who = x.id;
+        a.wait = mailId(w, `${x.first} ${x.last}`, `${x.first.toLowerCase()}.${x.last.toLowerCase()}@coolmail.sv`, 'An offer',
+          [`I wanted you to hear it from me. ${t.name} have offered me a job: ${money$(Math.round(wageNow(w, x) * 1.4 / 50) * 50)} a round.`, `I'd rather stay. But I've got a mortgage.`, x.first],
+          { arc: a.id, choices: [['match', `Match it (${money$(Math.round(wageNow(w, x) * 1.4 / 50) * 50)} a round)`], ['go', `Let ${x.first} go`]] });
+        return;
+      }
+      if (a.step === 1) {
+        a.step = 2; a.climax = w.year * 100 + w.round;
+        w.dir.goal = { text: `Beat both ${t.name} cars`, tid: w.rival.tid, key: a.climax, arc: a.id };
+        news(w, `${w.rival.name[1].toUpperCase()}: NEWCOMERS "GOOD FOR THE SPORT, IN MODERATION"`, `The ${t.name} owner says the Street Cup has "room for everyone, for a while".`);
+        return;
+      }
+    },
+    answer(w, a, m, key) {
+      const x = (w.staff || []).find(s => s.id === a.who); a.wait = null;
+      if (!x) return null;
+      if (key === 'match') { x.wage = Math.round(x.wage * 1.4 / 50) * 50; x.morale = clamp(x.morale + 15, 0, 100); return { msg: `${x.first} stays, on more money.` }; }
+      fireStaff(w, x.id, true); text(w, x.first, `Thanks for understanding. No hard feelings.`);
+      return { msg: `${x.first} has gone to ${w.teams[w.rival.tid].name}.` };
+    },
+    // the climax: did you beat them?
+    result(w, a, me) {
+      const rows = w.series[w.player.series].results.at(-1)?.rows || [], theirs = rows.filter(r => teamOfPid(w, r.pid) === w.rival.tid);
+      const won = me && !me.dnf && theirs.every(r => r.dnf || r.pos > me.pos);
+      if (won) { mail(w, rivalName(w), rivalAddr(w), 'Congratulations', [`Well driven. Luck is a skill too, I'm told.`, w.rival.name[0]]); w.rep = clamp(repOf(w) + 4, 0, 100); news(w, `${w.teams[w.player.team].name.toUpperCase()} BEAT ${w.teams[w.rival.tid].name.toUpperCase()}`, `The newcomers finished ahead of both of ${rivalName(w)}'s cars.`); flag(w, 'beatRival'); }
+      else mail(w, rivalName(w), rivalAddr(w), 'Better luck next time', [`Bad luck. Next year, perhaps. Or the one after.`, w.rival.name[0]]);
+      return 'end';
+    } },
+  press: { kind: 'minor', cool: 6,
+    trigger: (w) => { const me = lastMe(w); return (me && !me.dnf && me.pos <= 3) || (w.scandal && nowIdx(w) - w.scandal <= 1) || (w.round >= 3 && rng(w) < 0.2); },
+    start(w, a) {
+      const scandal = w.scandal && nowIdx(w) - w.scandal <= 1;
+      a.wait = mailId(w, JOURNO[0], JOURNO[1], scandal ? 'Your side of the story?' : 'Interview request',
+        [scandal ? `I'm writing about this week's news and I'd like to give you the chance to respond.` : `I'm writing a piece on the new teams in the Street Cup and I'd like to spend a day with yours.`, `It would mean a day of your week. I'd be fair.`, JOURNO[0], 'The Paddock Wire'],
+        { arc: a.id, choices: [['yes', 'Yes (a day)'], ...(w.rival ? [['tip', `Off the record: tell her about ${w.rival.name[1]}`]] : []), ['no', 'Decline']] });
+    },
+    step() {},
+    answer(w, a, m, key) {
+      a.wait = null; a.done = true;
+      const team = w.teams[w.player.team].name;
+      if (key === 'yes') {
+        if (daysLeft(w) <= 0) { a.done = false; a.wait = m.id; return { err: 'No days left this week. Ask her for next week instead.' }; }
+        useDay(w, 'An interview with The Paddock Wire'); w.press = pressOf(w) + 2; w.rep = clamp(repOf(w) + 2, 0, 100);
+        news(w, `INSIDE ${team.toUpperCase()}: LOTTERY MONEY AND A LOT OF TYRES`, `"Everyone said I'd lose the lot," says the owner-driver. "I'm a bit behind schedule on that."`);
+        return { msg: 'The piece comes out this week.' };
+      }
+      if (key === 'tip') {
+        w.press = pressOf(w) + 1;
+        news(w, `${w.rival.name[1].toUpperCase()}'S TEAM "RUNS ON INHERITANCE", SAYS PADDOCK SOURCE`, `A source close to the Street Cup says ${w.teams[w.rival.tid].name} has never turned a profit.`);
+        if (rng(w) < 0.4) mail(w, rivalName(w), rivalAddr(w), 'Sources', [`I read the Paddock Wire this morning. I know who the "paddock source" is.`, `I'll remember it.`, w.rival.name[0]]);
+        flag(w, 'tip'); return { msg: 'The story runs this week, without your name on it.' };
+      }
+      w.press = pressOf(w) - 1;
+      news(w, `${team.toUpperCase()} DECLINES TO COMMENT`, `The team did not respond to requests for an interview.`);
+      return null;
+    } },
+  danny: { kind: 'minor', cool: 10,
+    trigger: (w) => (w.staff || []).some(x => x.danny && (x.unpaidRounds || 0) >= 2),
+    start(w, a) {
+      const x = w.staff.find(s => s.danny);
+      a.wait = mailId(w, 'Danny', 'dannyboy1979@coolmail.sv', 'so',
+        [`so the tyre place on route 9 offered me a job. assistant manager. dental plan`, `i said id think about it. ive thought about it a bit. i dont want to go`, `but u owe me ${money$(x.owed)} and my landlord doesnt know what a racing team is`],
+        { arc: a.id, choices: [['pay', `Pay him the ${money$(x.owed)}`], ['wait', 'Ask him to hang on'], ['go', 'Tell him to take the job']] });
+    },
+    step(w, a) {
+      if (a.asked && !a.wait) { // (he hung on once; it's still not paid)
+        const x = (w.staff || []).find(s => s.danny);
+        if (x && x.owed > 0) { fireStaff(w, x.id); text(w, 'Danny', `took the tyre job. still ur friend. still owed ${money$(x.owed)} but whatever. come by and ill do u a deal on tyres`); w.dannyGone = true; }
+        a.done = true;
+      }
+    },
+    answer(w, a, m, key) {
+      const x = (w.staff || []).find(s => s.danny); a.wait = null;
+      if (!x) { a.done = true; return null; }
+      if (key === 'pay') { if (w.money.balance < x.owed) return (a.wait = m.id, { err: "You don't have it." }); payBack(w, x.id); x.morale = 100; w.dannyLoyal = true; a.done = true; text(w, 'Danny', `ur a good friend. i told the tyre guy no. he said "ok" which was hurtful`); return { msg: 'Danny stays.' }; }
+      if (key === 'wait') { a.asked = true; a.at = nowIdx(w) + 2; x.morale = clamp(x.morale - 10, 0, 100); return { msg: 'Danny will wait. For a bit.' }; }
+      fireStaff(w, x.id); w.dannyGone = true; a.done = true; text(w, 'Danny', `ok. no hard feelings. ill still send u stuff i find on svlist`); return { msg: 'Danny has taken the tyre job.' };
+    } },
+  ex: { kind: 'minor', cool: 99,
+    trigger: (w) => !w.flags?.exDone && w.round >= 2 && ((lastMe(w) && !lastMe(w).dnf && lastMe(w).pos <= 3) || rng(w) < 0.12),
+    start(w, a) { text(w, w.backstory?.ex || 'Sam', `saw you on the news. you look happy. or tired. hard to tell on my tv`); a.at = nowIdx(w) + 2; },
+    step(w, a) {
+      const ex = w.backstory?.ex || 'Sam';
+      a.wait = mailId(w, ex, `${ex.toLowerCase()}.${(w.player.name.split(' ').pop() || 'x').toLowerCase()}@coolmail.sv`, 'news',
+        [`I wanted to tell you before you heard it from someone else. I'm getting married again, to Brian. You met him once, at the hardware store.`, `It's in the spring. You're invited. You don't have to come.`, ex],
+        { arc: a.id, choices: [['go', 'Say you\'ll come (a day)'], ['gift', 'Send a gift ($250)'], ['no', 'Don\'t reply']] });
+    },
+    answer(w, a, m, key) {
+      const ex = w.backstory?.ex || 'Sam'; a.wait = null; a.done = true; flag(w, 'exDone');
+      if (key === 'go') {
+        if (daysLeft(w) <= 0) { a.done = false; a.wait = m.id; return { err: 'No days left this week.' }; }
+        useDay(w, `${ex}'s wedding`); text(w, ex, `thank you for coming. brian says if you ever need a sponsor his business does bathrooms`);
+        const i = SPONSOR_POOL.findIndex(s => s[0] === "Brian's Bathrooms & Kitchens");
+        if (i >= 0 && dealsOf(w).length < SPONSOR_SLOTS.length) mail(w, "Brian's Bathrooms & Kitchens", 'brian@briansbathrooms.sv', 'Sponsorship', [`Great to see you at the wedding. ${ex} says you're a good driver, which I took on trust.`, `We'd like to put our name on your car. ${money$(Math.round(1300 * KS(w) * ASSOC_K / 50) * 50)} a round.`, 'Brian'],
+          { sponsorOffer: { sid: 'sp' + i, slot: 'assoc', fee: Math.round(1300 * KS(w) * ASSOC_K / 50) * 50, bonus: Math.round(1300 * KS(w) * ASSOC_K * 0.6 / 50) * 50 }, choices: [['yes', 'Accept'], ['no', 'Decline']] });
+        return { msg: 'You went. It was fine. It was nice, actually.' };
+      }
+      if (key === 'gift') { pay(w, -250, 'Wedding gift'); text(w, ex, `thank you for the toaster. we have three now. it's the nicest one`); return null; }
+      text(w, ex, `ok`); return null;
+    } },
+};
+function mailId(w, from, addr, subj, body, extra) { mail(w, from, addr, subj, body, extra); return w.mail[0]?.id; }
+const MAX = { major: 1, minor: 2 };
+// the weekly tick
+export function director(w) {
+  if (w.pre || !w.money || !w.money.choice || w.over) return;
+  const D = w.dir ??= { arcs: [], cool: {}, quiet: 0, goal: null, n: 0 };
+  adviser(w); consequences(w);
+  for (const a of D.arcs) if (!a.done && !a.wait && a.at != null && nowIdx(w) >= a.at) ARCS[a.type].step(w, a);
+  D.arcs = D.arcs.filter(a => { if (a.done || a.end) { D.cool[a.type] = nowIdx(w) + ARCS[a.type].cool; if (ARCS[a.type].kind === 'major') D.quiet = nowIdx(w) + 2; return false; } return true; });
+  // room for another story?
+  for (const [type, A] of Object.entries(ARCS).sort(() => rng(w) - 0.5)) {
+    const running = D.arcs.filter(a => ARCS[a.type].kind === A.kind).length;
+    if (running >= MAX[A.kind] || D.arcs.some(a => a.type === type) || (D.cool[type] || 0) > nowIdx(w) || (A.kind === 'major' && D.quiet > nowIdx(w))) continue;
+    if (!A.trigger(w)) continue;
+    const a = { id: 'a' + (++D.n), type, step: 0, at: null, wait: null, done: false };
+    D.arcs.push(a); A.start(w, a);
+    if (A.kind === 'major') break;
+  }
+  temptations(w);
+}
+// after a race: a story's climax resolves
+function arcRound(w, me) {
+  const D = w.dir, g = D && D.goal; if (!g || g.key !== w.year * 100 + w.round) return;
+  const a = D.arcs.find(x => x.id === g.arc); D.goal = null;
+  if (a && ARCS[a.type].result && ARCS[a.type].result(w, a, me) === 'end') a.end = true;
+}
+export const storyGoal = (w) => { const g = w.dir?.goal; return g && g.key === w.year * 100 + w.round ? g : null; };
 
 // ---------------- tyres: what you have, what you order ----------------
 // New sets in stock per compound, and used sets kept from earlier runs (with their wear). Order on the computer
@@ -1071,7 +1454,8 @@ export function carParts(w) {
 export function carMods(w) {
   const P = carParts(w); if (!P) return null;
   const c = (k) => P[k].cond, g = (k, stat) => P[k].fit?.gains?.[stat] || 0, sum = (stat) => PART_KEYS.reduce((a, k) => a + g(k, stat), 0);
-  return { power: (0.9 + 0.1 * c('engine')) * (1 + sum('power')), grip: (0.96 + 0.04 * c('suspension')) * (1 + sum('grip')) * (w.week && w.week.key === weekKey(w) && w.week.setup ? 1.012 : 1), // (a test day found the setup)
+  return { power: (0.9 + 0.1 * c('engine')) * (1 + sum('power')) * (w.grey ? 1.03 : 1), // (Kev's engine map)
+    grip: (0.96 + 0.04 * c('suspension')) * (1 + sum('grip')) * (w.week && w.week.key === weekKey(w) && w.week.setup ? 1.012 : 1), // (a test day found the setup)
     brake: (0.9 + 0.1 * c('brakes')) * (1 + sum('brake')),
     downforce: 1 + sum('downforce'), drag: 1 + sum('drag'), damage: (1.15 - 0.15 * c('chassis')) * (1 + sum('damage')), rainGrip: 1, wear: 1, slip: 1, softs: false, launch: false };
 }
@@ -1293,6 +1677,9 @@ const SPONSOR_POOL = [
   ['Sunrise Insurance', null, 30, 3000, 2, ['clean', 'finish'], 0x2a4fa0], ['Volta Cola', null, 40, 4200, 2, ['top', 'lead'], 0xd01818],
   ['Apex Energy', null, 45, 4500, 2, ['lead', 'gain'], 0x18c040], ['Velocita State Lottery', null, 50, 5000, 2, ['top', 'beat'], 0xf2d22a],
   ['Gold Coast Airlines', null, 60, 6500, 2, ['top', 'clean'], 0x1a3a7a], ['Triton Watches', null, 70, 8000, 1, ['top', 'lead'], 0x111111],
+  // (never offered the usual way: the temptations, and the people in the story)
+  ['Volt Rush Energy', null, 999, 4500, 9, ['seen'], 0x9ae01a], ['Cloud Nine Vapor', null, 999, 4500, 9, ['seen'], 0x8a5ae0], ['QuickCash Loans', null, 999, 4500, 9, ['seen'], 0x1fa040],
+  ["Lucky Lou's Online Casino", null, 999, 4500, 9, ['seen'], 0xe0b020], ["Brian's Bathrooms & Kitchens", null, 999, 1300, 4, ['finish', 'clean'], 0x2a6ab8],
 ];
 const SPONSOR_K = { street: 1, gt: 3, formula: 9 };
 const ASSOC_K = 0.45;
@@ -1324,12 +1711,13 @@ export function dealObjective(w, d) {
   d.obj = o; return o;
 }
 export function objText(w, o) {
-  return o.type === 'top' ? `Finish in the top ${o.n}` : o.type === 'finish' ? 'Finish the race' : o.type === 'clean' ? 'Finish without causing contact'
+  return o.type === 'seen' ? 'Be seen' : o.type === 'top' ? `Finish in the top ${o.n}` : o.type === 'finish' ? 'Finish the race' : o.type === 'clean' ? 'Finish without causing contact'
     : o.type === 'gain' ? `Gain ${o.n} places from your grid slot` : o.type === 'lead' ? 'Lead a lap' : `Beat both ${w.teams[o.tid]?.name || 'rival'} cars`;
 }
 // did you do it? r: { pos, dnf, grid, led, blamed }
 function objMet(w, o, r, rows) {
   if (!r) return false;
+  if (o.type === 'seen') return true;
   if (o.type === 'top') return !r.dnf && r.pos <= o.n;
   if (o.type === 'finish') return !r.dnf;
   if (o.type === 'clean') return !r.dnf && !r.blamed;
@@ -1352,6 +1740,13 @@ function sponsorRound(w, use, me) {
       else mail(w, sp.name, sponsorAddr(sp.name), 'Where is our logo?', [`We watched the race and couldn't find our logo on the car. We don't pay for a round we weren't seen in.`, `Please have it on the car by the next round.`, sp.name]);
       d.obj = null; continue;
     }
+    // (the shady ones: no targets, paid a round late, and one day they're gone)
+    if (d.shady) {
+      if (d.owed) items.push([`${sp.name} (last round's invoice)`, d.owed]);
+      d.owed = d.fee; d.obj = null;
+      if (rng(w) < 0.1) { w.deals = dealsOf(w).filter(x => x !== d); news(w, `${sp.name.toUpperCase()} COLLAPSES`, `${sp.name} has gone into administration owing money to suppliers, including a Street Cup team.`); items.push([`${sp.name}: in administration (this round's ${money$(d.owed)} unpaid)`, 0]); flag(w, 'shadyCollapse'); }
+      continue;
+    }
     items.push([`${sp.name} (${d.slot === 'title' ? 'title sponsor' : 'associate'})`, d.fee]);
     if (met) { items.push([`${sp.name} bonus: ${objText(w, o).toLowerCase()}`, d.bonus]); d.met++; w.rep = clamp(repOf(w) + 1, 0, 100); }
     else {
@@ -1360,7 +1755,8 @@ function sponsorRound(w, use, me) {
         w.deals = deals.filter(x => x !== d);
         mail(w, sp.name, sponsorAddr(sp.name), 'Our partnership', [`We've reviewed our sponsorship of ${w.teams[w.player.team].name} and decided to end it, effective immediately.`, `We wish you the best for the rest of the season.`, sp.name]);
         w.rep = clamp(repOf(w) - 4, 0, 100);
-      } else if (d.misses === sp.patience) mail(w, sp.name, sponsorAddr(sp.name), 'A word about results', [`We were hoping for more by now. ${d.met} of ${d.met + d.misses} targets met so far.`, `We'd like to see an improvement over the next round.`, sp.name]);
+      } else if (d.misses === sp.patience) mail(w, sp.name, sponsorAddr(sp.name), 'A word about results', [`We were hoping for more by now. ${d.met} of ${d.met + d.misses} targets met so far.`, `Before we decide anything, could you send us your exposure figures for the season: TV audience, attendance, social media?`, sp.name],
+        { inflate: d.sid, choices: [['real', 'Send the real figures'], ['inflate', 'Round the figures up']] });
     }
     d.obj = null;
   }

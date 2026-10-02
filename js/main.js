@@ -1300,12 +1300,6 @@ const phone = new Phone({
   status: () => !world ? '' : world.over ? `${world.year} END` : `R${world.round + 1}/${world.opts.len} ${world.year}`,
   read: () => { saveWorld(); renderHubMenu(); },
   choose: (m, key) => {
-    if (m.gig && key === 'in') {
-      const r = WC.bookGig(world, m.gig);
-      if (r === 'ok') sfx.best();
-      else { if (r !== 'gone') m.answer = null; toast(r === 'nodays' ? 'You have no days left this week.' : r === 'nocar' ? 'You need a car for that.' : 'That was for another week.'); }
-    }
-    if (m.appear && key === 'go' && !WC.appear(world, m.appear)) { m.answer = null; toast('You have no days left this week.'); }
     if (m.offer) {
       WC.answerOffer(world, key);
       WC.text(world, m.from, key === 'move' ? 'Great. We will send the paperwork over. See you on the grid.' : 'Understood. The offer stands for next year if you change your mind.');
@@ -1338,6 +1332,19 @@ const pc = new Computer({
     m.answer = key;
     if (m.lottery) { WC.claimLottery(world, key); sfx.best(); renderHub(); }
     if (m.sponsorOffer) { const r = WC.answerSponsor(world, m, key); updateLogoShown(); if (r === 'full') toast('You have no free sponsor slots.'); else if (r !== 'declined') { sfx.best(); if (screen === 's-hub') pitGarage.setCar(hubCar()); } }
+    if (m.gig && key === 'in') {
+      const r = WC.bookGig(world, m.gig);
+      if (r === 'ok') sfx.best();
+      else { if (r !== 'gone') m.answer = null; toast(r === 'nodays' ? 'You have no days left this week.' : r === 'nocar' ? 'You need a car for that.' : 'That was for another week.'); }
+    }
+    if (m.appear && key === 'go' && !WC.appear(world, m.appear)) { m.answer = null; toast('You have no days left this week.'); }
+    // the director's stories and the temptations
+    if (m.tempt || m.arc || m.inflate) {
+      const r = WC.answerStory(world, m, key);
+      if (r && r.err) { m.answer = null; sfx.error(); toast(r.err); }
+      else if (r && r.msg) toast(r.msg);
+      updateLogoShown(); if (screen === 's-hub') pitGarage.setCar(hubCar());
+    }
     if (m.offer) {
       WC.answerOffer(world, key);
       const mate = world.people[world.teams[world.player.team].drivers.find(d => d !== 'P')];
@@ -1356,6 +1363,7 @@ const pc = new Computer({
     const g = WC.gigById(world, id); saveWorld(); sfx.best();
     standUp(); setTimeout(() => { if (screen === 's-hub') startGig(g); }, 350);
   },
+  loan: () => { const r = WC.applyLoan(world); if (r.ok) sfx.best(); else { sfx.error(); toast(r.why); } saveWorld(); renderHub(); },
   sell: () => { const cash = WC.sellAnnuity(world); if (cash) { sfx.best(); saveWorld(); renderHub(); } },
   // Form SV-1 filed: the team takes its name and colours (and your livery starts in them)
   register: (f) => {
@@ -1647,7 +1655,7 @@ function renderHubMenu() {
     const r = w.series[sid].cal[w.round];
     const tg = WC.dealsOf(w).map(d => `<b>${WC.sponsorName(d.sid)}</b>: ${WC.objText(w, WC.dealObjective(w, d)).toLowerCase()}`).join(' · ');
     const unplayed = WC.bookedGigs(w).length, left = WC.daysLeft(w);
-    items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), confirm: unplayed ? 'Skip the job? Select again' : null, desc: `${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}${tg ? `<br>Sponsor targets: ${tg}.` : ''}${unplayed ? `<br><b>You have a booked job you haven't driven.</b> Race now and it's a no-show.` : left ? `<br>${left} day${left === 1 ? '' : 's'} of the week unused.` : ''}` });
+    items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), confirm: unplayed ? 'Skip the job? Select again' : null, desc: `${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}${tg ? `<br>Sponsor targets: ${tg}.` : ''}${WC.storyGoal(w) ? `<br><b>${WC.storyGoal(w).text}.</b>` : ''}${unplayed ? `<br><b>You have a booked job you haven't driven.</b> Race now and it's a no-show.` : left ? `<br>${left} day${left === 1 ? '' : 's'} of the week unused.` : ''}` });
     items.push({ label: `This Week<small>${unplayed ? `${unplayed} BOOKED` : `${left} DAY${left === 1 ? '' : 'S'} LEFT`}</small>`, action: () => { weekSub = true; sfx.select(); renderHubMenu(); }, desc: weekDesc(w) });
   } else {
     items.push({ label: `Start ${w.year + 1} Season`, cls: 'action primary', action: () => beginNextSeason(),
@@ -1722,6 +1730,7 @@ function renderCarMenu() {
         action: () => { if (!WC.rebuildSelf(w, k)) { sfx.error(); toast('No days left this week.'); return; } sfx.best(); saveWorld(); renderHub(); },
         desc: `Parts only, and a day of your week (${WC.daysLeft(w)} left). ${w.background === 'mechanic' ? 'You know what you\'re doing: back to good.' : 'You\'ll get it back to OK.'}` }] : []),
       { label: `New ${WC.PARTS[k].name}<small>${WC.money$(WC.newPartCost(w, k))}</small>`, part: k, confirm: 'Pay for it? Select again', action: () => { WC.newPart(w, k); sfx.best(); saveWorld(); renderHub(); }, desc: 'A brand new part: 100%.' },
+      ...(k === 'engine' && w.grey ? [{ label: "Take Kev's Map Off", part: k, confirm: 'Take it off? Select again', action: () => { WC.removeGrey(w); sfx.select(); saveWorld(); renderHub(); }, desc: 'Back to the standard engine software. A little slower, and nothing for the scrutineers to find.' }] : []),
       ...(p.fit ? [{ label: `Remove ${p.fit.name}`, part: k, confirm: 'Take it off? Select again', action: () => { WC.removeFit(w, k); saveWorld(); renderHub(); }, desc: 'Back to standard. The part is thrown away.' }] : []),
       { label: 'Upgrades For It', part: k, action: () => sitDown('parts'), desc: 'Speed Parts Direct and SVList, on the computer.' },
       { label: 'Back', part: k, action: () => { carSub = null; sfx.back(); renderHubMenu(); }, desc: 'The other parts.' },
@@ -1839,6 +1848,7 @@ function worldRoundDone(retired = false) {
   if (wkUse && wkUse.carry) WC.keepUsed(w, wkUse.carry); // (the race's last set goes on the shelf, for what it's worth)
   const mine = res.find(r => r.isPlayer) || {}, blamed = (sim.log || []).some(e => e.type === 'contact' && e.blame && e.a === 'P');
   const deals = WC.dealsOf(w).map(d => ({ name: WC.sponsorName(d.sid), obj: WC.objText(w, WC.dealObjective(w, d)) }));
+  const goal = WC.storyGoal(w);
   const out = WC.recordPlayerRound(w, res, sim.log || [], wkUse && w.money ? { trackside: wkUse.trackside, laps: wkUse.laps, damage: wkUse.damage, failed: wkUse.failed || null, aidPct: Math.max(0, sim.aidBonus ?? 0), grid: mine.grid ?? null, led: mine.led || 0, blamed } : null);
   wkUse = null;
   saveWorld();
@@ -1858,6 +1868,7 @@ function worldRoundDone(retired = false) {
     <div class="row"><span>Championship</span><span>${ord(cp)} &middot; ${st[cp - 1]?.pts ?? 0} pts</span></div>
     ${mr ? `<div class="row"><span>${w.people[mateId].last}</span><span>${mr.dnf ? 'DNF' : 'P' + mr.pos}</span></div>` : ''}
     ${out.bill ? deals.map(d => { const got = out.bill.items.some(([t]) => t.startsWith(d.name + ' bonus')); return `<div class="row"><span>${d.name}: ${d.obj.toLowerCase()}</span><span class="${got ? 'ok' : 'bad'}">${got ? 'MET' : 'MISSED'}</span></div>`; }).join('') : ''}
+    ${goal ? (() => { const met = me && !me.dnf && scored.rows.filter(r => WC.teamOfPid(w, r.pid) === goal.tid).every(r => r.dnf || r.pos > me.pos); return `<div class="row"><span>${goal.text}</span><span class="${met ? 'ok' : 'bad'}">${met ? 'DONE' : 'NOT DONE'}</span></div>`; })() : ''}
     ${out.bill ? `<div class="row"><span>The weekend</span><span class="${out.bill.net < 0 ? 'bad' : 'ok'}">${out.bill.net > 0 ? '+' : ''}${WC.money$(out.bill.net)}</span></div><div class="row"><span>Bank balance</span><span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span></div>` : ''}
     ${n ? `<div class="row"><span>Phone</span><span>${n} new</span></div>` : ''}`;
   menus['s-round'][0].setItems([{ label: out.over ? 'Season Review' : 'Continue', cls: 'action primary', action: () => openHub() }]);

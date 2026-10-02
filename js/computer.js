@@ -233,6 +233,7 @@ export class Computer {
     if (a === 'ad') { this.go({ ad: arg }); this.buyArmed = false; this.src.sfx?.select?.(); return; }
     if (a === 'buy') { if (!this.buyArmed) { this.buyArmed = true; this.curKey = 'buy'; this.render(); this.src.sfx?.move?.(); return; } this.buyArmed = false; this.src.buy?.(arg); this.page = { ad: null }; this.hist = []; this.curKey = null; this.render(); return; }
     // selling the annuity: select twice
+    if (a === 'loan') { if (!this.loanArmed) { this.loanArmed = true; this.curKey = 'loan'; this.render(); this.src.sfx?.move?.(); return; } this.loanArmed = false; this.src.loan?.(); this.curKey = 'loan'; this.render(); return; }
     if (a === 'sell') { if (!this.sellArmed) { this.sellArmed = true; this.curKey = 'sell'; this.render(); this.src.sfx?.move?.(); return; } this.sellArmed = false; this.src.sell?.(); this.curKey = null; this.render(); return; }
   }
 
@@ -636,8 +637,14 @@ export class Computer {
     return head + `<div class="bk-body">
       <div class="db-cells bk-cells"><div><small>Balance</small><b class="${m.balance < 0 ? 'neg' : ''}">${WC.money$(m.balance)}</b></div><div><small>In this season</small><b class="pos">${WC.money$(inn)}</b></div><div><small>Out this season</small><b class="neg">${WC.money$(-out)}</b></div></div>
       ${m.balance < 0 ? `<p class="bk-warn">Your account is overdrawn. Overdrawn balances are charged 1.5% a round plus a $250 fee.</p>` : ''}
-      ${ann}
+      ${ann}${this.loanBox()}
       <h2>Transactions</h2><div class="bk-txw" data-nav data-scroll data-key="tx" data-first><table class="pc-tbl bk-tx"><tr><th>WHEN</th><th>DESCRIPTION</th><th class="r">AMOUNT</th><th class="r">BALANCE</th></tr>${rows}</table></div></div>`;
+  }
+  // the bank's business loan: apply (select twice), or what's left to pay
+  loanBox() {
+    const w = this.w, L = (w.loans || []).find(l => !l.shark && !l.paid), t = WC.loanTerms(w);
+    return L ? `<div class="bk-box"><b>Business loan</b><span>${L.left} instalment${L.left === 1 ? '' : 's'} of ${WC.money$(L.per)} left, taken after each round.</span></div>`
+      : `<div class="bk-box"><b>Business loan</b><span>Borrow ${WC.money$(t.amt)}, repaid in ${t.rounds} instalments of ${WC.money$(t.per)} after each round. Subject to status.</span><button class="pc-btn sm" data-nav data-act="loan" data-key="loan">${this.loanArmed ? 'Apply? Select again' : 'Apply'}</button></div>`;
   }
   // a round's classification (only while that season's results are still kept)
   reportTable(rep, y) {
