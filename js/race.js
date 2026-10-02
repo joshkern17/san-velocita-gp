@@ -1302,7 +1302,8 @@ export class Race {
     if (!car.pitting) {
       // decision point ~250m before the entry (AI) / actually driving in (player)
       const toEntry = ((pit.start - car.idx + N) % N) * T.ds;
-      if (car.ai && toEntry < 250 && toEntry > 200 && !car.pitChecked) { car.pitChecked = true; if ((this.state === 'racing' || this.state === 'finished') && this.aiWantsPit(car)) car.pitting = true; }
+      // (AI cars only: your car can carry an AI brain after its autopilot moments, but you decide when you pit)
+      if (car.ai && !car.isPlayer && toEntry < 250 && toEntry > 200 && !car.pitChecked) { car.pitChecked = true; if ((this.state === 'racing' || this.state === 'finished') && this.aiWantsPit(car)) car.pitting = true; }
       if (pos >= 0) car.pitChecked = false;
       // you're in once you pass the pit entry line where the wall starts, on the lane side of it; before that you can
       // still steer back onto the track
