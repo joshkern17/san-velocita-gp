@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 
 // the LCD: a small logical canvas (chunky pixels), copied into the screen's area of a 1024 texture
-const LW = 150, LH = 188;
+const LW = 150, LH = 188, SS = 3; // (logical size; drawn at SS x so the text stays sharp)
 // where the screen quad's UVs sit in its texture (flipY off, as glTF does): u .113-.880, v .012-.971
 const UV = { x: 116, y: 12, w: 785, h: 982 };
 const LCD = { bg: '#9fb38d', bg2: '#93a882', ink: '#18240f', mid: '#4f6343', inv: '#a9bd96' };
@@ -31,10 +31,10 @@ export class Phone {
     const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(0.6, 0.8, 1.2); this.scene.add(key);
     this.rig = new THREE.Group(); this.scene.add(this.rig);
     // the LCD texture
-    this.lcd = document.createElement('canvas'); this.lcd.width = LW; this.lcd.height = LH;
+    this.lcd = document.createElement('canvas'); this.lcd.width = LW * SS; this.lcd.height = LH * SS;
     this.tex = document.createElement('canvas'); this.tex.width = this.tex.height = 1024;
     this.texture = new THREE.CanvasTexture(this.tex); this.texture.flipY = false; this.texture.colorSpace = THREE.SRGBColorSpace;
-    this.texture.magFilter = THREE.NearestFilter; this.texture.minFilter = THREE.LinearFilter;
+    this.texture.magFilter = THREE.LinearFilter; this.texture.minFilter = THREE.LinearMipmapLinearFilter; this.texture.anisotropy = 4;
     this.dirty = true;
     this.load();
     this.resize();
@@ -60,7 +60,7 @@ export class Phone {
     const w = Math.round(470 * ui), h = Math.round(800 * ui);
     this.cv.style.width = w + 'px'; this.cv.style.height = h + 'px';
     // low resolution, upscaled with hard pixels (the PS1 look)
-    this.renderer.setPixelRatio(1); this.renderer.setSize(Math.round(w * 0.5), Math.round(h * 0.5), false);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
   }
 
@@ -109,9 +109,8 @@ export class Phone {
   // ---------- the LCD ----------
   drawLCD() {
     const c = this.lcd.getContext('2d');
+    c.setTransform(SS, 0, 0, SS, 0, 0);
     c.fillStyle = LCD.bg; c.fillRect(0, 0, LW, LH);
-    // faint pixel grid
-    c.fillStyle = LCD.bg2; for (let x = 0; x < LW; x += 2) c.fillRect(x, 0, 1, LH);
     c.textBaseline = 'top'; c.fillStyle = LCD.ink;
     // status bar: signal, envelope (unread), battery, and the season clock
     for (let i = 0; i < 4; i++) c.fillRect(6 + i * 3, 12 - i * 2, 2, 3 + i * 2);
@@ -130,15 +129,8 @@ export class Phone {
     c.font = FONT(13);
     const okLbl = this.state !== 'open' ? 'Open' : this.items().length ? (this.page === 'msg' ? 'Reply' : 'Select') : '';
     c.fillText(okLbl, 6, LH - 14); c.textAlign = 'right'; c.fillText(this.state === 'open' ? (this.page === 'home' ? 'Exit' : 'Back') : '', LW - 6, LH - 14); c.textAlign = 'left';
-    // two tones only, like a real mono LCD: every pixel snaps to ink or background (crisp pixel text)
-    const img = c.getImageData(0, 0, LW, LH), d = img.data, ink = [0x18, 0x24, 0x0f], bg = [0x9f, 0xb3, 0x8d];
-    for (let i = 0; i < d.length; i += 4) {
-      const l = d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11, on = l < 118;
-      const col = on ? ink : bg; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2];
-    }
-    c.putImageData(img, 0, 0);
     // into the texture's screen area
-    const t = this.tex.getContext('2d'); t.imageSmoothingEnabled = false;
+    const t = this.tex.getContext('2d'); t.imageSmoothingEnabled = true; t.imageSmoothingQuality = 'high';
     t.fillStyle = LCD.bg; t.fillRect(0, 0, 1024, 1024);
     t.drawImage(this.lcd, UV.x, UV.y, UV.w, UV.h);
     this.texture.needsUpdate = true;
@@ -154,8 +146,8 @@ export class Phone {
     c.textAlign = 'left';
   }
   drawList(c, b) {
-    const items = this.items(), rowH = 15, title = { home: 'MENU', msgs: 'MESSAGES', news: 'NEWS' }[this.page];
-    c.font = FONT(14); c.fillText(title, b.x, b.y);
+    const items = this.items(), rowH = 18, title = { home: 'MENU', msgs: 'MESSAGES', news: 'NEWS' }[this.page];
+    c.font = FONT(15); c.fillText(title, b.x, b.y);
     const top = b.y + 18, rows = Math.floor((b.h - 18) / rowH);
     if (!items.length) { c.fillStyle = LCD.mid; c.fillText(this.page === 'msgs' ? 'No messages' : 'Nothing yet', b.x, top); c.fillStyle = LCD.ink; return; }
     if (this.sel < this.scroll) this.scroll = this.sel; if (this.sel >= this.scroll + rows) this.scroll = this.sel - rows + 1;
@@ -166,36 +158,36 @@ export class Phone {
       if (it.k === 'msgs') { const u = this.src.msgs().filter(m => !m.read).length; s = `Messages${u ? ` (${u})` : ''}`; }
       if (it.k === 'm') s = `${it.m.read ? ' ' : '*'}${it.m.from}: ${it.m.body}`;
       if (it.k === 'n') s = it.n.head;
-      c.font = FONT(14); c.fillText(fit(c, s, b.w), b.x, y);
+      c.font = FONT(17); c.fillText(fit(c, s, b.w), b.x, y + 1);
     }
     c.fillStyle = LCD.ink;
     // scroll bar
     if (items.length > rows) { const h = (b.h - 18) * rows / items.length, y = top + (b.h - 18 - h) * this.scroll / (items.length - rows); c.fillRect(LW - 4, y, 2, h); }
   }
   drawText(c, b, head, text, isMsg) {
-    c.font = FONT(14);
+    c.font = FONT(17);
     const headLines = wrap(c, head, b.w);
     const lines = wrap(c, text, b.w);
     const choices = isMsg && this.cur.choices ? this.cur.choices : null;
     const answered = choices && this.cur.answer ? choices.find(ch => ch[0] === this.cur.answer) : null;
     if (answered) lines.push('', ...wrap(c, '> ' + answered[1], b.w));
     const all = [...headLines.map(l => ({ l, head: true })), { l: '' }, ...lines.map(l => ({ l }))];
-    const rowH = 13, room = Math.floor((b.h - (choices && !answered ? choices.length * 15 + 4 : 0)) / rowH);
+    const rowH = 16, room = Math.floor((b.h - (choices && !answered ? choices.length * 18 + 4 : 0)) / rowH);
     this.scroll = Math.max(0, Math.min(this.scroll, all.length - room));
     for (let i = 0; i < room && this.scroll + i < all.length; i++) {
       const L = all[this.scroll + i];
-      c.fillStyle = L.head ? LCD.ink : LCD.ink; c.font = FONT(L.head ? 15 : 14);
+      c.fillStyle = LCD.ink; c.font = FONT(17);
       c.fillText(L.l, b.x, b.y + i * rowH);
-      if (L.head) c.fillRect(b.x, b.y + i * rowH + 12, c.measureText(L.l).width, 1);
+      if (L.head) c.fillRect(b.x, b.y + i * rowH + 14, c.measureText(L.l).width, 1);
     }
     if (all.length > room) { const h = b.h * room / all.length; c.fillRect(LW - 4, b.y + (b.h - h) * this.scroll / Math.max(1, all.length - room), 2, h); }
     if (choices && !answered) {
-      const y0 = b.y + b.h - choices.length * 15;
+      const y0 = b.y + b.h - choices.length * 18;
       c.fillRect(b.x, y0 - 3, b.w, 1);
       choices.forEach(([, t], k) => {
-        const y = y0 + k * 15, on = k === this.sel;
-        if (on) { c.fillStyle = LCD.ink; c.fillRect(b.x - 2, y - 1, b.w + 4, 15); c.fillStyle = LCD.inv; } else c.fillStyle = LCD.ink;
-        c.font = FONT(14); c.fillText(fit(c, t, b.w), b.x, y);
+        const y = y0 + k * 18, on = k === this.sel;
+        if (on) { c.fillStyle = LCD.ink; c.fillRect(b.x - 2, y - 1, b.w + 4, 18); c.fillStyle = LCD.inv; } else c.fillStyle = LCD.ink;
+        c.font = FONT(17); c.fillText(fit(c, t, b.w), b.x, y + 1);
       });
       c.fillStyle = LCD.ink;
     }

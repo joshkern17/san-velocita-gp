@@ -401,8 +401,8 @@ const meter = (v, n = 10) => `<span class="meter" style="--n:${n}">${Array.from(
 const GRID_VALS = [['back', 'Back of grid'], ['random', 'Random'], ['pole', 'Pole position']];
 const GRID_DESC = 'Where you start. With qualifying on, your qualifying lap decides it.';
 // race weekends: what's in them, and how long the sessions run ([practice, qualifying] seconds)
-const WEEKEND_VALS = [['race', 'Race only'], ['quali', 'Qualifying + Race'], ['full', 'Practice, Quali + Race']];
-const WEEKEND_DESC = 'What the weekend holds. <b>Qualifying</b> sets the grid; <b>Practice</b> first to learn the circuit and try tyres. Sessions start in your garage on a clear track, against the AI\'s times.';
+const WEEKEND_VALS = [['race', 'Race only'], ['quali', 'Quali + Race'], ['full', 'Full weekend']];
+const WEEKEND_DESC = 'What the weekend holds. <b>Full weekend</b>: practice, qualifying, then the race. <b>Qualifying</b> sets the grid; <b>Practice</b> first to learn the circuit and try tyres. Sessions start in your garage on a clear track, against the AI\'s times.';
 const SESSION_LENS = { short: [600, 300], normal: [1200, 600], long: [1800, 900], full: [3600, 1200] }; // (the old presets)
 const PRAC_VALS = [[600, '10 min'], [1200, '20 min'], [1800, '30 min'], [3600, '60 min']];
 const QUALI_VALS = [[300, '5 min'], [600, '10 min'], [900, '15 min'], [1200, '20 min']];
