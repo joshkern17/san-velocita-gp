@@ -168,7 +168,7 @@ export class Computer {
   back() {
     const site = APPS.find(a => a.id === this.app)?.site;
     if (this.hist.length && this.app !== 'mail') { this.page = this.hist.pop(); this.curKey = null; this.render(); }
-    else if (this.stack && this.stack.length) { const s = this.stack.pop(); this.app = s.app; this.page = s.page; this.hist = s.hist; this.curKey = s.key; this.render(); }
+    else if (this.stack && this.stack.length) { const s = this.stack.pop(); this.app = s.app; this.page = s.page; this.hist = s.hist; this.curKey = s.key; this._lastApp = APPS.find(x => x.id === s.app)?.site ? 'web' : s.app; this.render(); }
     else if (site) { this.launch('web'); this.curKey = 'bm-' + this.app; }
     else { this.app = null; this.hist = []; this.curKey = 'app-' + (this._lastApp || 'mail'); this.render(); }
     this.src.sfx?.back?.();
