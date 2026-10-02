@@ -12,6 +12,7 @@ import { DriftScore } from './drift.js';
 import { getTextures } from './textures.js';
 import { RaceControl, findCorners, VSC_PACE } from './racecontrol.js';
 import { AI_AIDS, physAids } from './aids.js';
+import { fastLine, lineCar } from './raceline.js';
 import { LapRecorder, addLap, lapKey, bestLap, loadPB, lapPoseAt } from './telemetry.js';
 
 const STEP = 1 / 240;
@@ -65,6 +66,21 @@ function savePlan(key, hit) {
     localStorage.setItem(PLANS_KEY, JSON.stringify(all));
   } catch (err) {}
 }
+// fitted racing lines (raceline.js), like the plans: kept for the session, the most recent 30 saved in the browser.
+// LINE_VERSION: bump when the line fitting changes (old lines, and the AI plans learned on them, are then redone)
+const LINES_CACHE = new Map(), LINES_KEY = 'svgp.aiLines', LINE_VERSION = 1;
+function loadLine(key, N) {
+  try { const e = JSON.parse(localStorage.getItem(LINES_KEY) || '{}')[key]; return e && e.o.length === N ? Float32Array.from(e.o, x => x / 100) : null; } catch (err) { return null; }
+}
+function saveLine(key, O) {
+  try {
+    const all = JSON.parse(localStorage.getItem(LINES_KEY) || '{}');
+    all[key] = { when: Date.now(), o: Array.from(O, x => Math.round(x * 100)) };
+    const keys = Object.keys(all).sort((a, b) => all[b].when - all[a].when);
+    for (const k of keys.slice(30)) delete all[k];
+    localStorage.setItem(LINES_KEY, JSON.stringify(all));
+  } catch (err) {}
+}
 export const TYRE_FIT = 20; // seconds of a session to fit a new set of tyres in the garage
 const CAMS = ['chase', 'far', 'tcam', 'bumper'];
 const lerpAngle = (a, b, t) => { let d = ((b - a + Math.PI) % (Math.PI * 2)); if (d < 0) d += Math.PI * 2; return a + (d - Math.PI) * t; };
@@ -108,7 +124,9 @@ export class Race {
     this.camera = new THREE.PerspectiveCamera(64, 16 / 9, 0.3, 5000);
     this.scene.add(this.camera);
 
-    this.line = computeRacingLine(T);
+    // the racing line (fitted to the car the race is built around, in development: lineFor)
+    this.net = opts.net || null;
+    this.line = this.lineFor(this.mainCarId());
     this.corners = findCorners(T);
     this.rec = opts.mode !== 'attract' ? new LapRecorder(T) : null; // your laps, sample by sample (telemetry.js: Lap Review)
     this.cars = [];
@@ -227,6 +245,26 @@ export class Race {
     if (this.net) { const g = this.net.grid.find(g => g.k === 'h' && g.id === this.net.myId); return carId(g && g.car); }
     return carId(this.opts.car);
   }
+  // the racing line for a car here: the smoothest line (track.js). In development: lineKind 'fit' fits it to the car's
+  // grip, power, drag and downforce (raceline.js: 1-3 s a lap quicker alone, but in traffic it puts more AI cars in the
+  // wall so far: see docs/PHYSICS.md). A fitted line is kept for the play session and saved in the browser (the 30 most
+  // recent circuit + car combinations, ~10 KB each).
+  lineFor(id) {
+    if (!CARS[id]) id = 'f1';
+    if (id === 'svgp') id = 'f1';
+    const base = computeRacingLine(this.T);
+    if (this.opts.lineKind !== 'fit') return base;
+    const key = this.lineKey(id);
+    let O = LINES_CACHE.get(key) || loadLine(key, this.T.N);
+    if (!O) { O = fastLine(this.T, base, lineCar(CARS[id].spec), { margin: this.opts.lineMargin ?? 1.6 }).O; saveLine(key, O); }
+    LINES_CACHE.set(key, O);
+    return O;
+  }
+  lineKey(id) {
+    const T = this.T; let h = 0;
+    for (let i = 0; i < T.N; i += 7) h = (h * 31 + Math.round(T.X[i] * 10) * 7 + Math.round(T.Z[i] * 10) + Math.round(T.W[i] * 10)) | 0;
+    return `${this.track.name}|${T.N}|${h}|${id}|${LINE_VERSION}${this.opts.lineMargin ? `|m${this.opts.lineMargin}` : ""}`;
+  }
   // grip: the AI's grip edge from the difficulty (DIFF.grip): learned with it, so the plan uses it
   limitsFor(id, grip = 1) {
     if (!CARS[id]) id = 'f1';
@@ -253,7 +291,7 @@ export class Race {
   limitsKey(id) {
     const T = this.T; let h = 0;
     for (let i = 0; i < T.N; i += 7) h = (h * 31 + Math.round(T.X[i] * 10) * 7 + Math.round(T.Z[i] * 10) + Math.round(T.W[i] * 10)) | 0;
-    return `${this.track.name}|${T.N}|${h}|${this.rain ? 1 : 0}|${id}`;
+    return `${this.track.name}|${T.N}|${h}|${this.rain ? 1 : 0}|${id}${this.opts.lineKind === 'fit' ? `|l${LINE_VERSION}` : ''}`;
   }
   learnLimits(spec = CARSPEC, gripEdge = 1) {
     const T = this.T, N = T.N, grip = this.rain ? 0.97 : 1;
