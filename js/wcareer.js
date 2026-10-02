@@ -118,8 +118,8 @@ export function newWorld(opts, trackPool) {
   mail(w, 'San Velocita Business Registry', 'no-reply@registry.sv.gov', 'Action required: Form SV-1',
     [`Our records show that you intend to operate a motor racing team in the Province of San Velocita.`,
      `Before you can enter a series, open a business account or receive winnings as a business, you must complete Form SV-1 (Registration of a Sporting Enterprise). The form takes about four minutes. Our average processing time is eleven weeks.`,
-     `A processing fee of $250 applies. The fee is non-refundable, including in the event that your registration is processed.`,
-     `San Velocita Business Registry. Here to help, by appointment.`],
+     `A processing fee of $250 applies. The fee is non-refundable.`,
+     `San Velocita Business Registry`],
     { link: ['registry', 'Open Form SV-1'] });
   return w;
 }
@@ -419,7 +419,7 @@ function startMoney(w) {
      `LUMP SUM: the cash value of the jackpot, paid now. After tax you'll receive ${money$(LOTTERY.lump)}, in one payment.`,
      `ANNUITY: the full jackpot, paid in ${LOTTERY.years} yearly instalments. Spread out, far less of it goes in tax: you'll receive ${money$(LOTTERY.annuity)} a year (${money$(LOTTERY.annuity * LOTTERY.years)} in total), the first payment now.`,
      `Of the advertised jackpot, the Province retains a portion as a Prosperity Contribution, which funds the Lottery's advertising.`,
-     `This choice is final. Most winners take the lump sum. Most winners also don't start a racing team.`, `Winner Services, San Velocita State Lottery`],
+     `This choice is final. Most winners take the lump sum.`, `Winner Services, San Velocita State Lottery`],
     { lottery: true, choices: [['lump', `Lump sum: ${money$(LOTTERY.lump)} now`], ['annuity', `Annuity: ${money$(LOTTERY.annuity)} a year for ${LOTTERY.years} years`]] });
 }
 // money in or out, kept as the bank sees it
@@ -482,18 +482,18 @@ export const simUse = (w) => ({ sets: w.opts.weekend === 'full' ? 4 : w.opts.wee
 // Form SV-1 (the registry website on the computer) sets the team's name, colours, home town, your background and a
 // little backstory. Then your buddy finds you a car in the classifieds. Small perks: see TOWNS and BACKGROUNDS.
 export const TOWNS = {
-  pinewood: { name: 'Pinewood Falls', theme: 'grass', blurb: 'Two traffic lights. One of them works.' },
-  gulch:    { name: 'Dry Gulch', theme: 'desert', blurb: 'Famous for its outlet mall, and its other outlet mall.' },
-  city:     { name: 'Velocita City', theme: 'city', blurb: 'Rent: yes.' },
-  azure:    { name: 'Port Azure', theme: 'coast', blurb: 'Where yachts go to be looked at.' },
+  pinewood: { name: 'Pinewood Falls', theme: 'grass', blurb: 'Population 4,210. Home of the Harvest Fair.' },
+  gulch:    { name: 'Dry Gulch', theme: 'desert', blurb: 'Desert town. Two outlet malls.' },
+  city:     { name: 'Velocita City', theme: 'city', blurb: 'The provincial capital.' },
+  azure:    { name: 'Port Azure', theme: 'coast', blurb: 'Harbour town. Three yacht clubs.' },
 };
 export const HOME_PERK = 'Home races (circuits like home): no travel bill and 10% more prize money.';
 export const BACKGROUNDS = {
   mechanic:   { name: 'Mechanic', perk: 'Repairs cost 30% less. You do most of them yourself.', repair: 0.7 },
-  accountant: { name: 'Accountant', perk: 'You found a loophole: 8% more from the lottery. It is legal. Probably.', lottery: 1.08 },
-  salesman:   { name: 'Car salesman', perk: 'Cars cost you 15% less. You know every trick, because you invented most of them.', cars: 0.85 },
-  karting:    { name: 'Ex-karting kid', perk: '10% more prize money. The press loves a comeback nobody asked for.', prize: 1.1 },
-  simracer:   { name: 'Sim racer', perk: 'Fuel costs half as much. You did most of these laps at home already.', fuel: 0.5 },
+  accountant: { name: 'Accountant', perk: '8% more from the lottery. You read the small print.', lottery: 1.08 },
+  salesman:   { name: 'Car salesman', perk: 'Cars cost you 15% less. You know what they paid for it.', cars: 0.85 },
+  karting:    { name: 'Ex-karting kid', perk: '10% more prize money. The press likes a comeback.', prize: 1.1 },
+  simracer:   { name: 'Sim racer', perk: 'Fuel costs half as much. You drive economically.', fuel: 0.5 },
 };
 const bgOf = (w) => BACKGROUNDS[w.background] || {};
 const isHome = (w, R) => !!(w.home && R && R.theme && TOWNS[w.home]?.theme === R.theme);
@@ -508,11 +508,11 @@ export function registerTeam(w, f) {
   pay(w, -250, 'Business Registry: Form SV-1 processing fee');
   const first = f.name.split(' ')[0];
   mail(w, 'San Velocita Business Registry', 'no-reply@registry.sv.gov', `Registration confirmed: ${f.team}`,
-    [`Thank you for registering ${f.team}, a Sporting Enterprise based in ${TOWNS[f.home].name}.`, `Your processing fee of $250 has been collected. Your registration has been processed in four minutes, which is a record, and is being investigated.`, `San Velocita Business Registry`]);
+    [`Thank you for registering ${f.team}, a Sporting Enterprise based in ${TOWNS[f.home].name}.`, `Your processing fee of $250 has been collected. Please keep this email for your records.`, `San Velocita Business Registry`]);
   mail(w, 'Hargreave & Webb, Family Law', 'office@hargreavewebb.sv', `${f.ex} v. ${f.name.split(' ').pop()}: a quick question`,
-    [`Dear ${first},`, `We act for ${f.ex}, as you know, and we'd like to thank you again for ${f.years} memorable year${f.years === 1 ? '' : 's'} of correspondence.`,
-     `It has come to our attention that you won the State Lottery shortly after the decree was finalised. Congratulations. My client asks us to confirm the date of the draw, "for no reason".`,
-     `My client also asks us to tell you that starting a racing team is "exactly the kind of thing" and that they "hope it goes really well". We are unable to clarify the tone.`, `Yours,`, `M. Hargreave`]);
+    [`Dear ${first},`, `As you know, we act for ${f.ex}.`,
+     `It has come to our attention that you won the State Lottery shortly after the decree was finalised. Congratulations. My client has asked us to confirm the date of the draw.`,
+     `My client also asks us to pass on that starting a racing team is "exactly the kind of thing," and that they hope it goes really well.`, `Yours,`, `M. Hargreave`]);
   // the second seat: a pay driver, with their parent's money
   const mate = w.people[w.teams[w.player.team].drivers.find(d => d !== 'P')];
   if (mate) {
@@ -534,14 +534,16 @@ export function registerTeam(w, f) {
 }
 // the classifieds: a few used street cars, of very variable honesty
 const AD_BLURBS = [
-  ['Runs great. Drives great. Stops most of the time.', 0.62], ['One careful owner. Several careless ones before that.', 0.7],
-  ['Minor rust, nothing structural. Some structural.', 0.6], ['Garage kept. The garage was outside.', 0.72],
-  ['Recently serviced (by me). Comes with the manual and my notes in the manual.', 0.8], ['Never raced, never tracked, never driven above 40. Ignore the roll cage.', 0.86],
-  ['Selling because of a divorce. You know how it is.', 0.9], ['Immaculate. Serious buyers only. No lowballers. I know what I have.', 0.97],
-  ['Mechanic special. Bring a trailer, and a mechanic, and a priest.', 0.55], ['Price is firm. Price is flexible. Make an offer, then pay the price.', 0.82],
+  ['Runs and drives. Some rust. Sold as is.', 0.62], ['Was running when parked. Needs some TLC.', 0.58],
+  ['New tires, new battery, new clutch. Check engine light is on but it\'s nothing.', 0.7], ['Lots of new parts, too many to list.', 0.72],
+  ['Recent service, all records. Minor scratches, see pics.', 0.8], ['One owner. Garage kept. Never tracked.', 0.86],
+  ['Wife says it has to go.', 0.88], ['Immaculate. Serious buyers only. No lowballers, I know what I have.', 0.97],
+  ['Selling for a friend, don\'t know much about it.', 0.66], ['Price is firm.', 0.82],
 ];
 // the years each car was made (more or less), for the listings
 const AD_YEARS = { testarossa: [1984, 1991], jsport: [1993, 2002], rs964: [1989, 1994], gtr: [2008, 2012], mustang: [1987, 1993], m5: [1998, 2003] };
+// the colours they come in (until you paint them)
+const AD_COLORS = [0xa81a1a, 0x1b1b1d, 0xe6e6e2, 0x24396e, 0x8c9198, 0x1f4a2c, 0xb8952a, 0x5e1822];
 const AD_SELLERS = ['Dale', 'Rick (not a dealer)', 'Bev', 'Tony', 'mike_cars_cash', 'Desmond', 'Pauline', 'Gaz'];
 const condWord = (c) => c >= 0.93 ? 'Like new' : c >= 0.82 ? 'Honest' : c >= 0.7 ? 'Tired' : 'Project';
 export const condName = condWord;
@@ -552,7 +554,7 @@ function makeAds(w) {
     const car = cars[i % cars.length], [blurb, c0] = blurbs[i % blurbs.length];
     const cond = clamp(c0 + (rng(w) - 0.5) * 0.08, 0.5, 0.99);
     const price = Math.round(car.value * (0.45 + cond * 0.6) * (bgOf(w).cars || 1) / 100) * 100;
-    ads.push({ id: 'ad' + (w.nextId++), chassis: car.key, name: car.name, cond, price, miles: Math.round((1 - cond) * 260 + 25 + rng(w) * 40) * 1000, year: (([a, b]) => a + Math.floor(rng(w) * (b - a + 1)))(AD_YEARS[car.key] || [1986, 2003]), blurb, seller: AD_SELLERS[Math.floor(rng(w) * AD_SELLERS.length)] });
+    ads.push({ id: 'ad' + (w.nextId++), chassis: car.key, name: car.name, cond, price, color: AD_COLORS[Math.floor(rng(w) * AD_COLORS.length)], miles: Math.round((1 - cond) * 260 + 25 + rng(w) * 40) * 1000, year: (([a, b]) => a + Math.floor(rng(w) * (b - a + 1)))(AD_YEARS[car.key] || [1986, 2003]), blurb, seller: AD_SELLERS[Math.floor(rng(w) * AD_SELLERS.length)] });
   }
   return ads.sort((a, b) => a.price - b.price);
 }
@@ -562,7 +564,7 @@ export function buyCar(w, adId) {
   w.founding.car = true; w.ads = w.ads.filter(a => a !== ad);
   pay(w, -ad.price, `Classifieds: ${ad.year} ${ad.name} (from ${ad.seller})`);
   mail(w, ad.seller, `${ad.seller.split(' ')[0].toLowerCase().replace(/[^a-z_]/g, '')}@coolmail.sv`, `re: ${ad.year} ${ad.name}`,
-    [`pleasure doing business`, `keys are under the mat. bring ur own mat`, condWord(ad.cond) === 'Project' ? `if it makes a noise that's normal. if it stops making the noise call someone` : `no refunds no returns no take backs`]);
+    [`pleasure doing business`, `keys are under the mat`, condWord(ad.cond) === 'Project' ? `if it makes a noise thats normal` : `no refunds`]);
   return true;
 }
 // how much a car's condition holds it back (power): a project car is about 4% down until R&D sorts it out

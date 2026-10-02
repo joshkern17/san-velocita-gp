@@ -206,7 +206,7 @@ export class Computer {
     if (cur) {
       const gated = cur.lottery && w.founding && !w.founding.reg;
       const link = cur.link || (gated ? ['registry', 'Open Form SV-1'] : null);
-      const ch = gated ? `<div class="pc-reply"><p class="pc-note">The Lottery can't pay a business that doesn't exist yet. File Form SV-1 first.</p><button class="pc-btn" data-nav data-act="open" data-arg="registry" data-key="link" data-first>Open Form SV-1</button></div>`
+      const ch = gated ? `<div class="pc-reply"><p class="pc-note">Winnings can only be paid to a registered business. Please file Form SV-1 first.</p><button class="pc-btn" data-nav data-act="open" data-arg="registry" data-key="link" data-first>Open Form SV-1</button></div>`
         : link && !(link[0] === 'registry' && w.founding?.reg) && !(link[0] === 'classifieds' && w.car) ? `<div class="pc-reply"><button class="pc-btn" data-nav data-act="open" data-arg="${link[0]}" data-key="link" data-first>${esc(link[1])} &rarr;</button></div>`
         : cur.choices && !cur.answer ? `<div class="pc-reply">${cur.choices.map(([k, t], i) => `<button class="pc-btn" data-nav data-act="reply" data-arg="${cur.id}:${k}" data-key="reply-${k}"${i === 0 ? ' data-first' : ''}>${esc(t)}</button>`).join('')}</div>` : '';
       const ans = cur.answer ? `<p class="pc-sent">You replied: ${esc(cur.choices.find(c => c[0] === cur.answer)?.[1] || cur.answer)}</p>` : '';
@@ -284,16 +284,15 @@ export class Computer {
     const sw = (c) => `<i class="rg-sw" style="background:${hex(c)}"></i>`;
     const T = WC.TOWNS[f.home], B = WC.BACKGROUNDS[f.background];
     return head + `<div class="rg-body"><h1>Form SV-1: Registration of a Sporting Enterprise</h1>
-      <p class="rg-small">Please complete all sections in BLOCK CAPITALS. This form is not available in block capitals.</p>
+      <p class="rg-small">Please complete all sections.</p>
       <h2>Section A: the enterprise</h2>
       ${text('team', 'Name of enterprise')}
-      ${cyc('c0', 'Principal colour', sw(f.colors[0]))}${cyc('c1', 'Secondary colour', sw(f.colors[1]), 'For the livery, the banners and anything else the Registry has no interest in.')}
+      ${cyc('c0', 'Principal colour', sw(f.colors[0]))}${cyc('c1', 'Secondary colour', sw(f.colors[1]))}
       ${cyc('home', 'Registered premises', esc(T.name), `${esc(T.blurb)} <em>${esc(WC.HOME_PERK)}</em>`)}
       <h2>Section B: the proprietor</h2>
       ${text('name', 'Full name')}
       ${cyc('background', 'Previous occupation', esc(B.name), `<em>${esc(B.perk)}</em>`)}
-      <h2>Section C: marital history</h2>
-      <p class="rg-small">Required for no reason the Registry is able to share.</p>
+      <h2>Section C: marital status</h2>
       ${text('ex', 'Former spouse')}
       ${cyc('years', 'Years married', f.years)}
       <div class="rg-submit"><button class="pc-btn" data-nav data-act="file" data-key="file">Submit Form SV-1 and pay $250</button>${this.formOk() ? '' : '<small class="neg">Please fill in every field.</small>'}</div></div>`;
@@ -303,19 +302,26 @@ export class Computer {
   classSite() {
     const w = this.w, ads = w.ads || [], p = this.page;
     const head = `<div class="cl-head"><b>SVList</b><small>san velocita &gt; for sale &gt; cars &amp; trucks &gt; by owner</small></div>`;
-    if (!w.founding?.reg) return head + '<p class="pc-empty">Register your team first (Form SV-1): the sellers want to know who\'s not paying them.</p>';
+    if (!w.founding?.reg) return head + '<p class="pc-empty">Register your team first (Form SV-1).</p>';
     if (p.ad) {
       const ad = ads.find(a => a.id === p.ad); if (!ad) return head + '<p class="pc-empty">This posting has been deleted by its author.</p>';
       const can = !w.car, broke = w.money.balance < ad.price;
       return head + `<div class="cl-ad" data-nav data-scroll data-key="adpage">
         <h1>${ad.year} ${esc(ad.name)} &ndash; ${WC.money$(ad.price)} <small>(${esc(WC.TOWNS[['pinewood', 'gulch', 'city', 'azure'][ad.price % 4]].name)})</small></h1>
-        <div class="cl-photo">[ image not available ]</div>
-        <table class="cl-attrs"><tr><td>condition:</td><td><b>${WC.condName(ad.cond).toLowerCase()}</b></td></tr><tr><td>odometer:</td><td><b>${ad.miles.toLocaleString('en-US')}</b></td></tr><tr><td>title status:</td><td><b>${ad.cond < 0.62 ? 'it\'s complicated' : 'clean'}</b></td></tr><tr><td>seller:</td><td><b>${esc(ad.seller)}</b></td></tr></table>
-        <p>${esc(ad.blurb)}</p><p class="cl-fine">do NOT contact me with unsolicited services or offers. cash only. no test drives (insurance). post id: ${ad.id.slice(2)}${ad.price}</p></div>
-        <div class="cl-buy">${can ? `<button class="pc-btn" data-nav data-act="buy" data-arg="${ad.id}" data-key="buy" data-first>${this.buyArmed ? `Pay ${WC.money$(ad.price)}? Select again` : `Buy it: ${WC.money$(ad.price)}`}</button>${broke ? '<small class="neg">That\'s more than you have. The bank will notice.</small>' : ''}<small>Condition matters: a tired car is down on power until you sort it out.</small>` : '<small>You already have a car. Your garage has room for one, and so does your bank account.</small>'}</div>`;
+        <div class="cl-top">${this.photo(ad, 'cl-photo')}
+        <table class="cl-attrs"><tr><td>condition:</td><td><b>${WC.condName(ad.cond).toLowerCase()}</b></td></tr><tr><td>odometer:</td><td><b>${ad.miles.toLocaleString('en-US')}</b></td></tr><tr><td>title status:</td><td><b>${ad.cond < 0.6 ? 'salvage' : 'clean'}</b></td></tr>${this.specRows(ad.chassis)}<tr><td>seller:</td><td><b>${esc(ad.seller)}</b></td></tr></table></div>
+        <p>${esc(ad.blurb)}</p><p class="cl-fine">cash only. no test drives. post id: ${ad.id.slice(2)}${ad.price}</p></div>
+        <div class="cl-buy">${can ? `<button class="pc-btn" data-nav data-act="buy" data-arg="${ad.id}" data-key="buy" data-first>${this.buyArmed ? `Pay ${WC.money$(ad.price)}? Select again` : `Buy it: ${WC.money$(ad.price)}`}</button>${broke ? '<small class="neg">This is more than your balance.</small>' : ''}<small>Condition matters: a tired car is down on power until it's sorted out.</small>` : '<small>You already own a car.</small>'}</div>`;
     }
-    const rows = ads.map((ad, k) => `<div class="cl-row" data-nav data-act="ad" data-arg="${ad.id}" data-key="ad-${ad.id}"${k === 0 ? ' data-first' : ''}><span class="cl-price">${WC.money$(ad.price)}</span><a>${ad.year} ${esc(ad.name)} &ndash; ${esc(ad.blurb.split('.')[0].toLowerCase())}</a><small>${WC.condName(ad.cond).toLowerCase()} &middot; ${Math.round(ad.miles / 1000)}k miles</small></div>`).join('');
-    return head + (w.car ? `<p class="cl-note">You bought a ${w.car.year} ${esc(w.car.name)}. The listings are still here, judging you.</p>` : '') + `<div class="cl-list">${rows || '<p class="pc-empty">Nothing for sale. Try again after payday.</p>'}</div>`;
+    const rows = ads.map((ad, k) => `<div class="cl-row" data-nav data-act="ad" data-arg="${ad.id}" data-key="ad-${ad.id}"${k === 0 ? ' data-first' : ''}>${this.photo(ad, 'cl-thumb')}<span class="cl-price">${WC.money$(ad.price)}</span><a>${ad.year} ${esc(ad.name)} &ndash; ${esc(ad.blurb.split('.')[0].toLowerCase())}</a><small>${WC.condName(ad.cond).toLowerCase()} &middot; ${Math.round(ad.miles / 1000)}k miles</small></div>`).join('');
+    return head + (w.car ? `<p class="cl-note">Your car: ${w.car.year} ${esc(w.car.name)}.</p>` : '') + `<div class="cl-list">${rows || '<p class="pc-empty">No listings.</p>'}</div>`;
+  }
+  // a listing's photo (rendered once, then cached by main.js)
+  photo(ad, cls) { const src = this.src.photo?.(ad); return src ? `<img class="${cls}" src="${src}">` : `<div class="${cls} none">no image</div>`; }
+  // the car's spec, as the ad would list it
+  specRows(chassis) {
+    const c = this.src.carInfo?.(chassis); if (!c) return '';
+    return `<tr><td>engine:</td><td><b>${esc(c.engine)}, ${c.hp} hp</b></td></tr><tr><td>transmission:</td><td><b>${esc(c.box)}</b></td></tr><tr><td>drive:</td><td><b>${esc(c.drive)}</b></td></tr><tr><td>weight:</td><td><b>${c.kg} kg</b></td></tr><tr><td>top speed:</td><td><b>${esc(c.top)}</b></td></tr>`;
   }
 
   // a weekend's statement, line by line
@@ -435,6 +441,9 @@ export class Computer {
     const clone = this.scr.cloneNode(true);
     clone.style.transform = 'none';
     clone.querySelectorAll('input').forEach(e => e.remove()); // (the fields show their text in spans)
+    // (photos: if this browser won't snapshot a page with images, they become grey boxes instead)
+    const imgs = clone.querySelectorAll('img');
+    if (this.noImgSnap) imgs.forEach(e => { const d = document.createElement('div'); d.className = e.className + ' none'; e.replaceWith(d); });
     // scrolled panes: an image can't scroll, so their contents are shifted up instead
     const live = this.scr.querySelectorAll('*'), cl = clone.querySelectorAll('*');
     live.forEach((e, i) => {
@@ -449,7 +458,10 @@ export class Computer {
     // (a data: URL: Chrome treats a blob: one as foreign and "taints" any canvas it's drawn on, which WebGL then refuses)
     const img = new Image();
     const done = () => { this.snapping = false; if (this.snapAgain) { this.snapAgain = false; this.snapSoon(); } };
-    const fail = () => { this.fallback = true; this.el.classList.remove('ghost'); this.drawIdle(); done(); };
+    const fail = () => {
+      if (imgs.length && !this.noImgSnap) { this.noImgSnap = true; this.snapping = false; this.snapSoon(); return; } // (try again without the photos)
+      this.fallback = true; this.el.classList.remove('ghost'); this.drawIdle(); done();
+    };
     img.onload = () => {
       // drawn on a scratch canvas first: if this browser taints it anyway (Safari), the texture's canvas stays clean
       const tmp = this.tmp || (this.tmp = Object.assign(document.createElement('canvas'), { width: W * S, height: H * S }));

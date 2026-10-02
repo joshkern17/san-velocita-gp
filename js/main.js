@@ -15,6 +15,7 @@ import { TEAMS } from './car.js';
 import { Garage } from './garage.js';
 import { PitGarage } from './pitgarage.js';
 import { Computer } from './computer.js';
+import { carPhoto } from './carphoto.js';
 import { PARTS, DEFAULT_CAR, chassisReady } from './carmodel.js';
 import * as CAREER from './career.js';
 import * as WC from './wcareer.js';
@@ -326,7 +327,9 @@ tabbers['s-help'] = (d) => { sfx.move(); openHelp((helpPage + d + HELP_PAGES.len
 function fillCredits() {
   const c = envCatalog(), el = $('credits-list');
   const esc = (t) => String(t || '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
-  const packs = [...(c ? Object.values(c.packs) : []), ...Object.values(CAR_CREDITS), { title: 'PSX Mobile Phone', author: 'Retro Assets Library', license: 'see pack' }];
+  const packs = [...(c ? Object.values(c.packs) : []), ...Object.values(CAR_CREDITS), { title: 'PSX Mobile Phone', author: 'Retro Assets Library', license: 'see pack' },
+    // the real-world circuits: layouts, buildings, trees, water from the map; hills from the terrain tiles
+    ...(realTracks().length ? [{ title: 'Real-World Circuits: map data', author: 'OpenStreetMap contributors', license: 'ODbL 1.0' }, { title: 'Real-World Circuits: F1 outlines', author: 'bacinger/f1-circuits', license: 'MIT' }, { title: 'Real-World Circuits: elevation', author: 'AWS Terrain Tiles (Mapzen, USGS, SRTM)', license: 'see source' }] : [])];
   el.innerHTML = packs.length ? packs.sort((a, b) => a.title.localeCompare(b.title)).map(p => {
     const author = (p.author || '').replace(/\s*\(https?:[^)]*\)/, ''), lic = (p.license || '').replace(/\s*\(https?:[^)]*\)/, '').replace(/^CC-BY-?(.*)-4\.0$/, (m, x) => 'CC BY' + (x ? '-' + x : '') + ' 4.0').replace(/^CC-BY-4\.0$/, 'CC BY 4.0');
     return `<div><b>${esc(p.title)}</b><br>by ${esc(author)} <span>&middot; ${esc(lic)}</span></div>`;
@@ -1245,10 +1248,23 @@ const pc = new Computer({
     sfx.best(); saveWorld(); renderHub(); phone.buzz();
   },
   buy: (id) => { if (WC.buyCar(world, id)) { sfx.best(); saveWorld(); renderHub(); } },
+  photo: (ad) => {
+    if (adPhotos.has(ad.id)) return adPhotos.get(ad.id);
+    let src = null;
+    try { src = carPhoto({ ...settings.car, chassis: ad.chassis, main: ad.color, accent: 0xf2f2f2 }, parseInt(ad.id.slice(2), 10) || 1); } catch (e) { console.warn('car photo', e); }
+    adPhotos.set(ad.id, src); return src;
+  },
+  carInfo: (chassis) => {
+    const id = carId({ chassis }), C = CARS[id]; if (!C) return null;
+    const st = carStats(id), s = C.spec, mph = settings.units === 'mph';
+    return { hp: Math.round(st.power), kg: Math.round(st.weight), top: mph ? Math.round(st.top / 1.609) + ' mph' : Math.round(st.top) + ' km/h',
+      drive: s.drive >= 0.99 ? 'front-wheel drive' : s.drive > 0.01 ? 'all-wheel drive' : 'rear-wheel drive', box: `${s.gears.length - 1}-speed ${s.box || 'manual'}`, engine: ENGINE_NAME[C.sound] || 'petrol' };
+  },
   view: () => { if (screen === 's-hub') renderHints(); },
   sfx: { move: () => sfx.move(), select: () => sfx.select(), back: () => sfx.back() },
 });
 pitGarage.setScreen(pc.idle);
+const adPhotos = new Map(); // (the classifieds' photos: rendered once a session)
 let pcSeat = false; // sat at the computer (the camera on its way in, or there)
 function sitDown(app, arg) {
   if (pcSeat) return;
@@ -1321,7 +1337,7 @@ function worldItems(saves) {
     { label: 'Practice', values: PRAC_VALS, get: () => worldOpts.prac, set: v => worldOpts.prac = v, desc: PRAC_DESC, get disabled() { return worldOpts.weekend !== 'full'; } },
     { label: 'Qualifying', values: QUALI_VALS, get: () => worldOpts.quali, set: v => worldOpts.quali = v, desc: QUALI_DESC, get disabled() { return worldOpts.weekend === 'race'; } },
     { label: 'Circuits', values: [['presets', 'Presets'], ['all', 'Presets + Mine'], ['mine', 'My Circuits']], get: () => worldOpts.pool, set: v => worldOpts.pool = v, desc: 'Which circuits the calendars are drawn from.' },
-    { label: 'Start Career', cls: 'action primary', action: () => startWorld(), desc: 'You won the lottery. Now ruin it: your name, your team and your first car are set up on the computer in your garage.' },
+    { label: 'Start Career', cls: 'action primary', action: () => startWorld(), desc: 'Your name, your team and your first car are set up on the computer in your garage.' },
   );
   if (saves.length) {
     if (!saves.some(e => e.id === delPick)) delPick = saves[0].id;
@@ -1417,9 +1433,9 @@ function renderHubMenu() {
   const off = w.player.offer, offerMail = off && !off.answer && (w.mail || []).find(m => m.offer && !m.answer);
   const claim = w.money && !w.money.choice && (w.mail || []).find(m => m.lottery && !m.answer);
   const F = w.founding || {};
-  if (!F.reg) items.push({ label: 'Register The Team', cls: 'action primary', action: () => sitDown('registry'), desc: 'Form SV-1, on the computer. Nothing happens in San Velocita without a form.' });
+  if (!F.reg) items.push({ label: 'Register The Team', cls: 'action primary', action: () => sitDown('registry'), desc: 'Form SV-1, on the computer.' });
   else if (claim) items.push({ label: 'Claim Your Winnings', cls: 'action primary', action: () => sitDown('mail', claim.id), desc: 'The State Lottery needs to know how you want your money. It\'s waiting in your email.' });
-  else if (!F.car) items.push({ label: 'Buy A Car', cls: 'action primary', action: () => sitDown('classifieds'), desc: 'Your buddy found some listings. The cheap one is "probably fine".' });
+  else if (!F.car) items.push({ label: 'Buy A Car', cls: 'action primary', action: () => sitDown('classifieds'), desc: 'Danny sent you some listings. They\'re on the computer.' });
   else if (!w.over) {
     const r = w.series[sid].cal[w.round];
     items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), desc: `${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}` });

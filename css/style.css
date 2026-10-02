@@ -1256,16 +1256,21 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .cl-head b { font: bold 22px Arial, sans-serif; color: #7a2cc8; margin-right: 10px; }
 .cl-head small { color: #555; }
 .cl-list { padding: 4px 14px 14px; }
-.cl-row { display: grid; grid-template-columns: 90px 1fr; gap: 0 8px; padding: 6px 4px; border-bottom: 1px solid #eee; }
+.cl-row { display: grid; grid-template-columns: 66px 80px 1fr; grid-template-rows: auto auto; align-items: center; gap: 0 10px; padding: 5px 4px; border-bottom: 1px solid #eee; }
+.cl-row .cl-thumb { grid-row: 1 / 3; }
 .cl-row a { color: #00c; text-decoration: underline; }
-.cl-row small { grid-column: 2; color: #777; }
+.cl-row small { grid-column: 2 / 4; color: #777; }
+.cl-thumb { display: block; width: 66px; height: 43px; object-fit: cover; border: 1px solid #ccc; }
+.cl-thumb.none, .cl-photo.none { display: grid; place-items: center; background: #eee; color: #aaa; font-size: 10px; }
 .cl-row.f { background: #f1e8ff; outline: 1px dotted #111; }
 .cl-price { font-weight: bold; color: #1a7a2a; }
 .cl-note { margin: 8px 14px 0; color: #7a2cc8; font-style: italic; }
 .cl-ad { padding: 10px 16px; max-height: 330px; overflow-y: auto; }
 .cl-ad h1 { margin: 0 0 8px; font-size: 18px; }
 .cl-ad h1 small { font-weight: normal; color: #777; }
-.cl-photo { height: 90px; display: grid; place-items: center; background: #eee; border: 1px solid #ccc; color: #999; margin-bottom: 8px; }
+.cl-top { display: grid; grid-template-columns: 300px 1fr; gap: 14px; align-items: start; margin-bottom: 6px; }
+.cl-photo { display: block; width: 300px; height: 195px; object-fit: cover; border: 1px solid #ccc; }
+.cl-attrs { font-size: 12px; }
 .cl-attrs td { padding: 1px 8px 1px 0; color: #555; }
 .cl-fine { font-size: 11px; color: #888; }
 .cl-ad.f { box-shadow: inset 3px 0 0 #7a2cc8; }
