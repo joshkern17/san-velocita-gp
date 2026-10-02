@@ -17,21 +17,21 @@ import { LapRecorder, addLap, lapKey, bestLap, loadPB, lapPoseAt } from './telem
 
 const STEP = 1 / 240;
 // pace = fraction of the learned per-track limit
-// grip > 1 is an edge (Legend and up): the AI learns each circuit with it (a plan of its own: limitsFor), so it uses it.
-// Since the honest physics (stage 3) the AI's best is a little under a quick human's (it doesn't find the fastest line
-// through fast S-bends yet), so the top levels get a labelled edge. Pace alone tops out (in the F1, pace 0.945 and 0.99
-// lapped within a second), so the levels above Pro are spaced by the edge. Clean AI laps at Auburn (2026-10-02; the
-// user's M1 best is 1:44.5), GT-R / M1 / Aventus / F1:
-//   no edge 2:03.0 / 1:47.5 / 1:47.5 / 1:27.2   1.07+1.04 2:01.0 / 1:45.6 / 1:43.7 / 1:24.9
-//   1.12+1.07 1:59.0 / 1:43.7 / 1:42.2 / 1:23.4   1.18+1.10 1:57.3 / 1:42.0 / 1:41.3 / 1:22.0   1.25+1.14 1:55.8 / 1:40.3 / - / 1:20.3
+// grip > 1 is an edge (Alien and up): the AI learns each circuit with it (a plan of its own: limitsFor), so it uses it.
+// Since the car-fitted racing line (raceline.js, 2026-10-02) the AI's honest best is about a quick human's, so Legend
+// has no edge; the levels above it are spaced by a labelled one (pace alone tops out: in the F1, pace 0.945 and 0.99
+// lapped within a second). Clean AI laps at Auburn on the fitted line (the user's M1 best is 1:44.5), GT-R / M1 /
+// Aventus / F1: Pro 2:04.4 / 1:47.6 / 1:47.8 / 1:25.0, no edge 2:01.7 / 1:45.3 / 1:45.7 / 1:24.2,
+// 1.04+1.02 2:00.2 / 1:43.5 / 1:43.9 / 1:22.7, 1.08+1.05 1:59.2 / 1:42.6 / 1:43.1 / 1:21.4,
+// 1.13+1.08 1:57.7 / 1:40.9 / 1:41.4 / 1:19.7.
 // Legend is a clean lap at your best, Alien beats it, Phantom and Godlike are for a career car with upgrades.
 const DIFF = {
   easy:    { pace: 0.85, power: 0.95, grip: 1, spread: 0.03, rubber: true },
   medium:  { pace: 0.93, power: 0.98, grip: 1, spread: 0.025, rubber: true },
-  hard:    { pace: 1, power: 1.04, grip: 1.07, spread: 0.012, rubber: false },
-  alien:   { pace: 1, power: 1.07, grip: 1.12, spread: 0.006, rubber: false },
-  phantom: { pace: 1, power: 1.1, grip: 1.18, spread: 0.004, rubber: false },
-  godlike: { pace: 1, power: 1.14, grip: 1.25, spread: 0.003, rubber: false },
+  hard:    { pace: 1, power: 1, grip: 1, spread: 0.012, rubber: false },
+  alien:   { pace: 1, power: 1.02, grip: 1.04, spread: 0.006, rubber: false },
+  phantom: { pace: 1, power: 1.06, grip: 1.09, spread: 0.004, rubber: false },
+  godlike: { pace: 1, power: 1.08, grip: 1.13, spread: 0.003, rubber: false },
 };
 // the F1 class: its own lower levels (its AI never had the cornering help the road / GT AI lost in stage 3), and the
 // top levels one step of edge below the road / GT table's
@@ -39,10 +39,10 @@ const diffFor = (opts) => { const D = (CARS[carId(opts.car)] || CARS.f1).cls ===
 const DIFF_F1 = {
   easy:    { pace: 0.8,  power: 0.94, grip: 0.97, spread: 0.03, rubber: true },
   medium:  { pace: 0.875, power: 0.97, grip: 0.99, spread: 0.025, rubber: true },
-  hard:    { pace: 1, power: 1.01, grip: 1.03, spread: 0.012, rubber: false },
-  alien:   { pace: 1, power: 1.04, grip: 1.07, spread: 0.006, rubber: false },
-  phantom: { pace: 1, power: 1.07, grip: 1.12, spread: 0.004, rubber: false },
-  godlike: { pace: 1, power: 1.1, grip: 1.18, spread: 0.003, rubber: false },
+  hard:    { pace: 1, power: 1, grip: 1, spread: 0.012, rubber: false },
+  alien:   { pace: 1, power: 1.01, grip: 1.03, spread: 0.006, rubber: false },
+  phantom: { pace: 1, power: 1.04, grip: 1.07, spread: 0.004, rubber: false },
+  godlike: { pace: 1, power: 1.07, grip: 1.12, spread: 0.003, rubber: false },
 };
 // AI mistakes: chance per corner of braking too late / running wide / spinning, by difficulty (x the AI Mistakes option)
 const MISTAKE = { easy: 0.03, medium: 0.022, hard: 0.012, alien: 0.007, phantom: 0.005, godlike: 0.003 };
@@ -124,10 +124,11 @@ export class Race {
     this.camera = new THREE.PerspectiveCamera(64, 16 / 9, 0.3, 5000);
     this.scene.add(this.camera);
 
-    // the racing line (fitted to the car the race is built around, in development: lineFor)
+    // the racing line, fitted to the car the race is built around (lineFor): the one the AI drives and you're shown
     this.net = opts.net || null;
+    this.corners = findCorners(T); // (before the line: checking a fitted line drives the AI, which needs them)
+    this.diff = diffFor(opts);
     this.line = this.lineFor(this.mainCarId());
-    this.corners = findCorners(T);
     this.rec = opts.mode !== 'attract' ? new LapRecorder(T) : null; // your laps, sample by sample (telemetry.js: Lap Review)
     this.cars = [];
     this.log = []; // incidents between named drivers (World Career's ledger)
@@ -245,25 +246,64 @@ export class Race {
     if (this.net) { const g = this.net.grid.find(g => g.k === 'h' && g.id === this.net.myId); return carId(g && g.car); }
     return carId(this.opts.car);
   }
-  // the racing line for a car here: the smoothest line (track.js). In development: lineKind 'fit' fits it to the car's
-  // grip, power, drag and downforce (raceline.js: 1-3 s a lap quicker alone, but in traffic it puts more AI cars in the
-  // wall so far: see docs/PHYSICS.md). A fitted line is kept for the play session and saved in the browser (the 30 most
-  // recent circuit + car combinations, ~10 KB each).
+  // how tight the racing line is at each sample (1/m: the circle through the points ~8 m either side)
+  lineCurv() {
+    const T = this.T, N = T.N, O = this.line, k = Math.max(1, Math.round(8 / T.ds)), K = this.lineK = new Float32Array(N);
+    const px = (i) => T.X[i] + T.RX[i] * O[i], pz = (i) => T.Z[i] + T.RZ[i] * O[i];
+    for (let i = 0; i < N; i++) {
+      const a = (i - k + N) % N, b = (i + k) % N, ax = px(a), az = pz(a), bx = px(i), bz = pz(i), cx = px(b), cz = pz(b);
+      const A2 = Math.abs((bx - ax) * (cz - az) - (bz - az) * (cx - ax));
+      K[i] = 2 * A2 / Math.max(1e-6, Math.hypot(bx - ax, bz - az) * Math.hypot(cx - bx, cz - bz) * Math.hypot(cx - ax, cz - az));
+    }
+    return K;
+  }
+  // the racing line for a car here: the smoothest line (track.js), then fitted to the car's grip, power, drag and
+  // downforce (raceline.js: 1-3 s a lap quicker for the AI, and a line worth following). Street and fun cars (heavier,
+  // looser) keep 2 m from the edges, the racing classes 1.6. Kept for the play session and saved in the browser (the 30
+  // most recent circuit + car combinations, ~10 KB each). (lineKind 'old': the smoothest line, for dev benches)
   lineFor(id) {
     if (!CARS[id]) id = 'f1';
     if (id === 'svgp') id = 'f1';
     const base = computeRacingLine(this.T);
-    if (this.opts.lineKind !== 'fit') return base;
+    if (this.opts.lineKind === 'old') return base;
     const key = this.lineKey(id);
     let O = LINES_CACHE.get(key) || loadLine(key, this.T.N);
-    if (!O) { O = fastLine(this.T, base, lineCar(CARS[id].spec), { margin: this.opts.lineMargin ?? 1.6 }).O; saveLine(key, O); }
+    if (!O && this.mode === 'attract') return base; // (the menu's backdrop race doesn't wait for a fit)
+    if (!O) {
+      const lc = lineCar(CARS[id].spec); if (this.opts.lineComb) lc.comb = this.opts.lineComb;
+      const margin = this.opts.lineMargin ?? (CARS[id].cls === 'street' || CARS[id].cls === 'fun' ? 2 : 1.6);
+      O = fastLine(this.T, base, lc, { margin }).O;
+      if (this.opts.lineCheck !== false) O = this.checkLine(id, base, O);
+      saveLine(key, O);
+    }
     LINES_CACHE.set(key, O);
     return O;
+  }
+  // The model behind the fitted line is simple: on a few circuits (Monaco's walls and hairpins) the real car is slower
+  // on it. So the first time, the AI learns both lines in the real physics and does a clean lap on each: the quicker
+  // one is kept (and its learned plan with it, so the race doesn't learn it again).
+  checkLine(id, base, fit) {
+    const savedCars = this.cars, savedLine = this.line;
+    this.cars = this.cars || [];
+    const spec = CARS[id].spec, tries = [];
+    for (const O of [base, fit]) {
+      this.line = O; this.limits = {};
+      const V = this.learnLimits(spec, 1), meta = { w: this.wearPerM, g: this.refGrip }, rounds = this.learnRounds;
+      this.limits[id] = V; (this.limitMeta ||= {})[id] = meta;
+      tries.push({ O, V, meta, rounds, t: this.simLap(id, { tyre: this.rain ? 'wet' : 'medium' }) });
+    }
+    const win = tries[1].t < tries[0].t ? tries[1] : tries[0];
+    this.line = win.O; this.limits = { [id]: win.V }; this.limitMeta[id] = win.meta; this.learnRounds = win.rounds;
+    const key = this.limitsKey(id), hit = { V: win.V, meta: win.meta, rounds: win.rounds };
+    if (!this.opts.freshPlans) { LIMITS_CACHE.set(key, hit); savePlan(key, hit); }
+    this.lineCheckT = tries.map(x => x.t); // (dev benches: smooth vs fitted)
+    this.cars = savedCars; this.line = savedLine;
+    return win.O;
   }
   lineKey(id) {
     const T = this.T; let h = 0;
     for (let i = 0; i < T.N; i += 7) h = (h * 31 + Math.round(T.X[i] * 10) * 7 + Math.round(T.Z[i] * 10) + Math.round(T.W[i] * 10)) | 0;
-    return `${this.track.name}|${T.N}|${h}|${id}|${LINE_VERSION}${this.opts.lineMargin ? `|m${this.opts.lineMargin}` : ""}`;
+    return `${this.track.name}|${T.N}|${h}|${id}|${LINE_VERSION}${this.opts.lineMargin ? `|m${this.opts.lineMargin}` : ""}${this.opts.lineComb ? `|c${this.opts.lineComb}` : ""}`;
   }
   // grip: the AI's grip edge from the difficulty (DIFF.grip): learned with it, so the plan uses it
   limitsFor(id, grip = 1) {
@@ -291,7 +331,7 @@ export class Race {
   limitsKey(id) {
     const T = this.T; let h = 0;
     for (let i = 0; i < T.N; i += 7) h = (h * 31 + Math.round(T.X[i] * 10) * 7 + Math.round(T.Z[i] * 10) + Math.round(T.W[i] * 10)) | 0;
-    return `${this.track.name}|${T.N}|${h}|${this.rain ? 1 : 0}|${id}${this.opts.lineKind === 'fit' ? `|l${LINE_VERSION}` : ''}`;
+    return `${this.track.name}|${T.N}|${h}|${this.rain ? 1 : 0}|${id}${this.opts.lineKind === 'old' ? '' : `|l${LINE_VERSION}`}`;
   }
   learnLimits(spec = CARSPEC, gripEdge = 1) {
     const T = this.T, N = T.N, grip = this.rain ? 0.97 : 1;
@@ -1661,6 +1701,17 @@ export class Race {
     if (car.giveBack) {
       const o = car.giveBack.car, gap = car.progress - o.progress;
       vt = gap < 40 ? Math.min(vt, Math.max(10, o.phys.u - 6)) : vt * 0.85;
+    }
+    // off its line (alongside someone, defending, pushed wide): the learned speeds are for the line's arc. Like a driver
+    // on a tighter or wider line than usual, take the corner ahead a little slower, by how far off it and how tight it is
+    // (in 12-car races at Auburn it took F1 wall hits from ~30 to ~14 on the old line, and made the fitted one race safe)
+    if (this.opts.offSlow !== false) {
+      const dev = Math.abs(car.s - this.line[car.idx]), at = this.opts.offSlowAt ?? 0.8;
+      if (dev > at) {
+        const LK = this.lineK || this.lineCurv();
+        let kmax = 0; for (let k = 0, n = Math.round((10 + u * 1.2) / T.ds); k <= n; k += 2) { const kk = LK[(car.idx + k) % N]; if (kk > kmax) kmax = kk; }
+        vt *= Math.sqrt(Math.max(0.6, 1 - (dev - at) * kmax * (this.opts.offSlowK ?? 2)));
+      }
     }
     if (!car.onRoad) vt = Math.min(vt, 25);
     vt = Math.min(vt, slowTo);

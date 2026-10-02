@@ -237,28 +237,34 @@ What stage 2 is, and what was learned getting there:
 
 ## Next: the AI's line through fast S-bends (where the edge should come from instead)
 
-**2026-10-02: a car-fitted racing line (`js/raceline.js`, opt-in: Race opts `lineKind: 'fit'`).** The user: the
-min-curvature line "is clearly not the line to follow", it never goes wide to turn in. raceline.js fits the line to
-a car: a point-mass lap model (friction circle, power, drag, downforce, the line's real length) and a coordinate search
-on control points every 10 m with a Catmull-Rom curve through them (no kinks), coarse to fine, deterministic (an
-evaluation budget, not a time one). Calibration: grip x1.05 matches the AI's real laps on the old line in all four test
-cars (1.1 used: a quick human); curvature over a +-8 m chord (at +-4 m the model saw the old line's short kinks as
-slow corners the real car just smooths across, and promised 8.7 s that was never there).
-Results, clean AI lap at pace 1, no edge: Auburn GT-R 2:03.0 -> 2:01.1, M1 1:47.0 -> 1:45.2, Aventus 1:47.4 -> 1:45.2,
-F1 1:27.2 -> 1:24.2; Maple Ridge -0.8..-2.2 s; Kanjo (tight walls) -0.1..-0.2 s. Never slower alone. With it, Legend
-needs no edge: measured ladder for it, road / GT: Legend none, Alien grip 1.04 + power 1.02, Phantom 1.08 + 1.05,
-Godlike 1.13 + 1.08 (M1 1:45.0 / 1:43.6 / - / 1:40.5); F1 one step lower (none, 1.03 + 1.01, 1.07 + 1.04, 1.12 + 1.07).
-**Why it isn't on:** 2-lap races, 12 cars, AI mistakes off (`.devtest/linebench/racecheck.mjs`): wall hits
-over 4 m/s old line vs fitted: F1 17 vs 52-59, M1 24 vs 34-57, GT-R 51 vs 63-64, and F1 races ~25 s slower. Most
-F1 hits are at Auburn samples ~395-410 on lap 1: at that hairpin the fitted line approaches on the inside and crosses
-to the other edge on exit (a local minimum: small bumps can't swing a corner's approach across the track), and cars
-pushed wide in the pack end up 3-4 m past the edge. A 2.2 m edge margin halved the wall hits in F1 but not reliably.
-Also found: the AI doesn't hold any line through slow corners: it runs 4-6 m wide of the old line on exits (2-3 m of
-the fitted one): pure pursuit with a 10-20 m look-ahead, and a learned plan that only checks for the edge. Forcing it
-to hold the line (a learning hit > 2 m off it) made every car slower (M1 +2.9 s on the old line).
-**Next:** (1) search from several starting lines (min-curvature, outside-entry heuristic) or swing whole corners, so
-the approach side can flip; (2) better line tracking (curvature feed-forward + lateral error feedback); (3) racecraft
-offsets clamped to the room on the side the line is using; then re-run racecheck across classes before it goes on.
+**2026-10-02: the car-fitted racing line (`js/raceline.js`), now the game's line.** The user: the min-curvature
+line "is clearly not the line to follow", it never goes wide to turn in. raceline.js fits the line to a car: a
+point-mass lap model (friction circle, power, drag, downforce, the line's real length) and a coordinate search on
+control points every 10 m with a Catmull-Rom curve through them (no kinks), coarse to fine, deterministic (an evaluation
+budget, not a time one), never returning a line the model rates slower than the one it started from. Calibration: grip
+x1.05 matches the AI's real laps on the old line in GT-R / M1 / Aventus / F1 (1.1 used: a quick human); curvature over
+a +-8 m chord (at +-4 m the model saw the old line's short kinks as slow corners the real car smooths across).
+`Race.lineFor`: street / fun cars keep 2 m from the edges, the racing classes 1.6 m. The first time a circuit + car is
+raced, `checkLine` learns both lines in the real physics and keeps the one with the quicker clean lap (and its plan):
+Monaco keeps the smooth line in every class (the model's hairpins are off), Suzuka's GT-R too. Lines are cached
+(`svgp.aiLines`, `LINE_VERSION`); plans learned on them are keyed `|l<LINE_VERSION>`. The menu backdrop never fits.
+Clean AI laps, pace 1, no edge, smooth -> fitted: Auburn GT-R 2:03.0 -> 2:01.7, M1 1:47.0 -> 1:45.3, Aventus 1:47.4
+-> 1:45.7, F1 1:27.2 -> 1:24.2; Suzuka M1 -1.7, F1 -2.4; Spa M1 -1.5, F1 -2.1; Maple Ridge -0.8..-2.2.
+**Traffic.** On its own the fitted line put more AI in the walls (F1 at Auburn 17 -> 52-59 wall hits per 2-lap race):
+cars off their line (alongside, pushed wide) still used the line's speeds, and the line runs nearer the edges. Fix in
+`aiControls`: off its line by more than 0.8 m, an AI takes the corner ahead slower, sqrt(1 - 2 (off - 0.8) k) (k: the
+line's tightest curvature ahead, min x0.6). With it (`.devtest/linebench/matrix.mjs`, 3 x 2-lap 12-car races, AI
+mistakes off): Auburn M1 walls 38 -> 38, offs 7 -> 3, winner -4.8 s; F1 walls 22 -> 35, winner -6 s; Suzuka every
+class equal or fewer walls and offs, winner -6..-8 s (GT-R +3.8). Street-class races are noisy (24-45 walls between
+identical runs).
+Tried and dropped: wider first search phases (swing a whole approach across: slower), combined-slip braking penalty
+(COMB 0.8: no better in races), 5 m control points (Monaco better, wiggles elsewhere), wider margins for all classes
+(M1 -1.9 s gain lost at 2.2 m), forcing the AI to hold its line in learning (every car slower).
+Also found: the AI runs 2-6 m wide of its line on slow-corner exits (pure pursuit, 10-20 m look-ahead; the learned
+plan only checks for the edge). **Next:** better line tracking (curvature feed-forward + lateral error feedback), then
+narrow the margins again; fit a line per class for mixed fields (today every car uses the main car's line).
+Difficulty with it: Legend no edge; road / GT Alien 1.04 + 1.02, Phantom 1.09 + 1.06, Godlike 1.13 + 1.08; F1 Alien
+1.03 + 1.01, Phantom 1.07 + 1.04, Godlike 1.12 + 1.07 (table and lap times in race.js).
 
 Comparing the user's Auburn PB with the AI lap: 1.6 s of the 2.8 s gap is one fast S-bend (samples ~100-300) the user
 takes flat at ~252 km/h on an even ~1.8-2.3 g path, while the minimum-curvature line has kinks there (a moment of

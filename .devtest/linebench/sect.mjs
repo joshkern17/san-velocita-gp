@@ -17,7 +17,7 @@ try {
     const t = await (await fetch(trk)).json();
     const res = {};
     for (const kind of ['old', 'fast']) {
-      const race = new Race(JSON.parse(JSON.stringify(t)), { mode: 'test', laps: 3, opponents: 0, difficulty: 'alien', freshPlans: true, lineKind: kind === 'fast' ? 'fit' : undefined, car: { chassis: id === 'f1' ? 'custom' : id } }, null);
+      const race = new Race(JSON.parse(JSON.stringify(t)), { mode: 'test', laps: 3, opponents: 0, difficulty: 'alien', freshPlans: true, lineKind: kind === 'old' ? 'old' : undefined, car: { chassis: id === 'f1' ? 'custom' : id } }, null);
       const T = race.T, N = T.N, V = race.limitsFor(id), spec = CARS[id].spec;
       // model section times on this line
       const car = RL.lineCar(spec);

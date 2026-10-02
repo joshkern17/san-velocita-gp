@@ -16,10 +16,10 @@ try {
       const { Race } = await import('/js/race.js');
       const t = trk.startsWith('preset:') ? (await import('/js/track.js')).presetTracks()[+trk.slice(7)] : await (await fetch(trk)).json();
       if (trk.startsWith('preset:')) { t.env.weather = 'clear'; }
-      const race = new Race(t, { mode: 'test', laps: 3, opponents: 0, difficulty: 'alien', freshPlans: true, lineKind: c.line === 'fast' ? 'fit' : undefined, lineMargin: c.margin, holdLine: c.hold, car: { chassis: id === 'f1' ? 'custom' : id } }, null);
+      const race = new Race(t, { mode: 'test', laps: 3, opponents: 0, difficulty: 'alien', freshPlans: true, lineKind: c.line === 'old' ? 'old' : undefined, lineMargin: c.margin, holdLine: c.hold, car: { chassis: id === 'f1' ? 'custom' : id } }, null);
       const t0 = performance.now();
       const time = race.simLap(id, { pace: c.pace, power: c.power, grip: c.grip, tyre: 'soft' });
-      return { id, trk: t.name, ...c, time: +time.toFixed(2), rounds: race.learnRounds, ms: Math.round(performance.now() - t0) };
+      return { id, trk: t.name, ...c, check: race.lineCheckT && race.lineCheckT.map(x => +x.toFixed(2)), time: +time.toFixed(2), rounds: race.learnRounds, ms: Math.round(performance.now() - t0) };
     }, [c, id, trk]);
     console.log(JSON.stringify(r));
   }

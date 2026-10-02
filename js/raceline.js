@@ -10,6 +10,20 @@ const G = 9.81;
 // curvature is measured over a chord of ±S_CURV m: a real car can't follow a kink shorter than that (it smooths across
 // it), so a model that sees short kinks thinks a kinked line is slower than the car finds it. Calibrated below.
 export let S_CURV = 8;
+// braking while cornering: a real car can't use its whole grip circle (the fronts are loaded up and steering, the brake
+// balance is fixed), so braking counts the cornering as 1/COMB of what it is. Without it the fitted line braked hard
+// along a 250 m curve, where the AI's fronts saturated and it ran wide (Auburn's T1 approach, 2026-10-02). Tried 0.8: no
+// better in races (.devtest/linebench/matrix.mjs), slower alone: off (1).
+export let COMB = 1;
+// control points every SPACING m (5 kept Monaco's hairpins better but left small wiggles the AI can't follow: slower at
+// Auburn. Where the model's line loses, Race.lineFor keeps the smooth one)
+export let SPACING = 10;
+export const setSpacing = (m) => { SPACING = m; };
+export const setComb = (c) => { COMB = c; };
+// search phases: [control points either side, metres], coarse to fine. (Wider first phases, 10-16 points at 2.5-3 m, to
+// swing a whole approach across, ended slower: tried 2026-10-02.)
+export let PHASES = [[5, 1.5], [3, 0.9], [2, 0.5], [1, 0.3], [1, 0.12]];
+export const setPhases = (p) => { PHASES = p; };
 export const setCurv = (m) => { S_CURV = m; };
 
 // the model of a car (from its spec, see physics.js / cars.js). gripK: the model's grip over the spec's mu. Calibrated
@@ -19,7 +33,7 @@ export function lineCar(spec, { grip = 1, power = 1, gripK = 1.1 } = {}) {
   return {
     mu: spec.mu * gripK * grip, m: spec.mass, kd: spec.kd || 0, drag: spec.drag || 0.4, roll: spec.roll ?? 14,
     P: spec.power * power, Fmax: (spec.maxForce || 14000) * power, vmax: spec.gears[spec.gears.length - 1] * 0.99,
-    brake: 1.05,
+    brake: 1.05, comb: COMB,
   };
 }
 
@@ -42,7 +56,7 @@ function geom(T, O, S, i0 = 0, i1 = T.N - 1) {
 // lap time on the shape geom() last worked out
 function passes(T, car, S) {
   const N = T.N, cut = T.cut ?? -1, { L, K, V } = S;
-  const { mu, m, kd, drag, roll, P, Fmax, vmax, brake } = car, muG = mu * m * G, muKd = mu * kd;
+  const { mu, m, kd, drag, roll, P, Fmax, vmax, brake } = car, muG = mu * m * G, muKd = mu * kd, comb = car.comb ?? 1;
   // the fastest each point can be taken at all (all the grip spent turning)
   for (let i = 0; i < N; i++) {
     const den = K[i] * m - muKd;
@@ -54,7 +68,7 @@ function passes(T, car, S) {
   for (let pass = 0; pass < (cut >= 0 ? 1 : 2); pass++) for (let i = N - 1; i >= 0; i--) {
     if (i === cut) continue;
     const j = i + 1 === N ? 0 : i + 1, v = V[j], v2 = v * v;
-    const tot = muG + muKd * v2, lat = m * v2 * K[j];
+    const tot = muG + muKd * v2, lat = m * v2 * K[j] / comb;
     const F = (lat >= tot ? 0 : Math.sqrt(tot * tot - lat * lat)) * brake + drag * v2 + roll * v;
     const vb = Math.sqrt(v2 + 2 * F / m * L[i]);
     if (vb < V[i]) V[i] = vb;
@@ -91,7 +105,7 @@ export function lineTime(T, O, car) { return lapTime(T, O, car, scratch(T)); }
 // The line is moved by control points every ~`spacing` m with a smooth curve (Catmull-Rom) through them, so it can't
 // kink. Returns { O, time, from } (the model's lap time on the new line and on the one it started from). It stops
 // after maxEvals tries at most, not after a time: the same circuit and car always give the same line, on any machine.
-export function fastLine(T, O0, car, { margin = 1.6, spacing = 10, maxEvals = 60000 } = {}) {
+export function fastLine(T, O0, car, { margin = 1.6, spacing = SPACING, maxEvals = 90000 } = {}) {
   const N = T.N, S = scratch(T), now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()), t0 = now();
   const open = (T.cut ?? -1) >= 0;
   const M = Math.max(12, Math.round(N * T.ds / spacing));
@@ -118,17 +132,20 @@ export function fastLine(T, O0, car, { margin = 1.6, spacing = 10, maxEvals = 60
       }
     }
   };
+  const O0c = Float64Array.from(O0, (o, i) => Math.max(-(T.W[i] / 2 - margin), Math.min(T.W[i] / 2 - margin, o)));
+  const start = lapTime(T, O0c, car, S); // (the line it was given, sample by sample: never return anything slower)
   if (open) { for (let i = 0; i < N; i++) O[i] = O0[i]; }
   fill(0, M - 1);
   const from = lapTime(T, O, car, S);
   let best = from, evals = 0;
+  const done = () => best < start ? { O: Float32Array.from(O), time: best, from: start, evals, ms: now() - t0 } : { O: Float32Array.from(O0c), time: start, from: start, evals, ms: now() - t0 };
   const saveA = new Float64Array(M), saveO = new Float64Array(N);
   // coarse to fine: groups of control points move whole corners, single ones place apexes and turn-in points
-  for (const [width, step] of [[5, 1.5], [3, 0.9], [2, 0.5], [1, 0.3], [1, 0.12]]) {
+  for (const [width, step] of PHASES) {
     for (let round = 0; round < 6; round++) {
       let gained = 0;
       for (let c = 0; c < M; c++) {
-        if (evals >= maxEvals) return { O: Float32Array.from(O), time: best, from, evals, ms: now() - t0 };
+        if (evals >= maxEvals) return done();
         for (const dir of [1, -1]) {
           saveA.set(a);
           let changed = false;
@@ -150,7 +167,7 @@ export function fastLine(T, O0, car, { margin = 1.6, spacing = 10, maxEvals = 60
       if (gained < 0.003) break;
     }
   }
-  return { O: Float32Array.from(O), time: best, from, evals, ms: now() - t0 };
+  return done();
 }
 
 // the model's speed (m/s) at each sample along a line, and the time to reach each sample from sample 0
