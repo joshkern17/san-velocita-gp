@@ -289,10 +289,12 @@ export class PS2Post {
     if (c.retro !== 'off' || this.psxCRT.enabled) comp.addPass(this.outPass = lib([this.retroStep, this.psxDither, this.psxPixel, this.psxCRT], true));
   }
 
+  setSharp(on) { if (!!on !== !!this.sharp) { this.sharp = !!on; this.resize(); } }
   resize() {
     const r = this.r, c = this.cfg;
     const cw = Math.max(2, window.innerWidth), ch = Math.max(2, window.innerHeight), dpr = window.devicePixelRatio || 1;
-    const lines = { r240: 240, r288: 288, r360: 360, ps2: 448, hd: 720 }[c.mode];
+    // (sharp: full resolution for a while, e.g. sat at the garage computer, where there's text on a screen in the scene)
+    const lines = this.sharp ? 0 : { r240: 240, r288: 288, r360: 360, ps2: 448, hd: 720 }[c.mode];
     // the PSX PixelationEffect's resolution settings drive the real render size (as in its own pipeline)
     Object.assign(this.psxPixel.settings, { pixelate: !!lines, resolutionHeight: lines || ch });
     // drawing buffer at the chosen number of lines; the browser upscales the canvas (crisp or soft)

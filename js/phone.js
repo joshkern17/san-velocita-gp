@@ -19,7 +19,9 @@ export class Phone {
     this.state = 'hidden'; this.k = 0; this.target = 0; this.buzzT = 0; this.page = 'home'; this.sel = 0; this.scroll = 0; this.cur = null;
     this.cv = document.createElement('canvas'); this.cv.id = 'phone-cv';
     document.body.appendChild(this.cv);
-    this.cv.addEventListener('click', () => { if (this.state === 'peek') this.open(); });
+    // only a click on the phone itself raises it (its canvas is much bigger than the phone, and lets clicks through)
+    this.cv.style.pointerEvents = 'none';
+    document.addEventListener('click', (e) => { if (this.state === 'peek' && this.hit(e.clientX, e.clientY)) { e.stopPropagation(); this.open(); } }, true);
     this.renderer = new THREE.WebGLRenderer({ canvas: this.cv, alpha: true, antialias: false, powerPreference: 'low-power' });
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -53,6 +55,18 @@ export class Phone {
       });
       this.rig.add(holder); this.model = holder; this.dirty = true;
     }).catch(e => console.warn('phone model', e));
+  }
+  // is (x, y) (CSS pixels) on the phone? Its bounding box, projected
+  hit(x, y) {
+    if (!this.model || this.cv.style.display === 'none') return false;
+    const r = this.cv.getBoundingClientRect(), box = new THREE.Box3().setFromObject(this.model);
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const px of [box.min.x, box.max.x]) for (const py of [box.min.y, box.max.y]) for (const pz of [box.min.z, box.max.z]) {
+      const v = new THREE.Vector3(px, py, pz).project(this.camera);
+      const sx = r.left + (v.x + 1) / 2 * r.width, sy = r.top + (1 - v.y) / 2 * r.height;
+      x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy);
+    }
+    return x >= x0 && x <= x1 && y >= y0 && y <= y1;
   }
   resize() {
     const ui = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui')) || 1;

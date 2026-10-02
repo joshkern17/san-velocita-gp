@@ -1237,9 +1237,28 @@ function hubTick(dt) {
   }
   if (pc.isOpen) { const r = pitGarage.screenRect(); if (r) pc.place(r); }
   if (pc.idleDirty) { pc.idleDirty = false; pitGarage.refreshScreen(); }
+  // the neon tag over the monitor: there whenever you're standing in the room; lit up when the Computer item is
+  // highlighted or the mouse is on the monitor; pulsing while there's unread mail
+  const tag = $('pc-tag'), at = !pcSeat && pitGarage.zoomK === 0 && !phone.isOpen ? pitGarage.screenAnchor() : null;
+  tag.hidden = !at;
+  if (at) {
+    tag.style.left = at.x + 'px'; tag.style.top = at.y + 'px';
+    const m = menus['s-hub'][0], n = world ? WC.unreadMail(world) : 0;
+    tag.classList.toggle('hot', pcHover || /^Computer/.test(m.items[m.i]?.label || ''));
+    tag.classList.toggle('new', n > 0);
+    const t = n ? `${n} NEW` : ''; if ($('pc-tag-n').textContent !== t) $('pc-tag-n').textContent = t;
+  }
 }
-// a click on the monitor sits you down
-canvas.addEventListener('click', (e) => { if (screen === 's-hub' && world && !pcSeat && !phone.isOpen && pitGarage.hitScreen(e.clientX, e.clientY)) sitDown(); });
+// the mouse over the monitor: a pointer, and the tag lights up
+let pcHover = false;
+$('s-hub').addEventListener('mousemove', (e) => {
+  const on = !!onRoom(e);
+  if (on !== pcHover) { pcHover = on; $('s-hub').style.cursor = on ? 'pointer' : ''; }
+});
+$('pc-tag').addEventListener('click', () => { if (screen === 's-hub' && !pcSeat) sitDown(); });
+// a click on the monitor sits you down (the hub's layer is over the 3D view, so it listens there, past its panels)
+const onRoom = (e) => screen === 's-hub' && world && !pcSeat && !phone.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitScreen(e.clientX, e.clientY);
+$('s-hub').addEventListener('click', (e) => { if (onRoom(e)) sitDown(); });
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 // ---- new career (Career screen, World Career tab) ----
@@ -2582,6 +2601,8 @@ function frame(now) {
   else if (now > vibeTestUntil) rumble(0, 0);
   setMusicScene(musicScene()); updateMusic(dt);
   if (PHONE_SCREENS.includes(screen) && world && !pcSeat) phone.show(); else phone.hide();
+  // sat at the garage computer: the 3D view at full resolution, so the screen in the scene is readable
+  post.setSharp(screen === 's-hub' && (pcSeat || pitGarage.zoomK > 0));
   phone.update(dt);
   netTick(dt);
   if (screen === 's-garage' || screen === 's-livery') garage.render();
@@ -2603,6 +2624,6 @@ if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) setInterval(() => fetc
 requestAnimationFrame(frame);
 
 // debug handle
-window.__svgp = { get world() { return world; }, get phone() { return phone; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, openEditor, show, get screen() { return screen; },
+window.__svgp = { get world() { return world; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
   dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; } } };

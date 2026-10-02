@@ -113,9 +113,10 @@ export class PitGarage {
     // a desk with a CRT by the door (the computer: see attachScreen)
     const deskX = -W / 2 + 0.45, deskZ = -2.4;
     box(0.8, 0.74, 1.6, lam(0x6b4a2e), deskX, 0.37, deskZ);
-    box(0.46, 0.42, 0.5, lam(0xd8d2bc), deskX - 0.05, 0.95, deskZ);
+    const crt = box(0.46, 0.42, 0.5, lam(0xd8d2bc), deskX - 0.05, 0.95, deskZ);
     box(0.3, 0.04, 0.3, lam(0xd8d2bc), deskX - 0.05, 0.76, deskZ);
     this.attachScreen(R, 0.38, 0.3, new THREE.Vector3(deskX + 0.181, 0.96, deskZ), Math.PI / 2);
+    this.screenHit = crt;
     // a trolley jack and a wheel gun by the car
     box(0.5, 0.18, 1.2, lam(0xe0b020), 2.4, 0.09, CAR_Z - 3.6);
     box(0.12, 0.12, 0.5, lam(0x303035), -1.9, 0.06, CAR_Z + 2.8);
@@ -146,7 +147,7 @@ export class PitGarage {
     m.traverse(o => {
       if (!o.isMesh) return;
       const name = o.name || (o.parent && o.parent.name) || '';
-      if (name.startsWith('PC_Screen')) { o.material = new THREE.MeshBasicMaterial({ map: this.pcTex(false), color: 0xdddddd }); this.screen = o; return; }
+      if (name.startsWith('PC_Screen')) { o.material = new THREE.MeshBasicMaterial({ map: this.pcTex(false), color: 0xdddddd }); this.screen = this.screenHit = o; return; }
       if (/^CrtMonitor/.test(name)) crts.push(o);
       if (name.startsWith('TV_Screen')) { o.material = new THREE.MeshBasicMaterial({ map: this.tvTex }); return; }
       if (name.startsWith('TeamBand')) { o.material = new THREE.MeshLambertMaterial({ map: this.bandTex }); return; } // (painted on, so it takes the room's light)
@@ -183,6 +184,7 @@ export class PitGarage {
   attachScreen(parent, w, h, pos, rotY) {
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: this.pcTex(true), color: 0xdddddd, polygonOffset: true, polygonOffsetFactor: -2 }));
     mesh.position.copy(pos); mesh.rotation.y = rotY; parent.add(mesh); this.screen = mesh;
+    this.screenHit = parent.isMesh ? parent : mesh; // (what a click on the monitor hits)
   }
   // the screen in the world: its centre, the way it faces, its size and corners
   screenFrame() {
@@ -210,13 +212,20 @@ export class PitGarage {
     }
     return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
+  // a point just above the monitor (CSS pixels), for the hub's tag; null when it's behind the camera
+  screenAnchor() {
+    const f = this.screenFrame(); if (!f) return null;
+    const p = f.c.clone().addScaledVector(f.up, f.h / 2 + 0.1).project(this.camera);
+    if (p.z > 1) return null;
+    const box = this.r.domElement.getBoundingClientRect();
+    return { x: box.left + (p.x + 1) / 2 * box.width, y: box.top + (1 - p.y) / 2 * box.height };
+  }
   // did a click (CSS pixels) land on the monitor?
   hitScreen(cx, cy) {
     if (!this.screen) return false;
     const box = this.r.domElement.getBoundingClientRect(), rc = new THREE.Raycaster();
     rc.setFromCamera(new THREE.Vector2((cx - box.left) / box.width * 2 - 1, -(cy - box.top) / box.height * 2 + 1), this.camera);
-    const near = this.screen.parent || this.screen;
-    return rc.intersectObject(near, true).length > 0;
+    return rc.intersectObject(this.screenHit || this.screen, true).length > 0;
   }
 
   // ---------- your base (World Career) ----------

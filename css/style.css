@@ -460,10 +460,23 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .ed-hint::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--sv-red); box-shadow: var(--sv-glow-line); }
 .ed-hint b { color: var(--sv-amber); font-weight: 500; }
 .ed-scale { position: absolute; right: 14px; bottom: 10px; font: 500 16px var(--f-num); color: var(--sv-red-dim); pointer-events: none; }
-.ed-props-palette { position: absolute; left: 14px; bottom: 12px; display: none; flex-wrap: wrap; gap: 6px; max-width: 560px; }
-.ed-props-palette.on { display: flex; }
-.ed-props-palette button { font-size: 12px !important; padding: 5px 9px !important; display: flex; align-items: center; gap: 6px; }
-.ed-props-palette button i { display: inline-block; width: 12px; height: 12px; border: 1px solid rgba(0,0,0,.6); }
+/* PROPS palette: a grid of items in the side panel */
+.pr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 16px; }
+.pr-grid button { justify-content: flex-start !important; text-align: left; gap: 8px !important; padding: 8px 8px 7px !important; font-size: 12px !important; min-height: 34px; }
+.pr-grid button.wide { grid-column: 1 / -1; }
+.pr-grid button i { flex: none; width: 10px; height: 10px; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0,0,0,.6); }
+.pr-grid button span { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.pr-grid button small { font: 500 10px/1.1 var(--f-body); letter-spacing: 0; text-transform: none; opacity: .75; }
+/* house paint swatches */
+.sw { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+.sw button, .sw .pick { position: relative; aspect-ratio: 1; padding: 0 !important; overflow: hidden; }
+.sw button img, .sw button i, .sw .pick i { position: absolute; inset: 2px; width: calc(100% - 4px); height: calc(100% - 4px); object-fit: cover; display: block; border-radius: 1px; }
+.sw button i.none { background: linear-gradient(135deg, transparent 46%, var(--sv-red) 46% 54%, transparent 54%); }
+.sw:not(.sw-num) button.on, .sw .pick.on { background: transparent !important; color: var(--sv-amber) !important; box-shadow: 0 0 0 1px var(--sv-amber), 0 0 8px var(--sv-amber) !important; }
+.sw .pick { display: block; border: 1.5px solid var(--sv-red); border-radius: 3px; cursor: pointer; box-shadow: var(--sv-glow-box); }
+.sw .pick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.sw.sw-num { grid-template-columns: repeat(11, 1fr); gap: 4px; }
+.sw.sw-num button { aspect-ratio: auto; font-size: 12px !important; padding: 5px 0 4px !important; }
 .ed-side { grid-row: 2 / 4; grid-column: 3; background: var(--sv-ink); border-left: 1px solid var(--sv-red-faint); display: flex; flex-direction: column; overflow: hidden; }
 .ed-tabs { display: flex; }
 .ed-tabs button { flex: 1; outline: none !important; border-width: 0 0 1.5px 0 !important; border-radius: 0 !important; box-shadow: none !important; border-color: var(--sv-red-faint) !important; }
@@ -1089,8 +1102,11 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 /* (its own look, not the neon signal: it's a thing in the world. 760 x 600, scaled onto the monitor's glass) */
 #pc { position: fixed; z-index: 30; overflow: hidden; border-radius: 1.6% / 2%; opacity: 0; transition: opacity .18s; background: #06262b; }
 #pc.on { opacity: 1; }
+/* normally the screen you see is the monitor's texture (a snapshot of this): the DOM stays on the glass, invisible, for the mouse */
+#pc.on.ghost { opacity: 0; }
 #pc, #pc * { -webkit-text-fill-color: currentColor; text-shadow: none; letter-spacing: normal; box-sizing: border-box; }
-.pc-screen { position: absolute; left: 0; top: 0; width: 760px; height: 600px; transform-origin: 0 0; font: 13px/1.35 Arimo, Arial, Helvetica, sans-serif; color: #111; cursor: default; user-select: none; }
+#pc [hidden] { display: none !important; } /* (its own copy: the snapshots only carry the computer's rules) */
+.pc-screen { position: absolute; left: 0; top: 0; width: 760px; height: 600px; transform-origin: 0 0; font: 13px/1.35 Arial, Helvetica, sans-serif; color: #111; cursor: default; user-select: none; }
 /* the glass: scanlines, a soft vignette, a faint glow */
 .pc-glass { position: absolute; inset: 0; pointer-events: none; z-index: 5;
   background: repeating-linear-gradient(to bottom, rgba(0,0,0,.10) 0 1px, transparent 1px 3px), radial-gradient(ellipse at 50% 45%, transparent 60%, rgba(0,0,0,.38) 100%);
@@ -1099,12 +1115,12 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .pc-desk { position: absolute; inset: 0 0 30px 0; background: linear-gradient(#0e4a52, #06262b); }
 .pc-wall { position: absolute; right: 30px; bottom: 22px; text-align: right; }
 .pc-wall::before { content: ''; display: block; width: 120px; height: 6px; margin: 0 0 14px auto; background: var(--team); }
-.pc-wall b { display: block; font: bold 46px/1 Arimo, Arial, sans-serif; color: rgba(255,255,255,.14); text-transform: uppercase; }
+.pc-wall b { display: block; font: bold 46px/1 Arial, Helvetica, sans-serif; color: rgba(255,255,255,.14); text-transform: uppercase; }
 .pc-wall small { display: block; margin-top: 8px; font-size: 16px; color: rgba(255,255,255,.3); text-transform: uppercase; }
 .pc-icon { position: absolute; width: 76px; padding: 4px 2px; text-align: center; color: #fff; border: 1px dotted transparent; }
 .pc-icon svg { display: block; margin: 0 auto 2px; }
 .pc-icon span { display: block; font-size: 13px; line-height: 1.15; padding: 1px 2px; }
-.pc-icon em { position: absolute; left: 50px; top: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #d23a2a; font: bold 12px/20px Arimo, sans-serif; font-style: normal; color: #fff; }
+.pc-icon em { position: absolute; left: 50px; top: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #d23a2a; font: bold 12px/20px Arial, sans-serif; font-style: normal; color: #fff; }
 .pc-icon.f { border-color: #fff; }
 .pc-icon.f span { background: #1d3f9a; }
 /* the taskbar */
@@ -1116,9 +1132,9 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .pc-win { position: absolute; inset: 0 0 30px 0; display: flex; flex-direction: column; background: #c3c0b6; border: 2px outset #f4f2ec; }
 .pc-title { flex: none; height: 24px; display: flex; align-items: center; padding: 0 4px 0 8px; color: #fff; font-weight: bold; background: linear-gradient(90deg, #0b2463, var(--team)); }
 .pc-title span { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.pc-title i { width: 20px; height: 18px; display: grid; place-items: center; background: #c3c0b6; color: #111; border: 2px outset #f4f2ec; font: bold 15px/1 Arimo, sans-serif; font-style: normal; }
+.pc-title i { width: 20px; height: 18px; display: grid; place-items: center; background: #c3c0b6; color: #111; border: 2px outset #f4f2ec; font: bold 15px/1 Arial, sans-serif; font-style: normal; }
 .pc-title i.f { outline: 2px solid #ffd23a; }
-.pc-btn { font: 13px Arimo, Arial, sans-serif; color: #111; padding: 5px 14px; background: #e6e3da; border: 2px outset #f4f2ec; cursor: pointer; }
+.pc-btn { font: 13px Arial, Helvetica, sans-serif; color: #111; padding: 5px 14px; background: #e6e3da; border: 2px outset #f4f2ec; cursor: pointer; }
 .pc-btn.sm { padding: 2px 10px; }
 .pc-btn.f { outline: 2px dotted #111; outline-offset: -5px; background: #fff7cf; }
 .pc-empty { margin: 16px; color: #555; }
@@ -1161,11 +1177,11 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .nw-mast b { display: block; font-size: 34px; letter-spacing: 2px; }
 .nw-mast small { font-style: italic; color: #555; }
 .nw-lead { margin: 12px 16px; padding: 8px; font-family: 'Times New Roman', Times, serif; }
-.nw-lead small, .nw-row small, .nw-date { font: 11px Arimo, Arial, sans-serif; color: #c23; text-transform: uppercase; }
+.nw-lead small, .nw-row small, .nw-date { font: 11px Arial, Helvetica, sans-serif; color: #c23; text-transform: uppercase; }
 .nw-lead h1 { margin: 4px 0 6px; font-size: 28px; line-height: 1.1; }
 .nw-lead p { margin: 0; font-size: 16px; }
 .nw-lead.f, .nw-row.f { background: #fff3b8; outline: 1px dotted #111; }
-.nw-ad { margin: 0 16px 10px; padding: 8px; text-align: center; font: bold 13px Arimo, sans-serif; color: #fff; background: repeating-linear-gradient(45deg, #c23 0 12px, #a01c1c 12px 24px); }
+.nw-ad { margin: 0 16px 10px; padding: 8px; text-align: center; font: bold 13px Arial, sans-serif; color: #fff; background: repeating-linear-gradient(45deg, #c23 0 12px, #a01c1c 12px 24px); }
 .nw-list { margin: 0 16px 16px; }
 .nw-row { padding: 6px 8px; border-top: 1px solid #ddd; }
 .nw-row small { display: block; }
@@ -1173,11 +1189,11 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .nw-story { padding: 14px 20px; font-family: 'Times New Roman', Times, serif; font-size: 17px; line-height: 1.45; }
 .nw-story h1 { margin: 4px 0; font-size: 30px; line-height: 1.1; }
 .nw-by { font: italic 13px 'Times New Roman', serif; color: #555; margin-bottom: 10px; }
-.nw-story .pc-tbl { font-family: Arimo, Arial, sans-serif; }
+.nw-story .pc-tbl { font-family: Arial, Helvetica, sans-serif; }
 /* a series' website */
 .ss { min-height: 100%; background: #16181d; color: #e8e8e8; }
 .ss-head { padding: 14px 16px 10px; border-bottom: 4px solid var(--ss); }
-.ss-head b { display: block; font: bold italic 26px/1 Arimo, Arial, sans-serif; }
+.ss-head b { display: block; font: bold italic 26px/1 Arial, Helvetica, sans-serif; }
 .ss-head small { color: #9a9a9a; }
 .ss-nav { display: flex; gap: 2px; padding: 8px 12px 0; }
 .ss-tab { padding: 5px 12px; background: #2a2d34; color: #ccc; }
@@ -1195,7 +1211,7 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .ss-link.f { outline: 2px solid #ffd23a; }
 /* the driver database */
 .db-head { padding: 10px 14px; background: #ffd23a; border-bottom: 2px solid #111; }
-.db-head b { display: block; font: bold 22px Arimo, Arial, sans-serif; }
+.db-head b { display: block; font: bold 22px Arial, Helvetica, sans-serif; }
 .db-head small { color: #444; }
 .db-nav { display: flex; gap: 10px; padding: 8px 14px; border-bottom: 1px solid #ccc; }
 .db-tab { color: #1a0dab; text-decoration: underline; padding: 1px 3px; }
@@ -1217,3 +1233,18 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .db-stat i { height: 10px; background: #e2e2e2; border: 1px solid #bbb; }
 .db-stat i b { display: block; height: 100%; background: #1d3f9a; }
 .db-stat em { font-style: normal; text-align: right; font-weight: bold; }
+
+/* the tag over the garage computer: a little neon sign with a leader line down to the monitor (pulses with new mail) */
+.pc-tag { position: fixed; z-index: 5; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; pointer-events: auto; cursor: pointer; opacity: .78; transition: opacity .2s; }
+.pc-tag span { display: flex; align-items: baseline; gap: 8px; padding: 5px 10px 4px; border: 1px solid var(--sv-red); box-shadow: var(--sv-glow-line); background: rgba(4,3,8,.55); }
+.pc-tag b { font: 500 13px/1 var(--f-ui); letter-spacing: var(--track-caption); color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+.pc-tag small { font: 500 13px/1 var(--f-ui); letter-spacing: var(--track); color: var(--sv-amber); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+.pc-tag small:empty { display: none; }
+.pc-tag i { width: 1px; height: 26px; background: var(--sv-red); box-shadow: var(--sv-glow-line); }
+.pc-tag i::after { content: ''; display: block; width: 5px; height: 5px; margin: 24px 0 0 -2px; background: var(--sv-red); box-shadow: var(--sv-glow-line); transform: rotate(45deg); }
+.pc-tag.hot { opacity: 1; }
+.pc-tag.hot span { border-color: var(--sv-amber); box-shadow: 0 0 2px var(--sv-amber), 0 0 6px var(--sv-amber); }
+.pc-tag.hot b { color: var(--sv-amber); }
+.pc-tag.new span { animation: pc-tag-pulse 1.6s ease-in-out infinite; }
+@keyframes pc-tag-pulse { 50% { box-shadow: 0 0 3px var(--sv-red), 0 0 12px var(--sv-red); } }
+#s-hub.seated .pc-tag { opacity: 0; pointer-events: none; }

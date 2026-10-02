@@ -183,6 +183,7 @@
 <section id="s-hub" class="screen menu-screen">
   <div class="menu-shade"></div>
   <header class="scr-head"><h1 class="gothic" id="hub-title">Street Cup</h1><p class="scr-sub" id="hub-sub"></p></header>
+  <div class="pc-tag" id="pc-tag" hidden><span><b>COMPUTER</b><small id="pc-tag-n"></small></span><i></i></div>
   <div class="pg-left hub-left">
     <div class="panel pg-card" id="hub-card"></div>
     <div class="panel pg-menu"><div class="menu" id="m-hub"></div></div>
@@ -529,8 +530,9 @@
     <button data-tool="edit" title="Edit nodes (2)"><b>2</b>EDIT</button>
     <button data-tool="props" title="Props (3)"><b>3</b>PROPS</button>
     <button data-tool="zones" title="Building zones (4)"><b>4</b>ZONES</button>
-    <button data-tool="paint" title="Paint grass (6)"><b>6</b>PAINT</button>
+    <button data-tool="paint" title="Paint grass, trees, houses, erase (6)"><b>6</b>PAINT</button>
     <button data-tool="roads" title="Roads (7)"><b>7</b>ROADS</button>
+    <button data-tool="sculpt" title="Sculpt the land (8)"><b>8</b>SCULPT</button>
     <button data-tool="pan" title="Pan (5)"><b>5</b>PAN</button>
     <div class="ed-tool-sep"></div>
     <button data-act="smooth" title="Smooth all nodes">SMOOTH</button>
@@ -544,7 +546,6 @@
   <div class="ed-canvas-wrap" id="ed-wrap">
     <canvas id="ed-canvas"></canvas>
     <div class="ed-hint" id="ed-hint"></div>
-    <div class="ed-props-palette" id="ed-palette"></div>
     <div class="ed-scale" id="ed-scale"></div>
     <div class="ed-attr" id="ed-attr"></div>
   </div>

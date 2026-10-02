@@ -1,13 +1,16 @@
 // The garage computer: a late-90s desktop on the CRT in your garage (World Career). Sit down at the desk and the
 // camera pushes into the screen (js/pitgarage.js); this is what's on it: Mail, the Paddock Wire news site, the series'
 // websites and the driver database, all drawn from the world (js/wcareer.js).
-// It's real DOM, laid out at a fixed "screen resolution" (W x H) and scaled onto the monitor's glass; the idle
-// desktop is also drawn on a canvas for the monitor's texture while you're standing in the room.
+// It's real DOM, laid out at a fixed "screen resolution" (W x H), but what you see is always the monitor in the 3D
+// room: every change is snapshotted (the DOM drawn into an SVG image, then onto a canvas) and that canvas is the
+// screen's texture, lit, graded and dithered like everything else. The DOM itself sits invisibly on the glass while
+// you're seated, for the mouse. (Browsers that won't let a page draw its own DOM, Safari, see the DOM instead.)
 // Controls: the d-pad / arrows move between anything you can select (spatially), A / Enter selects, B / Esc goes back
 // (or stands you up from the desktop), LB / RB flip a site's sections. The mouse works too.
 import * as WC from './wcareer.js';
 
 export const W = 760, H = 600; // the screen's resolution (the CRT's glass is about 1.27 : 1)
+const S = 2; // the texture's pixels per screen pixel (sharp enough to read sat at the desk)
 const TASK_H = 30;
 const NAT = { ITA: 'Italy', GBR: 'Britain', JPN: 'Japan', BRA: 'Brazil', GER: 'Germany', FRA: 'France', ESP: 'Spain', SWE: 'Sweden', POL: 'Poland', NGA: 'Nigeria', USA: 'USA', AUS: 'Australia', MEX: 'Mexico', KOR: 'Korea' };
 const hex = (c) => '#' + ((c ?? 0x888888) >>> 0).toString(16).padStart(6, '0');
@@ -42,7 +45,8 @@ export class Computer {
     document.body.appendChild(this.el);
     this.scr = this.el.querySelector('.pc-screen');
     this.app = null; this.page = {}; this.hist = []; this.cur = null; this.isOpen = false;
-    this.idle = document.createElement('canvas'); this.idle.width = W; this.idle.height = H;
+    this.idle = document.createElement('canvas'); this.idle.width = W * S; this.idle.height = H * S;
+    this.el.addEventListener('scroll', () => this.snapSoon(), true);
     this.el.addEventListener('click', (e) => {
       const a = e.target.closest('[data-act]'); if (!a || !this.isOpen) return;
       this.focusEl(a, false); this.act(a.dataset.act, a.dataset.arg);
@@ -51,8 +55,8 @@ export class Computer {
   }
 
   // ---------- open / close (main.js calls these as the camera arrives at / leaves the screen) ----------
-  open() { this.isOpen = true; this.el.hidden = false; requestAnimationFrame(() => this.el.classList.add('on')); this.render(); }
-  close() { this.isOpen = false; this.el.classList.remove('on'); this.el.hidden = true; this.app = null; this.hist = []; this.drawIdle(); }
+  open() { this.isOpen = true; this.el.hidden = false; this.el.classList.toggle('ghost', !this.fallback); requestAnimationFrame(() => this.el.classList.add('on')); this.render(); }
+  close() { this.isOpen = false; this.el.classList.remove('on'); this.el.hidden = true; this.app = null; this.hist = []; if (this.w) this.render(); }
   // fit the screen onto a rect (CSS pixels: the monitor's glass on screen)
   place(r) {
     const s = this.el.style; s.left = r.x + 'px'; s.top = r.y + 'px'; s.width = r.w + 'px'; s.height = r.h + 'px';
@@ -79,6 +83,7 @@ export class Computer {
     this.cur = e; if (!e) return;
     e.classList.add('f'); this.curKey = e.dataset.key || null;
     if (scroll) e.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    this.snapSoon();
   }
   move(dx, dy) {
     const els = this.navs(); if (!els.length) return;
@@ -161,7 +166,7 @@ export class Computer {
     const keep = this.curKey && els.find(e => e.dataset.key === this.curKey);
     this.cur = null;
     this.focusEl(keep || els.find(e => e.dataset.first !== undefined) || els.find(e => e.dataset.act !== 'close') || els[0], !!keep);
-    this.drawIdle(); this.src.view?.();
+    this.snapSoon(); this.src.view?.();
   }
   clock() { const w = this.w; return `${WC.whenOf(w)} ${w.year}`; }
 
@@ -279,16 +284,72 @@ export class Computer {
     </div>`;
   }
 
-  // ---------- the idle desktop, for the monitor's texture ----------
+  // ---------- the monitor's texture: a snapshot of the DOM ----------
+  snapSoon() {
+    if (this.snapQueued) return;
+    this.snapQueued = true;
+    requestAnimationFrame(() => { this.snapQueued = false; this.snap(); });
+  }
+  // the styles the snapshot needs (the computer's own rules; it uses system fonts, so nothing to embed)
+  css() {
+    if (this._css) return this._css;
+    const out = [], want = /#pc|\.(pc|nw|ss|db)(-|\b)/;
+    for (const sh of document.styleSheets) { let rules; try { rules = sh.cssRules; } catch (e) { continue; } for (const r of rules) if (r.selectorText && want.test(r.selectorText)) out.push(r.cssText); }
+    return (this._css = out.join('\n'));
+  }
+  snap() {
+    if (!this.w) return;
+    if (this.fallback) { this.drawIdle(); return; }
+    if (this.snapping) { this.snapAgain = true; return; }
+    this.snapping = true;
+    const clone = this.scr.cloneNode(true);
+    clone.style.transform = 'none';
+    // scrolled panes: an image can't scroll, so their contents are shifted up instead
+    const live = this.scr.querySelectorAll('*'), cl = clone.querySelectorAll('*');
+    live.forEach((e, i) => {
+      if (e.scrollTop <= 0) return;
+      const c = cl[i], wrap = document.createElement('div');
+      wrap.style.transform = `translateY(${-e.scrollTop}px)`;
+      while (c.firstChild) wrap.appendChild(c.firstChild);
+      c.appendChild(wrap); c.style.overflow = 'hidden';
+    });
+    const body = new XMLSerializer().serializeToString(clone);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W * S}" height="${H * S}"><foreignObject width="${W * S}" height="${H * S}"><div xmlns="http://www.w3.org/1999/xhtml" id="pc" class="on" style="position:relative;left:0;top:0;width:${W}px;height:${H}px;transform:scale(${S});transform-origin:0 0;opacity:1;border-radius:0"><style>${this.css().replace(/</g, '\\3c ')}</style>${body}</div></foreignObject></svg>`;
+    // (a data: URL: Chrome treats a blob: one as foreign and "taints" any canvas it's drawn on, which WebGL then refuses)
+    const img = new Image();
+    const done = () => { this.snapping = false; if (this.snapAgain) { this.snapAgain = false; this.snapSoon(); } };
+    const fail = () => { this.fallback = true; this.el.classList.remove('ghost'); this.drawIdle(); done(); };
+    img.onload = () => {
+      // drawn on a scratch canvas first: if this browser taints it anyway (Safari), the texture's canvas stays clean
+      const tmp = this.tmp || (this.tmp = Object.assign(document.createElement('canvas'), { width: W * S, height: H * S }));
+      const t = tmp.getContext('2d'); t.clearRect(0, 0, W * S, H * S); t.drawImage(img, 0, 0);
+      try { t.getImageData(0, 0, 1, 1); } catch (e) { this.tmp = null; fail(); return; }
+      const g = this.idle.getContext('2d');
+      g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W * S, H * S); g.drawImage(tmp, 0, 0);
+      this.glass(g);
+      this.idleDirty = true; done();
+    };
+    img.onerror = fail;
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+  // the CRT's glass, on the texture: faint scanlines and a darker rim
+  glass(g) {
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.fillStyle = 'rgba(0,0,0,.09)'; for (let y = 0; y < H * S; y += 3 * S) g.fillRect(0, y, W * S, S);
+    const v = g.createRadialGradient(W * S / 2, H * S * 0.45, H * S * 0.35, W * S / 2, H * S / 2, H * S * 0.85);
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.35)'); g.fillStyle = v; g.fillRect(0, 0, W * S, H * S);
+  }
+  // the fallback texture (no snapshots): the desktop, drawn by hand
   drawIdle() {
     const w = this.w; if (!w) return;
     const g = this.idle.getContext('2d'), team = w.teams[w.player.team];
+    g.setTransform(S, 0, 0, S, 0, 0);
     const grd = g.createLinearGradient(0, 0, 0, H); grd.addColorStop(0, '#0e4a52'); grd.addColorStop(1, '#06262b');
     g.fillStyle = grd; g.fillRect(0, 0, W, H);
     // the wallpaper's team name (bottom right)
     g.textAlign = 'right'; g.textBaseline = 'alphabetic';
-    g.font = "bold 46px Arimo, Arial, sans-serif"; g.fillStyle = 'rgba(255,255,255,.14)'; g.fillText(team.name.toUpperCase(), W - 30, H - TASK_H - 52);
-    g.font = "16px Arimo, Arial, sans-serif"; g.fillStyle = 'rgba(255,255,255,.3)'; g.fillText(`${WC.seriesById(w.player.series).name} · ${w.year}`.toUpperCase(), W - 30, H - TASK_H - 28);
+    g.font = "bold 46px Arial, sans-serif"; g.fillStyle = 'rgba(255,255,255,.14)'; g.fillText(team.name.toUpperCase(), W - 30, H - TASK_H - 52);
+    g.font = "16px Arial, sans-serif"; g.fillStyle = 'rgba(255,255,255,.3)'; g.fillText(`${WC.seriesById(w.player.series).name} · ${w.year}`.toUpperCase(), W - 30, H - TASK_H - 28);
     g.fillStyle = hex(team.main); g.fillRect(W - 30 - 120, H - TASK_H - 112, 120, 6);
     // icons
     const nMail = WC.unreadMail(w);
@@ -298,15 +359,15 @@ export class Computer {
         if (p[0] === 'path') { g.strokeStyle = p[1]; g.lineWidth = 3 * s; g.beginPath(); g.moveTo(x + 6 * s, y + 14 * s); g.lineTo(x + 32 * s, y + 34 * s); g.lineTo(x + 58 * s, y + 14 * s); g.stroke(); }
         else { g.fillStyle = p[0]; g.fillRect(x + p[1] * s, y + p[2] * s, p[3] * s, p[4] * s); }
       }
-      g.textAlign = 'center'; g.font = "13px Arimo, Arial, sans-serif"; g.fillStyle = '#fff'; g.fillText(a.label, x + 22, y + 64);
-      if (a.id === 'mail' && nMail) { g.fillStyle = '#d23a2a'; g.beginPath(); g.arc(x + 46, y + 2, 10, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = "bold 12px Arimo, Arial, sans-serif"; g.fillText(String(nMail), x + 46, y + 6); }
+      g.textAlign = 'center'; g.font = "13px Arial, sans-serif"; g.fillStyle = '#fff'; g.fillText(a.label, x + 22, y + 64);
+      if (a.id === 'mail' && nMail) { g.fillStyle = '#d23a2a'; g.beginPath(); g.arc(x + 46, y + 2, 10, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = "bold 12px Arial, sans-serif"; g.fillText(String(nMail), x + 46, y + 6); }
     });
     // the taskbar
     g.fillStyle = '#c3c0b6'; g.fillRect(0, H - TASK_H, W, TASK_H);
     g.fillStyle = '#fff'; g.fillRect(0, H - TASK_H, W, 2);
     g.fillStyle = '#e6e3da'; g.fillRect(4, H - TASK_H + 4, 44, TASK_H - 8);
-    g.fillStyle = '#111'; g.textAlign = 'center'; g.font = "bold 13px Arimo, Arial, sans-serif"; g.fillText('SV', 26, H - 10);
-    g.textAlign = 'right'; g.font = "13px Arimo, Arial, sans-serif"; g.fillText(this.clock(), W - 12, H - 10);
+    g.fillStyle = '#111'; g.textAlign = 'center'; g.font = "bold 13px Arial, sans-serif"; g.fillText('SV', 26, H - 10);
+    g.textAlign = 'right'; g.font = "13px Arial, sans-serif"; g.fillText(this.clock(), W - 12, H - 10);
     this.idleDirty = true;
   }
 }
