@@ -20,24 +20,24 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<':
 const ord = (p) => p + (['th', 'st', 'nd', 'rd'][(p % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][p % 100] || 'th');
 
 // the desktop's icons (the same spots on the canvas copy)
+// Three things on the desktop: Mail, Team (running the team, in tabs) and Internet (a home page of bookmarks to the
+// websites). The websites are 'apps' of their own underneath, reached from the home page, from links, or from Team.
 const APPS = [
   { id: 'mail', label: 'Mail', title: 'Mail' },
-  { id: 'news', label: 'Paddock Wire', title: 'Web Browser' },
-  { id: 'series', label: 'Series Site', title: 'Web Browser' },
-  { id: 'drivers', label: 'Driver Database', title: 'Web Browser' },
-  { id: 'bank', label: 'Bank', title: 'Web Browser' },
-  { id: 'classifieds', label: 'Classifieds', title: 'Web Browser' },
-  { id: 'workshop', label: 'Workshop', title: 'Workshop' },
   { id: 'team', label: 'Team', title: 'Team' },
-  { id: 'parts', label: 'Speed Parts', title: 'Web Browser', hidden: true }, // (from the Workshop)
-  { id: 'tyres', label: 'Tyre Orders', title: 'Web Browser' },
-  { id: 'telemetry', label: 'Telemetry', title: 'Telemetry' },
-  { id: 'jobs', label: 'SVJobs', title: 'Web Browser', hidden: true }, // (reached from the Team app)
-  { id: 'registry', label: 'Registry', title: 'Web Browser', hidden: true }, // (reached from its email)
+  { id: 'web', label: 'Internet', title: 'Web Browser' },
+  ...[['news', 'Paddock Wire'], ['series', 'Series Site'], ['drivers', 'Driver Database'], ['bank', 'Bank'], ['classifieds', 'SVList'], ['parts', 'Speed Parts Direct'], ['jobs', 'SVJobs'], ['registry', 'Registry']]
+    .map(([id, label]) => ({ id, label, title: 'Web Browser', hidden: true, site: true })),
 ];
+// the Team app's tabs (and the names they used to have as apps of their own, for links into them)
+const TEAM_TABS = [['overview', 'Overview'], ['car', 'Car'], ['tyres', 'Tyres'], ['staff', 'Staff'], ['data', 'Data']];
+const TEAM_ALIAS = { workshop: 'car', tyres: 'tyres', staff: 'staff', telemetry: 'data' };
+// the Internet's home page
+const BOOKMARKS = [['news', 'The Paddock Wire', 'Motorsport news'], ['series', 'Series websites', 'Standings, teams, calendars, champions'], ['drivers', 'Velocita Driver Database', 'Every driver, every season'],
+  ['classifieds', 'SVList', 'Cars and parts, by owner'], ['parts', 'Speed Parts Direct', 'Performance parts'], ['jobs', 'SVJobs', 'Hire staff'], ['bank', 'First Velocita Bank', 'Business banking']];
 // team colours on Form SV-1
 const PALETTE = [0xc8141c, 0xf2f2f2, 0x15181d, 0x1d4fd8, 0xf2c21a, 0x18a058, 0xf06a12, 0x7a2cc8, 0x1fb5c8, 0xe0569a, 0x7a5a3a, 0x9aa2ad];
-const ICON_X = 22, ICON_Y = 16, ICON_STEP = 88, ICON_ROWS = 6, ICON_COL = 96;
+const ICON_X = 22, ICON_Y = 20, ICON_STEP = 96, ICON_ROWS = 6, ICON_COL = 96;
 // little icons, drawn the same way on the desktop and the canvas
 const ICONS = {
   mail: [['#f4f1e4', 6, 14, 52, 36], ['#c9c2a6', 6, 14, 52, 4], ['path', '#8a8268', 'M6 14 L32 34 L58 14'], ['#d23a2a', 44, 6, 14, 14]],
@@ -46,6 +46,7 @@ const ICONS = {
   drivers: [['#2a4fa0', 14, 10, 36, 34], ['#e8e8e8', 18, 20, 28, 12], ['#111', 20, 22, 24, 8], ['#2a4fa0', 10, 44, 44, 14]],
   workshop: [['#8a8f96', 8, 30, 48, 8], ['#5e646c', 26, 10, 12, 22], ['#c8141c', 24, 6, 16, 8], ['#3a3d44', 12, 38, 8, 16], ['#3a3d44', 44, 38, 8, 16]],
   tyres: [['#111', 10, 10, 44, 44], ['#3a3a3a', 18, 18, 28, 28], ['#c8c8c8', 26, 26, 12, 12], ['#e0302a', 10, 30, 6, 4], ['#f2d22a', 48, 30, 6, 4]],
+  web: [['#1d4fd8', 8, 8, 48, 48], ['#3ddc84', 14, 16, 16, 10], ['#3ddc84', 34, 26, 16, 14], ['#3ddc84', 18, 38, 10, 8], ['#e8e8e8', 30, 6, 4, 52], ['#e8e8e8', 6, 30, 52, 4]],
   team: [['#c8141c', 18, 8, 28, 20], ['#e8c9a8', 22, 12, 20, 14], ['#2a4fa0', 10, 32, 44, 24], ['#e8e8e8', 28, 34, 8, 20]],
   telemetry: [['#101418', 6, 10, 52, 40], ['#3ddc84', 10, 36, 6, 3], ['#3ddc84', 16, 30, 6, 3], ['#3ddc84', 22, 22, 6, 3], ['#3ddc84', 28, 26, 6, 3], ['#3ddc84', 34, 16, 6, 3], ['#3ddc84', 40, 20, 6, 3], ['#3ddc84', 46, 14, 6, 3], ['#8a8f96', 22, 50, 20, 6]],
   classifieds: [['#f4f1e4', 8, 8, 48, 48], ['#7a2cc8', 8, 8, 48, 10], ['#7a2cc8', 14, 24, 22, 3], ['#7a2cc8', 14, 32, 30, 3], ['#7a2cc8', 14, 40, 18, 3], ['#7a2cc8', 14, 48, 26, 3]],
@@ -82,11 +83,11 @@ export class Computer {
     this.scr.style.transform = `scale(${r.w / W}, ${r.h / H})`;
   }
   // straight to something: ('mail', mailId) opens that email
-  goto(app, arg) { this.launch(app); if (app === 'mail' && arg) this.go({ mail: arg }); }
+  goto(app, arg) { this.stack = []; this.launch(app); if (app === 'mail' && arg) this.go({ mail: arg }); }
 
   get w() { return this.src.world(); }
   // does the open app have sections to flip through (LB / RB)?
-  get hasTabs() { return this.app === 'series' || (this.app === 'drivers' && !this.page.pid); }
+  get hasTabs() { return this.app === 'team' || this.app === 'series' || (this.app === 'drivers' && !this.page.pid); }
 
   // ---------- input ----------
   input({ up, down, left, right, ok, back, tabPrev, tabNext }) {
@@ -133,38 +134,50 @@ export class Computer {
 
   // ---------- apps + pages ----------
   launch(app) {
-    this.app = app; this.hist = []; this._lastApp = app;
+    const tab = TEAM_ALIAS[app]; if (tab) app = 'team';
+    this.app = app; this.hist = []; this._lastApp = APPS.find(a => a.id === app)?.site ? 'web' : app;
     const w = this.w;
     this.page = app === 'mail' ? { mail: (w.mail || [])[0]?.id || null }
+      : app === 'team' ? { tab: tab || 'overview', file: null }
+      : app === 'web' ? { home: 1 }
       : app === 'news' ? { news: 'home' }
       : app === 'series' ? { s: w.player.series, tab: 'standings' }
       : app === 'bank' ? { bank: 'home' }
       : app === 'classifieds' ? { ad: null }
-      : app === 'team' ? { team: 1 }
-      : app === 'tyres' ? { tyres: 1 }
-      : app === 'workshop' ? { ws: 1 }
       : app === 'parts' ? { slot: 'engine' }
       : app === 'jobs' ? { role: 'mechanic' }
-      : app === 'telemetry' ? { file: null }
       : app === 'registry' ? { reg: 1 }
       : { db: w.player.series, pid: null };
     if (app === 'mail' && this.page.mail) this.markRead(this.page.mail);
     this.curKey = null; this.render(); this.src.sfx?.select?.();
   }
   go(page) { this.hist.push(this.page); this.page = { ...this.page, ...page }; this.curKey = null; if (page.mail) this.markRead(page.mail); this.render(); }
+  // back: a page within the app, else wherever you came from (a link from Team or Mail), else the Internet's home page
+  // (from a website), else the desktop
   back() {
+    const site = APPS.find(a => a.id === this.app)?.site;
     if (this.hist.length && this.app !== 'mail') { this.page = this.hist.pop(); this.curKey = null; this.render(); }
-    else if (this.app === 'jobs') { this.launch('team'); }
+    else if (this.stack && this.stack.length) { const s = this.stack.pop(); this.app = s.app; this.page = s.page; this.hist = s.hist; this.curKey = s.key; this.render(); }
+    else if (site) { this.launch('web'); this.curKey = 'bm-' + this.app; }
     else { this.app = null; this.hist = []; this.curKey = 'app-' + (this._lastApp || 'mail'); this.render(); }
     this.src.sfx?.back?.();
   }
+  // follow a link to another app or site (Back comes back here)
+  follow(app, page) {
+    (this.stack = this.stack || []).push({ app: this.app, page: this.page, hist: this.hist, key: this.curKey });
+    if (this.stack.length > 8) this.stack.shift();
+    this.launch(app); if (page) { this.page = { ...this.page, ...page }; this.render(); }
+  }
   flip(d) {
-    if (this.app === 'series') { const t = SITE_TABS, k = (t.indexOf(this.page.tab) + d + t.length) % t.length; this.page = { ...this.page, tab: t[k] }; this.hist = []; this.curKey = 'tab-' + t[k]; this.render(); this.src.sfx?.move?.(); }
+    if (this.app === 'team') { const t = TEAM_TABS.map(x => x[0]), k = (t.indexOf(this.page.tab) + d + t.length) % t.length; this.page = { tab: t[k], file: null }; this.hist = []; this.armed = null; this.curKey = 'ttab-' + t[k]; this.render(); this.src.sfx?.move?.(); }
+    else if (this.app === 'series') { const t = SITE_TABS, k = (t.indexOf(this.page.tab) + d + t.length) % t.length; this.page = { ...this.page, tab: t[k] }; this.hist = []; this.curKey = 'tab-' + t[k]; this.render(); this.src.sfx?.move?.(); }
     else if (this.app === 'drivers' && !this.page.pid) { const t = DB_TABS, k = (t.indexOf(this.page.db) + d + t.length) % t.length; this.page = { db: t[k], pid: null }; this.curKey = 'db-' + t[k]; this.render(); this.src.sfx?.move?.(); }
   }
   markRead(id) { const m = (this.w.mail || []).find(x => x.id === id); if (m && !m.read) { m.read = true; this.src.changed?.(); } }
   act(a, arg) {
-    if (a === 'app') { this.launch(arg); return; }
+    if (a === 'app') { this.stack = []; this.launch(arg); return; }
+    if (a === 'ttab') { this.page = { tab: arg, file: null }; this.hist = []; this.armed = null; this.curKey = 'ttab-' + arg; this.render(); this.src.sfx?.move?.(); return; }
+    if (a === 'bm') { this.follow(arg); return; }
     if (a === 'close') { this.back(); return; }
     if (a === 'back') { this.back(); return; }
     if (a === 'mail') { this.page = { mail: arg }; this.markRead(arg); this.curKey = 'mail-' + arg; this.render(); this.src.sfx?.select?.(); return; }
@@ -174,10 +187,10 @@ export class Computer {
     if (a === 'tab') { this.hist = []; this.page = { ...this.page, tab: arg }; this.curKey = 'tab-' + arg; this.render(); this.src.sfx?.select?.(); return; }
     if (a === 'db') { this.page = { db: arg, pid: null }; this.hist = []; this.curKey = 'db-' + arg; this.render(); this.src.sfx?.select?.(); return; }
     if (a === 'driver') { this.go({ pid: arg }); this.src.sfx?.select?.(); return; }
-    if (a === 'open') { this.launch(arg); return; }
-    if (a === 'jobs') { this.launch('jobs'); this.page = { role: arg }; this.render(); return; }
+    if (a === 'open') { if (this.app === 'team' && TEAM_ALIAS[arg]) { this.act('ttab', TEAM_ALIAS[arg]); return; } this.follow(arg); return; }
+    if (a === 'jobs') { this.follow('jobs', { role: arg }); return; }
     if (a === 'role') { this.page = { role: arg }; this.curKey = 'role-' + arg; this.render(); this.src.sfx?.move?.(); return; }
-    if (a === 'hire') { if (this.hireArmed !== arg) { this.hireArmed = arg; this.curKey = 'hire-' + arg; this.render(); this.src.sfx?.move?.(); return; } this.hireArmed = null; this.src.staff?.('hire', arg); this.launch('team'); return; }
+    if (a === 'hire') { if (this.hireArmed !== arg) { this.hireArmed = arg; this.curKey = 'hire-' + arg; this.render(); this.src.sfx?.move?.(); return; } this.hireArmed = null; this.src.staff?.('hire', arg); this.back(); return; }
     if (a === 'fire') { if (this.fireArmed !== arg) { this.fireArmed = arg; this.curKey = 'fire-' + arg; this.render(); this.src.sfx?.move?.(); return; } this.fireArmed = null; this.src.staff?.('fire', arg); this.curKey = null; this.render(); return; }
     if (a === 'backpay') { this.src.staff?.('backpay', arg); this.curKey = 'bp-' + arg; this.render(); return; }
     if (a === 'slot') { this.page = { ...this.page, slot: arg }; this.curKey = 'slot-' + arg; this.armed = null; this.render(); this.src.sfx?.move?.(); return; }
@@ -187,7 +200,7 @@ export class Computer {
       const k = a + ':' + arg;
       if (this.armed !== k) { this.armed = k; this.curKey = k; this.render(); this.src.sfx?.move?.(); return; }
       this.armed = null; this.src.car?.(a, arg); this.curKey = null;
-      if (a === 'fitpart') { this.launch('workshop'); return; }
+      if (a === 'fitpart') { if (this.stack && this.stack.length) this.back(); else this.launch('workshop'); return; }
       this.render(); return;
     }
     if (a === 'placeorder') { const n = WC.COMPOUNDS.reduce((x, c) => x + (this.order[c] || 0), 0); if (!n) return; if (!this.orderArmed) { this.orderArmed = true; this.curKey = 'placeorder'; this.render(); this.src.sfx?.move?.(); return; } this.orderArmed = false; this.src.order?.({ ...this.order }); this._order = null; this.curKey = null; this.render(); return; }
@@ -211,14 +224,14 @@ export class Computer {
     desk.innerHTML = `<div class="pc-wall"><b>${esc(team.name)}</b><small>${esc(WC.seriesById(w.player.series).name)} &middot; ${w.year}</small></div>` +
       APPS.filter(a => !a.hidden).map((a, k) => `<div class="pc-icon" data-nav data-act="app" data-arg="${a.id}" data-key="app-${a.id}" style="left:${ICON_X + Math.floor(k / ICON_ROWS) * ICON_COL}px;top:${ICON_Y + (k % ICON_ROWS) * ICON_STEP}px">${iconSvg(a.id)}<span>${a.label}</span>${a.id === 'mail' && nMail ? `<em>${nMail}</em>` : ''}</div>`).join('');
     const app = APPS.find(a => a.id === this.app);
-    task.innerHTML = `<span class="pc-start">SV</span>${app ? `<span class="pc-tb on">${app.label}</span>` : ''}<span class="pc-clock">${esc(this.clock())}</span>`;
+    task.innerHTML = `<span class="pc-start">SV</span>${app ? `<span class="pc-tb on">${app.site ? 'Internet' : app.label}</span>` : ''}<span class="pc-clock">${esc(this.clock())}</span>`;
     win.hidden = !app;
     if (app) {
       // re-drawing the same page (a field changed, a list item picked) keeps its panes scrolled where they were
       const where = this.app === 'mail' ? 'mail' : this.app + ':' + this.url(), keepScroll = where === this.lastWhere ? [...win.querySelectorAll('*')].map(e => e.scrollTop) : null;
       this.lastWhere = where;
-      const body = this.app === 'mail' ? this.mailApp() : this.app === 'team' ? this.teamApp() : this.app === 'telemetry' ? this.telApp() : this.app === 'workshop' ? this.workshopApp() : this.browser();
-      const plain = ['mail', 'team', 'telemetry', 'workshop'].includes(this.app);
+      const body = this.app === 'mail' ? this.mailApp() : this.app === 'team' ? this.teamFrame() : this.browser();
+      const plain = ['mail', 'team'].includes(this.app);
       win.innerHTML = `<div class="pc-title"><span>${app.title}${!plain ? ' &mdash; ' + esc(this.url()) : ''}</span><i data-nav data-act="close" data-key="close">&times;</i></div>${body}`;
       if (keepScroll) win.querySelectorAll('*').forEach((e, i) => { if (keepScroll[i]) e.scrollTop = keepScroll[i]; });
       if (this.app === 'mail' && this.page.mail !== this.lastMail) { const b = win.querySelector('.pc-mbody'); if (b) b.scrollTop = 0; } // (a different email starts at its top)
@@ -262,12 +275,13 @@ export class Computer {
     if (this.app === 'classifieds') return 'svlist.sv/cars' + (p.ad ? '/' + p.ad : '');
     if (this.app === 'registry') return 'www.registry.sv.gov/forms/SV-1.htm';
     if (this.app === 'jobs') return `www.svjobs.sv/motorsport/${p.role}`;
+    if (this.app === 'web') return 'home.svnet.sv';
     if (this.app === 'tyres') return 'trade.vtr.sv/orders';
     if (this.app === 'parts') return `www.speedpartsdirect.sv/${p.slot}`;
     return 'www.driverdb.sv' + (p.pid ? `/driver/${p.pid}` : `/${p.db}`);
   }
   browser() {
-    const site = { parts: () => this.partsSite(), tyres: () => this.tyreSite(), jobs: () => this.jobsSite(), news: () => this.newsSite(), series: () => this.seriesSite(), bank: () => this.bankSite(), classifieds: () => this.classSite(), registry: () => this.regSite() }[this.app]?.() ?? this.driverSite();
+    const site = { web: () => this.homePage(), parts: () => this.partsSite(), jobs: () => this.jobsSite(), news: () => this.newsSite(), series: () => this.seriesSite(), bank: () => this.bankSite(), classifieds: () => this.classSite(), registry: () => this.regSite() }[this.app]?.() ?? this.driverSite();
     return `<div class="pc-bar"><button class="pc-btn sm" data-nav data-act="back" data-key="bback">&larr; Back</button><div class="pc-url">http://${esc(this.url())}</div></div><div class="pc-page">${site}</div>`;
   }
 
@@ -359,14 +373,14 @@ export class Computer {
       <div class="tm-list">${rows}</div>
       <div class="tm-foot ${short ? 'short' : ''}">Next payroll (as the next round starts): <b>${WC.money$(due)}</b> &middot; balance <b class="${w.money.balance < 0 ? 'neg' : ''}">${WC.money$(w.money.balance)}</b>${short ? `<br><span class="neg">That doesn't cover it. Pay someone half, or hold their wages this round.</span>` : ''}${w.wageClaims ? `<br>Includes ${WC.money$(w.wageClaims)} in wage claims from former staff.` : ''}</div>
       <p class="tm-note">Pay on time and people stay happy. Half or hold and they're owed the rest, and they notice. Someone unhappy enough, and owed money, walks out.</p>
-      <div class="tm-links"><button class="pc-btn sm" data-nav data-act="open" data-arg="jobs" data-key="jobs">Applicants on SVJobs &rarr;</button></div></div>`;
+      <div class="tm-links"><button class="pc-btn sm" data-nav data-act="open" data-arg="jobs" data-key="jobs">Find staff: SVJobs &rarr;</button></div></div>`;
   }
   // Velocita Tyre & Rubber: your stock, the next round's forecast, an order form
   get order() { return this._order || (this._order = { soft: 0, medium: 0, hard: 0, wet: 0 }); }
-  tyreSite() {
+  tyreTab() {
     const w = this.w, st = WC.stockOf(w), used = WC.usedOf(w), price = WC.tyreCost(w), o = this.order;
-    const head = `<div class="tr-head"><b>VELOCITA TYRE &amp; RUBBER</b><small>Trade orders &middot; account: ${esc(w.teams[w.player.team].name)}</small></div>`;
-    if (!w.founding?.reg) return head + '<p class="pc-empty">Trade accounts are for registered businesses only.</p>';
+    const head = `<div class="tm-head"><b>Tyres</b><small>Ordered from Velocita Tyre &amp; Rubber &middot; ${WC.money$(price)} a set</small></div>`;
+    if (!w.founding?.reg) return head + '<p class="pc-empty">Register the team first.</p>';
     const S = w.series[w.player.series], R = !w.over ? S.cal[w.round] : null, need = R ? WC.tyreNeeds(w) : null;
     const mgr = WC.staffOf(w, 'manager');
     const rows = WC.COMPOUNDS.map(c => `<tr><td><i class="tr-dot ${c}"></i>${c[0].toUpperCase() + c.slice(1)}</td><td class="r">${st[c]}</td><td class="r">${used.filter(u => u.c === c).length}</td>${need ? `<td class="r">${need[c]}</td>` : ''}
@@ -379,6 +393,37 @@ export class Computer {
       <div class="tr-total">${n} set${n === 1 ? '' : 's'} &times; ${WC.money$(price)} = <b>${WC.money$(n * price)}</b>
         <button class="pc-btn" data-nav data-act="placeorder" data-key="placeorder">${this.orderArmed ? 'Confirm order? Select again' : 'Place order'}</button></div>
       <p class="tr-fine">Orders are delivered before your next round. Trackside service at events is charged at ${Math.round((WC.TRACKSIDE - 1) * 100)}% over list. Used sets are not accepted for return.</p></div>`;
+  }
+
+  // ---------- Team: running the team, in tabs ----------
+  teamFrame() {
+    const tab = this.page.tab || 'overview';
+    const tabs = TEAM_TABS.map(([k, n]) => `<span class="tw-tab${k === tab ? ' on' : ''}" data-nav data-act="ttab" data-arg="${k}" data-key="ttab-${k}">${n}</span>`).join('');
+    const body = tab === 'car' ? this.workshopApp() : tab === 'tyres' ? `<div class="tm">${this.tyreTab()}</div>` : tab === 'staff' ? this.teamApp() : tab === 'data' ? this.telApp() : this.overview();
+    return `<div class="tw"><div class="tw-tabs">${tabs}</div>${body}</div>`;
+  }
+  // the whole team at a glance, each part a way into its tab
+  overview() {
+    const w = this.w, m = w.money;
+    if (!w.founding?.reg) return '<div class="tm"><p class="pc-empty">Register the team first: Form SV-1 is in your email.</p></div>';
+    const S = w.series[w.player.series], R = !w.over ? S.cal[w.round] : null, P = WC.carParts(w), risk = P ? WC.failRisk(w) : 0, st = WC.stockOf(w), need = R ? WC.tyreNeeds(w) : null;
+    const staff = w.staff || [], due = WC.payrollDue(w), lvl = WC.dataLevel(w), files = (w.telemetry || []).length;
+    const card = (tab, title, body, cta) => `<div class="ov-card" data-nav data-act="ttab" data-arg="${tab}" data-key="ov-${tab}"><b>${title}</b>${body}<small>${cta} &rarr;</small></div>`;
+    const worst = P ? WC.PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)[0] : null;
+    const short = need ? WC.COMPOUNDS.filter(c => st[c] < need[c]) : [];
+    return `<div class="tm"><div class="tm-head"><b>${esc(w.teams[w.player.team].name)}</b><small>${esc(WC.seriesById(w.player.series).name)} &middot; ${w.year}${R ? ` &middot; next: round ${w.round + 1}, ${esc(R.name)} (${esc(R.weather)})` : ' &middot; season over'}</small></div>
+      <div class="db-cells ov-cells"><div><small>Balance</small><b class="${m && m.balance < 0 ? 'neg' : ''}">${m && m.choice ? WC.money$(m.balance) : '&mdash;'}</b></div><div><small>Payroll a round</small><b>${WC.money$(due)}</b></div><div><small>Staff</small><b>${staff.length}/3</b></div></div>
+      <div class="ov-grid">
+        ${card('car', 'Car', P ? `<span>${esc(w.car.name)} &middot; ${WC.PARTS[worst].name.toLowerCase()} ${Math.round(P[worst].cond * 100)}%</span><span class="${risk >= 0.08 ? 'neg' : ''}">Risk of a failure: ${risk < 0.03 ? 'low' : risk < 0.08 ? 'some' : risk < 0.15 ? 'high' : 'very high'}</span>` : '<span>No car yet</span>', 'Workshop')}
+        ${card('tyres', 'Tyres', `<span>In stock: ${WC.COMPOUNDS.map(c => `${st[c]} ${c}`).join(', ')}</span><span class="${short.length ? 'neg' : ''}">${short.length ? `Short of ${short.join(', ')} for the next round` : 'Enough for the next round'}</span>`, 'Stock and orders')}
+        ${card('staff', 'Staff', staff.length ? staff.map(x => `<span>${esc(x.first)} &middot; ${WC.ROLES[x.role].name.toLowerCase()}${x.owed ? ` &middot; <span class="neg">owed</span>` : ''}</span>`).join('') : '<span>Nobody yet</span>', 'Payroll and hiring')}
+        ${card('data', 'Data', `<span>${files} session file${files === 1 ? '' : 's'}</span><span>${lvl ? `Read by ${esc(WC.staffOf(w, 'engineer').first)}` : 'Unreadable without a data engineer'}</span>`, 'Telemetry')}
+      </div></div>`;
+  }
+  // the Internet's home page: bookmarks
+  homePage() {
+    const rows = BOOKMARKS.map(([id, name, sub], k) => `<div class="hp-bm" data-nav data-act="bm" data-arg="${id}" data-key="bm-${id}"${k === 0 ? ' data-first' : ''}><a>${esc(name)}</a><small>${esc(sub)}</small></div>`).join('');
+    return `<div class="hp"><div class="hp-head"><b>SVNet</b><small>Your home on the web &middot; ${esc(this.clock())}</small></div><div class="hp-body"><h2>Bookmarks</h2>${rows}</div></div>`;
   }
 
   // ---------- Workshop: your car, part by part ----------
@@ -398,7 +443,7 @@ export class Computer {
     return `<div class="tm"><div class="tm-head"><b>${w.car.year} ${esc(w.car.name)}</b><small>${m ? `Chief mechanic: ${esc(m.first)} ${esc(m.last)}` : 'No chief mechanic: rebuilds go to a shop (dearer, and no better than OK)'}</small></div>
       <div class="ws-risk">Chance something breaks in the next race: <b class="${risk >= 0.08 ? 'neg' : ''}">${riskTxt}</b>${lvl === 2 ? ` (${(risk * 100).toFixed(1)}%, ${esc(eng.first)}'s estimate)` : ''}</div>
       <div class="tm-list">${rows}</div>
-      <div class="tm-links"><button class="pc-btn sm" data-nav data-act="open" data-arg="parts" data-key="toparts">Speed Parts Direct &rarr;</button> <button class="pc-btn sm" data-nav data-act="open" data-arg="classifieds" data-key="tocl">Used parts on SVList &rarr;</button></div>
+      <div class="tm-links"><button class="pc-btn sm" data-nav data-act="open" data-arg="parts" data-key="toparts">Shop for parts: Speed Parts Direct &rarr;</button> <button class="pc-btn sm" data-nav data-act="open" data-arg="classifieds" data-key="tocl">Used parts on SVList &rarr;</button></div>
       <p class="tm-note">Worn parts are slower and can fail in a race. Upgrades go on a part; you'll know how they feel, and what they really do once a data engineer has looked at the data.</p></div>`;
   }
   // Speed Parts Direct: new parts, with the supplier's own claims
@@ -589,7 +634,7 @@ export class Computer {
   // the styles the snapshot needs (the computer's own rules; it uses system fonts, so nothing to embed)
   css() {
     if (this._css) return this._css;
-    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl|tm|jb|tl|tr|ws|sp)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
+    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl|tm|jb|tl|tr|ws|sp|tw|ov|hp)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
     for (const sh of document.styleSheets) { let rules; try { rules = sh.cssRules; } catch (e) { continue; } for (const r of rules) if (r.selectorText && want.test(r.selectorText)) out.push(r.cssText); }
     return (this._css = out.join('\n'));
   }

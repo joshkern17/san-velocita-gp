@@ -829,7 +829,7 @@ function useSession() {
   wkUse.carry = { c: pl.phys.tyre.c, wf: pl.phys.tyre.wf, wr: pl.phys.tyre.wr }; // (what the next session can start on)
   wkUse.damage += sim.mode === 'race' ? Math.max(dmgOf(pl.phys.dmg), (pl.maxDmg || 0) / 3) : dmgOf(pl.phys.dmg);
 }
-// the session's best lap, analysed against the reference, kept for the computer's Telemetry app
+// the session's best lap, analysed against the reference, kept for the computer's Team app (the Data tab)
 function logSessionTelemetry(pl) {
   const key = lapKey(sim.track, sim.T, pl.carId), mine = lapsFor(key).filter(l => l.valid && l.time > 0);
   const n = pl.lapTimes.length; if (!n || !mine.length) return;
@@ -1550,7 +1550,7 @@ function renderHubMenu() {
   if (!F.reg) items.push({ label: 'Register The Team', cls: 'action primary', action: () => sitDown('registry'), desc: 'Form SV-1, on the computer.' });
   else if (claim) items.push({ label: 'Claim Your Winnings', cls: 'action primary', action: () => sitDown('mail', claim.id), desc: 'The State Lottery needs to know how you want your money. It\'s waiting in your email.' });
   else if (!F.car) items.push({ label: 'Buy A Car', cls: 'action primary', action: () => sitDown('classifieds'), desc: 'Danny sent you some listings. They\'re on the computer.' });
-  else if (!w.over && WC.payrollShort(w)) items.push({ label: 'Sort Out Payroll', cls: 'action primary', action: () => sitDown('team'), desc: `Payroll is ${WC.money$(WC.payrollDue(w))} and you have ${WC.money$(w.money.balance)}. Decide who gets paid (the Team app).` });
+  else if (!w.over && WC.payrollShort(w)) items.push({ label: 'Sort Out Payroll', cls: 'action primary', action: () => sitDown('staff'), desc: `Payroll is ${WC.money$(WC.payrollDue(w))} and you have ${WC.money$(w.money.balance)}. Decide who gets paid (Team, on the computer: the Staff tab).` });
   else if (!w.over) {
     const r = w.series[sid].cal[w.round];
     items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), desc: `${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}` });
@@ -1559,8 +1559,8 @@ function renderHubMenu() {
       desc: offerMail ? `First answer the ${seriesName(off.to)}'s email.` : 'Everyone a year older. Retirements, promotions and rookies, then a new calendar.' });
   }
   items.push(
-    { label: `Computer${nm ? `<small>${nm} NEW</small>` : ''}`, action: () => sitDown(offerMail ? 'mail' : null, offerMail ? offerMail.id : null), desc: 'Sit down at the desk: your email, the news, the series\' websites and the driver database. You can also click the monitor.' },
-    ...(founded(w) && tyreShort(w) ? [{ label: 'Order Tyres<small>LOW</small>', action: () => sitDown('tyres'), desc: 'You\'re short of tyres for the next round. Order on the computer (Tyre Orders), or hire a team manager to do it.' }] : []),
+    { label: `Computer${nm ? `<small>${nm} NEW</small>` : ''}`, action: () => sitDown(offerMail ? 'mail' : null, offerMail ? offerMail.id : null), desc: 'Sit down at the desk: Mail, Team (the car, tyres, staff, data) and the Internet. You can also click the monitor.' },
+    ...(founded(w) && tyreShort(w) ? [{ label: 'Order Tyres<small>LOW</small>', action: () => sitDown('tyres'), desc: 'You\'re short of tyres for the next round. Order on the computer (Team: the Tyres tab), or hire a team manager to do it.' }] : []),
     { label: `Phone${n ? `<small>${n} NEW</small>` : ''}`, action: () => { phone.open(); renderHints(); }, desc: 'Texts from your teammate, rivals and friends. Press <b>P</b> / <b>Y</b> any time.' },
     { label: 'Car & Livery', action: () => openWorldGarage(), desc: w.car ? `Your ${w.car.year} ${w.car.name}: paint it, design the livery, the helmet and the suit.` : `Your livery, helmet and suit. In the ${seriesName(sid)} you race ${CLASSES[WC.seriesById(sid).cls].label} cars.` },
     presetItem(' Set each aid in Options > Aids.'),
@@ -1585,7 +1585,7 @@ function tyreShort(w) {
 function carNote(w) {
   const P = w.car && WC.carParts(w); if (!P || WC.failRisk(w) < 0.08) return '';
   const worst = WC.PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)[0];
-  return `<p class="hub-note">The car needs work: <b>${WC.PARTS[worst].name.toLowerCase()} ${Math.round(P[worst].cond * 100)}%</b>. Worn parts can fail in a race (the Workshop, on the computer).</p>`;
+  return `<p class="hub-note">The car needs work: <b>${WC.PARTS[worst].name.toLowerCase()} ${Math.round(P[worst].cond * 100)}%</b>. Worn parts can fail in a race (Team: the Car tab, on the computer).</p>`;
 }
 function tyreNote(w) {
   const short = tyreShort(w); if (!short) return '';

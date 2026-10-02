@@ -881,7 +881,7 @@ export function payBack(w, id) {
 export function setPay(w, id, mode) { const x = (w.staff || []).find(s => s.id === id); if (x) x.pay = mode; }
 
 // ---------------- telemetry: what the data engineer reads ----------------
-// a summary of each session's best lap against the reference, kept for the computer's Telemetry app
+// a summary of each session's best lap against the reference, kept for the computer's Team app (the Data tab)
 export function logTelemetry(w, t) {
   w.telemetry = w.telemetry || [];
   w.telemetry.unshift({ id: 't' + (w.nextId++), y: w.year, r: w.round, ...t });
