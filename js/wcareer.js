@@ -79,7 +79,7 @@ export const shortName = (p) => p ? `${p.first[0]}. ${p.last}`.toUpperCase() : '
 export function newWorld(opts, trackPool) {
   const w = { v: 1, kind: 'world', rs: (opts.seed || Date.now()) % 2147483646 + 1, nextId: 1, year: 2026, round: 0, over: false,
     opts: { len: opts.len || 6, difficulty: opts.difficulty || 'medium', laps: opts.laps || 5, weekend: opts.weekend || 'quali', pracLen: opts.pracLen || 1200, qualiLen: opts.qualiLen || 600, pool: opts.pool || 'presets' },
-    people: {}, teams: {}, series: {}, news: [], msgs: [], ledger: [], h2h: {}, seasons: [],
+    people: {}, teams: {}, series: {}, news: [], msgs: [], mail: [], ledger: [], h2h: {}, seasons: [],
     player: { name: (opts.name || 'Driver').trim(), number: opts.number || 7, series: 'street', team: 'T0', starts: 0, wins: 0, pods: 0, titles: 0, hist: [], offer: null } };
   // teams: yours in the Street Cup, 17 more across the ladder
   const pool = TEAM_POOL.slice(); for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rng(w) * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
@@ -291,8 +291,9 @@ function seasonEnd(w) {
   const you = summary.you;
   if (up && you && you.pos <= 3) {
     w.player.offer = { to: up.id, answer: null };
-    text(w, up.name, `${w.player.name.split(' ')[0]}, your team finished P${you.pos} in the ${seriesById(w.player.series).name}. We have an entry for you in the ${up.name} next year. Interested?`,
-      { offer: true, choices: [['move', `Move up to ${up.name}`], ['stay', `Stay in ${seriesById(w.player.series).name}`]] });
+    mail(w, `${up.name} Entries`, addrOf(up, 'entries'), `An entry for ${w.year + 1}`,
+      [`Dear ${w.player.name.split(' ')[0]},`, `Congratulations on finishing P${you.pos} in the ${seriesById(w.player.series).name} this year. We have an entry available in the ${up.name} for ${w.year + 1}, and we would like it to go to ${w.teams[w.player.team].name}.`, `Please let us know before the new season.`, `Entries Office, ${up.name}`],
+      { offer: true, choices: [['move', `Accept: move up to the ${up.name}`], ['stay', `Decline: stay in the ${seriesById(w.player.series).name}`]] });
   }
   seasonEndNews(w, summary);
 }
@@ -382,7 +383,19 @@ export function nextSeason(w, trackPool) {
 }
 
 // ---------------- news (headlines) and texts (the phone) ----------------
-function news(w, head, body = '') { w.news.unshift({ y: w.year, r: w.round, head, body }); if (w.news.length > 120) w.news.length = 120; }
+function news(w, head, body = '', extra = {}) { w.news.unshift({ y: w.year, r: w.round, when: whenOf(w), head, body, ...extra }); if (w.news.length > 120) w.news.length = 120; }
+// an email (the garage computer): { from, addr, subj, body: [paragraphs], choices?, offer?, report? }
+// when it happened, as the inbox and the news site show it
+export const whenOf = (w) => w.round >= w.opts.len ? 'Season end' : w.series[w.player.series].results.some(x => x.round === w.round) ? `Round ${w.round + 1}` : w.round === 0 ? 'Pre-season' : `Round ${w.round}`;
+export function mail(w, from, addr, subj, body, extra = {}) {
+  w.mail = w.mail || [];
+  w.mail.unshift({ id: 'e' + (w.nextId++), y: w.year, r: w.round, when: whenOf(w), from, addr, subj, body, read: false, ...extra });
+  if (w.mail.length > 150) w.mail.length = 150;
+}
+export const unreadMail = (w) => (w.mail || []).filter(m => !m.read).length;
+// a series' made-up web address: street-cup.sv, entries@street-cup.sv
+export const siteOf = (s) => s.name.toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '') + '.sv';
+const addrOf = (s, who) => `${who}@${siteOf(s)}`;
 // a text from someone: { from, body, choices?, offer? }
 export function text(w, from, body, extra = {}) {
   w.msgs.unshift({ id: 'm' + (w.nextId++), y: w.year, r: w.round, from, body, read: false, ...extra });
@@ -390,11 +403,13 @@ export function text(w, from, body, extra = {}) {
 }
 export const unread = (w) => w.msgs.filter(m => !m.read).length;
 const teammateOf = (w) => w.teams[w.player.team].drivers.find(d => d !== 'P');
+const ord = (p) => p + (['th', 'st', 'nd', 'rd'][(p % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][p % 100] || 'th');
 const pickLine = (w, a) => a[Math.floor(rng(w) * a.length)];
 
 function seasonOpenNews(w, moves = []) {
   const s = seriesById(w.player.series), S = w.series[s.id], mate = w.people[teammateOf(w)];
-  text(w, `${s.name} Office`, `Welcome to the ${w.year} ${s.name}. ${w.opts.len} rounds, ${S.teams.length * 2} drivers. First up: ${S.cal[0].name}.`);
+  mail(w, `${s.name} Office`, addrOf(s, 'office'), `Welcome to the ${w.year} season`,
+    [`Welcome to the ${w.year} ${s.name}.`, `${w.opts.len} rounds, ${S.teams.length * 2} drivers, ${S.teams.length} teams. The full calendar is on our website.`, `Round 1: ${S.cal[0].name}, ${S.cal[0].time}${S.cal[0].weather === 'clear' ? '' : ', ' + S.cal[0].weather}.`, `Good luck,`, `${s.name} Office`]);
   if (mate) {
     const fresh = !w.seasons.length || moves.some(m => m.pid === mate.id);
     text(w, mate.first, fresh ? pickLine(w, [`${mate.first} here. Looks like we're sharing a garage this year. Don't put me in the wall.`, `Hey, it's ${mate.first}. New season, new teammate. Let's make the others look slow.`, `${mate.first} ${mate.last}. I hear you're quick. We'll see.`])
@@ -420,14 +435,24 @@ function roundNews(w, me) {
     const res = w.series[s.id].results.at(-1); if (!res) continue;
     const win = res.rows.find(r => r.pos === 1 && !r.dnf); if (!win) continue;
     const firstWin = win.pid !== 'P' && w.people[win.pid] && w.people[win.pid].wins === 1;
-    if (win.pid === 'P') news(w, `${w.player.name.split(' ').pop().toUpperCase()} WINS AT ${res.track.toUpperCase()}`, `A ${s.name} win for ${w.teams[w.player.team].name}.`);
-    else news(w, `${firstWin ? 'FIRST WIN FOR' : ''} ${w.people[win.pid].last.toUpperCase()}${firstWin ? '' : ' WINS'} AT ${res.track.toUpperCase()}`.trim(), `${s.name}, round ${res.round + 1}${res.weather === 'rain' ? ', in the rain' : ''}.`);
+    const rep = { report: { s: s.id, round: res.round } };
+    if (win.pid === 'P') news(w, `${w.player.name.split(' ').pop().toUpperCase()} WINS AT ${res.track.toUpperCase()}`, `A ${s.name} win for ${w.teams[w.player.team].name}.`, rep);
+    else news(w, `${firstWin ? 'FIRST WIN FOR' : ''} ${w.people[win.pid].last.toUpperCase()}${firstWin ? '' : ' WINS'} AT ${res.track.toUpperCase()}`.trim(), `${s.name}, round ${res.round + 1}${res.weather === 'rain' ? ', in the rain' : ''}.`, rep);
   }
   // texts about your race
   if (!me) return;
   const res = w.series[sid].results.at(-1), mateId = teammateOf(w), mate = w.people[mateId];
   const mr = res.rows.find(r => r.pid === mateId);
-  if (me.pos === 1 && !me.dnf && w.player.wins === 1) text(w, 'Press Office', `Your first win! The phones haven't stopped. Enjoy tonight, ${w.player.name.split(' ')[0]}.`);
+  if (me.pos === 1 && !me.dnf && w.player.wins === 1) mail(w, 'Press Office', addrOf(seriesById(sid), 'press'), 'Interview requests',
+    [`${w.player.name.split(' ')[0]},`, `Your first win! The phones haven't stopped. We've had eleven interview requests since the flag, and counting.`, `Enjoy tonight. We'll sort the rest out tomorrow.`, `Press Office, ${seriesById(sid).name}`]);
+  // the series office sends every team the classification
+  { const s = seriesById(sid), st = standings(w, sid), cp = st.findIndex(e => e.pid === 'P') + 1, lead = st[0];
+    mail(w, `${s.name} Office`, addrOf(s, 'results'), `Round ${res.round + 1} classification: ${res.track}`,
+      [`Official classification for round ${res.round + 1} of the ${w.year} ${s.name} at ${res.track}.`,
+       me.dnf ? `${w.player.name}: did not finish.` : `${w.player.name}: P${me.pos}, ${me.pts || 0} point${me.pts === 1 ? '' : 's'}.`,
+       cp ? (cp === 1 ? `You lead the championship on ${lead.pts} points.` : `You are ${ord(cp)} in the championship on ${st[cp - 1].pts} points, ${lead.pts - st[cp - 1].pts} behind the leader.`) : '',
+       w.round + 1 < w.opts.len ? `Next: round ${w.round + 2}, ${w.series[sid].cal[w.round + 1].name}.` : `That was the final round.`].filter(Boolean),
+      { report: { s: sid, round: res.round } }); }
   if (mate && mr) {
     const beat = !me.dnf && (mr.dnf || me.pos < mr.pos);
     if (rng(w) < 0.6) text(w, mate.first, beat ? pickLine(w, [`Fair play. P${me.pos}. I'll have you next time.`, `Good race. Don't get used to finishing ahead of me.`, `Nice one today. The team's happy.`])
@@ -457,5 +482,5 @@ function seasonEndNews(w, sum) {
 // ---------------- save ----------------
 const KEY = 'svgp.world';
 export function saveWorld(w) { try { localStorage.setItem(KEY, JSON.stringify(w)); return true; } catch (e) { return false; } }
-export function loadWorld() { try { const w = JSON.parse(localStorage.getItem(KEY)); return w && w.v === 1 ? w : null; } catch (e) { return null; } }
+export function loadWorld() { try { const w = JSON.parse(localStorage.getItem(KEY)); if (!w || w.v !== 1) return null; w.mail = w.mail || []; return w; } catch (e) { return null; } }
 export function clearWorld() { localStorage.removeItem(KEY); }

@@ -1,5 +1,7 @@
 // Pit garage: your team's box during practice and qualifying. A plain room for now (models/garage.glb replaces it if it
 // exists: see loadRoom), your car in the bay beside the menu, a timing monitor on the wall showing the session live.
+// The same room is your base in World Career (openHome): the camera looks over the desk, and sitting down at the
+// computer pushes it into the CRT (setZoom) until the screen fills the view (js/computer.js draws what's on it).
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { buildF1 } from './carmodel.js';
@@ -35,6 +37,7 @@ export class PitGarage {
     this.bay = new THREE.Group(); this.scene.add(this.bay);
     this.t = 0; this.car = null; this.active = false;
     this.shift = 0.2; // the car sits to the right of the menu
+    this.mode = 'pit'; this.zoomK = 0; this.zoomTo = 0; this.screen = null; this.pcTexes = [];
     // lights: the ceiling panels + daylight through the door
     const hemi = new THREE.HemisphereLight(0xdfe6ff, 0x3a3a40, 0.9);
     const key = new THREE.DirectionalLight(0xfff4e6, 1.1); key.position.set(-3, 8, 4);
@@ -107,6 +110,12 @@ export class PitGarage {
     const sky = new THREE.Mesh(new THREE.PlaneGeometry(60, 20), new THREE.MeshBasicMaterial({ color: 0xdfe8f4 })); sky.position.set(0, 6, 16); sky.rotation.y = Math.PI; R.add(sky);
     for (const s of [-1, 1]) box(0.4, H, 0.4, lam(0x2a2d34), s * (W / 2 - 0.1), H / 2, 0);
     box(W, 0.5, 0.4, lam(0x2a2d34), 0, H - 0.25, 0);
+    // a desk with a CRT by the door (the computer: see attachScreen)
+    const deskX = -W / 2 + 0.45, deskZ = -2.4;
+    box(0.8, 0.74, 1.6, lam(0x6b4a2e), deskX, 0.37, deskZ);
+    box(0.46, 0.42, 0.5, lam(0xd8d2bc), deskX - 0.05, 0.95, deskZ);
+    box(0.3, 0.04, 0.3, lam(0xd8d2bc), deskX - 0.05, 0.76, deskZ);
+    this.attachScreen(R, 0.38, 0.3, new THREE.Vector3(deskX + 0.181, 0.96, deskZ), Math.PI / 2);
     // a trolley jack and a wheel gun by the car
     box(0.5, 0.18, 1.2, lam(0xe0b020), 2.4, 0.09, CAR_Z - 3.6);
     box(0.12, 0.12, 0.5, lam(0x303035), -1.9, 0.06, CAR_Z + 2.8);
@@ -129,13 +138,16 @@ export class PitGarage {
     // (Blender's exporter writes bulbs in physical units, ~54 per watt; the game's lights are tuned far lower)
     m.traverse(o => { if (o.isPointLight || o.isSpotLight) o.intensity *= BULB_SCALE; });
     if (lit) { for (const l of this.lights) l.visible = false; this.scene.add(new THREE.HemisphereLight(0xc8d0ff, 0x202024, 0.12)); }
-    this.room.clear(); this.tyreBands = []; this.teamMats = [];
+    this.room.clear(); this.tyreBands = []; this.teamMats = []; this.screen = null;
     // glTF uvs are flipped vs canvas textures
     this.tvTex.flipY = false; this.tvTex.needsUpdate = true;
     this.bandTex.flipY = false; this.bandTex.needsUpdate = true;
+    const crts = [];
     m.traverse(o => {
       if (!o.isMesh) return;
       const name = o.name || (o.parent && o.parent.name) || '';
+      if (name.startsWith('PC_Screen')) { o.material = new THREE.MeshBasicMaterial({ map: this.pcTex(false), color: 0xdddddd }); this.screen = o; return; }
+      if (/^CrtMonitor/.test(name)) crts.push(o);
       if (name.startsWith('TV_Screen')) { o.material = new THREE.MeshBasicMaterial({ map: this.tvTex }); return; }
       if (name.startsWith('TeamBand')) { o.material = new THREE.MeshLambertMaterial({ map: this.bandTex }); return; } // (painted on, so it takes the room's light)
       for (const mat of Array.isArray(o.material) ? o.material : [o.material]) {
@@ -145,6 +157,8 @@ export class PitGarage {
         else if (n.startsWith('TeamAccent')) this.teamMats.push([mat, 'accent']);
       }
     });
+    // no PC_Screen: a CRT from the asset pack gets a screen laid over its glass
+    if (!this.screen && crts.length) this.attachScreen(crts[0], 0.391, 0.34, new THREE.Vector3(-0.0015, 0.30, 0.2245), 0);
     this.room.add(m); this.custom = true;
     if (this.team) this.setTeam(this.team);
     if (this.tyre) this.setTyre(this.tyre);
@@ -156,6 +170,73 @@ export class PitGarage {
     const f = new THREE.Vector3(0, 0, -1).applyQuaternion(quat), h = f.x * f.x + f.z * f.z;
     const s = h > 1e-4 ? Math.max(0.5, -(pos.x * f.x + (pos.z - CAR_Z) * f.z) / h) : 5; // nearest the car's spot
     return { pos, quat, pivot: pos.clone().addScaledVector(f, s), fov: cam.fov };
+  }
+
+  // ---------- the computer's screen ----------
+  // the canvas the computer draws its idle desktop on (js/computer.js); glTF meshes want it unflipped
+  setScreen(canvas) { this.pcCanvas = canvas; for (const t of this.pcTexes) { t.image = canvas; t.needsUpdate = true; } }
+  pcTex(flip = true) {
+    const t = new THREE.CanvasTexture(this.pcCanvas || document.createElement('canvas'));
+    t.colorSpace = THREE.SRGBColorSpace; t.flipY = flip; t.anisotropy = 4; this.pcTexes.push(t); return t;
+  }
+  refreshScreen() { for (const t of this.pcTexes) t.needsUpdate = true; }
+  attachScreen(parent, w, h, pos, rotY) {
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: this.pcTex(true), color: 0xdddddd, polygonOffset: true, polygonOffsetFactor: -2 }));
+    mesh.position.copy(pos); mesh.rotation.y = rotY; parent.add(mesh); this.screen = mesh;
+  }
+  // the screen in the world: its centre, the way it faces, its size and corners
+  screenFrame() {
+    const m = this.screen; if (!m) return null;
+    m.updateWorldMatrix(true, false);
+    if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+    const bb = m.geometry.boundingBox, pts = [];
+    for (const x of [bb.min.x, bb.max.x]) for (const y of [bb.min.y, bb.max.y]) for (const z of [bb.min.z, bb.max.z]) pts.push(new THREE.Vector3(x, y, z).applyMatrix4(m.matrixWorld));
+    const c = new THREE.Vector3(); pts.forEach(p => c.add(p)); c.multiplyScalar(1 / pts.length);
+    const nAttr = m.geometry.attributes.normal;
+    const n = new THREE.Vector3(nAttr.getX(0), nAttr.getY(0), nAttr.getZ(0)).transformDirection(m.matrixWorld);
+    const up = new THREE.Vector3(0, 1, 0).addScaledVector(n, -n.y).normalize(), side = new THREE.Vector3().crossVectors(n, up).normalize();
+    let w = 0, h = 0; for (const p of pts) { const d = p.clone().sub(c); w = Math.max(w, Math.abs(d.dot(side)) * 2); h = Math.max(h, Math.abs(d.dot(up)) * 2); }
+    return { c, n, up, side, w, h };
+  }
+  // where the glass is on screen (CSS pixels), for laying the computer's DOM over it
+  screenRect() {
+    const f = this.screenFrame(); if (!f) return null;
+    const box = this.r.domElement.getBoundingClientRect();
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const sx of [-0.5, 0.5]) for (const sy of [-0.5, 0.5]) {
+      const p = f.c.clone().addScaledVector(f.side, sx * f.w).addScaledVector(f.up, sy * f.h).project(this.camera);
+      const x = box.left + (p.x + 1) / 2 * box.width, y = box.top + (1 - p.y) / 2 * box.height;
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+    }
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+  // did a click (CSS pixels) land on the monitor?
+  hitScreen(cx, cy) {
+    if (!this.screen) return false;
+    const box = this.r.domElement.getBoundingClientRect(), rc = new THREE.Raycaster();
+    rc.setFromCamera(new THREE.Vector2((cx - box.left) / box.width * 2 - 1, -(cy - box.top) / box.height * 2 + 1), this.camera);
+    const near = this.screen.parent || this.screen;
+    return rc.intersectObject(near, true).length > 0;
+  }
+
+  // ---------- your base (World Career) ----------
+  openHome(cfg, team) { this.open(cfg, team, 'medium', null); this.mode = 'home'; }
+  // 0: looking over the desk, 1: sat at the computer (the screen fills the view)
+  setZoom(on) { this.zoomTo = on ? 1 : 0; }
+  get seated() { return this.zoomK > 0.999 && this.zoomTo === 1; }
+  homePose(f, t) {
+    // the desk from over your shoulder, a little to the side (the menu is on the left, so the shot looks right)
+    const pos = f.c.clone().addScaledVector(f.n, 2.3).addScaledVector(f.up, 0.42).addScaledVector(f.side, 1.25);
+    const at = f.c.clone().addScaledVector(f.n, 0.25).addScaledVector(f.up, -0.2).addScaledVector(f.side, 0.15);
+    pos.addScaledVector(f.side, Math.sin(t * 0.12) * 0.12); pos.y += Math.sin(t * 0.2) * 0.03;
+    return { pos, at, fov: 50, shift: 0.18 };
+  }
+  seatPose(f, aspect) {
+    // the glass fills 84% of the height, nudged up clear of the button prompts along the bottom
+    const fov = 28, tn = Math.tan(fov * Math.PI / 360), fill = 0.84, lift = 0.06;
+    const d = Math.max(f.h / 2 / fill / tn, f.w / 2 / fill / (tn * aspect));
+    const drop = lift * d * tn; // (moving the camera down moves the screen up the view)
+    return { pos: f.c.clone().addScaledVector(f.n, d).addScaledVector(f.up, -drop), at: f.c.clone().addScaledVector(f.up, -drop), fov, shift: 0 };
   }
 
   // paint the floor bay + back wall in the team's colours
@@ -199,7 +280,7 @@ export class PitGarage {
   // bent / missing wings show on the car in the bay until the crew fixes them
   setDamage(d) { if (this.car && this.car.setDamage && d) this.car.setDamage(d); }
   open(cfg, team, tyre, dmg) {
-    this.active = true; this.t = 0;
+    this.active = true; this.t = 0; this.mode = 'pit'; this.zoomK = this.zoomTo = 0;
     // (your own garage model, the first time the garage opens)
     if (!this.custom) loadRoom().then(m => { if (m && !this.custom) this.useRoom(m); });
     if (this.car) { this.bay.remove(this.car.group); this.car.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
@@ -210,10 +291,25 @@ export class PitGarage {
     this.bay.add(this.car.group);
     this.setTeam(team); this.setTyre(tyre); this.setDamage(dmg);
   }
-  close() { this.active = false; }
+  close() { this.active = false; this.mode = 'pit'; this.zoomK = this.zoomTo = 0; }
   update(dt) {
     if (!this.active) return;
     this.t += dt;
+    const f = this.mode === 'home' ? this.screenFrame() : null;
+    if (f) {
+      // the push in to the screen (and back): eased, about two thirds of a second
+      this.zoomK += Math.sign(this.zoomTo - this.zoomK) * Math.min(Math.abs(this.zoomTo - this.zoomK), dt / 0.65);
+      const k = this.zoomK * this.zoomK * (3 - 2 * this.zoomK), el = this.r.domElement;
+      const a = this.homePose(f, this.t), b = this.seatPose(f, el.width / el.height);
+      const look = (p) => new THREE.Matrix4().lookAt(p.pos, p.at, new THREE.Vector3(0, 1, 0));
+      this.camera.position.lerpVectors(a.pos, b.pos, k);
+      this.camera.quaternion.setFromRotationMatrix(look(a)).slerp(new THREE.Quaternion().setFromRotationMatrix(look(b)), k);
+      this.camera.fov = a.fov + (b.fov - a.fov) * k;
+      this.shiftNow = a.shift + (b.shift - a.shift) * k;
+      if (this.car) this.car.animate({ steer: 0, spin: 0, heave: Math.sin(this.t * 1.6) * 0.003, pitch: 0, roll: 0 });
+      return;
+    }
+    this.shiftNow = this.shift;
     if (this.view) {
       const v = this.view, yaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.sin(this.t * 0.12) * 0.05);
       this.camera.position.copy(v.pos).sub(v.pivot).applyQuaternion(yaw).add(v.pivot);
@@ -233,7 +329,7 @@ export class PitGarage {
   render() {
     const el = this.r.domElement;
     this.camera.aspect = el.width / el.height;
-    this.camera.setViewOffset(el.width, el.height, -el.width * this.shift, 0, el.width, el.height);
+    this.camera.setViewOffset(el.width, el.height, -el.width * (this.shiftNow ?? this.shift), 0, el.width, el.height);
     this.camera.updateProjectionMatrix();
     this.post.render(this.scene, this.camera, { trails: 0, grade: [1.02, 1, 0.98] });
   }

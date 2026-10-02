@@ -42,6 +42,7 @@ Already have a garage model? File → Append (or Import) it into the template, t
 | Name | On | What the game does |
 | --- | --- | --- |
 | `TV_Screen...` | object (a flat plane, 1.6 : 1) | shows the live timing screen |
+| `PC_Screen...` | object (a flat plane, about 1.27 : 1) | the computer's screen (World Career): the hub's camera looks at it and zooms into it. Without one, an object named `CrtMonitor...` (the PSX CRT asset) gets a screen laid over its glass |
 | `TeamBand...` | object (a flat plane, 4 : 1) | shows the team banner (name in team colours) |
 | `TeamMain...` | material | colour set to the team's main colour |
 | `TeamAccent...` | material | colour set to the team's accent colour |

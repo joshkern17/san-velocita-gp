@@ -1,0 +1,318 @@
+// The garage computer: a late-90s desktop on the CRT in your garage (World Career). Sit down at the desk and the
+// camera pushes into the screen (js/pitgarage.js); this is what's on it: Mail, the Paddock Wire news site, the series'
+// websites and the driver database, all drawn from the world (js/wcareer.js).
+// It's real DOM, laid out at a fixed "screen resolution" (W x H) and scaled onto the monitor's glass; the idle
+// desktop is also drawn on a canvas for the monitor's texture while you're standing in the room.
+// Controls: the d-pad / arrows move between anything you can select (spatially), A / Enter selects, B / Esc goes back
+// (or stands you up from the desktop), LB / RB flip a site's sections. The mouse works too.
+import * as WC from './wcareer.js';
+
+export const W = 760, H = 600; // the screen's resolution (the CRT's glass is about 1.27 : 1)
+const TASK_H = 30;
+const NAT = { ITA: 'Italy', GBR: 'Britain', JPN: 'Japan', BRA: 'Brazil', GER: 'Germany', FRA: 'France', ESP: 'Spain', SWE: 'Sweden', POL: 'Poland', NGA: 'Nigeria', USA: 'USA', AUS: 'Australia', MEX: 'Mexico', KOR: 'Korea' };
+const hex = (c) => '#' + ((c ?? 0x888888) >>> 0).toString(16).padStart(6, '0');
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const ord = (p) => p + (['th', 'st', 'nd', 'rd'][(p % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][p % 100] || 'th');
+
+// the desktop's icons (the same spots on the canvas copy)
+const APPS = [
+  { id: 'mail', label: 'Mail', title: 'Mail' },
+  { id: 'news', label: 'Paddock Wire', title: 'Web Browser' },
+  { id: 'series', label: 'Series Site', title: 'Web Browser' },
+  { id: 'drivers', label: 'Driver Database', title: 'Web Browser' },
+];
+const ICON_X = 22, ICON_Y = 20, ICON_STEP = 92;
+// little icons, drawn the same way on the desktop and the canvas
+const ICONS = {
+  mail: [['#f4f1e4', 6, 14, 52, 36], ['#c9c2a6', 6, 14, 52, 4], ['path', '#8a8268', 'M6 14 L32 34 L58 14'], ['#d23a2a', 44, 6, 14, 14]],
+  news: [['#ffffff', 10, 6, 44, 52], ['#1a1a1a', 15, 11, 34, 7], ['#9a9a9a', 15, 22, 34, 3], ['#9a9a9a', 15, 28, 34, 3], ['#9a9a9a', 15, 34, 22, 3], ['#c23', 40, 34, 9, 14], ['#9a9a9a', 15, 40, 22, 3], ['#9a9a9a', 15, 46, 22, 3]],
+  series: [['#5a5a5a', 12, 6, 4, 54], ['#111', 16, 8, 36, 24], ['#fff', 16, 8, 9, 6], ['#fff', 34, 8, 9, 6], ['#fff', 25, 14, 9, 6], ['#fff', 43, 14, 9, 6], ['#fff', 16, 20, 9, 6], ['#fff', 34, 20, 9, 6], ['#fff', 25, 26, 9, 6], ['#fff', 43, 26, 9, 6]],
+  drivers: [['#2a4fa0', 14, 10, 36, 34], ['#e8e8e8', 18, 20, 28, 12], ['#111', 20, 22, 24, 8], ['#2a4fa0', 10, 44, 44, 14]],
+};
+function iconSvg(id) {
+  return `<svg viewBox="0 0 64 64" width="44" height="44">${ICONS[id].map(p => p[0] === 'path' ? `<path d="${p[2]}" fill="none" stroke="${p[1]}" stroke-width="3"/>` : `<rect x="${p[1]}" y="${p[2]}" width="${p[3]}" height="${p[4]}" fill="${p[0]}"/>`).join('')}</svg>`;
+}
+
+export class Computer {
+  // src: { world() -> the World Career world, answer(mail, key), changed(), sfx: { move, select, back } }
+  constructor(src) {
+    this.src = src;
+    this.el = document.createElement('div'); this.el.id = 'pc'; this.el.hidden = true;
+    this.el.innerHTML = `<div class="pc-screen"><div class="pc-desk"></div><div class="pc-win" hidden></div><div class="pc-task"></div></div><div class="pc-glass"></div>`;
+    document.body.appendChild(this.el);
+    this.scr = this.el.querySelector('.pc-screen');
+    this.app = null; this.page = {}; this.hist = []; this.cur = null; this.isOpen = false;
+    this.idle = document.createElement('canvas'); this.idle.width = W; this.idle.height = H;
+    this.el.addEventListener('click', (e) => {
+      const a = e.target.closest('[data-act]'); if (!a || !this.isOpen) return;
+      this.focusEl(a, false); this.act(a.dataset.act, a.dataset.arg);
+    });
+    this.el.addEventListener('mousemove', (e) => { const a = e.target.closest('[data-nav]'); if (a && a !== this.cur) this.focusEl(a, false); });
+  }
+
+  // ---------- open / close (main.js calls these as the camera arrives at / leaves the screen) ----------
+  open() { this.isOpen = true; this.el.hidden = false; requestAnimationFrame(() => this.el.classList.add('on')); this.render(); }
+  close() { this.isOpen = false; this.el.classList.remove('on'); this.el.hidden = true; this.app = null; this.hist = []; this.drawIdle(); }
+  // fit the screen onto a rect (CSS pixels: the monitor's glass on screen)
+  place(r) {
+    const s = this.el.style; s.left = r.x + 'px'; s.top = r.y + 'px'; s.width = r.w + 'px'; s.height = r.h + 'px';
+    this.scr.style.transform = `scale(${r.w / W}, ${r.h / H})`;
+  }
+  // straight to something: ('mail', mailId) opens that email
+  goto(app, arg) { this.launch(app); if (app === 'mail' && arg) this.go({ mail: arg }); }
+
+  get w() { return this.src.world(); }
+  // does the open app have sections to flip through (LB / RB)?
+  get hasTabs() { return this.app === 'series' || (this.app === 'drivers' && !this.page.pid); }
+
+  // ---------- input ----------
+  input({ up, down, left, right, ok, back, tabPrev, tabNext }) {
+    if (back) { if (this.app) this.back(); else return 'stand'; return; }
+    if (tabPrev || tabNext) { this.flip(tabNext ? 1 : -1); return; }
+    if (up) this.move(0, -1); if (down) this.move(0, 1); if (left) this.move(-1, 0); if (right) this.move(1, 0);
+    if (ok && this.cur) { const a = this.cur; if (a.dataset.act) { this.act(a.dataset.act, a.dataset.arg); } }
+  }
+  // what you can select: the open window's contents, else the desktop's icons
+  navs() { return [...this.scr.querySelectorAll(this.app ? '.pc-win [data-nav]' : '.pc-desk [data-nav]')].filter(e => e.offsetParent !== null); }
+  focusEl(e, scroll = true) {
+    if (this.cur) this.cur.classList.remove('f');
+    this.cur = e; if (!e) return;
+    e.classList.add('f'); this.curKey = e.dataset.key || null;
+    if (scroll) e.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+  move(dx, dy) {
+    const els = this.navs(); if (!els.length) return;
+    const cur = this.cur && els.includes(this.cur) ? this.cur : null;
+    if (!cur) { this.focusEl(els[0]); return; }
+    // a scrolling pane (an email, an article) scrolls before the focus leaves it
+    if (dy && cur.dataset.scroll !== undefined) {
+      const sc = cur, room = dy > 0 ? sc.scrollHeight - sc.clientHeight - sc.scrollTop : sc.scrollTop;
+      if (room > 2) { sc.scrollBy({ top: dy * 90, behavior: 'smooth' }); return; }
+    }
+    const a = cur.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+    let best = null, bs = Infinity;
+    for (const e of els) {
+      if (e === cur) continue;
+      const b = e.getBoundingClientRect(), bx = b.left + b.width / 2, by = b.top + b.height / 2;
+      const along = dx ? (bx - ax) * dx : (by - ay) * dy;
+      if (along <= 1) continue;
+      // overlapping across the move's axis counts as straight ahead
+      const overlap = dx ? Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) : Math.min(a.right, b.right) - Math.max(a.left, b.left);
+      const perp = overlap > 0 ? 0 : dx ? Math.abs(by - ay) : Math.abs(bx - ax);
+      const s = along + perp * 3;
+      if (s < bs) { bs = s; best = e; }
+    }
+    if (best) { this.focusEl(best); this.src.sfx?.move?.(); }
+  }
+
+  // ---------- apps + pages ----------
+  launch(app) {
+    this.app = app; this.hist = []; this._lastApp = app;
+    const w = this.w;
+    this.page = app === 'mail' ? { mail: (w.mail || [])[0]?.id || null }
+      : app === 'news' ? { news: 'home' }
+      : app === 'series' ? { s: w.player.series, tab: 'standings' }
+      : { db: w.player.series, pid: null };
+    if (app === 'mail' && this.page.mail) this.markRead(this.page.mail);
+    this.curKey = null; this.render(); this.src.sfx?.select?.();
+  }
+  go(page) { this.hist.push(this.page); this.page = { ...this.page, ...page }; this.curKey = null; if (page.mail) this.markRead(page.mail); this.render(); }
+  back() {
+    if (this.hist.length && this.app !== 'mail') { this.page = this.hist.pop(); this.curKey = null; this.render(); }
+    else { this.app = null; this.hist = []; this.curKey = 'app-' + (this._lastApp || 'mail'); this.render(); }
+    this.src.sfx?.back?.();
+  }
+  flip(d) {
+    if (this.app === 'series') { const t = SITE_TABS, k = (t.indexOf(this.page.tab) + d + t.length) % t.length; this.page = { ...this.page, tab: t[k] }; this.hist = []; this.curKey = 'tab-' + t[k]; this.render(); this.src.sfx?.move?.(); }
+    else if (this.app === 'drivers' && !this.page.pid) { const t = DB_TABS, k = (t.indexOf(this.page.db) + d + t.length) % t.length; this.page = { db: t[k], pid: null }; this.curKey = 'db-' + t[k]; this.render(); this.src.sfx?.move?.(); }
+  }
+  markRead(id) { const m = (this.w.mail || []).find(x => x.id === id); if (m && !m.read) { m.read = true; this.src.changed?.(); } }
+  act(a, arg) {
+    if (a === 'app') { this.launch(arg); return; }
+    if (a === 'close') { this.back(); return; }
+    if (a === 'back') { this.back(); return; }
+    if (a === 'mail') { this.page = { mail: arg }; this.markRead(arg); this.curKey = 'mail-' + arg; this.render(); this.src.sfx?.select?.(); return; }
+    if (a === 'reply') { const [id, key] = arg.split(':'), m = this.w.mail.find(x => x.id === id); if (m && !m.answer) { this.src.answer(m, key); this.curKey = null; this.render(); } return; }
+    if (a === 'article') { this.go({ news: +arg }); this.src.sfx?.select?.(); return; }
+    if (a === 'site') { this.hist = []; this.page = { s: arg, tab: 'standings' }; this.curKey = null; this.render(); this.src.sfx?.select?.(); return; }
+    if (a === 'tab') { this.hist = []; this.page = { ...this.page, tab: arg }; this.curKey = 'tab-' + arg; this.render(); this.src.sfx?.select?.(); return; }
+    if (a === 'db') { this.page = { db: arg, pid: null }; this.hist = []; this.curKey = 'db-' + arg; this.render(); this.src.sfx?.select?.(); return; }
+    if (a === 'driver') { this.go({ pid: arg }); this.src.sfx?.select?.(); return; }
+  }
+
+  // ---------- drawing ----------
+  render() {
+    const w = this.w; if (!w) return;
+    const team = w.teams[w.player.team];
+    this.scr.style.setProperty('--team', hex(team.main)); this.scr.style.setProperty('--team2', hex(team.accent));
+    const desk = this.scr.querySelector('.pc-desk'), win = this.scr.querySelector('.pc-win'), task = this.scr.querySelector('.pc-task');
+    const nMail = WC.unreadMail(w);
+    desk.innerHTML = `<div class="pc-wall"><b>${esc(team.name)}</b><small>${esc(WC.seriesById(w.player.series).name)} &middot; ${w.year}</small></div>` +
+      APPS.map((a, k) => `<div class="pc-icon" data-nav data-act="app" data-arg="${a.id}" data-key="app-${a.id}" style="left:${ICON_X}px;top:${ICON_Y + k * ICON_STEP}px">${iconSvg(a.id)}<span>${a.label}</span>${a.id === 'mail' && nMail ? `<em>${nMail}</em>` : ''}</div>`).join('');
+    const app = APPS.find(a => a.id === this.app);
+    task.innerHTML = `<span class="pc-start">SV</span>${app ? `<span class="pc-tb on">${app.label}</span>` : ''}<span class="pc-clock">${esc(this.clock())}</span>`;
+    win.hidden = !app;
+    if (app) {
+      const body = this.app === 'mail' ? this.mailApp() : this.browser();
+      win.innerHTML = `<div class="pc-title"><span>${app.title}${this.app !== 'mail' ? ' &mdash; ' + esc(this.url()) : ''}</span><i data-nav data-act="close" data-key="close">&times;</i></div>${body}`;
+    }
+    // focus: what you had, else the first thing worth selecting
+    const els = this.navs();
+    const keep = this.curKey && els.find(e => e.dataset.key === this.curKey);
+    this.cur = null;
+    this.focusEl(keep || els.find(e => e.dataset.first !== undefined) || els.find(e => e.dataset.act !== 'close') || els[0], !!keep);
+    this.drawIdle(); this.src.view?.();
+  }
+  clock() { const w = this.w; return `${WC.whenOf(w)} ${w.year}`; }
+
+  // Mail: the inbox on the left, the open email on the right
+  mailApp() {
+    const w = this.w, list = w.mail || [], cur = list.find(m => m.id === this.page.mail) || list[0];
+    const rows = list.map(m => `<div class="pc-mrow${m.read ? '' : ' unread'}${cur && m.id === cur.id ? ' sel' : ''}" data-nav data-act="mail" data-arg="${m.id}" data-key="mail-${m.id}"${cur && m.id === cur.id && !(cur.choices && !cur.answer) ? ' data-first' : ''}>
+      <b>${esc(m.from)}</b><span>${esc(m.subj)}</span><small>${esc(m.when || '')} ${m.y}</small></div>`).join('') || '<p class="pc-empty">No mail.</p>';
+    const me = `${w.player.name.split(' ')[0].toLowerCase()}@${w.teams[w.player.team].name.toLowerCase().replace(/[^a-z]+/g, '')}.sv`;
+    let read = '<p class="pc-empty">Select an email to read it.</p>';
+    if (cur) {
+      const ch = cur.choices && !cur.answer ? `<div class="pc-reply">${cur.choices.map(([k, t], i) => `<button class="pc-btn" data-nav data-act="reply" data-arg="${cur.id}:${k}" data-key="reply-${k}"${i === 0 ? ' data-first' : ''}>${esc(t)}</button>`).join('')}</div>` : '';
+      const ans = cur.answer ? `<p class="pc-sent">You replied: ${esc(cur.choices.find(c => c[0] === cur.answer)?.[1] || cur.answer)}</p>` : '';
+      read = `<div class="pc-mhead"><div><small>From:</small> ${esc(cur.from)} &lt;${esc(cur.addr)}&gt;</div><div><small>To:</small> ${esc(me)}</div><div><small>Date:</small> ${esc(cur.when || '')} ${cur.y}</div><div class="subj">${esc(cur.subj)}</div></div>
+        <div class="pc-mbody" data-nav data-scroll data-key="mbody">${(Array.isArray(cur.body) ? cur.body : [cur.body]).map(p => `<p>${esc(p)}</p>`).join('')}${this.reportTable(cur.report, cur.y)}${ans}</div>${ch}`;
+    }
+    return `<div class="pc-mail"><div class="pc-mbar">Inbox (${WC.unreadMail(w)} unread)</div><div class="pc-mlist">${rows}</div><div class="pc-mread">${read}</div></div>`;
+  }
+
+  // the browser: one of the websites
+  url() {
+    const p = this.page;
+    if (this.app === 'news') return 'www.paddockwire.sv' + (p.news === 'home' ? '/' : `/story/${p.news}`);
+    if (this.app === 'series') return `www.${WC.siteOf(WC.seriesById(p.s))}/${p.tab}`;
+    return 'www.driverdb.sv' + (p.pid ? `/driver/${p.pid}` : `/${p.db}`);
+  }
+  browser() {
+    const site = this.app === 'news' ? this.newsSite() : this.app === 'series' ? this.seriesSite() : this.driverSite();
+    return `<div class="pc-bar"><button class="pc-btn sm" data-nav data-act="back" data-key="bback">&larr; Back</button><div class="pc-url">http://${esc(this.url())}</div></div><div class="pc-page">${site}</div>`;
+  }
+
+  // the Paddock Wire: headlines, and a story page (race reports carry the classification)
+  newsSite() {
+    const w = this.w, items = w.news || [];
+    const mast = `<div class="nw-mast"><b>THE PADDOCK WIRE</b><small>Motorsport news from San Velocita &middot; ${w.year}</small></div>`;
+    if (this.page.news !== 'home') {
+      const n = items[this.page.news]; if (!n) return mast;
+      return mast + `<div class="nw-story" data-nav data-scroll data-key="story" data-first><div class="nw-date">${esc(n.when || '')} ${n.y}</div><h1>${esc(cap(n.head))}</h1><div class="nw-by">By Wire staff</div><p>${esc(n.body)}</p>${this.reportTable(n.report, n.y)}</div>`;
+    }
+    if (!items.length) return mast + '<p class="pc-empty">No stories yet.</p>';
+    const lead = items[0];
+    const rest = items.slice(1, 40).map((n, k) => `<div class="nw-row" data-nav data-act="article" data-arg="${k + 1}" data-key="art-${k + 1}"><small>${esc(n.when || '')} ${n.y}</small><a>${esc(cap(n.head))}</a></div>`).join('');
+    return mast + `<div class="nw-lead" data-nav data-act="article" data-arg="0" data-key="art-0" data-first><small>LATEST &middot; ${esc(lead.when || '')} ${lead.y}</small><h1>${esc(cap(lead.head))}</h1><p>${esc(lead.body)}</p></div>
+      <div class="nw-ad">YOUR LOGO HERE &middot; Advertise on the Wire &middot; call 555-0199</div><div class="nw-list">${rest}</div>`;
+  }
+  // a round's classification (only while that season's results are still kept)
+  reportTable(rep, y) {
+    const w = this.w; if (!rep || y !== w.year) return '';
+    const res = w.series[rep.s]?.results.find(r => r.round === rep.round); if (!res) return '';
+    return `<table class="pc-tbl"><tr><th>POS</th><th>DRIVER</th><th>TEAM</th><th class="r">PTS</th></tr>${res.rows.slice().sort((a, b) => (a.dnf - b.dnf) || a.pos - b.pos).map(r => {
+      const tid = WC.teamOfPid(w, r.pid), t = w.teams[tid];
+      return `<tr class="${r.pid === 'P' ? 'me' : ''}"><td>${r.dnf ? 'DNF' : r.pos}</td><td><i class="sw" style="background:${hex(t?.main)}"></i>${esc(WC.displayName(w, r.pid))}${r.fl ? ' <small>FL</small>' : ''}</td><td>${esc(t?.name || '')}</td><td class="r">${r.pts || ''}</td></tr>`; }).join('')}</table>`;
+  }
+
+  // a series' website: standings, teams, calendar, champions; links to the other series
+  seriesSite() {
+    const w = this.w, s = WC.seriesById(this.page.s), S = w.series[s.id], tab = this.page.tab;
+    const nav = SITE_TABS.map(t => `<span class="ss-tab${t === tab ? ' on' : ''}" data-nav data-act="tab" data-arg="${t}" data-key="tab-${t}"${t === tab ? ' data-first' : ''}>${SITE_TAB_NAME[t]}</span>`).join('');
+    const others = WC.SERIES.filter(x => x.id !== s.id).map(x => `<span class="ss-link" data-nav data-act="site" data-arg="${x.id}" data-key="site-${x.id}">${esc(x.name)} &rarr;</span>`).join('');
+    let body = '';
+    if (tab === 'standings') {
+      const st = WC.seriesStandings(w, s.id);
+      body = !S.results.length ? '<p class="pc-empty">The season hasn\'t started.</p>' : `<table class="pc-tbl"><tr><th>POS</th><th>DRIVER</th><th>TEAM</th><th class="r">WINS</th><th class="r">PTS</th></tr>${st.map((e, k) => {
+        const t = w.teams[WC.teamOfPid(w, e.pid)];
+        return `<tr class="${e.pid === 'P' ? 'me' : ''}"><td>${k + 1}</td><td><i class="sw" style="background:${hex(t?.main)}"></i>${esc(WC.displayName(w, e.pid))}</td><td>${esc(t?.name || '')}</td><td class="r">${e.wins}</td><td class="r">${e.pts}</td></tr>`; }).join('')}</table>`;
+    } else if (tab === 'teams') {
+      const st = WC.teamStandings(w, s.id), list = st.length ? st : S.teams.map(tid => ({ tid, pts: 0, wins: 0 }));
+      body = `<table class="pc-tbl"><tr><th>POS</th><th>TEAM</th><th>DRIVERS</th><th class="r">WINS</th><th class="r">PTS</th></tr>${list.map((e, k) => {
+        const t = w.teams[e.tid];
+        return `<tr class="${t.mine ? 'me' : ''}"><td>${k + 1}</td><td><i class="sw" style="background:${hex(t.main)}"></i>${esc(t.name)}</td><td>${t.drivers.map(d => esc(WC.displayName(w, d))).join(', ')}</td><td class="r">${e.wins}</td><td class="r">${e.pts}</td></tr>`; }).join('')}</table>`;
+    } else if (tab === 'calendar') {
+      body = `<table class="pc-tbl"><tr><th>RD</th><th>CIRCUIT</th><th>CONDITIONS</th><th>WINNER</th></tr>${S.cal.map((c, k) => {
+        const res = S.results.find(x => x.round === k), win = res && res.rows.find(x => x.pos === 1 && !x.dnf);
+        const now = s.id === w.player.series && k === w.round && !w.over;
+        return `<tr class="${now ? 'now' : ''}"><td>${k + 1}</td><td>${esc(c.name)}${now ? ' <small>NEXT</small>' : ''}</td><td>${esc(c.time)}${c.weather === 'clear' ? '' : ', ' + esc(c.weather)}</td><td>${win ? esc(WC.displayName(w, win.pid)) : ''}</td></tr>`; }).join('')}</table>`;
+    } else {
+      const rows = w.seasons.slice().reverse().map(sum => { const pid = sum.champs[s.id], tid = sum.teamChamps[s.id]; return `<tr class="${pid === 'P' ? 'me' : ''}"><td>${sum.year}</td><td>${pid ? esc(WC.displayName(w, pid)) : ''}</td><td>${tid ? esc(w.teams[tid].name) : ''}</td></tr>`; }).join('');
+      body = rows ? `<table class="pc-tbl"><tr><th>YEAR</th><th>CHAMPION</th><th>TEAMS' CHAMPION</th></tr>${rows}</table>` : '<p class="pc-empty">No champions yet: the first title is decided this year.</p>';
+    }
+    return `<div class="ss" style="--ss:${SERIES_COL[s.id]}"><div class="ss-head"><b>${esc(s.name.toUpperCase())}</b><small>Official website &middot; ${w.year} season</small></div><div class="ss-nav">${nav}</div><div class="ss-body">${body}</div><div class="ss-foot">Other series: ${others}</div></div>`;
+  }
+
+  // the driver database: everyone, by series (and the retired), and a page per driver
+  driverSite() {
+    const w = this.w, p = this.page;
+    const head = `<div class="db-head"><b>Velocita Driver Database</b><small>Every driver, every season</small></div>`;
+    if (p.pid) return head + this.driverPage(p.pid);
+    const nav = DB_TABS.map(t => `<span class="db-tab${t === p.db ? ' on' : ''}" data-nav data-act="db" data-arg="${t}" data-key="db-${t}">${t === 'retired' ? 'Retired' : esc(WC.seriesById(t).name)}</span>`).join('');
+    let ids;
+    if (p.db !== 'retired') {
+      const st = WC.seriesStandings(w, p.db), order = st.map(e => e.pid);
+      for (const tid of w.series[p.db].teams) for (const pid of w.teams[tid].drivers) if (!order.includes(pid)) order.push(pid);
+      ids = order.filter(pid => pid === 'P' || (w.people[pid] && !w.people[pid].retired && w.teams[WC.teamOfPid(w, pid)]?.series === p.db));
+    } else ids = Object.values(w.people).filter(x => x.retired && x.starts > 0).sort((a, b) => b.titles - a.titles || b.wins - a.wins || b.starts - a.starts).slice(0, 40).map(x => x.id);
+    const rows = ids.map((pid, k) => {
+      const isP = pid === 'P', x = isP ? w.player : w.people[pid], t = w.teams[WC.teamOfPid(w, pid)];
+      return `<tr class="${isP ? 'me' : ''}" data-nav data-act="driver" data-arg="${pid}" data-key="drv-${pid}"${k === 0 ? ' data-first' : ''}><td><a>${esc(WC.displayName(w, pid))}</a></td><td>${isP ? 'You' : NAT[x.nat] || x.nat}</td><td>${p.db === 'retired' ? x.retiredYear : esc(t?.name || '')}</td><td class="r">${x.wins}</td><td class="r">${x.titles}</td></tr>`;
+    }).join('');
+    return head + `<div class="db-nav">${nav}</div>` + (rows ? `<table class="pc-tbl db"><tr><th>DRIVER</th><th>FROM</th><th>${p.db === 'retired' ? 'RETIRED' : 'TEAM'}</th><th class="r">WINS</th><th class="r">TITLES</th></tr>${rows}</table>` : '<p class="pc-empty">Nobody here yet.</p>');
+  }
+  driverPage(pid) {
+    const w = this.w, isP = pid === 'P', p = isP ? null : w.people[pid], c = isP ? w.player : p;
+    if (!c) return '';
+    const t = w.teams[isP ? w.player.team : p.team];
+    const bar = (k, v) => `<div class="db-stat"><span>${k}</span><i><b style="width:${Math.round(v)}%"></b></i><em>${Math.round(v)}</em></div>`;
+    const hist = c.hist.slice().reverse().map(h => `<tr><td>${h.y}</td><td>${esc(WC.seriesById(h.s).name)}</td><td>${esc(h.team)}</td><td class="r">${ord(h.pos)}</td><td class="r">${h.wins}</td><td class="r">${h.pts}</td></tr>`).join('');
+    const h = !isP ? WC.h2hOf(w, pid) : null;
+    return `<div class="db-page" data-nav data-scroll data-key="dbpage" data-first>
+      <h1>${esc(isP ? w.player.name : WC.nameOf(p))}</h1>
+      <div class="db-facts">${isP ? 'You' : `${NAT[p.nat] || p.nat} &middot; age ${WC.ageOf(w, p)}`} &middot; ${p && p.retired ? 'retired ' + p.retiredYear : t ? esc(t.name) : 'no seat'}</div>
+      <div class="db-cells"><div><small>Starts</small><b>${c.starts}</b></div><div><small>Wins</small><b>${c.wins}</b></div><div><small>Podiums</small><b>${c.pods}</b></div><div><small>Titles</small><b>${c.titles}</b></div></div>
+      ${isP ? '' : `<h2>Scouting report</h2>${bar('Pace', p.pace)}${bar('Consistency', p.cons)}${bar('Racecraft', p.craft)}${bar('Wet weather', p.wet)}${bar('Aggression', p.aggr)}`}
+      ${h && h.races ? `<h2>Against you</h2><div class="db-cells"><div><small>Races</small><b>${h.races}</b></div><div><small>Ahead of you</small><b>${h.behind}</b></div><div><small>Passes</small><b>${h.youPassed} / ${h.passedYou}</b></div><div><small>Contact</small><b>${h.contacts}</b></div></div>` : ''}
+      <h2>Career</h2>${hist ? `<table class="pc-tbl"><tr><th>YEAR</th><th>SERIES</th><th>TEAM</th><th class="r">POS</th><th class="r">WINS</th><th class="r">PTS</th></tr>${hist}</table>` : '<p class="pc-empty">No full seasons yet.</p>'}
+    </div>`;
+  }
+
+  // ---------- the idle desktop, for the monitor's texture ----------
+  drawIdle() {
+    const w = this.w; if (!w) return;
+    const g = this.idle.getContext('2d'), team = w.teams[w.player.team];
+    const grd = g.createLinearGradient(0, 0, 0, H); grd.addColorStop(0, '#0e4a52'); grd.addColorStop(1, '#06262b');
+    g.fillStyle = grd; g.fillRect(0, 0, W, H);
+    // the wallpaper's team name (bottom right)
+    g.textAlign = 'right'; g.textBaseline = 'alphabetic';
+    g.font = "bold 46px Arimo, Arial, sans-serif"; g.fillStyle = 'rgba(255,255,255,.14)'; g.fillText(team.name.toUpperCase(), W - 30, H - TASK_H - 52);
+    g.font = "16px Arimo, Arial, sans-serif"; g.fillStyle = 'rgba(255,255,255,.3)'; g.fillText(`${WC.seriesById(w.player.series).name} · ${w.year}`.toUpperCase(), W - 30, H - TASK_H - 28);
+    g.fillStyle = hex(team.main); g.fillRect(W - 30 - 120, H - TASK_H - 112, 120, 6);
+    // icons
+    const nMail = WC.unreadMail(w);
+    APPS.forEach((a, k) => {
+      const x = ICON_X + 8, y = ICON_Y + k * ICON_STEP + 4, s = 44 / 64;
+      for (const p of ICONS[a.id]) {
+        if (p[0] === 'path') { g.strokeStyle = p[1]; g.lineWidth = 3 * s; g.beginPath(); g.moveTo(x + 6 * s, y + 14 * s); g.lineTo(x + 32 * s, y + 34 * s); g.lineTo(x + 58 * s, y + 14 * s); g.stroke(); }
+        else { g.fillStyle = p[0]; g.fillRect(x + p[1] * s, y + p[2] * s, p[3] * s, p[4] * s); }
+      }
+      g.textAlign = 'center'; g.font = "13px Arimo, Arial, sans-serif"; g.fillStyle = '#fff'; g.fillText(a.label, x + 22, y + 64);
+      if (a.id === 'mail' && nMail) { g.fillStyle = '#d23a2a'; g.beginPath(); g.arc(x + 46, y + 2, 10, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = "bold 12px Arimo, Arial, sans-serif"; g.fillText(String(nMail), x + 46, y + 6); }
+    });
+    // the taskbar
+    g.fillStyle = '#c3c0b6'; g.fillRect(0, H - TASK_H, W, TASK_H);
+    g.fillStyle = '#fff'; g.fillRect(0, H - TASK_H, W, 2);
+    g.fillStyle = '#e6e3da'; g.fillRect(4, H - TASK_H + 4, 44, TASK_H - 8);
+    g.fillStyle = '#111'; g.textAlign = 'center'; g.font = "bold 13px Arimo, Arial, sans-serif"; g.fillText('SV', 26, H - 10);
+    g.textAlign = 'right'; g.font = "13px Arimo, Arial, sans-serif"; g.fillText(this.clock(), W - 12, H - 10);
+    this.idleDirty = true;
+  }
+}
+const SITE_TABS = ['standings', 'teams', 'calendar', 'champions'];
+const SITE_TAB_NAME = { standings: 'Standings', teams: 'Teams', calendar: 'Calendar', champions: 'Champions' };
+const DB_TABS = ['street', 'gt', 'formula', 'retired'];
+const SERIES_COL = { street: '#e0642a', gt: '#2a8f5a', formula: '#2a4fa0' };
+// headlines are stored in capitals (for the phone); the news site writes them in title case
+function cap(s) { return String(s).toLowerCase().replace(/(^|[\s'-])([a-z])/g, (m, a, b) => a + b.toUpperCase()).replace(/\b(At|To|For|Of|The|In|Up)\b(?!$)/g, (m, x, i) => i ? m.toLowerCase() : m); }
