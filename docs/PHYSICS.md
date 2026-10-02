@@ -250,6 +250,19 @@ Monaco keeps the smooth line in every class (the model's hairpins are off), Suzu
 (`svgp.aiLines`, `LINE_VERSION`); plans learned on them are keyed `|l<LINE_VERSION>`. The menu backdrop never fits.
 Clean AI laps, pace 1, no edge, smooth -> fitted: Auburn GT-R 2:03.0 -> 2:01.7, M1 1:47.0 -> 1:45.3, Aventus 1:47.4
 -> 1:45.7, F1 1:27.2 -> 1:24.2; Suzuka M1 -1.7, F1 -2.4; Spa M1 -1.5, F1 -2.1; Maple Ridge -0.8..-2.2.
+**Race starts and lap 1 (2026-10-02).** The user: against Alien they qualify ~8th but gain 5+ places off the start
+("cars make a bolt for the line, go slow and don't push"). Measured (`.devtest/linebench/startpos.mjs`: a clean
+Legend-pace driver with a human start from 8th of a grid in qualifying order): the AI collided 10-15 times on lap 1
+(swerving onto the line off the grid; rear-ending in braking zones, up to 19 m/s at Auburn's T1), damaged wings kept
+them slow all race, and a driver who should drop back ended lap 1 ~6th, sometimes leading. Fixes in aiControls: a
+car ahead is followed by predicting it (its own plan ~0.5 s ahead, or its speed if lower; a 0.2 s gap; 13 m/s2) rather
+than braking for its current speed; off the grid each AI keeps its lane and merges over ~12 s (`ai.lane`); reaction
+0.12-0.32 s (was 0.15-0.6); squeezed alongside, only the car behind lifts. Lap-1 contacts 9.6 -> 6.4, that driver
+ends lap 1 ~9th. 3 x 2-lap races at Alien: walls GT-R 41 -> 24, M1 32 -> 15, F1 45 -> 21; offs down; winners as
+quick or quicker. Tighter following (0.05-0.1 s gap, 15-18 m/s2) brought the contacts back. Launch control for the AI
+(less TC off the line) was mixed (an Aventus launched slower): not done. (`opts.follow 'old'`, `opts.startFix false`:
+the old behaviour, for benches.)
+
 **AI skill as technique (2026-10-02, `js/aiskill.js`).** The user asked why the AI drifts 2-6 m wide on exits. It's
 not sloppiness at top skill: its learning (speeds pushed until it nears the edge) spends any spare room on speed.
 Tried: throttle patience (ease off when the fronts saturate and it drifts: 1-4 s slower, drifted more) and shorter /

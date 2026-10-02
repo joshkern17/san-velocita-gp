@@ -534,7 +534,7 @@ export class Race {
       idx: g.idx, i: g.idx, f: 0, s: g.s, lap: 0, cpNext: 1, lapStart: 0, lapTimes: [], best: Infinity, last: 0,
       finished: false, finishTime: 0, progress: -10, surface: 'road', onRoad: true,
       q: new THREE.Quaternion(), y: 0, offT: 0,
-      ai: isPlayer || extra.human || extra.remote ? null : { pace: this.diff.pace * (1 - Math.random() * this.diff.spread), bias: (Math.random() - 0.5) * 1.2, over: 0, stuckT: 0, react: 0.15 + Math.random() * 0.45 },
+      ai: isPlayer || extra.human || extra.remote ? null : { pace: this.diff.pace * (1 - Math.random() * this.diff.spread), bias: (Math.random() - 0.5) * 1.2, over: 0, stuckT: 0, react: this.opts.startFix === false ? 0.15 + Math.random() * 0.45 : 0.12 + Math.random() * 0.2 },
       ctl: { steer: 0, throttle: 0, brake: 0 },
       pos: 0, pits: 0, pitting: false, pitPhase: null, pitTimer: 0, pitReq: null, radio: {},
       startPos: slot + 1, maxDmg: 0, dmgK: mods ? mods.damage : 1, pitBonus: mods ? mods.pitTime : 0, slipK: mods ? mods.slip : 1,
@@ -1675,8 +1675,13 @@ export class Race {
     // ---- racecraft ----
     let slowTo = Infinity;
     let minOff = -Infinity, maxOff = Infinity; // room left for cars alongside
-    let threat = null;
-    ai.over *= 1 - Math.min(1, dt * 0.4);
+    let threat = null, alongAhead = false;
+    // the start: keep the lane you lined up in and merge onto the line as the run to the first corner allows, rather
+    // than all diving for it at once (and into each other)
+    const fix = this.opts.startFix !== false;
+    if (fix && this.state === 'racing' && !ai.started && this.mode === 'race') { ai.started = true; if (car.lap === 0) { ai.over = car.s - this.line[car.idx]; ai.lane = true; } }
+    if (ai.lane && (this.raceTime > 12 || car.lap > 1)) ai.lane = false;
+    ai.over *= 1 - Math.min(1, dt * (ai.lane ? 0.12 : 0.4));
     if (ai.aggr === undefined) ai.aggr = 0.35 + Math.random() * 0.65;
     // yellow flags here or just ahead: lift, and no overtaking
     const fa = this.rc && this.state === 'racing' ? this.rc.flagAhead(car.idx) : null;
@@ -1695,6 +1700,7 @@ export class Race {
       // alongside (overlapping): never steer into them, leave a car's width
       if (gap > -5.5 && gap < 5.5 && Math.abs(ds) > 1.8 && Math.abs(ds) < 4.2) {
         if (ds > 0) maxOff = Math.min(maxOff, o.s - 2.6); else minOff = Math.max(minOff, o.s + 2.6);
+        if (gap > 0.5) alongAhead = true;
         continue;
       }
       // a car close behind and quicker: defend
@@ -1708,8 +1714,12 @@ export class Race {
           const want = Math.max(-room, Math.min(room, o.s + dir * 3.2)) - this.line[car.idx];
           ai.over += (want - ai.over) * Math.min(1, dt * 2.5);
         }
-        const room = Math.max(0, gap - 6.5);
-        slowTo = Math.min(slowTo, Math.sqrt(o.phys.u * o.phys.u + 2 * 16 * room) - (gap < 8 ? 2 : 0));
+        if (this.opts.follow === 'old') { const room = Math.max(0, gap - 6.5); slowTo = Math.min(slowTo, Math.sqrt(o.phys.u * o.phys.u + 2 * 16 * room) - (gap < 8 ? 2 : 0)); continue; }
+        // follow it like a driver: expect it to slow for what's coming (its own speed plan a little ahead, or the speed
+        // it's doing now if that's lower), keep a gap that grows with speed (~0.2 s), and brake no harder than it can
+        const OV = o.lineV || this.lineV, vLead = Math.min(o.phys.u, OV[(o.idx + Math.round((8 + o.phys.u * 0.5) / T.ds)) % N] * (o.ai ? o.ai.pace : 1));
+        const room = Math.max(0, gap - 6 - u * (this.opts.followH ?? 0.2));
+        slowTo = Math.min(slowTo, Math.sqrt(vLead * vLead + 2 * (this.opts.followA ?? 13) * room) - (gap < 8 ? 2 : 0));
       }
     }
     // defend: one move to cover the inside of the next corner, then hold it (no weaving)
@@ -1735,7 +1745,8 @@ export class Race {
       ai.wOff = (ai.wOff || 0) + (ai.wTgt - (ai.wOff || 0)) * Math.min(1, dt * 0.6);
     }
     let off = Math.max(-lim, Math.min(lim, this.line[j] + ai.bias + ai.over + ai.def + (ai.wOff || 0)));
-    if (minOff > maxOff) { off = (minOff + maxOff) / 2; slowTo = Math.min(slowTo, Math.max(12, u - 1)); } // squeezed: ease off
+    // squeezed between cars: take the middle, and ease off only if one of them is ahead (else it's theirs to give)
+    if (minOff > maxOff) { off = (minOff + maxOff) / 2; if (alongAhead || !fix) slowTo = Math.min(slowTo, Math.max(12, u - 1)); }
     else off = Math.max(minOff, Math.min(maxOff, off));
     off = Math.max(-lim - 0.6, Math.min(lim + 0.6, off));
     // mistake: running wide out of the corner, over the kerb and onto the run-off
