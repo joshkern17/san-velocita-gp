@@ -1385,6 +1385,21 @@ export class Race {
     }
   }
 
+  // World Career: a part on your car fails partway through the race (opts.failure: { part, name, at 0..1, fatal, warn,
+  // why, hurt }). A radio warning a little before; then either the car dies (powerMul 0, the 'failure' event: main.js
+  // plays the moment and retires you) or it limps on.
+  failureCheck(car) {
+    const f = this.opts.failure; if (!f || this.mode !== 'race' || this.state !== 'racing' || car.finished || f.done) return;
+    const len = this.T.open ? this.T.finish + 1 : this.T.N, prog = (car.lap + (car.idx || 0) / len) / Math.max(1, this.laps);
+    if (!f.warned && prog > f.at - 0.12) { f.warned = true; this.events.push({ type: 'radio', msg: f.warn, big: true }); }
+    if (prog < f.at) return;
+    f.done = true;
+    if (f.fatal) { car.phys.powerMul = 0; car.failed = f; }
+    else if (f.part === 'brakes') car.phys.brakeMul = (car.phys.brakeMul || 1) * 0.72;
+    else if (f.part === 'suspension') car.phys.gripMul *= 0.92;
+    else car.phys.powerMul *= 0.82;
+    this.events.push({ type: 'failure', ...f });
+  }
   // team radio about tyres for the player
   tyreRadio(car) {
     if (!this.wearK || car.finished) return;
@@ -1771,7 +1786,7 @@ export class Race {
     }
 
     // pit stops
-    for (const car of this.cars) { this.pitUpdate(car, dt); if (car.isPlayer) { this.tyreRadio(car); this.planRadio(car); } }
+    for (const car of this.cars) { this.pitUpdate(car, dt); if (car.isPlayer) { this.tyreRadio(car); this.planRadio(car); this.failureCheck(car); } }
     this.slipstream(dt);
     for (const car of this.cars) if (car.launch) car.phys.powerMul = car.basePower * (this.state === 'racing' && this.raceTime < 6 ? 1.25 : 1);
 

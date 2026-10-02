@@ -1402,3 +1402,33 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .tr-qty.f { background: #fff7cf; border-color: #111; }
 .tr-total { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-top: 8px; }
 .tr-fine { font-size: 11px; color: #777; margin-top: 10px; }
+/* a car failure in the race (World Career): letterbox bars close in, then what broke */
+#failure { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+.fl-bar { position: absolute; left: 0; right: 0; height: 0; background: #000; transition: height .7s cubic-bezier(.2,.7,.2,1); }
+.fl-bar.top { top: 0; } .fl-bar.bot { bottom: 0; }
+#failure.on .fl-bar { height: 13vh; }
+.fl-card { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); min-width: 420px; padding: 18px 28px; text-align: center; background: rgba(4,3,8,.82); border: 1px solid var(--sv-red); box-shadow: var(--sv-glow-line); opacity: 0; transition: opacity .5s .9s; }
+#failure.on .fl-card { opacity: 1; }
+.fl-card small { display: block; font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track-caption); color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+.fl-card b { display: block; margin: 12px 0 8px; font: 500 34px/1.1 var(--f-ui); letter-spacing: var(--track); color: var(--sv-hot); text-shadow: var(--sv-glow-strong); -webkit-text-fill-color: transparent; }
+.fl-card span { font: 500 var(--t-body)/1.4 var(--f-body); color: var(--sv-red); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; }
+/* the Workshop (your car) and Speed Parts Direct */
+.ws-risk { margin: 8px 0 2px; padding: 6px 10px; background: #f1efe8; border: 1px solid #ddd; }
+.ws-row { display: grid; grid-template-columns: 130px 120px 1fr; align-items: center; gap: 4px 12px; padding: 7px 6px; border-bottom: 1px solid #ddd; }
+.ws-name b { display: block; } .ws-name small { color: #b3161b; font-size: 11px; }
+.ws-row .tm-acts { justify-content: flex-end; }
+.ws-fit { grid-column: 1 / 4; font-size: 12px; color: #444; }
+.ws-fit i { color: #555; } .ws-meas { color: #1d3f9a; font-weight: bold; }
+.sp-head { padding: 10px 14px; background: linear-gradient(90deg, #c8141c, #f06a12); color: #fff; }
+.sp-head b { display: block; font: bold italic 24px Arial, sans-serif; }
+.sp-head small { color: #ffe; }
+.cl-tabs { display: flex; gap: 12px; padding: 4px 14px; border-bottom: 1px solid #eee; }
+.cl-tab { color: #00c; text-decoration: underline; padding: 1px 3px; }
+.cl-tab.on { color: #111; font-weight: bold; text-decoration: none; }
+.cl-tab.f { background: #f1e8ff; outline: 1px dotted #111; }
+.cl-prow { display: grid; grid-template-columns: 80px 1fr auto; align-items: center; gap: 10px; padding: 7px 4px; border-bottom: 1px solid #eee; }
+.cl-prow a { color: #00c; text-decoration: underline; }
+.cl-prow small { display: block; color: #777; }
+.cl-prow em { display: block; font-size: 12px; color: #8a5a00; }
+.cl-danny { color: #7a2cc8; }
+body.cine #hud { opacity: 0; transition: opacity .5s; }

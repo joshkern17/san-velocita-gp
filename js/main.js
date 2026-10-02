@@ -1345,6 +1345,14 @@ const pc = new Computer({
     sfx.best(); saveWorld(); renderHub(); phone.buzz();
   },
   buy: (id) => { if (WC.buyCar(world, id)) { sfx.best(); saveWorld(); renderHub(); } },
+  // the Workshop and the parts sites
+  car: (what, arg) => {
+    if (what === 'rebuild') WC.rebuildPart(world, arg);
+    else if (what === 'newpart') WC.newPart(world, arg);
+    else if (what === 'unfit') WC.removeFit(world, arg);
+    else if (what === 'fitpart') { const part = [...WC.catalogue(world), ...(world.usedParts || [])].find(x => x.id === arg); if (part) WC.buyFit(world, part); }
+    sfx.select(); saveWorld(); renderHub();
+  },
   order: (o) => { const cost = WC.orderTyres(world, o); if (cost) { sfx.best(); saveWorld(); renderHub(); } },
   // the Team app and SVJobs: hire, let go, pay back, payroll instructions
   staff: (what, id, mode) => {
@@ -1523,7 +1531,7 @@ function renderHub() {
     const r = S.cal[w.round], tr = worldPool().find(t => t.name === r.name);
     $('hub-card').innerHTML = `<div class="panel-title">NEXT &middot; ROUND ${w.round + 1} OF ${w.opts.len}</div><div class="season-pips">${pips}</div>
       <div class="ti-name">${r.name}</div><div class="ti-chips"><span>${tr ? THEMES[tr.env.theme].label : ''}</span><span class="wx-chip">${r.time} &middot; ${r.weather}</span></div>
-      <div class="ti-grid">${champ}${bank}</div>${tyreNote(w)}`;
+      <div class="ti-grid">${champ}${bank}</div>${carNote(w)}${tyreNote(w)}`;
   } else {
     const sum = w.seasons.at(-1), you = sum && sum.you, off = w.player.offer;
     $('hub-card').innerHTML = `<div class="panel-title">${w.year} &middot; SEASON COMPLETE</div><div class="season-pips">${pips}</div>
@@ -1573,6 +1581,12 @@ function tyreShort(w) {
   const need = WC.tyreNeeds(w), st = WC.stockOf(w), short = WC.COMPOUNDS.filter(c => st[c] < need[c]);
   return short.length ? short : null;
 }
+// the car needs work (the riskiest part), from the Workshop's numbers
+function carNote(w) {
+  const P = w.car && WC.carParts(w); if (!P || WC.failRisk(w) < 0.08) return '';
+  const worst = WC.PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)[0];
+  return `<p class="hub-note">The car needs work: <b>${WC.PARTS[worst].name.toLowerCase()} ${Math.round(P[worst].cond * 100)}%</b>. Worn parts can fail in a race (the Workshop, on the computer).</p>`;
+}
 function tyreNote(w) {
   const short = tyreShort(w); if (!short) return '';
   const st = WC.stockOf(w);
@@ -1615,14 +1629,27 @@ function startWorldRound() {
   // bought one yet) gets the car select instead
   const owned = w.car && CARS[carId(wc)]?.cls === cls;
   const car = CARS[carId(wc)]?.cls === cls ? wc : { ...wc, chassis: chassisKey(carsOfClass(cls)[0]) };
-  const mods = owned ? { power: WC.condPower(w.car.cond), downforce: 1, drag: 1, brake: 1, grip: 1, rainGrip: 1, wear: 1, damage: 1, pitTime: w.staff ? WC.staffEffects(w).pitTime : 0, slip: 1, softs: false, launch: false } : null;
+  // (its parts: condition and upgrades; and whether one of them lets go this race)
+  const mods = owned ? { ...WC.carMods(w), pitTime: w.staff ? WC.staffEffects(w).pitTime : 0 } : null;
+  const failure = owned ? WC.rollFailure(w) : null;
   const brief = `<b>${seriesName(sid).toUpperCase()} &middot; ROUND ${w.round + 1} OF ${w.opts.len}</b>`;
   const race = { mode: 'race', laps: w.opts.laps, opponents: 11, brief, pick: !owned, onlyClass: cls,
-    extra: { car, mods, difficulty: w.opts.difficulty, grid: 'back', team: 'garage', roster: ent.roster, entries: ent.entries, teamPace: ent.teamPace, gridOrder, aiChassis: 'class', playerName: w.player.name.split(' ').pop().toUpperCase() } };
+    extra: { car, mods, failure, difficulty: w.opts.difficulty, grid: 'back', team: 'garage', roster: ent.roster, entries: ent.entries, teamPace: ent.teamPace, gridOrder, aiChassis: 'class', playerName: w.player.name.split(' ').pop().toUpperCase() } };
   phone.hide();
   if (w.opts.weekend !== 'race') return startWeekend(track, race, 'world', w.opts.weekend, [w.opts.pracLen, w.opts.qualiLen]);
   weekend = null;
   startRace(track, race, 'world');
+}
+// World Career: a part failed in the race. Fatal: the moment (bars close in, the car coasts, a panel says what broke),
+// then you're out. Otherwise: a warning, and you carry on with a wounded car.
+function carFailure(f) {
+  if (wkUse) wkUse.failed = f.part;
+  if (!f.fatal) { hud.center(`<b>${f.name.toUpperCase()}</b><small>${f.hurt}</small>`, 'warn', 3500); sfx.lap(); return; }
+  sfx.lap();
+  const el = $('failure');
+  el.innerHTML = `<div class="fl-bar top"></div><div class="fl-bar bot"></div><div class="fl-card"><small>${f.name.toUpperCase()} FAILURE</small><b>${f.why}</b><span>Your race is over.</span></div>`;
+  el.hidden = false; requestAnimationFrame(() => el.classList.add('on')); document.body.classList.add('cine');
+  setTimeout(() => { document.body.classList.remove('cine'); if (!sim || raceReturn !== 'world') return; el.classList.remove('on'); setTimeout(() => { el.hidden = true; }, 400); worldRoundDone(true); }, 5200);
 }
 function worldRoundDone(retired = false) {
   const w = world; if (!w || !sim) return;
@@ -1631,7 +1658,7 @@ function worldRoundDone(retired = false) {
   const sid = w.player.series, round = w.round, trackName = w.series[sid].cal[round].name;
   useSession();
   if (wkUse && wkUse.carry) WC.keepUsed(w, wkUse.carry); // (the race's last set goes on the shelf, for what it's worth)
-  const out = WC.recordPlayerRound(w, res, sim.log || [], wkUse && w.money ? { trackside: wkUse.trackside, laps: wkUse.laps, damage: wkUse.damage, aidPct: Math.max(0, sim.aidBonus ?? 0) } : null);
+  const out = WC.recordPlayerRound(w, res, sim.log || [], wkUse && w.money ? { trackside: wkUse.trackside, laps: wkUse.laps, damage: wkUse.damage, failed: wkUse.failed || null, aidPct: Math.max(0, sim.aidBonus ?? 0) } : null);
   wkUse = null;
   saveWorld();
   sim.setPaused(true);
@@ -2359,6 +2386,7 @@ function handleRaceEvents() {
     }
     else if (ev.type === 'dsq') { hud.center('DISQUALIFIED<span class="sub">BLACK FLAG</span>', 'white', 4500); sfx.error(); }
     else if (ev.type === 'rc') { hud.rcMessage(ev.msg, ev.cls, ev.me); if (ev.me && (ev.cls === 'pen' || ev.cls === 'bw' || ev.cls === 'bk' || ev.cls === 'mo')) sfx.error(); else if (ev.me) sfx.select(); }
+    else if (ev.type === 'failure') carFailure(ev);
     else if (ev.type === 'radio') { hud.help(`<b>RADIO</b><br>${ev.msg}`, ev.big ? 6000 : 4500); if (ev.big) sfx.lap(); }
     else if (ev.type === 'pitIn') { pitSel = 0; sfx.select(); }
     else if (ev.type === 'pitOut') { hud.split(`<span class="t">PIT STOP</span><span class="faster">${ev.time.toFixed(1)}s</span>`, 2500); sfx.go(); }

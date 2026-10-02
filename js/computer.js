@@ -27,7 +27,9 @@ const APPS = [
   { id: 'drivers', label: 'Driver Database', title: 'Web Browser' },
   { id: 'bank', label: 'Bank', title: 'Web Browser' },
   { id: 'classifieds', label: 'Classifieds', title: 'Web Browser' },
+  { id: 'workshop', label: 'Workshop', title: 'Workshop' },
   { id: 'team', label: 'Team', title: 'Team' },
+  { id: 'parts', label: 'Speed Parts', title: 'Web Browser', hidden: true }, // (from the Workshop)
   { id: 'tyres', label: 'Tyre Orders', title: 'Web Browser' },
   { id: 'telemetry', label: 'Telemetry', title: 'Telemetry' },
   { id: 'jobs', label: 'SVJobs', title: 'Web Browser', hidden: true }, // (reached from the Team app)
@@ -42,6 +44,7 @@ const ICONS = {
   news: [['#ffffff', 10, 6, 44, 52], ['#1a1a1a', 15, 11, 34, 7], ['#9a9a9a', 15, 22, 34, 3], ['#9a9a9a', 15, 28, 34, 3], ['#9a9a9a', 15, 34, 22, 3], ['#c23', 40, 34, 9, 14], ['#9a9a9a', 15, 40, 22, 3], ['#9a9a9a', 15, 46, 22, 3]],
   series: [['#5a5a5a', 12, 6, 4, 54], ['#111', 16, 8, 36, 24], ['#fff', 16, 8, 9, 6], ['#fff', 34, 8, 9, 6], ['#fff', 25, 14, 9, 6], ['#fff', 43, 14, 9, 6], ['#fff', 16, 20, 9, 6], ['#fff', 34, 20, 9, 6], ['#fff', 25, 26, 9, 6], ['#fff', 43, 26, 9, 6]],
   drivers: [['#2a4fa0', 14, 10, 36, 34], ['#e8e8e8', 18, 20, 28, 12], ['#111', 20, 22, 24, 8], ['#2a4fa0', 10, 44, 44, 14]],
+  workshop: [['#8a8f96', 8, 30, 48, 8], ['#5e646c', 26, 10, 12, 22], ['#c8141c', 24, 6, 16, 8], ['#3a3d44', 12, 38, 8, 16], ['#3a3d44', 44, 38, 8, 16]],
   tyres: [['#111', 10, 10, 44, 44], ['#3a3a3a', 18, 18, 28, 28], ['#c8c8c8', 26, 26, 12, 12], ['#e0302a', 10, 30, 6, 4], ['#f2d22a', 48, 30, 6, 4]],
   team: [['#c8141c', 18, 8, 28, 20], ['#e8c9a8', 22, 12, 20, 14], ['#2a4fa0', 10, 32, 44, 24], ['#e8e8e8', 28, 34, 8, 20]],
   telemetry: [['#101418', 6, 10, 52, 40], ['#3ddc84', 10, 36, 6, 3], ['#3ddc84', 16, 30, 6, 3], ['#3ddc84', 22, 22, 6, 3], ['#3ddc84', 28, 26, 6, 3], ['#3ddc84', 34, 16, 6, 3], ['#3ddc84', 40, 20, 6, 3], ['#3ddc84', 46, 14, 6, 3], ['#8a8f96', 22, 50, 20, 6]],
@@ -139,6 +142,8 @@ export class Computer {
       : app === 'classifieds' ? { ad: null }
       : app === 'team' ? { team: 1 }
       : app === 'tyres' ? { tyres: 1 }
+      : app === 'workshop' ? { ws: 1 }
+      : app === 'parts' ? { slot: 'engine' }
       : app === 'jobs' ? { role: 'mechanic' }
       : app === 'telemetry' ? { file: null }
       : app === 'registry' ? { reg: 1 }
@@ -175,6 +180,16 @@ export class Computer {
     if (a === 'hire') { if (this.hireArmed !== arg) { this.hireArmed = arg; this.curKey = 'hire-' + arg; this.render(); this.src.sfx?.move?.(); return; } this.hireArmed = null; this.src.staff?.('hire', arg); this.launch('team'); return; }
     if (a === 'fire') { if (this.fireArmed !== arg) { this.fireArmed = arg; this.curKey = 'fire-' + arg; this.render(); this.src.sfx?.move?.(); return; } this.fireArmed = null; this.src.staff?.('fire', arg); this.curKey = null; this.render(); return; }
     if (a === 'backpay') { this.src.staff?.('backpay', arg); this.curKey = 'bp-' + arg; this.render(); return; }
+    if (a === 'slot') { this.page = { ...this.page, slot: arg }; this.curKey = 'slot-' + arg; this.armed = null; this.render(); this.src.sfx?.move?.(); return; }
+    if (a === 'cltab') { this.page = { ad: null, tab: arg }; this.hist = []; this.curKey = 'cltab-' + arg; this.armed = null; this.render(); this.src.sfx?.move?.(); return; }
+    // the car: rebuild / new / remove an upgrade / buy and fit one (select twice for anything that costs)
+    if (['rebuild', 'newpart', 'unfit', 'fitpart'].includes(a)) {
+      const k = a + ':' + arg;
+      if (this.armed !== k) { this.armed = k; this.curKey = k; this.render(); this.src.sfx?.move?.(); return; }
+      this.armed = null; this.src.car?.(a, arg); this.curKey = null;
+      if (a === 'fitpart') { this.launch('workshop'); return; }
+      this.render(); return;
+    }
     if (a === 'placeorder') { const n = WC.COMPOUNDS.reduce((x, c) => x + (this.order[c] || 0), 0); if (!n) return; if (!this.orderArmed) { this.orderArmed = true; this.curKey = 'placeorder'; this.render(); this.src.sfx?.move?.(); return; } this.orderArmed = false; this.src.order?.({ ...this.order }); this._order = null; this.curKey = null; this.render(); return; }
     if (a === 'file2') { this.go({ file: arg }); this.src.sfx?.select?.(); return; }
     if (a === 'cyc') { const [f, d] = arg.split(':'); this.cycle(f, +d); return; }
@@ -202,8 +217,8 @@ export class Computer {
       // re-drawing the same page (a field changed, a list item picked) keeps its panes scrolled where they were
       const where = this.app === 'mail' ? 'mail' : this.app + ':' + this.url(), keepScroll = where === this.lastWhere ? [...win.querySelectorAll('*')].map(e => e.scrollTop) : null;
       this.lastWhere = where;
-      const body = this.app === 'mail' ? this.mailApp() : this.app === 'team' ? this.teamApp() : this.app === 'telemetry' ? this.telApp() : this.browser();
-      const plain = ['mail', 'team', 'telemetry'].includes(this.app);
+      const body = this.app === 'mail' ? this.mailApp() : this.app === 'team' ? this.teamApp() : this.app === 'telemetry' ? this.telApp() : this.app === 'workshop' ? this.workshopApp() : this.browser();
+      const plain = ['mail', 'team', 'telemetry', 'workshop'].includes(this.app);
       win.innerHTML = `<div class="pc-title"><span>${app.title}${!plain ? ' &mdash; ' + esc(this.url()) : ''}</span><i data-nav data-act="close" data-key="close">&times;</i></div>${body}`;
       if (keepScroll) win.querySelectorAll('*').forEach((e, i) => { if (keepScroll[i]) e.scrollTop = keepScroll[i]; });
       if (this.app === 'mail' && this.page.mail !== this.lastMail) { const b = win.querySelector('.pc-mbody'); if (b) b.scrollTop = 0; } // (a different email starts at its top)
@@ -248,10 +263,11 @@ export class Computer {
     if (this.app === 'registry') return 'www.registry.sv.gov/forms/SV-1.htm';
     if (this.app === 'jobs') return `www.svjobs.sv/motorsport/${p.role}`;
     if (this.app === 'tyres') return 'trade.vtr.sv/orders';
+    if (this.app === 'parts') return `www.speedpartsdirect.sv/${p.slot}`;
     return 'www.driverdb.sv' + (p.pid ? `/driver/${p.pid}` : `/${p.db}`);
   }
   browser() {
-    const site = { tyres: () => this.tyreSite(), jobs: () => this.jobsSite(), news: () => this.newsSite(), series: () => this.seriesSite(), bank: () => this.bankSite(), classifieds: () => this.classSite(), registry: () => this.regSite() }[this.app]?.() ?? this.driverSite();
+    const site = { parts: () => this.partsSite(), tyres: () => this.tyreSite(), jobs: () => this.jobsSite(), news: () => this.newsSite(), series: () => this.seriesSite(), bank: () => this.bankSite(), classifieds: () => this.classSite(), registry: () => this.regSite() }[this.app]?.() ?? this.driverSite();
     return `<div class="pc-bar"><button class="pc-btn sm" data-nav data-act="back" data-key="bback">&larr; Back</button><div class="pc-url">http://${esc(this.url())}</div></div><div class="pc-page">${site}</div>`;
   }
 
@@ -365,6 +381,39 @@ export class Computer {
       <p class="tr-fine">Orders are delivered before your next round. Trackside service at events is charged at ${Math.round((WC.TRACKSIDE - 1) * 100)}% over list. Used sets are not accepted for return.</p></div>`;
   }
 
+  // ---------- Workshop: your car, part by part ----------
+  workshopApp() {
+    const w = this.w, P = WC.carParts(w);
+    if (!P) return '<div class="tm"><p class="pc-empty">No car yet. Danny sent some listings: they\'re on SVList.</p></div>';
+    const odds = WC.failOdds(w), risk = WC.failRisk(w), lvl = WC.dataLevel(w), m = WC.staffOf(w, 'mechanic'), eng = WC.staffOf(w, 'engineer');
+    const riskTxt = risk < 0.03 ? 'Low' : risk < 0.08 ? 'Some' : risk < 0.15 ? 'High' : 'Very high';
+    const btn = (a, k, label) => `<button class="pc-btn sm" data-nav data-act="${a}" data-arg="${k}" data-key="${a}:${k}">${this.armed === a + ':' + k ? 'Sure? Select again' : label}</button>`;
+    const rows = WC.PART_KEYS.map(k => {
+      const p = P[k], c = Math.round(p.cond * 100), f = p.fit, odd = odds[k];
+      const fit = f ? `<div class="ws-fit"><b>${esc(f.name)}</b>${f.used ? ' <small>(used)</small>' : ''} &middot; <i>"${esc(f.feel)}"</i>${f.measured ? ` &middot; <span class="ws-meas">${esc(f.measured.by)} measures ${f.measured.val >= 0 ? '+' : ''}${(f.measured.val * 100).toFixed(1)}% ${f.measured.stat}${f.measured.lvl < 2 ? ' (roughly)' : ''}</span>` : lvl ? '' : ' &middot; <small>no data to say</small>'}</div>` : '';
+      return `<div class="ws-row"><div class="ws-name"><b>${WC.PARTS[k].name}</b>${odd != null && lvl === 2 ? `<small>${(odd * 100).toFixed(1)}% to fail</small>` : ''}</div>
+        <div class="tm-mood ${c >= 70 ? 'happy' : c >= 45 ? 'fine' : c >= 25 ? 'unhappy' : 'furious'}"><i><b style="width:${c}%"></b></i><small>${c}%</small></div>
+        <div class="tm-acts">${btn('rebuild', k, `Rebuild ${WC.money$(WC.rebuildCost(w, k))}`)}${btn('newpart', k, `New ${WC.money$(WC.newPartCost(w, k))}`)}${f ? btn('unfit', k, 'Remove') : ''}</div>${fit}</div>`;
+    }).join('');
+    return `<div class="tm"><div class="tm-head"><b>${w.car.year} ${esc(w.car.name)}</b><small>${m ? `Chief mechanic: ${esc(m.first)} ${esc(m.last)}` : 'No chief mechanic: rebuilds go to a shop (dearer, and no better than OK)'}</small></div>
+      <div class="ws-risk">Chance something breaks in the next race: <b class="${risk >= 0.08 ? 'neg' : ''}">${riskTxt}</b>${lvl === 2 ? ` (${(risk * 100).toFixed(1)}%, ${esc(eng.first)}'s estimate)` : ''}</div>
+      <div class="tm-list">${rows}</div>
+      <div class="tm-links"><button class="pc-btn sm" data-nav data-act="open" data-arg="parts" data-key="toparts">Speed Parts Direct &rarr;</button> <button class="pc-btn sm" data-nav data-act="open" data-arg="classifieds" data-key="tocl">Used parts on SVList &rarr;</button></div>
+      <p class="tm-note">Worn parts are slower and can fail in a race. Upgrades go on a part; you'll know how they feel, and what they really do once a data engineer has looked at the data.</p></div>`;
+  }
+  // Speed Parts Direct: new parts, with the supplier's own claims
+  partsSite() {
+    const w = this.w, slot = this.page.slot || 'engine', items = WC.catalogue(w).filter(c => c.slot === slot), P = WC.carParts(w);
+    const head = `<div class="sp-head"><b>SPEED PARTS DIRECT</b><small>Performance parts &middot; next-day delivery &middot; trade prices</small></div>`;
+    if (!P) return head + '<p class="pc-empty">You need a car first.</p>';
+    const tabs = WC.PART_KEYS.map(k => `<span class="jb-tab${k === slot ? ' on' : ''}" data-nav data-act="slot" data-arg="${k}" data-key="slot-${k}">${WC.PARTS[k].name}</span>`).join('');
+    const claim = (c) => Object.entries(c.claim || c.gains).map(([s2, v]) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(0)}% ${s2}`).join(', ');
+    const rows = items.map((c, k) => `<div class="jb-row"><div><b>${esc(c.name)}</b><small>Manufacturer's figures: ${claim(c)}.</small></div><div class="jb-meta">${WC.money$(c.price)}</div>
+      <button class="pc-btn sm" data-nav data-act="fitpart" data-arg="${c.id}" data-key="fitpart:${c.id}"${k === 0 ? ' data-first' : ''}>${this.armed === 'fitpart:' + c.id ? 'Buy & fit? Select again' : 'Buy & fit'}</button></div>`).join('');
+    const cur = P[slot].fit;
+    return head + `<div class="jb-tabs">${tabs}</div><div class="jb-body">${cur ? `<p class="jb-cur">On your car now: ${esc(cur.name)}. A new one replaces it.</p>` : ''}${rows}<p class="tr-fine">Figures are the manufacturer's own, measured under ideal conditions.</p></div>`;
+  }
+
   // SVJobs: the applicants, by job
   jobsSite() {
     const w = this.w, role = this.page.role || 'mechanic', jobs = (w.jobs || []).filter(j => j.role === role);
@@ -400,7 +449,10 @@ export class Computer {
   // ---------- the classifieds: SVList ----------
   classSite() {
     const w = this.w, ads = w.ads || [], p = this.page;
-    const head = `<div class="cl-head"><b>SVList</b><small>san velocita &gt; for sale &gt; cars &amp; trucks &gt; by owner</small></div>`;
+    const tab = p.tab || (w.car ? 'parts' : 'cars');
+    const head = `<div class="cl-head"><b>SVList</b><small>san velocita &gt; for sale &gt; ${tab === 'parts' ? 'auto parts' : 'cars &amp; trucks'} &gt; by owner</small></div>
+      <div class="cl-tabs">${['cars', 'parts'].map(t => `<span class="cl-tab${t === tab ? ' on' : ''}" data-nav data-act="cltab" data-arg="${t}" data-key="cltab-${t}">${t === 'cars' ? 'cars &amp; trucks' : 'auto parts'}</span>`).join('')}</div>`;
+    if (tab === 'parts' && !p.ad) return head + this.usedPartsList();
     if (!w.founding?.reg) return head + '<p class="pc-empty">Register your team first (Form SV-1).</p>';
     if (p.ad) {
       const ad = ads.find(a => a.id === p.ad); if (!ad) return head + '<p class="pc-empty">This posting has been deleted by its author.</p>';
@@ -414,6 +466,15 @@ export class Computer {
     }
     const rows = ads.map((ad, k) => `<div class="cl-row" data-nav data-act="ad" data-arg="${ad.id}" data-key="ad-${ad.id}"${k === 0 ? ' data-first' : ''}>${this.photo(ad, 'cl-thumb')}<span class="cl-price">${WC.money$(ad.price)}</span><a>${ad.year} ${esc(ad.name)} &ndash; ${esc(ad.blurb.split('.')[0].toLowerCase())}</a><small>${WC.condName(ad.cond).toLowerCase()} &middot; ${Math.round(ad.miles / 1000)}k miles</small></div>`).join('');
     return head + (w.car ? `<p class="cl-note">Your car: ${w.car.year} ${esc(w.car.name)}.</p>` : '') + `<div class="cl-list">${rows || '<p class="pc-empty">No listings.</p>'}</div>`;
+  }
+  // SVList auto parts: used parts, some good; your mechanic's take if you have one (a better one sees more)
+  usedPartsList() {
+    const w = this.w, list = w.usedParts || [], m = WC.staffOf(w, 'mechanic');
+    if (!w.car) return '<p class="pc-empty">Buy a car first.</p>';
+    const take = (u) => !m ? '' : m.skill >= 4 || (m.skill >= 2 && (u.q < 0.4 || u.q > 0.75)) ? `<em>${esc(m.first)}: "${u.q >= 0.75 ? 'that looks clean' : u.q >= 0.5 ? 'it\'ll do' : u.q >= 0.35 ? 'I wouldn\'t' : 'that\'s junk'}"</em>` : `<em>${esc(m.first)}: "can't tell from a listing"</em>`;
+    const rows = list.map((u, k) => `<div class="cl-prow"><span class="cl-price">${WC.money$(u.price)}</span><div><a>${esc(u.name)} &ndash; ${esc(u.blurb.toLowerCase())}</a>${u.danny ? ' <b class="cl-danny">(Danny\'s guy)</b>' : ''}<small>${WC.PARTS[u.slot].name.toLowerCase()} &middot; seller ${esc(u.seller)}</small>${take(u)}</div>
+      <button class="pc-btn sm" data-nav data-act="fitpart" data-arg="${u.id}" data-key="fitpart:${u.id}"${k === 0 ? ' data-first' : ''}>${this.armed === 'fitpart:' + u.id ? 'Buy & fit? Select again' : 'Buy & fit'}</button></div>`).join('');
+    return `<div class="cl-list">${rows || '<p class="pc-empty">Nothing this week.</p>'}<p class="tr-fine">New listings every week. Cash only. No returns.</p></div>`;
   }
   // a listing's photo (rendered once, then cached by main.js)
   photo(ad, cls) { const src = this.src.photo?.(ad); return src ? `<img class="${cls}" src="${src}">` : `<div class="${cls} none">no image</div>`; }
@@ -528,7 +589,7 @@ export class Computer {
   // the styles the snapshot needs (the computer's own rules; it uses system fonts, so nothing to embed)
   css() {
     if (this._css) return this._css;
-    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl|tm|jb|tl|tr)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
+    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl|tm|jb|tl|tr|ws|sp)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
     for (const sh of document.styleSheets) { let rules; try { rules = sh.cssRules; } catch (e) { continue; } for (const r of rules) if (r.selectorText && want.test(r.selectorText)) out.push(r.cssText); }
     return (this._css = out.join('\n'));
   }

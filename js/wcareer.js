@@ -288,16 +288,20 @@ export function recordPlayerRound(w, res, log = [], use = null) {
   for (const e of log) if (e.a && e.b) logLedger(w, { s: sid, ...e });
   const me = known.find(r => r.pid === 'P');
   for (const r of known) if (r.pid !== 'P' && me) { const h = h2hOf(w, r.pid); h.races++; if (r.dnf && !me.dnf || (!me.dnf && me.pos < r.pos)) h.ahead++; else h.behind++; }
-  const bill = w.money ? settleRound(w, use || simUse(w), me) : null;
+  const u = use || simUse(w), bill = w.money ? settleRound(w, u, me) : null;
+  afterParts(w, u);
   return { ...afterRound(w, me), bill };
 }
 // testing: your race simulated too (you as a mid-field driver)
 export function simPlayerRound(w) {
   const rows = simRace(w, w.player.series, true);
+  // your car can let you down here too
+  const f = w.car ? rollFailure(w) : null, mine = rows.find(r => r.pid === 'P');
+  if (f && f.fatal && mine) mine.dnf = true;
   scoreRound(w, w.player.series, rows);
   const me = rows.find(r => r.pid === 'P');
   for (const r of rows) if (r.pid !== 'P') { const h = h2hOf(w, r.pid); h.races++; if (r.dnf && !me.dnf || (!me.dnf && me.pos < r.pos)) h.ahead++; else h.behind++; }
-  if (w.money) settleRound(w, simUse(w), me);
+  if (w.money) { const u = { ...simUse(w), failed: f ? f.part : null }; settleRound(w, u, me); afterParts(w, u); }
   return afterRound(w, me);
 }
 function afterRound(w, me) {
@@ -307,6 +311,14 @@ function afterRound(w, me) {
   w.round++;
   if (w.round >= w.opts.len) seasonEnd(w);
   return { me, over: w.round >= w.opts.len };
+}
+
+// after a round: the car wears (and whatever broke needs fixing), your engineer measures, new used parts appear
+function afterParts(w, use) {
+  if (!w.car) return;
+  wearCar(w, use.laps || 0, use.damage || 0, use.failed || null);
+  measureParts(w);
+  refreshUsedParts(w);
 }
 
 // ---------------- the end of a season ----------------
@@ -640,6 +652,7 @@ export function buyCar(w, adId) {
   const ad = (w.ads || []).find(a => a.id === adId); if (!ad || w.car) return false;
   w.car = { chassis: ad.chassis, name: ad.name, cond: ad.cond, paid: ad.price, year: ad.year };
   w.founding.car = true; w.ads = w.ads.filter(a => a !== ad);
+  carParts(w); refreshUsedParts(w);
   pay(w, -ad.price, `Classifieds: ${ad.year} ${ad.name} (from ${ad.seller})`);
   mail(w, ad.seller, `${ad.seller.split(' ')[0].toLowerCase().replace(/[^a-z_]/g, '')}@coolmail.sv`, `re: ${ad.year} ${ad.name}`,
     [`pleasure doing business`, `keys are under the mat`, condWord(ad.cond) === 'Project' ? `if it makes a noise thats normal` : `no refunds`]);
@@ -647,6 +660,133 @@ export function buyCar(w, adId) {
 }
 // how much a car's condition holds it back (power): a project car is about 4% down until R&D sorts it out
 export const condPower = (cond) => 0.9 + 0.1 * clamp(cond ?? 1, 0.5, 1);
+
+// ---------------- the car: parts, wear, upgrades, reliability ----------------
+// Six parts, each with a condition (0-1). Worn parts cost pace and, more importantly, can fail in a race (the chance
+// grows with wear, with sketchy parts and with a poor or fed-up mechanic). Rebuild them (your mechanic; outsourced
+// without one) or buy new. Upgrades go on a part: you never see their true effect, only how they feel, until your
+// data engineer measures them. All of it reaches the car through the race's player modifiers (carMods).
+export const PARTS = {
+  engine:     { name: 'Engine', fail: 0.18, wear: 0.03, lap: 0.0012, cost: 0.22, fatal: 1,
+                warn: ['Oil pressure is dropping. Nurse it.', 'Engine temps are climbing.'], why: ['A connecting rod has let go.', 'It has lost oil pressure.', 'The head gasket has gone.'] },
+  gearbox:    { name: 'Gearbox', fail: 0.13, wear: 0.02, lap: 0.0008, cost: 0.12, fatal: 0.5,
+                warn: ['The gearbox is making a noise.', 'Shifts are getting slow.'], why: ['The gearbox has seized.', 'It is stuck in neutral.'], hurt: 'Gearbox trouble: down on drive.' },
+  brakes:     { name: 'Brakes', fail: 0.09, wear: 0.03, lap: 0.0015, cost: 0.05, fatal: 0,
+                warn: ['Brake temperatures are very high.'], hurt: 'Brake fade: brake earlier.' },
+  suspension: { name: 'Suspension', fail: 0.08, wear: 0.015, lap: 0.0006, cost: 0.08, fatal: 0,
+                warn: ['Something is loose at the rear.'], hurt: 'A damper has failed: the car is floating.' },
+  aero:       { name: 'Aero', fail: 0, wear: 0.005, lap: 0, cost: 0.06, fatal: 0 },
+  chassis:    { name: 'Chassis', fail: 0, wear: 0.008, lap: 0, cost: 0.15, fatal: 0 },
+};
+export const PART_KEYS = Object.keys(PARTS);
+export function carParts(w) {
+  if (!w.car) return null;
+  if (!w.car.parts) { const c0 = w.car.cond ?? 0.85; w.car.parts = {}; for (const k of PART_KEYS) w.car.parts[k] = { cond: +clamp(c0 + (rng(w) - 0.5) * 0.24, 0.35, 1).toFixed(3), fit: null }; }
+  return w.car.parts;
+}
+// the car as the race sees it (World Career's player modifiers)
+export function carMods(w) {
+  const P = carParts(w); if (!P) return null;
+  const c = (k) => P[k].cond, g = (k, stat) => P[k].fit?.gains?.[stat] || 0, sum = (stat) => PART_KEYS.reduce((a, k) => a + g(k, stat), 0);
+  return { power: (0.9 + 0.1 * c('engine')) * (1 + sum('power')), grip: (0.96 + 0.04 * c('suspension')) * (1 + sum('grip')), brake: (0.9 + 0.1 * c('brakes')) * (1 + sum('brake')),
+    downforce: 1 + sum('downforce'), drag: 1 + sum('drag'), damage: (1.15 - 0.15 * c('chassis')) * (1 + sum('damage')), rainGrip: 1, wear: 1, slip: 1, softs: false, launch: false };
+}
+const mechFactor = (w) => { const m = staffOf(w, 'mechanic'); return m ? (1.2 - 0.08 * m.skill) * (m.morale < 35 ? 1.3 : 1) : 1.25; };
+// the chance each part fails this race (0..1)
+export function failOdds(w) {
+  const P = carParts(w), out = {}; if (!P) return out;
+  for (const k of PART_KEYS) { const p = PARTS[k]; if (!p.fail) continue; out[k] = clamp(p.fail * (1 - P[k].cond) ** 2 * (P[k].fit ? 1.6 - P[k].fit.q : 1) * mechFactor(w), 0, 0.5); }
+  return out;
+}
+export const failRisk = (w) => 1 - Object.values(failOdds(w)).reduce((a, p) => a * (1 - p), 1);
+// does something break this race? { part, at (0..1 of the race), fatal, warn, why, hurt }
+export function rollFailure(w) {
+  for (const [k, p] of Object.entries(failOdds(w))) if (rng(w) < p) {
+    const P = PARTS[k], fatal = rng(w) < P.fatal;
+    return { part: k, name: P.name, at: 0.15 + rng(w) * 0.75, fatal, warn: pickLine(w, P.warn), why: fatal ? pickLine(w, P.why) : '', hurt: P.hurt || '' };
+  }
+  return null;
+}
+// a round's wear: laps, damage, and whatever broke
+export function wearCar(w, laps, damage, failed) {
+  const P = carParts(w); if (!P) return;
+  for (const k of PART_KEYS) {
+    const p = PARTS[k]; let d = p.wear + p.lap * laps;
+    if (k === 'suspension') d += damage * 0.5; else if (k === 'aero') d += damage * 0.6; else if (k === 'chassis') d += damage * 0.4;
+    P[k].cond = +clamp(P[k].cond - d * (0.8 + rng(w) * 0.4), 0.05, 1).toFixed(3);
+  }
+  if (failed && P[failed]) P[failed].cond = Math.min(P[failed].cond, 0.15);
+}
+// work on a part: a rebuild (your mechanic, or a shop) or a new one
+export const rebuildCost = (w, k) => Math.round(PARTS[k].cost * COSTS[w.player.series].repair * (staffOf(w, 'mechanic') ? 1 : 1.5) * (bgOf(w).repair || 1) / 50) * 50;
+export const newPartCost = (w, k) => Math.round(PARTS[k].cost * COSTS[w.player.series].repair * 2.2 / 50) * 50;
+export function rebuildPart(w, k) {
+  const P = carParts(w), m = staffOf(w, 'mechanic'), cost = rebuildCost(w, k);
+  const to = m ? 0.68 + 0.05 * m.skill - (m.morale < 35 ? 0.08 : 0) + (rng(w) - 0.5) * 0.06 : 0.8;
+  P[k].cond = +Math.max(P[k].cond, clamp(to, 0.4, 0.97)).toFixed(3);
+  pay(w, -cost, `${PARTS[k].name} rebuild (${m ? m.first : 'outsourced'})`);
+}
+export function newPart(w, k) { const P = carParts(w), cost = newPartCost(w, k); P[k].cond = 1; pay(w, -cost, `New ${PARTS[k].name.toLowerCase()} (OEM)`); }
+
+// upgrades: { id, name, slot, gains: { stat: fraction }, claim, q (0..1: how well made), price, used, blurb }
+const KIT = {
+  street: [
+    ['engine', 'Sport exhaust', { power: 0.02 }, 0.9, 3200], ['engine', 'Performance chip', { power: 0.03 }, 0.72, 2600], ['engine', 'Ported cylinder head', { power: 0.045 }, 0.8, 7500],
+    ['gearbox', 'Uprated clutch', { power: 0.006 }, 1, 1800], ['gearbox', 'Short-shift kit', { power: 0.004 }, 0.98, 900],
+    ['suspension', 'Coilovers', { grip: 0.025 }, 0.9, 4800], ['suspension', 'Polyurethane bushings', { grip: 0.01 }, 0.95, 1200],
+    ['brakes', 'Race pads', { brake: 0.06 }, 0.9, 1100], ['brakes', 'Big brake kit', { brake: 0.1 }, 0.95, 5500],
+    ['aero', 'Front splitter', { downforce: 0.08, drag: 0.01 }, 1, 1600], ['aero', 'Rear wing', { downforce: 0.15, drag: 0.03 }, 1, 2900],
+    ['chassis', 'Seam welding', { grip: 0.008, damage: -0.1 }, 1, 2000], ['chassis', 'Bolt-in roll cage', { damage: -0.2 }, 1, 3500],
+  ],
+};
+const PRICE_K = { street: 1, gt: 3, formula: 9 };
+const claimOf = (gains, k) => Object.fromEntries(Object.entries(gains).map(([s, v]) => [s, +(v * k).toFixed(3)]));
+// the parts catalogue (new, from a supplier: the claims are the supplier's)
+export function catalogue(w) {
+  const kits = KIT[w.player.series] || KIT.street;
+  return kits.map(([slot, name, gains, q, price], i) => ({ id: 'cat' + i, slot, name, gains, claim: claimOf(gains, i % 3 === 1 ? 1.5 : 1.2), q, price: Math.round(price * (PRICE_K[w.player.series] || 1)), used: false }));
+}
+const USED_BLURB = ['Came off my car, ran fine.', 'Bought it, never fitted it. Wife says it has to go.', 'Ex-race car part. Some wear.', 'Rebuilt by my brother-in-law.', 'Not sure what it fits. Probably yours.', 'Fell off a truck (not literally).', 'Low miles. Some surface rust.'];
+// SVList's parts section: a fresh handful each round, of very variable honesty
+export function refreshUsedParts(w) {
+  const kits = KIT.street;
+  w.usedParts = [];
+  for (let i = 0; i < 5; i++) {
+    const [slot, name, gains, q0, price] = kits[Math.floor(rng(w) * kits.length)], luck = 0.25 + rng(w) * 1.1;
+    w.usedParts.push({ id: 'up' + (w.nextId++), slot, name, gains: Object.fromEntries(Object.entries(gains).map(([s, v]) => [s, +(v * luck).toFixed(4)])),
+      q: +clamp(q0 - 0.15 - rng(w) * 0.45, 0.2, 0.95).toFixed(2), price: Math.round(price * (0.3 + rng(w) * 0.3) / 50) * 50, used: true, blurb: pickLine(w, USED_BLURB), seller: pick(w, AD_SELLERS) });
+  }
+  // Danny knows a guy (some rounds)
+  if (w.dannyHired && rng(w) < 0.4) {
+    const deal = w.usedParts[Math.floor(rng(w) * w.usedParts.length)]; deal.price = Math.round(deal.price * 0.7 / 50) * 50; deal.danny = true;
+    text(w, 'Danny', pickLine(w, [`my cousin is selling a ${deal.name.toLowerCase()}. its on svlist. says he'll do ${money$(deal.price)}`, `found a ${deal.name.toLowerCase()} on svlist, guy owes me a favour. ${money$(deal.price)}`]));
+  }
+}
+// how an upgrade feels from the driver's seat (honest-ish: you can fool yourself)
+export function feelOf(w, part) {
+  const [stat, v] = Object.entries(part.gains)[0] || ['power', 0], felt = v + (rng(w) - 0.5) * 0.02;
+  const S = { power: ['pulls noticeably harder', 'feels a bit stronger', 'hard to say', 'feels flat, if anything'], grip: ['turns in much sharper', 'feels more planted', 'hard to tell', 'feels nervous'],
+    brake: ['stops a lot shorter', 'better pedal', 'about the same', 'pedal feels long'], downforce: ['stuck down in fast corners', 'a bit more stable at speed', 'can\'t feel it', 'feels light'], damage: ['feels solid', 'feels solid', 'feels the same', 'feels the same'] }[stat] || ['?', '?', '?', '?'];
+  return felt > 0.025 ? S[0] : felt > 0.008 ? S[1] : felt > -0.004 ? S[2] : S[3];
+}
+export function buyFit(w, part) {
+  const P = carParts(w); if (!P) return false;
+  const m = staffOf(w, 'mechanic'), fee = m ? 0 : 400;
+  pay(w, -(part.price + fee), `${part.name}${part.used ? ' (used, SVList)' : ''}${fee ? ' + fitting at a shop' : ''}`);
+  P[part.slot].fit = { name: part.name, gains: part.gains, q: part.q, used: part.used, claim: part.claim || null, feel: feelOf(w, part), measured: null };
+  if (part.used) w.usedParts = (w.usedParts || []).filter(x => x.id !== part.id);
+  return true;
+}
+export function removeFit(w, slot) { const P = carParts(w); if (P && P[slot]) P[slot].fit = null; }
+// after a round: your data engineer measures what the upgrades really do (a junior roughly, a senior closely)
+export function measureParts(w) {
+  const P = carParts(w), lvl = dataLevel(w), e = staffOf(w, 'engineer'); if (!P || !lvl) return;
+  for (const k of PART_KEYS) {
+    const f = P[k].fit; if (!f || (f.measured && f.measured.lvl >= lvl)) continue;
+    const [stat, v] = Object.entries(f.gains)[0] || []; if (!stat) continue;
+    f.measured = { stat, val: +(v * (1 + gauss(w) * (lvl === 2 ? 0.12 : 0.45))).toFixed(4), lvl, by: e.first };
+  }
+}
 
 // ---------------- staff and payroll ----------------
 // Three jobs. Each person has a skill (1-5), a wage per round and a morale (0-100). Payroll runs as a round starts,
