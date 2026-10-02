@@ -269,6 +269,14 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .hud-pos small.tt { font-size: 30px; }
 .hud-pos::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--sv-red); box-shadow: var(--sv-glow-line); }
 .hud-rows { margin-top: 8px; }
+/* a gig's panel (World Career's week: courier runs, rides, the street race), where the tower usually is */
+.hud-gig { position: absolute; left: var(--edge); top: 4.5%; width: 250px; padding: 10px 14px 12px; display: none; }
+body.gig-on .hud-gig { display: block; } body.gig-on .hud-tower { display: none; }
+.hud-gig .hud-row .val { font-size: 20px; }
+.gig-who { font: 500 14px/1.2 var(--f-ui); letter-spacing: var(--track); color: var(--sv-hot); text-shadow: var(--sv-glow-hud); -webkit-text-fill-color: transparent; margin: 2px 0 6px; }
+.gig-meter { margin-top: 8px; }
+.gig-meter .lbl { font: 500 14px/1 var(--f-ui); letter-spacing: var(--track); color: var(--sv-red); text-shadow: var(--sv-glow-hud); -webkit-text-fill-color: transparent; }
+.gig-meter i { display: block; height: 6px; margin-top: 6px; background: linear-gradient(90deg, var(--sv-red) calc(var(--v) * 100%), rgba(255, 43, 0, .18) 0); box-shadow: var(--sv-glow-line); }
 .hud-row { display: flex; justify-content: space-between; align-items: baseline; height: 26px; }
 .hud-row .lbl { font: 500 16px/1 var(--f-ui); letter-spacing: var(--track); color: var(--sv-red); text-shadow: var(--sv-glow-hud); -webkit-text-fill-color: transparent; }
 .hud-row .val { font: 500 24px/1 var(--f-ui); letter-spacing: var(--track); color: var(--sv-hot); text-shadow: var(--sv-glow-hud); -webkit-text-fill-color: transparent; text-align: right; white-space: nowrap; }
@@ -1357,6 +1365,19 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .jb-row { display: grid; grid-template-columns: 1fr 120px auto; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid #ddd; }
 .jb-row small { display: block; color: #555; font-size: 12px; }
 .jb-meta { font-size: 12px; color: #333; }
+/* GigGo: the driver app's website */
+.gg-head { display: flex; align-items: baseline; gap: 8px; padding: 10px 14px; background: #111; color: #fff; }
+.gg-head b { font: bold 22px Arial, sans-serif; color: #16c784; }
+.gg-head span { font: bold 13px Arial, sans-serif; color: #fff; text-transform: uppercase; }
+.gg-head small { margin-left: auto; color: #bbb; font-size: 12px; }
+.gg-body { padding: 8px 14px 14px; }
+.gg-avail { color: #333; margin: 2px 0 6px; font-size: 13px; }
+.gg-warn { background: #fff4d6; border: 1px solid #e0b030; color: #6a4a00; padding: 6px 8px; margin: 4px 0 8px; }
+.gg-pro { color: #0d7a50; margin: 4px 0 8px; font-weight: bold; }
+.gg-row { display: grid; grid-template-columns: 1fr 90px auto; align-items: center; gap: 10px; padding: 9px 4px; border-bottom: 1px solid #ddd; }
+.gg-row small { display: block; color: #555; font-size: 12px; }
+.gg-fare { font: bold 16px Arial, sans-serif; text-align: right; color: #111; }
+.gg-fare small { font-weight: normal; font-size: 11px; color: #777; }
 /* Telemetry: the session files */
 .tl { flex: 1; min-height: 0; display: grid; grid-template-columns: 250px 1fr; gap: 4px; padding: 4px; }
 .tl-files { overflow-y: auto; background: #fff; border: 2px inset #f4f2ec; font-family: 'Courier New', Courier, monospace; }

@@ -588,10 +588,11 @@ export function nextSeason(w, trackPool) {
 // ---------------- money ----------------
 // You won the lottery and spent it on a racing team. The opening choice (lump sum or annuity) is an email; every round
 // then costs money (entry, travel, the crew, tyres, fuel, repairs) and pays prize money. All in dollars; the scale is
-// set so the Street Cup is survivable on the winnings, and every step up needs more than you have (sponsors, later).
-export const LOTTERY = { jackpot: 3000000, lump: 825000, annuity: 70000, years: 30, saleRate: 0.25 }; // (selling the annuity: a quarter of what it's worth)
+// set so a Street Cup season loses money: the lump sum lasts about a season and a half on racing alone, and the
+// week's work (day job, gigs) is what keeps you going. Every step up needs more than you have (sponsors).
+export const LOTTERY = { jackpot: 400000, lump: 132000, annuity: 10000, years: 30, saleRate: 0.25 }; // (selling the annuity: a quarter of what it's worth)
 export const COSTS = {
-  street:  { entry: 4000,  travel: 2000,  crew: 5000,  tyre: 900,  fuelLap: 35,  repair: 24000,  prize: [20000, 14000, 10000, 8000, 6500, 5000, 4000, 3000, 2000, 1500] },
+  street:  { entry: 4000,  travel: 2000,  crew: 5000,  tyre: 900,  fuelLap: 35,  repair: 24000,  prize: [8000, 5500, 4000, 3000, 2500, 2000, 1500, 1200, 1000, 800] },
   gt:      { entry: 15000, travel: 6000,  crew: 22000, tyre: 3200, fuelLap: 120, repair: 110000, prize: [80000, 56000, 40000, 32000, 26000, 20000, 16000, 12000, 8000, 6000] },
   formula: { entry: 40000, travel: 15000, crew: 90000, tyre: 6000, fuelLap: 300, repair: 450000, prize: [200000, 140000, 100000, 80000, 65000, 50000, 40000, 30000, 20000, 15000] },
 };
@@ -677,6 +678,234 @@ export function simUse(w) {
   return { trackside, laps: w.opts.laps + (w.opts.weekend === 'full' ? 18 : w.opts.weekend === 'quali' ? 6 : 0), damage: 0 };
 }
 
+// ---------------- the week: five days between rounds ----------------
+// Each round has a week before it: five days to spend on earning (the day job, gigs), on the team (rebuilding parts
+// yourself, a test day, a sponsor's event), or on nothing. The gigs are short drives on the race engine (main.js plays
+// them): courier runs and funeral transport through the GigGo app, track-day passenger rides and club time attacks by
+// email, and Danny's street races. Booking one takes its day; a booking not driven by race day is a no-show.
+export const WEEK_DAYS = 5;
+export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const weekKey = (w) => `${w.year}-${w.round}`;
+export function weekOf(w) {
+  if (!w.week || w.week.key !== weekKey(w)) {
+    const prev = w.week;
+    w.week = { key: weekKey(w), used: 0, log: [], booked: [], gigs: [], setup: false };
+    if (prev && !w.pre) noShows(w, prev);
+    if (!w.pre && !w.over && w.car && w.money && w.money.choice) planWeek(w);
+  }
+  return w.week;
+}
+export const daysLeft = (w) => WEEK_DAYS - weekOf(w).used;
+export const weekOpen = (w) => !!(w.car && w.money && w.money.choice && !w.over);
+function useDay(w, what, amt = 0) { const wk = weekOf(w); wk.log.push({ day: wk.used, what, amt }); wk.used++; }
+// (and a day spent on the team: what the week's log shows)
+export function spendDay(w, what) { if (daysLeft(w) <= 0) return false; useDay(w, what); return true; }
+
+// the day job: whatever you did before the lottery, a day at a time
+const DAY_JOBS = {
+  mechanic:   { name: 'A shift at Kowalski Auto Repair', pay: 290 },
+  accountant: { name: 'Freelance bookkeeping', pay: 340 },
+  salesman:   { name: 'A day on the lot at Velocita Motors', pay: 150, sale: [0.35, 650] },
+  karting:    { name: 'Instructing at Thunder Alley Karts', pay: 210 },
+  simracer:   { name: 'Online sim coaching', pay: 230 },
+};
+export const dayJob = (w) => DAY_JOBS[w.background] || { name: 'A shift at the Gas-N-Go', pay: 170 };
+export function workDay(w) {
+  if (daysLeft(w) <= 0) return null;
+  const j = dayJob(w); let amt = j.pay, note = '';
+  if (j.sale && rng(w) < j.sale[0]) { amt += j.sale[1]; note = 'You sold a car.'; }
+  pay(w, amt, `${j.name}${note ? ' (and a commission)' : ''}`);
+  useDay(w, j.name, amt);
+  w.dayJobDays = (w.dayJobDays || 0) + 1;
+  return { amt, note };
+}
+
+// ---------- gigs ----------
+// kinds: courier, hearse (GigGo); rides, attack (email); street (Danny). Each: { id, kind, title, client, pay,
+// laps, theme, night, ... }. GigGo's offers depend on your rating; the emails come and go.
+// (the time attack's gold, silver and bronze times, against a clean lap at the car's limit)
+export const ATTACK_TIERS = [1.06, 1.11, 1.18];
+export const GIG_KINDS = {
+  courier: { name: 'Courier run', van: 'transit', site: true },
+  hearse:  { name: 'Funeral transport', van: 'hearse', site: true },
+  rides:   { name: 'Track-day passenger rides', raceCar: true },
+  attack:  { name: 'Club time attack', raceCar: true },
+  street:  { name: 'Street race', raceCar: true, night: true },
+};
+const COURIER = [
+  ['Velocita Dental Lab', 'Impressions, three boxes', true, false], ['Hargrove Legal', 'Signed documents', false, true],
+  ['Pinewood Florist', 'Wedding flowers', true, false], ['Gutierrez Auto Parts', 'Brake discs, pallet', false, false],
+  ['Sweet Tiers Bakery', 'A three-tier cake', true, false], ['City Hospital Pharmacy', 'Prescriptions', false, true],
+  ['A private seller', 'A vintage mirror', true, false], ['TechNest', 'Laptops (returns)', false, false],
+];
+const RIDERS = ['Gary, 54, dentist', 'Priya, 31, birthday present', 'Doug, 67, "used to race"', 'Kelsey, 24, influencer', 'Martin, 45, bought it at a charity auction', 'Sandra, 58, her son booked it', 'Theo, 19, wants to be a driver', 'Rob, 40, stag do'];
+export const gigRating = (w) => (w.gig ??= { rating: 4.8, jobs: 0, stars: [] }).rating;
+const themeOf = (w) => TOWNS[w.home]?.theme || 'city';
+function newGig(w, kind, o = {}) { return { id: 'g' + (w.nextId++), kind, laps: 1, theme: themeOf(w), ...o }; }
+function planWeek(w) {
+  const wk = w.week, r = gigRating(w), K = { street: 1, gt: 2.5, formula: 6 }[w.player.series] || 1, broke = w.money.balance < 25000;
+  // GigGo: two or three offers (one, under review)
+  const n = r < 4.2 ? 1 : r >= 4.8 ? 3 : 2;
+  for (let i = 0; i < n; i++) {
+    if (i === n - 1 && rng(w) < 0.4) { wk.gigs.push(newGig(w, 'hearse', { client: 'Restwell Funeral Home', title: 'Funeral transport', what: 'Please arrive within the window. The family will be following.', pay: 640, window: [1.3, 1.65] })); continue; }
+    const [client, what, fragile, urgent] = pickLine(w, COURIER);
+    const fare = Math.round((360 + rng(w) * 320 + (urgent ? 160 : 0)) * (r >= 4.8 ? 1.1 : 1) / 10) * 10;
+    wk.gigs.push(newGig(w, 'courier', { client, what, fragile, urgent, title: `${client}: ${what.toLowerCase()}`, pay: fare, laps: rng(w) < 0.4 ? 2 : 1, tight: urgent ? 1.3 : 1.45 }));
+  }
+  // track days and club events (your race car)
+  if (rng(w) < 0.45) offerGig(w, newGig(w, 'rides', { title: 'Passenger rides', client: 'SV Track Days', pay: 110, tip: 70, laps: 3, riders: [0, 1, 2].map(() => pickLine(w, RIDERS)) }), 'SV Track Days', 'bookings@svtrackdays.sv', 'Passenger rides this week?',
+    [`Hi,`, `We've got three customers booked in for passenger rides in a "real race car" this week and our usual driver has done his back in.`, `It's three laps, one passenger a lap. We pay ${money$(110)} a ride, and they tip if they enjoy it. They don't tip if they're sick.`, `Your car, your fuel, your tyres.`, `SV Track Days`]);
+  else if (rng(w) < 0.4) offerGig(w, newGig(w, 'attack', { title: 'Time attack', client: `${TOWNS[w.home]?.name || 'Velocita'} Auto Club`, entry: 80, prizes: [1500, 800, 300], laps: 3 }), `${TOWNS[w.home]?.name || 'Velocita'} Auto Club`, 'events@autoclub.sv', 'Time attack, members and guests',
+    [`Our monthly time attack is on this week. Three laps, your best one counts.`, `Prize money: ${money$(1500)} for the gold time, ${money$(800)} silver, ${money$(300)} bronze. Entry is ${money$(80)}. Guests welcome.`, `Guests welcome. Helmets compulsory.`, `The Committee`]);
+  // Danny knows a guy (more often when money's short)
+  if (rng(w) < (broke ? 0.5 : 0.22)) {
+    const pot = Math.round((1200 + rng(w) * 1600) * (broke ? 1.25 : 1) * K / 100) * 100, who = pickLine(w, ['Vince', 'a guy called Marco', 'Big Steve', 'Tash', 'Dmitri', 'this kid Jayden']);
+    offerGig(w, newGig(w, 'street', { title: 'Street race', client: who, pay: pot, laps: 2, night: true, theme: 'city' }), 'Danny', 'dannyboy1979@coolmail.sv', 'friday',
+      [`so ${who} wants to race u. friday night, industrial estate, two laps`, `${money$(pot)} cash. winner takes it`, `cops dont really go there. mostly`]);
+  }
+  // a sponsor's event
+  const deals = dealsOf(w);
+  if (deals.length && rng(w) < 0.4) {
+    const d = deals[Math.floor(rng(w) * deals.length)], sp = sponsorById(d.sid);
+    const what = pickLine(w, ['our grand reopening', 'our summer sale', 'a customer appreciation day', 'our 25th anniversary', 'a charity car wash']);
+    mail(w, sp.name, sponsorAddr(sp.name), `Will you come to ${what}?`,
+      [`We're having ${what} this week and it would mean a lot to have the team there. Bring the car if you can.`, `Our customers would love to meet a real racing driver. Some of them have asked who you are.`, sp.name],
+      { appear: d.sid, choices: [['go', 'Go (a day)'], ['no', 'Not this week']] });
+  }
+}
+function offerGig(w, g, from, addr, subj, body) {
+  w.week.offered = (w.week.offered || []).concat([g]);
+  mail(w, from, addr, subj, body, { gig: g.id, choices: [['in', g.kind === 'street' ? "I'm in" : `Book it (a day)`], ['no', 'Not this week']] });
+}
+export const gigById = (w, id) => { const wk = weekOf(w); return wk.gigs.find(g => g.id === id) || (wk.offered || []).find(g => g.id === id) || wk.booked.find(g => g.id === id); };
+// take one: its day goes now; drive it from the hub's This Week
+export function bookGig(w, id) {
+  const wk = weekOf(w), g = gigById(w, id);
+  if (!g || g.booked) return 'gone';
+  if (daysLeft(w) <= 0) return 'nodays';
+  if (GIG_KINDS[g.kind].raceCar && !w.car) return 'nocar';
+  g.booked = true; wk.booked.push(g); wk.gigs = wk.gigs.filter(x => x !== g);
+  if (g.entry) pay(w, -g.entry, `${g.client}: entry fee`);
+  useDay(w, GIG_KINDS[g.kind].name);
+  return 'ok';
+}
+export const bookedGigs = (w) => weekOf(w).booked.filter(g => !g.done);
+// a sponsor's event: a day, and they remember it
+export function appear(w, sid) {
+  const d = dealsOf(w).find(x => x.sid === sid); if (!d || daysLeft(w) <= 0) return false;
+  const sp = sponsorById(sid);
+  useDay(w, `${sp.name}: an appearance`);
+  d.misses = Math.max(0, d.misses - 1); w.rep = clamp(repOf(w) + 2, 0, 100);
+  mail(w, sp.name, sponsorAddr(sp.name), 'Thank you!', [pickLine(w, [`Thanks for coming. Several customers asked if you were famous. We said yes.`, `Thank you for coming along. The photos came out well, apart from the ones with the car in them.`, `Thanks for being there. Sales were up 3% on the day, which our accountant says is not significant, but we think it is.`]), sp.name]);
+  return true;
+}
+
+// what a drive earned. r: { finished, time (s), ref (the reference time for the distance, s), dmg (0..1), comfort
+// (0..100, hearse/rides), lapTimes, lapComfort, won } -> { rows: [[label, amt]], stars, net, head, line }
+export function gigDone(w, id, r) {
+  const g = gigById(w, id); if (!g || g.done) return null;
+  g.done = true;
+  const rows = [], add = (t, a) => { if (a) rows.push([t, Math.round(a)]); };
+  let stars = 5, head = '', line = '';
+  if (g.kind === 'courier' || g.kind === 'hearse') {
+    if (!r.finished) { stars = 1; head = 'Not delivered'; line = g.kind === 'hearse' ? 'Restwell have arranged another driver.' : 'The customer has been refunded. GigGo have noted it.'; }
+    else {
+      const k = r.time / r.ref; let fare = g.pay;
+      add('Fare', fare);
+      if (g.kind === 'courier') {
+        const late = Math.max(0, k - g.tight);
+        if (late > 0) { const cut = Math.min(0.6, late * 2.5) * fare; add('Late delivery adjustment', -cut); stars -= late > 0.12 ? 2 : 1; }
+        const broke = clamp(r.dmg * (g.fragile ? 3.5 : 1.6), 0, 1);
+        if (broke > 0.05) { add(g.fragile ? 'Damaged goods claim' : 'Damage claim', -broke * fare); stars -= broke > 0.4 ? 2 : 1; }
+        head = late > 0 ? 'Delivered late' : broke > 0.4 ? 'Delivered (mostly)' : 'Delivered';
+        line = late > 0 ? `${g.client} expected it ${Math.round((k - g.tight) * r.ref)} seconds sooner.` : broke > 0.05 ? (g.fragile ? 'The customer has sent photos.' : 'Some of it was dented.') : pickLine(w, ['The customer left a thumbs up.', 'Signed for by "J".', 'Left with a neighbour, as requested.']);
+      } else {
+        const [a, b] = g.window, comfort = r.comfort ?? 100;
+        if (k < a) { add('Arrived early', -fare * 0.35); stars -= 1; line = 'You arrived before the family did.'; }
+        else if (k > b) { add('Arrived late', -fare * Math.min(0.6, (k - b) * 3)); stars -= 2; line = 'The service started without you.'; }
+        if (comfort < 85) { add('Complaint from the family', -fare * (1 - comfort / 100) * 1.5); stars -= comfort < 60 ? 2 : 1; line = line || 'The family has asked for a different driver next time.'; }
+        if (r.dmg > 0.03) { add('Bodywork', -Math.min(fare, r.dmg * 2000)); stars -= 1; }
+        head = stars >= 4 ? 'A dignified service' : 'Not ideal';
+        line = line || 'Restwell would be happy to use you again.';
+      }
+      const fee = rows.reduce((a, x) => a + x[1], 0) > 0 ? rows.reduce((a, x) => a + x[1], 0) * 0.25 : 0;
+      add('GigGo service fee (25%)', -fee); add('Trust & Safety fee', -3);
+    }
+    rateGig(w, clamp(stars, 1, 5));
+  } else if (g.kind === 'rides') {
+    const laps = r.lapTimes || [];
+    laps.forEach((t, i) => {
+      const c = (r.lapComfort || [])[i] ?? 100, quick = r.ref / t; // (1 = the reference pace)
+      add(`Ride ${i + 1}: ${g.riders[i].split(',')[0]}`, g.pay);
+      if (c < 55) add(`${g.riders[i].split(',')[0]} was sick: refund and cleaning`, -g.pay - 60);
+      else if (quick > 0.9) add(`${g.riders[i].split(',')[0]}'s tip`, g.tip * clamp((quick - 0.9) * 8, 0.2, 1) * (c / 100));
+    });
+    head = laps.length ? `${laps.length} ride${laps.length === 1 ? '' : 's'}` : 'No rides';
+    line = laps.length < g.laps ? `You left with ${g.laps - laps.length} customer${g.laps - laps.length === 1 ? '' : 's'} still waiting. SV Track Days refunded them.` : (r.lapComfort || []).some(c => c < 55) ? 'SV Track Days would like to know how the inside of the car is.' : 'SV Track Days say the customers were happy.';
+  } else if (g.kind === 'attack') {
+    const best = Math.min(...(r.lapTimes || [Infinity])), k = best / r.ref, tier = ATTACK_TIERS.findIndex(x => k <= x);
+    if (tier >= 0) add(`${['Gold', 'Silver', 'Bronze'][tier]} time`, g.prizes[tier]);
+    head = tier >= 0 ? `${['Gold', 'Silver', 'Bronze'][tier]} time` : 'No time';
+    line = tier === 0 ? 'The Committee has asked whether you are a member.' : tier >= 0 ? 'Your name goes on the board in the clubhouse.' : 'Better luck next month.';
+  } else if (g.kind === 'street') {
+    if (r.won) { add(`Winnings from ${g.client}`, g.pay); head = 'You won'; line = `${g.client} paid up. Eventually.`; }
+    else { add('Your stake', -g.pay / 2); head = r.finished ? 'You lost' : 'You didn\'t finish'; line = `${g.client} has your money.`; }
+    w.street = (w.street || 0) + 1;
+    if (rng(w) < 0.18) {
+      w.licence = (w.licence || 0) + 3;
+      add('Fine: street racing', -1500);
+      head += ', and the police came'; line = `Three points on your licence (${w.licence} now).`;
+      if (w.licence >= 6) { news(w, `${w.teams[w.player.team].name.toUpperCase()} OWNER CAUGHT STREET RACING`, `A Street Cup team owner was among those stopped by police at an industrial estate on Friday night.`); w.rep = clamp(repOf(w) - 6, 0, 100); }
+    }
+  }
+  // your race car paid for it too
+  if (GIG_KINDS[g.kind].raceCar && w.car) { wearCar(w, r.lapTimes ? r.lapTimes.length : g.laps, r.dmg || 0, null); if ((r.dmg || 0) > 0.005) add('Repairs', -repairQuote(w, r.dmg)); }
+  for (const [t, a] of rows) pay(w, a, `${g.client}: ${/^(GigGo|Trust)/.test(t) ? t : t[0].toLowerCase() + t.slice(1)}`);
+  const net = rows.reduce((a, x) => a + x[1], 0);
+  weekOf(w).log.push({ day: weekOf(w).used - 1, what: `${GIG_KINDS[g.kind].name}: ${head.toLowerCase()}`, amt: net });
+  return { rows, net, stars: GIG_KINDS[g.kind].site ? clamp(stars, 1, 5) : null, head, line };
+}
+function rateGig(w, s) {
+  const G = w.gig ??= { rating: 4.8, jobs: 0, stars: [] };
+  G.stars.push(s); if (G.stars.length > 20) G.stars.shift(); G.jobs++;
+  G.rating = +((4.8 * 8 + G.stars.reduce((a, b) => a + b, 0)) / (8 + G.stars.length)).toFixed(2); // (new drivers start on 4.8: eight good reviews' worth)
+}
+// race day came and a booked gig wasn't driven
+function noShows(w, wk) {
+  for (const g of wk.booked) if (!g.done) {
+    if (GIG_KINDS[g.kind].site) rateGig(w, 1);
+    else if (g.kind === 'street') text(w, 'Danny', `${g.client} says u bottled it. i said u were busy. were u busy`);
+    else mail(w, g.client, 'noreply@svtrackdays.sv', 'Where were you?', [`We had you down for this week and you didn't turn up. We won't be booking you again for a while.`, g.client]);
+  }
+}
+// your own spanners: a rebuild for the price of the parts, and a day
+export const selfCost = (w, k) => Math.round(rebuildCost(w, k) * (staffOf(w, 'mechanic') ? 0.45 : 0.3) * (w.background === 'mechanic' ? 0.8 : 1) / 50) * 50;
+export function rebuildSelf(w, k) {
+  const P = carParts(w); if (!P || daysLeft(w) <= 0) return false;
+  const to = (w.background === 'mechanic' ? 0.84 : 0.72) + (rng(w) - 0.5) * 0.1;
+  P[k].cond = +Math.max(P[k].cond, clamp(to, 0.4, 0.92)).toFixed(3);
+  pay(w, -selfCost(w, k), `${PARTS[k].name}: parts for a rebuild (you did it)`);
+  useDay(w, `Rebuilt the ${PARTS[k].name.toLowerCase()} yourself`);
+  return true;
+}
+// a test day at the next round's circuit: track hire, then a practice session (main.js); enough laps and the setup
+// is found for that round
+export const testCost = (w) => ({ street: 1200, gt: 6000, formula: 25000 }[w.player.series] || 1200);
+export function bookTest(w) {
+  if (daysLeft(w) <= 0) return false;
+  const R = w.series[w.player.series].cal[w.round];
+  pay(w, -testCost(w), `${R.name}: track hire, test day`);
+  weekOf(w).tested = true;
+  useDay(w, `Test day at ${R.name}`);
+  return true;
+}
+export function testDone(w, laps) {
+  if (laps > 0) wearCar(w, laps, 0, null);
+  pay(w, -Math.round(laps * COSTS[w.player.series].fuelLap * (bgOf(w).fuel || 1)), `Test day: fuel (${laps} lap${laps === 1 ? '' : 's'})`);
+  if (laps >= 5) weekOf(w).setup = true;
+  return weekOf(w).setup;
+}
+
 // ---------------- tyres: what you have, what you order ----------------
 // New sets in stock per compound, and used sets kept from earlier runs (with their wear). Order on the computer
 // (paid when ordered, there for the next round); run out at a weekend and the trackside service sells you one at a
@@ -757,7 +986,7 @@ export function registerTeam(w, f) {
   // the second seat: a pay driver, with their parent's money
   const mate = w.people[w.teams[w.player.team].drivers.find(d => d !== 'P')];
   if (mate) {
-    const fee = 40000, biz = pickLine(w, ['Carpets & Flooring', 'Discount Mattresses', 'Lawn Ornaments', 'Premium Gutters', 'Self Storage']);
+    const fee = 15000, biz = pickLine(w, ['Carpets & Flooring', 'Discount Mattresses', 'Lawn Ornaments', 'Premium Gutters', 'Self Storage']);
     w.payDriver = { pid: mate.id, fee };
     pay(w, fee, `${mate.last} ${biz}: seat fee for ${mate.first}`);
     mail(w, `Gordon ${mate.last}`, `gordon@${mate.last.toLowerCase()}${biz.split(' ')[0].toLowerCase()}.sv`, `${mate.first}'s seat`,
@@ -842,7 +1071,8 @@ export function carParts(w) {
 export function carMods(w) {
   const P = carParts(w); if (!P) return null;
   const c = (k) => P[k].cond, g = (k, stat) => P[k].fit?.gains?.[stat] || 0, sum = (stat) => PART_KEYS.reduce((a, k) => a + g(k, stat), 0);
-  return { power: (0.9 + 0.1 * c('engine')) * (1 + sum('power')), grip: (0.96 + 0.04 * c('suspension')) * (1 + sum('grip')), brake: (0.9 + 0.1 * c('brakes')) * (1 + sum('brake')),
+  return { power: (0.9 + 0.1 * c('engine')) * (1 + sum('power')), grip: (0.96 + 0.04 * c('suspension')) * (1 + sum('grip')) * (w.week && w.week.key === weekKey(w) && w.week.setup ? 1.012 : 1), // (a test day found the setup)
+    brake: (0.9 + 0.1 * c('brakes')) * (1 + sum('brake')),
     downforce: 1 + sum('downforce'), drag: 1 + sum('drag'), damage: (1.15 - 0.15 * c('chassis')) * (1 + sum('damage')), rainGrip: 1, wear: 1, slip: 1, softs: false, launch: false };
 }
 const mechFactor = (w) => { const m = staffOf(w, 'mechanic'); return m ? (1.2 - 0.08 * m.skill) * (m.morale < 35 ? 1.3 : 1) : 1.25; };

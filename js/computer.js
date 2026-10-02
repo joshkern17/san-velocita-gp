@@ -26,7 +26,7 @@ const APPS = [
   { id: 'mail', label: 'Mail', title: 'Mail' },
   { id: 'team', label: 'Team', title: 'Team' },
   { id: 'web', label: 'Internet', title: 'Web Browser' },
-  ...[['news', 'Paddock Wire'], ['series', 'Series Site'], ['drivers', 'Driver Database'], ['bank', 'Bank'], ['classifieds', 'SVList'], ['parts', 'Speed Parts Direct'], ['jobs', 'SVJobs'], ['registry', 'Registry']]
+  ...[['news', 'Paddock Wire'], ['series', 'Series Site'], ['drivers', 'Driver Database'], ['bank', 'Bank'], ['classifieds', 'SVList'], ['parts', 'Speed Parts Direct'], ['jobs', 'SVJobs'], ['registry', 'Registry'], ['giggo', 'GigGo']]
     .map(([id, label]) => ({ id, label, title: 'Web Browser', hidden: true, site: true })),
 ];
 // the Team app's tabs (and the names they used to have as apps of their own, for links into them)
@@ -34,7 +34,7 @@ const TEAM_TABS = [['overview', 'Overview'], ['car', 'Car'], ['tyres', 'Tyres'],
 const TEAM_ALIAS = { workshop: 'car', tyres: 'tyres', staff: 'staff', telemetry: 'data', sponsors: 'sponsors', teamdrivers: 'drivers' }; // ('drivers' alone is the Driver Database website)
 // the Internet's home page
 const BOOKMARKS = [['news', 'The Paddock Wire', 'Motorsport news'], ['series', 'Series websites', 'Standings, teams, calendars, champions'], ['drivers', 'Velocita Driver Database', 'Every driver, every season'],
-  ['classifieds', 'SVList', 'Cars and parts, by owner'], ['parts', 'Speed Parts Direct', 'Performance parts'], ['jobs', 'SVJobs', 'Hire staff'], ['bank', 'First Velocita Bank', 'Business banking']];
+  ['classifieds', 'SVList', 'Cars and parts, by owner'], ['parts', 'Speed Parts Direct', 'Performance parts'], ['jobs', 'SVJobs', 'Hire staff'], ['giggo', 'GigGo Driver', 'Driving jobs. Be your own boss'], ['bank', 'First Velocita Bank', 'Business banking']];
 // the bookmarks' little site icons (16 x 16, drawn as rects: [colour, x, y, w, h])
 const BM_ICON = {
   news: [['#fff', 1, 1, 14, 14], ['#111', 3, 3, 10, 3], ['#888', 3, 8, 10, 1], ['#888', 3, 10, 10, 1], ['#c23', 9, 12, 4, 2]],
@@ -43,6 +43,7 @@ const BM_ICON = {
   classifieds: [['#7a2cc8', 1, 1, 14, 14], ['#fff', 4, 4, 8, 1], ['#fff', 4, 7, 8, 1], ['#fff', 4, 10, 5, 1]],
   parts: [['#c8141c', 1, 1, 14, 14], ['#f06a12', 1, 8, 14, 7], ['#fff', 5, 3, 6, 10], ['#c8141c', 7, 5, 2, 6]],
   jobs: [['#1f6b8c', 1, 1, 14, 14], ['#fff', 4, 5, 8, 7], ['#1f6b8c', 6, 3, 4, 3], ['#fff', 7, 4, 2, 1]],
+  giggo: [['#16c784', 1, 1, 14, 14], ['#fff', 4, 4, 8, 8], ['#16c784', 6, 6, 4, 4], ['#fff', 9, 9, 3, 3]],
   bank: [['#0d2350', 1, 1, 14, 14], ['#d8b54a', 3, 4, 10, 2], ['#d8b54a', 4, 7, 2, 5], ['#d8b54a', 7, 7, 2, 5], ['#d8b54a', 10, 7, 2, 5], ['#d8b54a', 3, 12, 10, 1]],
 };
 const standWord = (r) => r < 15 ? 'unknown' : r < 30 ? 'local' : r < 45 ? 'noticed' : r < 60 ? 'respected' : r < 75 ? 'sought after' : 'a big name';
@@ -159,6 +160,7 @@ export class Computer {
       : app === 'parts' ? { slot: 'engine' }
       : app === 'jobs' ? { role: 'mechanic' }
       : app === 'registry' ? { reg: 1 }
+      : app === 'giggo' ? { gg: 1 }
       : { db: w.player.series, pid: null };
     if (app === 'mail' && this.page.mail) this.markRead(this.page.mail);
     this.curKey = null; this.render(); this.src.sfx?.select?.();
@@ -208,6 +210,7 @@ export class Computer {
     if (a === 'driver') { this.go({ pid: arg }); this.src.sfx?.select?.(); return; }
     if (a === 'open') { if (this.app === 'team' && TEAM_ALIAS[arg]) { this.act('ttab', TEAM_ALIAS[arg]); return; } this.follow(arg); return; }
     if (a === 'jobs') { this.follow('jobs', { role: arg }); return; }
+    if (a === 'take') { if (this.armed !== 'take:' + arg) { this.armed = 'take:' + arg; this.curKey = 'take:' + arg; this.render(); this.src.sfx?.move?.(); return; } this.armed = null; this.src.gig?.(arg); return; }
     if (a === 'role') { this.page = { role: arg }; this.curKey = 'role-' + arg; this.render(); this.src.sfx?.move?.(); return; }
     if (a === 'hire') { if (this.hireArmed !== arg) { this.hireArmed = arg; this.curKey = 'hire-' + arg; this.render(); this.src.sfx?.move?.(); return; } this.hireArmed = null; this.src.staff?.('hire', arg); this.back(); return; }
     if (a === 'fire') { if (this.fireArmed !== arg) { this.fireArmed = arg; this.curKey = 'fire-' + arg; this.render(); this.src.sfx?.move?.(); return; } this.fireArmed = null; this.src.staff?.('fire', arg); this.curKey = null; this.render(); return; }
@@ -294,13 +297,14 @@ export class Computer {
     if (this.app === 'classifieds') return 'svlist.sv/cars' + (p.ad ? '/' + p.ad : '');
     if (this.app === 'registry') return 'www.registry.sv.gov/forms/SV-1.htm';
     if (this.app === 'jobs') return `www.svjobs.sv/motorsport/${p.role}`;
+    if (this.app === 'giggo') return 'driver.giggo.sv/jobs';
     if (this.app === 'web') return 'home.svnet.sv';
     if (this.app === 'tyres') return 'trade.vtr.sv/orders';
     if (this.app === 'parts') return `www.speedpartsdirect.sv/${p.slot}`;
     return 'www.driverdb.sv' + (p.pid ? `/driver/${p.pid}` : `/${p.db}`);
   }
   browser() {
-    const site = { web: () => this.homePage(), parts: () => this.partsSite(), jobs: () => this.jobsSite(), news: () => this.newsSite(), series: () => this.seriesSite(), bank: () => this.bankSite(), classifieds: () => this.classSite(), registry: () => this.regSite() }[this.app]?.() ?? this.driverSite();
+    const site = { web: () => this.homePage(), parts: () => this.partsSite(), jobs: () => this.jobsSite(), news: () => this.newsSite(), series: () => this.seriesSite(), bank: () => this.bankSite(), classifieds: () => this.classSite(), registry: () => this.regSite(), giggo: () => this.gigSite() }[this.app]?.() ?? this.driverSite();
     return `<div class="pc-bar"><button class="pc-btn sm" data-nav data-act="back" data-key="bback">&larr; Back</button><div class="pc-url">http://${esc(this.url())}</div></div><div class="pc-page">${site}</div>`;
   }
 
@@ -527,6 +531,20 @@ export class Computer {
     return head + `<div class="jb-tabs">${tabs}</div><div class="jb-body">${cur ? `<p class="jb-cur">On your car now: ${esc(cur.name)}. A new one replaces it.</p>` : ''}${rows}<p class="tr-fine">Figures are the manufacturer's own, measured under ideal conditions.</p></div>`;
   }
 
+  // GigGo: driving jobs by the job (the courier runs and the funeral home's work; drive them as soon as you take them)
+  gigSite() {
+    const w = this.w, wk = WC.weekOf(w), r = WC.gigRating(w), G = w.gig || { jobs: 0 }, left = WC.daysLeft(w);
+    const head = `<div class="gg-head"><b>GigGo</b><span>Driver</span><small>${esc(w.player.name)} &middot; &#9733; ${r.toFixed(2)} &middot; ${G.jobs} job${G.jobs === 1 ? '' : 's'}</small></div>`;
+    const warn = r < 4.2 ? `<p class="gg-warn">Your account is under review. While we review it, you may be offered fewer jobs.</p>` : r >= 4.8 && G.jobs >= 5 ? `<p class="gg-pro">GigGo Pro: you're seeing our best-paying jobs first.</p>` : '';
+    const gigs = wk.gigs.filter(g => !g.booked);
+    const rows = gigs.map((g, k) => `<div class="gg-row"><div><b>${esc(g.kind === 'hearse' ? g.client : g.client)}</b><small>${esc(g.kind === 'hearse' ? g.what : g.what + (g.fragile ? ' (fragile)' : '') + (g.urgent ? ' (urgent)' : ''))} &middot; ${g.laps} lap${g.laps === 1 ? '' : 's'}${g.kind === 'hearse' ? ' &middot; time window' : ''}</small></div>
+      <div class="gg-fare">${WC.money$(g.pay)}<small>est. fare</small></div>
+      <button class="pc-btn sm" data-nav data-act="take" data-arg="${g.id}" data-key="take:${g.id}"${k === 0 ? ' data-first' : ''}>${this.armed === 'take:' + g.id ? 'Take it and drive? Select again' : 'Accept'}</button></div>`).join('');
+    const body = !w.car ? '<p class="pc-empty">Sign-up incomplete.</p>' : left <= 0 ? '<p class="pc-empty">You\'ve set yourself as unavailable for the rest of the week.</p>' : rows || '<p class="pc-empty">No jobs near you right now. Check back next week.</p>';
+    return head + `<div class="gg-body">${warn}<p class="gg-avail">Available: ${left} day${left === 1 ? '' : 's'} this week</p>${body}
+      <p class="tr-fine">Fares are estimates. A service fee of 25% and a Trust &amp; Safety fee apply to every fare. GigGo drivers are independent contractors. Vans are provided by GigGo; damage is the driver's responsibility.</p></div>`;
+  }
+
   // SVJobs: the applicants, by job
   jobsSite() {
     const w = this.w, role = this.page.role || 'mechanic', jobs = (w.jobs || []).filter(j => j.role === role);
@@ -715,7 +733,7 @@ export class Computer {
   // the styles the snapshot needs (the computer's own rules; it uses system fonts, so nothing to embed)
   css() {
     if (this._css) return this._css;
-    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl|tm|jb|tl|tr|ws|sp|tw|ov|hp|sw|dv)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
+    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl|tm|jb|tl|tr|ws|sp|tw|ov|hp|sw|dv|gg)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
     for (const sh of document.styleSheets) { let rules; try { rules = sh.cssRules; } catch (e) { continue; } for (const r of rules) if (r.selectorText && want.test(r.selectorText)) out.push(r.cssText); }
     return (this._css = out.join('\n'));
   }

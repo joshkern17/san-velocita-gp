@@ -1286,6 +1286,8 @@ function showSeasonEnd() {
 // ---------------- World Career: the hub between rounds (your garage), the computer, the phone ----------------
 // js/wcareer.js keeps the world (people, teams, three series, results, news and texts); this is its UI.
 let world = null;
+let weekSub = false; // the hub menu is showing This Week (World Career's week, further down)
+let gig = null;      // a gig being driven: { g, t, ref, comfort, lc, lapComfort, dmg, lat, lon }
 const worldOpts = { len: 6, difficulty: 'medium', laps: 5, weekend: 'quali', prac: 1200, quali: 600, pool: 'presets', name: '' };
 const worldPool = () => trackPool(world ? world.opts.pool : worldOpts.pool);
 const saveWorld = () => { if (world) WC.saveWorld(world); };
@@ -1298,6 +1300,12 @@ const phone = new Phone({
   status: () => !world ? '' : world.over ? `${world.year} END` : `R${world.round + 1}/${world.opts.len} ${world.year}`,
   read: () => { saveWorld(); renderHubMenu(); },
   choose: (m, key) => {
+    if (m.gig && key === 'in') {
+      const r = WC.bookGig(world, m.gig);
+      if (r === 'ok') sfx.best();
+      else { if (r !== 'gone') m.answer = null; toast(r === 'nodays' ? 'You have no days left this week.' : r === 'nocar' ? 'You need a car for that.' : 'That was for another week.'); }
+    }
+    if (m.appear && key === 'go' && !WC.appear(world, m.appear)) { m.answer = null; toast('You have no days left this week.'); }
     if (m.offer) {
       WC.answerOffer(world, key);
       WC.text(world, m.from, key === 'move' ? 'Great. We will send the paperwork over. See you on the grid.' : 'Understood. The offer stands for next year if you change your mind.');
@@ -1341,6 +1349,13 @@ const pc = new Computer({
   logo: (what, sid) => { if (what === 'tocar') logoToCar(sid); else if (what === 'upload') uploadLogo(sid); },
   logoSrc: (sid) => { const d = WC.dealsOf(world).find(x => x.sid === sid); return d ? assets.get(logoOf(d)) : null; },
   logoOn: (sid) => !world.logoShown || world.logoShown.includes(sid),
+  // GigGo: take a job, and go and drive it
+  gig: (id) => {
+    const r = WC.bookGig(world, id);
+    if (r !== 'ok') { sfx.error(); toast(r === 'nodays' ? 'You have no days left this week.' : 'That job has gone.'); return; }
+    const g = WC.gigById(world, id); saveWorld(); sfx.best();
+    standUp(); setTimeout(() => { if (screen === 's-hub') startGig(g); }, 350);
+  },
   sell: () => { const cash = WC.sellAnnuity(world); if (cash) { sfx.best(); saveWorld(); renderHub(); } },
   // Form SV-1 filed: the team takes its name and colours (and your livery starts in them)
   register: (f) => {
@@ -1605,7 +1620,7 @@ function renderHub() {
     const r = S.cal[w.round], tr = worldPool().find(t => t.name === r.name);
     $('hub-card').innerHTML = `<div class="panel-title">NEXT &middot; ROUND ${w.round + 1} OF ${w.opts.len}</div><div class="season-pips">${pips}</div>
       <div class="ti-name">${r.name}</div><div class="ti-chips"><span>${tr ? THEMES[tr.env.theme].label : ''}</span><span class="wx-chip">${r.time} &middot; ${r.weather}</span></div>
-      <div class="ti-grid">${champ}${bank}</div>`;
+      <div class="ti-grid three">${champ}${bank}${cellW('This week', `${WC.daysLeft(w)} day${WC.daysLeft(w) === 1 ? '' : 's'} left`)}</div>`;
   } else {
     const sum = w.seasons.at(-1), you = sum && sum.you, off = w.player.offer;
     $('hub-card').innerHTML = `<div class="panel-title">${w.year} &middot; SEASON COMPLETE</div><div class="season-pips">${pips}</div>
@@ -1617,6 +1632,8 @@ function renderHub() {
 function renderHubMenu() {
   if (!world) return;
   if (hubMode === 'car') return renderCarMenu();
+  if (weekSub && founded(world) && WC.weekOpen(world)) return renderWeekMenu();
+  weekSub = false;
   const w = world, sid = w.player.series, n = WC.unread(w), nm = WC.unreadMail(w);
   const items = [];
   const off = w.player.offer, offerMail = off && !off.answer && (w.mail || []).find(m => m.offer && !m.answer);
@@ -1629,7 +1646,9 @@ function renderHubMenu() {
   else if (!w.over) {
     const r = w.series[sid].cal[w.round];
     const tg = WC.dealsOf(w).map(d => `<b>${WC.sponsorName(d.sid)}</b>: ${WC.objText(w, WC.dealObjective(w, d)).toLowerCase()}`).join(' · ');
-    items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), desc: `${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}${tg ? `<br>Sponsor targets: ${tg}.` : ''}` });
+    const unplayed = WC.bookedGigs(w).length, left = WC.daysLeft(w);
+    items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), confirm: unplayed ? 'Skip the job? Select again' : null, desc: `${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}${tg ? `<br>Sponsor targets: ${tg}.` : ''}${unplayed ? `<br><b>You have a booked job you haven't driven.</b> Race now and it's a no-show.` : left ? `<br>${left} day${left === 1 ? '' : 's'} of the week unused.` : ''}` });
+    items.push({ label: `This Week<small>${unplayed ? `${unplayed} BOOKED` : `${left} DAY${left === 1 ? '' : 'S'} LEFT`}</small>`, action: () => { weekSub = true; sfx.select(); renderHubMenu(); }, desc: weekDesc(w) });
   } else {
     items.push({ label: `Start ${w.year + 1} Season`, cls: 'action primary', action: () => beginNextSeason(),
       desc: offerMail ? `First answer the ${seriesName(off.to)}'s email.` : 'Everyone a year older. Retirements, promotions and rookies, then a new calendar.' });
@@ -1654,6 +1673,7 @@ menus['s-hub'] = [new Menu($('m-hub'), [], { desc: 'd-hub', onMove: (it) => { if
 backs['s-hub'] = () => {
   if (pcSeat && pc.isOpen) { if (pc.app) { pc.back(); renderHints(); } else standUp(); return; }
   if (hubMode === 'car') { if (carSub) { carSub = null; sfx.back(); renderHubMenu(); } else leaveCar(); }
+  else if (weekSub) { weekSub = false; sfx.back(); renderHubMenu(); }
 };
 tabbers['s-hub'] = (d) => { if (pc.isOpen) pc.flip(d); };
 const cellW = (k, v) => `<div><small>${k}</small><b>${v}</b></div>`;
@@ -1698,6 +1718,9 @@ function renderCarMenu() {
       { label: `${WC.PARTS[k].name}<small>${Math.round(p.cond * 100)}%</small>`, head: true },
       { label: `Rebuild<small>${WC.money$(WC.rebuildCost(w, k))}</small>`, part: k, confirm: 'Pay for it? Select again', action: () => { WC.rebuildPart(w, k); sfx.best(); saveWorld(); renderHub(); },
         desc: mech ? `${mech.first} rebuilds it: back to good, not new.` : 'No chief mechanic: a shop rebuilds it (dearer, and only back to OK).' },
+      ...(WC.weekOpen(w) ? [{ label: `Rebuild It Yourself<small>${WC.money$(WC.selfCost(w, k))} + A DAY</small>`, part: k, confirm: 'Spend a day on it? Select again',
+        action: () => { if (!WC.rebuildSelf(w, k)) { sfx.error(); toast('No days left this week.'); return; } sfx.best(); saveWorld(); renderHub(); },
+        desc: `Parts only, and a day of your week (${WC.daysLeft(w)} left). ${w.background === 'mechanic' ? 'You know what you\'re doing: back to good.' : 'You\'ll get it back to OK.'}` }] : []),
       { label: `New ${WC.PARTS[k].name}<small>${WC.money$(WC.newPartCost(w, k))}</small>`, part: k, confirm: 'Pay for it? Select again', action: () => { WC.newPart(w, k); sfx.best(); saveWorld(); renderHub(); }, desc: 'A brand new part: 100%.' },
       ...(p.fit ? [{ label: `Remove ${p.fit.name}`, part: k, confirm: 'Take it off? Select again', action: () => { WC.removeFit(w, k); saveWorld(); renderHub(); }, desc: 'Back to standard. The part is thrown away.' }] : []),
       { label: 'Upgrades For It', part: k, action: () => sitDown('parts'), desc: 'Speed Parts Direct and SVList, on the computer.' },
@@ -1761,6 +1784,7 @@ function simWorldSeason() {
 
 // ---- a round ----
 function startWorldRound() {
+  weekSub = false;
   const w = world, sid = w.player.series, r = w.series[sid].cal[w.round];
   wkUse = { trackside: 0, laps: 0, damage: 0, seen: null, carry: null };
   updateLogoShown();
@@ -1839,6 +1863,136 @@ function worldRoundDone(retired = false) {
   menus['s-round'][0].setItems([{ label: out.over ? 'Season Review' : 'Continue', cls: 'action primary', action: () => openHub() }]);
   show('s-round');
   if (me && !me.dnf && me.pos <= 3) sfx.finish();
+}
+
+// ---------------- the week: the hub's This Week menu, gigs (short drives) and test days ----------------
+const GIG_LINE = { courier: 'GigGo', hearse: 'Restwell Funeral Home', rides: 'SV Track Days', attack: 'Club time attack', street: 'Street race' };
+function renderWeekMenu() {
+  const w = world, left = WC.daysLeft(w), job = WC.dayJob(w), wk = WC.weekOf(w), R = w.series[w.player.series].cal[w.round];
+  const noDays = () => { sfx.error(); toast('No days left this week. Race day is next.'); };
+  const items = [{ label: `This Week<small>${left} DAY${left === 1 ? '' : 'S'} LEFT</small>`, head: true }];
+  for (const g of WC.bookedGigs(w)) items.push({ label: `Drive: ${WC.GIG_KINDS[g.kind].name}<small>BOOKED</small>`, cls: 'action primary', action: () => startGig(g), desc: gigDesc(g) });
+  items.push(
+    { label: `Day Job<small>${WC.money$(job.pay)}</small>`, action: () => { const r = WC.workDay(w); if (!r) return noDays(); sfx.select(); toast(`${job.name}: <b>+${WC.money$(r.amt)}</b>${r.note ? '. ' + r.note : ''}`); saveWorld(); renderHub(); },
+      desc: `${job.name}. A day's pay for a day of your week.` },
+    { label: 'Find Work', action: () => left > 0 ? sitDown('giggo') : noDays(), desc: `GigGo, on the computer: courier runs and other driving jobs, paid when you've driven them. Your rating: ${WC.gigRating(w).toFixed(2)}.` },
+    ...(!wk.tested ? [{ label: `Test Day<small>${WC.money$(WC.testCost(w))}</small>`, confirm: 'Book it? Select again', action: () => left > 0 ? startTestDay() : noDays(),
+      desc: `Hire ${R.name} for the day, plus fuel and wear. Do five laps or more and you find a setup for the race: a little more grip at ${R.name}. Pause to end the day.` }] : []),
+    { label: 'Back', action: () => { weekSub = false; sfx.back(); renderHubMenu(); }, desc: 'Back to the garage.' },
+  );
+  const m = menus['s-hub'][0]; m.setItems(items, true);
+  if (m.i >= items.length || items[m.i]?.head) { m.i = 1; m.render(); }
+}
+function weekDesc(w) {
+  const wk = WC.weekOf(w), left = WC.daysLeft(w), log = wk.log.map(e => `${WC.DAY_NAMES[e.day] || ''}: ${e.what}${e.amt ? ` (${e.amt > 0 ? '+' : ''}${WC.money$(e.amt)})` : ''}`);
+  return `${left ? `${left} day${left === 1 ? '' : 's'} before race day: work, gigs, a test day, or rest.` : 'Your week is full. Race day is next.'}${log.length ? '<br>' + log.join(' · ') : ''}`;
+}
+function gigDesc(g) {
+  if (g.kind === 'courier') return `${g.client}: ${g.what}. ${g.laps} lap${g.laps === 1 ? '' : 's'} of town in GigGo's van.${g.fragile ? ' Fragile: damage comes off the fare.' : ''}${g.urgent ? ' Urgent: the time is tight.' : ''} Fare ${WC.money$(g.pay)}, before GigGo's fee.`;
+  if (g.kind === 'hearse') return `${g.client}. Arrive inside the time window and drive smoothly: the family is following. ${WC.money$(g.pay)}, before GigGo's fee.`;
+  if (g.kind === 'rides') return `Three laps in your race car, a passenger each lap: ${g.riders.join('; ')}. ${WC.money$(g.pay)} a ride and tips for a quick lap, nothing if they're sick.`;
+  if (g.kind === 'attack') return `Three laps in your race car; your best lap counts. Gold ${WC.money$(g.prizes[0])}, silver ${WC.money$(g.prizes[1])}, bronze ${WC.money$(g.prizes[2])}.`;
+  return `${g.client}, one on one, two laps, at night. ${WC.money$(g.pay)} if you win; half of it if you lose. The police sometimes come.`;
+}
+// a gig's place: a circuit like the town (the street race: the city at night)
+function gigTrack(g) {
+  const pool = worldPool(), same = pool.filter(t => t.env.theme === g.theme), list = same.length ? same : pool;
+  return list[(parseInt(g.id.slice(1), 10) || 0) % list.length];
+}
+function startGig(g) {
+  const w = world, K = WC.GIG_KINDS[g.kind], base = gigTrack(g); if (!base) return;
+  const track = cloneTrack(base); track.env.time = g.night ? 'night' : 'day'; track.env.weather = 'clear';
+  const car = K.van ? { ...worldCar(), chassis: K.van } : worldCar(), mods = K.van ? null : WC.carMods(w);
+  const brief = `<b>${GIG_LINE[g.kind].toUpperCase()}</b><br>${gigDesc(g)}`;
+  const race = { mode: 'race', laps: g.laps, opponents: g.kind === 'street' ? 1 : 0, brief, pick: false,
+    extra: { car, mods, strategy: false, difficulty: w.opts.difficulty, grid: g.kind === 'street' ? 'random' : 'front', aiChassis: 'class', playerName: w.player.name.split(' ').pop().toUpperCase() } };
+  gig = { g, spec: CARS[carId(car)].spec, t: 0, ref: null, comfort: 100, lc: 100, lapComfort: [], dmg: 0, lat: 0, lon: 0, pLat: null, pLon: null };
+  phone.hide(); document.body.classList.add('gig-on');
+  startRace(track, race, 'gig');
+}
+// a clean lap for this car here: the AI's corner speeds, with the car's own acceleration between them (a van gets
+// nowhere near the corner limits on the straights), in seconds
+function refLap() {
+  const T = sim.T, V = sim.player.lineV || sim.lineV, sp = gig.spec; if (!V) return null;
+  const N = T.N, n = T.open ? N - 1 : N, v = new Float64Array(N), ds = (i) => { const j = (i + 1) % N; return Math.hypot(T.X[j] - T.X[i], T.Z[j] - T.Z[i]); };
+  v[0] = T.open ? 0 : V[0];
+  for (let pass = 0; pass < (T.open ? 1 : 2); pass++) for (let i = 0; i < n; i++) {
+    const j = (i + 1) % N, u = Math.max(3, v[i]), a = (Math.min(sp.maxForce || 12000, sp.power / u) - (sp.drag || 0.4) * u * u) / sp.mass;
+    v[j] = Math.min(V[j], Math.sqrt(Math.max(0, v[i] * v[i] + 2 * Math.max(0, a) * ds(i))));
+  }
+  let t = 0; for (let i = 0; i < n; i++) t += ds(i) / Math.max(3, (v[i] + v[(i + 1) % N]) / 2);
+  return t;
+}
+function gigTick(dt) {
+  if (!gig || !sim || !sim.player || raceReturn !== 'gig') return;
+  const pl = sim.player, ph = pl.phys, g = gig.g;
+  if (gig.ref == null) gig.ref = refLap();
+  if (sim.state === 'racing' && !pl.finished && dt > 0 && !sim.paused) {
+    gig.t += dt;
+    const a = 1 - Math.exp(-dt / 0.2);
+    gig.lat += ((ph.latG || 0) - gig.lat) * a; gig.lon += ((ph.lonG || 0) - gig.lon) * a;
+    if (g.kind === 'hearse') gig.comfort = Math.max(0, gig.comfort - (Math.max(0, Math.abs(gig.lon) - 0.35) + Math.max(0, Math.abs(gig.lat) - 0.4)) * dt * 40);
+    if (g.kind === 'rides') { if (gig.pLat != null) { const j = Math.hypot(gig.lat - gig.pLat, gig.lon - gig.pLon) / dt; gig.lc = Math.max(0, gig.lc - Math.max(0, j - 3) * dt * 6); } gig.pLat = gig.lat; gig.pLon = gig.lon; }
+    const d = Math.max(dmgOf(ph.dmg), (pl.maxDmg || 0) / 3);
+    if (d > gig.dmg + 0.01) { if (g.kind === 'hearse') gig.comfort = Math.max(0, gig.comfort - 15); if (g.kind === 'rides') gig.lc = Math.max(0, gig.lc - 30); }
+    gig.dmg = Math.max(gig.dmg, d);
+  }
+  const row = (k, v) => `<div class="hud-row"><span class="lbl">${k}</span><span class="val">${v}</span></div>`;
+  const meter = (k, v) => `<div class="gig-meter"><span class="lbl">${k}</span><i style="--v:${Math.max(0, v) / 100}"></i></div>`;
+  const ref = gig.ref || 0, laps = g.laps;
+  let body = '';
+  if (g.kind === 'courier') body = row('TIME', mmss(gig.t)) + row('DUE', ref ? mmss(ref * laps * g.tight) : '&mdash;') + meter(g.fragile ? 'FRAGILE' : 'GOODS', 100 - Math.min(100, gig.dmg * (g.fragile ? 350 : 160)));
+  else if (g.kind === 'hearse') body = row('TIME', mmss(gig.t)) + row('ARRIVE', ref ? `${mmss(ref * g.window[0] * laps)}&ndash;${mmss(ref * g.window[1] * laps)}` : '&mdash;') + meter('THE FAMILY', gig.comfort);
+  else if (g.kind === 'rides') { const k = Math.min(pl.lapTimes.length, laps - 1); body = row('RIDER', `${k + 1} OF ${laps}`) + `<div class="gig-who">${g.riders[k]}</div>` + meter('COMFORT', gig.lc); }
+  else if (g.kind === 'attack') body = ['GOLD', 'SILVER', 'BRONZE'].map((k, i) => row(k, ref ? fmtTime(ref * WC.ATTACK_TIERS[i], 1) : '&mdash;')).join('');
+  else body = row('VS', g.client.toUpperCase()) + row('CASH', WC.money$(g.pay));
+  const html = `<div class="hud-cap">${GIG_LINE[g.kind].toUpperCase()}</div><div class="hud-rows">${body}</div>`;
+  const el = $('h-gig'); if (el._h !== html) { el._h = html; el.innerHTML = html; }
+}
+function gigLap() { if (gig && gig.g.kind === 'rides') { gig.lapComfort.push(Math.round(gig.lc)); gig.lc = 100; } }
+function gigFinish(abandon = false) {
+  const w = world; if (!w || !sim || !gig) return;
+  const pl = sim.player, g = gig.g, me = sim.results().find(r => r.isPlayer);
+  const finished = !abandon && !!pl.finished;
+  const r = { finished, time: gig.t, ref: (gig.ref || 60) * (g.kind === 'courier' || g.kind === 'hearse' ? g.laps : 1), dmg: gig.dmg, comfort: gig.comfort,
+    lapTimes: pl.lapTimes.slice(0, g.laps), lapComfort: gig.lapComfort, won: finished && me && me.pos === 1 };
+  const out = WC.gigDone(w, g.id, r);
+  gig = null; document.body.classList.remove('gig-on'); sim.setPaused(true); saveWorld();
+  if (!out) return openHub();
+  const stars = out.stars != null ? `<div class="row"><span>Customer rating</span><span>${'&#9733;'.repeat(out.stars)}${'&#9734;'.repeat(5 - out.stars)}</span></div><div class="row"><span>Your GigGo rating</span><span>${WC.gigRating(w).toFixed(2)}</span></div>` : '';
+  weekResult(out.head, `${WC.GIG_KINDS[g.kind].name} · ${g.client}`, out.rows, `${stars}<p class="hub-note">${out.line}</p>`, out.net);
+  if (out.net > 0) sfx.finish();
+}
+// the result of a day: the round screen, as a receipt
+function weekResult(title, sub, rows, extra, net) {
+  const w = world;
+  $('round-title').textContent = title;
+  $('round-sub').textContent = sub;
+  $('round-table').innerHTML = `<tr><th>ITEM</th><th class="r">AMOUNT</th></tr>` + (rows.length ? rows.map(([t, a]) => `<tr><td>${t}</td><td class="n ${a < 0 ? 'bad' : ''}">${a > 0 ? '+' : ''}${WC.money$(a)}</td></tr>`).join('') : '<tr><td>Nothing</td><td class="n">$0</td></tr>');
+  $('round-info').innerHTML = `<div class="big-pos">${net >= 0 ? '+' : '-'}${WC.money$(Math.abs(net)).replace('-', '')}<small>THE DAY</small></div>${extra}
+    <div class="row"><span>Bank balance</span><span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span></div>
+    <div class="row"><span>This week</span><span>${WC.daysLeft(w)} day${WC.daysLeft(w) === 1 ? '' : 's'} left</span></div>`;
+  menus['s-round'][0].setItems([{ label: 'Continue', cls: 'action primary', action: () => { weekSub = true; openHub(); } }]);
+  show('s-round');
+}
+// a test day: the next round's circuit, your car, as many laps as you like
+function startTestDay() {
+  const w = world, R = w.series[w.player.series].cal[w.round];
+  if (!WC.bookTest(w)) return;
+  saveWorld();
+  const base = worldPool().find(t => t.name === R.name) || presetTracks()[0];
+  const track = cloneTrack(base); track.env.time = R.time; track.env.weather = R.weather;
+  phone.hide();
+  startRace(track, { mode: 'test', pick: false, brief: `<b>TEST DAY &middot; ${R.name.toUpperCase()}</b><br>Five laps or more finds a setup for the race. Pause to end the day.`, extra: { car: worldCar(), mods: WC.carMods(w) } }, 'testday');
+}
+function testFinish() {
+  const w = world; if (!w || !sim || !sim.player) return;
+  const pl = sim.player, laps = pl.lapTimes.length, before = w.money.balance, best = laps ? Math.min(...pl.lapTimes) : null;
+  const ok = WC.testDone(w, laps);
+  sim.setPaused(true); saveWorld();
+  const R = w.series[w.player.series].cal[w.round];
+  weekResult('Test Day', `${R.name} · ${laps} lap${laps === 1 ? '' : 's'}`, [['Track hire (paid when booked)', -WC.testCost(w)], ['Fuel', w.money.balance - before]],
+    `${best ? `<div class="row"><span>Best lap</span><span>${fmtTime(best, 3)}</span></div>` : ''}<p class="hub-note">${ok ? `You found a setup: a little more grip at ${R.name} this weekend.` : `Not enough laps to find a setup (five needed).`}</p>`, w.money.balance - before - WC.testCost(w));
 }
 
 // ---------------- online ----------------
@@ -2389,6 +2543,7 @@ let pitSel = 0;
 let lastRace = null;
 
 function startRace(track, cfg, ret, quick = false) {
+  if (ret !== 'gig') { gig = null; document.body.classList.remove('gig-on'); }
   clearTimeout(developT);
   raceReturn = ret;
   raceAidRule = ret === 'online' ? (cfg.extra && cfg.extra.aidRule) || 'any' : 'any';
@@ -2447,7 +2602,8 @@ function enterRace() {
     const q = Math.round(sim.quali.time / 60), name = SESSION_NAME[sim.quali.kind].toUpperCase();
     hud.help(`<b>${name} &middot; ${q} MINUTES</b><br>Runs from the start line, the clock starts as you cross it. ${sim.quali.kind === 'practice' ? 'Learn the circuit and find your pace.' : 'Your fastest lap decides where you start the race.'}`, 7000);
   }
-  if (sim.mode === 'test') {
+  if (sim.mode === 'test' && raceReturn === 'testday') hud.help(lastRace.cfg.brief, 7000);
+  else if (sim.mode === 'test') {
     hud.help(device.kind === 'pad' ? '<b>TIME TRIAL</b><br>Set your fastest lap. <b>RT/LT</b> throttle &amp; brake, <b>left stick</b> steer, <b>Y</b> camera, <b>View</b> reset, <b>Start</b> pause.'
       : '<b>TIME TRIAL</b><br>Set your fastest lap. <b>W/S</b> throttle &amp; brake, <b>A/D</b> steer, <b>C</b> camera, <b>R</b> reset, <b>ESC</b> pause.', 7000);
   }
@@ -2507,7 +2663,7 @@ function handleRaceEvents() {
     else if (ev.type === 'go') {
       hud.lights(0, true); setTimeout(() => hud.lights(0, false), 700);
       hud.center('GO!', 'go', 900);
-      if ((raceReturn === 'career' || raceReturn === 'world') && lastRace.cfg.brief) setTimeout(() => hud.help(lastRace.cfg.brief, 7000), 1200);
+      if ((raceReturn === 'career' || raceReturn === 'world' || raceReturn === 'gig') && lastRace.cfg.brief) setTimeout(() => hud.help(lastRace.cfg.brief, 7000), 1200);
       if (!localStorage.getItem('svgp.seenHelp')) {
         localStorage.setItem('svgp.seenHelp', '1');
         hud.help(device.kind === 'pad' ? 'Squeeze <b>RT</b> to accelerate and <b>LT</b> to brake. Steer with the <b>left stick</b>.<br>Press <b>Y</b> to change camera and <b>View</b> if you get stuck.'
@@ -2524,6 +2680,7 @@ function handleRaceEvents() {
       if (ev.best && prevBest) { sfx.best(); } else sfx.lap();
       const name = sim.track.name, bl = bestLaps();
       if (!ev.invalid && (!bl[name] || ev.time < bl[name])) { bl[name] = ev.time; try { localStorage.setItem('svgp.best', JSON.stringify(bl)); } catch (e) {} if (sim.mode === 'test' && prevBest !== null) hud.center('NEW RECORD', 'white', 1600); }
+      if (raceReturn === 'gig') gigLap();
       if (sim.mode === 'race' && ev.lap <= ev.laps) hud.center(ev.lap === ev.laps ? 'FINAL LAP' : `LAP ${ev.lap}`, '', 1600);
     } else if (ev.type === 'finish') {
       sfx.finish();
@@ -2531,7 +2688,7 @@ function handleRaceEvents() {
       const ds = sim.drift ? ` &middot; DRIFT ${Math.round(sim.drift.total).toLocaleString('en-US')}` : '';
       const pen = ev.pen ? ` &middot; +${ev.pen}s PENALTY TO ADD` : '';
       hud.center(p === 1 ? `WINNER!<span class="sub">${pen ? 'ACROSS THE LINE FIRST' + pen : 'RACE PASSED &middot; RESPECT +'}${ds}</span>` : `${p}${o} PLACE<span class="sub">RACE COMPLETE${pen}${ds}</span>`, p === 1 ? '' : 'white', 4500);
-    } else if (ev.type === 'results') { if (raceReturn === 'world') worldRoundDone(); else if (raceReturn === 'career') careerRoundDone(); else if (raceReturn === 'online') { if (screen !== 's-results') showNetResults(); } else showResults(); }
+    } else if (ev.type === 'results') { if (raceReturn === 'gig') gigFinish(); else if (raceReturn === 'world') worldRoundDone(); else if (raceReturn === 'career') careerRoundDone(); else if (raceReturn === 'online') { if (screen !== 's-results') showNetResults(); } else showResults(); }
     else if (ev.type === 'qflag') { if (ev.onLap) hud.center('CHEQUERED FLAG<span class="sub">FINISH THIS LAP</span>', 'white', 2600); }
     else if (ev.type === 'qpole') { sim.rc.say(`${ev.kind === 'practice' ? 'Fastest' : 'Provisional pole'} · ${ev.name} · ${fmtTime(ev.time, 3)}`, { cls: 'g', me: ev.name === sim.player?.name }); }
     else if (ev.type === 'garage') { if (!ev.first && screen === 'hud') fadeTo(() => openPitGarage(), 250); }
@@ -2618,7 +2775,7 @@ function pauseInfo() {
       <p class="tip" style="margin:12px 0 0">${practice ? 'Practice doesn\'t set the grid: learn the circuit and find your pace.' : 'Your best lap sets your grid slot.'} Laps that break track limits don't count.</p>`;
     return;
   }
-  $('pause-sub').textContent = `${sim.track.name} · ${raceReturn === 'online' ? 'the race goes on while this menu is open' : race ? (raceReturn === 'career' ? 'Challenge round ' + (career.round + 1) : raceReturn === 'world' ? `${WC.seriesById(world.player.series).name} round ${world.round + 1}` : 'Quick Race') : raceReturn === 'editor' ? 'Test drive' : 'Time Trial'}`;
+  $('pause-sub').textContent = `${sim.track.name} · ${raceReturn === 'online' ? 'the race goes on while this menu is open' : race ? (raceReturn === 'career' ? 'Challenge round ' + (career.round + 1) : raceReturn === 'world' ? `${WC.seriesById(world.player.series).name} round ${world.round + 1}` : raceReturn === 'gig' && gig ? WC.GIG_KINDS[gig.g.kind].name : 'Quick Race') : raceReturn === 'editor' ? 'Test drive' : raceReturn === 'testday' ? 'Test day' : 'Time Trial'}`;
   const cell = (k, v) => `<div><small>${k}</small><b>${v}</b></div>`;
   const tyre = hs && hs.tyre ? `<span class="tyre-dot" style="background:${TYRE_COL[hs.tyre.c]}"></span>${hs.tyre.c}` : '&mdash;';
   const key = (kb, gp) => pad ? gp : kb;
@@ -2664,7 +2821,14 @@ function pause() {
     pauseInfo(); show('s-pause'); sfx.back();
     return;
   }
-  if (raceReturn === 'career' || raceReturn === 'world') {
+  if (raceReturn === 'gig' || raceReturn === 'testday') {
+    menus['s-pause'][0].setItems([
+      { label: 'Resume', cls: 'action primary', action: resume },
+      opts,
+      raceReturn === 'gig' ? { label: 'Abandon The Job', confirm: 'Abandon it? Select again', action: () => gigFinish(true), desc: 'You won\'t be paid, and it goes on your record.' }
+        : { label: 'End The Test Day', action: () => testFinish(), desc: 'Pack up and go home. Five laps or more finds a setup.' },
+    ]);
+  } else if (raceReturn === 'career' || raceReturn === 'world') {
     menus['s-pause'][0].setItems([
       { label: 'Resume', cls: 'action primary', action: resume },
       opts,
@@ -2954,6 +3118,7 @@ function frame(now) {
       sim.update(dt, ctl, press);
       handleRaceEvents();
       if (sim) { const hs = sim.hudState(); hud.update(hs, sim); hud.pitMenu(hs, pitSel, true); driftHud.update(sim.drift, dt); }
+      if (gig) gigTick(dt);
     }
   } else if (screen === 's-carsel' && sim) {
     carSelectInput(dt);
