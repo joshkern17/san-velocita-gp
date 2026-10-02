@@ -1428,8 +1428,8 @@ function hubTick(dt) {
 // the mouse over the monitor: a pointer, and the tag lights up
 let pcHover = false;
 $('s-hub').addEventListener('mousemove', (e) => {
-  const on = !!onRoom(e);
-  if (on !== pcHover) { pcHover = on; $('s-hub').style.cursor = on ? 'pointer' : ''; }
+  const on = !!onRoom(e), car = !on && hubMode === 'room' && world && world.car && !pcSeat && !phone.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head') && pitGarage.hitCar(e.clientX, e.clientY);
+  if (on !== pcHover || car !== carHover) { pcHover = on; carHover = car; $('s-hub').style.cursor = on || car ? 'pointer' : ''; }
 });
 $('pc-tag').addEventListener('click', () => { if (screen === 's-hub' && !pcSeat) sitDown(); });
 // a click on the monitor sits you down (the hub's layer is over the 3D view, so it listens there, past its panels)
@@ -1599,9 +1599,11 @@ function tyreShort(w) {
 // ---- at the car: the parts, tagged on the car itself, and the work you can do there ----
 let hubMode = 'room', carPart = null, carSub = null;
 const carNeedsWork = (w) => { const P = w.car && WC.carParts(w); return !!P && WC.PART_KEYS.some(k => P[k].cond < 0.5); };
+// (part: straight to that part's work; otherwise the parts list, on the one in the worst state)
 function goToCar(part = null) {
   if (!world || !world.car) return;
-  hubMode = 'car'; carSub = part; carPart = part || 'engine';
+  const P = WC.carParts(world), worst = WC.PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)[0];
+  hubMode = 'car'; carSub = part; carPart = part || worst;
   $('s-hub').classList.add('at-car');
   pitGarage.setView('car', carPart); sfx.select();
   renderHub(); renderHints();
@@ -1639,25 +1641,29 @@ function renderCarMenu() {
   const want = carSub ? 1 : Math.max(0, WC.PART_KEYS.indexOf(carPart));
   if (m.i >= items.length || !carSub) { m.i = want; m.render(); }
 }
-// the tags over the car: in the room, the parts that need work; at the car, all of them (the one you're on lit up)
+// the car's tags: in the room, one over the car (like the computer's: the part in the worst state, if one needs
+// work); at the car, one on the part you're looking at
 function carTags() {
   const box = $('car-tags'), w = world, P = w && w.car && screen === 's-hub' && !pcSeat && !phone.isOpen ? WC.carParts(w) : null;
-  const show = P ? WC.PART_KEYS.filter(k => hubMode === 'car' ? pitGarage.settled && k === carPart : pitGarage.atRoom && P[k].cond < 0.5) : [];
-  if (box.dataset.keys !== show.join()) {
-    box.dataset.keys = show.join();
-    box.innerHTML = show.map(k => `<div class="pc-tag car-tag" data-part="${k}"><span><b>${WC.PARTS[k].name.toUpperCase()}</b><small></small></span><i></i></div>`).join('');
+  const key = !P ? '' : hubMode === 'car' ? (pitGarage.settled ? 'p:' + carPart : '') : pitGarage.atRoom ? 'car' : '';
+  if (box.dataset.keys !== key) {
+    box.dataset.keys = key;
+    box.innerHTML = key ? `<div class="pc-tag car-tag" data-part="${key === 'car' ? '' : carPart}"><span><b></b><small></small></span><i></i></div>` : '';
   }
-  for (const el of box.children) {
-    const k = el.dataset.part, a = pitGarage.partAnchor(k), at = a && pitGarage.toScreen(a.add(new THREE.Vector3(0, 0.25, 0)));
-    el.hidden = !at; if (!at) continue;
-    el.style.left = at.x + 'px'; el.style.top = at.y + 'px';
-    const c = Math.round(P[k].cond * 100), t = c + '%';
-    const sm = el.querySelector('small'); if (sm.textContent !== t) sm.textContent = t;
-    el.classList.toggle('hot', hubMode === 'car' && k === carPart);
-    el.classList.toggle('bad', P[k].cond < 0.5);
-  }
+  const el = box.firstElementChild; if (!el) return;
+  const worst = WC.PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)[0], k = el.dataset.part;
+  const a = k ? pitGarage.partAnchor(k)?.add(new THREE.Vector3(0, 0.25, 0)) : pitGarage.carAnchor(), at = a && pitGarage.toScreen(a);
+  el.hidden = !at; if (!at) return;
+  el.style.left = at.x + 'px'; el.style.top = at.y + 'px';
+  const shown = k || (P[worst].cond < 0.5 ? worst : null);
+  const b = k ? WC.PARTS[k].name.toUpperCase() : 'CAR', sm = shown ? `${k ? '' : WC.PARTS[shown].name.toUpperCase() + ' '}${Math.round(P[shown].cond * 100)}%` : '';
+  if (el.querySelector('b').textContent !== b) el.querySelector('b').textContent = b;
+  if (el.querySelector('small').textContent !== sm) el.querySelector('small').textContent = sm;
+  el.classList.toggle('hot', !!k || carHover);
+  el.classList.toggle('bad', !!shown && P[shown].cond < 0.5);
 }
-$('car-tags').addEventListener('click', (e) => { const t = e.target.closest('.car-tag'); if (!t) return; if (hubMode === 'car') { carPart = carSub = t.dataset.part; pitGarage.setView('car', carPart); renderHubMenu(); sfx.select(); } else goToCar(t.dataset.part); });
+let carHover = false;
+$('car-tags').addEventListener('click', (e) => { const t = e.target.closest('.car-tag'); if (!t) return; if (hubMode === 'car') { carSub = carPart; renderHubMenu(); sfx.select(); } else goToCar(); });
 
 // the car needs work (the riskiest part), from the Workshop's numbers
 function carNote(w) {

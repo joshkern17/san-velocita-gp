@@ -267,17 +267,31 @@ export class PitGarage {
   // where each part is on the car (world space), from the car's size; the engine where this car keeps it
   partAnchor(part) {
     if (!this.car) return null;
-    const bb = new THREE.Box3().setFromObject(this.car.group), L = bb.max.z - bb.min.z, cx = (bb.min.x + bb.max.x) / 2, cz = (bb.min.z + bb.max.z) / 2;
-    const rear = ENGINE_REAR.has(this.cfgChassis);
+    const bb = this.carBox(), L = bb.max.z - bb.min.z, cx = (bb.min.x + bb.max.x) / 2, cz = (bb.min.z + bb.max.z) / 2;
+    const rear = ENGINE_REAR.has(this.cfgChassis), H = bb.max.y - bb.min.y, y = (k) => bb.min.y + k * H;
+    const formula = this.cfgChassis === 'custom' || this.cfgChassis === 'svgp';
+    // (heights as fractions of the car's: a road car's bonnet and boot sit at about 60-70%, its roof is the top)
     const at = {
-      engine: rear ? [cx, bb.max.y - 0.12, bb.min.z + 0.22 * L] : [cx, bb.max.y - 0.2, bb.max.z - 0.22 * L],
-      gearbox: [cx, bb.min.y + 0.32, rear ? bb.min.z + 0.36 * L : cz],
-      brakes: [bb.max.x - 0.04, bb.min.y + 0.34, bb.max.z - 0.17 * L],
-      suspension: [bb.max.x - 0.04, bb.min.y + 0.38, bb.min.z + 0.18 * L],
-      aero: [cx, bb.max.y - 0.05, bb.min.z + 0.06 * L],
-      chassis: [bb.max.x, (bb.min.y + bb.max.y) / 2, cz],
-    }[part];
+      engine: rear ? [cx, y(formula ? 0.75 : 0.66), bb.min.z + 0.2 * L] : [cx, y(0.6), bb.max.z - 0.2 * L],
+      gearbox: [cx, y(0.3), rear ? bb.min.z + 0.34 * L : cz],
+      brakes: [bb.max.x - 0.05, y(0.3), bb.max.z - 0.17 * L],
+      suspension: [bb.max.x - 0.05, y(0.36), bb.min.z + 0.18 * L],
+      aero: formula ? [cx, y(0.95), bb.min.z + 0.05 * L] : [cx, y(0.7), bb.min.z + 0.07 * L],
+      chassis: [bb.max.x - 0.02, y(0.45), cz],    }[part];
     return at ? new THREE.Vector3(...at) : null;
+  }
+  // the car's body (its floor shadow is a big plane under it: left out)
+  carBox() {
+    const bb = new THREE.Box3(), sh = this.car.shadow;
+    this.car.group.updateMatrixWorld(true);
+    this.car.group.traverse(o => { if (o.isMesh && o !== sh && !(sh && sh.children && sh.children.includes(o))) bb.expandByObject(o, true); });
+    return bb.isEmpty() ? new THREE.Box3().setFromObject(this.car.group) : bb;
+  }
+  // a point just above the middle of the car, for its tag in the room
+  carAnchor() {
+    if (!this.car) return null;
+    const bb = this.carBox();
+    return new THREE.Vector3((bb.min.x + bb.max.x) / 2, bb.max.y + 0.15, (bb.min.z + bb.max.z) / 2);
   }
   // a point in the world on the screen (CSS pixels), or null behind the camera
   toScreen(p) {
