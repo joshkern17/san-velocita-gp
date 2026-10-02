@@ -1942,7 +1942,8 @@ function renderOptMenu() {
   if (m.i >= items.length || items[m.i]?.head) { m.i = 1; m.render(); }
 }
 function gigDesc(g) {
-  if (g.kind === 'courier') return `${g.client}: ${g.what}. ${g.laps} lap${g.laps === 1 ? '' : 's'} of town in GigGo's van.${g.fragile ? ' Fragile: damage comes off the fare.' : ''}${g.urgent ? ' Urgent: the time is tight.' : ''} Fare ${WC.money$(g.pay)}, before GigGo's fee.`;
+  const open = gigTrack(g)?.open, laps = open ? 1 : g.laps;
+  if (g.kind === 'courier') return `${g.client}: ${g.what}. ${open ? 'Across town' : `${laps} lap${laps === 1 ? '' : 's'} of town`} in GigGo's van.${g.fragile ? ' Fragile: damage comes off the fare.' : ''}${g.urgent ? ' Urgent: the time is tight.' : ''} Fare ${WC.money$(g.pay)}, before GigGo's fee.`;
   if (g.kind === 'hearse') return `${g.client}. Arrive inside the time window and drive smoothly: the family is following. ${WC.money$(g.pay)}, before GigGo's fee.`;
   if (g.kind === 'rides') return `Three laps in your race car, a passenger each lap: ${g.riders.join('; ')}. ${WC.money$(g.pay)} a ride and tips for a quick lap, nothing if they're sick.`;
   if (g.kind === 'attack') return `Three laps in your race car; your best lap counts. Gold ${WC.money$(g.prizes[0])}, silver ${WC.money$(g.prizes[1])}, bronze ${WC.money$(g.prizes[2])}.`;
@@ -1950,7 +1951,8 @@ function gigDesc(g) {
 }
 // a gig's place: a circuit like the town (the street race: the city at night)
 function gigTrack(g) {
-  const pool = worldPool(), same = pool.filter(t => t.env.theme === g.theme), list = same.length ? same : pool;
+  // (rides and time attacks are laps: circuits only)
+  const pool = worldPool().filter(t => !(t.open && (g.kind === 'rides' || g.kind === 'attack'))), same = pool.filter(t => t.env.theme === g.theme), list = same.length ? same : pool;
   return list[(parseInt(g.id.slice(1), 10) || 0) % list.length];
 }
 function startGig(g) {
@@ -1968,7 +1970,8 @@ function startGig(g) {
 // nowhere near the corner limits on the straights), in seconds
 function refLap() {
   const T = sim.T, V = sim.player.lineV || sim.lineV, sp = gig.spec; if (!V) return null;
-  const N = T.N, n = T.open ? N - 1 : N, v = new Float64Array(N), ds = (i) => { const j = (i + 1) % N; return Math.hypot(T.X[j] - T.X[i], T.Z[j] - T.Z[i]); };
+  // (point-to-point: start to the finish line, not the run-off and the road back)
+  const N = T.N, n = T.open ? T.finish : N, v = new Float64Array(N), ds = (i) => { const j = (i + 1) % N; return Math.hypot(T.X[j] - T.X[i], T.Z[j] - T.Z[i]); };
   v[0] = T.open ? 0 : V[0];
   for (let pass = 0; pass < (T.open ? 1 : 2); pass++) for (let i = 0; i < n; i++) {
     const j = (i + 1) % N, u = Math.max(3, v[i]), a = (Math.min(sp.maxForce || 12000, sp.power / u) - (sp.drag || 0.4) * u * u) / sp.mass;
@@ -1993,7 +1996,7 @@ function gigTick(dt) {
   }
   const row = (k, v) => `<div class="hud-row"><span class="lbl">${k}</span><span class="val">${v}</span></div>`;
   const meter = (k, v) => `<div class="gig-meter"><span class="lbl">${k}</span><i style="--v:${Math.max(0, v) / 100}"></i></div>`;
-  const ref = gig.ref || 0, laps = g.laps;
+  const ref = gig.ref || 0, laps = Math.min(g.laps, sim.laps); // (a point-to-point route is one run)
   let body = '';
   if (g.kind === 'courier') body = row('TIME', mmss(gig.t)) + row('DUE', ref ? mmss(ref * laps * g.tight) : '&mdash;') + meter(g.fragile ? 'FRAGILE' : 'GOODS', 100 - Math.min(100, gig.dmg * (g.fragile ? 350 : 160)));
   else if (g.kind === 'hearse') body = row('TIME', mmss(gig.t)) + row('ARRIVE', ref ? `${mmss(ref * g.window[0] * laps)}&ndash;${mmss(ref * g.window[1] * laps)}` : '&mdash;') + meter('THE FAMILY', gig.comfort);
@@ -2008,7 +2011,7 @@ function gigFinish(abandon = false) {
   const w = world; if (!w || !sim || !gig) return;
   const pl = sim.player, g = gig.g, me = sim.results().find(r => r.isPlayer);
   const finished = !abandon && !!pl.finished;
-  const r = { finished, time: gig.t, ref: (gig.ref || 60) * (g.kind === 'courier' || g.kind === 'hearse' ? g.laps : 1), dmg: gig.dmg, comfort: gig.comfort,
+  const r = { finished, time: gig.t, ref: (gig.ref || 60) * (g.kind === 'courier' || g.kind === 'hearse' ? Math.min(g.laps, sim.laps) : 1), dmg: gig.dmg, comfort: gig.comfort,
     lapTimes: pl.lapTimes.slice(0, g.laps), lapComfort: gig.lapComfort, won: finished && me && me.pos === 1 };
   const out = WC.gigDone(w, g.id, r);
   gig = null; document.body.classList.remove('gig-on'); sim.setPaused(true); saveWorld();
@@ -2023,7 +2026,7 @@ function weekResult(title, sub, rows, extra, net) {
   $('round-title').textContent = title;
   $('round-sub').textContent = sub;
   $('round-table').innerHTML = `<tr><th>ITEM</th><th class="r">AMOUNT</th></tr>` + (rows.length ? rows.map(([t, a]) => `<tr><td>${t}</td><td class="n ${a < 0 ? 'bad' : ''}">${a > 0 ? '+' : ''}${WC.money$(a)}</td></tr>`).join('') : '<tr><td>Nothing</td><td class="n">$0</td></tr>');
-  $('round-info').innerHTML = `<div class="big-pos">${net >= 0 ? '+' : '-'}${WC.money$(Math.abs(net)).replace('-', '')}<small>THE DAY</small></div>${extra}
+  $('round-info').innerHTML = `<div class="big-pos cash">${net >= 0 ? '+' : '&minus;'}${WC.money$(Math.abs(net))}<small>THE DAY</small></div>${extra}
     <div class="row"><span>Bank balance</span><span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span></div>
     <div class="row"><span>This week</span><span>${WC.daysLeft(w)} day${WC.daysLeft(w) === 1 ? '' : 's'} left</span></div>`;
   menus['s-round'][0].setItems([{ label: 'Continue', cls: 'action primary', action: () => openHub() }]);
@@ -3264,4 +3267,4 @@ requestAnimationFrame(frame);
 // debug handle
 window.__svgp = { get world() { return world; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; } } };
+  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; } } };
