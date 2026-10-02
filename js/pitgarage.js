@@ -217,7 +217,7 @@ export class PitGarage {
   screenAnchor() {
     const m = this.screenHit || this.screen; if (!m) return null;
     const bb = new THREE.Box3().setFromObject(m);
-    return this.toScreen(new THREE.Vector3((bb.min.x + bb.max.x) / 2, bb.max.y + 0.08, (bb.min.z + bb.max.z) / 2));
+    return this.toScreen(new THREE.Vector3((bb.min.x + bb.max.x) / 2, bb.max.y, (bb.min.z + bb.max.z) / 2)); // (the dot touches its top)
   }
   // did a click (CSS pixels) land on the monitor?
   hitScreen(cx, cy) {
@@ -287,11 +287,13 @@ export class PitGarage {
     this.car.group.traverse(o => { if (o.isMesh && o !== sh && !(sh && sh.children && sh.children.includes(o))) bb.expandByObject(o, true); });
     return bb.isEmpty() ? new THREE.Box3().setFromObject(this.car.group) : bb;
   }
-  // a point just above the middle of the car, for its tag in the room
+  // the car's tag in the room: on the side of the body nearest the camera, low (above the car, it would sit on the desk)
   carAnchor() {
     if (!this.car) return null;
-    const bb = this.carBox();
-    return new THREE.Vector3((bb.min.x + bb.max.x) / 2, bb.max.y + 0.15, (bb.min.z + bb.max.z) / 2);
+    const bb = this.carBox(), c = this.camera.position;
+    const x = Math.max(bb.min.x, Math.min(bb.max.x, c.x)), z = Math.max(bb.min.z, Math.min(bb.max.z, c.z));
+    const mx = (bb.min.x + bb.max.x) / 2, mz = (bb.min.z + bb.max.z) / 2;
+    return new THREE.Vector3(mx + (x - mx) * 0.7, bb.min.y + (bb.max.y - bb.min.y) * 0.62, mz + (z - mz) * 0.7);
   }
   // a point in the world on the screen (CSS pixels), or null behind the camera
   toScreen(p) {

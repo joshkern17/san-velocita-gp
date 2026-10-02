@@ -770,13 +770,15 @@ export function feelOf(w, part) {
   return felt > 0.025 ? S[0] : felt > 0.008 ? S[1] : felt > -0.004 ? S[2] : S[3];
 }
 export function buyFit(w, part) {
-  const P = carParts(w); if (!P) return false;
+  const P = carParts(w); if (!P || isFitted(w, part)) return false;
   const m = staffOf(w, 'mechanic'), fee = m ? 0 : 400;
   pay(w, -(part.price + fee), `${part.name}${part.used ? ' (used, SVList)' : ''}${fee ? ' + fitting at a shop' : ''}`);
   P[part.slot].fit = { name: part.name, gains: part.gains, q: part.q, used: part.used, claim: part.claim || null, feel: feelOf(w, part), measured: null };
   if (part.used) w.usedParts = (w.usedParts || []).filter(x => x.id !== part.id);
   return true;
 }
+// already on the car (the same part in its slot)
+export const isFitted = (w, part) => { const P = carParts(w); return !!(P && P[part.slot]?.fit && P[part.slot].fit.name === part.name); };
 export function removeFit(w, slot) { const P = carParts(w); if (P && P[slot]) P[slot].fit = null; }
 // after a round: your data engineer measures what the upgrades really do (a junior roughly, a senior closely)
 export function measureParts(w) {

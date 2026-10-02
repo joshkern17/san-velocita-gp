@@ -464,9 +464,9 @@ export class Computer {
     if (!P) return head + '<p class="pc-empty">You need a car first.</p>';
     const tabs = WC.PART_KEYS.map(k => `<span class="jb-tab${k === slot ? ' on' : ''}" data-nav data-act="slot" data-arg="${k}" data-key="slot-${k}">${WC.PARTS[k].name}</span>`).join('');
     const claim = (c) => Object.entries(c.claim || c.gains).map(([s2, v]) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(0)}% ${s2}`).join(', ');
-    const rows = items.map((c, k) => `<div class="jb-row"><div><b>${esc(c.name)}</b><small>Manufacturer's figures: ${claim(c)}.</small></div><div class="jb-meta">${WC.money$(c.price)}</div>
-      <button class="pc-btn sm" data-nav data-act="fitpart" data-arg="${c.id}" data-key="fitpart:${c.id}"${k === 0 ? ' data-first' : ''}>${this.armed === 'fitpart:' + c.id ? 'Buy & fit? Select again' : 'Buy & fit'}</button></div>`).join('');
     const cur = P[slot].fit;
+    const rows = items.map((c, k) => `<div class="jb-row"><div><b>${esc(c.name)}</b><small>Manufacturer's figures: ${claim(c)}.</small></div><div class="jb-meta">${WC.money$(c.price)}</div>
+      ${WC.isFitted(w, c) ? '<span class="sp-fitted">Fitted</span>' : `<button class="pc-btn sm" data-nav data-act="fitpart" data-arg="${c.id}" data-key="fitpart:${c.id}"${k === 0 ? ' data-first' : ''}>${this.armed === 'fitpart:' + c.id ? (cur ? `Replace ${esc(cur.name)}? Select again` : 'Buy & fit? Select again') : 'Buy & fit'}</button>`}</div>`).join('');
     return head + `<div class="jb-tabs">${tabs}</div><div class="jb-body">${cur ? `<p class="jb-cur">On your car now: ${esc(cur.name)}. A new one replaces it.</p>` : ''}${rows}<p class="tr-fine">Figures are the manufacturer's own, measured under ideal conditions.</p></div>`;
   }
 
@@ -529,7 +529,7 @@ export class Computer {
     if (!w.car) return '<p class="pc-empty">Buy a car first.</p>';
     const take = (u) => !m ? '' : m.skill >= 4 || (m.skill >= 2 && (u.q < 0.4 || u.q > 0.75)) ? `<em>${esc(m.first)}: "${u.q >= 0.75 ? 'that looks clean' : u.q >= 0.5 ? 'it\'ll do' : u.q >= 0.35 ? 'I wouldn\'t' : 'that\'s junk'}"</em>` : `<em>${esc(m.first)}: "can't tell from a listing"</em>`;
     const rows = list.map((u, k) => `<div class="cl-prow"><span class="cl-price">${WC.money$(u.price)}</span><div><a>${esc(u.name)} &ndash; ${esc(u.blurb.toLowerCase())}</a>${u.danny ? ' <b class="cl-danny">(Danny\'s guy)</b>' : ''}<small>${WC.PARTS[u.slot].name.toLowerCase()} &middot; seller ${esc(u.seller)}</small>${take(u)}</div>
-      <button class="pc-btn sm" data-nav data-act="fitpart" data-arg="${u.id}" data-key="fitpart:${u.id}"${k === 0 ? ' data-first' : ''}>${this.armed === 'fitpart:' + u.id ? 'Buy & fit? Select again' : 'Buy & fit'}</button></div>`).join('');
+      ${WC.isFitted(w, u) ? '<span class="sp-fitted">Fitted</span>' : `<button class="pc-btn sm" data-nav data-act="fitpart" data-arg="${u.id}" data-key="fitpart:${u.id}"${k === 0 ? ' data-first' : ''}>${this.armed === 'fitpart:' + u.id ? (WC.carParts(w)[u.slot].fit ? `Replace ${esc(WC.carParts(w)[u.slot].fit.name)}? Select again` : 'Buy & fit? Select again') : 'Buy & fit'}</button>`}</div>`).join('');
     return `<div class="cl-list">${rows || '<p class="pc-empty">Nothing this week.</p>'}<p class="tr-fine">New listings every week. Cash only. No returns.</p></div>`;
   }
   // a listing's photo (rendered once, then cached by main.js)
