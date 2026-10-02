@@ -1514,3 +1514,46 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .db-offer span { flex: 1; }
 .db-season td { text-align: center; }
 .db-best { color: #333; }
+
+/* World Career's garage: the week as a calendar (top right) and the briefing (right) */
+#s-hub .scr-head { max-width: calc(90% - 600px); }
+#s-hub .scr-head h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hub-week { position: absolute; right: var(--edge); top: 4%; width: 564px; }
+.hub-week[hidden] { display: none; }
+.wk-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--s2); font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+.wk-head b { font-weight: 500; color: var(--sv-amber); }
+.wk-days { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.wk-day { height: 74px; padding: 9px 9px 0; box-sizing: border-box; background: var(--sv-plate); border: 1px solid color-mix(in srgb, var(--sv-red) 35%, transparent); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.wk-day small, .wk-day b, .wk-day em { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: var(--track); text-transform: uppercase; -webkit-text-fill-color: transparent; font-style: normal; }
+.wk-day small { font: 500 var(--t-small)/1 var(--f-ui); color: var(--sv-red-dim); text-shadow: var(--sv-glow); }
+.wk-day b { font: 500 17px/1 var(--f-ui); color: var(--sv-red-dim); text-shadow: var(--sv-glow); }
+.wk-day em { font: 500 var(--t-small)/1 var(--f-ui); color: var(--sv-cyan); text-shadow: var(--sv-glow); }
+.wk-day em.neg { color: var(--sv-bad); }
+.wk-day.done { border-color: var(--sv-red); box-shadow: var(--sv-glow-line); }
+.wk-day.done b { color: var(--sv-hot); }
+.wk-day.done small { color: var(--sv-red); }
+.wk-day.todo em { color: var(--sv-amber); }
+.wk-day.today { border-color: var(--sv-amber); box-shadow: 0 0 2px var(--sv-amber), 0 0 4px var(--sv-amber); }
+.wk-day.today small, .wk-day.today b { color: var(--sv-amber); }
+.wk-day.race { background: var(--sv-red); border-color: var(--sv-red); box-shadow: var(--sv-glow-line); }
+.wk-day.race small, .wk-day.race b, .wk-day.race em { color: var(--sv-paper); text-shadow: none; -webkit-text-fill-color: var(--sv-paper); }
+.wk-targets { margin-top: var(--s3); padding: var(--s3) var(--s4); background: linear-gradient(90deg, rgba(6,4,10,.32), var(--sv-plate)); }
+.wk-targets .panel-title { margin-bottom: var(--s2); }
+.br-goals { margin-bottom: var(--s2); }
+.br-goals > div { min-width: 0; }
+.br-goals b { font-size: 22px; white-space: nowrap; }
+.br-goals .br-bar { display: block; width: 86%; margin: 7px 0 0; }
+.br-hint { margin: var(--s3) 0 0; font: 500 var(--t-small)/1.4 var(--f-body); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; }
+.br-att { margin: var(--s4) 0 var(--s2); }
+.br-row { display: flex; align-items: baseline; gap: 8px; padding: 3px 0; font: 500 var(--t-body)/1.3 var(--f-body); color: var(--sv-red); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; }
+.br-row span { flex: 1; min-width: 0; }
+.br-row b { font-weight: 500; color: var(--sv-hot); }
+.br-row em { flex: none; font: 500 var(--t-body)/1 var(--f-ui); font-style: normal; color: var(--sv-cyan); }
+.br-row i { flex: none; width: 7px; height: 7px; border-radius: 50%; transform: translateY(-1px); background: var(--sv-amber); box-shadow: 0 0 4px var(--sv-amber); }
+.br-row.bad i { background: var(--sv-bad); box-shadow: 0 0 4px var(--sv-bad); }
+.br-row.bad span { color: var(--sv-bad); }
+.br-none, .br-more { font: 500 var(--t-body)/1.3 var(--f-body); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; padding: 3px 0; }
+.br-bar { height: 4px; background: color-mix(in srgb, var(--sv-red) 20%, transparent); }
+.br-bar i { display: block; height: 100%; width: calc(var(--v) * 100%); background: var(--sv-red); box-shadow: var(--sv-glow-line); }
+#s-hub .hub-week { transition: opacity .3s; }
+#s-hub.seated .hub-week { opacity: 0; pointer-events: none; }

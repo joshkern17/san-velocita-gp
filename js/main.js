@@ -1287,6 +1287,7 @@ function showSeasonEnd() {
 // js/wcareer.js keeps the world (people, teams, three series, results, news and texts); this is its UI.
 let world = null;
 let weekSub = false; // the hub menu is showing This Week (World Career's week, further down)
+let optSub = false;  // ... or Career Options
 let gig = null;      // a gig being driven: { g, t, ref, comfort, lc, lapComfort, dmg, lat, lon }
 const worldOpts = { len: 6, difficulty: 'medium', laps: 5, weekend: 'quali', prac: 1200, quali: 600, pool: 'presets', name: '' };
 const worldPool = () => trackPool(world ? world.opts.pool : worldOpts.pool);
@@ -1595,7 +1596,7 @@ function enterHub() {
   if (world.livery) { t.main = world.livery.main; t.accent = world.livery.accent; }
   pitGarage.openHome(hubCar(), { main: t.main, accent: t.accent, name: t.name });
   pcSeat = false; pc.close(); $('s-hub').classList.remove('seated', 'at-car');
-  hubMode = 'room'; carSub = null; carPart = null;
+  hubMode = 'room'; carSub = null; carPart = null; optSub = false;
   renderHub(); show('s-hub');
 }
 function openHub(first = false) {
@@ -1608,7 +1609,7 @@ function renderHub() {
   if (!world) return;
   const w = world, sid = w.player.series, S = w.series[sid];
   $('hub-title').textContent = w.teams[w.player.team].name;
-  $('hub-sub').textContent = `${seriesName(sid)} · ${w.year} season · ${w.over ? 'season complete' : `round ${w.round + 1} of ${w.opts.len}`} · ${DIFF_LABEL[w.opts.difficulty] || ''} difficulty`;
+  $('hub-sub').textContent = `${seriesName(sid)} · ${w.year} · ${w.over ? 'season complete' : `round ${w.round + 1} of ${w.opts.len}`}`;
   const st = WC.seriesStandings(w, sid), cp = S.results.length ? st.findIndex(e => e.pid === 'P') + 1 : 0;
   const pips = S.cal.map((c, k) => `<i class="${k < w.round ? 'done' : k === w.round && !w.over ? 'now' : ''}" title="${c.name}"></i>`).join('');
   const champ = cellW('Championship', cp ? `${ord(cp)}<small> ${st[cp - 1].pts} PTS</small>` : '&mdash;');
@@ -1625,21 +1626,46 @@ function renderHub() {
       ${step(F.reg, 'Register the team')}${step(w.money && w.money.choice, 'Claim your winnings')}${step(F.car, 'Buy a car')}${step(!!w.livery && w.liveryDone, 'Paint it (optional)')}${step((w.staff || []).length > 0, 'Hire staff (optional)')}</div>
       <p class="hub-note">It all happens on the <b>computer</b>.</p>`;
   } else if (!w.over) {
-    const r = S.cal[w.round], tr = worldPool().find(t => t.name === r.name);
-    $('hub-card').innerHTML = `<div class="panel-title">NEXT &middot; ROUND ${w.round + 1} OF ${w.opts.len}</div><div class="season-pips">${pips}</div>
-      <div class="ti-name">${r.name}</div><div class="ti-chips"><span>${tr ? THEMES[tr.env.theme].label : ''}</span><span class="wx-chip">${r.time} &middot; ${r.weather}</span></div>
-      <div class="ti-grid three">${champ}${bank}${cellW('This week', `${WC.daysLeft(w)} day${WC.daysLeft(w) === 1 ? '' : 's'} left`)}</div>`;
+    // the team at a glance: the three things to build up, a hint, and what needs attention
+    const B = WC.briefing(w), [gc, gr, gm] = B.goals;
+    const cell = (g, v) => `<div><small>${g.label}</small><b>${v}</b><span class="br-bar"><i style="--v:${g.pct.toFixed(3)}"></i></span></div>`;
+    const wt = B.watch.slice(0, 3).map(x => `<div class="br-row ${x.bad ? 'bad' : 'warn'}"><i></i><span>${x.text}</span></div>`).join('') + (B.watch.length > 3 ? `<div class="br-more">and ${B.watch.length - 3} more</div>` : '');
+    $('hub-card').innerHTML = `<div class="panel-title">The team</div>
+      <div class="ti-grid three br-goals">${cell(gc, cp ? `${ord(cp)}<small> ${st[cp - 1].pts} PTS</small>` : '&mdash;')}${cell(gr, gr.value)}${cell(gm, `<span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span>`)}</div>
+      <p class="br-hint">${B.hint}</p>
+      <div class="panel-title br-att">Needs attention</div>${wt || '<div class="br-none">Nothing on fire.</div>'}`;
   } else {
     const sum = w.seasons.at(-1), you = sum && sum.you, off = w.player.offer;
     $('hub-card').innerHTML = `<div class="panel-title">${w.year} &middot; SEASON COMPLETE</div><div class="season-pips">${pips}</div>
       <div class="ti-grid three">${cellW('Finished', you ? ord(you.pos) : '&mdash;')}${cellW('Wins', you ? you.wins : 0)}${bank}</div>
       ${off ? `<p class="hub-note">${off.answer === 'move' ? `You're moving up to the <b>${seriesName(off.to)}</b>.` : off.answer === 'stay' ? `You're staying in the ${seriesName(sid)}.` : `The <b>${seriesName(off.to)}</b> has emailed you an offer.`}</p>` : ''}`;
   }
+  renderWeekStrip();
   renderHubMenu();
+}
+// the week, as a calendar across the top: what each day went on, today, race day
+function renderWeekStrip() {
+  const w = world, el = $('hub-week'), on = !!founded(w) && !w.over && hubMode === 'room';
+  el.hidden = !on; if (!on) return;
+  const wk = WC.weekOf(w), R = w.series[w.player.series].cal[w.round], left = WC.daysLeft(w);
+  const days = WC.DAY_NAMES.map((d, i) => {
+    const e = wk.log.filter(x => x.day === i), x = e[e.length - 1];
+    if (x) {
+      const amt = e.reduce((a, y) => a + (y.amt || 0), 0), todo = x.gig && !x.done;
+      return `<div class="wk-day done${todo ? ' todo' : ''}"><small>${d}</small><b>${x.tag || 'Busy'}</b><em class="${amt < 0 ? 'neg' : ''}">${todo ? 'To drive' : amt ? `${amt > 0 ? '+' : '&minus;'}${WC.money$(Math.abs(amt))}` : '&nbsp;'}</em></div>`;
+    }
+    const today = i === wk.used;
+    return `<div class="wk-day${today ? ' today' : ''}"><small>${d}</small><b>${today ? 'Today' : 'Free'}</b><em>&nbsp;</em></div>`;
+  }).join('');
+  const B = WC.briefing(w), tg = B.targets.slice(0, 3).map(t => `<div class="br-row tg"><span><b>${t.who}:</b> ${t.text.charAt(0).toLowerCase() + t.text.slice(1)}</span>${t.amt ? `<em>+${WC.money$(t.amt)}</em>` : ''}</div>`).join('');
+  el.innerHTML = `<div class="wk-head"><span>Round ${w.round + 1}: ${R.name} &middot; ${R.time}, ${R.weather}</span><b>${left ? `${left} day${left === 1 ? '' : 's'} left` : 'Race day next'}</b></div>
+    <div class="wk-days">${days}<div class="wk-day race"><small>Sat</small><b>Race</b><em>Round ${w.round + 1}</em></div></div>
+    <div class="wk-targets"><div class="panel-title">This weekend</div>${tg || '<div class="br-none">No targets set. Race well.</div>'}</div>`;
 }
 function renderHubMenu() {
   if (!world) return;
   if (hubMode === 'car') return renderCarMenu();
+  if (optSub) return renderOptMenu();
   if (weekSub && founded(world) && WC.weekOpen(world)) return renderWeekMenu();
   weekSub = false;
   const w = world, sid = w.player.series, n = WC.unread(w), nm = WC.unreadMail(w);
@@ -1655,23 +1681,19 @@ function renderHubMenu() {
     const r = w.series[sid].cal[w.round];
     const tg = WC.dealsOf(w).map(d => `<b>${WC.sponsorName(d.sid)}</b>: ${WC.objText(w, WC.dealObjective(w, d)).toLowerCase()}`).join(' · ');
     const unplayed = WC.bookedGigs(w).length, left = WC.daysLeft(w);
-    items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), confirm: unplayed ? 'Skip the job? Select again' : null, desc: `${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}${tg ? `<br>Sponsor targets: ${tg}.` : ''}${WC.storyGoal(w) ? `<br><b>${WC.storyGoal(w).text}.</b>` : ''}${unplayed ? `<br><b>You have a booked job you haven't driven.</b> Race now and it's a no-show.` : left ? `<br>${left} day${left === 1 ? '' : 's'} of the week unused.` : ''}` });
-    items.push({ label: `This Week<small>${unplayed ? `${unplayed} BOOKED` : `${left} DAY${left === 1 ? '' : 'S'} LEFT`}</small>`, action: () => { weekSub = true; sfx.select(); renderHubMenu(); }, desc: weekDesc(w) });
+    items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), confirm: unplayed ? 'Skip the job? Select again' : null, desc: `${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}${WC.storyGoal(w) ? `<br><b>${WC.storyGoal(w).text}.</b>` : ''}${unplayed ? `<br><b>You have a booked job you haven't driven.</b> Race now and it's a no-show.` : left ? `<br>${left} day${left === 1 ? '' : 's'} of the week unused.` : ''}` });
+    items.push({ label: `This Week<small>${unplayed ? `${unplayed} BOOKED` : tyreShort(w) ? 'TYRES LOW' : `${left} DAY${left === 1 ? '' : 'S'} LEFT`}</small>`, action: () => { weekSub = true; sfx.select(); renderHubMenu(); }, desc: weekDesc(w) });
   } else {
     items.push({ label: `Start ${w.year + 1} Season`, cls: 'action primary', action: () => beginNextSeason(),
       desc: offerMail ? `First answer the ${seriesName(off.to)}'s email.` : 'Everyone a year older. Retirements, promotions and rookies, then a new calendar.' });
   }
   items.push(
     { label: `Computer${nm ? `<small>${nm} NEW</small>` : ''}`, action: () => sitDown(offerMail ? 'mail' : null, offerMail ? offerMail.id : null), desc: 'Sit down at the desk: Mail, Team (the car, tyres, staff, data) and the Internet. You can also click the monitor.' },
-    ...(founded(w) && tyreShort(w) ? [{ label: 'Order Tyres<small>LOW</small>', action: () => sitDown('tyres'), desc: `In stock: ${WC.COMPOUNDS.map(c => `${WC.stockOf(w)[c]} ${c}`).join(', ')}. Order before the weekend (on the computer): trackside sets cost ${Math.round((WC.TRACKSIDE - 1) * 100)}% more. A team manager would order for you.` }] : []),
     { label: `Phone${n ? `<small>${n} NEW</small>` : ''}`, action: () => { phone.open(); renderHints(); }, desc: 'Texts from your teammate, rivals and friends. Press <b>P</b> / <b>Y</b> any time.' },
     ...(w.car ? [{ label: `Work On The Car${carNeedsWork(w) ? '<small>NEEDS WORK</small>' : ''}`, action: () => goToCar(), desc: 'Walk over to the car: each part\'s condition, rebuilds and new parts. Upgrades are bought on the computer.' }] : []),
     { label: 'Car & Livery', action: () => openWorldGarage(), desc: w.car ? `Your ${w.car.year} ${w.car.name}: paint it, design the livery, the helmet and the suit.` : `Your livery, helmet and suit. In the ${seriesName(sid)} you race ${CLASSES[WC.seriesById(sid).cls].label} cars.` },
-    presetItem(' Set each aid in Options > Aids.'),
+    { label: `Career Options<small>${(DIFF_LABEL[w.opts.difficulty] || '').toUpperCase()}</small>`, action: () => { optSub = true; sfx.select(); renderHubMenu(); }, desc: `Difficulty (${DIFF_LABEL[w.opts.difficulty] || ''}), driver aids, and simulating the rest of the season.` },
   );
-  items.push({ label: 'Difficulty', values: Object.entries(DIFF_LABEL), get: () => w.opts.difficulty, set: v => { w.opts.difficulty = v; saveWorld(); renderHub(); },
-    desc: 'The pace of the field from the next race. Pick one you can\'t win at yet: upgrades and a better car are how you catch them. Above <b>Legend</b> the AI cars get extra grip and power.' });
-  if (!w.over) items.push({ label: 'Sim Rest Of Season', confirm: 'Simulate it all? Select again', action: () => simWorldSeason(), desc: 'For testing: simulates every remaining round, your races too (you as a mid-field driver).' });
   items.push({ label: 'Save & Quit', action: () => { saveWorld(); pitGarage.close(); quitToMenu(); }, desc: 'Your career is saved. Continue it from the main menu.' });
   const m = menus['s-hub'][0], keep = m.items[m.i]?.label?.replace(/<small>.*$/, '');
   m.setItems(items, true);
@@ -1681,6 +1703,7 @@ menus['s-hub'] = [new Menu($('m-hub'), [], { desc: 'd-hub', onMove: (it) => { if
 backs['s-hub'] = () => {
   if (pcSeat && pc.isOpen) { if (pc.app) { pc.back(); renderHints(); } else standUp(); return; }
   if (hubMode === 'car') { if (carSub) { carSub = null; sfx.back(); renderHubMenu(); } else leaveCar(); }
+  else if (optSub) { optSub = false; sfx.back(); renderHubMenu(); }
   else if (weekSub) { weekSub = false; sfx.back(); renderHubMenu(); }
 };
 tabbers['s-hub'] = (d) => { if (pc.isOpen) pc.flip(d); };
@@ -1704,7 +1727,7 @@ function goToCar(part = null) {
   renderHub(); renderHints();
 }
 function leaveCar() {
-  hubMode = 'room'; carSub = null; carPart = null;
+  hubMode = 'room'; carSub = null; carPart = null; optSub = false;
   $('s-hub').classList.remove('at-car');
   pitGarage.setView('room'); sfx.back();
   renderHub(); renderHints();
@@ -1886,11 +1909,23 @@ function renderWeekMenu() {
   items.push(
     { label: `Day Job<small>${WC.money$(job.pay)}</small>`, action: () => { const r = WC.workDay(w); if (!r) return noDays(); sfx.select(); toast(`${job.name}: <b>+${WC.money$(r.amt)}</b>${r.note ? '. ' + r.note : ''}`); saveWorld(); renderHub(); },
       desc: `${job.name}. A day's pay for a day of your week.` },
+    ...(tyreShort(w) ? [{ label: 'Order Tyres<small>LOW</small>', action: () => sitDown('tyres'), desc: `In stock: ${WC.COMPOUNDS.map(c => `${WC.stockOf(w)[c]} ${c}`).join(', ')}. Order before the weekend (on the computer): trackside sets cost ${Math.round((WC.TRACKSIDE - 1) * 100)}% more. A team manager would order for you.` }] : []),
     { label: 'Find Work', action: () => left > 0 ? sitDown('giggo') : noDays(), desc: `GigGo, on the computer: courier runs and other driving jobs, paid when you've driven them. Your rating: ${WC.gigRating(w).toFixed(2)}.` },
     ...(!wk.tested ? [{ label: `Test Day<small>${WC.money$(WC.testCost(w))}</small>`, confirm: 'Book it? Select again', action: () => left > 0 ? startTestDay() : noDays(),
       desc: `Hire ${R.name} for the day, plus fuel and wear. Do five laps or more and you find a setup for the race: a little more grip at ${R.name}. Pause to end the day.` }] : []),
     { label: 'Back', action: () => { weekSub = false; sfx.back(); renderHubMenu(); }, desc: 'Back to the garage.' },
   );
+  const m = menus['s-hub'][0]; m.setItems(items, true);
+  if (m.i >= items.length || items[m.i]?.head) { m.i = 1; m.render(); }
+}
+// Career Options: difficulty, aids, the test button
+function renderOptMenu() {
+  const w = world, items = [{ label: 'Career Options', head: true },
+    { label: 'Difficulty', values: Object.entries(DIFF_LABEL), get: () => w.opts.difficulty, set: v => { w.opts.difficulty = v; saveWorld(); renderHub(); },
+      desc: 'The pace of the field from the next race. Pick one you can\'t win at yet: upgrades and a better car are how you catch them. Above <b>Legend</b> the AI cars get extra grip and power.' },
+    presetItem(' Set each aid in Options > Aids.'),
+    ...(!w.over ? [{ label: 'Sim Rest Of Season', confirm: 'Simulate it all? Select again', action: () => simWorldSeason(), desc: 'For testing: simulates every remaining round, your races too (you as a mid-field driver).' }] : []),
+    { label: 'Back', action: () => { optSub = false; sfx.back(); renderHubMenu(); }, desc: 'Back to the garage.' }];
   const m = menus['s-hub'][0]; m.setItems(items, true);
   if (m.i >= items.length || items[m.i]?.head) { m.i = 1; m.render(); }
 }
