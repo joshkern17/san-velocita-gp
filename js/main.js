@@ -215,6 +215,13 @@ class Menu {
     this.i = i; sfx.move(); this.render();
     this.opts.onMove && this.opts.onMove(this.items[i]);
   }
+  // a grid: d cells on, stopping at the edges (no wrapping), skipping headings
+  jump(d) {
+    let i = Math.max(0, Math.min(this.items.length - 1, this.i + d));
+    while (this.items[i] && (this.items[i].head || this.items[i].disabled) && i !== this.i) i += Math.sign(d);
+    if (!this.items[i] || i === this.i) return;
+    this.i = i; sfx.move(); this.render(); this.opts.onMove && this.opts.onMove(this.items[i]);
+  }
   change(d) {
     const it = this.items[this.i]; if (!it || !it.values) return;
     const vals = it.values.map(v => v[0]);
@@ -955,9 +962,12 @@ function renderGarageMenu() {
   pgSkipLbl = q.left > 330 ? 'Skip 5 Minutes' : 'Skip To The End';
   if (pgView === 'tyres') { const m = menus['s-pitgarage'][0]; m.setItems(tyreItems(), false); m.i = m.items.findIndex(it => !it.head); m.render(); renderHints(); return; }
   const t = sim.player.phys.tyre;
+  const open = sim.T.open, runsLeft = open ? (q.runs || 1) - (q.used || 0) : 0;
   const items = [
-    { label: 'Flying Lap', cls: 'action primary', action: () => goOut('flying'), desc: 'Straight onto a flying lap: the clock starts at the line.' },
-    ...(sim.pit ? [{ label: 'Drive Out', cls: 'action', action: () => goOut('drive'), desc: 'Down the pit lane and an out lap first, to get the tyres going.' }] : []),
+    ...(open ? [{ label: `Start Run ${(q.used || 0) + 1}<small>OF ${q.runs || 1}</small>`, cls: 'action primary', action: () => goOut('run'),
+        desc: `From the top: a standing start, timed from the line to the finish, then back up here. ${runsLeft === 1 ? '<b>Your last run.</b>' : `${runsLeft} runs left.`} ${q.kind === 'practice' ? 'Learn the road.' : 'Your best run sets your grid slot.'}` }]
+      : [{ label: 'Flying Lap', cls: 'action primary', action: () => goOut('flying'), desc: 'Straight onto a flying lap: the clock starts at the line.' }]),
+    ...(sim.pit && !open ? [{ label: 'Drive Out', cls: 'action', action: () => goOut('drive'), desc: 'Down the pit lane and an out lap first, to get the tyres going.' }] : []),
     { label: `Tyres<small>${capit(t.c)} &middot; ${pct(t)}%</small>`, action: () => { pgView = 'tyres'; sfx.select(); renderGarageMenu(); }, desc: `Change tyres: a new set of any compound${wkOn() ? ` (${WC.money$(WC.tyreCost(world))} each)` : ''}, or one you ran earlier.` },
     repairItem(),
     presetItem(' Applies from your next run.'),
@@ -1004,7 +1014,7 @@ function renderGarageInfo() {
   const late = q.left < 60;
   $('pg-clock').textContent = fmtTime(Math.ceil(q.left), 0); $('pg-clock').classList.toggle('late', late);
   const cell = (k, v) => `<div><small>${k}</small><b>${v}</b></div>`;
-  $('pg-card').innerHTML = `<div class="ti-grid">${cell('Position', `${me.pos}<small>/${rows.length}</small>`)}${cell('Best lap', isFinite(me.best) ? fmtTime(me.best, 3) : '&mdash;')}${cell(q.kind === 'practice' ? 'Gap to fastest' : 'Gap to pole', me.pos === 1 || !isFinite(me.best) ? '&mdash;' : '+' + me.gap.toFixed(3))}${cell('Laps', sim.player.lapTimes.length)}</div>`;
+  $('pg-card').innerHTML = `<div class="ti-grid">${cell('Position', `${me.pos}<small>/${rows.length}</small>`)}${cell(sim.T.open ? 'Best run' : 'Best lap', isFinite(me.best) ? fmtTime(me.best, 3) : '&mdash;')}${cell(q.kind === 'practice' ? 'Gap to fastest' : 'Gap to pole', me.pos === 1 || !isFinite(me.best) ? '&mdash;' : '+' + me.gap.toFixed(3))}${sim.T.open ? cell('Runs', `${q.used || 0}<small>/${q.runs || 1}</small>`) : cell('Laps', sim.player.lapTimes.length)}</div>`;
   if (pgTiming) $('pg-table').innerHTML = `<tr><th>POS</th><th>DRIVER</th><th class="r">BEST</th><th class="r">GAP</th></tr>` + rows.map(r =>
     `<tr class="${r.isPlayer ? 'me' : ''}"><td class="p">${posBadge(r.pos)}</td><td><span class="swatch" style="background:${hex(r.color)}"></span>${r.name}</td><td class="t">${isFinite(r.best) ? fmtTime(r.best, 3) : '&mdash;'}</td><td class="t">${r.pos === 1 || !isFinite(r.best) ? '' : '+' + r.gap.toFixed(3)}</td></tr>`).join('');
   pitGarage.setTiming(`${SESSION_NAME[q.kind].toUpperCase()} · ${fmtTime(Math.ceil(q.left), 0)}`, rows);
@@ -1073,7 +1083,7 @@ function openCareer(switching = false) {
   if (careerTab === 0) {
     const m = menus['s-career'][0], items = worldItems(WC.listWorlds());
     m.setItems(items); m.i = items.findIndex(it => !it.disabled && !it.head); m.render();
-    worldInfo();
+    if (careerPick) careerSummary(careerPick); else worldInfo();
     if (!switching) fadeTo(() => { if (!sim) startAttract(); show('s-career'); }, 200);
     return;
   }
@@ -1112,7 +1122,7 @@ function openCareer(switching = false) {
 let careerTab = 0;
 tabbers['s-career'] = (d) => { sfx.move(); careerTab = (careerTab + d + 3) % 3; openCareer(true); };
 menus['s-career'] = [new Menu($('m-career'), [], { desc: 'd-career' })];
-backs['s-career'] = () => { sfx.back(); fadeTo(() => show('s-main'), 200); };
+backs['s-career'] = () => { sfx.back(); if (careerPick) { careerPick = null; openCareer(true); return; } fadeTo(() => show('s-main'), 200); };
 const reservedTeam = () => (settings.team === 'garage' || settings.team === undefined ? 0 : +settings.team);
 function withRoster(c) {
   const res = reservedTeam();
@@ -1298,11 +1308,15 @@ function showSeasonEnd() {
 let world = null;
 let optSub = false;  // ... or Career Options
 let gig = null;      // a gig being driven: { g, t, ref, comfort, lc, lapComfort, dmg, lat, lon }
-const worldOpts = { len: 6, difficulty: 'medium', laps: 5, weekend: 'quali', prac: 1200, quali: 600, pool: 'presets', name: '' };
-const worldPool = () => trackPool(world ? world.opts.pool : worldOpts.pool);
+const worldOpts = { len: 6, difficulty: 'medium', laps: 5, weekend: 'quali', prac: 1200, quali: 600, pool: 'presets', tracks: null, name: '' };
+// every circuit a career can use: the presets, yours, and the real ones
+const allTracks = () => { const seen = new Set(); return [...presetTracks(), ...savedTracks(), ...realTracks()].filter(t => t && t.name && !seen.has(t.name) && seen.add(t.name)); };
+// a career's circuits: the ones picked on the Circuits screen (opts.tracks), else the old preset/mine setting
+const poolOf = (o) => { const l = o.tracks && o.tracks.length ? allTracks().filter(t => o.tracks.includes(t.name)) : []; return l.length ? l : trackPool(o.pool); };
+const worldPool = () => poolOf(world ? world.opts : worldOpts);
 // a calendar's circuit: from the career's pool, else any circuit the game knows (a calendar made from another pool, a
 // circuit since renamed)
-const findCalTrack = (name) => worldPool().find(t => t.name === name) || [...presetTracks(), ...savedTracks(), ...realTracks()].find(t => t.name === name) || null;
+const findCalTrack = (name) => worldPool().find(t => t.name === name) || allTracks().find(t => t.name === name) || null;
 // ... and for a round about to be driven: if it's gone altogether, the first preset stands in and the calendar says so
 // (so the emails and the results name the circuit you actually raced)
 function calTrack(R) {
@@ -1496,12 +1510,21 @@ $('s-hub').addEventListener('click', (e) => {
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 // ---- new career (Career screen, World Career tab) ----
-let delPick = null;
+let careerPick = null; // the saved career whose page is open (Continue / Delete), or null for the list
 function worldItems(saves) {
-  const items = [];
+  const items = [], pick = careerPick && saves.find(e => e.id === careerPick);
+  if (pick) {
+    items.push({ label: pick.team, head: true },
+      { label: 'Continue', cls: 'action primary', action: () => { const w = WC.loadWorld(pick.id); if (w) { careerPick = null; world = w; openHub(); } }, desc: 'Back to your garage.' },
+      { label: 'Delete Career', confirm: `Delete ${pick.team} for good? Select again`, action: () => { WC.deleteWorld(pick.id); careerPick = null; sfx.back(); toast(`${pick.team} has been deleted.`); openCareer(true); },
+        desc: `Deletes ${pick.team}: the team, the money, the history. It can't be undone.` },
+      { label: 'Back', action: () => { careerPick = null; sfx.back(); openCareer(true); }, desc: 'Your other careers, or a new one.' });
+    return items;
+  }
   if (saves.length) items.push({ label: 'Your Careers', head: true });
   for (const e of saves.slice(0, 6)) items.push({ label: `${e.team}<small>${e.year} · ${e.over ? 'SEASON OVER' : 'RND ' + (e.round + 1) + '/' + e.len}</small>`, cls: 'cont',
-    desc: `${e.name}, ${seriesName(e.series)}. Pick it up where you left it.`, action: () => { const w = WC.loadWorld(e.id); if (w) { world = w; openHub(); } } });
+    desc: `${e.name}, ${seriesName(e.series)}. Select to continue it or delete it.`, action: () => { careerPick = e.id; sfx.select(); openCareer(true); } });
+  const n = poolOf(worldOpts).length;
   items.push(
     { label: 'New Career', head: true },
     { label: 'Season Length', values: WC.SEASON_LENGTHS.map(n => [n, n + ' rounds']), get: () => worldOpts.len, set: v => worldOpts.len = v, desc: 'Rounds in every season, in every series.' },
@@ -1510,15 +1533,19 @@ function worldItems(saves) {
     { label: 'Weekend', values: WEEKEND_VALS, get: () => worldOpts.weekend, set: v => { worldOpts.weekend = v; menus['s-career'][0].render(); }, desc: WEEKEND_DESC + ' <b>Race only</b>: the grid is in championship order.' },
     { label: 'Practice', values: PRAC_VALS, get: () => worldOpts.prac, set: v => worldOpts.prac = v, desc: PRAC_DESC, get disabled() { return worldOpts.weekend !== 'full'; } },
     { label: 'Qualifying', values: QUALI_VALS, get: () => worldOpts.quali, set: v => worldOpts.quali = v, desc: QUALI_DESC, get disabled() { return worldOpts.weekend === 'race'; } },
-    { label: 'Circuits', values: [['presets', 'Presets'], ['all', 'Presets + Mine'], ['mine', 'My Circuits']], get: () => worldOpts.pool, set: v => worldOpts.pool = v, desc: 'Which circuits the calendars are drawn from.' },
+    { label: `Circuits<small>${n} CHOSEN</small>`, action: () => openTrackPick(worldOpts, 's-career', () => openCareer(true)), desc: `The circuits your calendars are drawn from: ${n} chosen. You can change them again before each season.` },
     { label: 'Start Career', cls: 'action primary', action: () => startWorld(), desc: 'Your name, your team and your first car are set up on the computer in your garage.' },
   );
-  if (saves.length) {
-    if (!saves.some(e => e.id === delPick)) delPick = saves[0].id;
-    items.push({ label: 'Delete Career', values: saves.map(e => [e.id, e.team]), get: () => delPick, set: v => delPick = v, confirm: 'Delete it for good? Select again',
-      action: () => { WC.deleteWorld(delPick); sfx.back(); openCareer(true); }, desc: 'Pick a career with left / right, then select twice. It can\'t be undone.' });
-  }
   return items;
+}
+// a saved career's page: where it's at
+function careerSummary(id) {
+  const w = WC.loadWorld(id), el = $('career-info'); if (!w) return worldInfo();
+  const sid = w.player.series, st = WC.seriesStandings(w, sid), cp = st.findIndex(e => e.pid === 'P') + 1, raced = w.series[sid].results.length > 0;
+  const cell = (k, v) => `<div><small>${k}</small><b>${v}</b></div>`, e = WC.listWorlds().find(x => x.id === id);
+  el.innerHTML = `<h3>${w.teams[w.player.team].name.toUpperCase()}</h3><p class="lead">${w.player.name}, owner-driver. ${seriesName(sid)}, ${w.year} season, ${w.over ? 'season over' : `round ${w.round + 1} of ${w.opts.len}`}.</p>
+    <div class="ti-grid three cs-cells">${cell('Championship', raced && cp ? ord(cp) : '&mdash;')}${cell('Bank', w.money && w.money.choice ? WC.money$(w.money.balance) : '&mdash;')}${cell('Seasons', w.player.hist.length + (w.over ? 0 : 1))}</div>
+    <p class="lead small">${w.car ? `${w.car.year} ${w.car.name}. ` : 'No car yet. '}${DIFF_LABEL[w.opts.difficulty] || ''} difficulty, ${w.opts.len}-round seasons, ${poolOf(w.opts).length} circuits.${e && e.saved ? ` Last played ${new Date(e.saved).toLocaleDateString()}.` : ''}</p>`;
 }
 function worldInfo() {
   const el = $('career-info');
@@ -1532,10 +1559,62 @@ function startWorld() {
   const name = settings.driverName || 'Driver';
   const streetCars = carsOfClass('street').map(id => ({ key: chassisKey(id), name: CARS[id].name, value: Math.round(12000 + CARS[id].spec.power * 0.11) }));
   world = WC.newWorld({ name, len: worldOpts.len, difficulty: worldOpts.difficulty, laps: worldOpts.laps, weekend: worldOpts.weekend, pracLen: worldOpts.prac, qualiLen: worldOpts.quali, pool: worldOpts.pool,
-    teamName: `${name.split(' ').pop()} Racing`, colors: [settings.car.main, settings.car.accent], seed: Date.now(), streetCars }, trackPool(worldOpts.pool)); // (this career's choice, not the last one loaded)
+    teamName: `${name.split(' ').pop()} Racing`, colors: [settings.car.main, settings.car.accent], seed: Date.now(), streetCars }, poolOf(worldOpts)); // (this career's choice, not the last one loaded)
+  world.opts.tracks = worldOpts.tracks ? worldOpts.tracks.slice() : null;
   saveWorld();
   fadeTo(() => { enterHub(); const m = world.mail.find(x => x.link && x.link[0] === 'registry'); setTimeout(() => { if (screen === 's-hub') sitDown('mail', m && m.id); }, 700); }, 200);
 }
+
+// ---- Circuits: which circuits a career's calendars use (a grid of cards; select toggles one) ----
+// o: the options holding the choice (worldOpts for a new career, world.opts for this one); back: the screen to return
+// to; done: called after (a career already running gets new calendars from it, if it's before its first race)
+let tkCtx = null;
+const tkThumbs = new Map();
+function tkThumb(t) {
+  if (!tkThumbs.has(t.name)) { const cv = document.createElement('canvas'); cv.width = 240; cv.height = 150; try { drawTrackMap(sampleTrack(t), cv); } catch (e) {} tkThumbs.set(t.name, cv.toDataURL()); }
+  return tkThumbs.get(t.name);
+}
+const tkKind = (t) => savedTracks().some(x => x.name === t.name) ? 'Yours' : presetTracks().some(x => x.name === t.name) ? 'Preset' : 'Real';
+function openTrackPick(o, back, done) {
+  if (!o.tracks || !o.tracks.length) o.tracks = poolOf(o).map(t => t.name);
+  tkCtx = { o, back, done };
+  renderTrackPick(true);
+  fadeTo(() => show('s-circuits'), 180);
+}
+function renderTrackPick(first = false) {
+  const { o } = tkCtx, all = allTracks(), on = new Set(o.tracks), mine = savedTracks().length, len = o.len || worldOpts.len;
+  const set = (names) => { o.tracks = names.slice(); sfx.select(); renderTrackPick(); };
+  const chip = (label, desc, fn, extra = {}) => ({ label, cls: 'tk-chip', desc, action: fn, ...extra });
+  const items = [
+    chip('Done', 'Back, with these circuits.', () => closeTrackPick(), { cls: 'tk-chip primary' }),
+    chip('All', 'Every circuit the game has: the presets, yours and the real ones.', () => set(all.map(t => t.name))),
+    chip('Presets', 'Only the circuits that come with the game.', () => set(presetTracks().map(t => t.name))),
+    chip('Yours', mine ? 'Only the circuits you\'ve made in the editor.' : 'You haven\'t made any circuits yet (Track Editor, from the main menu).', () => set(savedTracks().map(t => t.name)), { disabled: !mine }),
+    ...all.map(t => {
+      const T = (() => { try { return sampleTrack(t); } catch (e) { return null; } })(), km = T ? (trackStats(T).length / 1000).toFixed(1) : '?', sel = on.has(t.name);
+      return { label: `<img src="${tkThumb(t)}" alt=""><b>${t.name}</b><span>${THEMES[t.env?.theme]?.label || ''} &middot; ${km} km${t.open ? ' &middot; point to point' : ''}</span><em>${tkKind(t)}</em><i>${sel ? 'In' : 'Out'}</i>`,
+        cls: 'tk-card' + (sel ? ' on' : ''), name: t.name,
+        desc: `<span class="dh">${t.name}</span>${((t.desc || '').replace(/^[^·]*·\s*/, '') || 'A circuit').replace(/\.?$/, '.')} ${sel ? 'In your calendars: select to leave it out.' : 'Not in your calendars: select to add it.'}`,
+        action: () => {
+          if (sel && o.tracks.length <= 1) { sfx.error(); toast('A season needs at least one circuit.'); return; }
+          o.tracks = sel ? o.tracks.filter(n => n !== t.name) : [...o.tracks, t.name]; sfx.select(); renderTrackPick();
+        } };
+    }),
+  ];
+  const m = menus['s-circuits'][0], keep = m.items[m.i]?.name || m.items[m.i]?.label;
+  m.setItems(items, true);
+  if (first) m.i = 0; else { const k = items.findIndex(it => (it.name || it.label) === keep); if (k >= 0) m.i = k; }
+  m.render();
+  const n = o.tracks.length;
+  $('tk-sub').textContent = `${n} chosen · ${n >= len ? `${len}-round seasons: no circuit twice in a season` : `${len}-round seasons: some circuits come round twice`}`;
+}
+function closeTrackPick() {
+  const { back, done } = tkCtx; sfx.back();
+  fadeTo(() => { show(back); done && done(); }, 180);
+}
+HINTS['s-circuits'] = () => [['nav', 'Move'], ['ok', 'In / Out'], ['back', 'Done']];
+menus['s-circuits'] = [new Menu($('m-circuits'), [], { desc: 'd-circuits', cols: () => 4 })];
+backs['s-circuits'] = () => closeTrackPick();
 
 // ---- the hub: your garage ----
 // this career's car: its own livery (designed from the hub), on the chassis you bought
@@ -1976,6 +2055,11 @@ function renderOptMenu() {
     { label: 'Difficulty', values: Object.entries(DIFF_LABEL), get: () => w.opts.difficulty, set: v => { w.opts.difficulty = v; saveWorld(); renderHub(); },
       desc: 'The pace of the field from the next race. Pick one you can\'t win at yet: upgrades and a better car are how you catch them. Above <b>Legend</b> the AI cars get extra grip and power.' },
     presetItem(' Set each aid in Options > Aids.'),
+    // circuits: before a season's first race (this season's calendars are drawn again), or at the end of one (next season's)
+    ...(() => { const fresh = !w.over && w.round === 0 && !w.series[w.player.series].results.length, n = worldPool().length;
+      return fresh || w.over ? [{ label: `Circuits<small>${n} CHOSEN</small>`, action: () => openTrackPick(w.opts, 's-hub', () => { if (fresh) WC.newCalendars(w, worldPool()); saveWorld(); renderHub(); }),
+        desc: `The circuits your calendars use: ${n} chosen. ${fresh ? 'This season\'s calendars are drawn again from them.' : 'Next season\'s calendars are drawn from them.'}` }]
+        : [{ label: `Circuits<small>${n} CHOSEN</small>`, disabled: true, desc: 'You can change the circuits before a season\'s first race, or once it\'s over.' }]; })(),
     ...(!w.over ? [{ label: 'Sim Rest Of Season', confirm: 'Simulate it all? Select again', action: () => simWorldSeason(), desc: 'For testing: simulates every remaining round, your races too (you as a mid-field driver).' }] : []),
     { label: 'Back', action: () => { optSub = false; sfx.back(); renderHubMenu(); }, desc: 'Back to the garage.' }];
   const m = menus['s-hub'][0]; m.setItems(items, true);
@@ -2935,7 +3019,8 @@ function pause() {
   if (sim.quali) {
     const nm = SESSION_NAME[sim.quali.kind].toLowerCase();
     const end = { label: 'End Session', confirm: 'End it? Select again', action: () => { resume(); sim.qualiEnd(); }, desc: `Finish ${nm} now. The AI still post their laps.` };
-    const box = sim.T.open ? [] : [{ label: 'Return To Garage', action: () => { sim.setPaused(false); sim.enterGarage(sim.player); openPitGarage(); }, desc: 'Back to your box: change tyres, watch the timing, go out again when you like.' }];
+    const box = sim.T.open ? (sim.player && !sim.player.inGarage ? [{ label: 'Back To The Top', confirm: 'Give up this run? Select again', action: () => { sim.setPaused(false); sim.endRun(sim.player); if (!sim.quali.done) openPitGarage(); else show('hud'); }, desc: `Abandon this run and go back up to the garage. It still counts as one of your ${sim.quali.runs || 1} runs.` }] : [])
+      : [{ label: 'Return To Garage', action: () => { sim.setPaused(false); sim.enterGarage(sim.player); openPitGarage(); }, desc: 'Back to your box: change tyres, watch the timing, go out again when you like.' }];
     menus['s-pause'][0].setItems(raceReturn === 'career' || raceReturn === 'world' ? [{ label: 'Resume', cls: 'action primary', action: resume }, ...box, end, opts]
       : [{ label: 'Resume', cls: 'action primary', action: resume }, ...box, end,
          { label: 'Restart Session', confirm: 'Restart? Select again', action: () => { if (weekend.car || weekend.roster) keepWeekend(); startSession(weekend.stage); }, desc: `The ${nm} session again from the start.` },
@@ -3014,6 +3099,7 @@ function menuInput() {
   if (screen === 's-credits') { const el = $('credits-scroll'); if (up || down) el.scrollBy({ top: (down ? 1 : -1) * 160, behavior: 'smooth' }); return; }
   if (!list) return;
   const m = list[focusIdx[screen] || 0];
+  if (m.opts.cols) { const c = m.opts.cols(); if (up) m.jump(-c); if (down) m.jump(c); if (left) m.jump(-1); if (right) m.jump(1); if (ok) m.activate(); return; } // (a grid of cards)
   if (up) m.move(-1);
   if (down) m.move(1);
   if (left) { if (m.items[m.i]?.values) m.change(-1); else if (list.length > 1 && focusIdx[screen] > 0) cycleFocus(-1); else if (tabbers[screen]) tabbers[screen](-1); }

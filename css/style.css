@@ -1570,3 +1570,30 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .desc-bar .dk { color: var(--sv-red-dim); }
 /* a sum of money as the result's headline (a day's work): smaller than a position, and crisp */
 .big-pos.cash { font-size: 72px; text-shadow: 0 0 1px currentColor, 0 0 1px currentColor; }
+
+/* Circuits: a World Career's circuits, as a grid of cards (select one to put it in or leave it out) */
+.tk-wrap { position: absolute; left: var(--edge); right: var(--edge); top: 18%; bottom: 150px; }
+.tk-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; max-height: 100%; overflow-y: auto; padding: 4px 6px 4px 4px; scrollbar-width: thin; scrollbar-color: var(--sv-red) transparent; }
+.tk-grid .item { font: inherit; text-transform: none; white-space: normal; text-shadow: none; -webkit-text-fill-color: currentColor; padding: 0; margin: 0; }
+.tk-grid .item.sel::before { display: none; }
+.tk-grid .item .lbl { display: block; overflow: visible; }
+.tk-chip { height: 46px; display: flex !important; align-items: center; justify-content: center; background: var(--sv-plate); border: 1px solid color-mix(in srgb, var(--sv-red) 45%, transparent); }
+.tk-chip .lbl { font: 500 20px/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; text-align: center; }
+.tk-chip.primary { border-color: var(--sv-red); box-shadow: var(--sv-glow-line); }
+.tk-chip.primary .lbl { color: var(--sv-hot); }
+.tk-chip.sel { background: var(--sv-amber); border-color: var(--sv-amber); box-shadow: var(--sv-glow-fill); color: var(--sv-amber); }
+.tk-chip.sel .lbl { color: var(--sv-ink); text-shadow: none; -webkit-text-fill-color: var(--sv-ink); }
+.tk-card { position: relative; background: var(--sv-plate); border: 1px solid color-mix(in srgb, var(--sv-red) 22%, transparent); padding: 10px 12px 12px !important; opacity: .5; transition: opacity var(--m-fast), border-color var(--m-fast); }
+.tk-card.on { opacity: 1; border-color: var(--sv-red); box-shadow: var(--sv-glow-line); }
+.tk-card.sel { opacity: 1; border-color: var(--sv-amber); box-shadow: 0 0 2px var(--sv-amber), 0 0 6px var(--sv-amber); }
+.tk-card img { display: block; width: 100%; height: 92px; object-fit: contain; margin-bottom: 8px; }
+.tk-card b, .tk-card span, .tk-card em, .tk-card i { display: block; font-style: normal; letter-spacing: var(--track); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-text-fill-color: transparent; text-shadow: var(--sv-glow); }
+.tk-card b { font: 500 19px/1.1 var(--f-ui); text-transform: uppercase; color: var(--sv-hot); }
+.tk-card span { margin-top: 4px; font: 500 var(--t-small)/1.2 var(--f-ui); text-transform: uppercase; color: var(--sv-red-dim); }
+.tk-card em { position: absolute; left: 12px; top: 10px; font: 500 11px/1 var(--f-ui); text-transform: uppercase; color: var(--sv-red-dim); }
+.tk-card i { position: absolute; right: 10px; top: 8px; padding: 3px 7px; font: 500 12px/1 var(--f-ui); text-transform: uppercase; color: var(--sv-red-dim); border: 1px solid currentColor; }
+.tk-card.on i { color: var(--sv-paper); background: var(--sv-red); border-color: var(--sv-red); text-shadow: none; -webkit-text-fill-color: var(--sv-paper); }
+.tk-card.sel b { color: var(--sv-amber); }
+/* a saved career's page on the career screen */
+.cs-cells { margin: var(--s4) 0; }
+.career-info .lead.small { font-size: var(--t-small); }
