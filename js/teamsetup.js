@@ -130,7 +130,7 @@ export class TeamSetup {
       // in: the question wipes on, the columns rise one after another (from the side you're heading)
       if (calm()) return;
       qel.classList.remove('wipe'); void qel.offsetWidth; qel.classList.add('wipe');
-      [...cols.children].forEach((c, i) => c.animate([{ opacity: 0, transform: `translate(${(dir || 0) * 36}px, ${dir ? 0 : 14}px)` }, { opacity: 0.25, offset: 0.3 }, { opacity: 0.1, offset: 0.45 }, { opacity: 1, transform: 'none' }],
+      [...cols.children].forEach((c, i) => c.animate([{ opacity: 0, transform: `translate(${(dir || 0) * 36}px, ${dir ? 0 : 14}px)` }, { opacity: 1, transform: 'none' }],
         { duration: 420, delay: 60 + i * 70, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' }));
       const f = stage.querySelector('.tsw-focus'); f.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, delay: 60 + this.sel * 70 + 200, fill: 'backwards' });
     };

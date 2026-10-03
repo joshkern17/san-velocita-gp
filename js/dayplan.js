@@ -12,7 +12,7 @@ import * as WC from './wcareer.js';
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const FULL = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday' };
 const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-const flick = (el, d = 0) => !calm() && el.animate([{ opacity: 0 }, { opacity: 0.7, offset: 0.25 }, { opacity: 0.2, offset: 0.4 }, { opacity: 1 }], { duration: 260, delay: d, easing: 'steps(6, end)', fill: 'backwards' });
+const flick = (el, d = 0) => !calm() && el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 240, delay: d, easing: 'ease-out', fill: 'backwards' });
 // line icons, drawn in light (24 x 24)
 const ICONS = {
   work: '<rect x="3" y="7" width="18" height="13" rx="1"/><path d="M8 7V4h8v3M3 12h18M11 12v2h2v-2"/>',

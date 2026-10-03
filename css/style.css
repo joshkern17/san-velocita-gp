@@ -1932,10 +1932,9 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .tsw-head h1 { font: 700 var(--t-title)/.86 var(--f-display); letter-spacing: var(--track); text-transform: uppercase; padding-top: .04em;
   background: linear-gradient(180deg, var(--sv-hot-top) 0%, var(--sv-hot) 45%, var(--sv-hot-deep) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: var(--sv-glow-title); }
 .tsw-head p { margin-top: var(--s3); font: 500 var(--t-caption)/1 var(--f-ui); letter-spacing: var(--track-caption); text-transform: uppercase; }
-.tsw.enter .tsw-head h1 { animation: tsw-wipe .7s .1s var(--ease) both, tsw-flicker .7s .1s steps(1) both; }
+.tsw.enter .tsw-head h1 { animation: tsw-wipe .7s .1s var(--ease) both; }
 .tsw.enter .tsw-head p { animation: tsw-wipe .6s .35s var(--ease) both; }
 @keyframes tsw-wipe { from { clip-path: inset(-10% 100% -10% 0); } to { clip-path: inset(-10% -2% -10% 0); } }
-@keyframes tsw-flicker { 0% { opacity: .2; } 12% { opacity: 1; } 18% { opacity: .35; } 26%, 100% { opacity: 1; } }
 .tsw-money { position: absolute; right: var(--edge); top: calc(4% + 6px); display: flex; text-align: right; }
 .tsw-money > div { position: relative; padding: 0 0 0 var(--s6); margin-left: var(--s6); border-left: 2px solid var(--sv-red); box-shadow: -4px 0 6px -4px color-mix(in srgb, var(--sv-red) 60%, transparent); min-width: 150px; }
 .tsw-money > div:first-child { border-left: 0; box-shadow: none; margin-left: 0; }
@@ -2109,9 +2108,9 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .dp-week li.race > i { color: var(--sv-hot); background: var(--sv-hot); width: 10px; height: 10px; top: -6px; }
 .dp-week li.race small { color: var(--sv-red); }
 /* the day just spent: stamped on */
-.dp-week li.stamp b, .dp-week li.stamp small { animation: dp-stamp .5s steps(5, end) both; }
+.dp-week li.stamp b, .dp-week li.stamp small { animation: dp-stamp .6s ease-out both; }
 .dp-week li.stamp > i { animation: dp-pip .6s ease-out both; }
-@keyframes dp-stamp { 0% { opacity: 0; } 30% { opacity: 1; color: var(--sv-paper); } 45% { opacity: .3; } 100% { opacity: 1; } }
+@keyframes dp-stamp { 0% { opacity: 0; } 35% { opacity: 1; color: var(--sv-paper); } 100% { opacity: 1; } }
 @keyframes dp-pip { 0% { box-shadow: 0 0 0 var(--sv-red); } 30% { box-shadow: 0 0 8px var(--sv-paper), 0 0 18px var(--sv-red); background: var(--sv-paper); } 100% { box-shadow: var(--sv-glow-box); } }
 /* the body: the list, and the one you're on */
 .dp-body { position: absolute; left: var(--edge); right: var(--edge); top: 262px; bottom: 96px; display: grid; grid-template-columns: 380px 1fr; gap: 56px; transition: opacity .2s; }
@@ -2149,8 +2148,8 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
   -webkit-mask: repeating-linear-gradient(90deg, #000 0 calc(10% - 3px), transparent 0 10%); mask: repeating-linear-gradient(90deg, #000 0 calc(10% - 3px), transparent 0 10%); }
 .dp-gauge b { position: absolute; top: 0; bottom: 0; background: var(--sv-signal); background-size: 360px 100%; }
 .dp-gauge b.was { left: 0; width: calc(var(--a) * 100%); }
-.dp-gauge b.now { left: calc(var(--a) * 100%); width: calc((var(--b) - var(--a)) * 100%); background: var(--sv-amber); animation: dp-blink 1s steps(2, start) infinite; }
-@keyframes dp-blink { to { opacity: .25; } }
+.dp-gauge b.now { left: calc(var(--a) * 100%); width: calc((var(--b) - var(--a)) * 100%); background: var(--sv-amber); animation: dp-blink 1.6s ease-in-out infinite alternate; }
+@keyframes dp-blink { to { opacity: .45; } }
 .dp-go { display: flex; }
 .dp-go .sv-btn { padding: 9px 18px 8px; font-size: 17px; }
 /* a day passes: the card in the middle */
@@ -2162,29 +2161,29 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .dp-card > b.gain { color: var(--sv-cyan); } .dp-card > b.neg { color: var(--sv-bad); }
 .dp-card p { font: 500 var(--t-body)/1.4 var(--f-body); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body) !important; min-height: 1.4em; }
 .dp-card.on small { animation: tsw-wipe .4s var(--ease) both; }
-.dp-card.on h3 { animation: tsw-wipe .45s .1s var(--ease) both, tsw-flicker .5s .1s steps(1) both; }
+.dp-card.on h3 { animation: tsw-wipe .45s .1s var(--ease) both; }
 .dp-card.on > b { animation: tsw-fade .2s .2s both; }
 .dp-card.on p { animation: tsw-fade .4s .9s both; }
 .dp-card.on { animation: dp-card 2.1s both; }
 @keyframes dp-card { 0% { opacity: 0; } 6% { opacity: 1; } 88% { opacity: 1; } 100% { opacity: 0; } }
 
 /* ---------- the garage hub: arriving, the money, the week ---------- */
-#s-hub.enter .scr-head h1 { animation: tsw-wipe .65s .05s var(--ease) both, tsw-flicker .65s .05s steps(1) both; }
+#s-hub.enter .scr-head h1 { animation: tsw-wipe .65s .05s var(--ease) both; }
 #s-hub.enter .scr-sub { animation: tsw-wipe .55s .3s var(--ease) both; }
-#s-hub.enter .hub-left > * { animation: dp-flick .3s steps(6, end) backwards; }
+#s-hub.enter .hub-left > * { animation: dp-flick .3s ease-out backwards; }
 #s-hub.enter .hub-left > :nth-child(1) { animation-delay: .25s; } #s-hub.enter .hub-left > :nth-child(2) { animation-delay: .4s; }
-#s-hub.enter .hub-week .wk-head { animation: dp-flick .3s .3s steps(6, end) backwards; }
-#s-hub.enter .hub-week .wk-day { animation: dp-flick .28s steps(6, end) backwards; }
+#s-hub.enter .hub-week .wk-head { animation: dp-flick .3s .3s ease-out backwards; }
+#s-hub.enter .hub-week .wk-day { animation: dp-flick .28s ease-out backwards; }
 #s-hub.enter .hub-week .wk-day:nth-child(1) { animation-delay: .35s; } #s-hub.enter .hub-week .wk-day:nth-child(2) { animation-delay: .4s; } #s-hub.enter .hub-week .wk-day:nth-child(3) { animation-delay: .45s; }
 #s-hub.enter .hub-week .wk-day:nth-child(4) { animation-delay: .5s; } #s-hub.enter .hub-week .wk-day:nth-child(5) { animation-delay: .55s; } #s-hub.enter .hub-week .wk-day:nth-child(6) { animation-delay: .6s; }
-#s-hub.enter .hub-week .wk-targets { animation: dp-flick .3s .65s steps(6, end) backwards; }
-@keyframes dp-flick { 0% { opacity: 0; } 25% { opacity: .7; } 40% { opacity: .2; } 100% { opacity: 1; } }
+#s-hub.enter .hub-week .wk-targets { animation: dp-flick .3s .65s ease-out backwards; }
+@keyframes dp-flick { from { opacity: 0; } }
 /* today pulses; the day you just spent is stamped on */
 .wk-day.today { animation: wk-today 1.8s ease-in-out infinite; }
 @keyframes wk-today { 50% { box-shadow: 0 0 3px var(--sv-amber), 0 0 10px var(--sv-amber); } }
-.wk-day.stamp { animation: wk-stamp .7s .5s steps(7, end) both; }
-.wk-day.stamp b, .wk-day.stamp em { animation: dp-flick .4s .7s steps(6, end) both; }
-@keyframes wk-stamp { 0% { background: var(--sv-plate); } 20% { background: color-mix(in srgb, var(--sv-hot) 55%, transparent); box-shadow: 0 0 6px var(--sv-hot), 0 0 18px var(--sv-hot); } 40% { background: var(--sv-plate); } 55% { background: color-mix(in srgb, var(--sv-hot) 30%, transparent); } 100% { background: var(--sv-plate); } }
+.wk-day.stamp { animation: wk-stamp .9s .5s ease-out both; }
+.wk-day.stamp b, .wk-day.stamp em { animation: dp-flick .4s .7s ease-out both; }
+@keyframes wk-stamp { 0% { background: var(--sv-plate); } 25% { background: color-mix(in srgb, var(--sv-hot) 45%, transparent); box-shadow: 0 0 6px var(--sv-hot), 0 0 16px var(--sv-hot); } 100% { background: var(--sv-plate); } }
 /* the money's change, floating off it */
 .br-goals > div { position: relative; }
 .hub-delta { position: absolute; right: 0; top: 0; font: 500 var(--t-label)/1 var(--f-ui); font-style: normal; font-variant-numeric: tabular-nums; text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; animation: hub-delta 1.6s ease-out both; pointer-events: none; }
