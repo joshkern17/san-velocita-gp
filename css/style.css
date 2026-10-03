@@ -1873,3 +1873,8 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .tx-fbar.in b { background: #2c9a43; }
 .tx-frow.tot { margin-top: 4px; padding-top: 5px; border-top: 1px solid #d3d0c6; font-weight: bold; }
 .tx-frow { grid-template-columns: minmax(0, 1fr) 64px 62px; }
+/* drivers' photos (grey until portraits arrive) */
+.pc-face { display: inline-block; flex: none; vertical-align: middle; border: 1px solid #8f8f8f; box-shadow: 1px 1px 0 rgba(0,0,0,0.15); background: #cbcbcb; }
+.dv-who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.db-fc { white-space: nowrap; } .db-fc .pc-face { margin-right: 7px; }
+.pc-face.db-photo { float: left; margin: 0 14px 6px 0; border-width: 2px; }

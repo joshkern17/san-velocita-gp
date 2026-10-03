@@ -85,6 +85,9 @@ const chip = (t, cls = '') => `<span class="tx-chip ${cls}">${t}</span>`;
 const panel = (title, body, meta = '', cls = '') => `<section class="tx-panel ${cls}"><header><b>${title}</b>${meta ? `<span>${meta}</span>` : ''}</header><div class="tx-pb">${body}</div></section>`;
 const kpi = (label, value, sub = '', cls = '') => `<div class="tx-kpi ${cls}"><small>${label}</small><b>${value}</b>${sub ? `<em>${sub}</em>` : ''}</div>`;
 const pageHead = (icon, title, sub, right = '') => `<div class="tx-head">${txIcon(icon, 28)}<div><h1>${title}</h1><p>${sub}</p></div>${right ? `<div class="tx-hr">${right}</div>` : ''}</div>`;
+// a driver's photo: none yet, so a grey silhouette (p.photo, an image's URL, replaces it when portraits arrive)
+const face = (p, px = 40, cls = '') => p && p.photo ? `<img class="pc-face ${cls}" src="${p.photo}" width="${px}" height="${px}">`
+  : `<svg class="pc-face ${cls}" viewBox="0 0 40 40" width="${px}" height="${px}"><rect width="40" height="40" fill="#cbcbcb"/><circle cx="20" cy="15.5" r="7.5" fill="#a6a6a6"/><path d="M5 41c0-9 6.7-14 15-14s15 5 15 14z" fill="#a6a6a6"/></svg>`;
 const FAC_ICON = { base: 'base', tools: 'tools', dyno: 'dyno', fab: 'fab', sim: 'sim', data: 'data2', truck: 'truck', tunnel: 'tunnel' };
 // team colours on Form SV-1
 const PALETTE = [0xc8141c, 0xf2f2f2, 0x15181d, 0x1d4fd8, 0xf2c21a, 0x18a058, 0xf06a12, 0x7a2cc8, 0x1fb5c8, 0xe0569a, 0x7a5a3a, 0x9aa2ad];
@@ -674,14 +677,14 @@ export class Computer {
     if (m) {
       const p = WC.people(w)[m.pid], h = WC.h2hOf(w, m.pid), mood = m.morale >= 70 ? 'happy' : m.morale >= 45 ? 'fine' : m.morale >= 25 ? 'unhappy' : 'furious';
       const last = m.until <= w.year;
-      me = `<div class="tm-row dv-mate"><div class="tm-who"><b><a class="dv-name" data-nav data-act="profile" data-arg="${p.id}" data-key="pf-${p.id}">${esc(p.first)} ${esc(p.last)}</a> ${chips(p)}</b><small>${WC.ageOf(w, p)} &middot; ${quick(p)} &middot; ${m.fee ? `brought ${WC.money$(m.fee)} for the seat` : `${WC.money$(m.wage)} a round`} &middot; contract to the end of ${m.until}${h.races ? ` &middot; ahead of you ${h.behind} of ${h.races}` : ''}</small></div>
+      me = `<div class="tm-row dv-mate"><div class="tm-who dv-who">${face(p, 48)}<div><b><a class="dv-name" data-nav data-act="profile" data-arg="${p.id}" data-key="pf-${p.id}">${esc(p.first)} ${esc(p.last)}</a> ${chips(p)}</b><small>${WC.ageOf(w, p)} &middot; ${quick(p)} &middot; ${m.fee ? `brought ${WC.money$(m.fee)} for the seat` : `${WC.money$(m.wage)} a round`} &middot; contract to the end of ${m.until}${h.races ? ` &middot; ahead of you ${h.behind} of ${h.races}` : ''}</small></div></div>
         <div class="tm-mood ${mood}"><i><b style="width:${m.morale}%"></b></i><small>${mood}${m.owed ? ` &middot; owed <span class="neg">${WC.money$(m.owed)}</span>` : ''}</small></div>
         ${m.wage ? `<div class="tm-pay" data-nav data-cycle="mpay" data-key="mpay"><i data-act="cyc" data-arg="mpay:-1">&#9664;</i><b>${WC.PAY_MODES.find(x => x[0] === m.pay)[1]}</b><i data-act="cyc" data-arg="mpay:1">&#9654;</i></div>` : '<div></div>'}
         <div class="tm-acts">${last && !m.fee ? btn('mextend', '1', `Extend (${WC.money$(WC.askOf(w, p).wage)} a round)`, 'Sure? Select again') : ''}</div></div>`;
     }
     const market = WC.driverMarket(w).map(p => {
       const a = WC.askOf(w, p), t = p.team ? w.teams[p.team] : null, g = WC.grudgeOf(w, p.id);
-      return `<div class="jb-row dv-row"><div><b><a class="dv-name" data-nav data-act="profile" data-arg="${p.id}" data-key="pf-${p.id}">${esc(p.first)} ${esc(p.last)}</a></b>, ${WC.ageOf(w, p)} ${chips(p)}<small>${quick(p)} &middot; ${t ? esc(t.name) : 'no seat'} &middot; ${p.wins} win${p.wins === 1 ? '' : 's'}${g >= 1 ? ` &middot; <span class="neg">${g >= 3 ? 'won\'t talk to you' : 'holds a grudge'}</span>` : ''}</small></div>
+      return `<div class="jb-row dv-row"><div class="dv-who">${face(p, 40)}<div><b><a class="dv-name" data-nav data-act="profile" data-arg="${p.id}" data-key="pf-${p.id}">${esc(p.first)} ${esc(p.last)}</a></b>, ${WC.ageOf(w, p)} ${chips(p)}<small>${quick(p)} &middot; ${t ? esc(t.name) : 'no seat'} &middot; ${p.wins} win${p.wins === 1 ? '' : 's'}${g >= 1 ? ` &middot; <span class="neg">${g >= 3 ? 'won\'t talk to you' : 'holds a grudge'}</span>` : ''}</small></div></div>
         <div class="jb-meta">${a.fee ? `brings ${WC.money$(a.fee)}` : `asks ${WC.money$(a.wage)} a round`}</div>
         <div class="tm-acts">${btn('dsign', p.id, a.fee ? 'Sign' : 'Offer', m ? `Replace ${esc(WC.people(w)[m.pid].first)}?` : 'Sure?')}${a.fee ? '' : btn('dlow', p.id, 'Lowball', '75%? Select again')}</div></div>`;
     }).join('');
@@ -908,7 +911,7 @@ export class Computer {
     } else ids = Object.values(w.people).filter(x => x.retired && x.starts > 0).sort((a, b) => b.titles - a.titles || b.wins - a.wins || b.starts - a.starts).slice(0, 40).map(x => x.id);
     const rows = ids.map((pid, k) => {
       const isP = pid === 'P', x = isP ? w.player : w.people[pid], t = w.teams[WC.teamOfPid(w, pid)];
-      return `<tr class="${isP ? 'me' : ''}" data-nav data-act="driver" data-arg="${pid}" data-key="drv-${pid}"${k === 0 ? ' data-first' : ''}><td><a>${esc(WC.displayName(w, pid))}</a></td><td>${isP ? 'You' : NAT[x.nat] || x.nat}</td><td>${p.db === 'retired' ? x.retiredYear : esc(t?.name || '')}</td><td class="r">${x.wins}</td><td class="r">${x.titles}</td></tr>`;
+      return `<tr class="${isP ? 'me' : ''}" data-nav data-act="driver" data-arg="${pid}" data-key="drv-${pid}"${k === 0 ? ' data-first' : ''}><td class="db-fc">${face(isP ? null : x, 22)}<a>${esc(WC.displayName(w, pid))}</a></td><td>${isP ? 'You' : NAT[x.nat] || x.nat}</td><td>${p.db === 'retired' ? x.retiredYear : esc(t?.name || '')}</td><td class="r">${x.wins}</td><td class="r">${x.titles}</td></tr>`;
     }).join('');
     return head + `<div class="db-nav">${nav}</div>` + (rows ? `<table class="pc-tbl db"><tr><th>DRIVER</th><th>FROM</th><th>${p.db === 'retired' ? 'RETIRED' : 'TEAM'}</th><th class="r">WINS</th><th class="r">TITLES</th></tr>${rows}</table>` : '<p class="pc-empty">Nobody here yet.</p>');
   }
@@ -928,7 +931,7 @@ export class Computer {
     const best = c.hist.length ? c.hist.reduce((b, h) => (!b || h.pos < b.pos ? h : b), null) : null;
     const btn = (a, label, armed) => `<button class="pc-btn sm" data-nav data-act="${a}" data-arg="${pid}" data-key="${a}:${pid}">${this.armed === a + ':' + pid ? armed : label}</button>`;
     return `<div class="db-page" data-nav data-scroll data-key="dbpage" data-first>
-      <h1>${esc(isP ? w.player.name : WC.nameOf(p))}</h1>
+      ${face(p, 96, 'db-photo')}<h1>${esc(isP ? w.player.name : WC.nameOf(p))}</h1>
       <div class="db-status">${status}</div>
       ${market && !p.retired ? `<div class="db-offer"><span>${ask.fee ? `Brings ${WC.money$(ask.fee)} for a seat` : `Asks ${WC.money$(ask.wage)} a round`}</span>${btn('dsign', ask.fee ? 'Sign' : 'Offer', mate ? `Replace ${esc(w.people[mate.pid]?.first || '')}? Select again` : 'Sure? Select again')}${ask.fee ? '' : btn('dlow', 'Lowball', '75%? Select again')}</div>` : ''}
       <div class="db-facts">${isP ? 'You' : `${NAT[p.nat] || p.nat} &middot; age ${WC.ageOf(w, p)}`} &middot; ${p && p.retired ? 'retired ' + p.retiredYear : t ? esc(t.name) : 'no seat'}</div>
