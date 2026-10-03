@@ -1,6 +1,7 @@
 // Garage: turntable showroom for building your car
 import * as THREE from 'three';
 import { buildF1 } from './carmodel.js';
+import { loadCharacters, makeCharacter } from './characters.js';
 
 export class Garage {
   constructor(renderer, post) {
@@ -80,6 +81,8 @@ export class Garage {
     if (!V) return;
     [this.yaw, this.pitch, this.dist] = V; this.target.set(...V[3]);
     if (name === 'driver') { this.yaw = this.table.rotation.y + 1.25; const p = this.driver.getWorldPosition(new THREE.Vector3()); this.target.set(p.x, 1.0, p.z); }
+    // the helmet: the racer's, close up (once the people have loaded; until then the one in the cockpit)
+    if (name === 'helmet' && this.racer) { this.yaw = this.table.rotation.y + 1.05; this.pitch = 0.12; this.dist = 1.5; const p = this.driver.getWorldPosition(new THREE.Vector3()); this.target.set(p.x, 1.74, p.z); }
   }
   setCar(cfg) {
     if (this.car) { this.table.remove(this.car.group); this.car.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
@@ -92,13 +95,27 @@ export class Garage {
     this.driver = buildDriver(this.car);
     this.driver.position.set(2.5, 0.08, -0.9); this.driver.rotation.y = 1.25; // beside the left sidepod, facing out
     this.table.add(this.driver);
+    this.dressDriver(cfg);
   }
+  // the racer (js/characters.js) stands in for that simple driver once the people have loaded, in the same livery
+  dressDriver(cfg) {
+    if (this.racer) { this.racer.setLivery(cfg); this.driver.visible = false; return; }
+    loadCharacters().then(ok => {
+      if (!ok || this.racer || !this.car) return;
+      this.racer = makeCharacter({ look: 'racer', clip: 'idle', livery: this.car.cfg });
+      this.racer.object.position.copy(this.driver.position); this.racer.object.rotation.y = this.driver.rotation.y;
+      this.table.add(this.racer.object); this.driver.visible = false;
+    });
+  }
+  // livery edits (the Livery Designer): repaint the car and the racer
+  repaint(cfg) { this.car.repaint(cfg); if (this.racer) this.racer.setLivery(cfg); }
   open(cfg) { this.active = true; this.auto = true; this.setCar(cfg); }
   close() { this.active = false; }
   update(dt) {
     if (!this.active) return;
     this.t += dt;
     if (this.auto) this.yaw += dt * 0.35;
+    if (this.racer) this.racer.update(dt);
     this.aim.lerp(this.target, 1 - Math.exp(-dt * 6));
     // gentle suspension "breathing" so you can see it work
     if (this.car) this.car.animate({ steer: Math.sin(this.t * 0.7) * 0.25, spin: dt * 1.2, heave: Math.sin(this.t * 2.2) * 0.012, pitch: Math.sin(this.t * 1.3) * 0.006, roll: Math.sin(this.t * 0.9) * 0.008 });

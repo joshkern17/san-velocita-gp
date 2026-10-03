@@ -1,4 +1,4 @@
-# Make the racer's helmet paintable: blender -b --python tools/characters/helmet_paint.py -- <Racer.glb> <out dir>
+# Make the racer's helmet paintable: blender -b --python tools/characters/helmet_paint.py -- <Racer.glb> <out dir> [--force]
 # Writes <out>/helmet-paint.blend (helmet + body for reference) and <out>/helmet_detail.png, the greyscale detail
 # layer the game multiplies under every team's helmet design (white = colour untouched, darker = shaded).
 # Layout matches js/livery.js paintHelmet(canvas, cfg, front = 0.5): a world-map wrap, visor in the middle of the
@@ -9,6 +9,9 @@ import numpy as np
 from mathutils import Vector
 argv = sys.argv[sys.argv.index('--') + 1:]
 SRC, OUT = argv[0], argv[1]
+# never paint over someone's work: the .png / .blend in OUT are the painted helmet once it exists
+if os.path.exists(os.path.join(OUT, 'helmet_detail.png')) and '--force' not in argv:
+    raise SystemExit(f'{OUT}/helmet_detail.png exists (your painted helmet): pass --force to start over from blank')
 FRONT = 0.5
 W, H = 1024, 512
 

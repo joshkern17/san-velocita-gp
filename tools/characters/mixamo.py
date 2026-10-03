@@ -101,6 +101,8 @@ for f in sorted(glob.glob(os.path.join(SRC, '*.fbx'))):
     print('CLIP', act.name, tuple(act.frame_range))
 for a in list(bpy.data.actions):
     if a.name not in CLIPS.values(): bpy.data.actions.remove(a)
+missing = [f for f, c in CLIPS.items() if c not in bpy.data.actions]
+if missing: raise SystemExit('MISSING clip files: ' + ', '.join(f + '.fbx' for f in missing))
 
 if CHECK:
     bpy.ops.wm.save_as_mainfile(filepath=OUT.replace('.glb', '.blend'))

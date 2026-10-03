@@ -6,7 +6,7 @@ LOOK = argv[2] if len(argv) > 2 else None
 sc = bpy.context.scene
 rig = bpy.data.objects['Character']
 meshes = [o for o in bpy.data.objects if o.type == 'MESH']
-for o in meshes: o.hide_render = bool(LOOK) and o.name != LOOK
+for o in meshes: o.hide_render = bool(LOOK) and not (o.name == LOOK or o.name.startswith(LOOK + '_'))
 if not LOOK:  # line the looks up side by side
     for i, o in enumerate(meshes): pass
 sc.render.engine = 'BLENDER_WORKBENCH'

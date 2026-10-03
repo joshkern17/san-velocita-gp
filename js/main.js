@@ -367,7 +367,7 @@ const colVals = PALETTE.map(([c, n]) => [c, `<span class="swatch" style="backgro
 const SPONSORS = ['VOLTA', 'KOBRA', 'NEON FM', 'RAPID', 'BURGER DUCK', 'SUNSET', 'SVGP', 'MESA', 'BAYSIDE', 'PINE'];
 // every car, grouped by class: [chassis key, label]
 const CAR_CHOICES = Object.entries(CARS).map(([id, c]) => [id === 'f1' ? 'custom' : id, `${CLASSES[c.cls].short} · ${c.name}`]);
-const part = (label, key, rebuild = true, desc = '') => ({ label, desc, values: Object.entries(PARTS[key]).map(([k, v]) => [k, v]), get: () => settings.car[key], set: v => { settings.car[key] = v; rebuild ? garage.setCar(settings.car) : garage.car.repaint(settings.car); } });
+const part = (label, key, rebuild = true, desc = '') => ({ label, desc, values: Object.entries(PARTS[key]).map(([k, v]) => [k, v]), get: () => settings.car[key], set: v => { settings.car[key] = v; rebuild ? garage.setCar(settings.car) : garage.repaint(settings.car); } });
 const paintOpt = (label, key, desc) => ({ label, desc, values: colVals, get: () => settings.car[key], set: v => { settings.car[key] = v; garage.setCar(settings.car); } });
 const BODY_DESC = 'Bodywork parts. These swap on the SVGP Classic F1 car only.';
 menus['s-garage'] = [new Menu($('m-garage'), [
@@ -381,8 +381,8 @@ menus['s-garage'] = [new Menu($('m-garage'), [
   { label: 'Livery', head: true, disabled: true },
   { label: 'Livery Designer', cls: 'action', action: () => openLivery(), desc: 'Place decals (your own PNG or SVG too), design the helmet and suit, and save whole team liveries.' },
   part('Pattern', 'pattern', false, 'The paint pattern your three colours are laid out in.'), paintOpt('Main', 'main', 'The main body colour.'), paintOpt('Accent', 'accent', 'The second colour of the pattern.'), paintOpt('Detail', 'third', 'Stripes, pinstripes and small details.'),
-  { label: 'Number', values: Array.from({ length: 99 }, (_, i) => [i + 1, String(i + 1)]), get: () => settings.car.number, set: v => { settings.car.number = v; garage.car.repaint(settings.car); }, desc: 'Your race number.' },
-  { label: 'Sponsor', values: SPONSORS.map(s => [s, s]), get: () => settings.car.sponsor, set: v => { settings.car.sponsor = v; garage.car.repaint(settings.car); }, desc: 'The title sponsor sticker. Hide it, or the race numbers, in the Livery Designer.' },
+  { label: 'Number', values: Array.from({ length: 99 }, (_, i) => [i + 1, String(i + 1)]), get: () => settings.car.number, set: v => { settings.car.number = v; garage.repaint(settings.car); }, desc: 'Your race number.' },
+  { label: 'Sponsor', values: SPONSORS.map(s => [s, s]), get: () => settings.car.sponsor, set: v => { settings.car.sponsor = v; garage.repaint(settings.car); }, desc: 'The title sponsor sticker. Hide it, or the race numbers, in the Livery Designer.' },
 ], { desc: 'd-garage' })];
 menus['s-garage'][0].i = 1;
 // bodywork swaps only exist on the classic car; grey them out while your own model is selected
@@ -408,7 +408,7 @@ function onGarageDoneOnline() {
 const designer = new LiveryDesigner({
   garage,
   getCar: () => settings.car,
-  setCar: (car, rebuild) => { if (rebuild || !garage.car) garage.setCar(car); else garage.car.repaint(car); saveSettingsSoon(); },
+  setCar: (car, rebuild) => { if (rebuild || !garage.car) garage.setCar(car); else garage.repaint(car); saveSettingsSoon(); },
   onDone: () => { saveSettings(); show('s-garage'); menus['s-garage'][0].render(); },
 });
 let saveT = 0;

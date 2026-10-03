@@ -16,11 +16,14 @@
 <body>
 <div id="bar">
   <select id="clip"></select>
+  <select id="team"></select>
+  <select id="strip"><option value="team">Strip: team colour</option><option value="sponsor">Strip: sponsor</option><option value="off">Strip: off</option></select>
   <button id="walk">Walk the line</button>
 </div>
 <script type="module">
 import * as THREE from 'three';
 import { loadCharacters, makeCharacter, updateCharacters, LOOKS, CLIPS, CLIP_INFO } from './js/characters.js';
+import { TEAMS } from './js/car.js';
 
 const renderer = new THREE.WebGLRenderer({ antialias: false });
 renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight); renderer.shadowMap.enabled = true;
@@ -46,7 +49,13 @@ cam.position.set(0, 1.6, span * 0.78); cam.lookAt(0, 0.85, 0);
 sel.onchange = () => { walking = false; btn.classList.remove('on'); for (const p of people) { p.object.position.z = 0; p.object.rotation.y = 0; p.play(sel.value); } };
 let walking = false; const btn = document.getElementById('walk');
 btn.onclick = () => { walking = !walking; btn.classList.toggle('on', walking); sel.value = walking ? 'walk' : 'idle'; for (const p of people) { p.object.position.z = 0; p.play(sel.value); } };
-window.__people = people; // for poking from the console
+// the racer wears a team's livery
+const teamSel = document.getElementById('team'), stripSel = document.getElementById('strip');
+TEAMS.forEach((t, i) => teamSel.add(new Option(t.name, i)));
+const livery = () => { const t = TEAMS[+teamSel.value]; return { ...t, teamName: t.name, number: +teamSel.value + 1, sponsor: t.name.split(' ')[0], helmetDesign: { strip: stripSel.value } }; };
+const repaint = () => { for (const p of people) if (p.look === 'racer') p.setLivery(livery()); };
+teamSel.onchange = stripSel.onchange = repaint; repaint();
+window.__people = people; window.__cam = cam; // for poking from the console
 
 const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {

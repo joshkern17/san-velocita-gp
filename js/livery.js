@@ -95,6 +95,8 @@ export const PATTERNS = { solid: 'Solid', stripe: 'Centre Stripe', split: 'Two-T
 export const HELMET_PATTERNS = { solid: 'Solid', stripe: 'Centre Stripe', crown: 'Crown', bands: 'Eye Bands', halves: 'Halves', flames: 'Flames', stars: 'Stars' };
 export const SUIT_PATTERNS = { solid: 'Solid', sides: 'Side Stripes', twotone: 'Two-Tone', shoulders: 'Shoulders', sash: 'Sash' };
 export const VISORS = { dark: 'Dark', gold: 'Gold Iridium', blue: 'Blue Iridium', red: 'Red Iridium', clear: 'Light Tint' };
+// the strip across the top of the visor (on helmets that have one: the racer in js/characters.js)
+export const VISOR_STRIPS = { team: 'Team colour', sponsor: 'Sponsor', off: 'Off' };
 export const FONTS = { impact: 'Impact', anton: 'Anton', gothic: 'Gothic', arimo: 'Clean', pixel: 'Pixel' };
 const FONT_CSS = { impact: 'Impact, "Arial Black", sans-serif', anton: 'Anton, Impact, sans-serif', gothic: '"Pirata One", serif', arimo: 'Arimo, Arial, sans-serif', pixel: 'VT323, monospace' };
 const FONT_W = { impact: 'bold ', anton: '', gothic: '', arimo: 'bold ', pixel: '' };
@@ -103,7 +105,7 @@ export function fillLivery(cfg) {
   const c = { ...cfg };
   c.teamName ??= 'Your Team';
   c.showNumber ??= true; c.showSponsor ??= true; c.decals ??= [];
-  c.helmetDesign = { base: c.helmet ?? c.accent, accent: c.main, third: c.third ?? 0x121214, pattern: 'stripe', visor: 'dark', number: true, decal: null, ...(c.helmetDesign || {}) };
+  c.helmetDesign = { base: c.helmet ?? c.accent, accent: c.main, third: c.third ?? 0x121214, pattern: 'stripe', visor: 'dark', strip: 'team', number: true, decal: null, ...(c.helmetDesign || {}) };
   c.suit = { base: c.main, accent: c.accent, pattern: 'sides', chest: 'team', ...(c.suit || {}) };
   return c;
 }
@@ -290,7 +292,8 @@ export function paintHelmet(canvas, cfg, front = 0.25, onReady) {
 export const VISOR_COL = { dark: [0x121820, 0x88aacc], gold: [0x6a4a10, 0xffd070], blue: [0x10305a, 0x80c8ff], red: [0x5a1010, 0xff8060], clear: [0x3a4a58, 0xffffff] };
 
 // Suit: canvases for torso, legs and arms (cylinders: u = 0 front, .25 left side, .5 back, .75 right side)
-export function paintSuit(torso, legs, arms, cfg, onReady) {
+// opts.belt = false leaves the belt off (the full-size racer in js/characters.js: race suits don't have one)
+export function paintSuit(torso, legs, arms, cfg, onReady, opts = {}) {
   const L = fillLivery(cfg), S = L.suit, base = hex(S.base), acc = hex(S.accent), third = hex(L.third);
   for (const [cv, part] of [[torso, 'torso'], [legs, 'legs'], [arms, 'arms']]) {
     if (!cv) continue;
@@ -303,7 +306,7 @@ export function paintSuit(torso, legs, arms, cfg, onReady) {
     else if (S.pattern === 'sash' && part === 'torso') { g.beginPath(); g.moveTo(-W * 0.05, H * 0.1); g.lineTo(W * 0.1, H * 0.1); g.lineTo(W * 0.3, H); g.lineTo(W * 0.15, H); g.closePath(); g.fill(); g.beginPath(); g.moveTo(W * 0.9, H * 0.1); g.lineTo(W * 1.05, H * 0.1); g.lineTo(W * 1.05, H * 0.6); g.closePath(); g.fill(); }
     if (part === 'torso') {
       // belt + chest text + back number
-      g.fillStyle = third; g.fillRect(0, H * 0.88, W, H * 0.06);
+      if (opts.belt !== false) { g.fillStyle = third; g.fillRect(0, H * 0.88, W, H * 0.06); }
       const txt = S.chest === 'sponsor' ? String(L.sponsor || '') : S.chest === 'team' ? String(L.teamName || '') : '';
       g.textAlign = 'center'; g.textBaseline = 'middle';
       const fillOn = S.pattern === 'twotone' ? base : acc;

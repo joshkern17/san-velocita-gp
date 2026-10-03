@@ -1,7 +1,7 @@
 // Livery Designer UI: team colours + pattern, PNG/SVG + text decals placed by clicking on the car,
 // helmet, race suit, saved teams and livery files. Works on the model-independent livery data (livery.js).
 import { MODEL as CLASSIC } from './carmodel.js';
-import { PATTERNS, HELMET_PATTERNS, SUIT_PATTERNS, VISORS, FONTS, assets, importImageFile, decalImage, uvToPanel, uvTemplate, liveryAssetIds, fillLivery } from './livery.js';
+import { PATTERNS, HELMET_PATTERNS, SUIT_PATTERNS, VISORS, VISOR_STRIPS, FONTS, assets, importImageFile, decalImage, uvToPanel, uvTemplate, liveryAssetIds, fillLivery } from './livery.js';
 import { sfx } from './audio.js';
 
 const $ = (id) => document.getElementById(id);
@@ -212,6 +212,7 @@ export class LiveryDesigner {
       <div class="lv-row">${this.colour('Base', 'lv-h1', h.base)}${this.colour('Design', 'lv-h2', h.accent)}${this.colour('Trim', 'lv-h3', h.third)}</div>
       <div class="fld"><label>Design</label></div>${this.seg('lv-hp', HELMET_PATTERNS, h.pattern)}
       <div class="fld"><label>Visor</label></div>${this.seg('lv-hv', VISORS, h.visor)}
+      <div class="fld"><label>Visor strip</label></div>${this.seg('lv-hs', VISOR_STRIPS, h.strip || 'team')}
       ${this.check('lv-hn', 'Race number on the sides', h.number)}
       <div class="fld"><label>Logo on the sides</label></div>
       <div class="seg"><button id="lv-hlogo">${h.decal ? 'Change image' : 'Add image (PNG / SVG)'}</button>${h.decal ? '<button id="lv-hclr">Remove</button>' : ''}</div>
@@ -220,7 +221,7 @@ export class LiveryDesigner {
   bind_helmet() {
     const h = this.car.helmetDesign;
     this.bindColour('lv-h1', v => h.base = v); this.bindColour('lv-h2', v => h.accent = v); this.bindColour('lv-h3', v => h.third = v);
-    this.bindSeg('lv-hp', v => { h.pattern = v; this.repaint(); }); this.bindSeg('lv-hv', v => { h.visor = v; this.repaint(); });
+    this.bindSeg('lv-hp', v => { h.pattern = v; this.repaint(); }); this.bindSeg('lv-hv', v => { h.visor = v; this.repaint(); }); this.bindSeg('lv-hs', v => { h.strip = v; this.repaint(); });
     this.bindCheck('lv-hn', v => h.number = v);
     $('lv-hlogo').addEventListener('click', () => { const f = $('lv-file'); f.dataset.for = 'helmet'; f.value = ''; f.click(); });
     $('lv-hclr') && $('lv-hclr').addEventListener('click', () => { h.decal = null; this.changed(true); });
