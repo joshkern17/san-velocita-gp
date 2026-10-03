@@ -579,7 +579,8 @@ export class Computer {
       const short = nx && n < nx.needsBase ? `Needs ${WC.FACILITIES.base.levels[nx.needsBase][0].toLowerCase()} premises` : '';
       const pips = Array.from({ length: F.levels.length }, (_, i) => `<b${i < lv ? ' class="on"' : ''}></b>`).join('');
       return `<div class="tx-fac${lv ? ' built' : ''}${req ? ' need' : ''}"><div class="tx-fh">${txIcon(FAC_ICON[k], 26)}<div><b>${esc(lv ? WC.facName(t, k) : F.name)}</b><span class="tx-pips">${pips}</span></div>${req ? chip('Required', 'warn') : lv ? chip('Built', 'good') : ''}</div>
-        <p>${esc(F.what)}</p>
+        <ul class="tx-pl one${lv ? '' : ' dim'}">${(lv && nx ? WC.facCompare(w, k, lv) : WC.facPerks(w, k, Math.max(1, lv)).map(t => [t, false])).map(([t, up]) => `<li${up ? ' class="up"' : ''}>${esc(t).replace(/&amp;rarr;/g, '<b>&rarr;</b>')}</li>`).join('')}</ul>
+        ${lv && nx ? '<p class="tx-nextp">Blue: what the upgrade changes</p>' : ''}
         <div class="tx-ff">${nx ? `<span><b>${esc(nx.name)}</b><small>${WC.money$(nx.cost)}${nx.upkeep ? ` + ${WC.money$(nx.upkeep)} a round` : ''}</small></span>${short ? `<span class="tx-lock">${esc(short)}</span>` : bb(k, lv ? 'Upgrade' : 'Build', req ? 'pri' : '')}` : '<span class="tx-dim">Fully built</span>'}</div></div>`;
     }).join('');
     return `<div class="tm tx-page">${pageHead('facilities', esc(WC.facName(t, 'base')), 'It all stays with the team when you move up', kpi('Rent and upkeep', WC.money$(WC.facUpkeep(t)), 'a round'))}

@@ -515,14 +515,20 @@ function seasonEnd(w) {
     pay(w, fund[me.pos - 1], `${seriesById(w.player.series).name} prize fund: P${me.pos} in the championship`);
     mail(w, `${seriesById(w.player.series).name} Office`, addrOf(seriesById(w.player.series), 'office'), `${w.year} prize fund`, [`Congratulations on finishing P${me.pos} in the ${w.year} championship. Your share of the prize fund, ${money$(fund[me.pos - 1])}, has been paid into your account.`, `${seriesById(w.player.series).name} Office`]);
   }
-  // your options: move up if you finished in the top three (and there's a series above)
+  // the teams' championship: its own prize fund, by position
+  const tpos = teamStandings(w, w.player.series).findIndex(e => e.tid === w.player.team) + 1, tfund = TEAM_FUND[w.player.series];
+  if (w.money && tpos > 0 && tfund[tpos - 1]) {
+    pay(w, tfund[tpos - 1], `${seriesById(w.player.series).name} teams' prize fund: P${tpos}`);
+    mail(w, `${seriesById(w.player.series).name} Office`, addrOf(seriesById(w.player.series), 'office'), `${w.year} teams' championship`, [`${w.teams[w.player.team].name} finished P${tpos} in the ${w.year} teams' championship. The team's share of the teams' prize fund, ${money$(tfund[tpos - 1])}, has been paid into your account.`, `${seriesById(w.player.series).name} Office`]);
+  }
+  // your options: move up if you finished in the top three, or your team in the top two (and there's a series above)
   const tier = seriesById(w.player.series).tier, up = SERIES[tier + 1];
   const you = summary.you;
-  if (up && you && you.pos <= 3) {
+  if (up && you && (you.pos <= 3 || (tpos > 0 && tpos <= 2))) {
     w.player.offer = { to: up.id, answer: null };
     const b = seasonBudget(w, up);
     mail(w, `${up.name} Entries`, addrOf(up, 'entries'), `An entry for ${w.year + 1}`,
-      [`Dear ${w.player.name.split(' ')[0]},`, `Congratulations on finishing P${you.pos} in the ${seriesById(w.player.series).name} this year. We have an entry available in the ${up.name} for ${w.year + 1}, and we would like it to go to ${w.teams[w.player.team].name}.`,
+      [`Dear ${w.player.name.split(' ')[0]},`, `Congratulations on ${you.pos <= 3 ? `finishing P${you.pos}` : `${w.teams[w.player.team].name}'s P${tpos} in the teams' championship`} in the ${seriesById(w.player.series).name} this year. We have an entry available in the ${up.name} for ${w.year + 1}, and we would like it to go to ${w.teams[w.player.team].name}.`,
        `For your planning, here is what our teams tell us a season costs: about ${money$(b.run)} to run a car (entry, travel, crew, tyres, fuel), plus the car${!b.lease ? '.' : `: ${up.car === 'spec' ? `the series chassis is leased from us, from ${money$(b.lease)} a season` : `leased from the makers' customer programmes from ${money$(b.lease)} a season, or from ${money$(b.buy)} to buy`}.`}`,
        up.gents ? `Most teams run a gentleman driver in the second car, who pays for the seat. Prize money for a mid-field season comes to about ${money$(b.prize)}.` : `Prize money for a mid-field season comes to about ${money$(b.prize)}.`,
        ...(SERIES_NEEDS[up.id] ? [`Entrants must have ${Object.entries(SERIES_NEEDS[up.id]).map(([k, n]) => needName(k, n)).join(' and ')} before the season starts.`] : []),
@@ -590,22 +596,39 @@ export function nextSeason(w, trackPool) {
       const bottom = prevStand[s.id].filter(pid => pid !== 'P' && w.people[pid] && !w.people[pid].retired && w.people[pid].team && w.people[pid].team !== w.player.team && w.teams[w.people[pid].team].series === s.id).slice(-2);
       for (const pid of bottom) { const p = w.people[pid], t = w.teams[p.team]; t.drivers = t.drivers.filter(x => x !== pid); p.team = null; p.series = below.id; moves.push({ kind: 'down', pid, from: s.id, to: below.id }); }
     }
-    // fill empty seats: candidates from the series below (by last season's standing, with a dash of luck), then free agents
-    for (const tid of w.series[s.id].teams) {
-      const t = w.teams[tid];
-      while (t.drivers.length < SEATS) {
-        let cand = null;
-        if (below) cand = prevStand[below.id].filter(pid => pid !== 'P' && w.people[pid] && !w.people[pid].retired && w.people[pid].team && w.teams[w.people[pid].team].series === below.id)
-          .slice(0, 4).sort(() => rng(w) - 0.5)[0];
-        if (!cand) cand = Object.values(w.people).filter(p => !p.retired && !p.team && (p.series === s.id || p.series === null || (below && p.series === below.id)))
-          .sort((a, b) => b.pace - a.pace)[0]?.id;
-        if (!cand) cand = makePerson(w, { age: r0(17 + rng(w) * 3), series: s.id, lvl: s.base - 6 + gauss(w) * 5 }).id;
-        const p = w.people[cand], from = p.team ? w.teams[p.team] : null;
-        if (from) from.drivers = from.drivers.filter(x => x !== cand);
-        const wasSeries = from ? from.series : null;
-        p.team = tid; p.series = s.id; t.drivers.push(cand);
-        moves.push({ kind: wasSeries && seriesById(wasSeries).tier < tier ? 'up' : wasSeries ? 'move' : p.starts ? 'return' : 'rookie', pid: cand, to: s.id, team: tid });
+    // the market: the most attractive teams (a quick car, and money to pay a driver) choose first. Candidates: the
+    // series below's best from last season, free agents, and drivers at less attractive teams in this series
+    const attr = (t) => { if (!t.mine) aiInit(w, t); return carValue(w, t) + (t.mine ? 0 : (t.bank || 0) / (AI_OWNER[tierOf(s.id)] || 1) * 8); };
+    const order = w.series[s.id].teams.map(tid => w.teams[tid]).sort((x, y) => (x.mine - y.mine) || attr(y) - attr(x));
+    const avail = (t) => {
+      const later = order.slice(order.indexOf(t) + 1).filter(o => !o.mine).map(o => o.id);
+      const fromBelow = below ? prevStand[below.id].filter(pid => pid !== 'P' && w.people[pid] && !w.people[pid].retired && w.people[pid].team && w.teams[w.people[pid].team]?.series === below.id && !w.teams[w.people[pid].team].mine).slice(0, 6) : [];
+      const free = Object.values(w.people).filter(p => !p.retired && !p.team && ageOf(w, p) < 40 && (p.series === s.id || p.series === null || (below && p.series === below.id))).map(p => p.id);
+      const poach = later.flatMap(tid => w.teams[tid].drivers);
+      return [...new Set([...fromBelow, ...free, ...poach])].map(pid => w.people[pid]).filter(p => p && !p.retired && !traitsOf(w, p).includes('gentleman'));
+    };
+    const sign = (t, p) => {
+      const from = p.team ? w.teams[p.team] : null;
+      if (from) from.drivers = from.drivers.filter(x => x !== p.id);
+      const wasSeries = from ? from.series : null;
+      p.team = t.id; p.series = s.id; t.drivers.push(p.id);
+      moves.push({ kind: wasSeries && seriesById(wasSeries).tier < tier ? 'up' : wasSeries ? 'move' : p.starts ? 'return' : 'rookie', pid: p.id, to: s.id, team: t.id });
+    };
+    // a team that can do better replaces its slowest driver (they go looking for a seat)
+    for (const t of order) {
+      if (t.mine) continue;
+      const worst = t.drivers.map(d => w.people[d]).filter(Boolean).sort((x, y) => x.pace - y.pace)[0];
+      const best = avail(t).sort((x, y) => y.pace - x.pace)[0];
+      if (worst && best && best.pace > worst.pace + 6 && rng(w) < 0.7) {
+        t.drivers = t.drivers.filter(x => x !== worst.id); worst.team = null; worst.series = s.id;
+        moves.push({ kind: 'dropped', pid: worst.id, from: s.id, team: t.id });
+        sign(t, best);
       }
+    }
+    // then the empty seats, the most attractive first: the best they can get (give or take)
+    for (const t of order) while (t.drivers.length < SEATS) {
+      const p = avail(t).map(q => [q, q.pace + gauss(w) * 4]).sort((x, y) => y[1] - x[1])[0]?.[0] || makePerson(w, { age: r0(17 + rng(w) * 3), series: s.id, lvl: s.base - 6 + gauss(w) * 5 });
+      sign(t, p);
     }
   }
   // you: move up (your team takes the place of the weakest team in the series above, which drops a level), if you
@@ -654,7 +677,7 @@ export function nextSeason(w, trackPool) {
 // (rating -> raceKnobs); yours is in your car's modifiers (carMods).
 const LAP_K = { power: 0.3, grip: 0.5, downforce: 0.05, brake: 0.08, drag: -0.15 }; // (lap time gained per unit of each)
 const CAR_PTS = 1 / 0.000275; // (a team's car rating point: 0.0275% of a lap)
-const DEV_REF = { street: 0.0083, gt: 0.0064, formula: 0.0034 }; // (the development a typical team carries: a car rating of the series' base)
+const DEV_REF = { street: 0.0143, gt: 0.0103, formula: 0.0017 }; // (the development a typical team carries: a car rating of the series' base)
 const DEV_FADE = 0.8;
 const COND_TYP = -0.012; // (what parts at about 80% cost a car in lap time: the condition a car is usually raced in)
 const DEV_STATS = ['power', 'grip', 'downforce', 'brake', 'rel'];
@@ -704,6 +727,32 @@ export const FACILITIES = {
   tunnel: { name: 'Wind tunnel', levels: [['Wind tunnel time', 150000, 6000, 2], ['Own wind tunnel', 1500000, 20000, 3]], what: 'Formula aero development needs one.' },
 };
 export const FAC_KEYS = Object.keys(FACILITIES);
+// what a facility gives at a level, in the numbers the game uses: each perk a template ({} is the number) and the
+// number at a level (null: not at that level). facPerks(w, k, n): [text]; facUpgrade(w, k, n): [text] from n to n + 1,
+// what changes written 'now -> next'
+function facPerkDefs(w, k) {
+  const c = COSTS[w.player.series];
+  return {
+    base: [['Room for {} projects at once', n => 1 + Math.min(2, n)]],
+    tools: [['Projects {} points more likely to work', n => n * 8], ['Rebuilds {}% cheaper', n => n * 10], ['Your days on a project go {}% further', n => n * 25], ['Your mechanic puts {} more days a round into projects', n => (n * 0.4).toFixed(1)]],
+    dyno: [['Engine projects {} points more likely to work, and gain about 14% more', n => 12], ['You know exactly what engine work gained', n => '']],
+    fab: [['Chassis and aero projects {} points more likely to work', n => n * 8], ['Chassis and aero projects gain about {}% more', n => n * 10], ['Chassis and aero projects 25% cheaper', n => n >= 2 ? '' : null]],
+    sim: [['A sim session before a weekend: about {}% more grip there (a test day: 1.2%)', n => n === 1 ? '0.6' : '1.0'], ['No track hire, no fuel, no wear', n => '']],
+    data: [['Projects {} points more likely to work', n => 5], ['Your data engineer reads the data a level deeper', n => '']],
+    truck: [['Travel {}% cheaper: about ' + money$(c.travel * 0.35) + ' a round', n => 35], ['Required for the GT Championship', n => '']],
+    tunnel: [['Aero projects {} points more likely to work', n => n * 10], ['Required for Formula SV aero development', n => '']],
+  }[k] || [];
+}
+export function facPerks(w, k, n) { return n <= 0 ? [] : facPerkDefs(w, k).map(([t, f]) => { const v = f(n); return v == null ? null : t.replace('{}', v); }).filter(Boolean); }
+// built and upgradable: every perk, the ones the next level changes written 'now -> next': [[text, changed]]
+export function facCompare(w, k, n) {
+  return facPerkDefs(w, k).map(([t, f]) => { const a = f(n), b = f(n + 1); if (a == null && b == null) return null;
+    if (a == null) return ['New: ' + t.replace('{}', b), true]; if (String(a) === String(b)) return [t.replace('{}', a), false]; return [t.replace('{}', `${a} &rarr; ${b}`), true]; }).filter(Boolean);
+}
+export function facUpgrade(w, k, n) {
+  return facPerkDefs(w, k).map(([t, f]) => { const a = n > 0 ? f(n) : null, b = f(n + 1); if (b == null) return null;
+    if (a == null) return 'New: ' + t.replace('{}', b); if (String(a) === String(b)) return null; return t.replace('{}', `${a} &rarr; ${b}`); }).filter(Boolean);
+}
 // what a series asks of a team before it can enter (a facility: the level it needs)
 export const SERIES_NEEDS = { gt: { base: 1, truck: 1 }, formula: { base: 2, truck: 1, tunnel: 1 } };
 export const facOf = (t) => (t.fac ??= { base: 0 });
@@ -817,7 +866,7 @@ function devSeason(w) { if (w.car && w.car.dev) for (const k of DEV_STATS) w.car
 // t.bank (money), t.owner (what the owner puts in each season, by wealth), t.style ('build': facilities first,
 // 'develop': projects, 'balanced'), t.crew { mech, eng } (1-5)
 const AI_SPONSOR = { street: 5000, gt: 30000, formula: 100000 }; // (a round, for a mid-table team)
-const AI_OWNER = { street: 75000, gt: 120000, formula: 300000 };  // (a season, for an owner of average wealth)
+const AI_OWNER = { street: 100000, gt: 180000, formula: 450000 };  // (a season, for an owner of average wealth)
 const STYLES = ['build', 'develop', 'balanced'];
 function aiInit(w, t) {
   if (t.bank != null) return;
@@ -835,7 +884,8 @@ function aiRound(w, sid, rows) {
     const t = w.teams[tid]; if (t.mine) continue; aiInit(w, t);
     const rank = Math.max(0, ts.findIndex(e => e.tid === tid)), rep = 1 - rank / Math.max(1, n - 1);
     const prize = Math.max(0, ...rows.filter(r => w.people[r.pid]?.team === tid && !r.dnf).map(r => c.prize[r.pos - 1] || 0));
-    const run = c.entry + c.travel * (facLevel(t, 'truck') ? 0.65 : 1) + c.crew + c.tyre * 3 + c.fuelLap * 30 + facUpkeep(t) + (t.crew.mech + t.crew.eng) * 600 * (WAGE_K[sid] || 1);
+    const run = c.entry + c.travel * (facLevel(t, 'truck') ? 0.65 : 1) + c.crew + c.tyre * 3 + c.fuelLap * 30 + facUpkeep(t) + (t.crew.mech + t.crew.eng) * 600 * (WAGE_K[sid] || 1)
+      + t.drivers.reduce((a, d) => a + (w.people[d] ? DRIVER_WAGE(w.people[d].pace) * (WAGE_K[sid] || 1) : 0), 0); // (and the drivers' wages)
     t.bank += prize + AI_SPONSOR[sid] * (0.5 + rep) - run;
     // projects: keep a reserve of a few rounds' running costs
     const reserve = run * (t.style === 'develop' ? 1.5 : 3);
@@ -864,7 +914,7 @@ function aiSeason(w) {
   for (const t of Object.values(w.teams)) {
     if (t.mine || !t.series) continue; aiInit(w, t);
     for (const k of DEV_STATS) t.dev[k] = +(t.dev[k] * DEV_FADE).toFixed(4);
-    t.bank += AI_OWNER[tierOf(t.series)] * t.wealth;
+    t.bank += AI_OWNER[tierOf(t.series)] * t.wealth * (t.bank > AI_OWNER[tierOf(t.series)] * 2 ? 0.3 : 1); // (an owner with money in the bank puts less in)
     t.wealth = clamp(t.wealth + gauss(w) * 0.08, 0.2, 2.2);
     // build: the first thing on its list it can afford (facilities first for builders)
     const order = t.style === 'build' ? ['base', 'tools', 'dyno', 'fab', 'data', 'truck', 'sim', 'tunnel'] : ['tools', 'base', 'dyno', 'fab', 'data', 'sim', 'truck', 'tunnel'];
@@ -1086,12 +1136,14 @@ export function takeDayJob(w, m) {
 // week's work (day job, gigs) is what keeps you going. Every step up needs more than you have (sponsors).
 export const LOTTERY = { jackpot: 400000, lump: 132000, annuity: 10000, years: 30, saleRate: 0.25 }; // (selling the annuity: a quarter of what it's worth)
 export const COSTS = {
-  street:  { entry: 3000,  travel: 2000,  crew: 2500,  tyre: 900,  fuelLap: 35,  repair: 24000,  prize: [12000, 8000, 6000, 4500, 3500, 2800, 2200, 1700, 1300, 1000] },
-  gt:      { entry: 15000, travel: 6000,  crew: 22000, tyre: 3200, fuelLap: 120, repair: 110000, prize: [80000, 56000, 40000, 32000, 26000, 20000, 16000, 12000, 8000, 6000] },
-  formula: { entry: 40000, travel: 15000, crew: 90000, tyre: 6000, fuelLap: 300, repair: 450000, prize: [200000, 140000, 100000, 80000, 65000, 50000, 40000, 30000, 20000, 15000] },
+  street:  { entry: 4000,  travel: 2400,  crew: 3500,  tyre: 900,  fuelLap: 35,  repair: 24000,  prize: [8000, 5500, 4000, 3000, 2500, 2000, 1500, 1200, 1000, 800] }, // (a round, a car: both of yours are paid)
+  gt:      { entry: 15000, travel: 6000,  crew: 22000, tyre: 3200, fuelLap: 120, repair: 110000, prize: [50000, 34000, 24000, 19000, 15000, 12000, 9500, 7000, 5000, 3500] },
+  formula: { entry: 40000, travel: 15000, crew: 90000, tyre: 6000, fuelLap: 300, repair: 450000, prize: [120000, 85000, 60000, 48000, 39000, 30000, 24000, 18000, 12000, 9000] },
 };
 // the annuity is a year's money; seasons of other lengths get it in proportion (a 12-round year pays twice a 6)
 const annuityPay = (w) => Math.round(LOTTERY.annuity * (w.money?.loophole || 1) * w.opts.len / 6 / 100) * 100;
+// the teams' championship pays too (both cars' points)
+const TEAM_FUND = { street: [10000, 6000, 4000, 2500, 1500, 1000], gt: [50000, 30000, 20000, 12000, 8000, 5000], formula: [120000, 80000, 50000, 32000, 20000, 12000] };
 // the end of the season: the series pays its prize fund by championship position
 const SEASON_FUND = {
   street:  [25000, 16000, 11000, 8000, 6000, 4500, 3500, 2500, 1500, 1000],
@@ -1159,6 +1211,10 @@ export function settleRound(w, use, me) {
   const base = me && !me.dnf ? c.prize[me.pos - 1] || 0 : 0, pct = Math.max(0, use.aidPct || 0);
   const prize = Math.round(base * (1 + pct / 100) * (bg.prize || 1) * (home ? 1.1 : 1) / 10) * 10;
   if (prize) items.push([`Prize money (P${me.pos}${pct ? `, +${pct}% for fewer aids` : ''}${home ? ', home crowd' : ''})`, prize]);
+  // (and for the other car: the team's paid for both)
+  { const res = w.series[w.player.series].results.find(r => r.round === w.round), mate = mateOf(w), row = res && mate && res.rows.find(r => r.pid === mate.pid);
+    const mp = row && !row.dnf ? Math.round((c.prize[row.pos - 1] || 0) * (bg.prize || 1) * (home ? 1.1 : 1) / 10) * 10 : 0;
+    if (mp) items.push([`Prize money, second car (${w.people[mate.pid].first}, P${row.pos})`, mp]); }
   const before = w.money.balance;
   for (const [what, amt] of items) if (amt) pay(w, amt, `${trackName}: ${what[0].toLowerCase() + what.slice(1)}`);
   // overdrawn: the bank charges for it
@@ -1863,7 +1919,7 @@ export function briefing(w) {
   if (sv) goals.push({ label: 'Saving for', value: sv.name, pct: clamp(w.money.balance / sv.cost, 0, 1) });
   // the hint: what each one is for, in a line
   const hints = [];
-  if (up) hints.push(raced && pos <= 3 ? `Stay in the top 3 for a ${up.name} offer.` : `Top 3 at the end earns a ${up.name} offer${raced && fund[pos - 1] ? ` (P${pos} pays ${money$(fund[pos - 1])})` : ''}.`);
+  if (up) hints.push(raced && pos <= 3 ? `Stay in the top 3 for a ${up.name} offer.` : `Top 3 at the end (or your team top 2) earns a ${up.name} offer${raced && fund[pos - 1] ? ` (P${pos} pays ${money$(fund[pos - 1])})` : ''}.`);
   // (money first when it's running out, else what reputation unlocks)
   if (r < 6) hints.unshift(`Money lasts about ${Math.max(0, Math.floor(r))} round${Math.floor(r) === 1 ? '' : 's'}: work the week, keep your sponsors.`);
   else if (sv && sv.why) hints.push(sv.why);

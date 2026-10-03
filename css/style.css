@@ -1858,3 +1858,8 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .tx-pl li::before, .jb-pl li::before { content: ''; position: absolute; left: 1px; top: 6px; width: 5px; height: 5px; background: #2c9a43; }
 .tx-card.vacant .tx-pl li { color: #777; } .tx-card.vacant .tx-pl li::before { background: #b9b6ac; }
 .jb-pl { columns: 1; }
+.tx-pl.one { columns: 1; margin: 6px 0; flex: 1; }
+.tx-pl.dim li { color: #666; } .tx-pl.dim li::before { background: #b9b6ac; }
+.tx-nextp { margin: 0 0 6px !important; font-size: 11px !important; color: #1d3f9a !important; flex: none !important; }
+.tx-pl li.up { color: #1d3f9a; } .tx-pl li.up::before { background: #2f59c0; }
+.tx-pl li b { font-weight: bold; color: #1d3f9a; }
