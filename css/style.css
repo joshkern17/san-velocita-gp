@@ -1948,3 +1948,11 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .wz-rows > div { grid-template-columns: 130px 1fr; padding: 4px 0; }
 .wz-rows b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wz-rows .wz-who { display: flex; }
+.tx-even { margin: 0 0 8px; padding: 7px 10px; background: #f3f6fd; border-left: 3px solid #2a4ba8; font-size: 12px; }
+.tx-pay { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; }
+.tx-prow { display: grid; grid-template-columns: 34px minmax(0, 1fr) 62px 96px; align-items: center; gap: 8px; padding: 2px 4px; font-size: 12px; }
+.tx-prow > b { text-align: right; } .tx-prow em { display: flex; gap: 3px; font-style: normal; }
+.tx-prow.even { background: #e6f4e8; }
+.tx-funds { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: start; }
+.tx-fund small { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #777; margin-bottom: 3px; }
+.tx-fund div { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; border-bottom: 1px solid #ebe9e2; }

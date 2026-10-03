@@ -2075,7 +2075,8 @@ let dayPick = 'work';
 const DAY_FULL = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday' };
 function raceDesc(w) {
   const r = w.series[w.player.series].cal[w.round], g = WC.storyGoal(w);
-  return `Round ${w.round + 1}: ${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}${g ? `<br><b>${g.text}.</b>` : ''}`;
+  const pz = WC.finances(w)?.prize || [];
+  return `Round ${w.round + 1}: ${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}${pz.length ? ` Prize money a car: P1 ${WC.money$(pz[0])}, P3 ${WC.money$(pz[2])}, P5 ${WC.money$(pz[4])}, P10 ${WC.money$(pz[9])}.` : ''}${g ? `<br><b>${g.text}.</b>` : ''}`;
 }
 function dayChoices(w, canRace) {
   // [key, the picker's short name, the headline (yellow, over the description), the description, what it does]

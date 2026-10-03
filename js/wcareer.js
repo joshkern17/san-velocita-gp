@@ -1679,7 +1679,15 @@ export function finances(w) {
   if (facUpkeep(t) > out * 0.12) levers.push(`Premises and facilities are ${money$(facUpkeep(t))} a round.`);
   if (!(w.loans || []).some(l => !l.paid && !l.shark)) { const L = loanTerms(w); levers.push(`The bank will lend ${money$(L.amt)}, repaid at ${money$(L.per)} a round for ${L.rounds} rounds.`); }
   if (annuityOffer(w)) levers.push(`QuickCash will buy the rest of your annuity for ${money$(annuityOffer(w))}. It's worth a lot more.`);
-  return { costs, income, out, inn, net, left, proj, fundEnd, end, runway, levers, myPos, matePos, pos, tpos };
+  // what finishing pays (a round, a car), and what you'd need to break even: the two cars side by side, the best pair
+  // of places whose prize money covers the gap (null: even two wins wouldn't)
+  const prize = c.prize.map(v => Math.round(v * (bg.prize || 1) / 10) * 10), prizeNow = (c.prize[myPos - 1] || 0) * (bg.prize || 1) + (m ? (c.prize[matePos - 1] || 0) * (bg.prize || 1) : 0);
+  const need = out - (inn - prizeNow); let even = null;
+  // (with the season's prize funds at those places, spread over the season: that's where winning pays)
+  for (let p = 1; p <= prize.length; p++) { const pair = prize[p - 1] + (m ? prize[p] || 0 : 0), fund = ((SEASON_FUND[sid][p - 1] || 0) + (TEAM_FUND[sid][Math.max(0, Math.round(p / 2 + 0.4) - 1)] || 0)) / w.opts.len;
+    if (pair + fund >= need) even = { you: p, mate: m ? p + 1 : null, pays: Math.round(pair), fund: Math.round(fund / 10) * 10 }; }
+  return { costs, income, out, inn, net, left, proj, fundEnd, end, runway, levers, myPos, matePos, pos, tpos, prize, need, even,
+    funds: { drivers: SEASON_FUND[sid].map(v => Math.round(v / 10) * 10), teams: TEAM_FUND[sid] } };
 }
 // 0 (comfortable) .. 1 (desperate)
 export function despOf(w) {

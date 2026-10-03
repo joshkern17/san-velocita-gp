@@ -607,9 +607,21 @@ export class Computer {
         ${kpi('Money lasts', f.net >= 0 ? 'No end in sight' : R(f.runway), verdict[2], verdict[0] === 'bad' ? 'bad' : '')}${kpi('Season ends with', $(f.end), f.left ? `with ${$(f.fundEnd)} prize funds` : 'season over', f.end < 0 ? 'bad' : '')}</div>
       ${panel('The season, as things stand', chart, 'the balance after each round')}
       <div class="tx-grid">${panel('Each round costs', list(f.costs, f.out, 'out'))}${panel('Each round brings in', list(f.income, f.inn, 'in'))}</div>
+      ${panel('What finishing pays', this.payouts(f), 'each car, each race')}
       ${f.levers.length ? panel('What you could change', f.levers.map(t => `<div class="tx-li warn"><i></i>${esc(t)}</div>`).join('')) : ''}
       <p class="tx-note">Estimates: what your setup costs now (staff on their pay settings, premises, lease, loan), wear on the car, prize money at your average finishing positions, and what your weeks have averaged. Projects, upgrades and new facilities aren't counted: they're your choice.</p>
       <div class="tx-actions"><button class="pc-btn" data-nav data-act="open" data-arg="bank" data-key="tobank">Bank statement &rarr;</button></div></div>`;
+  }
+  // the prize money by place, where your cars are, where you'd break even; and the season's prize funds
+  payouts(f) {
+    const $ = WC.money$, top = f.prize[0] || 1, mate = f.matePos != null;
+    const rows = f.prize.map((v, i) => { const p = i + 1, tags = (p === f.myPos ? chip('You', 'blue') : '') + (mate && p === f.matePos ? chip('Car 2', 'blue') : '');
+      return `<div class="tx-prow${f.even && p <= (f.even.mate || f.even.you) ? ' even' : ''}"><span>P${p}</span><i class="tx-fbar in"><b style="width:${Math.round(v / top * 100)}%"></b></i><b>${$(v)}</b><em>${tags}</em></div>`; }).join('');
+    const say = f.need <= 0 ? `You're covering your costs before prize money.`
+      : f.even ? `<b>To break even</b>, your cars need to finish about <b>P${f.even.you}${mate ? ` and P${f.even.mate}` : ''}</b>: ${$(f.even.pays)} a round in prize money, and about ${$(f.even.fund)} a round from the season's prize funds at those places.`
+      : `<b>Even a one-two won't cover your costs</b> this season (${$(f.need)} a round short before prize money). Bring in sponsors, work the week, or cut costs.`;
+    const fund = (arr, label) => `<div class="tx-fund"><small>${label}</small>${arr.slice(0, 6).map((v, i) => `<div><span>P${i + 1}</span><b>${$(v)}</b></div>`).join('')}</div>`;
+    return `<p class="tx-even">${say}</p><div class="tx-pay"><div>${rows}<p class="tx-dim">Green: places that would break you even.</p></div><div class="tx-funds">${fund(f.funds.drivers, 'Season end: you')}${fund(f.funds.teams, 'Season end: team')}</div></div>`;
   }
   // ---------- the car: each part's condition, what's fitted, rebuilds ----------
   workshopApp() {
