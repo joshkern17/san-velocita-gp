@@ -13,7 +13,7 @@ const ordinal = (n) => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['t
 const UP = (s) => s.toUpperCase();
 
 export function roundPress(w, K) {
-  const P = (w.press ??= { lead: {}, done: {}, n: 0 });
+  const P = (w.wire ??= { lead: {}, done: {}, n: 0 }); // (w.press is the journalist's opinion of you: wcareer.js)
   const sid = w.player.series;
   for (const s of K.SERIES) {
     const res = w.series[s.id].results.at(-1); if (!res || res.round !== w.round) continue;
@@ -53,7 +53,7 @@ function raceReport(w, K, s, res) {
   const podium = second ? `${second.full}${third ? ` and ${third.full}` : ''} ${third ? 'completed the podium' : 'was second'}.` : '';
   const und = underdog ? ` It was a rare good day for ${W.team.name}, ${ordinal(wTeamPos)} of ${ts.length} in the team standings before the weekend.` : '';
   // the championship
-  const st = K.standings(w, s.id), lead = st[0], ld = who(w, K, lead.pid), gap = st[1] ? lead.pts - st[1].pts : 0, left = w.opts.len - res.round - 1, before = w.press.lead[s.id];
+  const st = K.standings(w, s.id), lead = st[0], ld = who(w, K, lead.pid), gap = st[1] ? lead.pts - st[1].pts : 0, left = w.opts.len - res.round - 1, before = w.wire.lead[s.id];
   const champ = left <= 0 ? '' : before && before !== lead.pid && res.round > 0
     ? `${ld.full} now leads the championship, ${gap} point${gap === 1 ? '' : 's'} clear of ${who(w, K, st[1].pid).full}, with ${left} round${left === 1 ? '' : 's'} to go.`
     : `${ld.full} leads the championship by ${gap} point${gap === 1 ? '' : 's'} with ${left} round${left === 1 ? '' : 's'} left.${gap <= 5 && res.round >= 2 ? ' It is not comfortable.' : gap >= 30 ? ' It is starting to look comfortable.' : ''}`;
@@ -119,7 +119,7 @@ function brief(w, K, s, res) {
 
 // ---------- the paddock: what the round stirred up (each story once) ----------
 function drama(w, K, sid) {
-  const P = w.press, once = (key) => { if (P.done[key]) return false; P.done[key] = w.year; return true; }, y = w.year;
+  const P = w.wire, once = (key) => { if (P.done[key]) return false; P.done[key] = w.year; return true; }, y = w.year;
   for (const s of K.SERIES) {
     const season = w.ledger.filter(e => e.y === y && e.s === s.id && e.type === 'contact');
     // a feud: the same two have touched twice or more this season
