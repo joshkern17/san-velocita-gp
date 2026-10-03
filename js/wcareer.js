@@ -440,6 +440,15 @@ export function recordPlayerRound(w, res, log = [], use = null) {
   for (const r of known) if (r.pid !== 'P' && me) { const h = h2hOf(w, r.pid); h.races++; if (r.dnf && !me.dnf || (!me.dnf && me.pos < r.pos)) h.ahead++; else h.behind++; }
   const u = use || simUse(w), bill = w.money ? settleRound(w, u, me) : null;
   afterParts(w, u);
+  // who reacts (character voices): Danny always; your teammate half the time; the rival owner now and then (with how
+  // their cars did); your ex after a podium
+  if (me && use) {
+    const facts = raceFacts(w, me, use, log);
+    react(w, 'danny', facts);
+    if (rng(w) < 0.5) react(w, 'mate', facts);
+    if (w.rival && rng(w) < 0.35) { const theirs = w.series[sid].results.at(-1).rows.filter(r => teamOfPid(w, r.pid) === w.rival.tid); if (theirs.length) react(w, 'rival', `${facts} ${w.teams[w.rival.tid].name}'s cars finished ${theirs.map(r => r.dnf ? 'DNF' : ordinalOf(r.pos)).join(' and ')}.`); }
+    if (!me.dnf && me.pos <= 3 && rng(w) < 0.4) react(w, 'ex', facts);
+  }
   return { ...afterRound(w, me), bill };
 }
 // testing: your race simulated too (you as a mid-field driver)
@@ -890,6 +899,8 @@ export function gigDone(w, id, r) {
   if (GIG_KINDS[g.kind].raceCar && w.car) { wearCar(w, r.lapTimes ? r.lapTimes.length : g.laps, r.dmg || 0, null); if ((r.dmg || 0) > 0.005) add('Repairs', -repairQuote(w, r.dmg)); }
   for (const [t, a] of rows) pay(w, a, `${g.client}: ${/^(GigGo|Trust)/.test(t) ? t : t[0].toLowerCase() + t.slice(1)}`);
   const net = rows.reduce((a, x) => a + x[1], 0);
+  if (g.kind === 'street' || (stars != null && stars <= 2 && GIG_KINDS[g.kind].site) || (r.dmg || 0) > 0.15 || (g.kind === 'attack' && net > 0) || (g.kind === 'rides' && (r.lapComfort || []).some(c => c < 55)))
+    react(w, 'danny', `The player did a side job this week: ${GIG_KINDS[g.kind].name.toLowerCase()} for ${g.client}${g.what ? ` (${g.what.toLowerCase()})` : ''}. How it went: ${head.toLowerCase()}. ${line} They made ${money$(net)} on it in the end.${(r.dmg || 0) > 0.15 ? ' The vehicle came back damaged.' : ''}`);
   const e = weekOf(w).log.find(x => x.gig === g.id);
   if (e) { e.amt += net; e.what = `${GIG_KINDS[g.kind].name}: ${head.toLowerCase()}`; e.done = true; }
   return { rows, net, stars: GIG_KINDS[g.kind].site ? clamp(stars, 1, 5) : null, head, line };
@@ -1025,7 +1036,7 @@ export function answerStory(w, m, key) {
 }
 function answerTempt(w, m, key) {
   if (key === 'no') return null;
-  if (m.tempt === 'grey') { pay(w, -m.price, 'Engine map (cash)'); w.grey = { uses: 0 }; flag(w, 'grey'); return { msg: 'Kev fitted the map. The car pulls harder.' }; }
+  if (m.tempt === 'grey') { pay(w, -m.price, 'Engine map (cash)'); w.grey = { uses: 0 }; flag(w, 'grey'); react(w, 'danny', `The player said yes to Danny's idea: Danny's mate Kev fitted an engine map to the race car for ${money$(m.price)} cash. It isn't legal, and the scrutineers might find it.`); return { msg: 'Kev fitted the map. The car pulls harder.' }; }
   if (m.tempt === 'shady') {
     const deals = dealsOf(w); if (deals.length >= SPONSOR_SLOTS.length) return { err: 'You have no free sponsor slots.' };
     const slot = m.slot === 'title' && deals.some(d => d.slot === 'title') ? 'assoc' : m.slot, sp = sponsorById(m.sid);
@@ -1039,13 +1050,14 @@ function answerTempt(w, m, key) {
     news(w, `${sp.name.toUpperCase()} JOINS ${w.teams[w.player.team].name.toUpperCase()}`, `The Street Cup team has a new ${slot === 'title' ? 'title ' : ''}partner.`);
     return { msg: `${sp.name} is on board. Their logo needs to be on the car.` };
   }
-  if (m.tempt === 'shark') { pay(w, m.amt, 'Loan (Sal)'); (w.loans ??= []).push({ shark: true, owe: m.back, due: nowIdx(w) + 4, missed: 0, paid: false }); flag(w, 'shark'); return { msg: `${money$(m.amt)} from Sal. ${money$(m.back)} back in four rounds.` }; }
-  if (m.tempt === 'bet') { pay(w, -m.stake, 'Cash (Lenny)'); w.bet = { type: key, stake: m.stake, key: w.year * 100 + w.round }; flag(w, key === 'against' ? 'betAgainst' : 'betFor'); return { msg: key === 'against' ? 'Lenny has your money. Finish outside the top 8.' : 'Lenny has your money. Finish in the top 5.' }; }
+  if (m.tempt === 'shark') { react(w, 'danny', `The player took a loan from Sal, Danny's cousin: ${money$(m.amt)} now, ${money$(m.back)} back in four rounds.`); pay(w, m.amt, 'Loan (Sal)'); (w.loans ??= []).push({ shark: true, owe: m.back, due: nowIdx(w) + 4, missed: 0, paid: false }); flag(w, 'shark'); return { msg: `${money$(m.amt)} from Sal. ${money$(m.back)} back in four rounds.` }; }
+  if (m.tempt === 'bet') { react(w, 'danny', key === 'against' ? `The player put ${money$(m.stake)} with Lenny the bookie on themselves finishing outside the top 8 this weekend. Betting against yourself is against the rules.` : `The player put ${money$(m.stake)} with Lenny the bookie on themselves finishing in the top 5 this weekend.`); pay(w, -m.stake, 'Cash (Lenny)'); w.bet = { type: key, stake: m.stake, key: w.year * 100 + w.round }; flag(w, key === 'against' ? 'betAgainst' : 'betFor'); return { msg: key === 'against' ? 'Lenny has your money. Finish outside the top 8.' : 'Lenny has your money. Finish in the top 5.' }; }
   if (m.tempt === 'insure') {
     pay(w, m.pay, `Insurance: ${w.car.year} ${w.car.name}, total loss (fire)`);
     w.fraud = { since: nowIdx(w), pay: m.pay };
     news(w, `FIRE AT ${(TOWNS[w.home]?.name || 'LOCAL').toUpperCase()} RACING GARAGE`, `A race car was destroyed in a fire overnight. Nobody was hurt. The cause is not yet known.`);
     w.car = null; w.founding.car = false; w.ads = makeAds(w); w.grey = null; flag(w, 'insure');
+    react(w, 'danny', `The player went through with it: the race car "caught fire" in the garage overnight and the insurance paid ${money$(m.pay)}. The fire was Danny's idea, from a guy at the Gas-N-Go. Now they need another car, and nobody can know.`);
     return { msg: 'The car is gone. The money is in the bank. You need another car.' };
   }
   return null;
@@ -1496,6 +1508,7 @@ export function buyCar(w, adId) {
   w.founding.car = true; w.ads = w.ads.filter(a => a !== ad);
   carParts(w); refreshUsedParts(w);
   pay(w, -ad.price, `Classifieds: ${ad.year} ${ad.name} (from ${ad.seller})`);
+  react(w, 'danny', `The player just bought their race car off the classifieds: a ${ad.year} ${ad.name} in ${condWord(ad.cond).toLowerCase()} condition, ${Math.round(ad.miles / 1000)}k miles, for ${money$(ad.price)}, from a seller called ${ad.seller}. Danny found the listings for them.`);
   mail(w, ad.seller, `${ad.seller.split(' ')[0].toLowerCase().replace(/[^a-z_]/g, '')}@coolmail.sv`, `re: ${ad.year} ${ad.name}`,
     [`pleasure doing business`, `keys are under the mat`, condWord(ad.cond) === 'Project' ? `if it makes a noise thats normal` : `no refunds`]);
   return true;
@@ -1619,6 +1632,7 @@ export function buyFit(w, part) {
   pay(w, -(part.price + fee), `${part.name}${part.used ? ' (used, SVList)' : ''}${fee ? ' + fitting at a shop' : ''}`);
   P[part.slot].fit = { name: part.name, gains: part.gains, q: part.q, used: part.used, claim: part.claim || null, feel: feelOf(w, part), measured: null };
   if (part.used) w.usedParts = (w.usedParts || []).filter(x => x.id !== part.id);
+  if (rng(w) < 0.5) react(w, 'danny', `The player just bought and fitted a ${part.name} (${PARTS[part.slot]?.name.toLowerCase() || 'part'}) for ${money$(part.price)}${part.used ? ', second-hand off SVList' : ''}.`);
   return true;
 }
 // already on the car (the same part in its slot)
@@ -1672,7 +1686,8 @@ export function hireStaff(w, id) {
   w.staff = w.staff || []; w.staff.push({ ...c, hired: w.year, morale: c.danny ? 95 : 70 });
   w.jobs = w.jobs.filter(j => j !== c);
   if (c.danny) { w.dannyHired = true; text(w, 'Danny', pickLine(w, [`no way!!! ur not gonna regret this`, `TEAM MANAGER. i'm telling my mom`])); }
-  else mail(w, `${c.first} ${c.last}`, `${c.first.toLowerCase()}.${c.last.toLowerCase()}@coolmail.sv`, `Re: ${ROLES[c.role].name}`, [`Thank you for the offer. I accept. I can start before the next round.`, `${c.first} ${c.last}`]);
+  else { mail(w, `${c.first} ${c.last}`, `${c.first.toLowerCase()}.${c.last.toLowerCase()}@coolmail.sv`, `Re: ${ROLES[c.role].name}`, [`Thank you for the offer. I accept. I can start before the next round.`, `${c.first} ${c.last}`]);
+    react(w, 'danny', `The player just hired ${c.first} ${c.last}, ${c.age}, as their ${ROLES[c.role].name.toLowerCase()}, for ${money$(wageNow(w, c))} a round. What their CV says: ${c.cv}`); }
   return true;
 }
 // letting someone go: what you owe them is still owed (it's paid with the next payroll)
@@ -1681,6 +1696,7 @@ export function fireStaff(w, id, replaced = false) {
   w.staff = w.staff.filter(s => s !== x);
   if (x.owed > 0) w.wageClaims = (w.wageClaims || 0) + x.owed;
   if (x.danny) { w.dannyGone = true; text(w, 'Danny', replaced ? `oh. ok. no that's fine. that makes sense` : `wow ok`); }
+  else if (!replaced) react(w, 'danny', `The player just let ${x.first} ${x.last} go: the team's ${ROLES[x.role]?.name.toLowerCase() || 'staff member'}${x.owed ? `, still owed ${money$(x.owed)} in wages` : ''}.`);
 }
 // the data engineer: how much of the telemetry you can read (0 nothing, 1 the charts, 2 the notes too)
 export function dataLevel(w) {
@@ -1867,6 +1883,7 @@ export function answerSponsor(w, m, key) {
   const slot = o.slot === 'title' && titleTaken ? 'assoc' : o.slot;
   deals.push({ sid: o.sid, slot, fee: slot === o.slot ? o.fee : Math.round(o.fee * ASSOC_K / 50) * 50, bonus: o.bonus, met: 0, misses: 0, since: w.year, obj: null });
   if (slot === 'title') { news(w, `${sp.name.toUpperCase()} BACKS ${w.teams[w.player.team].name.toUpperCase()}`, `${sp.name} is the new title sponsor of the ${seriesById(w.player.series).name} team.`); }
+  if (rng(w) < 0.5) react(w, 'danny', `${sp.name} just agreed to sponsor the player's team${slot === 'title' ? ' as title sponsor, so their name goes on the car' : ''}, for ${money$(deals.at(-1).fee)} a round.`);
   mail(w, sp.name, sponsorAddr(sp.name), 'Welcome aboard', [`Delighted to be working with you. ${slot === 'title' ? 'Our name will be on the car from the next round.' : 'Our logo will be on the car from the next round.'}`, `Our target for each race will be in your team's sponsor page before the weekend.`, sp.name]);
   return slot;
 }
@@ -1893,6 +1910,36 @@ export function text(w, from, body, extra = {}) {
   if (w.msgs.length > 80) w.msgs.length = 80;
 }
 export const unread = (w) => w.msgs.filter(m => !m.read).length;
+// ---------------- reactions: someone writes to you about something you just did ----------------
+// Only with character voices on (js/voice.js + ChatGPT): the game decides who reacts and gives them the facts; the
+// words are theirs. who: danny / mate / rival / ex. facts: plain sentences about what happened (the only facts they
+// may use). Without voices, these are never written and nothing else changes.
+export function react(w, who, facts) {
+  if (w.pre || !facts) return;
+  const r = (w.reacts ??= []);
+  const from = who === 'danny' ? 'Danny' : who === 'mate' ? (w.people[teammateOf(w)]?.first || '') : who === 'ex' ? (w.backstory?.ex || '') : who === 'rival' && w.rival ? w.rival.name.join(' ') : '';
+  if (!from) return;
+  const mate = who === 'mate' ? w.people[teammateOf(w)] : null;
+  r.push({ id: 'r' + (w.nextId++), who, from, facts, y: w.year, r: w.round, done: false,
+    traits: mate ? (mate.traits || []).map(t => TRAITS[t]?.desc).filter(Boolean).join(' ') : '',
+    addr: who === 'rival' && w.rival ? `${w.rival.name[0][0].toLowerCase()}.${w.rival.name[1].toLowerCase().replace(/[^a-z]/g, '')}@${w.teams[w.rival.tid].name.toLowerCase().replace(/[^a-z]+/g, '')}.sv` : '' });
+  // (only the latest few for each person: a backlog nobody would send)
+  const mine = r.filter(x => !x.done && x.who === who); if (mine.length > 2) mine[0].done = true;
+  if (r.length > 30) r.splice(0, r.length - 30);
+}
+// a race, in facts: where you finished and started, your teammate, who you hit or who hit you, the points
+function raceFacts(w, me, use, log) {
+  const sid = w.player.series, res = w.series[sid].results.at(-1), mateId = teammateOf(w), mate = w.people[mateId], mr = res.rows.find(r => r.pid === mateId);
+  const st = standings(w, sid), cp = st.findIndex(e => e.pid === 'P') + 1, f = [];
+  f.push(`Round ${res.round + 1} of the ${seriesById(sid).name} at ${res.track}${res.weather === 'rain' ? ', in the rain' : ''}. The player ${me.dnf ? (me.dsq ? 'was disqualified' : 'did not finish') : `finished ${ordinalOf(me.pos)} of ${res.rows.length}`}${use && use.grid ? ` after starting ${ordinalOf(use.grid)}` : ''}.`);
+  if (use && use.failed) f.push(`The car's ${PARTS[use.failed]?.name.toLowerCase() || 'something'} failed during the race.`);
+  if (mate && mr) f.push(`Their teammate ${mate.first} ${mate.last} ${mr.dnf ? 'did not finish' : `finished ${ordinalOf(mr.pos)}`}.`);
+  for (const e of log.filter(e => e.type === 'contact' && (e.a === 'P' || e.b === 'P')).slice(0, 2)) { const o = w.people[e.a === 'P' ? e.b : e.a]; if (o) f.push(e.a === 'P' && e.blame ? `The player hit ${o.first} ${o.last}, and it was the player's fault.` : e.blame ? `${o.first} ${o.last} hit the player.` : `The player and ${o.first} ${o.last} touched.`); }
+  const win = res.rows.find(r => r.pos === 1 && !r.dnf); if (win && win.pid !== 'P' && w.people[win.pid]) f.push(`${w.people[win.pid].first} ${w.people[win.pid].last} won.`);
+  if (cp) f.push(`The player is now ${ordinalOf(cp)} in the championship.`);
+  return f.join(' ');
+}
+const ordinalOf = (n) => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
 const teammateOf = (w) => w.teams[w.player.team].drivers.find(d => d !== 'P');
 const ord = (p) => p + (['th', 'st', 'nd', 'rd'][(p % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][p % 100] || 'th');
 const pickLine = (w, a) => a[Math.floor(rng(w) * a.length)];
@@ -1997,6 +2044,8 @@ export function loadWorld(id) {
     w.mail = w.mail || [];
     if (!w.money) startMoney(w);
     if (!w.founding) w.founding = { reg: true, car: true, legacy: true }; // (careers from before the founding: carry on as you were)
+    // (messages the old character voices reworded: back to how they were written)
+    for (const m of [...(w.msgs || []), ...w.mail]) if (m.orig) { m.body = Array.isArray(m.body) ? m.orig.split(/\n\s*\n/) : m.orig; delete m.orig; delete m.voiced; }
     return w;
   } catch (e) { return null; }
 }

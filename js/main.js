@@ -17,7 +17,7 @@ import { Garage } from './garage.js';
 import { PitGarage } from './pitgarage.js';
 import { Computer } from './computer.js';
 import { restoreSaves, exportBackup, importBackup } from './backup.js';
-import { voiceState, voiceStatus, voiceSignIn, voiceSignOut, voiceWorld } from './voice.js';
+import { voiceState, voiceStatus, voiceSignIn, voiceSignOut, voiceReacts } from './voice.js';
 import { carPhoto } from './carphoto.js';
 import { PARTS, DEFAULT_CAR, chassisReady } from './carmodel.js';
 import * as CAREER from './career.js';
@@ -498,7 +498,7 @@ const OPTION_TABS = [
       desc: 'Load a backup file you exported. Anything in it replaces what the game has now.' },
     { label: 'Character Voices', head: true },
     { label: 'Voices', values: [['written', 'Written'], ['chatgpt', 'ChatGPT']], get: () => settings.voices, set: v => { settings.voices = v; saveSettings(); runVoices(); },
-      get desc() { return `World Career's messages. <b>Written</b>: as written. <b>ChatGPT</b>: characters reword their own messages in their own voice (Danny so far), using your ChatGPT plan. The facts never change; if anything goes wrong the written version stays. ${voiceLine()}`; } },
+      get desc() { return `<b>Written</b>: the story as written. <b>ChatGPT</b>: on top of that, people react to what you actually do (Danny, your teammate, the rival owner, your ex), written by ChatGPT on your plan from the facts the game gives them. ${voiceLine()}`; } },
     { get label() { return voiceState.signedIn ? 'Sign Out Of ChatGPT' : 'Sign In With ChatGPT'; },
       action: () => voiceState.signedIn ? voiceSignOut().then(() => { toast('Signed out of ChatGPT.'); menus['s-options']?.[0]?.render(); })
         : voiceState.server === false ? toast('Character voices need the game\'s own server (the San Velocita GP app, or serve.py).')
@@ -1752,7 +1752,11 @@ function runVoices() {
   if (!world || settings.voices !== 'chatgpt' || !voiceState.signedIn) return;
   const w = world, B = WC.briefing(w), st = WC.seriesStandings(w, w.player.series), cp = st.findIndex(e => e.pid === 'P') + 1;
   const ctx = `${w.player.name.split(' ')[0]}, owner-driver of ${w.teams[w.player.team].name} in the ${seriesName(w.player.series)}, ${w.year} season, round ${w.round + 1} of ${w.opts.len}. ${cp && w.series[w.player.series].results.length ? `${ord(cp)} in the championship.` : 'No races yet.'} ${w.money ? `Bank: ${WC.money$(w.money.balance)}.` : ''} ${B.watch.slice(0, 2).map(x => x.text).join('. ')}`;
-  voiceWorld(w, ctx, () => { saveWorld(); if (screen === 's-hub') { renderHubMenu(); if (pc.isOpen) pc.render(); } });
+  voiceReacts(w, ctx, (r, text) => {
+    if (r.who === 'rival') WC.mail(w, r.from, r.addr, pick(['A note', 'This weekend', 'Re: your season']), text.split(/\n\s*\n/).filter(Boolean), { voiced: true });
+    else WC.text(w, r.from, text, { voiced: true });
+    saveWorld(); phone.buzz(); if (screen === 's-hub') { renderHubMenu(); if (pc.isOpen) pc.render(); }
+  });
 }
 // (the next circuit's samples, kept: the garage redraws often)
 const hubTrackCache = new Map();
