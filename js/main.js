@@ -1371,7 +1371,7 @@ const pc = new Computer({
   world: () => world,
   answer: (m, key) => {
     m.answer = key;
-    if (m.lottery) { WC.claimLottery(world, key); sfx.best(); renderHub(); }
+    if (m.lottery) { WC.claimLottery(world, key); sfx.best(); renderHub(); if (!WC.setupDone(world)) setTimeout(() => { if (pcSeat) pc.goto('setup'); }, 900); } // (then: setting up the team)
     if (m.sponsorOffer) { const r = WC.answerSponsor(world, m, key); updateLogoShown(); if (r === 'full') toast('You have no free sponsor slots.'); else if (r !== 'declined') { sfx.best(); if (screen === 's-hub') pitGarage.setCar(hubCar()); } }
     if (m.gig && key === 'in') {
       const r = WC.bookGig(world, m.gig);
@@ -1417,6 +1417,14 @@ const pc = new Computer({
     settings.driverName = f.name; saveSettings();
     sfx.best(); saveWorld(); renderHub(); phone.buzz();
   },
+  // the Team Setup Wizard
+  setup: (what, arg) => {
+    const r = what === 'entry' ? WC.setupEntry(world, arg) : what === 'car' ? WC.setupCar(world, arg) : what === 'sponsor' ? WC.setupSponsor(world, arg) : what === 'mate' ? WC.setupMate(world, arg) : (WC.setupFinish(world), { ok: true });
+    if (!r.ok) { sfx.error(); toast(r.why, 4000); return; }
+    sfx.best(); updateLogoShown(); saveWorld(); pitGarage.setCar(hubCar()); renderHub();
+    if (what === 'finish') { phone.buzz(); setTimeout(() => standUp(), 400); }
+  },
+  sponsorLogo: (sid) => assets.get(logoOf({ sid })),
   // the Team app: facilities and projects
   team: (what, arg) => {
     const r = what === 'build' ? WC.buildFacility(world, arg) : WC.startProject(world, arg.split('|')[1], arg.split('|')[0]);
@@ -1821,6 +1829,7 @@ function renderHubMenu() {
   const F = w.founding || {};
   if (!F.reg) items.push({ label: 'Register The Team', cls: 'action primary', action: () => sitDown('registry'), desc: 'Form SV-1, on the computer.' });
   else if (claim) items.push({ label: 'Claim Your Winnings', cls: 'action primary', action: () => sitDown('mail', claim.id), desc: 'The State Lottery needs to know how you want your money. It\'s waiting in your email.' });
+  else if (!WC.setupDone(w)) items.push({ label: 'Set Up The Team', cls: 'action primary', action: () => sitDown('setup'), desc: 'How you get in, the car, a title sponsor and your second driver: the Team Setup Wizard, on the computer.' });
   else if (!F.car) items.push({ label: 'Buy A Car', cls: 'action primary', action: () => sitDown('classifieds'), desc: 'Danny sent you some listings. They\'re on the computer.' });
   else if (!w.over && WC.needsCar(w)) items.push({ label: 'Get A Car', cls: 'action primary', action: () => sitDown('customer'), desc: `Your ${w.car.name} isn't eligible for the ${seriesName(sid)}. Buy or lease one from the makers' customer programmes, or buy a team's car from last season (on the computer).` });
   else if (!w.over && WC.payrollShort(w)) items.push({ label: 'Sort Out Payroll', cls: 'action primary', action: () => sitDown('staff'), desc: `Payroll is ${WC.money$(WC.payrollDue(w))} and you have ${WC.money$(w.money.balance)}. Decide who gets paid (Team, on the computer: the Staff tab).` });

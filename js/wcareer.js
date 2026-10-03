@@ -121,6 +121,7 @@ export function mateOf(w) {
 export function askOf(w, p) {
   const k = WAGE_K[w.player.series] || 1, t = traitsOf(w, p);
   if (t.includes('gentleman')) return { wage: 0, fee: p.purse || 150000 };
+  if (t.includes('paydriver') && p.purse) return { wage: 0, fee: p.purse };
   if (t.includes('paydriver')) return { wage: 0, fee: Math.round((25000 + (60 - Math.min(60, p.pace)) * 900) * (k > 1 ? k * 0.6 : 1) / 500) * 500 };
   let wage = DRIVER_WAGE(p.pace) * k;
   if (t.includes('digger')) wage *= 1.3; if (t.includes('loyal')) wage *= 0.8; if (p.titles) wage *= 1 + 0.15 * p.titles;
@@ -975,6 +976,96 @@ export function simDay(w) {
 // a team changes series (and so cars): the development starts again
 function devReset(t) { if (t.dev) t.dev = devZero(); t.active = []; }
 
+// ---------------- starting the team: the setup wizard (on the computer, after Form SV-1 and the lottery) ----------------
+// Four choices, F1 My Team style: how you get in (the entry: a story-shaped difficulty), the car (unless the entry
+// came with one), a title sponsor (one of three), and the second driver (one of four). w.setup: { step, entry, done,
+// sponsors: [offer], drivers: [pid], scout: { pid: [lo, hi] } }. Careers from before it have none: done.
+export const SETUP_STEPS = ['entry', 'car', 'sponsor', 'mate', 'ready'];
+export const setupDone = (w) => !w.setup || w.setup.done;
+const BRAND = { clean: 'Family-run: hates seeing their name in a crash', top: 'Wants results, and says so', finish: 'Just wants to see the car at the end', gain: 'Likes a bit of action: overtakes', beat: 'Has a rival, and wants them beaten', lead: 'Wants their name at the front' };
+function newSetup(w) {
+  const local = SPONSOR_POOL.map((x, i) => sponsorById('sp' + i)).filter(sp => sp.rep <= 25 && sp.rep < 999 && (!sp.town || sp.town === w.home));
+  const three = local.sort((a, b) => (a.town ? 0 : 1) - (b.town ? 0 : 1) || rng(w) - 0.5).slice(0, 3);
+  // three shapes of deal: a big cheque from someone impatient, a steady one, a small one from someone patient
+  const shapes = [{ k: 1.35, sign: 1, pat: -1, tag: 'Big money, impatient' }, { k: 1, sign: 2, pat: 0, tag: 'Steady' }, { k: 0.75, sign: 4, pat: 2, tag: 'Patient, big signing bonus' }];
+  const base = three.reduce((a, sp) => a + sp.fee, 0) / Math.max(1, three.length); // (one base for all three, so the shapes differ)
+  const sponsors = three.map((sp, i) => { const s = shapes[i], fee = Math.round(base * s.k * (0.97 + rng(w) * 0.06) / 50) * 50;
+    return { sid: sp.id, fee, bonus: Math.round(fee * 0.6 / 50) * 50, signing: Math.round(fee * s.sign / 100) * 100, patience: clamp(sp.patience + s.pat, 1, 6), tag: s.tag, brand: BRAND[sp.wants[0]] || '' }; });
+  // the second seat: whoever's in it now (the folded team's driver), someone quick, a pay driver, a teenager
+  const T = w.teams[w.player.team], inherited = T.drivers.find(d => d !== 'P'), free = Object.values(w.people).filter(p => !p.retired && !p.team && ageOf(w, p) < 36 && !traitsOf(w, p).includes('gentleman'));
+  const quick = free.filter(p => !traitsOf(w, p).includes('paydriver')).sort((a, b) => b.pace - a.pace)[0];
+  let kid = free.filter(p => ageOf(w, p) <= 19 && p !== quick).sort((a, b) => b.pot - a.pot)[0];
+  if (!kid) kid = makePerson(w, { age: 17, series: null, lvl: SERIES[0].base - 8 });
+  const payer = makePerson(w, { age: r0(19 + rng(w) * 6), series: null, lvl: SERIES[0].base - 9 });
+  payer.traits = ['paydriver']; payer.purse = Math.round((15000 + rng(w) * 8000) / 500) * 500; payer.biz = pickLine(w, ['Carpets & Flooring', 'Discount Mattresses', 'Lawn Ornaments', 'Premium Gutters', 'Self Storage']);
+  const drivers = [inherited, quick && quick.id, payer.id, kid.id].filter(Boolean);
+  // what your scouting says they could become: a range around the truth
+  const scout = Object.fromEntries(drivers.map(pid => { const p = w.people[pid], e = gauss(w) * 4, wid = 6 + rng(w) * 6; return [pid, [r0(clamp(p.pot + e - wid / 2, p.pace, 99)), r0(clamp(p.pot + e + wid / 2, p.pace + 2, 99))]]; }));
+  return { step: 0, entry: null, done: false, sponsors, drivers, scout };
+}
+// the three ways in (cost: what it takes out of your winnings)
+export function setupEntries(w) {
+  const old = w.teams[w.prev], mate = w.people[w.teams[w.player.team].drivers.find(d => d !== 'P')];
+  return [
+    { key: 'fresh', name: 'Start from nothing', cost: 0, level: 'Hardest', blurb: 'A rented lock-up, a series licence, and all of your money. You buy your own car and pick your own people.',
+      gets: ['Rented lock-up', 'No car: the classifieds', 'No staff', 'All your money'] },
+    { key: 'takeover', name: `Take over ${old ? old.name : 'the old team'}`, cost: 28000, level: 'Middling', blurb: `${old ? old.name : 'The team whose entry you bought'} folded after ten seasons. The liquidators will sell you what's left: a tired car, the lease on their unit, their tools, and ${mate ? mate.first : 'a driver'}, still under contract.`,
+      gets: ['Industrial unit', 'Proper tools', 'Their car (tired)', mate ? `${mate.first} ${mate.last}, under contract` : 'Their driver'] },
+    { key: 'running', name: 'Buy a running team', cost: 100000, level: 'Easiest', blurb: 'A small team that wants out, with everything working: a good car with a season of development, a unit with a lift and a sim rig, and a chief mechanic.',
+      gets: ['Industrial unit', 'Lift and engine hoist', 'Sim rig', 'A good, developed car', 'A three-star chief mechanic'] },
+  ];
+}
+export function setupEntry(w, key) {
+  const S = w.setup, e = setupEntries(w).find(x => x.key === key); if (!S || S.entry || !e) return { ok: false, why: 'Already chosen.' };
+  if (w.money.balance < e.cost) return { ok: false, why: `That takes ${money$(e.cost)}. You have ${money$(w.money.balance)}.` };
+  const t = myTeam(w); S.entry = key;
+  if (e.cost) pay(w, -e.cost, `${e.name}`);
+  if (key !== 'fresh') {
+    t.fac = { base: 1, tools: key === 'running' ? 2 : 1, ...(key === 'running' ? { sim: 1 } : {}) };
+    const cars = w.streetCars || [], c = cars[Math.floor(rng(w) * cars.length)];
+    if (c) { w.car = { chassis: c.key, name: c.name, cond: key === 'running' ? 0.92 : 0.6, paid: Math.round(c.value * (key === 'running' ? 0.9 : 0.5)), year: 1990 + Math.floor(rng(w) * 10) }; w.founding.car = true; carParts(w);
+      if (key === 'running') w.car.dev = { power: 0.003, grip: 0.002, downforce: 0.01, brake: 0.006, rel: 0.1 }; }
+    if (key === 'running') { const m = staffPerson(w, 'mechanic', 3); m.cv = 'Came with the team. Knows where everything is.'; w.staff.push(m); }
+    if (key === 'takeover') { const pid = w.teams[w.player.team].drivers.find(d => d !== 'P'), p = pid && w.people[pid]; if (p) { w.mate = { pid, wage: Math.round(askOf(w, p).wage * 0.8 / 50) * 50, fee: 0, until: w.year, pay: 'full', owed: 0, morale: 60 }; S.mateDone = true; } }
+  }
+  S.step = w.car ? (S.mateDone ? 2 : 2) : 1;
+  return { ok: true };
+}
+export function setupCar(w, adId) { if (!buyCar(w, adId)) return { ok: false, why: 'That car has gone.' }; w.setup.step = 2; return { ok: true }; }
+export function setupSponsor(w, i) {
+  const S = w.setup, o = S && S.sponsors[i]; if (!o || S.sponsored) return { ok: false, why: 'Already chosen.' };
+  const sp = sponsorById(o.sid); S.sponsored = o.sid;
+  dealsOf(w).push({ sid: o.sid, slot: 'title', fee: o.fee, bonus: o.bonus, met: 0, misses: 0, since: w.year, obj: null, patience: o.patience });
+  if (o.signing) pay(w, o.signing, `${sp.name}: signing bonus`);
+  mail(w, sp.name, sponsorAddr(sp.name), 'Welcome aboard', [`We're delighted. Our name goes on the car from the first round.`, `${money$(o.fee)} a round, and ${money$(o.bonus)} more each time you meet the target we set for that race. ${o.brand ? o.brand + '.' : ''}`, sp.name]);
+  S.step = S.mateDone ? 4 : 3;
+  return { ok: true };
+}
+export function setupMate(w, pid) {
+  const S = w.setup; if (!S || S.mateDone || !S.drivers.includes(pid)) return { ok: false, why: 'Already chosen.' };
+  const T = w.teams[w.player.team], p = w.people[pid];
+  for (const d of T.drivers.filter(d => d !== 'P' && d !== pid)) { const q = w.people[d]; T.drivers = T.drivers.filter(x => x !== d); if (q) { q.team = null; q.series = 'street'; } }
+  if (!T.drivers.includes(pid)) { if (p.team) { const from = w.teams[p.team]; from.drivers = from.drivers.filter(x => x !== pid); } p.team = T.id; p.series = 'street'; T.drivers.push(pid); }
+  const a = askOf(w, p);
+  w.mate = { pid, wage: a.wage, fee: a.fee, until: w.year, pay: 'full', owed: 0, morale: 70 };
+  if (a.fee) {
+    pay(w, a.fee, `${p.last} ${p.biz || 'family'}: seat money for ${p.first}`);
+    mail(w, `Gordon ${p.last}`, `gordon@${p.last.toLowerCase()}${(p.biz || 'family').split(' ')[0].toLowerCase()}.sv`, `${p.first}'s seat`,
+      [`Hello,`, `Please find enclosed ${money$(a.fee)} for ${p.first}'s seat in your team, as discussed with ${p.first}, who discussed it with me afterwards.`,
+       `${p.first} tells me they are very fast. I have never seen them drive, because I am busy running ${p.last} ${p.biz || 'Holdings'}, the third largest name in ${(p.biz || 'holdings').toLowerCase()} in the province.`,
+       `Please put our name on the car somewhere tasteful.`, `Gordon ${p.last}`]);
+  }
+  S.mateDone = true; S.step = 4;
+  return { ok: true };
+}
+// done: the Wire hears about it
+export function setupFinish(w) {
+  const S = w.setup; if (!S || S.done) return;
+  S.done = true; S.step = 5;
+  const t = myTeam(w), mate = mateOf(w), sp = dealsOf(w).find(d => d.slot === 'title');
+  news(w, `NEW TEAM: ${t.name.toUpperCase()}`, `${t.name}, owned and driven by lottery winner ${w.player.name}, enters the Street Cup${sp ? ` with backing from ${sponsorById(sp.sid).name}` : ''}${mate ? `. ${nameOf(w.people[mate.pid])} drives the second car` : ''}.`);
+}
+
 // ---------------- moving up: each series' way in ----------------
 // Every series says how you get a car for it (SERIES[].car). The Street Cup races road cars off the classifieds. GT
 // races homologated cars, sold and leased by the makers' customer racing programmes (or an ex-works chassis, a season
@@ -1575,7 +1666,7 @@ export function despOf(w) {
   const r = runwayOf(w);
   let d = r < 0 ? 1 : r < 1 ? 0.85 : r < 2 ? 0.65 : r < 4 ? 0.4 : r < 7 ? 0.2 : 0.05;
   if ((w.staff || []).some(x => x.owed > 0)) d += 0.1;
-  if (dealsOf(w).some(x => x.misses >= (sponsorById(x.sid)?.patience || 9))) d += 0.05;
+  if (dealsOf(w).some(x => x.misses >= patienceOf(x))) d += 0.05;
   if ((w.loans || []).some(l => l.shark && !l.paid)) d += 0.1;
   return clamp(d, 0, 1);
 }
@@ -1955,7 +2046,7 @@ export function briefing(w) {
   for (const d of dealsOf(w)) {
     const sp = sponsorById(d.sid);
     if (w.logoShown && !w.logoShown.includes(d.sid)) watch.push({ text: `${sp.name}'s logo isn't on the car: they won't pay`, bad: true });
-    else if (!d.shady && d.misses >= sp.patience) watch.push({ text: `${sp.name}: miss this target and they walk`, bad: true });
+    else if (!d.shady && d.misses >= patienceOf(d)) watch.push({ text: `${sp.name}: miss this target and they walk`, bad: true });
   }
   const P = carParts(w);
   if (P) for (const k of PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)) if (P[k].cond < 0.5) watch.push({ text: `${PARTS[k].name} at ${Math.round(P[k].cond * 100)}%${PARTS[k].fail ? ': could fail in a race' : ''}`, bad: P[k].cond < 0.3 });
@@ -2073,22 +2164,10 @@ export function registerTeam(w, f) {
     [`Dear ${first},`, `As you know, we act for ${f.ex}.`,
      `It has come to our attention that you won the State Lottery shortly after the decree was finalised. Congratulations. My client has asked us to confirm the date of the draw.`,
      `My client also asks us to pass on that starting a racing team is "exactly the kind of thing," and that they hope it goes really well.`, `Yours,`, `M. Hargreave`]);
-  // a local business gets in touch
-  repOf(w); sponsorOffers(w, true);
-  // the second seat: a pay driver, with their parent's money
-  const mate = w.people[w.teams[w.player.team].drivers.find(d => d !== 'P')];
-  if (mate) {
-    const fee = 15000, biz = pickLine(w, ['Carpets & Flooring', 'Discount Mattresses', 'Lawn Ornaments', 'Premium Gutters', 'Self Storage']);
-    w.payDriver = { pid: mate.id, fee };
-    pay(w, fee, `${mate.last} ${biz}: seat fee for ${mate.first}`);
-    mail(w, `Gordon ${mate.last}`, `gordon@${mate.last.toLowerCase()}${biz.split(' ')[0].toLowerCase()}.sv`, `${mate.first}'s seat`,
-      [`Hello,`, `Please find enclosed ${money$(fee)} for ${mate.first}'s seat in your team, as discussed with ${mate.first}, who discussed it with me afterwards.`,
-       `${mate.first} tells me they are very fast. I have never seen them drive, because I am busy running ${mate.last} ${biz}, the third largest name in ${biz.toLowerCase()} in the province.`,
-       `They will bring their own car. Please put our name on it somewhere tasteful.`, `Gordon ${mate.last}`]);
-  }
   // your buddy, who knows a guy
   w.ads = makeAds(w);
   w.staff = []; w.jobs = makeJobs(w);
+  repOf(w); w.setup = newSetup(w);
   // (the previous team left a couple of things behind)
   w.tyreStock = { soft: 0, medium: 0, hard: 0, wet: 0 }; w.usedTyres = [{ c: 'medium', wf: 0.72, wr: 0.7 }, { c: 'medium', wf: 0.55, wr: 0.58 }];
   mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'found you a car',
@@ -2438,6 +2517,8 @@ export const sponsorName = (id) => sponsorById(id)?.name || '';
 export const sponsorInfo = (id) => sponsorById(id);
 export const repOf = (w) => (w.rep ??= 15);
 export const dealsOf = (w) => (w.deals ??= []);
+// how many targets a sponsor lets you miss (the deal's own, from the setup wizard, or the sponsor's)
+export const patienceOf = (d) => d.patience ?? sponsorById(d.sid)?.patience ?? 9;
 const sponsorById = (id) => { const s = SPONSOR_POOL[+id.slice(2)]; return s && { id, name: s[0], town: s[1], rep: s[2], fee: s[3], patience: s[4], wants: s[5], color: s[6] }; };
 const sponsorAddr = (name) => `marketing@${name.toLowerCase().replace(/&/g, 'and').replace(/[^a-z]+/g, '')}.sv`;
 // what you're expected to manage this round: about where you stand in the championship (or mid-field to start)
@@ -2501,11 +2582,11 @@ function sponsorRound(w, use, me) {
     if (met) { items.push([`${sp.name} bonus: ${objText(w, o).toLowerCase()}`, d.bonus]); d.met++; w.rep = clamp(repOf(w) + 1, 0, 100); }
     else {
       d.misses++; w.rep = clamp(repOf(w) - 1, 0, 100);
-      if (d.misses >= sp.patience + 1) {
+      if (d.misses >= patienceOf(d) + 1) {
         w.deals = deals.filter(x => x !== d);
         mail(w, sp.name, sponsorAddr(sp.name), 'Our partnership', [`We've reviewed our sponsorship of ${w.teams[w.player.team].name} and decided to end it, effective immediately.`, `We wish you the best for the rest of the season.`, sp.name]);
         w.rep = clamp(repOf(w) - 4, 0, 100);
-      } else if (d.misses === sp.patience) mail(w, sp.name, sponsorAddr(sp.name), 'A word about results', [`We were hoping for more by now. ${d.met} of ${d.met + d.misses} targets met so far.`, `Before we decide anything, could you send us your exposure figures for the season: TV audience, attendance, social media?`, sp.name],
+      } else if (d.misses === patienceOf(d)) mail(w, sp.name, sponsorAddr(sp.name), 'A word about results', [`We were hoping for more by now. ${d.met} of ${d.met + d.misses} targets met so far.`, `Before we decide anything, could you send us your exposure figures for the season: TV audience, attendance, social media?`, sp.name],
         { inflate: d.sid, choices: [['real', 'Send the real figures'], ['inflate', 'Round the figures up']] });
     }
     d.obj = null;

@@ -13,7 +13,7 @@ import * as WC from '../js/wcareer.js';
 
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 const args = process.argv.slice(2), opt = (k, d) => { const a = args.find(x => x.startsWith(`--${k}=`)); return a ? a.split('=')[1] : d; };
-const GT = args.includes('--gt'), GENT = opt('gentleman', 'yes') !== 'no', CARHOW = opt('car', 'lease');
+const ENTRY = opt('entry', 'fresh'), MATE = opt('mate', 'pay'), GT = args.includes('--gt'), GENT = opt('gentleman', 'yes') !== 'no', CARHOW = opt('car', 'lease');
 const N = +(args.find(a => /^\d+$/.test(a)) || 40), SEASONS = +(args.filter(a => /^\d+$/.test(a))[1] || 3), SKILL = +opt('skill', 0.4), ONLY = opt('policy', null);
 
 const POOL = [['Pine Ridge', 'grass'], ['Mesa Loop', 'desert'], ['Harbour Run', 'coast'], ['Downtown GP', 'city'], ['Oak Valley', 'grass'], ['Red Rock', 'desert'], ['Bay Point', 'coast'], ['Uptown Ring', 'city']]
@@ -144,7 +144,13 @@ function career(P, s) {
   WC.setCarCatalog(w, CAT);
   WC.registerTeam(w, { name: 'Sim Driver', team: 'Sim Racing', colors: [0xc8141c, 0xf2f2f2], home: pick(['pinewood', 'gulch', 'city', 'azure']), background: pick(Object.keys(WC.BACKGROUNDS)), ex: 'Sam', years: 4 });
   WC.claimLottery(w, P.annuity ? 'annuity' : 'lump');
-  const ad = w.ads[Math.min(1, w.ads.length - 1)]; WC.buyCar(w, ad.id);
+  // the setup wizard: the entry (--entry=fresh|takeover|running), a car if it didn't come with one, the steady sponsor,
+  // a second driver (--mate=pay|quick|kid|keep)
+  if (WC.setupEntry(w, ENTRY).ok === false) WC.setupEntry(w, 'fresh');
+  if (!w.car) { const ad = w.ads[Math.min(1, w.ads.length - 1)]; WC.setupCar(w, ad.id); }
+  WC.setupSponsor(w, 1);
+  if (!w.setup.mateDone) WC.setupMate(w, w.setup.drivers[{ keep: 0, quick: 1, pay: 2, kid: 3 }[MATE] ?? 2] || w.setup.drivers[0]);
+  WC.setupFinish(w);
   w.simSkill = GT ? 0.02 : SKILL;
   const out = { start: w.money.balance, low: w.money.balance, bal: [], pos: [], broke: null, rounds: 0, flags: {}, gt: [] };
   for (let y = 0; y < SEASONS && out.broke == null; y++) {
