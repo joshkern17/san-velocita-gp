@@ -1640,3 +1640,18 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .ws-rules { margin: 4px 0 6px; font-size: 13px; color: #333; }
 .ws-prog { color: #777; font-style: italic; }
 .cr-deal > button { grid-column: 3; grid-row: 1 / span 2; }
+/* the Team app: facilities and development */
+.fc-row { display: grid; grid-template-columns: 1fr 190px 130px; align-items: center; gap: 10px; padding: 7px 6px; border-bottom: 1px solid #ddd; }
+.fc-row.need { background: #fff4d6; }
+.fc-who b { display: block; }
+.fc-who small, .fc-next small { display: block; color: #666; font-size: 12px; }
+.fc-req { display: inline-block; margin-top: 2px; font-size: 11px; font-weight: bold; color: #8a5a00; text-transform: uppercase; }
+.fc-short { color: #888; font-style: italic; }
+.fc-note { margin: 8px 0; padding: 6px 10px; background: #fff4d6; border: 1px solid #e0b030; color: #6a4a00; }
+.pj-cells { margin: 8px 0; }
+.pj-live { display: grid; grid-template-columns: 1fr 260px; align-items: center; gap: 10px; padding: 4px 6px; }
+.pj-list h3 { margin: 10px 0 2px; font-size: 13px; text-transform: uppercase; color: #555; letter-spacing: 0.04em; }
+.pj-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; padding: 5px 6px; border-bottom: 1px solid #e6e6e6; }
+.pj-row b { display: block; }
+.pj-row small { color: #666; }
+.ss-kit { display: block; font-size: 11px; color: #777; }

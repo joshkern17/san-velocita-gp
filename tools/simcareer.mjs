@@ -100,16 +100,35 @@ function week(w, P) {
   }
   // the car: rebuild what's worn (yourself if you can spare the day)
   const parts = WC.carParts(w);
-  if (parts) for (const k of WC.PART_KEYS) if (parts[k].cond < 0.55) {
+  if (parts) for (const k of WC.PART_KEYS.slice().sort((a, b) => parts[a].cond - parts[b].cond)) if (parts[k].cond < (P.diy && WC.daysLeft(w) > 0 ? 0.7 : 0.55)) {
     if (P.diy && WC.daysLeft(w) > 0) { const save = WC.rebuildCost(w, k) - WC.selfCost(w, k); if (WC.rebuildSelf(w, k)) w.simWork = (w.simWork || 0) + save; } // (what doing it yourself saved counts as the week's work)
     else if (w.money.balance > WC.rebuildCost(w, k) * 2) WC.rebuildPart(w, k);
   }
+  // the team: facilities when there's money to spare, and projects (worked on with your spare days)
+  teamWork(w, P);
   if (P.upgrades && w.money.balance > 60000) { const c = WC.catalogue(w).filter(x => !WC.isFitted(w, x)).sort((a, b) => a.price - b.price)[0]; if (c && c.price < w.money.balance * 0.2) WC.buyFit(w, c); }
   if (P.work !== 'none') while (WC.daysLeft(w) > 0) w.simWork = (w.simWork || 0) + WC.workDay(w).amt;
   // tyres for the weekend
   const st = WC.stockOf(w), order = { soft: Math.max(0, 1 - st.soft), medium: Math.max(0, 1 - st.medium) };
   if (!WC.staffOf(w, 'manager')) WC.orderTyres(w, order);
   answerAll(w, P);
+}
+function teamWork(w, P) {
+  if (args.includes('--nodev')) return;
+  const t = WC.myTeam(w), b = w.money.balance, want = P.staff === 'full' ? ['tools', 'base', 'sim', 'dyno', 'fab', 'data'] : ['tools', 'sim', 'base', 'dyno'];
+  // (moving up: what the series asks for comes first)
+  const off = w.player.offer; if (off && off.answer === 'move') for (const [k] of WC.seriesMissing(t, off.to)) { const nx = WC.facNext(t, k); if (nx && b > nx.cost + 5000) WC.buildFacility(w, k); }
+  // (keeping a few rounds' running costs in hand)
+  const C = WC.COSTS[w.player.series], round = C.entry + C.travel + C.crew + C.tyre * 3, keep = round * (P.staff === 'full' ? 3 : 5);
+  for (const k of want) { const nx = WC.facNext(t, k); if (nx && b > nx.cost * (P.staff === 'full' ? 1.5 : 2) + keep) { if (WC.buildFacility(w, k).ok) break; } }
+  if (P.work === 'none' && P.staff !== 'full') return;
+  const live = (w.projects || []).filter(x => !x.done);
+  if (live.length < WC.maxProjects(w) && w.money.balance > keep * 0.6) {
+    const opts = WC.projectList(w).filter(x => !x.locked && x.stat !== 'rel' && x.cost < (w.money.balance - keep * 0.6) * 0.3).sort((a, b) => b.gain / b.cost - a.gain / a.cost);
+    if (opts[0]) WC.startProject(w, opts[0].key, 'team');
+  }
+  // a day or two of your own on them
+  for (const x of (w.projects || []).filter(x => !x.done && !x.shop)) { if (WC.daysLeft(w) <= 3) break; WC.workOnProject(w, x.id); }
 }
 function hire(w, P) {
   if (!w.jobs) return;
@@ -143,9 +162,12 @@ function career(P, s) {
     if (out.broke != null) break;
     out.bal.push(w.money.balance); out.pos.push(w.seasons.at(-1)?.you?.pos ?? null);
     if (GT && w.player.series === 'gt') out.gt.push(w.money.balance);
-    answerAll(w, P); WC.nextSeason(w, POOL);
+    answerAll(w, P);
+    { const t = WC.myTeam(w), off = w.player.offer; if (off && off.answer === 'move') for (const [k] of WC.seriesMissing(t, off.to)) { const nx = WC.facNext(t, k); if (nx && w.money.balance > nx.cost) WC.buildFacility(w, k); } }
+    WC.nextSeason(w, POOL);
     if (GT && w.player.series === 'gt') { w.simSkill = SKILL; out.gtStart ??= w.money.balance; answerAll(w, P); }
   }
+  if (args.includes('--ledger')) { const cat = {}; for (const t of w.money.tx) { const k = t.what.replace(/^[^:]+: /, '').replace(/\(.*?\)|\d[\d,]*/g, '').replace(/ +/g, ' ').trim().slice(0, 34); cat[k] = (cat[k] || 0) + t.amt; } (globalThis.LEDGER ??= []).push(cat); }
   out.end = w.money.balance; out.work = (w.simWork || 0) / Math.max(1, out.rounds / 6); out.flags = { ...WC.record(w) }; out.rep = WC.repOf(w); out.arcs = (w.dir?.n || 0);
   out.dsq = w.series && Object.values(w.player.hist || []).length;
   return out;
@@ -160,17 +182,19 @@ if (GT) {
     if (ONLY ? name !== ONLY : !['clean', 'idle', 'big'].includes(name)) continue;
     const runs = []; for (let i = 0; i < N; i++) runs.push(career(P, i + 1));
     const up = runs.filter(r => r.gtStart != null), broke = up.filter(r => r.broke != null);
+    if (globalThis.LEDGER) { const sum = {}; for (const c of LEDGER) for (const [k, v] of Object.entries(c)) sum[k] = (sum[k] || 0) + v / LEDGER.length; for (const [k, v] of Object.entries(sum).sort((a, b) => a[1] - b[1])) if (Math.abs(v) > 8000) console.log(`   ${k.padEnd(36)} ${Math.round(v / 1000)}k`); globalThis.LEDGER = null; }
     console.log(`${name.padEnd(8)} moved up ${up.length}/${N}  broke in GT ${pct(broke.length / Math.max(1, up.length))}  entering GT ${k$(med(up.map(r => r.gtStart)))}  after GT season ${[0, 1].map(i => k$(med(up.map(r => r.gt[i])))).join(' ')}  lowest ${k$(med(up.map(r => r.low)))}`);
   }
   process.exit(0);
 }
 console.log(`${N} careers per policy, ${SEASONS} seasons of 6 rounds, driver skill ${SKILL} (0 = fastest). Lump sum ${k$(WC.LOTTERY.lump).trim()}.`);
-console.log(`policy    broke  start    end s1   end s2   end s3   lowest   finish s1  rep  arcs  work/yr  caught  flags`);
+console.log(`policy    broke  start    end s1   end s2   end s3   lowest   fin s1/s2/s3  rep  arcs  work/yr  caught  flags`);
 for (const [name, P] of Object.entries(POLICIES)) {
   if (ONLY && name !== ONLY) continue;
   const runs = []; for (let i = 0; i < N; i++) runs.push(career(P, i + 1));
   const broke = runs.filter(r => r.broke != null), caught = runs.filter(r => r.flags.greyCaught || r.flags.betCaught || r.flags.fraudCaught || r.flags.liesCaught).length;
   const fl = {}; for (const r of runs) for (const [k, v] of Object.entries(r.flags)) fl[k] = (fl[k] || 0) + v;
-  console.log(`${name.padEnd(9)} ${pct(broke.length / N)}  ${k$(med(runs.map(r => r.start)))}  ${[0, 1, 2].map(i => k$(med(runs.map(r => r.bal[i])))).join('  ')}  ${k$(med(runs.map(r => r.low)))}  ${String(med(runs.map(r => r.pos[0])) ?? '-').padStart(6)}     ${String(Math.round(med(runs.map(r => r.rep)))).padStart(3)}  ${(runs.reduce((a, r) => a + r.arcs, 0) / N).toFixed(1).padStart(4)}  ${k$(med(runs.map(r => r.work)))}  ${pct(caught / N)}   ${Object.entries(fl).map(([k, v]) => `${k} ${(v / N).toFixed(2)}`).join(', ')}`);
+  console.log(`${name.padEnd(9)} ${pct(broke.length / N)}  ${k$(med(runs.map(r => r.start)))}  ${[0, 1, 2].map(i => k$(med(runs.map(r => r.bal[i])))).join('  ')}  ${k$(med(runs.map(r => r.low)))}  ${[0, 1, 2].map(i => String(med(runs.map(r => r.pos[i])) ?? '-')).join('/').padStart(8)}    ${String(Math.round(med(runs.map(r => r.rep)))).padStart(3)}  ${(runs.reduce((a, r) => a + r.arcs, 0) / N).toFixed(1).padStart(4)}  ${k$(med(runs.map(r => r.work)))}  ${pct(caught / N)}   ${Object.entries(fl).map(([k, v]) => `${k} ${(v / N).toFixed(2)}`).join(', ')}`);
+  if (globalThis.LEDGER) { const sum = {}; for (const c of LEDGER) for (const [k, v] of Object.entries(c)) sum[k] = (sum[k] || 0) + v / LEDGER.length; for (const [k, v] of Object.entries(sum).sort((a, b) => a[1] - b[1])) if (Math.abs(v) > 1500) console.log(`   ${k.padEnd(36)} ${Math.round(v / 1000)}k`); globalThis.LEDGER = null; }
   if (ONLY) for (const [i, r] of runs.entries()) console.log(`  #${i + 1} ${r.broke != null ? `broke after ${r.broke} rounds` : 'ok'}  end ${k$(r.end)}  low ${k$(r.low)}  finish ${r.pos.join('/')}  ${JSON.stringify(r.flags)}`);
 }

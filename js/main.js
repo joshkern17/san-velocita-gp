@@ -1380,6 +1380,7 @@ const pc = new Computer({
     }
     if (m.appear && key === 'go' && !WC.appear(world, m.appear)) { m.answer = null; toast('You have no days left this week.'); }
     if (m.dayJob && key === 'go') { if (WC.takeDayJob(world, m)) sfx.best(); else { m.answer = null; toast('You have no days left this week.'); } }
+    if (m.poach) { const r = WC.answerPoach(world, m, key); if (r === 'kept') sfx.best(); renderHub(); }
     // a gentleman driver's offer: they take the second seat (whoever's in it is let go)
     if (m.gent) { const r = WC.answerGent(world, m, key); if (r === 'signed') { sfx.best(); renderHub(); } else if (r === 'gone') toast('They have signed for someone else.'); else if (r !== 'declined') { m.answer = null; toast(r, 5000); } }
     // the director's stories and the temptations
@@ -1415,6 +1416,12 @@ const pc = new Computer({
     world.livery = { ...settings.car, main: f.colors[0], accent: f.colors[1], teamName: f.team };
     settings.driverName = f.name; saveSettings();
     sfx.best(); saveWorld(); renderHub(); phone.buzz();
+  },
+  // the Team app: facilities and projects
+  team: (what, arg) => {
+    const r = what === 'build' ? WC.buildFacility(world, arg) : WC.startProject(world, arg.split('|')[1], arg.split('|')[0]);
+    if (r.ok) sfx.best(); else { sfx.error(); toast(r.why, 4000); }
+    saveWorld(); renderHub();
   },
   // a customer racing car (GT up): buy, lease, or an ex-works one
   getcar: (how, id) => { if (WC.acquireCar(world, how, id)) { sfx.best(); updateLogoShown(); saveWorld(); pitGarage.setCar(hubCar()); renderHub(); } },
@@ -1828,7 +1835,11 @@ function renderHubMenu() {
   } else {
     items.push({ label: `Start ${w.year + 1} Season`, cls: 'action primary', action: () => beginNextSeason(),
       desc: offerMail ? `First answer the ${seriesName(off.to)}'s email.` : 'Everyone a year older. Retirements, promotions and rookies, then a new calendar.' });
-    if (off && off.answer === 'move') items.push({ label: `${seriesName(off.to)} Cars`, action: () => sitDown('customer'), desc: `Sort out a car for the ${seriesName(off.to)} now, or when the new season starts (on the computer).` });
+    if (off && off.answer === 'move') {
+      const miss = WC.seriesMissing(WC.myTeam(w), off.to);
+      if (miss.length) items.push({ label: `${seriesName(off.to)} Requirements<small>MISSING</small>`, action: () => sitDown('facilities'), desc: `The ${seriesName(off.to)} won't take your entry without ${miss.map(([k, n]) => WC.needName(k, n)).join(' and ')}. Build them before you start the season (Team, Facilities), or the entry is withdrawn.` });
+      items.push({ label: `${seriesName(off.to)} Cars`, action: () => sitDown('customer'), desc: `Sort out a car for the ${seriesName(off.to)} now, or when the new season starts (on the computer).` });
+    }
   }
   items.push(
     { label: `Computer${nm ? `<small>${nm} NEW</small>` : ''}`, action: () => sitDown(offerMail ? 'mail' : null, offerMail ? offerMail.id : null), desc: 'Sit down at the desk: Mail, Team (the car, tyres, staff, data) and the Internet. You can also click the monitor.' },
@@ -2061,6 +2072,11 @@ function dayChoices(w, canRace) {
   if (worst && P[worst].cond < 0.75) out.push(['fix', 'Rebuild', `Rebuild the ${WC.PARTS[worst].name.toLowerCase()} yourself &middot; &minus;${WC.money$(WC.selfCost(w, worst))}`,
     `It's at ${Math.round(P[worst].cond * 100)}%. Parts only, and the day. ${w.background === 'mechanic' ? 'You know what you\'re doing: back to good.' : 'You\'ll get it back to OK.'} A shop would charge ${WC.money$(WC.rebuildCost(w, worst))}.`,
     () => { WC.rebuildSelf(w, worst); sfx.best(); done(); }]);
+  // development: a day on a project under way (or, with none, the list of them on the computer)
+  const proj = (w.projects || []).find(x => !x.done && !x.shop);
+  if (proj) out.push(['proj', 'Car work', `Work on: ${proj.name}`, `${(proj.prog || 0).toFixed(1)} of ${proj.days} days done. Your mechanic puts in days too, between rounds.`, () => { WC.workOnProject(w, proj.id); sfx.select(); done(); }]);
+  else if (WC.weekOpen(w)) out.push(['projs', 'Projects', 'Start a project on the car', 'Engine, chassis, aero, brakes, reliability: the list is on the computer (Team, Development). Choosing one doesn\'t use the day.', () => sitDown('dev')]);
+  if (WC.facLevel(WC.myTeam(w), 'sim') && !wk.sim && !wk.tested) out.push(['sim', 'Sim rig', `Sim session: ${R.name}`, 'Learn the circuit on the sim: some of the setup a test day would find, with no track hire, no fuel and no wear.', () => { WC.simDay(w); sfx.select(); done(); }]);
   if (!wk.tested) out.push(['test', 'Test day', `Test day at ${R.name} &middot; &minus;${WC.money$(WC.testCost(w))}`, `Track hire, plus fuel and wear. Do five laps or more and you find a setup: a little more grip there this weekend. Pause to end the day.`, () => startTestDay()]);
   out.push(['off', 'Day off', 'A day off', 'Nothing. It\'s allowed.', () => { WC.spendDay(w, 'A day off', 'Day off'); done(); }]);
   if (canRace) out.push(['race', 'Race day', `Go to race day &middot; round ${w.round + 1}`, `Leave the rest of the week. ${raceDesc(w)}`, () => startWorldRound()]);

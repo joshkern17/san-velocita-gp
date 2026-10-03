@@ -30,8 +30,8 @@ const APPS = [
     .map(([id, label]) => ({ id, label, title: 'Web Browser', hidden: true, site: true })),
 ];
 // the Team app's tabs (and the names they used to have as apps of their own, for links into them)
-const TEAM_TABS = [['overview', 'Overview'], ['car', 'Car'], ['tyres', 'Tyres'], ['drivers', 'Drivers'], ['staff', 'Staff'], ['sponsors', 'Sponsors'], ['data', 'Data']];
-const TEAM_ALIAS = { workshop: 'car', tyres: 'tyres', staff: 'staff', telemetry: 'data', sponsors: 'sponsors', teamdrivers: 'drivers' }; // ('drivers' alone is the Driver Database website)
+const TEAM_TABS = [['overview', 'Overview'], ['car', 'Car'], ['dev', 'Development'], ['tyres', 'Tyres'], ['drivers', 'Drivers'], ['staff', 'Staff'], ['facilities', 'Facilities'], ['sponsors', 'Sponsors'], ['data', 'Data']];
+const TEAM_ALIAS = { facilities: 'facilities', dev: 'dev', workshop: 'car', tyres: 'tyres', staff: 'staff', telemetry: 'data', sponsors: 'sponsors', teamdrivers: 'drivers' }; // ('drivers' alone is the Driver Database website)
 // the Internet's home page
 const BOOKMARKS = [['news', 'The Paddock Wire', 'Motorsport news'], ['series', 'Series websites', 'Standings, teams, calendars, champions'], ['drivers', 'Velocita Driver Database', 'Every driver, every season'],
   ['classifieds', 'SVList', 'Cars and parts, by owner'], ['parts', 'Speed Parts Direct', 'Performance parts'], ['jobs', 'SVJobs', 'Hire staff'], ['giggo', 'GigGo Driver', 'Driving jobs. Be your own boss'], ['bank', 'First Velocita Bank', 'Business banking'],
@@ -239,6 +239,8 @@ export class Computer {
     if (a === 'cyc') { const [f, d] = arg.split(':'); this.cycle(f, +d); return; }
     if (a === 'type') { this.type(arg); return; }
     if (a === 'file') { if (!this.formOk()) { this.src.sfx?.back?.(); return; } this.src.register?.({ ...this.form, name: this.form.name.trim(), team: this.form.team.trim(), ex: this.form.ex.trim() }); this.curKey = null; this.render(); return; }
+    // facilities and projects: select twice
+    if (a === 'build' || a === 'proj') { const k = a + ':' + arg; if (this.armed !== k) { this.armed = k; this.curKey = k; this.render(); this.src.sfx?.move?.(); return; } this.armed = null; this.src.team?.(a, arg); this.curKey = k; this.render(); return; }
     if (a === 'cc') { this.go({ cc: arg }); this.armed = null; this.src.sfx?.select?.(); return; }
     if (a === 'getcar') { if (this.armed !== 'getcar:' + arg) { this.armed = 'getcar:' + arg; this.curKey = 'getcar:' + arg; this.render(); this.src.sfx?.move?.(); return; } this.armed = null; const [how, id] = arg.split('|'); this.src.getcar?.(how, id); this.page = { cc: null }; this.hist = []; this.curKey = null; this.render(); return; }
     if (a === 'ad') { this.go({ ad: arg }); this.buyArmed = false; this.src.sfx?.select?.(); return; }
@@ -447,7 +449,7 @@ export class Computer {
   teamFrame() {
     const tab = this.page.tab || 'overview';
     const tabs = TEAM_TABS.map(([k, n]) => `<span class="tw-tab${k === tab ? ' on' : ''}" data-nav data-act="ttab" data-arg="${k}" data-key="ttab-${k}">${n}</span>`).join('');
-    const body = tab === 'car' ? this.workshopApp() : tab === 'tyres' ? `<div class="tm">${this.tyreTab()}</div>` : tab === 'staff' ? this.teamApp() : tab === 'sponsors' ? this.sponsorTab() : tab === 'drivers' ? this.driversTab() : tab === 'data' ? this.telApp() : this.overview();
+    const body = tab === 'car' ? this.workshopApp() : tab === 'tyres' ? `<div class="tm">${this.tyreTab()}</div>` : tab === 'staff' ? this.teamApp() : tab === 'sponsors' ? this.sponsorTab() : tab === 'drivers' ? this.driversTab() : tab === 'data' ? this.telApp() : tab === 'facilities' ? this.facTab() : tab === 'dev' ? this.devTab() : this.overview();
     return `<div class="tw"><div class="tw-tabs">${tabs}</div>${body}</div>`;
   }
   // the whole team at a glance, each part a way into its tab
@@ -540,6 +542,48 @@ export class Computer {
       <div class="tm-list">${rows}</div>
       <div class="tm-links"><button class="pc-btn sm" data-nav data-act="open" data-arg="parts" data-key="toparts">Shop for parts: Speed Parts Direct &rarr;</button> <button class="pc-btn sm" data-nav data-act="open" data-arg="classifieds" data-key="tocl">Used parts on SVList &rarr;</button></div>
       <p class="tm-note">Worn parts are slower and can fail in a race. Upgrades go on a part; you'll know how they feel, and what they really do once a data engineer has looked at the data.</p></div>`;
+  }
+  // ---------- Facilities: the premises and what's in them ----------
+  facTab() {
+    const w = this.w, t = WC.myTeam(w), up = WC.SERIES[WC.seriesById(w.player.series).tier + 1], off = w.player.offer;
+    if (!w.founding?.reg) return '<div class="tm"><p class="pc-empty">Register the team first.</p></div>';
+    const target = off && off.answer === 'move' ? WC.seriesById(off.to) : up, need = target ? WC.SERIES_NEEDS[target.id] || {} : {}, miss = target ? WC.seriesMissing(t, target.id).map(m => m[0]) : [];
+    const rows = WC.FAC_KEYS.filter(k => k !== 'tunnel' || w.player.series === 'formula' || need.tunnel).map(k => {
+      const F = WC.FACILITIES[k], now = WC.facName(t, k), nx = WC.facNext(t, k), key = 'build:' + k;
+      const short = nx && WC.facLevel(t, 'base') < nx.needsBase ? `Needs ${esc(WC.FACILITIES.base.levels[nx.needsBase][0].toLowerCase())} premises` : '';
+      const req = need[k] && miss.includes(k) ? `<span class="fc-req">${esc(target.name)} requires it</span>` : '';
+      return `<div class="fc-row${req ? ' need' : ''}"><div class="fc-who"><b>${esc(now || F.name)}</b><small>${now ? '' : 'None &middot; '}${esc(F.what)}</small>${req}</div>
+        <div class="fc-next">${nx ? `${esc(nx.name)}<small>${WC.money$(nx.cost)}${nx.upkeep ? ` + ${WC.money$(nx.upkeep)} a round` : ''}</small>` : '<small>As good as it gets</small>'}</div>
+        <div>${nx ? (short ? `<small class="fc-short">${short}</small>` : `<button class="pc-btn sm" data-nav data-act="build" data-arg="${k}" data-key="${key}">${this.armed === key ? 'Sure? Select again' : k === 'base' ? 'Move' : 'Build'}</button>`) : ''}</div></div>`;
+    }).join('');
+    return `<div class="tm"><div class="tm-head"><b>${esc(WC.facName(t, 'base'))}</b><small>Rent and upkeep: ${WC.money$(WC.facUpkeep(t))} a round</small></div>
+      ${miss.length ? `<p class="fc-note">The ${esc(target.name)} requires ${miss.map(k => esc(WC.needName(k, need[k]))).join(' and ')}${off && off.answer === 'move' ? ' before the season starts, or the entry is withdrawn' : ' to enter'}.</p>` : ''}
+      <div class="tm-list">${rows}</div>
+      <p class="tm-note">Everything here stays with the team when you move up a series. The rent and upkeep come out with each round's bill.</p></div>`;
+  }
+  // ---------- Development: projects on the car ----------
+  devTab() {
+    const w = this.w, t = WC.myTeam(w);
+    if (!w.car || WC.needsCar(w)) return '<div class="tm"><p class="pc-empty">No car to work on.</p></div>';
+    const d = WC.devOf(w), lvl = WC.dataLevel(w), m = WC.staffOf(w, 'mechanic'), dyno = WC.facLevel(t, 'dyno');
+    const pct = (v) => `+${(v * 100).toFixed(1)}%`, word = (v, cap) => v <= 0.0005 ? 'standard' : v < cap * 0.25 ? 'a little work' : v < cap * 0.55 ? 'well developed' : 'about as far as it goes';
+    const CAP = { power: 0.03, grip: 0.015, downforce: 0.08, brake: 0.05 };
+    const stat = (k, name, exact) => `<div><small>${name}</small><b>${exact ? pct(d[k] || 0) : word(d[k] || 0, CAP[k])}</b></div>`;
+    const live = (w.projects || []).filter(x => !x.done);
+    const act = live.map(x => `<div class="pj-live"><b>${esc(x.name)}</b><div class="tm-mood fine"><i><b style="width:${Math.min(100, Math.round((x.prog || 0) / x.days * 100))}%"></b></i><small>${x.shop ? 'At Precision Race Prep: back before the next round' : `${(x.prog || 0).toFixed(1)} of ${x.days} days`}</small></div></div>`).join('');
+    const list = WC.projectList(w), areas = ['engine', 'chassis', 'aero', 'brakes', 'reliability'];
+    const btn = (how, P, label) => { const key = 'proj:' + how + '|' + P.key; return `<button class="pc-btn sm" data-nav data-act="proj" data-arg="${how}|${P.key}" data-key="${key}">${this.armed === key ? 'Sure? Select again' : label}</button>`; };
+    const gainTxt = (P) => P.stat === 'rel' ? 'fewer failures' : `about ${pct(P.gain)} ${P.stat === 'downforce' ? 'downforce' : P.stat === 'brake' ? 'braking' : P.stat}`;
+    const rows = areas.map(a => { const ps = list.filter(P => P.area === a); if (!ps.length) return '';
+      return `<h3>${a[0].toUpperCase() + a.slice(1)}</h3>` + ps.map(P => `<div class="pj-row"><div><b>${esc(P.name)}</b><small>${P.days} day${P.days === 1 ? '' : 's'} &middot; ${gainTxt(P)} &middot; ${Math.round(P.odds.chance * 100)}% it works</small></div>
+        <div class="tm-acts">${P.locked ? `<small class="fc-short">${esc(P.locked)}</small>` : `${btn('team', P, `Do it: ${WC.money$(P.cost)}`)}${btn('shop', P, `Shop: ${WC.money$(P.shopCost)}`)}`}</div></div>`).join(''); }).join('');
+    const ser = WC.seriesById(w.player.series);
+    return `<div class="tm"><div class="tm-head"><b>${esc(w.car.name)}: development</b><small>${m ? `${esc(m.first)} puts about ${(1.5 + m.skill * 0.6 + WC.facLevel(t, 'tools') * 0.4).toFixed(1)} days a round into projects; you can give days from the week` : 'No chief mechanic: projects only move on the days you give them (or send them to a shop)'}</small></div>
+      <div class="db-cells pj-cells">${stat('power', 'Engine', dyno || lvl)}${stat('grip', 'Chassis', lvl)}${stat('downforce', 'Aero', lvl)}${stat('brake', 'Brakes', lvl)}</div>
+      ${live.length ? `<h3>Under way (${live.filter(x => !x.shop).length} of ${WC.maxProjects(w)} in your ${esc(WC.facName(t, 'base').toLowerCase())}${live.some(x => x.shop) ? ', and at the shop' : ''})</h3>${act}` : `<p class="tm-note">Nothing under way. Your ${esc(WC.facName(t, 'base').toLowerCase())} has room for ${WC.maxProjects(w)} at once; a shop takes any number.</p>`}
+      ${ser.ballast ? `<p class="fc-note">Engine and aero work is homologated: ${WC.jokersLeft(w)} of ${WC.JOKERS} jokers left this season.</p>` : ''}
+      <div class="pj-list">${rows}</div>
+      <p class="tm-note">Development fades over the winter: the rest of the field doesn't stand still. A dyno tells you exactly what engine work gained; a data engineer, everything.</p></div>`;
   }
   // GT and up: the lease, balance of performance, success ballast
   carRules() {
@@ -731,9 +775,13 @@ export class Computer {
         return `<tr class="${e.pid === 'P' ? 'me' : ''}"><td>${k + 1}</td><td><i class="sw" style="background:${hex(t?.main)}"></i>${esc(WC.displayName(w, e.pid))}</td><td>${esc(t?.name || '')}</td><td class="r">${e.wins}</td><td class="r">${e.pts}</td></tr>`; }).join('')}</table>`;
     } else if (tab === 'teams') {
       const st = WC.teamStandings(w, s.id), list = st.length ? st : S.teams.map(tid => ({ tid, pts: 0, wins: 0 }));
-      body = `<table class="pc-tbl"><tr><th>POS</th><th>TEAM</th><th>DRIVERS</th><th class="r">WINS</th><th class="r">PTS</th></tr>${list.map((e, k) => {
-        const t = w.teams[e.tid];
-        return `<tr class="${t.mine ? 'me' : ''}"><td>${k + 1}</td><td><i class="sw" style="background:${hex(t.main)}"></i>${esc(t.name)}</td><td>${t.drivers.map(d => esc(WC.displayName(w, d))).join(', ')}</td><td class="r">${e.wins}</td><td class="r">${e.pts}</td></tr>`; }).join('')}</table>`;
+      // (where they work and what's in it is public; how quick their car is, your data engineer can estimate)
+      const eng = WC.dataLevel(w) >= 1 && s.id === w.player.series, vals = S.teams.map(tid => WC.carValue(w, w.teams[tid])).sort((a, b) => b - a);
+      const FAC_SHORT = { tools: 'tools', dyno: 'dyno', fab: 'fab shop', sim: 'sim', data: 'data room', truck: 'transporter', tunnel: 'tunnel' };
+      body = `<table class="pc-tbl"><tr><th>POS</th><th>TEAM</th><th>DRIVERS</th><th>BASE</th>${eng ? '<th>CAR</th>' : ''}<th class="r">WINS</th><th class="r">PTS</th></tr>${list.map((e, k) => {
+        const t = w.teams[e.tid], kit = Object.keys(FAC_SHORT).filter(f => WC.facLevel(t, f)).map(f => FAC_SHORT[f]).join(', '), rank = vals.indexOf(WC.carValue(w, t));
+        return `<tr class="${t.mine ? 'me' : ''}"><td>${k + 1}</td><td><i class="sw" style="background:${hex(t.main)}"></i>${esc(t.name)}</td><td>${t.drivers.map(d => esc(WC.displayName(w, d))).join(', ')}</td><td>${esc(WC.facName(t, 'base'))}${kit ? `<small class="ss-kit">${esc(kit)}</small>` : ''}</td>${eng ? `<td>${rank < 2 ? 'Quick' : rank < 4 ? 'Average' : 'Slow'}</td>` : ''}<td class="r">${e.wins}</td><td class="r">${e.pts}</td></tr>`; }).join('')}</table>
+        ${eng ? '' : '<p class="tr-fine">A data engineer could tell you whose car is quick.</p>'}`;
     } else if (tab === 'calendar') {
       body = `<table class="pc-tbl"><tr><th>RD</th><th>CIRCUIT</th><th>CONDITIONS</th><th>WINNER</th></tr>${S.cal.map((c, k) => {
         const res = S.results.find(x => x.round === k), win = res && res.rows.find(x => x.pos === 1 && !x.dnf);
@@ -803,7 +851,7 @@ export class Computer {
   // the styles the snapshot needs (the computer's own rules; it uses system fonts, so nothing to embed)
   css() {
     if (this._css) return this._css;
-    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl|tm|jb|tl|tr|ws|sp|tw|ov|hp|sw|dv|gg|cr)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
+    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl|tm|jb|tl|tr|ws|sp|tw|ov|hp|sw|dv|gg|cr|fc|pj)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
     for (const sh of document.styleSheets) { let rules; try { rules = sh.cssRules; } catch (e) { continue; } for (const r of rules) if (r.selectorText && want.test(r.selectorText)) out.push(r.cssText); }
     return (this._css = out.join('\n'));
   }
