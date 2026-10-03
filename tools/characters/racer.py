@@ -4,10 +4,9 @@
 # helmet ("Helmet", world-map UVs, models/racer/helmet_detail.png). The body has no rig of its own, so:
 #   - skin weights are copied from the coveralls guy (same body, same pose) by nearest surface
 #   - the helmet is weighted 100% to the head
-#   - the suit is split into torso / legs / arms with "tube" UVs (UVSuit) laid out like js/livery.js paintSuit
-#     (u 0 = front, .25 = his left, .5 = back; v 1 = top of the part), and the coveralls' creases are baked into
-#     each part as a greyscale detail texture that the game multiplies under the team's suit design
-#   - boots keep the original texture (tinted with the livery's trim colour in the game)
+#   - the suit is split into torso / each arm / each leg / boots with "tube" UVs (UVSuit) laid out like
+#     js/livery.js paintSuit (u 0 = front, .25 = his left, .5 = back; v 1 = top of the part), and the coveralls'
+#     creases are baked into each part as a greyscale detail texture that the game multiplies under the design
 import bpy, bmesh, sys, os, math
 import numpy as np
 from mathutils import Vector
@@ -63,11 +62,13 @@ for mt in mats:  # imported alpha-blended: make solid
     mt.surface_render_method = 'DITHERED'
     for l in [l for l in mt.node_tree.links if l.to_socket.name == 'Alpha']: mt.node_tree.links.remove(l)
 src_img = next(n.image for n in mats[cloth].node_tree.nodes if n.type == 'TEX_IMAGE')
+# parts: torso, each arm, each leg (own canvases: a decal can sit on one sleeve) and the boots (painted as racing boots)
+PARTS = ('torso', 'armL', 'armR', 'legL', 'legR', 'boots')
+MAT_NAME = {'torso': 'SuitTorso', 'armL': 'SuitArmL', 'armR': 'SuitArmR', 'legL': 'SuitLegL', 'legR': 'SuitLegR', 'boots': 'Boots'}
 PART_MAT = {}
-for part in ('torso', 'legs', 'arms'):
-    mt = bpy.data.materials.new('Suit' + part.capitalize()); mt.use_nodes = True
+for part in PARTS:
+    mt = bpy.data.materials.new(MAT_NAME[part]); mt.use_nodes = True
     me.materials.append(mt); PART_MAT[part] = len(me.materials) - 1
-boots = mats[cloth].copy(); boots.name = 'Boots'; me.materials.append(boots); PART_MAT['boots'] = len(me.materials) - 1
 vpart = []
 for v in me.vertices:
     acc = {}
@@ -80,34 +81,39 @@ for p in me.polygons:
     for vi in p.vertices:
         for k, w in vpart[vi].items(): acc[k] = acc.get(k, 0) + w
     part = max(acc, key=acc.get) if acc else 'torso'
+    if part in ('arms', 'legs'): part = part[:3] + ('L' if p.center.x > 0 else 'R')
     p.material_index = PART_MAT[part]; face_part[p.index] = part
-print('PARTS', {k: sum(1 for x in face_part.values() if x == k) for k in ('torso', 'legs', 'arms', 'boots')})
+print('PARTS', {k: sum(1 for x in face_part.values() if x == k) for k in PARTS})
 
-# --- tube UVs (UVSuit) for torso / legs / arms
+# --- tube UVs (UVSuit), all with the torso's handedness: u 0 = front, .25 = his left, .5 = back, .75 = his right
+# (so text reads the right way round on every part, and the left/right limbs mirror at u -> 1 - u)
 uvs = me.uv_layers.new(name='UVSuit')
 B = {b.name: b for b in skel.data.bones}
 def head(n): return skel.matrix_world @ B[n].head_local
-torso_v = [me.vertices[vi].co for i, pt in face_part.items() if pt == 'torso' for vi in me.polygons[i].vertices]
+def verts_of(part): return [me.vertices[vi].co for i, pt in face_part.items() if pt == part for vi in me.polygons[i].vertices]
+torso_v = verts_of('torso')
 tz0, tz1 = min(c.z for c in torso_v), max(c.z for c in torso_v)
 ty = sum(c.y for c in torso_v) / len(torso_v)
-def limb(a, b):  # axis from joint a to joint b: returns (origin, axis unit, length, fwd, side)
+def limb(a, b):  # axis from joint a to joint b: returns (origin, axis unit, length, fwd, left)
     o, e = head(a), head(b); ax = (e - o); L = ax.length; ax.normalize()
     fwd = Vector((0, -1, 0)); fwd = (fwd - ax * fwd.dot(ax)).normalized()
-    side = ax.cross(fwd).normalized()
-    if side.x < 0 and o.x > 0 or side.x > 0 and o.x < 0: side = -side  # 'side' points outwards
-    return o, ax, L, fwd, side
-LIMBS = {('legs', 'L'): limb('thigh.L', 'foot.L'), ('legs', 'R'): limb('thigh.R', 'foot.R'),
-         ('arms', 'L'): limb('upper_arm.L', 'hand.L'), ('arms', 'R'): limb('upper_arm.R', 'hand.R')}
+    left = Vector((1, 0, 0)); left = (left - ax * left.dot(ax) - fwd * left.dot(fwd)).normalized()
+    return o, ax, L, fwd, left
+LIMBS = {'legL': limb('thigh.L', 'foot.L'), 'legR': limb('thigh.R', 'foot.R'), 'armL': limb('upper_arm.L', 'hand.L'), 'armR': limb('upper_arm.R', 'hand.R')}
+BOOTS = {}
+for side in 'LR':
+    bv = [me.vertices[vi].co for i, pt in face_part.items() if pt == 'boots' for vi in me.polygons[i].vertices if (me.vertices[vi].co.x > 0) == (side == 'L')]
+    BOOTS[side] = (sum(c.x for c in bv) / len(bv), sum(c.y for c in bv) / len(bv), min(c.z for c in bv), max(c.z for c in bv))
 def uv_for(part, co):
     if part == 'torso':
         return (math.atan2(co.x, -(co.y - ty)) / (2 * math.pi)) % 1, (co.z - tz0) / (tz1 - tz0)
-    o, ax, L, fwd, side = LIMBS[(part, 'L' if co.x > 0 else 'R')]
+    if part == 'boots':  # a tube round each foot: v 1 = the top of the boot, 0 = the sole
+        cx, cy, z0, z1 = BOOTS['L' if co.x > 0 else 'R']
+        return (math.atan2(co.x - cx, -(co.y - cy)) / (2 * math.pi)) % 1, (co.z - z0) / (z1 - z0)
+    o, ax, L, fwd, left = LIMBS[part]
     d = co - o; t = d.dot(ax) / L; r = d - ax * d.dot(ax)
-    # u .25 = the outer side of the limb (his left on the left limbs, his right on the right ones: stripes mirror)
-    ang = math.atan2(r.dot(side), r.dot(fwd)) / (2 * math.pi)
-    return ang % 1, 1 - t
+    return (math.atan2(r.dot(left), r.dot(fwd)) / (2 * math.pi)) % 1, 1 - t
 for i, part in face_part.items():
-    if part == 'boots': continue
     p = me.polygons[i]
     vals = [uv_for(part, me.vertices[me.loops[li].vertex_index].co) for li in p.loop_indices]
     us = [u for u, _ in vals]
@@ -123,7 +129,8 @@ def bake_part(part):  # one part per bake: a temporary copy holding only that pa
     bm = bmesh.new(); bm.from_mesh(tmp.data); bm.faces.ensure_lookup_table()
     bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.material_index != PART_MAT[part]], context='FACES'); bm.to_mesh(tmp.data); bm.free()
     tmp.data.uv_layers.active = tmp.data.uv_layers['UVSuit']
-    img = bpy.data.images.new(f'suit_{part}_detail', SIZE, SIZE, alpha=False); targets[part] = img
+    size = SIZE if part == 'torso' else SIZE // 2 if part == 'boots' else SIZE
+    img = bpy.data.images.new(f'suit_{part}_detail', size, size, alpha=False); targets[part] = img
     mt = bpy.data.materials.new('bake_' + part); mt.use_nodes = True; nt = mt.node_tree
     for n in list(nt.nodes): nt.nodes.remove(n)
     uvn = nt.nodes.new('ShaderNodeUVMap'); uvn.uv_map = 'UVMap'
@@ -137,16 +144,18 @@ def bake_part(part):  # one part per bake: a temporary copy holding only that pa
     tmp.select_set(True); bpy.context.view_layer.objects.active = tmp
     bpy.ops.object.bake(type='EMIT')
     bpy.data.objects.remove(tmp, do_unlink=True); bpy.data.materials.remove(mt)
-for part in ('torso', 'legs', 'arms'): bake_part(part)
+for part in PARTS: bake_part(part)
 for part, img in targets.items():
+    n = img.size[0]
     px = np.array(img.pixels[:]).reshape(-1, 4)
     lum = px[:, 0] * 0.3 + px[:, 1] * 0.59 + px[:, 2] * 0.11
     ref = np.percentile(lum[lum > 0.05], 85) if (lum > 0.05).any() else 1
     g = np.clip(lum / ref, 0, 1); g[lum <= 0.02] = 1  # unbaked gutters: white
-    if part == 'arms':  # below the old short sleeve the added sleeve samples a stretched strip: plain cloth there
-        v = (np.arange(SIZE * SIZE) // SIZE + 0.5) / SIZE
+    if part.startswith('arm'):  # below the old short sleeve the added sleeve samples a stretched strip: plain cloth there
+        v = (np.arange(n * n) // n + 0.5) / n
         w = np.clip((0.53 - v) / 0.06, 0, 1)
         g = g * (1 - w) + 0.97 * w
+    if part == 'boots': g = 1 - (1 - g) * 0.55  # work-boot leather: keep only a hint of it under the racing boots
     px[:, 0] = px[:, 1] = px[:, 2] = g; px[:, 3] = 1
     img.pixels.foreach_set(px.astype(np.float32).ravel()); img.pack()
     # the part's material shows its detail texture through UVSuit (the game swaps in team canvases at runtime)

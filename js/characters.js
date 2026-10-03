@@ -10,6 +10,8 @@
 //   guy.dispose();
 //   const driver = makeCharacter({ look: 'racer', livery: teamLivery });   // suit + helmet painted from a livery
 //   driver.setLivery(newLivery);                                          // repaint (Livery Designer edits)
+//   makeCharacter({ look: 'racer', crew: true, livery: team })            // a pit crew member in the team's kit
+//                                                                         // (one painted kit per team, shared)
 //
 // Clips are "in place": walk / walk_2 don't move the character, the caller does (CLIP_INFO.walk.speed m/s keeps
 // the feet from sliding). Sitting clips put the backside right above the origin at CLIP_INFO.sit_*.seat metres,
@@ -17,7 +19,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { applyPSXMaterial } from '../vendor/psx/src/PSXMaterial.js';
-import { fillLivery, paintHelmet, paintSuit, VISOR_COL } from './livery.js';
+import { fillLivery, paintHelmet, paintSuit, paintBoots, drawKitDecals, VISOR_COL } from './livery.js';
 
 export const LOOKS = [
   'coveralls_gray', 'coveralls_tan', 'coveralls_navy', 'coveralls_black', // mechanics / pit crew
@@ -120,7 +122,7 @@ function cloneLook(look) {
 const rnd = (seed) => { let s = (seed * 2654435761) >>> 0 || 1; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); };
 
 export class Character {
-  constructor({ look, group, clip = 'idle', seed = Math.random() * 1e9, timeScale = 1, livery = null } = {}) {
+  constructor({ look, group, clip = 'idle', seed = Math.random() * 1e9, timeScale = 1, livery = null, crew = false } = {}) {
     if (!TPL) throw new Error('characters: call loadCharacters() first');
     const r = rnd(seed);
     const pool = group ? LOOK_GROUPS[group] : LOOKS;
@@ -129,7 +131,7 @@ export class Character {
     this.object.name = 'Character:' + this.look;
     this.body = cloneLook(this.look);
     this.object.add(this.body);
-    this.timeScale = timeScale;
+    this.timeScale = timeScale; this.crew = crew;
     this._mixer();
     if (this.look === 'racer') this.setLivery(livery || {});
     if (clip) this.play(clip, { fade: 0, offset: r() }); // random phase so crowds don't move in lockstep
@@ -173,17 +175,25 @@ export class Character {
   update(dt) { this.mixer.update(dt); if (this.post) this.post(this); }
   bone(name) { const n = 'mixamorig:' + name; let b = null; this.body.traverse(o => { if (!b && o.isBone && (o.name === n || o.name === n.replace(':', ''))) b = o; }); return b; }
   // the racer's suit, helmet, gloves and boots from a livery (js/livery.js data; a TEAMS entry works too)
+  // crew members wear the team's crew kit (CREW_STYLES in js/livery.js), one set of canvases per team
   setLivery(cfg) {
     this.livery = cfg;
     if (this.look !== 'racer') return this;
-    if (!this.kit) this.kit = makeKit(this.body);
-    paintKit(this.kit, cfg, () => { if (this.livery === cfg) paintKit(this.kit, cfg); }); // again once a logo image loads
+    if (this.crew) {
+      const kit = sharedCrewKit(cfg);
+      if (this.kit !== kit) { this._disposeKit(); this.kit = kit; kit.refs++; }
+    } else {
+      if (!this.kit || this.kit.shared) { this._disposeKit(); this.kit = makeKit(); }
+      paintKit(this.kit, cfg, () => { if (this.livery === cfg) paintKit(this.kit, cfg); }); // again once a logo image loads
+    }
+    applyKit(this.body, this.kit);
     return this;
   }
   _disposeKit() {
-    if (!this.kit) return;
-    for (const m of this.kit.mats) { if (m.map && m.map.isCanvasTexture && !m.map.userData.shared) m.map.dispose(); m.dispose(); }
-    this.kit = null;
+    const kit = this.kit; this.kit = null;
+    if (!kit || (kit.shared && --kit.refs > 0)) return;
+    if (kit.shared) CREW_KITS.delete(kit.key);
+    for (const m of kit.mats) { if (m.map && m.map.isCanvasTexture && !m.map.userData.shared) m.map.dispose(); m.dispose(); }
   }
   dispose() {
     live.delete(this);
@@ -194,6 +204,25 @@ export class Character {
 }
 
 export const makeCharacter = (opts) => new Character(opts);
+
+// stock coveralls in a colour near the team's (a crew that wears CREW_STYLES 'classic')
+export function classicCrewLook(team) {
+  const c = new THREE.Color(team.main ?? 0x888888), hsl = {}; c.getHSL(hsl);
+  if (hsl.l < 0.16) return 'coveralls_black';
+  if (hsl.s > 0.35 && hsl.h > 0.5 && hsl.h < 0.75) return 'coveralls_navy';
+  if (hsl.l > 0.62 || hsl.s < 0.2) return 'coveralls_gray';
+  return hsl.h < 0.2 || hsl.h > 0.9 ? 'coveralls_tan' : 'coveralls_navy';
+}
+// a ray hit on a racer -> where on his kit: { part: torso | armL | armR | legL | legR | helmet, u, v } in the
+// part's canvas (u from the visor on the helmet), or null (skin, gloves, boots)
+export function kitHit(h) {
+  const n = (h.object.material && h.object.material.name || '').replace(/\.\d+$/, '');
+  const wrap = (x) => ((x % 1) + 1) % 1;
+  if (n === 'HelmetShell' && h.uv) return { part: 'helmet', u: wrap(h.uv.x - HELMET_FRONT), v: h.uv.y };
+  const part = SUIT_PARTS[n];
+  if (part && h.uv1) return { part, u: wrap(h.uv1.x), v: h.uv1.y };
+  return null;
+}
 
 // ---------------- the racer's kit ----------------
 // The model carries greyscale detail (models/racer/helmet_detail.png; the suit's creases, baked by
@@ -216,22 +245,14 @@ function pixelsOf(tex) {
   }
   return (tex.userData.px = px);
 }
-function greyOf(tex) {
-  if (tex.userData.grey) return tex.userData.grey;
-  const px = pixelsOf(tex), c = document.createElement('canvas'); c.width = px.W; c.height = px.H;
-  const g = c.getContext('2d'), img = g.createImageData(px.W, px.H);
-  for (let i = 0; i < px.data.length; i += 4) { const l = Math.min(255, (px.data[i] * 0.3 + px.data[i + 1] * 0.59 + px.data[i + 2] * 0.11) * 1.5); img.data[i] = img.data[i + 1] = img.data[i + 2] = l; img.data[i + 3] = 255; }
-  g.putImageData(img, 0, 0);
-  const t = new THREE.CanvasTexture(c); t.flipY = false; t.colorSpace = THREE.SRGBColorSpace; t.channel = tex.channel;
-  t.userData.shared = true;
-  return (tex.userData.grey = t);
-}
 const maskOf = (r, g, b) => (r < 50 && g < 50 && b < 50 ? 1 : r > 140 && g < 100 && b < 100 && r - g > 80 ? 2 : 0);
 const rgbOf = (c) => [(c >> 16) & 255, (c >> 8) & 255, c & 255];
 const isLight = ([r, g, b]) => r * 0.3 + g * 0.59 + b * 0.11 > 150;
 
-function makeKit(body) {
-  const kit = { mats: [], suit: {} };
+// a kit: one material per painted part of the racer, made from the model's own (whose maps hold the detail)
+const SUIT_PARTS = { SuitTorso: 'torso', SuitArmL: 'armL', SuitArmR: 'armR', SuitLegL: 'legL', SuitLegR: 'legR' };
+function makeKit() {
+  const kit = { mats: [], byName: {}, suit: {} };
   const canvasTex = (orig, w, h) => {
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     const t = new THREE.CanvasTexture(c);
@@ -239,33 +260,51 @@ function makeKit(body) {
     t.wrapS = THREE.RepeatWrapping; t.channel = orig.channel; // (the suit's tube UVs are the model's 2nd set)
     return t;
   };
+  for (const o of TPL.looks.racer) for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+    const n = m.name, key = n.replace(/\.\d+$/, '');
+    if (kit.byName[n]) continue;
+    let out = null;
+    if (key === 'HelmetShell' && m.map) {
+      const det = pixelsOf(m.map);
+      out = lambert(canvasTex(m.map, det.W, det.H), 0xffffff, n);
+      kit.helmet = { mat: out, det };
+    } else if ((SUIT_PARTS[key] || key === 'Boots') && m.map) {
+      out = lambert(canvasTex(m.map, m.map.image.width, m.map.image.height), 0xffffff, n);
+      if (key === 'Boots') kit.boots = { mat: out, det: m.map.image };
+      else kit.suit[SUIT_PARTS[key]] = { mat: out, det: m.map.image };
+    } else if (key === 'Gloves') { out = lambert(null, 0xffffff, n); kit.gloves = out; }
+    if (out) { kit.mats.push(out); kit.byName[n] = out; }
+  }
+  return kit;
+}
+function applyKit(body, kit) {
   body.traverse(o => {
     if (!o.isSkinnedMesh) return;
-    const swap = (m) => {
-      const n = m.name;
-      let out = null;
-      if (n.startsWith('HelmetShell') && m.map) {
-        const det = pixelsOf(m.map);
-        out = lambert(canvasTex(m.map, det.W, det.H), 0xffffff, n);
-        kit.helmet = { mat: out, det };
-      } else if (/^Suit(Torso|Legs|Arms)/.test(n) && m.map) {
-        const part = n.slice(4).replace(/\..*$/, '').toLowerCase();
-        out = lambert(canvasTex(m.map, m.map.image.width, m.map.image.height), 0xffffff, n);
-        kit.suit[part] = { mat: out, det: m.map.image };
-      } else if (n.startsWith('Gloves') || n.startsWith('Boots')) {
-        out = lambert(m.map && greyOf(m.map), 0xffffff, n); // (the boots' leather, greyed so the trim colour shows)
-        kit[n.startsWith('Gloves') ? 'gloves' : 'boots'] = out;
-      }
-      if (out) kit.mats.push(out);
-      return out || m;
-    };
+    const swap = (m) => kit.byName[m.name] || m;
     o.material = Array.isArray(o.material) ? o.material.map(swap) : swap(o.material);
   });
+}
+// the crew's version of a livery: the driver's suit (or the crew's own colours), no race numbers, a team helmet
+export function crewLivery(cfg) {
+  const L = fillLivery(cfg), C = L.crew;
+  const suit = { ...L.suit, number: 'none', chest: 'team' };
+  if (C.style === 'own') { suit.base = C.base; suit.accent = C.accent; }
+  return { ...L, suit, helmetDesign: { ...L.helmetDesign, base: suit.base, accent: suit.accent, number: false, decal: null, strip: 'team' } };
+}
+const CREW_KITS = new Map(); // livery object -> its crew kit (refs = crew members wearing it)
+function sharedCrewKit(cfg) {
+  let kit = CREW_KITS.get(cfg);
+  if (!kit) {
+    kit = makeKit(); kit.shared = true; kit.refs = 0; kit.key = cfg;
+    const L = crewLivery(cfg);
+    paintKit(kit, L, () => paintKit(kit, L));
+    CREW_KITS.set(cfg, kit);
+  }
   return kit;
 }
 
 function paintKit(kit, cfg, onReady) {
-  const L = fillLivery(cfg), D = L.helmetDesign, third = L.third ?? D.third ?? 0x121214;
+  const L = fillLivery(cfg), D = L.helmetDesign, SD = L.suit;
   if (kit.helmet) {
     const { mat, det } = kit.helmet, cv = mat.map.image, g = cv.getContext('2d', { willReadFrequently: true });
     paintHelmet(cv, L, HELMET_FRONT, onReady);
@@ -299,17 +338,28 @@ function paintKit(kit, cfg, onReady) {
     }
     mat.map.needsUpdate = true;
   }
+  // the suit: one design for the arms and one for the legs (paintSuit), copied onto each limb, then each part's
+  // decals, then the creases
   const S = kit.suit;
-  if (S.torso || S.legs || S.arms) {
-    paintSuit(S.torso?.mat.map.image, S.legs?.mat.map.image, S.arms?.mat.map.image, L, onReady, { belt: false });
-    for (const p of Object.values(S)) {
-      const cv = p.mat.map.image, g = cv.getContext('2d');
-      g.globalCompositeOperation = 'multiply'; g.drawImage(p.det, 0, 0, cv.width, cv.height); g.globalCompositeOperation = 'source-over';
+  if (S.torso) {
+    const scratch = (p) => { const c = kit[p] || (kit[p] = document.createElement('canvas')); const src = S[p === 'armsCv' ? 'armL' : 'legL'].mat.map.image; c.width = src.width; c.height = src.height; return c; };
+    const arms = scratch('armsCv'), legs = scratch('legsCv');
+    paintSuit(S.torso.mat.map.image, legs, arms, L, onReady, { belt: false, decals: false });
+    for (const [part, p] of Object.entries(S)) {
+      const cv = p.mat.map.image, g = cv.getContext('2d'), W = cv.width, H = cv.height;
+      if (part !== 'torso') g.drawImage(part.startsWith('arm') ? arms : legs, 0, 0, W, H);
+      drawKitDecals(g, W, H, SD.decals, part, onReady);
+      g.globalCompositeOperation = 'multiply'; g.drawImage(p.det, 0, 0, W, H); g.globalCompositeOperation = 'source-over';
       p.mat.map.needsUpdate = true;
     }
   }
-  if (kit.gloves) kit.gloves.color.setHex(third);
-  if (kit.boots) kit.boots.color.setHex(third);
+  if (kit.boots) {
+    const cv = kit.boots.mat.map.image, g = cv.getContext('2d');
+    paintBoots(cv, L);
+    g.globalCompositeOperation = 'multiply'; g.drawImage(kit.boots.det, 0, 0, cv.width, cv.height); g.globalCompositeOperation = 'source-over';
+    kit.boots.mat.map.needsUpdate = true;
+  }
+  if (kit.gloves) kit.gloves.color.setHex(SD.gloves ?? L.third ?? 0x121214);
 }
 // ticks every live character; skips ones that are hidden (or whose parents are)
 export function updateCharacters(dt) {

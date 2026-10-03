@@ -504,6 +504,7 @@ body.gig-on .hud-gig { display: block; } body.gig-on .hud-tower { display: none;
 .fld select { width: 100%; background: var(--sv-ink); color: var(--sv-hot); border: 1.5px solid var(--sv-red); border-radius: 3px; padding: 5px; font: 500 14px var(--f-body); outline: none; }
 .seg { display: flex; gap: 4px; flex-wrap: wrap; }
 .seg button { flex: 1; font-size: 12px !important; padding: 5px 4px !important; }
+.seg.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); } /* (eight options: two even rows) */
 .ed-stats { border-top: 1px solid var(--sv-red-faint); padding: 10px 16px; font: 500 12px/1.75 var(--f-body); color: var(--sv-red-dim); background: var(--sv-ink); }
 .ed-stats b { color: var(--sv-hot); font-weight: 500; }
 .ed-stats .warn { color: var(--sv-bad); }

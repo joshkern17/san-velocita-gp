@@ -59,7 +59,7 @@ export function decalImage(id, onReady) {
   img.src = url;
   return null;
 }
-export const liveryAssetIds = (cfg) => [...new Set([...(cfg.decals || []).map(d => d.asset), cfg.helmetDesign?.decal, cfg.suit?.decal].filter(Boolean))];
+export const liveryAssetIds = (cfg) => [...new Set([...(cfg.decals || []).map(d => d.asset), ...(cfg.suit?.decals || []).map(d => d.asset), cfg.helmetDesign?.decal, cfg.suit?.decal].filter(Boolean))];
 
 // PNG / JPG / WEBP -> downscaled PNG (max 768 px); SVG kept as vector (sized so it rasterises crisply)
 export async function importImageFile(file) {
@@ -93,7 +93,10 @@ const loadImg = (src) => new Promise((res, rej) => { const i = new Image(); i.on
 // ---------------- defaults ----------------
 export const PATTERNS = { solid: 'Solid', stripe: 'Centre Stripe', split: 'Two-Tone', arrow: 'Arrow Nose', fade: 'Fade', sash: 'Side Sash' };
 export const HELMET_PATTERNS = { solid: 'Solid', stripe: 'Centre Stripe', crown: 'Crown', bands: 'Eye Bands', halves: 'Halves', flames: 'Flames', stars: 'Stars' };
-export const SUIT_PATTERNS = { solid: 'Solid', sides: 'Side Stripes', twotone: 'Two-Tone', shoulders: 'Shoulders', sash: 'Sash' };
+export const SUIT_PATTERNS = { solid: 'Solid', sides: 'Side Stripes', twotone: 'Two-Tone', shoulders: 'Shoulders', sash: 'Sash', panels: 'Side Panels', fade: 'Fade', chevron: 'Chevron' };
+export const SUIT_NUMBERS = { back: 'Back', chest: 'Chest', sleeves: 'Sleeves', none: 'None' };
+// the pit crew's kit: the driver's suit, their own colours, or the stock mechanic's coveralls
+export const CREW_STYLES = { suit: 'Team suits', own: 'Own colours', classic: 'Coveralls' };
 export const VISORS = { dark: 'Dark', gold: 'Gold Iridium', blue: 'Blue Iridium', red: 'Red Iridium', clear: 'Light Tint' };
 // the strip across the top of the visor (on helmets that have one: the racer in js/characters.js)
 export const VISOR_STRIPS = { team: 'Team colour', sponsor: 'Sponsor', off: 'Off' };
@@ -106,12 +109,14 @@ export function fillLivery(cfg) {
   c.teamName ??= 'Your Team';
   c.showNumber ??= true; c.showSponsor ??= true; c.decals ??= [];
   c.helmetDesign = { base: c.helmet ?? c.accent, accent: c.main, third: c.third ?? 0x121214, pattern: 'stripe', visor: 'dark', strip: 'team', number: true, decal: null, ...(c.helmetDesign || {}) };
-  c.suit = { base: c.main, accent: c.accent, pattern: 'sides', chest: 'team', ...(c.suit || {}) };
+  c.suit = { base: c.main, accent: c.accent, pattern: 'sides', chest: 'team', number: 'back', gloves: c.third ?? 0x121214, boots: c.third ?? 0x121214, decals: [], ...(c.suit || {}) };
+  c.crew = { style: 'suit', base: c.suit.base, accent: c.suit.accent, ...(c.crew || {}) };
   return c;
 }
 
 // ---------------- painting ----------------
 const hex = (c) => '#' + ((c ?? 0) >>> 0).toString(16).padStart(6, '0').slice(-6);
+const mix = (a, b, t) => hex([16, 8, 0].reduce((o, k) => o | Math.round((((a ?? 0) >> k) & 255) * (1 - t) + (((b ?? 0) >> k) & 255) * t) << k, 0));
 
 // canvas transform so drawing happens in the panel's metres: x right (s), y down (t)
 export function panelTransform(p, W, H) {
@@ -157,7 +162,7 @@ function textFit(g, text, font, maxW, h) {
   return h;
 }
 
-function drawDecal(g, d, x, y, onReady) {
+export function drawDecal(g, d, x, y, onReady) {
   g.save();
   g.translate(x, y); g.rotate(((d.rot || 0) * Math.PI) / 180); if (d.flip) g.scale(-1, 1);
   g.globalAlpha = d.opacity ?? 1;
@@ -288,11 +293,14 @@ export function paintHelmet(canvas, cfg, front = 0.25, onReady) {
     const im = decalImage(D.decal, onReady);
     if (im) for (const u of [0.25, 0.75]) { const w = W * 0.13, h = w * im.naturalHeight / im.naturalWidth; g.drawImage(im, X(u) - w / 2, H * 0.34 - h / 2, w, h); }
   }
+  // decals placed on the helmet (the Livery Designer's Uniform tab): u from the visor, like everything here
+  drawKitDecals(g, W, H, fillLivery(cfg).suit.decals, 'helmet', onReady, (u) => X(u) / W);
 }
 export const VISOR_COL = { dark: [0x121820, 0x88aacc], gold: [0x6a4a10, 0xffd070], blue: [0x10305a, 0x80c8ff], red: [0x5a1010, 0xff8060], clear: [0x3a4a58, 0xffffff] };
 
 // Suit: canvases for torso, legs and arms (cylinders: u = 0 front, .25 left side, .5 back, .75 right side)
-// opts.belt = false leaves the belt off (the full-size racer in js/characters.js: race suits don't have one)
+// opts.belt = false leaves the belt off (the full-size racer in js/characters.js: race suits don't have one);
+// opts.decals = false leaves the placed decals off (the racer draws them on each limb itself: drawKitDecals)
 export function paintSuit(torso, legs, arms, cfg, onReady, opts = {}) {
   const L = fillLivery(cfg), S = L.suit, base = hex(S.base), acc = hex(S.accent), third = hex(L.third);
   for (const [cv, part] of [[torso, 'torso'], [legs, 'legs'], [arms, 'arms']]) {
@@ -300,24 +308,82 @@ export function paintSuit(torso, legs, arms, cfg, onReady, opts = {}) {
     const g = cv.getContext('2d'), W = cv.width, H = cv.height;
     g.fillStyle = base; g.fillRect(0, 0, W, H);
     g.fillStyle = acc;
+    const both = (f) => { f(0); f(W); }; // shapes across the front (u = 0) are drawn at both edges
     if (S.pattern === 'sides') { g.fillRect(W * 0.21, 0, W * 0.08, H); g.fillRect(W * 0.71, 0, W * 0.08, H); }
     else if (S.pattern === 'twotone') { if (part !== 'legs') g.fillRect(0, 0, W, H); }
     else if (S.pattern === 'shoulders') { if (part === 'torso') g.fillRect(0, 0, W, H * 0.3); else if (part === 'arms') g.fillRect(0, 0, W, H); }
     else if (S.pattern === 'sash' && part === 'torso') { g.beginPath(); g.moveTo(-W * 0.05, H * 0.1); g.lineTo(W * 0.1, H * 0.1); g.lineTo(W * 0.3, H); g.lineTo(W * 0.15, H); g.closePath(); g.fill(); g.beginPath(); g.moveTo(W * 0.9, H * 0.1); g.lineTo(W * 1.05, H * 0.1); g.lineTo(W * 1.05, H * 0.6); g.closePath(); g.fill(); }
+    else if (S.pattern === 'panels') { // wide side panels edged in the detail colour
+      for (const c of [0.25, 0.75]) { g.fillStyle = third; g.fillRect(W * (c - 0.1), 0, W * 0.2, H); g.fillStyle = acc; g.fillRect(W * (c - 0.085), 0, W * 0.17, H); }
+    } else if (S.pattern === 'fade') { // the base colour fading into the accent: torso into the hips, on down the legs
+      const mid = mix(S.base, S.accent, 0.5), gr = g.createLinearGradient(0, 0, 0, H);
+      if (part === 'legs') { gr.addColorStop(0, mid); gr.addColorStop(1, acc); }
+      else if (part === 'torso') { gr.addColorStop(0, base); gr.addColorStop(0.4, base); gr.addColorStop(1, mid); }
+      else { gr.addColorStop(0, base); gr.addColorStop(0.35, base); gr.addColorStop(1, acc); }
+      g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    } else if (S.pattern === 'chevron') {
+      if (part === 'torso') for (const [y, t] of [[0.16, 0.09], [0.34, 0.05]]) both(x0 => { g.beginPath(); g.moveTo(x0 - W * 0.22, H * y); g.lineTo(x0, H * (y + 0.16)); g.lineTo(x0 + W * 0.22, H * y); g.lineTo(x0 + W * 0.22, H * (y + t)); g.lineTo(x0, H * (y + t + 0.16)); g.lineTo(x0 - W * 0.22, H * (y + t)); g.closePath(); g.fill(); });
+      else g.fillRect(0, H * 0.78, W, H * 0.1);
+    }
+    const fillOn = S.pattern === 'twotone' && part !== 'legs' ? base : acc;
+    const num = String(L.number ?? 7);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
     if (part === 'torso') {
-      // belt + chest text + back number
+      // belt + chest text + number
       if (opts.belt !== false) { g.fillStyle = third; g.fillRect(0, H * 0.88, W, H * 0.06); }
       const txt = S.chest === 'sponsor' ? String(L.sponsor || '') : S.chest === 'team' ? String(L.teamName || '') : '';
-      g.textAlign = 'center'; g.textBaseline = 'middle';
-      const fillOn = S.pattern === 'twotone' ? base : acc;
       // chest text straddles u = 0 (the front), so draw it at both edges of the canvas
       if (txt) { g.fillStyle = fillOn; textFit(g, txt.toUpperCase(), 'impact', W * 0.3, H * 0.1); g.fillText(txt.toUpperCase(), 0, H * 0.42); g.fillText(txt.toUpperCase(), W, H * 0.42); }
-      g.fillStyle = fillOn; g.font = `bold ${H * 0.2}px Impact, Arial Black, sans-serif`; g.fillText(String(L.number ?? 7), W * 0.5, H * 0.4);
+      g.fillStyle = fillOn;
+      if (S.number === 'back') { g.font = `bold ${H * 0.2}px Impact, Arial Black, sans-serif`; g.fillText(num, W * 0.5, H * 0.4); }
+      else if (S.number === 'chest') { g.font = `bold ${H * 0.09}px Impact, Arial Black, sans-serif`; g.fillText(num, W * 0.075, H * 0.26); } // his left breast
       if (S.decal) { const im = decalImage(S.decal, onReady); if (im) { const w = W * 0.12, h = w * im.naturalHeight / im.naturalWidth; g.drawImage(im, W * 0.94 - w / 2, H * 0.55 - h / 2, w, h); g.drawImage(im, -w / 2 + W * 0.06, H * 0.55 - h / 2, w, h); } }
     } else {
+      if (part === 'arms' && S.number === 'sleeves') { g.fillStyle = fillOn; g.font = `bold ${H * 0.13}px Impact, Arial Black, sans-serif`; for (const u of [0.25, 0.75]) g.fillText(num, W * u, H * 0.2); }
       g.fillStyle = third; g.fillRect(0, H * 0.92, W, H * 0.08); // cuffs / boots edge
     }
+    if (opts.decals !== false) drawKitDecals(g, W, H, S.decals, part === 'torso' ? 'torso' : part === 'legs' ? 'legL' : 'armL', onReady);
   }
+}
+
+// Decals placed on the uniform: { part: torso | armL | armR | legL | legR | helmet, u, v (0..1 across / down the
+// part's canvas; u 0 = the front, .25 = his left side, like the canvases), size (fraction of its height), rot, ...
+// the same text / image fields as the car's decals }. mirror: also on the other side (u -> 1 - u; a sleeve's
+// mirror is on the other sleeve). place(u) -> canvas u (the helmet's visor isn't at u = 0).
+const MIRROR_PART = { torso: 'torso', helmet: 'helmet', armL: 'armR', armR: 'armL', legL: 'legR', legR: 'legL' };
+export function drawKitDecals(g, W, H, decals, part, onReady, place = (u) => u) {
+  if (!decals || !decals.length) return;
+  g.save();
+  for (const d of decals) {
+    const spots = [];
+    if (d.part === part) spots.push(d.u);
+    if (d.mirror && MIRROR_PART[d.part] === part) spots.push(1 - d.u);
+    for (const u of spots) {
+      const x = (((place(u) % 1) + 1) % 1) * W / H;
+      for (const dx of [-W / H, 0, W / H]) { // wrap round the back seam
+        if (Math.abs(x + dx - W / H / 2) > W / H / 2 + d.size * 1.5) continue;
+        g.setTransform(H, 0, 0, H, 0, 0); drawDecal(g, d, x + dx, d.v, onReady);
+      }
+    }
+  }
+  g.restore();
+}
+
+// Racing boots (the racer's boot tubes: u 0 = the toe, .25 / .75 the outsides, .5 the heel; canvas top = the
+// top of the boot): the boot colour, a swoosh in the suit's accent, a heel tab, and a black sole with a white welt
+export function paintBoots(canvas, cfg) {
+  const L = fillLivery(cfg), S = L.suit, g = canvas.getContext('2d'), W = canvas.width, H = canvas.height;
+  const body = hex(S.boots), acc = hex(S.accent === S.boots ? S.base : S.accent);
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = body; g.fillRect(0, 0, W, H);
+  g.fillStyle = acc;
+  for (const side of [1, -1]) { // a stripe sweeping up from the toe to the ankle on each side
+    const X = (u) => ((side > 0 ? u : 1 - u)) * W;
+    g.beginPath(); g.moveTo(X(0.08), H * 0.78); g.lineTo(X(0.44), H * 0.18); g.lineTo(X(0.47), H * 0.36); g.lineTo(X(0.16), H * 0.8); g.closePath(); g.fill();
+  }
+  g.fillRect(W * 0.45, 0, W * 0.1, H * 0.34);                         // heel tab
+  g.fillStyle = '#121214'; g.fillRect(0, H * 0.86, W, H * 0.14);      // sole
+  g.fillStyle = '#e8e8e8'; g.fillRect(0, H * 0.83, W, H * 0.035);     // welt
 }
 
 // ---------------- UV template for modellers ----------------

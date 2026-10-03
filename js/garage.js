@@ -1,7 +1,8 @@
 // Garage: turntable showroom for building your car
 import * as THREE from 'three';
 import { buildF1 } from './carmodel.js';
-import { loadCharacters, makeCharacter } from './characters.js';
+import { loadCharacters, makeCharacter, kitHit, crewLivery, classicCrewLook } from './characters.js';
+import { fillLivery } from './livery.js';
 
 export class Garage {
   constructor(renderer, post) {
@@ -47,11 +48,11 @@ export class Garage {
     const el = renderer.domElement;
     el.addEventListener('pointerdown', (e) => {
       if (!this.active) return;
-      if (this.onPick && e.button === 0) { const hit = this.pick(e.clientX, e.clientY); if (hit && this.onPick(hit, 'down')) { this.painting = true; this.auto = false; return; } }
+      if (this.onPick && e.button === 0) { const hit = this.pickAny(e.clientX, e.clientY); if (hit && this.onPick(hit, 'down')) { this.painting = true; this.auto = false; return; } }
       this.drag = { x: e.clientX, y: e.clientY, yaw: this.yaw, pitch: this.pitch }; this.auto = false;
     });
     window.addEventListener('pointermove', (e) => {
-      if (this.painting) { const hit = this.pick(e.clientX, e.clientY); if (hit) this.onPick(hit, 'move'); return; }
+      if (this.painting) { const hit = this.pickAny(e.clientX, e.clientY); if (hit) this.onPick(hit, 'move'); return; }
       if (!this.drag) return; this.yaw = this.drag.yaw - (e.clientX - this.drag.x) * 0.008; this.pitch = Math.max(-0.05, Math.min(1.35, this.drag.pitch + (e.clientY - this.drag.y) * 0.006));
     });
     window.addEventListener('pointerup', () => { this.drag = null; if (this.painting && this.onPick) this.onPick(null, 'up'); this.painting = false; });
@@ -70,17 +71,48 @@ export class Garage {
     }
     return null;
   }
+  // what clicks land on: the car's livery, or (pickMode 'racer', the Livery Designer's Uniform tab) the racer's kit
+  pickAny(cx, cy) { return this.pickMode === 'racer' ? this.pickRacer(cx, cy) : this.pick(cx, cy); }
+  pickRacer(cx, cy) {
+    if (!this.racer) return null;
+    const el = this.r.domElement, r = el.getBoundingClientRect();
+    this.ray.setFromCamera(new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1), this.camera);
+    const h = this.ray.intersectObject(this.racer.body, true)[0];
+    const k = h && kitHit(h);
+    return k ? { kit: k, point: h.point } : null;
+  }
+  // a pit crew member on the other side of the car, in the team's crew kit (the Uniform tab shows him)
+  showCrew(on) {
+    this.crewOn = on;
+    if (on && !this.crewGuy) this.dressCrew(this.car && this.car.cfg);
+    if (this.crewGuy) this.crewGuy.object.visible = on;
+  }
+  dressCrew(cfg) {
+    if (!cfg || !this.crewOn) return;
+    const L = fillLivery(cfg), classic = L.crew.style === 'classic';
+    const look = classic ? classicCrewLook(L) : 'racer';
+    if (!this.crewGuy) {
+      if (!this.racer) return; // (characters not loaded yet: dressDriver calls again)
+      this.crewGuy = makeCharacter({ look, clip: 'idle', livery: classic ? null : crewLivery(L), seed: 3 });
+      this.crewGuy.object.position.set(-2.4, 0.08, -0.6); this.crewGuy.object.rotation.y = -1.35; // beside the right sidepod
+      this.table.add(this.crewGuy.object);
+    } else {
+      this.crewGuy.setLook(look);
+      if (!classic) this.crewGuy.setLivery(crewLivery(L));
+    }
+  }
   // preset camera shots for the designer
   view(name) {
     this.auto = false;
     const V = {
       three: [0.7, 0.22, 8.5, [0.2, 0.55, 0]], left: [Math.PI / 2, 0.12, 7.5, [0, 0.5, 0]], right: [-Math.PI / 2, 0.12, 7.5, [0, 0.5, 0]],
       top: [Math.PI, 1.3, 7.5, [0, 0.4, 0.2]], rear: [Math.PI, 0.3, 5.5, [0, 0.6, -1.5]], front: [0.001, 0.3, 5.5, [0, 0.4, 1.5]],
-      helmet: [0.6, 0.35, 1.6, [0, 0.8, -0.08]], driver: [1.25, 0.12, 4.2, [2.5, 1.0, -0.9]],
+      helmet: [0.6, 0.35, 1.6, [0, 0.8, -0.08]], driver: [1.25, 0.12, 4.2, [2.5, 1.0, -0.9]], crew: [-1.35, 0.12, 4.2, [-2.4, 1.0, -0.6]],
     }[name];
     if (!V) return;
     [this.yaw, this.pitch, this.dist] = V; this.target.set(...V[3]);
     if (name === 'driver') { this.yaw = this.table.rotation.y + 1.25; const p = this.driver.getWorldPosition(new THREE.Vector3()); this.target.set(p.x, 1.0, p.z); }
+    if (name === 'crew' && this.crewGuy) { this.yaw = this.table.rotation.y - 1.35; this.pitch = 0.12; this.dist = 4.2; const p = this.crewGuy.object.getWorldPosition(new THREE.Vector3()); this.target.set(p.x, 1.0, p.z); }
     // the helmet: the racer's, close up (once the people have loaded; until then the one in the cockpit)
     if (name === 'helmet' && this.racer) { this.yaw = this.table.rotation.y + 1.05; this.pitch = 0.12; this.dist = 1.5; const p = this.driver.getWorldPosition(new THREE.Vector3()); this.target.set(p.x, 1.74, p.z); }
   }
@@ -99,16 +131,17 @@ export class Garage {
   }
   // the racer (js/characters.js) stands in for that simple driver once the people have loaded, in the same livery
   dressDriver(cfg) {
-    if (this.racer) { this.racer.setLivery(cfg); this.driver.visible = false; return; }
+    if (this.racer) { this.racer.setLivery(cfg); this.driver.visible = false; this.dressCrew(cfg); return; }
     loadCharacters().then(ok => {
       if (!ok || this.racer || !this.car) return;
       this.racer = makeCharacter({ look: 'racer', clip: 'idle', livery: this.car.cfg });
       this.racer.object.position.copy(this.driver.position); this.racer.object.rotation.y = this.driver.rotation.y;
       this.table.add(this.racer.object); this.driver.visible = false;
+      this.dressCrew(this.car.cfg);
     });
   }
   // livery edits (the Livery Designer): repaint the car and the racer
-  repaint(cfg) { this.car.repaint(cfg); if (this.racer) this.racer.setLivery(cfg); }
+  repaint(cfg) { this.car.repaint(cfg); if (this.racer) this.racer.setLivery(cfg); this.dressCrew(cfg); }
   open(cfg) { this.active = true; this.auto = true; this.setCar(cfg); }
   close() { this.active = false; }
   update(dt) {
@@ -116,6 +149,7 @@ export class Garage {
     this.t += dt;
     if (this.auto) this.yaw += dt * 0.35;
     if (this.racer) this.racer.update(dt);
+    if (this.crewGuy && this.crewOn) this.crewGuy.update(dt);
     this.aim.lerp(this.target, 1 - Math.exp(-dt * 6));
     // gentle suspension "breathing" so you can see it work
     if (this.car) this.car.animate({ steer: Math.sin(this.t * 0.7) * 0.25, spin: dt * 1.2, heave: Math.sin(this.t * 2.2) * 0.012, pitch: Math.sin(this.t * 1.3) * 0.006, roll: Math.sin(this.t * 0.9) * 0.008 });
