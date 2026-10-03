@@ -42,6 +42,8 @@ for f in bm.faces:
     if max(us) - min(us) > 0.5: us = [u + 1 if u < 0.5 else u for u in us]  # faces across the back seam
     for l, u, v in zip(f.loops, us, vv): l[uv].uv = (u, v)
 bm.to_mesh(helmet.data); bm.free()
+# origin in the middle of the helmet: paint mirroring flips around it
+helmet.data.transform(__import__('mathutils').Matrix.Translation(-c)); helmet.location = c
 
 # starter detail layer
 u = (np.arange(W) + 0.5) / W; v = (np.arange(H) + 0.5) / H
