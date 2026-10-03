@@ -35,6 +35,10 @@ const TEAM_ALIAS = { workshop: 'car', tyres: 'tyres', staff: 'staff', telemetry:
 // the Internet's home page
 const BOOKMARKS = [['news', 'The Paddock Wire', 'Motorsport news'], ['series', 'Series websites', 'Standings, teams, calendars, champions'], ['drivers', 'Velocita Driver Database', 'Every driver, every season'],
   ['classifieds', 'SVList', 'Cars and parts, by owner'], ['parts', 'Speed Parts Direct', 'Performance parts'], ['jobs', 'SVJobs', 'Hire staff'], ['giggo', 'GigGo Driver', 'Driving jobs. Be your own boss'], ['bank', 'First Velocita Bank', 'Business banking']];
+// the Paddock Wire's sections, and what each kind of article is called on the page
+const NEWS_SECS = [['all', 'Front page'], ['report', 'Race reports'], ['paddock', 'Paddock'], ['opinion', 'Opinion'], ['brief', 'Other series']];
+const NEWS_KIND = { report: 'Race report', paddock: 'Paddock', opinion: 'Opinion', brief: 'In brief' };
+const NEWS_ADS = ['YOUR LOGO HERE · Advertise on the Wire · call 555-0199', "DALE'S TIRE & LUBE · Open Sundays · Ask about our rotation special", 'VELOCITA MOTORS · 0% finance* · *Not on anything you want', 'GIGGO · Be your own boss · Terms apply', 'FIRST VELOCITA BANK · Banking for winners · Lottery winners especially'];
 // the bookmarks' little site icons (16 x 16, drawn as rects: [colour, x, y, w, h])
 const BM_ICON = {
   news: [['#fff', 1, 1, 14, 14], ['#111', 3, 3, 10, 3], ['#888', 3, 8, 10, 1], ['#888', 3, 10, 10, 1], ['#c23', 9, 12, 4, 2]],
@@ -100,7 +104,7 @@ export class Computer {
 
   get w() { return this.src.world(); }
   // does the open app have sections to flip through (LB / RB)?
-  get hasTabs() { return this.app === 'team' || this.app === 'series' || (this.app === 'drivers' && !this.page.pid); }
+  get hasTabs() { return this.app === 'team' || this.app === 'series' || (this.app === 'drivers' && !this.page.pid) || (this.app === 'news' && this.page.news === 'home'); }
 
   // ---------- input ----------
   input({ up, down, left, right, ok, back, tabPrev, tabNext }) {
@@ -153,7 +157,7 @@ export class Computer {
     this.page = app === 'mail' ? { mail: (w.mail || [])[0]?.id || null }
       : app === 'team' ? { tab: tab || 'overview', file: null }
       : app === 'web' ? { home: 1 }
-      : app === 'news' ? { news: 'home' }
+      : app === 'news' ? { news: 'home', sec: 'all' }
       : app === 'series' ? { s: w.player.series, tab: 'standings' }
       : app === 'bank' ? { bank: 'home' }
       : app === 'classifieds' ? { ad: null }
@@ -185,6 +189,7 @@ export class Computer {
   flip(d) {
     if (this.app === 'team') { const t = TEAM_TABS.map(x => x[0]), k = (t.indexOf(this.page.tab) + d + t.length) % t.length; this.page = { tab: t[k], file: null }; this.hist = []; this.armed = null; this.curKey = 'ttab-' + t[k]; this.render(); this.src.sfx?.move?.(); }
     else if (this.app === 'series') { const t = SITE_TABS, k = (t.indexOf(this.page.tab) + d + t.length) % t.length; this.page = { ...this.page, tab: t[k] }; this.hist = []; this.curKey = 'tab-' + t[k]; this.render(); this.src.sfx?.move?.(); }
+    else if (this.app === 'news' && this.page.news === 'home') { const t = NEWS_SECS.map(x => x[0]), k = (t.indexOf(this.page.sec || 'all') + d + t.length) % t.length; this.act('nwsec', t[k]); }
     else if (this.app === 'drivers' && !this.page.pid) { const t = DB_TABS, k = (t.indexOf(this.page.db) + d + t.length) % t.length; this.page = { db: t[k], pid: null }; this.curKey = 'db-' + t[k]; this.render(); this.src.sfx?.move?.(); }
   }
   markRead(id) { const m = (this.w.mail || []).find(x => x.id === id); if (m && !m.read) { m.read = true; this.src.changed?.(); } }
@@ -204,6 +209,7 @@ export class Computer {
     if (a === 'mail') { this.page = { mail: arg }; this.markRead(arg); this.curKey = 'mail-' + arg; this.render(); this.src.sfx?.select?.(); return; }
     if (a === 'reply') { const [id, key] = arg.split(':'), m = this.w.mail.find(x => x.id === id); if (m && !m.answer) { this.src.answer(m, key); this.curKey = null; this.render(); } return; }
     if (a === 'article') { this.go({ news: +arg }); this.src.sfx?.select?.(); return; }
+    if (a === 'nwsec') { this.page = { news: 'home', sec: arg }; this.hist = []; this.curKey = 'sec-' + arg; this.render(); this.src.sfx?.move?.(); return; }
     if (a === 'site') { this.hist = []; this.page = { s: arg, tab: 'standings' }; this.curKey = null; this.render(); this.src.sfx?.select?.(); return; }
     if (a === 'tab') { this.hist = []; this.page = { ...this.page, tab: arg }; this.curKey = 'tab-' + arg; this.render(); this.src.sfx?.select?.(); return; }
     if (a === 'db') { this.page = { db: arg, pid: null }; this.hist = []; this.curKey = 'db-' + arg; this.render(); this.src.sfx?.select?.(); return; }
@@ -310,18 +316,28 @@ export class Computer {
   }
 
   // the Paddock Wire: headlines, and a story page (race reports carry the classification)
+  // The Paddock Wire: sections (all / race reports / paddock / opinion / other series), a front page, articles
   newsSite() {
-    const w = this.w, items = w.news || [];
-    const mast = `<div class="nw-mast"><b>THE PADDOCK WIRE</b><small>Motorsport news from San Velocita &middot; ${w.year}</small></div>`;
+    const w = this.w, items = w.news || [], sec = this.page.sec || 'all';
+    const kindOf = (n) => n.kind || (n.report ? 'brief' : 'paddock'), paras = (n) => (Array.isArray(n.body) ? n.body : [n.body]).filter(Boolean);
+    const inSec = (n) => sec === 'all' || kindOf(n) === sec || (sec === 'brief' && n.s && n.s !== w.player.series);
+    const mast = `<div class="nw-mast"><b>THE PADDOCK WIRE</b><small>Motorsport news from San Velocita &middot; ${w.year}</small></div>
+      <div class="nw-nav">${NEWS_SECS.map(([k, n]) => `<span class="nw-sec${k === sec ? ' on' : ''}" data-nav data-act="nwsec" data-arg="${k}" data-key="sec-${k}"${k === sec && this.page.news === 'home' ? ' data-first' : ''}>${n}</span>`).join('')}</div>`;
+    const kick = (n) => `<span class="nw-kick">${NEWS_KIND[kindOf(n)] || 'News'}</span>`;
     if (this.page.news !== 'home') {
       const n = items[this.page.news]; if (!n) return mast;
-      return mast + `<div class="nw-story" data-nav data-scroll data-key="story" data-first><div class="nw-date">${esc(n.when || '')} ${n.y}</div><h1>${esc(cap(n.head))}</h1><div class="nw-by">By Wire staff</div><p>${esc(n.body)}</p>${this.reportTable(n.report, n.y)}</div>`;
+      const more = items.map((x, k) => [x, k]).filter(([x, k]) => k !== this.page.news && kindOf(x) !== 'brief').slice(0, 4)
+        .map(([x, k]) => `<div class="nw-row" data-nav data-act="article" data-arg="${k}" data-key="art-${k}">${kick(x)}<a>${esc(cap(x.head))}</a></div>`).join('');
+      const body = paras(n).map(p => /^\d+\. /.test(p) ? `<p class="nw-rank">${esc(p)}</p>` : `<p>${esc(p)}</p>`).join('');
+      return mast + `<div class="nw-story" data-nav data-scroll data-key="story" data-first>${kick(n)}<h1>${esc(cap(n.head))}</h1><div class="nw-by">By ${esc(n.by || 'Wire staff')} &middot; ${esc(n.when || '')} ${n.y}</div>${body}${this.reportTable(n.report, n.y)}</div>`
+        + (more ? `<div class="nw-more"><b>More from the Wire</b>${more}</div>` : '');
     }
-    if (!items.length) return mast + '<p class="pc-empty">No stories yet.</p>';
-    const lead = items[0];
-    const rest = items.slice(1, 40).map((n, k) => `<div class="nw-row" data-nav data-act="article" data-arg="${k + 1}" data-key="art-${k + 1}"><small>${esc(n.when || '')} ${n.y}</small><a>${esc(cap(n.head))}</a></div>`).join('');
-    return mast + `<div class="nw-lead" data-nav data-act="article" data-arg="0" data-key="art-0" data-first><small>LATEST &middot; ${esc(lead.when || '')} ${lead.y}</small><h1>${esc(cap(lead.head))}</h1><p>${esc(lead.body)}</p></div>
-      <div class="nw-ad">YOUR LOGO HERE &middot; Advertise on the Wire &middot; call 555-0199</div><div class="nw-list">${rest}</div>`;
+    const list = items.map((n, k) => [n, k]).filter(([n]) => inSec(n));
+    if (!list.length) return mast + '<p class="pc-empty">Nothing in this section yet.</p>';
+    const [lead, lk] = list[0];
+    const rest = list.slice(1, 40).map(([n, k]) => `<div class="nw-row" data-nav data-act="article" data-arg="${k}" data-key="art-${k}">${kick(n)}<a>${esc(cap(n.head))}</a><small>${esc(n.when || '')} ${n.y}${n.by && n.by !== 'Wire staff' ? ` &middot; ${esc(n.by)}` : ''}</small></div>`).join('');
+    return mast + `<div class="nw-lead" data-nav data-act="article" data-arg="${lk}" data-key="art-${lk}">${kick(lead)}<h1>${esc(cap(lead.head))}</h1><p>${esc(paras(lead)[0] || '')}</p><small>${esc(lead.when || '')} ${lead.y}${lead.by ? ` &middot; By ${esc(lead.by)}` : ''}</small></div>
+      <div class="nw-ad">${esc(NEWS_ADS[(w.round + w.year) % NEWS_ADS.length])}</div><div class="nw-list">${rest}</div>`;
   }
   // ---------- Form SV-1: the San Velocita Business Registry ----------
   get form() {
@@ -830,4 +846,4 @@ const SITE_TAB_NAME = { standings: 'Standings', teams: 'Teams', calendar: 'Calen
 const DB_TABS = ['street', 'gt', 'formula', 'retired'];
 const SERIES_COL = { street: '#e0642a', gt: '#2a8f5a', formula: '#2a4fa0' };
 // headlines are stored in capitals (for the phone); the news site writes them in title case
-function cap(s) { return String(s).toLowerCase().replace(/(^|[\s'-])([a-z])/g, (m, a, b) => a + b.toUpperCase()).replace(/\b(At|To|For|Of|The|In|Up)\b(?!$)/g, (m, x, i) => i ? m.toLowerCase() : m); }
+function cap(s) { return String(s).toLowerCase().replace(/(^|[\s'-])([a-z])/g, (m, a, b) => a + b.toUpperCase()).replace(/\b(At|To|For|Of|The|In|Up)\b(?!$)/g, (m, x, i) => i ? m.toLowerCase() : m).replace(/\b(Sv|Gt|Gp|F1|Tv|Ai)\b/g, (m) => m.toUpperCase()); } // (series and initials stay capitals)

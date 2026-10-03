@@ -1182,17 +1182,27 @@ body.gig-on .hud-gig { display: block; } body.gig-on .hud-tower { display: none;
 .nw-mast { padding: 12px 16px 8px; border-bottom: 3px double #111; text-align: center; font-family: 'Times New Roman', Times, serif; }
 .nw-mast b { display: block; font-size: 34px; letter-spacing: 2px; }
 .nw-mast small { font-style: italic; color: #555; }
+.nw-nav { display: flex; justify-content: center; gap: 2px; padding: 6px 12px 0; border-bottom: 1px solid #111; font: bold 12px Arial, Helvetica, sans-serif; text-transform: uppercase; }
+.nw-sec { padding: 5px 10px; color: #111; }
+.nw-sec.on { background: #111; color: #fff; }
+.nw-sec.f { outline: 2px solid #ffd23a; outline-offset: -2px; }
+.nw-kick { display: block; font: bold 11px Arial, Helvetica, sans-serif; color: #c23; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+.nw-rank { margin: 2px 0 2px 12px !important; }
+.nw-more { margin: 0 20px 16px; padding-top: 8px; border-top: 3px double #111; }
+.nw-more > b { display: block; font: bold 12px Arial, sans-serif; text-transform: uppercase; margin-bottom: 4px; }
 .nw-lead { margin: 12px 16px; padding: 8px; font-family: 'Times New Roman', Times, serif; }
 .nw-lead small, .nw-row small, .nw-date { font: 11px Arial, Helvetica, sans-serif; color: #c23; text-transform: uppercase; }
 .nw-lead h1 { margin: 4px 0 6px; font-size: 28px; line-height: 1.1; }
-.nw-lead p { margin: 0; font-size: 16px; }
+.nw-lead p { margin: 0 0 4px; font-size: 16px; }
+.nw-lead > small { font: italic 12px 'Times New Roman', serif; color: #555; text-transform: none; }
 .nw-lead.f, .nw-row.f { background: #fff3b8; outline: 1px dotted #111; }
 .nw-ad { margin: 0 16px 10px; padding: 8px; text-align: center; font: bold 13px Arial, sans-serif; color: #fff; background: repeating-linear-gradient(45deg, #c23 0 12px, #a01c1c 12px 24px); }
 .nw-list { margin: 0 16px 16px; }
 .nw-row { padding: 6px 8px; border-top: 1px solid #ddd; }
-.nw-row small { display: block; }
+.nw-row small { display: block; color: #777; text-transform: none; font-style: italic; }
 .nw-row a { color: #1a0dab; text-decoration: underline; font: 16px 'Times New Roman', Times, serif; }
 .nw-story { padding: 14px 20px; font-family: 'Times New Roman', Times, serif; font-size: 17px; line-height: 1.45; }
+.nw-story p { margin: 0 0 10px; }
 .nw-story h1 { margin: 4px 0; font-size: 30px; line-height: 1.1; }
 .nw-by { font: italic 13px 'Times New Roman', serif; color: #555; margin-bottom: 10px; }
 .nw-story .pc-tbl { font-family: Arial, Helvetica, sans-serif; }

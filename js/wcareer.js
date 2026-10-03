@@ -1,3 +1,4 @@
+import { roundPress } from './wpress.js';
 // World Career: a persistent motorsport world that keeps going whether or not you race in it.
 // Three series (Street Cup -> GT Championship -> Formula SV), six teams of two in each, every driver a person with
 // an age, stats that grow and fade, a career history and a record against you. Your races are real; the other series'
@@ -1871,7 +1872,7 @@ export function answerSponsor(w, m, key) {
 }
 
 // ---------------- news (headlines) and texts (the phone) ----------------
-function news(w, head, body = '', extra = {}) { if (w.pre && w.year < START_YEAR - 2) return; w.news.unshift({ y: w.year, r: w.round, when: whenOf(w), head, body, ...extra }); if (w.news.length > 120) w.news.length = 120; }
+function news(w, head, body = '', extra = {}) { if (w.pre && w.year < START_YEAR - 2) return; w.news.unshift({ y: w.year, r: w.round, when: whenOf(w), head, body, ...extra }); if (w.news.length > 200) w.news.length = 200; }
 // an email (the garage computer): { from, addr, subj, body: [paragraphs], choices?, offer?, report? }
 // when it happened, as the inbox and the news site show it
 export const whenOf = (w) => w.round >= w.opts.len ? 'Season end' : w.series[w.player.series].results.some(x => x.round === w.round) ? `Round ${w.round + 1}` : w.round === 0 ? 'Pre-season' : `Round ${w.round}`;
@@ -1921,16 +1922,12 @@ function seasonOpenNews(w, moves = []) {
   news(w, `${w.year} SEASON PREVIEW`, `${s.name}: ${S.teams.map(t => w.teams[t].name).slice(0, 3).join(', ')} and more. Round 1 at ${S.cal[0].name}.`);
 }
 
+// the Paddock Wire's articles (js/wpress.js) get these to work with
+const PRESS_KIT = { SERIES, seriesById, standings: (w, sid) => standings(w, sid), teamStandings: (w, sid) => teamStandings(w, sid), teamOfPid: (w, pid) => teamOfPid(w, pid),
+  ageOf: (w, p) => ageOf(w, p), DIRTY, news: (w, h, b, x) => news(w, h, b, x), pick: (w, a) => pickLine(w, a), rng: (w) => rng(w) };
 function roundNews(w, me) {
   const sid = w.player.series;
-  for (const s of SERIES) {
-    const res = w.series[s.id].results.at(-1); if (!res) continue;
-    const win = res.rows.find(r => r.pos === 1 && !r.dnf); if (!win) continue;
-    const firstWin = win.pid !== 'P' && w.people[win.pid] && w.people[win.pid].wins === 1;
-    const rep = { report: { s: s.id, round: res.round } };
-    if (win.pid === 'P') news(w, `${w.player.name.split(' ').pop().toUpperCase()} WINS AT ${res.track.toUpperCase()}`, `A ${s.name} win for ${w.teams[w.player.team].name}.`, rep);
-    else news(w, `${firstWin ? 'FIRST WIN FOR' : ''} ${w.people[win.pid].last.toUpperCase()}${firstWin ? '' : ' WINS'} AT ${res.track.toUpperCase()}`.trim(), `${s.name}, round ${res.round + 1}${res.weather === 'rain' ? ', in the rain' : ''}.`, rep);
-  }
+  if (!(w.pre && w.year < START_YEAR - 2)) roundPress(w, PRESS_KIT);
   // texts about your race
   if (!me) return;
   const res = w.series[sid].results.at(-1), mateId = teammateOf(w), mate = w.people[mateId];
