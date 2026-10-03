@@ -1852,3 +1852,9 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .pc-ask { margin-left: 6px; padding: 0 5px; font-style: normal; font-size: 10px; font-weight: bold; color: #7a5a00; background: #fff1c9; border: 1px solid #e6cf85; border-radius: 2px; }
 .hp-body { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; align-content: start; }
 .hp-body h2 { grid-column: 1 / -1; }
+.tx-perks { grid-column: 2 / -1; }
+.tx-pl, .jb-pl { margin: 3px 0 0; padding: 0; list-style: none; columns: 2; column-gap: 16px; }
+.tx-pl li, .jb-pl li { position: relative; padding-left: 11px; font-size: 11px; line-height: 15px; color: #444; break-inside: avoid; }
+.tx-pl li::before, .jb-pl li::before { content: ''; position: absolute; left: 1px; top: 6px; width: 5px; height: 5px; background: #2c9a43; }
+.tx-card.vacant .tx-pl li { color: #777; } .tx-card.vacant .tx-pl li::before { background: #b9b6ac; }
+.jb-pl { columns: 1; }

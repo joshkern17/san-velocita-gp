@@ -745,7 +745,8 @@ export function carValue(w, t) {
 function projOdds(w, t, P, shop) {
   const F = (k) => facLevel(t, k), m = t.mine ? staffOf(w, 'mechanic') : null, mech = t.mine ? (m ? m.skill : 0) : (t.crew?.mech || 2);
   const area = P.area, spec = area === 'engine' ? F('dyno') * 0.12 : area === 'chassis' || area === 'aero' ? F('fab') * 0.08 + (area === 'aero' ? F('tunnel') * 0.1 : 0) : 0;
-  const chance = shop ? 0.85 : clamp(0.5 + F('tools') * 0.08 + mech * 0.04 + spec + F('data') * 0.05, 0.3, 0.95);
+  const eng = t.mine ? (staffOf(w, 'engineer')?.skill || 0) : (t.crew?.eng || 2);
+  const chance = shop ? 0.85 : clamp(0.5 + F('tools') * 0.08 + mech * 0.04 + eng * 0.02 + spec + F('data') * 0.05, 0.3, 0.95);
   const q = 0.9 + spec * 1.2 + (shop ? 0 : mech * 0.02);
   return { chance, q };
 }
@@ -1171,7 +1172,7 @@ export function settleRound(w, use, me) {
 }
 // what a repair (of this much damage: 0..1 of a write-off) costs, before you have it done
 export const repairQuote = (w, dmg) => Math.round(dmg * COSTS[w.player.series].repair * (bgOf(w).repair || 1) * staffEffects(w).repair / 100) * 100;
-export const tyreCost = (w) => COSTS[w.player.series].tyre;
+export const tyreCost = (w) => { const m = staffOf(w, 'manager'); return Math.round(COSTS[w.player.series].tyre * (m ? mgrTyre(m.skill) : 1) / 10) * 10; };
 // a round you didn't drive yourself (Sim Rest Of Season): a plain weekend, no damage; the tyres come out of your stock
 export function simUse(w) {
   const R = w.series[w.player.series].cal[w.round], wet = R && R.weather === 'rain';
@@ -2174,9 +2175,9 @@ export function measureParts(w) {
 // by your standing instructions per person: pay on time, pay half, hold. Unpaid wages are owed; unhappy staff work
 // worse and, owed money, walk out (and someone tells the press).
 export const ROLES = {
-  manager:  { name: 'Team manager', perk: 'Handles the logistics: travel costs 20% less.' },
-  mechanic: { name: 'Chief mechanic', perk: 'Repairs cost less and pit stops are quicker, more so with a better one.' },
-  engineer: { name: 'Data engineer', perk: 'Reads the telemetry. A junior gives you the charts; a senior adds notes on where the time went.' },
+  manager:  { name: 'Team manager', perk: 'Handles the logistics: cheaper travel, tyre orders, deals with suppliers. The better they are, the bigger the savings.' },
+  mechanic: { name: 'Chief mechanic', perk: 'Works on the car: rebuilds, repairs, pit stops and your development projects. The better they are, the more of everything.' },
+  engineer: { name: 'Data engineer', perk: 'Reads the data: telemetry, what your upgrades really gave, how quick the other cars are. A senior one says why.' },
 };
 const ROLE_WAGE = { manager: [700, 160], mechanic: [1300, 650], engineer: [1100, 550] }; // (street: base + per skill level)
 const WAGE_K = { street: 1, gt: 2.6, formula: 6.5 };
@@ -2228,7 +2229,29 @@ export function dataLevel(w) {
 export function staffEffects(w) {
   const m = staffOf(w, 'mechanic'), mgr = staffOf(w, 'manager');
   const sulk = m && m.morale < 35;
-  return { travel: mgr ? 0.8 : 1, repair: (m ? 1 - 0.06 * m.skill : 1.1) * (sulk ? 1.15 : 1), pitTime: m ? -0.25 * m.skill + (sulk ? 1 : 0) : 0.5 };
+  return { travel: mgr ? mgrTravel(mgr.skill) : 1, repair: (m ? 1 - 0.06 * m.skill : 1.1) * (sulk ? 1.15 : 1), pitTime: m ? -0.25 * m.skill + (sulk ? 1 : 0) : 0.5 };
+}
+// what the staff skills are worth (the same numbers the game uses)
+const mgrTravel = (sk) => 1 - (0.1 + 0.04 * sk);   // (travel: 14% cheaper at one star, 30% at five)
+const mgrTyre = (sk) => 1 - 0.03 * (sk - 1);       // (tyre orders: up to 12% off)
+// what someone in a role does for you at a skill, said plainly, in numbers: [text]
+export function staffPerks(w, role, skill) {
+  const c = COSTS[w.player.series], pct = (f) => Math.round(f * 100);
+  if (role === 'manager') return [
+    `Travel ${pct(1 - mgrTravel(skill))}% cheaper: about ${money$(c.travel * (1 - mgrTravel(skill)))} a round`,
+    skill > 1 ? `Tyres ${pct(1 - mgrTyre(skill))}% cheaper: bulk deals with the supplier` : 'Tyres at list price',
+    'Orders the tyres for every weekend (no trackside prices)'];
+  if (role === 'mechanic') return [
+    `Puts ${(1.5 + skill * 0.6).toFixed(1)} days a round into your projects`,
+    `Rebuilds parts to about ${pct(0.68 + 0.05 * skill)}% (a shop: 80%, for half as much again)`,
+    `Parts ${pct(1 - (1.2 - 0.08 * skill) / 1.25)}% less likely to fail`,
+    `Crash repairs ${pct(1 - (1 - 0.06 * skill) / 1.1)}% cheaper; pit stops ${(0.5 + 0.25 * skill).toFixed(2)}s quicker`,
+    `Projects ${pct(0.04 * skill)} points more likely to work`];
+  return [
+    skill >= 3 ? 'Telemetry with notes: where you lose time, and why' : 'Telemetry charts: where you lose time (a 3-star one says why)',
+    'Measures what your upgrades and projects really gave',
+    `Projects ${pct(0.02 * skill)} points more likely to work`,
+    'Tells you whose car is quick on the series site'];
 }
 // the money payroll needs this round, by the instructions
 export function payrollDue(w) {

@@ -592,15 +592,16 @@ export class Computer {
     const w = this.w;
     if (!w.founding?.reg) return `<div class="tm tx-page">${pageHead('staff', 'Staff', 'Register the team first.')}</div>`;
     const AV = { manager: '#2a4fa0', mechanic: '#c8141c', engineer: '#16742a' };
+    const perks = (role, sk) => `<ul class="tx-pl">${WC.staffPerks(w, role, sk).map(t => `<li>${esc(t)}</li>`).join('')}</ul>`;
     const cards = Object.keys(WC.ROLES).map(role => {
       const x = WC.staffOf(w, role), R = WC.ROLES[role];
-      if (!x) return `<div class="tx-card vacant"><div class="tx-av">?</div><div class="tx-ci"><b>${R.name}</b><small>Vacant</small><p>${esc(R.perk)}</p></div><div class="tm-acts"><button class="pc-btn sm pri" data-nav data-act="jobs" data-arg="${role}" data-key="find-${role}">Find one</button></div></div>`;
+      if (!x) return `<div class="tx-card vacant"><div class="tx-av">?</div><div class="tx-ci"><b>${R.name}</b><small>Vacant. A three-star one would:</small>${perks(role, 3)}</div><div class="tm-acts"><button class="pc-btn sm pri" data-nav data-act="jobs" data-arg="${role}" data-key="find-${role}">Find one</button></div></div>`;
       const mood = x.morale >= 70 ? 'happy' : x.morale >= 45 ? 'fine' : x.morale >= 25 ? 'unhappy' : 'furious', mc = x.morale >= 70 ? 'good' : x.morale >= 45 ? 'warn' : 'bad';
       return `<div class="tx-card"><div class="tx-av" style="background:${AV[role]}">${esc(x.first[0])}${esc(x.last[0])}</div><div class="tx-ci"><b>${esc(x.first)} ${esc(x.last)}</b><small>${R.name}</small><span class="tx-stars">${'&#9733;'.repeat(x.skill)}<i>${'&#9733;'.repeat(5 - x.skill)}</i></span></div>
         <div class="tx-cm"><small>Morale: ${mood}</small>${seg(x.morale / 100, mc)}${x.owed ? `<small class="neg">Owed ${WC.money$(x.owed)}</small>` : ''}</div>
         <div class="tx-cp"><small>Pay &middot; ${WC.money$(WC.wageNow(w, x))} a round</small><div class="tm-pay" data-nav data-cycle="pay-${x.id}" data-key="pay-${x.id}"><i data-act="cyc" data-arg="pay-${x.id}:-1">&#9664;</i><b>${WC.PAY_MODES.find(m => m[0] === x.pay)[1]}</b><i data-act="cyc" data-arg="pay-${x.id}:1">&#9654;</i></div></div>
         <div class="tm-acts">${x.owed ? `<button class="pc-btn sm" data-nav data-act="backpay" data-arg="${x.id}" data-key="bp-${x.id}">Pay back</button>` : ''}<button class="pc-btn sm" data-nav data-act="fire" data-arg="${x.id}" data-key="fire-${x.id}">${this.fireArmed === x.id ? 'Sure? Select again' : 'Let go'}</button></div>
-        <p class="tx-perk">${esc(R.perk)}</p></div>`;
+        <div class="tx-perks">${perks(role, x.skill)}</div></div>`;
     }).join('');
     const due = WC.payrollDue(w), short = WC.payrollShort(w);
     return `<div class="tm tx-page">${pageHead('staff', 'Staff', 'Good people get better, and get offers', `${kpi('Payroll', WC.money$(due), 'as the next round starts', short ? 'bad' : '')}`)}
@@ -695,10 +696,11 @@ export class Computer {
     const head = `<div class="jb-head"><b>SVJobs</b><small>Motorsport &middot; San Velocita</small></div>`;
     const tabs = Object.keys(WC.ROLES).map(r => `<span class="jb-tab${r === role ? ' on' : ''}" data-nav data-act="role" data-arg="${r}" data-key="role-${r}">${WC.ROLES[r].name}</span>`).join('');
     const cur = WC.staffOf(w, role);
-    const rows = jobs.map((j, k) => `<div class="jb-row"><div><b>${esc(j.first)} ${esc(j.last)}</b>, ${j.age}<small>${esc(j.cv)}</small></div>
+    const perks = (sk) => `<ul class="jb-pl">${WC.staffPerks(w, role, sk).map(t => `<li>${esc(t)}</li>`).join('')}</ul>`;
+    const rows = jobs.map((j, k) => `<div class="jb-row"><div><b>${esc(j.first)} ${esc(j.last)}</b>, ${j.age}<small>${esc(j.cv)}</small>${perks(j.skill)}</div>
       <div class="jb-meta">skill ${'&#9733;'.repeat(j.skill)}${'&#9734;'.repeat(5 - j.skill)}<br>${WC.money$(WC.wageNow(w, j))} a round</div>
       <button class="pc-btn sm" data-nav data-act="hire" data-arg="${j.id}" data-key="hire-${j.id}"${k === 0 ? ' data-first' : ''}>${this.hireArmed === j.id ? (cur ? `Replace ${esc(cur.first)}? Select again` : 'Hire? Select again') : 'Hire'}</button></div>`).join('');
-    return head + `<div class="jb-tabs">${tabs}</div><div class="jb-body"><p class="jb-perk">${esc(WC.ROLES[role].perk)}</p>${cur ? `<p class="jb-cur">You have one: ${esc(cur.first)} ${esc(cur.last)}. Hiring someone else lets ${esc(cur.first)} go.</p>` : ''}${rows || '<p class="pc-empty">No applicants this season.</p>'}</div>`;
+    return head + `<div class="jb-tabs">${tabs}</div><div class="jb-body"><p class="jb-perk">${esc(WC.ROLES[role].perk)}</p>${cur ? `<div class="jb-cur">You have one: <b>${esc(cur.first)} ${esc(cur.last)}</b> (${'&#9733;'.repeat(cur.skill)}). Hiring someone else lets ${esc(cur.first)} go. ${esc(cur.first)} now:${perks(cur.skill)}</div>` : ''}${rows || '<p class="pc-empty">No applicants this season.</p>'}</div>`;
   }
 
   // ---------- Telemetry: the session files (readable only with a data engineer) ----------
