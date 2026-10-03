@@ -38,14 +38,14 @@ await loadCharacters();
 const sel = document.getElementById('clip');
 for (const c of CLIPS) sel.add(new Option(c, c));
 const gap = 1.1, people = LOOKS.map((look, i) => {
-  const p = makeCharacter({ look, clip: 'idle_look' });
+  const p = makeCharacter({ look, clip: 'idle' });
   p.object.position.x = (i - (LOOKS.length - 1) / 2) * gap; scene.add(p.object); return p;
 });
 const span = LOOKS.length * gap;
 cam.position.set(0, 1.6, span * 0.78); cam.lookAt(0, 0.85, 0);
 sel.onchange = () => { walking = false; btn.classList.remove('on'); for (const p of people) { p.object.position.z = 0; p.object.rotation.y = 0; p.play(sel.value); } };
 let walking = false; const btn = document.getElementById('walk');
-btn.onclick = () => { walking = !walking; btn.classList.toggle('on', walking); sel.value = walking ? 'walk' : 'idle_look'; for (const p of people) { p.object.position.z = 0; p.play(sel.value); } };
+btn.onclick = () => { walking = !walking; btn.classList.toggle('on', walking); sel.value = walking ? 'walk' : 'idle'; for (const p of people) { p.object.position.z = 0; p.play(sel.value); } };
 window.__people = people; // for poking from the console
 
 const clock = new THREE.Clock();

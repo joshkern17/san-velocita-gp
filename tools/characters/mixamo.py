@@ -9,7 +9,7 @@ SRC, OUT = argv[0], argv[1]
 CHECK = 'check' in argv[2:]
 
 CLIPS = {
-  'Look Around': 'idle_look', 'Arm Stretching': 'idle_stretch', 'Waving': 'wave', 'Victory': 'victory',
+  'Standing Idle': 'idle', 'Look Around': 'idle_look', 'Arm Stretching': 'idle_stretch', 'Waving': 'wave', 'Victory': 'victory',
   'Pointing': 'point', 'Angry Point': 'point_angry', 'Shaking Hands 2': 'handshake',
   'Walking': 'walk', 'Walking(1)': 'walk_2',
   'Sitting': 'sit', 'Sitting Idle': 'sit_idle', 'Sitting Clap': 'sit_clap', 'Sitting Clap(1)': 'sit_clap_2',

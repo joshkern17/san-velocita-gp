@@ -2,10 +2,10 @@
 // pack + Mixamo clips). One skeleton, 16 looks, every clip plays on every look.
 //
 //   await loadCharacters();
-//   const guy = makeCharacter({ look: 'coveralls_navy', clip: 'idle_look' });
+//   const guy = makeCharacter({ look: 'coveralls_navy', clip: 'idle' });
 //   scene.add(guy.object);                 // stands on y = 0, faces +Z
 //   guy.play('wave');                      // cross-fades from whatever was playing
-//   guy.play('victory', { once: true, then: 'idle_look' });
+//   guy.play('victory', { once: true, then: 'idle' });
 //   updateCharacters(dt);                  // once per frame: ticks every live character (or guy.update(dt))
 //   guy.dispose();
 //
@@ -33,7 +33,7 @@ export const LOOK_GROUPS = {
 // loop: repeat by default. speed: ground speed (m/s) that matches the stride. seat: seat height for sitting clips.
 // (measured from the clips: tools/characters/README.md)
 export const CLIP_INFO = {
-  idle_look: { loop: true }, idle_stretch: { loop: true },
+  idle: { loop: true }, idle_look: { loop: true }, idle_stretch: { loop: true },
   wave: { loop: true }, victory: { loop: true }, point: { loop: true }, point_angry: { loop: true }, handshake: { loop: true },
   walk: { loop: true, speed: 1.35 }, walk_2: { loop: true, speed: 0.95 },
   sit: { loop: true, seat: 0.48 }, sit_idle: { loop: true, seat: 0.48 }, sit_clap: { loop: true, seat: 0.48 },
@@ -109,7 +109,7 @@ function cloneLook(look) {
 const rnd = (seed) => { let s = (seed * 2654435761) >>> 0 || 1; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); };
 
 export class Character {
-  constructor({ look, group, clip = 'idle_look', seed = Math.random() * 1e9, timeScale = 1 } = {}) {
+  constructor({ look, group, clip = 'idle', seed = Math.random() * 1e9, timeScale = 1 } = {}) {
     if (!TPL) throw new Error('characters: call loadCharacters() first');
     const r = rnd(seed);
     const pool = group ? LOOK_GROUPS[group] : LOOKS;
