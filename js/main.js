@@ -33,6 +33,7 @@ import { CARS, CLASSES, CAR_CREDITS, carId, carOf, chassisKey } from './cars.js'
 import { assets, liveryAssetIds, importImageFile } from './livery.js';
 import { loadEnvCatalog, loadEnvModels, envCatalog } from './envlib.js';
 import { setWorldOptions } from './world.js';
+import { TeamSetup } from './teamsetup.js';
 import { setVertexSnapEnabled, setJitterScale, setAffineAmount, setAffineCap, setAffineFade } from '../vendor/psx/src/PSXMaterial.js';
 
 const $ = (id) => document.getElementById(id);
@@ -1363,7 +1364,7 @@ function phoneInput() {
   return true;
 }
 const phoneHints = [['nav', 'Scroll'], ['ok', 'Select'], ['back', 'Back'], ['phone', 'Put away']];
-HINTS['s-hub'] = () => pcSeat ? [['nav', 'Move'], ['ok', 'Select'], ...(pc.hasTabs ? [['tab', 'Sections']] : []), ['back', pc.app ? 'Back' : 'Stand up']]
+HINTS['s-hub'] = () => tsw.isOpen ? [['lr', 'Choose'], ['ok', tsw.step === 'ready' ? 'Start the season' : 'Next'], ['back', tsw.at ? 'Back' : 'Garage']] : pcSeat ? [['nav', 'Move'], ['ok', 'Select'], ...(pc.hasTabs ? [['tab', 'Sections']] : []), ['back', pc.app ? 'Back' : 'Stand up']]
   : phone.isOpen ? phoneHints : hubMode === 'car' ? [['nav', 'Part'], ['ok', 'Select'], ['back', 'Back']] : [['nav', 'Navigate'], ['ok', 'Select'], ['phone', 'Phone']];
 
 // the computer on the desk: Mail, the news, the series' websites, the driver database (js/computer.js)
@@ -1417,21 +1418,6 @@ const pc = new Computer({
     settings.driverName = f.name; saveSettings();
     sfx.best(); saveWorld(); renderHub(); phone.buzz();
   },
-  // the Team Setup Wizard
-  setup: (what, arg) => {
-    const w = world;
-    if (what === 'back') { WC.setupMove(w, -1); sfx.back(); saveWorld(); return; }
-    if (what === 'pick') {
-      const [step, val] = arg, was = w.setup.picks[step];
-      WC.setupPick(w, step, val);
-      if (WC.setupBudget(w).after < 0) { WC.setupPick(w, step, was); sfx.error(); toast(`That's more than you have (${WC.money$(w.money.balance)}).`, 4000); return; }
-      WC.setupMove(w, 1); sfx.select(); saveWorld(); return;
-    }
-    const r = WC.setupApply(w);
-    if (!r.ok) { sfx.error(); toast(r.why, 4000); return; }
-    sfx.best(); updateLogoShown(); saveWorld(); pitGarage.setCar(hubCar()); renderHub(); phone.buzz(); setTimeout(() => standUp(), 400);
-  },
-  sponsorLogo: (sid) => assets.get(logoOf({ sid })),
   // the Team app: facilities and projects
   team: (what, arg) => {
     const r = what === 'build' ? WC.buildFacility(world, arg) : WC.startProject(world, arg.split('|')[1], arg.split('|')[0]);
@@ -1490,6 +1476,40 @@ function sitDown(app, arg) {
   pitGarage.setZoom(true); $('s-hub').classList.add('seated'); sfx.select(); renderHints();
 }
 let pcWant = null;
+// the Team Setup Wizard: game UI over the garage (js/teamsetup.js)
+const tsw = new TeamSetup($('tsw'), {
+  world: () => world,
+  sfx: (k) => sfx[k] && sfx[k](),
+  toast: (m) => toast(m, 4000),
+  save: () => { saveWorld(); renderHints(); },
+  photo: (ad) => pc.src.photo(ad), carInfo: (c) => pc.src.carInfo(c),
+  logo: (sid) => assets.get(logoOf({ sid })),
+  closed: () => { $('s-hub').classList.remove('wizard'); renderHub(); renderHints(); },
+  // the lights are out: buy it, sign it, and back to the garage
+  apply: () => {
+    const r = WC.setupApply(world);
+    if (!r.ok) { sfx.error(); toast(r.why, 4000); return r; }
+    updateLogoShown(); saveWorld(); pitGarage.setCar(hubCar());
+    setTimeout(() => { $('s-hub').classList.remove('wizard'); renderHub(); renderHints(); phone.buzz(); }, 350);
+    return r;
+  },
+});
+function openTeamSetup() {
+  if (!world || WC.setupDone(world) || tsw.isOpen) return;
+  phone.close(); phone.hide(); $('s-hub').classList.add('wizard'); sfx.select();
+  tsw.open(); renderHints();
+}
+function tswInput() {
+  if (!tsw.isOpen) return false;
+  const up = pressed('ArrowUp') | pressed('KeyW') | pressed('GP12') | pressed('GPSU'), down = pressed('ArrowDown') | pressed('KeyS') | pressed('GP13') | pressed('GPSD');
+  const left = pressed('ArrowLeft') | pressed('KeyA') | pressed('GP14') | pressed('GPSL'), right = pressed('ArrowRight') | pressed('KeyD') | pressed('GP15') | pressed('GPSR');
+  const ok = pressed('Enter') | pressed('Space') | pressed('GP0') | pressed('GP9'), back = pressed('Escape') | pressed('Backspace') | pressed('GP1');
+  const tabPrev = pressed('KeyQ') | pressed('GP4'), tabNext = pressed('Tab') | pressed('KeyE') | pressed('GP5');
+  const was = tsw.isOpen && tsw.step;
+  tsw.input({ left: left | up, right: right | down, ok, back, tabPrev, tabNext });
+  if (!tsw.isOpen || was !== tsw.step) renderHints();
+  return true;
+}
 function standUp() {
   if (!pcSeat) return;
   pc.close(); pitGarage.refreshScreen(); pitGarage.setView(hubMode === 'car' ? 'car' : 'room', hubMode === 'car' ? carPart : null);
@@ -1531,15 +1551,15 @@ function hubTick(dt) {
 // the mouse over the monitor: a pointer, and the tag lights up
 let pcHover = false;
 $('s-hub').addEventListener('mousemove', (e) => {
-  const on = !!onRoom(e), car = !on && hubMode === 'room' && world && world.car && !pcSeat && !phone.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head') && pitGarage.hitCar(e.clientX, e.clientY);
+  const on = !!onRoom(e), car = !on && hubMode === 'room' && world && world.car && !pcSeat && !phone.isOpen && !tsw.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head') && pitGarage.hitCar(e.clientX, e.clientY);
   if (on !== pcHover || car !== carHover) { pcHover = on; carHover = car; $('s-hub').style.cursor = on || car ? 'pointer' : ''; }
 });
 $('pc-tag').addEventListener('click', () => { if (screen === 's-hub' && !pcSeat) sitDown(); });
 // a click on the monitor sits you down (the hub's layer is over the 3D view, so it listens there, past its panels)
-const onRoom = (e) => screen === 's-hub' && world && !pcSeat && !phone.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitScreen(e.clientX, e.clientY);
+const onRoom = (e) => screen === 's-hub' && world && !pcSeat && !phone.isOpen && !tsw.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitScreen(e.clientX, e.clientY);
 $('s-hub').addEventListener('click', (e) => {
   if (onRoom(e)) { sitDown(); return; }
-  if (screen === 's-hub' && world && world.car && !pcSeat && !phone.isOpen && hubMode === 'room' && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitCar(e.clientX, e.clientY)) goToCar();
+  if (screen === 's-hub' && world && world.car && !pcSeat && !phone.isOpen && !tsw.isOpen && hubMode === 'room' && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitCar(e.clientX, e.clientY)) goToCar();
 });
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1727,7 +1747,7 @@ function enterHub() {
   const t = world.teams[world.player.team];
   if (world.livery) { t.main = world.livery.main; t.accent = world.livery.accent; }
   pitGarage.openHome(hubCar(), { main: t.main, accent: t.accent, name: t.name });
-  pcSeat = false; pc.close(); $('s-hub').classList.remove('seated', 'at-car');
+  pcSeat = false; pc.close(); if (tsw.isOpen) tsw.close(); $('s-hub').classList.remove('seated', 'at-car', 'wizard');
   hubMode = 'room'; carSub = null; carPart = null; optSub = false;
   renderHub(); show('s-hub');
 }
@@ -1762,7 +1782,7 @@ function renderHub() {
   } else if (!founded(w)) {
     const step = (done, t) => `<div class="row"><span>${t}</span><span class="${done ? 'ok' : ''}">${done ? 'DONE' : '&mdash;'}</span></div>`;
     $('hub-card').innerHTML = `<div class="panel-title">GETTING STARTED</div><div class="hub-steps">
-      ${step(F.reg, 'Register the team')}${step(w.money && w.money.choice, 'Claim your winnings')}${step(F.car, 'Buy a car')}${step(!!w.livery && w.liveryDone, 'Paint it (optional)')}${step((w.staff || []).length > 0, 'Hire staff (optional)')}</div>
+      ${step(F.reg, 'Register the team')}${step(w.money && w.money.choice, 'Claim your winnings')}${w.setup ? step(WC.setupDone(w), 'Set up the team') : step(F.car, 'Buy a car')}${step(!!w.livery && w.liveryDone, 'Paint it (optional)')}${step((w.staff || []).length > 0, 'Hire staff (optional)')}</div>
       <p class="hub-note">It all happens on the <b>computer</b>.</p>`;
   } else if (!w.over) {
     // the team at a glance: the three things to build up, a hint, and what needs attention
@@ -1836,7 +1856,7 @@ function renderHubMenu() {
   const F = w.founding || {};
   if (!F.reg) items.push({ label: 'Register The Team', cls: 'action primary', action: () => sitDown('registry'), desc: 'Form SV-1, on the computer.' });
   else if (claim) items.push({ label: 'Claim Your Winnings', cls: 'action primary', action: () => sitDown('mail', claim.id), desc: 'The State Lottery needs to know how you want your money. It\'s waiting in your email.' });
-  else if (!WC.setupDone(w)) items.push({ label: 'Set Up The Team', cls: 'action primary', action: () => sitDown('setup'), desc: 'How you get in, the car, a title sponsor and your second driver: the Team Setup Wizard, on the computer.' });
+  else if (!WC.setupDone(w)) items.push({ label: 'Set Up The Team', cls: 'action primary', action: () => openTeamSetup(), desc: 'How you get in, the car, a title sponsor and your second driver. Nothing is spent until you start the season.' });
   else if (!F.car) items.push({ label: 'Buy A Car', cls: 'action primary', action: () => sitDown('classifieds'), desc: 'Danny sent you some listings. They\'re on the computer.' });
   else if (!w.over && WC.needsCar(w)) items.push({ label: 'Get A Car', cls: 'action primary', action: () => sitDown('customer'), desc: `Your ${w.car.name} isn't eligible for the ${seriesName(sid)}. Buy or lease one from the makers' customer programmes, or buy a team's car from last season (on the computer).` });
   else if (!w.over && WC.payrollShort(w)) items.push({ label: 'Sort Out Payroll', cls: 'action primary', action: () => sitDown('staff'), desc: `Payroll is ${WC.money$(WC.payrollDue(w))} and you have ${WC.money$(w.money.balance)}. Decide who gets paid (Team, on the computer: the Staff tab).` });
@@ -1872,6 +1892,7 @@ function renderHubMenu() {
 }
 menus['s-hub'] = [new Menu($('m-hub'), [], { desc: 'd-hub', onMove: (it) => { if (it && it.part && hubMode === 'car') { carPart = it.part; pitGarage.setView('car', it.part); } } })];
 backs['s-hub'] = () => {
+  if (tsw.isOpen) { tsw.back(); renderHints(); return; }
   if (pcSeat && pc.isOpen) { if (pc.app) { pc.back(); renderHints(); } else standUp(); return; }
   if (hubMode === 'car') { if (carSub) { carSub = null; sfx.back(); renderHubMenu(); } else leaveCar(); }
   else if (optSub) { optSub = false; sfx.back(); renderHubMenu(); }
@@ -3443,7 +3464,7 @@ function frame(now) {
     opening.update(dt);
   } else if (PHONE_SCREENS.includes(screen)) {
     // World Career, your garage: the computer has the controls while you're sat at it, the phone while it's up (P / Y)
-    if (!pcInput() && !phoneInput()) menuInput();
+    if (!tswInput() && !pcInput() && !phoneInput()) menuInput();
     hubTick(dt);
   } else if (screen !== 's-editor') {
     menuInput();
@@ -3455,7 +3476,7 @@ function frame(now) {
   if (screen === 'hud' && sim && !sim.paused && sim.mode !== 'attract') { const [a, b] = sim.feel(), k = VIBES[settings.vibration] ?? 0.8; rumble(a * k, b * k); }
   else if (now > vibeTestUntil) rumble(0, 0);
   setMusicScene(musicScene()); updateMusic(dt);
-  if (PHONE_SCREENS.includes(screen) && world && !pcSeat) phone.show(); else phone.hide();
+  if (PHONE_SCREENS.includes(screen) && world && !pcSeat && !tsw.isOpen) phone.show(); else phone.hide();
   // sat at the garage computer: the 3D view at full resolution, so the screen in the scene is readable
   post.setSharp(screen === 's-hub' && (pcSeat || pitGarage.nearScreen));
   phone.update(dt);
@@ -3482,4 +3503,4 @@ requestAnimationFrame(frame);
 // debug handle
 window.__svgp = { get world() { return world; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: () => openOpening(), voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub() } };
+  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: () => openOpening(), voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: () => startWorld(), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, sitDown: (a, x) => sitDown(a, x), standUp: () => standUp() } };
