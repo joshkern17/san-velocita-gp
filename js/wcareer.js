@@ -834,10 +834,18 @@ export function workOnProject(w, id) {
   return true;
 }
 // your mechanic's week: they put their days into the projects (the oldest first)
-function crewWork(w) {
-  const m = staffOf(w, 'mechanic'); let cap = (m ? 1.5 + m.skill * 0.6 * (m.morale < 35 ? 0.5 : 1) : 0) + (m ? facLevel(myTeam(w), 'tools') * 0.4 : 0);
+// (a week's worth of your mechanic's project days)
+export const mechRate = (w) => { const m = staffOf(w, 'mechanic'); return m ? 1.5 + m.skill * 0.6 * (m.morale < 35 ? 0.5 : 1) + facLevel(myTeam(w), 'tools') * 0.4 : 0; };
+// your mechanic's days go in a share at a time, each day of the week (and what's left of the week when you go racing);
+// the shop's work comes back after the race
+function crewDay(w) {
+  const wk = weekOf(w); if ((wk.crewDays || 0) >= WEEK_DAYS) return;
+  wk.crewDays = (wk.crewDays || 0) + 1; crewWork(w, mechRate(w) / WEEK_DAYS, false);
+}
+function crewWork(w, cap = null, shops = true) {
+  if (cap == null) { const wk = weekOf(w), left = WEEK_DAYS - (wk.crewDays || 0); wk.crewDays = WEEK_DAYS; cap = mechRate(w) * left / WEEK_DAYS; }
   for (const x of (w.projects || []).filter(p => !p.done).reverse()) {
-    if (x.shop) { finishProject(w, x); continue; }
+    if (x.shop) { if (shops) finishProject(w, x); continue; }
     if (cap <= 0) continue;
     const need = x.days - (x.prog || 0), put = Math.min(cap, need); x.prog = (x.prog || 0) + put; cap -= put;
     if (x.prog >= x.days - 1e-6) finishProject(w, x);
@@ -1250,7 +1258,7 @@ export function weekOf(w) {
   if (!w.week || w.week.key !== weekKey(w)) {
     const prev = w.week;
     w.week = { key: weekKey(w), used: 0, log: [], booked: [], gigs: [], setup: false };
-    if (prev && !w.pre) noShows(w, prev);
+    if (prev && !w.pre) { noShows(w, prev); if (prev.log.length) { const net = prev.log.reduce((a, e) => a + (e.amt || 0), 0); w.weekAvg = w.weekAvg == null ? net : Math.round(w.weekAvg * 0.6 + net * 0.4); } }
     if (!w.pre) w.weekN = (w.weekN || 0) + 1;
     if (!w.pre && !w.over && w.car && !needsCar(w) && w.money && w.money.choice) planWeek(w);
     director(w);
@@ -1260,7 +1268,7 @@ export function weekOf(w) {
 export const daysLeft = (w) => WEEK_DAYS - weekOf(w).used;
 export const weekOpen = (w) => !!(w.car && !needsCar(w) && w.money && w.money.choice && !w.over);
 // (tag: the calendar's short name for the day; gig: a booked drive, filled in when it's driven)
-function useDay(w, what, amt = 0, tag = '', gig = null) { const wk = weekOf(w); wk.log.push({ day: wk.used, what, amt, tag, gig }); wk.used++; }
+function useDay(w, what, amt = 0, tag = '', gig = null) { const wk = weekOf(w); wk.log.push({ day: wk.used, what, amt, tag, gig }); wk.used++; if (w.projects && !w.pre) crewDay(w); }
 // (and a day spent on the team: what the week's log shows)
 export function spendDay(w, what, tag = '') { if (daysLeft(w) <= 0) return false; useDay(w, what, 0, tag); return true; }
 
@@ -1511,6 +1519,56 @@ export function roundBurn(w) {
   return Math.max(500, out - inc);
 }
 export const runwayOf = (w) => w.money ? w.money.balance / roundBurn(w) : 99;
+// ---------- the forecast (Team: Finances): what a round costs and brings in as things stand, where the money's going ----------
+// Costs are what your setup costs now (staff on their pay settings, your premises, the lease, the loan); repairs are
+// your average so far this season; prize money is for your average finishing positions; the week is your average.
+// what a round's wear costs to put right, about (a race's laps on each part, rebuilt halfway between a shop's price
+// and doing it yourself; a leased car's engine and gearbox are the programme's)
+function wearCost(w) {
+  if (!w.car || !carParts(w)) return 0;
+  return PART_KEYS.reduce((a, k) => { if (w.car.lease && (k === 'engine' || k === 'gearbox')) return a; const p = PARTS[k], per = p.wear + p.lap * 14; return a + per / 0.3 * (rebuildCost(w, k) + selfCost(w, k)) / 2; }, 0);
+}
+export function finances(w) {
+  if (!w.money || !w.money.choice) return null;
+  const sid = w.player.series, c = COSTS[sid], S = w.series[sid], left = w.over ? 0 : w.opts.len - w.round, m = mateOf(w), t = myTeam(w), bg = bgOf(w);
+  const yr = w.money.tx.filter(x => x.y === w.year), raced = S.results.length;
+  const spent = (re) => -yr.filter(x => x.amt < 0 && re.test(x.what)).reduce((a, x) => a + x.amt, 0);
+  const mgr = staffOf(w, 'manager'), mw = m && m.wage ? (m.pay === 'full' ? m.wage : m.pay === 'half' ? Math.round(m.wage / 2) : 0) : 0;
+  const costs = [
+    ['Entry fee', c.entry], ['Travel', Math.round(c.travel * staffEffects(w).travel * (facLevel(t, 'truck') ? 0.65 : 1))], ['Pit crew', c.crew],
+    ['Tyres', Math.round(tyreCost(w) * 2.5)], ['Fuel', Math.round(c.fuelLap * 14 * (bg.fuel || 1))],
+    ['Wear and repairs', Math.max(raced ? spent(/rebuild \(|repairs|^new |crash|parts for a rebuild/i) / raced : 0, wearCost(w))],
+    ['Premises', facUpkeep(t)], ['Staff wages', Math.max(0, payrollDue(w) - (w.wageClaims || 0))], ['Teammate', mw],
+    ['Car lease', w.car?.lease?.perRound || 0], ['Bank loan', (w.loans || []).filter(l => !l.paid && !l.shark).reduce((a, l) => a + l.per, 0)],
+  ].filter(x => x[1] > 0).map(([k, v]) => [k, Math.round(v / 10) * 10]);
+  const avgPos = (pid) => { const r = S.results.flatMap(x => x.rows.filter(y => y.pid === pid && !y.dnf)); return r.length ? Math.round(r.reduce((a, y) => a + y.pos, 0) / r.length) : null; };
+  const myPos = avgPos('P') || 7, matePos = m ? avgPos(m.pid) || 8 : null, job = dayJob(w);
+  const hit = (d) => d.met + d.misses ? d.met / (d.met + d.misses) : 0.5;
+  const income = [
+    ['Sponsors', dealsOf(w).reduce((a, d) => a + d.fee + d.bonus * hit(d), 0)],
+    [`Prize, you (P${myPos})`, (c.prize[myPos - 1] || 0) * (bg.prize || 1)],
+    ...(m ? [[`Prize, car 2 (P${matePos})`, (c.prize[matePos - 1] || 0) * (bg.prize || 1)]] : []),
+    [w.weekAvg != null ? 'Your weeks' : 'Your weeks (est.)', w.weekAvg != null ? w.weekAvg : job.pay * 3],
+  ].filter(x => x[1] > 0).map(([k, v]) => [k, Math.round(v / 10) * 10]);
+  const out = costs.reduce((a, x) => a + x[1], 0), inn = income.reduce((a, x) => a + x[1], 0), net = inn - out;
+  // the season's end: the prize funds, at where you stand now
+  const st = standings(w, sid), pos = raced ? st.findIndex(e => e.pid === 'P') + 1 : 7, tst = teamStandings(w, sid), tpos = raced ? tst.findIndex(e => e.tid === t.id) + 1 : 5;
+  const fundEnd = Math.round(((SEASON_FUND[sid][pos - 1] || 0) + (TEAM_FUND[sid][tpos - 1] || 0)) / 10) * 10;
+  const proj = [w.money.balance]; for (let i = 0; i < left; i++) proj.push(proj[i] + net);
+  const end = proj.at(-1) + fundEnd, runway = net < 0 ? w.money.balance / -net : null;
+  // what you could change (only what applies, with its numbers)
+  const levers = [];
+  if (net < 0 && (w.weekAvg ?? 0) < job.pay * 4) levers.push(`Work more of the week: a day job pays ${money$(job.pay)} a day, gigs more.${w.weekAvg != null ? ` Your weeks average ${money$(w.weekAvg)}.` : ''}`);
+  if (mgr) { const save = Math.round((c.travel * (1 - mgrTravel(mgr.skill)) + c.tyre * 2.5 * (1 - mgrTyre(mgr.skill))) / 10) * 10, wage = wageNow(w, mgr); if (wage > save) levers.push(`Your manager costs ${money$(wage)} a round and saves about ${money$(save)} (plus ordering the tyres).`); }
+  const pd = Math.max(0, payrollDue(w) - (w.wageClaims || 0)); if (net < 0 && pd > 0) levers.push(`Paying staff half saves ${money$(pd / 2)} a round, but they're owed it, and they notice.`);
+  if (mw) levers.push(`Your teammate costs ${money$(mw)} a round. A pay driver${seriesById(sid).gents ? ' or a gentleman driver' : ''} would bring money instead, and be slower.`);
+  const open = SPONSOR_SLOTS.length - dealsOf(w).length; if (open) levers.push(`${open} sponsor slot${open === 1 ? '' : 's'} open: results, met targets and clean racing bring offers.`);
+  if (raced && costs.find(x => x[0] === 'Repairs and rebuilds')?.[1] > c.repair * 0.04) levers.push(`Rebuild worn parts yourself on a spare day: a third to half of a shop's price.`);
+  if (facUpkeep(t) > out * 0.12) levers.push(`Premises and facilities are ${money$(facUpkeep(t))} a round.`);
+  if (!(w.loans || []).some(l => !l.paid && !l.shark)) { const L = loanTerms(w); levers.push(`The bank will lend ${money$(L.amt)}, repaid at ${money$(L.per)} a round for ${L.rounds} rounds.`); }
+  if (annuityOffer(w)) levers.push(`QuickCash will buy the rest of your annuity for ${money$(annuityOffer(w))}. It's worth a lot more.`);
+  return { costs, income, out, inn, net, left, proj, fundEnd, end, runway, levers, myPos, matePos, pos, tpos };
+}
 // 0 (comfortable) .. 1 (desperate)
 export function despOf(w) {
   if (!w.money || !w.money.choice) return 0;
@@ -1887,7 +1945,7 @@ export function briefing(w) {
     for (const x of bookedGigs(w)) targets.push({ text: `Drive the ${GIG_KINDS[x.kind].name.toLowerCase()} you booked`, who: x.client });
   }
   // what's going wrong (worst first)
-  const r = runwayOf(w), cost = w.over ? 0 : weekendCost(w);
+  const fz = finances(w), r = fz && fz.net < 0 ? fz.runway : 99, cost = w.over ? 0 : weekendCost(w);
   if (w.money.balance < 0) watch.push({ text: `Overdrawn by ${money$(-w.money.balance)}: the bank charges 1.5% a round plus $250`, bad: true });
   else if (!w.over && w.money.balance < cost) watch.push({ text: `This weekend costs about ${money$(cost)}. You have ${money$(w.money.balance)}`, bad: true });
   if (w.money.balance >= 0 && r < 4) watch.push({ text: `At this rate the money lasts about ${Math.max(0, Math.floor(r))} more round${Math.floor(r) === 1 ? '' : 's'}`, bad: r < 2 });

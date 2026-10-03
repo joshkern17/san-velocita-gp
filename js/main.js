@@ -2074,7 +2074,8 @@ function dayChoices(w, canRace) {
     () => { WC.rebuildSelf(w, worst); sfx.best(); done(); }]);
   // development: a day on a project under way (or, with none, the list of them on the computer)
   const proj = (w.projects || []).find(x => !x.done && !x.shop);
-  if (proj) out.push(['proj', 'Car work', `Work on: ${proj.name}`, `${(proj.prog || 0).toFixed(1)} of ${proj.days} days done. Your mechanic puts in days too, between rounds.`, () => { WC.workOnProject(w, proj.id); sfx.select(); done(); }]);
+  if (proj) { const mr = WC.mechRate(w), mine = 1 + WC.facLevel(WC.myTeam(w), 'tools') * 0.25;
+    out.push(['proj', 'Car work', `Work on: ${proj.name}`, `${(proj.prog || 0).toFixed(1)} of ${proj.days} days of work done. A day of yours adds ${mine.toFixed(2)}${mr ? `; your mechanic adds ${(mr / WC.WEEK_DAYS).toFixed(1)} every day whatever you do` : '. Nobody else is working on it'}.`, () => { WC.workOnProject(w, proj.id); sfx.select(); done(`${proj.name}: <b>${Math.min(proj.days, proj.prog || 0).toFixed(1)} of ${proj.days}</b> days of work`); }]); }
   else if (WC.weekOpen(w)) out.push(['projs', 'Projects', 'Start a project on the car', 'Engine, chassis, aero, brakes, reliability: the list is on the computer (Team, Development). Choosing one doesn\'t use the day.', () => sitDown('dev')]);
   if (WC.facLevel(WC.myTeam(w), 'sim') && !wk.sim && !wk.tested) out.push(['sim', 'Sim rig', `Sim session: ${R.name}`, 'Learn the circuit on the sim: some of the setup a test day would find, with no track hire, no fuel and no wear.', () => { WC.simDay(w); sfx.select(); done(); }]);
   if (!wk.tested) out.push(['test', 'Test day', `Test day at ${R.name} &middot; &minus;${WC.money$(WC.testCost(w))}`, `Track hire, plus fuel and wear. Do five laps or more and you find a setup: a little more grip there this weekend. Pause to end the day.`, () => startTestDay()]);

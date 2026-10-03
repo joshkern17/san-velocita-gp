@@ -30,8 +30,8 @@ const APPS = [
     .map(([id, label]) => ({ id, label, title: 'Web Browser', hidden: true, site: true })),
 ];
 // the Team app's tabs (and the names they used to have as apps of their own, for links into them)
-const TEAM_TABS = [['overview', 'Overview'], ['car', 'Car'], ['dev', 'Development'], ['tyres', 'Tyres'], ['drivers', 'Drivers'], ['staff', 'Staff'], ['facilities', 'Facilities'], ['sponsors', 'Sponsors'], ['data', 'Data']];
-const TEAM_ALIAS = { facilities: 'facilities', dev: 'dev', workshop: 'car', tyres: 'tyres', staff: 'staff', telemetry: 'data', sponsors: 'sponsors', teamdrivers: 'drivers' }; // ('drivers' alone is the Driver Database website)
+const TEAM_TABS = [['overview', 'Overview'], ['money', 'Finances'], ['car', 'Car'], ['dev', 'Development'], ['tyres', 'Tyres'], ['drivers', 'Drivers'], ['staff', 'Staff'], ['facilities', 'Facilities'], ['sponsors', 'Sponsors'], ['data', 'Data']];
+const TEAM_ALIAS = { money: 'money', finances: 'money', facilities: 'facilities', dev: 'dev', workshop: 'car', tyres: 'tyres', staff: 'staff', telemetry: 'data', sponsors: 'sponsors', teamdrivers: 'drivers' }; // ('drivers' alone is the Driver Database website)
 // the Internet's home page
 const BOOKMARKS = [['news', 'The Paddock Wire', 'Motorsport news'], ['series', 'Series websites', 'Standings, teams, calendars, champions'], ['drivers', 'Velocita Driver Database', 'Every driver, every season'],
   ['classifieds', 'SVList', 'Cars and parts, by owner'], ['parts', 'Speed Parts Direct', 'Performance parts'], ['jobs', 'SVJobs', 'Hire staff'], ['giggo', 'GigGo Driver', 'Driving jobs. Be your own boss'], ['bank', 'First Velocita Bank', 'Business banking'],
@@ -65,6 +65,7 @@ const TX_ICON = {
   staff: [['#e8c9a8', 5, 1, 6, 6], ['#3a2a1a', 5, 1, 6, 2], ['#2a4fa0', 3, 8, 10, 7], ['#f2f2f2', 7, 8, 2, 4]],
   facilities: [['#7a5a3a', 1, 4, 14, 3], ['#c8a070', 2, 7, 12, 8], ['#9fd3ff', 3, 9, 3, 3], ['#9fd3ff', 10, 9, 3, 3], ['#5a3a1a', 7, 10, 2, 5]],
   sponsors: [['#d8b54a', 2, 2, 12, 12], ['#fff4c8', 7, 3, 2, 10], ['#fff4c8', 5, 4, 6, 2], ['#fff4c8', 5, 7, 6, 2], ['#fff4c8', 5, 10, 6, 2]],
+  money: [['#1f7a34', 1, 4, 14, 9], ['#2fa64a', 2, 5, 12, 7], ['#d8f5dc', 6, 6, 4, 5], ['#1f7a34', 7, 7, 2, 3], ['#d8b54a', 11, 1, 4, 4]],
   data: [['#101418', 1, 2, 14, 12], ['#3ddc84', 3, 10, 2, 2], ['#3ddc84', 6, 7, 2, 5], ['#3ddc84', 9, 5, 2, 7], ['#3ddc84', 12, 8, 2, 4]],
   // facilities
   base: [['#7a5a3a', 1, 4, 14, 3], ['#c8a070', 2, 7, 12, 8], ['#9fd3ff', 3, 9, 3, 3], ['#9fd3ff', 10, 9, 3, 3], ['#5a3a1a', 7, 10, 2, 5]],
@@ -460,7 +461,7 @@ export class Computer {
   teamFrame() {
     const w = this.w, tab = this.page.tab || 'overview', t = w.teams[w.player.team], S = WC.seriesById(w.player.series), m = w.money, badge = this.navBadges();
     const nav = TEAM_TABS.map(([k, n]) => `<div class="tx-nl${k === tab ? ' on' : ''}" data-nav data-act="ttab" data-arg="${k}" data-key="ttab-${k}">${txIcon(k)}<span>${n}</span>${badge[k] ? `<em class="${badge[k][1]}">${badge[k][0]}</em>` : ''}</div>`).join('');
-    const body = tab === 'car' ? this.workshopApp() : tab === 'tyres' ? `<div class="tm tx-page">${this.tyreTab()}</div>` : tab === 'staff' ? this.teamApp() : tab === 'sponsors' ? this.sponsorTab() : tab === 'drivers' ? this.driversTab() : tab === 'data' ? this.telApp() : tab === 'facilities' ? this.facTab() : tab === 'dev' ? this.devTab() : this.overview();
+    const body = tab === 'car' ? this.workshopApp() : tab === 'tyres' ? `<div class="tm tx-page">${this.tyreTab()}</div>` : tab === 'staff' ? this.teamApp() : tab === 'sponsors' ? this.sponsorTab() : tab === 'drivers' ? this.driversTab() : tab === 'data' ? this.telApp() : tab === 'facilities' ? this.facTab() : tab === 'dev' ? this.devTab() : tab === 'money' ? this.moneyTab() : this.overview();
     return `<div class="tw tx"><nav class="tx-nav"><div class="tx-brand"><i style="background:${hex(t.main)};border-color:${hex(t.accent)}"></i><b>${esc(t.name)}</b><small>${esc(S.name)} &middot; ${w.year}</small></div>${nav}
       <div class="tx-nfoot"><small>Balance</small><b class="${m && m.balance < 0 ? 'neg' : ''}">${m && m.choice ? WC.money$(m.balance) : '&mdash;'}</b></div></nav>${body}</div>`;
   }
@@ -485,7 +486,8 @@ export class Computer {
     const pos = B.goals.find(g => g.label === 'Championship'), diff = { easy: 'Rookie', medium: 'Pro', hard: 'Legend', alien: 'Alien', phantom: 'Phantom', godlike: 'Godlike' }[w.opts.difficulty] || '';
     const link = (tab, label) => `<a class="tx-link" data-nav data-act="ttab" data-arg="${tab}" data-key="ovl-${tab}">${label} &rarr;</a>`;
     const ucf = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-    const kpis = `<div class="tx-kpis">${kpi('Balance', m && m.choice ? WC.money$(m.balance) : '&mdash;', `${WC.money$(WC.payrollDue(w))} payroll`, m && m.balance < 0 ? 'bad' : '')}
+    const fz = WC.finances(w), lasts = fz ? (fz.net >= 0 ? 'making money' : `lasts about ${Math.max(0, Math.floor(fz.runway))} round${Math.floor(fz.runway) === 1 ? '' : 's'}`) : '';
+    const kpis = `<div class="tx-kpis">${kpi('Balance', m && m.choice ? WC.money$(m.balance) : '&mdash;', lasts, (m && m.balance < 0) || (fz && fz.net < 0 && fz.runway < fz.left) ? 'bad' : '')}
       ${kpi('Next race', R ? `Round ${w.round + 1}` : 'Season over', R ? `${esc(R.name)} &middot; ${esc(R.weather)}` : `${w.year} is done`)}
       ${kpi('Championship', pos ? pos.value : '&mdash;', `${esc(WC.seriesById(w.player.series).name)} &middot; ${diff}`)}
       ${sv && m ? kpi('Saving for', esc(ucf(sv.name)), m.balance >= sv.cost ? `${WC.money$(sv.cost)} &middot; <span class="pos">affordable</span>` : `${seg(m.balance / sv.cost, 'blue', 8)}<span>${WC.money$(sv.cost)}</span>`, 'long') : ''}</div>`;
@@ -506,6 +508,34 @@ export class Computer {
       <div class="tx-grid">${panel('Needs attention', watch)}${panel('This weekend', targets, R ? esc(R.name) : '')}
         ${panel('Car and development', car, link('car', 'Car'))}${panel('Team and base', team, link('facilities', 'Facilities'))}</div>
       ${panel('Sponsors', spons, link('sponsors', 'Sponsors'))}</div>`;
+  }
+  // ---------- Finances: are you going to run out, and what to do about it ----------
+  moneyTab() {
+    const w = this.w, f = WC.finances(w);
+    if (!f) return `<div class="tm tx-page">${pageHead('money', 'Finances', 'Claim your lottery winnings first: the email is in your inbox.')}</div>`;
+    const $ = WC.money$, bal = w.money.balance, R = (n) => `${Math.max(0, Math.floor(n))} round${Math.floor(n) === 1 ? '' : 's'}`;
+    const verdict = f.net >= 0 ? ['good', 'Making money', `+${$(f.net)} a round, as things stand`]
+      : f.runway < 1 ? ['bad', 'Out of money', 'This weekend is more than you have']
+      : f.runway < f.left ? ['bad', `Broke in about ${R(f.runway)}`, `before the season ends (${R(f.left)} left)`]
+      : f.runway < f.left + 6 ? ['warn', `Lasts about ${R(f.runway)}`, 'into next season']
+      : ['good', `Lasts about ${R(f.runway)}`, 'at this rate'];
+    // the projection: the balance after each round to the season's end, then the prize funds
+    const pts = f.proj.concat(f.left ? [f.end] : []), lo = Math.min(0, ...pts), hi = Math.max(1, ...pts), W = 640, H = 130, pad = 18, bw = Math.min(70, (W - 40) / pts.length - 10);
+    const y = (v) => pad + (hi - v) / (hi - lo) * (H - pad * 2), x0 = (i) => 30 + i * ((W - 40) / pts.length);
+    const bars = pts.map((v, i) => { const end = f.left && i === pts.length - 1, top = Math.min(y(v), y(0)), h = Math.max(2, Math.abs(y(v) - y(0)));
+      return `<rect x="${x0(i)}" y="${top}" width="${bw}" height="${h}" fill="${v < 0 ? '#c8141c' : end ? '#2f59c0' : '#2c9a43'}"/><text x="${x0(i) + bw / 2}" y="${v < 0 ? top + h + 11 : top - 4}" text-anchor="middle" font-size="10" fill="#333">${v < 0 ? '-' : ''}$${Math.round(Math.abs(v) / 1000)}k</text>
+        <text x="${x0(i) + bw / 2}" y="${H - 2}" text-anchor="middle" font-size="10" fill="#777">${i === 0 ? 'Now' : end ? 'Prize funds' : `After R${w.round + i}`}</text>`; }).join('');
+    const chart = `<svg class="tx-chart" viewBox="0 0 ${W} ${H}" width="100%" height="${H}"><line x1="22" x2="${W - 6}" y1="${y(0)}" y2="${y(0)}" stroke="#999" stroke-dasharray="3 3"/>${bars}</svg>`;
+    const list = (rows, total, cls) => { const max = Math.max(1, ...rows.map(r => r[1]));
+      return rows.sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="tx-frow"><span>${esc(k)}</span><i class="tx-fbar ${cls}"><b style="width:${Math.round(v / max * 100)}%"></b></i><b>${$(v)}</b></div>`).join('') + `<div class="tx-frow tot"><span>Total</span><i></i><b>${$(total)}</b></div>`; };
+    return `<div class="tm tx-page">${pageHead('money', 'Finances', `${w.year} season &middot; ${f.left} round${f.left === 1 ? '' : 's'} left`, chip(verdict[1], verdict[0]))}
+      <div class="tx-kpis">${kpi('Balance', $(bal), w.money.balance < 0 ? 'overdrawn: 1.5% a round' : 'in the bank', bal < 0 ? 'bad' : '')}${kpi('Each round', `${f.net >= 0 ? '+' : '-'}${$(Math.abs(f.net))}`, 'income less costs', f.net < 0 ? 'bad' : '')}
+        ${kpi('Money lasts', f.net >= 0 ? 'No end in sight' : R(f.runway), verdict[2], verdict[0] === 'bad' ? 'bad' : '')}${kpi('Season ends with', $(f.end), f.left ? `with ${$(f.fundEnd)} prize funds` : 'season over', f.end < 0 ? 'bad' : '')}</div>
+      ${panel('The season, as things stand', chart, 'the balance after each round')}
+      <div class="tx-grid">${panel('Each round costs', list(f.costs, f.out, 'out'))}${panel('Each round brings in', list(f.income, f.inn, 'in'))}</div>
+      ${f.levers.length ? panel('What you could change', f.levers.map(t => `<div class="tx-li warn"><i></i>${esc(t)}</div>`).join('')) : ''}
+      <p class="tx-note">Estimates: what your setup costs now (staff on their pay settings, premises, lease, loan), wear on the car, prize money at your average finishing positions, and what your weeks have averaged. Projects, upgrades and new facilities aren't counted: they're your choice.</p>
+      <div class="tx-actions"><button class="pc-btn" data-nav data-act="open" data-arg="bank" data-key="tobank">Bank statement &rarr;</button></div></div>`;
   }
   // ---------- the car: each part's condition, what's fitted, rebuilds ----------
   workshopApp() {
@@ -546,21 +576,23 @@ export class Computer {
     const word = (v, cap) => v <= 0.0005 ? 'standard' : v < cap * 0.25 ? 'some work' : v < cap * 0.55 ? 'developed' : 'near the limit';
     const spec = [['power', 'Engine', dyno || lvl], ['grip', 'Chassis', lvl], ['downforce', 'Aero', lvl], ['brake', 'Brakes', lvl], ['rel', 'Reliability', lvl]].map(([k, n, exact]) =>
       `<div class="tx-spec"><b>${n}</b>${seg((d[k] || 0) / CAP[k], 'blue', 8)}<span>${exact ? (k === 'rel' ? `${Math.round((d[k] || 0) * 100)}% fewer faults` : `+${((d[k] || 0) * 100).toFixed(1)}%`) : word(d[k] || 0, CAP[k])}</span></div>`).join('');
-    const tools = WC.facLevel(t, 'tools'), rate = m ? 1.5 + m.skill * 0.6 + tools * 0.4 : 0, max = WC.maxProjects(w);
+    const rate = WC.mechRate(w), max = WC.maxProjects(w);
     const live = (w.projects || []).filter(x => !x.done), mine = live.filter(x => !x.shop), shop = live.filter(x => x.shop);
-    const card = (x) => `<div class="tx-bench"><b>${esc(x.name)}</b>${seg((x.prog || 0) / x.days, 'good')}<small>${x.shop ? 'At Precision Race Prep &middot; ready by the next round' : `${(x.prog || 0).toFixed(1)} of ${x.days} days${rate ? ` &middot; about ${Math.max(1, Math.ceil((x.days - (x.prog || 0)) / rate))} round${Math.ceil((x.days - (x.prog || 0)) / rate) > 1 ? 's' : ''} with ${esc(m.first)}` : ' &middot; only moves on your days'}`}</small></div>`;
+    const card = (x) => { const left = x.days - (x.prog || 0), days = rate ? Math.ceil(left / (rate / WC.WEEK_DAYS)) : 0;
+      return `<div class="tx-bench${!x.shop && !rate ? ' idle' : ''}"><b>${esc(x.name)}</b>${seg((x.prog || 0) / x.days, 'good')}<small>${x.shop ? 'At Precision Race Prep &middot; back after the next race' : `${(x.prog || 0).toFixed(1)} of ${x.days} days of work done`}</small>
+        ${x.shop ? '' : rate ? `<small>${esc(m.first)}: ${(rate / WC.WEEK_DAYS).toFixed(1)} a day, done in about ${days} day${days === 1 ? '' : 's'}. A Car work day of yours adds ${(1 + WC.facLevel(t, 'tools') * 0.25).toFixed(2)}.</small>` : `<small class="neg">Nobody's working on it. Pick Car work in the day picker (a day of yours is ${(1 + WC.facLevel(t, 'tools') * 0.25).toFixed(2)} days of work), hire a chief mechanic, or send it to a shop.</small>`}</div>`; };
     const bench = mine.map(card).join('') + Array.from({ length: Math.max(0, max - mine.length) }, () => `<div class="tx-bench empty"><b>Empty bench</b><small>Pick a project below</small></div>`).join('') + shop.map(card).join('');
     const AREAS = ['engine', 'chassis', 'aero', 'brakes', 'reliability'], list = WC.projectList(w), area = AREAS.includes(this.page.area) ? this.page.area : 'engine';
     const tabs = AREAS.map(a => `<span class="tx-st${a === area ? ' on' : ''}" data-nav data-act="parea" data-arg="${a}" data-key="parea-${a}">${a[0].toUpperCase() + a.slice(1)}<em>${list.filter(P => P.area === a && !P.locked).length}</em></span>`).join('');
     const btn = (how, P, label, cls = '') => { const key = 'proj:' + how + '|' + P.key; return `<button class="pc-btn sm ${cls}" data-nav data-act="proj" data-arg="${how}|${P.key}" data-key="${key}">${this.armed === key ? 'Sure? Select again' : label}</button>`; };
     const gainTxt = (P) => P.stat === 'rel' ? 'Fewer failures' : `About +${(P.gain * 100).toFixed(1)}% ${P.stat === 'downforce' ? 'downforce' : P.stat === 'brake' ? 'braking' : P.stat}`;
     const projs = list.filter(P => P.area === area).map(P => { const c = P.odds.chance;
-      return `<div class="tx-proj${P.locked && P.locked !== 'Under way' ? ' locked' : ''}"><div class="tx-pn"><b>${esc(P.name)}</b><div class="tx-chips">${chip(`${P.days} day${P.days === 1 ? '' : 's'}`)}${chip(gainTxt(P), 'blue')}${P.joker ? chip('Uses a joker', 'warn') : ''}
+      return `<div class="tx-proj${P.locked && P.locked !== 'Under way' ? ' locked' : ''}"><div class="tx-pn"><b>${esc(P.name)}</b><div class="tx-chips">${chip(`${P.days} day${P.days === 1 ? '' : 's'} of work`)}${chip(gainTxt(P), 'blue')}${P.joker ? chip('Uses a joker', 'warn') : ''}
           <span class="tx-odds">${seg(c, c >= 0.75 ? 'good' : c >= 0.6 ? 'warn' : 'bad', 8)}<span>${Math.round(c * 100)}% it works</span></span></div></div>
         <div class="tm-acts">${P.locked === 'Under way' ? chip('Under way', 'good') : P.locked ? `<span class="tx-lock">${esc(P.locked)}</span>` : `${btn('team', P, `Do it &middot; ${WC.money$(P.cost)}`, 'pri')}${btn('shop', P, `Shop &middot; ${WC.money$(P.shopCost)}`)}`}</div></div>`; }).join('');
     const right = chip(`${mine.length} of ${max} bench${max === 1 ? '' : 'es'} in use`, mine.length >= max ? 'warn' : '') + (ser.ballast ? chip(`${WC.jokersLeft(w)} of ${WC.JOKERS} jokers left`, WC.jokersLeft(w) ? '' : 'bad') : '');
     return `<div class="tm tx-page">${pageHead('dev', 'Development', esc(w.car.name), right)}
-      <div class="tx-grid">${panel('The car', spec, dyno || lvl ? 'measured' : 'how it feels')}${panel('On the bench', bench, m ? `${esc(m.first)} &middot; ${rate.toFixed(1)} days a round` : 'only your days')}</div>
+      <div class="tx-grid">${panel('The car', spec, dyno || lvl ? 'measured' : 'how it feels')}${panel('On the bench', bench, m ? `${esc(m.first)}: ${rate.toFixed(1)} days of work a week` : 'no mechanic: only your days')}</div>
       ${panel('Projects', `<div class="tx-sts">${tabs}</div>${projs}`, 'a shop costs more, but it\'s done by the next round')}
       <p class="tx-note">Development fades over the winter: the rest of the field doesn't stand still. A dyno tells you exactly what engine work gained; a data engineer, everything.</p></div>`;
   }

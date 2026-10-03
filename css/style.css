@@ -1863,3 +1863,13 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .tx-nextp { margin: 0 0 6px !important; font-size: 11px !important; color: #1d3f9a !important; flex: none !important; }
 .tx-pl li.up { color: #1d3f9a; } .tx-pl li.up::before { background: #2f59c0; }
 .tx-pl li b { font-weight: bold; color: #1d3f9a; }
+.tx-bench.idle { border-color: #e09a96; background: #fff5f4; }
+.tx-chart { display: block; }
+.tx-frow { display: grid; grid-template-columns: minmax(0, 1fr) 90px 70px; align-items: center; gap: 8px; padding: 2px 0; font-size: 12px; }
+.tx-frow span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-frow > b { text-align: right; }
+.tx-fbar { display: block; height: 8px; background: #ebe9e2; }
+.tx-fbar b { display: block; height: 100%; background: #c8141c; }
+.tx-fbar.in b { background: #2c9a43; }
+.tx-frow.tot { margin-top: 4px; padding-top: 5px; border-top: 1px solid #d3d0c6; font-weight: bold; }
+.tx-frow { grid-template-columns: minmax(0, 1fr) 64px 62px; }
