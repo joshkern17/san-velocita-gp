@@ -1978,7 +1978,7 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 @keyframes tsw-head { from { right: 100%; opacity: 1; } 80% { opacity: 1; } to { right: -8px; opacity: 0; } }
 .tsw-q.wipe p { animation: tsw-fade .45s .2s both; }
 .tsw-cols { position: relative; flex: 1; min-height: 0; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; }
-.tsw-col { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 20px 26px 16px 30px; min-width: 0; overflow: hidden; cursor: pointer; opacity: .5; transition: opacity var(--m-med); }
+.tsw-col { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 20px 26px 16px 30px; min-width: 0; overflow: hidden; cursor: pointer; opacity: .5; transition: opacity var(--m-med); }
 .tsw-col + .tsw-col::before { content: ''; position: absolute; left: 0; top: 18px; bottom: 18px; width: 1px; background: var(--sv-red-faint); }
 .tsw-col.on { opacity: 1; }
 .tsw-col.dis { opacity: .28; cursor: not-allowed; }
@@ -1993,7 +1993,7 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .tsw-price { font: 700 44px/.9 var(--f-display); letter-spacing: var(--track); font-variant-numeric: tabular-nums; color: var(--sv-hot); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
 .tsw-blurb { font: 500 var(--t-body)/1.45 var(--f-body); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body) !important; }
 .tsw-seller { margin-top: -6px; font: 500 var(--t-small)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red-dim); }
-.tsw-gets { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.tsw-gets { list-style: none; display: flex; flex-direction: column; gap: 5px; }
 .tsw-gets li { position: relative; padding-left: 16px; font: 500 var(--t-label)/1.15 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); }
 .tsw-gets li::before { content: ''; position: absolute; left: 0; top: .42em; width: 6px; height: 2px; background: var(--sv-red); box-shadow: var(--sv-glow-line); }
 /* where your money ends up: the same slot at the foot of every column */
@@ -2046,7 +2046,7 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .tsw-cost b { font: 500 var(--t-row)/1 var(--f-ui); letter-spacing: var(--track); font-variant-numeric: tabular-nums; color: var(--sv-red); }
 .tsw-cost small { margin-left: 4px; font: 500 var(--t-small)/1 var(--f-ui); text-transform: uppercase; color: var(--sv-red-dim); }
 /* the bracket that slides to the column you're on (the one box: a dark plate with lit corners) */
-.tsw-focus { position: absolute; left: 0; top: 0; pointer-events: none; transition: transform .32s var(--ease), width .32s var(--ease), height .32s var(--ease);
+.tsw-focus { position: absolute; left: 0; top: 0; pointer-events: none;
   background: linear-gradient(180deg, rgba(255,43,0,.07), rgba(5,3,8,.35) 40%); --frame-l: 18px; }
 .tsw-focus[hidden] { display: none; }
 .tsw-focus::after { --l: var(--frame-l); --c: var(--sv-red); content: ''; position: absolute; inset: -1px; pointer-events: none;

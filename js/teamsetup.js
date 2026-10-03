@@ -224,14 +224,16 @@ export class TeamSetup {
     const t0 = performance.now(), T = 650, tick = (t) => { const k = Math.min(1, (t - t0) / T), e = 1 - Math.pow(1 - k, 3); set('after', Math.round(from + d * e)); if (k < 1 && this.isOpen) requestAnimationFrame(tick); };
     requestAnimationFrame(tick);
   }
-  // the bracket: slides to the column you're on
+  // the bracket: fades out where it was and back in on the column you're on (no sliding: it's 2005)
   place(snap = false) {
     const f = this.el.querySelector('.tsw-focus'), c = this.el.querySelectorAll('.tsw-col')[this.sel];
     if (!f) return;
     f.hidden = !c; if (!c) return;
-    if (snap) f.style.transition = 'none';
-    const p = c.parentElement; f.style.transform = `translate(${p.offsetLeft + c.offsetLeft}px, ${p.offsetTop + c.offsetTop}px)`; f.style.width = c.offsetWidth + 'px'; f.style.height = c.offsetHeight + 'px';
-    if (snap) { void f.offsetWidth; f.style.transition = ''; }
+    const move = () => { const p = c.parentElement; f.style.transform = `translate(${p.offsetLeft + c.offsetLeft}px, ${p.offsetTop + c.offsetTop}px)`; f.style.width = c.offsetWidth + 'px'; f.style.height = c.offsetHeight + 'px'; };
+    clearTimeout(this.fadeT); this.fadeA?.cancel();
+    if (snap || calm()) { f.style.opacity = ''; return move(); }
+    this.fadeA = f.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 90, fill: 'forwards' });
+    this.fadeT = setTimeout(() => { this.fadeA.cancel(); move(); this.fadeA = f.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 170, easing: 'ease-out' }); }, 90);
   }
   foot() {
     const step = this.step, o = this.options()[this.sel], w = this.w;
