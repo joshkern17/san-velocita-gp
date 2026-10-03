@@ -1936,3 +1936,15 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .wz-ch .tx-chip { white-space: normal; }
 .wz-who { display: flex; align-items: center; gap: 6px; }
 .wz .tx-seg b { width: 6px; }
+.wz-btns { display: flex; gap: 8px; }
+.wz-bal small + b { margin-bottom: 6px; display: block; }
+.wz-bal b.neg { color: #ff7a7a; }
+.wz-total { border-bottom: 0 !important; border-top: 2px solid #c9c6bc; margin-top: 2px; }
+.wz-total b { font-size: 18px; }
+.wz-ready { grid-template-columns: 1fr; gap: 6px; padding: 12px 16px; }
+.wz-team { display: flex; align-items: center; gap: 12px; padding-bottom: 8px; border-bottom: 2px solid #c9c6bc; }
+.wz-team i { width: 34px; height: 34px; border-width: 4px; margin: 0; }
+.wz-team h2 { font-size: 18px; } .wz-team small { margin-left: auto; }
+.wz-rows > div { grid-template-columns: 130px 1fr; padding: 4px 0; }
+.wz-rows b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wz-rows .wz-who { display: flex; }

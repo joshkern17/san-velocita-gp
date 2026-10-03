@@ -279,9 +279,13 @@ export class Computer {
     // facilities and projects: select twice
     // the setup wizard: pick a card, then Next does it
     if (a === 'wsel') { this.page = { ...this.page, sel: +arg }; this.curKey = 'wsel-' + arg; this.render(); this.src.sfx?.move?.(); return; }
-    if (a === 'wnext') { const S = this.w.setup, step = S ? Math.min(S.step, 4) : 4, sel = this.page.sel ?? 0;
-      const arg2 = step === 0 ? WC.setupEntries(this.w)[sel]?.key : step === 1 ? (this.w.ads || [])[sel]?.id : step === 2 ? sel : step === 3 ? S.drivers[sel] : null;
-      this.src.setup?.(['entry', 'car', 'sponsor', 'mate', 'finish'][step], arg2); this.page = { sel: 0 }; this.curKey = null; this.render(); return; }
+    if (a === 'wnext' || a === 'wback') { const S = this.w.setup; if (!S) return;
+      const steps = WC.setupSteps(this.w), step = steps[Math.min(S.at || 0, steps.length - 1)], sel = this.page.sel;
+      if (a === 'wback') { this.src.setup?.('back'); this.page = {}; this.curKey = 'wback'; this.render(); return; }
+      if (step === 'ready') { this.src.setup?.('apply'); this.page = {}; this.curKey = null; this.render(); return; }
+      const opts = step === 'entry' ? WC.setupEntries(this.w).map(e => e.key) : step === 'car' ? (this.w.ads || []).slice(0, 3).map(x => x.id) : step === 'sponsor' ? S.sponsors.map((o, i) => i) : S.drivers;
+      const val = opts[sel ?? Math.max(0, opts.indexOf(S.picks[step]))];
+      this.src.setup?.('pick', [step, val]); this.page = {}; this.curKey = null; this.render(); return; }
     if (a === 'parea') { this.page = { ...this.page, area: arg }; this.armed = null; this.curKey = 'parea-' + arg; this.render(); this.src.sfx?.move?.(); return; }
     if (a === 'build' || a === 'proj') { const k = a + ':' + arg; if (this.armed !== k) { this.armed = k; this.curKey = k; this.render(); this.src.sfx?.move?.(); return; } this.armed = null; this.src.team?.(a, arg); this.curKey = k; this.render(); return; }
     if (a === 'cc') { this.go({ cc: arg }); this.armed = null; this.src.sfx?.select?.(); return; }
@@ -470,54 +474,62 @@ export class Computer {
   // ---------- the Team Setup Wizard: entry, car, title sponsor, second driver, ready (an installer, early-2000s) ----------
   wizard() {
     const w = this.w, S = w.setup, $ = WC.money$;
-    if (!S) return '<div class="wz"><p class="pc-empty">Nothing to set up.</p></div>';
-    const step = Math.min(S.step, 4), names = ['How you get in', 'The car', 'Title sponsor', 'Second driver', 'Ready'];
-    const side = `<div class="wz-side"><b>Team Setup</b><small>${esc(w.teams[w.player.team].name)}</small><ol>${names.map((n, i) => `<li class="${i < step || (i === 1 && S.entry && S.entry !== 'fresh') ? 'done' : i === step ? 'on' : ''}">${n}</li>`).join('')}</ol><div class="wz-bal"><small>Balance</small><b>${$(w.money.balance)}</b></div></div>`;
-    const sel = this.page.sel ?? 0, card = (i, inner, dis = false) => `<div class="wz-card${i === sel ? ' on' : ''}${dis ? ' dis' : ''}" data-nav data-act="wsel" data-arg="${i}" data-key="wsel-${i}"${i === 0 ? ' data-first' : ''}>${inner}</div>`;
+    if (!S || S.done) return '<div class="wz"><p class="pc-empty">The team is set up.</p></div>';
+    const steps = WC.setupSteps(w), at = Math.min(S.at || 0, steps.length - 1), step = steps[at], P = S.picks, B = WC.setupBudget(w);
+    const NAME = { entry: 'How you get in', car: 'The car', sponsor: 'Title sponsor', mate: 'Second driver', ready: 'Ready' };
+    const side = `<div class="wz-side"><b>Team Setup</b><small>${esc(w.teams[w.player.team].name)}</small><ol>${steps.map((k, i) => `<li class="${i < at ? 'done' : i === at ? 'on' : ''}">${NAME[k]}</li>`).join('')}</ol>
+      <div class="wz-bal"><small>Now</small><b>${$(w.money.balance)}</b><small>After your choices</small><b class="${B.after < 0 ? 'neg' : ''}">${$(B.after)}</b></div></div>`;
+    // the highlighted card: what you've picked for this step (else the first)
+    const opts = step === 'entry' ? WC.setupEntries(w).map(e => e.key) : step === 'car' ? (w.ads || []).slice(0, 3).map(a => a.id) : step === 'sponsor' ? S.sponsors.map((o, i) => i) : step === 'mate' ? S.drivers : [];
+    const sel = this.page.sel ?? Math.max(0, opts.indexOf(P[step]));
+    const card = (i, inner, dis = false) => `<div class="wz-card${i === sel ? ' on' : ''}${dis ? ' dis' : ''}" data-nav data-act="wsel" data-arg="${i}" data-key="wsel-${i}"${i === sel ? ' data-first' : ''}>${inner}</div>`;
     let title = '', sub = '', cards = '', next = '';
-    if (step === 0) {
+    if (step === 'entry') {
       const E = WC.setupEntries(w);
       title = 'How do you want to get in?'; sub = 'Your winnings, and how much of them you want to spend before your first race. Everything after this is up to you.';
       cards = E.map((e, i) => card(i, `<div class="wz-ch">${chip(e.level, e.key === 'fresh' ? 'bad' : e.key === 'running' ? 'good' : 'warn')}</div><h2>${esc(e.name)}</h2><div class="wz-big">${e.cost ? $(e.cost) : 'Free'}</div><p>${esc(e.blurb)}</p><ul class="tx-pl one">${e.gets.map(g => `<li>${esc(g)}</li>`).join('')}</ul>${w.money.balance < e.cost ? '<p class="neg">More than you have.</p>' : ''}`, w.money.balance < e.cost)).join('');
-      const e = E[sel]; next = e ? `${esc(e.name)}${e.cost ? ` &middot; ${$(e.cost)}` : ''}` : '';
-    } else if (step === 1) {
-      const ads = w.ads || [];
+      const e = E[sel]; next = e ? esc(e.name) : '';
+    } else if (step === 'car') {
+      const ads = (w.ads || []).slice(0, 3);
       title = 'Pick a car'; sub = 'Off the classifieds. Danny sent the links. Condition matters: a tired car is down on power, and its parts are closer to failing.';
-      cards = ads.slice(0, 3).map((ad, i) => { const c = this.src.carInfo?.(ad.chassis);
+      cards = ads.map((ad, i) => { const c = this.src.carInfo?.(ad.chassis);
         return card(i, `${this.photo(ad, 'wz-photo')}<h2>${ad.year} ${esc(ad.name)}</h2><div class="wz-big">${$(ad.price)}</div>
           <div class="wz-stat"><span>Condition</span>${seg(ad.cond, condCls(ad.cond), 8)}<em>${WC.condName(ad.cond)}</em></div>
           ${c ? `<div class="wz-stat"><span>Power</span>${seg(c.hp / 450, 'blue', 8)}<em>${c.hp} hp</em></div><div class="wz-stat"><span>Weight</span>${seg(1 - (c.kg - 1100) / 700, 'blue', 8)}<em>${c.kg} kg</em></div>` : ''}
-          <p>"${esc(ad.blurb)}" &mdash; ${esc(ad.seller)}</p>`, w.money.balance < ad.price); }).join('');
-      const ad = ads[sel]; next = ad ? `Buy the ${esc(ad.name)} &middot; ${$(ad.price)}` : '';
-    } else if (step === 2) {
+          <p>"${esc(ad.blurb)}" &mdash; ${esc(ad.seller)}</p>`); }).join('');
+      const ad = ads[sel]; next = ad ? `The ${esc(ad.name)}` : '';
+    } else if (step === 'sponsor') {
       title = 'Choose a title sponsor'; sub = 'Three local businesses want their name on your car. The one you choose sets a target for every race; the others will keep an eye on you.';
       cards = S.sponsors.map((o, i) => { const sp = WC.sponsorInfo(o.sid), logo = this.src.sponsorLogo?.(o.sid);
-        return card(i, `<div class="wz-ch">${chip(esc(o.tag), i === 0 ? 'warn' : i === 2 ? 'good' : 'blue')}</div>${logo ? `<img class="wz-logo" src="${logo}">` : `<h2>${esc(sp.name)}</h2>`}<h2>${esc(sp.name)}</h2>
+        return card(i, `<div class="wz-ch">${chip(esc(o.tag), i === 0 ? 'warn' : i === 2 ? 'good' : 'blue')}</div>${logo ? `<img class="wz-logo" src="${logo}">` : ''}<h2>${esc(sp.name)}</h2>
           <div class="tx-kpis sm">${kpi('A round', $(o.fee))}${kpi('Target bonus', $(o.bonus))}</div>${o.signing ? `<div class="wz-sign">Signing bonus: <b>${$(o.signing)}</b></div>` : ''}
           <div class="wz-stat"><span>Patience</span>${seg(o.patience / 6, 'blue', 6)}<em>${o.patience}</em></div>
           <p>${esc(o.brand)}. Targets: ${sp.wants.map(x => ({ top: 'results', finish: 'finishing', clean: 'clean racing', gain: 'overtakes', lead: 'leading', beat: 'beating a rival team' })[x]).join(', ')}.</p>`); }).join('');
-      const o = S.sponsors[sel]; next = o ? `Sign ${esc(WC.sponsorInfo(o.sid).name)}${o.signing ? ` &middot; +${$(o.signing)}` : ''}` : '';
-    } else if (step === 3) {
-      title = 'Who drives the second car?'; sub = 'Their points count for the teams\' championship, and their car earns prize money too. Potential is your best guess: nobody knows for sure.';
-      cards = S.drivers.map((pid, i) => { const p = w.people[pid]; if (!p) return ''; const a = WC.askOf(w, p), [lo, hi] = S.scout[pid] || [p.pot, p.pot], tr = WC.traitsOf(w, p);
+      const o = S.sponsors[sel]; next = o ? esc(WC.sponsorInfo(o.sid).name) : '';
+    } else if (step === 'mate') {
+      const kept = P.entry === 'takeover';
+      title = 'Who drives the second car?'; sub = `Their points count for the teams' championship, and their car earns prize money too. Potential is your best guess: nobody knows for sure.${kept ? ' The old team\'s driver is still under contract, at what they were paid.' : ''}`;
+      cards = S.drivers.map((pid, i) => { const p = w.people[pid]; if (!p) return ''; const a = WC.askOf(w, p), [lo, hi] = S.scout[pid] || [p.pot, p.pot], tr = WC.traitsOf(w, p), under = kept && pid === S.inherited;
         const st = (k, v) => `<div class="wz-stat"><span>${k}</span>${seg(v / 100, v >= 65 ? 'good' : v >= 50 ? 'blue' : 'warn')}<em>${Math.round(v)}</em></div>`;
-        const cost = a.fee ? `<b class="pos">Brings ${$(a.fee)}</b>` : `<b>${$(a.wage)} a round</b>`;
-        return card(i, `<div class="wz-dh">${face(p, 64)}<div><h2>${esc(p.first)} ${esc(p.last)}</h2><small>${WC.ageOf(w, p)} &middot; ${esc(p.nat)}${p.starts ? ` &middot; ${p.starts} starts, ${p.wins} win${p.wins === 1 ? '' : 's'}` : ' &middot; no races yet'}</small><div class="tx-chips">${tr.map(t => chip(esc(WC.TRAITS[t].name), t === 'paydriver' ? 'good' : 'blue')).join('')}</div></div></div>
+        const cost = a.fee ? `<b class="pos">Brings ${$(a.fee)}</b>` : `<b>${$(under ? Math.round(a.wage * 0.8 / 50) * 50 : a.wage)} a round</b>${under ? ' <small>(under contract)</small>' : ''}`;
+        return card(i, `<div class="wz-dh">${face(p, 64)}<div><h2>${esc(p.first)} ${esc(p.last)}</h2><small>${WC.ageOf(w, p)} &middot; ${esc(p.nat)}${p.starts ? ` &middot; ${p.starts} starts, ${p.wins} win${p.wins === 1 ? '' : 's'}` : ' &middot; no races yet'}</small><div class="tx-chips">${under ? chip('Under contract', 'warn') : ''}${tr.map(t => chip(esc(WC.TRAITS[t].name), t === 'paydriver' ? 'good' : 'blue')).join('')}</div></div></div>
           ${st('Pace', p.pace)}${st('Consistency', p.cons)}${st('Racecraft', p.craft)}${st('Wet', p.wet)}${st('Aggression', p.aggr)}
           <div class="wz-pot"><span>Potential</span><i><b style="left:${lo}%;width:${Math.max(3, hi - lo)}%"></b><u style="left:${p.pace}%"></u></i><em>${lo}&ndash;${hi}</em></div>
           <div class="wz-cost">${cost}</div>`); }).join('');
-      const p = w.people[S.drivers[sel]]; next = p ? `Sign ${esc(p.first)} ${esc(p.last)}` : '';
+      const p = w.people[S.drivers[sel]]; next = p ? `${esc(p.first)} ${esc(p.last)}` : '';
     } else {
-      const t = WC.myTeam(w), mate = WC.mateOf(w), q = mate && w.people[mate.pid], d = WC.dealsOf(w).find(x => x.slot === 'title'), logo = d && this.src.sponsorLogo?.(d.sid);
-      title = 'Ready to go racing'; sub = 'Everything else (staff, tyres, upgrades, the rest of your week) is on the computer. Good luck.';
-      cards = `<div class="wz-ready"><div class="wz-team"><i style="background:${hex(t.main)};border-color:${hex(t.accent)}"></i><h2>${esc(t.name)}</h2><small>${esc(WC.facName(t, 'base'))} &middot; ${esc(WC.TOWNS[w.home]?.name || '')}</small></div>
-        <div class="wz-rows"><div><small>Car</small><b>${w.car ? `${w.car.year} ${esc(w.car.name)}` : 'None'}</b></div><div><small>Title sponsor</small><b>${logo ? `<img class="wz-logo sm" src="${logo}">` : ''}${d ? esc(WC.sponsorName(d.sid)) : 'None'}</b></div>
-          <div><small>Car 1</small><b>${esc(w.player.name)} (you)</b></div><div><small>Car 2</small><b class="wz-who">${q ? `${face(q, 28)}${esc(q.first)} ${esc(q.last)}` : 'Nobody'}</b></div><div><small>Staff</small><b>${(w.staff || []).map(x => esc(`${x.first} (${WC.ROLES[x.role].name.toLowerCase()})`)).join(', ') || 'Nobody yet'}</b></div>
-          <div><small>Money</small><b>${$(w.money.balance)}</b></div></div></div>`;
+      const t = WC.myTeam(w), e = WC.setupEntries(w).find(x => x.key === P.entry), ad = P.car && (w.ads || []).find(a => a.id === P.car), o = S.sponsors[P.sponsor], q = w.people[P.mate], logo = o && this.src.sponsorLogo?.(o.sid);
+      title = 'Ready to go racing'; sub = 'Check it over. Go back to change anything: nothing is bought or signed until you start the season.';
+      cards = `<div class="wz-ready"><div class="wz-team"><i style="background:${hex(t.main)};border-color:${hex(t.accent)}"></i><h2>${esc(t.name)}</h2><small>${esc(WC.TOWNS[w.home]?.name || '')}</small></div>
+        <div class="wz-rows"><div><small>Way in</small><b>${e ? esc(e.name) : ''}</b></div><div><small>Car</small><b>${ad ? `${ad.year} ${esc(ad.name)}` : P.entry === 'running' ? 'A good, developed car' : 'The old team\'s car (tired)'}</b></div>
+          <div><small>Title sponsor</small><b>${logo ? `<img class="wz-logo sm" src="${logo}">` : ''}${o ? esc(WC.sponsorInfo(o.sid).name) : ''}</b></div>
+          <div><small>Car 1</small><b>${esc(w.player.name)} (you)</b></div><div><small>Car 2</small><b class="wz-who">${q ? `${face(q, 28)}${esc(q.first)} ${esc(q.last)}` : ''}</b></div>
+          ${B.rows.map(([k, v]) => `<div><small>${v < 0 ? 'Pays' : 'Brings in'}</small><b class="${v < 0 ? '' : 'pos'}">${esc(k)}: ${v < 0 ? '-' : '+'}${$(Math.abs(v))}</b></div>`).join('')}
+          <div class="wz-total"><small>Money after</small><b class="${B.after < 0 ? 'neg' : ''}">${$(B.after)}</b></div></div></div>`;
       next = 'Start the season';
     }
-    return `<div class="wz">${side}<div class="wz-main"><div class="wz-head"><h1>${title}</h1><p>${sub}</p></div><div class="wz-cards s${step}">${cards}</div>
-      <div class="wz-foot"><span>Step ${step + 1} of 5</span><button class="pc-btn pri" data-nav data-act="wnext" data-key="wnext">${next ? `Next: ${next} &rsaquo;` : 'Next &rsaquo;'}</button></div></div></div>`;
+    return `<div class="wz">${side}<div class="wz-main"><div class="wz-head"><h1>${title}</h1><p>${sub}</p></div><div class="wz-cards s${step === 'mate' ? 3 : step === 'ready' ? 4 : 0}">${cards}</div>
+      <div class="wz-foot"><span>Step ${at + 1} of ${steps.length}</span><div class="wz-btns">${at > 0 ? '<button class="pc-btn" data-nav data-act="wback" data-key="wback">&lsaquo; Back</button>' : ''}<button class="pc-btn pri" data-nav data-act="wnext" data-key="wnext">${step === 'ready' ? 'Start the season &rsaquo;' : `Next${next ? `: ${next}` : ''} &rsaquo;`}</button></div></div></div></div>`;
   }
   // ---------- Team: running the team (a sidebar of sections) ----------
   teamFrame() {

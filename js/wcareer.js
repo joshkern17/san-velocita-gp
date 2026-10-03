@@ -1001,7 +1001,31 @@ function newSetup(w) {
   const drivers = [inherited, quick && quick.id, payer.id, kid.id].filter(Boolean);
   // what your scouting says they could become: a range around the truth
   const scout = Object.fromEntries(drivers.map(pid => { const p = w.people[pid], e = gauss(w) * 4, wid = 6 + rng(w) * 6; return [pid, [r0(clamp(p.pot + e - wid / 2, p.pace, 99)), r0(clamp(p.pot + e + wid / 2, p.pace + 2, 99))]]; }));
-  return { step: 0, entry: null, done: false, sponsors, drivers, scout };
+  return { step: 0, at: 0, picks: {}, inherited, entry: null, done: false, sponsors, drivers, scout };
+}
+// the wizard's steps for the picks so far (an entry that comes with a car skips the car), your picks recorded as you go
+// (Back and Next move freely; nothing's spent until setupApply, from the last step)
+export function setupSteps(w) { const e = w.setup?.picks?.entry; return ['entry', ...(e && e !== 'fresh' ? [] : ['car']), 'sponsor', 'mate', 'ready']; }
+export function setupPick(w, step, val) { const S = w.setup; if (!S || S.done) return; S.picks[step] = val; if (step === 'entry' && val !== 'fresh') delete S.picks.car; }
+export function setupMove(w, d) { const S = w.setup; if (!S) return; S.at = clamp((S.at || 0) + d, 0, setupSteps(w).length - 1); }
+// what your money would be after the picks so far: [{ what, amt }], and the total
+export function setupBudget(w) {
+  const S = w.setup, P = S.picks, rows = [];
+  const e = P.entry && setupEntries(w).find(x => x.key === P.entry); if (e && e.cost) rows.push([e.name, -e.cost]);
+  const ad = P.car && (w.ads || []).find(a => a.id === P.car); if (ad) rows.push([`${ad.year} ${ad.name}`, -ad.price]);
+  const o = P.sponsor != null && S.sponsors[P.sponsor]; if (o && o.signing) rows.push([`${sponsorById(o.sid).name}: signing bonus`, o.signing]);
+  const q = P.mate && w.people[P.mate]; if (q) { const a = askOf(w, q); if (a.fee) rows.push([`${q.first} ${q.last}: seat money`, a.fee]); }
+  return { rows, after: w.money.balance + rows.reduce((a, r) => a + r[1], 0) };
+}
+// do it all: the entry, the car, the sponsor, the driver, then the Wire hears about it
+export function setupApply(w) {
+  const S = w.setup, P = S.picks; if (!S || S.done) return { ok: false, why: 'Already done.' };
+  if (!P.entry || (P.entry === 'fresh' && !P.car) || P.sponsor == null || !P.mate) return { ok: false, why: 'Something is still to choose.' };
+  if (setupBudget(w).after < 0) return { ok: false, why: `That's more than you have. Go back and change something.` };
+  let r = setupEntry(w, P.entry); if (!r.ok) return r;
+  if (P.entry === 'fresh') { r = setupCar(w, P.car); if (!r.ok) return r; }
+  setupSponsor(w, P.sponsor); setupMate(w, P.mate); setupFinish(w);
+  return { ok: true };
 }
 // the three ways in (cost: what it takes out of your winnings)
 export function setupEntries(w) {
@@ -1026,19 +1050,16 @@ export function setupEntry(w, key) {
     if (c) { w.car = { chassis: c.key, name: c.name, cond: key === 'running' ? 0.92 : 0.6, paid: Math.round(c.value * (key === 'running' ? 0.9 : 0.5)), year: 1990 + Math.floor(rng(w) * 10) }; w.founding.car = true; carParts(w);
       if (key === 'running') w.car.dev = { power: 0.003, grip: 0.002, downforce: 0.01, brake: 0.006, rel: 0.1 }; }
     if (key === 'running') { const m = staffPerson(w, 'mechanic', 3); m.cv = 'Came with the team. Knows where everything is.'; w.staff.push(m); }
-    if (key === 'takeover') { const pid = w.teams[w.player.team].drivers.find(d => d !== 'P'), p = pid && w.people[pid]; if (p) { w.mate = { pid, wage: Math.round(askOf(w, p).wage * 0.8 / 50) * 50, fee: 0, until: w.year, pay: 'full', owed: 0, morale: 60 }; S.mateDone = true; } }
   }
-  S.step = w.car ? (S.mateDone ? 2 : 2) : 1;
   return { ok: true };
 }
-export function setupCar(w, adId) { if (!buyCar(w, adId)) return { ok: false, why: 'That car has gone.' }; w.setup.step = 2; return { ok: true }; }
+export function setupCar(w, adId) { if (!buyCar(w, adId)) return { ok: false, why: 'That car has gone.' }; return { ok: true }; }
 export function setupSponsor(w, i) {
   const S = w.setup, o = S && S.sponsors[i]; if (!o || S.sponsored) return { ok: false, why: 'Already chosen.' };
   const sp = sponsorById(o.sid); S.sponsored = o.sid;
   dealsOf(w).push({ sid: o.sid, slot: 'title', fee: o.fee, bonus: o.bonus, met: 0, misses: 0, since: w.year, obj: null, patience: o.patience });
   if (o.signing) pay(w, o.signing, `${sp.name}: signing bonus`);
   mail(w, sp.name, sponsorAddr(sp.name), 'Welcome aboard', [`We're delighted. Our name goes on the car from the first round.`, `${money$(o.fee)} a round, and ${money$(o.bonus)} more each time you meet the target we set for that race. ${o.brand ? o.brand + '.' : ''}`, sp.name]);
-  S.step = S.mateDone ? 4 : 3;
   return { ok: true };
 }
 export function setupMate(w, pid) {
@@ -1046,8 +1067,8 @@ export function setupMate(w, pid) {
   const T = w.teams[w.player.team], p = w.people[pid];
   for (const d of T.drivers.filter(d => d !== 'P' && d !== pid)) { const q = w.people[d]; T.drivers = T.drivers.filter(x => x !== d); if (q) { q.team = null; q.series = 'street'; } }
   if (!T.drivers.includes(pid)) { if (p.team) { const from = w.teams[p.team]; from.drivers = from.drivers.filter(x => x !== pid); } p.team = T.id; p.series = 'street'; T.drivers.push(pid); }
-  const a = askOf(w, p);
-  w.mate = { pid, wage: a.wage, fee: a.fee, until: w.year, pay: 'full', owed: 0, morale: 70 };
+  const a = askOf(w, p), kept = S.entry === 'takeover' && pid === S.inherited; // (the old team's driver, on the contract they had)
+  w.mate = { pid, wage: kept ? Math.round(a.wage * 0.8 / 50) * 50 : a.wage, fee: a.fee, until: w.year, pay: 'full', owed: 0, morale: kept ? 60 : 70 };
   if (a.fee) {
     pay(w, a.fee, `${p.last} ${p.biz || 'family'}: seat money for ${p.first}`);
     mail(w, `Gordon ${p.last}`, `gordon@${p.last.toLowerCase()}${(p.biz || 'family').split(' ')[0].toLowerCase()}.sv`, `${p.first}'s seat`,
@@ -1055,7 +1076,7 @@ export function setupMate(w, pid) {
        `${p.first} tells me they are very fast. I have never seen them drive, because I am busy running ${p.last} ${p.biz || 'Holdings'}, the third largest name in ${(p.biz || 'holdings').toLowerCase()} in the province.`,
        `Please put our name on the car somewhere tasteful.`, `Gordon ${p.last}`]);
   }
-  S.mateDone = true; S.step = 4;
+  S.mateDone = true;
   return { ok: true };
 }
 // done: the Wire hears about it

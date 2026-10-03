@@ -1419,10 +1419,17 @@ const pc = new Computer({
   },
   // the Team Setup Wizard
   setup: (what, arg) => {
-    const r = what === 'entry' ? WC.setupEntry(world, arg) : what === 'car' ? WC.setupCar(world, arg) : what === 'sponsor' ? WC.setupSponsor(world, arg) : what === 'mate' ? WC.setupMate(world, arg) : (WC.setupFinish(world), { ok: true });
+    const w = world;
+    if (what === 'back') { WC.setupMove(w, -1); sfx.back(); saveWorld(); return; }
+    if (what === 'pick') {
+      const [step, val] = arg, was = w.setup.picks[step];
+      WC.setupPick(w, step, val);
+      if (WC.setupBudget(w).after < 0) { WC.setupPick(w, step, was); sfx.error(); toast(`That's more than you have (${WC.money$(w.money.balance)}).`, 4000); return; }
+      WC.setupMove(w, 1); sfx.select(); saveWorld(); return;
+    }
+    const r = WC.setupApply(w);
     if (!r.ok) { sfx.error(); toast(r.why, 4000); return; }
-    sfx.best(); updateLogoShown(); saveWorld(); pitGarage.setCar(hubCar()); renderHub();
-    if (what === 'finish') { phone.buzz(); setTimeout(() => standUp(), 400); }
+    sfx.best(); updateLogoShown(); saveWorld(); pitGarage.setCar(hubCar()); renderHub(); phone.buzz(); setTimeout(() => standUp(), 400);
   },
   sponsorLogo: (sid) => assets.get(logoOf({ sid })),
   // the Team app: facilities and projects

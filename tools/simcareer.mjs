@@ -146,11 +146,11 @@ function career(P, s) {
   WC.claimLottery(w, P.annuity ? 'annuity' : 'lump');
   // the setup wizard: the entry (--entry=fresh|takeover|running), a car if it didn't come with one, the steady sponsor,
   // a second driver (--mate=pay|quick|kid|keep)
-  if (WC.setupEntry(w, ENTRY).ok === false) WC.setupEntry(w, 'fresh');
-  if (!w.car) { const ad = w.ads[Math.min(1, w.ads.length - 1)]; WC.setupCar(w, ad.id); }
-  WC.setupSponsor(w, 1);
-  if (!w.setup.mateDone) WC.setupMate(w, w.setup.drivers[{ keep: 0, quick: 1, pay: 2, kid: 3 }[MATE] ?? 2] || w.setup.drivers[0]);
-  WC.setupFinish(w);
+  WC.setupPick(w, 'entry', ENTRY); if (WC.setupBudget(w).after < 0) WC.setupPick(w, 'entry', 'fresh');
+  if (w.setup.picks.entry === 'fresh') WC.setupPick(w, 'car', w.ads[Math.min(1, w.ads.length - 1)].id);
+  WC.setupPick(w, 'sponsor', 1);
+  WC.setupPick(w, 'mate', w.setup.drivers[{ keep: 0, quick: 1, pay: 2, kid: 3 }[MATE] ?? 2] || w.setup.drivers[0]);
+  const ok = WC.setupApply(w); if (!ok.ok) console.error('setup', ok.why);
   w.simSkill = GT ? 0.02 : SKILL;
   const out = { start: w.money.balance, low: w.money.balance, bal: [], pos: [], broke: null, rounds: 0, flags: {}, gt: [] };
   for (let y = 0; y < SEASONS && out.broke == null; y++) {
