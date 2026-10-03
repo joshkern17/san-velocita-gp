@@ -798,7 +798,7 @@ function planWeek(w) {
   if (rng(w) < (broke ? 0.5 : 0.22)) {
     const pot = Math.round((1200 + rng(w) * 1600) * (broke ? 1.25 : 1) * K / 100) * 100, who = pickLine(w, ['Vince', 'a guy called Marco', 'Big Steve', 'Tash', 'Dmitri', 'this kid Jayden']);
     offerGig(w, newGig(w, 'street', { title: 'Street race', client: who, pay: pot, laps: 2, night: true, theme: 'city' }), 'Danny', 'dannyboy1979@coolmail.sv', 'friday',
-      [`so ${who} wants to race u. friday night, industrial estate, two laps`, `${money$(pot)} cash. winner takes it`, `cops dont really go there. mostly`]);
+      [`Yo so ${who} wants to race you. Friday night, the industrial estate, two laps`, `${money$(pot)} cash, winner takes it`, `Cops don't really go there. Mostly`]);
   }
   // a sponsor's event
   const deals = dealsOf(w);
@@ -914,7 +914,7 @@ function rateGig(w, s) {
 function noShows(w, wk) {
   for (const g of wk.booked) if (!g.done) {
     if (GIG_KINDS[g.kind].site) rateGig(w, 1);
-    else if (g.kind === 'street') text(w, 'Danny', `${g.client} says u bottled it. i said u were busy. were u busy`);
+    else if (g.kind === 'street') texts(w, 'Danny', [`${g.client} says you bottled it`, `I told him you were busy`, `Were you busy`]);
     else mail(w, g.client, 'noreply@svtrackdays.sv', 'Where were you?', [`We had you down for this week and you didn't turn up. We won't be booking you again for a while.`, g.client]);
   }
 }
@@ -986,7 +986,7 @@ const TEMPTS = {
     offer(w) {
       const price = 1200 * KS(w);
       mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'the chip',
-        [`my mate kev does engine maps. he plugged a laptop into a car at the gas station once and it went faster`, `he says ur car is leaving power on the table. ${money$(price)} fitted`, `its not technically legal. but technically nobody checks at street level. kev says`],
+        [`Bro my boy Kev does engine maps. He plugged a laptop into a car at the gas station once and it went faster`, `He says your car's leaving power on the table. ${money$(price)} fitted`, `It's not technically legal. But technically nobody checks at street level. Kev says`],
         { tempt: 'grey', price, choices: [['yes', `Have Kev fit it (${money$(price)})`], ['no', 'No']] });
     } },
   shady: { base: 0.12, min: 0.3, ok: (w) => !dealsOf(w).some(d => d.shady) && dealsOf(w).length < SPONSOR_SLOTS.length,
@@ -1008,14 +1008,14 @@ const TEMPTS = {
     offer(w) {
       const stake = 1500 * KS(w);
       mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'lenny',
-        [`my guy lenny takes bets on the street cup. hes got u at long odds which is rude`, `top 5 this weekend pays 3 to 1. or (and im just saying this because lenny said it) finishing outside the top 8 pays 2 to 1`, `${money$(stake)} stake. cash`],
+        [`Yo my guy Lenny takes bets on the Street Cup. He's got you at long odds which is kinda disrespectful`, `Top 5 this weekend pays 3 to 1. Or, and I'm only saying this cause Lenny said it, finishing outside the top 8 pays 2 to 1`, `${money$(stake)} stake. Cash`],
         { tempt: 'bet', stake, choices: [['for', 'Bet on yourself: top 5'], ['against', 'Bet against yourself: outside the top 8'], ['no', 'No']] });
     } },
   insure: { base: 0.08, min: 0.6, ok: (w) => w.car && !w.fraud && !w.flags?.fraudCaught,
     offer(w) {
       const pay = Math.round((w.car.paid || 20000) * 0.9 / 100) * 100;
       mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'an idea (delete this)',
-        [`ok so a guy at the gas n go says cars catch fire all the time. especially old ones. especially in garages`, `ur insured for ${money$(pay)}. hes done it twice. third time is the charm he says`, `ill delete this email after u read it. i dont know how to do that actually`],
+        [`Ok hear me out. Guy at the Gas-N-Go says cars catch fire all the time. Especially old ones. Especially in garages`, `You're insured for ${money$(pay)}. He's done it twice. Says third time's the charm`, `Imma delete this email after you read it. Idk how to do that actually`],
         { tempt: 'insure', pay, choices: [['yes', 'Let the car "catch fire"'], ['no', 'No']] });
     } },
 };
@@ -1080,7 +1080,7 @@ function temptRound(w, use, me) {
     if (rng(w) < Math.min(0.035, 0.008 + 0.003 * w.grey.uses)) {
       dsq(); items.push(['Fine: illegal engine software', -2000 * K]); w.grey = null; flag(w, 'greyCaught');
       news(w, `${w.teams[w.player.team].name.toUpperCase()} DISQUALIFIED`, `Scrutineers found unapproved engine software on the car after the race at ${w.series[w.player.series].cal[w.round].name}. The team says it was fitted by a third party.`);
-      text(w, 'Danny', `kev says he has never met u`);
+      texts(w, 'Danny', [`So Kev says he's never met you`, `Just so you know`]);
     }
   }
   if (w.bet && w.bet.key === key && me) {
@@ -1099,8 +1099,8 @@ function temptRound(w, use, me) {
     if (w.money.balance >= l.owe) { items.push(['Loan repaid (Sal)', -l.owe]); l.paid = true; text(w, 'Sal', `Pleasure doing business.`); continue; }
     l.missed++; l.due = nowIdx(w) + 1; l.owe += 3000 * K;
     if (l.missed === 1) text(w, 'Sal', `You're late. That's fine. It's ${money$(l.owe)} now.`);
-    else if (l.missed === 2) { const P = carParts(w); if (P) P.chassis.cond = +Math.max(0.1, P.chassis.cond - 0.3).toFixed(3); text(w, 'Danny', `someone was at the garage last night. the car is ok. mostly. sal says hi`); }
-    else { const take = l.owe; items.push(['Collected (Sal)', -take]); l.paid = true; text(w, 'Danny', `sal took the money from ur account. i didnt know u could do that. he was very polite about it`); }
+    else if (l.missed === 2) { const P = carParts(w); if (P) P.chassis.cond = +Math.max(0.1, P.chassis.cond - 0.3).toFixed(3); texts(w, 'Danny', [`Yo someone was at the garage last night`, `Car's ok. Mostly`, `Sal says hi`]); }
+    else { const take = l.owe; items.push(['Collected (Sal)', -take]); l.paid = true; texts(w, 'Danny', [`Bro Sal took the money straight out of your account`, `Didn't know you could do that`, `He was real polite about it tho`]); }
   }
   return items;
 }
@@ -1245,22 +1245,22 @@ const ARCS = {
     start(w, a) {
       const x = w.staff.find(s => s.danny);
       a.wait = mailId(w, 'Danny', 'dannyboy1979@coolmail.sv', 'so',
-        [`so the tyre place on route 9 offered me a job. assistant manager. dental plan`, `i said id think about it. ive thought about it a bit. i dont want to go`, `but u owe me ${money$(x.owed)} and my landlord doesnt know what a racing team is`],
+        [`Yo so the tyre place on Route 9 offered me a job. Assistant manager. Dental plan and everything`, `Told them I'd think about it. I thought about it a little. I don't wanna go`, `But you owe me ${money$(x.owed)} and my landlord doesn't know what a racing team is`],
         { arc: a.id, choices: [['pay', `Pay him the ${money$(x.owed)}`], ['wait', 'Ask him to hang on'], ['go', 'Tell him to take the job']] });
     },
     step(w, a) {
       if (a.asked && !a.wait) { // (he hung on once; it's still not paid)
         const x = (w.staff || []).find(s => s.danny);
-        if (x && x.owed > 0) { fireStaff(w, x.id); text(w, 'Danny', `took the tyre job. still ur friend. still owed ${money$(x.owed)} but whatever. come by and ill do u a deal on tyres`); w.dannyGone = true; }
+        if (x && x.owed > 0) { fireStaff(w, x.id); texts(w, 'Danny', [`Took the tyre job`, `Still your boy. Still owed ${money$(x.owed)} but whatever`, `Come by and I'll hook you up on tyres`]); w.dannyGone = true; }
         a.done = true;
       }
     },
     answer(w, a, m, key) {
       const x = (w.staff || []).find(s => s.danny); a.wait = null;
       if (!x) { a.done = true; return null; }
-      if (key === 'pay') { if (w.money.balance < x.owed) return (a.wait = m.id, { err: "You don't have it." }); payBack(w, x.id); x.morale = 100; w.dannyLoyal = true; a.done = true; text(w, 'Danny', `ur a good friend. i told the tyre guy no. he said "ok" which was hurtful`); return { msg: 'Danny stays.' }; }
+      if (key === 'pay') { if (w.money.balance < x.owed) return (a.wait = m.id, { err: "You don't have it." }); payBack(w, x.id); x.morale = 100; w.dannyLoyal = true; a.done = true; texts(w, 'Danny', [`You're a real one`, `Told the tyre guy no. He said "ok" which kinda hurt`]); return { msg: 'Danny stays.' }; }
       if (key === 'wait') { a.asked = true; a.at = nowIdx(w) + 2; x.morale = clamp(x.morale - 10, 0, 100); return { msg: 'Danny will wait. For a bit.' }; }
-      fireStaff(w, x.id); w.dannyGone = true; a.done = true; text(w, 'Danny', `ok. no hard feelings. ill still send u stuff i find on svlist`); return { msg: 'Danny has taken the tyre job.' };
+      fireStaff(w, x.id); w.dannyGone = true; a.done = true; texts(w, 'Danny', [`All good, no hard feelings`, `I'll still send you stuff I find on SVList`]); return { msg: 'Danny has taken the tyre job.' };
     } },
   ex: { kind: 'minor', cool: 99,
     trigger: (w) => !w.flags?.exDone && w.round >= 2 && ((lastMe(w) && !lastMe(w).dnf && lastMe(w).pos <= 3) || rng(w) < 0.12),
@@ -1470,10 +1470,10 @@ export function registerTeam(w, f) {
   w.staff = []; w.jobs = makeJobs(w);
   // (the previous team left a couple of things behind)
   w.tyreStock = { soft: 0, medium: 0, hard: 0, wet: 0 }; w.usedTyres = [{ c: 'medium', wf: 0.72, wr: 0.7 }, { c: 'medium', wf: 0.55, wr: 0.58 }];
-  mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'found u a car',
-    [`saw the lottery thing on the news. congrats man!!! also saw the divorce thing on the news. less congrats`,
-     `anyway if ur doing the racing team thing u need a car. there's some good ones on the classifieds rn. the cheap one is probably fine. probably`,
-     `ps i can be ur team manager. i have managed a team before (fantasy football, 2nd place)`],
+  mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'found you a car',
+    [`Yo. Saw the lottery thing on the news. Congrats dude, for real`, `Also saw the divorce thing on the news. Less congrats`,
+     `Anyway if you're doing the racing team thing you need a car. There's some good ones on the classifieds rn. The cheap one's probably fine. Probably`,
+     `Ps I could be your team manager. I've managed a team before (fantasy football, 2nd place)`],
     { link: ['classifieds', 'Open the classifieds'] });
 }
 // the classifieds: a few used street cars, of very variable honesty
@@ -1616,7 +1616,7 @@ export function refreshUsedParts(w) {
   // Danny knows a guy (some rounds)
   if (w.dannyHired && rng(w) < 0.4) {
     const deal = w.usedParts[Math.floor(rng(w) * w.usedParts.length)]; deal.price = Math.round(deal.price * 0.7 / 50) * 50; deal.danny = true;
-    text(w, 'Danny', pickLine(w, [`my cousin is selling a ${deal.name.toLowerCase()}. its on svlist. says he'll do ${money$(deal.price)}`, `found a ${deal.name.toLowerCase()} on svlist, guy owes me a favour. ${money$(deal.price)}`]));
+    texts(w, 'Danny', pickLine(w, [[`Yo my cousin's selling a ${deal.name}`, `It's on SVList. Says he'll do ${money$(deal.price)}`], [`Found a ${deal.name} on SVList`, `Guy owes me a favor. ${money$(deal.price)}`]]));
   }
 }
 // how an upgrade feels from the driver's seat (honest-ish: you can fool yourself)
@@ -1685,7 +1685,7 @@ export function hireStaff(w, id) {
   const old = staffOf(w, c.role); if (old) fireStaff(w, old.id, true);
   w.staff = w.staff || []; w.staff.push({ ...c, hired: w.year, morale: c.danny ? 95 : 70 });
   w.jobs = w.jobs.filter(j => j !== c);
-  if (c.danny) { w.dannyHired = true; text(w, 'Danny', pickLine(w, [`no way!!! ur not gonna regret this`, `TEAM MANAGER. i'm telling my mom`])); }
+  if (c.danny) { w.dannyHired = true; texts(w, 'Danny', pickLine(w, [[`No way`, `Bro you're not gonna regret this`], [`TEAM MANAGER`, `I'm telling my mom`]])); }
   else { mail(w, `${c.first} ${c.last}`, `${c.first.toLowerCase()}.${c.last.toLowerCase()}@coolmail.sv`, `Re: ${ROLES[c.role].name}`, [`Thank you for the offer. I accept. I can start before the next round.`, `${c.first} ${c.last}`]);
     react(w, 'danny', `The player just hired ${c.first} ${c.last}, ${c.age}, as their ${ROLES[c.role].name.toLowerCase()}, for ${money$(wageNow(w, c))} a round. What their CV says: ${c.cv}`); }
   return true;
@@ -1695,7 +1695,7 @@ export function fireStaff(w, id, replaced = false) {
   const x = (w.staff || []).find(s => s.id === id); if (!x) return;
   w.staff = w.staff.filter(s => s !== x);
   if (x.owed > 0) w.wageClaims = (w.wageClaims || 0) + x.owed;
-  if (x.danny) { w.dannyGone = true; text(w, 'Danny', replaced ? `oh. ok. no that's fine. that makes sense` : `wow ok`); }
+  if (x.danny) { w.dannyGone = true; texts(w, 'Danny', replaced ? [`Oh`, `Ok. No that's fine, that makes sense`] : [`Wow ok`]); }
   else if (!replaced) react(w, 'danny', `The player just let ${x.first} ${x.last} go: the team's ${ROLES[x.role]?.name.toLowerCase() || 'staff member'}${x.owed ? `, still owed ${money$(x.owed)} in wages` : ''}.`);
 }
 // the data engineer: how much of the telemetry you can read (0 nothing, 1 the charts, 2 the notes too)
@@ -1733,7 +1733,7 @@ export function runPayroll(w) {
         [`I'm resigning, effective immediately.`, `I am owed ${money$(x.owed)}. I've been advised to take it up with the labour board, and I have.`, `${x.first}`]);
       if (x.owed >= wage * 2) news(w, `${w.teams[w.player.team].name.toUpperCase()} STAFF UNPAID, SOURCES SAY`, `A former ${ROLES[x.role].name.toLowerCase()} at the Street Cup newcomers says wages have gone unpaid for weeks.`);
       fireStaff(w, x.id);
-    } else if (x.danny && x.unpaidRounds === 2) text(w, 'Danny', `hey so the payroll thing. no rush. just my landlord is asking`);
+    } else if (x.danny && x.unpaidRounds === 2) texts(w, 'Danny', [`Hey so the payroll thing`, `No rush`, `My landlord's just asking`]);
   }
 }
 // paying back what's owed
@@ -1909,6 +1909,9 @@ export function text(w, from, body, extra = {}) {
   w.msgs.unshift({ id: 'm' + (w.nextId++), y: w.year, r: w.round, from, body, read: false, ...extra });
   if (w.msgs.length > 80) w.msgs.length = 80;
 }
+// a few texts in a row, the way people send them (filed last-first: the phone's inbox has the newest on top, so they
+// read top to bottom)
+export function texts(w, from, lines) { for (const l of lines.slice().reverse()) text(w, from, l); }
 export const unread = (w) => w.msgs.filter(m => !m.read).length;
 // ---------------- reactions: someone writes to you about something you just did ----------------
 // Only with character voices on (js/voice.js + ChatGPT): the game decides who reacts and gives them the facts; the

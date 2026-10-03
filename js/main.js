@@ -1754,7 +1754,7 @@ function runVoices() {
   const ctx = `${w.player.name.split(' ')[0]}, owner-driver of ${w.teams[w.player.team].name} in the ${seriesName(w.player.series)}, ${w.year} season, round ${w.round + 1} of ${w.opts.len}. ${cp && w.series[w.player.series].results.length ? `${ord(cp)} in the championship.` : 'No races yet.'} ${w.money ? `Bank: ${WC.money$(w.money.balance)}.` : ''} ${B.watch.slice(0, 2).map(x => x.text).join('. ')}`;
   voiceReacts(w, ctx, (r, text) => {
     if (r.who === 'rival') WC.mail(w, r.from, r.addr, pick(['A note', 'This weekend', 'Re: your season']), text.split(/\n\s*\n/).filter(Boolean), { voiced: true });
-    else WC.text(w, r.from, text, { voiced: true });
+    else { const lines = text.split(/\n+/).map(x => x.trim()).filter(Boolean).slice(0, 3); for (const l of lines.reverse()) WC.text(w, r.from, l, { voiced: true }); } // (a burst of texts, read top to bottom)
     saveWorld(); phone.buzz(); if (screen === 's-hub') { renderHubMenu(); if (pc.isOpen) pc.render(); }
   });
 }
