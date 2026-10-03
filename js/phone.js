@@ -83,13 +83,26 @@ export class Phone {
   hide() { this.state = 'hidden'; this.target = 0; }
   open(page = 'home', msg = null) {
     this.state = 'open'; this.target = 1; this.page = page; this.sel = 0; this.scroll = 0; this.cur = msg; this.dirty = true;
-    if (msg) this.readMsg(msg);
+    if (msg) this.openThread(msg.from);
     this.src.sfx?.select?.();
   }
   close() { if (this.state !== 'open') return; this.state = 'peek'; this.target = 0.35; this.page = 'home'; this.sel = 0; this.dirty = true; this.src.sfx?.back?.(); }
   buzz() { this.buzzT = 1.1; this.dirty = true; this.src.sfx?.buzz?.(); }
   refresh() { this.dirty = true; }
   readMsg(m) { if (m && !m.read) { m.read = true; this.src.read?.(m); } }
+  // texts come in threads, one per person: [{ from, msgs (newest first) }], the most recent conversation first
+  threads() {
+    const by = new Map();
+    for (const m of this.src.msgs()) { if (!by.has(m.from)) by.set(m.from, { from: m.from, msgs: [] }); by.get(m.from).msgs.push(m); }
+    return [...by.values()];
+  }
+  thread() { return this.threads().find(t => t.from === this.who) || { from: this.who || '', msgs: [] }; }
+  // open one: everything in it is read, the newest at the bottom (and a question still waiting is the one to answer)
+  openThread(from) {
+    this.who = from; this.page = 'msg'; this.sel = 0; this.scroll = 1e6;
+    const t = this.thread(); for (const m of t.msgs) this.readMsg(m);
+    this.cur = t.msgs.find(m => m.choices && !m.answer) || t.msgs[0] || null;
+  }
 
   // ---------- input (while open) ----------
   input({ up, down, ok, back }) {
@@ -105,7 +118,7 @@ export class Phone {
   }
   items() {
     if (this.page === 'home') return [{ k: 'msgs', t: 'Messages' }, ...(this.src.news ? [{ k: 'news', t: 'News' }] : []), { k: 'exit', t: 'Put away' }]; // (World Career's news is on the computer)
-    if (this.page === 'msgs') return this.src.msgs().map(m => ({ k: 'm', m }));
+    if (this.page === 'msgs') return this.threads().map(t => ({ k: 't', t }));
     if (this.page === 'news') return (this.src.news ? this.src.news() : []).map(n => ({ k: 'n', n }));
     if (this.page === 'msg' && this.cur?.choices && !this.cur.answer) return this.cur.choices.map(([key, t]) => ({ k: 'c', key, t }));
     return [];
@@ -114,9 +127,9 @@ export class Phone {
     this.lastSel = this.lastSel || {}; this.lastSel[this.page] = this.sel;
     if (it.k === 'exit') return this.close();
     if (it.k === 'msgs' || it.k === 'news') { this.page = it.k; this.sel = 0; this.src.sfx?.select?.(); return; }
-    if (it.k === 'm') { this.cur = it.m; this.readMsg(it.m); this.page = 'msg'; this.sel = 0; this.scroll = 0; this.src.sfx?.select?.(); return; }
+    if (it.k === 't') { this.openThread(it.t.from); this.src.sfx?.select?.(); return; }
     if (it.k === 'n') { this.cur = it.n; this.page = 'item'; this.sel = 0; this.scroll = 0; this.src.sfx?.select?.(); return; }
-    if (it.k === 'c') { this.cur.answer = it.key; this.src.choose?.(this.cur, it.key); this.sel = 0; this.src.sfx?.select?.(); }
+    if (it.k === 'c') { this.cur.answer = it.key; this.src.choose?.(this.cur, it.key); this.openThread(this.who); this.src.sfx?.select?.(); }
   }
 
   // ---------- the LCD: a 112x140 dot matrix, a 5x7 pixel font, upscaled with hard pixels ----------
@@ -134,7 +147,7 @@ export class Phone {
     c.fillRect(1, 10, LW - 2, 1);
     const body = { x: 2, y: 13, w: LW - 6, h: LH - 13 - 11 };
     if (this.state !== 'open') this.drawIdle(c, body, unread);
-    else if (this.page === 'msg') this.drawText(c, body, this.cur.from.toUpperCase(), this.cur.body, true);
+    else if (this.page === 'msg') this.drawThread(c, body);
     else if (this.page === 'item') this.drawText(c, body, this.cur.head, this.cur.body, false);
     else this.drawList(c, body);
     // soft keys
@@ -169,7 +182,7 @@ export class Phone {
       const k = this.scroll + i, it = items[k], y = top + i * rowH, on = k === this.sel;
       let s = it.t;
       if (it.k === 'msgs') { const u = this.src.msgs().filter(m => !m.read).length; s = `Messages${u ? ` (${u})` : ''}`; }
-      if (it.k === 'm') s = `${it.m.read ? ' ' : '*'}${it.m.from}: ${it.m.body}`;
+      if (it.k === 't') { const u = it.t.msgs.filter(m => !m.read).length; s = `${u ? '*' : ' '}${it.t.from}${u > 1 ? ` (${u})` : ''}: ${it.t.msgs[0].body}`; }
       if (it.k === 'n') s = it.n.head;
       if (on) { c.fillStyle = LCD.ink; c.fillRect(b.x - 1, y, b.w + 2, rowH); c.fillStyle = LCD.bg; }
       txt(c, fit(s, b.w), b.x, y + 2);
@@ -177,11 +190,21 @@ export class Phone {
     }
     if (items.length > rows) { const h = Math.max(3, Math.round((b.h - 12) * rows / items.length)), y = top + Math.round((b.h - 12 - h) * this.scroll / (items.length - rows)); c.fillRect(LW - 2, y, 1, h); }
   }
-  drawText(c, b, head, text, isMsg) {
+  // a conversation: oldest at the top, a blank line between texts, your answers marked >
+  drawThread(c, b) {
+    const t = this.thread(), parts = [];
+    for (const m of t.msgs.slice().reverse()) {
+      parts.push(String(m.body));
+      const a = m.choices && m.answer ? m.choices.find(ch => ch[0] === m.answer) : null;
+      if (a) parts.push('> ' + a[1]);
+    }
+    this.drawText(c, b, t.from.toUpperCase(), parts.join('\n\n'), true, true);
+  }
+  drawText(c, b, head, text, isMsg, thread = false) {
     const choices = isMsg && this.cur.choices ? this.cur.choices : null;
     const answered = choices && this.cur.answer ? choices.find(ch => ch[0] === this.cur.answer) : null;
     const lines = wrap(text, b.w);
-    if (answered) lines.push('', ...wrap('> ' + answered[1], b.w));
+    if (answered && !thread) lines.push('', ...wrap('> ' + answered[1], b.w));
     const all = [...wrap(head, b.w).map(l => ({ l, head: true })), { l: '' }, ...lines.map(l => ({ l }))];
     const rowH = 9, room = Math.floor((b.h - (choices && !answered ? choices.length * 11 + 3 : 0)) / rowH);
     this.scroll = Math.max(0, Math.min(this.scroll, all.length - room));
