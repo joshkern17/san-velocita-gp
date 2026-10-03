@@ -1492,6 +1492,33 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .hp-bm small { display: block; color: #666; }
 .hp-bm.f { background: #fff3b8; outline: 1px dotted #111; }
 
+/* customer racing (the computer): homologated cars, bought or leased */
+.cr-head { display: flex; align-items: baseline; gap: 10px; padding: 10px 14px; background: #14161a; color: #fff; border-bottom: 3px solid #c8141c; }
+.cr-head b { font: bold 20px Arial, sans-serif; letter-spacing: -0.02em; }
+.cr-head span { font: bold 12px Arial, sans-serif; text-transform: uppercase; color: #c8141c; letter-spacing: 0.06em; }
+.cr-head small { margin-left: auto; color: #aaa; font-size: 12px; }
+.cr-body { padding: 4px 14px 14px; max-height: 360px; overflow-y: auto; }
+.cr-body h2 { font: bold 13px Arial, sans-serif; text-transform: uppercase; color: #555; margin: 12px 0 4px; letter-spacing: 0.04em; }
+.cr-row { display: grid; grid-template-columns: 78px 1fr auto; align-items: center; gap: 12px; padding: 6px 4px; border-bottom: 1px solid #e4e4e4; }
+.cr-row b { display: block; font-size: 15px; }
+.cr-row small { color: #666; }
+.cr-row.f { background: #ffecea; outline: 1px dotted #111; }
+.cr-thumb { display: block; width: 78px; height: 50px; object-fit: cover; border: 1px solid #ccc; }
+.cr-photo { display: block; width: 300px; height: 195px; object-fit: cover; border: 1px solid #ccc; }
+.cr-thumb.none, .cr-photo.none { display: grid; place-items: center; background: #eee; color: #aaa; font-size: 10px; }
+.cr-price { text-align: right; font-weight: bold; color: #14161a; font-size: 15px; }
+.cr-price small { display: block; font-weight: normal; color: #777; font-size: 11px; }
+.cr-page { padding: 10px 16px; max-height: 360px; overflow-y: auto; }
+.cr-page h1 { margin: 0 0 2px; font-size: 20px; }
+.cr-top { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: start; margin-bottom: 8px; }
+.cr-prog { margin: 0 0 6px; color: #c8141c; font-weight: bold; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+.cr-note { font-style: italic; color: #444; margin: 8px 0 0; }
+.cr-own, .cr-old { margin: 8px 0 2px; color: #333; }
+.cr-deal { display: grid; grid-template-columns: 110px 1fr auto; align-items: center; gap: 4px 12px; padding: 8px 10px; margin-top: 6px; background: #f3f3f3; border-left: 3px solid #14161a; }
+.cr-deal > b { font-size: 16px; }
+.cr-deal > small { color: #444; }
+.cr-deal .neg { grid-column: 2; }
+
 /* the hub's tags over the car's parts (as the computer's tag); the worn ones pulse */
 .car-tags { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
 .car-tag { pointer-events: auto; }
@@ -1610,3 +1637,6 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 
 /* the opening (js/opening.js): the set, for now */
 #s-opening .op-hint { position: absolute; right: 28px; bottom: 22px; font: 500 14px 'SV UI', sans-serif; letter-spacing: -0.02em; color: rgba(255,255,255,0.55); }
+.ws-rules { margin: 4px 0 6px; font-size: 13px; color: #333; }
+.ws-prog { color: #777; font-style: italic; }
+.cr-deal > button { grid-column: 3; grid-row: 1 / span 2; }

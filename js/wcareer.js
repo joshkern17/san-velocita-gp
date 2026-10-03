@@ -10,10 +10,14 @@ import { knobsFor, ratingGap } from './aiskill.js';
 // ---------------- data ----------------
 export const SEASON_LENGTHS = [4, 6, 8, 12];
 export const POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+// car: how you get a car for it (see 'moving up'): 'classifieds' (any road car, second-hand), 'customer' (homologated
+// race cars from the makers' customer racing programmes: new, leased by the season, or ex-works), 'spec' (the series'
+// one chassis, leased from the series). price: what a new car costs, cheapest to dearest. ballast: success ballast and
+// balance of performance. gents: gentleman drivers pay for the second seat.
 export const SERIES = [
-  { id: 'street', name: 'Street Cup', cls: 'street', tier: 0, base: 50, spread: 14 },
-  { id: 'gt', name: 'GT Championship', cls: 'gt1', tier: 1, base: 63, spread: 12 },
-  { id: 'formula', name: 'Formula SV', cls: 'f1', tier: 2, base: 76, spread: 10 },
+  { id: 'street', name: 'Street Cup', cls: 'street', tier: 0, base: 50, spread: 14, car: 'classifieds' },
+  { id: 'gt', name: 'GT Championship', cls: 'gt1', tier: 1, base: 63, spread: 12, car: 'customer', price: [240000, 330000], ballast: true, gents: true },
+  { id: 'formula', name: 'Formula SV', cls: 'f1', tier: 2, base: 76, spread: 10, car: 'spec', price: [900000, 900000], gents: true },
 ];
 export const seriesById = (id) => SERIES.find(s => s.id === id);
 const TEAMS_PER = 6, SEATS = 2;
@@ -82,6 +86,7 @@ export const TRAITS = {
   mentor:    { name: 'Mentor', desc: 'An old hand. Their teammate goes quicker for having them around.' },
   metronome: { name: 'Metronome', desc: 'Same lap time, every lap. Rarely spectacular.' },
   paydriver: { name: 'Pay driver', desc: 'Brings their own money. Not always the quickest.' },
+  gentleman: { name: 'Gentleman driver', desc: 'Pays handsomely for the seat. Has a day job, and it shows.' },
 };
 function giveTraits(w, p) {
   p.traits = [];
@@ -108,13 +113,14 @@ export function mateOf(w) {
   if (!w.mate || w.mate.pid !== pid) {
     // (a contract for whoever is in the seat: the pay driver you inherited, or someone the series placed there)
     const pd = w.payDriver && w.payDriver.pid === pid ? w.payDriver : null;
-    w.mate = { pid, wage: pd ? 0 : askOf(w, w.people[pid]).wage, fee: pd ? pd.fee : 0, until: w.year, pay: 'full', owed: 0, morale: 65 };
+    w.mate = { pid, wage: pd ? 0 : askOf(w, w.people[pid]).wage, fee: pd ? pd.fee : 0, until: w.year, pay: 'full', owed: 0, morale: 65, auto: !pd };
   }
   return w.mate;
 }
 // what a driver wants: a wage a round (scaled to your series), or a pay driver's money a season
 export function askOf(w, p) {
   const k = WAGE_K[w.player.series] || 1, t = traitsOf(w, p);
+  if (t.includes('gentleman')) return { wage: 0, fee: p.purse || 150000 };
   if (t.includes('paydriver')) return { wage: 0, fee: Math.round((25000 + (60 - Math.min(60, p.pace)) * 900) * (k > 1 ? k * 0.6 : 1) / 500) * 500 };
   let wage = DRIVER_WAGE(p.pace) * k;
   if (t.includes('digger')) wage *= 1.3; if (t.includes('loyal')) wage *= 0.8; if (p.titles) wage *= 1 + 0.15 * p.titles;
@@ -150,7 +156,8 @@ export function offerDriver(w, pid, lowball = false) {
   const cur = mateOf(w), team = w.teams[w.player.team];
   let comp = 0;
   if (cur) {
-    const q = w.people[cur.pid], left = cur.until >= w.year && !w.over ? (w.opts.len - w.round) : 0;
+    // (someone the series put in the seat, let go before they've raced for you: nothing owed)
+    const q = w.people[cur.pid], left = cur.until >= w.year && !w.over && !(cur.auto && w.round === 0) ? (w.opts.len - w.round) : 0;
     comp = left * cur.wage + (cur.owed || 0);
     if (comp) pay(w, -comp, `Released ${q.first} ${q.last}: rest of the contract`);
     if (left) { w.drep = clamp(drepOf(w) - 8, 0, 100); news(w, `${team.name.toUpperCase()} DROPS ${q.last.toUpperCase()}`, `${nameOf(q)} is out of the team mid-season.`); }
@@ -467,6 +474,7 @@ function afterRound(w, me) {
   const before = {};
   for (const s of SERIES) if (s.id !== w.player.series) { const rows = simRace(w, s.id); scoreRound(w, s.id, rows); }
   roundNews(w, me);
+  ballastRound(w, me);
   w.round++;
   if (w.round >= w.opts.len) seasonEnd(w);
   return { me, over: w.round >= w.opts.len };
@@ -506,8 +514,12 @@ function seasonEnd(w) {
   const you = summary.you;
   if (up && you && you.pos <= 3) {
     w.player.offer = { to: up.id, answer: null };
+    const b = seasonBudget(w, up);
     mail(w, `${up.name} Entries`, addrOf(up, 'entries'), `An entry for ${w.year + 1}`,
-      [`Dear ${w.player.name.split(' ')[0]},`, `Congratulations on finishing P${you.pos} in the ${seriesById(w.player.series).name} this year. We have an entry available in the ${up.name} for ${w.year + 1}, and we would like it to go to ${w.teams[w.player.team].name}.`, `Please let us know before the new season.`, `Entries Office, ${up.name}`],
+      [`Dear ${w.player.name.split(' ')[0]},`, `Congratulations on finishing P${you.pos} in the ${seriesById(w.player.series).name} this year. We have an entry available in the ${up.name} for ${w.year + 1}, and we would like it to go to ${w.teams[w.player.team].name}.`,
+       `For your planning, here is what our teams tell us a season costs: about ${money$(b.run)} to run a car (entry, travel, crew, tyres, fuel), plus the car${!b.lease ? '.' : `: ${up.car === 'spec' ? `the series chassis is leased from us, from ${money$(b.lease)} a season` : `leased from the makers' customer programmes from ${money$(b.lease)} a season, or from ${money$(b.buy)} to buy`}.`}`,
+       up.gents ? `Most teams run a gentleman driver in the second car, who pays for the seat. Prize money for a mid-field season comes to about ${money$(b.prize)}.` : `Prize money for a mid-field season comes to about ${money$(b.prize)}.`,
+       `We mention this because several teams have asked us afterwards.`, `Please let us know before the new season.`, `Entries Office, ${up.name}`],
       { offer: true, choices: [['move', `Accept: move up to the ${up.name}`], ['stay', `Decline: stay in the ${seriesById(w.player.series).name}`]] });
   }
   seasonEndNews(w, summary);
@@ -603,12 +615,180 @@ export function nextSeason(w, trackPool) {
     mine.car = Math.max(mine.car, seriesById(to).base - 5);
     moves.push({ kind: 'you-up', to });
   }
+  const moved = off && off.answer === 'move';
   w.player.offer = null;
   w.lastMoves = moves;
   newCalendars(w, trackPool);
+  // the new season's paperwork: where to get a car (you've moved up), GT's balance of performance, gentleman drivers
+  if (!w.pre && w.money) {
+    if (moved && needsCar(w)) carsMail(w);
+    seasonBop(w); gentOffers(w);
+  }
   if (!w.pre) topUpFreeAgents(w);
   seasonOpenNews(w, moves);
   return moves;
+}
+
+// ---------------- moving up: each series' way in ----------------
+// Every series says how you get a car for it (SERIES[].car). The Street Cup races road cars off the classifieds. GT
+// races homologated cars, sold and leased by the makers' customer racing programmes (or an ex-works chassis, a season
+// old, from a team in the series). Formula SV races one chassis, leased from the series. Moving up, your old car is
+// traded in (or a lease handed back). The cars of each class come from main.js (setCarCatalog: { cls: [{ key, name,
+// hp, kg }] }); a new series is a line in SERIES, its costs (COSTS, SEASON_FUND) and its cars.
+export function setCarCatalog(w, cat) { w.carCat = cat; }
+export const carClsOf = (w) => w.car ? (w.car.cls || 'street') : null;
+// no car, or a car for the wrong series (you've moved up)
+export const needsCar = (w) => !w.car || carClsOf(w) !== seriesById(w.player.series).cls;
+// the series you're getting a car for: the one you're moving up to, else your own
+export const carSeries = (w) => seriesById(w.player.offer?.answer === 'move' ? w.player.offer.to : w.player.series);
+const hashOf = (s) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+const makerOf = (name) => name.split(/\s+/)[0];
+// what the programme says about it (and how reliable it really is: a fault multiplier, 0.8-1.25)
+const PROG_NOTES = [[0.85, 'Bulletproof, by GT standards. The customer teams love it.'], [0.95, 'Reliable, if you look after it.'], [1.05, 'Strong, once it is set up. Needs a good mechanic.'], [1.2, 'Fast, and fragile. Budget for engines.']];
+// the cars a series' programme offers you: [{ key, name, hp, kg, maker, prog, price, deposit, perRound, rel, note, lease, buy }]
+export function customerCars(w, S = carSeries(w)) {
+  if (!S || S.car === 'classifieds') return [];
+  const cars = (w.carCat && w.carCat[S.cls]) || [], L = w.opts.len;
+  const pw = cars.map(c => c.hp / c.kg), lo = Math.min(...pw), hi = Math.max(...pw);
+  return cars.map((c, i) => {
+    const f = hi > lo ? (pw[i] - lo) / (hi - lo) : 0.5, h = hashOf(c.key) % 1000 / 1000;
+    const price = Math.round((S.price[0] + (S.price[1] - S.price[0]) * (f * 0.6 + h * 0.4)) / 5000) * 5000;
+    const rel = +(0.8 + h * 0.45).toFixed(2), note = PROG_NOTES.find(([k]) => rel <= k)?.[1] || PROG_NOTES.at(-1)[1];
+    const spec = S.car === 'spec';
+    return { ...c, maker: makerOf(c.name), prog: spec ? `${S.name} Technical` : `${makerOf(c.name)} Customer Racing`, price, rel, note: spec ? 'The series chassis. Everyone has the same one, in theory.' : note,
+      deposit: Math.round(price * 0.1 / 1000) * 1000, perRound: Math.round(price * 0.36 / L / 500) * 500, buy: !spec, lease: true };
+  });
+}
+// ex-works cars: a season old, from teams in the series (a fresh pair each season)
+export function exWorks(w, S = carSeries(w)) {
+  if (!S || S.car !== 'customer') return [];
+  if (w.exWorks && w.exWorks.y === w.year && w.exWorks.s === S.id) return w.exWorks.list;
+  const cars = customerCars(w, S), teams = w.series[S.id].teams.filter(t => t !== w.player.team);
+  const list = [0, 1].map(() => {
+    const c = cars[Math.floor(rng(w) * cars.length)], cond = +(0.66 + rng(w) * 0.18).toFixed(2), t = w.teams[teams[Math.floor(rng(w) * teams.length)]];
+    return c && { id: 'xw' + (w.nextId++), key: c.key, name: c.name, prog: c.prog, rel: c.rel, cond, team: t ? t.name : 'a customer team', year: w.year - 1, price: Math.round(c.price * (0.3 + cond * 0.3) / 5000) * 5000 };
+  }).filter(Boolean);
+  w.exWorks = { y: w.year, s: S.id, list };
+  return list;
+}
+// what your car's worth to a dealer (a lease: nothing, it goes back)
+export function tradeIn(w) {
+  if (!w.car || w.car.lease) return 0;
+  const P = carParts(w), avg = P ? PART_KEYS.reduce((a, k) => a + P[k].cond, 0) / PART_KEYS.length : (w.car.cond ?? 0.8);
+  return Math.round((w.car.paid || 0) * (0.3 + 0.4 * avg) / 500) * 500;
+}
+// a lease handed back: the deposit, less what it'll cost them to put right
+const depositBack = (w) => { const l = w.car?.lease; if (!l) return 0; const P = carParts(w), avg = P ? PART_KEYS.reduce((a, k) => a + P[k].cond, 0) / PART_KEYS.length : 0.8; return Math.round(l.deposit * clamp(1 - Math.max(0, 0.8 - avg) * 2, 0, 1) / 100) * 100; };
+// get a car: how 'buy' | 'lease' (a programme's car, by key) | 'used' (an ex-works car, by id). The old one goes.
+export function acquireCar(w, how, id) {
+  const S = carSeries(w), c = how === 'used' ? exWorks(w, S).find(x => x.id === id) : customerCars(w, S).find(x => x.key === id);
+  if (!c || (how === 'buy' && !c.buy)) return false;
+  const old = w.car;
+  if (old) {
+    if (old.lease) { const back = depositBack(w); if (back) pay(w, back, `${old.lease.prog}: lease deposit returned (${old.name})`); }
+    else { const v = tradeIn(w); if (v) pay(w, v, `Trade-in: ${old.year} ${old.name}`); }
+  }
+  const cond = how === 'used' ? c.cond : 1, prog = c.prog;
+  w.car = { chassis: c.key, name: c.name, cls: S.cls, cond, paid: how === 'lease' ? 0 : c.price, year: how === 'used' ? c.year : w.year, rel: c.rel, prog,
+    lease: how === 'lease' ? { prog, deposit: c.deposit, perRound: c.perRound, since: w.year } : null, from: how === 'used' ? c.team : null };
+  w.founding = { ...(w.founding || {}), car: true };
+  if (how === 'used') w.exWorks.list = w.exWorks.list.filter(x => x !== c);
+  carParts(w); refreshUsedParts(w);
+  if (how === 'lease') pay(w, -c.deposit, `${prog}: lease deposit (${c.name})`);
+  else pay(w, -c.price, how === 'used' ? `${c.name}, ex-${c.team}` : `${prog}: new ${c.name}`);
+  const addr = `customer@${c.maker ? c.maker.toLowerCase().replace(/[^a-z]/g, '') : 'formulasv'}racing.sv`;
+  if (how === 'used') mail(w, c.team, `${c.team.toLowerCase().replace(/[^a-z]+/g, '')}@paddock.sv`, `Chassis ${c.id.slice(2)}`,
+    [`It's yours. Logbook in the glovebox, setup sheets in the boot.`, `She's done a season with us. Don't believe anything the previous driver wrote on the setup sheets.`, c.team]);
+  else mail(w, prog, addr, `Welcome to ${prog}`,
+    [`Dear ${w.player.name.split(' ')[0]},`, how === 'lease' ? `Your ${c.name} is leased to ${w.teams[w.player.team].name} for the ${w.year} season: ${money$(c.perRound)} a round, taken with your entry. The engine and gearbox stay ours: we rebuild them between rounds.` : `Your new ${c.name} is ready for collection. It is yours: so is everything that happens to it.`,
+     `Crash damage is the customer's. ${c.note}`, prog]);
+  react(w, 'danny', `The player just ${how === 'lease' ? 'leased' : 'bought'} a ${c.name}${how === 'used' ? ` (a season old, from ${c.team})` : ''} for their move up to the ${S.name}${old ? `, and the ${old.name} they raced before ${old.lease ? 'went back' : 'was traded in'}` : ''}.`);
+  return true;
+}
+// the series office's numbers for a season (the promotion email, the programme's page): what it costs to run a car,
+// the cheapest car, and what a mid-field team gets back
+export function seasonBudget(w, S) {
+  const c = COSTS[S.id], L = w.opts.len, cars = customerCars(w, S);
+  const run = L * (c.entry + c.travel + c.crew + c.tyre * 3 + c.fuelLap * 30);
+  const lease = cars.length ? Math.min(...cars.map(x => x.deposit + x.perRound * L)) : 0, buy = cars.filter(x => x.buy).length ? Math.min(...cars.filter(x => x.buy).map(x => x.price)) : 0;
+  return { run, lease, buy, prize: L * (c.prize[5] || 0) + (SEASON_FUND[S.id]?.[5] || 0) };
+}
+
+// you've moved up: where the cars are
+function carsMail(w) {
+  const S = seriesById(w.player.series), b = seasonBudget(w, S);
+  mail(w, `${S.name} Entries`, addrOf(S, 'entries'), `Your ${w.year} entry: the car`,
+    [`Welcome to the ${S.name}.`, S.car === 'spec' ? `Every team races the series chassis, leased from us for the season (from ${money$(b.lease)}).` : `Cars must be homologated for the ${S.name}. The makers' customer racing programmes sell and lease them (a lease from ${money$(b.lease)} a season, or from ${money$(b.buy)} to buy), and teams sometimes sell last year's cars.`,
+     w.car ? `Your ${w.car.name} is not eligible. Most dealers will take it in part exchange.` : '', `Entries Office, ${S.name}`].filter(Boolean),
+    { link: ['customer', 'See the cars'] });
+}
+
+// ---------------- GT: balance of performance and success ballast ----------------
+// The series evens the cars out each season (a few kilos here, a restrictor there: w.bop), and puts weight on whoever
+// is winning (w.ballast, kg: +30 for a win, +20 second, +10 third, 10 off for anything else, 60 at most).
+const BALLAST = [30, 20, 10], BALLAST_MAX = 60;
+export const ballastOf = (w) => seriesById(w.player.series).ballast ? (w.ballast || 0) : 0;
+export const bopOf = (w) => (seriesById(w.player.series).ballast && w.car && w.bop && w.bop.y === w.year && w.bop.k[w.car.chassis]) || 1;
+// kilos as a power factor (0.06% a kilo, on a car of about 1100 kg), and back
+const kgOf = (f) => Math.round((1 - f) / 0.0006 / 5) * 5;
+function seasonBop(w) {
+  const S = seriesById(w.player.series); if (!S.ballast) return;
+  const cars = (w.carCat && w.carCat[S.cls]) || [];
+  w.bop = { y: w.year, k: Object.fromEntries(cars.map(c => [c.key, +clamp(1 + gauss(w) * 0.012, 0.975, 1.02).toFixed(4)])) };
+  w.ballast = 0;
+  const line = (c) => { const kg = kgOf(w.bop.k[c.key]); return kg > 0 ? `${c.name}: ${kg} kg added.` : kg < 0 ? `${c.name}: air restrictor enlarged (worth about ${-kg} kg).` : `${c.name}: unchanged.`; };
+  mail(w, `${S.name} Technical`, addrOf(S, 'technical'), `Technical Bulletin ${w.year}-01: balance of performance`,
+    [`To all competitors,`, `Following analysis of last season's data, the balance of performance for ${w.year} is as follows:`, ...cars.map(line),
+     `Success ballast applies from round 2: ${BALLAST[0]} kg for a win, ${BALLAST[1]} kg for second, ${BALLAST[2]} kg for third, removed at 10 kg a round, to a maximum of ${BALLAST_MAX} kg.`, `These figures are final until they are changed.`, `${S.name} Technical Department`]);
+}
+function ballastRound(w, me) {
+  const S = seriesById(w.player.series); if (!S.ballast || w.round + 1 >= w.opts.len) return;
+  const was = w.ballast || 0, add = me && !me.dnf ? BALLAST[me.pos - 1] || -10 : -10;
+  w.ballast = clamp(was + add, 0, BALLAST_MAX);
+  if (w.ballast === was) return;
+  mail(w, `${S.name} Technical`, addrOf(S, 'technical'), `Technical Bulletin ${w.year}-${String(w.round + 2).padStart(2, '0')}: success ballast`,
+    [`To ${w.teams[w.player.team].name},`, w.ballast > was ? `Following your result at ${w.series[S.id].cal[w.round].name}, your car will carry ${w.ballast} kg of success ballast at the next round.` : w.ballast ? `Your success ballast is reduced to ${w.ballast} kg for the next round.` : `Your car will carry no success ballast at the next round.`,
+     w.ballast > was ? `Congratulations.` : `${S.name} Technical Department`].concat(w.ballast > was ? [`${S.name} Technical Department`] : []));
+}
+
+// ---------------- gentleman drivers ----------------
+// From GT up, the second car is paid for by someone who'd like to race and can afford to: a lot of money for the seat,
+// not a lot of pace. Two get in touch at the start of each season (and when you move up).
+const GENTS = [
+  ['owns eleven car washes', 'I own eleven car washes, so I know a thing or two about cars.'],
+  ['is an orthodontist', 'My practice is closed on Fridays and I can move my Mondays.'],
+  ['is in commercial property', 'I have done a great deal of track days in my own car, which is the same as yours, but red.'],
+  ['is heir to a frozen food fortune', 'My father has agreed to fund one season, after which, he says, we will see.'],
+  ['is a retired anaesthetist', 'I am told I have very calm hands.'],
+  ['owns a chain of tanning salons', 'I have been racing in my head for thirty years. I feel ready.'],
+  ['sells yachts', 'I would like to be quick. Failing that, I would like to be photographed.'],
+];
+function gentOffers(w) {
+  const S = seriesById(w.player.series); if (!S.gents || !w.money) return;
+  const K = { gt: 1, formula: 4 }[S.id] || 1, L = w.opts.len;
+  for (const [biz, line] of GENTS.slice().sort(() => rng(w) - 0.5).slice(0, 2)) {
+    const age = r0(44 + rng(w) * 14), p = makePerson(w, { age, series: S.id, lvl: S.base - 15 });
+    p.traits = ['paydriver', 'gentleman']; p.retireAge = age + 4; p.biz = biz; p.pot = p.pace;
+    p.purse = Math.round((120000 + rng(w) * 90000) * K * L / 6 / 5000) * 5000;
+    mail(w, `${p.first} ${p.last}`, `${p.first[0].toLowerCase()}${p.last.toLowerCase()}@${pickLine(w, ['velocitamail', 'privatemail', 'goldline'])}.sv`, `Your second car`,
+      [`Dear ${w.player.name.split(' ')[0]},`, `I understand you have a second car in the ${S.name}. ${line}`, `I would pay ${money$(p.purse)} for the seat for the ${w.year} season.`, `I have my own helmet.`, `${p.first} ${p.last}`],
+      { gent: p.id, choices: [['sign', `Sign ${p.first}: ${money$(p.purse)}`], ['no', 'No thanks']] });
+  }
+}
+export function answerGent(w, m, key) {
+  if (key !== 'sign') return 'declined';
+  const p = w.people[m.gent]; if (!p || p.team) return 'gone';
+  const r = offerDriver(w, p.id);
+  return r.ok ? 'signed' : r.why;
+}
+
+// ---------------- the week, from GT up ----------------
+// (a day's work you're asked to do: { what, pay, tag }; taken from the email)
+export function takeDayJob(w, m) {
+  const j = m.dayJob; if (!j || daysLeft(w) <= 0) return false;
+  useDay(w, j.what, j.pay, j.tag); pay(w, j.pay, j.what);
+  if (j.mate) { const q = mateOf(w) && w.people[mateOf(w).pid]; if (q) q.pace = clamp(q.pace + 0.6, 20, 99); }
+  return true;
 }
 
 // ---------------- money ----------------
@@ -682,6 +862,7 @@ export function settleRound(w, use, me) {
     [`Tyres bought trackside (${use.trackside || 0} set${use.trackside === 1 ? '' : 's'})`, -Math.round((use.trackside || 0) * c.tyre * TRACKSIDE)],
     [`Fuel (${use.laps} lap${use.laps === 1 ? '' : 's'})`, -Math.round(use.laps * c.fuelLap * (bg.fuel || 1))],
   ];
+  if (w.car && w.car.lease) items.push([`Car lease (${w.car.lease.prog})`, -w.car.lease.perRound]);
   if (use.damage > 0.005) items.push([bg.repair ? 'Repairs (mostly done yourself)' : 'Repairs', -Math.round(use.damage * c.repair * (bg.repair || 1) * fx.repair / 100) * 100]);
   for (const it of sponsorRound(w, use, me)) items.push(it);
   for (const it of temptRound(w, use, me)) items.push(it);
@@ -726,13 +907,13 @@ export function weekOf(w) {
     w.week = { key: weekKey(w), used: 0, log: [], booked: [], gigs: [], setup: false };
     if (prev && !w.pre) noShows(w, prev);
     if (!w.pre) w.weekN = (w.weekN || 0) + 1;
-    if (!w.pre && !w.over && w.car && w.money && w.money.choice) planWeek(w);
+    if (!w.pre && !w.over && w.car && !needsCar(w) && w.money && w.money.choice) planWeek(w);
     director(w);
   }
   return w.week;
 }
 export const daysLeft = (w) => WEEK_DAYS - weekOf(w).used;
-export const weekOpen = (w) => !!(w.car && w.money && w.money.choice && !w.over);
+export const weekOpen = (w) => !!(w.car && !needsCar(w) && w.money && w.money.choice && !w.over);
 // (tag: the calendar's short name for the day; gig: a booked drive, filled in when it's driven)
 function useDay(w, what, amt = 0, tag = '', gig = null) { const wk = weekOf(w); wk.log.push({ day: wk.used, what, amt, tag, gig }); wk.used++; }
 // (and a day spent on the team: what the week's log shows)
@@ -789,8 +970,10 @@ function planWeek(w) {
     const fare = Math.round((560 + rng(w) * 440 + (urgent ? 220 : 0)) * (r >= 4.8 ? 1.1 : 1) / 10) * 10;
     wk.gigs.push(newGig(w, 'courier', { client, what, fragile, urgent, title: `${client}: ${what.toLowerCase()}`, pay: fare, laps: rng(w) < 0.4 ? 2 : 1, tight: urgent ? 1.3 : 1.45 }));
   }
+  // from GT up: corporate hot laps, and coaching people who've bought a car like yours
+  if (seriesById(w.player.series).tier >= 1) { proWeek(w, K); }
   // track days and club events (your race car)
-  if (rng(w) < 0.55) offerGig(w, newGig(w, 'rides', { title: 'Passenger rides', client: 'SV Track Days', pay: 170, tip: 100, laps: 3, riders: [0, 1, 2].map(() => pickLine(w, RIDERS)) }), 'SV Track Days', 'bookings@svtrackdays.sv', 'Passenger rides this week?',
+  else if (rng(w) < 0.55) offerGig(w, newGig(w, 'rides', { title: 'Passenger rides', client: 'SV Track Days', pay: 170, tip: 100, laps: 3, riders: [0, 1, 2].map(() => pickLine(w, RIDERS)) }), 'SV Track Days', 'bookings@svtrackdays.sv', 'Passenger rides this week?',
     [`Hi,`, `We've got three customers booked in for passenger rides in a "real race car" this week and our usual driver has done his back in.`, `It's three laps, one passenger a lap. We pay ${money$(170)} a ride, and they tip if they enjoy it. They don't tip if they're sick.`, `Your car, your fuel, your tyres.`, `SV Track Days`]);
   else if (rng(w) < 0.4) offerGig(w, newGig(w, 'attack', { title: 'Time attack', client: `${TOWNS[w.home]?.name || 'Velocita'} Auto Club`, entry: 100, prizes: [2000, 1200, 500], laps: 3 }), `${TOWNS[w.home]?.name || 'Velocita'} Auto Club`, 'events@autoclub.sv', 'Time attack, members and guests',
     [`Our monthly time attack is on this week. Three laps, your best one counts.`, `Prize money: ${money$(2000)} for the gold time, ${money$(1200)} silver, ${money$(500)} bronze. Entry is ${money$(100)}. Guests welcome.`, `Guests welcome. Helmets compulsory.`, `The Committee`]);
@@ -810,6 +993,25 @@ function planWeek(w) {
       { appear: d.sid, choices: [['go', 'Go (a day)'], ['no', 'Not this week']] });
   }
 }
+function proWeek(w, K) {
+  const car = w.car ? w.car.name : 'your car';
+  if (rng(w) < 0.6) offerGig(w, newGig(w, 'rides', { title: 'Corporate hot laps', client: 'Velocita Corporate Events', pay: Math.round(400 * K / 10) * 10, tip: Math.round(150 * K / 10) * 10, laps: 3, riders: [0, 1, 2].map(() => pickLine(w, RIDERS)) }), 'Velocita Corporate Events', 'events@velocitacorporate.sv', 'Hot laps for our client',
+    [`Hello,`, `One of our clients is holding a team-building day at the circuit this week, and would like three of their senior people taken round in a real ${seriesById(w.player.series).name} car.`, `${money$(Math.round(400 * K / 10) * 10)} a passenger. They have been told it is safe. Please make it feel otherwise.`, `Velocita Corporate Events`]);
+  if (rng(w) < 0.45) {
+    const pay = Math.round((1500 + rng(w) * 1500) * K / 100) * 100;
+    mail(w, 'SV Track Days', 'bookings@svtrackdays.sv', 'Coaching, one of our members',
+      [`Hi,`, `One of our members has bought a ${car} and would like to learn how to drive it, ideally before he sells it.`, `A day's coaching, ${money$(pay)}. He supplies the car, the fuel and the nerves.`, `SV Track Days`],
+      { dayJob: { what: 'Coaching a track day client', pay, tag: 'Coaching' }, choices: [['go', `Take it: ${money$(pay)} (a day)`], ['no', 'Not this week']] });
+  }
+  // your gentleman driver would like some help
+  const m = mateOf(w), q = m && w.people[m.pid];
+  if (q && traitsOf(w, q).includes('gentleman') && rng(w) < 0.5) {
+    const pay = Math.round(2000 * K / 100) * 100;
+    mail(w, `${q.first} ${q.last}`, `${q.first[0].toLowerCase()}${q.last.toLowerCase()}@velocitamail.sv`, 'A day at the track?',
+      [`I wonder if you could spare a day this week to show me where I am losing the time. I have a theory that it is the corners.`, `I would of course pay you for your time: ${money$(pay)}.`, q.first],
+      { dayJob: { what: `Coaching ${q.first}`, pay, tag: 'Coaching', mate: true }, choices: [['go', `Coach ${q.first}: ${money$(pay)} (a day)`], ['no', 'Not this week']] });
+  }
+}
 function offerGig(w, g, from, addr, subj, body) {
   w.week.offered = (w.week.offered || []).concat([g]);
   mail(w, from, addr, subj, body, { gig: g.id, choices: [['in', g.kind === 'street' ? "I'm in" : `Book it (a day)`], ['no', 'Not this week']] });
@@ -820,7 +1022,7 @@ export function bookGig(w, id) {
   const wk = weekOf(w), g = gigById(w, id);
   if (!g || g.booked) return 'gone';
   if (daysLeft(w) <= 0) return 'nodays';
-  if (GIG_KINDS[g.kind].raceCar && !w.car) return 'nocar';
+  if (GIG_KINDS[g.kind].raceCar && needsCar(w)) return 'nocar';
   g.booked = true; wk.booked.push(g); wk.gigs = wk.gigs.filter(x => x !== g);
   if (g.entry) pay(w, -g.entry, `${g.client}: entry fee`);
   useDay(w, GIG_KINDS[g.kind].name, g.entry ? -g.entry : 0, GIG_KINDS[g.kind].tag, g.id);
@@ -1011,7 +1213,7 @@ const TEMPTS = {
         [`Yo my guy Lenny takes bets on the Street Cup. He's got you at long odds which is kinda disrespectful`, `Top 5 this weekend pays 3 to 1. Or, and I'm only saying this cause Lenny said it, finishing outside the top 8 pays 2 to 1`, `${money$(stake)} stake. Cash`],
         { tempt: 'bet', stake, choices: [['for', 'Bet on yourself: top 5'], ['against', 'Bet against yourself: outside the top 8'], ['no', 'No']] });
     } },
-  insure: { base: 0.08, min: 0.6, ok: (w) => w.car && !w.fraud && !w.flags?.fraudCaught,
+  insure: { base: 0.08, min: 0.6, ok: (w) => w.car && !w.car.lease && !w.fraud && !w.flags?.fraudCaught,
     offer(w) {
       const pay = Math.round((w.car.paid || 20000) * 0.9 / 100) * 100;
       mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'an idea (delete this)',
@@ -1356,7 +1558,7 @@ export function briefing(w) {
   if (P) for (const k of PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)) if (P[k].cond < 0.5) watch.push({ text: `${PARTS[k].name} at ${Math.round(P[k].cond * 100)}%${PARTS[k].fail ? ': could fail in a race' : ''}`, bad: P[k].cond < 0.3 });
   if (!w.over && w.car && !staffOf(w, 'manager')) { const need = tyreNeeds(w), sk = stockOf(w); if (sk.soft < 1 || sk.medium < 1) watch.push({ text: `Low on tyres: trackside sets cost ${Math.round((TRACKSIDE - 1) * 100)}% more`, bad: false }); }
   if (w.grey) watch.push({ text: `Kev's engine map is on the car: scrutineers could find it`, bad: false });
-  if (!w.car && w.founding?.reg) watch.push({ text: `You don't have a car`, bad: true });
+  if (w.founding?.reg && needsCar(w)) watch.push({ text: w.car ? `You need a car for the ${seriesById(w.player.series).name}` : `You don't have a car`, bad: true });
   const ask = (w.mail || []).filter(m => m.choices && !m.answer && !m.lottery).length;
   if (ask) watch.push({ text: `${ask} email${ask === 1 ? '' : 's'} waiting for an answer`, bad: false });
   if (gigRating(w) < 4.2) watch.push({ text: `GigGo has your account under review (${gigRating(w).toFixed(2)}): fewer jobs`, bad: false });
@@ -1543,7 +1745,7 @@ export function carParts(w) {
 export function carMods(w) {
   const P = carParts(w); if (!P) return null;
   const c = (k) => P[k].cond, g = (k, stat) => P[k].fit?.gains?.[stat] || 0, sum = (stat) => PART_KEYS.reduce((a, k) => a + g(k, stat), 0);
-  return { power: (0.9 + 0.1 * c('engine')) * (1 + sum('power')) * (w.grey ? 1.04 : 1), // (Kev's engine map)
+  return { power: (0.9 + 0.1 * c('engine')) * (1 + sum('power')) * (w.grey ? 1.04 : 1) * bopOf(w) * (1 - ballastOf(w) * 0.0006), // (Kev's engine map; GT's balance of performance and success ballast)
     grip: (0.96 + 0.04 * c('suspension')) * (1 + sum('grip')) * (w.week && w.week.key === weekKey(w) && w.week.setup ? 1.012 : 1), // (a test day found the setup)
     brake: (0.9 + 0.1 * c('brakes')) * (1 + sum('brake')),
     downforce: 1 + sum('downforce'), drag: 1 + sum('drag'), damage: (1.15 - 0.15 * c('chassis')) * (1 + sum('damage')), rainGrip: 1, wear: 1, slip: 1, softs: false, launch: false };
@@ -1552,7 +1754,7 @@ const mechFactor = (w) => { const m = staffOf(w, 'mechanic'); return m ? (1.2 - 
 // the chance each part fails this race (0..1)
 export function failOdds(w) {
   const P = carParts(w), out = {}; if (!P) return out;
-  for (const k of PART_KEYS) { const p = PARTS[k]; if (!p.fail) continue; out[k] = clamp(p.fail * (1 - P[k].cond) ** 2 * (P[k].fit ? 1.6 - P[k].fit.q : 1) * mechFactor(w), 0, 0.5); }
+  for (const k of PART_KEYS) { const p = PARTS[k]; if (!p.fail) continue; out[k] = clamp(p.fail * (1 - P[k].cond) ** 2 * (P[k].fit ? 1.6 - P[k].fit.q : 1) * mechFactor(w) * (w.car.rel || 1), 0, 0.5); }
   return out;
 }
 export const failRisk = (w) => 1 - Object.values(failOdds(w)).reduce((a, p) => a * (1 - p), 1);
@@ -1573,6 +1775,8 @@ export function wearCar(w, laps, damage, failed) {
     P[k].cond = +clamp(P[k].cond - d * (0.8 + rng(w) * 0.4), 0.05, 1).toFixed(3);
   }
   if (failed && P[failed]) P[failed].cond = Math.min(P[failed].cond, 0.15);
+  // (a leased car's engine and gearbox go back to the programme between rounds, and come back rebuilt)
+  if (w.car.lease) for (const k of ['engine', 'gearbox']) P[k].cond = Math.max(P[k].cond, 0.9);
 }
 // work on a part: a rebuild (your mechanic, or a shop) or a new one
 export const rebuildCost = (w, k) => Math.round(PARTS[k].cost * COSTS[w.player.series].repair * (staffOf(w, 'mechanic') ? 1 : 1.5) * (bgOf(w).repair || 1) / 50) * 50;
@@ -1595,23 +1799,35 @@ const KIT = {
     ['aero', 'Front splitter', { downforce: 0.08, drag: 0.01 }, 1, 1600], ['aero', 'Rear wing', { downforce: 0.15, drag: 0.03 }, 1, 2900],
     ['chassis', 'Seam welding', { grip: 0.008, damage: -0.1 }, 1, 2000], ['chassis', 'Bolt-in roll cage', { damage: -0.2 }, 1, 3500],
   ],
+  // GT: homologated parts only (the cars are balanced, so the gains are small and dear)
+  gt: [
+    ['engine', 'Evo engine map (homologated)', { power: 0.012 }, 1, 9000], ['engine', 'Lightweight flywheel', { power: 0.008 }, 0.92, 6500],
+    ['gearbox', 'Sequential gearbox', { power: 0.008 }, 0.9, 28000], ['gearbox', 'Quick-change ratios', { power: 0.004 }, 1, 8000],
+    ['suspension', 'Customer-spec dampers', { grip: 0.015 }, 0.95, 16000], ['suspension', 'Adjustable anti-roll bars', { grip: 0.008 }, 1, 7000],
+    ['brakes', 'Carbon brakes', { brake: 0.08 }, 0.9, 22000], ['brakes', 'Endurance pads', { brake: 0.03 }, 1, 3500],
+    ['aero', 'Evo aero kit', { downforce: 0.08, drag: 0.01 }, 1, 30000], ['aero', 'Gurney flap', { downforce: 0.03, drag: 0.004 }, 1, 2500],
+    ['chassis', 'Lightweight body panels', { grip: 0.01, damage: 0.05 }, 0.9, 18000], ['chassis', 'FIA-spec roll cage', { damage: -0.15 }, 1, 12000],
+  ],
 };
 const PRICE_K = { street: 1, gt: 3, formula: 9 };
 const claimOf = (gains, k) => Object.fromEntries(Object.entries(gains).map(([s, v]) => [s, +(v * k).toFixed(3)]));
 // the parts catalogue (new, from a supplier: the claims are the supplier's)
 export function catalogue(w) {
-  const kits = KIT[w.player.series] || KIT.street;
-  return kits.map(([slot, name, gains, q, price], i) => ({ id: 'cat' + i, slot, name, gains, claim: claimOf(gains, i % 3 === 1 ? 1.5 : 1.2), q, price: Math.round(price * (PRICE_K[w.player.series] || 1)), used: false }));
+  const own = KIT[w.player.series], kits = own || KIT.street, k = own ? 1 : PRICE_K[w.player.series] || 1; // (a series without its own list: the street parts, at its prices)
+  return kits.map(([slot, name, gains, q, price], i) => ({ id: 'cat' + i, slot, name, gains, claim: claimOf(gains, i % 3 === 1 ? 1.5 : 1.2), q, price: Math.round(price * k), used: false }));
 }
+const USED_BLURB_PRO = ['Spare from last season. Never raced.', 'One event old. Crack-tested.', 'Surplus to requirements.', 'Removed after round 3. No reason given.', 'Ex-works. Paperwork available.'];
 const USED_BLURB = ['Came off my car, ran fine.', 'Bought it, never fitted it. Wife says it has to go.', 'Ex-race car part. Some wear.', 'Rebuilt by my brother-in-law.', 'Not sure what it fits. Probably yours.', 'Fell off a truck (not literally).', 'Low miles. Some surface rust.'];
 // SVList's parts section: a fresh handful each round, of very variable honesty
 export function refreshUsedParts(w) {
-  const kits = KIT.street;
+  const kits = KIT[w.player.series] || KIT.street, k = KIT[w.player.series] ? 1 : PRICE_K[w.player.series] || 1;
+  // (above the Street Cup, the used parts are other teams' spares)
+  const sellers = w.player.series === 'street' ? AD_SELLERS : w.series[w.player.series].teams.filter(t => t !== w.player.team).map(t => w.teams[t].name);
   w.usedParts = [];
   for (let i = 0; i < 5; i++) {
     const [slot, name, gains, q0, price] = kits[Math.floor(rng(w) * kits.length)], luck = 0.25 + rng(w) * 1.1;
     w.usedParts.push({ id: 'up' + (w.nextId++), slot, name, gains: Object.fromEntries(Object.entries(gains).map(([s, v]) => [s, +(v * luck).toFixed(4)])),
-      q: +clamp(q0 - 0.15 - rng(w) * 0.45, 0.2, 0.95).toFixed(2), price: Math.round(price * (0.3 + rng(w) * 0.3) / 50) * 50, used: true, blurb: pickLine(w, USED_BLURB), seller: pick(w, AD_SELLERS) });
+      q: +clamp(q0 - 0.15 - rng(w) * 0.45, 0.2, 0.95).toFixed(2), price: Math.round(price * k * (0.3 + rng(w) * 0.3) / 50) * 50, used: true, blurb: pickLine(w, w.player.series === 'street' ? USED_BLURB : USED_BLURB_PRO), seller: pick(w, sellers) });
   }
   // Danny knows a guy (some rounds)
   if (w.dannyHired && rng(w) < 0.4) {

@@ -1379,6 +1379,9 @@ const pc = new Computer({
       else { if (r !== 'gone') m.answer = null; toast(r === 'nodays' ? 'You have no days left this week.' : r === 'nocar' ? 'You need a car for that.' : 'That was for another week.'); }
     }
     if (m.appear && key === 'go' && !WC.appear(world, m.appear)) { m.answer = null; toast('You have no days left this week.'); }
+    if (m.dayJob && key === 'go') { if (WC.takeDayJob(world, m)) sfx.best(); else { m.answer = null; toast('You have no days left this week.'); } }
+    // a gentleman driver's offer: they take the second seat (whoever's in it is let go)
+    if (m.gent) { const r = WC.answerGent(world, m, key); if (r === 'signed') { sfx.best(); renderHub(); } else if (r === 'gone') toast('They have signed for someone else.'); else if (r !== 'declined') { m.answer = null; toast(r, 5000); } }
     // the director's stories and the temptations
     if (m.tempt || m.arc || m.inflate) {
       const r = WC.answerStory(world, m, key);
@@ -1413,6 +1416,8 @@ const pc = new Computer({
     settings.driverName = f.name; saveSettings();
     sfx.best(); saveWorld(); renderHub(); phone.buzz();
   },
+  // a customer racing car (GT up): buy, lease, or an ex-works one
+  getcar: (how, id) => { if (WC.acquireCar(world, how, id)) { sfx.best(); updateLogoShown(); saveWorld(); pitGarage.setCar(hubCar()); renderHub(); } },
   buy: (id) => { if (WC.buyCar(world, id)) { sfx.best(); updateLogoShown(); saveWorld(); pitGarage.setCar(hubCar()); renderHub(); } },
   // the Workshop and the parts sites
   car: (what, arg) => {
@@ -1704,13 +1709,20 @@ function enterHub() {
   hubMode = 'room'; carSub = null; carPart = null; optSub = false;
   renderHub(); show('s-hub');
 }
+// the cars of each class, for the customer racing programmes (World Career: moving up)
+function carCatalog() {
+  const of = (cls) => carsOfClass(cls).filter(id => cls !== 'f1' || id === 'f1').map(id => { const st = carStats(id); return { key: chassisKey(id), name: id === 'f1' ? 'SV-F spec chassis' : CARS[id].name, hp: Math.round(st.power), kg: Math.round(st.weight) }; });
+  return { gt1: of('gt1'), f1: of('f1') };
+}
 function openHub(first = false) {
+  if (world) WC.setCarCatalog(world, carCatalog());
   fadeTo(() => {
     enterHub();
     if (WC.unread(world)) setTimeout(() => { if (screen === 's-hub') phone.buzz(); }, first ? 900 : 500);
   }, 200);
 }
 function renderHub() {
+  if (world && !world.carCat) WC.setCarCatalog(world, carCatalog());
   if (!world) return;
   const w = world, sid = w.player.series, S = w.series[sid];
   $('hub-title').textContent = w.teams[w.player.team].name;
@@ -1803,6 +1815,7 @@ function renderHubMenu() {
   if (!F.reg) items.push({ label: 'Register The Team', cls: 'action primary', action: () => sitDown('registry'), desc: 'Form SV-1, on the computer.' });
   else if (claim) items.push({ label: 'Claim Your Winnings', cls: 'action primary', action: () => sitDown('mail', claim.id), desc: 'The State Lottery needs to know how you want your money. It\'s waiting in your email.' });
   else if (!F.car) items.push({ label: 'Buy A Car', cls: 'action primary', action: () => sitDown('classifieds'), desc: 'Danny sent you some listings. They\'re on the computer.' });
+  else if (!w.over && WC.needsCar(w)) items.push({ label: 'Get A Car', cls: 'action primary', action: () => sitDown('customer'), desc: `Your ${w.car.name} isn't eligible for the ${seriesName(sid)}. Buy or lease one from the makers' customer programmes, or buy a team's car from last season (on the computer).` });
   else if (!w.over && WC.payrollShort(w)) items.push({ label: 'Sort Out Payroll', cls: 'action primary', action: () => sitDown('staff'), desc: `Payroll is ${WC.money$(WC.payrollDue(w))} and you have ${WC.money$(w.money.balance)}. Decide who gets paid (Team, on the computer: the Staff tab).` });
   else if (!w.over) {
     const r = w.series[sid].cal[w.round];
@@ -1815,6 +1828,7 @@ function renderHubMenu() {
   } else {
     items.push({ label: `Start ${w.year + 1} Season`, cls: 'action primary', action: () => beginNextSeason(),
       desc: offerMail ? `First answer the ${seriesName(off.to)}'s email.` : 'Everyone a year older. Retirements, promotions and rookies, then a new calendar.' });
+    if (off && off.answer === 'move') items.push({ label: `${seriesName(off.to)} Cars`, action: () => sitDown('customer'), desc: `Sort out a car for the ${seriesName(off.to)} now, or when the new season starts (on the computer).` });
   }
   items.push(
     { label: `Computer${nm ? `<small>${nm} NEW</small>` : ''}`, action: () => sitDown(offerMail ? 'mail' : null, offerMail ? offerMail.id : null), desc: 'Sit down at the desk: Mail, Team (the car, tyres, staff, data) and the Internet. You can also click the monitor.' },
@@ -1965,7 +1979,7 @@ function startWorldRound() {
   const cls = WC.seriesById(sid).cls;
   // your car: the one you bought (its condition costs a little power); a car of the wrong class (you've moved up and not
   // bought one yet) gets the car select instead
-  const owned = w.car && CARS[carId(wc)]?.cls === cls;
+  const owned = w.car && !WC.needsCar(w) && CARS[carId(wc)]?.cls === cls;
   const car = CARS[carId(wc)]?.cls === cls ? wc : { ...wc, chassis: chassisKey(carsOfClass(cls)[0]) };
   // (its parts: condition and upgrades; and whether one of them lets go this race)
   const mods = owned ? { ...WC.carMods(w), pitTime: w.staff ? WC.staffEffects(w).pitTime : 0 } : null;
