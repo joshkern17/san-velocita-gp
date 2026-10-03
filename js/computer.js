@@ -566,7 +566,7 @@ export class Computer {
       ${kpi('Championship', pos ? pos.value : '&mdash;', `${esc(WC.seriesById(w.player.series).name)} &middot; ${diff}`)}
       ${sv && m ? kpi('Saving for', esc(ucf(sv.name)), m.balance >= sv.cost ? `${WC.money$(sv.cost)} &middot; <span class="pos">affordable</span>` : `${seg(m.balance / sv.cost, 'blue', 8)}<span>${WC.money$(sv.cost)}</span>`, 'long') : ''}</div>`;
     const watch = B.watch.slice(0, 6).map(x => `<div class="tx-li ${x.bad ? 'bad' : 'warn'}"><i></i>${esc(x.text)}</div>`).join('') || '<div class="tx-li good"><i></i>Nothing urgent.</div>';
-    const targets = B.targets.map(x => `<div class="tx-tg">${chip(esc(x.who), 'blue')}<span>${esc(x.text)}</span>${x.amt ? `<b class="pos">+${WC.money$(x.amt)}</b>` : ''}</div>`).join('') || '<p class="tx-dim">No targets this weekend.</p>';
+    const targets = B.targets.map(x => `<div class="tx-tg"><div><small>${esc(x.who)}</small><span>${esc(x.text)}</span></div>${x.amt ? `<b class="pos">+${WC.money$(x.amt)}</b>` : ''}</div>`).join('') || '<p class="tx-dim">No targets this weekend.</p>';
     const worst = P ? WC.PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)[0] : null, risk = P ? WC.failRisk(w) : 0;
     const live = (w.projects || []).filter(x => !x.done);
     const car = P ? `<div class="tx-mini"><span>${esc(w.car.name)}</span>${chip(`Failure risk: ${risk < 0.03 ? 'low' : risk < 0.08 ? 'some' : risk < 0.15 ? 'high' : 'very high'}`, risk < 0.03 ? 'good' : risk < 0.08 ? 'warn' : 'bad')}</div>
@@ -756,14 +756,16 @@ export class Computer {
     const chips = (p) => WC.traitsOf(w, p).map(t => `<span class="dv-chip" title="${esc(WC.TRAITS[t].desc)}">${esc(WC.TRAITS[t].name)}</span>`).join('');
     const quick = (p) => p.pace >= 75 ? 'very quick' : p.pace >= 65 ? 'quick' : p.pace >= 55 ? 'decent' : p.pace >= 45 ? 'average' : 'slow';
     const btn = (a, arg, label, armed) => `<button class="pc-btn sm" data-nav data-act="${a}" data-arg="${arg}" data-key="${a}:${arg}">${this.armed === a + ':' + arg ? armed : label}</button>`;
-    let me = '<div class="tm-row vacant"><div class="tm-who"><b>Second seat</b><small>Empty.</small></div></div>';
+    let me = `<div class="tx-card vacant"><div class="tx-av">?</div><div class="tx-ci"><b>Second seat</b><small>Empty. Sign someone below.</small></div></div>`;
     if (m) {
-      const p = WC.people(w)[m.pid], h = WC.h2hOf(w, m.pid), mood = m.morale >= 70 ? 'happy' : m.morale >= 45 ? 'fine' : m.morale >= 25 ? 'unhappy' : 'furious';
-      const last = m.until <= w.year;
-      me = `<div class="tm-row dv-mate"><div class="tm-who dv-who">${face(p, 48)}<div><b><a class="dv-name" data-nav data-act="profile" data-arg="${p.id}" data-key="pf-${p.id}">${esc(p.first)} ${esc(p.last)}</a> ${chips(p)}</b><small>${WC.ageOf(w, p)} &middot; ${quick(p)} &middot; ${m.fee ? `brought ${WC.money$(m.fee)} for the seat` : `${WC.money$(m.wage)} a round`} &middot; contract to the end of ${m.until}${h.races ? ` &middot; ahead of you ${h.behind} of ${h.races}` : ''}</small></div></div>
-        <div class="tm-mood ${mood}"><i><b style="width:${m.morale}%"></b></i><small>${mood}${m.owed ? ` &middot; owed <span class="neg">${WC.money$(m.owed)}</span>` : ''}</small></div>
-        ${m.wage ? `<div class="tm-pay" data-nav data-cycle="mpay" data-key="mpay"><i data-act="cyc" data-arg="mpay:-1">&#9664;</i><b>${WC.PAY_MODES.find(x => x[0] === m.pay)[1]}</b><i data-act="cyc" data-arg="mpay:1">&#9654;</i></div>` : '<div></div>'}
-        <div class="tm-acts">${last && !m.fee ? btn('mextend', '1', `Extend (${WC.money$(WC.askOf(w, p).wage)} a round)`, 'Sure? Select again') : ''}</div></div>`;
+      const p = WC.people(w)[m.pid], h = WC.h2hOf(w, m.pid), mood = m.morale >= 70 ? 'happy' : m.morale >= 45 ? 'fine' : m.morale >= 25 ? 'unhappy' : 'furious', mc = m.morale >= 70 ? 'good' : m.morale >= 45 ? 'warn' : 'bad';
+      const last = m.until <= w.year, st = (k, v) => `<div class="wz-stat"><span>${k}</span>${seg(v / 100, v >= 65 ? 'good' : v >= 50 ? 'blue' : 'warn', 8)}<em>${Math.round(v)}</em></div>`;
+      me = `<div class="tx-mate">${face(p, 72)}
+        <div class="tx-mi"><b><a class="dv-name" data-nav data-act="profile" data-arg="${p.id}" data-key="pf-${p.id}">${esc(p.first)} ${esc(p.last)}</a></b><small>${WC.ageOf(w, p)} &middot; ${esc(p.nat)} &middot; ${quick(p)}</small><div class="tx-chips">${WC.traitsOf(w, p).map(t => chip(esc(WC.TRAITS[t].name), 'blue')).join('')}</div>
+          <div class="tx-mk"><div><small>Pay</small><b>${m.fee ? `Brought ${WC.money$(m.fee)}` : `${WC.money$(m.wage)} a round`}</b></div><div><small>Contract</small><b>To the end of ${m.until}</b></div>${h.races ? `<div><small>Ahead of you</small><b>${h.behind} of ${h.races}</b></div>` : ''}</div></div>
+        <div class="tx-ms">${st('Pace', p.pace)}${st('Consistency', p.cons)}${st('Racecraft', p.craft)}<div class="tx-cm"><small>Morale: ${mood}${m.owed ? ` &middot; <span class="neg">owed ${WC.money$(m.owed)}</span>` : ''}</small>${seg(m.morale / 100, mc, 8)}</div></div>
+        <div class="tx-ma">${m.wage ? `<div class="tx-cp"><small>Pay setting</small><div class="tm-pay" data-nav data-cycle="mpay" data-key="mpay"><i data-act="cyc" data-arg="mpay:-1">&#9664;</i><b>${WC.PAY_MODES.find(x => x[0] === m.pay)[1]}</b><i data-act="cyc" data-arg="mpay:1">&#9654;</i></div></div>` : ''}
+          ${last && !m.fee ? btn('mextend', '1', `Extend: ${WC.money$(WC.askOf(w, p).wage)} a round`, 'Sure? Select again') : ''}</div></div>`;
     }
     const market = WC.driverMarket(w).map(p => {
       const a = WC.askOf(w, p), t = p.team ? w.teams[p.team] : null, g = WC.grudgeOf(w, p.id);
@@ -772,7 +774,7 @@ export class Computer {
         <div class="tm-acts">${btn('dsign', p.id, a.fee ? 'Sign' : 'Offer', m ? `Replace ${esc(WC.people(w)[m.pid].first)}?` : 'Sure?')}${a.fee ? '' : btn('dlow', p.id, 'Lowball', '75%? Select again')}</div></div>`;
     }).join('');
     return `<div class="tm tx-page"><div class="tm-head"><b>Drivers</b><small>Your reputation with drivers: ${drep >= 70 ? 'good' : drep >= 45 ? 'fine' : drep >= 25 ? 'poor' : 'bad'}. Paying late, dropping people mid-season and dirty racing all get around.</small></div>
-      <div class="tm-list">${me}</div>
+      <h3 class="dv-h">Your teammate</h3>${me}
       <h3 class="dv-h">${w.over ? 'Available for next season' : 'Free agents'}</h3>${market || '<p class="pc-empty">Nobody available right now.</p>'}
       <p class="tm-note">${w.over ? 'Between seasons you can approach drivers on other teams too.' : 'During the season only drivers without a seat are free. Between seasons, everyone in your series and below.'} Dropping your teammate mid-season means paying their wages to the end of it.</p></div>`;
   }
