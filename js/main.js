@@ -15,6 +15,7 @@ import { presetTracks, sampleTrack, trackStats, THEMES, cloneTrack } from './tra
 import { TEAMS } from './car.js';
 import { Garage } from './garage.js';
 import { PitGarage } from './pitgarage.js';
+import { Opening } from './opening.js';
 import { Computer } from './computer.js';
 import { restoreSaves, exportBackup, importBackup } from './backup.js';
 import { voiceState, voiceStatus, voiceSignIn, voiceSignOut, voiceReacts } from './voice.js';
@@ -291,12 +292,17 @@ function boot() {
 }
 let bootGo = null;
 
+// the opening (js/opening.js): just the set for now, the trailer's living room
+function openOpening() { fadeTo(() => { opening.enter(); show('s-opening'); }); }
+function closeOpening() { fadeTo(() => { opening.leave(); show('s-main'); }); }
+
 // ---------------- main menu ----------------
 const MAIN_ITEMS = [
   { label: 'Quick Race', action: () => { fromEditor = false; openSetup(); }, desc: 'Any circuit, your rules. Race the AI or set a time trial.' },
   { label: 'Career', action: () => openCareer(), desc: 'A championship season with upgrades, perks and a Team Principal to keep happy. Or a straight Grand Prix.' },
   { label: 'Online', action: () => openOnline(), desc: 'Host a room or join a friend with a room code. Up to 8 drivers.' },
   { label: 'Garage', action: () => openGarage(), desc: 'Choose your car, build your F1 car and design its livery, helmet and suit.' },
+  { label: 'The Opening', action: () => openOpening(), desc: 'Preview: the trailer, the couch, the TV. Look around with the mouse or the right stick.' },
   { label: 'Track Editor', action: () => openEditor(), desc: 'Draw your own circuit, even on a real map of your town, then race it.' },
   { label: 'Options', action: () => openOptions('s-main'), desc: 'Screen look, retro effects, driving aids, units and sound.', cls: 'gap' },
   { label: 'How To Play', action: () => fadeTo(() => { openHelp(0); }, 200), desc: 'Controls for keyboard and controller, and racing tips.' },
@@ -881,6 +887,7 @@ function sessionSet(kind) {
 // ---------------- the pit garage (practice / qualifying) ----------------
 // your box: go out on a flying lap or down the pit lane, pick tyres, watch the timing, skip ahead. The session goes on.
 const pitGarage = new PitGarage(renderer, post);
+const opening = new Opening(renderer, post);
 let pgView = 'main', pgInfoT = 0, pgTiming = false, pgSkipLbl = '', pgBusy = false, pgWorkKey = '';
 const PG_TYRE_COL = { soft: '#e0302a', medium: '#f2d22a', hard: '#f0f0f0', wet: '#3a8af0' };
 const capit = (c) => c[0].toUpperCase() + c.slice(1);
@@ -3287,6 +3294,7 @@ function reviewClock() {
 // ---------------- main loop ----------------
 // how loud the soundtrack sits (js/audio.js): quiet under the racing, almost gone on the grid, fuller in the menus
 function musicScene() {
+  if (screen === 's-opening') return 'silent'; // (the opening has its own sound: the TV)
   if (!sim || sim.mode === 'attract' || (screen !== 'hud' && screen !== 's-pause' && screen !== 's-options')) return 'menu';
   if (screen !== 'hud' || sim.paused) return 'pause';
   if (sim.state === 'racing' || sim.state === 'finished') return 'race';
@@ -3382,6 +3390,9 @@ function frame(now) {
   } else if (screen === 's-garage' || screen === 's-livery') {
     if (screen === 's-garage') menuInput(); else clearEdges();
     garage.update(dt);
+  } else if (screen === 's-opening') {
+    if (pressed('Escape') | pressed('Backspace') | pressed('GP1')) closeOpening();
+    opening.update(dt);
   } else if (PHONE_SCREENS.includes(screen)) {
     // World Career, your garage: the computer has the controls while you're sat at it, the phone while it's up (P / Y)
     if (!pcInput() && !phoneInput()) menuInput();
@@ -3402,6 +3413,7 @@ function frame(now) {
   phone.update(dt);
   netTick(dt);
   if (screen === 's-garage' || screen === 's-livery') garage.render();
+  else if (screen === 's-opening') opening.render();
   else if (screen === 's-pitgarage' || screen === 's-hub' || (screen === 's-review' && reviewFrom === 's-pitgarage')) pitGarage.render();
   else if (sim && screen !== 's-editor' && screen !== 's-loading') sim.render(post, settings);
   else if (screen !== 's-editor') { renderer.setRenderTarget(null); renderer.setClearColor(0x000000); renderer.clear(); }
@@ -3422,4 +3434,4 @@ requestAnimationFrame(frame);
 // debug handle
 window.__svgp = { get world() { return world; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub() } };
+  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: () => openOpening(), voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub() } };

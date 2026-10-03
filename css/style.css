@@ -1607,3 +1607,6 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 /* a saved career's page on the career screen */
 .cs-cells { margin: var(--s4) 0; }
 .career-info .lead.small { font-size: var(--t-small); }
+
+/* the opening (js/opening.js): the set, for now */
+#s-opening .op-hint { position: absolute; right: 28px; bottom: 22px; font: 500 14px 'SV UI', sans-serif; letter-spacing: -0.02em; color: rgba(255,255,255,0.55); }

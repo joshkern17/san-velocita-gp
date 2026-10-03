@@ -37,7 +37,7 @@ const MUSIC_DIR = window.__SVGP_MUSIC_DIR || 'assets/music/';
 let music = null, musicIdx = 0, musicVol = 0.5, musicFails = 0;
 // The music sits under the game rather than on top of it: the slider is squared (so the low steps are really quiet)
 // and each scene plays it at a share of that. Changes ease in and out, so nothing ever jumps.
-const MUSIC_MIX = { menu: 0.8, pause: 0.55, grid: 0.12, race: 0.32 };
+const MUSIC_MIX = { silent: 0, menu: 0.8, pause: 0.55, grid: 0.12, race: 0.32 };
 let musicScene = 'menu', musicLevel = 0;
 function musicPlay() { if (music && musicVol > 0) music.play().catch(() => {}); } // blocked until a key / click: initAudio retries
 function playTrack(i) {
