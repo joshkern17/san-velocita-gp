@@ -19,7 +19,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { applyPSXMaterial } from '../vendor/psx/src/PSXMaterial.js';
-import { fillLivery, paintHelmet, paintSuit, paintBoots, drawKitDecals, VISOR_COL } from './livery.js';
+import { fillLivery, paintHelmet, paintSuit, paintBoots, decalRaster, VISOR_COL } from './livery.js';
 
 export const LOOKS = [
   'coveralls_gray', 'coveralls_tan', 'coveralls_navy', 'coveralls_black', // mechanics / pit crew
@@ -303,12 +303,115 @@ function sharedCrewKit(cfg) {
   return kit;
 }
 
+// ---------------- decals projected onto the racer ----------------
+// Each part's canvas gets a texel map: where every texel sits on the body (the bind pose, metres, +Y up, facing
+// +Z) and which way the surface faces there. A decal is anchored at a spot on a part (part, u, v: what clicking
+// the driver gives) and projected from the surface's direction there like a sticker, onto every part it reaches.
+const DECAL_REF = 0.75;  // a decal's size is a fraction of this many metres (about the torso's height)
+const DECAL_DEPTH = 0.2; // how far in front of / behind its plane a decal still lands (m)
+const MAPS = new Map();  // material name -> texel map
+function texelMap(name) {
+  if (MAPS.has(name)) return MAPS.get(name);
+  let mesh = null;
+  for (const o of TPL.looks.racer) if ((Array.isArray(o.material) ? o.material : [o.material]).some(m => m.name === name)) mesh = o;
+  const tex = mesh && mesh.material.map;
+  if (!tex) { MAPS.set(name, null); return null; }
+  // the skinning's bind space: metres, +Y up (the node's own matrix carries the rig's 1/100 scale, skinning doesn't)
+  const W = tex.image.width, H = tex.image.height, geo = mesh.geometry, mw = mesh.bindMatrix, nm = new THREE.Matrix3().getNormalMatrix(mw);
+  const P = geo.attributes.position, N = geo.attributes.normal, UV = geo.attributes[tex.channel ? 'uv' + tex.channel : 'uv'];
+  const pos = new Float32Array(W * H * 3), nrm = new Float32Array(W * H * 3), ok = new Uint8Array(W * H);
+  const v = new THREE.Vector3(), n = new THREE.Vector3();
+  const vp = [], vn = [], vu = [];
+  for (let i = 0; i < P.count; i++) {
+    v.fromBufferAttribute(P, i).applyMatrix4(mw); vp.push(v.x, v.y, v.z);
+    n.fromBufferAttribute(N, i).applyMatrix3(nm).normalize(); vn.push(n.x, n.y, n.z);
+    vu.push(UV.getX(i) * W - 0.5, UV.getY(i) * H - 0.5);
+  }
+  const idx = geo.index ? geo.index.array : [...Array(P.count).keys()];
+  for (let t = 0; t < idx.length; t += 3) {
+    const a = idx[t], b = idx[t + 1], c = idx[t + 2];
+    const ax = vu[a * 2], ay = vu[a * 2 + 1], bx = vu[b * 2], by = vu[b * 2 + 1], cx = vu[c * 2], cy = vu[c * 2 + 1];
+    const den = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy); if (Math.abs(den) < 1e-9) continue;
+    const x0 = Math.floor(Math.min(ax, bx, cx)), x1 = Math.ceil(Math.max(ax, bx, cx)), y0 = Math.max(0, Math.floor(Math.min(ay, by, cy))), y1 = Math.min(H - 1, Math.ceil(Math.max(ay, by, cy)));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const l1 = ((by - cy) * (x - cx) + (cx - bx) * (y - cy)) / den, l2 = ((cy - ay) * (x - cx) + (ax - cx) * (y - cy)) / den, l3 = 1 - l1 - l2;
+      if (l1 < -0.02 || l2 < -0.02 || l3 < -0.02) continue;
+      const k = y * W + (((x % W) + W) % W); // (u past 1: faces across the tube's seam)
+      for (let j = 0; j < 3; j++) { pos[k * 3 + j] = vp[a * 3 + j] * l1 + vp[b * 3 + j] * l2 + vp[c * 3 + j] * l3; nrm[k * 3 + j] = vn[a * 3 + j] * l1 + vn[b * 3 + j] * l2 + vn[c * 3 + j] * l3; }
+      ok[k] = 1;
+    }
+  }
+  // grow the map a few texels past the triangles' edges (texture filtering reads there)
+  for (let pass = 0; pass < 3; pass++) {
+    const add = [];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const k = y * W + x; if (ok[k]) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = (x + dx + W) % W, yy = y + dy; if (yy < 0 || yy >= H) continue; const kk = yy * W + xx; if (ok[kk] === 1) { add.push([k, kk]); break; } }
+    }
+    for (const [k, kk] of add) { for (let j = 0; j < 3; j++) { pos[k * 3 + j] = pos[kk * 3 + j]; nrm[k * 3 + j] = nrm[kk * 3 + j]; } ok[k] = 2; }
+    for (const [k] of add) ok[k] = 1;
+  }
+  const map = { W, H, pos, nrm, ok };
+  MAPS.set(name, map);
+  return map;
+}
+const PART_MAT = { torso: 'SuitTorso', armL: 'SuitArmL', armR: 'SuitArmR', legL: 'SuitLegL', legR: 'SuitLegR', helmet: 'HelmetShell' };
+// a decal's anchor -> the point on the body and the way the surface faces there
+function anchorOf(d) {
+  const m = texelMap(PART_MAT[d.part]); if (!m) return null;
+  const u = d.part === 'helmet' ? d.u + HELMET_FRONT : d.u;
+  const cx = Math.floor((((u % 1) + 1) % 1) * m.W), cy = Math.min(m.H - 1, Math.max(0, Math.floor(d.v * m.H)));
+  for (let r = 0; r < 12; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+    const x = (cx + dx + m.W) % m.W, y = cy + dy; if (y < 0 || y >= m.H) continue;
+    const k = y * m.W + x;
+    if (m.ok[k]) return { p: new THREE.Vector3(m.pos[k * 3], m.pos[k * 3 + 1], m.pos[k * 3 + 2]), n: new THREE.Vector3(m.nrm[k * 3], m.nrm[k * 3 + 1], m.nrm[k * 3 + 2]).normalize() };
+  }
+  return null;
+}
+function projectDecals(decals, targets, onReady) {
+  if (!decals.length) return;
+  for (const t of targets) t.map = texelMap(t.name.replace(/\.\d+$/, ''));
+  for (const d of decals) {
+    const r = decalRaster(d, onReady), a = anchorOf(d);
+    if (!r || !a) continue;
+    const frames = [[a.p, a.n, d.rot || 0]];
+    if (d.mirror) frames.push([new THREE.Vector3(-a.p.x, a.p.y, a.p.z), new THREE.Vector3(-a.n.x, a.n.y, a.n.z), -(d.rot || 0)]); // the other side, reading the right way
+    const w = d.size * DECAL_REF * r.w, h = d.size * DECAL_REF * r.h, rad2 = (w * w + h * h) / 4 + DECAL_DEPTH * DECAL_DEPTH, op = d.opacity ?? 1;
+    for (const [P, N, rot] of frames) {
+      const up = Math.abs(N.y) > 0.95 ? new THREE.Vector3(0, 0, -Math.sign(N.y)) : new THREE.Vector3(0, 1, 0);
+      let U = up.sub(N.clone().multiplyScalar(up.dot(N))).normalize(), R = new THREE.Vector3().crossVectors(U, N);
+      const c = Math.cos(rot * Math.PI / 180), sn = Math.sin(rot * Math.PI / 180);
+      [R, U] = [R.clone().multiplyScalar(c).addScaledVector(U, -sn), U.clone().multiplyScalar(c).addScaledVector(R, sn)];
+      for (const t of targets) {
+        const m = t.map; if (!m) continue;
+        const o = t.data;
+        for (let k = 0, n = m.W * m.H; k < n; k++) {
+          if (!m.ok[k]) continue;
+          const dx = m.pos[k * 3] - P.x, dy = m.pos[k * 3 + 1] - P.y, dz = m.pos[k * 3 + 2] - P.z;
+          if (dx * dx + dy * dy + dz * dz > rad2) continue;
+          const z = dx * N.x + dy * N.y + dz * N.z;
+          if (Math.abs(z) > DECAL_DEPTH || m.nrm[k * 3] * N.x + m.nrm[k * 3 + 1] * N.y + m.nrm[k * 3 + 2] * N.z < 0.05) continue;
+          let iu = (dx * R.x + dy * R.y + dz * R.z) / w + 0.5;
+          const iv = 0.5 - (dx * U.x + dy * U.y + dz * U.z) / h;
+          if (iu < 0 || iu >= 1 || iv < 0 || iv >= 1) continue;
+          if (d.flip) iu = 1 - iu;
+          const s = (Math.floor(iv * r.H) * r.W + Math.floor(iu * r.W)) * 4, al = r.data[s + 3] / 255 * op;
+          if (al <= 0) continue;
+          const q = k * 4;
+          o[q] += (r.data[s] - o[q]) * al; o[q + 1] += (r.data[s + 1] - o[q + 1]) * al; o[q + 2] += (r.data[s + 2] - o[q + 2]) * al;
+        }
+      }
+    }
+  }
+}
+
 function paintKit(kit, cfg, onReady) {
   const L = fillLivery(cfg), D = L.helmetDesign, SD = L.suit;
   if (kit.helmet) {
     const { mat, det } = kit.helmet, cv = mat.map.image, g = cv.getContext('2d', { willReadFrequently: true });
-    paintHelmet(cv, L, HELMET_FRONT, onReady);
+    paintHelmet(cv, L, HELMET_FRONT, onReady, { decals: false });
     const img = g.getImageData(0, 0, det.W, det.H), o = img.data, d = det.data;
+    projectDecals(SD.decals.filter(x => x.part === 'helmet'), [{ name: mat.name, data: o }], onReady); // (under the visor + detail)
     const [vBase, vSheen] = (VISOR_COL[D.visor] || VISOR_COL.dark).map(rgbOf);
     const mode = D.strip || 'team', sCol = rgbOf(D.accent ?? L.main ?? 0xffffff);
     const vb = det.visor, vh = Math.max(1, vb.y1 - vb.y0);
@@ -345,11 +448,14 @@ function paintKit(kit, cfg, onReady) {
     const scratch = (p) => { const c = kit[p] || (kit[p] = document.createElement('canvas')); const src = S[p === 'armsCv' ? 'armL' : 'legL'].mat.map.image; c.width = src.width; c.height = src.height; return c; };
     const arms = scratch('armsCv'), legs = scratch('legsCv');
     paintSuit(S.torso.mat.map.image, legs, arms, L, onReady, { belt: false, decals: false });
-    for (const [part, p] of Object.entries(S)) {
-      const cv = p.mat.map.image, g = cv.getContext('2d'), W = cv.width, H = cv.height;
-      if (part !== 'torso') g.drawImage(part.startsWith('arm') ? arms : legs, 0, 0, W, H);
-      drawKitDecals(g, W, H, SD.decals, part, onReady);
-      g.globalCompositeOperation = 'multiply'; g.drawImage(p.det, 0, 0, W, H); g.globalCompositeOperation = 'source-over';
+    for (const [part, p] of Object.entries(S)) if (part !== 'torso') p.mat.map.image.getContext('2d').drawImage(part.startsWith('arm') ? arms : legs, 0, 0);
+    // decals: projected onto the body, so one can run from the chest onto a sleeve or down a leg
+    const targets = Object.values(S).map(p => { const cv = p.mat.map.image, g = cv.getContext('2d', { willReadFrequently: true }); const img = g.getImageData(0, 0, cv.width, cv.height); return { name: p.mat.name, g, img, data: img.data }; });
+    projectDecals(SD.decals.filter(x => x.part !== 'helmet'), targets, onReady);
+    for (const t of targets) t.g.putImageData(t.img, 0, 0);
+    for (const p of Object.values(S)) {
+      const cv = p.mat.map.image, g = cv.getContext('2d');
+      g.globalCompositeOperation = 'multiply'; g.drawImage(p.det, 0, 0, cv.width, cv.height); g.globalCompositeOperation = 'source-over';
       p.mat.map.needsUpdate = true;
     }
   }

@@ -261,7 +261,7 @@ export function paintCar(canvas, cfg, model, onReady) {
 }
 
 // Helmet: equirectangular canvas for a sphere. model.helmetUV tells where the visor (front) sits in u.
-export function paintHelmet(canvas, cfg, front = 0.25, onReady) {
+export function paintHelmet(canvas, cfg, front = 0.25, onReady, opts = {}) {
   const D = fillLivery(cfg).helmetDesign, W = canvas.width, H = canvas.height, g = canvas.getContext('2d');
   const base = hex(D.base), acc = hex(D.accent), third = hex(D.third);
   const X = (u) => (((front + u) % 1) + 1) % 1 * W; // u relative to the visor (0 = front, .25 = left...)
@@ -294,7 +294,8 @@ export function paintHelmet(canvas, cfg, front = 0.25, onReady) {
     if (im) for (const u of [0.25, 0.75]) { const w = W * 0.13, h = w * im.naturalHeight / im.naturalWidth; g.drawImage(im, X(u) - w / 2, H * 0.34 - h / 2, w, h); }
   }
   // decals placed on the helmet (the Livery Designer's Uniform tab): u from the visor, like everything here
-  drawKitDecals(g, W, H, fillLivery(cfg).suit.decals, 'helmet', onReady, (u) => X(u) / W);
+  // (opts.decals = false: the racer projects them onto the 3D helmet instead, js/characters.js)
+  if (opts.decals !== false) drawKitDecals(g, W, H, fillLivery(cfg).suit.decals, 'helmet', onReady, (u) => X(u) / W);
 }
 export const VISOR_COL = { dark: [0x121820, 0x88aacc], gold: [0x6a4a10, 0xffd070], blue: [0x10305a, 0x80c8ff], red: [0x5a1010, 0xff8060], clear: [0x3a4a58, 0xffffff] };
 
@@ -367,6 +368,40 @@ export function drawKitDecals(g, W, H, decals, part, onReady, place = (u) => u) 
     }
   }
   g.restore();
+}
+
+// A decal as pixels, for projecting it onto a 3D surface (the racer's kit): { data, W, H, w, h } with w / h its
+// size in the decal's units (an image's width = size; text: letter height = size), centred on the decal's point.
+// null until an image has loaded (onReady fires then).
+const rasters = new Map();
+export function decalRaster(d, onReady) {
+  const key = d.text != null ? ['t', d.text, d.font, d.color, d.outline].join('|') : 'i|' + d.asset;
+  if (rasters.has(key)) return rasters.get(key);
+  let c, g, w, h;
+  if (d.text != null) {
+    if (!String(d.text).trim()) return null;
+    const P = 64, cw = Math.ceil(P * (String(d.text).length * 0.9 + 1.5)), ch = P * 2;
+    c = document.createElement('canvas'); c.width = cw; c.height = ch; g = c.getContext('2d', { willReadFrequently: true });
+    g.setTransform(P, 0, 0, P, 0, 0);
+    drawDecal(g, { ...d, size: 1, rot: 0, flip: false, opacity: 1 }, cw / 2 / P, ch / 2 / P);
+    // crop to the ink, keeping it centred on the text's middle
+    const px = g.getImageData(0, 0, cw, ch).data;
+    let x0 = cw, x1 = 0;
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) if (px[(y * cw + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; }
+    if (x1 < x0) return null;
+    const half = Math.max(cw / 2 - x0, x1 - cw / 2) + 2, sx = Math.max(0, Math.floor(cw / 2 - half));
+    const out = document.createElement('canvas'); out.width = Math.min(cw, Math.ceil(half * 2)); out.height = ch;
+    out.getContext('2d').drawImage(c, sx, 0, out.width, ch, 0, 0, out.width, ch);
+    c = out; w = out.width / P; h = ch / P;
+  } else {
+    const im = decalImage(d.asset, onReady); if (!im) return null;
+    const W = 256, H = Math.max(1, Math.round(W * im.naturalHeight / im.naturalWidth));
+    c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').drawImage(im, 0, 0, W, H);
+    w = 1; h = H / W;
+  }
+  const r = { data: c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, c.width, c.height).data, W: c.width, H: c.height, w, h };
+  rasters.set(key, r);
+  return r;
 }
 
 // Racing boots (the racer's boot tubes: u 0 = the toe, .25 / .75 the outsides, .5 the heel; canvas top = the
