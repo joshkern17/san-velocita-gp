@@ -356,7 +356,8 @@ function texelMap(name) {
   return map;
 }
 const PART_MAT = { torso: 'SuitTorso', armL: 'SuitArmL', armR: 'SuitArmR', legL: 'SuitLegL', legR: 'SuitLegR', helmet: 'HelmetShell' };
-// a decal's anchor -> the point on the body and the way the surface faces there
+// a decal's anchor -> the texel it sits on, the point on the body there and the way the surface faces
+const MIRROR_KIT = { torso: 'torso', helmet: 'helmet', armL: 'armR', armR: 'armL', legL: 'legR', legR: 'legL' };
 function anchorOf(d) {
   const m = texelMap(PART_MAT[d.part]); if (!m) return null;
   const u = d.part === 'helmet' ? d.u + HELMET_FRONT : d.u;
@@ -364,43 +365,120 @@ function anchorOf(d) {
   for (let r = 0; r < 12; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
     const x = (cx + dx + m.W) % m.W, y = cy + dy; if (y < 0 || y >= m.H) continue;
     const k = y * m.W + x;
-    if (m.ok[k]) return { p: new THREE.Vector3(m.pos[k * 3], m.pos[k * 3 + 1], m.pos[k * 3 + 2]), n: new THREE.Vector3(m.nrm[k * 3], m.nrm[k * 3 + 1], m.nrm[k * 3 + 2]).normalize() };
+    if (m.ok[k]) return { k, map: m, p: new THREE.Vector3(m.pos[k * 3], m.pos[k * 3 + 1], m.pos[k * 3 + 2]), n: new THREE.Vector3(m.nrm[k * 3], m.nrm[k * 3 + 1], m.nrm[k * 3 + 2]).normalize() };
   }
   return null;
+}
+// distances over the surface, in metres: along each row of texels (a ring round the tube) from its first texel,
+// and down each column from the top. (A tube's u is even in angle, not in distance: the torso's flat front
+// and the arm holes would stretch a decal; measuring the actual surface doesn't.)
+function surfaceOf(m) {
+  if (m.cum) return m.cum;
+  const { W, H, pos, ok } = m, cu = new Float32Array(W * H), cv = new Float32Array(W * H), C = new Float32Array(H);
+  const seg = (a, b) => Math.hypot(pos[b * 3] - pos[a * 3], pos[b * 3 + 1] - pos[a * 3 + 1], pos[b * 3 + 2] - pos[a * 3 + 2]);
+  for (let y = 0; y < H; y++) {
+    let sum = 0, n = 0; for (let x = 0; x < W; x++) { const a = y * W + x, b = y * W + (x + 1) % W; if (ok[a] && ok[b]) { sum += seg(a, b); n++; } }
+    const avg = n ? sum / n : 0; let t = 0;
+    for (let x = 0; x < W; x++) { const a = y * W + x, b = y * W + (x + 1) % W; cu[a] = t; t += ok[a] && ok[b] ? seg(a, b) : avg; } // (gaps: the row's average step)
+    C[y] = t;
+  }
+  for (let x = 0; x < W; x++) {
+    let sum = 0, n = 0; for (let y = 0; y + 1 < H; y++) { const a = y * W + x, b = a + W; if (ok[a] && ok[b]) { sum += seg(a, b); n++; } }
+    const avg = n ? sum / n : 0; let t = 0;
+    for (let y = 0; y < H; y++) { const a = y * W + x; cv[a] = t; if (y + 1 < H) t += ok[a] && ok[a + W] ? seg(a, a + W) : avg; }
+  }
+  return (m.cum = { cu, cv, C });
+}
+// how the tube runs at texel k: unit directions round it (û) and along it (v̂) (one-sided at the edges)
+function tangentsAt(m, k) {
+  const x = k % m.W, y = (k / m.W) | 0, P = (kk) => new THREE.Vector3(m.pos[kk * 3], m.pos[kk * 3 + 1], m.pos[kk * 3 + 2]);
+  const at = (xx, yy) => { if (yy < 0 || yy >= m.H) return -1; const kk = yy * m.W + ((xx % m.W) + m.W) % m.W; return m.ok[kk] ? kk : -1; };
+  const diff = (dx, dy) => {
+    for (let s = 1; s <= 8; s++) {
+      const a = at(x - dx * s, y - dy * s), b = at(x + dx * s, y + dy * s), c0 = at(x, y);
+      const v = a >= 0 && b >= 0 ? P(b).sub(P(a)) : b >= 0 && c0 >= 0 ? P(b).sub(P(c0)) : a >= 0 && c0 >= 0 ? P(c0).sub(P(a)) : null;
+      if (v && v.lengthSq() > 1e-12) return v.normalize();
+    }
+    return null;
+  };
+  const u = diff(1, 0), v = diff(0, 1);
+  return u && v ? { u, v } : null;
 }
 function projectDecals(decals, targets, onReady) {
   if (!decals.length) return;
   for (const t of targets) t.map = texelMap(t.name.replace(/\.\d+$/, ''));
-  for (const d of decals) {
+  const all = [];
+  for (const d of decals) { all.push(d); if (d.mirror) all.push({ ...d, part: MIRROR_KIT[d.part], u: 1 - d.u, rot: -(d.rot || 0), mirror: false }); } // the other side, reading the right way
+  for (const d of all) {
     const r = decalRaster(d, onReady), a = anchorOf(d);
     if (!r || !a) continue;
-    const frames = [[a.p, a.n, d.rot || 0]];
-    if (d.mirror) frames.push([new THREE.Vector3(-a.p.x, a.p.y, a.p.z), new THREE.Vector3(-a.n.x, a.n.y, a.n.z), -(d.rot || 0)]); // the other side, reading the right way
-    const w = d.size * DECAL_REF * r.w, h = d.size * DECAL_REF * r.h, rad2 = (w * w + h * h) / 4 + DECAL_DEPTH * DECAL_DEPTH, op = d.opacity ?? 1;
-    for (const [P, N, rot] of frames) {
-      const up = Math.abs(N.y) > 0.95 ? new THREE.Vector3(0, 0, -Math.sign(N.y)) : new THREE.Vector3(0, 1, 0);
-      let U = up.sub(N.clone().multiplyScalar(up.dot(N))).normalize(), R = new THREE.Vector3().crossVectors(U, N);
-      const c = Math.cos(rot * Math.PI / 180), sn = Math.sin(rot * Math.PI / 180);
-      [R, U] = [R.clone().multiplyScalar(c).addScaledVector(U, -sn), U.clone().multiplyScalar(c).addScaledVector(R, sn)];
-      for (const t of targets) {
-        const m = t.map; if (!m) continue;
-        const o = t.data;
-        for (let k = 0, n = m.W * m.H; k < n; k++) {
+    const P = a.p, N = a.n;
+    const w = d.size * DECAL_REF * r.w, h = d.size * DECAL_REF * r.h, reach = Math.hypot(w, h) / 2 + 0.05, op = d.opacity ?? 1;
+    const up = Math.abs(N.y) > 0.95 ? new THREE.Vector3(0, 0, -Math.sign(N.y)) : new THREE.Vector3(0, 1, 0);
+    const U = up.sub(N.clone().multiplyScalar(up.dot(N))).normalize(), R = new THREE.Vector3().crossVectors(U, N);
+    const c = Math.cos((d.rot || 0) * Math.PI / 180), sn = Math.sin((d.rot || 0) * Math.PI / 180);
+    const put = (o, q, x, y, fade) => { // decal plane coords (x right, y up, metres) -> blend its pixel in
+      const xr = x * c - y * sn, yr = y * c + x * sn;
+      let iu = xr / w + 0.5; const iv = 0.5 - yr / h;
+      if (iu < 0 || iu >= 1 || iv < 0 || iv >= 1) return;
+      if (d.flip) iu = 1 - iu;
+      const s = (Math.floor(iv * r.H) * r.W + Math.floor(iu * r.W)) * 4, al = r.data[s + 3] / 255 * op * fade;
+      if (al <= 0) return;
+      o[q] += (r.data[s] - o[q]) * al; o[q + 1] += (r.data[s + 1] - o[q + 1]) * al; o[q + 2] += (r.data[s + 2] - o[q + 2]) * al;
+    };
+    for (const t of targets) {
+      const m = t.map; if (!m) continue;
+      const o = t.data, n = m.W * m.H;
+      if (d.part === 'helmet') { // the helmet: projected flat like a sticker (it's round; fades where it turns away)
+        for (let k = 0; k < n; k++) {
           if (!m.ok[k]) continue;
           const dx = m.pos[k * 3] - P.x, dy = m.pos[k * 3 + 1] - P.y, dz = m.pos[k * 3 + 2] - P.z;
-          if (dx * dx + dy * dy + dz * dz > rad2) continue;
+          if (dx * dx + dy * dy + dz * dz > reach * reach + DECAL_DEPTH * DECAL_DEPTH) continue;
           const z = dx * N.x + dy * N.y + dz * N.z, face = m.nrm[k * 3] * N.x + m.nrm[k * 3 + 1] * N.y + m.nrm[k * 3 + 2] * N.z;
           if (Math.abs(z) > DECAL_DEPTH || face < 0.05) continue;
-          // fade out where the surface turns away from the decal (no jagged cut along the facets)
-          const fade = Math.min(1, (face - 0.05) / 0.3) * Math.min(1, (DECAL_DEPTH - Math.abs(z)) / 0.04);
-          let iu = (dx * R.x + dy * R.y + dz * R.z) / w + 0.5;
-          const iv = 0.5 - (dx * U.x + dy * U.y + dz * U.z) / h;
-          if (iu < 0 || iu >= 1 || iv < 0 || iv >= 1) continue;
-          if (d.flip) iu = 1 - iu;
-          const s = (Math.floor(iv * r.H) * r.W + Math.floor(iu * r.W)) * 4, al = r.data[s + 3] / 255 * op * fade;
-          if (al <= 0) continue;
-          const q = k * 4;
-          o[q] += (r.data[s] - o[q]) * al; o[q + 1] += (r.data[s + 1] - o[q + 1]) * al; o[q + 2] += (r.data[s + 2] - o[q + 2]) * al;
+          put(o, k * 4, dx * R.x + dy * R.y + dz * R.z, dx * U.x + dy * U.y + dz * U.z, Math.min(1, (face - 0.05) / 0.3) * Math.min(1, (DECAL_DEPTH - Math.abs(z)) / 0.04));
+        }
+        continue;
+      }
+      // The suit: projected flat like the helmet, except that distances ROUND each part (a row of texels is a ring
+      // round the torso, a leg or a sleeve) are measured over the surface, like vinyl wrapping a curve. Each ring is
+      // pinned where the flat projection puts the decal's centre line, so the decal runs on unbroken from part to part;
+      // rings its centre doesn't reach (the other leg) are left alone.
+      let rep = -1, best = reach * reach;
+      if (m === a.map) rep = a.k;
+      else for (let k = 0; k < n; k++) {
+        if (m.ok[k] !== 1) continue;
+        const kx = k % m.W, ky = (k / m.W) | 0; // (a texel with neighbours all round: the surface's direction is known there)
+        if (ky < 2 || ky > m.H - 3 || !m.ok[ky * m.W + (kx + 2) % m.W] || !m.ok[ky * m.W + (kx - 2 + m.W) % m.W] || !m.ok[k - 2 * m.W] || !m.ok[k + 2 * m.W]) continue;
+        const dx = m.pos[k * 3] - P.x, dy = m.pos[k * 3 + 1] - P.y, dz = m.pos[k * 3 + 2] - P.z, d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 < best && m.nrm[k * 3] * N.x + m.nrm[k * 3 + 1] * N.y + m.nrm[k * 3 + 2] * N.z > 0.2) { best = d2; rep = k; }
+      }
+      if (rep < 0) continue;
+      const T = tangentsAt(m, rep); if (!T) continue;
+      // the rings' direction in the decal's plane, and how far the decal reaches that way
+      let rx = T.u.dot(R), ry = T.u.dot(U); const rl = Math.hypot(rx, ry); if (rl < 1e-3) continue; rx /= rl; ry /= rl;
+      // onto another part only where its rings cross the decal's length (a stripe down the body carries on down a leg;
+      // a band round the chest carries on round a sleeve; a stripe never runs along a sleeve's rings)
+      if (m !== a.map) { const lx = h >= w ? -sn : c, ly = h >= w ? c : sn; if (Math.abs(rx * lx + ry * ly) > 0.7) continue; }
+      const half = (Math.abs(rx * c + ry * sn) * w + Math.abs(ry * c - rx * sn) * h) / 2; // (the rotated decal's extent along the rings)
+      const { cu, C } = surfaceOf(m);
+      for (let y = 0; y < m.H; y++) {
+        // this ring's crossing: the front-facing texel the flat projection puts nearest the centre line
+        let cx = -1, ct = Infinity, cxp = 0, cyp = 0;
+        for (let x = 0; x < m.W; x++) {
+          const k = y * m.W + x; if (!m.ok[k]) continue;
+          if (m.nrm[k * 3] * N.x + m.nrm[k * 3 + 1] * N.y + m.nrm[k * 3 + 2] * N.z < 0.1) continue;
+          const dx = m.pos[k * 3] - P.x, dy = m.pos[k * 3 + 1] - P.y, dz = m.pos[k * 3 + 2] - P.z;
+          if (Math.abs(dx * N.x + dy * N.y + dz * N.z) > DECAL_DEPTH) continue;
+          const xp = dx * R.x + dy * R.y + dz * R.z, yp = dx * U.x + dy * U.y + dz * U.z, t = Math.abs(xp * rx + yp * ry);
+          if (t < ct) { ct = t; cx = x; cxp = xp; cyp = yp; }
+        }
+        if (cx < 0 || ct > half) continue;
+        const c0 = cu[y * m.W + cx], Cy = C[y];
+        for (let x = 0; x < m.W; x++) {
+          const k = y * m.W + x; if (!m.ok[k]) continue;
+          let s = cu[k] - c0; if (Cy > 0) s -= Math.round(s / Cy) * Cy; // round the ring, the short way (metres)
+          put(o, k * 4, cxp + rx * s, cyp + ry * s, 1);
         }
       }
     }
