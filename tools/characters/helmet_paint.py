@@ -3,7 +3,7 @@
 # layer the game multiplies under every team's helmet design (white = colour untouched, darker = shaded).
 # Layout matches js/livery.js paintHelmet(canvas, cfg, front = 0.5): a world-map wrap, visor in the middle of the
 # image, his left side at u .75, the back at the left/right edges, the crown along the top.
-# The starter image has a soft rim shadow and a placeholder visor (dark) to paint over.
+# The starter image is white with a soft shadow towards the rim.
 import bpy, bmesh, sys, os, math
 import numpy as np
 from mathutils import Vector
@@ -11,7 +11,6 @@ argv = sys.argv[sys.argv.index('--') + 1:]
 SRC, OUT = argv[0], argv[1]
 FRONT = 0.5
 W, H = 1024, 512
-VISOR = (0.36, 0.64, 0.40, 0.58)  # placeholder visor: u0, u1, v0, v1 (v up)
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=SRC)
@@ -20,6 +19,11 @@ for o in list(bpy.data.objects):  # leftover sub-millimetre bits
 helmet = bpy.data.objects['Cube']; helmet.name = 'Helmet'; helmet.data.name = 'Helmet'
 body = [o for o in bpy.data.objects if o.type == 'MESH' and o is not helmet][0]; body.name = 'Body (reference)'
 body.hide_select = True
+# Racer.glb's materials come in as alpha-blended, which Blender draws see-through: make them solid
+for m in body.data.materials:
+    if not m: continue
+    m.surface_render_method = 'DITHERED'
+    for l in [l for l in m.node_tree.links if l.to_socket.name == 'Alpha']: m.node_tree.links.remove(l)
 
 # bake the object transform into the mesh so positions are plain world metres
 helmet.data.transform(helmet.matrix_world); helmet.matrix_world.identity()
@@ -44,10 +48,6 @@ u = (np.arange(W) + 0.5) / W; v = (np.arange(H) + 0.5) / H
 U, V = np.meshgrid(u, v)                                   # row 0 = bottom (Blender pixel order)
 val = np.ones((H, W))
 val *= 0.82 + 0.18 * np.clip((V - 0.12) / 0.25, 0, 1)      # soft shadow towards the bottom rim
-du = np.maximum(np.maximum(VISOR[0] - U, U - VISOR[1]), 0) / 0.02
-dv = np.maximum(np.maximum(VISOR[2] - V, V - VISOR[3]), 0) / 0.04
-inside = np.clip(1 - np.sqrt(du ** 2 + dv ** 2), 0, 1)     # rounded, slightly soft corners
-val = val * (1 - inside) + 0.25 * inside
 px = np.dstack([val, val, val, np.ones_like(val)]).astype(np.float32)
 img = bpy.data.images.new('helmet_detail', W, H, alpha=False)
 img.pixels.foreach_set(px.ravel())
