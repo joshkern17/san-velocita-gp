@@ -389,13 +389,15 @@ function projectDecals(decals, targets, onReady) {
           if (!m.ok[k]) continue;
           const dx = m.pos[k * 3] - P.x, dy = m.pos[k * 3 + 1] - P.y, dz = m.pos[k * 3 + 2] - P.z;
           if (dx * dx + dy * dy + dz * dz > rad2) continue;
-          const z = dx * N.x + dy * N.y + dz * N.z;
-          if (Math.abs(z) > DECAL_DEPTH || m.nrm[k * 3] * N.x + m.nrm[k * 3 + 1] * N.y + m.nrm[k * 3 + 2] * N.z < 0.05) continue;
+          const z = dx * N.x + dy * N.y + dz * N.z, face = m.nrm[k * 3] * N.x + m.nrm[k * 3 + 1] * N.y + m.nrm[k * 3 + 2] * N.z;
+          if (Math.abs(z) > DECAL_DEPTH || face < 0.05) continue;
+          // fade out where the surface turns away from the decal (no jagged cut along the facets)
+          const fade = Math.min(1, (face - 0.05) / 0.3) * Math.min(1, (DECAL_DEPTH - Math.abs(z)) / 0.04);
           let iu = (dx * R.x + dy * R.y + dz * R.z) / w + 0.5;
           const iv = 0.5 - (dx * U.x + dy * U.y + dz * U.z) / h;
           if (iu < 0 || iu >= 1 || iv < 0 || iv >= 1) continue;
           if (d.flip) iu = 1 - iu;
-          const s = (Math.floor(iv * r.H) * r.W + Math.floor(iu * r.W)) * 4, al = r.data[s + 3] / 255 * op;
+          const s = (Math.floor(iv * r.H) * r.W + Math.floor(iu * r.W)) * 4, al = r.data[s + 3] / 255 * op * fade;
           if (al <= 0) continue;
           const q = k * 4;
           o[q] += (r.data[s] - o[q]) * al; o[q + 1] += (r.data[s + 1] - o[q + 1]) * al; o[q + 2] += (r.data[s + 2] - o[q + 2]) * al;
