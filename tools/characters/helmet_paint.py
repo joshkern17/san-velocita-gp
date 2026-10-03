@@ -32,6 +32,8 @@ c = Vector([(min(v[i] for v in vs) + max(v[i] for v in vs)) / 2 for i in range(3
 print('HELMET centre', tuple(round(x, 3) for x in c))
 
 bm = bmesh.new(); bm.from_mesh(helmet.data)
+# Racer.glb's helmet is inside-out (outer faces point in): point every face outwards
+bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
 uv = bm.loops.layers.uv.verify()
 for f in bm.faces:
     us, vv = [], []
@@ -59,7 +61,13 @@ mat = bpy.data.materials.new('HelmetShell'); mat.use_nodes = True
 nt = mat.node_tree; bsdf = nt.nodes['Principled BSDF']
 tex = nt.nodes.new('ShaderNodeTexImage'); tex.image = img; tex.interpolation = 'Closest'
 nt.links.new(tex.outputs['Color'], bsdf.inputs['Base Color']); nt.nodes.active = tex
-helmet.data.materials.clear(); helmet.data.materials.append(mat)
+pad = bpy.data.materials.new('Padding'); pad.diffuse_color = (0.04, 0.04, 0.045, 1); pad.use_nodes = True
+pad.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (0.04, 0.04, 0.045, 1)
+helmet.data.materials.clear(); helmet.data.materials.append(mat); helmet.data.materials.append(pad)
+# the inside of the shell is plain dark padding, not painted: it would share the outside's spot on the texture, and
+# painting through to it (with the brush's Occlude off) would mark the far side too
+for p in helmet.data.polygons:
+    if p.center.dot(p.normal) <= 0: p.material_index = 1
 
 for o in bpy.context.view_layer.objects: o.select_set(False)
 helmet.select_set(True); bpy.context.view_layer.objects.active = helmet
