@@ -318,7 +318,7 @@ export class Computer {
   mailApp() {
     const w = this.w, list = w.mail || [], cur = list.find(m => m.id === this.page.mail) || list[0];
     const rows = list.map(m => `<div class="pc-mrow${m.read ? '' : ' unread'}${cur && m.id === cur.id ? ' sel' : ''}" data-nav data-act="mail" data-arg="${m.id}" data-key="mail-${m.id}"${cur && m.id === cur.id && !(cur.choices && !cur.answer) && !cur.link ? ' data-first' : ''}>
-      <b>${esc(m.from)}</b><span>${esc(m.subj)}</span><small>${esc(m.when || '')} ${m.y}</small></div>`).join('') || '<p class="pc-empty">No mail.</p>';
+      <b>${esc(m.from)}</b><span>${esc(m.subj)}</span><small>${esc(m.when || '')} ${m.y}${m.choices && !m.answer ? ' <em class="pc-ask">Needs an answer</em>' : ''}</small></div>`).join('') || '<p class="pc-empty">No mail.</p>';
     const me = `${w.player.name.split(' ')[0].toLowerCase()}@${w.teams[w.player.team].name.toLowerCase().replace(/[^a-z]+/g, '')}.sv`;
     let read = '<p class="pc-empty">Select an email to read it.</p>';
     if (cur) {
