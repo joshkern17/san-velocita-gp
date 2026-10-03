@@ -62,6 +62,17 @@ for mt in mats:  # imported alpha-blended: make solid
     mt.surface_render_method = 'DITHERED'
     for l in [l for l in mt.node_tree.links if l.to_socket.name == 'Alpha']: mt.node_tree.links.remove(l)
 src_img = next(n.image for n in mats[cloth].node_tree.nodes if n.type == 'TEX_IMAGE')
+# The added sleeves and collar came in inside-out (faces pointing in: invisible from outside, the bare arm showing
+# through). Point the suit and gloves outwards, and drop the bare-arm skin: it's all under the sleeves and gloves.
+bm = bmesh.new(); bm.from_mesh(me); bm.faces.ensure_lookup_table()
+skin_arm = {i for i, mt in enumerate(mats) if mt and mt.name.startswith('skin-arm')}
+glove = {i for i, mt in enumerate(mats) if mt and mt.name.startswith('Gloves')}
+dropped = [f for f in bm.faces if f.material_index in skin_arm]
+bmesh.ops.delete(bm, geom=dropped, context='FACES')
+suit_faces = [f for f in bm.faces if f.material_index == cloth or f.material_index in glove]
+bmesh.ops.recalc_face_normals(bm, faces=suit_faces)
+bm.to_mesh(me); bm.free()
+print('SKIN ARM faces dropped', len(dropped))
 # parts: torso, each arm, each leg (own canvases: a decal can sit on one sleeve) and the boots (painted as racing boots)
 PARTS = ('torso', 'armL', 'armR', 'legL', 'legR', 'boots')
 MAT_NAME = {'torso': 'SuitTorso', 'armL': 'SuitArmL', 'armR': 'SuitArmR', 'legL': 'SuitLegL', 'legR': 'SuitLegR', 'boots': 'Boots'}
