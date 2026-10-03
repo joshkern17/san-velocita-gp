@@ -664,6 +664,7 @@ const tierOf = (sid) => (seriesById(sid) || SERIES[0]).id;
 // how far each kind of development can go in a series (the rules, and physics): gains shrink as you approach it
 const DEV_CAP = { street: { power: 0.03, grip: 0.015, downforce: 0.08, brake: 0.05, rel: 0.5 }, gt: { power: 0.02, grip: 0.015, downforce: 0.06, brake: 0.04, rel: 0.5 }, formula: { power: 0.03, grip: 0.02, downforce: 0.12, brake: 0.05, rel: 0.5 } };
 // [key, area, name, stat, gain, days, cost, needs { facility: level }, joker (GT: homologated, two a season)]
+export const devCapOf = (w) => DEV_CAP[tierOf(w.player.series)] || DEV_CAP.street;
 export const PROJECTS = {
   street: [
     ['remap', 'engine', 'Dyno tune and remap', 'power', 0.0036, 2, 1800, { dyno: 1 }], ['head', 'engine', 'Port and polish the head', 'power', 0.006, 5, 4500],
