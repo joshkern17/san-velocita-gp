@@ -277,6 +277,7 @@ Saved circuits, best laps and settings live in your browser's localStorage.
 - `js/track.js` – spline sampling, bridges, barriers, racing line, presets
 - `js/world.js` – terrain, road, kerbs, barriers, scenery, sky, weather
 - `js/glbcar.js` – your imported car (`models/car.glb`): loader, wheels, suspension links, projected liveries
+- `js/characters.js` – people (`models/characters.glb`): 16 looks, Mixamo clips, `makeCharacter()`; preview in `characters.html`, rebuild with `tools/characters/build.sh`
 - `js/carmodel.js` – procedural F1 car: swappable parts, suspension, its livery panel map (`MODEL`)
 - `js/livery.js` – model-independent liveries: painter, decals (PNG/SVG in IndexedDB), helmet, suit, UV template
 - `js/liverydesigner.js` – the Livery Designer UI

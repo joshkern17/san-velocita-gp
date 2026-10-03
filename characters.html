@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Characters</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0b0d; color: #eee; font: 500 14px/1.3 "Helvetica Now Display", "Helvetica Neue", Helvetica, Arial, sans-serif; letter-spacing: -0.02em; overflow: hidden; }
+  canvas { display: block; }
+  #bar { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); display: flex; gap: 12px; align-items: center; padding: 10px 16px; background: rgba(0,0,0,.6); border: 1px solid #FF2B00; border-radius: 6px; box-shadow: 0 0 16px rgba(255,43,0,.35); }
+  select, button { font: inherit; color: #fff; background: #16161a; border: 1px solid #333; border-radius: 4px; padding: 6px 10px; }
+  button.on { border-color: #FF2B00; color: #FF2B00; }
+</style>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<div id="bar">
+  <select id="clip"></select>
+  <button id="walk">Walk the line</button>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { loadCharacters, makeCharacter, updateCharacters, LOOKS, CLIPS, CLIP_INFO } from './js/characters.js';
+
+const renderer = new THREE.WebGLRenderer({ antialias: false });
+renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight); renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x1a1a20);
+const cam = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.1, 100);
+scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x403830, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(3, 6, 5); sun.castShadow = true;
+Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 6, bottom: -6 }); scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 20), new THREE.MeshLambertMaterial({ color: 0x2a2a30 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); });
+
+await loadCharacters();
+const sel = document.getElementById('clip');
+for (const c of CLIPS) sel.add(new Option(c, c));
+const gap = 1.1, people = LOOKS.map((look, i) => {
+  const p = makeCharacter({ look, clip: 'idle_look' });
+  p.object.position.x = (i - (LOOKS.length - 1) / 2) * gap; scene.add(p.object); return p;
+});
+const span = LOOKS.length * gap;
+cam.position.set(0, 1.6, span * 0.78); cam.lookAt(0, 0.85, 0);
+sel.onchange = () => { walking = false; btn.classList.remove('on'); for (const p of people) { p.object.position.z = 0; p.object.rotation.y = 0; p.play(sel.value); } };
+let walking = false; const btn = document.getElementById('walk');
+btn.onclick = () => { walking = !walking; btn.classList.toggle('on', walking); sel.value = walking ? 'walk' : 'idle_look'; for (const p of people) { p.object.position.z = 0; p.play(sel.value); } };
+window.__people = people; // for poking from the console
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.1);
+  if (walking) for (const p of people) { p.object.position.z += CLIP_INFO.walk.speed * dt; if (p.object.position.z > 4) p.object.position.z = -4; }
+  updateCharacters(dt);
+  renderer.render(scene, cam);
+});
+</script>
+</body>
+</html>
