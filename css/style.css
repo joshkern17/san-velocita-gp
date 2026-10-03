@@ -254,6 +254,8 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .load-bar::before, #load-fill { content: ''; position: absolute; inset: 0; background: var(--sv-signal); -webkit-mask: repeating-linear-gradient(90deg, #000 0 8px, transparent 8px 12px); mask: repeating-linear-gradient(90deg, #000 0 8px, transparent 8px 12px); }
 .load-bar::before { opacity: .16; }
 #load-fill { --v: 0; clip-path: inset(0 calc((1 - var(--v)) * 100%) 0 0); transition: clip-path .15s linear; filter: drop-shadow(0 0 3px var(--sv-signal-glow)); }
+/* what the build is doing (the slow first-time steps: the line, the AI learning the circuit) */
+.load-step { margin-top: calc(var(--s4) * -0.5); min-height: 1em; font: 500 var(--t-caption)/1 var(--f-ui); letter-spacing: var(--track-caption); text-transform: uppercase; color: var(--sv-red-dim); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
 
 /* ---------- HUD ----------
    Corners are anchored (tower TL, position + laps TR, map BL, car | gear | speed + rpm BR). Everything glows with

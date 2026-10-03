@@ -12,7 +12,7 @@ import { DriftScore } from './drift.js';
 import { getTextures } from './textures.js';
 import { RaceControl, findCorners, VSC_PACE } from './racecontrol.js';
 import { AI_AIDS, physAids } from './aids.js';
-import { fastLine, lineCar } from './raceline.js';
+import { fastLine, fastLineSteps, lineCar } from './raceline.js';
 import { technique, curveCost, curvePace } from './aiskill.js';
 import { LapRecorder, addLap, lapKey, bestLap, loadPB, lapPoseAt } from './telemetry.js';
 
@@ -138,11 +138,88 @@ export class Race {
     this.camera = new THREE.PerspectiveCamera(64, 16 / 9, 0.3, 5000);
     this.scene.add(this.camera);
 
+    this.renderer = renderer;
+    this.core();
+    // (opts.defer: stop here; prepare() does the slow work a step at a time, so the page stays responsive and can show
+    // progress, then finishes the build)
+    if (!opts.defer) this.finish();
+  }
+  // the AI teams, in the order the field is filled from (shuffled once: prepare and finish see the same field)
+  fieldTeams() {
+    if (this._teams) return this._teams;
+    const opts = this.opts, garage = opts.team === 'garage' || opts.team === undefined, reserved = garage ? 0 : +opts.team;
+    let aiTeams = TEAMS.map((t, i) => i).filter(i => i !== reserved);
+    for (let i = aiTeams.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [aiTeams[i], aiTeams[j]] = [aiTeams[j], aiTeams[i]]; }
+    // championship: same AI teams every round, grid in championship order
+    if (opts.roster) aiTeams = opts.roster.filter(i => i !== reserved);
+    return this._teams = aiTeams;
+  }
+  aiCarId(t) { return carId({ ...teamCar(this.teamFor(t), t), chassis: this.aiChassisFor(t) }); }
+  // the slow parts of a build, as steps: [label, fn]. Each fills a cache the build then just reads.
+  slowSteps() {
+    const opts = this.opts, main = this.mainCarId(), steps = [], seen = new Set();
+    const learn = (id, grip, label) => { const k = `${id}|${grip}`; if (seen.has(k)) return; seen.add(k); steps.push([label, () => this.limitsFor(id, grip)]); };
+    steps.push(...this.lineSteps(main).map(st => [st[0], st[1], 'line']));
+    learn(main, 1, 'Learning the circuit');
+    let ais = [];
+    if (this.net) ais = this.net.grid.map(g => g.k === 'h' ? { id: carId(g.car), human: true } : { id: this.aiCarId(g.team), t: g.team });
+    else {
+      const nField = Math.min(11, opts.opponents ?? 7);
+      const n = this.mode === 'test' ? 0 : this.mode === 'attract' ? 8 : nField; // (practice / qualifying: the field's laps are simulated)
+      ais = this.fieldTeams().slice(0, n).map(t => ({ id: this.aiCarId(t), t }));
+    }
+    const types = [...new Set(ais.filter(a => !a.human).map(a => a.id))];
+    types.forEach((id, k) => learn(id, this.diff.grip, `The AI is learning the circuit (${k + 1} of ${types.length})`));
+    for (const a of ais) if (a.human) learn(a.id, 1, 'Learning the circuit');
+    // World Career drivers: each car's pace curve here (techPace)
+    if (opts.entries) types.forEach((id, k) => steps.push([`Measuring the cars (${k + 1} of ${types.length})`, () => this.paceCurve(id)]));
+    return steps;
+  }
+  // a build that keeps the page responsive: the slow steps one at a time (the page gets a frame between them), with
+  // progress (onStep(fraction, label)), then the rest of the build
+  async prepare(onStep = () => {}) {
+    this.core();
+    const steps = this.slowSteps();
+    for (let k = 0; k < steps.length; k++) {
+      onStep(k / (steps.length + 1), steps[k][0]);
+      await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+      steps[k][1]();
+    }
+    onStep(steps.length / (steps.length + 1), 'Lining up the grid');
+    await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+    this.finish();
+    onStep(1, '');
+    return this;
+  }
+  // the same for a car picked on the grid (commitCar): the line for it and, for a new class, the field's plans
+  async prepareCar(cfg, onStep = () => {}) {
+    const keep = this.opts.car; this.opts.car = { ...cfg }; this.diff = diffFor(this.opts);
+    const changed = this.mainCarId() !== this.lineOwner;
+    // (the same car type: its line stays; a new one: its line, then the field's plans learned on it)
+    const steps = this.slowSteps().filter(st => changed || st[2] !== 'line');
+    for (let k = 0; k < steps.length; k++) {
+      onStep(k / steps.length, steps[k][0]);
+      await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+      steps[k][1]();
+      if (changed && steps[k][2] === 'line' && steps[k + 1]?.[2] !== 'line') { this.limits = {}; this.paceCurves = {}; this.aiTech = {}; }
+    }
+    this.opts.car = keep; this.diff = diffFor(this.opts);
+    onStep(1, '');
+  }
+
+  // what the line and the AI need before anything else
+  core() {
+    this.net = this.opts.net || null;
+    this.corners ||= findCorners(this.T); // (before the line: checking a fitted line drives the AI, which needs them)
+    this.diff = diffFor(this.opts);
+    this.cars ||= []; this.limits ||= {}; // (the AI's hidden practice laps look for traffic; plans learned so far)
+  }
+  // the rest of the build: the line, the field, the session
+  finish() {
+    const opts = this.opts, T = this.T, renderer = this.renderer, racey = this.mode !== 'attract';
+    this.core();
     // the racing line, fitted to the car the race is built around (lineFor): the one the AI drives and you're shown
-    this.net = opts.net || null;
-    this.corners = findCorners(T); // (before the line: checking a fitted line drives the AI, which needs them)
-    this.diff = diffFor(opts);
-    this.line = this.lineFor(this.mainCarId());
+    this.line = this.lineFor(this.mainCarId()); this.lineOwner = this.mainCarId(); this.lineK = null;
     this.rec = opts.mode !== 'attract' ? new LapRecorder(T) : null; // your laps, sample by sample (telemetry.js: Lap Review)
     this.cars = [];
     this.log = []; // incidents between named drivers (World Career's ledger)
@@ -188,10 +265,7 @@ export class Race {
     let playerSlot = 0;
     if (hasPlayer) playerSlot = opts.grid === 'pole' ? 0 : opts.grid === 'random' ? Math.floor(Math.random() * total) : total - 1;
     const reserved = garage ? 0 : playerTeam; // your team's slot (and pit box); AI teams get the others
-    let aiTeams = TEAMS.map((t, i) => i).filter(i => i !== reserved);
-    for (let i = aiTeams.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [aiTeams[i], aiTeams[j]] = [aiTeams[j], aiTeams[i]]; }
-    // championship: same AI teams every round, grid in championship order
-    if (opts.roster) aiTeams = opts.roster.filter(i => i !== reserved);
+    const aiTeams = this.fieldTeams();
     this.qualiTeams = aiTeams.slice(0, nField); // (qualifying: who's in the field; the race after it gets the same teams)
     let order;
     if (opts.gridOrder) {
@@ -296,24 +370,52 @@ export class Race {
   // The model behind the fitted line is simple: on a few circuits (Monaco's walls and hairpins) the real car is slower
   // on it. So the first time, the AI learns both lines in the real physics and does a clean lap on each: the quicker
   // one is kept (and its learned plan with it, so the race doesn't learn it again).
-  checkLine(id, base, fit) {
+  checkLine(id, base, fit) { return this.pickLine(id, [this.tryLine(id, base), this.tryLine(id, fit)]); }
+  // the AI learns a line in the real physics and does a clean lap on it
+  tryLine(id, O) {
     const savedCars = this.cars, savedLine = this.line;
-    this.cars = this.cars || [];
-    const spec = CARS[id].spec, tries = [];
-    for (const O of [base, fit]) {
-      this.line = O; this.limits = {};
-      const V = this.learnLimits(spec, 1), meta = { w: this.wearPerM, g: this.refGrip }, rounds = this.learnRounds;
-      this.limits[id] = V; (this.limitMeta ||= {})[id] = meta;
-      tries.push({ O, V, meta, rounds, t: this.simLap(id, { tyre: this.rain ? 'wet' : 'medium' }) });
-    }
+    this.cars = this.cars || []; this.line = O; this.limits = {};
+    const V = this.learnLimits(CARS[id].spec, 1), meta = { w: this.wearPerM, g: this.refGrip }, rounds = this.learnRounds;
+    this.limits[id] = V; (this.limitMeta ||= {})[id] = meta;
+    const t = this.simLap(id, { tyre: this.rain ? 'wet' : 'medium' });
+    this.cars = savedCars; this.line = savedLine;
+    return { O, V, meta, rounds, t };
+  }
+  // the quicker of the tries (smooth, fitted), and its plan kept so the race doesn't learn it again
+  pickLine(id, tries) {
     const win = tries[1].t < tries[0].t ? tries[1] : tries[0];
-    this.line = win.O; this.limits = { [id]: win.V }; this.limitMeta[id] = win.meta; this.learnRounds = win.rounds;
-    const key = this.limitsKey(id), hit = { V: win.V, meta: win.meta, rounds: win.rounds };
+    this.limits = { [id]: win.V }; this.limitMeta[id] = win.meta; this.learnRounds = win.rounds;
+    const key = this.limitsKey(id, id), hit = { V: win.V, meta: win.meta, rounds: win.rounds }; // (its own line: it's the main car)
     if (!this.opts.freshPlans) { LIMITS_CACHE.set(key, hit); savePlan(key, hit); }
     this.lineCheckT = tries.map(x => x.t); // (dev benches: smooth vs fitted)
-    this.cars = savedCars; this.line = savedLine;
     return win.O;
   }
+  // lineFor as steps ([label, fn]: the fit a stage at a time, then each check), for a build that keeps the page
+  // responsive (prepare); the last step sets the line. Nothing to do when it's saved.
+  lineSteps(id) {
+    if (!CARS[id]) id = 'f1';
+    if (id === 'svgp') id = 'f1';
+    const set = () => { this.line = this.lineFor(id); this.lineOwner = id; this.lineK = null; };
+    if (this.opts.lineKind === 'old' || this.mode === 'attract') return [['Building the circuit', set]];
+    const key = this.lineKey(id);
+    if (LINES_CACHE.get(key) || loadLine(key, this.T.N)) return [['Building the circuit', set]];
+    const base = computeRacingLine(this.T), lc = lineCar(CARS[id].spec); if (this.opts.lineComb) lc.comb = this.opts.lineComb;
+    const margin = this.opts.lineMargin ?? (CARS[id].cls === 'street' || CARS[id].cls === 'fun' ? 2 : 1.6);
+    const gen = fastLineSteps(this.T, base, lc, { margin }), job = { fit: null, tries: [] };
+    const steps = [];
+    for (let k = 0; k < 6; k++) steps.push(['Fitting the racing line to your car', () => { for (let n = 0; n < 4 && !job.fit; n++) { const r = gen.next(); if (r.done) job.fit = r.value.O; } }]);
+    steps.push(['Fitting the racing line to your car', () => { while (!job.fit) { const r = gen.next(); if (r.done) job.fit = r.value.O; } }]);
+    if (this.opts.lineCheck !== false) {
+      steps.push(['Testing the line in your car (1 of 2)', () => job.tries.push(this.tryLine(id, base))]);
+      steps.push(['Testing the line in your car (2 of 2)', () => job.tries.push(this.tryLine(id, job.fit))]);
+    }
+    steps.push(['Testing the line in your car (2 of 2)', () => {
+      const O = job.tries.length === 2 ? this.pickLine(id, job.tries) : job.fit;
+      saveLine(key, O); LINES_CACHE.set(key, O); set();
+    }]);
+    return steps;
+  }
+
   lineKey(id) {
     const T = this.T; let h = 0;
     for (let i = 0; i < T.N; i += 7) h = (h * 31 + Math.round(T.X[i] * 10) * 7 + Math.round(T.Z[i] * 10) + Math.round(T.W[i] * 10)) | 0;
@@ -342,10 +444,11 @@ export class Race {
     return this.limits[lk];
   }
   // the circuit's shape (a cheap fingerprint of its samples, so an edited circuit with the same name learns afresh)
-  limitsKey(id) {
+  limitsKey(id, owner = this.lineOwner || this.mainCarId()) {
     const T = this.T; let h = 0;
     for (let i = 0; i < T.N; i += 7) h = (h * 31 + Math.round(T.X[i] * 10) * 7 + Math.round(T.Z[i] * 10) + Math.round(T.W[i] * 10)) | 0;
-    return `${this.track.name}|${T.N}|${h}|${this.rain ? 1 : 0}|${id}${this.opts.lineKind === 'old' ? '' : `|l${LINE_VERSION}`}`;
+    // (the plan is learned on a line fitted to the race's main car: whose line it is is part of the key)
+    return `${this.track.name}|${T.N}|${h}|${this.rain ? 1 : 0}|${id}${this.opts.lineKind === 'old' ? '' : `|l${LINE_VERSION}|on${owner}`}`;
   }
   learnLimits(spec = CARSPEC, gripEdge = 1) {
     const T = this.T, N = T.N, grip = this.rain ? 0.97 : 1;
@@ -592,6 +695,8 @@ export class Race {
     this.opts.car = { ...cfg }; this.diff = diffFor(this.opts); // (the F1 class has its own difficulty table)
     if (this.net) { const g = this.net.grid.find(g => g.k === 'h' && g.id === this.net.myId); if (g) g.car = { ...cfg }; }
     const id = this.mainCarId();
+    // a different car: its own line (and the field's plans, learned on it)
+    if (id !== this.lineOwner) { this.line = this.lineFor(id); this.lineOwner = id; this.lineK = null; this.limits = {}; this.paceCurves = {}; this.aiTech = {}; }
     this.lineV = this.limitsFor(id);
     const meta = this.limitMeta && this.limitMeta[id];
     if (meta) { this.wearPerM = meta.w; this.refGrip = meta.g; }
@@ -730,7 +835,7 @@ export class Race {
   // the pace for a driver with technique tf: the lap time `pace` alone would give (plus their World Career gap), less
   // what their flaws already cost, read off this car's measured pace curve
   techPace(pace, tf, id) {
-    if (!tf) return pace;
+    if (!tf || (!tf.gap && !tf.cost)) return pace;
     const C = this.paceCurve(id).C;
     return curvePace(C, Math.max(0, curveCost(C, Math.min(1, pace)) + (tf.gap || 0) - tf.cost)) * Math.max(1, pace);
   }
@@ -779,8 +884,10 @@ export class Race {
       }
       return { teamIdx: t, name: team.driver, team, color: team.main, id, pace, power, tf, pot, plan, best: Infinity, when: Infinity };
     });
-    // you start in your garage (point-to-point, no pit lane: on the grid, runs from there)
-    if (pl && !this.T.open) this.enterGarage(pl, true);
+    // you start in your garage. Point-to-point sessions are runs, not laps: a few each (practice 4, qualifying 2),
+    // each from a standing start at the top, back to the garage after each one (to change tyres), done when they're used
+    if (this.T.open) { q.runs = q.kind === 'practice' ? 4 : 2; q.used = 0; }
+    if (pl) this.enterGarage(pl, true);
   }
   // ---------- the garage (practice / qualifying) ----------
   // in the garage your car is off the track (gone, like a retired car, but only until you go out); the session goes on
@@ -814,7 +921,8 @@ export class Race {
   leaveGarage(car, how, tyre) {
     if (tyre) { this.skipTime(TYRE_FIT); car.phys.fitTyres(tyre); car.model.setCompound(tyre); }
     car.inGarage = false; car.gone = false; car.model.group.visible = true;
-    if (how === 'drive' && this.pit) {
+    if (this.T.open) { if (this.quali && car.isPlayer) this.quali.used = (this.quali.used || 0) + 1; this.restartRun(car); car.runoffT = 0; this.snapCamera(); }
+    else if (how === 'drive' && this.pit) {
       const pit = this.pit, b = pit.boxes[car.teamIdx % pit.boxes.length], T = this.T;
       const off = pit.side * (pit.CEN[b] + 2.4);
       car.phys.place(T.X[b] + T.RX[b] * off, T.Z[b] + T.RZ[b] * off, Math.atan2(T.FX[b], T.FZ[b]));
@@ -823,6 +931,14 @@ export class Race {
       this.placeModel(car, 1); this.snapCamera();
     } else this.flyingStart(car);
     this.focus = car;
+  }
+  // a point-to-point session run is over (finished, or given up from the pause menu): back to the garage at the top;
+  // the last of your runs ends the session
+  endRun(car) {
+    const q = this.quali; if (!q || q.done) return;
+    car.runoffT = 0;
+    this.enterGarage(car);
+    if (q.runs && q.used >= q.runs) this.qualiEnd();
   }
   // the garage's 'skip ahead': the clock jumps on, the AI's laps in that time go up
   skipTime(sec) {
@@ -2028,10 +2144,11 @@ export class Race {
       if (car.gone) car.progress = -1e9 - car.startPos;
     }
     // point-to-point outside a race (time trial, menu background): once a run is done, back to the grid
+    // (a practice or qualifying run: back up to the garage instead)
     if (T.open && this.mode !== 'race') for (const car of this.cars) {
       if (car.remote || car.gone || car.lap < 2) continue;
       car.runoffT = (car.runoffT || 0) + dt;
-      if ((car.runoffT > 2.5 && car.phys.speed < 4) || car.runoffT > 12) this.restartRun(car);
+      if ((car.runoffT > 2.5 && car.phys.speed < 4) || car.runoffT > 12) { if (this.quali && car.isPlayer && !this.quali.done) this.endRun(car); else this.restartRun(car); }
     }
     const order = [...this.cars].sort((a, b) => b.progress - a.progress);
     if (this.order && this.mode === 'race' && this.state === 'racing' && this.player) { this.notePasses(this.order, order); this.dirtyCheck(dt); }
@@ -2537,7 +2654,7 @@ export class Race {
       quali: this.quali ? {
         left: this.quali.left, flag: this.quali.flag, done: this.quali.done, rows: this.qualiRows(),
         status: pl.pitting ? (pl.pitPhase === 'out' || pl.lap === 0 ? 'PIT EXIT' : 'IN LAP')
-          : this.T.open ? (pl.lap === 0 ? 'START' : pl.lap > 1 ? 'RUN OVER' : this.quali.flag ? 'LAST RUN' : 'FLYING') // (point-to-point: runs from the grid)
+          : this.T.open ? (pl.lap > 1 ? 'RUN OVER' : `RUN ${this.quali.used || 1}/${this.quali.runs || 1}${pl.lap === 0 ? ' · START' : ''}`) // (point-to-point: runs from the top)
           : pl.lap === 0 ? (pl.pits ? 'OUT LAP' : 'RUN-UP') : this.quali.flag ? 'LAST LAP' : 'FLYING',
       } : null,
     };

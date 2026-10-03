@@ -2506,7 +2506,17 @@ function confirmCar() {
     if (net.isHost) { const p = me(); if (p) p.car = car; net.send({ t: 'car', race: netRace.id, key: 'h:' + net.id, car }); }
     else net.send({ t: 'car', race: netRace.id, car });
   }
-  fadeTo(() => { if (!sim) return; sim.commitCar(settings.car); sim.startAfterPick(); enterRace(); });
+  // (a new car: its line, and for a new class the AI field's plans, can take a while the first time: the loading
+  // screen says so rather than a black screen)
+  const r = sim, car = { ...settings.car };
+  fadeTo(async () => {
+    if (!sim || sim !== r) return;
+    showLoading(r.track); loadStep(0, 'Getting your car ready');
+    await r.prepareCar(car, (f, label) => loadStep(f * 0.95, label));
+    if (sim !== r) return;
+    loadStep(1, '');
+    fadeTo(() => { if (sim !== r) return; r.commitCar(car); r.startAfterPick(); enterRace(); });
+  });
 }
 backs['s-carsel'] = () => { if (raceReturn === 'setup') { sfx.back(); fadeTo(() => { disposeSim(); openSetup(editorTrack, { select: sim?.track?.name ?? lastRace.track.name, toSettings: true }); }); } };
 
@@ -2639,6 +2649,23 @@ let raceReturn = 'setup';
 let pitSel = 0;
 let lastRace = null;
 
+// the loading screen's progress bar and what it's doing
+function loadStep(v, label) {
+  $('load-fill').style.setProperty('--v', v);
+  if (label !== undefined) $('load-step').textContent = label;
+}
+// the loading screen for a circuit (its picture, conditions and a tip)
+function showLoading(track) {
+  show('s-loading');
+  $('load-name').textContent = track.name;
+  $('load-sub').textContent = `${THEMES[track.env.theme].label} · ${track.env.time} · ${track.env.weather}`.toUpperCase();
+  $('load-tip').textContent = TIPS[Math.floor(Math.random() * TIPS.length)];
+  drawLoadArt(track);
+  const li = $('load-img'); li.classList.remove('on');
+  getPostcard(pcKey(track, { time: track.env.time, weather: track.env.weather })).then(v => v || getPostcard(pcKey(track, pickConditions(track))))
+    .then(v => { if (v && screen === 's-loading') { li.src = v; li.classList.add('on'); } });
+}
+
 function startRace(track, cfg, ret, quick = false) {
   if (ret !== 'gig') { gig = null; document.body.classList.remove('gig-on'); }
   clearTimeout(developT);
@@ -2647,31 +2674,29 @@ function startRace(track, cfg, ret, quick = false) {
   lastRace = { track: cloneTrack(track), cfg: { ...cfg }, ret };
   fadeTo(() => {
     disposeSim();
-    show('s-loading');
-    $('load-name').textContent = track.name;
-    $('load-sub').textContent = `${THEMES[track.env.theme].label} · ${track.env.time} · ${track.env.weather}`.toUpperCase();
-    $('load-tip').textContent = TIPS[Math.floor(Math.random() * TIPS.length)];
-    drawLoadArt(track);
-    // the real picture of the circuit, if we've taken one in these conditions
-    const li = $('load-img'); li.classList.remove('on');
-    getPostcard(pcKey(track, { time: track.env.time, weather: track.env.weather })).then(v => v || getPostcard(pcKey(track, pickConditions(track))))
-      .then(v => { if (v && screen === 's-loading') { li.src = v; li.classList.add('on'); } });
+    showLoading(track); // (with the real picture of the circuit, if we've taken one in these conditions)
     const fill = $('load-fill');
-    fill.style.setProperty('--v', 0);
-    let p = 0;
-    const iv = setInterval(() => { p = Math.min(p + 4 + Math.random() * 6, 90); fill.style.setProperty('--v', p / 100); }, 60);
+    fill.style.setProperty('--v', 0); loadStep(0, 'Loading the scenery');
     setTimeout(async () => {
       await loadEnvModels(); // the setting's models (usually loaded long before)
       if (needsHydrate(track)) track = await hydrateReal(cloneTrack(track)).catch(() => track); // a real circuit's hills + scenery
+      loadStep(0.05, 'Building the circuit');
+      await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
       const t0 = performance.now();
-      sim = new Race(track, {
+      // (built a step at a time: the first race on a circuit in a car fits its line and the AI learns the circuit,
+      // which takes a while; the page stays responsive and says what it's doing)
+      const r = new Race(track, {
         mode: cfg.mode, laps: cfg.laps || track.env.laps || 3, opponents: cfg.opponents ?? track.env.opponents ?? 7, qualiTime: cfg.qualiTime, practiceTime: cfg.practiceTime,
         difficulty: settings.difficulty, grid: settings.grid, team: settings.team, gearbox: settings.gearbox, aids: aidsNow(), ghost: settings.ghost,
         units: settings.units, camera: settings.camera, racingLine: settings.racingLine, car: settings.car,
         wear: settings.wear, damage: settings.damage, rules: settings.rules, aiMistakes: settings.aiMistakes, startTyre: settings.startTyre, aiChassis: settings.aiChassis, drift: raceReturn === 'setup' ? settings.drift : 'off',
         pickCar: !!cfg.pick && !quick,
-        ...(cfg.extra || {}),
+        ...(cfg.extra || {}), defer: true,
       }, renderer);
+      await r.prepare((f, label) => loadStep(0.08 + f * 0.82, label));
+      if (screen !== 's-loading') { r.dispose?.(); return; } // (left while it was building)
+      sim = r;
+      loadStep(0.92, 'Warming up');
       sim.aidBonus = bonusNow(); // (the lowest you race with counts: see noteAidBonus)
       // warm-up render so shaders compile behind the loading screen (all of them, not just what the start camera sees)
       sim.update(0.016, { steer: 0, throttle: 0, brake: 0 }, {});
@@ -2682,7 +2707,7 @@ function startRace(track, cfg, ret, quick = false) {
       driftHud.reset(); if (sim.drift) driftHud.show(); else driftHud.hide();
       const wait = Math.max(0, 1300 - (performance.now() - t0));
       setTimeout(() => {
-        clearInterval(iv); fill.style.setProperty('--v', 1);
+        loadStep(1, '');
         setTimeout(() => fadeTo(enterRace), 250);
       }, wait);
     }, 120);

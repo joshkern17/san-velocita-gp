@@ -105,7 +105,14 @@ export function lineTime(T, O, car) { return lapTime(T, O, car, scratch(T)); }
 // The line is moved by control points every ~`spacing` m with a smooth curve (Catmull-Rom) through them, so it can't
 // kink. Returns { O, time, from } (the model's lap time on the new line and on the one it started from). It stops
 // after maxEvals tries at most, not after a time: the same circuit and car always give the same line, on any machine.
-export function fastLine(T, O0, car, { margin = 1.6, spacing = SPACING, maxEvals = 90000 } = {}) {
+export function fastLine(T, O0, car, opts) {
+  const g = fastLineSteps(T, O0, car, opts); let r;
+  while (!(r = g.next()).done);
+  return r.value;
+}
+// the same, a stage at a time (a generator: yields between stages of the search, returns the result), so a page can
+// stay responsive while it fits a line
+export function* fastLineSteps(T, O0, car, { margin = 1.6, spacing = SPACING, maxEvals = 90000 } = {}) {
   const N = T.N, S = scratch(T), now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()), t0 = now();
   const open = (T.cut ?? -1) >= 0;
   const M = Math.max(12, Math.round(N * T.ds / spacing));
@@ -164,6 +171,7 @@ export function fastLine(T, O0, car, { margin = 1.6, spacing = SPACING, maxEvals
           geom(T, O, S, s0, s1);
         }
       }
+      yield;
       if (gained < 0.003) break;
     }
   }
