@@ -34,6 +34,7 @@ import { assets, liveryAssetIds, importImageFile } from './livery.js';
 import { loadEnvCatalog, loadEnvModels, envCatalog } from './envlib.js';
 import { setWorldOptions } from './world.js';
 import { TeamSetup } from './teamsetup.js';
+import { DayPlan } from './dayplan.js';
 import { setVertexSnapEnabled, setJitterScale, setAffineAmount, setAffineCap, setAffineFade } from '../vendor/psx/src/PSXMaterial.js';
 
 const $ = (id) => document.getElementById(id);
@@ -1364,7 +1365,7 @@ function phoneInput() {
   return true;
 }
 const phoneHints = [['nav', 'Scroll'], ['ok', 'Select'], ['back', 'Back'], ['phone', 'Put away']];
-HINTS['s-hub'] = () => tsw.isOpen ? [['lr', 'Choose'], ['ok', tsw.step === 'ready' ? 'Start the season' : 'Next'], ['back', tsw.at ? 'Back' : 'Garage']] : pcSeat ? [['nav', 'Move'], ['ok', 'Select'], ...(pc.hasTabs ? [['tab', 'Sections']] : []), ['back', pc.app ? 'Back' : 'Stand up']]
+HINTS['s-hub'] = () => dayPlan.isOpen ? [['nav', 'Choose'], ['ok', 'Do it'], ['back', 'Garage']] : tsw.isOpen ? [['lr', 'Choose'], ['ok', tsw.step === 'ready' ? 'Start the season' : 'Next'], ['back', tsw.at ? 'Back' : 'Garage']] : pcSeat ? [['nav', 'Move'], ['ok', 'Select'], ...(pc.hasTabs ? [['tab', 'Sections']] : []), ['back', pc.app ? 'Back' : 'Stand up']]
   : phone.isOpen ? phoneHints : hubMode === 'car' ? [['nav', 'Part'], ['ok', 'Select'], ['back', 'Back']] : [['nav', 'Navigate'], ['ok', 'Select'], ['phone', 'Phone']];
 
 // the computer on the desk: Mail, the news, the series' websites, the driver database (js/computer.js)
@@ -1484,13 +1485,13 @@ const tsw = new TeamSetup($('tsw'), {
   save: () => { saveWorld(); renderHints(); },
   photo: (ad) => pc.src.photo(ad), carInfo: (c) => pc.src.carInfo(c),
   logo: (sid) => assets.get(logoOf({ sid })),
-  closed: () => { $('s-hub').classList.remove('wizard'); renderHub(); renderHints(); },
+  closed: () => { $('s-hub').classList.remove('wizard'); renderHub(); renderHints(); hubEnter(); },
   // the lights are out: buy it, sign it, and back to the garage
   apply: () => {
     const r = WC.setupApply(world);
     if (!r.ok) { sfx.error(); toast(r.why, 4000); return r; }
     updateLogoShown(); saveWorld(); pitGarage.setCar(hubCar());
-    setTimeout(() => { $('s-hub').classList.remove('wizard'); renderHub(); renderHints(); phone.buzz(); }, 350);
+    setTimeout(() => { $('s-hub').classList.remove('wizard'); renderHub(); renderHints(); hubEnter(); phone.buzz(); }, 350);
     return r;
   },
 });
@@ -1551,15 +1552,15 @@ function hubTick(dt) {
 // the mouse over the monitor: a pointer, and the tag lights up
 let pcHover = false;
 $('s-hub').addEventListener('mousemove', (e) => {
-  const on = !!onRoom(e), car = !on && hubMode === 'room' && world && world.car && !pcSeat && !phone.isOpen && !tsw.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head') && pitGarage.hitCar(e.clientX, e.clientY);
+  const on = !!onRoom(e), car = !on && hubMode === 'room' && world && world.car && !pcSeat && !phone.isOpen && !tsw.isOpen && !dayPlan.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head') && pitGarage.hitCar(e.clientX, e.clientY);
   if (on !== pcHover || car !== carHover) { pcHover = on; carHover = car; $('s-hub').style.cursor = on || car ? 'pointer' : ''; }
 });
 $('pc-tag').addEventListener('click', () => { if (screen === 's-hub' && !pcSeat) sitDown(); });
 // a click on the monitor sits you down (the hub's layer is over the 3D view, so it listens there, past its panels)
-const onRoom = (e) => screen === 's-hub' && world && !pcSeat && !phone.isOpen && !tsw.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitScreen(e.clientX, e.clientY);
+const onRoom = (e) => screen === 's-hub' && world && !pcSeat && !phone.isOpen && !tsw.isOpen && !dayPlan.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitScreen(e.clientX, e.clientY);
 $('s-hub').addEventListener('click', (e) => {
   if (onRoom(e)) { sitDown(); return; }
-  if (screen === 's-hub' && world && world.car && !pcSeat && !phone.isOpen && !tsw.isOpen && hubMode === 'room' && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitCar(e.clientX, e.clientY)) goToCar();
+  if (screen === 's-hub' && world && world.car && !pcSeat && !phone.isOpen && !tsw.isOpen && !dayPlan.isOpen && hubMode === 'room' && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitCar(e.clientX, e.clientY)) goToCar();
 });
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1747,9 +1748,9 @@ function enterHub() {
   const t = world.teams[world.player.team];
   if (world.livery) { t.main = world.livery.main; t.accent = world.livery.accent; }
   pitGarage.openHome(hubCar(), { main: t.main, accent: t.accent, name: t.name });
-  pcSeat = false; pc.close(); if (tsw.isOpen) tsw.close(); $('s-hub').classList.remove('seated', 'at-car', 'wizard');
+  pcSeat = false; pc.close(); if (tsw.isOpen) tsw.close(); if (dayPlan.isOpen) dayPlan.close(); $('s-hub').classList.remove('seated', 'at-car', 'wizard', 'planning');
   hubMode = 'room'; carSub = null; carPart = null; optSub = false;
-  renderHub(); show('s-hub');
+  renderHub(); show('s-hub'); hubEnter();
 }
 // the cars of each class, for the customer racing programmes (World Career: moving up)
 function carCatalog() {
@@ -1790,7 +1791,7 @@ function renderHub() {
     const cell = (g, v) => `<div><small>${g.label}</small><b>${v}</b><span class="br-bar"><i style="--v:${g.pct.toFixed(3)}"></i></span></div>`;
     const wt = B.watch.slice(0, 2).map(x => `<div class="br-row ${x.bad ? 'bad' : 'warn'}"><i></i><span>${x.text}</span></div>`).join('') + (B.watch.length > 2 ? `<div class="br-more">and ${B.watch.length - 2} more: ${B.watch.slice(2).map(x => x.text.split(':')[0].toLowerCase()).join(', ')}</div>` : '');
     $('hub-card').innerHTML = `<div class="panel-title">The team</div>
-      <div class="ti-grid three br-goals">${cell(gc, cp ? `${ord(cp)}<small> ${st[cp - 1].pts} PTS</small>` : '&mdash;')}${cell(gr, gr.value)}${cell(gm, `<span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span>`)}</div>
+      <div class="ti-grid three br-goals">${cell(gc, cp ? `${ord(cp)}<small> ${st[cp - 1].pts} PTS</small>` : '&mdash;')}${cell(gr, gr.value)}${cell(gm, `<span class="hub-roll ${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span>`)}</div>
       <p class="br-hint">${B.hint}</p>
       <div class="panel-title br-att">Needs attention</div>${wt || '<div class="br-none">Nothing on fire.</div>'}`;
   } else {
@@ -1801,7 +1802,26 @@ function renderHub() {
   }
   renderWeekStrip();
   renderHubMenu();
+  rollHubMoney();
   runVoices();
+}
+// the garage's money, rolling to its new number when it changes (and the change floating off it)
+let hubBal = null, hubBalOf = null;
+function rollHubMoney() {
+  const el = document.querySelector('#hub-card .hub-roll'), w = world; if (!el || !w.money) return;
+  const to = w.money.balance, from = hubBalOf === w ? hubBal : to; hubBal = to; hubBalOf = w;
+  if (from === to || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const d = to - from, t0 = performance.now(), fl = document.createElement('em');
+  fl.className = `hub-delta ${d < 0 ? 'neg' : 'gain'}`; fl.textContent = `${d < 0 ? '\u2212' : '+'}${WC.money$(Math.abs(d))}`; el.parentElement.append(fl);
+  setTimeout(() => fl.remove(), 1700);
+  const tick = (t) => { const k = Math.min(1, (t - t0) / 700), e = 1 - Math.pow(1 - k, 3); if (el.isConnected) el.textContent = WC.money$(Math.round(from + d * e)); if (k < 1) requestAnimationFrame(tick); };
+  el.textContent = WC.money$(from); requestAnimationFrame(tick);
+}
+// arriving in the garage (or back from an overlay): the hub comes up the way the Team Setup does
+function hubEnter() {
+  const el = $('s-hub'); if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter');
+  clearTimeout(hubEnter.t); hubEnter.t = setTimeout(() => el.classList.remove('enter'), 1300);
 }
 // character voices: reword the new messages (js/voice.js), then show them as they land
 function voiceLine() {
@@ -1823,6 +1843,7 @@ function runVoices() {
 const hubTrackCache = new Map();
 const hubTrackT = (tr) => { if (!hubTrackCache.has(tr.name)) hubTrackCache.set(tr.name, sampleTrack(tr)); return hubTrackCache.get(tr.name); };
 // the week, as a calendar across the top: what each day went on, today, race day
+let wkStamp = -1; // (the day the planner just spent: stamped once on the strip)
 function renderWeekStrip() {
   const w = world, el = $('hub-week'), on = !!founded(w) && !w.over && hubMode === 'room';
   el.hidden = !on; if (!on) return;
@@ -1831,7 +1852,7 @@ function renderWeekStrip() {
     const e = wk.log.filter(x => x.day === i), x = e[e.length - 1];
     if (x) {
       const amt = e.reduce((a, y) => a + (y.amt || 0), 0), todo = x.gig && !x.done;
-      return `<div class="wk-day done${todo ? ' todo' : ''}"><small>${d}</small><b>${x.tag || 'Busy'}</b><em class="${amt < 0 ? 'neg' : ''}">${todo ? 'To drive' : amt ? `${amt > 0 ? '+' : '&minus;'}${WC.money$(Math.abs(amt))}` : '&nbsp;'}</em></div>`;
+      return `<div class="wk-day done${todo ? ' todo' : ''}${i === wkStamp ? ' stamp' : ''}"><small>${d}</small><b>${x.tag || 'Busy'}</b><em class="${amt < 0 ? 'neg' : ''}">${todo ? 'To drive' : amt ? `${amt > 0 ? '+' : '&minus;'}${WC.money$(Math.abs(amt))}` : '&nbsp;'}</em></div>`;
     }
     const today = i === wk.used;
     return `<div class="wk-day${today ? ' today' : ''}"><small>${d}</small><b>${today ? 'Today' : 'Free'}</b><em>&nbsp;</em></div>`;
@@ -1844,6 +1865,7 @@ function renderWeekStrip() {
       <div class="wk-track">${R.name}</div><div class="wk-cond">${tr ? THEMES[tr.env.theme].label : ''}${km ? ` &middot; ${km} km${T.open ? ', point to point' : ''}` : ''} &middot; ${R.time}, ${R.weather}</div>
       ${tg || '<div class="br-none">No targets set. Race well.</div>'}</div></div>`;
   if (T) drawTrackMap(T, el.querySelector('.wk-map'));
+  wkStamp = -1;
 }
 function renderHubMenu() {
   if (!world) return;
@@ -1893,6 +1915,7 @@ function renderHubMenu() {
 menus['s-hub'] = [new Menu($('m-hub'), [], { desc: 'd-hub', onMove: (it) => { if (it && it.part && hubMode === 'car') { carPart = it.part; pitGarage.setView('car', it.part); } } })];
 backs['s-hub'] = () => {
   if (tsw.isOpen) { tsw.back(); renderHints(); return; }
+  if (dayPlan.isOpen) return;
   if (pcSeat && pc.isOpen) { if (pc.app) { pc.back(); renderHints(); } else standUp(); return; }
   if (hubMode === 'car') { if (carSub) { carSub = null; sfx.back(); renderHubMenu(); } else leaveCar(); }
   else if (optSub) { optSub = false; sfx.back(); renderHubMenu(); }
@@ -2100,34 +2123,71 @@ function raceDesc(w) {
   return `Round ${w.round + 1}: ${r.name}, ${r.time}, ${r.weather}. ${{ full: 'Practice, qualifying, then the race.', quali: 'Qualifying, then the race.', race: 'Straight to the race: the grid is in championship order.' }[w.opts.weekend]}${pz.length ? ` Prize money a car: P1 ${WC.money$(pz[0])}, P3 ${WC.money$(pz[2])}, P5 ${WC.money$(pz[4])}, P10 ${WC.money$(pz[9])}.` : ''}${g ? `<br><b>${g.text}.</b>` : ''}`;
 }
 function dayChoices(w, canRace) {
-  // [key, the picker's short name, the headline (yellow, over the description), the description, what it does]
-  const job = WC.dayJob(w), P = WC.carParts(w), wk = WC.weekOf(w), R = w.series[w.player.series].cal[w.round];
+  // { key, short (the list), tag (its number), head, desc, money, mcls, time, effect, vis (a picture), go (leaves the
+  // planner), confirm (select twice), run (does it: { amt, line, note }) }
+  const job = WC.dayJob(w), P = WC.carParts(w), wk = WC.weekOf(w), R = w.series[w.player.series].cal[w.round], $ = WC.money$;
   const worst = P ? WC.PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)[0] : null;
-  const done = (msg) => { sfx.select(); if (msg) toast(msg); saveWorld(); renderHub(); };
-  const out = [['work', 'Day job', `${job.name} &middot; +${WC.money$(job.pay)}`, `A day's pay for a day of your week.`,
-    () => { const r = WC.workDay(w); done(`${job.name}: <b>+${WC.money$(r.amt)}</b>${r.note ? '. ' + r.note : ''}`); }]];
-  out.push(['gig', 'Find work', `GigGo &middot; rating ${WC.gigRating(w).toFixed(2)}`, `Courier runs and funeral transport, on the computer. ${WC.gigRating(w) < 4.2 ? 'Fewer jobs while your account is under review.' : 'Better paid than the day job.'} Taking one uses the day.`, () => sitDown('giggo')]);
-  if (worst && P[worst].cond < 0.75) out.push(['fix', 'Rebuild', `Rebuild the ${WC.PARTS[worst].name.toLowerCase()} yourself &middot; &minus;${WC.money$(WC.selfCost(w, worst))}`,
-    `It's at ${Math.round(P[worst].cond * 100)}%. Parts only, and the day. ${w.background === 'mechanic' ? 'You know what you\'re doing: back to good.' : 'You\'ll get it back to OK.'} A shop would charge ${WC.money$(WC.rebuildCost(w, worst))}.`,
-    () => { WC.rebuildSelf(w, worst); sfx.best(); done(); }]);
+  const map = { type: 'map', label: `${R.name} · ${R.time}, ${R.weather}` };
+  const out = [{ key: 'work', short: 'Day job', tag: `+${$(job.pay)}`, mcls: 'gain', head: job.name, desc: `A day's pay for a day of your week.${job.sale ? ' Sell a car and there\'s commission on top.' : ''}`,
+    money: `+${$(job.pay)}${job.sale ? '<small> + commission</small>' : ''}`, effect: 'Pays the bills',
+    run: () => { const r = WC.workDay(w); return { amt: r.amt, line: job.name, note: r.note || '' }; } }];
+  const gr = WC.gigRating(w);
+  out.push({ key: 'gig', short: 'Find work', tag: 'GigGo', head: 'GigGo', desc: `Courier runs and funeral transport. ${gr < 4.2 ? 'Fewer jobs while your account is under review.' : 'Better paid than the day job.'} Taking one uses the day, and you drive it.`,
+    money: 'Depends on the job', time: 'Uses the day, if you take one', effect: `Rating ${gr.toFixed(2)} &#9733;`, go: true, goLabel: 'Open GigGo', run: () => sitDown('giggo') });
+  if (worst && P[worst].cond < 0.75) { const c = P[worst].cond, to = w.background === 'mechanic' ? 0.84 : 0.72;
+    out.push({ key: 'fix', short: 'Rebuild', tag: `−${$(WC.selfCost(w, worst))}`, mcls: 'neg', head: `Rebuild the ${WC.PARTS[worst].name.toLowerCase()} yourself`,
+      desc: `Parts only, and the day. ${w.background === 'mechanic' ? 'You know what you\'re doing.' : 'You\'re no mechanic, but you\'ll get it back to OK.'} A shop would charge ${$(WC.rebuildCost(w, worst))}.`,
+      money: `−${$(WC.selfCost(w, worst))}`, mcls: 'neg', effect: `${WC.PARTS[worst].name} ${Math.round(c * 100)}% &rarr; about ${Math.round(to * 100)}%`,
+      vis: { type: 'bar', label: WC.PARTS[worst].name, from: c, to: Math.max(c, to), text: `${Math.round(c * 100)}% → ~${Math.round(to * 100)}%` },
+      run: () => { const was = P[worst].cond; WC.rebuildSelf(w, worst); return { amt: -WC.selfCost(w, worst), line: `Rebuilt the ${WC.PARTS[worst].name.toLowerCase()}`, note: `${Math.round(was * 100)}% &rarr; ${Math.round(P[worst].cond * 100)}%` }; } }); }
   // development: a day on a project under way (or, with none, the list of them on the computer)
   const proj = (w.projects || []).find(x => !x.done && !x.shop);
-  if (proj) { const mr = WC.mechRate(w), mine = 1 + WC.facLevel(WC.myTeam(w), 'tools') * 0.25;
-    out.push(['proj', 'Car work', `Work on: ${proj.name}`, `${(proj.prog || 0).toFixed(1)} of ${proj.days} days of work done. A day of yours adds ${mine.toFixed(2)}${mr ? `; your mechanic adds ${(mr / WC.WEEK_DAYS).toFixed(1)} every day whatever you do` : '. Nobody else is working on it'}.`, () => { WC.workOnProject(w, proj.id); sfx.select(); done(`${proj.name}: <b>${Math.min(proj.days, proj.prog || 0).toFixed(1)} of ${proj.days}</b> days of work`); }]); }
-  else if (WC.weekOpen(w)) out.push(['projs', 'Projects', 'Start a project on the car', 'Engine, chassis, aero, brakes, reliability: the list is on the computer (Team, Development). Choosing one doesn\'t use the day.', () => sitDown('dev')]);
-  if (WC.facLevel(WC.myTeam(w), 'sim') && !wk.sim && !wk.tested) out.push(['sim', 'Sim rig', `Sim session: ${R.name}`, 'Learn the circuit on the sim: some of the setup a test day would find, with no track hire, no fuel and no wear.', () => { WC.simDay(w); sfx.select(); done(); }]);
-  if (!wk.tested) out.push(['test', 'Test day', `Test day at ${R.name} &middot; &minus;${WC.money$(WC.testCost(w))}`, `Track hire, plus fuel and wear. Do five laps or more and you find a setup: a little more grip there this weekend. Pause to end the day.`, () => startTestDay()]);
-  out.push(['off', 'Day off', 'A day off', 'Nothing. It\'s allowed.', () => { WC.spendDay(w, 'A day off', 'Day off'); done(); }]);
-  if (canRace) out.push(['race', 'Race day', `Go to race day &middot; round ${w.round + 1}`, `Leave the rest of the week. ${raceDesc(w)}`, () => startWorldRound()]);
+  if (proj) { const mr = WC.mechRate(w), mine = 1 + WC.facLevel(WC.myTeam(w), 'tools') * 0.25, pg = proj.prog || 0;
+    out.push({ key: 'proj', short: 'Car work', tag: `${Math.round(pg / proj.days * 100)}%`, head: `Work on: ${proj.name}`, desc: `A day of yours adds ${mine.toFixed(2)} days of work${mr ? `; your mechanic adds ${(mr / WC.WEEK_DAYS).toFixed(1)} every day whatever you do` : '. Nobody else is working on it'}.`,
+      money: 'Free', effect: `${pg.toFixed(1)} &rarr; ${Math.min(proj.days, pg + mine).toFixed(1)} of ${proj.days} days`,
+      vis: { type: 'bar', label: proj.name, from: pg / proj.days, to: Math.min(1, (pg + mine) / proj.days), text: `${pg.toFixed(1)} → ${Math.min(proj.days, pg + mine).toFixed(1)} / ${proj.days}` },
+      run: () => { WC.workOnProject(w, proj.id); return { line: proj.name, note: proj.done ? 'Finished.' : `${Math.min(proj.days, proj.prog || 0).toFixed(1)} of ${proj.days} days of work done` }; } }); }
+  else if (WC.weekOpen(w)) out.push({ key: 'projs', short: 'Projects', tag: 'Computer', head: 'Start a project on the car', desc: 'Engine, chassis, aero, brakes, reliability: the list is on the computer (Team, Development).',
+    money: 'Each has a price', time: 'Doesn\'t use the day', effect: 'Opens Development', go: true, goLabel: 'To the computer', run: () => sitDown('dev') });
+  if (WC.facLevel(WC.myTeam(w), 'sim') && !wk.sim && !wk.tested) out.push({ key: 'sim', short: 'Sim rig', tag: 'Free', head: `Sim session: ${R.name}`, desc: 'Learn the circuit on the sim: some of the setup a test day would find, with no track hire, no fuel and no wear.',
+    money: 'Free', effect: 'Some setup for this weekend', vis: map, run: () => { WC.simDay(w); return { line: `Sim session: ${R.name}`, note: 'Some of the setup found.' }; } });
+  if (!wk.tested) out.push({ key: 'test', short: 'Test day', tag: `−${$(WC.testCost(w))}`, mcls: 'neg', head: `Test day at ${R.name}`, desc: 'Track hire, plus fuel and wear. Do five laps or more and you find a setup: a little more grip there this weekend. Pause to end the day.',
+    money: `−${$(WC.testCost(w))} + wear`, mcls: 'neg', effect: 'More grip this weekend', vis: map, go: true, goLabel: 'Book it', confirm: 'Book it? Select again', run: () => startTestDay() });
+  out.push({ key: 'off', short: 'Day off', tag: '', head: 'A day off', desc: 'Nothing. It\'s allowed.', money: 'Free', effect: 'Nothing', run: () => { WC.spendDay(w, 'A day off', 'Day off'); return { line: 'A day off', note: 'You slept in. The car didn\'t fix itself.' }; } });
+  if (canRace) { const left = WC.daysLeft(w); out.push({ key: 'race', short: 'Race day', tag: `Round ${w.round + 1}`, head: `Go to race day: round ${w.round + 1}`, desc: raceDesc(w),
+    money: 'Prize money', time: `Skips ${left} day${left === 1 ? '' : 's'}`, effect: `${R.name}`, vis: map, go: true, goLabel: 'Go racing', confirm: 'Race now? Select again', run: () => startWorldRound() }); }
   return out;
 }
 function dayItem(w, canRace) {
   const ch = dayChoices(w, canRace), wk = WC.weekOf(w), left = WC.daysLeft(w);
-  if (!ch.some(c => c[0] === dayPick)) dayPick = ch[0][0];
-  const cur = ch.find(c => c[0] === dayPick);
-  return { label: `${DAY_FULL[WC.DAY_NAMES[wk.used]] || 'Today'}`, cls: 'action primary day', values: ch.map(c => [c[0], c[1]]), get: () => dayPick, set: (v) => { dayPick = v; renderHubMenu(); },
-    action: () => cur[4](), confirm: dayPick === 'race' ? 'Race now? Select again' : dayPick === 'test' ? 'Book it? Select again' : null,
-    desc: `<span class="dh">${cur[2]}</span>${cur[3]} <span class="dk">${left} day${left === 1 ? '' : 's'} before race day &middot; &#8249; &#8250; to choose</span>` };
+  if (!ch.some(c => c.key === dayPick)) dayPick = ch[0].key;
+  return { label: `Plan ${DAY_FULL[WC.DAY_NAMES[wk.used]] || 'Today'}<small>${left} DAY${left === 1 ? '' : 'S'} LEFT</small>`, cls: 'action primary day', action: () => openDayPlan(canRace),
+    desc: `<span class="dh">How you spend the day</span>${ch.map(c => `${c.short}${c.tag ? ` <span class="dk">${c.tag}</span>` : ''}`).join(' &middot; ')}` };
+}
+// the day planner: game UI over the garage (js/dayplan.js)
+let dayRace = true;
+const dayPlan = new DayPlan($('dayplan'), {
+  world: () => world,
+  choices: () => dayChoices(world, dayRace),
+  pick: (k) => { dayPick = k; },
+  sfx: (k) => sfx[k] && sfx[k](),
+  save: () => saveWorld(),
+  map: (cv) => { const R = world.series[world.player.series].cal[world.round], tr = findCalTrack(R.name); if (tr) drawTrackMap(hubTrackT(tr), cv); },
+  closed: () => { wkStamp = WC.weekOf(world).used - 1; $('s-hub').classList.remove('planning'); renderHub(); renderHints(); hubEnter(); },
+  leave: (o) => { dayPick = o.key; $('s-hub').classList.remove('planning'); renderHub(); renderHints(); setTimeout(() => o.run(), 120); },
+});
+function openDayPlan(canRace) {
+  if (!world || dayPlan.isOpen || WC.daysLeft(world) <= 0) return;
+  dayRace = canRace; phone.close(); phone.hide(); $('s-hub').classList.add('planning'); sfx.select();
+  dayPlan.open(dayPick); renderHints();
+}
+function dayInput() {
+  if (!dayPlan.isOpen) return false;
+  const up = pressed('ArrowUp') | pressed('KeyW') | pressed('GP12') | pressed('GPSU'), down = pressed('ArrowDown') | pressed('KeyS') | pressed('GP13') | pressed('GPSD');
+  const ok = pressed('Enter') | pressed('Space') | pressed('GP0') | pressed('GP9'), back = pressed('Escape') | pressed('Backspace') | pressed('GP1');
+  pressed('ArrowLeft'); pressed('ArrowRight'); pressed('GP14'); pressed('GP15'); // (eaten)
+  dayPlan.input({ up, down, ok, back });
+  return true;
 }
 // Career Options: difficulty, aids, the test button
 function renderOptMenu() {
@@ -3464,7 +3524,7 @@ function frame(now) {
     opening.update(dt);
   } else if (PHONE_SCREENS.includes(screen)) {
     // World Career, your garage: the computer has the controls while you're sat at it, the phone while it's up (P / Y)
-    if (!tswInput() && !pcInput() && !phoneInput()) menuInput();
+    if (!tswInput() && !dayInput() && !pcInput() && !phoneInput()) menuInput();
     hubTick(dt);
   } else if (screen !== 's-editor') {
     menuInput();
@@ -3476,7 +3536,7 @@ function frame(now) {
   if (screen === 'hud' && sim && !sim.paused && sim.mode !== 'attract') { const [a, b] = sim.feel(), k = VIBES[settings.vibration] ?? 0.8; rumble(a * k, b * k); }
   else if (now > vibeTestUntil) rumble(0, 0);
   setMusicScene(musicScene()); updateMusic(dt);
-  if (PHONE_SCREENS.includes(screen) && world && !pcSeat && !tsw.isOpen) phone.show(); else phone.hide();
+  if (PHONE_SCREENS.includes(screen) && world && !pcSeat && !tsw.isOpen && !dayPlan.isOpen) phone.show(); else phone.hide();
   // sat at the garage computer: the 3D view at full resolution, so the screen in the scene is readable
   post.setSharp(screen === 's-hub' && (pcSeat || pitGarage.nearScreen));
   phone.update(dt);
@@ -3503,4 +3563,4 @@ requestAnimationFrame(frame);
 // debug handle
 window.__svgp = { get world() { return world; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: () => openOpening(), voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: () => startWorld(), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, sitDown: (a, x) => sitDown(a, x), standUp: () => standUp() } };
+  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: () => openOpening(), voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: () => startWorld(), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp() } };

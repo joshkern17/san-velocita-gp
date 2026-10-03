@@ -173,7 +173,7 @@ export class TeamSetup {
     // the second driver
     const pid = o.val, p = w.people[pid], a = WC.askOf(w, p), [lo, hi] = S.scout[pid] || [p.pot, p.pot], tr = WC.traitsOf(w, p), under = S.picks.entry === 'takeover' && pid === S.inherited;
     const st = (k, v) => stat(k, Math.round(v), v / 100);
-    const cost = a.fee ? `<b class="pos">Brings ${$(a.fee)}</b>` : `<b>${$(under ? Math.round(a.wage * 0.8 / 50) * 50 : a.wage)}<small> a round</small></b>`;
+    const cost = a.fee ? `<b class="gain">Brings ${$(a.fee)}</b>` : `<b>${$(under ? Math.round(a.wage * 0.8 / 50) * 50 : a.wage)}<small> a round</small></b>`;
     return `<div class="tsw-who">${face(p)}<div><h3>${esc(p.first)} ${esc(p.last)}</h3><small>${WC.ageOf(w, p)} &middot; ${esc(p.nat)} &middot; ${p.starts ? `${p.starts} starts, ${p.wins} win${p.wins === 1 ? '' : 's'}` : 'no races yet'}</small></div></div>
       <div class="tsw-top">${under ? tag('Under contract') : ''}${tr.map(t => tag(esc(WC.TRAITS[t].name), t === 'paydriver' ? 'good' : '')).join('')}${!under && !tr.length ? tag('No reputation yet', 'dim') : ''}</div>
       ${st('Pace', p.pace)}${st('Consistency', p.cons)}${st('Racecraft', p.craft)}${st('Wet', p.wet)}${st('Aggression', p.aggr)}
@@ -219,7 +219,7 @@ export class TeamSetup {
     const from = this.money ?? after; this.money = after;
     if (from === after || calm()) return set('after', after);
     const d = after - from, dl = el.querySelector('.tsw-delta');
-    dl.textContent = `${d < 0 ? '−' : '+'}${WC.money$(Math.abs(d))}`; dl.className = `tsw-delta ${d < 0 ? 'neg' : 'pos'}`;
+    dl.textContent = `${d < 0 ? '−' : '+'}${WC.money$(Math.abs(d))}`; dl.className = `tsw-delta ${d < 0 ? 'neg' : 'gain'}`;
     dl.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none', offset: 0.15 }, { opacity: 1, offset: 0.7 }, { opacity: 0, transform: 'translateY(-10px)' }], { duration: 1600, easing: 'ease-out', fill: 'both' });
     const t0 = performance.now(), T = 650, tick = (t) => { const k = Math.min(1, (t - t0) / T), e = 1 - Math.pow(1 - k, 3); set('after', Math.round(from + d * e)); if (k < 1 && this.isOpen) requestAnimationFrame(tick); };
     requestAnimationFrame(tick);

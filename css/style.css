@@ -1942,9 +1942,9 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .tsw-money small { display: block; font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; margin-bottom: var(--s2); }
 .tsw-money b { display: block; font: 700 40px/1 var(--f-display); letter-spacing: var(--track); font-variant-numeric: tabular-nums; color: var(--sv-hot); }
 .tsw-money > div:last-child b { color: var(--sv-amber); }
-.tsw-money b.neg { color: var(--sv-bad); }
+.tsw-money > div b.neg { color: var(--sv-bad); }
 .tsw-delta { position: absolute; right: 0; top: 100%; margin-top: 6px; font: 500 var(--t-label)/1 var(--f-ui); font-style: normal; font-variant-numeric: tabular-nums; opacity: 0; }
-.tsw-delta.neg { color: var(--sv-bad); } .tsw-delta.pos { color: var(--sv-cyan); }
+.tsw-delta.neg { color: var(--sv-bad); } .tsw-delta.gain { color: var(--sv-cyan); }
 .tsw.enter .tsw-money { animation: tsw-fade .5s .45s both; }
 
 /* the steps, like sectors along the top */
@@ -2001,7 +2001,7 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .tsw-left { margin-top: auto; display: flex; justify-content: space-between; align-items: baseline; padding-top: 12px; border-top: 1px solid var(--sv-red-faint); }
 .tsw-left small { font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red-dim); }
 .tsw-left b { font: 500 var(--t-row)/1 var(--f-ui); letter-spacing: var(--track); font-variant-numeric: tabular-nums; color: var(--sv-red); }
-.tsw .neg { color: var(--sv-bad); } .tsw .pos { color: var(--sv-cyan); }
+.tsw .neg { color: var(--sv-bad); } .tsw .gain { color: var(--sv-cyan); }
 /* meters: the signal ramp in segments; they fill from empty when a column is shown or picked out */
 .tsw-st { display: grid; grid-template-columns: 104px 1fr 88px; align-items: center; gap: 10px; }
 .tsw-st span, .tsw-pot span, .tsw-cost span { font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); }
@@ -2099,3 +2099,96 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 @keyframes tsw-out { 0% { opacity: 0; transform: scale(1.12); } 25% { opacity: 1; transform: none; } 100% { opacity: 1; transform: none; } }
 @keyframes tsw-flash { from { opacity: 1; } to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .tsw *, .tsw *::before, .tsw *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; } }
+
+/* ---------- World Career: the day planner, over the garage (js/dayplan.js; dresses as the Team Setup, .tsw) ---------- */
+#s-hub.planning .scr-head, #s-hub.planning .hub-left, #s-hub.planning .desc-bar, #s-hub.planning .menu-shade, #s-hub.planning .hub-week, #s-hub.planning .pc-tag, #s-hub.planning .car-tags { opacity: 0; pointer-events: none; }
+.dp-week li { padding-right: 12px; }
+.dp-week li small.gain { color: var(--sv-cyan); } .dp-week li small.neg { color: var(--sv-bad); }
+.dp-week li.on small { color: var(--sv-amber); }
+.dp-week li.race { color: var(--sv-hot); opacity: 1; }
+.dp-week li.race > i { color: var(--sv-hot); background: var(--sv-hot); width: 10px; height: 10px; top: -6px; }
+.dp-week li.race small { color: var(--sv-red); }
+/* the day just spent: stamped on */
+.dp-week li.stamp b, .dp-week li.stamp small { animation: dp-stamp .5s steps(5, end) both; }
+.dp-week li.stamp > i { animation: dp-pip .6s ease-out both; }
+@keyframes dp-stamp { 0% { opacity: 0; } 30% { opacity: 1; color: var(--sv-paper); } 45% { opacity: .3; } 100% { opacity: 1; } }
+@keyframes dp-pip { 0% { box-shadow: 0 0 0 var(--sv-red); } 30% { box-shadow: 0 0 8px var(--sv-paper), 0 0 18px var(--sv-red); background: var(--sv-paper); } 100% { box-shadow: var(--sv-glow-box); } }
+/* the body: the list, and the one you're on */
+.dp-body { position: absolute; left: var(--edge); right: var(--edge); top: 262px; bottom: 96px; display: grid; grid-template-columns: 380px 1fr; gap: 56px; transition: opacity .2s; }
+.tsw.passing .dp-body { opacity: .18; }
+.dp-list { display: flex; flex-direction: column; padding-top: 4px; }
+.dp-row { position: relative; display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 12px; height: 44px; padding: 0 4px 0 26px; cursor: pointer; color: var(--sv-red); border-bottom: 1px solid color-mix(in srgb, var(--sv-red) 14%, transparent); }
+.dp-row b { font: 500 22px/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; padding-top: 2px; }
+.dp-row em { font: 500 var(--t-label)/1 var(--f-ui); font-style: normal; letter-spacing: var(--track); text-transform: uppercase; font-variant-numeric: tabular-nums; color: var(--sv-red-dim); padding-top: 2px; }
+.dp-row em.gain { color: var(--sv-cyan); } .dp-row em.neg { color: var(--sv-bad); }
+.dp-row .tsw-cur { left: 4px; top: 50%; margin-top: -6px; }
+.dp-row.on { color: var(--sv-amber); }
+.dp-row.on .tsw-cur { opacity: 1; }
+.dp-row.on::after { content: ''; position: absolute; left: 26px; right: 0; bottom: -1px; height: 2px; background: var(--sv-amber); box-shadow: 0 0 2px var(--sv-amber), 0 0 5px var(--sv-amber); }
+.dp-ico { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 1.5px currentColor); }
+.dp-ico.big { width: 64px; height: 64px; stroke-width: 1.1; color: var(--sv-hot); flex: none; }
+.dp-pane { display: flex; flex-direction: column; gap: 22px; min-width: 0; padding-top: 4px; }
+.dp-top { display: flex; gap: 22px; align-items: flex-start; }
+.dp-top h2 { font: 500 var(--t-head)/1.05 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); }
+.dp-top p { margin-top: var(--s3); max-width: 640px; font: 500 var(--t-body)/1.45 var(--f-body); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body) !important; }
+.dp-top p b { color: var(--sv-amber); font-weight: 500; }
+.dp-facts { display: grid; grid-template-columns: 1fr 1fr 1.3fr; }
+.dp-facts > div { padding: 0 var(--s5); border-left: 2px solid var(--sv-red); box-shadow: -4px 0 6px -4px color-mix(in srgb, var(--sv-red) 60%, transparent); min-width: 0; }
+.dp-facts > div:first-child { padding-left: 0; border-left: 0; box-shadow: none; }
+.dp-facts small { display: block; font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); margin-bottom: var(--s2); }
+.dp-facts b { display: block; font: 500 var(--t-row)/1.15 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; font-variant-numeric: tabular-nums; color: var(--sv-hot); }
+.dp-facts b small { display: inline; font-size: var(--t-small); color: var(--sv-red-dim); margin: 0; }
+.dp-facts b.gain { color: var(--sv-cyan); } .dp-facts b.neg { color: var(--sv-bad); }
+.dp-vis { display: flex; flex-direction: column; gap: 8px; }
+.dp-vis.map canvas { width: 300px; height: 167px; align-self: flex-start; }
+.dp-vis span { font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); }
+.dp-vis.bar { display: grid; grid-template-columns: 150px minmax(0, 360px) auto; align-items: center; gap: 14px; }
+.dp-vis em { font: 500 var(--t-label)/1 var(--f-ui); font-style: normal; letter-spacing: var(--track); font-variant-numeric: tabular-nums; color: var(--sv-red); }
+/* the gauge: where it is now, and (blinking) where the day takes it */
+.dp-gauge { position: relative; height: 14px; background: color-mix(in srgb, var(--sv-cyan) 16%, transparent);
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 calc(10% - 3px), transparent 0 10%); mask: repeating-linear-gradient(90deg, #000 0 calc(10% - 3px), transparent 0 10%); }
+.dp-gauge b { position: absolute; top: 0; bottom: 0; background: var(--sv-signal); background-size: 360px 100%; }
+.dp-gauge b.was { left: 0; width: calc(var(--a) * 100%); }
+.dp-gauge b.now { left: calc(var(--a) * 100%); width: calc((var(--b) - var(--a)) * 100%); background: var(--sv-amber); animation: dp-blink 1s steps(2, start) infinite; }
+@keyframes dp-blink { to { opacity: .25; } }
+.dp-go { display: flex; }
+.dp-go .sv-btn { padding: 9px 18px 8px; font-size: 17px; }
+/* a day passes: the card in the middle */
+.dp-card { position: absolute; left: 50%; top: 52%; width: 600px; transform: translate(-50%, -50%); padding: 34px 40px 30px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; z-index: 4; opacity: 0; visibility: hidden; --frame-l: 22px; background: rgba(5,3,8,.9); }
+.dp-card.on { opacity: 1; visibility: visible; }
+.dp-card small { font: 500 var(--t-caption)/1 var(--f-ui); letter-spacing: var(--track-caption); text-transform: uppercase; color: var(--sv-red); }
+.dp-card h3 { font: 500 26px/1.1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); }
+.dp-card > b { font: 700 72px/.9 var(--f-display); letter-spacing: var(--track); text-transform: uppercase; font-variant-numeric: tabular-nums; color: var(--sv-hot); }
+.dp-card > b.gain { color: var(--sv-cyan); } .dp-card > b.neg { color: var(--sv-bad); }
+.dp-card p { font: 500 var(--t-body)/1.4 var(--f-body); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body) !important; min-height: 1.4em; }
+.dp-card.on small { animation: tsw-wipe .4s var(--ease) both; }
+.dp-card.on h3 { animation: tsw-wipe .45s .1s var(--ease) both, tsw-flicker .5s .1s steps(1) both; }
+.dp-card.on > b { animation: tsw-fade .2s .2s both; }
+.dp-card.on p { animation: tsw-fade .4s .9s both; }
+.dp-card.on { animation: dp-card 2.1s both; }
+@keyframes dp-card { 0% { opacity: 0; } 6% { opacity: 1; } 88% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ---------- the garage hub: arriving, the money, the week ---------- */
+#s-hub.enter .scr-head h1 { animation: tsw-wipe .65s .05s var(--ease) both, tsw-flicker .65s .05s steps(1) both; }
+#s-hub.enter .scr-sub { animation: tsw-wipe .55s .3s var(--ease) both; }
+#s-hub.enter .hub-left > * { animation: dp-flick .3s steps(6, end) backwards; }
+#s-hub.enter .hub-left > :nth-child(1) { animation-delay: .25s; } #s-hub.enter .hub-left > :nth-child(2) { animation-delay: .4s; }
+#s-hub.enter .hub-week .wk-head { animation: dp-flick .3s .3s steps(6, end) backwards; }
+#s-hub.enter .hub-week .wk-day { animation: dp-flick .28s steps(6, end) backwards; }
+#s-hub.enter .hub-week .wk-day:nth-child(1) { animation-delay: .35s; } #s-hub.enter .hub-week .wk-day:nth-child(2) { animation-delay: .4s; } #s-hub.enter .hub-week .wk-day:nth-child(3) { animation-delay: .45s; }
+#s-hub.enter .hub-week .wk-day:nth-child(4) { animation-delay: .5s; } #s-hub.enter .hub-week .wk-day:nth-child(5) { animation-delay: .55s; } #s-hub.enter .hub-week .wk-day:nth-child(6) { animation-delay: .6s; }
+#s-hub.enter .hub-week .wk-targets { animation: dp-flick .3s .65s steps(6, end) backwards; }
+@keyframes dp-flick { 0% { opacity: 0; } 25% { opacity: .7; } 40% { opacity: .2; } 100% { opacity: 1; } }
+/* today pulses; the day you just spent is stamped on */
+.wk-day.today { animation: wk-today 1.8s ease-in-out infinite; }
+@keyframes wk-today { 50% { box-shadow: 0 0 3px var(--sv-amber), 0 0 10px var(--sv-amber); } }
+.wk-day.stamp { animation: wk-stamp .7s .5s steps(7, end) both; }
+.wk-day.stamp b, .wk-day.stamp em { animation: dp-flick .4s .7s steps(6, end) both; }
+@keyframes wk-stamp { 0% { background: var(--sv-plate); } 20% { background: color-mix(in srgb, var(--sv-hot) 55%, transparent); box-shadow: 0 0 6px var(--sv-hot), 0 0 18px var(--sv-hot); } 40% { background: var(--sv-plate); } 55% { background: color-mix(in srgb, var(--sv-hot) 30%, transparent); } 100% { background: var(--sv-plate); } }
+/* the money's change, floating off it */
+.br-goals > div { position: relative; }
+.hub-delta { position: absolute; right: 0; top: 0; font: 500 var(--t-label)/1 var(--f-ui); font-style: normal; font-variant-numeric: tabular-nums; text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; animation: hub-delta 1.6s ease-out both; pointer-events: none; }
+.hub-delta.neg { color: var(--sv-bad); } .hub-delta.gain { color: var(--sv-cyan); }
+@keyframes hub-delta { 0% { opacity: 0; transform: translateY(6px); } 15% { opacity: 1; transform: none; } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }
+.hub-roll { font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { #s-hub *, .wk-day { animation-duration: 1ms !important; animation-iteration-count: 1 !important; } }
