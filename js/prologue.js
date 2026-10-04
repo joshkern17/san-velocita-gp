@@ -26,7 +26,9 @@ const DOORS = {
   pizza: { leaves: [['Door', -17.77, -1], ['Door001', -19.40, 1]], x: -15.98, z0: -19.4, z1: -17.77, inside: P(-16.75, 18.58), outside: P(-14.7, 18.58), bell: false },
   store: { leaves: [['Door002', -23.85, -1], ['Door_01', -26.03, 1]], x: 9.27, z0: -26.03, z1: -23.85, inside: P(10.7, 24.94), outside: P(8.2, 24.94), bell: true },
 };
-const COUNTER = P(13.0, 31.2), BOTTLES = P(13.6, 35.5, 1.6), LOTTO = P(11.2, 32.2, 1.75), CLERK = P(13.4, 33.8);
+const COUNTER = P(13.0, 31.2), CLERK = P(13.4, 33.8);
+// at the counter, through your own eyes: where you're looking from, and at (his face, the bottles behind him)
+const COUNTER_EYE = P(13.0, 30.7, 1.7), COUNTER_LOOK = P(13.35, 33.8, 1.42);
 // where you can walk: [x0, z0, x1, z1] in scene metres (the aisle, the door, the street, the store's door and floor);
 // what stands in it (booths, shelves, the counter, trees) is found from the model
 const NAV = [
@@ -71,7 +73,11 @@ export class Prologue {
       const m = g.scene; m.position.y = -GROUND;
       m.traverse(o => {
         if (!o.isMesh) return;
-        for (const mat of [].concat(o.material)) { if (mat.map) { mat.map.magFilter = THREE.NearestFilter; mat.map.minFilter = THREE.NearestMipmapNearestFilter; } mat.metalness = 0; }
+        for (const mat of [].concat(o.material)) {
+          if (mat.map) { mat.map.magFilter = THREE.NearestFilter; mat.map.minFilter = THREE.NearestMipmapNearestFilter; } mat.metalness = 0;
+          // (the packs' glass came through the conversion opaque grey)
+          if (/^Glass/.test(mat.name)) { mat.transparent = true; mat.opacity = 0.16; mat.color.setHex(0xbfd8e6); mat.depthWrite = false; mat.roughness = 0.1; }
+        }
       });
       this.scene.add(m); m.updateMatrixWorld(true);
       this.blocks = this.findBlocks(m);
@@ -201,9 +207,7 @@ export class Prologue {
     const T = {
       out: { at: DOORS.pizza.outside.clone().setY(2.2), label: 'Door', near: DOORS.pizza.inside, r: 1.5, go: () => this.throughDoor('pizza', true, () => { this.h.say('Get a drink. The 6twelve\'s across the street.'); this.setGoal('store'); }) },
       store: { at: DOORS.store.inside.clone().setY(3.0), label: '6twelve', near: DOORS.store.outside, r: 1.8, go: () => this.throughDoor('store', false, () => { this.h.say(''); this.setGoal('counter'); }) },
-      counter: { at: COUNTER.clone().setY(1.9), label: 'The counter', near: COUNTER, r: 1.3, go: () => this.atCounter() },
-      bottles: { at: BOTTLES, label: 'Something to drink', near: COUNTER, r: 2.2, go: () => this.thinkTwice() },
-      lotto: { at: LOTTO, label: 'Mega 6', near: COUNTER, r: 2.6, go: () => this.buyTicket() },
+      counter: { at: COUNTER.clone().setY(1.9), label: 'The counter', near: COUNTER, r: 1.4, go: () => this.atCounter() },
       leave: { at: DOORS.store.outside.clone().setY(2.2), label: 'Door', near: DOORS.store.inside, r: 1.6, go: () => this.throughDoor('store', true, () => this.goHome()) },
     }[g];
     this.goalT = T; this.targets = T ? [{ at: T.at, label: T.label, objs: [], hot: () => this.near() }] : [];
@@ -211,27 +215,31 @@ export class Prologue {
   }
   near() { const T = this.goalT, p = this.me?.object.position; return !!(T && p && Math.hypot(p.x - T.near.x, p.z - T.near.z) < T.r); }
 
-  // ---- the store ----
+  // ---- the store: at the counter, through your own eyes ----
+  // The camera glides from behind you into your eyes, the clerk across the counter with the bottles behind him; a few
+  // lines (you pick yours, as in the booth); you think better of the bottle and buy a ticket; then it glides back out.
   atCounter() {
-    this.stage = 'counter'; this.face(BOTTLES);
-    this.h.line('<i>Clerk:</i> Evening.'); this.murmur('Evening.', 150);
-    setTimeout(() => { this.h.say(''); this.setGoal('bottles'); this.stage = 'walk'; }, 1500);
-  }
-  thinkTwice() {
-    this.stage = 'counter'; this.targets = [];
-    this.h.line('You reach for your wallet. Your car keys come out with it.');
-    setTimeout(() => this.h.line('You\'re driving.'), 2600);
-    setTimeout(() => { this.h.line(''); this.stage = 'walk'; this.setGoal('lotto'); this.face(LOTTO); }, 5000);
-  }
-  buyTicket() {
-    this.stage = 'counter'; this.targets = [];
-    const lines = [['You', 'Just a Mega 6. Quick pick.'], ['Clerk', 'Jackpot\'s four hundred grand tonight.'], ['Clerk', 'A dollar.']];
-    lines.forEach(([who, s], i) => setTimeout(() => { this.h.line(`<i>${who}:</i> ${s}`); this.murmur(s, who === 'You' ? 120 : 150); }, i * 2300));
-    setTimeout(() => {
-      this.h.snd?.note(1900, 0.06, 0.03, { room: true }); this.h.snd?.hiss(0.6, 3000, 0.02, { room: true, delay: 0.1 }); // (the printer)
-      this.showTicket();
-    }, 7000);
-    setTimeout(() => { this.h.line(''); this.hideTicket(); this.stage = 'walk'; this.setGoal('leave'); this.h.say('Drive home.'); }, 11000);
+    this.stage = 'counter'; this.targets = []; this.h.say(''); this.face(CLERK); this.counterWant = 1;
+    const T = (ms, f) => { this.tt = setTimeout(f, ms); };
+    const line = (who, s) => { this.h.line(who ? `<i>${who}:</i> ${s}` : s); if (who) this.murmur(s, who === 'You' ? 120 : 150); return Math.max(1800, s.split(' ').length * 330 + 900); };
+    const ask = (opts, then) => this.h.choices(opts, (i) => then(opts[i]));
+    T(1300, () => T(line('Clerk', 'Evening. What can I get you?'), () => ask(['A bottle of bourbon.', 'Whatever\'s cheapest. In a bottle.'], (you) => {
+      T(line('You', you), () => {
+        this.clerkTurn = 1; // (he turns to the shelf)
+        T(line('Clerk', 'Sure thing.'), () => {
+          T(line(null, 'Your car keys are still in your hand.'), () => T(line(null, 'You\'re driving.'), () => ask(['Actually, forget the bottle. Just a Mega 6.', 'Never mind. A lottery ticket.'], (you2) => {
+            T(line('You', you2), () => {
+              this.clerkTurn = 0;
+              T(line('Clerk', 'Quick pick? Jackpot\'s four hundred grand tonight.'), () => T(line('Clerk', 'That\'s a dollar.'), () => {
+                this.h.line(''); this.h.snd?.note(1900, 0.06, 0.03, { room: true }); this.h.snd?.hiss(0.6, 3000, 0.02, { room: true, delay: 0.1 }); // (the printer)
+                this.showTicket();
+                T(3200, () => { this.hideTicket(); this.counterWant = 0; T(1200, () => { this.stage = 'walk'; this.setGoal('leave'); this.h.say('Drive home.'); }); });
+              }));
+            });
+          })));
+        });
+      });
+    })));
   }
   showTicket() {
     const t = sheet(this.h.ticket(), 0.09, 0.13, 0.0006, 0xf2efe8, false);
@@ -239,7 +247,7 @@ export class Prologue {
   }
   hideTicket() { this.ticketObj?.removeFromParent(); this.ticketObj = null; }
   goHome() { this.stage = 'done'; this.targets = []; this.h.say(''); this.h.done(); }
-  face(p) { if (!this.me) return; const o = this.me.object.position; this.me.object.rotation.y = Math.atan2(p.x - o.x, p.z - o.z); this.camYaw = this.me.object.rotation.y + Math.PI; this.lookAt = p.clone ? p.clone() : null; }
+  face(p) { if (!this.me) return; const o = this.me.object.position; this.me.object.rotation.y = Math.atan2(p.x - o.x, p.z - o.z); this.camYaw = this.me.object.rotation.y + Math.PI; }
 
   // ---- input (from js/opening.js) ----
   look(dy, dp) {
@@ -260,6 +268,8 @@ export class Prologue {
     for (const c of [this.her, this.me, this.clerk]) c?.update(dt);
     if (this.paperFrom && this.paperK < 1) { this.paperK = Math.min(1, this.paperK + dt / 0.9); this.papers.position.lerpVectors(this.paperFrom, this.paperTo, ease(this.paperK)); }
     if (this.paperBack > 0) { this.paperBack -= dt; if (this.paperBack <= 0) { this.paperFrom = this.papers.position.clone(); this.paperTo = TABLE.clone().add(new THREE.Vector3(0.3, 0.003, 0)); this.paperK = 0; } }
+    this.counterK = clamp((this.counterK || 0) + ((this.counterWant || 0) ? dt : -dt) / 1.1, 0, 1);
+    if (this.clerk) { const want = (this.clerkTurn || 0) * Math.PI; this.clerk.object.rotation.y += (want - this.clerk.object.rotation.y) * Math.min(1, dt * 3); }
     for (const D of Object.values(DOORS)) if (D.piv) {
       D.k += ((D.want || 0) - D.k) * Math.min(1, dt * 4.5);
       for (const { piv, dir } of D.piv) piv.rotation.y = dir * D.k * Math.PI * 0.5;
@@ -278,7 +288,7 @@ export class Prologue {
     // (at a door, or what you came for: the button)
     if (this.stage === 'walk' && this.goalT && this.near() !== this.nearSaid) {
       this.nearSaid = this.near();
-      const verb = { out: 'Open the door', store: 'Go in', leave: 'Open the door', counter: 'Walk up', bottles: 'Get a bottle', lotto: 'Buy a ticket' }[this.goal];
+      const verb = { out: 'Open the door', store: 'Go in', leave: 'Open the door', counter: 'Walk up' }[this.goal];
       if (this.nearSaid && verb) this.h.say(`${this.h.btn()} &nbsp;${verb}`); else if (!this.nearSaid && this.goal !== 'out') this.h.say('');
     }
     if (this.stage !== 'walk' || !this.me) { if (this.me && this.me.clip !== 'idle' && this.stage !== 'booth') this.me.play('idle'); return; }
@@ -325,21 +335,22 @@ export class Prologue {
       if (head.distanceTo(want) < dist * 0.75 && this.stage === 'walk') {
         for (const d of [0.5, -0.5, 1.0, -1.0, 1.5, -1.5]) { const w = at(this.camYaw + d); if (head.distanceTo(w) > dist * 0.85) { this.camYaw += d * Math.min(1, 0.06); break; } }
       }
-      // (at the counter: over your shoulder, close)
-      const close = this.stage === 'counter' || ['bottles', 'lotto'].includes(this.goal);
-      if (close) {
-        const f = this.me.object.rotation.y, side = new THREE.Vector3(-Math.cos(f), 0, Math.sin(f));
-        want.copy(head).add(new THREE.Vector3(-Math.sin(f) * 0.95, 0.2, -Math.cos(f) * 0.95)).addScaledVector(side, 0.38);
-      } else {
-        // (and short of anything in the way: shelves, the counter, the booths)
-        for (let k = 1; k <= 12; k++) {
-          const q = head.clone().lerp(want, k / 12);
-          if ((this.blocks || []).some(b => q.y < b[4] + 0.15 && q.x > b[0] - 0.15 && q.x < b[2] + 0.15 && q.z > b[1] - 0.15 && q.z < b[3] + 0.15)) { want.copy(head.clone().lerp(want, (k - 1) / 12)); break; }
-        }
+      // (and short of anything in the way: shelves, the counter, the booths)
+      for (let k = 1; k <= 12; k++) {
+        const q = head.clone().lerp(want, k / 12);
+        if ((this.blocks || []).some(b => q.y < b[4] + 0.15 && q.x > b[0] - 0.15 && q.x < b[2] + 0.15 && q.z > b[1] - 0.15 && q.z < b[3] + 0.15)) { want.copy(head.clone().lerp(want, (k - 1) / 12)); break; }
       }
-      cam.position.lerp(want, this.snapCam ? 1 : close ? 0.1 : 0.2); this.snapCam = false;
-      const aim = close && this.goalT ? this.goalT.at.clone().lerp(head, 0.35) : this.stage === 'counter' && this.lookAt ? this.lookAt : head.clone().add(new THREE.Vector3(0, 0.05, 0));
-      cam.lookAt(aim);
+      if (!this.tp || this.snapCam) this.tp = want.clone(); else this.tp.lerp(want, 0.2);
+      this.snapCam = false;
+      // (at the counter: blended into your own eyes, and back out)
+      const k = ease(this.counterK || 0), look = head.clone().add(new THREE.Vector3(0, 0.05, 0));
+      cam.position.copy(this.tp);
+      if (k > 0) {
+        cam.position.lerp(COUNTER_EYE.clone().add(new THREE.Vector3(0, Math.sin(this.t * 1.1) * 0.004, 0)), k);
+        look.lerp(COUNTER_LOOK, k); cam.fov = 62 - 8 * k;
+      }
+      this.me.object.visible = k < 0.55; // (not the inside of your own head)
+      cam.lookAt(look);
     }
     cam.updateProjectionMatrix(); cam.updateMatrixWorld();
     post.render(this.scene, cam, { trails: 0, grade: [1.02, 1, 0.97] });
