@@ -155,16 +155,22 @@ export class ClaimOffice {
 
   pick(f) {
     this.picked = f; this.stage = 'held'; this.move(f, 'held');
-    this.h.snd?.hiss(0.25, 2200, 0.025, { room: true }); this.targets = [];
+    this.h.snd?.hiss(0.25, 2200, 0.025, { room: true });
+    // a marker on the line you sign (on the form in your hand: it moves with it)
+    const sig = new THREE.Vector3(-0.015, -0.068, 0.001), o = f.obj;
+    this.targets = [{ get at() { return o.localToWorld(sig.clone()); }, label: 'Sign here', objs: [o], hot: () => true }];
     this.h.say(`${this.h.btn()} &nbsp;Sign it &nbsp;&nbsp;&nbsp; ${this.h.back()} &nbsp;Put it back`);
   }
+  // the form the selection frame goes round (while choosing)
+  framed() { const f = this.stage === 'choose' && this.forms[this.sel]; return f && f.state === 'desk' && f.k >= 1 ? f.obj : null; }
   signIt() {
-    this.stage = 'signing'; this.signT = 0; this.h.say('');
+    if (this.stage !== 'held') return;
+    this.stage = 'signing'; this.signT = 0; this.h.say(''); this.targets = [];
     const s = this.h.snd; if (s) for (let k = 0; k < 9; k++) s.hiss(0.07, 4200 + hash(k) * 1500, 0.02, { room: true, delay: k * 0.09 + hash(k + 4) * 0.04 });
   }
   prompt() {
-    this.h.say('Choose how to take it.');
-    this.targets = this.forms.map((f, i) => ({ at: f.home.p.clone().add(new THREE.Vector3(0, 0.02, 0)), label: f.key === 'lump' ? 'Lump sum' : 'Annuity', objs: [f.obj], hot: () => this.sel === i }));
+    this.h.say(this.h.pad() ? '<kbd class="dpad h"></kbd> &nbsp;Choose &nbsp;&nbsp;&nbsp; <kbd class="pb a">A</kbd> &nbsp;Pick it up' : 'Click a form to pick it up');
+    this.targets = this.forms.map((f, i) => ({ at: f.home.p.clone().add(new THREE.Vector3(0, 0.07, -0.1)) /* (above the far edge, clear of the frame) */, label: f.key === 'lump' ? 'Lump sum' : 'Annuity', objs: [f.obj], hot: () => this.sel === i }));
   }
 
   move(f, state) {
@@ -173,7 +179,7 @@ export class ClaimOffice {
   }
   poseOf(f) {
     if (f.state === 'held') {
-      const cam = this.camera, p = cam.localToWorld(new THREE.Vector3(0, 0.0, -0.31));
+      const cam = this.camera, p = cam.localToWorld(new THREE.Vector3(0, 0.018, -0.34));
       return { p, q: cam.quaternion.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.25, 0, 0.02))) };
     }
     if (f.state === 'back') return f.start;
@@ -256,8 +262,11 @@ export class ClaimOffice {
       const to = this.poseOf(f), o = f.obj;
       if (f.k < 1 && f.from) { const e = ease(f.k); o.position.lerpVectors(f.from.p, to.p, e); o.quaternion.slerpQuaternions(f.from.q, to.q, e); if (f.state === 'desk' || f.state === 'held') o.position.y += Math.sin(e * Math.PI) * (f.state === 'held' ? 0.05 : 0.004); }
       else { o.position.copy(to.p); o.quaternion.copy(to.q); }
-      // the chosen one rises a touch off the desk
-      if (f.state === 'desk' && f.k >= 1 && this.stage === 'choose' && this.forms[this.sel] === f) o.position.y += 0.006;
+      // choosing: the selected one lifts off the desk and tips towards you, the other dims
+      const on = this.stage !== 'choose' || this.forms[this.sel] === f;
+      f.lift = (f.lift || 0) + ((this.stage === 'choose' && on && f.state === 'desk' ? 1 : 0) - (f.lift || 0)) * 0.2;
+      if (f.state === 'desk' && f.k >= 1) { o.position.y += f.lift * 0.02; o.rotateX(f.lift * 0.35); }
+      for (const m of o.userData.mats) m.color.setScalar(on ? 1 : 0.45);
     }
     post.render(this.scene, cam, { trails: 0, grade: [1.02, 0.99, 0.96] });
   }

@@ -1645,6 +1645,14 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 #op-say.on { opacity: 1; }
 #op-line { position: absolute; left: 50%; bottom: 15%; transform: translateX(-50%); width: min(80%, 900px); text-align: center; font: 500 21px/1.35 var(--f-ui); letter-spacing: var(--track); color: #f1ebdf; text-shadow: 0 0 1px #f1ebdf, 0 0 2px rgba(241,235,223,.6); opacity: 0; transition: opacity .26s; }
 #op-line.on { opacity: 1; }
+#s-opening .op-tag.on.dim { opacity: .35; }
+#op-frame { position: absolute; pointer-events: none; opacity: 0; transition: opacity .2s; --l: 22px; --c: var(--sv-red);
+  background: linear-gradient(var(--c), var(--c)) top left / var(--l) 3px, linear-gradient(var(--c), var(--c)) top left / 3px var(--l),
+    linear-gradient(var(--c), var(--c)) top right / var(--l) 3px, linear-gradient(var(--c), var(--c)) top right / 3px var(--l),
+    linear-gradient(var(--c), var(--c)) bottom left / var(--l) 3px, linear-gradient(var(--c), var(--c)) bottom left / 3px var(--l),
+    linear-gradient(var(--c), var(--c)) bottom right / var(--l) 3px, linear-gradient(var(--c), var(--c)) bottom right / 3px var(--l);
+  background-repeat: no-repeat; filter: drop-shadow(0 0 2px var(--c)) drop-shadow(0 0 5px var(--c)); }
+#op-frame.on { opacity: 1; }
 #op-say kbd { vertical-align: middle; }
 .op-edge { position: absolute; top: 50%; width: 22px; height: 22px; margin-top: -11px; border: solid var(--sv-red); border-width: 0 0 2px 2px; filter: drop-shadow(0 0 2px var(--sv-red)); opacity: 0; transition: opacity .35s; }
 .op-edge.l { left: 36px; transform: rotate(45deg); }

@@ -31,7 +31,8 @@ try {
     await F(() => { const f = __svgp.dbg.opening.office; f.forms.forEach(x => x.k = 1); }); await shot('o3talk');
     for (let i = 0; i < 3; i++) await F(() => { const f = __svgp.dbg.opening.office; f.lineT = 99; f.update(0.01); });
     await W(500); await shot('o4choose');
-    await F(() => { const o = __svgp.dbg.opening; o.nav(1); o.confirm(); o.office.forms[1].k = 1; }); await shot('o5held');
+    await F(() => __svgp.dbg.opening.nav(1)); await W(300); await shot('o4choose2');
+    await F(() => { const o = __svgp.dbg.opening; o.confirm(); o.office.forms[1].k = 1; }); await W(800); await shot('o5held');
     await F(() => { const o = __svgp.dbg.opening; o.confirm(); o.office.signT = 1.0; }); await shot('o6signed');
     await F(() => { const f = __svgp.dbg.opening.office; f.signT = 2; f.update(0.01); f.forms.forEach(x => x.k = 1); f.stampAt = 0; f.update(0.01); }); await shot('o7stamp');
     console.log(await O(() => { const o = __svgp.dbg.opening.office; return o.stage + ' ' + o.choice + ' ' + o.lineI; }));

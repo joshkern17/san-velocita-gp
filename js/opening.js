@@ -340,7 +340,7 @@ export class Opening {
     if (this.remote) this.remote.visible = false; this.remT = -1;
     this.ui = {
       root: document.getElementById('s-opening'), tag: document.getElementById('op-tag'), say: document.getElementById('op-say'),
-      tag2: document.getElementById('op-tag2'), line: document.getElementById('op-line'), edgeL: document.getElementById('op-edge-l'), edgeR: document.getElementById('op-edge-r'), white: document.getElementById('op-white'), hint: document.querySelector('#s-opening .op-hint'),
+      tag2: document.getElementById('op-tag2'), frame: document.getElementById('op-frame'), line: document.getElementById('op-line'), edgeL: document.getElementById('op-edge-l'), edgeR: document.getElementById('op-edge-r'), white: document.getElementById('op-white'), hint: document.querySelector('#s-opening .op-hint'),
     };
     this.ui.white.className = ''; this.ui.hint.textContent = `Esc / B  ${opts.skipLabel || 'Back'}`;
     this.say(''); this.fadeText(this.ui.line, ''); this.target = null; this.ended = false; this.result = null;
@@ -353,7 +353,8 @@ export class Opening {
     this.onTag = (e) => {
       e.stopPropagation();
       if (this.stage !== 'office') return this.activate();
-      const f = this.office.forms[e.currentTarget === this.ui.tag2 ? 1 : 0]; if (this.office.stage === 'choose') this.office.pick(f);
+      const O = this.office; if (O.stage === 'held') return O.signIt();
+      const f = O.forms[e.currentTarget === this.ui.tag2 ? 1 : 0]; if (O.stage === 'choose') O.pick(f);
     };
     el.addEventListener('pointerdown', this.onDown); addEventListener('pointermove', this.onMove); addEventListener('pointerup', this.onUp);
     this.ui.tag.addEventListener('pointerup', this.onTag); this.ui.tag2.addEventListener('pointerup', this.onTag);
@@ -362,7 +363,7 @@ export class Opening {
     const el = this.r.domElement;
     el.removeEventListener('pointerdown', this.onDown); removeEventListener('pointermove', this.onMove); removeEventListener('pointerup', this.onUp);
     this.ui.tag.removeEventListener('pointerup', this.onTag); this.ui.tag2.removeEventListener('pointerup', this.onTag);
-    this.ui.tag.classList.remove('on'); this.ui.tag2.classList.remove('on'); this.fadeText(this.ui.line, ''); this.office.leave(); this.ui.edgeL.classList.remove('on'); this.ui.edgeR.classList.remove('on');
+    this.ui.tag.classList.remove('on'); this.ui.tag2.classList.remove('on'); this.ui.frame.classList.remove('on'); this.fadeText(this.ui.line, ''); this.office.leave(); this.ui.edgeL.classList.remove('on'); this.ui.edgeR.classList.remove('on');
     if (this.snd) { this.snd.stop(); this.snd = null; }
   }
   // Esc / B: skip (or, from the main menu's preview, back); at the claim office, with a form in your hand: put it back
@@ -423,7 +424,7 @@ export class Opening {
   // the claim office: after the draw's gone to black
   startOffice() {
     this.setStage('office'); this.ui.white.className = ''; this.target = null;
-    this.office.start({ snd: this.snd, say: (s) => this.say(s), line: (s) => this.fadeText(this.ui.line, s), btn: () => this.btn(), back: () => this.backBtn(),
+    this.office.start({ snd: this.snd, say: (s) => this.say(s), line: (s) => this.fadeText(this.ui.line, s), btn: () => this.btn(), back: () => this.backBtn(), pad: () => this.isPad(),
       done: (choice) => { this.result = choice ? { lottery: choice } : null; this.skip(); } });
   }
 
@@ -500,7 +501,11 @@ export class Opening {
       const ax = Math.abs(p.axes[2] || 0) > 0.15 ? p.axes[2] : Math.abs(p.axes[0] || 0) > 0.2 ? p.axes[0] : 0;
       const ay = Math.abs(p.axes[3] || 0) > 0.15 ? p.axes[3] : Math.abs(p.axes[1] || 0) > 0.2 ? p.axes[1] : 0;
       if ((ax || ay) && this.free()) this.look(-ax * dt * 2, -ay * dt * 1.4);
-      if ((ax || ay) && this.stage === 'office') this.office.look(-ax * dt * 0.8, -ay * dt * 0.6);
+      if (this.stage === 'office') {
+        const rx = Math.abs(p.axes[2] || 0) > 0.15 ? p.axes[2] : 0, ry = Math.abs(p.axes[3] || 0) > 0.15 ? p.axes[3] : 0, lx = p.axes[0] || 0;
+        if (rx || ry) this.office.look(-rx * dt * 0.8, -ry * dt * 0.6);
+        if (Math.abs(lx) > 0.55 && !this.stickHeld) { this.stickHeld = true; this.office.nav(Math.sign(lx)); } else if (Math.abs(lx) < 0.3) this.stickHeld = false;
+      }
     }
     if (this.stage === 'office') { this.office.update(dt); return; }
     if (this.aim) { const k = 1 - Math.exp(-dt * this.aim.k); this.yaw += (this.aim.yaw - this.yaw) * k; this.pitch += (this.aim.pitch - this.pitch) * k; }
@@ -763,7 +768,20 @@ export class Opening {
       el.querySelector('b').textContent = T.label;
       el.querySelector('small').innerHTML = this.isPad() ? 'A' : 'Click';
       el.classList.toggle('hot', T.hot ? T.hot() : Math.abs(v.x) < 0.35 && Math.abs(v.y) < 0.45);
+      el.classList.toggle('dim', !!T.hot && !T.hot());
     });
+    // the selection frame: corner brackets round the form that's selected
+    const fo = office && this.office.framed();
+    if (fo) {
+      const g = fo.geometry.parameters, xs = [], ys = [];
+      for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        const v = fo.localToWorld(new THREE.Vector3(a * g.width / 2, b * g.height / 2, 0)).project(cam);
+        xs.push(r.left + (v.x + 1) / 2 * r.width); ys.push(r.top + (1 - v.y) / 2 * r.height);
+      }
+      const pad = 10, x0 = Math.min(...xs) - pad, y0 = Math.min(...ys) - pad;
+      Object.assign(u.frame.style, { left: x0 / z + 'px', top: y0 / z + 'px', width: (Math.max(...xs) + pad - x0) / z + 'px', height: (Math.max(...ys) + pad - y0) / z + 'px' });
+    }
+    u.frame.classList.toggle('on', !!fo);
     const T = !office && this.target, a = T && this.aimAt(T.at), left = T && a.yaw - this.yaw > 0;
     u.edgeL.classList.toggle('on', !!T && !this.onScreen && left); u.edgeR.classList.toggle('on', !!T && !this.onScreen && !left);
   }
