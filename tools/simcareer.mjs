@@ -7,6 +7,8 @@
 //   node tools/simcareer.mjs 40 3 --policy=sketchy one policy, with a line per career
 //   node tools/simcareer.mjs 40 3 --gt             win the Street Cup first (a quick driver), then GT seasons at --skill
 //                                                  (--gentleman=no: no gentleman driver; --car=buy: buy, not lease)
+//   --seasonly                                     where the money went, season by season (careers that last)
+//   --len=6                                        rounds a season (4, 6, 8, 12)
 //   --amb=par                                      each season's ambition: none, safe, par (default), push, title
 //
 // skill: where you'd qualify on pace alone, as a fraction down the field (0 = the fastest driver, 1 = the slowest).
@@ -15,7 +17,9 @@ import * as WC from '../js/wcareer.js';
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 const args = process.argv.slice(2), opt = (k, d) => { const a = args.find(x => x.startsWith(`--${k}=`)); return a ? a.split('=')[1] : d; };
 const ENTRY = opt('entry', 'fresh'), MATE = opt('mate', 'pay'), GT = args.includes('--gt'), GENT = opt('gentleman', 'yes') !== 'no', CARHOW = opt('car', 'lease');
-const AMB = opt('amb', 'par');
+const LEN = +opt('len', 6), AMB = opt('amb', 'par'), SEASONLY = args.includes('--seasonly');
+// a transaction's kind, for --seasonly
+const cat = (what) => { const s = what.replace(/^[A-Z][\w' ]*?: (?=[a-z])/, ''); for (const [k, re] of [['prize', /prize money|prize fund/i], ['sponsors', /sponsor|bonus|associate|seat fee|seat money/i], ['entry+travel+crew', /^(entry fee|travel|pit crew)/i], ['tyres+fuel', /tyre|tire|fuel/i], ['repairs+parts', /repair|rebuild|part|Speed Parts|SVList/i], ['staff', /payroll|back pay|labour|wage/i], ['week', /fare|GigGo|Restwell|day job|track day|time attack|street race|appearance|coaching|hot laps|shift|winnings|stake|ride/i], ['facilities', /premises|facilit|unit|transporter|lift|tools|sim rig|built/i], ['projects', /project|wind tunnel|shop/i], ['bank', /overdraft|loan|interest/i]]) if (re.test(s)) return k; return 'other: ' + s.slice(0, 28); };
 const N = +(args.find(a => /^\d+$/.test(a)) || 40), SEASONS = +(args.filter(a => /^\d+$/.test(a))[1] || 3), SKILL = +opt('skill', 0.4), ONLY = opt('policy', null);
 
 const POOL = [['Pine Ridge', 'grass'], ['Mesa Loop', 'desert'], ['Harbour Run', 'coast'], ['Downtown GP', 'city'], ['Oak Valley', 'grass'], ['Red Rock', 'desert'], ['Bay Point', 'coast'], ['Uptown Ring', 'city']]
@@ -142,7 +146,7 @@ function hire(w, P) {
 
 function career(P, s) {
   seed = s * 7919 + 13;
-  const w = WC.newWorld({ name: 'Sim Driver', len: 6, seed: s * 104729 + 1, streetCars: STREET }, POOL);
+  const w = WC.newWorld({ name: 'Sim Driver', len: LEN, seed: s * 104729 + 1, streetCars: STREET }, POOL);
   WC.setCarCatalog(w, CAT);
   WC.registerTeam(w, { name: 'Sim Driver', team: 'Sim Racing', colors: [0xc8141c, 0xf2f2f2], home: pick(['pinewood', 'gulch', 'city', 'azure']), background: pick(Object.keys(WC.BACKGROUNDS)), ex: 'Sam', years: 4 });
   WC.claimLottery(w, P.annuity ? 'annuity' : 'lump');
@@ -154,7 +158,7 @@ function career(P, s) {
   WC.setupPick(w, 'mate', w.setup.drivers[{ keep: 0, quick: 1, pay: 2, kid: 3 }[MATE] ?? 2] || w.setup.drivers[0]);
   const ok = WC.setupApply(w); if (!ok.ok) console.error('setup', ok.why);
   w.simSkill = GT ? 0.02 : SKILL;
-  const out = { start: w.money.balance, low: w.money.balance, bal: [], pos: [], broke: null, rounds: 0, flags: {}, gt: [] };
+  const out = { sl: [], seen: w.money.tx[0], start: w.money.balance, low: w.money.balance, bal: [], pos: [], broke: null, rounds: 0, flags: {}, gt: [] };
   for (let y = 0; y < SEASONS && out.broke == null; y++) {
     while (!w.over) {
       if (WC.needsCar(w) && w.car) { const c = CARHOW === 'used' ? WC.exWorks(w)[0] : WC.customerCars(w).sort((a, b) => (a.deposit + a.perRound * 6) - (b.deposit + b.perRound * 6))[0]; if (c) WC.acquireCar(w, CARHOW, CARHOW === 'used' ? c.id : c.key); }
@@ -165,6 +169,7 @@ function career(P, s) {
       const throwIt = P.throwRaces && w.bet && w.bet.type === 'against', keep = w.simSkill;
       if (throwIt) w.simSkill = 0.97;
       WC.simPlayerRound(w); w.simSkill = keep;
+      if (SEASONLY) { const tx = w.money.tx, top = []; for (const t of tx) { if (t === out.seen) break; top.push(t); } out.seen = tx[0]; for (const t of top) { const k = cat(t.what); (out.sl[y] ??= {})[k] = ((out.sl[y] ??= {})[k] || 0) + t.amt; } }
       out.rounds++; out.low = Math.min(out.low, w.money.balance);
       if (w.money.balance < -25000) { out.broke = out.rounds; break; }
     }
@@ -205,5 +210,6 @@ for (const [name, P] of Object.entries(POLICIES)) {
   const fl = {}; for (const r of runs) for (const [k, v] of Object.entries(r.flags)) fl[k] = (fl[k] || 0) + v;
   console.log(`${name.padEnd(9)} ${pct(broke.length / N)}  ${k$(med(runs.map(r => r.start)))}  ${[0, 1, 2].map(i => k$(med(runs.map(r => r.bal[i])))).join('  ')}  ${k$(med(runs.map(r => r.low)))}  ${[0, 1, 2].map(i => String(med(runs.map(r => r.pos[i])) ?? '-')).join('/').padStart(8)}    ${String(Math.round(med(runs.map(r => r.rep)))).padStart(3)}  ${(runs.reduce((a, r) => a + r.arcs, 0) / N).toFixed(1).padStart(4)}  ${k$(med(runs.map(r => r.work)))}  ${pct(caught / N)}   ${Object.entries(fl).map(([k, v]) => `${k} ${(v / N).toFixed(2)}`).join(', ')}`);
   if (globalThis.LEDGER) { const sum = {}; for (const c of LEDGER) for (const [k, v] of Object.entries(c)) sum[k] = (sum[k] || 0) + v / LEDGER.length; for (const [k, v] of Object.entries(sum).sort((a, b) => a[1] - b[1])) if (Math.abs(v) > 1500) console.log(`   ${k.padEnd(36)} ${Math.round(v / 1000)}k`); globalThis.LEDGER = null; }
+  if (SEASONLY) { const ok = runs.filter(r => r.broke == null); for (let y = 0; y < SEASONS; y++) { const sum = {}; for (const r of ok) for (const [k, v] of Object.entries(r.sl[y] || {})) sum[k] = (sum[k] || 0) + v / ok.length; const net = Object.values(sum).reduce((a, b) => a + b, 0); console.log(`  season ${y + 1} (${ok.length} that lasted) net ${k$(net)}: ${Object.entries(sum).sort((a, b) => a[1] - b[1]).filter(([, v]) => Math.abs(v) > 800).map(([k, v]) => `${k} ${k$(v).trim()}`).join(', ')}`); } }
   if (ONLY) for (const [i, r] of runs.entries()) console.log(`  #${i + 1} ${r.broke != null ? `broke after ${r.broke} rounds` : 'ok'}  end ${k$(r.end)}  low ${k$(r.low)}  finish ${r.pos.join('/')}  ${JSON.stringify(r.flags)}`);
 }

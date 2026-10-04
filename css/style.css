@@ -1339,6 +1339,9 @@ body.drive-on #hud > *:not(#h-help) { visibility: hidden; }
 .pc-tag.new span { animation: pc-tag-pulse 1.6s ease-in-out infinite; }
 @keyframes pc-tag-pulse { 50% { box-shadow: 0 0 3px var(--sv-red), 0 0 12px var(--sv-red); } }
 #s-hub.seated .pc-tag { opacity: 0; pointer-events: none; }
+/* at the list on the wall (World Career): the sheet fills the right of the screen, the menu and its card stay */
+#s-hub.at-list .hub-week, #s-hub.at-list .pc-tag, #s-hub.at-list .car-tags { opacity: 0; pointer-events: none; }
+#s-hub.at-list .desc-bar { max-width: 44%; } /* (clear of the sheet) */
 /* the hub's getting-started checklist */
 .hub-steps .row { display: flex; justify-content: space-between; font: 500 var(--t-body)/1.9 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; border-bottom: 1px solid color-mix(in srgb, var(--sv-red) 25%, transparent); }
 .hub-steps .row .ok { color: var(--sv-cyan); }
@@ -1361,8 +1364,6 @@ body.drive-on #hud > *:not(#h-help) { visibility: hidden; }
 .tm-mood small { font-size: 11px; color: #555; }
 .tm-pay { display: flex; align-items: center; justify-content: space-between; padding: 3px 4px; border: 1px dotted transparent; }
 .tm-pay i { font-style: normal; color: #2a2a6a; cursor: pointer; }
-/* at the list on the wall (World Career): the sheet fills the right of the screen, the menu and its card stay */
-#s-hub.at-list .hub-week, #s-hub.at-list .pc-tag, #s-hub.at-list .car-tags { opacity: 0; pointer-events: none; }
 .tm-pay.f { background: #fff7cf; border-color: #111; }
 .tm-acts { display: flex; gap: 4px; }
 .tm-foot { margin-top: 10px; padding: 8px 10px; background: #f1efe8; border: 1px solid #ddd; }

@@ -523,13 +523,13 @@ function seasonEnd(w) {
   }
   w.seasons.push(summary);
   // the series' prize fund, by championship position
-  const fund = SEASON_FUND[w.player.series], me = summary.you;
+  const fund = fundOf(w, w.player.series), me = summary.you;
   if (w.money && me && fund[me.pos - 1]) {
     pay(w, fund[me.pos - 1], `${seriesById(w.player.series).name} prize fund: P${me.pos} in the championship`);
     mail(w, `${seriesById(w.player.series).name} Office`, addrOf(seriesById(w.player.series), 'office'), `${w.year} prize fund`, [`Congratulations on finishing P${me.pos} in the ${w.year} championship. Your share of the prize fund, ${money$(fund[me.pos - 1])}, has been paid into your account.`, `${seriesById(w.player.series).name} Office`]);
   }
   // the teams' championship: its own prize fund, by position
-  const tpos = teamStandings(w, w.player.series).findIndex(e => e.tid === w.player.team) + 1, tfund = TEAM_FUND[w.player.series];
+  const tpos = teamStandings(w, w.player.series).findIndex(e => e.tid === w.player.team) + 1, tfund = teamFundOf(w, w.player.series);
   if (w.money && tpos > 0 && tfund[tpos - 1]) {
     pay(w, tfund[tpos - 1], `${seriesById(w.player.series).name} teams' prize fund: P${tpos}`);
     mail(w, `${seriesById(w.player.series).name} Office`, addrOf(seriesById(w.player.series), 'office'), `${w.year} teams' championship`, [`${w.teams[w.player.team].name} finished P${tpos} in the ${w.year} teams' championship. The team's share of the teams' prize fund, ${money$(tfund[tpos - 1])}, has been paid into your account.`, `${seriesById(w.player.series).name} Office`]);
@@ -1184,7 +1184,7 @@ export function seasonBudget(w, S) {
   const c = COSTS[S.id], L = w.opts.len, cars = customerCars(w, S);
   const run = L * (c.entry + c.travel + c.crew + c.tyre * 3 + c.fuelLap * 30);
   const lease = cars.length ? Math.min(...cars.map(x => x.deposit + x.perRound * L)) : 0, buy = cars.filter(x => x.buy).length ? Math.min(...cars.filter(x => x.buy).map(x => x.price)) : 0;
-  return { run, lease, buy, prize: L * (c.prize[5] || 0) + (SEASON_FUND[S.id]?.[5] || 0) };
+  return { run, lease, buy, prize: L * (c.prize[5] || 0) + (fundOf(w, S.id)[5] || 0) };
 }
 
 // you've moved up: where the cars are
@@ -1280,11 +1280,15 @@ const annuityPay = (w) => Math.round(LOTTERY.annuity * (w.money?.loophole || 1) 
 // the teams' championship pays too (both cars' points)
 const TEAM_FUND = { street: [10000, 6000, 4000, 2500, 1500, 1000], gt: [50000, 30000, 20000, 12000, 8000, 5000], formula: [120000, 80000, 50000, 32000, 20000, 12000] };
 // the end of the season: the series pays its prize fund by championship position
+// (steep at the top: a title pays for most of the next season, the middle of the table gets its costs back and little more)
 const SEASON_FUND = {
-  street:  [25000, 16000, 11000, 8000, 6000, 4500, 3500, 2500, 1500, 1000],
+  street:  [60000, 40000, 26000, 17000, 11000, 7000, 4000, 2500, 1500, 1000],
   gt:      [100000, 64000, 44000, 32000, 24000, 18000, 14000, 10000, 6000, 4000],
   formula: [250000, 160000, 110000, 80000, 60000, 45000, 35000, 25000, 15000, 10000],
 };
+// the funds are for a six-round season: longer seasons cost more, so they pay in proportion
+const fundOf = (w, sid) => SEASON_FUND[sid].map(v => Math.round(v * w.opts.len / 6 / 100) * 100);
+const teamFundOf = (w, sid) => TEAM_FUND[sid].map(v => Math.round(v * w.opts.len / 6 / 100) * 100);
 export const money$ = (n) => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString('en-US');
 const BANK = 'First Velocita Bank', BANK_ADDR = 'statements@firstvelocita.sv';
 function startMoney(w) {
@@ -1694,7 +1698,7 @@ export function finances(w) {
   const out = costs.reduce((a, x) => a + x[1], 0), inn = income.reduce((a, x) => a + x[1], 0), net = inn - out;
   // the season's end: the prize funds, at where you stand now
   const st = standings(w, sid), pos = raced ? st.findIndex(e => e.pid === 'P') + 1 : 7, tst = teamStandings(w, sid), tpos = raced ? tst.findIndex(e => e.tid === t.id) + 1 : 5;
-  const fundEnd = Math.round(((SEASON_FUND[sid][pos - 1] || 0) + (TEAM_FUND[sid][tpos - 1] || 0)) / 10) * 10;
+  const fundEnd = Math.round(((fundOf(w, sid)[pos - 1] || 0) + (teamFundOf(w, sid)[tpos - 1] || 0)) / 10) * 10;
   const proj = [w.money.balance]; for (let i = 0; i < left; i++) proj.push(proj[i] + net);
   const end = proj.at(-1) + fundEnd, runway = net < 0 ? w.money.balance / -net : null;
   // what you could change (only what applies, with its numbers)
@@ -1713,10 +1717,10 @@ export function finances(w) {
   const prize = c.prize.map(v => Math.round(v * (bg.prize || 1) / 10) * 10), prizeNow = (c.prize[myPos - 1] || 0) * (bg.prize || 1) + (m ? (c.prize[matePos - 1] || 0) * (bg.prize || 1) : 0);
   const need = out - (inn - prizeNow); let even = null;
   // (with the season's prize funds at those places, spread over the season: that's where winning pays)
-  for (let p = 1; p <= prize.length; p++) { const pair = prize[p - 1] + (m ? prize[p] || 0 : 0), fund = ((SEASON_FUND[sid][p - 1] || 0) + (TEAM_FUND[sid][Math.max(0, Math.round(p / 2 + 0.4) - 1)] || 0)) / w.opts.len;
+  for (let p = 1; p <= prize.length; p++) { const pair = prize[p - 1] + (m ? prize[p] || 0 : 0), fund = ((fundOf(w, sid)[p - 1] || 0) + (teamFundOf(w, sid)[Math.max(0, Math.round(p / 2 + 0.4) - 1)] || 0)) / w.opts.len;
     if (pair + fund >= need) even = { you: p, mate: m ? p + 1 : null, pays: Math.round(pair), fund: Math.round(fund / 10) * 10 }; }
   return { costs, income, out, inn, net, left, proj, fundEnd, end, runway, levers, myPos, matePos, pos, tpos, prize, need, even,
-    funds: { drivers: SEASON_FUND[sid].map(v => Math.round(v / 10) * 10), teams: TEAM_FUND[sid] } };
+    funds: { drivers: fundOf(w, sid), teams: teamFundOf(w, sid) } };
 }
 // 0 (comfortable) .. 1 (desperate)
 export function despOf(w) {
@@ -2116,7 +2120,7 @@ export function briefing(w) {
   if (gigRating(w) < 4.2) watch.push({ text: `GigGo has your account under review (${gigRating(w).toFixed(2)}): fewer jobs`, bad: false });
   watch.sort((a, b) => b.bad - a.bad);
   // what to build up
-  const n = st.length, up = SERIES[seriesById(sid).tier + 1], fund = SEASON_FUND[sid];
+  const n = st.length, up = SERIES[seriesById(sid).tier + 1], fund = fundOf(w, sid);
   const amb = ambitionOf(w);
   goals.push({ label: 'Championship', value: raced ? `P${pos}` : '—', pct: raced ? (n - pos) / Math.max(1, n - 1) : 0, aim: amb ? (n - amb.t) / Math.max(1, n - 1) : null });
   const rep = repOf(w), next = SPONSOR_POOL.map((x, k) => sponsorById('sp' + k)).filter(x => x.rep > rep && x.rep < 999 && (!x.town || x.town === w.home)).sort((a, b) => a.rep - b.rep)[0];
@@ -2127,6 +2131,11 @@ export function briefing(w) {
   if (sv) goals.push({ label: 'Saving for', value: sv.name, pct: clamp(w.money.balance / sv.cost, 0, 1) });
   // the hint: what each one is for, in a line
   const hints = [];
+  // this year's ambition first: how far off it you are
+  if (amb && !w.over) {
+    const gap = raced && pos > amb.t ? st[amb.t - 1].pts - st[pos - 1].pts : 0;
+    hints.push(!raced ? `This year: ${amb.label.toLowerCase()}.` : pos <= amb.t ? `This year: ${amb.label.toLowerCase()}. You're P${pos}: on course.` : `This year: ${amb.label.toLowerCase()}. You're P${pos}, ${gap} point${gap === 1 ? '' : 's'} off P${amb.t}.`);
+  }
   if (up) hints.push(raced && pos <= 3 ? `Stay in the top 3 for a ${up.name} offer.` : `Top 3 at the end (or your team top 2) earns a ${up.name} offer${raced && fund[pos - 1] ? ` (P${pos} pays ${money$(fund[pos - 1])})` : ''}.`);
   // (money first when it's running out, else what reputation unlocks)
   if (r < 6) hints.unshift(`Money lasts about ${Math.max(0, Math.floor(r))} round${Math.floor(r) === 1 ? '' : 's'}: work the week, keep your sponsors.`);
@@ -2148,11 +2157,6 @@ export function savingFor(w) {
   return opts[0] ? { name: opts[0].nx.name, cost: opts[0].nx.cost, why: '' } : null;
 }
 
-// ---------------- tyres: what you have, what you order ----------------
-// New sets in stock per compound, and used sets kept from earlier runs (with their wear). Order on the computer
-// (paid when ordered, there for the next round); run out at a weekend and the trackside service sells you one at a
-// premium. With a team manager, they keep you stocked for each round's forecast (and tell you what they ordered).
-export const COMPOUNDS = ['soft', 'medium', 'hard', 'wet'];
 // ---------------- the list: what you're chasing ----------------
 // A sheet of paper taped to the garage wall, in your handwriting: why you're doing this (top), the ladder to the San
 // Velocita Grand Prix (the middle: crossed off as it happens, close together at the start so the first ones go
@@ -2295,11 +2299,13 @@ export function seasonOutlook(w) {
 export function ambitionChoices(w) {
   const E = seasonOutlook(w), e = E.pos, n = E.n, fee = (dealsOf(w).find(d => d.slot === 'title') || {}).fee || 0;
   const ts = [...new Set([Math.min(n, e + 3), e, Math.max(1, Math.ceil(e / 2)), 1])].sort((a, b) => b - a);
-  const names = ['Keep it steady', 'Where we should be', 'Punch above our weight', 'Win it all'];
+  // (no room below where we should be, at the back of the field: a step between that and punching above it instead)
+  if (ts.length < 4 && e > 3) { const mid = Math.round((e + Math.ceil(e / 2)) / 2); if (!ts.includes(mid)) { ts.push(mid); ts.sort((a, b) => b - a); } }
+  const names = ['Keep it steady', 'Where we should be', 'Punch above our weight', 'Win it all', 'Push on'];
   return ts.map((t, i) => {
     const k = (e - t) / Math.max(2, e), stretch = Math.max(0, k);
     const label = t === 1 ? 'Win the title' : t === n ? 'Finish the season' : `Top ${t}`;
-    return { t, k: +k.toFixed(3), label, name: t === 1 ? names[3] : t === e ? names[1] : t > e ? names[0] : names[2],
+    return { t, k: +k.toFixed(3), label, name: t === 1 ? names[3] : t === e ? names[1] : t > e ? names[0] : t > Math.ceil(e / 2) ? names[4] : names[2],
       fee: +clamp(1 + 0.2 * k, 0.94, 1.2).toFixed(2), repWin: t > e ? 1 : Math.round(2 + 8 * stretch), repMiss: t > e ? 5 : Math.round(2 + 9 * stretch),
       bonus: Math.round(fee * w.opts.len * 0.4 * stretch / 500) * 500, renew: stretch > 0 };
   });
@@ -2325,6 +2331,11 @@ function ambitionEnd(w, sum) {
   }
 }
 
+// ---------------- tyres: what you have, what you order ----------------
+// New sets in stock per compound, and used sets kept from earlier runs (with their wear). Order on the computer
+// (paid when ordered, there for the next round); run out at a weekend and the trackside service sells you one at a
+// premium. With a team manager, they keep you stocked for each round's forecast (and tell you what they ordered).
+export const COMPOUNDS = ['soft', 'medium', 'hard', 'wet'];
 export const TRACKSIDE = 1.5;
 export const stockOf = (w) => (w.tyreStock = w.tyreStock || { soft: 0, medium: 0, hard: 0, wet: 0 });
 export const usedOf = (w) => (w.usedTyres = w.usedTyres || []);
@@ -3028,6 +3039,9 @@ function seasonEndNews(w, sum) {
     if (pid === 'P') news(w, `${w.player.name.split(' ').pop().toUpperCase()} IS ${s.name.toUpperCase()} CHAMPION`, `${w.player.name} takes the ${w.year} title.`);
     else { const p = w.people[pid]; news(w, `${p.last.toUpperCase()} CLINCHES ${s.name.toUpperCase()} TITLE`, `${nameOf(p)} (${w.teams[p.team].name}) is the ${w.year} champion${p.titles > 1 ? ` again: title number ${p.titles}` : ''}.`); }
   }
+  // the Grand Prix: the year's last race in the top series
+  { const S = w.series[SERIES[SERIES.length - 1].id], R = S.cal[S.cal.length - 1], res = S.results.at(-1), wn = R && R.gp && res && res.rows.find(r => r.pos === 1 && !r.dnf);
+    if (wn) { const p = wn.pid === 'P' ? null : w.people[wn.pid]; news(w, `${p ? p.last.toUpperCase() : w.player.name.split(' ').pop().toUpperCase()} WINS THE ${GP_NAME.toUpperCase()}`, `${p ? nameOf(p) : w.player.name} (${w.teams[teamOfPid(w, wn.pid)]?.name || ''}) wins the ${w.year} ${GP_NAME} at ${R.name}.`); } }
   const you = sum.you;
   if (you) text(w, w.people[teammateOf(w)]?.first || 'Team', you.pos === 1 ? `CHAMPION! I knew it. Tonight we celebrate.` : `P${you.pos} in the championship. Not bad. Next year we go again.`);
 }
@@ -3037,9 +3051,6 @@ function seasonEndNews(w, sum) {
 const OLD_KEY = 'svgp.world', INDEX = 'svgp.worlds', slot = (id) => 'svgp.world.' + id;
 const readIndex = () => { try { return JSON.parse(localStorage.getItem(INDEX)) || []; } catch (e) { return []; } };
 function migrate() {
-  // the Grand Prix: the year's last race in the top series
-  { const S = w.series[SERIES[SERIES.length - 1].id], R = S.cal[S.cal.length - 1], res = S.results.at(-1), wn = R && R.gp && res && res.rows.find(r => r.pos === 1 && !r.dnf);
-    if (wn) { const p = wn.pid === 'P' ? null : w.people[wn.pid]; news(w, `${p ? p.last.toUpperCase() : w.player.name.split(' ').pop().toUpperCase()} WINS THE ${GP_NAME.toUpperCase()}`, `${p ? nameOf(p) : w.player.name} (${w.teams[teamOfPid(w, wn.pid)]?.name || ''}) wins the ${w.year} ${GP_NAME} at ${R.name}.`); } }
   try {
     const old = localStorage.getItem(OLD_KEY); if (!old) return;
     const w = JSON.parse(old); if (w && w.v === 1) saveWorld(w);
@@ -3064,10 +3075,10 @@ export function loadWorld(id) {
     w.mail = w.mail || [];
     if (!w.money) startMoney(w);
     if (!w.founding) w.founding = { reg: true, car: true, legacy: true }; // (careers from before the founding: carry on as you were)
+    if (!w.series[SERIES[SERIES.length - 1].id].cal.some(c => c.gp)) gpRound(w, null); // (careers from before the Grand Prix)
     // (messages the old character voices reworded: back to how they were written)
     for (const m of [...(w.msgs || []), ...w.mail]) if (m.orig) { m.body = Array.isArray(m.body) ? m.orig.split(/\n\s*\n/) : m.orig; delete m.orig; delete m.voiced; }
     return w;
   } catch (e) { return null; }
 }
 export function deleteWorld(id) { localStorage.removeItem(slot(id)); localStorage.setItem(INDEX, JSON.stringify(readIndex().filter(e => e.id !== id))); }
-    if (!w.series[SERIES[SERIES.length - 1].id].cal.some(c => c.gp)) gpRound(w, null); // (careers from before the Grand Prix)
