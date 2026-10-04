@@ -1532,7 +1532,7 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .car-tag.bad small { color: var(--sv-bad); }
 #s-hub.seated .car-tags { opacity: 0; }
 
-.hub-left .pg-menu .menu .item { font-size: 22px; line-height: 1.12; }
+.hub-left .pg-menu .menu .item { font-size: 22px; line-height: 1.06; }
 .sp-fitted { padding: 2px 10px; color: #16742a; font-weight: bold; border: 1px solid #16742a; }
 /* the Team app's Sponsors tab */
 .sp-rep i { display: block; height: 10px; margin: 6px 0 4px; background: #e2e2e2; border: 1px solid #bbb; }

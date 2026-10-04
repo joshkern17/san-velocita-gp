@@ -563,7 +563,7 @@ export function nextSeason(w, trackPool) {
   // last season's team standings, before anyone changes seats (a driver's results stay with the team they drove for)
   const prevTeams = {}; for (const sr of SERIES) prevTeams[sr.id] = teamStandings(w, sr.id).map(e => e.tid).filter(t => w.teams[t]?.series === sr.id);
   for (const d of dealsOf(w).slice()) {
-    const sp = sponsorById(d.sid), good = d.met >= d.misses;
+    const sp = sponsorById(d.sid), good = d.met >= d.misses && !(w.excluded && w.excluded[w.year]);
     if (good) mail(w, sp.name, sponsorAddr(sp.name), `${w.year + 1} season`, [`Thank you for a good season. We'd like to continue in ${w.year + 1} on the same terms.`, sp.name], { sponsorOffer: { sid: d.sid, slot: d.slot, fee: d.fee, bonus: d.bonus }, choices: [['yes', 'Renew'], ['no', 'Decline']] });
   }
   w.deals = [];
@@ -1735,6 +1735,8 @@ export function despOf(w) {
 const flag = (w, k) => { (w.flags ??= {})[k] = (w.flags[k] || 0) + 1; };
 export const record = (w) => w.flags || {};
 export function removeGrey(w) { w.grey = null; }
+// Kev's engine map: more power, and it runs the engine hot (it wears that much faster)
+const GREY_POWER = 0.03, GREY_WEAR = 1.6;
 
 // ---------- the temptations ----------
 // base: weekly chance when desperate enough (scaled by how desperate); min: desperation below which it never comes
@@ -1744,7 +1746,7 @@ const TEMPTS = {
     offer(w) {
       const price = 1200 * KS(w);
       mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'the chip',
-        [`Bro my boy Kev does engine maps. He plugged a laptop into a car at the gas station once and it went faster`, `He says your car's leaving power on the table. ${money$(price)} fitted`, `It's not technically legal. But technically nobody checks at street level. Kev says`],
+        [`Bro my boy Kev does engine maps. He plugged a laptop into a car at the gas station once and it went faster`, `He says your car's leaving power on the table. ${money$(price)} fitted`, `It's not technically legal. But technically nobody checks at street level. Kev says`, `Runs a bit hot he said. That's normal for fast`],
         { tempt: 'grey', price, choices: [['yes', `Have Kev fit it (${money$(price)})`], ['no', 'No']] });
     } },
   shady: { base: 0.12, min: 0.3, ok: (w) => !dealsOf(w).some(d => d.shady) && dealsOf(w).length < SPONSOR_SLOTS.length,
@@ -1832,12 +1834,13 @@ function answerInflate(w, m, key) {
 // a round's consequences (bill items): scrutineering, bets, the shady sponsor, loans
 function temptRound(w, use, me) {
   const items = [], K = KS(w), key = w.year * 100 + w.round, scored = w.series[w.player.series].results.find(x => x.round === w.round), row = scored?.rows.find(r => r.pid === 'P');
-  const dsq = (why) => { if (row) { row.pts = 0; row.dnf = true; row.dsq = true; } if (me) { me.dsq = true; me.pts = 0; } w.rep = clamp(repOf(w) - 6, 0, 100); w.scandal = nowIdx(w); };
   if (w.grey) {
     w.grey.uses++;
-    if (rng(w) < Math.min(0.035, 0.008 + 0.003 * w.grey.uses)) {
-      dsq(); items.push(['Fine: illegal engine software', -2000 * K]); w.grey = null; flag(w, 'greyCaught');
-      news(w, `${w.teams[w.player.team].name.toUpperCase()} DISQUALIFIED`, `Scrutineers found unapproved engine software on the car after the race at ${w.series[w.player.series].cal[w.round].name}. The team says it was fitted by a third party.`);
+    // (the scrutineers strip the podium cars; the rest get a look now and then)
+    if (rng(w) < scrutiny(w, me)) {
+      w.grey = null; flag(w, 'greyCaught');
+      items.push(...sanction(w, { what: 'unapproved engine software', exclude: true, fine: 2000 * K, rep: 12, stain: 8 }));
+      news(w, `${w.teams[w.player.team].name.toUpperCase()} EXCLUDED`, `Scrutineers found unapproved engine software on the car after the race at ${w.series[w.player.series].cal[w.round].name}. ${w.teams[w.player.team].name} loses every point it has scored this season. The team says the software was fitted by a third party.`);
       texts(w, 'Danny', [`So Kev says he's never met you`, `Just so you know`]);
     }
   }
@@ -1845,8 +1848,10 @@ function temptRound(w, use, me) {
     const b = w.bet, won = b.type === 'for' ? !me.dnf && me.pos <= 5 : me.dnf || me.pos > 8;
     if (won) items.push([`Cash (Lenny): ${b.type === 'for' ? '3 to 1' : '2 to 1'}`, b.stake * (b.type === 'for' ? 4 : 3)]);
     if (won && rng(w) < (b.type === 'against' ? 0.12 : 0.03)) {
-      items.push(['Fine: betting on your own race', -3000 * K]); dsq(); flag(w, 'betCaught');
-      news(w, `INTEGRITY UNIT LOOKS AT ${w.teams[w.player.team].name.toUpperCase()}`, `Street Cup officials are looking into betting on the ${w.series[w.player.series].cal[w.round].name} round. ${w.player.name} has been fined and their result removed.`);
+      flag(w, 'betCaught');
+      // (betting on yourself is a fine and the result; betting against yourself is fixing a race)
+      items.push(...sanction(w, b.type === 'against' ? { what: 'betting against your own car', exclude: true, fine: 3000 * K, rep: 15, stain: 12 } : { what: 'betting on your own race', fine: 3000 * K, rep: 6, stain: 4 }));
+      news(w, `INTEGRITY UNIT LOOKS AT ${w.teams[w.player.team].name.toUpperCase()}`, `Officials have looked into betting on the ${w.series[w.player.series].cal[w.round].name} round. ${w.player.name} has been fined${b.type === 'against' ? ' and excluded from this season\'s results' : ' and their result removed'}.`);
     }
     w.bet = null;
   }
@@ -1868,7 +1873,8 @@ function consequences(w) {
     const lied = dealsOf(w).filter(d => d.lied);
     news(w, `${w.teams[w.player.team].name.toUpperCase()}'S AUDIENCE FIGURES "DON'T ADD UP"`, `The Paddock Wire has seen sponsorship reports claiming TV audiences larger than the Street Cup's actual broadcast reach.`);
     for (const d of lied) { const sp = sponsorById(d.sid); mail(w, sp.name, sponsorAddr(sp.name), 'Our partnership', [`We've read the article. We're ending our sponsorship, effective immediately, and our lawyers will be in touch about the figures.`, sp.name]); }
-    w.deals = dealsOf(w).filter(d => !d.lied); w.rep = clamp(repOf(w) - 8, 0, 100); w.lies = 0; w.scandal = nowIdx(w); flag(w, 'liesCaught');
+    w.deals = dealsOf(w).filter(d => !d.lied); w.rep = clamp(repOf(w) - 8, 0, 100); w.lies = 0; flag(w, 'liesCaught');
+    stain(w, 'inflated audience figures', 6);
   }
   if (w.fraud && !w.fraud.closed) {
     if (nowIdx(w) - w.fraud.since > 4) { w.fraud.closed = true; mail(w, 'Velocita Mutual Insurance', 'claims@velocitamutual.sv', 'Your claim: closed', [`Our investigation into the fire at your premises is now closed. The cause has been recorded as electrical.`, `Velocita Mutual`]); }
@@ -1877,10 +1883,51 @@ function consequences(w) {
       pay(w, -w.fraud.pay - 5000 * KS(w), 'Insurance claim reversed, and a fine');
       news(w, `TEAM OWNER CHARGED OVER GARAGE FIRE`, `${w.player.name}, owner of ${w.teams[w.player.team].name}, has been charged with insurance fraud. A fuel can and a receipt were recovered from the scene.`);
       for (const d of dealsOf(w).slice()) if (rng(w) < 0.6) { const sp = sponsorById(d.sid); w.deals = dealsOf(w).filter(x => x !== d); mail(w, sp.name, sponsorAddr(sp.name), 'Our partnership', [`In light of the news, we're ending our sponsorship.`, sp.name]); }
-      w.rep = clamp(repOf(w) - 15, 0, 100); w.scandal = nowIdx(w);
+      w.rep = clamp(repOf(w) - 15, 0, 100); stain(w, 'insurance fraud', 12);
     }
   }
 }
+// ---------- getting caught ----------
+// How hard they look: the podium cars are stripped after every race, the rest checked now and then, and the longer
+// something's been on the car the likelier it is to be noticed. me: your result this round
+function scrutiny(w, me) {
+  const pos = me && !me.dnf ? me.pos : 99;
+  return (pos <= 3 ? 0.05 : pos <= 6 ? 0.02 : 0.008) + 0.0015 * (w.grey?.uses || 0);
+}
+// The stewards' decision (o: { what, exclude (every point this season), fine, rep, stain (rounds) }): their letter,
+// the points, and the stain that follows. Returns the bill's items.
+function sanction(w, o) {
+  const sid = w.player.series, S = w.series[sid], R = S.cal[w.round], items = [];
+  const res = S.results.find(x => x.round === w.round), row = res && res.rows.find(r => r.pid === 'P');
+  if (row) { row.pts = 0; row.dnf = true; row.dsq = true; }
+  const me = lastMe(w); if (me && me !== row) { me.pts = 0; me.dsq = true; }
+  let lost = 0;
+  if (o.exclude) for (const x of S.results) for (const r of x.rows) if (r.pid === 'P' && r.pts) { lost += r.pts; r.pts = 0; r.dsq = true; }
+  if (o.fine) items.push([`Fine: ${o.what}`, -o.fine]);
+  w.rep = clamp(repOf(w) - (o.rep || 0), 0, 100);
+  if (o.exclude) (w.excluded ??= {})[w.year] = true;
+  mail(w, `${seriesById(sid).name} Stewards`, addrOf(seriesById(sid), 'stewards'), `Decision of the Stewards: ${R.name}`,
+    [`The Stewards have considered a report concerning ${w.teams[w.player.team].name} (${o.what}) and have decided as follows.`,
+     o.exclude ? `The team is excluded from the results of every round of the ${w.year} season to date${lost ? `, and loses the ${lost} point${lost === 1 ? '' : 's'} scored` : ''}. It may continue to enter, and may score points from the next round.` : `The team is disqualified from the results of this round.`,
+     ...(o.fine ? [`A fine of ${money$(o.fine)} has been taken from the team's prize money account.`] : []),
+     `The Stewards`]);
+  stain(w, o.what, o.stain || 0);
+  return items;
+}
+// a stain: for a while after you're caught, respectable sponsors won't sign and some of the ones you have walk, drivers
+// trust you less, the bank won't lend, and the Wire remembers (w.stain = { what, until (a week index), y })
+function stain(w, what, rounds) {
+  w.scandal = nowIdx(w);
+  if (!rounds) return;
+  w.stain = { what, until: Math.max(w.stain?.until || 0, nowIdx(w) + rounds), y: w.year };
+  w.drep = clamp(drepOf(w) - 12, 0, 100);
+  for (const d of dealsOf(w).slice()) if (!d.shady && rng(w) < 0.5) {
+    const sp = sponsorById(d.sid); w.deals = dealsOf(w).filter(x => x !== d);
+    mail(w, sp.name, sponsorAddr(sp.name), 'Our partnership', [`We've read the news. ${sp.name} can't be associated with ${what}, so we're ending our sponsorship, effective immediately.`, sp.name]);
+  }
+  for (const d of dealsOf(w)) if (!d.shady) d.misses++; // (the ones who stay are watching)
+}
+export const stainOf = (w) => w.stain && nowIdx(w) < w.stain.until ? w.stain : null;
 // the bank: a business loan, if they like the look of you
 export function loanTerms(w) { const amt = 20000 * KS(w); return { amt, per: Math.round(amt * 1.12 / 6 / 50) * 50, rounds: 6 }; }
 export function applyLoan(w) {
@@ -2113,7 +2160,10 @@ export function briefing(w) {
   const P = carParts(w);
   if (P) for (const k of PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)) if (P[k].cond < 0.5) watch.push({ text: `${PARTS[k].name} at ${Math.round(P[k].cond * 100)}%${PARTS[k].fail ? ': could fail in a race' : ''}`, bad: P[k].cond < 0.3 });
   if (!w.over && w.car && !staffOf(w, 'manager')) { const need = tyreNeeds(w), sk = stockOf(w); if (sk.soft < 1 || sk.medium < 1) watch.push({ text: `Low on tyres: trackside sets cost ${Math.round((TRACKSIDE - 1) * 100)}% more`, bad: false }); }
-  if (w.grey) watch.push({ text: `Kev's engine map is on the car: scrutineers could find it`, bad: false });
+  // (one short line each: the hub's card has room for that)
+  { const st = stainOf(w); if (st) { const n = st.until - nowIdx(w); watch.push({ text: `Caught: no new sponsors or loans for ${n} round${n === 1 ? '' : 's'}`, bad: true }); } }
+  if (w.excluded && w.excluded[w.year] && !w.over) watch.push({ text: `Excluded from ${w.year}'s results so far`, bad: true });
+  if (w.grey) watch.push({ text: `Kev's map: ${Math.round(scrutiny(w, { pos: 3 }) * 100)}% risk on a podium, ${Math.round(scrutiny(w, { pos: 8 }) * 100)}% behind`, bad: false });
   if (w.founding?.reg && needsCar(w)) watch.push({ text: w.car ? `You need a car for the ${seriesById(w.player.series).name}` : `You don't have a car`, bad: true });
   const ask = (w.mail || []).filter(m => m.choices && !m.answer && !m.lottery).length;
   if (ask) watch.push({ text: `${ask} email${ask === 1 ? '' : 's'} waiting for an answer`, bad: false });
@@ -2132,16 +2182,17 @@ export function briefing(w) {
   // the hint: what each one is for, in a line
   const hints = [];
   // this year's ambition first: how far off it you are
+  // (one short line with the ambition: the promotion rule tucked in after it)
   if (amb && !w.over) {
     const gap = raced && pos > amb.t ? st[amb.t - 1].pts - st[pos - 1].pts : 0;
-    hints.push(!raced ? `This year: ${amb.label.toLowerCase()}.` : pos <= amb.t ? `This year: ${amb.label.toLowerCase()}. You're P${pos}: on course.` : `This year: ${amb.label.toLowerCase()}. You're P${pos}, ${gap} point${gap === 1 ? '' : 's'} off P${amb.t}.`);
+    hints.push(!raced ? `This year: ${amb.label.toLowerCase()}.${up ? ` Top 3 earns a ${up.name.replace(/ Championship$/, '')} offer.` : ''}` : pos <= amb.t ? `This year: ${amb.label.toLowerCase()}. You're P${pos}: on course.` : `This year: ${amb.label.toLowerCase()}. You're P${pos}, ${gap} point${gap === 1 ? '' : 's'} off.`);
   }
-  if (up) hints.push(raced && pos <= 3 ? `Stay in the top 3 for a ${up.name} offer.` : `Top 3 at the end (or your team top 2) earns a ${up.name} offer${raced && fund[pos - 1] ? ` (P${pos} pays ${money$(fund[pos - 1])})` : ''}.`);
+  else if (up) hints.push(raced && pos <= 3 ? `Stay in the top 3 for a ${up.name} offer.` : `Top 3 at the end (or your team top 2) earns a ${up.name} offer${raced && fund[pos - 1] ? ` (P${pos} pays ${money$(fund[pos - 1])})` : ''}.`);
   // (money first when it's running out, else what reputation unlocks)
   if (r < 6) hints.unshift(`Money lasts about ${Math.max(0, Math.floor(r))} round${Math.floor(r) === 1 ? '' : 's'}: work the week, keep your sponsors.`);
   else if (sv && sv.why) hints.push(sv.why);
   else if (next) hints.push(`At reputation ${next.rep} bigger sponsors call (you're at ${rep}).`);
-  const hint = hints.slice(0, 2).join(' ');
+  const hint = hints.slice(0, watch.length >= 2 ? 1 : 2).join(' '); // (a busy card keeps it to one: the menu needs the room)
   return { targets, watch, goals, hint };
 }
 
@@ -2507,7 +2558,7 @@ export function carBreakdown(w) {
       put(stat, 'parts', f.name, v, { add: true, part: k, ...(m ? { shown: m.val, how: m.lvl >= 2 ? 'measured' : 'rough' } : cl != null ? { shown: cl, how: 'claimed' } : { shown: 0, how: 'unknown' }) });
     }
   }
-  if (w.grey) put('power', 'parts', 'Engine map (Kev)', 0.04, { part: 'engine' });
+  if (w.grey) put('power', 'parts', 'Engine map (Kev)', GREY_POWER, { part: 'engine' });
   // development (exact with a data engineer; engine work with a dyno too; otherwise you only know it's there)
   const D = w.car.dev || {};
   const AREA = { power: 'Engine', grip: 'Chassis', downforce: 'Aero', brake: 'Brakes' };
@@ -2552,7 +2603,7 @@ export function rollFailure(w) {
 export function wearCar(w, laps, damage, failed) {
   const P = carParts(w); if (!P) return;
   for (const k of PART_KEYS) {
-    const p = PARTS[k]; let d = p.wear + p.lap * laps;
+    const p = PARTS[k]; let d = (p.wear + p.lap * laps) * (k === 'engine' && w.grey ? GREY_WEAR : 1);
     if (k === 'suspension') d += damage * 0.5; else if (k === 'aero') d += damage * 0.6; else if (k === 'chassis') d += damage * 0.4;
     P[k].cond = +clamp(P[k].cond - d * (0.8 + rng(w) * 0.4), 0.05, 1).toFixed(3);
   }
@@ -2887,6 +2938,7 @@ function sponsorOffers(w, force = false) {
   const pending = (w.mail || []).filter(m => m.sponsorOffer && !m.answer).length; if (pending >= 2) return;
   if (!force && rng(w) > 0.3 + repOf(w) / 250) return;
   const S = seriesById(w.player.series), have = new Set([...deals.map(d => d.sid), ...(w.mail || []).filter(m => m.sponsorOffer && !m.answer).map(m => m.sponsorOffer.sid)]);
+  if (stainOf(w)) return; // (nobody respectable signs with a team in the news for the wrong reasons)
   const cands = SPONSOR_POOL.map((x, i) => sponsorById('sp' + i)).filter(sp => !have.has(sp.id) && sp.rep <= repOf(w) && (sp.town ? sp.town === w.home && S.tier < 2 : true));
   if (!cands.length) return;
   const sp = cands.sort((a, b) => b.rep - a.rep + (rng(w) - 0.5) * 30)[0];
