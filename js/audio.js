@@ -27,6 +27,8 @@ export function initAudio() {
 }
 export function setVolume(v) { volume = v; if (master) master.gain.setTargetAtTime(v, ctx.currentTime, 0.05); }
 export const audioReady = () => !!ctx;
+// for scenes with their own sound graph (the opening's TV): the context, the sfx bus and the shared noise buffer
+export const audioBus = () => ctx ? { ctx, out: sfxBus, noise: noiseBuf } : null;
 
 // ---------- soundtrack ----------
 // assets/music/t1..t8 in order, then round again. A plain <audio> element rather than the Web Audio graph: it streams

@@ -294,9 +294,12 @@ function boot() {
 }
 let bootGo = null;
 
-// the opening (js/opening.js): just the set for now, the trailer's living room
-function openOpening() { fadeTo(() => { opening.enter(); show('s-opening'); }); }
-function closeOpening() { fadeTo(() => { opening.leave(); show('s-main'); }); }
+// the opening (js/opening.js): the trailer, the pile on the side table, the lottery on TV. Plays before a new World
+// Career (then: your garage), or from the main menu as a preview (then: back to the menu). Esc / B skips it.
+function openOpening(then = null) {
+  const done = () => fadeTo(() => { opening.leave(); if (then) then(); else show('s-main'); }, 400);
+  fadeTo(() => { opening.enter({ name: settings.driverName || 'Driver', done, pad: () => device.kind === 'pad', skipLabel: then ? 'Skip' : 'Back' }); show('s-opening'); });
+}
 
 // ---------------- main menu ----------------
 const MAIN_ITEMS = [
@@ -304,7 +307,7 @@ const MAIN_ITEMS = [
   { label: 'Career', action: () => openCareer(), desc: 'A championship season with upgrades, perks and a Team Principal to keep happy. Or a straight Grand Prix.' },
   { label: 'Online', action: () => openOnline(), desc: 'Host a room or join a friend with a room code. Up to 8 drivers.' },
   { label: 'Garage', action: () => openGarage(), desc: 'Choose your car, build your F1 car and design its livery, helmet and suit.' },
-  { label: 'The Opening', action: () => openOpening(), desc: 'Preview: the trailer, the couch, the TV. Look around with the mouse or the right stick.' },
+  { label: 'The Opening', action: () => openOpening(), desc: 'Preview: how a World Career begins. The trailer, the pile on the side table, the lottery draw. Look around with the mouse or a stick.' },
   { label: 'Track Editor', action: () => openEditor(), desc: 'Draw your own circuit, even on a real map of your town, then race it.' },
   { label: 'Options', action: () => openOptions('s-main'), desc: 'Screen look, retro effects, driving aids, units and sound.', cls: 'gap' },
   { label: 'How To Play', action: () => fadeTo(() => { openHelp(0); }, 200), desc: 'Controls for keyboard and controller, and racing tips.' },
@@ -350,6 +353,7 @@ function fillCredits() {
   const c = envCatalog(), el = $('credits-list');
   const esc = (t) => String(t || '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
   const packs = [...(c ? Object.values(c.packs) : []), ...Object.values(CAR_CREDITS), { title: 'PSX Mobile Phone', author: 'Retro Assets Library', license: 'see pack' },
+    { title: 'TV Remote - (PSX)', author: 'Kasugay', license: 'CC-BY-4.0' }, { title: 'PSX Trailer Park', author: 'see pack', license: 'see pack' },
     // the real-world circuits: layouts, buildings, trees, water from the map; hills from the terrain tiles
     ...(realTracks().length ? [{ title: 'Real-World Circuits: map data', author: 'OpenStreetMap contributors', license: 'ODbL 1.0' }, { title: 'Real-World Circuits: F1 outlines', author: 'bacinger/f1-circuits', license: 'MIT' }, { title: 'Real-World Circuits: elevation', author: 'AWS Terrain Tiles (Mapzen, USGS, SRTM)', license: 'see source' },
       { title: 'Real-World Circuits: road heights (LiDAR)', author: 'Service public de Wallonie · IGN France · GSI Japan · USGS 3DEP', license: 'open data, attribution' }] : [])];
@@ -1610,14 +1614,15 @@ function worldInfo() {
     ${feat('&#36;', 'Every lap costs', 'Entry, travel, the crew, tyres, fuel and repairs. Prize money comes back. The bank is watching.')}
     ${feat('&#9636;', 'The computer', 'Email, the news, the classifieds, the bank. Most of the story happens on a screen in your garage.')}`;
 }
-function startWorld() {
+function startWorld(noOpening = false) {
   const name = settings.driverName || 'Driver';
   const streetCars = carsOfClass('street').map(id => ({ key: chassisKey(id), name: CARS[id].name, value: Math.round(12000 + CARS[id].spec.power * 0.11) }));
   world = WC.newWorld({ name, len: worldOpts.len, difficulty: worldOpts.difficulty, laps: worldOpts.laps, weekend: worldOpts.weekend, pracLen: worldOpts.prac, qualiLen: worldOpts.quali, pool: worldOpts.pool,
     teamName: `${name.split(' ').pop()} Racing`, colors: [settings.car.main, settings.car.accent], seed: Date.now(), streetCars }, poolOf(worldOpts)); // (this career's choice, not the last one loaded)
   world.opts.tracks = worldOpts.tracks ? worldOpts.tracks.slice() : null;
   saveWorld();
-  fadeTo(() => { enterHub(); const m = world.mail.find(x => x.link && x.link[0] === 'registry'); setTimeout(() => { if (screen === 's-hub') sitDown('mail', m && m.id); }, 700); }, 200);
+  const hub = () => { enterHub(); const m = world.mail.find(x => x.link && x.link[0] === 'registry'); setTimeout(() => { if (screen === 's-hub') sitDown('mail', m && m.id); }, 700); };
+  if (noOpening) fadeTo(hub, 200); else openOpening(hub); // (the opening first: the lottery, then the garage)
 }
 
 // ---- Circuits: which circuits a career's calendars use (a grid of cards; select toggles one) ----
@@ -3520,7 +3525,8 @@ function frame(now) {
     if (screen === 's-garage') menuInput(); else clearEdges();
     garage.update(dt);
   } else if (screen === 's-opening') {
-    if (pressed('Escape') | pressed('Backspace') | pressed('GP1')) closeOpening();
+    if (pressed('Escape') | pressed('Backspace') | pressed('GP1')) opening.skip();
+    if (pressed('Enter') | pressed('Space') | pressed('GP0')) opening.confirm();
     opening.update(dt);
   } else if (PHONE_SCREENS.includes(screen)) {
     // World Career, your garage: the computer has the controls while you're sat at it, the phone while it's up (P / Y)
@@ -3563,4 +3569,4 @@ requestAnimationFrame(frame);
 // debug handle
 window.__svgp = { get world() { return world; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: () => openOpening(), voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: () => startWorld(), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp() } };
+  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: () => openOpening(), voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp() } };

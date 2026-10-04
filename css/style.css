@@ -1636,8 +1636,22 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .cs-cells { margin: var(--s4) 0; }
 .career-info .lead.small { font-size: var(--t-small); }
 
-/* the opening (js/opening.js): the set, for now */
-#s-opening .op-hint { position: absolute; right: 28px; bottom: 22px; font: 500 14px 'SV UI', sans-serif; letter-spacing: -0.02em; color: rgba(255,255,255,0.55); }
+/* the opening (js/opening.js): the trailer, the pile on the side table, the draw */
+#s-opening .op-hint { position: absolute; right: 28px; bottom: 22px; z-index: 3; white-space: pre; font: 500 14px 'SV UI', sans-serif; letter-spacing: -0.02em; color: rgba(255,255,255,0.55); }
+#s-opening .op-tag { opacity: 0; pointer-events: none; transition: opacity .35s; }
+#s-opening .op-tag.on { opacity: .78; pointer-events: auto; }
+#s-opening .op-tag.on.hot { opacity: 1; }
+#op-say { position: absolute; left: 50%; bottom: 5.5%; transform: translateX(-50%); white-space: nowrap; font: 500 22px/1 var(--f-ui); letter-spacing: var(--track); color: var(--sv-red); text-shadow: var(--sv-glow); opacity: 0; transition: opacity .26s; }
+#op-say.on { opacity: 1; }
+#op-say kbd { vertical-align: middle; }
+.op-edge { position: absolute; top: 50%; width: 22px; height: 22px; margin-top: -11px; border: solid var(--sv-red); border-width: 0 0 2px 2px; filter: drop-shadow(0 0 2px var(--sv-red)); opacity: 0; transition: opacity .35s; }
+.op-edge.l { left: 36px; transform: rotate(45deg); }
+.op-edge.r { right: 36px; transform: rotate(-135deg); }
+.op-edge.on { opacity: 1; animation: op-pulse 1.4s ease-in-out infinite; }
+@keyframes op-pulse { 50% { opacity: .35; } }
+#op-white { position: absolute; inset: 0; pointer-events: none; background: #fff; opacity: 0; z-index: 2; }
+#op-white.flash { opacity: .92; transition: opacity 1.1s ease-in; }
+#op-white.black { opacity: 1; background: #000; transition: background-color 2.6s ease-in-out; }
 .ws-rules { margin: 4px 0 6px; font-size: 13px; color: #333; }
 .ws-prog { color: #777; font-style: italic; }
 .cr-deal > button { grid-column: 3; grid-row: 1 / span 2; }
