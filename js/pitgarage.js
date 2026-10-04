@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { buildF1 } from './carmodel.js';
+import { loadCharacters, makeCharacter } from './characters.js';
 
 const hex = (c) => '#' + (c >>> 0).toString(16).padStart(6, '0');
 const TYRE_CSS = { soft: '#e0302a', medium: '#f2d22a', hard: '#f0f0f0', wet: '#3a8af0' };
@@ -373,10 +374,38 @@ export class PitGarage {
     this.car = buildF1(cfg, { texSize: 1024 }); this.cfgChassis = cfg.chassis || 'custom';
     if (this.active && this.mode === 'home') { this.car.group.position.set(0, 0, CAR_Z); this.car.group.add(this.car.shadow); this.car.shadow.position.y = 0.01; this.bay.add(this.car.group); }
   }
+  // people in the room (your teammate): [{ key, livery, face, clip }] (js/drivers.js dresses them). They stand behind
+  // the car's right side, turned to the camera, helmets off; the same list again changes nothing
+  setPeople(list = []) {
+    const key = list.map(p => p.key).join('|');
+    if (key === this.peopleKey) return; this.peopleKey = key;
+    for (const ch of this.people || []) ch.dispose();
+    this.people = [];
+    if (!list.length) return;
+    loadCharacters().then(ok => {
+      if (!ok || this.peopleKey !== key) return;
+      list.forEach((p, k) => {
+        const ch = makeCharacter({ look: 'racer', clip: p.clip || 'idle_look', livery: p.livery, face: p.face, helmet: false, seed: k * 41 + 3 });
+        ch.object.position.set(2.5 + k * 0.9, 0, CAR_Z - 1.2 - k * 0.5); ch.faced = false; ch.slot = k;
+        this.bay.add(ch.object); this.people.push(ch);
+      });
+    });
+  }
   close() { this.active = false; this.mode = 'pit'; this.shot = 'room'; this.prevShot = null; this.blendK = 1; this.from = null; }
   update(dt) {
     if (!this.active) return;
     this.t += dt;
+    for (const ch of this.people || []) {
+      // (turned to the camera once it's settled: a little to one side, not straight down the lens)
+      if (!ch.faced && this.settled) {
+        // at home: between the car and the desk, off to the left of the line between them (in the shot, beside the car)
+        const f = this.mode === 'home' ? this.screenFrame() : null;
+        if (f) { const C = this.carCentre(), Dk = f.c, v = new THREE.Vector3(Dk.x - C.x, 0, Dk.z - C.z).normalize(), side = new THREE.Vector3(-v.z, 0, v.x);
+          ch.object.position.copy(C).lerp(new THREE.Vector3(Dk.x, 0, Dk.z), 0.5).addScaledVector(side, -2.2 - ch.slot * 0.9); ch.object.position.y = 0; }
+        const c = this.camera.position, o = ch.object.position; ch.object.rotation.y = Math.atan2(c.x - o.x, c.z - o.z) - 0.35; ch.faced = true;
+      }
+      ch.update(dt);
+    }
     if (this.mode === 'home') {
       // the shot we're going to, blended in from wherever the camera was
       const f = this.screenFrame(), el = this.r.domElement;

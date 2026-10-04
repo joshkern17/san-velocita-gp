@@ -4,6 +4,7 @@ import { sampleTrack, analyzeTrack, computeRacingLine, computeSpeedProfile, surf
 import { buildWorld, walkEdge, walkWidth, KERB_H, WALK_H, WALK_RAMP } from './world.js';
 import { applyRoadsToCircuit, raiseTrackOverRoads } from './roads.js';
 import { Spray } from './weatherfx.js';
+import { driverHelmet, teamSuit } from './drivers.js';
 import { CarPhysics, CARSPEC, TEAMS, TYRES, wearGrip, tyreGrip, LOCK_K, PHYS_VERSION } from './car.js';
 import { buildF1, teamCar } from './carmodel.js';
 import { CARS, carId, carsInClass, chassisKey } from './cars.js';
@@ -15,6 +16,7 @@ import { AI_AIDS, physAids } from './aids.js';
 import { fastLine, fastLineSteps, lineCar } from './raceline.js';
 import { technique, curveCost, curvePace } from './aiskill.js';
 import { LapRecorder, addLap, lapKey, bestLap, loadPB, lapPoseAt } from './telemetry.js';
+import { RaceDrivers } from './racedrivers.js';
 
 const STEP = 1 / 240;
 // pace = fraction of the learned per-track limit
@@ -324,6 +326,7 @@ export class Race {
     if (this.player) { this.buildRacingLine(); this.buildPitGuide(); }
     if (this.quali && this.state === 'racing') this.qualiStart();
     this.snapCamera();
+    this.drivers = new RaceDrivers(this); // (the drivers on the grid, and on the podium)
     this.renderer = renderer;
   }
 
@@ -590,6 +593,8 @@ export class Race {
   teamFor(teamIdx) { return this.opts.entries?.[teamIdx]?.team || TEAMS[teamIdx]; }
   aiChassisFor(teamIdx) {
     const ai = this.opts.aiChassis || 'class';
+  // who's in a car, for their looks (js/drivers.js): a World Career person's id, else the stock driver's name
+  driverId(teamIdx, team = this.teamFor(teamIdx)) { return this.opts.entries?.[teamIdx]?.pid || team.driver || team.name; }
     const main = this.opts.aiClassCar || this.mainCarId(), cls = (CARS[main] || CARS.f1).cls;
     const ent = this.opts.entries?.[teamIdx];
     if (ent && ent.chassis && ai === 'class') return ent.chassis; // (World Career: a team's two cars are the same model)
@@ -609,6 +614,8 @@ export class Race {
     cfg.chassis = this.aiChassisFor(teamIdx);
     if (isPlayer && this.opts.car) cfg = this.playerCfg(this.opts.car, team, teamIdx);
     if (extra.cfg) cfg = { ...extra.cfg };
+    // the driver's own helmet (for life) and the team's suit (js/drivers.js)
+    if (!isPlayer && !extra.human) { const did = this.driverId(teamIdx, team); Object.assign(cfg, { helmetDesign: { ...driverHelmet(did), number: true }, helmet: driverHelmet(did).base, suit: teamSuit(team) }); }
     const id = carId(cfg);
     const phys = new CarPhysics(CARS[id].spec);
     phys.place(g.x, g.z, g.heading);
@@ -2660,7 +2667,9 @@ export class Race {
     };
   }
 
-  results() {
+  // the cars in classified order (the podium takes the first three)
+  classified() { return this.results(true); }
+  results(cars = false) {
     // penalties not served in the pits are added to the race time (cars still running: worth that much distance)
     const L = this.T.L, laps = this.laps;
     const fastest = Math.min(...this.cars.map(c => c.best));
@@ -2734,6 +2743,7 @@ function engineOf(car) {
   return { engine: (CARS[car.carId] || CARS.f1).sound, rpm, idle: P.idle, redline: P.redline, throttle: thr };
 }
 
+    if (cars) return list.filter(c => !c.gone && !c.dsq);
 // floating name over an online player's car
 function nameTag(name, color) {
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64;
@@ -2770,12 +2780,17 @@ class SkidMarks {
     const dx = x - last.x, dz = z - last.z, d = Math.hypot(dx, dz);
     if (d < 0.8) return last;
     if (d > 4) return { x, y, z };
+    if (this.drivers) this.drivers.update();
+    // (after the race: the podium, on its own stage)
+    const pod = this.drivers && this.drivers.podiumCamera(this.drivers.tick2(), post.r.domElement.width / post.r.domElement.height);
+    if (pod) return post.render(pod.scene, pod.cam, { trails: 0, grade: this.world.P.grade, look: this.world.P.look });
     const nx = -dz / d * 0.2, nz = dx / d * 0.2;
     const k = this.n % this.max;
     const P = [last.x - nx, last.y, last.z - nz, last.x + nx, last.y, last.z + nz, x - nx, y, z - nz,
       last.x + nx, last.y, last.z + nz, x + nx, y, z + nz, x - nx, y, z - nz];
     this.pos.set(P, k * 18);
     const c = new THREE.Color(color);
+    if (this.drivers) this.drivers.dispose();
     for (let v = 0; v < 6; v++) this.col.set([c.r, c.g, c.b, alpha], k * 24 + v * 4);
     this.n++; this.dirty = true;
     return { x, y, z };

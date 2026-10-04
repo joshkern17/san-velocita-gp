@@ -6,6 +6,7 @@
 // Controls: left / right choose, A / Enter next (select a column twice with the mouse), B / Esc back (or out to the
 // garage from the first step), LB / RB step back and forward.
 import * as WC from './wcareer.js';
+import { faceHTML } from './drivers.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hex = (c) => '#' + ((c ?? 0x888888) >>> 0).toString(16).padStart(6, '0');
@@ -16,9 +17,8 @@ const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const meter = (v, n = 10) => `<i class="tsw-m" style="--tv:${Math.max(0, Math.min(1, v)).toFixed(3)};--n:${n}"></i>`;
 const tag = (t, cls = '') => `<span class="tsw-tag ${cls}">${t}</span>`;
 const stat = (k, v, f, n) => `<div class="tsw-st"><span>${k}</span>${meter(f, n)}<em>${v}</em></div>`;
-// a driver's photo, or a silhouette drawn in light until the portraits arrive
-const face = (p) => p && p.photo ? `<img class="tsw-face" src="${p.photo}">`
-  : `<svg class="tsw-face" viewBox="0 0 40 40"><circle cx="20" cy="15" r="7" /><path d="M6 39c0-8.5 6.2-13 14-13s14 4.5 14 13" /></svg>`;
+// a driver's portrait (js/drivers.js), or a silhouette drawn in light while it's being made
+const face = (p) => faceHTML(p, 'tsw-face', '<svg viewBox="0 0 40 40"><circle cx="20" cy="15" r="7" /><path d="M6 39c0-8.5 6.2-13 14-13s14 4.5 14 13" /></svg>');
 
 export class TeamSetup {
   constructor(el, src) {

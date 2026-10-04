@@ -12,6 +12,8 @@
 //   driver.setLivery(newLivery);                                          // repaint (Livery Designer edits)
 //   makeCharacter({ look: 'racer', crew: true, livery: team })            // a pit crew member in the team's kit
 //                                                                         // (one painted kit per team, shared)
+//   makeCharacter({ look: 'racer', livery, face: 3, helmet: false })      // a driver with the helmet off: one of
+//                                                                         // FACES (js/drivers.js picks per person)
 //
 // Clips are "in place": walk / walk_2 don't move the character, the caller does (CLIP_INFO.walk.speed m/s keeps
 // the feet from sliding). Sitting clips put the backside right above the origin at CLIP_INFO.sit_*.seat metres,
@@ -122,7 +124,7 @@ function cloneLook(look) {
 const rnd = (seed) => { let s = (seed * 2654435761) >>> 0 || 1; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); };
 
 export class Character {
-  constructor({ look, group, clip = 'idle', seed = Math.random() * 1e9, timeScale = 1, livery = null, crew = false } = {}) {
+  constructor({ look, group, clip = 'idle', seed = Math.random() * 1e9, timeScale = 1, livery = null, crew = false, face = null, helmet = true } = {}) {
     if (!TPL) throw new Error('characters: call loadCharacters() first');
     const r = rnd(seed);
     const pool = group ? LOOK_GROUPS[group] : LOOKS;
@@ -134,6 +136,7 @@ export class Character {
     this.timeScale = timeScale; this.crew = crew;
     this._mixer();
     if (this.look === 'racer') this.setLivery(livery || {});
+    if (face != null || !helmet) this.setHead({ face, helmet });
     if (clip) this.play(clip, { fade: 0, offset: r() }); // random phase so crowds don't move in lockstep
     live.add(this);
   }
@@ -189,6 +192,20 @@ export class Character {
     applyKit(this.body, this.kit);
     return this;
   }
+  // the racer's head: which face (an index into FACES, or a skin texture's name) and whether the helmet's on
+  setHead({ face = this.face, helmet = this.helmetOn ?? true } = {}) {
+    this.face = face; this.helmetOn = helmet;
+    if (this.look !== 'racer') return this;
+    const tex = face == null ? null : faceTexture(face);
+    this.body.traverse(o => {
+      if (!o.isSkinnedMesh) return;
+      if (lookOf(o.name) === 'racer' && /helmet/i.test(o.name)) o.visible = helmet;
+      if (!tex) return;
+      const swap = (m) => { if (!/^skin-male/.test(m.name) || m.map === tex) return m; const base = m.userData.faceOf || m; return faceMat(base, tex); };
+      o.material = Array.isArray(o.material) ? o.material.map(swap) : swap(o.material);
+    });
+    return this;
+  }
   _disposeKit() {
     const kit = this.kit; this.kit = null;
     if (!kit || (kit.shared && --kit.refs > 0)) return;
@@ -204,6 +221,21 @@ export class Character {
 }
 
 export const makeCharacter = (opts) => new Character(opts);
+
+// the faces a racer can wear (the pack's heads share one UV layout): skin textures, darkest first
+export const FACES = ['skin-male7', 'skin-male9', 'skin-male11', 'skin-male12', 'skin-male10', 'skin-male8'];
+const FACE_TEX = new Map(), FACE_MATS = new Map();
+// (one material per head material and face, shared by everyone wearing it)
+function faceMat(base, tex) {
+  const k = base.uuid + '|' + tex.uuid;
+  if (!FACE_MATS.has(k)) { const c = base.clone(); c.map = tex; c.userData = { ...base.userData, faceOf: base }; applyPSXMaterial(c, { snap: true, affine: 0.6 }); FACE_MATS.set(k, c); }
+  return FACE_MATS.get(k);
+}
+function faceTexture(face) {
+  const name = typeof face === 'number' ? FACES[((face % FACES.length) + FACES.length) % FACES.length] : face;
+  if (!FACE_TEX.size) TPL.scene.traverse(o => { if (!o.isSkinnedMesh) return; for (const m of Array.isArray(o.material) ? o.material : [o.material]) { const k = m.name.replace(/\.\d+$/, ''); if (/^skin-male\d+$/.test(k) && m.map && !FACE_TEX.has(k)) FACE_TEX.set(k, m.map); } });
+  return FACE_TEX.get(name) || null;
+}
 
 // stock coveralls in a colour near the team's (a crew that wears CREW_STYLES 'classic')
 export function classicCrewLook(team) {

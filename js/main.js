@@ -35,6 +35,7 @@ import { loadEnvCatalog, loadEnvModels, envCatalog } from './envlib.js';
 import { setWorldOptions } from './world.js';
 import { TeamSetup } from './teamsetup.js';
 import { DayPlan } from './dayplan.js';
+import { portrait, photoOf, setPhotoContext, driverLivery, driverFace } from './drivers.js';
 import { setVertexSnapEnabled, setJitterScale, setAffineAmount, setAffineCap, setAffineFade } from '../vendor/psx/src/PSXMaterial.js';
 
 const $ = (id) => document.getElementById(id);
@@ -964,6 +965,7 @@ function openPitGarage() {
   pgView = 'main'; pgBusy = false; $('pg-work').hidden = true;
   $('pg-receipt').hidden = true; if (wkOn()) pgReceipt();
   pitGarage.open(pl.model.cfg || sim.opts.car, pl.team, pl.phys.tyre.c, pl.phys.dmg);
+  pitGarage.setPeople(raceReturn === 'world' && world ? mateInRoom(world) : []);
   pgTiming = false; $('pg-timing').hidden = true; $('pg-car').hidden = false;
   $('pg-title').textContent = SESSION_NAME[sim.quali.kind];
   $('pg-sub').textContent = `${sim.track.name} · your garage`;
@@ -1481,6 +1483,24 @@ function sitDown(app, arg) {
   pitGarage.setZoom(true); $('s-hub').classList.add('seated'); sfx.select(); renderHints();
 }
 let pcWant = null;
+// drivers' portraits (js/drivers.js): their World Career team's suit; the computer redraws once a few have landed
+let photoT = 0;
+setPhotoContext({
+  teamOf: (p) => (world && (p.id === 'P' ? world.teams[world.player.team] : p.team && world.teams[p.team])) || null,
+  // you ({ id: 'P' }): in your own livery, with the face your character has at the races
+  ownOf: (p) => { if (p.id !== 'P' || !world) return null; const L = worldCar(), id = 'P:' + (settings.driverName || 'You'); return { id, livery: L, face: L.face, key: JSON.stringify([L.main, L.accent, L.suit, L.face]) }; },
+  changed: () => { clearTimeout(photoT); photoT = setTimeout(() => { if (pc.isOpen) pc.render(); }, 250); },
+});
+// your teammate, standing in the garage (at home, and in your box on a race weekend): in the team's suit, their own face
+function mateInRoom(w) {
+  const m = WC.mateOf(w), p = m && w.people[m.pid], t = w.teams[w.player.team]; if (!p || !t) return [];
+  return [{ key: p.id + '|' + t.main + '|' + t.accent, livery: driverLivery(p.id, t), face: driverFace(p.id) }];
+}
+// (made ahead, while you're in the garage: everyone in your series, and anyone the Team Setup offers you)
+function warmPortraits(w) {
+  const ids = new Set([...(w.setup && !w.setup.done ? w.setup.drivers : []), ...Object.values(w.teams).filter(t => t.series === w.player.series).flatMap(t => t.drivers)]);
+  for (const id of ids) if (id !== 'P' && w.people[id]) photoOf(w.people[id]);
+}
 // the Team Setup Wizard: game UI over the garage (js/teamsetup.js)
 const tsw = new TeamSetup($('tsw'), {
   world: () => world,
@@ -1753,9 +1773,11 @@ function enterHub() {
   const t = world.teams[world.player.team];
   if (world.livery) { t.main = world.livery.main; t.accent = world.livery.accent; }
   pitGarage.openHome(hubCar(), { main: t.main, accent: t.accent, name: t.name });
+  pitGarage.setPeople(mateInRoom(world));
   pcSeat = false; pc.close(); if (tsw.isOpen) tsw.close(); if (dayPlan.isOpen) dayPlan.close(); $('s-hub').classList.remove('seated', 'at-car', 'wizard', 'planning');
   hubMode = 'room'; carSub = null; carPart = null; optSub = false;
   renderHub(); show('s-hub'); hubEnter();
+  setTimeout(() => { if (world) warmPortraits(world); }, 1500);
 }
 // the cars of each class, for the customer racing programmes (World Career: moving up)
 function carCatalog() {
@@ -1772,6 +1794,7 @@ function openHub(first = false) {
 function renderHub() {
   if (world && !world.carCat) WC.setCarCatalog(world, carCatalog());
   if (!world) return;
+  if (screen === 's-hub' || pitGarage.mode === 'home') pitGarage.setPeople(mateInRoom(world));
   const w = world, sid = w.player.series, S = w.series[sid];
   $('hub-title').textContent = w.teams[w.player.team].name;
   $('hub-sub').textContent = `${seriesName(sid)} · ${w.year} · ${w.over ? 'season complete' : `round ${w.round + 1} of ${w.opts.len}`}`;
@@ -3039,7 +3062,10 @@ function handleRaceEvents() {
       const ds = sim.drift ? ` &middot; DRIFT ${Math.round(sim.drift.total).toLocaleString('en-US')}` : '';
       const pen = ev.pen ? ` &middot; +${ev.pen}s PENALTY TO ADD` : '';
       hud.center(p === 1 ? `WINNER!<span class="sub">${pen ? 'ACROSS THE LINE FIRST' + pen : 'RACE PASSED &middot; RESPECT +'}${ds}</span>` : `${p}${o} PLACE<span class="sub">RACE COMPLETE${pen}${ds}</span>`, p === 1 ? '' : 'white', 4500);
-    } else if (ev.type === 'results') { if (raceReturn === 'gig') gigFinish(); else if (raceReturn === 'world') worldRoundDone(); else if (raceReturn === 'career') careerRoundDone(); else if (raceReturn === 'online') { if (screen !== 's-results') showNetResults(); } else showResults(); }
+    } else if (ev.type === 'results') {
+      const go = () => { if (raceReturn === 'gig') gigFinish(); else if (raceReturn === 'world') worldRoundDone(); else if (raceReturn === 'career') careerRoundDone(); else if (raceReturn === 'online') { if (screen !== 's-results') showNetResults(); } else showResults(); };
+      if (!openPodium(go)) go();
+    }
     else if (ev.type === 'qflag') { if (ev.onLap) hud.center('CHEQUERED FLAG<span class="sub">FINISH THIS LAP</span>', 'white', 2600); }
     else if (ev.type === 'qpole') { sim.rc.say(`${ev.kind === 'practice' ? 'Fastest' : 'Provisional pole'} · ${ev.name} · ${fmtTime(ev.time, 3)}`, { cls: 'g', me: ev.name === sim.player?.name }); }
     else if (ev.type === 'garage') { if (!ev.first && screen === 'hud') fadeTo(() => openPitGarage(), 250); }
@@ -3061,6 +3087,35 @@ function handleRaceEvents() {
 }
 
 const driftRecords = () => { try { return JSON.parse(localStorage.getItem('svgp.drift') || '{}'); } catch (e) { return {}; } };
+// ---- the podium: after a race, the top three on the steps, before the results ----
+let podiumNext = null;
+const escP = (t) => String(t ?? '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+function openPodium(next) {
+  if (!sim || sim.mode !== 'race' || sim.drift || sim.net || raceReturn === 'gig' || !sim.drivers) return false;
+  const top = sim.classified().slice(0, 3);
+  if (!top.length || !sim.drivers.podium(top)) return false;
+  podiumNext = next; sim.setPaused(true);
+  const plate = (car, k) => {
+    const who = podiumWho(car), img = portrait(who.id, who.team, () => { if (screen === 's-podium') renderPodiumPlates(top); }, who.own);
+    return `<div class="pod-plate p${k + 1}${car.isPlayer ? ' me' : ''}"><div class="pod-face">${img ? `<img src="${img}">` : ''}</div><b>${k + 1}</b><div><span>${escP(car.isPlayer ? (settings.driverName || car.name) : car.name)}</span><small>${escP(car.team.name)}</small></div></div>`;
+  };
+  renderPodiumPlates = (cars) => { $('pod-plates').innerHTML = [1, 0, 2].filter(k => cars[k]).map(k => plate(cars[k], k)).join(''); };
+  renderPodiumPlates(top);
+  $('pod-sub').textContent = `${sim.track.name} \u00b7 ${sim.laps} lap${sim.laps === 1 ? '' : 's'}`;
+  menus['s-podium'][0].setItems([{ label: 'Results', cls: 'action primary', action: () => podiumDone(), desc: '' }]);
+  fadeTo(() => show('s-podium'), 400);
+  return true;
+}
+let renderPodiumPlates = () => {};
+// who a car's driver is, for their portrait: you in your own suit; a World Career person; the stock field's names
+function podiumWho(car) {
+  if (car.isPlayer) return { id: 'P:' + (settings.driverName || 'You'), team: car.team, own: { livery: car.model.cfg, face: car.model.cfg?.face, key: 'me' } };
+  return { id: sim.driverId(car.teamIdx, car.team), team: car.team };
+}
+function podiumDone() { const n = podiumNext; podiumNext = null; if (n) { sfx.select(); n(); } }
+menus['s-podium'] = [new Menu($('m-podium'), [])];
+backs['s-podium'] = () => podiumDone();
+HINTS['s-podium'] = [['ok', 'Results']];
 function showResults() {
   const res = sim.results();
   $('results-title').textContent = 'Race Results';
@@ -3569,4 +3624,4 @@ requestAnimationFrame(frame);
 // debug handle
 window.__svgp = { get world() { return world; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: () => openOpening(), voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp() } };
+  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: () => openOpening(), voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp() } };
