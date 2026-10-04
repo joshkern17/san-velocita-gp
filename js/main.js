@@ -5,7 +5,7 @@ import { Race, TYRE_FIT, buildScenery } from './race.js';
 import { realTracks, needsHydrate, hydrateReal, nameCorners } from './realtracks.js';
 import { HUD, fmtTime, RADAR_ZOOMS, readThemeColours } from './hud.js';
 import { Editor } from './editor.js';
-import { initInput, pressed, isDown, clearEdges, pollGamepad, driveControls, gp, device, onDevice, rumble, padFeel, STEER_CURVES, DEADZONES, STEER_LAGS } from './input.js';
+import { initInput, pressed, isDown, clearEdges, pollGamepad, driveControls, gp, device, onDevice, rumble, rightStick, padFeel, STEER_CURVES, DEADZONES, STEER_LAGS } from './input.js';
 import { lapKey, lapsFor, loadPB, referenceLap, analyze } from './telemetry.js';
 import { drawChart, drawMap, notesHtml, fmtGap, fmtSpeed, drawLineMap, lineMapHit, lineMapZoom, lineMapPan, chartHit, popHtml, boardZones, lineRange, setScramble, tipText } from './lapreview.js';
 import { garbleTree } from './garble.js';
@@ -19,7 +19,7 @@ import { Opening, trailerModel } from './opening.js';
 import { driveHomeTrack, PARK } from './drivehome.js';
 import { Computer } from './computer.js';
 import { restoreSaves, exportBackup, importBackup } from './backup.js';
-import { voiceState, voiceStatus, voiceSignIn, voiceSignOut, voiceReacts } from './voice.js';
+import { voiceState, voiceStatus, voiceSignIn, voiceSignOut, voiceReacts, converse, pressAnswer, TALK_INTENTS } from './voice.js';
 import { carPhoto } from './carphoto.js';
 import { PARTS, DEFAULT_CAR, chassisReady } from './carmodel.js';
 import * as CAREER from './career.js';
@@ -945,7 +945,8 @@ function fitTyre(set, rackIdx = -1) {
     if (!sim || !sim.player) return;
     const rack = rackOf(), off = { c: pl.phys.tyre.c, wf: pl.phys.tyre.wf, wr: pl.phys.tyre.wr };
     if (rackIdx >= 0) rack.splice(rackIdx, 1);
-    if (wkOn()) WC.keepUsed(world, off);
+    if (set.rotate) {} // (the same set, turned round: nothing comes off the car)
+    else if (wkOn()) WC.keepUsed(world, off);
     else { if (pct(off) > 10) rack.push(off); rack.sort((a, b) => pct(b) - pct(a)); if (rack.length > 6) rack.length = 6; }
     sim.fitSet(pl, set);
     if (pitGarage.car && pitGarage.car.setCompound) pitGarage.car.setCompound(set.c);
@@ -1368,6 +1369,32 @@ const phone = new Phone({
     saveWorld(); renderHub();
   },
   sfx: { move: () => sfx.move(), select: () => sfx.select(), back: () => sfx.back(), buzz: () => { sfx.buzz(); rumble(0.35, 0.1); setTimeout(() => rumble(0, 0), 300); } },
+  // talking (character voices on): Danny and your teammate always in the phone; what to say, by tone, or typed
+  contacts: () => talkOn() ? WC.talkContacts(world) : [],
+  talkItems: (name) => !talkOn() || !WC.talkWho(world, name) ? [] : [...TALK_INTENTS.filter(([k]) => device.kind === 'pad' || k !== 'straight').map(([intent, t]) => ({ k: 'say', intent, t })), ...(device.kind === 'pad' ? [] : [{ k: 'type', t: 'Type a message' }])],
+  talk: (name, o) => talkTo(name, o),
+  typeReply: (name) => openTalkBox(`Message ${name}`, (text) => { phone.talking = true; phone.dirty = true; talkTo(name, { text }); }),
+});
+// ---- talking to people (js/voice.js writes what they say; wcareer.js decides what it does) ----
+const talkOn = () => !!world && settings.voices === 'chatgpt' && voiceState.signedIn && !!world.founding?.reg;
+async function talkTo(name, o) {
+  const w = world, who = WC.talkWho(w, name); if (!who) { phone.talked(); return; }
+  const m = WC.mateOf(w), p = who === 'mate' && m ? w.people[m.pid] : null;
+  const res = await converse({ who, name, traits: p ? WC.traitsOf(w, p).map(t => WC.TRAITS[t]?.name).filter(Boolean).join(', ') : '', facts: WC.talkFacts(w, who), history: WC.talkHistory(w, name), ...o });
+  if (world !== w) return;
+  if (res.error) { toast(voiceLine() || 'No reply. Try again in a bit.', 4000); phone.talked(); return; }
+  WC.talkDone(w, name, res); saveWorld(); phone.talked(); sfx.buzz(); renderHubMenu();
+}
+// the typing box (keyboard): label, then send(text) on Enter; Esc puts it away
+let talkSend = null;
+function openTalkBox(label, send) {
+  const el = $('talk-box'), inp = el.querySelector('input');
+  el.querySelector('label').textContent = label; inp.value = ''; talkSend = send; el.hidden = false; setTimeout(() => inp.focus(), 30);
+}
+function closeTalkBox() { const el = $('talk-box'); el.hidden = true; talkSend = null; el.querySelector('input').blur(); }
+$('talk-box').querySelector('input').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { e.preventDefault(); closeTalkBox(); }
+  if (e.key === 'Enter') { e.preventDefault(); const t = e.target.value.trim(), f = talkSend; closeTalkBox(); if (t && f) f(t); }
 });
 const PHONE_SCREENS = ['s-hub'];
 function togglePhone() { if (phone.isOpen) phone.close(); else phone.open(); renderHints(); }
@@ -1389,6 +1416,18 @@ HINTS['s-hub'] = () => ending.isOpen ? { scene: [['back', 'Skip']], wire: [['ok'
 // the computer on the desk: Mail, the news, the series' websites, the driver database (js/computer.js)
 const pc = new Computer({
   world: () => world,
+  // the press (character voices on): answer the Paddock Wire's reporter, and be quoted
+  pressOn: (m) => talkOn() && WC.isPressMail(m),
+  pressTones: () => TALK_INTENTS,
+  press: async (m, o, done) => {
+    const w = world;
+    const res = await pressAnswer({ facts: WC.talkFacts(w, 'press'), asked: (Array.isArray(m.body) ? m.body.join(' ') : m.body), ...o });
+    if (world !== w) return;
+    if (res.error) { toast(voiceLine() || 'It didn\'t send. Try again in a bit.', 4000); done(); return; }
+    const r = WC.pressDone(w, m.id, res); saveWorld(); done();
+    if (r && r.note) toast(r.note, 3500);
+    renderHub();
+  },
   answer: (m, key) => {
     m.answer = key;
     if (m.lottery) { WC.claimLottery(world, key); sfx.best(); renderHub(); if (!WC.setupDone(world)) setTimeout(() => { if (pcSeat) pc.goto('setup'); }, 900); } // (then: setting up the team)

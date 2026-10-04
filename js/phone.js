@@ -94,10 +94,14 @@ export class Phone {
   threads() {
     const by = new Map();
     for (const m of this.src.msgs()) { if (!by.has(m.from)) by.set(m.from, { from: m.from, msgs: [] }); by.get(m.from).msgs.push(m); }
+    // (the people you can always text, even before they've texted you: at the end, if they haven't)
+    for (const c of this.src.contacts ? this.src.contacts() : []) if (!by.has(c)) by.set(c, { from: c, msgs: [] });
     return [...by.values()];
   }
   thread() { return this.threads().find(t => t.from === this.who) || { from: this.who || '', msgs: [] }; }
   // open one: everything in it is read, the newest at the bottom (and a question still waiting is the one to answer)
+  // a reply's landed (or failed): show the thread again, at the newest
+  talked() { this.talking = false; if (this.page === 'msg') this.openThread(this.who); this.dirty = true; }
   openThread(from) {
     this.who = from; this.page = 'msg'; this.sel = 0; this.scroll = 1e6;
     const t = this.thread(); for (const m of t.msgs) this.readMsg(m);
@@ -121,6 +125,8 @@ export class Phone {
     if (this.page === 'msgs') return this.threads().map(t => ({ k: 't', t }));
     if (this.page === 'news') return (this.src.news ? this.src.news() : []).map(n => ({ k: 'n', n }));
     if (this.page === 'msg' && this.cur?.choices && !this.cur.answer) return this.cur.choices.map(([key, t]) => ({ k: 'c', key, t }));
+    // someone you can talk to (character voices on): what to say, by tone, or type it
+    if (this.page === 'msg' && !this.talking && this.src.talkItems) return this.src.talkItems(this.who);
     return [];
   }
   pick(it) {
@@ -130,6 +136,8 @@ export class Phone {
     if (it.k === 't') { this.openThread(it.t.from); this.src.sfx?.select?.(); return; }
     if (it.k === 'n') { this.cur = it.n; this.page = 'item'; this.sel = 0; this.scroll = 0; this.src.sfx?.select?.(); return; }
     if (it.k === 'c') { this.cur.answer = it.key; this.src.choose?.(this.cur, it.key); this.openThread(this.who); this.src.sfx?.select?.(); }
+    if (it.k === 'say') { this.talking = true; this.scroll = 1e6; this.src.sfx?.select?.(); this.src.talk(this.who, { intent: it.intent }); }
+    if (it.k === 'type') { this.src.sfx?.select?.(); this.src.typeReply(this.who); }
   }
 
   // ---------- the LCD: a 112x140 dot matrix, a 5x7 pixel font, upscaled with hard pixels ----------

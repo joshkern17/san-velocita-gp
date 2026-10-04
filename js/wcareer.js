@@ -1421,6 +1421,69 @@ function seatWeek(w) {
   if ((d.kind === 'gent' || d.kind === 'share') && weekOpen(w) && daysLeft(w) > 0) { const q = w.people[w.mate.pid]; useDay(w, `Coaching ${q.first} ${q.last}`, 0, 'Coaching'); }
 }
 
+// ---------------- talking (character voices on: js/voice.js writes the words) ----------------
+// You can text Danny and your teammate any time, and answer the Paddock Wire's reporter by email. ChatGPT writes what
+// they say (and your message, if you only picked a tone), and says what your message's tone was; the game decides what
+// that does, small and capped: your teammate's morale (it feeds their form), Danny's friendship (sore with you, he
+// stops bringing you his ideas for a while), the press and your reputation. Once a week per person; after that it's
+// just talk. tone: warm | supportive | joking | neutral | blunt | harsh | abusive
+export const TALK_TONES = ['warm', 'supportive', 'joking', 'neutral', 'blunt', 'harsh', 'abusive'];
+const TALK_FX = {
+  mate: { warm: 5, supportive: 7, joking: 3, neutral: 0, blunt: -2, harsh: -8, abusive: -15 },
+  danny: { warm: 2, supportive: 2, joking: 2, neutral: 0, blunt: -1, harsh: -4, abusive: -8 },
+  press: { warm: [1, 1], supportive: [1, 1], joking: [1, 0], neutral: [0, 0], blunt: [0, -1], harsh: [-1, -2], abusive: [-2, -4] },
+};
+const bondOf = (w, k) => ((w.bonds ??= {})[k] || 0);
+export const dannyCold = (w) => bondOf(w, 'danny') <= -6;
+// the people in your phone (always there, even before they've texted): Danny, and your teammate
+export function talkContacts(w) { const m = mateOf(w), p = m && w.people[m.pid]; return ['Danny', ...(p ? [p.first] : [])]; }
+export function talkWho(w, name) { const m = mateOf(w), p = m && w.people[m.pid]; return name === 'Danny' ? 'danny' : p && name === p.first ? 'mate' : null; }
+// what they know, for their reply: the facts, never more
+export function talkFacts(w, who) {
+  const sid = w.player.series, S = w.series[sid], last = S.results.at(-1), st = standings(w, sid), cp = st.findIndex(e => e.pid === 'P') + 1, me = last && last.rows.find(r => r.pid === 'P');
+  const base = `${w.player.name} owns and drives for ${w.teams[w.player.team].name} in the ${seriesById(sid).name}, ${w.year} season, round ${Math.min(w.round + 1, w.opts.len)} of ${w.opts.len}. ${last ? `Last race (${last.track}): the player ${me ? (me.dnf ? 'did not finish' : `finished P${me.pos}`) : 'did not race'}.` : 'No races yet this season.'} ${cp && last ? `The player is P${cp} in the championship.` : ''} Money in the bank: ${money$(w.money?.balance || 0)}.`;
+  if (who === 'mate') {
+    const m = mateOf(w), p = w.people[m.pid], row = last && last.rows.find(r => r.pid === m.pid), h = h2hOf(w, m.pid);
+    return `${base} You are ${p.first} ${p.last}, ${ageOf(w, p)}, the team's other driver. Your last race: ${row ? (row.dnf ? 'did not finish' : `P${row.pos}`) : 'not raced yet'}. Your wage is ${money$(m.wage || 0)} a round${m.owed ? `, and the team owes you ${money$(m.owed)} in back pay` : ''}. Your morale is ${m.morale >= 70 ? 'good' : m.morale >= 45 ? 'so-so' : 'low'}.${h.grudge >= 2 ? ' The player has raced you dirty before.' : ''}`;
+  }
+  if (who === 'danny') return `${base} Danny's friendship with the player right now: ${bondOf(w, 'danny') >= 4 ? 'great' : bondOf(w, 'danny') <= -4 ? 'strained, he feels taken for granted' : 'fine'}.${(w.staff || []).some(x => x.danny && x.owed > 0) ? ' The team owes Danny wages.' : ''}`;
+  return base;
+}
+// the conversation so far (oldest first), for context: "You: ..." / "Danny: ..."
+export function talkHistory(w, name, n = 8) {
+  return (w.msgs || []).filter(m => m.from === name && !m.note).slice(0, n).reverse().map(m => `${m.mine ? 'You' : name}: ${m.body}`).join('\n');
+}
+// what was said (res: { you, reply: [lines], tone }): into the thread, then what it did (a note under it)
+export function talkDone(w, name, res) {
+  const who = talkWho(w, name); if (!who) return null;
+  text(w, name, res.you, { mine: true, read: true });
+  if (res.reply && res.reply.length) texts(w, name, res.reply, { read: true });
+  const tone = TALK_TONES.includes(res.tone) ? res.tone : 'neutral', key = `${who}:${nowIdx(w)}`;
+  (w.talked ??= {});
+  let note = null;
+  if (w.talked[who] === nowIdx(w)) note = null; // (only the first exchange of the week counts)
+  else {
+    w.talked[who] = nowIdx(w);
+    if (who === 'mate') { const m = mateOf(w), d = TALK_FX.mate[tone]; m.morale = clamp(m.morale + d, 0, 100); if (tone === 'abusive') w.drep = clamp(drepOf(w) - 2, 0, 100); note = d ? `Morale ${d > 0 ? '+' : ''}${d}` : null; }
+    if (who === 'danny') { const d = TALK_FX.danny[tone], b = (w.bonds ??= {}); b.danny = clamp(bondOf(w, 'danny') + d, -12, 12); note = d ? `Friendship ${d > 0 ? '+' : ''}${d}${dannyCold(w) ? ': he\'s keeping his ideas to himself' : ''}` : null; }
+  }
+  if (note) text(w, name, note, { note: true, read: true });
+  void key;
+  return { tone, note };
+}
+// answering the reporter by email (res: { you, reply, headline, story, tone }): her reply, the Wire's piece quoting you,
+// and what it did
+export function pressDone(w, mid, res) {
+  const m = (w.mail || []).find(x => x.id === mid); if (!m || m.replied) return null;
+  m.replied = res.you;
+  const tone = TALK_TONES.includes(res.tone) ? res.tone : 'neutral', [dp, dr] = TALK_FX.press[tone];
+  if (res.reply) mail(w, JOURNO[0], JOURNO[1], `Re: ${m.subj}`, [res.reply, JOURNO[0]]);
+  if (res.headline && res.story) news(w, res.headline.toUpperCase(), res.story);
+  w.press = pressOf(w) + dp; w.rep = clamp(repOf(w) + dr, 0, 100);
+  return { tone, note: [dp ? `Press ${dp > 0 ? '+' : ''}${dp}` : '', dr ? `Reputation ${dr > 0 ? '+' : ''}${dr}` : ''].filter(Boolean).join(' · ') };
+}
+export const isPressMail = (m) => !!m && m.from === JOURNO[0];
+
 // ---------------- the week, from GT up ----------------
 // (a day's work you're asked to do: { what, pay, tag }; taken from the email)
 export function takeDayJob(w, m) {
@@ -1748,7 +1811,7 @@ export function weekOf(w) {
     w.week = { key: weekKey(w), used: 0, log: [], booked: [], gigs: [], setup: false };
     if (prev && !w.pre) { noShows(w, prev); if (prev.log.length) { const net = prev.log.reduce((a, e) => a + (e.amt || 0), 0); w.weekAvg = w.weekAvg == null ? net : Math.round(w.weekAvg * 0.6 + net * 0.4); } }
     if (!w.pre) w.weekN = (w.weekN || 0) + 1;
-    if (!w.pre && !w.over && w.founding?.reg && w.money && w.money.choice) { planWeek(w); seatWeek(w); }
+    if (!w.pre && !w.over && w.founding?.reg && w.money && w.money.choice) { planWeek(w); seatWeek(w); if (w.bonds && w.bonds.danny) w.bonds.danny -= Math.sign(w.bonds.danny); }
     director(w);
   }
   return w.week;
@@ -2087,7 +2150,7 @@ const GREY_POWER = 0.03, GREY_WEAR = 1.6;
 // base: weekly chance when desperate enough (scaled by how desperate); min: desperation below which it never comes
 const SHADY = ['Volt Rush Energy', 'Cloud Nine Vapor', 'QuickCash Loans', "Lucky Lou's Online Casino"];
 const TEMPTS = {
-  grey: { base: 0.16, min: 0.2, ok: (w) => w.car && !w.grey && !(w.flags?.greyCaught),
+  grey: { danny: true, base: 0.16, min: 0.2, ok: (w) => w.car && !w.grey && !(w.flags?.greyCaught),
     offer(w) {
       const price = 1200 * KS(w);
       mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'the chip',
@@ -2109,14 +2172,14 @@ const TEMPTS = {
         [`Danny says you're having a hard time. I can help.`, `${money$(amt)} today. ${money$(back)} back in four rounds. No paperwork, no credit check.`, `I'm a reasonable person. Ask anyone. Ask Danny.`, `Sal`],
         { tempt: 'shark', amt, back, choices: [['yes', `Take ${money$(amt)}`], ['no', 'No thanks']] });
     } },
-  bet: { base: 0.14, min: 0.3, ok: (w) => !w.bet && !w.over,
+  bet: { danny: true, base: 0.14, min: 0.3, ok: (w) => !w.bet && !w.over,
     offer(w) {
       const stake = 1500 * KS(w);
       mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'lenny',
         [`Yo my guy Lenny takes bets on the Street Cup. He's got you at long odds which is kinda disrespectful`, `Top 5 this weekend pays 3 to 1. Or, and I'm only saying this cause Lenny said it, finishing outside the top 8 pays 2 to 1`, `${money$(stake)} stake. Cash`],
         { tempt: 'bet', stake, choices: [['for', 'Bet on yourself: top 5'], ['against', 'Bet against yourself: outside the top 8'], ['no', 'No']] });
     } },
-  insure: { base: 0.08, min: 0.6, ok: (w) => w.car && !w.car.lease && !w.fraud && !w.flags?.fraudCaught,
+  insure: { danny: true, base: 0.08, min: 0.6, ok: (w) => w.car && !w.car.lease && !w.fraud && !w.flags?.fraudCaught,
     offer(w) {
       const pay = Math.round((w.car.paid || 20000) * 0.9 / 100) * 100;
       mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'an idea (delete this)',
@@ -2128,7 +2191,7 @@ function temptations(w) {
   const d = despOf(w), cool = (w.tcool ??= {});
   if (w.week.tempted) return;
   for (const [id, T] of Object.entries(TEMPTS).sort(() => rng(w) - 0.5)) {
-    if (d < T.min || !T.ok(w) || (cool[id] || -99) > nowIdx(w) - 4) continue;
+    if (d < T.min || !T.ok(w) || (cool[id] || -99) > nowIdx(w) - 4 || (T.danny && dannyCold(w))) continue; // (Danny's ideas: not while he's sore with you)
     if (rng(w) < T.base * (0.4 + d * 1.6)) { T.offer(w); cool[id] = nowIdx(w); w.week.tempted = id; return; }
   }
 }

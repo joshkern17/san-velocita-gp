@@ -1777,12 +1777,21 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .tx-mrow b { text-align: right; }
 .tx-panel .tx-chips + .tx-mrow { margin-top: 6px; }
 /* the car */
-.tx-part { display: grid; grid-template-columns: 96px auto 46px 1fr auto; align-items: center; gap: 4px 10px; padding: 6px 0; border-bottom: 1px solid #ebe9e2; }
-.tx-part:last-child { border-bottom: 0; }
-.tx-part > small { color: #b3161b; font-size: 11px; }
-.tx-pct { font-weight: bold; text-align: right; } .tx-pct.good { color: #1f6b2f; } .tx-pct.warn { color: #8a6400; } .tx-pct.bad { color: #b3161b; }
-.tx-part .tm-acts { justify-content: flex-end; }
-.tx-fit { grid-column: 1 / -1; font-size: 12px; color: #444; }
+/* the condition list: name | meter | % | fail odds | Rebuild | New, the two price columns a fixed width so they line up; an upgrade sits on its own line under the meter, with its Remove under New */
+.tx-part { display: grid; grid-template-columns: 92px auto 40px minmax(0, 1fr) 118px 118px; align-items: center; gap: 0 8px; padding: 7px 0; border-bottom: 1px solid #ebe9e2; }
+.tx-part:first-child { padding-top: 2px; } .tx-part:last-child { border-bottom: 0; padding-bottom: 2px; }
+.tx-part > small { color: #b3161b; font-size: 11px; white-space: nowrap; }
+.tx-pct { font-weight: bold; text-align: right; font-variant-numeric: tabular-nums; } .tx-pct.good { color: #1f6b2f; } .tx-pct.warn { color: #8a6400; } .tx-pct.bad { color: #b3161b; }
+.tx-part > small.tx-prog { grid-column: 5 / -1; color: #777; text-align: center; }
+.tx-buy { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; width: 100%; padding: 2px 8px; }
+.tx-buy b { font-weight: normal; font-variant-numeric: tabular-nums; }
+.tx-buy.armed { background: #fff1c9; border-color: #f6e7b5; color: #7a5a00; } .tx-buy.armed span { font-weight: bold; }
+.tx-buy.armed.f { background: #fff1c9; }
+.tx-fit { grid-column: 2 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; margin-top: 5px; font-size: 12px; color: #444; line-height: 18px; }
+.tx-fit > span { min-width: 0; display: flex; align-items: baseline; gap: 6px; } .tx-fit > span > .tx-chip { flex: none; } /* (a long line wraps under the name, not the chip) */
+.tx-fit i { color: #666; }
+.tx-fit .ws-meas { display: block; padding-left: 2px; }
+.tx-fit .tx-buy { width: auto; min-width: 76px; justify-content: center; color: #555; padding: 1px 12px; font-size: 12px; }
 /* development */
 .tx-spec { display: grid; grid-template-columns: 82px auto 1fr; align-items: center; gap: 10px; padding: 3px 0; }
 .tx-spec span { font-size: 12px; color: #333; }
@@ -2330,3 +2339,10 @@ span.tsw-face { width: 64px; height: 64px; }
 .tsw-whos .tsw-who b { display: block; font: 600 var(--t-body)/1.2 var(--f-ui); letter-spacing: var(--track); color: var(--sv-hot); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
 .tsw-whos .tsw-who small { display: block; font: 500 var(--t-small)/1.3 var(--f-body); color: var(--sv-red); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; }
 .tsw-whos.two { grid-template-columns: 1fr 1fr; } /* (a shared seat: the two of them side by side) */
+/* the typing box (World Career, talking with character voices on): over the garage, above the phone */
+.talk-box { position: absolute; right: 6%; bottom: 36%; z-index: 40; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.talk-box label { font: 500 13px/1 var(--f-ui); letter-spacing: var(--track-caption); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+.talk-box input { width: 420px; padding: 8px 14px 7px; font: 500 20px/1.2 var(--f-body); color: #fff; background: rgba(5,3,8,.82); border: 1px solid var(--sv-red); box-shadow: var(--sv-glow-line); outline: none; caret-color: var(--sv-amber); }
+.talk-box small { font: 500 11px/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); opacity: .7; }
+.pc-press-tones { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 8px; }
+.pc-press textarea { display: block; width: 100%; min-height: 64px; margin-bottom: 6px; padding: 6px 8px; font: 13px/1.4 Arial, sans-serif; border: 2px inset #f4f2ec; background: #fff; resize: vertical; }

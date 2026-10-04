@@ -64,3 +64,49 @@ export async function voiceReacts(w, ctx, send) {
     }
   } finally { voiceState.busy = false; }
 }
+
+// ---------- conversations: you write (or pick a tone), they answer ----------
+// The game hands over who they are and what they know (wcareer.js talkFacts / talkHistory); ChatGPT writes their reply
+// and says what your message's tone was (the game decides what that does: talkDone). If you only picked a tone, it
+// writes your message too. Anything that isn't the JSON asked for is thrown away.
+const INTENTS = {
+  warm: 'back them up: warm and encouraging',
+  joking: 'have a laugh with them: light, teasing, friendly',
+  straight: 'be straight with them: honest, no sugar-coating, not unkind',
+  harsh: 'tear into them: angry, cutting, the way a frustrated boss would',
+};
+export const TALK_INTENTS = [['warm', 'Back them up'], ['joking', 'Have a laugh'], ['straight', 'Be straight'], ['harsh', 'Tear into them']];
+const TALK_RULES = `This is a text conversation. The player has just sent (or is about to send) a message; write this character's reply, the way this person really would, given everything they know and how the player treated them. They can push back, be hurt, joke, agree, or not reply much. Use only the facts given: never invent events, people, money or promises; never agree to give or pay anything. Their reply is one to three short lines.
+Then judge the tone of the player's message as one of: warm, supportive, joking, neutral, blunt, harsh, abusive.
+Answer with JSON only, no other text: {"you": "the player's message", "reply": ["line", "line"], "tone": "one word"}`;
+const parse = (s) => { try { const j = JSON.parse(String(s).replace(/^```(?:json)?|```$/gm, '').trim()); return j && typeof j === 'object' ? j : null; } catch (e) { return null; } };
+const clip = (s, n) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, n);
+// o: { who: 'danny' | 'mate', name, traits, facts, history, intent | text } -> { you, reply: [lines], tone } or { error }
+export async function converse(o) {
+  if (!voiceState.signedIn) return { error: 'signin' };
+  const cast = o.who === 'danny' ? CAST.danny() : CAST.mate({ from: o.name, traits: o.traits });
+  const ask = o.text ? `The player sent: "${clip(o.text, 280)}". Put it in "you" exactly as written.` : `The player wants to ${INTENTS[o.intent] || INTENTS.straight}. Write their message in "you": one or two short texting lines in their own voice (a racing team owner in their thirties), using only the facts given.`;
+  let res;
+  try { res = await call('__llm/say', { instructions: `${TONE}\n\n${cast}\n\n${TALK_RULES}`, input: `What ${o.name} knows: ${o.facts}\n\nThe conversation so far:\n${o.history || '(nothing yet)'}\n\n${ask}` }); }
+  catch (e) { return { error: 'server' }; }
+  if (!res || res.error) { voiceState.error = res ? res.error : 'failed'; return { error: voiceState.error }; }
+  const j = parse(res.text);
+  if (!j || !j.you) return { error: 'garbled' };
+  const reply = (Array.isArray(j.reply) ? j.reply : [j.reply]).map(x => tidy(String(x || ''))).filter(Boolean).slice(0, 3).map(x => clip(x, 220));
+  return { you: o.text ? clip(o.text, 280) : clip(tidy(j.you), 280), reply, tone: String(j.tone || 'neutral').toLowerCase() };
+}
+// the reporter: your answer (typed, or a tone), her reply, and the Wire's piece quoting you
+const PRESS = `You are Nadia Okafor, a reporter for the Paddock Wire: fair, sharp, unimpressed by spin, quietly funny in print. You write a short reply email to the player, and a short Wire item that quotes the player's answer (their own words, trimmed if long). The item states what happened and what the player said, and lets the quote speak for itself.`;
+const PRESS_RULES = `Use only the facts given: never invent events, people, money or quotes beyond the player's answer. Judge the tone of the player's answer as one of: warm, supportive, joking, neutral, blunt, harsh, abusive.
+Answer with JSON only, no other text: {"you": "the player's answer", "reply": "your email, one or two sentences", "headline": "a short headline", "story": "two or three sentences, quoting the player", "tone": "one word"}`;
+export async function pressAnswer(o) {
+  if (!voiceState.signedIn) return { error: 'signin' };
+  const ask = o.text ? `The player answered: "${clip(o.text, 400)}". Put it in "you" exactly as written.` : `The player wants to ${INTENTS[o.intent] || INTENTS.straight} (to the press, about this). Write their answer in "you": two or three sentences in their own voice.`;
+  let res;
+  try { res = await call('__llm/say', { instructions: `${TONE}\n\n${PRESS}\n\n${PRESS_RULES}`, input: `The facts: ${o.facts}\n\nWhat the reporter asked: ${o.asked}\n\n${ask}` }); }
+  catch (e) { return { error: 'server' }; }
+  if (!res || res.error) { voiceState.error = res ? res.error : 'failed'; return { error: voiceState.error }; }
+  const j = parse(res.text);
+  if (!j || !j.you || !j.story) return { error: 'garbled' };
+  return { you: o.text ? clip(o.text, 400) : clip(tidy(j.you), 400), reply: clip(tidy(j.reply || ''), 300), headline: clip(j.headline, 80), story: clip(j.story, 500), tone: String(j.tone || 'neutral').toLowerCase() };
+}

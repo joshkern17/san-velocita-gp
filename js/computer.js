@@ -247,6 +247,15 @@ export class Computer {
     if (a === 'back') { this.back(); return; }
     if (a === 'mail') { this.page = { mail: arg }; this.markRead(arg); this.curKey = 'mail-' + arg; this.render(); this.src.sfx?.select?.(); return; }
     if (a === 'reply') { const [id, key] = arg.split(':'), m = this.w.mail.find(x => x.id === id); if (m && !m.answer) { this.src.answer(m, key); this.curKey = null; this.render(); } return; }
+    // answering the press (character voices on): a tone, or what you typed
+    if (a === 'press' || a === 'presstype') {
+      const [id, intent] = arg.split(':'), m = this.w.mail.find(x => x.id === id); if (!m || m.replied || m.pressBusy) return;
+      const text = a === 'presstype' ? (this.el.querySelector('.pc-press textarea')?.value || '').trim() : null;
+      if (a === 'presstype' && !text) return;
+      m.pressBusy = true; this.render();
+      this.src.press(m, text ? { text } : { intent }, () => { m.pressBusy = false; this.render(); });
+      return;
+    }
     if (a === 'article') { this.go({ news: +arg }); this.src.sfx?.select?.(); return; }
     if (a === 'nwsec') { this.page = { news: 'home', sec: arg }; this.hist = []; this.curKey = 'sec-' + arg; this.render(); this.src.sfx?.move?.(); return; }
     if (a === 'site') { this.hist = []; this.page = { s: arg, tab: 'standings' }; this.curKey = null; this.render(); this.src.sfx?.select?.(); return; }
@@ -332,9 +341,13 @@ export class Computer {
       const ch = gated ? `<div class="pc-reply"><p class="pc-note">Winnings can only be paid to a registered business. Please file Form SV-1 first.</p><button class="pc-btn" data-nav data-act="open" data-arg="registry" data-key="link" data-first>Open Form SV-1</button></div>`
         : link && !(link[0] === 'registry' && w.founding?.reg) && !(link[0] === 'classifieds' && w.car) ? `<div class="pc-reply"><button class="pc-btn" data-nav data-act="open" data-arg="${link[0]}" data-key="link" data-first>${esc(link[1])} &rarr;</button></div>`
         : cur.choices && !cur.answer ? `<div class="pc-reply">${cur.choices.map(([k, t], i) => `<button class="pc-btn" data-nav data-act="reply" data-arg="${cur.id}:${k}" data-key="reply-${k}"${i === 0 ? ' data-first' : ''}>${esc(t)}</button>`).join('')}</div>` : '';
-      const ans = cur.answer ? `<p class="pc-sent">You replied: ${esc(cur.choices.find(c => c[0] === cur.answer)?.[1] || cur.answer)}</p>` : '';
+      const ans = cur.answer ? `<p class="pc-sent">You replied: ${esc(cur.choices.find(c => c[0] === cur.answer)?.[1] || cur.answer)}</p>` : cur.replied ? `<p class="pc-sent">You replied: &ldquo;${esc(cur.replied)}&rdquo;</p>` : '';
+      // the press: say something back (a tone, or your own words), and it'll be in the Wire
+      const press = !cur.replied && this.src.pressOn?.(cur) ? `<div class="pc-reply pc-press">${cur.pressBusy ? '<p class="pc-note">Sending&hellip; Nadia is writing back.</p>' : `<p class="pc-note">Whatever you say may be quoted in the Paddock Wire.</p>
+        <div class="pc-press-tones">${this.src.pressTones().map(([k, t]) => `<button class="pc-btn sm" data-nav data-act="press" data-arg="${cur.id}:${k}" data-key="press-${k}">${esc(t)}</button>`).join('')}</div>
+        <textarea maxlength="400" placeholder="Or write your answer"></textarea><button class="pc-btn pri" data-nav data-act="presstype" data-arg="${cur.id}" data-key="press-send">Send</button>`}</div>` : '';
       read = `<div class="pc-mhead"><div><small>From:</small> ${esc(cur.from)} &lt;${esc(cur.addr)}&gt;</div><div><small>To:</small> ${esc(me)}</div><div><small>Date:</small> ${esc(cur.when || '')} ${cur.y}</div><div class="subj">${esc(cur.subj)}</div></div>
-        <div class="pc-mbody" data-nav data-scroll data-key="mbody">${(Array.isArray(cur.body) ? cur.body : [cur.body]).map(p => `<p>${esc(p)}</p>`).join('')}${this.billTable(cur.bill)}${this.reportTable(cur.report, cur.y)}${ans}</div>${ch}`;
+        <div class="pc-mbody" data-nav data-scroll data-key="mbody">${(Array.isArray(cur.body) ? cur.body : [cur.body]).map(p => `<p>${esc(p)}</p>`).join('')}${this.billTable(cur.bill)}${this.reportTable(cur.report, cur.y)}${ans}</div>${ch}${press}`;
     }
     return `<div class="pc-mail"><div class="pc-mbar">Inbox (${WC.unreadMail(w)} unread)</div><div class="pc-mlist">${rows}</div><div class="pc-mread">${read}</div></div>`;
   }
