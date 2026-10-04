@@ -325,6 +325,8 @@ export class PitGarage {
   }
 
   // ---------- the ending (World Career: js/ending.js): a scripted camera, the room at night, the way out ----------
+  // when your garage model (if there is one) is in the room: the shots are placed from what's in it
+  roomReady() { return loadRoom().then(m => m && !this.custom ? new Promise(r => { const t0 = performance.now(), chk = () => this.custom || performance.now() - t0 > 3000 ? r() : setTimeout(chk, 50); chk(); }) : null); }
   // cine(pose, secs): move the camera to { pos, at, fov, shift } over secs (0: a cut)
   cine(pose, secs = 0) {
     this.from = { pos: this.camera.position.clone(), quat: this.camera.quaternion.clone(), fov: this.camera.fov, shift: this.shiftNow ?? 0.2 };

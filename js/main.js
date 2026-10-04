@@ -316,7 +316,7 @@ const MAIN_ITEMS = [
   { label: 'Online', action: () => openOnline(), desc: 'Host a room or join a friend with a room code. Up to 8 drivers.' },
   { label: 'Garage', action: () => openGarage(), desc: 'Choose your car, build your F1 car and design its livery, helmet and suit.' },
   { label: 'The Opening', action: () => openOpening(), desc: 'Preview: how a World Career begins. The trailer, the pile on the side table, the lottery draw, the claim office. Look around with the mouse or a stick.' },
-  { label: 'The Opening: Story', action: () => openOpening(null, { version: 'story' }), desc: 'Preview, the alternative opening: the pizzeria with your wife, the 6twelve, the drive home, flipping channels for the lottery, the claim office.' },
+  { label: 'The Ending', action: () => openEndingPreview(), desc: 'Preview: how a World Career ends when the money runs out. The garage at night, the car going, the list off the wall, the Wire, the record. A made-up career: nothing is saved.' },
   { label: 'Track Editor', action: () => openEditor(), desc: 'Draw your own circuit, even on a real map of your town, then race it.' },
   { label: 'Options', action: () => openOptions('s-main'), desc: 'Screen look, retro effects, driving aids, units and sound.', cls: 'gap' },
   { label: 'How To Play', action: () => fadeTo(() => { openHelp(0); }, 200), desc: 'Controls for keyboard and controller, and racing tips.' },
@@ -1349,7 +1349,7 @@ function calTrack(R) {
   if (!base) { base = presetTracks()[0]; R.name = base.name; R.theme = base.env.theme; saveWorld(); }
   return base;
 }
-const saveWorld = () => { if (world) WC.saveWorld(world); };
+const saveWorld = () => { if (world && !world.preview) WC.saveWorld(world); }; // (a preview career is never saved)
 const seriesName = (sid) => WC.seriesById(sid).name;
 const ord = (p) => p + (['th', 'st', 'nd', 'rd'][(p % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][p % 100] || 'th');
 
@@ -1691,6 +1691,31 @@ function startWorld(noOpening = false) {
   if (noOpening) fadeTo(hub, 200); else openOpening(hub); // (the opening first: the lottery, then the garage)
 }
 
+// ---- the ending, from the main menu: a made-up career that goes broke (never saved), straight to its end ----
+let endPreviewWas = null;
+function openEndingPreview() {
+  const name = settings.driverName || 'Driver';
+  const streetCars = carsOfClass('street').map(id => ({ key: chassisKey(id), name: CARS[id].name, value: Math.round(12000 + CARS[id].spec.power * 0.11) }));
+  endPreviewWas = world;
+  const w = WC.newWorld({ name, len: 6, difficulty: worldOpts.difficulty, laps: 5, weekend: 'race', pool: worldOpts.pool, teamName: `${name.split(' ').pop()} Racing`, colors: [settings.car.main, settings.car.accent], seed: Date.now(), streetCars }, poolOf(worldOpts));
+  w.preview = true;
+  WC.registerTeam(w, { name, team: `${name.split(' ').pop()} Racing`, colors: [settings.car.main, settings.car.accent], home: Object.keys(WC.TOWNS)[0], background: Object.keys(WC.BACKGROUNDS)[0], ex: 'Jo', years: 7 });
+  WC.claimLottery(w, 'lump');
+  WC.setupPick(w, 'entry', 'takeover'); WC.setupPick(w, 'sponsor', 0); WC.setupPick(w, 'mate', w.setup.drivers[0]); WC.setupApply(w);
+  w.livery = { ...settings.car }; w.liveryDone = true;
+  WC.setWhy(w, 'prove'); WC.setAmbition(w, WC.ambitionChoices(w)[1].t);
+  // a couple of rounds, then the money's gone and the bank does the rest
+  w.simSkill = 0.45;
+  for (let i = 0; i < 2; i++) { WC.weekOf(w); if (w.staff) WC.runPayroll(w); WC.simPlayerRound(w); }
+  w.money.balance = -60000;
+  for (let i = 0; i < 6 && !w.ended; i++) { WC.weekOf(w); WC.simPlayerRound(w); }
+  WC.listSeen(w);
+  world = w; WC.setCarCatalog(w, carCatalog());
+  fadeTo(() => enterHub(), 200);
+}
+// (the preview's over: back to whatever career was loaded before)
+const endPreviewDone = () => { if (world && world.preview) { world = endPreviewWas; endPreviewWas = null; } };
+
 // ---- the drive home (js/drivehome.js): the opening's road from the 6twelve to the trailer park, at night ----
 // In 'test' mode (no lights, no timing), the HUD hidden; past the end of the road, back to the opening (the trailer).
 // Your own car if the career has one; otherwise an old Pony GT.
@@ -1870,7 +1895,7 @@ const ending = new Ending($('ending'), {
 // (again: straight to the record)
 function startEnding(again) {
   phone.close(); phone.hide(); $('s-hub').classList.add('ending-on'); pitGarage.setNotice(false);
-  setTimeout(() => { if (screen === 's-hub' && world && world.ended) ending.play(again); }, again ? 0 : 400);
+  pitGarage.roomReady().then(() => setTimeout(() => { if (screen === 's-hub' && world && world.ended) ending.play(again); }, again ? 0 : 400));
 }
 function endInput() {
   if (!ending.isOpen) return false;
@@ -1905,7 +1930,7 @@ function endRecord(w) {
     sub: `${escP(w.player.name)}, owner-driver.${w.list && w.list.why ? ` ${escP(WC.WHYS[w.list.why].line)}` : ''}`,
     cells: [['Seasons', endSeasons(w)], ['Races', w.player.starts], ['Wins', w.player.wins], ['Podiums', w.player.pods], ['Best finish', best ? ord(best) : '&mdash;'], ['Titles', w.player.titles]],
     how: E.why === 'bank' ? `Round ${E.r + 1} of the ${E.y} ${escP(E.series || seriesName(w.player.series))}: the bank closed the account, ${WC.money$(-E.bal)} overdrawn.` : `Round ${E.r + 1} of the ${E.y} ${escP(E.series || seriesName(w.player.series))}: the series withdrew the entry after ${WC.satOut(w)} rounds missed.`,
-    acts: [{ label: 'Back To The Menu', run: () => { $('s-hub').classList.remove('ending-on'); saveWorld(); pitGarage.close(); quitToMenu(); } }],
+    acts: [{ label: 'Back To The Menu', run: () => { $('s-hub').classList.remove('ending-on'); saveWorld(); pitGarage.close(); endPreviewDone(); quitToMenu(); } }],
   };
 }
 // the cars of each class, for the customer racing programmes (World Career: moving up)
@@ -3953,4 +3978,4 @@ requestAnimationFrame(frame);
 // debug handle
 window.__svgp = { get world() { return world; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, goToList: () => goToList(), get listPaper() { return listPaper; } } };
+  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), get listPaper() { return listPaper; } } };
