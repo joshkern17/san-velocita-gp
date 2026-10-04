@@ -110,3 +110,21 @@ export async function pressAnswer(o) {
   if (!j || !j.you || !j.story) return { error: 'garbled' };
   return { you: o.text ? clip(o.text, 400) : clip(tidy(j.you), 400), reply: clip(tidy(j.reply || ''), 300), headline: clip(j.headline, 80), story: clip(j.story, 500), tone: String(j.tone || 'neutral').toLowerCase() };
 }
+// an investor: your answer to their question (typed, or a pitch picked), their reply, and what kind of pitch it was
+// (the game decides what that does: wcareer.js pitchDone)
+const PITCH_KIND = { numbers: 'talk numbers: costs, returns, what their money would do', dream: 'sell the dream: what the team will become', risks: 'be honest about the risks', flatter: 'flatter them' };
+const PITCH_RULES = `Write the investor's short email reply (one or two sentences) to the player's answer, the way this person really would given what they value: interested, unconvinced, amused, put off. Use only the facts given: never invent figures, events or promises; never agree to invest (that is decided elsewhere).
+Then judge what kind of answer the player gave, as one of: numbers, dream, risks, flatter (the closest), and its tone as one of: warm, supportive, joking, neutral, blunt, harsh, abusive.
+Answer with JSON only, no other text: {"you": "the player's answer", "reply": "the investor's email", "pitch": "one word", "tone": "one word"}`;
+export async function pitchAnswer(o) {
+  if (!voiceState.signedIn) return { error: 'signin' };
+  const ask = o.text ? `The player answered: "${clip(o.text, 500)}". Put it in "you" exactly as written.` : `The player wants to ${PITCH_KIND[o.intent] || PITCH_KIND.numbers}. Write their answer in "you": two or three sentences in their own voice, using only the facts given.`;
+  let res;
+  try { res = await call('__llm/say', { instructions: `${TONE}\n\n${PITCH_RULES}`, input: `The facts: ${o.facts}\n\nWhat the investor asked: ${o.asked}\n\n${ask}` }); }
+  catch (e) { return { error: 'server' }; }
+  if (!res || res.error) { voiceState.error = res ? res.error : 'failed'; return { error: voiceState.error }; }
+  const j = parse(res.text);
+  if (!j || !j.you || !j.reply) return { error: 'garbled' };
+  const pitch = String(j.pitch || '').toLowerCase();
+  return { you: o.text ? clip(o.text, 500) : clip(tidy(j.you), 500), reply: clip(tidy(j.reply), 300), pitch: PITCH_KIND[pitch] ? pitch : (o.intent || 'numbers'), tone: String(j.tone || 'neutral').toLowerCase() };
+}

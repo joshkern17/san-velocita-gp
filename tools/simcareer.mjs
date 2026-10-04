@@ -20,6 +20,7 @@ import * as WC from '../js/wcareer.js';
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 const args = process.argv.slice(2), opt = (k, d) => { const a = args.find(x => x.startsWith(`--${k}=`)); return a ? a.split('=')[1] : d; };
 const ENTRY = opt('entry', 'fresh'), MATE = opt('mate', 'pay'), GT = args.includes('--gt'), GENT = opt('gentleman', 'yes') !== 'no', CARHOW = opt('car', 'lease');
+const INV = opt('inv', 'yes') !== 'no', INVS = [], INVOUT = [], OFFERS = { n: 0 }, MET = { n: 0 };
 const SEAT = opt('seat', 'gent'), SELLUP = opt('sellup', 'yes') !== 'no', LEN = +opt('len', 6), AMB = opt('amb', 'par'), SEASONLY = args.includes('--seasonly');
 // a transaction's kind, for --seasonly
 const cat = (what) => { const s = what.replace(/^[A-Z][\w' ]*?: (?=[a-z])/, ''); for (const [k, re] of [['prize', /prize money|prize fund/i], ['sponsors', /sponsor|bonus|associate|seat fee|seat money/i], ['entry+travel+crew', /^(entry fee|travel|pit crew)/i], ['tyres+fuel', /tyre|tire|fuel/i], ['repairs+parts', /repair|rebuild|part|Speed Parts|SVList/i], ['staff', /payroll|back pay|labour|wage/i], ['week', /fare|GigGo|Restwell|day job|track day|time attack|street race|appearance|coaching|hot laps|shift|winnings|stake|ride/i], ['facilities', /premises|facilit|unit|transporter|lift|tools|sim rig|built/i], ['projects', /project|wind tunnel|shop/i], ['bank', /overdraft|loan|interest/i]]) if (re.test(s)) return k; return 'other: ' + s.slice(0, 28); };
@@ -54,6 +55,8 @@ const POLICIES = {
 };
 
 function answerAll(w, P) {
+  // an investor's question: read them right most of the time (--inv=no: never take the money)
+  for (const m of (w.mail || []).filter(m => m.pitch && !m.replied)) { if (w.investor && w.investor.met === 1) MET.n++; const S = WC.investorStyle(w); const like = { numbers: 'numbers', dreamer: 'dream', cautious: 'risks' }[w.investor?.style]; WC.pitchDone(w, m.id, Math.random() < 0.7 ? like : WC.PITCHES[Math.floor(Math.random() * 4)][0]); }
   for (let pass = 0; pass < 3; pass++) for (const m of (w.mail || []).slice()) {
     if (!m.choices || m.answer || m.tried) continue;
     const d = WC.despOf(w);
@@ -66,6 +69,8 @@ function answerAll(w, P) {
     else if (m.gig) key = P.work === 'none' ? 'no' : 'in';
     else if (m.appear) key = WC.daysLeft(w) > 1 ? 'go' : 'no';
     else if (m.event) key = 'yes';
+    else if (m.invOffer) { key = INV ? 'yes' : 'no'; OFFERS.n++; }
+    else if (m.invOut) key = w.money.balance > (w.investor?.buyout || 0) * 2 ? 'buy' : 'no';
     else if (m.tempt) key = P.tempt(w, m, d);
     else if (m.inflate) key = P.inflate;
     else if (m.arc) key = arcChoice(w, m, P);
@@ -76,6 +81,8 @@ function answerAll(w, P) {
     else if (m.gig && key === 'in') { const x = WC.bookGig(w, m.gig); if (x !== 'ok' && x !== 'gone') r = { err: x }; }
     else if (m.appear && key === 'go') { if (!WC.appear(w, m.appear)) r = { err: 'days' }; }
     else if (m.event) WC.rsvpEvent(w, m.event, key);
+    else if (m.invOffer) { WC.answerInvestor(w, key); if (key === 'yes') INVS.push({ amt: w.investor.paid, share: w.investor.share, s: w.player.series, y: w.year }); }
+    else if (m.invOut) { WC.answerBuyout(w, key); INVOUT.push(key); }
     else if (m.gent) WC.answerGent(w, m, key);
     else if (m.dayJob && key === 'go') { if (!WC.takeDayJob(w, m)) r = { err: 'days' }; }
     else if (m.tempt || m.arc || m.inflate) r = WC.answerStory(w, m, key);
@@ -222,6 +229,7 @@ if (GT) {
     if (globalThis.LEDGER) { const sum = {}; for (const c of LEDGER) for (const [k, v] of Object.entries(c)) sum[k] = (sum[k] || 0) + v / LEDGER.length; for (const [k, v] of Object.entries(sum).sort((a, b) => a[1] - b[1])) if (Math.abs(v) > 8000) console.log(`   ${k.padEnd(36)} ${Math.round(v / 1000)}k`); globalThis.LEDGER = null; }
     if (SEASONLY) { const ok = runs.filter(r => r.broke == null); for (let y = 0; y < SEASONS; y++) { const sum = {}; for (const r of ok) for (const [k, v] of Object.entries(r.sl[y] || {})) sum[k] = (sum[k] || 0) + v / ok.length; const net = Object.values(sum).reduce((a, b) => a + b, 0); console.log(`  season ${y + 1} net ${k$(net)}: ${Object.entries(sum).sort((a, b) => a[1] - b[1]).filter(([, v]) => Math.abs(v) > 2000).map(([k, v]) => `${k} ${k$(v).trim()}`).join(', ')}`); } }
     console.log(`${name.padEnd(8)} moved up ${up.length}/${N}  broke in GT ${pct(broke.length / Math.max(1, up.length))}  entering GT ${k$(med(up.map(r => r.gtStart)))}  after GT season ${[0, 1].map(i => k$(med(up.map(r => r.gt[i])))).join(' ')}  lowest ${k$(med(up.map(r => r.low)))}`);
+    if (INVS.length || INVOUT.length || OFFERS.n) { console.log(`  investors: met ${MET.n}, offers ${OFFERS.n}, took ${INVS.length} (${INVS.slice(0, 8).map(x => `${k$(x.amt).trim()} for ${Math.round(x.share * 100)}% ${x.s} ${x.y}`).join(', ')}), wanted out ${INVOUT.length} (${INVOUT.join(', ')})`); INVS.length = 0; INVOUT.length = 0; OFFERS.n = 0; MET.n = 0; }
   }
   process.exit(0);
 }

@@ -1592,6 +1592,7 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .br-goals { margin-bottom: var(--s2); }
 .br-goals > div { min-width: 0; }
 .br-goals b { font-size: 22px; white-space: nowrap; }
+.br-goals .br-long { font-size: 16px; } /* (Sought after, A big name: fits its cell) */
 .br-goals .br-bar { display: block; width: 86%; margin: 7px 0 0; }
 .br-hint { margin: var(--s2) 0 0; font: 500 var(--t-small)/1.4 var(--f-body); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; }
 .br-att { margin: var(--s3) 0 var(--s1); }
@@ -2336,4 +2337,5 @@ span.tsw-face { width: 64px; height: 64px; }
 .talk-box input { width: 420px; padding: 8px 14px 7px; font: 500 20px/1.2 var(--f-body); color: #fff; background: rgba(5,3,8,.82); border: 1px solid var(--sv-red); box-shadow: var(--sv-glow-line); outline: none; caret-color: var(--sv-amber); }
 .talk-box small { font: 500 11px/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); opacity: .7; }
 .pc-press-tones { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 8px; }
+.pc-press-tones.two { display: grid; grid-template-columns: 1fr 1fr; } /* (an investor's four answers: two by two) */
 .pc-press textarea { display: block; width: 100%; min-height: 64px; margin-bottom: 6px; padding: 6px 8px; font: 13px/1.4 Arial, sans-serif; border: 2px inset #f4f2ec; background: #fff; resize: vertical; }

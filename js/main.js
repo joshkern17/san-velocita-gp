@@ -19,7 +19,7 @@ import { Opening, trailerModel } from './opening.js';
 import { driveHomeTrack, PARK } from './drivehome.js';
 import { Computer } from './computer.js';
 import { restoreSaves, exportBackup, importBackup } from './backup.js';
-import { voiceState, voiceStatus, voiceSignIn, voiceSignOut, voiceReacts, converse, pressAnswer, TALK_INTENTS } from './voice.js';
+import { voiceState, voiceStatus, voiceSignIn, voiceSignOut, voiceReacts, converse, pressAnswer, pitchAnswer, TALK_INTENTS } from './voice.js';
 import { carPhoto } from './carphoto.js';
 import { PARTS, DEFAULT_CAR, chassisReady } from './carmodel.js';
 import * as CAREER from './career.js';
@@ -1419,6 +1419,20 @@ const pc = new Computer({
   // the press (character voices on): answer the Paddock Wire's reporter, and be quoted
   pressOn: (m) => talkOn() && WC.isPressMail(m),
   pressTones: () => TALK_INTENTS,
+  // an investor's question: a pitch, or your own words (read by ChatGPT, with character voices on)
+  pitches: () => WC.PITCHES,
+  pitchType: () => talkOn(),
+  pitch: async (m, o, done) => {
+    const w = world; let res = { pitch: o.intent };
+    if (o.text) {
+      res = await pitchAnswer({ facts: WC.talkFacts(w, 'investor'), asked: (Array.isArray(m.body) ? m.body.join(' ') : m.body), ...o });
+      if (world !== w) return;
+      if (res.error) { toast(voiceLine() || 'It didn\'t send. Try again in a bit.', 4000); done(); return; }
+    }
+    const r = WC.pitchDone(w, m.id, res.pitch, res); saveWorld(); done();
+    if (r && r.note) toast(r.note, 3500);
+    renderHub();
+  },
   press: async (m, o, done) => {
     const w = world;
     const res = await pressAnswer({ facts: WC.talkFacts(w, 'press'), asked: (Array.isArray(m.body) ? m.body.join(' ') : m.body), ...o });
@@ -1439,6 +1453,8 @@ const pc = new Computer({
     }
     if (m.appear && key === 'go' && !WC.appear(world, m.appear)) { m.answer = null; toast('You have no days left this week.'); }
     if (m.event) { WC.rsvpEvent(world, m.event, key); if (key === 'yes') toast('It\'s in your week: plan the day it\'s on.', 3500); }
+    if (m.invOffer) { if (WC.answerInvestor(world, key) === 'in') { sfx.best(); renderHub(); } }
+    if (m.invOut) { const r = WC.answerBuyout(world, key); if (r && r.err) { m.answer = null; sfx.error(); toast(r.err); } else if (r && r.msg) { toast(r.msg, 4000); renderHub(); } }
     if (m.dayJob && key === 'go') { if (WC.takeDayJob(world, m)) sfx.best(); else { m.answer = null; toast('You have no days left this week.'); } }
     if (m.poach) { const r = WC.answerPoach(world, m, key); if (r === 'kept') sfx.best(); renderHub(); }
     // a gentleman driver's offer: they take the second seat (whoever's in it is let go)
@@ -2032,7 +2048,7 @@ function renderHub() {
     const cell = (g, v) => `<div><small>${g.label}</small><b>${v}</b><span class="br-bar"><i style="--v:${g.pct.toFixed(3)}"></i></span></div>`;
     const wt = B.watch.slice(0, 2).map(x => `<div class="br-row ${x.bad ? 'bad' : 'warn'}"><i></i><span>${x.text}</span></div>`).join('') + (B.watch.length > 2 ? `<div class="br-more">and ${B.watch.length - 2} more: ${B.watch.slice(2).map(x => x.text.split(':')[0].toLowerCase()).join(', ')}</div>` : '');
     $('hub-card').innerHTML = `<div class="panel-title">The team</div>
-      <div class="ti-grid three br-goals">${cell(gc, cp ? `${ord(cp)}<small> ${st[cp - 1].pts} PTS</small>` : '&mdash;')}${cell(gr, gr.value)}${cell(gm, `<span class="hub-roll ${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span>`)}</div>
+      <div class="ti-grid three br-goals">${cell(gc, cp ? `${ord(cp)}<small> ${st[cp - 1].pts} PTS</small>` : '&mdash;')}${cell(gr, gr.value.length > 9 ? `<span class="br-long">${gr.value}</span>` : gr.value)}${cell(gm, `<span class="hub-roll ${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span>`)}</div>
       <p class="br-hint">${B.hint}</p>
       <div class="panel-title br-att">Needs attention</div>${wt || '<div class="br-none">Nothing on fire.</div>'}`;
   } else {
@@ -2546,6 +2562,11 @@ function dayChoices(w, canRace) {
     money: 'Free', effect: 'Some setup for this weekend', vis: map, run: () => { WC.simDay(w); return { line: `Sim session: ${R.name}`, note: 'Some of the setup found.' }; } });
   // sponsors' events: one each, on or before its day (they stack; each is a day)
   for (const e of WC.openEvents(w)) {
+    // (an investor's dinner: a day; their question comes by email after)
+    if (e.inv) { const I = WC.investorOf(w), day = WC.DAY_NAMES[e.by], today = wk.used === e.by;
+      out.push({ key: 'din', short: 'Dinner', tag: today ? 'Today' : `By ${day}`, head: e.what, desc: `${today ? 'It\'s tonight.' : `On ${day}.`} ${I.name[0]} wants to get to know you before putting money in. A no-show is remembered.`,
+        money: 'Free', effect: 'A question by email after: answer it well', run: () => { const ok = WC.attendEvent(w, e.id); return { line: e.what, note: ok ? `${I.name[0]} picked the wine. It was expensive, and ${I.name[0]} let you know.` : 'No days left.' }; } });
+      continue; }
     const sp = WC.sponsorInfo(e.sid), day = WC.DAY_NAMES[e.by], today = wk.used === e.by;
     out.push({ key: 'ev' + e.id, short: sp.name, tag: today ? 'Today' : `By ${day}`, head: `${sp.name}: ${e.what}`, desc: `${today ? 'It\'s today.' : `On ${day}: go any day up to then.`} They remember who turns up. ${e.rsvp === 'yes' ? 'You said you\'d be there: not turning up costs double.' : 'Not answering and not going counts as a missed target.'}`,
       money: 'Free', effect: '+2 reputation, a missed target forgiven', run: () => { const ok = WC.attendEvent(w, e.id); return { line: `${sp.name}: ${e.what}`, note: ok ? 'Photos with customers. One of them was quite famous, apparently.' : 'No days left.' }; } });

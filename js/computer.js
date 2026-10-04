@@ -256,6 +256,15 @@ export class Computer {
       this.src.press(m, text ? { text } : { intent }, () => { m.pressBusy = false; this.render(); });
       return;
     }
+    // answering an investor: a pitch (always), or what you typed (character voices on)
+    if (a === 'pitch' || a === 'pitchtype') {
+      const [id, kind] = arg.split(':'), m = this.w.mail.find(x => x.id === id); if (!m || m.replied || m.pressBusy) return;
+      const text = a === 'pitchtype' ? (this.el.querySelector('.pc-press textarea')?.value || '').trim() : null;
+      if (a === 'pitchtype' && !text) return;
+      m.pressBusy = true; this.render();
+      this.src.pitch(m, text ? { text } : { intent: kind }, () => { m.pressBusy = false; this.render(); });
+      return;
+    }
     if (a === 'article') { this.go({ news: +arg }); this.src.sfx?.select?.(); return; }
     if (a === 'nwsec') { this.page = { news: 'home', sec: arg }; this.hist = []; this.curKey = 'sec-' + arg; this.render(); this.src.sfx?.move?.(); return; }
     if (a === 'site') { this.hist = []; this.page = { s: arg, tab: 'standings' }; this.curKey = null; this.render(); this.src.sfx?.select?.(); return; }
@@ -332,7 +341,7 @@ export class Computer {
   mailApp() {
     const w = this.w, list = w.mail || [], cur = list.find(m => m.id === this.page.mail) || list[0];
     const rows = list.map(m => `<div class="pc-mrow${m.read ? '' : ' unread'}${cur && m.id === cur.id ? ' sel' : ''}" data-nav data-act="mail" data-arg="${m.id}" data-key="mail-${m.id}"${cur && m.id === cur.id && !(cur.choices && !cur.answer) && !cur.link ? ' data-first' : ''}>
-      <b>${esc(m.from)}</b><span>${esc(m.subj)}</span><small>${esc(m.when || '')} ${m.y}${m.choices && !m.answer ? ' <em class="pc-ask">Needs an answer</em>' : ''}</small></div>`).join('') || '<p class="pc-empty">No mail.</p>';
+      <b>${esc(m.from)}</b><span>${esc(m.subj)}</span><small>${esc(m.when || '')} ${m.y}${(m.choices && !m.answer) || (m.pitch && !m.replied) ? ' <em class="pc-ask">Needs an answer</em>' : ''}</small></div>`).join('') || '<p class="pc-empty">No mail.</p>';
     const me = `${w.player.name.split(' ')[0].toLowerCase()}@${w.teams[w.player.team].name.toLowerCase().replace(/[^a-z]+/g, '')}.sv`;
     let read = '<p class="pc-empty">Select an email to read it.</p>';
     if (cur) {
@@ -346,8 +355,12 @@ export class Computer {
       const press = !cur.replied && this.src.pressOn?.(cur) ? `<div class="pc-reply pc-press">${cur.pressBusy ? '<p class="pc-note">Sending&hellip; Nadia is writing back.</p>' : `<p class="pc-note">Whatever you say may be quoted in the Paddock Wire.</p>
         <div class="pc-press-tones">${this.src.pressTones().map(([k, t]) => `<button class="pc-btn sm" data-nav data-act="press" data-arg="${cur.id}:${k}" data-key="press-${k}">${esc(t)}</button>`).join('')}</div>
         <textarea maxlength="400" placeholder="Or write your answer"></textarea><button class="pc-btn pri" data-nav data-act="presstype" data-arg="${cur.id}" data-key="press-send">Send</button>`}</div>` : '';
+      // an investor's question: pick how to answer (or write it, with character voices on)
+      const pitch = cur.pitch && !cur.replied && this.src.pitches ? `<div class="pc-reply pc-press">${cur.pressBusy ? `<p class="pc-note">Sending&hellip;</p>` : `<p class="pc-note">How you answer matters. Read who they are.</p>
+        <div class="pc-press-tones two">${this.src.pitches().map(([k, t]) => `<button class="pc-btn sm" data-nav data-act="pitch" data-arg="${cur.id}:${k}" data-key="pitch-${k}">${esc(t)}</button>`).join('')}</div>
+        ${this.src.pitchType?.() ? `<textarea maxlength="500" placeholder="Or write your answer"></textarea><button class="pc-btn pri" data-nav data-act="pitchtype" data-arg="${cur.id}" data-key="pitch-send">Send</button>` : ''}`}</div>` : '';
       read = `<div class="pc-mhead"><div><small>From:</small> ${esc(cur.from)} &lt;${esc(cur.addr)}&gt;</div><div><small>To:</small> ${esc(me)}</div><div><small>Date:</small> ${esc(cur.when || '')} ${cur.y}</div><div class="subj">${esc(cur.subj)}</div></div>
-        <div class="pc-mbody" data-nav data-scroll data-key="mbody">${(Array.isArray(cur.body) ? cur.body : [cur.body]).map(p => `<p>${esc(p)}</p>`).join('')}${this.billTable(cur.bill)}${this.reportTable(cur.report, cur.y)}${ans}</div>${ch}${press}`;
+        <div class="pc-mbody" data-nav data-scroll data-key="mbody">${(Array.isArray(cur.body) ? cur.body : [cur.body]).map(p => `<p>${esc(p)}</p>`).join('')}${this.billTable(cur.bill)}${this.reportTable(cur.report, cur.y)}${ans}</div>${ch}${press}${pitch}`;
     }
     return `<div class="pc-mail"><div class="pc-mbar">Inbox (${WC.unreadMail(w)} unread)</div><div class="pc-mlist">${rows}</div><div class="pc-mread">${read}</div></div>`;
   }

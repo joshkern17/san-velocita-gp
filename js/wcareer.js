@@ -528,6 +528,7 @@ function seasonEnd(w) {
   const fund = fundOf(w, w.player.series), me = summary.you;
   if (w.money && me && fund[me.pos - 1]) {
     pay(w, fund[me.pos - 1], `${seriesById(w.player.series).name} prize fund: P${me.pos} in the championship`);
+    { const I = investorIn(w); if (I) pay(w, -Math.round(fund[me.pos - 1] * I.share / 10) * 10, `${I.name.join(' ')}: ${Math.round(I.share * 100)}% of the prize fund`); }
     mail(w, `${seriesById(w.player.series).name} Office`, addrOf(seriesById(w.player.series), 'office'), `${w.year} prize fund`, [`Congratulations on finishing P${me.pos} in the ${w.year} championship. Your share of the prize fund, ${money$(fund[me.pos - 1])}, has been paid into your account.`, `${seriesById(w.player.series).name} Office`]);
   }
   // the teams' championship: its own prize fund, by position
@@ -550,8 +551,8 @@ function seasonEnd(w) {
        `We mention this because several teams have asked us afterwards.`, `Please let us know before the new season.`, `Entries Office, ${up.name}`],
       { offer: true, choices: [['move', `Accept: move up to the ${up.name}`], ['stay', `Decline: stay in the ${seriesById(w.player.series).name}`]] });
   }
-  // this year's ambition, and the list
-  if (!w.pre && w.money) ambitionEnd(w, summary);
+  // this year's ambition, the investor's target, and the list
+  if (!w.pre && w.money) { ambitionEnd(w, summary); investorSeason(w, summary); }
   if (!w.pre) listCheck(w, { season: summary });
   seasonEndNews(w, summary);
 }
@@ -1446,6 +1447,8 @@ export function talkFacts(w, who) {
     const m = mateOf(w), p = w.people[m.pid], row = last && last.rows.find(r => r.pid === m.pid), h = h2hOf(w, m.pid);
     return `${base} You are ${p.first} ${p.last}, ${ageOf(w, p)}, the team's other driver. Your last race: ${row ? (row.dnf ? 'did not finish' : `P${row.pos}`) : 'not raced yet'}. Your wage is ${money$(m.wage || 0)} a round${m.owed ? `, and the team owes you ${money$(m.owed)} in back pay` : ''}. Your morale is ${m.morale >= 70 ? 'good' : m.morale >= 45 ? 'so-so' : 'low'}.${h.grudge >= 2 ? ' The player has raced you dirty before.' : ''}`;
   }
+  if (who === 'investor') { const I = w.investor, S = INV_STYLES[I.style];
+    return `${base} Reputation ${repOf(w)}/100.${stainOf(w) ? ' The team was caught cheating recently.' : ''} You are ${I.name.join(' ')}, a wealthy investor who ${S.intro}; you are considering buying a share of the team. You value answers that are ${{ numbers: 'about figures: costs, returns, what the money does', dream: 'about the vision: what the team will become', risks: 'frank about what could go wrong' }[S.likes]}, and dislike ${{ dream: 'vague dreaming', numbers: 'dry figures with no story', flatter: 'flattery' }[S.hates]}.`; }
   if (who === 'danny') return `${base} Danny's friendship with the player right now: ${bondOf(w, 'danny') >= 4 ? 'great' : bondOf(w, 'danny') <= -4 ? 'strained, he feels taken for granted' : 'fine'}.${(w.staff || []).some(x => x.danny && x.owed > 0) ? ' The team owes Danny wages.' : ''}`;
   return base;
 }
@@ -1483,6 +1486,113 @@ export function pressDone(w, mid, res) {
   return { tone, note: [dp ? `Press ${dp > 0 ? '+' : ''}${dp}` : '', dr ? `Reputation ${dr > 0 ? '+' : ''}${dr}` : ''].filter(Boolean).join(' · ') };
 }
 export const isPressMail = (m) => !!m && m.from === JOURNO[0];
+
+// ---------------- investors: money for a share of the team, and a say ----------------
+// Once the team's getting noticed (above the Street Cup with a name, or a win), Gerald introduces a client. Each has a
+// style you read from how they write: numbers (made it in spreadsheets: wants figures), dreamer (wants a story to belong
+// to), cautious (hates hype: wants the risks said out loud). You work them over dinners (a day in the planner); after
+// each, they email a question, and how you answer (a pitch: numbers, the dream, the risks, flattery) against their
+// style, and how the team's actually doing, moves their interest. Enough, and they offer: money now for a share of every
+// prize payment from then on, and a target for each season. Miss it twice and they want out: buy them back (for more
+// than they paid), or they sell their stake to the rival owner. w.investor = { name, style, interest, stage
+// (dinner | asked | offer | in | out | gone), offer, share, target, misses, paid, holder }
+export const investorStyle = (w) => (w.investor ? INV_STYLES[w.investor.style] : null);
+export const PITCHES = [['numbers', 'Talk numbers'], ['dream', 'Sell the dream'], ['risks', 'Be honest about the risks'], ['flatter', 'Flatter them']];
+const INV_STYLES = {
+  numbers: { likes: 'numbers', hates: 'dream', intro: 'made a great deal of money from spreadsheets, and reads them for fun', ask: `Walk me through your numbers. What does a season cost, what comes back, and what would my money do?` },
+  dreamer: { likes: 'dream', hates: 'numbers', intro: 'sold a company young and has been looking for something to belong to ever since', ask: `Tell me what this team is going to be. Not the budget. The thing itself.` },
+  cautious: { likes: 'risks', hates: 'flatter', intro: 'inherited a family firm and has kept it going by never once being impressed', ask: `What could go wrong? I'd rather hear it from you than find out.` },
+};
+const INV_NAMES = [['Victor', 'Lindqvist'], ['Celeste', 'Okonkwo-Hart'], ['Raymond', 'Faulkner'], ['Imogen', 'Achterberg'], ['Desmond', 'Vale'], ['Priya', 'Castellanos']];
+export const investorOf = (w) => w.investor || null;
+export const investorIn = (w) => (w.investor && w.investor.stage === 'in' ? w.investor : null);
+const INV_ADDR = (I) => `${I.name[0][0].toLowerCase()}.${I.name[1].toLowerCase().replace(/[^a-z]/g, '')}@${pickLineStable(I.name[1])}.sv`;
+const pickLineStable = (s) => ['meridiancap', 'valecapital', 'northgateholdings', 'brightwaterpartners'][[...s].reduce((a, c) => a + c.charCodeAt(0), 0) % 4];
+// how big a deal: by the series' tier (GT-level numbers; a Formula-level series x3)
+const invK = (w) => [0.6, 1, 3][seriesById(w.player.series).tier] ?? 3;
+// someone new, when the team's noticed and nobody's around (and not straight after the last one)
+function investorWeek(w) {
+  const I = w.investor;
+  if (I && I.stage === 'in') return;
+  if (I && I.stage !== 'gone' && I.stage !== 'out') return;
+  if (I && nowIdx(w) - (I.left || 0) < 10) return;
+  // (noticed: above the Street Cup, with a name or a win; a lost one doesn't come back soon)
+  const noticed = seriesById(w.player.series).tier >= 1 && (repOf(w) >= 45 || lastMe(w)?.pos === 1);
+  if (!noticed || rng(w) > 0.06) return;
+  const style = pickLine(w, Object.keys(INV_STYLES)), name = pickLine(w, INV_NAMES), J = { name, style, interest: 30 + Math.round(repOf(w) / 5), stage: 'dinner', misses: 0, met: 0 };
+  w.investor = J;
+  mail(w, ADVISER[0], ADVISER[1], 'A client of mine', [`A client of mine, ${name.join(' ')}, has been following your team and would like to have dinner. ${name[0]} ${INV_STYLES[style].intro}.`, `I'd go. Be yourself. Or, if that seems unwise, be whoever ${name[0]} would want to invest in.`, `Gerald`]);
+  investorDinner(w);
+}
+// a dinner this week: a day in the planner (the sponsors' events, the same way)
+function investorDinner(w) {
+  const I = w.investor, wk = weekOf(w), by = Math.min(4, (wk.used || 0) + 1 + Math.floor(rng(w) * 2));
+  (wk.events ??= []).push({ id: 'ev' + (w.nextId++), inv: true, what: `Dinner with ${I.name.join(' ')}`, by, rsvp: 'yes', done: false });
+  I.stage = 'dinner';
+}
+// the dinner: a day, then their question by email (answer it with a pitch)
+export function attendDinner(w, id) {
+  const e = eventById(w, id), I = w.investor; if (!e || e.done || !I || daysLeft(w) <= 0) return false;
+  e.done = true; useDay(w, e.what, 0, 'Dinner'); I.met++;
+  I.stage = 'asked';
+  mail(w, I.name.join(' '), INV_ADDR(I), 'Thank you for dinner', [`Thank you for dinner. ${I.met > 1 ? 'Good to see you again.' : 'I enjoyed it, mostly.'}`, INV_STYLES[I.style].ask, I.name[0]], { pitch: true });
+  return true;
+}
+// your answer (pitch: numbers | dream | risks | flatter, from a choice or what ChatGPT made of what you wrote): their
+// interest moves on the fit, the team's form, and anything rude. Returns { note, reply? } for the written version
+export function pitchDone(w, mid, pitch, res = {}) {
+  const m = (w.mail || []).find(x => x.id === mid), I = w.investor; if (!m || m.replied || !I) return null;
+  m.replied = res.you || (PITCHES.find(p => p[0] === pitch) || [])[1] || pitch;
+  const S = INV_STYLES[I.style], fit = pitch === S.likes ? 14 : pitch === S.hates ? -10 : 4;
+  const form = Math.round((repOf(w) - 40) / 8) + (lastMe(w) && !lastMe(w).dnf && lastMe(w).pos <= 3 ? 4 : 0) + (w.money.balance < 0 ? -6 : 0) + (stainOf(w) ? -10 : 0);
+  const rude = res.tone === 'abusive' ? -25 : res.tone === 'harsh' ? -10 : 0;
+  const d = fit + form + rude; I.interest = clamp(I.interest + d, 0, 100);
+  const name = I.name.join(' ');
+  const said = res.reply || (fit > 0 ? `That's what I wanted to hear. Let me think about it.` : fit < 0 ? `Hm. That isn't really what I asked.` : `Fair enough. I'll think about it.`);
+  mail(w, name, INV_ADDR(I), `Re: ${m.subj}`, [said, I.name[0]]);
+  if (I.interest >= 70) investorOffer(w);
+  else if (I.interest < 20) { I.stage = 'gone'; I.left = nowIdx(w); mail(w, name, INV_ADDR(I), 'Thank you', [`I've decided not to go ahead. I wish you and the team well, I think.`, I.name[0]]); }
+  else { I.stage = 'dinner'; I.next = nowIdx(w) + 2; } // (another dinner in a couple of weeks)
+  return { note: `${I.name[0]}'s interest ${d >= 0 ? '+' : ''}${d}`, interest: I.interest };
+}
+// another dinner, when it's time (from the week)
+function investorFollow(w) { const I = w.investor; if (I && I.stage === 'dinner' && I.next && nowIdx(w) >= I.next) { I.next = null; investorDinner(w); } }
+function investorOffer(w) {
+  const I = w.investor, k = invK(w), share = (3 + Math.round(rng(w) * 3)) / 20, amt = Math.round(share * (650000 + rng(w) * 250000) * k / 5000) * 5000;
+  const target = clamp(seasonOutlook(w).pos - 1, 1, 12);
+  I.stage = 'offer'; I.offer = { amt, share, target };
+  mail(w, I.name.join(' '), INV_ADDR(I), 'A proposal', [`I'd like to invest ${money$(amt)} in ${w.teams[w.player.team].name}, for ${Math.round(share * 100)}% of the team.`, `In practice that means ${Math.round(share * 100)}% of the prize money from now on, and that each season we agree a target. This season: the top ${target}. If we miss it, I'll want to talk. If we miss it twice, I'll want out.`, `No hurry. Well, some hurry.`, I.name[0]],
+    { invOffer: true, choices: [['yes', `Accept: ${money$(amt)} for ${Math.round(share * 100)}%`], ['no', 'Decline']] });
+}
+export function answerInvestor(w, key) {
+  const I = w.investor; if (!I || I.stage !== 'offer') return null;
+  if (key !== 'yes') { I.stage = 'gone'; I.left = nowIdx(w); return 'declined'; }
+  I.stage = 'in'; I.share = I.offer.share; I.target = I.offer.target; I.paid = I.offer.amt; I.since = w.year;
+  pay(w, I.offer.amt, `${I.name.join(' ')}: investment for ${Math.round(I.share * 100)}% of the team`);
+  news(w, `${I.name[1].toUpperCase()} BUYS INTO ${w.teams[w.player.team].name.toUpperCase()}`, `${I.name.join(' ')} has bought ${Math.round(I.share * 100)}% of ${w.teams[w.player.team].name}. Terms were not disclosed, which in our experience means they were generous.`);
+  return 'in';
+}
+// the season's over: the target met or missed; twice missed, they want out (buy them back, or they sell to the rival)
+function investorSeason(w, sum) {
+  const I = investorIn(w), you = sum.you; if (!I || !you) return;
+  const name = I.name.join(' ');
+  if (you.pos <= I.target) { I.misses = 0; mail(w, name, INV_ADDR(I), `${w.year}`, [`P${you.pos}. Target met. I'm pleased, and I don't say that often.`, `Next season: the top ${Math.max(1, I.target - 1)}.`, I.name[0]]); I.target = Math.max(1, I.target - 1); return; }
+  I.misses++;
+  if (I.misses < 2) { mail(w, name, INV_ADDR(I), `${w.year}`, [`We said the top ${I.target}. We finished P${you.pos}.`, `I'm not going anywhere yet. But I'll be watching more closely.`, I.name[0]]); return; }
+  const price = Math.round(I.paid * 1.5 / 5000) * 5000; I.buyout = price;
+  const ro = rivalOwner(w);
+  mail(w, name, INV_ADDR(I), 'I want out', [`Two seasons, two missed targets. I'd like my stake back out of the team.`, `I'll sell it to you for ${money$(price)}. If you can't, I'll sell it to someone who'll take it. I understand ${ro ? `${ro.name.join(' ')} of ${w.teams[ro.tid].name}` : 'one of the other owners'} is interested.`, I.name[0]],
+    { invOut: true, choices: [['buy', `Buy it back: ${money$(price)}`], ['no', `Let ${I.name[0]} sell it`]] });
+}
+export function answerBuyout(w, key) {
+  const I = investorIn(w); if (!I || !I.buyout) return null;
+  if (key === 'buy') { if (w.money.balance < I.buyout) return { err: `That's ${money$(I.buyout)}. You have ${money$(w.money.balance)}.` }; pay(w, -I.buyout, `${I.name.join(' ')}: stake bought back`); I.stage = 'out'; I.left = nowIdx(w); return { msg: 'The team is yours again.' }; }
+  // (sold on: the rival owner now takes the share)
+  const ro = rivalOwner(w), r = ro ? ro.name : ['An', 'Anonymous Buyer'];
+  I.name = r; I.style = 'numbers'; I.misses = 0; I.buyout = null; I.holder = 'rival'; I.target = Math.max(I.target, 3);
+  news(w, `${r.join(' ').toUpperCase()} BUYS A SHARE OF ${w.teams[w.player.team].name.toUpperCase()}`, `${r.join(' ')} now owns ${Math.round(I.share * 100)}% of a rival team. "Purely an investment," ${r[1]} said, smiling.`);
+  return { msg: `${r.join(' ')} owns ${Math.round(I.share * 100)}% of your team now.` };
+}
 
 // ---------------- the week, from GT up ----------------
 // (a day's work you're asked to do: { what, pay, tag }; taken from the email)
@@ -1598,6 +1708,8 @@ export function settleRound(w, use, me) {
   { const res = w.series[w.player.series].results.find(r => r.round === w.round), mate = mateOf(w), row = res && mate && res.rows.find(r => r.pid === mate.pid);
     const mp = row && !row.dnf ? Math.round((c.prize[row.pos - 1] || 0) * (bg.prize || 1) * (home ? 1.1 : 1) / 10) * 10 : 0;
     if (mp) items.push([`Prize money, second car (${w.people[mate.pid].first}, P${row.pos})`, mp]); }
+  // (whoever owns a share of the team takes it out of the prize money)
+  { const I = investorIn(w), won = items.filter(([k, v]) => v > 0 && /^Prize money/.test(k)).reduce((a, [, v]) => a + v, 0); if (I && won) items.push([`Prize money share: ${I.name.join(' ')} (${Math.round(I.share * 100)}%)`, -Math.round(won * I.share / 10) * 10]); }
   const before = w.money.balance;
   for (const [what, amt] of items) if (amt) pay(w, amt, `${trackName}: ${what[0].toLowerCase() + what.slice(1)}`);
   overdraftFee(w, items);
@@ -1905,14 +2017,16 @@ function planWeek(w) {
 const DAY_FULL_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 export const eventById = (w, id) => (weekOf(w).events || []).find(e => e.id === id);
 // still to go to (and still time): what the day planner offers
-export const openEvents = (w) => (weekOf(w).events || []).filter(e => !e.done && e.rsvp !== 'no' && weekOf(w).used <= e.by && dealsOf(w).some(d => d.sid === e.sid));
+export const openEvents = (w) => (weekOf(w).events || []).filter(e => !e.done && e.rsvp !== 'no' && weekOf(w).used <= e.by && (e.inv || dealsOf(w).some(d => d.sid === e.sid)));
 export function rsvpEvent(w, id, key) { const e = eventById(w, id); if (!e || e.done) return; e.rsvp = key; }
-export function attendEvent(w, id) { const e = eventById(w, id); if (!e || e.done || !appear(w, e.sid)) return false; e.done = true; return true; }
+// (marked done before the day's used: using the day is what moves the week past its date)
+export function attendEvent(w, id) { const e = eventById(w, id); if (e && e.inv) return attendDinner(w, id); if (!e || e.done) return false; e.done = true; if (!appear(w, e.sid)) { e.done = false; return false; } return true; }
 // the day's gone past an event's date: they waited (said yes and didn't come: they waited longer)
 function eventsMissed(w, wk = w.week) {
   for (const e of (wk && wk.events) || []) {
     if (e.done || e.missed || e.rsvp === 'no' || wk.used <= e.by) continue;
     e.missed = true;
+    if (e.inv) { const I = w.investor; if (I && I.stage === 'dinner') { I.interest = clamp(I.interest - 15, 0, 100); I.next = nowIdx(w) + 2; mail(w, I.name.join(' '), INV_ADDR(I), 'Dinner', [`I waited forty minutes. I ordered for both of us, in the end, and ate both.`, I.name[0]]); } continue; }
     const d = dealsOf(w).find(x => x.sid === e.sid); if (!d) continue;
     const sp = sponsorById(e.sid), flaked = e.rsvp === 'yes';
     d.misses += flaked ? 2 : 1; w.rep = clamp(repOf(w) - (flaked ? 3 : 1), 0, 100);
@@ -2530,7 +2644,7 @@ const MAX = { major: 1, minor: 2 };
 export function director(w) {
   if (w.pre || !w.money || !w.money.choice || w.over) return;
   const D = w.dir ??= { arcs: [], cool: {}, quiet: 0, goal: null, n: 0 };
-  adviser(w); consequences(w);
+  adviser(w); consequences(w); investorWeek(w); investorFollow(w);
   for (const a of D.arcs) if (!a.done && !a.wait && a.at != null && nowIdx(w) >= a.at) ARCS[a.type].step(w, a);
   D.arcs = D.arcs.filter(a => { if (a.done || a.end) { D.cool[a.type] = nowIdx(w) + ARCS[a.type].cool; if (ARCS[a.type].kind === 'major') D.quiet = nowIdx(w) + 2; return false; } return true; });
   // room for another story?
@@ -2582,7 +2696,9 @@ export function briefing(w) {
   const fz = finances(w), r = fz && fz.net < 0 ? fz.runway : 99, cost = w.over ? 0 : weekendCost(w);
   // (past the limit: the clock, first; else overdrawn: the fee, and how far the limit is)
   // (the sponsors' events, in one short line: the days they're on)
-  { const ev = w.money && w.founding?.reg && !w.over ? openEvents(w) : []; if (ev.length) watch.push({ text: ev.length > 1 ? `Sponsor events: ${ev.map(e => DAY_NAMES[e.by]).join(', ')}` : `Sponsor event on ${DAY_FULL_NAMES[ev[0].by]}: ${sponsorById(ev[0].sid).name}`.slice(0, 48), bad: false }); }
+  { const q = (w.mail || []).find(m => m.pitch && !m.replied), I = w.investor; if (q && I) watch.push({ text: `${I.name.join(' ')} asked you something`, bad: false }); }
+  { const din = w.money && !w.over ? openEvents(w).find(e => e.inv) : null; if (din) watch.push({ text: `${din.what}, ${DAY_FULL_NAMES[din.by]}`, bad: false }); }
+  { const ev = w.money && w.founding?.reg && !w.over ? openEvents(w).filter(e => !e.inv) : []; if (ev.length) watch.push({ text: ev.length > 1 ? `Sponsor events: ${ev.map(e => DAY_NAMES[e.by]).join(', ')}` : `Sponsor event on ${DAY_FULL_NAMES[ev[0].by]}: ${sponsorById(ev[0].sid).name}`.slice(0, 48), bad: false }); }
   { const n = satOut(w), m = sitMax(w); if (n && !w.over) watch.push({ text: n >= m ? `Sat out ${n} of ${m} allowed: miss another and the entry goes` : `Sat out ${n} of ${m} rounds the series allows`, bad: n >= m }); }
   { const n = bankRoundsLeft(w), L = bankLimit(w);
     if (n != null) watch.push({ text: `Bank: above ${money$(-L)} in ${n} round${n === 1 ? '' : 's'} or it closes`, bad: true });
@@ -2628,6 +2744,8 @@ export function briefing(w) {
     hints.push(!raced ? `This year: ${amb.label.toLowerCase()}.${up ? ` Top 3 earns a ${up.name.replace(/ Championship$/, '')} offer.` : ''}` : pos <= amb.t ? `This year: ${amb.label.toLowerCase()}. You're P${pos}: on course.` : `This year: ${amb.label.toLowerCase()}. You're P${pos}, ${gap} point${gap === 1 ? '' : 's'} off.`);
   }
   else if (up) hints.push(raced && pos <= 3 ? `Stay in the top 3 for a ${up.name} offer.` : `Top 3 at the end (or your team top 2) earns a ${up.name} offer${raced && fund[pos - 1] ? ` (P${pos} pays ${money$(fund[pos - 1])})` : ''}.`);
+  // (and whoever owns a share of the team: their target, in the same line, in place of the promotion rule)
+  { const I = investorIn(w); if (I && !w.over && hints.length) hints[0] = hints[0].replace(/ Top 3 earns .*$/, '') + ` ${I.name[1]} (${Math.round(I.share * 100)}%) wants the top ${I.target}${I.misses ? ', or wants out' : ''}.`; }
   // (money first when it's running out, else what reputation unlocks)
   if (r < 6) hints.unshift(`Money lasts about ${Math.max(0, Math.floor(r))} round${Math.floor(r) === 1 ? '' : 's'}: work the week, keep your sponsors.`);
   else if (sv && sv.why) hints.push(sv.why);
