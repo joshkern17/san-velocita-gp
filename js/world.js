@@ -734,12 +734,13 @@ export function buildWorld(track, T, A, opts = {}) {
     grp.rotation.y = Math.atan2(T.FX[i], T.FZ[i]);
     root.add(grp);
   };
-  gantry(Math.round(-3 / T.ds + N) % N, true);
+  const dressed = env.dress !== false, walls = env.barrier !== 'none'; // (a road, not a circuit: no gantries or boards; no walls, only the world's edge)
+  if (dressed) gantry(Math.round(-3 / T.ds + N) % N, true);
   if (T.open) {
-    gantry(T.finish, false);
+    if (dressed) gantry(T.finish, false);
     // walls across the road at the end of the run-off and behind the grid
     const mat = new THREE.MeshLambertMaterial({ map: env.barrier === 'tires' ? tx.tires : env.barrier === 'armco' ? tx.armco : tx.wall });
-    for (const [i, dir] of [[T.cut, 1], [(T.cut + 1) % N, -1]]) {
+    if (walls) for (const [i, dir] of [[T.cut, 1], [(T.cut + 1) % N, -1]]) {
       const l = A.BL[i] + 1.5, r = A.BR[i] + 1.5, h = env.barrier === 'tires' ? 1.1 : 1.2;
       const g = new THREE.BoxGeometry(l + r, h, 1.0);
       g.attributes.uv.array.forEach((v, k, arr) => { if (k % 2 === 0) arr[k] = v * (l + r) / 4; });
@@ -753,8 +754,8 @@ export function buildWorld(track, T, A, opts = {}) {
   }
 
   // barriers
-  buildBarriers(root, T, A, env, surfY, groundHeight, tx, night);
-  const distBoards = buildCornerBoards(root, T, A, env, surfY, groundHeight, roadL, night) || []; // (where each one stands: the Lap Review measures from them)
+  if (walls) buildBarriers(root, T, A, env, surfY, groundHeight, tx, night);
+  const distBoards = (dressed && buildCornerBoards(root, T, A, env, surfY, groundHeight, roadL, night)) || []; // (where each one stands: the Lap Review measures from them)
   buildWalkways(root, T, A, env, surfY, groundHeight, tx);
   if (pit) buildPitLane(root, T, pit, surfY, tx, night);
 

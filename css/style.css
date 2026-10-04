@@ -274,6 +274,8 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 /* a gig's panel (World Career's week: courier runs, rides, the street race), where the tower usually is */
 .hud-gig { position: absolute; left: var(--edge); top: 4.5%; width: 250px; padding: 10px 14px 12px; display: none; }
 body.gig-on .hud-gig { display: block; } body.gig-on .hud-tower { display: none; }
+/* the opening's drive home (js/drivehome.js): just the road */
+body.drive-on #hud > *:not(#h-help) { visibility: hidden; }
 .hud-gig .hud-row .val { font-size: 20px; }
 .gig-who { font: 500 14px/1.2 var(--f-ui); letter-spacing: var(--track); color: var(--sv-hot); text-shadow: var(--sv-glow-hud); -webkit-text-fill-color: transparent; margin: 2px 0 6px; }
 .gig-meter { margin-top: 8px; }

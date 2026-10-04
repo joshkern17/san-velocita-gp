@@ -15,7 +15,8 @@ import { presetTracks, sampleTrack, trackStats, THEMES, cloneTrack } from './tra
 import { TEAMS } from './car.js';
 import { Garage } from './garage.js';
 import { PitGarage } from './pitgarage.js';
-import { Opening } from './opening.js';
+import { Opening, trailerModel } from './opening.js';
+import { driveHomeTrack, PARK } from './drivehome.js';
 import { Computer } from './computer.js';
 import { restoreSaves, exportBackup, importBackup } from './backup.js';
 import { voiceState, voiceStatus, voiceSignIn, voiceSignOut, voiceReacts } from './voice.js';
@@ -300,7 +301,7 @@ let bootGo = null;
 // preview (then: back to the menu). Esc / B skips it.
 function openOpening(then = null, extra = {}) {
   const done = (r) => fadeTo(() => { opening.leave(); if (then) then(r); else show('s-main'); }, 400);
-  fadeTo(() => { opening.enter({ name: settings.driverName || 'Driver', done, pad: () => device.kind === 'pad', skipLabel: then ? 'Skip' : 'Back', ...extra }); show('s-opening'); });
+  fadeTo(() => { opening.enter({ name: settings.driverName || 'Driver', done, pad: () => device.kind === 'pad', skipLabel: then ? 'Skip' : 'Back', drive: (back) => startDriveHome(back), ...extra }); show('s-opening'); });
 }
 
 // ---------------- main menu ----------------
@@ -1645,6 +1646,40 @@ function startWorld(noOpening = false) {
   saveWorld();
   const hub = (r) => { if (r && r.lottery) { WC.pickLottery(world, r.lottery); saveWorld(); } enterHub(); const m = world.mail.find(x => x.link && x.link[0] === 'registry'); setTimeout(() => { if (screen === 's-hub') sitDown('mail', m && m.id); }, 700); };
   if (noOpening) fadeTo(hub, 200); else openOpening(hub); // (the opening first: the lottery, then the garage)
+}
+
+// ---- the drive home (js/drivehome.js): the opening's road from the 6twelve to the trailer park, at night ----
+// In 'test' mode (no lights, no timing), the HUD hidden; past the end of the road, back to the opening (the trailer).
+// Your own car if the career has one; otherwise an old Pony GT.
+let drive = null;
+function startDriveHome(back) {
+  const plain = CARS.mustang ? 'mustang' : carsOfClass('street')[0]; // (a Pony GT, not something with a wing)
+  const car = world && world.car ? worldCar() : { ...settings.car, chassis: chassisKey(plain) };
+  drive = { back, parked: false, done: false };
+  startRace(driveHomeTrack(), { mode: 'test', pick: false, extra: { car, ghost: 'off', strategy: false, racingLine: 'off' } }, 'drivehome');
+  document.body.classList.add('drive-on');
+}
+function driveTick() {
+  if (!drive || !sim || !sim.T || !sim.player) return;
+  const T = sim.T, p = sim.player;
+  if (!drive.parked && sim.scene && sim.world) { // (the trailer park, beside the end of the road)
+    drive.parked = true;
+    trailerModel().then(m => {
+      if (!m || !sim || raceReturn !== 'drivehome') return;
+      // (just the homes and fences: the model's own ground and painted backdrops would run across the road)
+      m.traverse(o => { if (/^(Terrain|Background|cable)/.test(o.name)) o.visible = false; });
+      const i = Math.min(T.cut, T.finish + Math.round(PARK.along / T.ds)), x = T.X[i] + T.RX[i] * PARK.right, z = T.Z[i] + T.RZ[i] * PARK.right;
+      m.position.set(x, sim.world.groundHeight(x, z) - 0.45, z); m.rotation.y = Math.atan2(T.FX[i], T.FZ[i]) - Math.PI / 2;
+      sim.scene.add(m);
+    });
+    setTimeout(() => hud.help('Drive home. Follow the road out of town.', 6000), 1500);
+  }
+  if (!drive.done && p.idx >= T.finish && p.idx <= T.cut) finishDrive();
+}
+function finishDrive() {
+  if (!drive || drive.done) return;
+  drive.done = true; const back = drive.back;
+  fadeTo(() => { disposeSim(); document.body.classList.remove('drive-on'); drive = null; raceReturn = null; show('s-opening'); if (back) back(); }, 500);
 }
 
 // ---- Circuits: which circuits a career's calendars use (a grid of cards; select toggles one) ----
@@ -3230,7 +3265,12 @@ function pause() {
     pauseInfo(); show('s-pause'); sfx.back();
     return;
   }
-  if (raceReturn === 'gig' || raceReturn === 'testday') {
+  if (raceReturn === 'drivehome') {
+    menus['s-pause'][0].setItems([
+      { label: 'Resume', cls: 'action primary', action: resume }, opts,
+      { label: 'Skip The Drive', action: () => { sim.setPaused(false); finishDrive(); }, desc: 'Home already.' },
+    ]);
+  } else if (raceReturn === 'gig' || raceReturn === 'testday') {
     menus['s-pause'][0].setItems([
       { label: 'Resume', cls: 'action primary', action: resume },
       opts,
@@ -3530,6 +3570,7 @@ function frame(now) {
       handleRaceEvents();
       if (sim) { const hs = sim.hudState(); hud.update(hs, sim); hud.pitMenu(hs, pitSel, true); driftHud.update(sim.drift, dt); }
       if (gig) gigTick(dt);
+      if (drive) driveTick();
     }
   } else if (screen === 's-carsel' && sim) {
     carSelectInput(dt);
@@ -3630,4 +3671,4 @@ requestAnimationFrame(frame);
 // debug handle
 window.__svgp = { get world() { return world; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp() } };
+  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp() } };

@@ -39,6 +39,9 @@ export const PAINTS = {
 };
 // (the Nature brush, kind 'flora', paints a tree mix from scenery.js FLORA; its ground counts as grass)
 
+// env.barrier: 'tires' | 'armco' | 'concrete', or 'none': no walls to see or hit, just a soft invisible border where
+// the runoff ends (the world's edge: a road through open country, a street race between buildings). env.dress false:
+// no circuit dressing (gantries, corner boards).
 export function defaultEnv(theme = 'grass') {
   return {
     theme, time: 'day', weather: 'clear', laps: 3, opponents: 7,

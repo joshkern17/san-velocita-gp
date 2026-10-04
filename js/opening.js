@@ -17,6 +17,8 @@ import { Prologue } from './prologue.js';
 const loader = new GLTFLoader(), loads = {};
 const loadGlb = (url) => loads[url] || (loads[url] = loader.loadAsync(url).then(g => g.scene, () => null));
 const roomUrl = () => (typeof window !== 'undefined' && window.__SVGP_TRAILER_GLB) || 'models/trailer.glb';
+// the trailer park, for the end of the drive home (js/main.js puts a copy beside the road)
+export const trailerModel = () => loadGlb(roomUrl()).then(m => m && m.clone(true));
 
 // sat on the couch (metres; the model's Y is up, the TV against the wall at x = 0.4, the couch at x = 3.1, the side
 // table with the lamp on it at your left, z = 0.77)
@@ -274,7 +276,7 @@ export class Opening {
   // opts: { name: your name (the papers are addressed to you), done: what happens after (or on skip), pad: () => true
   // when the last input was a pad (the prompts' button) }
   enter(opts = {}) {
-    this.name = opts.name || 'Driver'; this.done = opts.done || null; this.isPad = opts.pad || (() => false);
+    this.name = opts.name || 'Driver'; this.done = opts.done || null; this.drive = opts.drive || null; this.isPad = opts.pad || (() => false);
     this.yaw = 0; this.pitch = 0; this.aim = null; this.t = 0; this.stageT = 0; this.lean = 0; this.fov = FOV; this.dim = 0; this.shake = 0; this.flash = 0;
     this.cur = undefined; this.busy = false; this.pressed = false; this.beatT = 0; this.rolled = new Set();
     // the numbers: a quick pick, drawn out in a different order
@@ -379,7 +381,12 @@ export class Opening {
       choices: (list, pick) => this.choices(list, pick), choiceNav: (d) => this.choiceNav(d), choiceOk: () => this.choiceOk(),
       divorce: () => divorce(this.name), ticket: () => ticket(this.nums, new Set(), new Map())[0],
       black: (on) => { this.ui.white.className = on ? 'black' : ''; },
-      done: () => { this.ui.white.className = 'black'; setTimeout(() => { if (this.ended) return; this.setStage('race'); this.say(''); this.fadeText(this.ui.line, ''); this.ui.white.className = ''; }, 1600); } });
+      done: () => {
+        this.ui.white.className = 'black';
+        const home = () => { if (this.ended) return; this.setStage('race'); this.say(''); this.fadeText(this.ui.line, ''); this.ui.white.className = ''; };
+        // (then the drive home, when there's one to drive; back here, in the trailer, when you're home)
+        setTimeout(() => { if (this.ended) return; this.say(''); this.fadeText(this.ui.line, ''); if (this.drive) { this.setStage('drive'); this.drive(home); } else home(); }, 1600);
+      } });
   }
   // a list of answers to pick from (up / down and A, or click one); null: none
   choices(list, pick) {
