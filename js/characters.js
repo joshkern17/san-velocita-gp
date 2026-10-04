@@ -245,16 +245,19 @@ function loadFemaleHeads() {
     FEMALE.push(...list);
   }, () => {}); // (no file: men's faces only)
 }
-// where her head goes: his head's box in the skinning's bind space (metres), hers moved to sit in it (crowns level,
-// faces level, centred side to side), then into the head bone's own space
+// where her head goes: his head's box in the skinning's bind space (metres), hers scaled up a little (the women's pack
+// is smaller) about her crown and moved to sit in his (crowns level, faces level, centred side to side), then into the
+// head bone's own space
+const F_SCALE = 1.15;
 let FIT = null;
 function femaleFit(geo) {
   if (FIT) return FIT;
   const his = TPL.looks.racer.find(isHead), box = new THREE.Box3(), v = new THREE.Vector3(), P = his.geometry.attributes.position;
   for (let i = 0; i < P.count; i++) box.expandByPoint(v.fromBufferAttribute(P, i).applyMatrix4(his.bindMatrix));
   geo.computeBoundingBox(); const hb = geo.boundingBox;
-  const t = new THREE.Vector3((box.min.x + box.max.x - hb.min.x - hb.max.x) / 2, box.max.y - hb.max.y + 0.005, box.max.z - hb.max.z);
-  return (FIT = { t, head: his });
+  const from = new THREE.Vector3((hb.min.x + hb.max.x) / 2, hb.max.y, hb.max.z), to = new THREE.Vector3((box.min.x + box.max.x) / 2, box.max.y + 0.01, box.max.z);
+  const m = new THREE.Matrix4().makeTranslation(to.x, to.y, to.z).multiply(new THREE.Matrix4().makeScale(F_SCALE, F_SCALE, F_SCALE)).multiply(new THREE.Matrix4().makeTranslation(-from.x, -from.y, -from.z));
+  return (FIT = { m, head: his });
 }
 function attachFemaleHead(ch, fem) {
   const fit = femaleFit(fem.geometry);
@@ -262,7 +265,7 @@ function attachFemaleHead(ch, fem) {
   if (!mesh) return null;
   const sk = mesh.skeleton, k = sk.bones.findIndex(b => /Head$/.test(b.name) && !/HeadTop/.test(b.name)); if (k < 0) return null;
   const m = new THREE.Mesh(fem.geometry, fem.material);
-  m.matrixAutoUpdate = false; m.matrix.copy(sk.boneInverses[k]).multiply(new THREE.Matrix4().makeTranslation(fit.t.x, fit.t.y, fit.t.z));
+  m.matrixAutoUpdate = false; m.matrix.copy(sk.boneInverses[k]).multiply(fit.m);
   m.castShadow = true; m.frustumCulled = false; m.userData.src = fem; m.name = 'FemaleHead';
   sk.bones[k].add(m);
   return m;

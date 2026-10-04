@@ -4,7 +4,7 @@
 #   blender -b "<pack>/Rigged Low-Poly Female NPCs.blend" --python tools/characters/female_heads.py -- models/heads-female.glb
 import bpy, sys, bmesh
 out = sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else 'heads-female.glb'
-NECK = 1.30  # metres up: below it the skin material is hands and arms
+NECK = 1.37  # metres up: below it the skin is her chest (a low top) and then hands and arms; the suit covers the rest
 keep = []
 for o in sorted([o for o in bpy.data.objects if o.type == 'MESH' and o.name.startswith('character')], key=lambda o: o.name):
     skin = next((i for i, m in enumerate(o.data.materials) if m and m.name.startswith('skin-female')), None)

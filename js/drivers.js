@@ -57,7 +57,7 @@ export function driverLivery(id, team, extra = {}) {
 }
 
 // ---------------- portraits ----------------
-// Head and shoulders, three-quarters on, lit like a team photo: a warm key, a cool fill and a rim in the team's
+// Head and shoulders, close and nearly face on, lit like a team photo: a warm key, a cool fill and a rim in the team's
 // colour, on a dark ground (the UI frames them). One small renderer of its own, made on first use.
 const PS = 192;
 let R = null;
@@ -65,8 +65,8 @@ function setup() {
   const renderer = new THREE.WebGLRenderer({ canvas: document.createElement('canvas'), antialias: false, alpha: true, preserveDrawingBuffer: true });
   renderer.setSize(PS, PS, false); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.setClearColor(0x000000, 0);
   const scene = new THREE.Scene();
-  scene.add(new THREE.HemisphereLight(0xdfe6ff, 0x2a2018, 1.25));
-  const key = new THREE.DirectionalLight(0xfff0dc, 2.1); key.position.set(1.2, 2.2, 2.4); scene.add(key);
+  scene.add(new THREE.HemisphereLight(0xdfe6ff, 0x2a2018, 0.85));
+  const key = new THREE.DirectionalLight(0xfff0dc, 2.6); key.position.set(2.4, 1.8, 1.6); scene.add(key); // (from the side, so faces have some shape)
   const rim = new THREE.DirectionalLight(0xffffff, 1.6); rim.position.set(-2, 1.6, -1.8); scene.add(rim);
   const camera = new THREE.PerspectiveCamera(24, 1, 0.05, 20);
   R = { renderer, scene, camera, rim };
@@ -111,12 +111,12 @@ function render(id, team, own) {
   const t = team || { name: 'Independent', main: 0x3a3a40, accent: 0xd8d8d8 };
   const guy = makeCharacter({ look: 'racer', clip: 'idle', livery: own?.livery || driverLivery(id, t), face: own?.face ?? driverFace(id), helmet: false, seed: hash(id) });
   guy.play('idle', { fade: 0 }); guy.action.time = 0.4 + (hash('pose:' + id) % 100) / 100 * 1.2; guy.mixer.update(0);
-  guy.object.rotation.y = 0.5; // (three-quarters on)
+  guy.object.rotation.y = 0.15; // (nearly face on, a touch to one side)
   R.scene.add(guy.object); guy.object.updateMatrixWorld(true);
   const head = guy.bone('Head'), at = new THREE.Vector3();
   if (head) head.getWorldPosition(at); else at.set(0, 1.62, 0);
   // (the head bone sits at the base of the skull: frame from just over the crown down to the chest)
-  R.camera.position.set(at.x + 0.08, at.y + 0.06, at.z + 1.45); R.camera.lookAt(at.x, at.y - 0.02, at.z);
+  R.camera.position.set(at.x + 0.02, at.y + 0.1, at.z + 0.95); R.camera.lookAt(at.x, at.y + 0.06, at.z);
   R.rim.color.setHex(t.main === 0x121214 ? 0x8a8a96 : t.main);
   R.renderer.render(R.scene, R.camera);
   const url = R.renderer.domElement.toDataURL('image/png');
