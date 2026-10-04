@@ -1511,7 +1511,7 @@ function mateInRoom(w) {
 }
 // (made ahead, while you're in the garage: everyone in your series, and anyone the Team Setup offers you)
 function warmPortraits(w) {
-  const ids = new Set([...(w.setup && !w.setup.done ? w.setup.drivers : []), ...Object.values(w.teams).filter(t => t.series === w.player.series).flatMap(t => t.drivers)]);
+  const ids = new Set([...(w.setup && !w.setup.done ? w.setup.drivers || (w.setup.seats || []).flatMap(d => d.pids) : []), ...Object.values(w.teams).filter(t => t.series === w.player.series).flatMap(t => t.drivers)]);
   for (const id of ids) if (id !== 'P' && w.people[id]) photoOf(w.people[id]);
 }
 // the Team Setup Wizard: game UI over the garage (js/teamsetup.js)
@@ -2086,7 +2086,9 @@ function renderHubMenu() {
   const F = w.founding || {};
   if (!F.reg) items.push({ label: 'Register The Team', cls: 'action primary', action: () => sitDown('registry'), desc: 'Form SV-1, on the computer.' });
   else if (claim) items.push({ label: 'Claim Your Winnings', cls: 'action primary', action: () => sitDown('mail', claim.id), desc: 'The State Lottery needs to know how you want your money. It\'s waiting in your email.' });
-  else if (!WC.setupDone(w)) items.push({ label: 'Set Up The Team', cls: 'action primary', action: () => openTeamSetup(), desc: 'How you get in, the car, a title sponsor and your second driver. Nothing is spent until you start the season.' });
+  else if (!WC.setupDone(w)) items.push(WC.setupKind(w) === 'season'
+    ? { label: 'Set Up The Season', cls: 'action primary', action: () => openTeamSetup(), desc: `${WC.needsCar(w) ? 'A car for the ' + seriesName(sid) + ', ' : ''}who pays for the second car${w.setup.sponsors.length ? ', a title sponsor' : ''}, and the season's money. Nothing is spent until you start the season.` }
+    : { label: 'Set Up The Team', cls: 'action primary', action: () => openTeamSetup(), desc: 'How you get in, the car, a title sponsor and your second driver. Nothing is spent until you start the season.' });
   else if (!F.car) items.push({ label: 'Buy A Car', cls: 'action primary', action: () => sitDown('classifieds'), desc: 'Danny sent you some listings. They\'re on the computer.' });
   else if (!w.over && WC.payrollShort(w)) items.push({ label: 'Sort Out Payroll', cls: 'action primary', action: () => sitDown('staff'), desc: `Payroll is ${WC.money$(WC.payrollDue(w))} and you have ${WC.money$(w.money.balance)}. Decide who gets paid (Team, on the computer: the Staff tab).` });
   else if (!w.over) {
@@ -2289,7 +2291,7 @@ function leaveList() {
 }
 // coming into the garage with something on the list to write or to cross off: straight over to it
 function maybeList() {
-  const w = world; if (!w || !founded(w) || tsw.isOpen || (!WC.listWants(w) && !WC.listFresh(w).length)) return;
+  const w = world; if (!w || !founded(w) || tsw.isOpen || !WC.setupDone(w) || (!WC.listWants(w) && !WC.listFresh(w).length)) return;
   setTimeout(() => { if (screen === 's-hub' && world === w && hubMode === 'room' && !pcSeat && !tsw.isOpen && !dayPlan.isOpen && !phone.isOpen) goToList(); }, 900);
 }
 function writeWhy(k) {

@@ -1,4 +1,6 @@
 // The Team Setup Wizard (World Career): how you get in, the car, a title sponsor, your second driver, then the lights.
+// The same screen is the Season Setup at the start of each season in a series with seats (w.setup.kind 'season': a car
+// if you need one, the second seat, a title sponsor after moving up, then the lights), with the season's money, roughly.
 // It's game UI over the garage, not the computer: the steps run along the top like sectors (what you picked is
 // written under each), the choices are columns with a bracket that slides to the one you're on, the money rolls as
 // you choose, and starting the season runs the start lights. The picks and the money live in js/wcareer.js
@@ -10,7 +12,14 @@ import { faceHTML } from './drivers.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hex = (c) => '#' + ((c ?? 0x888888) >>> 0).toString(16).padStart(6, '0');
-const NAME = { entry: 'How you get in', car: 'The car', sponsor: 'Title sponsor', mate: 'Second driver', ready: 'Ready' };
+const NAME = { entry: 'How you get in', car: 'The car', sponsor: 'Title sponsor', mate: 'Second driver', seat: 'Second seat', ready: 'Ready' };
+// (what each kind of second-seat deal asks of you, in a line each)
+const SEAT_COSTS = {
+  gent: ['A day of your week each round, coaching', 'Crashes: you pay car 2\'s repairs', 'Might walk after a big one'],
+  pro: ['Points for the teams\' championship', 'Car 2 earns real prize money', 'A wage every round, whatever happens'],
+  share: ['A day of coaching each weekend', 'If one walks, the other still pays'],
+  junior: ['Free to run, and the maker pays you', 'Target: the top 8, every round', 'Three misses and the maker takes them back'],
+};
 const WANTS = { top: 'results', finish: 'finishing', clean: 'clean racing', gain: 'overtakes', lead: 'leading', beat: 'beating a rival team' };
 const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 // a meter: the signal ramp in segments, filling from empty whenever it's shown (--tv is 0..1)
@@ -28,6 +37,7 @@ export class TeamSetup {
     addEventListener('resize', () => { if (this.isOpen) this.place(true); });
   }
   get w() { return this.src.world(); }
+  get season() { return WC.setupKind(this.w) === 'season'; }
   get steps() { return WC.setupSteps(this.w); }
   get at() { return Math.min(this.w.setup.at || 0, this.steps.length - 1); }
   get step() { return this.steps[this.at]; }
@@ -37,8 +47,8 @@ export class TeamSetup {
     this.isOpen = true; this.busy = false; this.money = null;
     const t = w.teams[w.player.team];
     this.el.innerHTML = `<div class="tsw-shade"></div><div class="tsw-scan"></div>
-      <header class="tsw-head"><h1>Team Setup</h1><p>${esc(t.name)} &middot; ${esc(WC.seriesById(w.player.series).name)} &middot; ${w.year}</p></header>
-      <div class="tsw-money"><div><small>In the bank</small><b data-k="now"></b></div><div><small>After your choices</small><b data-k="after"></b><em class="tsw-delta"></em></div></div>
+      <header class="tsw-head"><h1>${this.season ? 'Season Setup' : 'Team Setup'}</h1><p>${esc(t.name)} &middot; ${esc(WC.seriesById(w.player.series).name)} &middot; ${w.year}</p></header>
+      <div class="tsw-money"><div><small>In the bank</small><b data-k="now"></b></div><div><small>After your choices</small><b data-k="after"></b><em class="tsw-delta"></em></div>${this.season ? '<div title="The running costs, the lease, the staff, the sponsors\' fees and the second-seat deal: what\'s certain once it\'s signed. Prize money is up to you."><small>Season, before prizes</small><b data-k="season"></b></div>' : ''}</div>
       <nav class="tsw-rail"></nav>
       <div class="tsw-stage"><div class="tsw-q"><h2></h2><p></p></div><div class="tsw-cols"></div><div class="tsw-focus"></div></div>
       <div class="tsw-foot"><span class="tsw-count"></span><button class="sv-btn hot tsw-next" data-act="next"></button></div>
@@ -48,7 +58,7 @@ export class TeamSetup {
     setTimeout(() => this.el.classList.remove('enter'), 1400);
     this.render(0);
     // (the classifieds' photos take a moment to render: do them now, while you read the first step)
-    setTimeout(() => { if (this.isOpen) (w.ads || []).slice(0, 3).forEach(a => this.src.photo(a)); }, 1500);
+    if (!this.season) setTimeout(() => { if (this.isOpen) (w.ads || []).slice(0, 3).forEach(a => this.src.photo(a)); }, 1500);
   }
   close(done = false) {
     if (!this.isOpen) return;
@@ -101,6 +111,8 @@ export class TeamSetup {
   options() {
     const w = this.w, S = w.setup, step = this.step;
     if (step === 'entry') return WC.setupEntries(w).map(e => ({ val: e.key, ...this.leaves(step, e.key) }));
+    if (step === 'car' && this.season) return S.cars.map((o, i) => ({ val: i, ...this.leaves(step, i) }));
+    if (step === 'seat') return S.seats.map((d, i) => ({ val: i, ...this.leaves(step, i) }));
     if (step === 'car') return (w.ads || []).slice(0, 3).map(a => ({ val: a.id, ...this.leaves(step, a.id) }));
     if (step === 'sponsor') return S.sponsors.map((o, i) => ({ val: i, ...this.leaves(step, i) }));
     if (step === 'mate') return S.drivers.filter(pid => w.people[pid]).map(pid => ({ val: pid, ...this.leaves(step, pid) }));
@@ -125,7 +137,7 @@ export class TeamSetup {
       qel.querySelector('h2').textContent = q; qel.querySelector('p').textContent = sub;
       cols.className = `tsw-cols n${step === 'ready' ? 0 : opts.length}`;
       cols.innerHTML = step === 'ready' ? this.ready() : opts.map((o, i) => `<div class="tsw-col${i === this.sel ? ' on' : ''}${o.dis ? ' dis' : ''}" data-i="${i}"><i class="tsw-cur"></i>${this.card(step, o, i)}
-        <div class="tsw-left"><small>Leaves you</small><b class="${o.dis ? 'neg' : ''}">${o.dis ? 'More than you have' : WC.money$(o.after)}</b></div></div>`).join('');
+        ${step === 'seat' ? '' : `<div class="tsw-left"><small>Leaves you</small><b class="${o.dis ? 'neg' : ''}">${o.dis ? 'More than you have' : WC.money$(o.after)}</b></div>`}</div>`).join(''); // (a seat deal costs nothing today: its money is on the card)
       this.place(true); this.foot();
       // in: the question wipes on, the columns rise one after another (from the side you're heading)
       if (calm()) return;
@@ -141,7 +153,13 @@ export class TeamSetup {
     setTimeout(() => { out.forEach(a => a.cancel()); this.busy = false; draw(); }, 170);
   }
   question(step) {
-    const kept = this.w.setup.picks.entry === 'takeover';
+    const kept = this.w.setup.picks.entry === 'takeover', S = this.w.setup, sn = WC.seriesById(this.w.player.series).name;
+    if (this.season) return {
+      car: ['Pick a car', `Cars must be homologated for the ${sn}. A lease is a deposit now and a payment every round; buying is all of it now. Your old car is traded in.`],
+      seat: ['Who pays for the second car?', 'Every deal pays its way differently: money now, or a driver whose prize money pays later. Pace is what decides where car 2 finishes.'],
+      sponsor: ['Choose a title sponsor', `Bigger companies follow the ${sn}. The one you choose sets a target for every race.`],
+      ready: [`Ready for the ${this.w.year} season`, 'Check it over. Nothing is bought or signed until the lights go out.'],
+    }[step];
     return {
       entry: ['How do you want to get in?', 'Your winnings, and how much of them you spend before your first race. Everything after this is up to you.'],
       car: ['Pick a car', 'Off the classifieds: Danny sent the links. A tired car is down on power, and its parts are closer to failing.'],
@@ -152,6 +170,23 @@ export class TeamSetup {
   }
   card(step, o, i) {
     const w = this.w, S = w.setup, $ = WC.money$;
+    if (this.season && step === 'car') {
+      const x = S.cars[i], c = x.c, how = { lease: 'Lease', used: 'Last year\'s, ex-works', buy: 'New' }[x.how];
+      return `<div class="tsw-top">${tag(how, x.how === 'lease' ? '' : x.how === 'used' ? 'good' : 'bad')}</div><h3>${esc(c.name)}</h3><div class="tsw-price">${$(x.how === 'lease' ? c.deposit : c.price)}<small>${x.how === 'lease' ? ' deposit' : ''}</small></div>
+        ${x.how === 'lease' ? `<div class="tsw-kpis"><div><small>A round</small><b>${$(c.perRound)}</b></div><div><small>Season</small><b>${$(c.deposit + c.perRound * w.opts.len)}</b></div></div>` : ''}
+        ${c.hp ? stat('Power', `${c.hp} hp`, c.hp / 700) + stat('Weight', `${c.kg} kg`, 1 - (c.kg - 900) / 600) : ''}${x.how === 'used' ? stat('Condition', `${Math.round(c.cond * 100)}%`, c.cond) : ''}
+        <p class="tsw-blurb">${esc(x.how === 'used' ? `From ${c.team}, a season old.` : c.note || '')}</p><p class="tsw-seller">${esc(c.prog || '')}</p>`;
+    }
+    if (step === 'seat') {
+      const d = S.seats[i], K = WC.SEAT_KINDS[d.kind], ps = d.pids.map(pid => w.people[pid]).filter(Boolean), L = w.opts.len;
+      const money = d.wage ? `<b>&minus;${$(d.wage)}<small> a round</small></b>` : `<b class="gain">+${$(d.per)}<small> a round</small></b>`;
+      return `<div class="tsw-top">${tag(esc(K.tag), d.kind === 'pro' ? '' : 'good')}</div><h3>${esc(K.name)}</h3>
+        <div class="tsw-whos${ps.length > 1 ? ' two' : ''}">${ps.map(p => `<div class="tsw-who">${face(p)}<div><b>${esc(ps.length > 1 ? p.last : `${p.first} ${p.last}`)}</b><small>${WC.ageOf(w, p)}${ps.length > 1 ? '' : ` &middot; ${p.biz ? esc(p.biz) : d.maker ? `${esc(d.maker)} junior` : `${p.starts} starts, ${p.wins} win${p.wins === 1 ? '' : 's'}`}`}</small></div></div>`).join('')}</div>
+        ${stat('Pace', Math.round(ps[0].pace), ps[0].pace / 100)}
+        <div class="tsw-cost"><span>${d.wage ? 'Wage' : d.kind === 'junior' ? 'Maker pays' : 'Seat money'}</span><span class="tsw-pay">${money}</span></div>
+        <div class="tsw-cost"><span>Season</span><span class="tsw-pay"><b class="${d.wage ? '' : 'gain'}">${d.wage ? '&minus;' : '+'}${$((d.wage || d.per) * L)}</b></span></div>
+        <ul class="tsw-gets">${SEAT_COSTS[d.kind].map(g => `<li>${esc(g)}</li>`).join('')}</ul>`;
+    }
     if (step === 'entry') {
       const e = WC.setupEntries(w)[i];
       return `<div class="tsw-top">${tag(e.level, e.key === 'fresh' ? 'bad' : e.key === 'running' ? 'good' : '')}</div><h3>${esc(e.name)}</h3><div class="tsw-price">${e.cost ? $(e.cost) : 'Free'}</div>
@@ -182,6 +217,7 @@ export class TeamSetup {
   }
   // the last step: the team, and every number
   ready() {
+    if (this.season) return this.readySeason();
     const w = this.w, S = w.setup, P = S.picks, $ = WC.money$, B = WC.setupBudget(w), t = WC.myTeam(w);
     const e = WC.setupEntries(w).find(x => x.key === P.entry), ad = P.car && (w.ads || []).find(a => a.id === P.car), o = S.sponsors[P.sponsor], q = w.people[P.mate], logo = o && this.src.logo(o.sid);
     const row = (k, v, cls = '') => `<div class="tsw-row ${cls}"><span>${k}</span><b>${v}</b></div>`;
@@ -195,11 +231,26 @@ export class TeamSetup {
         ${B.rows.map(([k, v]) => row(esc(k), `${v < 0 ? '&minus;' : '+'}${$(Math.abs(v))}`, v < 0 ? 'out' : 'in')).join('')}
         <i class="tsw-rule"></i>${row('Money after', $(B.after), 'tot' + (B.after < 0 ? ' neg' : ''))}</div></div>`;
   }
+  // the season's last step: what you've picked, today's money, and the season, roughly
+  readySeason() {
+    const w = this.w, S = w.setup, P = S.picks, $ = WC.money$, B = WC.setupBudget(w), t = WC.myTeam(w), o = P.car != null ? S.cars[P.car] : null, d = S.seats[P.seat], sp = P.sponsor != null ? S.sponsors[P.sponsor] : null;
+    const row = (k, v, cls = '') => `<div class="tsw-row ${cls}"><span>${k}</span><b>${v}</b></div>`, sign = (v) => `${v < 0 ? '&minus;' : '+'}${$(Math.abs(v))}`;
+    const q = d && w.people[d.pids[0]], car = o ? o.c.name : w.car ? w.car.name : '';
+    return `<div class="tsw-ready">
+      <div class="tsw-team"><div class="tsw-sw"><i style="background:${hex(t.main)}"></i><i style="background:${hex(t.accent)}"></i></div><h4>${esc(t.name)}</h4>
+        <p>${esc(WC.seriesById(w.player.series).name)} ${w.year}</p>${sp && this.src.logo(sp.sid) ? `<img class="tsw-logo" src="${this.src.logo(sp.sid)}">` : ''}</div>
+      <div class="tsw-rows">
+        ${row('Car', esc(car))}${sp ? row('Title sponsor', esc(WC.sponsorInfo(sp.sid).name)) : ''}${row('Car 1', `${esc(w.player.name)} (you)`)}${row('Car 2', d ? `${esc(q.first)} ${esc(q.last)}${d.pids.length > 1 ? ` / ${esc(w.people[d.pids[1]].last)}` : ''} &middot; ${esc(WC.SEAT_KINDS[d.kind].name)}` : '')}
+        <i class="tsw-rule"></i>${row('In the bank', $(w.money.balance))}${B.rows.map(([k, v]) => row(esc(k), sign(v), v < 0 ? 'out' : 'in')).join('')}${row('Money after', $(B.after), 'tot' + (B.after < 0 ? ' neg' : ''))}
+        <i class="tsw-rule"></i>${row('The season, before prize money', sign(B.season.net), 'out')}</div></div>`; // (prize money: what your racing decides)
+  }
   // the steps, like sectors: done ones say what you picked
   rail() {
     const w = this.w, S = w.setup, P = S.picks, steps = this.steps, at = this.at;
     const said = (k) => {
       if (k === 'entry') return WC.setupEntries(w).find(e => e.key === P.entry)?.name;
+      if (k === 'car' && this.season) return P.car != null && S.cars[P.car].c.name;
+      if (k === 'seat') return P.seat != null && WC.SEAT_KINDS[S.seats[P.seat].kind].name;
       if (k === 'car') { const a = (w.ads || []).find(x => x.id === P.car); return a && `${a.year} ${a.name}`; }
       if (k === 'sponsor') return P.sponsor != null && WC.sponsorInfo(S.sponsors[P.sponsor].sid).name;
       if (k === 'mate') { const p = w.people[P.mate]; return p && `${p.first} ${p.last}`; }
@@ -213,9 +264,10 @@ export class TeamSetup {
   }
   // the money, rolling to its new number (and what this step changed, floating off it)
   purse() {
-    const w = this.w, now = w.money.balance, after = WC.setupBudget(w).after, el = this.el.querySelector('.tsw-money');
+    const w = this.w, B = WC.setupBudget(w), now = w.money.balance, after = B.after, el = this.el.querySelector('.tsw-money');
     const set = (k, v) => { el.querySelector(`[data-k="${k}"]`).textContent = WC.money$(v); el.querySelector(`[data-k="${k}"]`).classList.toggle('neg', v < 0); };
     set('now', now);
+    if (B.season) { const v = B.season.net, e = el.querySelector('[data-k="season"]'); e.textContent = `${v < 0 ? '−' : '+'}${WC.money$(Math.abs(v))}`; e.classList.toggle('neg', v < 0); }
     const from = this.money ?? after; this.money = after;
     if (from === after || calm()) return set('after', after);
     const d = after - from, dl = el.querySelector('.tsw-delta');
@@ -239,7 +291,7 @@ export class TeamSetup {
     const step = this.step, o = this.options()[this.sel], w = this.w;
     let next = 'Start the season';
     if (step !== 'ready') {
-      const lab = !o ? '' : step === 'entry' ? WC.setupEntries(w).find(e => e.key === o.val)?.name : step === 'car' ? (w.ads || []).find(a => a.id === o.val)?.name
+      const lab = !o ? '' : step === 'seat' ? WC.SEAT_KINDS[w.setup.seats[o.val].kind].name : step === 'car' && this.season ? w.setup.cars[o.val].c.name : step === 'entry' ? WC.setupEntries(w).find(e => e.key === o.val)?.name : step === 'car' ? (w.ads || []).find(a => a.id === o.val)?.name
         : step === 'sponsor' ? WC.sponsorInfo(w.setup.sponsors[o.val].sid).name : `${w.people[o.val].first} ${w.people[o.val].last}`;
       next = `Next${lab ? `: ${esc(lab)}` : ''}`;
     }

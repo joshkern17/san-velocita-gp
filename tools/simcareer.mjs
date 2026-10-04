@@ -8,6 +8,7 @@
 //   node tools/simcareer.mjs 40 3 --gt             win the Street Cup first (a quick driver), then GT seasons at --skill
 //                                                  (--gentleman=no: no gentleman driver; --car=buy: buy, not lease)
 //   --seasonly                                     where the money went, season by season (careers that last)
+//   --seat=gent                                    the second seat in the season setup (gent, pro, share, junior)
 //   --sellup=no                                    never sell the car or facilities when deep in the red
 //   --len=6                                        rounds a season (4, 6, 8, 12)
 //   --amb=par                                      each season's ambition: none, safe, par (default), push, title
@@ -19,7 +20,7 @@ import * as WC from '../js/wcareer.js';
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 const args = process.argv.slice(2), opt = (k, d) => { const a = args.find(x => x.startsWith(`--${k}=`)); return a ? a.split('=')[1] : d; };
 const ENTRY = opt('entry', 'fresh'), MATE = opt('mate', 'pay'), GT = args.includes('--gt'), GENT = opt('gentleman', 'yes') !== 'no', CARHOW = opt('car', 'lease');
-const SELLUP = opt('sellup', 'yes') !== 'no', LEN = +opt('len', 6), AMB = opt('amb', 'par'), SEASONLY = args.includes('--seasonly');
+const SEAT = opt('seat', 'gent'), SELLUP = opt('sellup', 'yes') !== 'no', LEN = +opt('len', 6), AMB = opt('amb', 'par'), SEASONLY = args.includes('--seasonly');
 // a transaction's kind, for --seasonly
 const cat = (what) => { const s = what.replace(/^[A-Z][\w' ]*?: (?=[a-z])/, ''); for (const [k, re] of [['prize', /prize money|prize fund/i], ['sponsors', /sponsor|bonus|associate|seat fee|seat money/i], ['entry+travel+crew', /^(entry fee|travel|pit crew)/i], ['tyres+fuel', /tyre|tire|fuel/i], ['repairs+parts', /repair|rebuild|part|Speed Parts|SVList/i], ['staff', /payroll|back pay|labour|wage/i], ['week', /fare|GigGo|Restwell|day job|track day|time attack|street race|appearance|coaching|hot laps|shift|winnings|stake|ride/i], ['facilities', /premises|facilit|unit|transporter|lift|tools|sim rig|built/i], ['projects', /project|wind tunnel|shop/i], ['bank', /overdraft|loan|interest/i]]) if (re.test(s)) return k; return 'other: ' + s.slice(0, 28); };
 const N = +(args.find(a => /^\d+$/.test(a)) || 40), SEASONS = +(args.filter(a => /^\d+$/.test(a))[1] || 3), SKILL = +opt('skill', 0.4), ONLY = opt('policy', null);
@@ -59,7 +60,7 @@ function answerAll(w, P) {
     let key = 'no';
     if (m.lottery) continue;
     else if (m.sponsorOffer) key = 'yes';
-    else if (m.offer) key = P.moveUp || GT ? 'move' : 'stay';
+    else if (m.offer) key = (P.moveUp || GT) && !(GT && w.player.series === 'gt') ? 'move' : 'stay'; // (--gt: up to GT, and stay there)
     else if (m.gent) key = GENT && !(w.mate && WC.traitsOf(w, w.people[w.mate.pid] || {}).includes('gentleman')) ? 'sign' : 'no';
     else if (m.dayJob) key = P.work === 'none' ? 'no' : 'go';
     else if (m.gig) key = P.work === 'none' ? 'no' : 'in';
@@ -146,6 +147,15 @@ function hire(w, P) {
   if (WC.payrollShort(w)) for (const x of (w.staff || []).slice().sort((a, b) => (a.danny ? 1 : 0) - (b.danny ? 1 : 0))) if (w.money.balance < WC.payrollDue(w)) WC.setPay(w, x.id, 'half');
 }
 
+// the season setup (a series with seats): the cheapest car that's affordable, the --seat deal, the steady sponsor
+function seasonSetup(w) {
+  if (WC.setupDone(w) || WC.setupKind(w) !== 'season') return;
+  const S = w.setup;
+  if (S.cars.length) { const ok = S.cars.map((o, i) => [i, o]).filter(([i]) => { WC.setupPick(w, 'car', i); return WC.setupBudget(w).after >= 0; }); WC.setupPick(w, 'car', ok.length ? ok[0][0] : 0); }
+  const k = S.seats.findIndex(d => d.kind === (GENT ? SEAT : 'pro')); WC.setupPick(w, 'seat', Math.max(0, k));
+  if (S.sponsors.length) WC.setupPick(w, 'sponsor', Math.min(1, S.sponsors.length - 1));
+  const r = WC.setupApply(w); if (!r.ok) { S.done = true; }
+}
 function career(P, s) {
   seed = s * 7919 + 13;
   const w = WC.newWorld({ name: 'Sim Driver', len: LEN, seed: s * 104729 + 1, streetCars: STREET }, POOL);
@@ -188,6 +198,7 @@ function career(P, s) {
     answerAll(w, P);
     { const t = WC.myTeam(w), off = w.player.offer; if (off && off.answer === 'move') for (const [k] of WC.seriesMissing(t, off.to)) { const nx = WC.facNext(t, k); if (nx && w.money.balance > nx.cost) WC.buildFacility(w, k); } }
     WC.nextSeason(w, POOL);
+    seasonSetup(w);
     if (GT && w.player.series === 'gt') { w.simSkill = SKILL; out.gtStart ??= w.money.balance; answerAll(w, P); }
   }
   if (args.includes('--ledger')) { const cat = {}; for (const t of w.money.tx) { const k = t.what.replace(/^[^:]+: /, '').replace(/\(.*?\)|\d[\d,]*/g, '').replace(/ +/g, ' ').trim().slice(0, 34); cat[k] = (cat[k] || 0) + t.amt; } (globalThis.LEDGER ??= []).push(cat); }
@@ -206,6 +217,7 @@ if (GT) {
     const runs = []; for (let i = 0; i < N; i++) runs.push(career(P, i + 1));
     const up = runs.filter(r => r.gtStart != null), broke = up.filter(r => r.broke != null);
     if (globalThis.LEDGER) { const sum = {}; for (const c of LEDGER) for (const [k, v] of Object.entries(c)) sum[k] = (sum[k] || 0) + v / LEDGER.length; for (const [k, v] of Object.entries(sum).sort((a, b) => a[1] - b[1])) if (Math.abs(v) > 8000) console.log(`   ${k.padEnd(36)} ${Math.round(v / 1000)}k`); globalThis.LEDGER = null; }
+    if (SEASONLY) { const ok = runs.filter(r => r.broke == null); for (let y = 0; y < SEASONS; y++) { const sum = {}; for (const r of ok) for (const [k, v] of Object.entries(r.sl[y] || {})) sum[k] = (sum[k] || 0) + v / ok.length; const net = Object.values(sum).reduce((a, b) => a + b, 0); console.log(`  season ${y + 1} net ${k$(net)}: ${Object.entries(sum).sort((a, b) => a[1] - b[1]).filter(([, v]) => Math.abs(v) > 2000).map(([k, v]) => `${k} ${k$(v).trim()}`).join(', ')}`); } }
     console.log(`${name.padEnd(8)} moved up ${up.length}/${N}  broke in GT ${pct(broke.length / Math.max(1, up.length))}  entering GT ${k$(med(up.map(r => r.gtStart)))}  after GT season ${[0, 1].map(i => k$(med(up.map(r => r.gt[i])))).join(' ')}  lowest ${k$(med(up.map(r => r.low)))}`);
   }
   process.exit(0);
