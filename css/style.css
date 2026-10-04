@@ -1777,21 +1777,12 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .tx-mrow b { text-align: right; }
 .tx-panel .tx-chips + .tx-mrow { margin-top: 6px; }
 /* the car */
-/* the condition list: name | meter | % | fail odds | Rebuild | New, the two price columns a fixed width so they line up; an upgrade sits on its own line under the meter, with its Remove under New */
-.tx-part { display: grid; grid-template-columns: 92px auto 40px minmax(0, 1fr) 118px 118px; align-items: center; gap: 0 8px; padding: 7px 0; border-bottom: 1px solid #ebe9e2; }
-.tx-part:first-child { padding-top: 2px; } .tx-part:last-child { border-bottom: 0; padding-bottom: 2px; }
-.tx-part > small { color: #b3161b; font-size: 11px; white-space: nowrap; }
-.tx-pct { font-weight: bold; text-align: right; font-variant-numeric: tabular-nums; } .tx-pct.good { color: #1f6b2f; } .tx-pct.warn { color: #8a6400; } .tx-pct.bad { color: #b3161b; }
-.tx-part > small.tx-prog { grid-column: 5 / -1; color: #777; text-align: center; }
-.tx-buy { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; width: 100%; padding: 2px 8px; }
-.tx-buy b { font-weight: normal; font-variant-numeric: tabular-nums; }
-.tx-buy.armed { background: #fff1c9; border-color: #f6e7b5; color: #7a5a00; } .tx-buy.armed span { font-weight: bold; }
-.tx-buy.armed.f { background: #fff1c9; }
-.tx-fit { grid-column: 2 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; margin-top: 5px; font-size: 12px; color: #444; line-height: 18px; }
-.tx-fit > span { min-width: 0; display: flex; align-items: baseline; gap: 6px; } .tx-fit > span > .tx-chip { flex: none; } /* (a long line wraps under the name, not the chip) */
-.tx-fit i { color: #666; }
-.tx-fit .ws-meas { display: block; padding-left: 2px; }
-.tx-fit .tx-buy { width: auto; min-width: 76px; justify-content: center; color: #555; padding: 1px 12px; font-size: 12px; }
+.tx-part { display: grid; grid-template-columns: 96px auto 46px 1fr auto; align-items: center; gap: 4px 10px; padding: 6px 0; border-bottom: 1px solid #ebe9e2; }
+.tx-part:last-child { border-bottom: 0; }
+.tx-part > small { color: #b3161b; font-size: 11px; }
+.tx-pct { font-weight: bold; text-align: right; } .tx-pct.good { color: #1f6b2f; } .tx-pct.warn { color: #8a6400; } .tx-pct.bad { color: #b3161b; }
+.tx-part .tm-acts { justify-content: flex-end; }
+.tx-fit { grid-column: 1 / -1; font-size: 12px; color: #444; }
 /* development */
 .tx-spec { display: grid; grid-template-columns: 82px auto 1fr; align-items: center; gap: 10px; padding: 3px 0; }
 .tx-spec span { font-size: 12px; color: #333; }
