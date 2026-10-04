@@ -65,6 +65,7 @@ function answerAll(w, P) {
     else if (m.dayJob) key = P.work === 'none' ? 'no' : 'go';
     else if (m.gig) key = P.work === 'none' ? 'no' : 'in';
     else if (m.appear) key = WC.daysLeft(w) > 1 ? 'go' : 'no';
+    else if (m.event) key = 'yes';
     else if (m.tempt) key = P.tempt(w, m, d);
     else if (m.inflate) key = P.inflate;
     else if (m.arc) key = arcChoice(w, m, P);
@@ -74,6 +75,7 @@ function answerAll(w, P) {
     else if (m.offer) WC.answerOffer(w, key);
     else if (m.gig && key === 'in') { const x = WC.bookGig(w, m.gig); if (x !== 'ok' && x !== 'gone') r = { err: x }; }
     else if (m.appear && key === 'go') { if (!WC.appear(w, m.appear)) r = { err: 'days' }; }
+    else if (m.event) WC.rsvpEvent(w, m.event, key);
     else if (m.gent) WC.answerGent(w, m, key);
     else if (m.dayJob && key === 'go') { if (!WC.takeDayJob(w, m)) r = { err: 'days' }; }
     else if (m.tempt || m.arc || m.inflate) r = WC.answerStory(w, m, key);
@@ -102,6 +104,7 @@ function driveGig(w, g) {
 function week(w, P) {
   WC.weekOf(w);
   answerAll(w, P);
+  for (const e of WC.openEvents(w)) WC.attendEvent(w, e.id); // (the sponsors' events: said yes, so go, before the week fills up)
   if (P.work !== 'none') {
     for (const g of WC.bookedGigs(w)) w.simWork = (w.simWork || 0) + (driveGig(w, g)?.net || 0);
     // GigGo: take what's offered while there are days

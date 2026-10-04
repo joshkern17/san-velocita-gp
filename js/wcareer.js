@@ -1821,7 +1821,7 @@ export const daysLeft = (w) => WEEK_DAYS - weekOf(w).used;
 export const weekOpen = (w) => !!(w.founding?.reg && w.money && w.money.choice && !w.over);
 export const hasRaceCar = (w) => !!w.car && !needsCar(w);
 // (tag: the calendar's short name for the day; gig: a booked drive, filled in when it's driven)
-function useDay(w, what, amt = 0, tag = '', gig = null) { const wk = weekOf(w); wk.log.push({ day: wk.used, what, amt, tag, gig }); wk.used++; if (w.projects && !w.pre) crewDay(w); }
+function useDay(w, what, amt = 0, tag = '', gig = null) { const wk = weekOf(w); wk.log.push({ day: wk.used, what, amt, tag, gig }); wk.used++; if (w.projects && !w.pre) crewDay(w); eventsMissed(w, wk); }
 // (and a day spent on the team: what the week's log shows)
 export function spendDay(w, what, tag = '') { if (daysLeft(w) <= 0) return false; useDay(w, what, 0, tag); return true; }
 
@@ -1889,14 +1889,34 @@ function planWeek(w) {
     offerGig(w, newGig(w, 'street', { title: 'Street race', client: who, pay: pot, laps: 2, night: true, theme: 'city' }), 'Danny', 'dannyboy1979@coolmail.sv', 'friday',
       [`Yo so ${who} wants to race you. Friday night, the industrial estate, two laps`, `${money$(pot)} cash, winner takes it`, `Cops don't really go there. Mostly`]);
   }
-  // a sponsor's event
-  const deals = dealsOf(w);
+  // a sponsor's event: on a day this week (it's in the day planner until then)
+  const deals = dealsOf(w).filter(d => !d.shady);
   if (deals.length && rng(w) < 0.4) {
     const d = deals[Math.floor(rng(w) * deals.length)], sp = sponsorById(d.sid);
     const what = pickLine(w, ['our grand reopening', 'our summer sale', 'a customer appreciation day', 'our 25th anniversary', 'a charity car wash']);
+    const ev = { id: 'ev' + (w.nextId++), sid: d.sid, what, by: 1 + Math.floor(rng(w) * 3), rsvp: null, done: false };
+    (wk.events ??= []).push(ev);
     mail(w, sp.name, sponsorAddr(sp.name), `Will you come to ${what}?`,
-      [`We're having ${what} this week and it would mean a lot to have the team there. Bring the car if you can.`, `Our customers would love to meet a real racing driver. Some of them have asked who you are.`, sp.name],
-      { appear: d.sid, choices: [['go', 'Go (a day)'], ['no', 'Not this week']] });
+      [`We're having ${what} on ${DAY_FULL_NAMES[ev.by]} and it would mean a lot to have the team there. Bring the car if you can.`, `Our customers would love to meet a real racing driver. Some of them have asked who you are.`, `Please let us know either way.`, sp.name],
+      { event: ev.id, choices: [['yes', `I'll be there (${DAY_FULL_NAMES[ev.by]})`], ['no', "Sorry, can't make it"]] });
+  }
+}
+// ---------- sponsors' events: a day this week, by a date; say no and they understand, don't turn up and they don't ----------
+const DAY_FULL_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+export const eventById = (w, id) => (weekOf(w).events || []).find(e => e.id === id);
+// still to go to (and still time): what the day planner offers
+export const openEvents = (w) => (weekOf(w).events || []).filter(e => !e.done && e.rsvp !== 'no' && weekOf(w).used <= e.by && dealsOf(w).some(d => d.sid === e.sid));
+export function rsvpEvent(w, id, key) { const e = eventById(w, id); if (!e || e.done) return; e.rsvp = key; }
+export function attendEvent(w, id) { const e = eventById(w, id); if (!e || e.done || !appear(w, e.sid)) return false; e.done = true; return true; }
+// the day's gone past an event's date: they waited (said yes and didn't come: they waited longer)
+function eventsMissed(w, wk = w.week) {
+  for (const e of (wk && wk.events) || []) {
+    if (e.done || e.missed || e.rsvp === 'no' || wk.used <= e.by) continue;
+    e.missed = true;
+    const d = dealsOf(w).find(x => x.sid === e.sid); if (!d) continue;
+    const sp = sponsorById(e.sid), flaked = e.rsvp === 'yes';
+    d.misses += flaked ? 2 : 1; w.rep = clamp(repOf(w) - (flaked ? 3 : 1), 0, 100);
+    mail(w, sp.name, sponsorAddr(sp.name), flaked ? 'Where were you?' : 'We missed you', [flaked ? `We told our customers you'd be at ${e.what}. You weren't. Several of them asked for their balloons back.` : `We didn't hear back about ${e.what}, so we assume you were busy. It would have been nice to know.`, `We'll bear it in mind.`, sp.name]);
   }
 }
 function proWeek(w, K) {
@@ -2020,6 +2040,7 @@ function rateGig(w, s) {
 }
 // race day came and a booked gig wasn't driven
 function noShows(w, wk) {
+  wk.used = Math.max(wk.used, WEEK_DAYS); eventsMissed(w, wk); // (the week's over: whatever's left was missed)
   for (const g of wk.booked) if (!g.done) {
     if (GIG_KINDS[g.kind].site) rateGig(w, 1);
     else if (g.kind === 'street') texts(w, 'Danny', [`${g.client} says you bottled it`, `I told him you were busy`, `Were you busy`]);
@@ -2560,6 +2581,8 @@ export function briefing(w) {
   // what's going wrong (worst first)
   const fz = finances(w), r = fz && fz.net < 0 ? fz.runway : 99, cost = w.over ? 0 : weekendCost(w);
   // (past the limit: the clock, first; else overdrawn: the fee, and how far the limit is)
+  // (the sponsors' events, in one short line: the days they're on)
+  { const ev = w.money && w.founding?.reg && !w.over ? openEvents(w) : []; if (ev.length) watch.push({ text: ev.length > 1 ? `Sponsor events: ${ev.map(e => DAY_NAMES[e.by]).join(', ')}` : `Sponsor event on ${DAY_FULL_NAMES[ev[0].by]}: ${sponsorById(ev[0].sid).name}`.slice(0, 48), bad: false }); }
   { const n = satOut(w), m = sitMax(w); if (n && !w.over) watch.push({ text: n >= m ? `Sat out ${n} of ${m} allowed: miss another and the entry goes` : `Sat out ${n} of ${m} rounds the series allows`, bad: n >= m }); }
   { const n = bankRoundsLeft(w), L = bankLimit(w);
     if (n != null) watch.push({ text: `Bank: above ${money$(-L)} in ${n} round${n === 1 ? '' : 's'} or it closes`, bad: true });

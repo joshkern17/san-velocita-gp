@@ -1438,6 +1438,7 @@ const pc = new Computer({
       else { if (r !== 'gone') m.answer = null; toast(r === 'nodays' ? 'You have no days left this week.' : r === 'nocar' ? 'You need a car for that.' : 'That was for another week.'); }
     }
     if (m.appear && key === 'go' && !WC.appear(world, m.appear)) { m.answer = null; toast('You have no days left this week.'); }
+    if (m.event) { WC.rsvpEvent(world, m.event, key); if (key === 'yes') toast('It\'s in your week: plan the day it\'s on.', 3500); }
     if (m.dayJob && key === 'go') { if (WC.takeDayJob(world, m)) sfx.best(); else { m.answer = null; toast('You have no days left this week.'); } }
     if (m.poach) { const r = WC.answerPoach(world, m, key); if (r === 'kept') sfx.best(); renderHub(); }
     // a gentleman driver's offer: they take the second seat (whoever's in it is let go)
@@ -2543,6 +2544,12 @@ function dayChoices(w, canRace) {
   const car = WC.hasRaceCar(w);
   if (car && WC.facLevel(WC.myTeam(w), 'sim') && !wk.sim && !wk.tested) out.push({ key: 'sim', short: 'Sim rig', tag: 'Free', head: `Sim session: ${R.name}`, desc: 'Learn the circuit on the sim: some of the setup a test day would find, with no track hire, no fuel and no wear.',
     money: 'Free', effect: 'Some setup for this weekend', vis: map, run: () => { WC.simDay(w); return { line: `Sim session: ${R.name}`, note: 'Some of the setup found.' }; } });
+  // sponsors' events: one each, on or before its day (they stack; each is a day)
+  for (const e of WC.openEvents(w)) {
+    const sp = WC.sponsorInfo(e.sid), day = WC.DAY_NAMES[e.by], today = wk.used === e.by;
+    out.push({ key: 'ev' + e.id, short: sp.name, tag: today ? 'Today' : `By ${day}`, head: `${sp.name}: ${e.what}`, desc: `${today ? 'It\'s today.' : `On ${day}: go any day up to then.`} They remember who turns up. ${e.rsvp === 'yes' ? 'You said you\'d be there: not turning up costs double.' : 'Not answering and not going counts as a missed target.'}`,
+      money: 'Free', effect: '+2 reputation, a missed target forgiven', run: () => { const ok = WC.attendEvent(w, e.id); return { line: `${sp.name}: ${e.what}`, note: ok ? 'Photos with customers. One of them was quite famous, apparently.' : 'No days left.' }; } });
+  }
   if (car && !wk.tested) out.push({ key: 'test', short: 'Test day', tag: `−${$(WC.testCost(w))}`, mcls: 'neg', head: `Test day at ${R.name}`, desc: 'Track hire, plus fuel and wear. Do five laps or more and you find a setup: a little more grip there this weekend. Pause to end the day.',
     money: `−${$(WC.testCost(w))} + wear`, mcls: 'neg', effect: 'More grip this weekend', vis: map, go: true, goLabel: 'Book it', confirm: 'Book it? Select again', run: () => startTestDay() });
   out.push({ key: 'off', short: 'Day off', tag: '', head: 'A day off', desc: 'Nothing. It\'s allowed.', money: 'Free', effect: 'Nothing', run: () => { WC.spendDay(w, 'A day off', 'Day off'); return { line: 'A day off', note: 'You slept in. The car didn\'t fix itself.' }; } });
@@ -2554,7 +2561,11 @@ function dayItem(w, canRace) {
   const ch = dayChoices(w, canRace), wk = WC.weekOf(w), left = WC.daysLeft(w);
   if (!ch.some(c => c.key === dayPick)) dayPick = ch[0].key;
   return { label: `Plan ${DAY_FULL[WC.DAY_NAMES[wk.used]] || 'Today'}<small>${left} DAY${left === 1 ? '' : 'S'} LEFT</small>`, cls: 'action primary day', action: () => openDayPlan(canRace),
-    desc: `<span class="dh">How you spend the day</span>${ch.map(c => `${c.short}${c.tag ? ` <span class="dk">${c.tag}</span>` : ''}`).join(' &middot; ')}` };
+    // (one line: the sponsors' events counted as one, however many there are)
+    desc: `<span class="dh">How you spend the day</span>${(() => { const ev = ch.filter(c => c.key.startsWith('ev')), rest = ch.filter(c => !c.key.startsWith('ev'));
+      const parts = rest.map(c => `${c.short}${c.tag ? ` <span class="dk">${c.tag}</span>` : ''}`);
+      if (ev.length) parts.splice(Math.min(4, parts.length), 0, `Sponsor event${ev.length > 1 ? `s <span class="dk">${ev.length}</span>` : ` <span class="dk">${ev[0].tag}</span>`}`);
+      return parts.join(' &middot; '); })()}` };
 }
 // no race car (sold, burned, or the wrong class after moving up): where to get one
 function getCarItem(w) {
