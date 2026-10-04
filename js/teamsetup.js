@@ -172,10 +172,12 @@ export class TeamSetup {
     const w = this.w, S = w.setup, $ = WC.money$;
     if (this.season && step === 'car') {
       const x = S.cars[i], c = x.c, how = { lease: 'Lease', used: 'Last year\'s, ex-works', buy: 'New' }[x.how];
+      // (backed by a maker: which cars keep the support, which end it)
+      const W = WC.worksOf(w), works = W ? `<div class="tsw-cost tsw-works"><span>${esc(W.maker)} support</span><span class="tsw-pay">${WC.worksCar(w, c.name) ? `<b class="gain">+${$(W.per)}<small> a round</small></b>` : '<b class="bad">Ends</b>'}</span></div>` : '';
       return `<div class="tsw-top">${tag(how, x.how === 'lease' ? '' : x.how === 'used' ? 'good' : 'bad')}</div><h3>${esc(c.name)}</h3><div class="tsw-price">${$(x.how === 'lease' ? c.deposit : c.price)}<small>${x.how === 'lease' ? ' deposit' : ''}</small></div>
         ${x.how === 'lease' ? `<div class="tsw-kpis"><div><small>A round</small><b>${$(c.perRound)}</b></div><div><small>Season</small><b>${$(c.deposit + c.perRound * w.opts.len)}</b></div></div>` : ''}
         ${c.hp ? stat('Power', `${c.hp} hp`, c.hp / 700) + stat('Weight', `${c.kg} kg`, 1 - (c.kg - 900) / 600) : ''}${x.how === 'used' ? stat('Condition', `${Math.round(c.cond * 100)}%`, c.cond) : ''}
-        <p class="tsw-blurb">${esc(x.how === 'used' ? `From ${c.team}, a season old.` : c.note || '')}</p><p class="tsw-seller">${esc(c.prog || '')}</p>`;
+        ${works || `<p class="tsw-blurb">${esc(x.how === 'used' ? `From ${c.team}, a season old.` : c.note || '')}</p>`}<p class="tsw-seller">${esc(c.prog || '')}</p>`;
     }
     if (step === 'seat') {
       const d = S.seats[i], K = WC.SEAT_KINDS[d.kind], ps = d.pids.map(pid => w.people[pid]).filter(Boolean), L = w.opts.len;
@@ -200,10 +202,10 @@ export class TeamSetup {
     }
     if (step === 'sponsor') {
       const x = S.sponsors[i], sp = WC.sponsorInfo(x.sid), logo = this.src.logo(x.sid);
-      return `<div class="tsw-top">${tag(esc(x.tag), i === 0 ? 'bad' : i === 2 ? 'good' : '')}</div>${logo ? `<img class="tsw-logo" src="${logo}">` : ''}<h3>${esc(sp.name)}</h3>
+      return `<div class="tsw-top">${tag(esc(x.tag), x.hosp ? '' : i === 0 ? 'bad' : i === 2 ? 'good' : '')}</div>${logo ? `<img class="tsw-logo" src="${logo}">` : ''}<h3>${esc(sp.name)}</h3>
         <div class="tsw-kpis"><div><small>A round</small><b>${$(x.fee)}</b></div><div><small>Target bonus</small><b>${$(x.bonus)}</b></div><div><small>Signing</small><b>${x.signing ? $(x.signing) : '&mdash;'}</b></div></div>
-        ${stat('Patience', `${x.patience} miss${x.patience === 1 ? '' : 'es'}`, x.patience / 6, 6)}
-        <p class="tsw-blurb">${esc(x.brand)}. Targets: ${sp.wants.map(k => WANTS[k]).join(', ')}.</p>`;
+        ${S.sponsors.length > 3 ? stat('Misses OK', x.patience, x.patience / 6, 6) : stat('Patience', `${x.patience} miss${x.patience === 1 ? '' : 'es'}`, x.patience / 6, 6)}
+        <p class="tsw-blurb">${x.hosp ? 'Their clients, a day of your week, every week: miss one and it counts as a missed target.' : `${esc(x.brand)}.`} Targets: ${sp.wants.map(k => WANTS[k]).join(', ')}.</p>`;
     }
     // the second driver
     const pid = o.val, p = w.people[pid], a = WC.askOf(w, p), [lo, hi] = S.scout[pid] || [p.pot, p.pot], tr = WC.traitsOf(w, p), under = S.picks.entry === 'takeover' && pid === S.inherited;

@@ -1453,6 +1453,7 @@ const pc = new Computer({
     }
     if (m.appear && key === 'go' && !WC.appear(world, m.appear)) { m.answer = null; toast('You have no days left this week.'); }
     if (m.event) { WC.rsvpEvent(world, m.event, key); if (key === 'yes') toast('It\'s in your week: plan the day it\'s on.', 3500); }
+    if (m.worksOffer) { if (WC.answerWorks(world, key) === 'signed') { sfx.best(); renderHub(); } }
     if (m.invOffer) { if (WC.answerInvestor(world, key) === 'in') { sfx.best(); renderHub(); } }
     if (m.invOut) { const r = WC.answerBuyout(world, key); if (r && r.err) { m.answer = null; sfx.error(); toast(r.err); } else if (r && r.msg) { toast(r.msg, 4000); renderHub(); } }
     if (m.dayJob && key === 'go') { if (WC.takeDayJob(world, m)) sfx.best(); else { m.answer = null; toast('You have no days left this week.'); } }
@@ -2568,6 +2569,9 @@ function dayChoices(w, canRace) {
         money: 'Free', effect: 'A question by email after: answer it well', run: () => { const ok = WC.attendEvent(w, e.id); return { line: e.what, note: ok ? `${I.name[0]} picked the wine. It was expensive, and ${I.name[0]} let you know.` : 'No days left.' }; } });
       continue; }
     const sp = WC.sponsorInfo(e.sid), day = WC.DAY_NAMES[e.by], today = wk.used === e.by;
+    // (hospitality: part of the deal, every week)
+    if (e.hosp) { out.push({ key: 'ev' + e.id, short: sp.name, tag: today ? 'Today' : `By ${day}`, head: `${sp.name}: ${e.what}`, desc: `Part of the deal: their clients, one day every week, by ${day}. Miss it and it counts as a missed target.`,
+      money: 'Free', effect: 'Keeps the deal sweet', run: () => { const ok = WC.attendEvent(w, e.id); return { line: `${sp.name}: ${e.what}`, note: ok ? 'One of them asked if the car was real. Another asked if you were.' : 'No days left.' }; } }); continue; }
     out.push({ key: 'ev' + e.id, short: sp.name, tag: today ? 'Today' : `By ${day}`, head: `${sp.name}: ${e.what}`, desc: `${today ? 'It\'s today.' : `On ${day}: go any day up to then.`} They remember who turns up. ${e.rsvp === 'yes' ? 'You said you\'d be there: not turning up costs double.' : 'Not answering and not going counts as a missed target.'}`,
       money: 'Free', effect: '+2 reputation, a missed target forgiven', run: () => { const ok = WC.attendEvent(w, e.id); return { line: `${sp.name}: ${e.what}`, note: ok ? 'Photos with customers. One of them was quite famous, apparently.' : 'No days left.' }; } });
   }

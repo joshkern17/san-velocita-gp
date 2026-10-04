@@ -18,8 +18,8 @@ export const POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 // A new series is a line here, plus its costs (COSTS, SEASON_FUND, TEAM_FUND) and its cars: the rest builds itself.
 export const SERIES = [
   { id: 'street', name: 'Street Cup', cls: 'street', tier: 0, base: 50, spread: 14, car: 'classifieds' },
-  { id: 'gt', name: 'GT Championship', cls: 'gt1', tier: 1, base: 63, spread: 12, car: 'customer', price: [240000, 330000], ballast: true, gents: true, seats: ['gent', 'pro', 'share', 'junior'] },
-  { id: 'formula', name: 'Formula SV', cls: 'f1', tier: 2, base: 76, spread: 10, car: 'spec', price: [900000, 900000], gents: true, seats: ['gent', 'pro', 'share', 'junior'] },
+  { id: 'gt', name: 'GT Championship', cls: 'gt1', tier: 1, base: 63, spread: 12, car: 'customer', price: [240000, 330000], ballast: true, gents: true, seats: ['gent', 'pro', 'share', 'junior'], works: true, hosp: true },
+  { id: 'formula', name: 'Formula SV', cls: 'f1', tier: 2, base: 76, spread: 10, car: 'spec', price: [900000, 900000], gents: true, seats: ['gent', 'pro', 'share', 'junior'], hosp: true },
 ];
 export const seriesById = (id) => SERIES.find(s => s.id === id);
 const TEAMS_PER = 6, SEATS = 2;
@@ -552,7 +552,7 @@ function seasonEnd(w) {
       { offer: true, choices: [['move', `Accept: move up to the ${up.name}`], ['stay', `Decline: stay in the ${seriesById(w.player.series).name}`]] });
   }
   // this year's ambition, the investor's target, and the list
-  if (!w.pre && w.money) { ambitionEnd(w, summary); investorSeason(w, summary); }
+  if (!w.pre && w.money) { ambitionEnd(w, summary); investorSeason(w, summary); worksSeason(w, summary); }
   if (!w.pre) listCheck(w, { season: summary });
   seasonEndNews(w, summary);
 }
@@ -1319,8 +1319,13 @@ function seasonSponsors(w) {
   const K = SPONSOR_K[w.player.series] || 1, rep = repOf(w);
   const pool = SPONSOR_POOL.map((x, i) => sponsorById('sp' + i)).filter(sp => sp.rep <= rep + 10 && sp.rep < 999 && !sp.town && !SHADY.includes(sp.name)).sort((a, b) => b.rep - a.rep + (rng(w) - 0.5) * 20).slice(0, 3);
   const shapes = [{ k: 1.3, sign: 1, pat: -1, tag: 'Big money, impatient' }, { k: 1, sign: 2, pat: 0, tag: 'Steady' }, { k: 0.75, sign: 4, pat: 2, tag: 'Patient, big signing bonus' }];
+  // (and in a series where companies buy hospitality: a big one that pays the most, for a day of your week, every week)
+  if (seriesById(w.player.series).hosp) { const corp = SPONSOR_POOL.map((x, i) => sponsorById('sp' + i)).filter(sp => !pool.some(x => x.id === sp.id) && sp.rep <= rep + 10 && sp.rep < 999 && !sp.town && !SHADY.includes(sp.name)).sort((a, b) => b.fee - a.fee)[0];
+    if (corp) { pool.push(corp); shapes.push({ k: 1.3, sign: 0, pat: 0, tag: 'Hospitality', hosp: true }); } }
   return pool.map((sp, i) => { const sh = shapes[i], fee = Math.round(sp.fee * K * sh.k * (0.95 + rng(w) * 0.1) / 50) * 50;
-    return { sid: sp.id, fee, bonus: Math.round(fee * 0.6 / 50) * 50, signing: Math.round(fee * sh.sign / 100) * 100, patience: clamp(sp.patience + sh.pat, 1, 6), tag: sh.tag, brand: BRAND[sp.wants[0]] || '' }; });
+    return { sid: sp.id, fee, bonus: Math.round(fee * 0.6 / 50) * 50, signing: Math.round(fee * sh.sign / 100) * 100, patience: clamp(sp.patience + sh.pat, 1, 6), tag: sh.tag, hosp: !!sh.hosp, brand: BRAND[sp.wants[0]] || '' }; })
+    // (hospitality always pays the most: it's paying for a day of your week as well)
+    .map((o, i, all) => { if (!o.hosp) return o; const top = Math.max(...all.filter(x => !x.hosp).map(x => x.fee)), fee = Math.max(o.fee, Math.round(top * 1.15 / 50) * 50); return { ...o, fee, bonus: Math.round(fee * 0.6 / 50) * 50 }; });
 }
 // the cars, when you need one: two leases (the cheapest, the quickest), last year's car from a team, the cheapest to buy
 export function seasonCars(w) {
@@ -1353,6 +1358,7 @@ export function seasonRoughly(w, picks = w.setup?.picks || {}) {
   rows.push(['Running the cars', -L * (c.entry + Math.round(c.travel * staffEffects(w).travel * (facLevel(myTeam(w), 'truck') ? 0.65 : 1)) + c.crew + c.tyre * 2 + c.fuelLap * 30)]);
   const o = picks.car != null ? S.cars[picks.car] : null, lease = o && o.how === 'lease' ? o.c.perRound * L : !o && w.car?.lease ? w.car.lease.perRound * L : 0;
   if (lease) rows.push(['Car lease', -lease]);
+  { const W = worksOf(w), name = o ? o.c.name : w.car?.name; if (W && worksCar(w, name)) rows.push([`${W.maker} works support`, W.per * L]); }
   const pay = (w.staff || []).reduce((a, x) => a + wageNow(w, x), 0) * L + facUpkeep(myTeam(w)) * L; if (pay) rows.push(['Staff and premises', -pay]);
   const sp = picks.sponsor != null ? S.sponsors[picks.sponsor] : null, fees = (sp ? sp.fee : 0) + dealsOf(w).filter(d => !d.shady).reduce((a, d) => a + d.fee, 0);
   if (fees) rows.push(['Sponsors (fees)', fees * L]);
@@ -1367,7 +1373,7 @@ function seasonApply(w) {
   if (P.seat == null || (S.sponsors.length && P.sponsor == null)) return { ok: false, why: 'Something is still to choose.' };
   if (seasonBudgetNow(w).after < 0) return { ok: false, why: `That's more than you have. Go back and change something.` };
   const o = carPickOf(w); if (o && !acquireCar(w, o.how, o.id)) return { ok: false, why: 'That car has gone.' };
-  if (S.sponsors.length) { S.sponsored = null; const x = S.sponsors[P.sponsor]; dealsOf(w).push({ sid: x.sid, slot: 'title', fee: x.fee, bonus: x.bonus, met: 0, misses: 0, since: w.year, obj: null, patience: x.patience }); if (x.signing) pay(w, x.signing, `${sponsorById(x.sid).name}: signing bonus`); }
+  if (S.sponsors.length) { S.sponsored = null; const x = S.sponsors[P.sponsor]; dealsOf(w).push({ sid: x.sid, slot: 'title', fee: x.fee, bonus: x.bonus, met: 0, misses: 0, since: w.year, obj: null, patience: x.patience, hosp: x.hosp || undefined }); if (x.signing) pay(w, x.signing, `${sponsorById(x.sid).name}: signing bonus`); }
   signSeat(w, S.seats[P.seat]);
   S.done = true;
   const t = myTeam(w), d = S.seats[P.seat], q = w.people[d.pids[0]];
@@ -1594,6 +1600,46 @@ export function answerBuyout(w, key) {
   return { msg: `${r.join(' ')} owns ${Math.round(I.share * 100)}% of your team now.` };
 }
 
+// ---------------- works support: a maker backs the team that's winning in its car ----------------
+// In a series with customer cars (SERIES[].works), a strong season in a maker's car (the top 5, or three podiums)
+// brings an offer from its motorsport department: money every round, a bonus for each podium, and a target for the
+// season. It lasts while you race their car in that series (the season setup's car cards say which cars keep it), and
+// it's renewed each season the target's met. w.works = { maker, sid, per, podium, target, since }
+export const worksOf = (w) => (w.works && w.works.sid === w.player.series ? w.works : null);
+const worksAddr = (m) => `motorsport@${m.toLowerCase().replace(/[^a-z]/g, '')}.sv`;
+export const worksCar = (w, name) => { const W = worksOf(w); return !!(W && name && makerOf(name) === W.maker); };
+function worksSeason(w, sum) {
+  const S = seriesById(w.player.series), you = sum.you, W = worksOf(w); if (!you || !w.car) return;
+  if (W) {
+    if (you.pos <= W.target) { W.target = Math.max(1, W.target - 1); mail(w, `${W.maker} Motorsport`, worksAddr(W.maker), `${w.year + 1}`, [`P${you.pos}. Target met: we'll continue our support next season, on the same terms.`, `Next season we're looking for the top ${W.target}. In one of our cars, naturally.`, `${W.maker} Motorsport`]); }
+    else { w.works = null; mail(w, `${W.maker} Motorsport`, worksAddr(W.maker), 'Our support', [`We asked for the top ${W.target}. P${you.pos} is not the top ${W.target}.`, `We'll be focusing our support on other customers next season. Thank you for racing ${W.maker}.`, `${W.maker} Motorsport`]); }
+    return;
+  }
+  if (!S.works || !w.car.lease && !w.car.prog) return;
+  const pods = (w.series[w.player.series].results || []).filter(r => r.rows.some(x => x.pid === 'P' && !x.dnf && x.pos <= 3)).length;
+  if (you.pos > 5 && pods < 3) return;
+  const maker = makerOf(w.car.name), c = COSTS[w.player.series], per = Math.round(c.crew * 0.45 / 500) * 500, podium = Math.round(per * 0.5 / 500) * 500, target = clamp(you.pos, 1, 5);
+  w.worksOffer = { maker, sid: S.id, per, podium, target };
+  mail(w, `${maker} Motorsport`, worksAddr(maker), 'Works support', [`We've watched your season in the ${w.car.name} with interest. ${pods ? `${pods} podium${pods === 1 ? '' : 's'}` : `P${you.pos} in the championship`}, in a customer car, is the kind of thing our board likes to see in a brochure.`,
+    `We'd like to support the team next season: ${money$(per)} a round, ${money$(podium)} more for each podium, our engineers on call. In return you race one of our cars, and we're looking for the top ${target}.`, `${maker} Motorsport`],
+    { worksOffer: true, choices: [['yes', `Accept: ${money$(per)} a round`], ['no', 'No thanks']] });
+}
+export function answerWorks(w, key) {
+  const o = w.worksOffer; if (!o) return null; w.worksOffer = null;
+  if (key !== 'yes') return 'declined';
+  w.works = { ...o, since: w.year + 1 };
+  news(w, `${o.maker.toUpperCase()} BACKS ${w.teams[w.player.team].name.toUpperCase()}`, `${o.maker} will support ${w.teams[w.player.team].name} next season. "We see a lot of ourselves in them," a spokesperson said, of a team that had until recently been running out of a lock-up.`);
+  return 'signed';
+}
+// the round's money (and the deal ends the moment you're in someone else's car)
+function worksRound(w, me) {
+  const W = worksOf(w); if (!W) return [];
+  if (!worksCar(w, w.car && w.car.name)) { w.works = null; mail(w, `${W.maker} Motorsport`, worksAddr(W.maker), 'Our support', [`We notice you are no longer racing a ${W.maker}. Our support was for teams racing a ${W.maker}. We trust you understand.`, `${W.maker} Motorsport`]); return []; }
+  const out = [[`${W.maker} works support`, W.per]];
+  if (me && !me.dnf && me.pos <= 3) out.push([`${W.maker}: podium bonus (P${me.pos})`, W.podium]);
+  return out;
+}
+
 // ---------------- the week, from GT up ----------------
 // (a day's work you're asked to do: { what, pay, tag }; taken from the email)
 export function takeDayJob(w, m) {
@@ -1699,6 +1745,7 @@ export function settleRound(w, use, me) {
   if (use.damage > 0.005) items.push([bg.repair ? 'Repairs (mostly done yourself)' : 'Repairs', -Math.round(use.damage * c.repair * (bg.repair || 1) * fx.repair / 100) * 100]);
   for (const it of sponsorRound(w, use, me)) items.push(it);
   for (const it of seatRound(w)) items.push(it);
+  for (const it of worksRound(w, me)) items.push(it);
   for (const it of temptRound(w, use, me)) items.push(it);
   arcRound(w, me);
   const base = me && !me.dnf ? c.prize[me.pos - 1] || 0 : 0, pct = Math.max(0, use.aidPct || 0);
@@ -2001,8 +2048,13 @@ function planWeek(w) {
     offerGig(w, newGig(w, 'street', { title: 'Street race', client: who, pay: pot, laps: 2, night: true, theme: 'city' }), 'Danny', 'dannyboy1979@coolmail.sv', 'friday',
       [`Yo so ${who} wants to race you. Friday night, the industrial estate, two laps`, `${money$(pot)} cash, winner takes it`, `Cops don't really go there. Mostly`]);
   }
+  // hospitality: their clients, a day every week (part of the deal: no invitation, it's in the planner till Friday)
+  for (const d of dealsOf(w).filter(d => d.hosp)) {
+    const what = pickLine(w, ['a golf day with their clients', 'a workshop tour for their clients', 'hot laps for their clients', 'lunch with their clients, and the car', 'their clients\' kids, and the car']);
+    (wk.events ??= []).push({ id: 'ev' + (w.nextId++), sid: d.sid, what, by: 4, rsvp: 'deal', hosp: true, done: false });
+  }
   // a sponsor's event: on a day this week (it's in the day planner until then)
-  const deals = dealsOf(w).filter(d => !d.shady);
+  const deals = dealsOf(w).filter(d => !d.shady && !d.hosp);
   if (deals.length && rng(w) < 0.4) {
     const d = deals[Math.floor(rng(w) * deals.length)], sp = sponsorById(d.sid);
     const what = pickLine(w, ['our grand reopening', 'our summer sale', 'a customer appreciation day', 'our 25th anniversary', 'a charity car wash']);
@@ -2020,7 +2072,10 @@ export const eventById = (w, id) => (weekOf(w).events || []).find(e => e.id === 
 export const openEvents = (w) => (weekOf(w).events || []).filter(e => !e.done && e.rsvp !== 'no' && weekOf(w).used <= e.by && (e.inv || dealsOf(w).some(d => d.sid === e.sid)));
 export function rsvpEvent(w, id, key) { const e = eventById(w, id); if (!e || e.done) return; e.rsvp = key; }
 // (marked done before the day's used: using the day is what moves the week past its date)
-export function attendEvent(w, id) { const e = eventById(w, id); if (e && e.inv) return attendDinner(w, id); if (!e || e.done) return false; e.done = true; if (!appear(w, e.sid)) { e.done = false; return false; } return true; }
+export function attendEvent(w, id) { const e = eventById(w, id); if (e && e.inv) return attendDinner(w, id); if (!e || e.done) return false;
+  // (hospitality: it's the job, so no favours owed)
+  if (e.hosp) { if (daysLeft(w) <= 0) return false; e.done = true; useDay(w, `${sponsorById(e.sid).name}: ${e.what}`, 0, 'Sponsor'); return true; }
+ e.done = true; if (!appear(w, e.sid)) { e.done = false; return false; } return true; }
 // the day's gone past an event's date: they waited (said yes and didn't come: they waited longer)
 function eventsMissed(w, wk = w.week) {
   for (const e of (wk && wk.events) || []) {
@@ -2028,6 +2083,7 @@ function eventsMissed(w, wk = w.week) {
     e.missed = true;
     if (e.inv) { const I = w.investor; if (I && I.stage === 'dinner') { I.interest = clamp(I.interest - 15, 0, 100); I.next = nowIdx(w) + 2; mail(w, I.name.join(' '), INV_ADDR(I), 'Dinner', [`I waited forty minutes. I ordered for both of us, in the end, and ate both.`, I.name[0]]); } continue; }
     const d = dealsOf(w).find(x => x.sid === e.sid); if (!d) continue;
+    if (e.hosp) { const sp = sponsorById(e.sid); d.misses += 1; w.rep = clamp(repOf(w) - 1, 0, 100); mail(w, sp.name, sponsorAddr(sp.name), 'Our clients', [`Our clients were expecting you this week (${e.what}). We had to tell them you were "unavoidably detained."`, `Hospitality is what we pay you for. It's in the contract, page four.`, sp.name]); continue; }
     const sp = sponsorById(e.sid), flaked = e.rsvp === 'yes';
     d.misses += flaked ? 2 : 1; w.rep = clamp(repOf(w) - (flaked ? 3 : 1), 0, 100);
     mail(w, sp.name, sponsorAddr(sp.name), flaked ? 'Where were you?' : 'We missed you', [flaked ? `We told our customers you'd be at ${e.what}. You weren't. Several of them asked for their balloons back.` : `We didn't hear back about ${e.what}, so we assume you were busy. It would have been nice to know.`, `We'll bear it in mind.`, sp.name]);
@@ -2746,6 +2802,7 @@ export function briefing(w) {
   else if (up) hints.push(raced && pos <= 3 ? `Stay in the top 3 for a ${up.name} offer.` : `Top 3 at the end (or your team top 2) earns a ${up.name} offer${raced && fund[pos - 1] ? ` (P${pos} pays ${money$(fund[pos - 1])})` : ''}.`);
   // (and whoever owns a share of the team: their target, in the same line, in place of the promotion rule)
   { const I = investorIn(w); if (I && !w.over && hints.length) hints[0] = hints[0].replace(/ Top 3 earns .*$/, '') + ` ${I.name[1]} (${Math.round(I.share * 100)}%) wants the top ${I.target}${I.misses ? ', or wants out' : ''}.`; }
+  { const W = worksOf(w); if (W && !w.over && hints.length) hints[0] = hints[0].replace(/ Top 3 earns .*$/, '') + ` ${W.maker} wants the top ${W.target}.`; }
   // (money first when it's running out, else what reputation unlocks)
   if (r < 6) hints.unshift(`Money lasts about ${Math.max(0, Math.floor(r))} round${Math.floor(r) === 1 ? '' : 's'}: work the week, keep your sponsors.`);
   else if (sv && sv.why) hints.push(sv.why);

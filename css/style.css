@@ -2092,6 +2092,8 @@ span.tsw-face { width: 64px; height: 64px; }
 .tsw-cost .tsw-pay { justify-self: end; white-space: nowrap; }
 .tsw-cost b { font: 500 var(--t-row)/1 var(--f-ui); letter-spacing: var(--track); font-variant-numeric: tabular-nums; color: var(--sv-red); }
 .tsw-cost small { margin-left: 4px; font: 500 var(--t-small)/1 var(--f-ui); text-transform: uppercase; color: var(--sv-red-dim); }
+.tsw-cost.tsw-works { grid-template-columns: 1fr auto; margin: 8px 0 2px; } /* (a maker's support: kept or ended by this car) */
+.tsw-cost b.bad { color: var(--sv-bad); }
 /* the bracket that slides to the column you're on (the one box: a dark plate with lit corners) */
 .tsw-focus { position: absolute; left: 0; top: 0; pointer-events: none;
   background: linear-gradient(180deg, rgba(255,43,0,.07), rgba(5,3,8,.35) 40%); --frame-l: 18px; }
