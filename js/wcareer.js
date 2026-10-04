@@ -682,6 +682,7 @@ export function nextSeason(w, trackPool) {
     moves.push({ kind: 'you-up', to });
   }
   const moved = off && off.answer === 'move';
+  if (moved && !w.pre) { keepClip(w, 'up', `${w.player.name.split(' ').pop()} moves up to the ${seriesById(off.to).name}`); w._mumClip = null; }
   w.player.offer = null;
   w.lastMoves = moves;
   newCalendars(w, trackPool);
@@ -3706,6 +3707,7 @@ function storyBeat(w, key, o, t, heat = 1) {
   x.beats.push(beat); x.last = nowIdx(w); x.heat = heat;
   if (o.lead) x.lead = o.lead;
   if (o.close) x.open = false;
+  if (o.keep) keepClip(w, 'story', x.head);
   (w._told ??= []).push({ x, heat, text: o.text || null, from: o.from || null });
   return x;
 }
@@ -3747,7 +3749,7 @@ function siftRound(w, me) {
     if (!open && just >= 3 && b < a) nemOpen = storyBeat(w, key, { kind: 'nemesis', pid: r.pid, head: `The ${p.last} problem`, lead: `For the third time in four races, ${nameOf(p)} has finished just ahead of ${w.player.name}.`, text: p.aggr > 55 || grudgeOf(w, r.pid) ? pickLine(w, [`P${b}. Again. Getting used to the view?`, `Same result as last time. And the time before.`]) : null, from: p.first }, `${p.last} P${b}, you P${a < 99 ? a : 'DNF'}: ahead of you for the third time in four races`, 4);
     else if (open && b < a && a - b <= 3) { open.far = 0; storyBeat(w, key, {}, `${p.last} ahead again: P${b} to your ${a < 99 ? 'P' + a : 'DNF'}`, 1); }
     else if (open && b < a) { open.far = (open.far || 0) + 1; if (open.far >= 2) open.open = false; } // (they've moved on up the field: it's not a fight any more)
-    else if (open && a < b) { const beaten = (open.beatThem || 0) + 1; open.beatThem = beaten; storyBeat(w, key, { close: beaten >= 2, lead: beaten >= 2 ? `${w.player.name} has now finished ahead of ${nameOf(p)} twice running. Problem solved, for now.` : `${w.player.name} finally finished ahead of ${nameOf(p)}.`, text: beaten === 1 ? pickLine(w, [`Fine. Enjoy it.`, `One race. Don't frame it.`]) : null, from: p.first }, beaten >= 2 ? `Ahead of ${p.last} again (P${a} to ${b < 99 ? 'P' + b : 'DNF'}): twice running` : `You beat ${p.last} at last: P${a} to ${b < 99 ? 'P' + b : 'DNF'}`, beaten >= 2 ? 4 : 5); }
+    else if (open && a < b) { const beaten = (open.beatThem || 0) + 1; open.beatThem = beaten; storyBeat(w, key, { close: beaten >= 2, keep: beaten >= 2, lead: beaten >= 2 ? `${w.player.name} has now finished ahead of ${nameOf(p)} twice running. Problem solved, for now.` : `${w.player.name} finally finished ahead of ${nameOf(p)}.`, text: beaten === 1 ? pickLine(w, [`Fine. Enjoy it.`, `One race. Don't frame it.`]) : null, from: p.first }, beaten >= 2 ? `Ahead of ${p.last} again (P${a} to ${b < 99 ? 'P' + b : 'DNF'}): twice running` : `You beat ${p.last} at last: P${a} to ${b < 99 ? 'P' + b : 'DNF'}`, beaten >= 2 ? 4 : 5); }
   }
   // 2. the driver who put you out, and getting them back (they hit you, blamed, this round: it opens)
   const hit = w.ledger.filter(e => e.y === w.year && e.r === res.round && e.s === sid && e.b === 'P' && (e.type === 'contact' && e.blame || DIRTY[e.type]));
@@ -3757,7 +3759,7 @@ function siftRound(w, me) {
   for (const x of storiesOf(w).filter(x => x.open && x.kind === 'revenge' && x.beats.at(-1).r !== res.round || x.open && x.kind === 'revenge' && x.beats.at(-1).y !== w.year)) {
     const r = row(x.pid); if (!r) { if (nowIdx(w) - x.last > 12) x.open = false; continue; }
     const p = w.people[x.pid];
-    if (pos(me) < pos(r)) storyBeat(w, x.key, { close: true, lead: `${w.player.name} finished ahead of ${nameOf(p)} at ${res.track}, the first race since ${p.last} ${(x.did || 'hit you').replace('you', 'them')} at ${x.beats[0].track}.`, text: pickLine(w, [`Alright. We're even.`, `Fair enough. Call it square.`, `Saw that. Fine.`]), from: p.first }, `Payback: you P${pos(me)}, ${p.last} ${pos(r) < 99 ? 'P' + pos(r) : 'DNF'}`, 5);
+    if (pos(me) < pos(r)) storyBeat(w, x.key, { close: true, keep: true, lead: `${w.player.name} finished ahead of ${nameOf(p)} at ${res.track}, the first race since ${p.last} ${(x.did || 'hit you').replace('you', 'them')} at ${x.beats[0].track}.`, text: pickLine(w, [`Alright. We're even.`, `Fair enough. Call it square.`, `Saw that. Fine.`]), from: p.first }, `Payback: you P${pos(me)}, ${p.last} ${pos(r) < 99 ? 'P' + pos(r) : 'DNF'}`, 5);
     else if (nowIdx(w) - x.last > 12) x.open = false;
   }
   // 3. your teammate's run (ahead of you three races in a row), and getting back on top
@@ -3880,6 +3882,37 @@ export function storyLine(w) {
 }
 // what you did at each circuit (for "back at the scene")
 function trackRemember(w, me) { const res = w.series[w.player.series].results.at(-1); if (!me || !res) return; ((w.trackLog ??= {})[res.track] ??= []).push({ y: w.year, pos: me.pos, dnf: !!me.dnf }); }
+// ---------------- the garage remembers ----------------
+// Mum reads the hometown paper and cuts you out of it: the big moments (a first podium, a first win, a title, moving
+// up, a storyline that ends your way) are clippings pinned beside the list. Trophies on the desk for what you've won;
+// the bills pile up on it when the money's gone; and until the first season's done (or when you're broke again), the
+// mattress in the corner. js/pitgarage.js puts them in the room (setMemories).
+export const hometownPaper = (w) => `${(TOWNS[w.home] || TOWNS.pinewood).name} Gazette`;
+const MUM_NOTES = { pod: ['Front page of sport!', 'I bought three copies'], win: ['WINNER!!', 'Showed the whole street'], title: ['CHAMPION! Love Mum', 'Framed the other one'], up: ['Big leagues!', 'Mrs Patel asked for your autograph'], story: ['Is this good? Mum x', 'Saw this. Love Mum'] };
+function keepClip(w, kind, head) {
+  if (w.pre) return;
+  const res = w.series[w.player.series].results.at(-1), K = (w.keeps ??= []);
+  K.push({ kind, head, y: w.year, r: res ? res.round : w.round, track: res ? res.track : '', paper: hometownPaper(w), note: pickLine(w, MUM_NOTES[kind] || MUM_NOTES.story) });
+  // (eight on the wall at most: the titles stay, the oldest of the rest come down)
+  while (K.length > 8) { const i = K.findIndex(k => k.kind !== 'title'); K.splice(i < 0 ? 0 : i, 1); }
+  w._mumClip = kind;
+}
+// Mum, the Sunday after a race: when she's cut something out, or when it looked bad on the news (and early on, worried)
+function mumSunday(w, me) {
+  const k = w._mumClip; w._mumClip = null;
+  if (k) { text(w, 'Mum', pickLine(w, { pod: [`You were in the Gazette! I cut it out for you.`, `Mrs Patel showed me the Gazette. You're famous. I cut it out.`], win: [`You WON! It's in the Gazette. I've cut it out, it's going on your wall.`, `I told everyone at church. Then I cut you out of the Gazette.`], title: [`Champion! The Gazette did a whole piece. I've cut it out and I'm not giving it back. Fine, you can have it.`], up: [`The Gazette says you're moving up! Does that mean more money or less? I cut it out anyway.`], story: [`You're in the Gazette again. I don't understand it but I cut it out.`] }[k] || [`I cut you out of the Gazette.`])); return; }
+  if (me && me.dnf && rng(w) < 0.4) { text(w, 'Mum', pickLine(w, [`I saw the race on the news. Are you hurt? Call me.`, `Was that your car upside down? Don't tell me. Just call.`, `They said someone crashed. Was it you? Call your mother.`])); return; }
+  if (memoriesOf(w).mattress && rng(w) < 0.15) text(w, 'Mum', pickLine(w, [`Danny says you're sleeping at the garage. Are you eating?`, `There's a spare room here, you know. With a real bed.`]));
+}
+// what's in the room: clippings, trophies, the bills, the mattress
+export function memoriesOf(w) {
+  if (!w.money || !w.founding?.reg) return { clips: [], trophies: [], bills: 0, mattress: false };
+  const p = w.player, titles = p.titles || 0, wins = p.wins || 0, pods = Math.max(0, (p.pods || 0) - wins);
+  const trophies = [...Array(titles).fill('title'), ...Array(Math.min(wins, 5)).fill('win'), ...Array(Math.min(pods, 3)).fill('pod')].slice(0, 8);
+  const bal = w.money.balance, bills = bal < 0 ? clamp(2 + Math.floor(-bal / 10000), 2, 7) : bal < 8000 ? 1 : 0;
+  return { clips: (w.keeps || []).slice(-8), trophies, bills, mattress: !(p.hist || []).length || bal < 0 };
+}
+
 // what the Wire calls you: the lottery winner, until you've earned something else
 export function epithetOf(w) {
   const st = stainOf(w), t = w.player.titles, last = (w.player.hist || []).filter(h => h.pos === 1).at(-1);
@@ -3896,7 +3929,10 @@ function roundNews(w, me) {
   if (!(w.pre && w.year < START_YEAR - 2)) roundPress(w, PRESS_KIT);
   // texts about your race
   if (!me) return;
-  w._texted = null; trackRemember(w, me); siftRound(w, me);
+  w._texted = null; trackRemember(w, me);
+  if (!me.dnf && me.pos <= 3 && (w.player.pods || 0) === 1) keepClip(w, 'pod', `${w.player.name.split(' ').pop()} on the podium at ${w.series[sid].results.at(-1).track}`);
+  if (!me.dnf && me.pos === 1) { const n = w.player.wins || 0; if (n <= 3) keepClip(w, 'win', n === 1 ? `Local driver wins at ${w.series[sid].results.at(-1).track}` : `${w.player.name.split(' ').pop()} wins again`); }
+  siftRound(w, me); mumSunday(w, me);
   const res = w.series[sid].results.at(-1), mateId = teammateOf(w), mate = w.people[mateId];
   const mr = res.rows.find(r => r.pid === mateId);
   if (me.pos === 1 && !me.dnf && w.player.wins === 1) mail(w, 'Press Office', addrOf(seriesById(sid), 'press'), 'Interview requests',
@@ -3928,6 +3964,7 @@ function roundNews(w, me) {
 function seasonEndNews(w, sum) {
   for (const s of SERIES) {
     const pid = sum.champs[s.id]; if (!pid) continue;
+    if (pid === 'P') { keepClip(w, 'title', `${w.player.name.split(' ').pop()}: ${s.name} champion`); if (!w.pre) text(w, 'Mum', pickLine(w, [`CHAMPION! The Gazette did a whole page. I've cut it out.`, `My child, the champion. I cut it out of the Gazette.`])); w._mumClip = null; }
     if (pid === 'P') news(w, `${w.player.name.split(' ').pop().toUpperCase()} IS ${s.name.toUpperCase()} CHAMPION`, `${w.player.name} takes the ${w.year} title.`);
     else { const p = w.people[pid]; news(w, `${p.last.toUpperCase()} CLINCHES ${s.name.toUpperCase()} TITLE`, `${nameOf(p)} (${w.teams[p.team].name}) is the ${w.year} champion${p.titles > 1 ? ` again: title number ${p.titles}` : ''}.`); }
   }

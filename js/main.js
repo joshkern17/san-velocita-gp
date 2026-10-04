@@ -2027,6 +2027,7 @@ function renderHub() {
   const bank = w.money && w.money.choice ? cellW('Bank', `<span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span>`) : cellW('Bank', '&mdash;');
   const F = w.founding || {};
   pitGarage.setNotice(WC.bankNote(w)?.stage >= 2);
+  pitGarage.setMemories(WC.memoriesOf(w)); // (the clippings, trophies, bills and the mattress)
   if (w.ended) {
     const E = w.ended, bank = E.why === 'bank';
     $('hub-card').innerHTML = `<div class="panel-title">${E.y} &middot; ${bank ? 'Account closed' : 'Entry withdrawn'}</div><div class="ti-grid three">${cellW('Seasons', w.seasons.filter(x => x.you).length + (w.over ? 0 : 1))}${cellW('Wins', w.player.wins)}${cellW(E.bal < 0 ? 'Owed' : 'Bank', `<span class="${E.bal < 0 ? 'bad' : ''}">${WC.money$(Math.abs(E.bal))}</span>`)}</div>
@@ -2176,13 +2177,12 @@ function renderHubMenu() {
   items.push(
     { label: `Computer${nm ? `<small>${nm} NEW</small>` : ''}`, action: () => sitDown(offerMail ? 'mail' : null, offerMail ? offerMail.id : null), desc: 'Sit down at the desk: Mail, Team (the car, tyres, staff, data) and the Internet. You can also click the monitor.' },
     ...(founded(w) && !w.over && tyreShort(w) ? [{ label: 'Order Tyres<small>LOW</small>', action: () => sitDown('tyres'), desc: `In stock: ${WC.COMPOUNDS.map(c => `${WC.stockOf(w)[c]} ${c}`).join(', ')}. Order before the weekend (on the computer): trackside sets cost ${Math.round((WC.TRACKSIDE - 1) * 100)}% more. A team manager would order for you.` }] : []),
-    { label: `Phone${n ? `<small>${n} NEW</small>` : ''}`, action: () => { phone.open(); renderHints(); }, desc: 'Texts from your teammate, rivals and friends. Press <b>P</b> / <b>Y</b> any time.' },
     ...(w.car ? [{ label: `Work On The Car${carNeedsWork(w) ? '<small>NEEDS WORK</small>' : ''}`, action: () => goToCar(), desc: 'Walk over to the car: each part\'s condition, rebuilds and new parts. Upgrades are bought on the computer.' }] : []),
     ...(founded(w) ? [{ label: `The List${WC.listWants(w) ? '<small>TO WRITE</small>' : WC.listFresh(w).length ? '<small>NEW</small>' : ''}`, action: () => goToList(), desc: listDesc(w) }] : []),
     { label: 'Car & Livery', action: () => openWorldGarage(), desc: w.car ? `Your ${w.car.year} ${w.car.name}: paint it, design the livery, the helmet and the suit.` : `Your livery, helmet and suit. In the ${seriesName(sid)} you race ${CLASSES[WC.seriesById(sid).cls].label} cars.` },
-    { label: `Career Options<small>${(DIFF_LABEL[w.opts.difficulty] || '').toUpperCase()}</small>`, action: () => { optSub = true; sfx.select(); renderHubMenu(); }, desc: `Difficulty (${DIFF_LABEL[w.opts.difficulty] || ''}), driver aids, and simulating the rest of the season.` },
+    { label: `Career Options<small>${(DIFF_LABEL[w.opts.difficulty] || '').toUpperCase()}</small>`, action: () => { optSub = true; sfx.select(); renderHubMenu(); }, desc: `Difficulty (${DIFF_LABEL[w.opts.difficulty] || ''}), driver aids, circuits, and Save & Quit.` },
   );
-  items.push({ label: 'Save & Quit', action: () => { saveWorld(); pitGarage.close(); quitToMenu(); }, desc: 'Your career is saved. Continue it from the main menu.' });
+  // (the phone's on screen, P / Y; Save & Quit is in Career Options: the column stays short)
   const m = menus['s-hub'][0], keep = m.items[m.i]?.label?.replace(/<small>.*$/, '');
   m.setItems(items, true);
   const k = items.findIndex(it => it.label.replace(/<small>.*$/, '') === keep); if (k >= 0) { m.i = k; m.render(); }
@@ -2667,6 +2667,7 @@ function renderOptMenu() {
         desc: `The circuits your calendars use: ${n} chosen. ${fresh ? 'This season\'s calendars are drawn again from them.' : 'Next season\'s calendars are drawn from them.'}` }]
         : [{ label: `Circuits<small>${n} CHOSEN</small>`, disabled: true, desc: 'You can change the circuits before a season\'s first race, or once it\'s over.' }]; })(),
     ...(!w.over ? [{ label: 'Sim Rest Of Season', confirm: 'Simulate it all? Select again', action: () => simWorldSeason(), desc: 'For testing: simulates every remaining round, your races too (you as a mid-field driver).' }] : []),
+    { label: 'Save & Quit', action: () => { optSub = false; saveWorld(); pitGarage.close(); quitToMenu(); }, desc: 'Your career is saved. Continue it from the main menu.' },
     { label: 'Back', action: () => { optSub = false; sfx.back(); renderHubMenu(); }, desc: 'Back to the garage.' }];
   const m = menus['s-hub'][0]; m.setItems(items, true);
   if (m.i >= items.length || items[m.i]?.head) { m.i = 1; m.render(); }

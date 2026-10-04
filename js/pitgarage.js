@@ -164,6 +164,7 @@ export class PitGarage {
     // no PC_Screen: a CRT from the asset pack gets a screen laid over its glass
     if (!this.screen && crts.length) this.attachScreen(crts[0], 0.391, 0.34, new THREE.Vector3(-0.0015, 0.30, 0.2245), 0);
     this.room.add(m); this.custom = true;
+    if (this.memLast) { this.memKey = null; this.setMemories(this.memLast); } // (placed against this room)
     if (this.team) this.setTeam(this.team);
     if (this.tyre) this.setTyre(this.tyre);
   }
@@ -322,6 +323,106 @@ export class PitGarage {
     const box = this.r.domElement.getBoundingClientRect(), rc = new THREE.Raycaster();
     rc.setFromCamera(new THREE.Vector2((cx - box.left) / box.width * 2 - 1, -(cy - box.top) / box.height * 2 + 1), this.camera);
     return rc.intersectObject(m, false).length > 0;
+  }
+
+  // ---------- the garage remembers (World Career): Mum's clippings beside the list, trophies and the bills on the desk,
+  // the mattress on the floor. m: wcareer.js memoriesOf (rebuilt only when it changes) ----------
+  setMemories(m) {
+    this.memLast = m;
+    const key = JSON.stringify(m || null); if (key === this.memKey && this.memRoom === this.custom && this.memGroup && this.memGroup.parent) return;
+    this.memKey = key; this.memRoom = this.custom;
+    if (this.memGroup) { this.memGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); this.memGroup.removeFromParent(); }
+    const G = this.memGroup = new THREE.Group(); this.scene.add(G); G.visible = this.mode === 'home';
+    if (!m) return;
+    this.room.updateMatrixWorld(true);
+    const solid = (h) => h.object !== this.screen && h.object.visible && !G.children.includes(h.object) && h.object !== this.listMesh && h.object !== this.noticeMesh;
+    const lf = this.listFrame(), f = this.screenFrame();
+    // clippings: on the list's wall, in columns beside it, all on whichever side has the wall for them (a shelf or a
+    // poster in the way on one side: the other)
+    if (lf && m.clips.length) {
+      const spot = (c, i, sgn) => {
+        const big = c.kind === 'title', W = big ? 0.17 : 0.13, H = W * 0.8;
+        const col = Math.floor(i / 3), row = i % 3, off = lf.w / 2 + 0.03 + W / 2 + col * 0.16, dy = lf.h / 2 - 0.08 - row * 0.15 - (col % 2) * 0.05;
+        const want = lf.c.clone().addScaledVector(lf.side, off * sgn).addScaledVector(lf.up, dy);
+        const hit = new THREE.Raycaster(want.clone().addScaledVector(lf.n, 0.3), lf.n.clone().negate(), 0, 0.45).intersectObject(this.room, true).find(solid);
+        return hit && Math.abs(hit.distance - 0.3) <= 0.03 && /wall/i.test(hit.object.name || '') ? { hit, W, H } : hit && Math.abs(hit.distance - 0.3) <= 0.03 ? { hit, W, H, other: true } : null;
+      };
+      const score = (sgn) => m.clips.reduce((a, c, i) => { const s = spot(c, i, sgn); return a + (s ? (s.other ? 1 : 2) : 0); }, 0);
+      const sgn = score(-1) >= score(1) ? -1 : 1;
+      m.clips.forEach((c, i) => {
+        const s = spot(c, i, sgn); if (!s) return;
+        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(s.W, s.H), new THREE.MeshBasicMaterial({ map: this.clipTex(c), color: 0xc9c3b6, polygonOffset: true, polygonOffsetFactor: -2 }));
+        mesh.position.copy(s.hit.point).addScaledVector(lf.n, 0.008 + i * 0.0005); mesh.lookAt(mesh.position.clone().add(lf.n)); mesh.rotateZ(((i * 37) % 9 - 4) * 0.012);
+        G.add(mesh);
+      });
+    }
+    if (f) {
+      const n = new THREE.Vector3(f.n.x, 0, f.n.z).normalize(), side = new THREE.Vector3().crossVectors(n, new THREE.Vector3(0, 1, 0)).normalize(), deskY = f.c.y - f.h / 2;
+      const onDesk = (p) => { const s0 = p.clone(); s0.y += 0.5; const h = new THREE.Raycaster(s0, new THREE.Vector3(0, -1, 0), 0, 1.2).intersectObject(this.room, true).find(solid); return h && h.point.y > deskY - 0.35 && h.point.y < deskY + 0.2 ? h.point : null; };
+      // trophies: in a row on the other side of the screen from the notice, the big ones at the back
+      m.trophies.forEach((k, i) => {
+        const p = onDesk(f.c.clone().addScaledVector(n, 0.16 + (i % 2) * 0.09).addScaledVector(side, f.w / 2 + 0.08 + Math.floor(i / 2) * 0.09)); if (!p) return;
+        const t = this.trophy(k); t.position.copy(p); t.rotation.y = Math.atan2(n.x, n.z) + i * 0.4; G.add(t);
+      });
+      // the bills: a pile by the notice, more of them the worse it gets
+      const bp = m.bills ? onDesk(f.c.clone().addScaledVector(n, 0.3).addScaledVector(side, -(f.w / 2 + 0.22))) : null;
+      for (let i = 0; bp && i < m.bills; i++) {
+        const e = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.09), new THREE.MeshBasicMaterial({ map: this.billTex(i % 3 === 1), color: 0xd6d2c8, polygonOffset: true, polygonOffsetFactor: -2 }));
+        e.rotation.order = 'YXZ'; e.rotation.y = Math.atan2(n.x, n.z) + ((i * 53) % 11 - 5) * 0.09; e.rotation.x = -Math.PI / 2;
+        e.position.copy(bp).add(new THREE.Vector3(((i * 29) % 7 - 3) * 0.008, 0.003 + i * 0.004, ((i * 17) % 5 - 2) * 0.008)); G.add(e);
+      }
+    }
+    // the mattress: on the floor, somewhere clear (a few spots tried; none clear, no mattress)
+    if (m.mattress) {
+      const C = this.carCentre(), d = this.doorDir(), sd = new THREE.Vector3(-d.z, 0, d.x);
+      for (const [a, b] of [[-2, 1.2], [-1.6, 1.2], [1.6, -2.4], [-3.5, -3]]) { // (beside the car, in view of the hub camera first) // (in view of the hub camera first)
+        const p = C.clone().addScaledVector(sd, a).addScaledVector(d, b); p.y = 1.2;
+        const fl = new THREE.Raycaster(p, new THREE.Vector3(0, -1, 0), 0, 2).intersectObject(this.room, true).find(solid);
+        if (!fl || fl.point.y > 0.08) continue; // (something's there: not the floor)
+        const at = fl.point.clone(); at.y += 0.25;
+        const clear = [[d, 0.98], [d.clone().negate(), 0.98], [sd, 0.46], [sd.clone().negate(), 0.46]].every(([v, r]) => !new THREE.Raycaster(at, v, 0, r).intersectObject(this.room, true).find(solid));
+        if (!clear) continue;
+        G.add(this.mattress(fl.point, Math.atan2(-d.z, d.x))); break; // (lengthways, alongside the car)
+      }
+    }
+  }
+  // a clipping from the hometown paper (Mum's note on it)
+  clipTex(c) {
+    const cv = document.createElement('canvas'); cv.width = 320; cv.height = 256; const g = cv.getContext('2d');
+    g.fillStyle = '#ece6d6'; g.beginPath(); g.moveTo(4, 6); for (let x = 4; x <= 316; x += 12) g.lineTo(x, 4 + ((x * 7) % 5)); g.lineTo(316, 250); for (let x = 316; x >= 4; x -= 12) g.lineTo(x, 250 - ((x * 3) % 5)); g.closePath(); g.fill();
+    g.fillStyle = '#555'; g.font = 'italic 13px Georgia, serif'; g.fillText(c.paper, 16, 26); g.fillText(`${c.track ? c.track + ', ' : ''}${c.y}`, 316 - 16 - g.measureText(`${c.track ? c.track + ', ' : ''}${c.y}`).width, 26);
+    g.fillStyle = '#222'; g.fillRect(16, 33, 288, 1.5);
+    g.font = `bold ${c.kind === 'title' ? 30 : 26}px Georgia, "Times New Roman", serif`; let y = 68, line = '';
+    for (const wd of String(c.head).split(' ')) { if (g.measureText(line + wd).width > 288) { g.fillText(line, 16, y); y += 30; line = ''; } line += wd + ' '; }
+    g.fillText(line, 16, y); y += 18;
+    g.fillStyle = '#9a958a'; for (; y < 200; y += 11) g.fillRect(16, y, 288 - ((y * 13) % 50), 3);
+    g.save(); g.translate(206, 226); g.rotate(-0.08); g.fillStyle = '#1d3f9a'; g.font = '600 21px "Bradley Hand", "Segoe Print", cursive'; g.fillText(c.note || '', -g.measureText(c.note || '').width / 2, 0); g.restore();
+    g.fillStyle = '#c8141c'; g.beginPath(); g.arc(160, 12, 6, 0, Math.PI * 2); g.fill(); // (the pin)
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+  }
+  // an envelope: a window, an address, sometimes a red stamp
+  billTex(red) {
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 144; const g = cv.getContext('2d');
+    g.fillStyle = '#f1ede2'; g.fillRect(0, 0, 256, 144); g.fillStyle = '#d9d4c6'; g.fillRect(24, 52, 120, 40);
+    g.fillStyle = '#888'; for (let y = 60; y < 90; y += 9) g.fillRect(30, y, 90, 3);
+    if (red) { g.save(); g.translate(190, 40); g.rotate(-0.25); g.strokeStyle = '#c8141c'; g.lineWidth = 4; g.strokeRect(-46, -14, 92, 28); g.fillStyle = '#c8141c'; g.font = 'bold 16px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('OVERDUE', 0, 1); g.restore(); }
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+  }
+  // a cup: a title is the big one (gold), a win gold, a podium bronze
+  trophy(kind) {
+    const s0 = kind === 'title' ? 1.6 : kind === 'win' ? 1 : 0.8, col = kind === 'pod' ? 0xb07040 : 0xd8a830;
+    const pts = [[0, 0], [0.032, 0], [0.032, 0.012], [0.02, 0.016], [0.008, 0.022], [0.007, 0.06], [0.012, 0.066], [0.034, 0.08], [0.04, 0.12], [0.036, 0.12], [0.03, 0.084], [0.0, 0.072]].map(([x, y]) => new THREE.Vector2(x * s0, y * s0));
+    const t = new THREE.Mesh(new THREE.LatheGeometry(pts, 20), new THREE.MeshPhongMaterial({ color: col, emissive: kind === 'pod' ? 0x2a1608 : 0x3a2a08, specular: 0xffffff, shininess: 70, side: THREE.DoubleSide }));
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.06 * s0, 0.016 * s0, 0.06 * s0), new THREE.MeshLambertMaterial({ color: 0x2a1a10 })); base.position.y = -0.008 * s0;
+    const g = new THREE.Group(); t.position.y = 0.0; g.add(base, t); g.position.y = 0.016 * s0; const o = new THREE.Group(); g.position.y += 0.002; o.add(g); return o;
+  }
+  // the mattress: on the floor, a pillow, a sleeping bag thrown over it
+  mattress(at, yaw) {
+    const o = new THREE.Group();
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.16, 0.85), new THREE.MeshLambertMaterial({ color: 0xb9b2a0 })); bed.position.y = 0.08;
+    const bag = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.05, 0.78), new THREE.MeshLambertMaterial({ color: 0x2e4a6a })); bag.position.set(0.3, 0.185, 0.02); bag.rotation.y = 0.05;
+    const pil = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.09, 0.55), new THREE.MeshLambertMaterial({ color: 0xe6e2d8 })); pil.position.set(-0.75, 0.2, 0); pil.rotation.y = -0.08;
+    o.add(bed, bag, pil); o.position.copy(at); o.rotation.y = yaw; return o;
   }
 
   // ---------- the ending (World Career: js/ending.js): a scripted camera, the room at night, the way out ----------
@@ -551,6 +652,7 @@ export class PitGarage {
     if (!this.active) return;
     this.t += dt;
     if (this.listMesh) this.listMesh.visible = this.mode === 'home'; // (only at home: not in a race weekend's pit box)
+    if (this.memGroup) this.memGroup.visible = this.mode === 'home';
     if (this.noticeMesh) { if (this.noticeOn && this.noticeRoom !== this.custom) this.placeNotice(); this.noticeMesh.visible = this.noticeOn && this.mode === 'home'; }
     for (const ch of this.people || []) {
       // (turned to the camera once it's settled: a little to one side, not straight down the lens)
