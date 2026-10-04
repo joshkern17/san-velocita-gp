@@ -1144,7 +1144,7 @@ export function customerCars(w, S = carSeries(w)) {
     const rel = +(0.8 + h * 0.45).toFixed(2), note = PROG_NOTES.find(([k]) => rel <= k)?.[1] || PROG_NOTES.at(-1)[1];
     const spec = S.car === 'spec';
     return { ...c, maker: makerOf(c.name), prog: spec ? `${S.name} Technical` : `${makerOf(c.name)} Customer Racing`, price, rel, note: spec ? 'The series chassis. Everyone has the same one, in theory.' : note,
-      deposit: Math.round(price * 0.1 / 1000) * 1000, perRound: Math.round(price * 0.36 / L / 500) * 500, buy: !spec, lease: true };
+      deposit: Math.round(price * 0.1 / 1000) * 1000, perRound: Math.round(price * (spec ? 0.24 : 0.36) / L / 500) * 500, buy: !spec, lease: true }; // (the series' own chassis: leased cheaper, it's how they fill the grid)
   });
 }
 // ex-works cars: a season old, from teams in the series (a fresh pair each season)
@@ -1285,7 +1285,7 @@ export const SEAT_KINDS = {
   share: { name: 'Two gentlemen, sharing', tag: 'Steadier money', blurb: 'Two amateurs take turns in the car. A little more money in total, and if one walks the other is still paying. Each wants coaching on their weekends.' },
   junior: { name: "Maker's junior", tag: 'Free, with a target', blurb: 'A car maker places one of its young drivers with you, and pays you to run them. They have a target every round: miss it three times and the maker takes them back.' },
 };
-const SEAT_K = { gt: 1, formula: 4 }; // (the money in a second seat, by series: GT's numbers times this)
+const SEAT_K = { gt: 1, formula: 3 }; // (the money in a second seat, by series: GT's numbers times this)
 const seatK = (w, sid = w.player.series) => (SEAT_K[sid] ?? KS(w)) * w.opts.len / 6;
 const JUNIOR_TOP = 8; // (the junior's target: finish in the top this many)
 function makeGent(w, sid, share = 1) {
@@ -1502,7 +1502,7 @@ export const LOTTERY = { jackpot: 400000, lump: 132000, annuity: 10000, years: 3
 export const COSTS = {
   street:  { entry: 4000,  travel: 2400,  crew: 3500,  tyre: 900,  fuelLap: 35,  repair: 24000,  prize: [8000, 5500, 4000, 3000, 2500, 2000, 1500, 1200, 1000, 800] }, // (a round, a car: both of yours are paid)
   gt:      { entry: 15000, travel: 6000,  crew: 22000, tyre: 3200, fuelLap: 120, repair: 110000, prize: [50000, 34000, 24000, 19000, 15000, 12000, 9500, 7000, 5000, 3500] },
-  formula: { entry: 40000, travel: 15000, crew: 90000, tyre: 6000, fuelLap: 300, repair: 450000, prize: [120000, 85000, 60000, 48000, 39000, 30000, 24000, 18000, 12000, 9000] },
+  formula: { entry: 28000, travel: 15000, crew: 55000, tyre: 6000, fuelLap: 300, repair: 450000, prize: [120000, 85000, 60000, 48000, 39000, 30000, 24000, 18000, 12000, 9000] },
 };
 // the annuity is a year's money; seasons of other lengths get it in proportion (a 12-round year pays twice a 6)
 const annuityPay = (w) => Math.round(LOTTERY.annuity * (w.money?.loophole || 1) * w.opts.len / 6 / 100) * 100;
@@ -2642,7 +2642,9 @@ export function savingFor(w) {
   const miss = to ? seriesMissing(t, to) : [];
   if (miss.length) {
     const cost = miss.reduce((a, [k, n]) => { let c = 0; for (let l = facLevel(t, k) + (k === 'base' ? 1 : 0); l <= (k === 'base' ? n : n - 1); l++) c += FACILITIES[k].levels[l][1]; return a + c; }, 0);
-    return { name: miss.map(([k, n]) => needName(k, n).replace(/^an? /, '')).join(' + '), cost, why: `The ${seriesById(to).name} needs ${miss.map(([k, n]) => needName(k, n)).join(' and ')}: ${money$(cost)}.` };
+    // (and a car for it: the cheapest lease's deposit, so the number's what getting in really takes)
+    const S = seriesById(to), cars = S.car !== 'classifieds' ? customerCars(w, S) : [], dep = cars.length ? Math.min(...cars.map(c => c.deposit)) : 0;
+    return { name: `The ${S.name}`, cost: cost + dep, why: `The ${S.name} needs ${miss.map(([k, n]) => needName(k, n)).join(' and ')}${dep ? `, and a car (a lease deposit from ${money$(dep)})` : ''}: ${money$(cost + dep)} to get in.` };
   }
   const opts = FAC_KEYS.map(k => ({ k, nx: facNext(t, k) })).filter(x => x.nx && x.k !== 'tunnel' && facLevel(t, 'base') >= x.nx.needsBase).sort((a, b) => a.nx.cost - b.nx.cost);
   return opts[0] ? { name: opts[0].nx.name, cost: opts[0].nx.cost, why: '' } : null;
