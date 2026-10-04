@@ -347,14 +347,10 @@ export class PitGarage {
     if (on) {
       const keep = [];
       this.scene.traverse(o => { if (o.isLight) { keep.push([o, o.intensity]); o.intensity *= 0.28; } });
-      // (the open door: a doorway of night-lit haze on the wall that way, two headlights low in it, and their beams in)
-      const C = this.carCentre(), d = this.doorDir(), wall = Math.min(11.6, this.doorRoom() + 2.55), door = C.clone().addScaledVector(d, wall);
+      // (the truck's headlights, out past the open side of the room, shining in low)
+      const C = this.carCentre(), d = this.doorDir(), out = C.clone().addScaledVector(d, 9.5);
+      const lights = [-0.75, 0.75].map(x => { const l = new THREE.SpotLight(0xfff1d0, 15, 30, 0.42, 0.55, 1.1); l.position.copy(out).add(new THREE.Vector3(x, 0.72, 0)); l.target.position.copy(C).addScaledVector(d, -2).add(new THREE.Vector3(x * 0.4, 0.3, 0)); this.scene.add(l, l.target); return l; });
       const glow = new THREE.Group();
-      const haze = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 2.4), new THREE.MeshBasicMaterial({ color: 0x3a4250, transparent: true, opacity: 0.9 }));
-      haze.position.y = 1.2; glow.add(haze);
-      for (const x of [-0.75, 0.75]) { const h = new THREE.Mesh(new THREE.CircleGeometry(0.16, 16), new THREE.MeshBasicMaterial({ color: 0xfff6e0 })); h.position.set(x, 0.72, 0.01); glow.add(h); }
-      glow.position.copy(door).setY(0); glow.lookAt(C.clone().setY(0)); this.scene.add(glow);
-      const lights = [-0.75, 0.75].map(x => { const l = new THREE.SpotLight(0xfff1d0, 16, 26, 0.45, 0.6, 1.2); l.position.copy(door).addScaledVector(d, 1.5).add(new THREE.Vector3(x, 0.72, 0)); l.target.position.copy(C).add(new THREE.Vector3(x * 0.4, 0.2, 0)); this.scene.add(l, l.target); return l; });
       this.night = { keep, lights, glow };
     } else {
       for (const [o, i] of this.night.keep) o.intensity = i;

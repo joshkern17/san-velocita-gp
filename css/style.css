@@ -2298,13 +2298,13 @@ span.tsw-face { width: 64px; height: 64px; }
 .cp-track i.fac { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--sv-amber); box-shadow: 0 0 2px var(--sv-amber), 0 0 4px var(--sv-amber); }
 /* the end of a World Career (js/ending.js): the garage at night between bars, the Wire on newsprint, then the record
    (the list beside the numbers, in the hub's own type) */
-#s-hub.ending-on .scr-head, #s-hub.ending-on .hub-left, #s-hub.ending-on .desc-bar, #s-hub.ending-on .menu-shade, #s-hub.ending-on .hub-week, #s-hub.ending-on .pc-tag, #s-hub.ending-on .car-tags, #s-hub.ending-on .footer-hints, #s-hub.ending-on .car-perf { opacity: 0; pointer-events: none; }
+#s-hub.ending-on .scr-head, #s-hub.ending-on .hub-left, #s-hub.ending-on .desc-bar, #s-hub.ending-on .menu-shade, #s-hub.ending-on .hub-week, #s-hub.ending-on .pc-tag, #s-hub.ending-on .car-tags, #s-hub.ending-on .car-perf { opacity: 0; pointer-events: none; }
+#s-hub.ending-on .footer-hints { z-index: 31; background: none; pointer-events: auto; } /* (the prompts: Skip, Continue, Select, over the bars) */
 .ending { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
 .ending.on { pointer-events: auto; }
 .en-black { position: absolute; inset: 0; z-index: 1; background: #000; opacity: 1; }
 .en-bar { position: absolute; left: 0; right: 0; z-index: 2; height: 11%; background: #000; }
 .en-bar.top { top: 0; } .en-bar.bot { bottom: 0; }
-.en-hint { position: absolute; right: var(--edge); bottom: 4%; z-index: 4; font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; opacity: .7; }
 .en-card { position: absolute; inset: 0; z-index: 3; display: none; align-items: center; justify-content: center; gap: 64px; }
 .en-card.wire, .en-card.record { display: flex; }
 .en-paper { width: 560px; padding: 30px 40px 34px; background: #ece8dd; color: #151515; box-shadow: 0 24px 70px rgba(0,0,0,.7); transform: rotate(-1deg); }

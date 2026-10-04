@@ -168,6 +168,7 @@ document.addEventListener('click', (e) => {
   else if (g === 'phone') togglePhone();
   else if (g === 'ok') {
     if (screen === 's-draft') takeDraft(); else if (screen === 's-carsel') confirmCar();
+    else if (screen === 's-hub' && ending.isOpen) ending.input({ ok: true });
     else { const l = menus[screen]; if (l) l[focusIdx[screen] || 0].activate(); }
   }
 });
@@ -1381,7 +1382,7 @@ function phoneInput() {
   return true;
 }
 const phoneHints = [['nav', 'Scroll'], ['ok', 'Select'], ['back', 'Back'], ['phone', 'Put away']];
-HINTS['s-hub'] = () => dayPlan.isOpen ? [['nav', 'Choose'], ['ok', 'Do it'], ['back', 'Garage']] : tsw.isOpen ? [['lr', 'Choose'], ['ok', tsw.step === 'ready' ? 'Start the season' : 'Next'], ['back', tsw.at ? 'Back' : 'Garage']] : pcSeat ? [['nav', 'Move'], ['ok', 'Select'], ...(pc.hasTabs ? [['tab', 'Sections']] : []), ['back', pc.app ? 'Back' : 'Stand up']]
+HINTS['s-hub'] = () => ending.isOpen ? { scene: [['back', 'Skip']], wire: [['ok', 'Continue']], record: [['nav', 'Choose'], ['ok', 'Select']] }[ending.stage] || [] : dayPlan.isOpen ? [['nav', 'Choose'], ['ok', 'Do it'], ['back', 'Garage']] : tsw.isOpen ? [['lr', 'Choose'], ['ok', tsw.step === 'ready' ? 'Start the season' : 'Next'], ['back', tsw.at ? 'Back' : 'Garage']] : pcSeat ? [['nav', 'Move'], ['ok', 'Select'], ...(pc.hasTabs ? [['tab', 'Sections']] : []), ['back', pc.app ? 'Back' : 'Stand up']]
   : phone.isOpen ? phoneHints : hubMode === 'car' ? [['nav', 'Part'], ['ok', 'Select'], ['back', 'Back']]
   : hubMode === 'list' ? (listStep ? [['nav', 'Choose'], ['ok', 'Write it'], ['back', 'Garage']] : [['ok', 'Select'], ['back', 'Garage']]) : [['nav', 'Navigate'], ['ok', 'Select'], ['phone', 'Phone']];
 
@@ -1890,6 +1891,7 @@ const ending = new Ending($('ending'), {
   garage: () => pitGarage,
   sfx: (k) => sfx[k] && sfx[k](),
   seen: () => { if (world && !world.endSeen) { world.endSeen = true; saveWorld(); } },
+  hints: () => renderHints(),
   ad: () => endAd(world), wire: () => endWire(world), record: () => endRecord(world),
 });
 // (again: straight to the record)
@@ -2114,6 +2116,7 @@ function renderHubMenu() {
 }
 menus['s-hub'] = [new Menu($('m-hub'), [], { desc: 'd-hub', onMove: (it) => { if (it && it.part && hubMode === 'car') { carPart = it.part; pitGarage.setView('car', it.part); } if (hubMode === 'car') showCarPerf(it); if (hubMode === 'list') listPreview(it); } })];
 backs['s-hub'] = () => {
+  if (ending.isOpen) { ending.input({ back: true }); return; }
   if (tsw.isOpen) { tsw.back(); renderHints(); return; }
   if (dayPlan.isOpen) return;
   if (hubMode === 'list') { if (!listPaper.busy) leaveList(); return; }
