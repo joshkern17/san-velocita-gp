@@ -291,7 +291,17 @@ export function newCalendars(w, trackPool) {
     w.series[s.id].cal = cal;
     w.series[s.id].results = [];
   }
+  gpRound(w, names);
 }
+// the top series ends every year with the San Velocita Grand Prix, always on the same circuit (picked once)
+function gpRound(w, names) {
+  const cal = w.series[SERIES[SERIES.length - 1].id].cal; if (!cal.length) return;
+  if (!w.gpTrack || (names && !names.includes(w.gpTrack))) w.gpTrack = cal[cal.length - 1].name;
+  const last = cal[cal.length - 1], dup = cal.findIndex((c, i) => i < cal.length - 1 && c.name === w.gpTrack);
+  if (dup >= 0) cal[dup].name = last.name; // (it's only raced once a year)
+  last.name = w.gpTrack; last.gp = true;
+}
+export const isGP = (R) => !!(R && R.gp);
 
 // ---------------- ratings: what makes a driver fast in a race ----------------
 export function rating(w, pid) {
@@ -462,6 +472,7 @@ export function recordPlayerRound(w, res, log = [], use = null) {
     if (w.rival && rng(w) < 0.35) { const theirs = w.series[sid].results.at(-1).rows.filter(r => teamOfPid(w, r.pid) === w.rival.tid); if (theirs.length) react(w, 'rival', `${facts} ${w.teams[w.rival.tid].name}'s cars finished ${theirs.map(r => r.dnf ? 'DNF' : ordinalOf(r.pos)).join(' and ')}.`); }
     if (!me.dnf && me.pos <= 3 && rng(w) < 0.4) react(w, 'ex', facts);
   }
+  listRound(w, me, use);
   return { ...afterRound(w, me), bill };
 }
 // testing: your race simulated too (you as a mid-field driver)
@@ -474,6 +485,7 @@ export function simPlayerRound(w) {
   const me = rows.find(r => r.pid === 'P');
   for (const r of rows) if (r.pid !== 'P') { const h = h2hOf(w, r.pid); h.races++; if (r.dnf && !me.dnf || (!me.dnf && me.pos < r.pos)) h.ahead++; else h.behind++; }
   if (w.money) { const u = { ...simUse(w), failed: f ? f.part : null, grid: me ? clamp(me.pos + Math.round(gauss(w) * 2), 1, 12) : null, blamed: rng(w) < 0.12 }; settleRound(w, u, me); afterParts(w, u); }
+  listRound(w, me, null);
   return afterRound(w, me);
 }
 function afterRound(w, me) {
@@ -536,6 +548,9 @@ function seasonEnd(w) {
        `We mention this because several teams have asked us afterwards.`, `Please let us know before the new season.`, `Entries Office, ${up.name}`],
       { offer: true, choices: [['move', `Accept: move up to the ${up.name}`], ['stay', `Decline: stay in the ${seriesById(w.player.series).name}`]] });
   }
+  // this year's ambition, and the list
+  if (!w.pre && w.money) ambitionEnd(w, summary);
+  if (!w.pre) listCheck(w, { season: summary });
   seasonEndNews(w, summary);
 }
 
@@ -2102,7 +2117,8 @@ export function briefing(w) {
   watch.sort((a, b) => b.bad - a.bad);
   // what to build up
   const n = st.length, up = SERIES[seriesById(sid).tier + 1], fund = SEASON_FUND[sid];
-  goals.push({ label: 'Championship', value: raced ? `P${pos}` : '—', pct: raced ? (n - pos) / Math.max(1, n - 1) : 0 });
+  const amb = ambitionOf(w);
+  goals.push({ label: 'Championship', value: raced ? `P${pos}` : '—', pct: raced ? (n - pos) / Math.max(1, n - 1) : 0, aim: amb ? (n - amb.t) / Math.max(1, n - 1) : null });
   const rep = repOf(w), next = SPONSOR_POOL.map((x, k) => sponsorById('sp' + k)).filter(x => x.rep > rep && x.rep < 999 && (!x.town || x.town === w.home)).sort((a, b) => a.rep - b.rep)[0];
   goals.push({ label: 'Reputation', value: STAND_WORDS(rep), pct: rep / 100 });
   goals.push({ label: 'Money', value: money$(w.money.balance), pct: clamp(r / 12, 0, 1) });
@@ -2137,6 +2153,178 @@ export function savingFor(w) {
 // (paid when ordered, there for the next round); run out at a weekend and the trackside service sells you one at a
 // premium. With a team manager, they keep you stocked for each round's forecast (and tell you what they ordered).
 export const COMPOUNDS = ['soft', 'medium', 'hard', 'wet'];
+// ---------------- the list: what you're chasing ----------------
+// A sheet of paper taped to the garage wall, in your handwriting: why you're doing this (top), the ladder to the San
+// Velocita Grand Prix (the middle: crossed off as it happens, close together at the start so the first ones go
+// quickly), and this year's ambition (the bottom). Your why adds two lines of its own and decides who texts you when
+// one is crossed off. w.list = { why, done: { key: { y, r, track, old } }, fresh: [keys not yet seen crossed off],
+// late: { year: true } (someone wasn't paid on time) }. main.js + js/thelist.js draw it.
+export const WHYS = {
+  prove: { line: 'To prove them wrong.', name: 'To prove them wrong', who: 'Danny',
+    desc: 'Adds <b>Beat whoever laughs first</b> and <b>Stop being "the lottery winner"</b> to the list. Danny keeps score with you, and your ex hears about the big ones.' },
+  always: { line: "I've always wanted to.", name: "I've always wanted to", who: 'Mom',
+    desc: 'Adds <b>Lead a lap</b> and <b>Win at home</b> to the list. Your mom follows every race, mostly through the paper.' },
+  nothing: { line: 'Nothing else to do.', name: 'Nothing else to do', who: 'Danny',
+    desc: 'Adds <b>Make it to the end of a season</b> and <b>Pay everyone on time, all season</b> to the list. Danny keeps an eye on you.' },
+};
+const won = (x) => x.me && !x.me.dnf && x.me.pos === 1;
+// at: where it goes on the list. why: only on that list. round(w, x) / season(w, sum) / any(w): has it happened
+// (x = { me, sid, R, led })
+export const RUNGS = {
+  start: { at: 1, text: () => 'Start a race', round: (w, x) => !!x.me },
+  point: { at: 2, text: () => 'Score a point', round: (w, x) => !!x.me && x.me.pts > 0 },
+  lead: { at: 3, why: 'always', text: () => 'Lead a lap', round: (w, x) => !!x.me && x.led > 0 },
+  season: { at: 3.5, why: 'nothing', text: () => 'Make it to the end of a season', season: () => true },
+  podium: { at: 4, text: () => 'Stand on a podium', round: (w, x) => !!x.me && !x.me.dnf && x.me.pos <= 3 },
+  rival: { at: 4.5, why: 'prove', text: (w) => w.rival ? `Beat ${w.rival.name[1]}'s cars` : 'Beat whoever laughs first',
+    round: (w, x) => { if (!w.rival || !x.me || x.me.dnf) return false; const th = (w.series[x.sid].results.at(-1)?.rows || []).filter(r => teamOfPid(w, r.pid) === w.rival.tid); return th.length > 0 && th.every(r => r.dnf || r.pos > x.me.pos); } },
+  win: { at: 5, text: () => 'Win a race', round: (w, x) => won(x) },
+  name: { at: 6, why: 'prove', text: () => 'Stop being "the lottery winner"', any: (w) => repOf(w) >= 45 },
+  home: { at: 6, why: 'always', text: () => 'Win at home', round: (w, x) => won(x) && isHome(w, x.R) },
+  paid: { at: 6, why: 'nothing', text: () => 'Pay everyone on time, all season', season: (w) => (w.staff || []).length > 0 && !listOf(w).late[w.year] },
+  cup: { at: 7, text: () => 'Win the Street Cup', season: (w, s) => !!s.you && s.you.pos === 1 && s.you.s === 'street' },
+  gt: { at: 8, text: () => 'Race in GT', round: (w, x) => !!x.me && x.sid === 'gt' },
+  gtwin: { at: 9, text: () => 'Win a GT race', round: (w, x) => won(x) && x.sid === 'gt' },
+  formula: { at: 10, text: () => 'Make Formula SV', round: (w, x) => !!x.me && x.sid === 'formula' },
+  gp: { at: 12, text: () => 'Win the San Velocita Grand Prix', round: (w, x) => won(x) && !!x.R?.gp },
+};
+export const GP_NAME = 'San Velocita Grand Prix';
+export function listOf(w) {
+  if (w.list) return w.list;
+  const L = w.list = { why: null, done: {}, fresh: [], late: {} }, p = w.player, H = p.hist || [];
+  // (a career from before the list: what's already happened comes crossed off)
+  const old = (k) => { L.done[k] = { y: w.year, r: w.round, old: true }; };
+  if (p.starts) old('start');
+  if (H.some(h => h.pts > 0) || Object.values(w.series).some(S => S.results.some(r => r.rows.some(x => x.pid === 'P' && x.pts > 0)))) old('point');
+  if (p.pods) old('podium');
+  if (p.wins) old('win');
+  if (H.some(h => h.s === 'street' && h.pos === 1)) old('cup');
+  if (H.some(h => h.s === 'gt') || (p.series === 'gt' && p.starts && w.series.gt.results.some(r => r.rows.some(x => x.pid === 'P')))) old('gt');
+  if (H.some(h => h.s === 'formula') || (p.series === 'formula' && w.series.formula.results.some(r => r.rows.some(x => x.pid === 'P')))) old('formula');
+  if (H.length) old('season');
+  return L;
+}
+// the lines on your list, in order: [{ key, text, done }]
+export function listRungs(w) {
+  const L = listOf(w);
+  return Object.entries(RUNGS).filter(([, r]) => !r.why || r.why === L.why).sort((a, b) => a[1].at - b[1].at)
+    .map(([key, r]) => ({ key, text: r.text(w), done: L.done[key] || null }));
+}
+export const listNext = (w) => listRungs(w).find(r => !r.done) || null;
+export function setWhy(w, why) { if (!WHYS[why]) return; listOf(w).why = why; listCheck(w, null); }
+// cross off whatever has just happened (ctx: a round { me, sid, R, led }, a season's end { season }, or null: anything
+// that can happen any time)
+function listCheck(w, ctx) {
+  if (w.pre || !w.founding?.reg) return;
+  const L = listOf(w);
+  for (const [key, r] of Object.entries(RUNGS)) {
+    if (L.done[key] || (r.why && r.why !== L.why)) continue;
+    const hit = ctx && ctx.season ? r.season && r.season(w, ctx.season) : ctx ? r.round && r.round(w, ctx) : r.any && r.any(w);
+    if (!hit && !(r.any && r.any(w))) continue;
+    L.done[key] = { y: w.year, r: w.round, track: ctx && ctx.R ? ctx.R.name : null };
+    if (L.why) { L.fresh.push(key); listTexts(w, key); }
+  }
+}
+// who tells you about it: Danny (prove them wrong, nothing else to do; your ex hears about the big ones if you set out to
+// prove them wrong) or your mom (always wanted to)
+const LIST_TEXTS = {
+  Danny: {
+    start: ['Saw the results', 'You actually did it lol', 'Still can\'t believe you own a race team'],
+    point: ['A POINT', 'Framing that'],
+    podium: ['Podium bro', 'Did they let you do the champagne or is that only the winner'],
+    rival: ['Heard you beat that guy\'s cars', 'Double barrel name guy', 'Love that for you'],
+    win: ['YOU WON', 'Like actually won', 'Telling everyone I know you'],
+    name: ['Wire used your actual name today', 'Not lottery winner. Just you', 'Big'],
+    season: ['Made it to the end of a season', 'Honestly didn\'t think you would', 'In a good way'],
+    paid: ['Everyone got paid on time all season', 'Including me', 'Mostly me'],
+    cup: ['Street Cup champion', 'Gonna need you to sign my van'],
+    gt: ['GT now huh', 'Don\'t forget the little people'],
+    gtwin: ['You\'re winning in GT', 'This is insane man'],
+    formula: ['Formula SV', 'Bro.'],
+    gp: ['I don\'t even know what to say', 'You won the actual Grand Prix', 'Remember when this was a lottery ticket'],
+  },
+  Mom: {
+    start: ['I watched it on the computer. Linda from church showed me how.', 'Love, Mom'],
+    point: ['One point! The paper says that\'s good.', 'Love, Mom'],
+    lead: ['You were IN FRONT. I saw it.', 'I had to sit down. Love, Mom'],
+    podium: ['A podium! I cut it out of the paper.', 'Love, Mom'],
+    win: ['You won!! I told everyone at the store.', 'Even the people who weren\'t asking. Love, Mom'],
+    home: ['You won at home. Half the street was there.', 'Mrs. Patel says she always knew. She did not. Love, Mom'],
+    cup: ['Champion. The picture is going on the fridge.', 'Love, Mom'],
+    gt: ['The GT Championship. Is that the one on television?', 'Love, Mom'],
+    gtwin: ['Another win. I\'ve had to buy a second scrapbook.', 'Love, Mom'],
+    formula: ['Formula SV! Please be careful in those little cars.', 'Love, Mom'],
+    gp: ['You won the Grand Prix.', 'You used to watch it lying on the floor in front of the TV.', 'I\'m so proud of you. Love, Mom'],
+  },
+};
+function listTexts(w, key) {
+  const L = w.list, who = WHYS[L.why].who, lines = LIST_TEXTS[who][key];
+  if (lines) texts(w, who, lines);
+  const ex = w.backstory?.ex;
+  if (L.why === 'prove' && ex && (key === 'cup' || key === 'gp')) texts(w, ex, key === 'gp' ? ['Saw the news.', 'Congratulations. I mean that.'] : ['Saw you won something.', 'Good for you, I guess.']);
+}
+// after your round (recordPlayerRound / simPlayerRound): what it crossed off
+function listRound(w, me, use) {
+  const sid = w.player.series;
+  listCheck(w, { me, sid, R: w.series[sid].cal[w.round], led: use?.led ?? (me && me.pos === 1 && !me.dnf ? 1 : 0) });
+}
+// someone wasn't paid on time this year (runPayroll)
+function listLate(w) { if (!w.pre) listOf(w).late[w.year] = true; }
+// the crossings-off you haven't watched happen yet (main.js: the pen goes through them, then they're seen)
+export const listFresh = (w) => w.list ? w.list.fresh : [];
+export function listSeen(w) { if (w.list) w.list.fresh = []; }
+// does the list want writing on (your why; this year's ambition, before the first race)?
+export const listWants = (w) => !!w.founding?.reg && !!w.money?.choice && (!listOf(w).why || ambitionDue(w));
+
+// ---------------- this year's ambition: a bet on yourself ----------------
+// Before the first race of a season you write down what you're going for. Sponsors pay a little more for a bolder
+// plan (and a little less for a timid one); at the end of the season, making it earns reputation (and, if it was a
+// stretch, a bonus from your title sponsor), missing it costs reputation, and a missed stretch counts against renewal.
+// stretch k: how far past where the team "should" finish (0: about there; below 0: playing it safe).
+// w.amb = { y, series, t (target position), k, label, fee, repWin, repMiss, bonus, result }
+export const ambitionOf = (w) => w.amb && w.amb.y === w.year && w.amb.series === w.player.series ? w.amb : null;
+export const ambitionDue = (w) => !w.over && w.round === 0 && !ambitionOf(w) && !w.series[w.player.series].results.length;
+// where the team ought to finish: its car against the field's (and, after a season here, where you did finish)
+export function seasonOutlook(w) {
+  const sid = w.player.series, S = w.series[sid], n = S.teams.length * SEATS, mine = myTeam(w);
+  const vals = S.teams.map(t => carValue(w, w.teams[t])), mv = carValue(w, mine), rank = vals.filter(v => v > mv + 0.01).length; // (0: the quickest car)
+  let e = rank * SEATS + 1.5;
+  const last = w.player.hist.at(-1); if (last && last.s === sid) e = (e + last.pos) / 2;
+  return { pos: clamp(Math.round(e), 1, n), rank: rank + 1, teams: S.teams.length, last: last && last.s === sid ? last.pos : null, n };
+}
+export function ambitionChoices(w) {
+  const E = seasonOutlook(w), e = E.pos, n = E.n, fee = (dealsOf(w).find(d => d.slot === 'title') || {}).fee || 0;
+  const ts = [...new Set([Math.min(n, e + 3), e, Math.max(1, Math.ceil(e / 2)), 1])].sort((a, b) => b - a);
+  const names = ['Keep it steady', 'Where we should be', 'Punch above our weight', 'Win it all'];
+  return ts.map((t, i) => {
+    const k = (e - t) / Math.max(2, e), stretch = Math.max(0, k);
+    const label = t === 1 ? 'Win the title' : t === n ? 'Finish the season' : `Top ${t}`;
+    return { t, k: +k.toFixed(3), label, name: t === 1 ? names[3] : t === e ? names[1] : t > e ? names[0] : names[2],
+      fee: +clamp(1 + 0.2 * k, 0.94, 1.2).toFixed(2), repWin: t > e ? 1 : Math.round(2 + 8 * stretch), repMiss: t > e ? 5 : Math.round(2 + 9 * stretch),
+      bonus: Math.round(fee * w.opts.len * 0.4 * stretch / 500) * 500, renew: stretch > 0 };
+  });
+}
+export function setAmbition(w, t) {
+  const c = ambitionChoices(w).find(x => x.t === t); if (!c) return;
+  w.amb = { y: w.year, series: w.player.series, ...c, result: null };
+}
+const ambFee = (w) => { const a = ambitionOf(w); return a ? a.fee : 1; };
+// the end of the season: made it or not
+function ambitionEnd(w, sum) {
+  const a = ambitionOf(w), you = sum.you; if (!a || !you) return;
+  const made = you.pos <= a.t, sp = dealsOf(w).find(d => d.slot === 'title'), spn = sp && sponsorById(sp.sid).name;
+  a.result = { made, pos: you.pos };
+  listOf(w).fresh.push('amb'); // (the tick or the line through it: main.js plays it at the list)
+  if (made) {
+    w.rep = clamp(repOf(w) + a.repWin, 0, 100);
+    if (a.bonus && sp) { pay(w, a.bonus, `${spn}: bonus for making your season target (${a.label.toLowerCase()})`); mail(w, spn, sponsorAddr(spn), `${a.label}`, [`You said ${a.label.toLowerCase()}, and you did it. P${you.pos}.`, `As promised, ${money$(a.bonus)} is on its way.`, spn]); }
+  } else {
+    w.rep = clamp(repOf(w) - a.repMiss, 0, 100);
+    if (a.renew) for (const d of dealsOf(w)) if (!d.shady) d.misses++;
+    if (sp && a.k > 0) mail(w, spn, sponsorAddr(spn), 'Your season', [`You told us ${a.label.toLowerCase()}. You finished P${you.pos}.`, `We'll bear that in mind.`, spn]);
+  }
+}
+
 export const TRACKSIDE = 1.5;
 export const stockOf = (w) => (w.tyreStock = w.tyreStock || { soft: 0, medium: 0, hard: 0, wet: 0 });
 export const usedOf = (w) => (w.usedTyres = w.usedTyres || []);
@@ -2549,7 +2737,7 @@ export function runPayroll(w) {
     if (paid) pay(w, -paid, `Payroll: ${x.first} ${x.last} (${ROLES[x.role].name.toLowerCase()})${paid < wage ? ', part' : ''}`);
     x.owed += wage - paid;
     x.morale = clamp(x.morale + (paid === wage ? 4 : paid ? -9 * soft : -18 * soft), 0, 100);
-    if (paid < wage) x.unpaidRounds = (x.unpaidRounds || 0) + 1; else x.unpaidRounds = 0;
+    if (paid < wage) { x.unpaidRounds = (x.unpaidRounds || 0) + 1; listLate(w); } else x.unpaidRounds = 0;
     // walking out: miserable and owed money (Danny stays, and lets you know)
     if (!x.danny && x.morale < 25 && x.owed > 0 && rng(w) < 0.45) {
       mail(w, `${x.first} ${x.last}`, `${x.first.toLowerCase()}.${x.last.toLowerCase()}@coolmail.sv`, 'Resignation',
@@ -2664,7 +2852,8 @@ function sponsorRound(w, use, me) {
       if (rng(w) < 0.1) { w.deals = dealsOf(w).filter(x => x !== d); news(w, `${sp.name.toUpperCase()} COLLAPSES`, `${sp.name} has gone into administration owing money to suppliers, including a Street Cup team.`); items.push([`${sp.name}: in administration (this round's ${money$(d.owed)} unpaid)`, 0]); flag(w, 'shadyCollapse'); }
       continue;
     }
-    items.push([`${sp.name} (${d.slot === 'title' ? 'title sponsor' : 'associate'})`, d.fee]);
+    const af = ambFee(w); // (more for a bold season target, a little less for a timid one)
+    items.push([`${sp.name} (${d.slot === 'title' ? 'title sponsor' : 'associate'}${af > 1 ? `, +${Math.round((af - 1) * 100)}% for your ambition` : af < 1 ? `, \u2212${Math.round((1 - af) * 100)}% for a modest target` : ''})`, Math.round(d.fee * af / 10) * 10]);
     if (met) { items.push([`${sp.name} bonus: ${objText(w, o).toLowerCase()}`, d.bonus]); d.met++; w.rep = clamp(repOf(w) + 1, 0, 100); }
     else {
       d.misses++; w.rep = clamp(repOf(w) - 1, 0, 100);
@@ -2848,6 +3037,9 @@ function seasonEndNews(w, sum) {
 const OLD_KEY = 'svgp.world', INDEX = 'svgp.worlds', slot = (id) => 'svgp.world.' + id;
 const readIndex = () => { try { return JSON.parse(localStorage.getItem(INDEX)) || []; } catch (e) { return []; } };
 function migrate() {
+  // the Grand Prix: the year's last race in the top series
+  { const S = w.series[SERIES[SERIES.length - 1].id], R = S.cal[S.cal.length - 1], res = S.results.at(-1), wn = R && R.gp && res && res.rows.find(r => r.pos === 1 && !r.dnf);
+    if (wn) { const p = wn.pid === 'P' ? null : w.people[wn.pid]; news(w, `${p ? p.last.toUpperCase() : w.player.name.split(' ').pop().toUpperCase()} WINS THE ${GP_NAME.toUpperCase()}`, `${p ? nameOf(p) : w.player.name} (${w.teams[teamOfPid(w, wn.pid)]?.name || ''}) wins the ${w.year} ${GP_NAME} at ${R.name}.`); } }
   try {
     const old = localStorage.getItem(OLD_KEY); if (!old) return;
     const w = JSON.parse(old); if (w && w.v === 1) saveWorld(w);
@@ -2878,3 +3070,4 @@ export function loadWorld(id) {
   } catch (e) { return null; }
 }
 export function deleteWorld(id) { localStorage.removeItem(slot(id)); localStorage.setItem(INDEX, JSON.stringify(readIndex().filter(e => e.id !== id))); }
+    if (!w.series[SERIES[SERIES.length - 1].id].cal.some(c => c.gp)) gpRound(w, null); // (careers from before the Grand Prix)

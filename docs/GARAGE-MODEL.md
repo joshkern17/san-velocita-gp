@@ -44,6 +44,7 @@ Already have a garage model? File → Append (or Import) it into the template, t
 | `TV_Screen...` | object (a flat plane, 1.6 : 1) | shows the live timing screen |
 | `PC_Screen...` | object (a flat plane, about 1.27 : 1) | the computer's screen (World Career). The hub's camera frames the room from the car to this, and zooms into it when you sit down. Without one, an object named `CrtMonitor...` gets a screen laid over its glass. Move the desk anywhere: the shots follow it |
 | `TeamBand...` | object (a flat plane, 4 : 1) | shows the team banner (name in team colours) |
+| `ListNote...` | object (a flat plane, any size) | where your list is taped up (World Career): the sheet is centred on it, facing the way the plane faces. Without one it goes on the wall straight behind the computer, just above the screen |
 | `TeamMain...` | material | colour set to the team's main colour |
 | `TeamAccent...` | material | colour set to the team's accent colour |
 | `TyreBand...` | material | colour set to the compound you'll go out on |

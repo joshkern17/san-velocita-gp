@@ -7,6 +7,7 @@
 //   node tools/simcareer.mjs 40 3 --policy=sketchy one policy, with a line per career
 //   node tools/simcareer.mjs 40 3 --gt             win the Street Cup first (a quick driver), then GT seasons at --skill
 //                                                  (--gentleman=no: no gentleman driver; --car=buy: buy, not lease)
+//   --amb=par                                      each season's ambition: none, safe, par (default), push, title
 //
 // skill: where you'd qualify on pace alone, as a fraction down the field (0 = the fastest driver, 1 = the slowest).
 import * as WC from '../js/wcareer.js';
@@ -14,6 +15,7 @@ import * as WC from '../js/wcareer.js';
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 const args = process.argv.slice(2), opt = (k, d) => { const a = args.find(x => x.startsWith(`--${k}=`)); return a ? a.split('=')[1] : d; };
 const ENTRY = opt('entry', 'fresh'), MATE = opt('mate', 'pay'), GT = args.includes('--gt'), GENT = opt('gentleman', 'yes') !== 'no', CARHOW = opt('car', 'lease');
+const AMB = opt('amb', 'par');
 const N = +(args.find(a => /^\d+$/.test(a)) || 40), SEASONS = +(args.filter(a => /^\d+$/.test(a))[1] || 3), SKILL = +opt('skill', 0.4), ONLY = opt('policy', null);
 
 const POOL = [['Pine Ridge', 'grass'], ['Mesa Loop', 'desert'], ['Harbour Run', 'coast'], ['Downtown GP', 'city'], ['Oak Valley', 'grass'], ['Red Rock', 'desert'], ['Bay Point', 'coast'], ['Uptown Ring', 'city']]
@@ -157,6 +159,7 @@ function career(P, s) {
     while (!w.over) {
       if (WC.needsCar(w) && w.car) { const c = CARHOW === 'used' ? WC.exWorks(w)[0] : WC.customerCars(w).sort((a, b) => (a.deposit + a.perRound * 6) - (b.deposit + b.perRound * 6))[0]; if (c) WC.acquireCar(w, CARHOW, CARHOW === 'used' ? c.id : c.key); }
       if (!w.car) { const a = (w.ads || [])[0]; if (a && w.money.balance > a.price) WC.buyCar(w, a.id); else { out.broke = out.rounds; break; } }
+      if (AMB !== 'none' && WC.ambitionDue(w)) { const c = WC.ambitionChoices(w), e = WC.seasonOutlook(w).pos; const x = { safe: c[0], par: c.find(o => o.t === e) || c[0], push: c.find(o => o.t < e && o.t > 1) || c.find(o => o.t < e) || c[0], title: c[c.length - 1] }[AMB]; WC.setAmbition(w, x.t); }
       week(w, P); hire(w, P);
       if (w.staff) { WC.managerRestock(w); WC.runPayroll(w); }
       const throwIt = P.throwRaces && w.bet && w.bet.type === 'against', keep = w.simSkill;

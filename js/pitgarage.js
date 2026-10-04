@@ -141,7 +141,7 @@ export class PitGarage {
     // (Blender's exporter writes bulbs in physical units, ~54 per watt; the game's lights are tuned far lower)
     m.traverse(o => { if (o.isPointLight || o.isSpotLight) o.intensity *= BULB_SCALE; });
     if (lit) { for (const l of this.lights) l.visible = false; this.scene.add(new THREE.HemisphereLight(0xc8d0ff, 0x202024, 0.12)); }
-    this.room.clear(); this.tyreBands = []; this.teamMats = []; this.screen = null;
+    this.room.clear(); this.tyreBands = []; this.teamMats = []; this.screen = null; this.listHook = null; this.dropList();
     // glTF uvs are flipped vs canvas textures
     this.tvTex.flipY = false; this.tvTex.needsUpdate = true;
     this.bandTex.flipY = false; this.bandTex.needsUpdate = true;
@@ -151,6 +151,7 @@ export class PitGarage {
       const name = o.name || (o.parent && o.parent.name) || '';
       if (name.startsWith('PC_Screen')) { o.material = new THREE.MeshBasicMaterial({ map: this.pcTex(false), color: 0xdddddd }); this.screen = this.screenHit = o; return; }
       if (/^CrtMonitor/.test(name)) crts.push(o);
+      if (name.startsWith('ListNote')) { this.listHook = o; o.visible = false; return; }
       if (name.startsWith('TV_Screen')) { o.material = new THREE.MeshBasicMaterial({ map: this.tvTex }); return; }
       if (name.startsWith('TeamBand')) { o.material = new THREE.MeshLambertMaterial({ map: this.bandTex }); return; } // (painted on, so it takes the room's light)
       for (const mat of Array.isArray(o.material) ? o.material : [o.material]) {
@@ -228,6 +229,64 @@ export class PitGarage {
     return rc.intersectObject(this.screenHit || this.screen, true).length > 0;
   }
 
+  // ---------- the list on the wall (World Career: js/thelist.js draws it) ----------
+  // Taped to the wall above the desk: a ListNote plane in your model (any size: the sheet keeps its own shape, centred
+  // on it), else found by looking straight back from just above the computer's screen to whatever wall is behind it.
+  setList(canvas) {
+    this.listCanvas = canvas;
+    if (!this.listTex) { this.listTex = new THREE.CanvasTexture(canvas); this.listTex.colorSpace = THREE.SRGBColorSpace; this.listTex.anisotropy = 8; }
+    else { this.listTex.image = canvas; this.listTex.needsUpdate = true; }
+  }
+  refreshList() { if (this.listTex) this.listTex.needsUpdate = true; }
+  dropList() { if (this.listMesh) { this.listMesh.removeFromParent(); this.listMesh.geometry.dispose(); this.listMesh = null; } }
+  placeList() {
+    this.dropList();
+    const f = this.screenFrame(); if (!this.listTex || (!f && !this.listHook)) return;
+    const Wl = 0.3, Hl = Wl * 1088 / 768; // (the sheet: js/thelist.js LIST_W x LIST_H)
+    let p, n;
+    if (this.listHook) {
+      this.listHook.updateWorldMatrix(true, false);
+      p = new THREE.Box3().setFromObject(this.listHook).getCenter(new THREE.Vector3());
+      const nA = this.listHook.geometry.attributes.normal; n = new THREE.Vector3(nA.getX(0), nA.getY(0), nA.getZ(0)).transformDirection(this.listHook.matrixWorld);
+    } else {
+      n = new THREE.Vector3(f.n.x, 0, f.n.z).normalize();
+      const start = f.c.clone().addScaledVector(new THREE.Vector3(0, 1, 0), f.h / 2 + 0.16 + Hl / 2).addScaledVector(n, 0.35);
+      this.room.updateMatrixWorld(true);
+      const rc = new THREE.Raycaster(start, n.clone().negate(), 0, 4);
+      const hit = rc.intersectObject(this.room, true).find(h => h.object !== this.screen && h.object.visible && h.face);
+      if (hit) {
+        const hn = hit.face.normal.clone().transformDirection(hit.object.matrixWorld); if (hn.dot(n) < 0) hn.negate();
+        if (Math.abs(hn.y) < 0.5) n = hn.setY(0).normalize();
+        p = hit.point.clone().addScaledVector(n, 0.012);
+      } else p = start.clone().addScaledVector(n, -0.9);
+    }
+    if (!this.listHook) p.addScaledVector(new THREE.Vector3().crossVectors(n, new THREE.Vector3(0, 1, 0)).normalize(), -0.08); // (a little to the right, clear of anything hung beside the desk)
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(Wl, Hl), new THREE.MeshBasicMaterial({ map: this.listTex, color: 0xc9c3b6, transparent: true, polygonOffset: true, polygonOffsetFactor: -2 }));
+    m.position.copy(p); m.lookAt(p.clone().add(n)); m.rotateZ(-0.03);
+    this.scene.add(m); this.listMesh = m; this.listRoom = this.custom;
+  }
+  // the sheet in the world: centre, facing, size (like screenFrame)
+  listFrame() {
+    if (this.listCanvas && (!this.listMesh || this.listRoom !== this.custom)) this.placeList();
+    const m = this.listMesh; if (!m) return null;
+    m.updateWorldMatrix(true, false);
+    const c = m.getWorldPosition(new THREE.Vector3()), n = new THREE.Vector3(0, 0, 1).transformDirection(m.matrixWorld);
+    const up = new THREE.Vector3(0, 1, 0).addScaledVector(n, -n.y).normalize(), side = new THREE.Vector3().crossVectors(n, up).normalize();
+    return { c, n, up, side, w: m.geometry.parameters.width, h: m.geometry.parameters.height };
+  }
+  // the camera at the list: the sheet fills most of the height, right of the menu
+  listPose(f, aspect) {
+    const fov = 30, tn = Math.tan(fov * Math.PI / 360), d = Math.max(f.h / 2 / 0.86 / tn, f.w / 2 / 0.5 / (tn * aspect));
+    return { pos: f.c.clone().addScaledVector(f.n, d), at: f.c.clone(), fov, shift: 0.15 };
+  }
+  listAnchor() { const f = this.listFrame(); return f ? this.toScreen(f.c.clone().addScaledVector(f.up, f.h / 2 + 0.01)) : null; }
+  hitList(cx, cy) {
+    if (!this.listMesh) return false;
+    const box = this.r.domElement.getBoundingClientRect(), rc = new THREE.Raycaster();
+    rc.setFromCamera(new THREE.Vector2((cx - box.left) / box.width * 2 - 1, -(cy - box.top) / box.height * 2 + 1), this.camera);
+    return rc.intersectObject(this.listMesh, false).length > 0;
+  }
+
   // ---------- your base (World Career) ----------
   // Three shots, blended between (about three quarters of a second): 'room' (the garage: your car, the desk behind
   // it), 'seat' (sat at the computer: the screen fills the view) and 'car' (at the car, looking at one part).
@@ -244,6 +303,7 @@ export class PitGarage {
   get settled() { return this.blendK >= 1; }
   get seated() { return this.shot === 'seat' && this.settled; }
   get atRoom() { return this.shot === 'room' && this.settled; }
+  get atList() { return this.shot === 'list' && this.settled; }
   get nearScreen() { return this.shot === 'seat' || (this.prevShot === 'seat' && !this.settled); }
   get zoomK() { return this.shot === 'seat' ? this.blendK : this.prevShot === 'seat' ? 1 - this.blendK : 0; }
   carCentre() { return new THREE.Vector3(0, 0.55, CAR_Z); }
@@ -396,6 +456,7 @@ export class PitGarage {
   update(dt) {
     if (!this.active) return;
     this.t += dt;
+    if (this.listMesh) this.listMesh.visible = this.mode === 'home'; // (only at home: not in a race weekend's pit box)
     for (const ch of this.people || []) {
       // (turned to the camera once it's settled: a little to one side, not straight down the lens)
       if (!ch.faced && this.settled) {
@@ -410,7 +471,8 @@ export class PitGarage {
     if (this.mode === 'home') {
       // the shot we're going to, blended in from wherever the camera was
       const f = this.screenFrame(), el = this.r.domElement;
-      const b = this.shot === 'seat' && f ? this.seatPose(f, el.width / el.height) : this.shot === 'car' ? this.carPose(this.shotPart) : this.roomPose(f, this.t);
+      const lf = this.listCanvas ? this.listFrame() : null;
+      const b = this.shot === 'seat' && f ? this.seatPose(f, el.width / el.height) : this.shot === 'list' && lf ? this.listPose(lf, el.width / el.height) : this.shot === 'car' ? this.carPose(this.shotPart) : this.roomPose(f, this.t);
       const look = (p) => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(p.pos, p.at, new THREE.Vector3(0, 1, 0)));
       this.blendK = Math.min(1, this.blendK + dt / 0.75);
       const k = this.blendK * this.blendK * (3 - 2 * this.blendK), a = this.from || { pos: b.pos, quat: look(b), fov: b.fov, shift: b.shift };
