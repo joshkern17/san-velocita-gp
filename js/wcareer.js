@@ -1402,7 +1402,7 @@ function bankCheck(w) {
     return;
   }
   b.left--;
-  if (b.left <= 0) return closeAccount(w);
+  if (b.left <= 0) return endCareer(w, 'bank');
   if (b.left === 1 && b.stage < 2) {
     b.stage = 2;
     b.notice = mailId(w, BANK, BANK_ADDR, 'FINAL NOTICE', [`FINAL NOTICE.`, `Your account remains overdrawn by ${money$(-bal)}, beyond its agreed limit of ${money$(L)}.`, `Unless it is within its limit after your next round, we will close it without further notice.`, `This letter has also been sent by post.`], { bankNote: true, final: true });
@@ -1410,13 +1410,18 @@ function bankCheck(w) {
     mail(w, ADVISER[0], ADVISER[1], 'The bank', [`The bank called me, which they don't usually do.`, `You have one round. Sell something, sit a round out, take any work there is. I know you don't want to hear it.`, `Gerald`]);
   }
 }
-// the end: the bank closes the account, and the team is finished (main.js plays the ending)
-function closeAccount(w) {
-  const L = bankLimit(w), bal = w.money.balance;
-  w.ended = { y: w.year, r: w.round, why: 'bank', bal, team: w.teams[w.player.team].name };
+// the end (main.js plays it): why 'bank' (the account closed) | 'entry' (the series withdrew the entry)
+function endCareer(w, why) {
+  const L = bankLimit(w), bal = w.money.balance, t = w.teams[w.player.team], S = seriesById(w.player.series);
+  w.ended = { y: w.year, r: w.round, why, bal, team: t.name, series: S.name };
   w.bankNote = null;
-  mail(w, BANK, BANK_ADDR, 'Your account has been closed', [`We wrote to you about your account, which has been over its agreed limit of ${money$(L)} for ${BANK_ROUNDS} rounds.`, `We have now closed it. The balance of ${money$(-bal)} is due in full. A member of our recoveries team will be in touch.`, `Thank you for banking with First Velocita.`]);
-  news(w, `${w.teams[w.player.team].name.toUpperCase()} FOLDS`, `${w.teams[w.player.team].name}, the team founded by lottery winner ${w.player.name}, has stopped racing after its bank closed its account. The team's car and equipment are expected to be sold.`);
+  if (why === 'bank') {
+    mail(w, BANK, BANK_ADDR, 'Your account has been closed', [`We wrote to you about your account, which has been over its agreed limit of ${money$(L)} for ${BANK_ROUNDS} rounds.`, `We have now closed it. The balance of ${money$(-bal)} is due in full. A member of our recoveries team will be in touch.`, `Thank you for banking with First Velocita.`]);
+    news(w, `${t.name.toUpperCase()} FOLDS`, `${t.name}, the team founded by lottery winner ${w.player.name}, has stopped racing after its bank closed its account. The team's car and equipment are expected to be sold.`);
+  } else {
+    mail(w, `${S.name} Entries`, addrOf(S, 'entries'), 'Withdrawal of your entry', [`${t.name} has now missed more rounds than our regulations allow. We have withdrawn its entry, with immediate effect, and offered it to the next team on our waiting list.`, `Thank you for your participation in the ${S.name}.`, `Entries Office, ${S.name}`]);
+    news(w, `${t.name.toUpperCase()} LOSES ITS ${S.name.toUpperCase()} ENTRY`, `${t.name}, the team founded by lottery winner ${w.player.name}, has had its entry withdrawn after missing ${satOut(w)} rounds this season.`);
+  }
   flag(w, 'folded');
 }
 
@@ -1433,8 +1438,13 @@ export function sitOutSaves(w) {
   const fees = dealsOf(w).filter(d => !d.shady).reduce((a, d) => a + d.fee, 0);
   return { saves: c.entry + travel + c.crew + Math.round(c.fuelLap * 14 * (bgOf(w).fuel || 1)), loses: fees }; // (your teammate's contract is paid either way)
 }
+// The series needs its entrants to start: a team that misses more than SIT_MAX rounds in a season loses its entry
+// (a third of the season, at least one), which ends it. satOut(w): rounds missed this season
+export const sitMax = (w) => Math.max(1, Math.floor(w.opts.len / 3));
+export const satOut = (w) => (w.sat && w.sat.y === w.year ? w.sat.n : 0);
 export function sitOut(w) {
-  if (w.over) return null;
+  if (w.over || w.ended) return null;
+  w.sat = { y: w.year, n: satOut(w) + 1 };
   if (w.staff) runPayroll(w);
   const R = w.series[w.player.series].cal[w.round], items = [['Premises and facilities', -facUpkeep(myTeam(w))]];
   if (w.car && w.car.lease) items.push([`Car lease (${w.car.lease.prog})`, -w.car.lease.perRound]);
@@ -1445,6 +1455,10 @@ export function sitOut(w) {
   overdraftFee(w, items);
   const net = w.money.balance - before;
   bankCheck(w);
+  // (the series office: a warning at the last one allowed; past it, the entry goes)
+  const S = seriesById(w.player.series);
+  if (!w.ended && w.sat.n > sitMax(w)) endCareer(w, 'entry');
+  else if (!w.ended && w.sat.n === sitMax(w)) mail(w, `${S.name} Entries`, addrOf(S, 'entries'), 'Your entry', [`${w.teams[w.player.team].name} has not started ${w.sat.n} round${w.sat.n === 1 ? '' : 's'} of the ${w.year} season.`, `Our regulations allow an entrant to miss ${sitMax(w)} round${sitMax(w) === 1 ? '' : 's'} a season. If your team does not start the next round it misses, we will withdraw its entry and offer it to a team on our waiting list. The list is short, but it exists.`, `Entries Office, ${S.name}`]);
   mail(w, BANK, BANK_ADDR, `Account activity: ${R.name}`, [`Here is the activity on your business account for round ${w.round + 1}, ${R.name}. Your team did not start.`, w.money.balance < 0 ? `Your account is overdrawn by ${money$(-w.money.balance)}.` : `Your balance is ${money$(w.money.balance)}.`], { bill: { items, net, bal: w.money.balance } });
   // (neither of your cars starts: the rest of the field races without them)
   scoreRound(w, w.player.series, simRace(w, w.player.series, false).filter(r => teamOfPid(w, r.pid) !== w.player.team).map((r, k) => ({ ...r, pos: k + 1 })));
@@ -2255,6 +2269,7 @@ export function briefing(w) {
   // what's going wrong (worst first)
   const fz = finances(w), r = fz && fz.net < 0 ? fz.runway : 99, cost = w.over ? 0 : weekendCost(w);
   // (past the limit: the clock, first; else overdrawn: the fee, and how far the limit is)
+  { const n = satOut(w), m = sitMax(w); if (n && !w.over) watch.push({ text: n >= m ? `Sat out ${n} of ${m} allowed: miss another and the entry goes` : `Sat out ${n} of ${m} rounds the series allows`, bad: n >= m }); }
   { const n = bankRoundsLeft(w), L = bankLimit(w);
     if (n != null) watch.push({ text: `Bank: above ${money$(-L)} in ${n} round${n === 1 ? '' : 's'} or it closes`, bad: true });
     else if (w.money.balance < 0) watch.push({ text: `Overdrawn by ${money$(-w.money.balance)}: the limit is ${money$(-L)}`, bad: true }); }

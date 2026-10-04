@@ -1883,8 +1883,9 @@ function renderHub() {
   const F = w.founding || {};
   pitGarage.setNotice(WC.bankNote(w)?.stage >= 2);
   if (w.ended) {
-    $('hub-card').innerHTML = `<div class="panel-title">${w.ended.y} &middot; Account closed</div><div class="ti-grid three">${cellW('Seasons', w.seasons.filter(x => x.you).length + (w.over ? 0 : 1))}${cellW('Wins', w.player.wins)}${cellW('Owed', `<span class="bad">${WC.money$(-w.ended.bal)}</span>`)}</div>
-      <p class="br-hint">First Velocita has closed the account. ${escP(w.ended.team)} is finished.</p>`;
+    const E = w.ended, bank = E.why === 'bank';
+    $('hub-card').innerHTML = `<div class="panel-title">${E.y} &middot; ${bank ? 'Account closed' : 'Entry withdrawn'}</div><div class="ti-grid three">${cellW('Seasons', w.seasons.filter(x => x.you).length + (w.over ? 0 : 1))}${cellW('Wins', w.player.wins)}${cellW(E.bal < 0 ? 'Owed' : 'Bank', `<span class="${E.bal < 0 ? 'bad' : ''}">${WC.money$(Math.abs(E.bal))}</span>`)}</div>
+      <p class="br-hint">${bank ? 'First Velocita has closed the account.' : `The ${escP(E.series || '')} has withdrawn your entry.`} ${escP(E.team)} is finished.</p>`;
   } else if (hubMode === 'list') {
     $('hub-card').innerHTML = listCard(w);
   } else if (hubMode === 'car' && w.car) {
@@ -2433,7 +2434,10 @@ function getCarItem(w) {
 }
 // sitting a round out: what it saves and what it costs, before you choose
 function sitOutItem(w, only) {
-  const r = w.series[w.player.series].cal[w.round], q = WC.sitOutSaves(w), $ = WC.money$;
+  const r = w.series[w.player.series].cal[w.round], q = WC.sitOutSaves(w), $ = WC.money$, last = WC.satOut(w) >= WC.sitMax(w);
+  // (past what the series allows, it's the end of the team: said on the item itself)
+  if (last) return { label: `Sit Out: End The Team`, cls: only ? 'action primary' : '', confirm: 'This ends the team. Select again', action: () => sitOutRound(),
+    desc: `You've missed the ${WC.sitMax(w)} round${WC.sitMax(w) === 1 ? '' : 's'} the ${seriesName(w.player.series)} allows a season. Miss this one and it withdraws your entry: the team is finished.` };
   return { label: `Sit Out Round ${w.round + 1}<small>SAVES ${$(q.saves)}</small>`, cls: only ? 'action primary' : '', confirm: 'Sit it out? Select again', action: () => sitOutRound(),
     desc: `${only ? 'No race car. ' : ''}Saves <b>${$(q.saves)}</b> (entry, travel, crew, fuel).${q.loses ? ` Sponsors pay nothing (<b>&minus;${$(q.loses)}</b>) and count a miss.` : ''} No points. Rent, payroll and loans still go out.` };
 }
