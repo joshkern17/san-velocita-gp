@@ -60,6 +60,9 @@ export const ENGINES = {
   // turbo four (Japanese sports coupe): buzzy, big blow-off flutter
   i4turbo: { cyl: 4, fire: even(4), bank: new Array(4).fill(0), ring: 720, ring2: 1, decay: 0.0022, thump: 0.55, rasp: 0.5, jitter: 0.04,
     bankAmp: 1, drive: 6, formants: [[280, 4, 1], [1300, 4, 1.5]], lp: [900, 6000], turbo: 1, flutter: 1, pops: 0.6, whine: 0, gain: 1 },
+  // tired NA four (a '90s hatchback on its third owner): thin, buzzy, rattly exhaust, no turbo
+  i4: { cyl: 4, fire: even(4), bank: new Array(4).fill(0), ring: 820, ring2: 1, decay: 0.0019, thump: 0.45, rasp: 0.55, jitter: 0.05,
+    bankAmp: 1, drive: 5, formants: [[300, 3, 1], [1600, 4, 1.6]], lp: [1000, 6500], turbo: 0, pops: 0.25, whine: 0, gain: 0.95 },
   // turbo diesel four (the works van): clattery, gruff, lazy
   diesel: { cyl: 4, fire: even(4), bank: new Array(4).fill(0), ring: 420, ring2: 1, decay: 0.0026, thump: 1, rasp: 0.25, jitter: 0.05,
     bankAmp: 1, clatter: 1, drive: 3, formants: [[160, 6, 1], [2800, 5, 2.5]], lp: [900, 3800], turbo: 0.5, flutter: 0, pops: 0, whine: 0, gain: 1.1 },
@@ -130,6 +133,7 @@ export const PHYS = {
   flat6turbo: { cyl: 6, gain: 0.425, phases: evenPh(6), extractors: [80, 130, 85, 125, 90, 120], straight: 115, muffler: [12, 18, 24, 30], action: 0.18, mix: [0.8, 1, 1] },
   flat12: { cyl: 12, gain: 0.748, phases: evenPh(12), jitter: 0.45, extractors: [70, 90], intake: 80, exhaust: 80, straight: 110, action: 0.08, ignition: 0.013, mix: [0.8, 0.6, 1] },
   i4turbo: { cyl: 4, gain: 0.395, extractors: [100], straight: 128, action: 0.18, mix: [0.5, 1, 1] },
+  i4: { cyl: 4, gain: 0.395, extractors: [90], straight: 110, action: 0.12, ignition: 0.014, mix: [0.8, 1, 1] },
   diesel: { cyl: 4, gain: 0.13, phases: evenPh(4), extractors: [160], intake: 140, exhaust: 140, straight: 220, muffler: [25, 35, 45, 55], action: 0.3, ignition: 0.03, mix: [0.5, 1.6, 0.8] },
 };
 // every tube a bit longer than the presets say (lower, deeper resonances) and less intake hiss: the presets as written

@@ -16,6 +16,7 @@ export const CLASSES = {
   f1:     { label: 'Formula',  short: 'F1' },
   gt1:    { label: 'GT1 ’90s', short: 'GT1' },
   street: { label: 'Street',  short: 'ST' },
+  shitbox: { label: 'Shitbox', short: 'SB' },
   fun:    { label: 'Utility', short: 'UT' },
 };
 
@@ -104,6 +105,15 @@ export const CARS = {
     spec: street({ lsd: [20, 0.43, 0.43], mass: 1690, power: 320000, torque: V8, a: 1.36, b: 1.36, mu: 1.28, rearGrip: 1.0, redline: 7000, gears: [0, 18, 29, 40, 52, 64, 76] }) },
   m5:      { name: 'Bavaria M5 E39', cls: 'street', sound: 'v8cross', glb: true, paint: false, straighten: true, // CC BY-NC-ND: shown unmodified, never repainted
     spec: street({ lsd: [40, 0.25, 0.25], mass: 1720, power: 294000, torque: V8, a: 1.4, b: 1.44, cgh: 0.5, drag: 0.38, redline: 7000, gears: [0, 17, 28, 40, 52, 64, 78] }) },
+
+  // your Blender model (EK hatch, white photo, full livery). A tired base car, not the Type R in the photo: ~120 hp
+  // D16 on its third owner, front-wheel drive with an open diff (the inside front spins up out of slow corners), 61%
+  // of its weight on the nose, worn dampers, old tyres. No drift mode: a front-driver can't steer a slide on the throttle
+  civic: { name: 'Honda Civic EK', cls: 'shitbox', sound: 'i4', glb: true, paint: true, livery: true,
+    liveryLabels: { topNumber: [0.42, 0.5], sideNumber: [0.5, 0.55], sideSponsor: [0.5, 0.8] },
+    spec: street({ body: [2.33, 2.11, 0.91], mass: 1080, a: 1.06, b: 1.66, cgh: 0.5, power: 80000, maxForce: 8200, torque: NA, drive: 1, lsd: [0, 0, 0],
+      mu: 1.22, rearGrip: 1.02, kd: 0.05, drag: 0.38, maxSteer: 0.5, redline: 7200, idle: 850, gears: [0, 14, 24, 34, 44, 54], shift: 0.18,
+      brakeF: 0.74, track: 1.47, rideHz: [1.5, 1.6], damp: 0.45, rollGrad: 3, unsprung: 32, aeroH: [0, 0], aeroYaw: 1, drift: false }) },
 
   transit: { name: 'Works Van ’99', cls: 'fun', sound: 'diesel', glb: true, paint: false,
     spec: street({ lsd: [0, 0, 0], mass: 1950, power: 95000, torque: DIESEL, drive: 0, cgh: 0.8, track: 1.7, rideHz: [1.3, 1.5], damp: 0.45, rollGrad: 5, unsprung: 55, rcH: 0.12, antiDive: 0.15, antiSquat: 0.15, mu: 1.05, kd: 0, drag: 0.62, a: 1.55, b: 1.45, maxSteer: 0.5, redline: 4600, idle: 800, shift: 0.22, gears: [0, 13, 22, 32, 41, 50] }) },

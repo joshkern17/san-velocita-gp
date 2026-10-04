@@ -362,7 +362,7 @@ export class Race {
     if (!O && this.mode === 'attract') return base; // (the menu's backdrop race doesn't wait for a fit)
     if (!O) {
       const lc = lineCar(CARS[id].spec); if (this.opts.lineComb) lc.comb = this.opts.lineComb;
-      const margin = this.opts.lineMargin ?? (CARS[id].cls === 'street' || CARS[id].cls === 'fun' ? 2 : 1.6);
+      const margin = this.opts.lineMargin ?? (CARS[id].cls === 'street' || CARS[id].cls === 'shitbox' || CARS[id].cls === 'fun' ? 2 : 1.6);
       O = fastLine(this.T, base, lc, { margin }).O;
       if (this.opts.lineCheck !== false) O = this.checkLine(id, base, O);
       saveLine(key, O);
@@ -403,7 +403,7 @@ export class Race {
     const key = this.lineKey(id);
     if (LINES_CACHE.get(key) || loadLine(key, this.T.N)) return [['Building the circuit', set]];
     const base = computeRacingLine(this.T), lc = lineCar(CARS[id].spec); if (this.opts.lineComb) lc.comb = this.opts.lineComb;
-    const margin = this.opts.lineMargin ?? (CARS[id].cls === 'street' || CARS[id].cls === 'fun' ? 2 : 1.6);
+    const margin = this.opts.lineMargin ?? (CARS[id].cls === 'street' || CARS[id].cls === 'shitbox' || CARS[id].cls === 'fun' ? 2 : 1.6);
     const gen = fastLineSteps(this.T, base, lc, { margin }), job = { fit: null, tries: [] };
     const steps = [];
     for (let k = 0; k < 6; k++) steps.push(['Fitting the racing line to your car', () => { for (let n = 0; n < 4 && !job.fit; n++) { const r = gen.next(); if (r.done) job.fit = r.value.O; } }]);
