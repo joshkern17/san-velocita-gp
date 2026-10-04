@@ -676,7 +676,7 @@ export function nextSeason(w, trackPool) {
 // own priorities (t.style): that, not a difficulty setting, is why the fast teams are fast. (The difficulty setting is
 // how well the AI drive, the same for every team.) In the race an AI car's development is part of its pace gap
 // (rating -> raceKnobs); yours is in your car's modifiers (carMods).
-const LAP_K = { power: 0.3, grip: 0.5, downforce: 0.05, brake: 0.08, drag: -0.15 }; // (lap time gained per unit of each)
+export const LAP_K = { power: 0.3, grip: 0.5, downforce: 0.05, brake: 0.08, drag: -0.15 }; // (lap time gained per unit of each)
 const CAR_PTS = 1 / 0.000275; // (a team's car rating point: 0.0275% of a lap)
 const DEV_REF = { street: 0.0143, gt: 0.0103, formula: 0.0017 }; // (the development a typical team carries: a car rating of the series' base)
 const DEV_FADE = 0.8;
@@ -2283,15 +2283,55 @@ export function carParts(w) {
   if (!w.car.parts) { const c0 = w.car.cond ?? 0.85; w.car.parts = {}; for (const k of PART_KEYS) w.car.parts[k] = { cond: +clamp(c0 + (rng(w) - 0.5) * 0.24, 0.35, 1).toFixed(3), fit: null }; }
   return w.car.parts;
 }
+// Everything acting on the car, by what it changes (MOD_CH) and where it comes from (MOD_SRC): each item is
+// { src, label, v (the true change, a fraction), shown (what you know of it), how ('exact' | 'measured' | 'claimed' |
+// 'unknown'), part, add }. Upgrades on the same stat add up (add: true); everything else multiplies. carMods is the
+// product of the true values; the car's spec sheet (js/carsheet.js) shows what you know.
+export const MOD_CH = ['power', 'grip', 'brake', 'downforce', 'drag', 'damage'];
+export const MOD_SRC = ['wear', 'parts', 'dev', 'week', 'rules'];
+export function carBreakdown(w) {
+  const P = carParts(w); if (!P) return null;
+  const out = Object.fromEntries(MOD_CH.map(k => [k, []])), lvl = dataLevel(w), dyno = facLevel(myTeam(w), 'dyno');
+  const put = (ch, src, label, v, o = {}) => { if (Math.abs(v) > 1e-6 || o.how) out[ch].push({ src, label, v, shown: o.shown ?? v, how: o.how || 'exact', part: o.part || null, add: !!o.add }); };
+  const pc = (k) => Math.round(P[k].cond * 100);
+  // wear (the condition of each part is always known)
+  put('power', 'wear', `Engine at ${pc('engine')}%`, 0.1 * P.engine.cond - 0.1, { part: 'engine' });
+  put('grip', 'wear', `Suspension at ${pc('suspension')}%`, 0.04 * P.suspension.cond - 0.04, { part: 'suspension' });
+  put('brake', 'wear', `Brakes at ${pc('brakes')}%`, 0.1 * P.brakes.cond - 0.1, { part: 'brakes' });
+  put('damage', 'wear', `Chassis at ${pc('chassis')}%`, 0.15 - 0.15 * P.chassis.cond, { part: 'chassis' });
+  // upgrades: the engineer's measurement if there is one, else the maker's claim (used parts come with none)
+  for (const k of PART_KEYS) {
+    const f = P[k].fit; if (!f) continue;
+    for (const [stat, v] of Object.entries(f.gains || {})) {
+      if (!out[stat]) continue;
+      const m = f.measured && f.measured.stat === stat ? f.measured : null, cl = f.claim?.[stat];
+      put(stat, 'parts', f.name, v, { add: true, part: k, ...(m ? { shown: m.val, how: m.lvl >= 2 ? 'measured' : 'rough' } : cl != null ? { shown: cl, how: 'claimed' } : { shown: 0, how: 'unknown' }) });
+    }
+  }
+  if (w.grey) put('power', 'parts', 'Engine map (Kev)', 0.04, { part: 'engine' });
+  // development (exact with a data engineer; engine work with a dyno too; otherwise you only know it's there)
+  const D = w.car.dev || {};
+  const AREA = { power: 'Engine', grip: 'Chassis', downforce: 'Aero', brake: 'Brakes' };
+  for (const stat of ['power', 'grip', 'downforce', 'brake']) if (D[stat]) put(stat, 'dev', `${AREA[stat]} development`, D[stat], lvl >= 1 || (stat === 'power' && dyno) ? {} : { shown: 0, how: 'unknown' });
+  // this week: a test day found the setup, or the sim rig some of it
+  const wk = w.week && w.week.key === weekKey(w) ? w.week : null;
+  if (wk && wk.setup) put('grip', 'week', 'Test day setup', 0.012); else if (wk && wk.sim) put('grip', 'week', 'Sim rig setup', 0.004 * wk.sim);
+  // the rules: GT's balance of performance and success ballast
+  const bop = bopOf(w), bl = ballastOf(w);
+  if (bop !== 1) put('power', 'rules', 'Balance of performance', bop - 1);
+  if (bl) put('power', 'rules', `Success ballast (${bl} kg)`, -bl * 0.0006);
+  return out;
+}
+// one stat's total change (key 'v': the truth; 'shown': what you know), for the sources given
+export function modOf(items, key = 'v', srcs = null) {
+  let mul = 1, add = 0;
+  for (const x of items) { if (srcs && !srcs.includes(x.src)) continue; if (x.add) add += x[key]; else mul *= 1 + x[key]; }
+  return mul * (1 + add);
+}
 // the car as the race sees it (World Career's player modifiers)
 export function carMods(w) {
-  const P = carParts(w); if (!P) return null;
-  const c = (k) => P[k].cond, g = (k, stat) => P[k].fit?.gains?.[stat] || 0, sum = (stat) => PART_KEYS.reduce((a, k) => a + g(k, stat), 0);
-  const D = w.car.dev || {}, wk = w.week && w.week.key === weekKey(w) ? w.week : null;
-  return { power: (0.9 + 0.1 * c('engine')) * (1 + sum('power')) * (1 + (D.power || 0)) * (w.grey ? 1.04 : 1) * bopOf(w) * (1 - ballastOf(w) * 0.0006), // (Kev's engine map; GT's balance of performance and success ballast)
-    grip: (0.96 + 0.04 * c('suspension')) * (1 + sum('grip')) * (1 + (D.grip || 0)) * (wk && wk.setup ? 1.012 : wk && wk.sim ? 1 + 0.004 * wk.sim : 1), // (a test day found the setup; or the sim rig, some of it)
-    brake: (0.9 + 0.1 * c('brakes')) * (1 + sum('brake')) * (1 + (D.brake || 0)),
-    downforce: (1 + sum('downforce')) * (1 + (D.downforce || 0)), drag: 1 + sum('drag'), damage: (1.15 - 0.15 * c('chassis')) * (1 + sum('damage')), rainGrip: 1, wear: 1, slip: 1, softs: false, launch: false };
+  const B = carBreakdown(w); if (!B) return null;
+  return { ...Object.fromEntries(MOD_CH.map(k => [k, modOf(B[k])])), rainGrip: 1, wear: 1, slip: 1, softs: false, launch: false };
 }
 const mechFactor = (w) => { const m = staffOf(w, 'mechanic'); return m ? (1.2 - 0.08 * m.skill) * (m.morale < 35 ? 1.3 : 1) : 1.25; };
 // the chance each part fails this race (0..1)
@@ -2324,9 +2364,11 @@ export function wearCar(w, laps, damage, failed) {
 // work on a part: a rebuild (your mechanic, or a shop) or a new one
 export const rebuildCost = (w, k) => Math.round(PARTS[k].cost * COSTS[w.player.series].repair * (staffOf(w, 'mechanic') ? 1 : 1.5) * (bgOf(w).repair || 1) * (1 - 0.1 * facLevel(myTeam(w), 'tools')) / 50) * 50;
 export const newPartCost = (w, k) => Math.round(PARTS[k].cost * COSTS[w.player.series].repair * 2.2 / 50) * 50;
+// where a rebuild gets a part back to, about (your chief mechanic, or a shop)
+export const rebuildTo = (w) => { const m = staffOf(w, 'mechanic'); return m ? 0.68 + 0.05 * m.skill - (m.morale < 35 ? 0.08 : 0) : 0.8; };
 export function rebuildPart(w, k) {
   const P = carParts(w), m = staffOf(w, 'mechanic'), cost = rebuildCost(w, k);
-  const to = m ? 0.68 + 0.05 * m.skill - (m.morale < 35 ? 0.08 : 0) + (rng(w) - 0.5) * 0.06 : 0.8;
+  const to = rebuildTo(w) + (m ? (rng(w) - 0.5) * 0.06 : 0);
   P[k].cond = +Math.max(P[k].cond, clamp(to, 0.4, 0.97)).toFixed(3);
   pay(w, -cost, `${PARTS[k].name} rebuild (${m ? m.first : 'outsourced'})`);
 }
