@@ -1647,7 +1647,17 @@ function startWorld(noOpening = false) {
     teamName: `${name.split(' ').pop()} Racing`, colors: [settings.car.main, settings.car.accent], seed: Date.now(), streetCars }, poolOf(worldOpts)); // (this career's choice, not the last one loaded)
   world.opts.tracks = worldOpts.tracks ? worldOpts.tracks.slice() : null;
   saveWorld();
-  const hub = (r) => { if (r && r.lottery) { WC.pickLottery(world, r.lottery); saveWorld(); } enterHub(); const m = world.mail.find(x => x.link && x.link[0] === 'registry'); setTimeout(() => { if (screen === 's-hub') sitDown('mail', m && m.id); }, 700); };
+  const hub = (r) => {
+    if (r && r.lottery) WC.pickLottery(world, r.lottery);
+    // (Form SV-1 was filed at the registry desk: as if on the computer; then the wizard comes in, not the computer)
+    if (r && r.reg) {
+      const f = r.reg; WC.registerTeam(world, f);
+      world.livery = { ...settings.car, main: f.colors[0], accent: f.colors[1], teamName: f.team };
+      settings.driverName = f.name; saveSettings(); saveWorld();
+      enterHub(); setTimeout(() => { if (screen === 's-hub') openTeamSetup(); }, 900);
+      return;
+    }
+    saveWorld(); enterHub(); const m = world.mail.find(x => x.link && x.link[0] === 'registry'); setTimeout(() => { if (screen === 's-hub') sitDown('mail', m && m.id); }, 700); };
   if (noOpening) fadeTo(hub, 200); else openOpening(hub); // (the opening first: the lottery, then the garage)
 }
 

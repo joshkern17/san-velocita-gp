@@ -5,7 +5,7 @@
 // (office_chair_grey_alt); the clerk: js/characters.js.
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
-import { LOTTERY } from './wcareer.js';
+import { LOTTERY, TOWNS, BACKGROUNDS, EX_NAMES } from './wcareer.js';
 import { loadCharacters, makeCharacter } from './characters.js';
 import { hash, paperCanvas, text, lines, sheet } from './papers.js';
 
@@ -63,14 +63,31 @@ function formCanvas(f, sign = 0, stamp = false) {
 const INTRO = [
   'Ticket 1742.',
   'Congratulations on your win.',
-  `The jackpot is ${money$(LOTTERY.jackpot)}. That's the figure on the posters.`,
-  'Of that, the Province keeps a share as a Prosperity Contribution. It pays for the posters.',
-  'You can take what\'s left two ways.',
-  `The lump sum: the cash value, less tax. ${money$(LOTTERY.lump)}, today.`,
-  `Or the annuity: ${money$(LOTTERY.annuity)} a year for ${LOTTERY.years} years. Spread out, less of it goes in tax.`,
-  'This choice is final. Most people take the lump sum.',
+  `The jackpot is ${money$(LOTTERY.jackpot)}. That's the number on the posters.`,
+  'The Province keeps a share of that as a Prosperity Contribution. It pays for the posters.',
+  'You can take the rest one of two ways.',
+  `Lump sum: the cash value, after tax. ${money$(LOTTERY.lump)}, today.`,
+  `Or the annuity: ${money$(LOTTERY.annuity)} a year for ${LOTTERY.years} years. Spread out like that, less of it goes to tax.`,
+  'The choice is final. Most people take the lump sum.',
 ];
-const OUTRO = ['Thank you.', 'We only pay winnings to a registered business. That\'s Form SV-1.', 'Next.'];
+const OUTRO = ['Thank you.', 'We can only release funds to a registered business. That\'s Form SV-1.'];
+
+// who sits at each desk: the name and the job on the plaque in front of them
+const PLAQUES = { lottery: ['R. HALVORSEN', 'STATE LOTTERY · WINNER SERVICES'], registry: ['D. PRUITT', 'BUSINESS REGISTRY · SPORTING ENTERPRISES'] };
+// the registry's colour choices (a pair: the main colour and the second)
+const COLORS = [[0xc8141c, 0xf2f2f2, 'Red and white'], [0x1d4fd8, 0xf2c21a, 'Blue and yellow'], [0x15181d, 0xf2c21a, 'Black and gold'],
+  [0x18a058, 0xf2f2f2, 'Green and white'], [0xf06a12, 0x1d4fd8, 'Orange and blue'], [0x7a2cc8, 0x1fb5c8, 'Purple and teal']];
+const hexc = (c) => '#' + c.toString(16).padStart(6, '0');
+// a brass name plate on a wooden block: the name, and the job under it
+function plaqueCanvas([name, job]) {
+  const [c, g] = paperCanvas(512, 112, '#3a2614');
+  const b = g.createLinearGradient(0, 14, 0, 98); b.addColorStop(0, '#e9c97a'); b.addColorStop(0.5, '#b8913e'); b.addColorStop(1, '#8a6a2a');
+  g.fillStyle = b; g.fillRect(14, 12, 484, 88);
+  g.strokeStyle = 'rgba(60,40,10,0.6)'; g.lineWidth = 2; g.strokeRect(20, 18, 472, 76);
+  text(g, name, 256, 58, '700 34px "Times New Roman", serif', '#2a1c08', 'center');
+  text(g, job, 256, 84, '700 15px Arial', '#3a2a10', 'center');
+  return c;
+}
 
 export class ClaimOffice {
   constructor() {
@@ -110,14 +127,25 @@ export class ClaimOffice {
     });
     // (the desk's top is at 0.75; the CRT and the keyboard face the clerk, at -z; the chair's front is its +x)
     Promise.all([
-      put('desk', 0, 0, 0), put('CrtMonitor', 0.6, 0.75, -0.14, Math.PI + 0.75), put('keyboard', 0.05, 0.75, -0.2, Math.PI),
+      put('desk', 0, 0, 0), put('CrtMonitor', 0.6, 0.75, -0.14, Math.PI + 0.75).then(o => { this.crtObj = o; }), put('keyboard', 0.05, 0.75, -0.2, Math.PI).then(o => { this.kbObj = o; }),
       put('computer', -0.98, 0, -0.1, Math.PI - 0.2), put('office_chair_grey_alt', 0, 0, -0.68, -Math.PI / 2),
     ]).then(() => { this.ready = true; });
     loadCharacters().then(ok => {
       if (!ok) return;
       this.clerk = makeCharacter({ look: 'polo_white', clip: 'sit_idle', seed: 1742 });
       this.clerk.object.position.set(0.02, 0.04, -0.66); this.scene.add(this.clerk.object);
+      this.clerk2 = makeCharacter({ look: 'polo_navy', clip: 'sit_idle', seed: 250 });
+      this.clerk2.object.position.set(0.02, 0.04, -0.66); this.clerk2.object.visible = false; this.scene.add(this.clerk2.object);
     });
+    // the name plate, on the front edge of the desk facing you (its text swapped for each desk)
+    this.plaque = sheet(plaqueCanvas(PLAQUES.lottery), 0.3, 0.066, 0.03, 0x3a2614, true);
+    this.plaque.position.set(0.25, 0.79, 0.28); this.plaque.rotation.set(-0.35, -0.1, 0); this.scene.add(this.plaque);
+    // the registry's desk: a stack of blank forms and a rubber stamp where the lottery's keyboard was
+    this.regProps = new THREE.Group();
+    for (let k = 0; k < 6; k++) { const f = sheet(paperCanvas(8, 8, '#efe9da')[0], 0.21, 0.297, 0.004, 0xe6e0d0, true); f.position.set(-0.3 + hash(k) * 0.01, 0.753 + k * 0.004, -0.12); f.rotation.set(-Math.PI / 2, 0, 0.2 + (hash(k + 3) - 0.5) * 0.08); this.regProps.add(f); }
+    const stamp = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.09, 10), new THREE.MeshLambertMaterial({ color: 0x5a3a20 })); stamp.position.set(0.12, 0.8, -0.1);
+    const pad = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.012, 0.08), new THREE.MeshLambertMaterial({ color: 0x2a2a6a })); pad.position.set(0.22, 0.756, -0.08);
+    this.regProps.add(stamp, pad); this.regProps.visible = false; this.scene.add(this.regProps);
     // the forms, on your side of the desk once they're slid over
     this.forms = ['lump', 'annuity'].map((key, i) => {
       const m = sheet(formCanvas(FORMS[key]), 0.15, 0.195, 0.0008, 0xe0dccf, true);
@@ -131,18 +159,29 @@ export class ClaimOffice {
   // h: { snd (js/opening.js's sound), say(html), line(text), btn(), done(choice) }
   start(h) {
     this.h = h; this.t = 0; this.stage = 'dark'; this.light = 0; this.lineI = -1; this.lineT = 0; this.sel = 0; this.picked = null; this.sign = 0;
-    this.yaw = 0; this.pitch = 0; this.targets = []; this.offT = -1; this.stampT = -1;
+    this.yaw = 0; this.pitch = 0; this.targets = []; this.offT = -1; this.stampT = -1; this.finished = false; this.lineWait = null; this.reg = null;
+    this.setDesk('lottery');
     for (const f of this.forms) { f.state = 'away'; f.k = 1; f.obj.visible = false; f.obj.position.copy(f.start.p); f.obj.quaternion.copy(f.start.q); this.redraw(f); }
     h.say(''); h.line('');
+  }
+  // which desk you're at: the lottery's (the CRT, the keyboard, the forms) or the registry's (a stack of forms, a stamp)
+  setDesk(d) {
+    this.desk = d; const reg = d === 'registry';
+    if (this.clerk) this.clerk.object.visible = !reg; if (this.clerk2) this.clerk2.object.visible = reg;
+    if (this.crtObj) this.crtObj.visible = !reg; if (this.kbObj) this.kbObj.visible = !reg; this.regProps.visible = reg;
+    const t = this.plaque.userData.tex; t.image = plaqueCanvas(PLAQUES[d]); t.needsUpdate = true;
+    if (reg) for (const f of this.forms) f.obj.visible = false;
   }
   redraw(f, sign = 0, stamp = false) { const t = f.obj.userData.tex; t.image = formCanvas(FORMS[f.key], sign, stamp); t.needsUpdate = true; }
 
   // ---- input (from js/opening.js) ----
   pickables() { return this.forms.map(f => f.obj); }
   look(dy, dp) { this.yaw = clamp(this.yaw + dy, -0.6, 0.6); this.pitch = clamp(this.pitch + dp, -0.45, 0.3); }
-  nav(d, axis = 'x') { if (this.stage !== 'choose' || axis !== 'x') return; const n = clamp(this.sel + d, 0, 1); if (n !== this.sel) { this.sel = n; this.h.snd?.hiss(0.12, 2600, 0.015, { room: true }); } }
+  nav(d, axis = 'x') { if (axis === 'y') return this.h.choiceNav?.(d); if (this.stage !== 'choose' || axis !== 'x') return; const n = clamp(this.sel + d, 0, 1); if (n !== this.sel) { this.sel = n; this.h.snd?.hiss(0.12, 2600, 0.015, { room: true }); } }
   hover(objs) { if (this.stage !== 'choose') return; const i = this.forms.findIndex(f => objs.includes(f.obj)); if (i >= 0) this.sel = i; }
   confirm() {
+    if (this.h.choiceOk?.() || this.h.inputOk?.()) return;
+    if (this.lineWait) { if (this.lineWait.t > 0.5) this.lineWait.t = 99; return; }
     if (this.stage === 'talk' || this.stage === 'outro') { if (this.lineT > 0.5) this.lineT = 99; return; }
     if (this.stage === 'choose') return this.pick(this.forms[this.sel]);
     if (this.stage === 'held') return this.signIt();
@@ -198,7 +237,7 @@ export class ClaimOffice {
       this.light = v;
       if (this.onT > 1.1 && !this.hum) this.startHum();
     }
-    if (this.offT >= 0) { this.offT += dt; let v = 1; for (const [at, x] of OFF) if (this.offT >= at) v = x; this.light = v; if (this.offT > 0.4) this.light = 0; if (this.offT > 2.4 && !this.finished) { this.finished = true; this.stopHum(); h.done(this.choice); } }
+    if (this.offT >= 0) { this.offT += dt; let v = 1; for (const [at, x] of OFF) if (this.offT >= at) v = x; this.light = v; if (this.offT > 0.4) this.light = 0; if (this.offT > 2.4 && !this.finished) { if (this.desk === 'lottery') this.toRegistry(); else { this.finished = true; this.stopHum(); h.done(this.choice, this.reg); } } }
     const sag = this.stampT >= 0 && this.stampT < 0.25 ? 0.55 : 1; if (this.stampT >= 0) this.stampT += dt;
     const L = this.light * sag * (1 + Math.sin(this.t * 120) * 0.01);
     this.spot.intensity = 7.5 * L; this.fill.intensity = 0.35 * L; this.crt.intensity = 0.7 * L * (0.9 + Math.sin(this.t * 31) * 0.1);
@@ -206,7 +245,9 @@ export class ClaimOffice {
     const d = this.dust.geometry.attributes.position; for (let i = 0; i < d.count; i++) { d.array[i * 3 + 1] += dt * 0.012 * (0.4 + hash(i + 7)); if (d.array[i * 3 + 1] > 2.1) d.array[i * 3 + 1] = 0.8; } d.needsUpdate = true;
     // the clock you can't see
     if (this.light > 0 && (this.tick = (this.tick || 0) + dt) > 1) { this.tick = 0; s?.hiss(0.025, 3600, 0.012, { room: true }); }
-    if (this.clerk) this.clerk.update(dt);
+    if (this.clerk) this.clerk.update(dt); if (this.clerk2) this.clerk2.update(dt);
+    if (this.lineWait && (this.lineWait.t += dt) > this.lineWait.hold) { const w = this.lineWait; this.lineWait = null; w.res(); }
+    if (this.stage === 'on2' && this.onT > 2.4) { this.stage = 'registry'; this.registry(); }
     // what's being said
     if (this.stage === 'on' && this.onT > 2.6) { this.stage = 'talk'; this.lines = INTRO; this.nextLine(); }
     if (this.stage === 'talk' || this.stage === 'outro') {
@@ -233,7 +274,7 @@ export class ClaimOffice {
     if (this.lineI >= this.lines.length) {
       this.h.line('');
       if (this.lines === INTRO) { this.stage = 'choose'; this.prompt(); }
-      else if (this.offT < 0) { this.offT = 0; this.h.snd?.click(); }
+      else if (this.lines === OUTRO) { this.stage = 'where'; this.whereNext(); }
       return;
     }
     const ln = this.lines[this.lineI]; this.h.line(ln);
@@ -241,6 +282,51 @@ export class ClaimOffice {
     const s = this.h.snd; if (s) ln.split(' ').forEach((w, i) => s.note(120 + hash(i + ln.length) * 50, 0.09, 0.018, { room: true, delay: 0.05 + i * 0.16 }));
     if (this.lines === INTRO && this.lineI === 4) for (const f of this.forms) { f.obj.visible = true; this.move(f, 'desk'); s?.hiss(0.5, 1400, 0.02, { room: true }); } // (he slides the forms over)
   }
+
+  // ---- the walk down the hall: you ask, he points, the light goes, and comes back on over another desk ----
+  async whereNext() {
+    await this.ask(['Where do I file that?', 'And where would that be?']);
+    await this.say('Business Registry. Down the hall.');
+    await this.say('You\'ll know it.');
+    this.offT = 0; this.h.snd?.click();
+  }
+  toRegistry() {
+    this.offT = -1; this.onT = -1; this.light = 0; this.setDesk('registry');
+    this.stage = 'dark2'; this.h.line('');
+    setTimeout(() => { this.stage = 'on2'; this.onT = 0; this.h.snd?.click(); }, 1400);
+  }
+  // Form SV-1, asked across the desk: who you are, the team, its colours, where it's based, what you did before, the
+  // marriage. Answers from a list, or typed (A / Enter keeps what's there)
+  async registry() {
+    const f = { name: this.h.name || 'Driver' };
+    await this.say('Form SV-1. Registration of a Sporting Enterprise.');
+    await this.say('Full name.'); f.name = (await this.typeIn('Full name', f.name)) || f.name;
+    await this.say('Name of the enterprise.'); f.team = (await this.typeIn('Name of the enterprise', `${f.name.split(' ').pop()} Racing`)) || `${f.name.split(' ').pop()} Racing`;
+    await this.say('Colors. For the paperwork.');
+    const c = COLORS[await this.ask(COLORS.map(([a, b, n]) => `<i class="op-sw" style="background:${hexc(a)}"></i><i class="op-sw" style="background:${hexc(b)}"></i> ${n}`))]; f.colors = [c[0], c[1]];
+    await this.say('Registered premises. Racing near home saves you the travel.');
+    const towns = Object.keys(TOWNS); f.home = towns[await this.ask(towns.map(k => `${TOWNS[k].name} <small>${TOWNS[k].blurb}</small>`))];
+    await this.say('Previous occupation.');
+    const bgs = Object.keys(BACKGROUNDS); f.background = bgs[await this.ask(bgs.map(k => `${BACKGROUNDS[k].name} <small>${BACKGROUNDS[k].perk}</small>`))];
+    await this.say('Marital status.');
+    await this.ask(['Divorced.', 'Divorced. As of tonight.']);
+    await this.say('Former spouse.'); f.ex = (await this.typeIn('Former spouse', EX_NAMES[Math.floor(Math.random() * EX_NAMES.length)])) || 'Dana';
+    await this.say('Years married.');
+    f.years = [4, 7, 11, 15][await this.ask(['Four.', 'Seven.', 'Eleven.', 'Too many.'])];
+    await this.say('The processing fee is two hundred and fifty dollars. We\'ll take it out of the winnings.');
+    this.stampT = 0; this.h.snd?.note(70, 0.35, 0.22, { room: true, slide: 0.6 }); this.h.snd?.hiss(0.12, 500, 0.12, { room: true });
+    await this.say(`${f.team}. Registered.`);
+    await this.say('Next.');
+    this.reg = f; this.offT = 0; this.h.snd?.click();
+  }
+  // a line of his (until it's had its time, or you click)
+  say(s) {
+    this.h.line(s);
+    const snd = this.h.snd; if (snd) s.split(' ').forEach((w, i) => snd.note(120 + hash(i + s.length) * 50, 0.09, 0.018, { room: true, delay: 0.05 + i * 0.16 }));
+    return new Promise(res => { this.lineWait = { res, t: 0, hold: Math.max(2.0, s.split(' ').length * 0.3 + 1.0) }; });
+  }
+  ask(list) { return new Promise(res => this.h.choices(list, (i) => res(i))); }
+  typeIn(label, def) { return new Promise(res => this.h.input(label, def, (v) => res(v.trim()))); }
 
   startHum() {
     const s = this.h.snd; if (!s || !s.ctx) return; const c = s.ctx;

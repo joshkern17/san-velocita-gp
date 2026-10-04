@@ -364,7 +364,7 @@ export class Opening {
     if (this.remote) this.remote.visible = false; this.remK = 0;
     this.ui = {
       root: document.getElementById('s-opening'), tag: document.getElementById('op-tag'), say: document.getElementById('op-say'),
-      tag2: document.getElementById('op-tag2'), choices: document.getElementById('op-choices'), frame: document.getElementById('op-frame'), line: document.getElementById('op-line'), edgeL: document.getElementById('op-edge-l'), edgeR: document.getElementById('op-edge-r'), white: document.getElementById('op-white'), hint: document.querySelector('#s-opening .op-hint'),
+      tag2: document.getElementById('op-tag2'), choices: document.getElementById('op-choices'), input: document.getElementById('op-input'), frame: document.getElementById('op-frame'), line: document.getElementById('op-line'), edgeL: document.getElementById('op-edge-l'), edgeR: document.getElementById('op-edge-r'), white: document.getElementById('op-white'), hint: document.querySelector('#s-opening .op-hint'),
     };
     this.ui.white.className = ''; this.ui.hint.textContent = `Esc / B  ${opts.skipLabel || 'Back'}`;
     this.say(''); this.fadeText(this.ui.line, ''); this.target = null; this.ended = false; this.result = null;
@@ -388,7 +388,7 @@ export class Opening {
     const el = this.r.domElement;
     el.removeEventListener('pointerdown', this.onDown); removeEventListener('pointermove', this.onMove); removeEventListener('pointerup', this.onUp);
     this.ui.tag.removeEventListener('pointerup', this.onTag); this.ui.tag2.removeEventListener('pointerup', this.onTag);
-    this.ui.tag.classList.remove('on'); this.ui.tag2.classList.remove('on'); this.ui.frame.classList.remove('on'); this.fadeText(this.ui.line, ''); this.office.leave(); this.prologue.leave(); this.choices(null); this.ui.white.className = ''; this.ui.edgeL.classList.remove('on'); this.ui.edgeR.classList.remove('on');
+    this.ui.tag.classList.remove('on'); this.ui.tag2.classList.remove('on'); this.ui.frame.classList.remove('on'); this.fadeText(this.ui.line, ''); this.office.leave(); this.prologue.leave(); this.choices(null); this.inputCb = null; this.ui.input.classList.remove('on'); this.ui.white.className = ''; this.ui.edgeL.classList.remove('on'); this.ui.edgeR.classList.remove('on');
     if (this.snd) { this.snd.stop(); this.snd = null; }
   }
   // the scene that has the frame instead of the trailer: the prologue or the claim office
@@ -480,7 +480,24 @@ export class Opening {
   startOffice() {
     this.setStage('office'); this.ui.white.className = ''; this.target = null;
     this.office.start({ snd: this.snd, say: (s) => this.say(s), line: (s) => this.fadeText(this.ui.line, s), btn: () => this.btn(), back: () => this.backBtn(), pad: () => this.isPad(),
-      done: (choice) => { this.result = choice ? { lottery: choice } : null; this.skip(); } });
+      choices: (list, pick) => this.choices(list, pick), choiceNav: (d) => this.choiceNav(d), choiceOk: () => this.choiceOk(),
+      input: (label, def, cb) => this.input(label, def, cb), inputOk: () => this.inputOk(), name: this.name,
+      done: (choice, reg) => { this.result = choice || reg ? { lottery: choice, reg } : null; this.skip(); } });
+  }
+  // a line to type into (a name), with what's there already; Enter, or A on a pad, files it
+  input(label, def, cb) {
+    const el = this.ui.input, inp = el.querySelector('input');
+    el.querySelector('label').textContent = label; inp.value = def || '';
+    this.inputCb = cb; el.classList.add('on');
+    setTimeout(() => { inp.focus(); inp.select(); }, 50);
+    inp.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); this.inputOk(); } };
+    inp.onkeyup = (e) => e.stopPropagation();
+  }
+  inputOk() {
+    if (!this.inputCb) return false;
+    const el = this.ui.input, inp = el.querySelector('input'), cb = this.inputCb; this.inputCb = null;
+    el.classList.remove('on'); inp.blur(); this.snd?.hiss(0.05, 3000, 0.015, { room: true }); cb(inp.value.slice(0, 24));
+    return true;
   }
 
   // ---------------------------------------------------------- the story ------------------------------------------
