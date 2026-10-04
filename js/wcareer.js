@@ -1322,7 +1322,9 @@ function seasonSponsors(w) {
   // (and in a series where companies buy hospitality: a big one that pays the most, for a day of your week, every week)
   if (seriesById(w.player.series).hosp) { const corp = SPONSOR_POOL.map((x, i) => sponsorById('sp' + i)).filter(sp => !pool.some(x => x.id === sp.id) && sp.rep <= rep + 10 && sp.rep < 999 && !sp.town && !SHADY.includes(sp.name)).sort((a, b) => b.fee - a.fee)[0];
     if (corp) { pool.push(corp); shapes.push({ k: 1.3, sign: 0, pat: 0, tag: 'Hospitality', hosp: true }); } }
-  return pool.map((sp, i) => { const sh = shapes[i], fee = Math.round(sp.fee * K * sh.k * (0.95 + rng(w) * 0.1) / 50) * 50;
+  // (one base for all of them, so the deal's shape is what differs, not which company it is)
+  const base = pool.slice(0, 3).reduce((a, sp) => a + sp.fee, 0) / Math.max(1, Math.min(3, pool.length));
+  return pool.map((sp, i) => { const sh = shapes[i], fee = Math.round(base * K * sh.k * (0.95 + rng(w) * 0.1) / 50) * 50;
     return { sid: sp.id, fee, bonus: Math.round(fee * 0.6 / 50) * 50, signing: Math.round(fee * sh.sign / 100) * 100, patience: clamp(sp.patience + sh.pat, 1, 6), tag: sh.tag, hosp: !!sh.hosp, brand: BRAND[sp.wants[0]] || '' }; })
     // (hospitality always pays the most: it's paying for a day of your week as well)
     .map((o, i, all) => { if (!o.hosp) return o; const top = Math.max(...all.filter(x => !x.hosp).map(x => x.fee)), fee = Math.max(o.fee, Math.round(top * 1.15 / 50) * 50); return { ...o, fee, bonus: Math.round(fee * 0.6 / 50) * 50 }; });
