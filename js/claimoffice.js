@@ -138,8 +138,9 @@ export class ClaimOffice {
   redraw(f, sign = 0, stamp = false) { const t = f.obj.userData.tex; t.image = formCanvas(FORMS[f.key], sign, stamp); t.needsUpdate = true; }
 
   // ---- input (from js/opening.js) ----
+  pickables() { return this.forms.map(f => f.obj); }
   look(dy, dp) { this.yaw = clamp(this.yaw + dy, -0.6, 0.6); this.pitch = clamp(this.pitch + dp, -0.45, 0.3); }
-  nav(d) { if (this.stage !== 'choose') return; const n = clamp(this.sel + d, 0, 1); if (n !== this.sel) { this.sel = n; this.h.snd?.hiss(0.12, 2600, 0.015, { room: true }); } }
+  nav(d, axis = 'x') { if (this.stage !== 'choose' || axis !== 'x') return; const n = clamp(this.sel + d, 0, 1); if (n !== this.sel) { this.sel = n; this.h.snd?.hiss(0.12, 2600, 0.015, { room: true }); } }
   hover(objs) { if (this.stage !== 'choose') return; const i = this.forms.findIndex(f => objs.includes(f.obj)); if (i >= 0) this.sel = i; }
   confirm() {
     if (this.stage === 'talk' || this.stage === 'outro') { if (this.lineT > 0.5) this.lineT = 99; return; }

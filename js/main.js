@@ -3586,6 +3586,8 @@ function frame(now) {
     if (pressed('Enter') | pressed('Space') | pressed('GP0')) opening.confirm();
     if (pressed('ArrowLeft') | pressed('GP14')) opening.nav(-1);
     if (pressed('ArrowRight') | pressed('GP15')) opening.nav(1);
+    if (pressed('ArrowUp') | pressed('GP12')) opening.nav(-1, 'y');
+    if (pressed('ArrowDown') | pressed('GP13')) opening.nav(1, 'y');
     opening.update(dt);
   } else if (PHONE_SCREENS.includes(screen)) {
     // World Career, your garage: the computer has the controls while you're sat at it, the phone while it's up (P / Y)

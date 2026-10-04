@@ -1646,6 +1646,12 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 #op-line { position: absolute; left: 50%; bottom: 15%; transform: translateX(-50%); width: min(80%, 900px); text-align: center; font: 500 21px/1.35 var(--f-ui); letter-spacing: var(--track); color: #f1ebdf; text-shadow: 0 0 1px #f1ebdf, 0 0 2px rgba(241,235,223,.6); opacity: 0; transition: opacity .26s; }
 #op-line.on { opacity: 1; }
 #s-opening .op-tag.on.dim { opacity: .35; }
+#op-line i { font-style: normal; color: var(--sv-amber); text-shadow: var(--sv-glow); }
+#op-choices { position: absolute; left: 50%; bottom: 24%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; opacity: 0; pointer-events: none; transition: opacity .26s; }
+#op-choices.on { opacity: 1; pointer-events: auto; }
+#op-choices .op-ch { padding: 7px 16px 6px; font: 500 18px/1.2 var(--f-ui); letter-spacing: var(--track); color: rgba(241,235,223,.55); background: rgba(5,3,8,.6); border: 1px solid transparent; cursor: pointer; white-space: nowrap; }
+#op-choices .op-ch.sel { color: #fff; border-color: var(--sv-red); box-shadow: var(--sv-glow-line); }
+#op-choices .op-ch.sel::before { content: '\25B6'; color: var(--sv-red); margin: 0 10px 0 -4px; font-size: 12px; vertical-align: 2px; }
 #op-frame { position: absolute; pointer-events: none; opacity: 0; transition: opacity .2s; --l: 22px; --c: var(--sv-red);
   background: linear-gradient(var(--c), var(--c)) top left / var(--l) 3px, linear-gradient(var(--c), var(--c)) top left / 3px var(--l),
     linear-gradient(var(--c), var(--c)) top right / var(--l) 3px, linear-gradient(var(--c), var(--c)) top right / 3px var(--l),

@@ -196,7 +196,7 @@ export class Character {
   // the racer's head: which face (an index into FACES, or a skin texture's name) and whether the helmet's on
   setHead({ face = this.face, helmet = this.helmetOn ?? true } = {}) {
     this.face = face; this.helmetOn = helmet;
-    if (this.look !== 'racer') return this;
+    if (this.look !== 'racer' && !(face != null && face >= FACES.length)) return this; // (other looks: only a woman's head)
     // a woman's head (it has her hair): on the head bone in place of his, while the helmet's off
     const fem = face != null && face >= FACES.length && FEMALE.length ? FEMALE[(face - FACES.length) % FEMALE.length] : null;
     if (this.fHead && (!fem || this.fHead.userData.src !== fem)) { this.fHead.parent && this.fHead.parent.remove(this.fHead); this.fHead = null; }

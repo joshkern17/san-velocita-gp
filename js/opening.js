@@ -11,6 +11,7 @@ import { audioBus } from './audio.js';
 import { LOTTERY } from './wcareer.js';
 import { hash, paperCanvas, text, lines, barcode, sheet, paperMats } from './papers.js';
 import { ClaimOffice } from './claimoffice.js';
+import { Prologue } from './prologue.js';
 
 const loader = new GLTFLoader(), loads = {};
 const loadGlb = (url) => loads[url] || (loads[url] = loader.loadAsync(url).then(g => g.scene, () => null));
@@ -244,6 +245,7 @@ export class Opening {
     this.tv = c; this.tvTex = new THREE.CanvasTexture(c); this.tvTex.colorSpace = THREE.SRGBColorSpace;
     this.tvTex.magFilter = THREE.NearestFilter;
     this.office = new ClaimOffice(); // (where it goes after the draw)
+    this.prologue = new Prologue(); // (where it starts: the pizzeria, the street, the 6twelve)
     this.load();
   }
 
@@ -340,15 +342,16 @@ export class Opening {
     if (this.remote) this.remote.visible = false; this.remT = -1;
     this.ui = {
       root: document.getElementById('s-opening'), tag: document.getElementById('op-tag'), say: document.getElementById('op-say'),
-      tag2: document.getElementById('op-tag2'), frame: document.getElementById('op-frame'), line: document.getElementById('op-line'), edgeL: document.getElementById('op-edge-l'), edgeR: document.getElementById('op-edge-r'), white: document.getElementById('op-white'), hint: document.querySelector('#s-opening .op-hint'),
+      tag2: document.getElementById('op-tag2'), choices: document.getElementById('op-choices'), frame: document.getElementById('op-frame'), line: document.getElementById('op-line'), edgeL: document.getElementById('op-edge-l'), edgeR: document.getElementById('op-edge-r'), white: document.getElementById('op-white'), hint: document.querySelector('#s-opening .op-hint'),
     };
     this.ui.white.className = ''; this.ui.hint.textContent = `Esc / B  ${opts.skipLabel || 'Back'}`;
     this.say(''); this.fadeText(this.ui.line, ''); this.target = null; this.ended = false; this.result = null;
     this.stage = 'race';
     this.snd = new TVSound();
+    if (opts.prologue !== false) { this.setStage('wait'); this.ui.white.className = 'black'; } // (the prologue first, once its town has loaded)
     const el = this.r.domElement;
     this.onDown = (e) => { this.drag = [e.clientX, e.clientY]; this.moved = 0; };
-    this.onMove = (e) => { if (!this.drag) { if (this.stage === 'office') this.office.hover(this.pick(e.clientX, e.clientY, this.office.camera, this.office.forms.map(f => f.obj))); return; } const dx = e.clientX - this.drag[0], dy = e.clientY - this.drag[1]; this.moved += Math.abs(dx) + Math.abs(dy); if (this.free()) this.look(dx * -0.004, dy * -0.004); else if (this.stage === 'office') this.office.look(dx * -0.003, dy * -0.003); this.drag = [e.clientX, e.clientY]; };
+    this.onMove = (e) => { if (!this.drag) { if (this.sub?.hover) this.sub.hover(this.pick(e.clientX, e.clientY, this.sub.camera, this.sub.pickables())); return; } const dx = e.clientX - this.drag[0], dy = e.clientY - this.drag[1]; this.moved += Math.abs(dx) + Math.abs(dy); if (this.free()) this.look(dx * -0.004, dy * -0.004); else if (this.sub) this.sub.look(dx * -0.003, dy * -0.003); this.drag = [e.clientX, e.clientY]; };
     this.onUp = (e) => { if (this.drag && this.moved < 6) this.click(e.clientX, e.clientY); this.drag = null; };
     this.onTag = (e) => {
       e.stopPropagation();
@@ -363,14 +366,16 @@ export class Opening {
     const el = this.r.domElement;
     el.removeEventListener('pointerdown', this.onDown); removeEventListener('pointermove', this.onMove); removeEventListener('pointerup', this.onUp);
     this.ui.tag.removeEventListener('pointerup', this.onTag); this.ui.tag2.removeEventListener('pointerup', this.onTag);
-    this.ui.tag.classList.remove('on'); this.ui.tag2.classList.remove('on'); this.ui.frame.classList.remove('on'); this.fadeText(this.ui.line, ''); this.office.leave(); this.ui.edgeL.classList.remove('on'); this.ui.edgeR.classList.remove('on');
+    this.ui.tag.classList.remove('on'); this.ui.tag2.classList.remove('on'); this.ui.frame.classList.remove('on'); this.fadeText(this.ui.line, ''); this.office.leave(); this.prologue.leave(); this.choices(null); this.ui.white.className = ''; this.ui.edgeL.classList.remove('on'); this.ui.edgeR.classList.remove('on');
     if (this.snd) { this.snd.stop(); this.snd = null; }
   }
+  // the scene that has the frame instead of the trailer: the prologue or the claim office
+  get sub() { return this.stage === 'office' ? this.office : this.stage === 'prologue' ? this.prologue : null; }
   // Esc / B: skip (or, from the main menu's preview, back); at the claim office, with a form in your hand: put it back
-  back() { if (this.stage === 'office' && this.office.back()) return; this.skip(); }
+  back() { if (this.sub && this.sub.back()) return; this.skip(); }
   skip() { if (this.ended) return; this.ended = true; this.leave(); if (this.done) this.done(this.result); }
   // left / right: between the forms
-  nav(d) { if (this.stage === 'office') this.office.nav(d); }
+  nav(d, axis = 'x') { this.sub?.nav(d, axis); }
   free() { return this.stage === 'race' || this.stage === 'turn'; }
   look(dy, dp) {
     this.aim = null;
@@ -387,7 +392,7 @@ export class Opening {
 
   // A / Enter: use what's prompted when it's in view, or turn towards it when it isn't
   confirm() {
-    if (this.stage === 'office') return this.office.confirm();
+    if (this.sub) return this.sub.confirm();
     if (this.stage === 'pile') return this.next();
     if (!this.target) return;
     if (this.onScreen) this.activate(); else this.aim = { ...this.aimAt(this.target.at), k: 3 };
@@ -399,7 +404,7 @@ export class Opening {
     return ray.intersectObjects(objs, true).map(h => h.object);
   }
   click(x, y) {
-    if (this.stage === 'office') return this.office.click(this.pick(x, y, this.office.camera, this.office.forms.map(f => f.obj)));
+    if (this.sub) return this.sub.click(this.pick(x, y, this.sub.camera, this.sub.pickables ? this.sub.pickables() : []));
     if (this.stage === 'pile') return this.next();
     if (!this.target || !this.tagXY) return;
     const r = this.r.domElement.getBoundingClientRect(), [tx, ty] = this.tagXY;
@@ -420,6 +425,27 @@ export class Opening {
   }
   btn() { return this.isPad() ? '<kbd class="pb a">A</kbd>' : 'Click'; }
   backBtn() { return this.isPad() ? '<kbd class="pb b">B</kbd>' : '<kbd>Esc</kbd>'; }
+
+  // the prologue: the pizzeria, the street, the 6twelve; then the trailer
+  startPrologue() {
+    this.setStage('prologue'); this.target = null; this.ui.white.className = '';
+    this.prologue.start({ snd: this.snd, say: (s) => this.say(s), line: (s) => this.fadeText(this.ui.line, s), btn: () => this.btn(), pad: () => this.isPad(),
+      choices: (list, pick) => this.choices(list, pick), choiceNav: (d) => this.choiceNav(d), choiceOk: () => this.choiceOk(),
+      divorce: () => divorce(this.name), ticket: () => ticket(this.nums, new Set(), new Map())[0],
+      black: (on) => { this.ui.white.className = on ? 'black' : ''; },
+      done: () => { this.ui.white.className = 'black'; setTimeout(() => { if (this.ended) return; this.setStage('race'); this.say(''); this.fadeText(this.ui.line, ''); this.ui.white.className = ''; }, 1600); } });
+  }
+  // a list of answers to pick from (up / down and A, or click one); null: none
+  choices(list, pick) {
+    const el = this.ui.choices; this.choice = list ? { list, pick, i: 0 } : null;
+    if (!list) { el.classList.remove('on'); return; }
+    el.innerHTML = list.map((s, i) => `<div class="op-ch" data-i="${i}">${s}</div>`).join('');
+    el.querySelectorAll('.op-ch').forEach(d => { d.onpointerup = (e) => { e.stopPropagation(); this.choice.i = +d.dataset.i; this.choiceOk(); }; d.onpointerenter = () => { this.choice.i = +d.dataset.i; this.choiceDraw(); }; });
+    this.choiceDraw(); el.classList.add('on');
+  }
+  choiceDraw() { if (this.choice) this.ui.choices.querySelectorAll('.op-ch').forEach((d, i) => d.classList.toggle('sel', i === this.choice.i)); }
+  choiceNav(d) { if (!this.choice) return; this.choice.i = clamp(this.choice.i + d, 0, this.choice.list.length - 1); this.choiceDraw(); this.snd?.hiss(0.05, 2600, 0.012, { room: true }); }
+  choiceOk() { if (!this.choice) return false; const { pick, i } = this.choice; this.choices(null); pick(i); return true; }
 
   // the claim office: after the draw's gone to black
   startOffice() {
@@ -501,13 +527,16 @@ export class Opening {
       const ax = Math.abs(p.axes[2] || 0) > 0.15 ? p.axes[2] : Math.abs(p.axes[0] || 0) > 0.2 ? p.axes[0] : 0;
       const ay = Math.abs(p.axes[3] || 0) > 0.15 ? p.axes[3] : Math.abs(p.axes[1] || 0) > 0.2 ? p.axes[1] : 0;
       if ((ax || ay) && this.free()) this.look(-ax * dt * 2, -ay * dt * 1.4);
-      if (this.stage === 'office') {
-        const rx = Math.abs(p.axes[2] || 0) > 0.15 ? p.axes[2] : 0, ry = Math.abs(p.axes[3] || 0) > 0.15 ? p.axes[3] : 0, lx = p.axes[0] || 0;
-        if (rx || ry) this.office.look(-rx * dt * 0.8, -ry * dt * 0.6);
-        if (Math.abs(lx) > 0.55 && !this.stickHeld) { this.stickHeld = true; this.office.nav(Math.sign(lx)); } else if (Math.abs(lx) < 0.3) this.stickHeld = false;
+      if (this.sub) {
+        const rx = Math.abs(p.axes[2] || 0) > 0.15 ? p.axes[2] : 0, ry = Math.abs(p.axes[3] || 0) > 0.15 ? p.axes[3] : 0, lx = p.axes[0] || 0, ly = p.axes[1] || 0;
+        if (rx || ry) this.sub.look(-rx * dt * 0.8, -ry * dt * 0.6);
+        // (the left stick picks: across between the forms, up and down a list of answers)
+        const ax = Math.abs(lx) > 0.55 ? ['x', Math.sign(lx)] : Math.abs(ly) > 0.55 ? ['y', Math.sign(ly)] : null;
+        if (ax && !this.stickHeld) { this.stickHeld = true; this.sub.nav(ax[1], ax[0]); } else if (Math.abs(lx) < 0.3 && Math.abs(ly) < 0.3) this.stickHeld = false;
       }
     }
-    if (this.stage === 'office') { this.office.update(dt); return; }
+    if (this.stage === 'wait') { if (this.prologue.ready && this.prologue.chars) this.startPrologue(); else if (this.prologue.failed) { this.setStage('race'); this.ui.white.className = ''; } return; }
+    if (this.sub) { this.sub.update(dt); return; }
     if (this.aim) { const k = 1 - Math.exp(-dt * this.aim.k); this.yaw += (this.aim.yaw - this.yaw) * k; this.pitch += (this.aim.pitch - this.pitch) * k; }
     const s = this.stage;
     if (s === 'race' && this.stageT > 3.5 && !this.target && this.cur === undefined) this.promptPile();
@@ -719,7 +748,7 @@ export class Opening {
 
   // ---------------------------------------------------------- drawing --------------------------------------------
   render() {
-    if (this.stage === 'office') { this.office.render(this.post, this.r.domElement.width / this.r.domElement.height); this.tag(); return; }
+    if (this.sub) { this.sub.render(this.post, this.r.domElement.width / this.r.domElement.height); this.tag(); return; }
     const el = this.r.domElement, cam = this.camera;
     cam.aspect = el.width / el.height; cam.fov = this.fov ?? FOV; cam.updateProjectionMatrix();
     cam.position.copy(this.eye ? this.eye() : SEAT);
@@ -753,8 +782,8 @@ export class Opening {
   // (the claim office has two, one over each form; the selected one lit)
   tag() {
     const u = this.ui; if (!u) return;
-    const office = this.stage === 'office', cam = office ? this.office.camera : this.camera;
-    const list = office ? this.office.targets : this.target ? [this.target] : [];
+    const office = !!this.sub, cam = office ? this.sub.camera : this.camera;
+    const list = office ? this.sub.targets : this.target ? [this.target] : [];
     const r = this.r.domElement.getBoundingClientRect(), z = parseFloat(getComputedStyle(u.root).zoom) || 1; // (the screens are CSS-zoomed to fit the window)
     this.tagXY = null; this.onScreen = false;
     [u.tag, u.tag2].forEach((el, i) => {
@@ -771,7 +800,7 @@ export class Opening {
       el.classList.toggle('dim', !!T.hot && !T.hot());
     });
     // the selection frame: corner brackets round the form that's selected
-    const fo = office && this.office.framed();
+    const fo = office && this.sub.framed?.();
     if (fo) {
       const g = fo.geometry.parameters, xs = [], ys = [];
       for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
