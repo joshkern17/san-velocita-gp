@@ -287,6 +287,43 @@ export class PitGarage {
     return rc.intersectObject(this.listMesh, false).length > 0;
   }
 
+  // ---------- the bank's final notice, on the desk beside the computer (World Career) ----------
+  setNotice(on) {
+    if (!on) { if (this.noticeMesh) this.noticeMesh.visible = false; this.noticeOn = false; return; }
+    this.noticeOn = true;
+    if (!this.noticeMesh || this.noticeRoom !== this.custom) this.placeNotice();
+    if (this.noticeMesh) this.noticeMesh.visible = this.mode === 'home';
+  }
+  placeNotice() {
+    if (this.noticeMesh) { this.noticeMesh.removeFromParent(); this.noticeMesh.geometry.dispose(); this.noticeMesh = null; }
+    const f = this.screenFrame(); if (!f) return;
+    if (!this.noticeTex) {
+      const c = document.createElement('canvas'); c.width = 256; c.height = 340; const g = c.getContext('2d');
+      g.fillStyle = '#f4f1e8'; g.fillRect(0, 0, 256, 340);
+      g.fillStyle = '#1f3c7a'; g.fillRect(0, 0, 256, 34); g.fillStyle = '#fff'; g.font = 'bold 15px Arial'; g.fillText('FIRST VELOCITA BANK', 16, 23);
+      g.fillStyle = '#9a9a9a'; for (let y = 70; y < 320; y += 16) g.fillRect(18, y, 150 + ((y * 37) % 60), 3);
+      g.save(); g.translate(128, 190); g.rotate(-0.32); g.strokeStyle = '#c8141c'; g.lineWidth = 6; g.strokeRect(-104, -30, 208, 60);
+      g.fillStyle = '#c8141c'; g.font = 'bold 34px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('FINAL NOTICE', 0, 2); g.restore();
+      this.noticeTex = new THREE.CanvasTexture(c); this.noticeTex.colorSpace = THREE.SRGBColorSpace;
+    }
+    // (in front of the screen and off to one side, on whatever's under it: the desk)
+    const n = new THREE.Vector3(f.n.x, 0, f.n.z).normalize(), side = new THREE.Vector3().crossVectors(n, new THREE.Vector3(0, 1, 0)).normalize();
+    const start = f.c.clone().addScaledVector(n, 0.3).addScaledVector(side, -(f.w / 2 + 0.05)); start.y += 0.4;
+    this.room.updateMatrixWorld(true);
+    const hit = new THREE.Raycaster(start, new THREE.Vector3(0, -1, 0), 0, 3).intersectObject(this.room, true).find(h => h.object !== this.screen && h.object.visible);
+    const p = hit ? hit.point.clone() : start.clone().setY(f.c.y - f.h / 2 - 0.05); p.y += 0.004;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.21, 0.28), new THREE.MeshBasicMaterial({ map: this.noticeTex, color: 0xd6d2c8, polygonOffset: true, polygonOffsetFactor: -2 }));
+    m.rotation.order = 'YXZ'; m.rotation.y = Math.atan2(n.x, n.z) + 0.25; m.rotation.x = -Math.PI / 2;
+    m.position.copy(p); this.scene.add(m); this.noticeMesh = m; this.noticeRoom = this.custom;
+  }
+  noticeAnchor() { const m = this.noticeMesh; return m && m.visible ? this.toScreen(m.position.clone().add(new THREE.Vector3(0, 0.06, 0))) : null; }
+  hitNotice(cx, cy) {
+    const m = this.noticeMesh; if (!m || !m.visible) return false;
+    const box = this.r.domElement.getBoundingClientRect(), rc = new THREE.Raycaster();
+    rc.setFromCamera(new THREE.Vector2((cx - box.left) / box.width * 2 - 1, -(cy - box.top) / box.height * 2 + 1), this.camera);
+    return rc.intersectObject(m, false).length > 0;
+  }
+
   // ---------- your base (World Career) ----------
   // Three shots, blended between (about three quarters of a second): 'room' (the garage: your car, the desk behind
   // it), 'seat' (sat at the computer: the screen fills the view) and 'car' (at the car, looking at one part).
@@ -459,6 +496,7 @@ export class PitGarage {
     if (!this.active) return;
     this.t += dt;
     if (this.listMesh) this.listMesh.visible = this.mode === 'home'; // (only at home: not in a race weekend's pit box)
+    if (this.noticeMesh) { if (this.noticeOn && this.noticeRoom !== this.custom) this.placeNotice(); this.noticeMesh.visible = this.noticeOn && this.mode === 'home'; }
     for (const ch of this.people || []) {
       // (turned to the camera once it's settled: a little to one side, not straight down the lens)
       if (!ch.faced && this.settled) {

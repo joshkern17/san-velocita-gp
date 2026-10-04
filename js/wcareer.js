@@ -1372,12 +1372,54 @@ export function settleRound(w, use, me) {
   for (const [what, amt] of items) if (amt) pay(w, amt, `${trackName}: ${what[0].toLowerCase() + what.slice(1)}`);
   overdraftFee(w, items);
   const net = w.money.balance - before;
+  bankCheck(w);
   mail(w, BANK, BANK_ADDR, `Account activity: ${trackName}`,
     [`Here is the activity on your business account for round ${w.round + 1}, ${trackName}.`,
      w.money.balance < 0 ? `Your account is overdrawn by ${money$(-w.money.balance)}. Overdrawn balances are charged 1.5% a round plus a $250 fee. Please call your branch.` : `Your balance is ${money$(w.money.balance)}.`],
     { bill: { items, net, bal: w.money.balance } });
   return { items, net };
 }
+// ---------------- the bank's limit: how a career ends ----------------
+// The bank lets the account go overdrawn, to a limit. Past the limit after a round, it gives you BANK_ROUNDS rounds to
+// get back within it (a letter starts the clock; with one round left, the final notice: on the desk, a call, Gerald),
+// and if you're still past it after that, it closes the account, and the team is finished (w.ended). Back within the
+// limit after any round and the clock stops. w.bankNote = { left (rounds, the next one included), stage, when }
+export const BANK_ROUNDS = 3;
+export const bankLimit = (w) => 25000 * KS(w);
+export const bankNote = (w) => (!w.ended && w.bankNote) || null;
+// rounds left before the account closes (counting the coming one), or null
+export const bankRoundsLeft = (w) => { const b = bankNote(w); return b ? b.left : null; };
+function bankCheck(w) {
+  if (w.pre || !w.money || w.ended) return;
+  const L = bankLimit(w), bal = w.money.balance, b = w.bankNote;
+  if (bal >= -L) {
+    if (b) { w.bankNote = null; mail(w, BANK, BANK_ADDR, 'Your account', [`Your account is back within its agreed limit. Thank you.`, `We have cancelled the notice we sent you on ${b.when}. No further action is needed.`]); }
+    return;
+  }
+  if (!b) {
+    w.bankNote = { left: BANK_ROUNDS, stage: 1, when: whenOf(w) };
+    mail(w, BANK, BANK_ADDR, 'Your account is over its limit', [`Your business account is overdrawn by ${money$(-bal)}, beyond its agreed limit of ${money$(L)}.`, `Please bring the account within its limit within ${BANK_ROUNDS} rounds. If it is still over the limit after that, we will close it, and ask for the balance in full.`, `If you would like to discuss this, please call your branch. Our lines are open, and busy.`], { bankNote: true });
+    return;
+  }
+  b.left--;
+  if (b.left <= 0) return closeAccount(w);
+  if (b.left === 1 && b.stage < 2) {
+    b.stage = 2;
+    b.notice = mailId(w, BANK, BANK_ADDR, 'FINAL NOTICE', [`FINAL NOTICE.`, `Your account remains overdrawn by ${money$(-bal)}, beyond its agreed limit of ${money$(L)}.`, `Unless it is within its limit after your next round, we will close it without further notice.`, `This letter has also been sent by post.`], { bankNote: true, final: true });
+    texts(w, BANK, [`Missed call`, `Voicemail: Hi, it's Karen from First Velocita, calling about your business account. Please give us a call back. Thanks. Bye. Bye.`]);
+    mail(w, ADVISER[0], ADVISER[1], 'The bank', [`The bank called me, which they don't usually do.`, `You have one round. Sell something, sit a round out, take any work there is. I know you don't want to hear it.`, `Gerald`]);
+  }
+}
+// the end: the bank closes the account, and the team is finished (main.js plays the ending)
+function closeAccount(w) {
+  const L = bankLimit(w), bal = w.money.balance;
+  w.ended = { y: w.year, r: w.round, why: 'bank', bal, team: w.teams[w.player.team].name };
+  w.bankNote = null;
+  mail(w, BANK, BANK_ADDR, 'Your account has been closed', [`We wrote to you about your account, which has been over its agreed limit of ${money$(L)} for ${BANK_ROUNDS} rounds.`, `We have now closed it. The balance of ${money$(-bal)} is due in full. A member of our recoveries team will be in touch.`, `Thank you for banking with First Velocita.`]);
+  news(w, `${w.teams[w.player.team].name.toUpperCase()} FOLDS`, `${w.teams[w.player.team].name}, the team founded by lottery winner ${w.player.name}, has stopped racing after its bank closed its account. The team's car and equipment are expected to be sold.`);
+  flag(w, 'folded');
+}
+
 // overdrawn: the bank charges for it (after a round's bill)
 function overdraftFee(w, items) { if (w.money.balance < 0) { const fee = Math.round(-w.money.balance * 0.015 / 10) * 10 + 250; pay(w, -fee, 'Overdraft interest and fee'); items.push(['Overdraft interest and fee', -fee]); } }
 
@@ -1402,6 +1444,7 @@ export function sitOut(w) {
   for (const [what, amt] of items) if (amt) pay(w, amt, `${R.name}: ${what[0].toLowerCase() + what.slice(1)}`);
   overdraftFee(w, items);
   const net = w.money.balance - before;
+  bankCheck(w);
   mail(w, BANK, BANK_ADDR, `Account activity: ${R.name}`, [`Here is the activity on your business account for round ${w.round + 1}, ${R.name}. Your team did not start.`, w.money.balance < 0 ? `Your account is overdrawn by ${money$(-w.money.balance)}.` : `Your balance is ${money$(w.money.balance)}.`], { bill: { items, net, bal: w.money.balance } });
   // (neither of your cars starts: the rest of the field races without them)
   scoreRound(w, w.player.series, simRace(w, w.player.series, false).filter(r => teamOfPid(w, r.pid) !== w.player.team).map((r, k) => ({ ...r, pos: k + 1 })));
@@ -2211,8 +2254,11 @@ export function briefing(w) {
   }
   // what's going wrong (worst first)
   const fz = finances(w), r = fz && fz.net < 0 ? fz.runway : 99, cost = w.over ? 0 : weekendCost(w);
-  if (w.money.balance < 0) watch.push({ text: `Overdrawn by ${money$(-w.money.balance)}: the bank charges 1.5% a round plus $250`, bad: true });
-  else if (!w.over && w.money.balance < cost) watch.push({ text: `This weekend costs about ${money$(cost)}. You have ${money$(w.money.balance)}`, bad: true });
+  // (past the limit: the clock, first; else overdrawn: the fee, and how far the limit is)
+  { const n = bankRoundsLeft(w), L = bankLimit(w);
+    if (n != null) watch.push({ text: `Bank: above ${money$(-L)} in ${n} round${n === 1 ? '' : 's'} or it closes`, bad: true });
+    else if (w.money.balance < 0) watch.push({ text: `Overdrawn by ${money$(-w.money.balance)}: the limit is ${money$(-L)}`, bad: true }); }
+  if (w.money.balance >= 0 && !w.over && w.money.balance < cost) watch.push({ text: `This weekend costs about ${money$(cost)}. You have ${money$(w.money.balance)}`, bad: true });
   if (w.money.balance >= 0 && r < 4) watch.push({ text: `At this rate the money lasts about ${Math.max(0, Math.floor(r))} more round${Math.floor(r) === 1 ? '' : 's'}`, bad: r < 2 });
   if (payrollShort(w)) watch.push({ text: `Payroll is ${money$(payrollDue(w))}: not enough to pay everyone`, bad: true });
   for (const x of (w.staff || [])) if (x.owed > 0) watch.push({ text: `You owe ${x.first} ${money$(x.owed)} in wages`, bad: x.owed >= wageNow(w, x) * 2 });

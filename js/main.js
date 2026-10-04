@@ -1583,6 +1583,9 @@ function hubTick(dt) {
     tag.classList.toggle('new', n > 0);
     const t = n ? `${n} NEW` : ''; if ($('pc-tag-n').textContent !== t) $('pc-tag-n').textContent = t;
   }
+  // the bank's final notice on the desk: its own tag, always lit while it's there
+  { const nt = $('notice-tag'), on = !!world && WC.bankNote(world)?.stage >= 2, na = on && !pcSeat && hubMode === 'room' && pitGarage.atRoom && !phone.isOpen ? pitGarage.noticeAnchor() : null;
+    nt.hidden = !na; if (na) { const z = hubZoom(); nt.style.left = na.x / z + 'px'; nt.style.top = na.y / z + 'px'; } }
   // the list's tag: the same, over the sheet on the wall (pulsing when there's something to write or cross off)
   // (only when it wants you, or you're pointing at it: the sheet itself is always on the wall, and the computer's tag is
   // just below it)
@@ -1608,7 +1611,11 @@ const onRoom = (e) => screen === 's-hub' && world && !pcSeat && !phone.isOpen &&
 // the list on the wall: a click on it walks you over
 const onList = (e) => screen === 's-hub' && world && founded(world) && hubMode === 'room' && !pcSeat && !phone.isOpen && !tsw.isOpen && !dayPlan.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitList(e.clientX, e.clientY);
 $('list-tag').addEventListener('click', () => { if (screen === 's-hub' && !pcSeat) goToList(); });
+// the final notice: a click on it (or its tag) opens it at the computer
+const readNotice = () => { const b = world && WC.bankNote(world); if (b && b.notice) sitDown('mail', b.notice); };
+$('notice-tag').addEventListener('click', () => { if (screen === 's-hub' && !pcSeat) readNotice(); });
 $('s-hub').addEventListener('click', (e) => {
+  if (screen === 's-hub' && world && hubMode === 'room' && !pcSeat && !phone.isOpen && !tsw.isOpen && !dayPlan.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitNotice(e.clientX, e.clientY)) { readNotice(); return; }
   if (onList(e)) { goToList(); return; }
   if (onRoom(e)) { sitDown(); return; }
   if (screen === 's-hub' && world && world.car && !pcSeat && !phone.isOpen && !tsw.isOpen && !dayPlan.isOpen && hubMode === 'room' && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitCar(e.clientX, e.clientY)) goToCar();
@@ -1874,7 +1881,11 @@ function renderHub() {
   const champ = cellW('Championship', cp ? `${ord(cp)}<small> ${st[cp - 1].pts} PTS</small>` : '&mdash;');
   const bank = w.money && w.money.choice ? cellW('Bank', `<span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span>`) : cellW('Bank', '&mdash;');
   const F = w.founding || {};
-  if (hubMode === 'list') {
+  pitGarage.setNotice(WC.bankNote(w)?.stage >= 2);
+  if (w.ended) {
+    $('hub-card').innerHTML = `<div class="panel-title">${w.ended.y} &middot; Account closed</div><div class="ti-grid three">${cellW('Seasons', w.seasons.filter(x => x.you).length + (w.over ? 0 : 1))}${cellW('Wins', w.player.wins)}${cellW('Owed', `<span class="bad">${WC.money$(-w.ended.bal)}</span>`)}</div>
+      <p class="br-hint">First Velocita has closed the account. ${escP(w.ended.team)} is finished.</p>`;
+  } else if (hubMode === 'list') {
     $('hub-card').innerHTML = listCard(w);
   } else if (hubMode === 'car' && w.car) {
     const risk = WC.failRisk(w), m = WC.staffOf(w, 'mechanic');
@@ -1946,7 +1957,7 @@ const hubTrackT = (tr) => { if (!hubTrackCache.has(tr.name)) hubTrackCache.set(t
 // the week, as a calendar across the top: what each day went on, today, race day
 let wkStamp = -1; // (the day the planner just spent: stamped once on the strip)
 function renderWeekStrip() {
-  const w = world, el = $('hub-week'), on = !!founded(w) && !w.over && hubMode === 'room';
+  const w = world, el = $('hub-week'), on = !!founded(w) && !w.over && !w.ended && hubMode === 'room';
   el.hidden = !on; if (!on) return;
   const wk = WC.weekOf(w), R = w.series[w.player.series].cal[w.round], left = WC.daysLeft(w);
   const days = WC.DAY_NAMES.map((d, i) => {
@@ -1972,6 +1983,12 @@ function renderHubMenu() {
   if (!world) return;
   if (hubMode === 'car') return renderCarMenu();
   if (hubMode === 'list') return renderListMenu();
+  if (world.ended) { // (the team's finished: what's left is reading about it)
+    const m = menus['s-hub'][0];
+    m.setItems([{ label: 'Computer', action: () => sitDown('mail'), desc: 'The letters.' }, { label: 'Phone', action: () => { phone.open(); renderHints(); }, desc: 'Texts.' },
+      { label: 'The List', action: () => goToList(), desc: 'What you got done.' }, { label: 'Save & Quit', cls: 'action primary', action: () => { saveWorld(); pitGarage.close(); quitToMenu(); }, desc: 'The career is over. It stays on the Career screen.' }], true);
+    return;
+  }
   if (optSub) return renderOptMenu();
   const w = world, sid = w.player.series, n = WC.unread(w), nm = WC.unreadMail(w);
   const items = [];
@@ -2105,7 +2122,7 @@ function showCarPerf(it) {
 // the car's tags: in the room, one over the car (like the computer's: the part in the worst state, if one needs
 // work); at the car, one on the part you're looking at
 function carTags() {
-  const box = $('car-tags'), w = world, P = w && w.car && screen === 's-hub' && !pcSeat && !phone.isOpen ? WC.carParts(w) : null;
+  const box = $('car-tags'), w = world, P = w && w.car && !w.ended && screen === 's-hub' && !pcSeat && !phone.isOpen ? WC.carParts(w) : null;
   const key = !P ? '' : hubMode === 'car' ? (pitGarage.settled ? 'p:' + carPart : '') : pitGarage.atRoom ? 'car' : '';
   if (box.dataset.keys !== key) {
     box.dataset.keys = key;

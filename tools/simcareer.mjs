@@ -12,6 +12,7 @@
 //   --len=6                                        rounds a season (4, 6, 8, 12)
 //   --amb=par                                      each season's ambition: none, safe, par (default), push, title
 //
+// broke: the bank closed the account (js/wcareer.js bankCheck: past the limit for BANK_ROUNDS rounds)
 // skill: where you'd qualify on pace alone, as a fraction down the field (0 = the fastest driver, 1 = the slowest).
 import * as WC from '../js/wcareer.js';
 
@@ -165,7 +166,7 @@ function career(P, s) {
       if (WC.needsCar(w) && w.car) { const c = CARHOW === 'used' ? WC.exWorks(w)[0] : WC.customerCars(w).sort((a, b) => (a.deposit + a.perRound * 6) - (b.deposit + b.perRound * 6))[0]; if (c) WC.acquireCar(w, CARHOW, CARHOW === 'used' ? c.id : c.key); }
       if (!w.car) { const a = (w.ads || []).slice().sort((x, y) => x.price - y.price)[0]; if (a && w.money.balance > a.price + 10000) WC.buyCar(w, a.id); }
       // (no race car and can't buy one: work the week and sit the round out)
-      if (!w.car) { week(w, P); WC.sitOut(w); out.rounds++; out.sat = (out.sat || 0) + 1; out.low = Math.min(out.low, w.money.balance); if (w.money.balance < -25000) { out.broke = out.rounds; break; } continue; }
+      if (!w.car) { week(w, P); WC.sitOut(w); out.rounds++; out.sat = (out.sat || 0) + 1; out.low = Math.min(out.low, w.money.balance); if (w.ended) { out.broke = out.rounds; break; } continue; }
       // (deep in the red: sell what can be sold, the dearest first; then the car)
       if (SELLUP && w.money.balance < -10000) {
         for (const k of WC.FAC_KEYS.slice().sort((x, y) => (WC.facSale(w, y)?.value || 0) - (WC.facSale(w, x)?.value || 0))) { const x = WC.facSale(w, k); if (x && !x.why && w.money.balance < -10000) { WC.sellFacility(w, k); out.sold = (out.sold || 0) + 1; } }
@@ -179,7 +180,7 @@ function career(P, s) {
       WC.simPlayerRound(w); w.simSkill = keep;
       if (SEASONLY) { const tx = w.money.tx, top = []; for (const t of tx) { if (t === out.seen) break; top.push(t); } out.seen = tx[0]; for (const t of top) { const k = cat(t.what); (out.sl[y] ??= {})[k] = ((out.sl[y] ??= {})[k] || 0) + t.amt; } }
       out.rounds++; out.low = Math.min(out.low, w.money.balance);
-      if (w.money.balance < -25000) { out.broke = out.rounds; break; }
+      if (w.ended) { out.broke = out.rounds; break; }
     }
     if (out.broke != null) break;
     out.bal.push(w.money.balance); out.pos.push(w.seasons.at(-1)?.you?.pos ?? null);
