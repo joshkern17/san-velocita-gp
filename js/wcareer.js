@@ -410,7 +410,8 @@ function simRace(w, sid, withPlayer = false) {
   for (let i = 0; i < field.length - 1; i++) {
     const a = field[i], b = field[i + 1];
     if (a.dnf || b.dnf || Math.abs(a.score - b.score) > 2.5) continue;
-    if (rng(w) < 0.035 * (a.aggr + b.aggr) / 100) {
+    // (two who've got history race each other harder)
+    if (rng(w) < 0.035 * (a.aggr + b.aggr) / 100 * (1 + Math.min(1.5, feudG(w, a.pid, b.pid) * 0.5))) {
       const blameB = rng(w) < b.aggr / (a.aggr + b.aggr);
       logLedger(w, { s: sid, type: 'contact', a: blameB ? b.pid : a.pid, b: blameB ? a.pid : b.pid, blame: true, sim: true });
       if (rng(w) < 0.35) { (blameB ? a : b).dnf = true; }
@@ -421,9 +422,17 @@ function simRace(w, sid, withPlayer = false) {
   return field.map((f, k) => ({ pid: f.pid, pos: k + 1, dnf: f.dnf, fl: f.pid === fl }));
 }
 
+const feudKey = (a, b) => a < b ? `${a}|${b}` : `${b}|${a}`;
+function feudOf(w, a, b) { const F = (w.feuds ??= {}), k = feudKey(a, b); return F[k] || (F[k] = { n: 0, grudge: 0 }); }
+const feudG = (w, a, b) => (w.feuds && w.feuds[feudKey(a, b)]?.grudge) || 0;
 function logLedger(w, e) {
   w.ledger.push({ y: w.year, r: w.round, ...e });
   if (w.ledger.length > 3000) w.ledger.splice(0, w.ledger.length - 3000);
+  // (between two other drivers: their own grudge, kept by the pair)
+  if (e.type === 'contact' && e.a !== 'P' && e.b !== 'P' && w.people[e.a] && w.people[e.b]) {
+    const f = feudOf(w, e.a, e.b); if (f.y !== w.year) { f.y = w.year; f.n = 0; }
+    f.n++; f.grudge = +((f.grudge || 0) + (e.blame ? 0.8 : 0.4)).toFixed(2); f.last = { y: w.year, r: w.round, a: e.a, b: e.b, s: e.s };
+  }
   // your head-to-head record lives with each driver
   if (e.a === 'P' || e.b === 'P') {
     const other = e.a === 'P' ? e.b : e.a, h = h2hOf(w, other);
@@ -573,6 +582,7 @@ export function nextSeason(w, trackPool) {
   { const m = w.mate, t = w.teams[w.player.team];
     if (m && m.until < w.year + 1 && t.drivers.includes(m.pid)) { const q = w.people[m.pid]; t.drivers = t.drivers.filter(d => d !== m.pid); q.team = null; w.mate = null; w.payDriver = null; text(w, q.first, `My contract's up. Thanks for the ride.`); } }
   for (const h of Object.values(w.h2h)) if (h.grudge) { h.grudge = +(h.grudge * 0.5).toFixed(2); if (h.grudge < 0.3) h.grudge = 0; h.went = false; }
+  for (const [k, f] of Object.entries(w.feuds || {})) { f.grudge = +(f.grudge * 0.5).toFixed(2); if (f.grudge < 0.3) delete w.feuds[k]; }
   w.year++; w.round = 0; w.over = false;
   annuityDay(w);
   if (w.staff) w.jobs = makeJobs(w);
@@ -682,7 +692,7 @@ export function nextSeason(w, trackPool) {
     if (seriesById(w.player.series).seats && w.founding?.reg) w.setup = newSeasonSetup(w, moved);
     else { if (moved && needsCar(w)) carsMail(w); gentOffers(w); }
   }
-  if (!w.pre) topUpFreeAgents(w);
+  if (!w.pre) { topUpFreeAgents(w); paddockSeason(w); }
   seasonOpenNews(w, moves);
   return moves;
 }
@@ -3690,9 +3700,9 @@ const lastName = (w, pid) => pid === 'P' ? w.player.name.split(' ').pop() : w.pe
 function passedOn(w, pids, how) { for (const pid of pids) if (pid && w.people[pid]) (w.passedOn ??= []).push({ pid, y: w.year, how }); if (w.passedOn && w.passedOn.length > 24) w.passedOn.splice(0, w.passedOn.length - 24); }
 // a chapter: on the end of the storyline (opening it if it's new); big ones put its article back on top
 function storyBeat(w, key, o, t, heat = 1) {
-  const res = w.series[w.player.series].results.at(-1), beat = { y: w.year, r: res ? res.round : w.round, track: res ? res.track : '', t };
+  const res = w.series[o.sid || w.player.series].results.at(-1), beat = { y: w.year, r: res ? res.round : w.round, track: res ? res.track : '', t };
   let x = storyOpen(w, key);
-  if (!x) { x = { id: 'st' + (w.nextId++), key, kind: o.kind, pid: o.pid || null, head: o.head, beats: [], open: true, heat: 0 }; storiesOf(w).push(x); if (o.first) x.beats.push(o.first); heat += 2; }
+  if (!x) { x = { id: 'st' + (w.nextId++), key, kind: o.kind, pid: o.pid || null, pid2: o.pid2 || null, paddock: !!o.paddock, series: o.sid || w.player.series, head: o.head, beats: [], open: true, heat: 0 }; storiesOf(w).push(x); if (o.first) x.beats.push(o.first); heat += 2; }
   x.beats.push(beat); x.last = nowIdx(w); x.heat = heat;
   if (o.lead) x.lead = o.lead;
   if (o.close) x.open = false;
@@ -3706,7 +3716,18 @@ function storyArticle(w, x, bump) {
   Object.assign(n, { head: x.head, body: [x.lead || last.t], timeline: x.beats.map(b => ({ when: b.track ? `R${b.r + 1} ${b.y} · ${b.track}` : `${b.y}`, t: b.t })), y: w.year, r: w.round, when: whenOf(w), updated: x.beats.length > 1, closed: !x.open });
   if (at >= 0 && bump) w.news.splice(at, 1);
   if (at < 0 || bump) w.news.unshift(n);
+  // (a big chapter: ChatGPT can write it up, if it's on)
+  if (bump && !w.pre) { const q = (w.storyVoice ??= []).filter(id => id !== x.id); q.push(x.id); w.storyVoice = q.slice(-3); }
 }
+// what the Wire may say about a storyline: who's in it, and every dated chapter (nothing else)
+export function storyFacts(w, id) {
+  const x = storiesOf(w).find(s => s.id === id); if (!x) return null;
+  const who = [x.pid, x.pid2].filter(Boolean).map(pid => { const p = w.people[pid]; return p ? `${nameOf(p)}, ${ageOf(w, p)}, drives for ${w.teams[p.team]?.name || 'no team'}${p.wins ? ` (${p.wins} career wins)` : ''}.` : ''; }).join(' ');
+  const mates = x.pid && x.pid2 && w.people[x.pid]?.team && w.people[x.pid].team === w.people[x.pid2]?.team ? ' They are teammates.' : '';
+  return `The story: ${x.head}. ${x.paddock ? '' : `The player is ${w.player.name}, owner and driver of ${myTeam(w).name}. `}${who}${mates}\nWhat has happened, in order:\n${x.beats.map(b => `- ${b.track ? `Round ${b.r + 1} of ${b.y}, ${b.track}` : b.y}: ${b.t}`).join('\n')}\nThe latest: ${x.lead || x.beats.at(-1).t}`;
+}
+// the written-up opening goes on the article (the template's back if the next chapter comes before ChatGPT does)
+export function voiceStory(w, id, lead) { const x = storiesOf(w).find(s => s.id === id); if (!x || !lead) return; x.lead = lead; storyArticle(w, x, false); }
 // the patterns, after each round (me: your row this round)
 function siftRound(w, me) {
   if (w.pre || !me) return;
@@ -3763,20 +3784,93 @@ function siftRound(w, me) {
     if (was && (r.pos !== 1 || nowIdx(w) - (was.last || 0) < 3)) continue; // (after the first: wins only, now and then)
     storyBeat(w, key, { kind: 'away', pid: g.pid, head: `The one that got away`, lead: `${nameOf(p)}, passed over by ${w.player.name} for the ${g.how} in ${g.y}, ${r.pos === 1 ? 'won' : `finished P${r.pos}`} for ${tn} at ${w.series[s2.id].results.at(-1).track}.`, first: { y: g.y, r: -1, track: '', t: `You passed on ${p.last} for the ${g.how}` }, text: r.pos === 1 && rng(w) < 0.5 ? pickLine(w, [`Thanks for passing on me btw. Worked out.`, `No hard feelings. Well. Some.`]) : null, from: p.first }, `${p.last} ${r.pos === 1 ? 'won' : 'P' + r.pos}${s2.id !== sid ? ` in the ${seriesById(s2.id).name}` : ''}, for ${tn}`, r.pos === 1 ? 5 : 3);
   }
+  siftPaddock(w);
   // old storylines close themselves (nothing new for a while)
   for (const x of storiesOf(w)) if (x.open && nowIdx(w) - (x.last || 0) > 16) x.open = false;
   if (storiesOf(w).length > 40) w.stories = storiesOf(w).filter(x => x.open).concat(storiesOf(w).filter(x => !x.open).slice(-30));
   // the Wire: every storyline that moved is updated; the biggest chapter of the round goes back on top
-  const told = w._told.sort((a, b) => b.heat - a.heat), seen = new Set();
+  const told = w._told.sort((a, b) => (b.heat + (b.x.paddock ? 0 : 1)) - (a.heat + (a.x.paddock ? 0 : 1))), seen = new Set();
   for (const t of told) { if (seen.has(t.x)) continue; seen.add(t.x); storyArticle(w, t.x, t === told[0] && t.heat >= 3); }
   // one text, from someone in the biggest story that has one
-  const tx = told.find(t => t.text && t.from); if (tx) { text(w, tx.from, tx.text); w._texted = tx.x.pid; }
+  const tx = told.find(t => t.text && t.from && !t.x.paddock); if (tx) { text(w, tx.from, tx.text); w._texted = tx.x.pid; }
 }
+// the paddock's own stories: between the other drivers, but only people you've a reason to care about (your series,
+// your old teammates, the ones you passed on, the rival owner's team). Two open at most, so it stays easy to follow.
+const PADDOCK_MAX = 2;
+function knownPids(w) {
+  const k = new Set(), sid = w.player.series;
+  for (const tid of w.series[sid].teams) for (const pid of w.teams[tid].drivers) if (pid !== 'P') k.add(pid);
+  for (const g of w.passedOn || []) k.add(g.pid);
+  for (const pid of w.exMates || []) k.add(pid);
+  if (w.rival && w.teams[w.rival.tid]) for (const pid of w.teams[w.rival.tid].drivers) k.add(pid);
+  return k;
+}
+function siftPaddock(w) {
+  const sid = w.player.series, S = w.series[sid], res = S.results.at(-1), known = knownPids(w), L = w.opts.len;
+  // (a teammate who's left is someone you know)
+  { const m = teammateOf(w); if (w.lastMate && w.lastMate !== m && w.people[w.lastMate]) (w.exMates ??= []).includes(w.lastMate) || w.exMates.push(w.lastMate); w.lastMate = m; }
+  const room = () => storiesOf(w).filter(x => x.open && x.paddock).length < PADDOCK_MAX;
+  const nm = (pid) => w.people[pid]?.last || '', posOf = (r) => r && !r.dnf ? 'P' + r.pos : 'DNF';
+  // 1. a feud: two drivers who keep hitting each other (twice this season), and every time they do it again
+  for (const e of w.ledger.filter(e => e.y === w.year && e.r === res.round && e.type === 'contact' && e.a !== 'P' && e.b !== 'P' && known.has(e.a) && known.has(e.b))) {
+    const f = feudOf(w, e.a, e.b), key = 'feud:' + feudKey(e.a, e.b), open = storyOpen(w, key), out = (S.results.at(-1).rows.find(r => r.pid === e.b) || {}).dnf;
+    const sameTeam = w.people[e.a].team === w.people[e.b].team, tn = w.teams[w.people[e.a].team]?.name || '';
+    const t = `${nm(e.a)} hit ${nm(e.b)}${out ? `, and ${nm(e.b)} was out` : ''}`;
+    if (open) storyBeat(w, key, { lead: `${nameOf(w.people[e.a])} and ${nameOf(w.people[e.b])} have now collided ${f.n} times this season.` }, t, 3);
+    // (or once, when they've been fighting over the same places all season: finished side by side twice)
+    const close = S.results.filter(x => { const ra = x.rows.find(y => y.pid === e.a), rb = x.rows.find(y => y.pid === e.b); return ra && rb && !ra.dnf && !rb.dnf && Math.abs(ra.pos - rb.pos) === 1; }).length;
+    if (!open && (f.n >= 2 || f.grudge >= 1.2 || close >= 2) && room()) storyBeat(w, key, { kind: sameTeam ? 'teamwar' : 'feud', paddock: true, pid: e.a, pid2: e.b, head: sameTeam ? `Trouble at ${tn}` : `${nm(e.a)} vs ${nm(e.b)}`,
+      lead: sameTeam ? `${tn}'s drivers have collided ${f.n >= 2 ? f.n + ' times this season' : 'again'}. The team insists everything is fine, which is what teams say.` : f.n < 2 && close >= 2 ? `${nameOf(w.people[e.a])} ${out ? 'took out' : 'hit'} ${nameOf(w.people[e.b])} at ${res.track}, after a season of fighting over the same places. ${w.people[e.b].first} is not calling it an accident.` : f.n >= 2 ? `${nameOf(w.people[e.a])} and ${nameOf(w.people[e.b])} have collided for the ${f.n === 2 ? 'second' : f.n === 3 ? 'third' : f.n + 'th'} time this season. Neither is blaming themselves.` : `${nameOf(w.people[e.a])} and ${nameOf(w.people[e.b])} have collided again. Last season's business, it seems, is not finished.`,
+      first: f.first || null }, t, 4);
+    if (!f.first) f.first = { y: w.year, r: res.round, track: res.track, t };
+  }
+  // 2. the title fight: halfway through, the top two (not you: that's yours) within a race win of each other
+  { const st = standings(w, sid), a = st[0], b = st[1], key = `title:${sid}:${w.year}`, open = storyOpen(w, key);
+    if (a && b && a.pid !== 'P' && b.pid !== 'P') {
+      const gap = a.pts - b.pts, lastLead = open && open.leader;
+      if (!open && res.round + 1 >= Math.ceil(L / 2) && res.round + 1 < L && gap <= POINTS[0] && room()) { const x = storyBeat(w, key, { kind: 'title', paddock: true, pid: a.pid, pid2: b.pid, head: `${seriesById(sid).name}: ${nm(a.pid)} vs ${nm(b.pid)}`, lead: `${nameOf(w.people[a.pid])} leads ${nameOf(w.people[b.pid])} by ${gap} point${gap === 1 ? '' : 's'} with ${L - res.round - 1} round${L - res.round - 1 === 1 ? '' : 's'} to go.` }, `${nm(a.pid)} leads ${nm(b.pid)} by ${gap}`, 3); x.leader = a.pid; }
+      else if (open && res.round + 1 < L && gap > (L - res.round - 1) * (POINTS[0] + 1)) storyBeat(w, key, { close: true, lead: `${nameOf(w.people[a.pid])} can't be caught now: ${gap} points clear with ${L - res.round - 1} to go.` }, `${nm(a.pid)} wraps it up, ${gap} clear`, 3);
+      else if (open && res.round + 1 < L) { const t = lastLead !== a.pid ? `${nm(a.pid)} takes the lead, by ${gap}` : `${nm(a.pid)} leads by ${gap}`; storyBeat(w, key, { lead: `${nameOf(w.people[a.pid])} leads by ${gap} with ${L - res.round - 1} to go.` }, t, lastLead !== a.pid ? 4 : 1); open.leader = a.pid; }
+      else if (open) storyBeat(w, key, { close: true, lead: `${nameOf(w.people[a.pid])} is the ${w.year} ${seriesById(sid).name} champion, ${gap} point${gap === 1 ? '' : 's'} ahead of ${nameOf(w.people[b.pid])}.` }, `${nm(a.pid)} is champion, by ${gap}`, 4);
+    } else if (open) open.open = false; } // (you're in it now: it's your story)
+  // 3. a last season: the veteran in your series who'll retire at the end of it (one, the one with most wins)
+  if (res.round === 0) {
+    const vet = [...known].map(pid => w.people[pid]).filter(p => p && !p.retired && p.team && w.teams[p.team]?.series === sid && ageOf(w, p) + 1 >= p.retireAge).sort((a, b) => b.wins - a.wins)[0];
+    if (vet && room()) storyBeat(w, 'last:' + vet.id, { kind: 'last', paddock: true, pid: vet.id, head: `${vet.last}'s last season`, lead: `${nameOf(vet)}, ${ageOf(w, vet)}, starts what is expected to be a final season. ${vet.wins ? `${vet.wins} win${vet.wins === 1 ? '' : 's'} so far.` : 'Still looking for a first win.'}` }, `The last season begins: ${posOf(res.rows.find(r => r.pid === vet.id))}`, 2);
+  }
+  for (const x of storiesOf(w).filter(x => x.open && x.kind === 'last')) {
+    const r = res.rows.find(r => r.pid === x.pid), p = w.people[x.pid]; if (!r || !p) continue;
+    if (res.round + 1 >= L) storyBeat(w, x.key, { close: true, lead: `${nameOf(p)} has driven a last race, at ${res.track}: ${posOf(r)}.` }, `The last race: ${posOf(r)}`, 3);
+    else if (!r.dnf && r.pos <= 3) storyBeat(w, x.key, { lead: r.pos === 1 ? `${nameOf(p)} has won at ${res.track}, in a final season.` : `A podium for ${nameOf(p)} at ${res.track}.` }, r.pos === 1 ? 'Wins, in the last season' : `On the podium: P${r.pos}`, r.pos === 1 ? 4 : 2);
+  }
+  // 4. a rookie on the rise: someone 21 or under, on the podium, anywhere you'd hear of them (one at a time)
+  for (const s2 of SERIES) {
+    const r2 = w.series[s2.id].results.at(-1); if (!r2 || r2.round !== res.round) continue;
+    for (const r of r2.rows.filter(r => r.pid !== 'P' && !r.dnf && r.pos <= 3 && known.has(r.pid))) {
+      const p = w.people[r.pid]; if (!p || ageOf(w, p) > 21) continue;
+      const key = 'rook:' + p.id, open = storyOpen(w, key), any = storiesOf(w).some(x => x.open && x.kind === 'rookie');
+      if (open) { if (r.pos === 1 || nowIdx(w) - (open.last || 0) >= 3) storyBeat(w, key, { sid: s2.id, lead: `${nameOf(p)}, ${ageOf(w, p)}, ${r.pos === 1 ? 'has won' : 'is on the podium again'} at ${r2.track}${s2.id !== sid ? ` in the ${s2.name}` : ''}.` }, r.pos === 1 ? `Wins at ${r2.track}` : `P${r.pos} at ${r2.track}`, r.pos === 1 ? 3 : 1); }
+      else if (!any && room()) storyBeat(w, key, { kind: 'rookie', paddock: true, sid: s2.id, pid: p.id, head: `The rise of ${nameOf(p)}`, lead: `${nameOf(p)} is ${ageOf(w, p)} and ${r.pos === 1 ? 'has just won' : 'has just finished on the podium'} in the ${s2.name}, for ${w.teams[p.team]?.name || 'a team you could fit in a phone box'}.` }, r.pos === 1 ? `Wins at ${r2.track}, aged ${ageOf(w, p)}` : `P${r.pos} at ${r2.track}, aged ${ageOf(w, p)}`, 3);
+    }
+  }
+}
+// a new season: the paddock's stories that cross it (a rookie moving up a series)
+function paddockSeason(w) {
+  for (const x of storiesOf(w).filter(x => x.open && x.kind === 'rookie')) {
+    const p = w.people[x.pid]; if (!p || !p.team) continue;
+    const s2 = w.teams[p.team].series; if (x.series && s2 !== x.series && seriesById(s2).tier > seriesById(x.series).tier) { x.beats.push({ y: w.year, r: -1, track: '', t: `Moves up to the ${seriesById(s2).name}, with ${w.teams[p.team].name}` }); x.last = nowIdx(w); storyArticle(w, x, true); }
+    x.series = s2;
+  }
+  for (const x of storiesOf(w).filter(x => x.open && (x.kind === 'feud' || x.kind === 'teamwar'))) x.open = false; // (a new season: the slate's clean, mostly)
+}
+
 // the hub's next race: the storyline that's live in it, in a line (or what happened here last time)
 export function storyLine(w) {
   if (w.over || w.pre) return null;
   const sid = w.player.series, S = w.series[sid], next = S.cal[w.round], here = (pid) => pid && teamOfPid(w, pid) && w.teams[teamOfPid(w, pid)]?.series === sid;
-  const live = storiesOf(w).filter(x => x.open && (x.kind === 'streak' || here(x.pid))).sort((a, b) => b.heat - a.heat || b.last - a.last)[0];
+  const live = storiesOf(w).filter(x => x.open && !x.paddock && (x.kind === 'streak' || here(x.pid))).sort((a, b) => b.heat - a.heat || b.last - a.last)[0];
+  const tf = !live && storiesOf(w).find(x => x.open && x.kind === 'title');
+  if (tf) { const st = standings(w, sid), a = st[0], b = st[1]; if (a && b) return { who: 'Title fight', text: `${lastName(w, a.pid)} leads ${lastName(w, b.pid)} by ${a.pts - b.pts}`, story: tf.id }; }
   if (live) { const p = w.people[live.pid];
     const rs = S.results.slice(-4), ahead = rs.filter(x => { const a = x.rows.find(y => y.pid === 'P'), b = x.rows.find(y => y.pid === live.pid); return a && b && !b.dnf && (a.dnf || b.pos < a.pos); }).length;
     return { who: live.kind === 'streak' ? 'Storyline' : p.last, text: { nemesis: `just ahead of you in ${ahead} of the last ${rs.length} races`, revenge: `${live.did || 'hit you'} at ${live.beats[0].track}`, mate: `your teammate, ahead of you in ${ahead} of the last ${rs.length}`, away: `the one you passed on`, streak: live.beats.at(-1).t }[live.kind] || live.head, story: live.id }; }

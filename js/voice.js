@@ -128,3 +128,21 @@ export async function pitchAnswer(o) {
   const pitch = String(j.pitch || '').toLowerCase();
   return { you: o.text ? clip(o.text, 500) : clip(tidy(j.you), 500), reply: clip(tidy(j.reply), 300), pitch: PITCH_KIND[pitch] ? pitch : (o.intent || 'numbers'), tone: String(j.tone || 'neutral').toLowerCase() };
 }
+// the Wire's storylines: the latest chapter written up as the article's opening paragraph, from the dated facts only
+// (the timeline under it stays the game's own). send(id, lead)
+const STORY = `You are the Paddock Wire, San Velocita's motorsport paper: fair, sharp, quietly funny. Write the opening paragraph of a running story's article: two or three sentences on the latest chapter, with just enough of the story so far that it makes sense on its own. Use only the facts given: never invent results, quotes, people or numbers. Plain text, no headline.`;
+export async function voiceStories(w, factsOf, send) {
+  if (voiceState.busy || !voiceState.signedIn || !w || !(w.storyVoice || []).length) return;
+  const todo = w.storyVoice.splice(0, 2);
+  voiceState.busy = true;
+  try {
+    for (const id of todo) {
+      const facts = factsOf(id); if (!facts) continue;
+      let res;
+      try { res = await call('__llm/say', { instructions: `${TONE}\n\n${STORY}`, input: facts }); } catch (e) { break; }
+      if (!res || res.error) { voiceState.error = res ? res.error : 'failed'; if (voiceState.error === 'signin' || voiceState.error === 'limit') break; continue; }
+      const out = tidy(res.text || '').replace(/\s*\n+\s*/g, ' ');
+      if (fits(facts, out)) send(id, out);
+    }
+  } finally { voiceState.busy = false; }
+}

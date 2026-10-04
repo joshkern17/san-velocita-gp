@@ -19,7 +19,7 @@ import { Opening, trailerModel } from './opening.js';
 import { driveHomeTrack, PARK } from './drivehome.js';
 import { Computer } from './computer.js';
 import { restoreSaves, exportBackup, importBackup } from './backup.js';
-import { voiceState, voiceStatus, voiceSignIn, voiceSignOut, voiceReacts, converse, pressAnswer, pitchAnswer, TALK_INTENTS } from './voice.js';
+import { voiceState, voiceStatus, voiceSignIn, voiceSignOut, voiceReacts, converse, pressAnswer, pitchAnswer, voiceStories, TALK_INTENTS } from './voice.js';
 import { carPhoto } from './carphoto.js';
 import { PARTS, DEFAULT_CAR, chassisReady } from './carmodel.js';
 import * as CAREER from './career.js';
@@ -2091,11 +2091,13 @@ function runVoices() {
   if (!world || settings.voices !== 'chatgpt' || !voiceState.signedIn) return;
   const w = world, B = WC.briefing(w), st = WC.seriesStandings(w, w.player.series), cp = st.findIndex(e => e.pid === 'P') + 1;
   const ctx = `${w.player.name.split(' ')[0]}, owner-driver of ${w.teams[w.player.team].name} in the ${seriesName(w.player.series)}, ${w.year} season, round ${w.round + 1} of ${w.opts.len}. ${cp && w.series[w.player.series].results.length ? `${ord(cp)} in the championship.` : 'No races yet.'} ${w.money ? `Bank: ${WC.money$(w.money.balance)}.` : ''} ${B.watch.slice(0, 2).map(x => x.text).join('. ')}`;
+  // (then the Wire's storylines, written up)
+  const stories = () => voiceStories(w, (id) => WC.storyFacts(w, id), (id, lead) => { WC.voiceStory(w, id, lead); saveWorld(); if (pc.isOpen) pc.render(); });
   voiceReacts(w, ctx, (r, text) => {
     if (r.who === 'rival') WC.mail(w, r.from, r.addr, pick(['A note', 'This weekend', 'Re: your season']), text.split(/\n\s*\n/).filter(Boolean), { voiced: true });
     else { const lines = text.split(/\n+/).map(x => x.trim()).filter(Boolean).slice(0, 3); for (const l of lines.reverse()) WC.text(w, r.from, l, { voiced: true }); } // (a burst of texts, read top to bottom)
     saveWorld(); phone.buzz(); if (screen === 's-hub') { renderHubMenu(); if (pc.isOpen) pc.render(); }
-  });
+  }).then(stories, stories);
 }
 // (the next circuit's samples, kept: the garage redraws often)
 const hubTrackCache = new Map();
