@@ -1,5 +1,9 @@
-// The opening. It starts in the prologue (js/prologue.js: the pizzeria, your wife, the walk to the 6twelve, the
-// ticket), then the drive home, then here: the living room of your trailer, at night, sat on the couch in front of the
+// The opening, in two versions (opts.version):
+//  'classic' (the default): on the couch with a race on; you're prompted to look left at the pile on the side table (a
+//   racing magazine, the divorce papers, a video shop's late notice and the lottery ticket), then back at the TV: the
+//   remote comes up and changes the channel to the lottery draw.
+//  'story': the prologue first (js/prologue.js: the pizzeria, your wife, the walk to the 6twelve, the ticket), then the
+//   drive home (js/drivehome.js), then here: the living room of your trailer, at night, sat on the couch in front of the
 // TV with a race on. The remote comes up and you flip through the channels until you find the lottery draw; then you
 // hold the ticket up while the numbers come out, each one lighting up on the paper as it's drawn. After that, the claim
 // office (js/claimoffice.js).
@@ -23,7 +27,7 @@ export const trailerModel = () => loadGlb(roomUrl()).then(m => m && m.clone(true
 // sat on the couch (metres; the model's Y is up, the TV against the wall at x = 0.4, the couch at x = 3.1, the side
 // table with the lamp on it at your left, z = 0.77)
 const SEAT = new THREE.Vector3(3.0, 1.15, -0.5), TV_AT = new THREE.Vector3(0.36, 0.95, -0.35);
-const SCREEN_AT = new THREE.Vector3(0.583, 0.882, -0.243);
+const SCREEN_AT = new THREE.Vector3(0.583, 0.882, -0.243), PILE_AT = new THREE.Vector3(2.93, 0.795, 0.6);
 const FOV = 55;
 const W = 320, H = 240; // the TV's picture
 // what's on: the channels, in order up the remote (the lottery's on 7); you start on the race
@@ -62,6 +66,36 @@ function carSide(g, x, y, s, body, stripe, wheelRot = 0) {
   g.restore();
 }
 
+function magazine(name) {
+  const [c, g] = paperCanvas(384, 512, '#14161c');
+  const sky = g.createLinearGradient(0, 0, 0, 380); sky.addColorStop(0, '#1b2440'); sky.addColorStop(0.55, '#c8562b'); sky.addColorStop(1, '#f2b25a');
+  g.fillStyle = sky; g.fillRect(0, 0, 384, 380);
+  g.fillStyle = '#2a2730'; g.fillRect(0, 352, 384, 160);
+  g.fillStyle = '#d43a2a'; for (let i = 0; i < 12; i++) g.fillRect(i * 36, 346, 18, 6);
+  carSide(g, 196, 366, 2.05, '#e8e4da', '#d02a1a');
+  g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(0, 0, 384, 104);
+  g.font = '700 66px "SV Display", Arial'; const sw = g.measureText('SPEED ').width, ww = g.measureText('WEEKLY').width, fit = Math.min(1, 348 / (sw + ww));
+  g.save(); g.translate(18, 66); g.scale(fit, 1);
+  text(g, 'SPEED', 0, 0, '700 66px "SV Display", Arial', '#ff2b00'); text(g, 'WEEKLY', sw, 0, '700 66px "SV Display", Arial', '#fff');
+  g.restore();
+  text(g, 'No. 412  ·  $4.95', 366, 92, '500 14px "SV UI", Arial', '#fff', 'right');
+  text(g, 'PRIVATEER SPECIAL', 18, 140, '700 22px "SV Display", Arial', '#ffc21a');
+  text(g, 'Running a team on a shoestring:', 18, 164, '500 17px "SV UI", Arial', '#fff');
+  text(g, 'we asked twelve owners how.', 18, 184, '500 17px "SV UI", Arial', '#fff');
+  text(g, 'STREET CUP', 18, 226, '700 22px "SV Display", Arial', '#ffc21a');
+  text(g, 'Who\'s in, who\'s broke', 18, 248, '500 17px "SV UI", Arial', '#fff');
+  // the subscription label
+  g.save(); g.translate(206, 430); g.rotate(-0.03);
+  g.fillStyle = '#f4f1e8'; g.fillRect(0, 0, 162, 64);
+  text(g, (name || 'Driver').toUpperCase(), 10, 20, '700 13px "Courier New", monospace', '#222');
+  text(g, 'LOT 14, PALM ACRES', 10, 36, '700 12px "Courier New", monospace', '#222');
+  text(g, 'LAST ISSUE: RENEW NOW', 10, 54, '700 12px "Courier New", monospace', '#b3261e');
+  g.restore();
+  barcode(g, 22, 440, 70, 44, 3);
+  return c;
+}
+
+
 function divorce(name) {
   const [c, g] = paperCanvas(400, 566);
   const nm = (name || 'Driver').toUpperCase();
@@ -93,6 +127,20 @@ function divorce(name) {
   g.fillStyle = '#8d8d92'; g.save(); g.translate(24, 22); g.rotate(-0.6); g.fillRect(-11, -1.5, 22, 3); g.restore();
   return c;
 }
+
+function lateNotice() {
+  const [c, g] = paperCanvas(400, 260, '#f6e9c8');
+  g.fillStyle = '#1d3f9a'; g.fillRect(0, 0, 400, 58);
+  text(g, 'VIDEO VAULT', 20, 41, '700 32px "SV Display", Arial', '#ffd21f');
+  text(g, 'SECOND NOTICE', 382, 37, '700 15px Arial', '#fff', 'right');
+  text(g, 'Our records show the following is overdue:', 20, 88, '500 15px Arial', '#2a2620');
+  text(g, 'DAYS OF THUNDER (VHS)', 20, 120, '700 22px "Courier New", monospace', '#111');
+  const row = (y, a, b) => { text(g, a, 20, y, '500 15px Arial', '#2a2620'); text(g, b, 380, y, '700 15px "Courier New", monospace', '#111', 'right'); };
+  row(152, 'Days overdue', '41'); row(174, 'Late fees', '$61.50'); row(196, 'Rewind charge', '$1.00');
+  text(g, 'Please return it. We only have the one.', 20, 236, 'italic 500 14px Arial', '#2a2620');
+  return c;
+}
+
 
 // the ticket: its print, and a matching canvas of just the glow (black, the lit numbers bright)
 function ticket(nums, lit, pulse) {
@@ -259,6 +307,30 @@ export class Opening {
     const tk = this.drawTicket(true); this.scene.add(tk);
     this.pile = [{ key: 'ticket', obj: tk, hold: 0.19, state: 'pocket', k: 1 }];
   }
+  // the classic opening's pile on the side table, top to bottom: the magazine, the divorce papers, the late notice, the
+  // ticket
+  buildPile() {
+    if (this.pile) for (const it of this.pile) it.obj.removeFromParent();
+    paperMats.length = 0;
+    const nm = this.name;
+    const mag = sheet(magazine(nm), 0.21, 0.28, 0.005, 0xdedad0);
+    const div = new THREE.Group(), d0 = sheet(divorce(nm), 0.21, 0.297, 0.0012);
+    div.add(d0);
+    for (let k = 1; k <= 3; k++) { const u = sheet(paperCanvas(8, 8)[0], 0.21, 0.297, 0.0012); u.position.set(k * 0.002, -k * 0.003, -k * 0.0014); u.rotation.z = (hash(k) - 0.5) * 0.04; div.add(u); }
+    const vid = sheet(lateNotice(), 0.15, 0.0975, 0.0008);
+    const tk = this.drawTicket(true);
+    const items = [['magazine', mag, 0.34], ['divorce', div, 0.37], ['notice', vid, 0.21], ['ticket', tk, 0.19]];
+    let y = PILE_AT.y;
+    this.pile = items.reverse().map(([key, obj, hold], i) => {
+      const thick = key === 'magazine' ? 0.005 : key === 'divorce' ? 0.006 : 0.0012;
+      y += thick / 2;
+      const p = new THREE.Vector3(PILE_AT.x + (hash(i + 9) - 0.5) * 0.03, y, PILE_AT.z + (hash(i + 3) - 0.5) * 0.03);
+      y += thick / 2 + 0.0005;
+      const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, (hash(i + 1) - 0.5) * 0.7 + 1.5, 'XYZ'));
+      obj.position.copy(p); obj.quaternion.copy(q); this.scene.add(obj);
+      return { key, obj, hold, home: { p, q }, state: 'pile', from: null, k: 1 };
+    }).reverse();
+  }
   drawTicket(make) {
     const [c, gc] = ticket(this.nums, this.lit, this.pulse);
     if (make) {
@@ -286,7 +358,9 @@ export class Opening {
     this.lit = new Set(); this.pulse = new Map(); this.drawn = 0;
     this.channel = 'race'; this.tvT = 0; this.osd = 0; this.switchT = -1;
     this.balls = Array.from({ length: 22 }, (_, i) => ({ x: (hash(i) - 0.5) * 70, y: (hash(i + 40) - 0.5) * 70, vx: (hash(i + 80) - 0.5) * 60, vy: (hash(i + 120) - 0.5) * 60, n: 1 + Math.floor(hash(i + 7) * 49) }));
-    this.buildTicket(); this.chan = 0; this.remUp = 0; this.pressT = -1; this.flipping = false;
+    this.classic = opts.version !== 'story';
+    if (this.classic) this.buildPile(); else this.buildTicket();
+    this.chan = 0; this.remUp = 0; this.pressT = -1; this.flipping = false; this.remT = -1;
     if (this.remote) this.remote.visible = false; this.remK = 0;
     this.ui = {
       root: document.getElementById('s-opening'), tag: document.getElementById('op-tag'), say: document.getElementById('op-say'),
@@ -296,7 +370,7 @@ export class Opening {
     this.say(''); this.fadeText(this.ui.line, ''); this.target = null; this.ended = false; this.result = null;
     this.stage = 'race';
     this.snd = new TVSound();
-    if (opts.prologue !== false) { this.setStage('wait'); this.ui.white.className = 'black'; } // (the prologue first, once its town has loaded)
+    if (!this.classic && opts.prologue !== false) { this.setStage('wait'); this.ui.white.className = 'black'; } // (the prologue first, once its town has loaded)
     const el = this.r.domElement;
     this.onDown = (e) => { this.drag = [e.clientX, e.clientY]; this.moved = 0; };
     this.onMove = (e) => { if (!this.drag) { if (this.sub?.hover) this.sub.hover(this.pick(e.clientX, e.clientY, this.sub.camera, this.sub.pickables())); return; } const dx = e.clientX - this.drag[0], dy = e.clientY - this.drag[1]; this.moved += Math.abs(dx) + Math.abs(dy); if (this.free()) this.look(dx * -0.004, dy * -0.004); else if (this.sub) this.sub.look(dx * -0.003, dy * -0.003); this.drag = [e.clientX, e.clientY]; };
@@ -324,7 +398,7 @@ export class Opening {
   skip() { if (this.ended) return; this.ended = true; this.leave(); if (this.done) this.done(this.result); }
   // left / right: between the forms
   nav(d, axis = 'x') { if (this.sub) return this.sub.nav(d, axis); if (this.stage === 'flip') this.flip(axis === 'y' ? -d : d); }
-  free() { return this.stage === 'race' || this.stage === 'flip'; }
+  free() { return this.stage === 'race' || this.stage === 'flip' || this.stage === 'turn'; }
   look(dy, dp) {
     this.aim = null;
     this.yaw = clamp(this.yaw + dy, -2.4, 2.4);
@@ -342,6 +416,7 @@ export class Opening {
   confirm() {
     if (this.sub) return this.sub.confirm();
     if (this.stage === 'flip') return this.flip(1);
+    if (this.stage === 'pile') return this.next();
     if (!this.target) return;
     if (this.onScreen) this.activate(); else this.aim = { ...this.aimAt(this.target.at), k: 3 };
   }
@@ -354,6 +429,7 @@ export class Opening {
   click(x, y) {
     if (this.sub) return this.sub.click(this.pick(x, y, this.sub.camera, this.sub.pickables ? this.sub.pickables() : []));
     if (this.stage === 'flip') return this.flip(1);
+    if (this.stage === 'pile') return this.next();
     if (!this.target || !this.tagXY) return;
     const r = this.r.domElement.getBoundingClientRect(), [tx, ty] = this.tagXY;
     let hit = Math.hypot(x - tx, y - ty) < 150;
@@ -409,7 +485,49 @@ export class Opening {
 
   // ---------------------------------------------------------- the story ------------------------------------------
   setStage(s) { this.stage = s; this.stageT = 0; }
-  // the remote comes up: find the lottery
+  // ---- the classic opening: the pile, then the remote ----
+  // look left, at the pile
+  promptPile() {
+    this.say('Look to your left.');
+    this.target = { at: this.pile[0].home.p.clone().add(new THREE.Vector3(0, 0.03, 0)), label: 'The pile', objs: this.pile.map(i => i.obj), go: () => this.openPile() };
+  }
+  openPile() {
+    this.setStage('pile'); this.say('');
+    this.aim = { ...this.aimAt(PILE_AT), k: 2.2 };
+    this.cur = -1; setTimeout(() => this.next(), 500);
+  }
+  // the next thing off the pile (the one you're holding goes on the couch, except the ticket: you keep that)
+  next() {
+    if (this.busy) return;
+    const it = this.pile[this.cur];
+    if (it) this.move(it, it.key === 'ticket' ? 'pocket' : 'away');
+    this.cur++;
+    if (this.cur >= this.pile.length) { this.promptTV(); return; }
+    const n = this.pile[this.cur]; this.move(n, 'held');
+    this.busy = true; setTimeout(() => { this.busy = false; }, 650);
+    this.snd?.hiss(0.25, 2200, 0.025, { room: true });
+    const last = n.key === 'ticket';
+    this.say(last ? `${this.btn()} &nbsp;Keep hold of it` : `${this.btn()} &nbsp;Next`);
+  }
+  promptTV() {
+    this.setStage('turn'); this.aim = null;
+    this.say('Look back at the TV.');
+    this.target = { at: TV_AT.clone().add(new THREE.Vector3(0, 0.1, 0)), label: 'The TV', objs: [this.screen, this.tvSet].filter(Boolean), go: () => this.useRemote() };
+  }
+  // the remote comes up, a press, the channel changes
+  useRemote() {
+    this.setStage('remote'); this.say('');
+    this.aim = { ...this.aimAt(TV_AT), k: 2.5 };
+    this.remT = 0;
+  }
+
+  remoteTick() {
+    const t = this.stageT;
+    if (t > 0.9 && !this.pressed) { this.pressed = true; this.snd?.click(); this.channel = 'snow'; this.tvT = 0; }
+    if (t > 1.35 && this.channel === 'snow') { this.channel = 'lotto'; this.tvT = 0; this.osd = 2.5; this.osdN = 7; this.setStage('draw'); this.drawn = 0; }
+  }
+
+  // ---- the story opening: the remote comes up and you find the lottery ----
   startFlipping() {
     this.setStage('flip'); this.flipping = true;
     this.say('Find the lottery.');
@@ -476,8 +594,18 @@ export class Opening {
     if (this.sub) { this.sub.update(dt); return; }
     if (this.aim) { const k = 1 - Math.exp(-dt * this.aim.k); this.yaw += (this.aim.yaw - this.yaw) * k; this.pitch += (this.aim.pitch - this.pitch) * k; }
     const s = this.stage;
-    if (s === 'race' && this.stageT > 2.5 && !this.flipping) this.startFlipping();
-    if (this.remote) { // (up while you're flipping, a dip for each press, down once the draw's on)
+    if (this.classic) {
+      if (s === 'race' && this.stageT > 3.5 && !this.target && this.cur === undefined) this.promptPile();
+      if (s === 'remote') this.remoteTick(dt);
+      if (this.remote && this.remT >= 0) { // (up, a press, back down)
+        const t = this.remT += dt, R = this.remote;
+        const up = smooth(clamp(t / 0.6, 0, 1)), down = smooth(clamp((t - 2.0) / 0.7, 0, 1)), press = t > 0.9 && t < 1.15 ? Math.sin((t - 0.9) / 0.25 * Math.PI) : 0;
+        R.position.set(0.075, -0.33 + 0.235 * up - 0.3 * down - press * 0.006, -0.29);
+        R.rotation.set(0.3 - press * 0.07, -0.1, 0.06);
+        R.visible = down < 1; if (down >= 1) this.remT = -1;
+      }
+    } else if (s === 'race' && this.stageT > 2.5 && !this.flipping) this.startFlipping();
+    if (this.remote && !this.classic) { // (up while you're flipping, a dip for each press, down once the draw's on)
       const want = this.remUp === -1 ? 0 : this.flipping ? 1 : 0;
       this.remK = clamp((this.remK || 0) + (want ? dt : -dt) / 0.6, 0, 1);
       if (this.pressT >= 0) { this.pressT += dt; if (this.pressT > 0.3) this.pressT = -1; }

@@ -299,9 +299,11 @@ let bootGo = null;
 // the opening (js/opening.js): the trailer, the pile on the side table, the lottery on TV. Plays before a new World
 // Career (then: your garage, with how you took the winnings, chosen at the claim office), or from the main menu as a
 // preview (then: back to the menu). Esc / B skips it.
+// which opening a new World Career plays: 'classic' (the couch and the pile) or 'story' (the pizzeria and the drive home)
+const OPENING_VERSION = 'classic';
 function openOpening(then = null, extra = {}) {
   const done = (r) => fadeTo(() => { opening.leave(); if (then) then(r); else show('s-main'); }, 400);
-  fadeTo(() => { opening.enter({ name: settings.driverName || 'Driver', done, pad: () => device.kind === 'pad', skipLabel: then ? 'Skip' : 'Back', drive: (back) => startDriveHome(back), ...extra }); show('s-opening'); });
+  fadeTo(() => { opening.enter({ name: settings.driverName || 'Driver', done, pad: () => device.kind === 'pad', skipLabel: then ? 'Skip' : 'Back', drive: (back) => startDriveHome(back), version: OPENING_VERSION, ...extra }); show('s-opening'); });
 }
 
 // ---------------- main menu ----------------
@@ -310,7 +312,8 @@ const MAIN_ITEMS = [
   { label: 'Career', action: () => openCareer(), desc: 'A championship season with upgrades, perks and a Team Principal to keep happy. Or a straight Grand Prix.' },
   { label: 'Online', action: () => openOnline(), desc: 'Host a room or join a friend with a room code. Up to 8 drivers.' },
   { label: 'Garage', action: () => openGarage(), desc: 'Choose your car, build your F1 car and design its livery, helmet and suit.' },
-  { label: 'The Opening', action: () => openOpening(), desc: 'Preview: how a World Career begins. The trailer, the pile on the side table, the lottery draw. Look around with the mouse or a stick.' },
+  { label: 'The Opening', action: () => openOpening(), desc: 'Preview: how a World Career begins. The trailer, the pile on the side table, the lottery draw, the claim office. Look around with the mouse or a stick.' },
+  { label: 'The Opening: Story', action: () => openOpening(null, { version: 'story' }), desc: 'Preview, the alternative opening: the pizzeria with your wife, the 6twelve, the drive home, flipping channels for the lottery, the claim office.' },
   { label: 'Track Editor', action: () => openEditor(), desc: 'Draw your own circuit, even on a real map of your town, then race it.' },
   { label: 'Options', action: () => openOptions('s-main'), desc: 'Screen look, retro effects, driving aids, units and sound.', cls: 'gap' },
   { label: 'How To Play', action: () => fadeTo(() => { openHelp(0); }, 200), desc: 'Controls for keyboard and controller, and racing tips.' },
