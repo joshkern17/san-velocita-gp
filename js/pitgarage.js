@@ -324,6 +324,44 @@ export class PitGarage {
     return rc.intersectObject(m, false).length > 0;
   }
 
+  // ---------- the ending (World Career: js/ending.js): a scripted camera, the room at night, the way out ----------
+  // cine(pose, secs): move the camera to { pos, at, fov, shift } over secs (0: a cut)
+  cine(pose, secs = 0) {
+    this.from = { pos: this.camera.position.clone(), quat: this.camera.quaternion.clone(), fov: this.camera.fov, shift: this.shiftNow ?? 0.2 };
+    this.prevShot = this.shot; this.shot = 'cine'; this.cinePose = pose; this.cineT = secs; this.blendK = secs ? 0 : 1;
+    if (!secs) { this.camera.position.copy(pose.pos); this.camera.lookAt(pose.at); this.camera.fov = pose.fov; this.shiftNow = pose.shift ?? 0; } // (a cut: there now)
+  }
+  // the way out: the direction from the car to the door (the room is open that way: the side the default shot faces)
+  doorDir() { return new THREE.Vector3(0, 0, 1); }
+  // how far the car can roll towards the door before it meets a wall (or 9 m: no wall)
+  doorRoom() {
+    this.room.updateMatrixWorld(true);
+    const from = this.carCentre(), hit = new THREE.Raycaster(from, this.doorDir(), 0, 12).intersectObject(this.room, true).find(h => h.object.visible);
+    return hit ? Math.max(0, hit.distance - 2.6) : 9;
+  }
+  // night: the room's own lights way down, and headlights from outside the door (a truck, backed up to it)
+  setNight(on) {
+    if (on === !!this.night) return;
+    if (on) {
+      const keep = [];
+      this.scene.traverse(o => { if (o.isLight) { keep.push([o, o.intensity]); o.intensity *= 0.28; } });
+      // (the open door: a doorway of night-lit haze on the wall that way, two headlights low in it, and their beams in)
+      const C = this.carCentre(), d = this.doorDir(), wall = Math.min(11.6, this.doorRoom() + 2.55), door = C.clone().addScaledVector(d, wall);
+      const glow = new THREE.Group();
+      const haze = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 2.4), new THREE.MeshBasicMaterial({ color: 0x3a4250, transparent: true, opacity: 0.9 }));
+      haze.position.y = 1.2; glow.add(haze);
+      for (const x of [-0.75, 0.75]) { const h = new THREE.Mesh(new THREE.CircleGeometry(0.16, 16), new THREE.MeshBasicMaterial({ color: 0xfff6e0 })); h.position.set(x, 0.72, 0.01); glow.add(h); }
+      glow.position.copy(door).setY(0); glow.lookAt(C.clone().setY(0)); this.scene.add(glow);
+      const lights = [-0.75, 0.75].map(x => { const l = new THREE.SpotLight(0xfff1d0, 16, 26, 0.45, 0.6, 1.2); l.position.copy(door).addScaledVector(d, 1.5).add(new THREE.Vector3(x, 0.72, 0)); l.target.position.copy(C).add(new THREE.Vector3(x * 0.4, 0.2, 0)); this.scene.add(l, l.target); return l; });
+      this.night = { keep, lights, glow };
+    } else {
+      for (const [o, i] of this.night.keep) o.intensity = i;
+      for (const l of this.night.lights) { l.removeFromParent(); l.target.removeFromParent(); }
+      this.night.glow.removeFromParent(); this.night.glow.traverse(o => o.geometry && o.geometry.dispose());
+      this.night = null;
+    }
+  }
+
   // ---------- your base (World Career) ----------
   // Three shots, blended between (about three quarters of a second): 'room' (the garage: your car, the desk behind
   // it), 'seat' (sat at the computer: the screen fills the view) and 'car' (at the car, looking at one part).
@@ -491,7 +529,7 @@ export class PitGarage {
       });
     });
   }
-  close() { this.carOff = false; if (this.car) this.car.group.visible = true; this.active = false; this.mode = 'pit'; this.shot = 'room'; this.prevShot = null; this.blendK = 1; this.from = null; }
+  close() { if (this.night) this.setNight(false); this.cinePose = null; this.carOff = false; if (this.car) this.car.group.visible = true; this.active = false; this.mode = 'pit'; this.shot = 'room'; this.prevShot = null; this.blendK = 1; this.from = null; }
   update(dt) {
     if (!this.active) return;
     this.t += dt;
@@ -512,9 +550,9 @@ export class PitGarage {
       // the shot we're going to, blended in from wherever the camera was
       const f = this.screenFrame(), el = this.r.domElement;
       const lf = this.listCanvas ? this.listFrame() : null;
-      const b = this.shot === 'seat' && f ? this.seatPose(f, el.width / el.height) : this.shot === 'list' && lf ? this.listPose(lf, el.width / el.height) : this.shot === 'car' ? this.carPose(this.shotPart) : this.roomPose(f, this.t);
+      const b = this.shot === 'cine' && this.cinePose ? this.cinePose : this.shot === 'seat' && f ? this.seatPose(f, el.width / el.height) : this.shot === 'list' && lf ? this.listPose(lf, el.width / el.height) : this.shot === 'car' ? this.carPose(this.shotPart) : this.roomPose(f, this.t);
       const look = (p) => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(p.pos, p.at, new THREE.Vector3(0, 1, 0)));
-      this.blendK = Math.min(1, this.blendK + dt / 0.75);
+      this.blendK = Math.min(1, this.blendK + dt / (this.shot === 'cine' ? this.cineT || 1e-6 : 0.75));
       const k = this.blendK * this.blendK * (3 - 2 * this.blendK), a = this.from || { pos: b.pos, quat: look(b), fov: b.fov, shift: b.shift };
       this.camera.position.lerpVectors(a.pos, b.pos, k);
       this.camera.quaternion.copy(a.quat).slerp(look(b), k);

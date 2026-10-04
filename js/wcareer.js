@@ -3241,7 +3241,7 @@ export function saveWorld(w) {
     w.id = w.id || 'w' + Date.now().toString(36);
     localStorage.setItem(slot(w.id), JSON.stringify(w));
     const idx = readIndex().filter(e => e.id !== w.id);
-    idx.unshift({ id: w.id, team: w.teams[w.player.team].name, name: w.player.name, year: w.year, series: w.player.series, round: w.round, len: w.opts.len, over: w.over, saved: Date.now() });
+    idx.unshift({ id: w.id, team: w.teams[w.player.team].name, name: w.player.name, year: w.year, series: w.player.series, round: w.round, len: w.opts.len, over: w.over, ended: w.ended ? w.ended.y : null, saved: Date.now() });
     localStorage.setItem(INDEX, JSON.stringify(idx));
     return true;
   } catch (e) { return false; }

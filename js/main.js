@@ -38,6 +38,7 @@ import { TeamSetup } from './teamsetup.js';
 import { DayPlan } from './dayplan.js';
 import { CarPanel, partEffect } from './carsheet.js';
 import { ListPaper } from './thelist.js';
+import { Ending } from './ending.js';
 import { portrait, photoOf, setPhotoContext, driverLivery, driverFace, setPeopleSource } from './drivers.js';
 import { setVertexSnapEnabled, setJitterScale, setAffineAmount, setAffineCap, setAffineFade } from '../vendor/psx/src/PSXMaterial.js';
 
@@ -1566,6 +1567,7 @@ function pcInput() {
 // every frame in the hub: the computer's DOM rides the monitor's glass once the camera has arrived
 function hubTick(dt) {
   pitGarage.update(dt);
+  if (ending.isOpen) ending.update(dt);
   if (pcSeat && pitGarage.seated && !pc.isOpen) {
     pc.open(); if (pcWant && pcWant[0]) pc.goto(pcWant[0], pcWant[1]); pcWant = null; renderHints();
   }
@@ -1628,14 +1630,14 @@ function worldItems(saves) {
   const items = [], pick = careerPick && saves.find(e => e.id === careerPick);
   if (pick) {
     items.push({ label: pick.team, head: true },
-      { label: 'Continue', cls: 'action primary', action: () => { const w = WC.loadWorld(pick.id); if (w) { careerPick = null; world = w; openHub(); } }, desc: 'Back to your garage.' },
+      { label: pick.ended ? 'The Record' : 'Continue', cls: 'action primary', action: () => { const w = WC.loadWorld(pick.id); if (w) { careerPick = null; world = w; openHub(); } }, desc: pick.ended ? `How ${pick.team} went, and how it ended.` : 'Back to your garage.' },
       { label: 'Delete Career', confirm: `Delete ${pick.team} for good? Select again`, action: () => { WC.deleteWorld(pick.id); careerPick = null; sfx.back(); toast(`${pick.team} has been deleted.`); openCareer(true); },
         desc: `Deletes ${pick.team}: the team, the money, the history. It can't be undone.` },
       { label: 'Back', action: () => { careerPick = null; sfx.back(); openCareer(true); }, desc: 'Your other careers, or a new one.' });
     return items;
   }
   if (saves.length) items.push({ label: 'Your Careers', head: true });
-  for (const e of saves.slice(0, 6)) items.push({ label: `${e.team}<small>${e.year} · ${e.over ? 'SEASON OVER' : 'RND ' + (e.round + 1) + '/' + e.len}</small>`, cls: 'cont',
+  for (const e of saves.slice(0, 6)) items.push({ label: `${e.team}<small>${e.ended ? `FOLDED ${e.ended}` : `${e.year} · ${e.over ? 'SEASON OVER' : 'RND ' + (e.round + 1) + '/' + e.len}`}</small>`, cls: 'cont',
     desc: `${e.name}, ${seriesName(e.series)}. Select to continue it or delete it.`, action: () => { careerPick = e.id; sfx.select(); openCareer(true); } });
   const n = poolOf(worldOpts).length;
   items.push(
@@ -1854,8 +1856,57 @@ function enterHub() {
   pitGarage.setPeople(mateInRoom(world));
   pcSeat = false; pc.close(); if (tsw.isOpen) tsw.close(); if (dayPlan.isOpen) dayPlan.close(); $('s-hub').classList.remove('seated', 'at-car', 'wizard', 'planning', 'at-list');
   hubMode = 'room'; carSub = null; carPart = null; optSub = false; listStep = null; listPrev = null;
-  drawList(); renderHub(); show('s-hub'); hubEnter(); maybeList();
+  drawList(); renderHub(); show('s-hub'); hubEnter();
+  if (world.ended) startEnding(!!world.endSeen); else maybeList();
   setTimeout(() => { if (world) warmPortraits(world); }, 1500);
+}
+// ---- the end of a career (js/ending.js): the garage at night, the Wire, the record ----
+const ending = new Ending($('ending'), {
+  garage: () => pitGarage,
+  sfx: (k) => sfx[k] && sfx[k](),
+  seen: () => { if (world && !world.endSeen) { world.endSeen = true; saveWorld(); } },
+  ad: () => endAd(world), wire: () => endWire(world), record: () => endRecord(world),
+});
+// (again: straight to the record)
+function startEnding(again) {
+  phone.close(); phone.hide(); $('s-hub').classList.add('ending-on'); pitGarage.setNotice(false);
+  setTimeout(() => { if (screen === 's-hub' && world && world.ended) ending.play(again); }, again ? 0 : 400);
+}
+function endInput() {
+  if (!ending.isOpen) return false;
+  const ok = pressed('Enter') | pressed('Space') | pressed('GP0') | pressed('GP9'), back = pressed('Escape') | pressed('Backspace') | pressed('GP1');
+  const up = pressed('ArrowUp') | pressed('KeyW') | pressed('GP12') | pressed('GPSU'), down = pressed('ArrowDown') | pressed('KeyS') | pressed('GP13') | pressed('GPSD');
+  ending.input({ ok, back, up, down });
+  return true;
+}
+const endFirstYear = (w) => (w.player.hist[0] && w.player.hist[0].y) || (w.ended ? w.ended.y : w.year);
+const endSeasons = (w) => w.player.hist.length + (w.over ? 0 : 1);
+const endBest = (w) => { const h = w.player.hist; return h.length ? Math.min(...h.map(x => x.pos)) : null; };
+// the listing on the computer: the car, or what's left of the garage
+function endAd(w) {
+  const s = WC.carSale(w), town = WC.TOWNS[w.home]?.name || 'San Velocita', foot = `Posted ${w.ended.y} · ${town} · reply by email`;
+  if (w.car) return { section: 'cars+trucks', title: `${w.car.year || ''} ${w.car.name} race car`.trim(), price: `${WC.money$(s ? s.value : 0)} OBO`, foot,
+    body: [`One owner. Raced in the ${seriesName(w.player.series)}. Some wear, all of it honest.`, `Selling due to a change in circumstances. Comes with what's left of the spares and a set of used tires.`, `Cash only. Must go this week. No time wasters. No "is this still available".`] };
+  return { section: 'tools', title: 'Garage clear-out', price: 'Make an offer', foot,
+    body: [`Everything must go: tools, a desk, an office chair, a CRT monitor (works), a dartboard, some used tires.`, `Also a handwritten list. Not for sale.`] };
+}
+function endWire(w) {
+  const E = w.ended, team = E.team, starts = w.player.starts, wins = w.player.wins, best = endBest(w), n = endSeasons(w);
+  const record = `In ${n} season${n === 1 ? '' : 's'} the team started ${starts} race${starts === 1 ? '' : 's'}${wins ? ` and won ${wins}` : ''}${best ? `. Its best championship finish was ${ord(best)}` : ''}.`;
+  return E.why === 'bank'
+    ? { when: `${E.y} · ROUND ${E.r + 1}`, head: `${team.toUpperCase()} FOLDS`, body: [`${team}, founded in ${endFirstYear(w)} by lottery winner ${w.player.name}, has stopped racing after its bank closed the team's account with ${WC.money$(-E.bal)} still owed.`, record, `${w.player.name.split(' ')[0]} could not be reached for comment. A man who answered the garage phone said "yeah no they're not here" and hung up.`] }
+    : { when: `${E.y} · ROUND ${E.r + 1}`, head: `${team.toUpperCase()} LOSES ITS ENTRY`, body: [`The ${E.series || seriesName(w.player.series)} has withdrawn the entry of ${team}, founded in ${endFirstYear(w)} by lottery winner ${w.player.name}, after the team failed to start ${WC.satOut(w)} rounds this season.`, record, `The entry goes to the next team on the series' waiting list, which the series describes as "short, but real".`] };
+}
+function endRecord(w) {
+  const E = w.ended, h = w.player.hist, best = endBest(w), y0 = endFirstYear(w);
+  listPaper.draw(listState(w));
+  return {
+    list: listPaper.canvas.toDataURL('image/png'), cap: `${y0}${E.y !== y0 ? `&ndash;${E.y}` : ''} &middot; Folded`, team: escP(E.team),
+    sub: `${escP(w.player.name)}, owner-driver.${w.list && w.list.why ? ` ${escP(WC.WHYS[w.list.why].line)}` : ''}`,
+    cells: [['Seasons', endSeasons(w)], ['Races', w.player.starts], ['Wins', w.player.wins], ['Podiums', w.player.pods], ['Best finish', best ? ord(best) : '&mdash;'], ['Titles', w.player.titles]],
+    how: E.why === 'bank' ? `Round ${E.r + 1} of the ${E.y} ${escP(E.series || seriesName(w.player.series))}: the bank closed the account, ${WC.money$(-E.bal)} overdrawn.` : `Round ${E.r + 1} of the ${E.y} ${escP(E.series || seriesName(w.player.series))}: the series withdrew the entry after ${WC.satOut(w)} rounds missed.`,
+    acts: [{ label: 'Back To The Menu', run: () => { $('s-hub').classList.remove('ending-on'); saveWorld(); pitGarage.close(); quitToMenu(); } }],
+  };
 }
 // the cars of each class, for the customer racing programmes (World Career: moving up)
 function carCatalog() {
@@ -3863,7 +3914,7 @@ function frame(now) {
     opening.update(dt);
   } else if (PHONE_SCREENS.includes(screen)) {
     // World Career, your garage: the computer has the controls while you're sat at it, the phone while it's up (P / Y)
-    if (!tswInput() && !dayInput() && !pcInput() && !phoneInput()) menuInput();
+    if (!endInput() && !tswInput() && !dayInput() && !pcInput() && !phoneInput()) menuInput();
     hubTick(dt);
   } else if (screen !== 's-editor') {
     menuInput();
@@ -3875,7 +3926,7 @@ function frame(now) {
   if (screen === 'hud' && sim && !sim.paused && sim.mode !== 'attract') { const [a, b] = sim.feel(), k = VIBES[settings.vibration] ?? 0.8; rumble(a * k, b * k); }
   else if (now > vibeTestUntil) rumble(0, 0);
   setMusicScene(musicScene()); updateMusic(dt);
-  if (PHONE_SCREENS.includes(screen) && world && !pcSeat && !tsw.isOpen && !dayPlan.isOpen) phone.show(); else phone.hide();
+  if (PHONE_SCREENS.includes(screen) && world && !pcSeat && !tsw.isOpen && !dayPlan.isOpen && !ending.isOpen && !world.ended) phone.show(); else phone.hide();
   // sat at the garage computer: the 3D view at full resolution, so the screen in the scene is readable
   post.setSharp(screen === 's-hub' && (pcSeat || pitGarage.nearScreen));
   phone.update(dt);
@@ -3902,4 +3953,4 @@ requestAnimationFrame(frame);
 // debug handle
 window.__svgp = { get world() { return world; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), goToList: () => goToList(), get listPaper() { return listPaper; } } };
+  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, goToList: () => goToList(), get listPaper() { return listPaper; } } };
