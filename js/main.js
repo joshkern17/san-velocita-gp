@@ -1678,18 +1678,27 @@ function startWorld(noOpening = false) {
     teamName: `${name.split(' ').pop()} Racing`, colors: [settings.car.main, settings.car.accent], seed: Date.now(), streetCars }, poolOf(worldOpts)); // (this career's choice, not the last one loaded)
   world.opts.tracks = worldOpts.tracks ? worldOpts.tracks.slice() : null;
   saveWorld();
-  const hub = (r) => {
-    if (r && r.lottery) WC.pickLottery(world, r.lottery);
-    // (Form SV-1 was filed at the registry desk: as if on the computer; then the wizard comes in, not the computer)
-    if (r && r.reg) {
-      const f = r.reg; WC.registerTeam(world, f);
-      world.livery = { ...settings.car, main: f.colors[0], accent: f.colors[1], teamName: f.team };
-      settings.driverName = f.name; saveSettings(); saveWorld();
-      enterHub(); setTimeout(() => { if (screen === 's-hub') openTeamSetup(); }, 900);
-      return;
-    }
-    saveWorld(); enterHub(); const m = world.mail.find(x => x.link && x.link[0] === 'registry'); setTimeout(() => { if (screen === 's-hub') sitDown('mail', m && m.id); }, 700); };
-  if (noOpening) fadeTo(hub, 200); else openOpening(hub); // (the opening first: the lottery, then the garage)
+  if (noOpening) fadeTo(openingDone, 200); else openOpening(openingDone); // (the opening first: the lottery, then the garage)
+}
+// after the opening (or skipping it): the lottery choice and Form SV-1, then the garage and the setup
+function openingDone(r) {
+  if (r && r.lottery) WC.pickLottery(world, r.lottery);
+  // (Form SV-1 was filed at the registry desk: as if on the computer; then the wizard comes in, not the computer)
+  if (r && r.reg) {
+    const f = r.reg; WC.registerTeam(world, f);
+    world.livery = { ...settings.car, main: f.colors[0], accent: f.colors[1], teamName: f.team };
+    settings.driverName = f.name; saveSettings(); saveWorld();
+    enterHub(); setTimeout(() => { if (screen === 's-hub') openTeamSetup(); }, 900);
+    return;
+  }
+  saveWorld(); enterHub(); const m = world.mail.find(x => x.link && x.link[0] === 'registry'); setTimeout(() => { if (screen === 's-hub') sitDown('mail', m && m.id); }, 700);
+}
+// after an ending: the same you, in the same world, from the lottery (again)
+function startAgain() {
+  const w = world; if (!w || !w.ended) return;
+  WC.restartWorld(w, poolOf(w.opts)); WC.setCarCatalog(w, carCatalog()); saveWorld();
+  $('s-hub').classList.remove('ending-on'); pitGarage.close();
+  openOpening(openingDone, { again: true, ex: w.backstory?.ex });
 }
 
 // ---- the ending, from the main menu: a made-up career that goes broke (never saved), straight to its end ----
@@ -1932,7 +1941,8 @@ function endRecord(w) {
     sub: `${escP(w.player.name)}, owner-driver.${w.list && w.list.why ? ` ${escP(WC.WHYS[w.list.why].line)}` : ''}`,
     cells: [['Seasons', endSeasons(w)], ['Races', w.player.starts], ['Wins', w.player.wins], ['Podiums', w.player.pods], ['Best finish', best ? ord(best) : '&mdash;'], ['Titles', w.player.titles]],
     how: E.why === 'bank' ? `Round ${E.r + 1} of the ${E.y} ${escP(E.series || seriesName(w.player.series))}: the bank closed the account, ${WC.money$(-E.bal)} overdrawn.` : `Round ${E.r + 1} of the ${E.y} ${escP(E.series || seriesName(w.player.series))}: the series withdrew the entry after ${WC.satOut(w)} rounds missed.`,
-    acts: [{ label: 'Back To The Menu', run: () => { $('s-hub').classList.remove('ending-on'); saveWorld(); pitGarage.close(); endPreviewDone(); quitToMenu(); } }],
+    acts: [...(w.preview ? [] : [{ label: 'Start Again In This World', run: () => startAgain() }]),
+      { label: 'Back To The Menu', run: () => { $('s-hub').classList.remove('ending-on'); saveWorld(); pitGarage.close(); endPreviewDone(); quitToMenu(); } }],
   };
 }
 // the cars of each class, for the customer racing programmes (World Career: moving up)

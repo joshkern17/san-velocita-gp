@@ -1048,6 +1048,9 @@ export function setupEntries(w) {
   return [
     { key: 'fresh', name: 'Start from nothing', cost: 0, level: 'Hardest', blurb: 'A rented lock-up, a series licence, and all of your money. You buy your own car and pick your own people.',
       gets: ['Rented lock-up', 'No car: the classifieds', 'No staff', 'All your money'] },
+    w.again && old && old.id === w.again.fid
+      ? { key: 'takeover', name: `Take back ${old.name}`, cost: 28000, level: 'Middling', blurb: `Your old team. The liquidators still have what the bank didn't want: ${w.prevCar ? `the ${w.prevCar.name}` : 'a tired car'}, the lease on the unit, the tools${mate && mate.id === w.again.mate ? `, and ${mate.first}, who says they'll give it another go` : ''}.`,
+        gets: ['Industrial unit', 'Proper tools', w.prevCar ? `The ${w.prevCar.name} (yours, tired)` : 'A car (tired)', mate ? (mate.id === w.again.mate ? `${mate.first} ${mate.last}, again` : `${mate.first} ${mate.last}`) : 'No driver'] } :
     { key: 'takeover', name: `Take over ${old ? old.name : 'the old team'}`, cost: 28000, level: 'Middling', blurb: `${old ? old.name : 'The team whose entry you bought'} folded after ten seasons. The liquidators will sell you what's left: a tired car, the lease on their unit, their tools, and ${mate ? mate.first : 'a driver'}, still under contract.`,
       gets: ['Industrial unit', 'Proper tools', 'Their car (tired)', mate ? `${mate.first} ${mate.last}, under contract` : 'Their driver'] },
     { key: 'running', name: 'Buy a running team', cost: 100000, level: 'Easiest', blurb: 'A small team that wants out, with everything working: a good car with a season of development, a unit with a lift and a sim rig, and a chief mechanic.',
@@ -1062,7 +1065,9 @@ export function setupEntry(w, key) {
   if (key !== 'fresh') {
     t.fac = { base: 1, tools: key === 'running' ? 2 : 1, ...(key === 'running' ? { sim: 1 } : {}) };
     const cars = w.streetCars || [], c = cars[Math.floor(rng(w) * cars.length)];
-    if (c) { w.car = { chassis: c.key, name: c.name, cond: key === 'running' ? 0.92 : 0.6, paid: Math.round(c.value * (key === 'running' ? 0.9 : 0.5)), year: 1990 + Math.floor(rng(w) * 10) }; w.founding.car = true; carParts(w);
+    // (taking back your own old team: your old car, as the liquidators left it)
+    if (key === 'takeover' && w.again && w.prevCar) { w.car = { ...w.prevCar, cond: 0.6, parts: null }; w.prevCar = null; w.founding.car = true; carParts(w); }
+    else if (c) { w.car = { chassis: c.key, name: c.name, cond: key === 'running' ? 0.92 : 0.6, paid: Math.round(c.value * (key === 'running' ? 0.9 : 0.5)), year: 1990 + Math.floor(rng(w) * 10) }; w.founding.car = true; carParts(w);
       if (key === 'running') w.car.dev = { power: 0.003, grip: 0.002, downforce: 0.01, brake: 0.006, rel: 0.1 }; }
     if (key === 'running') { const m = staffPerson(w, 'mechanic', 3); m.cv = 'Came with the team. Knows where everything is.'; w.staff.push(m); }
   }
@@ -1466,6 +1471,67 @@ export function sitOut(w) {
   const round = w.round;
   return { ...afterRound(w, null), bill: { items, net }, round };
 }
+// registering again: the lawyers write again, the Wire notices, the rival owner is gracious about it, Danny can't
+// believe it
+function againNews(w, f) {
+  const first = f.name.split(' ')[0], A = w.again;
+  mail(w, 'Hargreave & Webb, Family Law', 'office@hargreavewebb.sv', `${f.ex} v. ${f.name.split(' ').pop()}: another quick question`,
+    [`Dear ${first},`, `We act, as before, for ${f.ex}.`, `It has come to our attention that you have won the State Lottery again. My client has asked us to confirm the date of this draw as well.`, `My client also asks us to pass on the word "seriously?", and nothing else.`, `Yours,`, `M. Hargreave`]);
+  news(w, `LOTTERY WINNER WINS LOTTERY AGAIN`, `${f.name}, whose ${A.team} folded in ${A.y}, has won the State Lottery for a second time and registered a new racing team, ${f.team}. The Lottery says the odds against it are "very long" and that it is "looking into nothing".`);
+  if (w.rival) mail(w, w.rival.name.join(' '), `${w.rival.name[0][0].toLowerCase()}.${w.rival.name[1].toLowerCase().replace(/[^a-z]/g, '')}@${(w.teams[w.rival.tid]?.name || 'team').toLowerCase().replace(/[^a-z]+/g, '')}.sv`, 'Welcome back',
+    [`I read the news. Twice, to be sure.`, `I said a season and a half. I'm pleased to have been roughly right, and genuinely pleased to see you back. The paddock is duller without someone to beat.`, `Do try to make it to two seasons this time.`, w.rival.name[0]]);
+  texts(w, 'Danny', [`Wait`, `You won AGAIN?`, `Bro I've been playing the same numbers for 11 years`]);
+}
+
+// ---------------- starting again, in the same world ----------------
+// After an ending: the rest of that season goes on without you, the new season starts, and you (the same you) are back
+// where a career starts: the lottery (again), Form SV-1, the setup. The world keeps what it knows about you: your
+// history, the drivers' view of you (drep, grudges), the rival, the Wire, the bank (it won't lend: w.scandal), half
+// your reputation, the list's crossed-off lines. The old business is gone with its debts; your folded team is a team of
+// its own (w.again.fid), the one the setup offers to take back, with your old car if it wasn't sold. Always back in the
+// Street Cup. trackPool: the next season's circuits.
+export function restartWorld(w, trackPool) {
+  const E = w.ended; if (!E) return null;
+  const T = myTeam(w), fid = 'F' + (w.nextId++);
+  (w.folds ??= []).push({ team: E.team, y: E.y, why: E.why, bal: E.bal, series: E.series });
+  // the folded team: a team of its own now, out of racing, with what it owned
+  w.teams[fid] = { id: fid, name: T.name, main: T.main, accent: T.accent, series: null, car: T.car, drivers: [], folded: E.y, fac: { ...facOf(T) } };
+  // your teammate: still around if you treated them fairly (they'd come back), otherwise gone
+  const mate = mateOf(w), mp = mate && w.people[mate.pid], fair = mp && !(mate.owed > 0) && !((h2hOf(w, mp.id).grudge || 0) >= 2);
+  for (const pid of T.drivers.filter(d => d !== 'P')) { const p = w.people[pid]; if (p && !(fair && pid === mp.id)) { p.team = null; } }
+  T.drivers = ['P', ...(fair ? [mp.id] : [])];
+  w.prevCar = w.car && !w.car.lease && carClsOf(w) === 'street' ? { chassis: w.car.chassis, name: w.car.name, year: w.car.year, paid: w.car.paid, cls: 'street' } : null;
+  // the rest of the season, without you (nobody's founded anything yet: the list and the rest don't count it)
+  w.founding = { reg: false, car: false };
+  w.ended = null; w.mate = null; w.staff = []; w.deals = []; w.grey = null; w.bet = null; w.sat = null; w.bankNote = null; w.loans = [];
+  while (!w.over) { const sid = w.player.series; scoreRound(w, sid, simRace(w, sid, false).filter(r => teamOfPid(w, r.pid) !== T.id).map((r, k) => ({ ...r, pos: k + 1 }))); afterRound(w, null); }
+  w.player.offer = null;
+  nextSeason(w, trackPool);
+  // back to the Street Cup: your entry takes the place of its strongest team, which moves up into the one you had
+  if (T.series !== 'street') {
+    const from = T.series, B = w.series.street.teams.map(id => w.teams[id]).filter(t => !t.mine).sort((a, b) => carValue(w, b) - carValue(w, a))[0];
+    w.series[from].teams = w.series[from].teams.map(t => t === T.id ? B.id : t); w.series.street.teams = w.series.street.teams.map(t => t === B.id ? T.id : t);
+    B.series = from; for (const pid of B.drivers) if (w.people[pid]) w.people[pid].series = from;
+    T.series = 'street'; for (const pid of T.drivers) if (w.people[pid]) w.people[pid].series = 'street';
+    w.player.series = 'street';
+  }
+  // the business: gone. You: the same, with a past
+  T.fac = { base: 0 }; devReset(T); T.dev = null;
+  w.car = null; w.projects = []; w.jobs = null; w.payDriver = null; w.amb = null; w.ballast = 0; w.week = null; w.ads = [];
+  w.lies = 0; w.fraud = null; w.livery = w.livery ? { ...w.livery } : null; w.liveryDone = false; w.logoShown = null;
+  w.founding = { reg: false, car: false };
+  w.rep = Math.max(10, Math.round(repOf(w) * 0.5)); w.scandal = nowIdx(w);
+  w.again = { y: E.y, team: E.team, why: E.why, fid, mate: fair ? mp.id : null, n: (w.again?.n || 0) + 1 };
+  w.prev = fid;
+  // a new sheet: what you've done already comes crossed off; why, you'll write again
+  if (w.list) w.list = { why: null, done: Object.fromEntries(Object.entries(w.list.done).map(([k, v]) => [k, { ...v, old: true }])), fresh: [], late: {} };
+  w.mail = [];
+  startMoney(w);
+  mail(w, 'San Velocita Business Registry', 'no-reply@registry.sv.gov', 'Action required: Form SV-1',
+    [`Our records show that you intend to operate a motor racing team in the Province of San Velocita.`, `Our records also show that you did this before. Please complete a new Form SV-1. The previous one cannot be reused.`, `San Velocita Business Registry`], { link: ['registry', 'Open Form SV-1'] });
+  return w;
+}
+
 // what the car fetches this week (a dealer's price, or a lease's deposit back, less the damage), before you sell it
 export function carSale(w) { if (!w.car) return null; return w.car.lease ? { lease: true, value: depositBack(w) } : { value: tradeIn(w) }; }
 export function sellCar(w) {
@@ -2447,6 +2513,8 @@ function listTexts(w, key) {
 // after your round (recordPlayerRound / simPlayerRound): what it crossed off
 function listRound(w, me, use) {
   const sid = w.player.series;
+  // (the comeback: the new team's first podium makes the Wire)
+  if (w.again && !w.again.back && me && !me.dnf && me.pos <= 3 && w.founding?.reg) { w.again.back = true; const t = w.teams[w.player.team].name; news(w, me.pos === 1 ? `${t.toUpperCase()} WINS: ${w.player.name.split(' ').pop().toUpperCase()} IS BACK` : `${w.player.name.split(' ').pop().toUpperCase()} BACK ON THE PODIUM`, `${w.player.name}, whose ${w.again.team} folded in ${w.again.y}, finished P${me.pos} at ${w.series[sid].cal[w.round]?.name || ''} with ${t}. "Second lottery, second team, first podium," said nobody, until now.`); }
   listCheck(w, { me, sid, R: w.series[sid].cal[w.round], led: use?.led ?? (me && me.pos === 1 && !me.dnf ? 1 : 0) });
 }
 // someone wasn't paid on time this year (runPayroll)
@@ -2579,7 +2647,8 @@ export function registerTeam(w, f) {
   const first = f.name.split(' ')[0];
   mail(w, 'San Velocita Business Registry', 'no-reply@registry.sv.gov', `Registration confirmed: ${f.team}`,
     [`Thank you for registering ${f.team}, a Sporting Enterprise based in ${TOWNS[f.home].name}.`, `Your processing fee of $250 has been collected. Please keep this email for your records.`, `San Velocita Business Registry`]);
-  mail(w, 'Hargreave & Webb, Family Law', 'office@hargreavewebb.sv', `${f.ex} v. ${f.name.split(' ').pop()}: a quick question`,
+  if (w.again) againNews(w, f);
+  else mail(w, 'Hargreave & Webb, Family Law', 'office@hargreavewebb.sv', `${f.ex} v. ${f.name.split(' ').pop()}: a quick question`,
     [`Dear ${first},`, `As you know, we act for ${f.ex}.`,
      `It has come to our attention that you won the State Lottery shortly after the decree was finalised. Congratulations. My client has asked us to confirm the date of the draw.`,
      `My client also asks us to pass on that starting a racing team is "exactly the kind of thing," and that they hope it goes really well.`, `Yours,`, `M. Hargreave`]);

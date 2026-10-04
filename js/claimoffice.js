@@ -70,6 +70,8 @@ const INTRO = [
   `Or the annuity: ${money$(LOTTERY.annuity)} a year for ${LOTTERY.years} years. Spread out like that, less of it goes to tax.`,
   'The choice is final. Most people take the lump sum.',
 ];
+// (the second time: he recognises you)
+const INTRO_AGAIN = ['Ticket 2290.', '...', 'Again?', 'Congratulations on your win. Your second.', ...INTRO.slice(2)];
 const OUTRO = ['Thank you.', 'We can only release funds to a registered business. That\'s Form SV-1.'];
 
 // who sits at each desk: the name and the job on the plaque in front of them
@@ -303,7 +305,7 @@ export class ClaimOffice {
     if (this.lineWait && (this.lineWait.t += dt) > this.lineWait.hold) { const w = this.lineWait; this.lineWait = null; w.res(); }
     if (this.stage === 'on2' && this.onT > 2.4) { this.stage = 'registry'; this.registry(); }
     // what's being said
-    if (this.stage === 'on' && this.onT > 2.6) { this.stage = 'talk'; this.lines = INTRO; this.nextLine(); }
+    if (this.stage === 'on' && this.onT > 2.6) { this.stage = 'talk'; this.lines = this.h.again ? INTRO_AGAIN : INTRO; this.nextLine(); }
     if (this.stage === 'talk' || this.stage === 'outro') {
       this.lineT += dt;
       const ln = this.lines[this.lineI], hold = Math.max(2.4, ln.split(' ').length * 0.32 + 1.2);
@@ -327,14 +329,14 @@ export class ClaimOffice {
     this.lineI++; if (!keepT) this.lineT = 0;
     if (this.lineI >= this.lines.length) {
       this.h.line('');
-      if (this.lines === INTRO) { this.stage = 'choose'; this.prompt(); }
+      if (this.lines === INTRO || this.lines === INTRO_AGAIN) { this.stage = 'choose'; this.prompt(); }
       else if (this.lines === OUTRO) { this.stage = 'where'; this.whereNext(); }
       return;
     }
     const ln = this.lines[this.lineI]; this.h.line(ln);
     // (he mumbles it: a low murmur a word at a time)
     const s = this.h.snd; if (s) ln.split(' ').forEach((w, i) => s.note(120 + hash(i + ln.length) * 50, 0.09, 0.018, { room: true, delay: 0.05 + i * 0.16 }));
-    if (this.lines === INTRO && this.lineI === 4) for (const f of this.forms) { f.obj.visible = true; this.move(f, 'desk'); s?.hiss(0.5, 1400, 0.02, { room: true }); } // (he slides the forms over)
+    if ((this.lines === INTRO || this.lines === INTRO_AGAIN) && ln.startsWith('You can take')) for (const f of this.forms) { f.obj.visible = true; this.move(f, 'desk'); s?.hiss(0.5, 1400, 0.02, { room: true }); } // (he slides the forms over)
   }
 
   // ---- the walk down the hall: you ask, he points, the light goes, and comes back on over another desk ----
@@ -373,7 +375,7 @@ export class ClaimOffice {
     await field('home', 'Section A &middot; Registered premises (racing near home saves the travel)', async () => towns[await this.ask(towns.map(k => `${TOWNS[k].name} <small>${TOWNS[k].blurb}</small>`), side)]);
     await field('name', 'Section B &middot; Your full name', async () => (await this.typeIn('Full name', f.name, side)) || f.name);
     await field('background', 'Section B &middot; Previous occupation', async () => bgs[await this.ask(bgs.map(k => `${BACKGROUNDS[k].name} <small>${BACKGROUNDS[k].perk}</small>`), side)]);
-    const exDef = EX_NAMES[Math.floor(Math.random() * EX_NAMES.length)];
+    const exDef = this.h.ex || EX_NAMES[Math.floor(Math.random() * EX_NAMES.length)]; // (the second time: the same one)
     await field('ex', 'Section C &middot; Former spouse', async () => (await this.typeIn('Former spouse', exDef, side)) || exDef);
     await field('years', 'Section C &middot; Years married', async () => [4, 7, 11, 15][await this.ask(['4', '7', '11', '15'], side)]);
     // sign it (the marker's on the line, on the paper in your hand)

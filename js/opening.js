@@ -348,7 +348,7 @@ export class Opening {
   // opts: { name: your name (the papers are addressed to you), done: what happens after (or on skip), pad: () => true
   // when the last input was a pad (the prompts' button) }
   enter(opts = {}) {
-    this.name = opts.name || 'Driver'; this.done = opts.done || null; this.drive = opts.drive || null; this.isPad = opts.pad || (() => false);
+    this.name = opts.name || 'Driver'; this.done = opts.done || null; this.again = !!opts.again; this.ex = opts.ex || null; this.drive = opts.drive || null; this.isPad = opts.pad || (() => false);
     this.yaw = 0; this.pitch = 0; this.aim = null; this.t = 0; this.stageT = 0; this.lean = 0; this.fov = FOV; this.dim = 0; this.shake = 0; this.flash = 0;
     this.cur = undefined; this.busy = false; this.pressed = false; this.beatT = 0; this.rolled = new Set();
     // the numbers: a quick pick, drawn out in a different order
@@ -482,7 +482,7 @@ export class Opening {
     this.setStage('office'); this.ui.white.className = ''; this.target = null;
     this.office.start({ snd: this.snd, say: (s) => this.say(s), line: (s) => this.fadeText(this.ui.line, s), btn: () => this.btn(), back: () => this.backBtn(), pad: () => this.isPad(),
       choices: (list, pick, o) => this.choices(list, pick, o), choiceNav: (d) => this.choiceNav(d), choiceOk: () => this.choiceOk(),
-      input: (label, def, cb, o) => this.input(label, def, cb, o), inputOk: () => this.inputOk(), name: this.name,
+      input: (label, def, cb, o) => this.input(label, def, cb, o), inputOk: () => this.inputOk(), name: this.name, again: this.again, ex: this.ex,
       done: (choice, reg) => { this.result = choice || reg ? { lottery: choice, reg } : null; this.skip(); } });
   }
   // a line to type into (a name), with what's there already; Enter, or A on a pad, files it
