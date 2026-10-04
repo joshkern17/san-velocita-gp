@@ -1370,8 +1370,7 @@ export function settleRound(w, use, me) {
     if (mp) items.push([`Prize money, second car (${w.people[mate.pid].first}, P${row.pos})`, mp]); }
   const before = w.money.balance;
   for (const [what, amt] of items) if (amt) pay(w, amt, `${trackName}: ${what[0].toLowerCase() + what.slice(1)}`);
-  // overdrawn: the bank charges for it
-  if (w.money.balance < 0) { const fee = Math.round(-w.money.balance * 0.015 / 10) * 10 + 250; pay(w, -fee, 'Overdraft interest and fee'); items.push(['Overdraft interest and fee', -fee]); }
+  overdraftFee(w, items);
   const net = w.money.balance - before;
   mail(w, BANK, BANK_ADDR, `Account activity: ${trackName}`,
     [`Here is the activity on your business account for round ${w.round + 1}, ${trackName}.`,
@@ -1379,6 +1378,65 @@ export function settleRound(w, use, me) {
     { bill: { items, net, bal: w.money.balance } });
   return { items, net };
 }
+// overdrawn: the bank charges for it (after a round's bill)
+function overdraftFee(w, items) { if (w.money.balance < 0) { const fee = Math.round(-w.money.balance * 0.015 / 10) * 10 + 250; pay(w, -fee, 'Overdraft interest and fee'); items.push(['Overdraft interest and fee', -fee]); } }
+
+// ---------------- getting out of a hole: sitting a round out, selling up ----------------
+// Sitting out: the team doesn't start. No entry, travel, crew, fuel or tyres; the rent, the payroll, loans and a lease
+// still go out, there's no prize money, and the sponsors have nothing to show for their money (no fee, and a missed
+// target each). What it saves, before you choose:
+export function sitOutSaves(w) {
+  const c = COSTS[w.player.series], R = w.series[w.player.series].cal[w.round];
+  const travel = isHome(w, R) ? 0 : Math.round(c.travel * staffEffects(w).travel * (facLevel(myTeam(w), 'truck') ? 0.65 : 1));
+  const fees = dealsOf(w).filter(d => !d.shady).reduce((a, d) => a + d.fee, 0);
+  return { saves: c.entry + travel + c.crew + Math.round(c.fuelLap * 14 * (bgOf(w).fuel || 1)), loses: fees }; // (your teammate's contract is paid either way)
+}
+export function sitOut(w) {
+  if (w.over) return null;
+  if (w.staff) runPayroll(w);
+  const R = w.series[w.player.series].cal[w.round], items = [['Premises and facilities', -facUpkeep(myTeam(w))]];
+  if (w.car && w.car.lease) items.push([`Car lease (${w.car.lease.prog})`, -w.car.lease.perRound]);
+  for (const d of dealsOf(w)) { if (d.shady) continue; d.misses++; d.obj = null; items.push([`${sponsorById(d.sid).name}: you didn't race, no fee`, 0]); }
+  items.push(...loanRound(w));
+  const before = w.money.balance;
+  for (const [what, amt] of items) if (amt) pay(w, amt, `${R.name}: ${what[0].toLowerCase() + what.slice(1)}`);
+  overdraftFee(w, items);
+  const net = w.money.balance - before;
+  mail(w, BANK, BANK_ADDR, `Account activity: ${R.name}`, [`Here is the activity on your business account for round ${w.round + 1}, ${R.name}. Your team did not start.`, w.money.balance < 0 ? `Your account is overdrawn by ${money$(-w.money.balance)}.` : `Your balance is ${money$(w.money.balance)}.`], { bill: { items, net, bal: w.money.balance } });
+  // (neither of your cars starts: the rest of the field races without them)
+  scoreRound(w, w.player.series, simRace(w, w.player.series, false).filter(r => teamOfPid(w, r.pid) !== w.player.team).map((r, k) => ({ ...r, pos: k + 1 })));
+  news(w, `${w.teams[w.player.team].name.toUpperCase()} MISSES ${R.name.toUpperCase()}`, `${w.teams[w.player.team].name} did not start at ${R.name}. The team gave no reason. The team's owner did not return calls.`);
+  const round = w.round;
+  return { ...afterRound(w, null), bill: { items, net }, round };
+}
+// what the car fetches this week (a dealer's price, or a lease's deposit back, less the damage), before you sell it
+export function carSale(w) { if (!w.car) return null; return w.car.lease ? { lease: true, value: depositBack(w) } : { value: tradeIn(w) }; }
+export function sellCar(w) {
+  const s = carSale(w); if (!s) return null;
+  const c = w.car;
+  if (s.value) pay(w, s.value, s.lease ? `${c.lease.prog}: lease handed back (${c.name}), deposit returned` : `Sold: ${c.year} ${c.name}`);
+  w.car = null; w.grey = null;
+  if (seriesById(w.player.series).car === 'classifieds') w.ads = makeAds(w);
+  news(w, `${w.teams[w.player.team].name.toUpperCase()} SELLS ITS CAR`, `${w.teams[w.player.team].name}'s ${c.name} has been ${s.lease ? 'handed back to the programme' : 'sold'}. The team says it is "restructuring".`);
+  react(w, 'danny', `The player just ${s.lease ? 'handed back the leased race car' : `sold the race car (the ${c.year} ${c.name}) for ${money$(s.value)}`} to pay the bills. No race car now.`);
+  return s;
+}
+// what selling a facility (its top level; premises: moving out to the next ones down) brings, before you do it:
+// { name, value, saves (upkeep a round) }, { why } when you can't, or null when there's nothing to sell
+export function facSale(w, k) {
+  const t = myTeam(w), n = facLevel(t, k); if (n <= 0) return null;
+  const L = k === 'base' ? FACILITIES.base.levels[n] : FACILITIES[k].levels[n - 1];
+  if (k === 'base') { const blocker = FAC_KEYS.find(x => x !== 'base' && facLevel(t, x) && FACILITIES[x].levels[facLevel(t, x) - 1][3] > n - 1); if (blocker) return { why: `The ${facName(t, blocker).toLowerCase()} needs these premises: sell it first.` }; }
+  const need = SERIES_NEEDS[w.player.series]?.[k]; if (need && n <= need) return { why: `The ${seriesById(w.player.series).name} requires it.` };
+  return { name: L[0], value: Math.round(L[1] * 0.4 / 100) * 100, saves: k === 'base' ? L[2] - FACILITIES.base.levels[n - 1][2] : L[2], to: k === 'base' ? FACILITIES.base.levels[n - 1][0] : null };
+}
+export function sellFacility(w, k) {
+  const s = facSale(w, k); if (!s || s.why) return { ok: false, why: s?.why || 'Nothing to sell.' };
+  pay(w, s.value, k === 'base' ? `Moved out of the ${s.name.toLowerCase()} (fittings sold)` : `Sold: ${s.name}`);
+  facOf(myTeam(w))[k] = facLevel(myTeam(w), k) - 1;
+  return { ok: true, ...s };
+}
+
 // what a repair (of this much damage: 0..1 of a write-off) costs, before you have it done
 export const repairQuote = (w, dmg) => Math.round(dmg * COSTS[w.player.series].repair * (bgOf(w).repair || 1) * staffEffects(w).repair / 100) * 100;
 export const tyreCost = (w) => { const m = staffOf(w, 'manager'); return Math.round(COSTS[w.player.series].tyre * (m ? mgrTyre(m.skill) : 1) / 10) * 10; };
@@ -1405,13 +1463,15 @@ export function weekOf(w) {
     w.week = { key: weekKey(w), used: 0, log: [], booked: [], gigs: [], setup: false };
     if (prev && !w.pre) { noShows(w, prev); if (prev.log.length) { const net = prev.log.reduce((a, e) => a + (e.amt || 0), 0); w.weekAvg = w.weekAvg == null ? net : Math.round(w.weekAvg * 0.6 + net * 0.4); } }
     if (!w.pre) w.weekN = (w.weekN || 0) + 1;
-    if (!w.pre && !w.over && w.car && !needsCar(w) && w.money && w.money.choice) planWeek(w);
+    if (!w.pre && !w.over && w.founding?.reg && w.money && w.money.choice) planWeek(w);
     director(w);
   }
   return w.week;
 }
 export const daysLeft = (w) => WEEK_DAYS - weekOf(w).used;
-export const weekOpen = (w) => !!(w.car && !needsCar(w) && w.money && w.money.choice && !w.over);
+// (no race car needed: the day job and GigGo use your own wheels or theirs; what needs the race car says so)
+export const weekOpen = (w) => !!(w.founding?.reg && w.money && w.money.choice && !w.over);
+export const hasRaceCar = (w) => !!w.car && !needsCar(w);
 // (tag: the calendar's short name for the day; gig: a booked drive, filled in when it's driven)
 function useDay(w, what, amt = 0, tag = '', gig = null) { const wk = weekOf(w); wk.log.push({ day: wk.used, what, amt, tag, gig }); wk.used++; if (w.projects && !w.pre) crewDay(w); }
 // (and a day spent on the team: what the week's log shows)
@@ -1816,7 +1876,7 @@ function answerTempt(w, m, key) {
     pay(w, m.pay, `Insurance: ${w.car.year} ${w.car.name}, total loss (fire)`);
     w.fraud = { since: nowIdx(w), pay: m.pay };
     news(w, `FIRE AT ${(TOWNS[w.home]?.name || 'LOCAL').toUpperCase()} RACING GARAGE`, `A race car was destroyed in a fire overnight. Nobody was hurt. The cause is not yet known.`);
-    w.car = null; w.founding.car = false; w.ads = makeAds(w); w.grey = null; flag(w, 'insure');
+    w.car = null; w.ads = makeAds(w); w.grey = null; flag(w, 'insure');
     react(w, 'danny', `The player went through with it: the race car "caught fire" in the garage overnight and the insurance paid ${money$(m.pay)}. The fire was Danny's idea, from a guy at the Gas-N-Go. Now they need another car, and nobody can know.`);
     return { msg: 'The car is gone. The money is in the bank. You need another car.' };
   }
@@ -1855,7 +1915,12 @@ function temptRound(w, use, me) {
     }
     w.bet = null;
   }
-  // loans: the bank's instalments; Sal's due date
+  items.push(...loanRound(w));
+  return items;
+}
+// loans, each round: the bank's instalments; Sal's due date
+function loanRound(w) {
+  const items = [], K = KS(w);
   for (const l of (w.loans || []).filter(x => !x.paid)) {
     if (!l.shark) { items.push([`Loan repayment (${BANK})`, -l.per]); l.left--; if (l.left <= 0) l.paid = true; continue; }
     if (nowIdx(w) < l.due) continue;

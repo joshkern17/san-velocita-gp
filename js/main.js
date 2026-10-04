@@ -1437,13 +1437,13 @@ const pc = new Computer({
   },
   // the Team app: facilities and projects
   team: (what, arg) => {
-    const r = what === 'build' ? WC.buildFacility(world, arg) : WC.startProject(world, arg.split('|')[1], arg.split('|')[0]);
-    if (r.ok) sfx.best(); else { sfx.error(); toast(r.why, 4000); }
+    const r = what === 'build' ? WC.buildFacility(world, arg) : what === 'sellfac' ? WC.sellFacility(world, arg) : WC.startProject(world, arg.split('|')[1], arg.split('|')[0]);
+    if (r.ok) { sfx.best(); if (what === 'sellfac') toast(`Sold for ${WC.money$(r.value)}.`); } else { sfx.error(); toast(r.why, 4000); }
     saveWorld(); renderHub();
   },
   // a customer racing car (GT up): buy, lease, or an ex-works one
-  getcar: (how, id) => { if (WC.acquireCar(world, how, id)) { sfx.best(); updateLogoShown(); saveWorld(); pitGarage.setCar(hubCar()); renderHub(); } },
-  buy: (id) => { if (WC.buyCar(world, id)) { sfx.best(); updateLogoShown(); saveWorld(); pitGarage.setCar(hubCar()); renderHub(); } },
+  getcar: (how, id) => { if (WC.acquireCar(world, how, id)) { sfx.best(); updateLogoShown(); saveWorld(); pitGarage.showCar(true); pitGarage.setCar(hubCar()); renderHub(); } },
+  buy: (id) => { if (WC.buyCar(world, id)) { sfx.best(); updateLogoShown(); saveWorld(); pitGarage.showCar(true); pitGarage.setCar(hubCar()); renderHub(); } },
   // the Workshop and the parts sites
   car: (what, arg) => {
     if (what === 'rebuild') WC.rebuildPart(world, arg);
@@ -1843,7 +1843,7 @@ function enterHub() {
   disposeSim(); updateLogoShown();
   const t = world.teams[world.player.team];
   if (world.livery) { t.main = world.livery.main; t.accent = world.livery.accent; }
-  pitGarage.openHome(hubCar(), { main: t.main, accent: t.accent, name: t.name });
+  pitGarage.openHome(hubCar(), { main: t.main, accent: t.accent, name: t.name }); pitGarage.showCar(!!world.car);
   pitGarage.setPeople(mateInRoom(world));
   pcSeat = false; pc.close(); if (tsw.isOpen) tsw.close(); if (dayPlan.isOpen) dayPlan.close(); $('s-hub').classList.remove('seated', 'at-car', 'wizard', 'planning', 'at-list');
   hubMode = 'room'; carSub = null; carPart = null; optSub = false; listStep = null; listPrev = null;
@@ -1982,7 +1982,6 @@ function renderHubMenu() {
   else if (claim) items.push({ label: 'Claim Your Winnings', cls: 'action primary', action: () => sitDown('mail', claim.id), desc: 'The State Lottery needs to know how you want your money. It\'s waiting in your email.' });
   else if (!WC.setupDone(w)) items.push({ label: 'Set Up The Team', cls: 'action primary', action: () => openTeamSetup(), desc: 'How you get in, the car, a title sponsor and your second driver. Nothing is spent until you start the season.' });
   else if (!F.car) items.push({ label: 'Buy A Car', cls: 'action primary', action: () => sitDown('classifieds'), desc: 'Danny sent you some listings. They\'re on the computer.' });
-  else if (!w.over && WC.needsCar(w)) items.push({ label: 'Get A Car', cls: 'action primary', action: () => sitDown('customer'), desc: `Your ${w.car.name} isn't eligible for the ${seriesName(sid)}. Buy or lease one from the makers' customer programmes, or buy a team's car from last season (on the computer).` });
   else if (!w.over && WC.payrollShort(w)) items.push({ label: 'Sort Out Payroll', cls: 'action primary', action: () => sitDown('staff'), desc: `Payroll is ${WC.money$(WC.payrollDue(w))} and you have ${WC.money$(w.money.balance)}. Decide who gets paid (Team, on the computer: the Staff tab).` });
   else if (!w.over) {
     const r = w.series[sid].cal[w.round];
@@ -1990,8 +1989,12 @@ function renderHubMenu() {
     // the week: jobs you've booked, then today (pick what to do with it), then race day
     const left = WC.daysLeft(w), booked = WC.bookedGigs(w);
     for (const g of booked) items.push({ label: `Drive: ${WC.GIG_KINDS[g.kind].name}`, cls: 'action primary', action: () => startGig(g), desc: gigDesc(g) });
-    if (left > 0) items.push(dayItem(w, !booked.length));
-    else items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), desc: raceDesc(w) });
+    // (no race car: the week's still yours to work, and race day can only be sat out)
+    const noCar = WC.needsCar(w);
+    if (left > 0) items.push(dayItem(w, !booked.length && !noCar));
+    else if (noCar) items.push(sitOutItem(w, true));
+    else items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), desc: raceDesc(w) }, sitOutItem(w, false));
+    if (noCar) items.push(getCarItem(w));
   } else {
     items.push({ label: `Start ${w.year + 1} Season`, cls: 'action primary', action: () => beginNextSeason(),
       desc: offerMail ? `First answer the ${seriesName(off.to)}'s email.` : 'Everyone a year older. Retirements, promotions and rookies, then a new calendar.' });
@@ -2044,6 +2047,12 @@ function goToCar(part = null) {
   pitGarage.setView('car', carPart); sfx.select();
   renderHub(); renderHints();
 }
+function sellTheCar() {
+  const s = WC.sellCar(world); if (!s) return;
+  sfx.best(); saveWorld(); toast(s.lease ? 'Handed back.' : `Sold for ${WC.money$(s.value)}.`);
+  hubMode = 'room'; carSub = null; carPart = null; $('s-hub').classList.remove('at-car');
+  pitGarage.setView('room'); pitGarage.showCar(false); renderHub(); renderHints();
+}
 function leaveCar() {
   hubMode = 'room'; carSub = null; carPart = null; optSub = false;
   $('s-hub').classList.remove('at-car');
@@ -2061,7 +2070,11 @@ function renderCarMenu() {
       return { label: `${WC.PARTS[k].name}<small>${c}%</small>`, part: k, action: () => { carSub = k; carPart = k; sfx.select(); renderHubMenu(); },
         desc: `${WC.PARTS[k].name}: <b>${condWord(p.cond)}</b> (${c}%).${odds[k] != null ? (lvl === 2 ? ` ${(odds[k] * 100).toFixed(1)}% chance it fails next race.` : p.cond < 0.5 ? ' It could let go in a race.' : '') : ''}${f ? ` Fitted: <b>${f.name}</b>, "${f.feel}"${f.measured ? `, measured ${f.measured.val >= 0 ? '+' : ''}${(f.measured.val * 100).toFixed(1)}% ${f.measured.stat}` : ''}.` : ''} ${partEffect(w, k, imp)}` };
     })];
-    items.push({ label: 'Shop For Upgrades', action: () => sitDown('parts'), desc: 'Speed Parts Direct and SVList, on the computer.' }, { label: 'Back', action: () => leaveCar(), desc: 'Back to the garage.' });
+    const sale = WC.carSale(w);
+    items.push({ label: 'Shop For Upgrades', action: () => sitDown('parts'), desc: 'Speed Parts Direct and SVList, on the computer.' },
+      ...(sale ? [{ label: `${sale.lease ? 'Hand It Back' : 'Sell The Car'}<small>+${WC.money$(sale.value)}</small>`, confirm: `${sale.lease ? 'Hand it back' : 'Sell it'}? Select again`, action: () => sellTheCar(),
+        desc: sale.lease ? `Back to the programme: you get <b>${WC.money$(sale.value)}</b> of the deposit back (less what it needs putting right). No race car until you get another.` : `A dealer gives <b>${WC.money$(sale.value)}</b> for it this week (what it cost you, less wear). No race car until you buy another: you can still work the week and sit rounds out.` }] : []),
+      { label: 'Back', action: () => leaveCar(), desc: 'Back to the garage.' });
   } else {
     const k = carSub, p = P[k], mech = WC.staffOf(w, 'mechanic');
     items = [
@@ -2377,11 +2390,12 @@ function dayChoices(w, canRace) {
       money: 'Free', effect: `${pg.toFixed(1)} &rarr; ${Math.min(proj.days, pg + mine).toFixed(1)} of ${proj.days} days`,
       vis: { type: 'bar', label: proj.name, from: pg / proj.days, to: Math.min(1, (pg + mine) / proj.days), text: `${pg.toFixed(1)} → ${Math.min(proj.days, pg + mine).toFixed(1)} / ${proj.days}` },
       run: () => { WC.workOnProject(w, proj.id); return { line: proj.name, note: proj.done ? 'Finished.' : `${Math.min(proj.days, proj.prog || 0).toFixed(1)} of ${proj.days} days of work done` }; } }); }
-  else if (WC.weekOpen(w)) out.push({ key: 'projs', short: 'Projects', tag: 'Computer', head: 'Start a project on the car', desc: 'Engine, chassis, aero, brakes, reliability: the list is on the computer (Team, Development).',
+  else if (WC.hasRaceCar(w)) out.push({ key: 'projs', short: 'Projects', tag: 'Computer', head: 'Start a project on the car', desc: 'Engine, chassis, aero, brakes, reliability: the list is on the computer (Team, Development).',
     money: 'Each has a price', time: 'Doesn\'t use the day', effect: 'Opens Development', go: true, goLabel: 'To the computer', run: () => sitDown('dev') });
-  if (WC.facLevel(WC.myTeam(w), 'sim') && !wk.sim && !wk.tested) out.push({ key: 'sim', short: 'Sim rig', tag: 'Free', head: `Sim session: ${R.name}`, desc: 'Learn the circuit on the sim: some of the setup a test day would find, with no track hire, no fuel and no wear.',
+  const car = WC.hasRaceCar(w);
+  if (car && WC.facLevel(WC.myTeam(w), 'sim') && !wk.sim && !wk.tested) out.push({ key: 'sim', short: 'Sim rig', tag: 'Free', head: `Sim session: ${R.name}`, desc: 'Learn the circuit on the sim: some of the setup a test day would find, with no track hire, no fuel and no wear.',
     money: 'Free', effect: 'Some setup for this weekend', vis: map, run: () => { WC.simDay(w); return { line: `Sim session: ${R.name}`, note: 'Some of the setup found.' }; } });
-  if (!wk.tested) out.push({ key: 'test', short: 'Test day', tag: `−${$(WC.testCost(w))}`, mcls: 'neg', head: `Test day at ${R.name}`, desc: 'Track hire, plus fuel and wear. Do five laps or more and you find a setup: a little more grip there this weekend. Pause to end the day.',
+  if (car && !wk.tested) out.push({ key: 'test', short: 'Test day', tag: `−${$(WC.testCost(w))}`, mcls: 'neg', head: `Test day at ${R.name}`, desc: 'Track hire, plus fuel and wear. Do five laps or more and you find a setup: a little more grip there this weekend. Pause to end the day.',
     money: `−${$(WC.testCost(w))} + wear`, mcls: 'neg', effect: 'More grip this weekend', vis: map, go: true, goLabel: 'Book it', confirm: 'Book it? Select again', run: () => startTestDay() });
   out.push({ key: 'off', short: 'Day off', tag: '', head: 'A day off', desc: 'Nothing. It\'s allowed.', money: 'Free', effect: 'Nothing', run: () => { WC.spendDay(w, 'A day off', 'Day off'); return { line: 'A day off', note: 'You slept in. The car didn\'t fix itself.' }; } });
   if (canRace) { const left = WC.daysLeft(w); out.push({ key: 'race', short: 'Race day', tag: `Round ${w.round + 1}`, head: `Go to race day: round ${w.round + 1}`, desc: raceDesc(w),
@@ -2393,6 +2407,37 @@ function dayItem(w, canRace) {
   if (!ch.some(c => c.key === dayPick)) dayPick = ch[0].key;
   return { label: `Plan ${DAY_FULL[WC.DAY_NAMES[wk.used]] || 'Today'}<small>${left} DAY${left === 1 ? '' : 'S'} LEFT</small>`, cls: 'action primary day', action: () => openDayPlan(canRace),
     desc: `<span class="dh">How you spend the day</span>${ch.map(c => `${c.short}${c.tag ? ` <span class="dk">${c.tag}</span>` : ''}`).join(' &middot; ')}` };
+}
+// no race car (sold, burned, or the wrong class after moving up): where to get one
+function getCarItem(w) {
+  const sid = w.player.series, street = WC.seriesById(sid).car === 'classifieds';
+  return street ? { label: 'Buy A Car', action: () => sitDown('classifieds'), desc: `No race car. Danny's SVList listings are on the computer (cheapest ${WC.money$(Math.min(...(w.ads || []).map(a => a.price), Infinity))}). Until then you can work the week and sit rounds out.` }
+    : { label: 'Get A Car', action: () => sitDown('customer'), desc: `${w.car ? `Your ${w.car.name} isn't eligible for the ${seriesName(sid)}.` : 'No race car.'} Buy or lease one from the makers' customer programmes, or buy a team's car from last season (on the computer). Until then you can work the week and sit rounds out.` };
+}
+// sitting a round out: what it saves and what it costs, before you choose
+function sitOutItem(w, only) {
+  const r = w.series[w.player.series].cal[w.round], q = WC.sitOutSaves(w), $ = WC.money$;
+  return { label: `Sit Out Round ${w.round + 1}<small>SAVES ${$(q.saves)}</small>`, cls: only ? 'action primary' : '', confirm: 'Sit it out? Select again', action: () => sitOutRound(),
+    desc: `${only ? 'No race car. ' : ''}Saves <b>${$(q.saves)}</b> (entry, travel, crew, fuel).${q.loses ? ` Sponsors pay nothing (<b>&minus;${$(q.loses)}</b>) and count a miss.` : ''} No points. Rent, payroll and loans still go out.` };
+}
+function sitOutRound() {
+  const w = world, sid = w.player.series, out = WC.sitOut(w); if (!out) return;
+  saveWorld();
+  const res = w.series[sid].results.find(x => x.round === out.round), R = w.series[sid].cal[out.round];
+  $('round-title').textContent = 'Did Not Start';
+  $('round-sub').textContent = `${seriesName(sid)} · round ${out.round + 1} of ${w.opts.len} · ${R.name}`;
+  $('round-table').innerHTML = `<tr><th>POS</th><th>DRIVER</th><th>TEAM</th><th class="r">PTS</th></tr>` + (res ? res.rows.slice().sort((a, b) => a.pos - b.pos) : []).map(r => {
+    const t = w.teams[WC.teamOfPid(w, r.pid)] || {};
+    return `<tr><td class="p">${posBadge(r.pos)}</td><td><span class="swatch" style="background:${hex(t.main ?? 0x888888)}"></span>${WC.displayName(w, r.pid, true)}</td><td>${t.name || ''}</td><td class="n">${r.pts ? '+' + r.pts : ''}</td></tr>`;
+  }).join('');
+  const st = WC.seriesStandings(w, sid), cp = st.findIndex(e => e.pid === 'P') + 1, n = WC.unread(w);
+  $('round-info').innerHTML = `<div class="big-pos">DNS<small>DID NOT START</small></div>
+    <div class="row"><span>Championship</span><span>${cp ? `${ord(cp)} &middot; ${st[cp - 1].pts} pts` : '&mdash;'}</span></div>
+    <div class="row"><span>The weekend</span><span class="${out.bill.net < 0 ? 'bad' : 'ok'}">${out.bill.net > 0 ? '+' : ''}${WC.money$(out.bill.net)}</span></div>
+    <div class="row"><span>Bank balance</span><span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span></div>
+    ${n ? `<div class="row"><span>Phone</span><span>${n} new</span></div>` : ''}`;
+  menus['s-round'][0].setItems([{ label: out.over ? 'Season Review' : 'Continue', cls: 'action primary', action: () => openHub() }]);
+  fadeTo(() => show('s-round'), 200);
 }
 // the day planner: game UI over the garage (js/dayplan.js)
 let dayRace = true;
