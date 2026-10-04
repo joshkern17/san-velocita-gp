@@ -111,7 +111,7 @@ export const CARS = {
   // of its weight on the nose, worn dampers, old tyres. No drift mode: a front-driver can't steer a slide on the throttle
   civic: { name: 'Honda Civic EK', cls: 'shitbox', sound: 'i4', glb: true, paint: true, livery: true,
     liveryLabels: { topNumber: [0.42, 0.5], sideNumber: [0.5, 0.55], sideSponsor: [0.5, 0.8] },
-    spec: street({ body: [2.33, 2.11, 0.91], mass: 1080, a: 1.06, b: 1.66, cgh: 0.5, power: 80000, maxForce: 8200, torque: NA, drive: 1, lsd: [0, 0, 0],
+    spec: street({ body: [2.2, 1.99, 0.86], mass: 1080, a: 1.0, b: 1.56, cgh: 0.5, power: 80000, maxForce: 8200, torque: NA, drive: 1, lsd: [0, 0, 0],
       mu: 1.22, rearGrip: 1.02, kd: 0.05, drag: 0.38, maxSteer: 0.5, redline: 7200, idle: 850, gears: [0, 14, 24, 34, 44, 54], shift: 0.18,
       brakeF: 0.74, track: 1.47, rideHz: [1.5, 1.6], damp: 0.45, rollGrad: 3, unsprung: 32, aeroH: [0, 0], aeroYaw: 1, drift: false }) },
 
