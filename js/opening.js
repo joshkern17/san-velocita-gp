@@ -1,10 +1,11 @@
-// The opening: the living room of your trailer, at night, sat on the couch in front of the TV. A race is on. You're
-// prompted to look left, at the pile on the side table (a racing magazine, the divorce papers, a video shop's late
-// notice and, at the bottom, a lottery ticket), then back at the TV: the remote comes up, the channel changes to the
-// lottery draw, and you hold the ticket up while the numbers come out, each one lighting up on the paper as it's drawn.
+// The opening. It starts in the prologue (js/prologue.js: the pizzeria, your wife, the walk to the 6twelve, the
+// ticket), then the drive home, then here: the living room of your trailer, at night, sat on the couch in front of the
+// TV with a race on. The remote comes up and you flip through the channels until you find the lottery draw; then you
+// hold the ticket up while the numbers come out, each one lighting up on the paper as it's drawn. After that, the claim
+// office (js/claimoffice.js).
 // The room is models/trailer.glb (from the PSX "Trailer Park" pack, converted in Blender: the trailer at the origin and
 // what you can see from its windows); the remote is models/tv_remote.glb ("TV Remote - (PSX)" by Kasugay, CC-BY-4.0);
-// the papers and both TV channels are drawn on canvases. Look around with the mouse (drag) or either stick.
+// the papers and the TV's channels are drawn on canvases. Look around with the mouse (drag) or either stick.
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { audioBus } from './audio.js';
@@ -20,15 +21,18 @@ const roomUrl = () => (typeof window !== 'undefined' && window.__SVGP_TRAILER_GL
 // sat on the couch (metres; the model's Y is up, the TV against the wall at x = 0.4, the couch at x = 3.1, the side
 // table with the lamp on it at your left, z = 0.77)
 const SEAT = new THREE.Vector3(3.0, 1.15, -0.5), TV_AT = new THREE.Vector3(0.36, 0.95, -0.35);
-const SCREEN_AT = new THREE.Vector3(0.583, 0.882, -0.243), PILE_AT = new THREE.Vector3(2.93, 0.795, 0.6);
+const SCREEN_AT = new THREE.Vector3(0.583, 0.882, -0.243);
 const FOV = 55;
 const W = 320, H = 240; // the TV's picture
+// what's on: the channels, in order up the remote (the lottery's on 7); you start on the race
+const CHANNELS = [[2, 'race'], [3, 'news'], [4, 'promo'], [5, 'weather'], [6, 'snow'], [7, 'lotto'], [8, 'soap'], [9, 'bars']];
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const ease = (k) => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
 const smooth = (k) => k * k * (3 - 2 * k);
 const money$ = (n) => '$' + Math.round(n).toLocaleString('en-US');
 const pad2 = (n) => String(n).padStart(2, '0');
+const c2f = (c) => (c === 'promo' ? 260 : c === 'soap' ? 200 : 150) + Math.random() * 60; // (a voice's pitch, by channel)
 // a pseudo-random number from an integer (the crowd's speckle, the drum's balls)
 
 // when the draw's balls come out (seconds into the lottery show), the last one after a long wait
@@ -36,7 +40,7 @@ const BALL_T = [7.5, 13, 18.5, 24.5, 31, 41.5];
 const SHOW_END = BALL_T[5] + 8;
 
 // ---------------------------------------------------------------- the papers --------------------------------------
-// a race car side on (the magazine's cover photo, the TV's tracking shot)
+// a race car side on (the TV's tracking shot)
 function carSide(g, x, y, s, body, stripe, wheelRot = 0) {
   g.save(); g.translate(x, y); g.scale(s, s);
   g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(-78, 9, 156, 5); // shadow
@@ -54,35 +58,6 @@ function carSide(g, x, y, s, body, stripe, wheelRot = 0) {
     for (let k = 0; k < 3; k++) { const a = wheelRot + k * Math.PI / 1.5; g.beginPath(); g.moveTo(wx, 4); g.lineTo(wx + Math.cos(a) * 7, 4 + Math.sin(a) * 7); g.stroke(); }
   }
   g.restore();
-}
-
-function magazine(name) {
-  const [c, g] = paperCanvas(384, 512, '#14161c');
-  const sky = g.createLinearGradient(0, 0, 0, 380); sky.addColorStop(0, '#1b2440'); sky.addColorStop(0.55, '#c8562b'); sky.addColorStop(1, '#f2b25a');
-  g.fillStyle = sky; g.fillRect(0, 0, 384, 380);
-  g.fillStyle = '#2a2730'; g.fillRect(0, 352, 384, 160);
-  g.fillStyle = '#d43a2a'; for (let i = 0; i < 12; i++) g.fillRect(i * 36, 346, 18, 6);
-  carSide(g, 196, 366, 2.05, '#e8e4da', '#d02a1a');
-  g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(0, 0, 384, 104);
-  g.font = '700 66px "SV Display", Arial'; const sw = g.measureText('SPEED ').width, ww = g.measureText('WEEKLY').width, fit = Math.min(1, 348 / (sw + ww));
-  g.save(); g.translate(18, 66); g.scale(fit, 1);
-  text(g, 'SPEED', 0, 0, '700 66px "SV Display", Arial', '#ff2b00'); text(g, 'WEEKLY', sw, 0, '700 66px "SV Display", Arial', '#fff');
-  g.restore();
-  text(g, 'No. 412  ·  $4.95', 366, 92, '500 14px "SV UI", Arial', '#fff', 'right');
-  text(g, 'PRIVATEER SPECIAL', 18, 140, '700 22px "SV Display", Arial', '#ffc21a');
-  text(g, 'Running a team on a shoestring:', 18, 164, '500 17px "SV UI", Arial', '#fff');
-  text(g, 'we asked twelve owners how.', 18, 184, '500 17px "SV UI", Arial', '#fff');
-  text(g, 'STREET CUP', 18, 226, '700 22px "SV Display", Arial', '#ffc21a');
-  text(g, 'Who\'s in, who\'s broke', 18, 248, '500 17px "SV UI", Arial', '#fff');
-  // the subscription label
-  g.save(); g.translate(206, 430); g.rotate(-0.03);
-  g.fillStyle = '#f4f1e8'; g.fillRect(0, 0, 162, 64);
-  text(g, (name || 'Driver').toUpperCase(), 10, 20, '700 13px "Courier New", monospace', '#222');
-  text(g, 'LOT 14, PALM ACRES', 10, 36, '700 12px "Courier New", monospace', '#222');
-  text(g, 'LAST ISSUE: RENEW NOW', 10, 54, '700 12px "Courier New", monospace', '#b3261e');
-  g.restore();
-  barcode(g, 22, 440, 70, 44, 3);
-  return c;
 }
 
 function divorce(name) {
@@ -114,19 +89,6 @@ function divorce(name) {
   g.fillStyle = '#ffd21f'; g.beginPath(); g.moveTo(0, 456); g.lineTo(74, 456); g.lineTo(86, 470); g.lineTo(74, 484); g.lineTo(0, 484); g.fill();
   text(g, 'SIGN HERE', 6, 475, '700 12px Arial', '#5a4300');
   g.fillStyle = '#8d8d92'; g.save(); g.translate(24, 22); g.rotate(-0.6); g.fillRect(-11, -1.5, 22, 3); g.restore();
-  return c;
-}
-
-function lateNotice() {
-  const [c, g] = paperCanvas(400, 260, '#f6e9c8');
-  g.fillStyle = '#1d3f9a'; g.fillRect(0, 0, 400, 58);
-  text(g, 'VIDEO VAULT', 20, 41, '700 32px "SV Display", Arial', '#ffd21f');
-  text(g, 'SECOND NOTICE', 382, 37, '700 15px Arial', '#fff', 'right');
-  text(g, 'Our records show the following is overdue:', 20, 88, '500 15px Arial', '#2a2620');
-  text(g, 'DAYS OF THUNDER (VHS)', 20, 120, '700 22px "Courier New", monospace', '#111');
-  const row = (y, a, b) => { text(g, a, 20, y, '500 15px Arial', '#2a2620'); text(g, b, 380, y, '700 15px "Courier New", monospace', '#111', 'right'); };
-  row(152, 'Days overdue', '41'); row(174, 'Late fees', '$61.50'); row(196, 'Rewind charge', '$1.00');
-  text(g, 'Please return it. We only have the one.', 20, 236, 'italic 500 14px Arial', '#2a2620');
   return c;
 }
 
@@ -288,28 +250,12 @@ export class Opening {
     this.remote.visible = false; this.camera.add(this.remote);
   }
 
-  // the pile on the side table, top to bottom: the magazine, the divorce papers, the late notice, the ticket
-  buildPile() {
+  // the ticket, in your pocket (it came from the 6twelve); it comes up when the draw starts
+  buildTicket() {
     if (this.pile) for (const it of this.pile) it.obj.removeFromParent();
     paperMats.length = 0;
-    const nm = this.name;
-    const mag = sheet(magazine(nm), 0.21, 0.28, 0.005, 0xdedad0);
-    const div = new THREE.Group(), d0 = sheet(divorce(nm), 0.21, 0.297, 0.0012);
-    div.add(d0);
-    for (let k = 1; k <= 3; k++) { const u = sheet(paperCanvas(8, 8)[0], 0.21, 0.297, 0.0012); u.position.set(k * 0.002, -k * 0.003, -k * 0.0014); u.rotation.z = (hash(k) - 0.5) * 0.04; div.add(u); }
-    const vid = sheet(lateNotice(), 0.15, 0.0975, 0.0008);
-    const tk = this.drawTicket(true);
-    const items = [['magazine', mag, 0.34], ['divorce', div, 0.37], ['notice', vid, 0.21], ['ticket', tk, 0.19]];
-    let y = PILE_AT.y;
-    this.pile = items.reverse().map(([key, obj, hold], i) => {
-      const thick = key === 'magazine' ? 0.005 : key === 'divorce' ? 0.006 : 0.0012;
-      y += thick / 2;
-      const p = new THREE.Vector3(PILE_AT.x + (hash(i + 9) - 0.5) * 0.03, y, PILE_AT.z + (hash(i + 3) - 0.5) * 0.03);
-      y += thick / 2 + 0.0005;
-      const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, (hash(i + 1) - 0.5) * 0.7 + 1.5, 'XYZ'));
-      obj.position.copy(p); obj.quaternion.copy(q); this.scene.add(obj);
-      return { key, obj, hold, home: { p, q }, state: 'pile', from: null, k: 1 };
-    }).reverse();
+    const tk = this.drawTicket(true); this.scene.add(tk);
+    this.pile = [{ key: 'ticket', obj: tk, hold: 0.19, state: 'pocket', k: 1 }];
   }
   drawTicket(make) {
     const [c, gc] = ticket(this.nums, this.lit, this.pulse);
@@ -338,8 +284,8 @@ export class Opening {
     this.lit = new Set(); this.pulse = new Map(); this.drawn = 0;
     this.channel = 'race'; this.tvT = 0; this.osd = 0; this.switchT = -1;
     this.balls = Array.from({ length: 22 }, (_, i) => ({ x: (hash(i) - 0.5) * 70, y: (hash(i + 40) - 0.5) * 70, vx: (hash(i + 80) - 0.5) * 60, vy: (hash(i + 120) - 0.5) * 60, n: 1 + Math.floor(hash(i + 7) * 49) }));
-    this.buildPile();
-    if (this.remote) this.remote.visible = false; this.remT = -1;
+    this.buildTicket(); this.chan = 0; this.remUp = 0; this.pressT = -1; this.flipping = false;
+    if (this.remote) this.remote.visible = false; this.remK = 0;
     this.ui = {
       root: document.getElementById('s-opening'), tag: document.getElementById('op-tag'), say: document.getElementById('op-say'),
       tag2: document.getElementById('op-tag2'), choices: document.getElementById('op-choices'), frame: document.getElementById('op-frame'), line: document.getElementById('op-line'), edgeL: document.getElementById('op-edge-l'), edgeR: document.getElementById('op-edge-r'), white: document.getElementById('op-white'), hint: document.querySelector('#s-opening .op-hint'),
@@ -375,8 +321,8 @@ export class Opening {
   back() { if (this.sub && this.sub.back()) return; this.skip(); }
   skip() { if (this.ended) return; this.ended = true; this.leave(); if (this.done) this.done(this.result); }
   // left / right: between the forms
-  nav(d, axis = 'x') { this.sub?.nav(d, axis); }
-  free() { return this.stage === 'race' || this.stage === 'turn'; }
+  nav(d, axis = 'x') { if (this.sub) return this.sub.nav(d, axis); if (this.stage === 'flip') this.flip(axis === 'y' ? -d : d); }
+  free() { return this.stage === 'race' || this.stage === 'flip'; }
   look(dy, dp) {
     this.aim = null;
     this.yaw = clamp(this.yaw + dy, -2.4, 2.4);
@@ -393,7 +339,7 @@ export class Opening {
   // A / Enter: use what's prompted when it's in view, or turn towards it when it isn't
   confirm() {
     if (this.sub) return this.sub.confirm();
-    if (this.stage === 'pile') return this.next();
+    if (this.stage === 'flip') return this.flip(1);
     if (!this.target) return;
     if (this.onScreen) this.activate(); else this.aim = { ...this.aimAt(this.target.at), k: 3 };
   }
@@ -405,7 +351,7 @@ export class Opening {
   }
   click(x, y) {
     if (this.sub) return this.sub.click(this.pick(x, y, this.sub.camera, this.sub.pickables ? this.sub.pickables() : []));
-    if (this.stage === 'pile') return this.next();
+    if (this.stage === 'flip') return this.flip(1);
     if (!this.target || !this.tagXY) return;
     const r = this.r.domElement.getBoundingClientRect(), [tx, ty] = this.tagXY;
     let hit = Math.hypot(x - tx, y - ty) < 150;
@@ -456,39 +402,23 @@ export class Opening {
 
   // ---------------------------------------------------------- the story ------------------------------------------
   setStage(s) { this.stage = s; this.stageT = 0; }
-  // look left, at the pile
-  promptPile() {
-    this.say('Look to your left.');
-    this.target = { at: this.pile[0].home.p.clone().add(new THREE.Vector3(0, 0.03, 0)), label: 'The pile', objs: this.pile.map(i => i.obj), go: () => this.openPile() };
+  // the remote comes up: find the lottery
+  startFlipping() {
+    this.setStage('flip'); this.flipping = true;
+    this.say('Find the lottery.');
+    setTimeout(() => { if (this.stage === 'flip') this.say(this.isPad() ? '<kbd class="dpad"></kbd> &nbsp;or &nbsp;<kbd class="pb a">A</kbd> &nbsp;Change the channel' : '<kbd>&#8593;</kbd><kbd>&#8595;</kbd> &nbsp;or &nbsp;Click &nbsp;Change the channel'); }, 2600);
   }
-  openPile() {
-    this.setStage('pile'); this.say('');
-    this.aim = { ...this.aimAt(PILE_AT), k: 2.2 };
-    this.cur = -1; setTimeout(() => this.next(), 500);
-  }
-  // the next thing off the pile (the one you're holding goes on the couch, except the ticket: you keep that)
-  next() {
-    if (this.busy) return;
-    const it = this.pile[this.cur];
-    if (it) this.move(it, it.key === 'ticket' ? 'pocket' : 'away');
-    this.cur++;
-    if (this.cur >= this.pile.length) { this.promptTV(); return; }
-    const n = this.pile[this.cur]; this.move(n, 'held');
-    this.busy = true; setTimeout(() => { this.busy = false; }, 650);
-    this.snd?.hiss(0.25, 2200, 0.025, { room: true });
-    const last = n.key === 'ticket';
-    this.say(last ? `${this.btn()} &nbsp;Keep hold of it` : `${this.btn()} &nbsp;Next`);
-  }
-  promptTV() {
-    this.setStage('turn'); this.aim = null;
-    this.say('Look back at the TV.');
-    this.target = { at: TV_AT.clone().add(new THREE.Vector3(0, 0.1, 0)), label: 'The TV', objs: [this.screen, this.tvSet].filter(Boolean), go: () => this.useRemote() };
-  }
-  // the remote comes up, a press, the channel changes
-  useRemote() {
-    this.setStage('remote'); this.say('');
-    this.aim = { ...this.aimAt(TV_AT), k: 2.5 };
-    this.remT = 0;
+  // a press: a moment of static, then the next channel (the lottery: the draw starts, the remote goes down)
+  flip(d) {
+    if (this.stage !== 'flip' || this.pressT >= 0) return;
+    this.pressT = 0; this.snd?.click();
+    this.chan = (this.chan + d + CHANNELS.length) % CHANNELS.length;
+    this.channel = 'snow'; this.tvT = 0;
+    setTimeout(() => {
+      const [n, kind] = CHANNELS[this.chan];
+      this.channel = kind; this.tvT = 0; this.osd = 2.5; this.osdN = n;
+      if (kind === 'lotto' && this.stage === 'flip') { this.say(''); this.setStage('draw'); this.drawn = 0; setTimeout(() => { this.remUp = -1; }, 900); }
+    }, 280);
   }
 
   move(it, state) {
@@ -539,14 +469,15 @@ export class Opening {
     if (this.sub) { this.sub.update(dt); return; }
     if (this.aim) { const k = 1 - Math.exp(-dt * this.aim.k); this.yaw += (this.aim.yaw - this.yaw) * k; this.pitch += (this.aim.pitch - this.pitch) * k; }
     const s = this.stage;
-    if (s === 'race' && this.stageT > 3.5 && !this.target && this.cur === undefined) this.promptPile();
-    if (s === 'remote') this.remoteTick(dt);
-    if (this.remote && this.remT >= 0) { // (up, a press, back down)
-      const t = this.remT += dt, R = this.remote;
-      const up = smooth(clamp(t / 0.6, 0, 1)), down = smooth(clamp((t - 2.0) / 0.7, 0, 1)), press = t > 0.9 && t < 1.15 ? Math.sin((t - 0.9) / 0.25 * Math.PI) : 0;
-      R.position.set(0.075, -0.33 + 0.235 * up - 0.3 * down - press * 0.006, -0.29);
+    if (s === 'race' && this.stageT > 2.5 && !this.flipping) this.startFlipping();
+    if (this.remote) { // (up while you're flipping, a dip for each press, down once the draw's on)
+      const want = this.remUp === -1 ? 0 : this.flipping ? 1 : 0;
+      this.remK = clamp((this.remK || 0) + (want ? dt : -dt) / 0.6, 0, 1);
+      if (this.pressT >= 0) { this.pressT += dt; if (this.pressT > 0.3) this.pressT = -1; }
+      const up = smooth(this.remK), press = this.pressT >= 0 ? Math.sin(this.pressT / 0.3 * Math.PI) : 0, R = this.remote;
+      R.position.set(0.075, -0.33 + 0.235 * up - press * 0.006, -0.29);
       R.rotation.set(0.3 - press * 0.07, -0.1, 0.06);
-      R.visible = down < 1; if (down >= 1) this.remT = -1;
+      R.visible = this.remK > 0;
     }
     if (s === 'draw' || s === 'end') this.drawTick(dt);
     // the TV
@@ -564,14 +495,9 @@ export class Opening {
     if (this.snd && this.snd.ctx) {
       const race = this.channel === 'race', sn = this.snd;
       sn.set(sn.engG, race ? 0.03 : 0, 0.08); sn.set(sn.crowdG, race ? 0.02 : 0, 0.08); sn.set(sn.padG, this.channel === 'lotto' ? 0.014 * (1 - this.dim * 0.5) : 0, 0.4); sn.set(sn.snowG, this.channel === 'snow' ? 0.05 : 0, 0.02);
+      if (['news', 'promo', 'soap', 'weather'].includes(this.channel) && (this.talkT = (this.talkT || 0) + dt) > 0.17) { this.talkT = 0; if (Math.random() < 0.8) sn.note(c2f(this.channel), 0.11, 0.02); }
       if (race) { const ph = (this.tvT * 0.37) % 1; sn.eng.frequency.setTargetAtTime(150 + ph * 120 + Math.sin(this.tvT * 2) * 6, sn.now(), 0.05); sn.eng2.frequency.setTargetAtTime(75 + ph * 60, sn.now(), 0.05); }
     }
-  }
-
-  remoteTick() {
-    const t = this.stageT;
-    if (t > 0.9 && !this.pressed) { this.pressed = true; this.snd?.click(); this.channel = 'snow'; this.tvT = 0; }
-    if (t > 1.35 && this.channel === 'snow') { this.channel = 'lotto'; this.tvT = 0; this.osd = 2.5; this.setStage('draw'); this.drawn = 0; }
   }
 
   // the draw: the ticket comes up, the lights go down, the numbers come out
@@ -611,10 +537,12 @@ export class Opening {
   // ---------------------------------------------------------- the TV's picture -----------------------------------
   drawTV(dt) {
     const g = this.tv.getContext('2d');
-    if (this.channel === 'snow') this.drawSnow(g);
-    else if (this.channel === 'lotto') this.drawLotto(g, this.tvT, dt);
-    else this.drawRace(g, this.tvT);
-    if (this.osd > 0) { g.font = '28px VT323, monospace'; g.textAlign = 'right'; g.fillStyle = '#5dff6a'; g.fillText('CH 07', W - 20, 34); }
+    const c = this.channel, t = this.tvT;
+    if (c === 'snow') this.drawSnow(g);
+    else if (c === 'lotto') this.drawLotto(g, t, dt);
+    else if (c === 'race') this.drawRace(g, t);
+    else this.drawOther(g, c, t);
+    if (this.osd > 0) { g.font = '28px VT323, monospace'; g.textAlign = 'right'; g.fillStyle = '#5dff6a'; g.fillText(`CH ${pad2(this.osdN || 7)}`, W - 20, 34); }
     // scanlines and the tube's curve
     g.fillStyle = 'rgba(0,0,0,0.22)'; for (let y = 0; y < H; y += 2) g.fillRect(0, y, W, 1);
     const v = g.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, W * 0.62);
@@ -627,6 +555,41 @@ export class Opening {
     for (let k = 0; k < d.length; k += 4) { const v = 70 + Math.random() * 185; d[k] = d[k + 1] = d[k + 2] = v; d[k + 3] = 255; }
     g.putImageData(img, 0, 0);
     const y = (this.tvT * 600) % H; g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(0, y, W, 18);
+  }
+
+  // the rest of what's on: the news, a commercial, the weather, a soap, the color bars
+  drawOther(g, c, t) {
+    const T = (s, x, y, size, col = '#fff', al = 'center', f = 'VT323, monospace') => { g.font = `${size}px ${f}`; g.fillStyle = col; g.textAlign = al; g.fillText(s, x, y); };
+    if (c === 'news') {
+      const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#16305e'); bg.addColorStop(1, '#0a1630'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+      g.fillStyle = '#2a4a8a'; g.fillRect(190, 40, 110, 70); T('MARKETS', 245, 82, 20, '#cfe0ff');
+      g.fillStyle = '#c9a27c'; g.beginPath(); g.arc(120, 100, 26, 0, Math.PI * 2); g.fill(); g.fillStyle = '#2a2a33'; g.fillRect(80, 126, 80, 80); g.fillStyle = '#e8e8f0'; g.fillRect(112, 126, 16, 40);
+      g.fillStyle = '#5a3a1a'; g.fillRect(40, 176, 240, 64);
+      g.fillStyle = '#c4231a'; g.fillRect(0, 186, W, 22); T('CHANNEL 3 NEWS', 8, 203, 18, '#fff', 'left');
+      g.fillStyle = '#0c0c14'; g.fillRect(0, 208, W, 18);
+      const tick = 'INTEREST RATES UP AGAIN  ·  BANKS DESCRIBE THEMSELVES AS "CAUTIOUSLY THRILLED"  ·  LOCAL MAN WINS NOTHING, AGAIN  ·  ';
+      T(tick + tick, W - ((t * 60) % 900), 222, 16, '#ffd21f', 'left');
+    } else if (c === 'promo') {
+      g.fillStyle = Math.floor(t * 2) % 2 ? '#ffd21f' : '#ff2b00'; g.fillRect(0, 0, W, H);
+      T('BUT WAIT!', W / 2, 70, 52, '#111', 'center', '700 "SV Display", Arial');
+      T('THERE\'S MORE', W / 2, 112, 30, '#111', 'center', '700 "SV Display", Arial');
+      T('ONLY $19.99', W / 2, 160, 34, '#fff', 'center', '700 "SV Display", Arial');
+      T('1-800-555-0199', W / 2, 196, 24, '#111');
+      T('Results not typical. Results not guaranteed. Results not.', W / 2, 222, 13, '#222');
+    } else if (c === 'weather') {
+      g.fillStyle = '#2d6a3a'; g.fillRect(0, 0, W, H); g.fillStyle = '#1d4a8a'; g.beginPath(); g.moveTo(0, 0); g.lineTo(90, 0); g.lineTo(60, H); g.lineTo(0, H); g.fill();
+      for (let i = 0; i < 5; i++) { const x = ((i * 70 + t * 12) % 380) - 30, y = 50 + (i % 3) * 50; g.fillStyle = 'rgba(240,240,250,0.85)'; g.beginPath(); g.arc(x, y, 18, 0, Math.PI * 2); g.arc(x + 18, y - 6, 20, 0, Math.PI * 2); g.arc(x + 36, y, 16, 0, Math.PI * 2); g.fill(); }
+      g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(0, 196, W, 34); T('TOMORROW: ABOUT THE SAME', W / 2, 220, 20, '#fff');
+    } else if (c === 'soap') {
+      const bg = g.createLinearGradient(0, 0, W, 0); bg.addColorStop(0, '#3a2030'); bg.addColorStop(1, '#6a3a40'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+      g.fillStyle = 'rgba(255,220,180,0.15)'; g.fillRect(140, 20, 60, 120);
+      g.fillStyle = '#1a1014'; g.beginPath(); g.arc(90, 110, 30, 0, Math.PI * 2); g.fill(); g.fillRect(55, 135, 70, 105);
+      g.beginPath(); g.arc(235, 104, 28, 0, Math.PI * 2); g.fill(); g.fillRect(202, 128, 66, 112);
+      g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(20, 196, 280, 30); T('"You were never there for me, Brad."', W / 2, 216, 17, '#fff');
+    } else { // the color bars
+      ['#c0c0c0', '#c0c000', '#00c0c0', '#00c000', '#c000c0', '#c00000', '#0000c0'].forEach((col, i) => { g.fillStyle = col; g.fillRect(i * W / 7, 0, W / 7 + 1, H * 0.72); });
+      g.fillStyle = '#111'; g.fillRect(0, H * 0.72, W, H); T('OFF AIR', W / 2, H * 0.88, 26, '#ddd');
+    }
   }
 
   // a race: a chase camera down the road, cut with a tracking shot alongside, the broadcast's graphics over it
