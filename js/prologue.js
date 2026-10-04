@@ -19,7 +19,13 @@ const ease = (k) => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
 // the booth (by the window side of the room, the second from the door): you on the bench facing the door, her facing you
 const SEAT = P(-20.3, 20.15, 1.18), HER = P(-18.72, 20.15), TABLE = P(-19.55, 20.2, 0.905);
 // on foot: where you stand up, the doors, the counter
-const STAND = P(-20.2, 18.55), PIZZA_DOOR = P(-15.9, 18.6), STORE_DOOR = P(9.2, 24.95);
+const STAND = P(-20.2, 18.55);
+// the doors: a pair of leaves each (the model's node names, the hinge's z, which way it swings open), the gap you walk
+// through (x across the wall, z along it), and where you walk from and to going through (in: towards +x)
+const DOORS = {
+  pizza: { leaves: [['Door', -17.77, -1], ['Door001', -19.40, 1]], x: -15.98, z0: -19.4, z1: -17.77, inside: P(-16.75, 18.58), outside: P(-14.7, 18.58), bell: false },
+  store: { leaves: [['Door002', -23.85, -1], ['Door_01', -26.03, 1]], x: 9.27, z0: -26.03, z1: -23.85, inside: P(10.7, 24.94), outside: P(8.2, 24.94), bell: true },
+};
 const COUNTER = P(13.0, 31.2), BOTTLES = P(13.6, 35.5, 1.6), LOTTO = P(11.2, 32.2, 1.75), CLERK = P(13.4, 33.8);
 // where you can walk: [x0, z0, x1, z1] in scene metres (the aisle, the door, the street, the store's door and floor);
 // what stands in it (booths, shelves, the counter, trees) is found from the model
@@ -69,6 +75,7 @@ export class Prologue {
       });
       this.scene.add(m); m.updateMatrixWorld(true);
       this.blocks = this.findBlocks(m);
+      this.hingeDoors(m);
       this.ready = true;
     }, () => { this.failed = true; }); // (no town: the opening starts in the trailer)
     loadCharacters().then(ok => {
@@ -82,6 +89,29 @@ export class Prologue {
     });
   }
 
+  // each door leaf on a pivot at its hinge, so it can swing
+  hingeDoors(root) {
+    for (const D of Object.values(DOORS)) {
+      D.piv = [];
+      for (const [name, hz, dir] of D.leaves) {
+        const leaf = root.getObjectByName(name); if (!leaf) continue;
+        const piv = new THREE.Group(); piv.position.set(D.x, 0, hz); this.scene.add(piv); piv.updateMatrixWorld(); piv.attach(leaf);
+        D.piv.push({ piv, dir });
+      }
+      D.k = 0; D.open = false;
+    }
+  }
+  // open a door, walk through it (in or out), and it swings shut behind you; then
+  throughDoor(key, out, then) {
+    const D = DOORS[key], snd = this.h.snd;
+    this.stage = 'door'; this.targets = []; this.h.say('');
+    D.open = true; D.want = 1;
+    snd?.hiss(0.5, 700, 0.03, { room: true }); snd?.note(140, 0.25, 0.03, { room: true, slide: 0.7 }); // (the handle, the push)
+    if (D.bell) { snd?.note(1568, 1.2, 0.03, { room: true, delay: 0.1 }); snd?.note(2093, 1.0, 0.02, { room: true, delay: 0.25 }); }
+    const a = out ? D.inside : D.outside, b = out ? D.outside : D.inside;
+    this.auto = { path: [a, b], i: 0, delay: 0.35, then: () => { D.want = 0; setTimeout(() => { D.open = false; snd?.hiss(0.15, 500, 0.03, { room: true }); }, 700); this.stage = 'walk'; then(); } };
+  }
+
   // what stands in your way, from the model: anything waist high with a small footprint inside where you can walk
   // (booths, tables, the counter, shelves, trees, lamp posts), as boxes [x0, z0, x1, z1]
   findBlocks(root) {
@@ -90,7 +120,7 @@ export class Prologue {
       if (!o.isMesh || /^(Door|Rug|Tiles|Road|Light|Lines|Crosswalk|Glasses)/i.test(o.name)) return;
       b.setFromObject(o);
       const w = b.max.x - b.min.x, d = b.max.z - b.min.z;
-      if (b.min.y > 1.2 || b.max.y < 0.35 || w * d > 14 || w > 9 || d > 9) return;
+      if (b.min.y > 1.2 || b.max.y < 0.35 || w * d > 14 || w > 9 || d > 9 || Math.min(w, d) < 0.3) return; // (thin: a shop front or its glass)
       const box = [b.min.x, b.min.z, b.max.x, b.max.z, b.max.y];
       if (NAV.some(n => box[0] < n[2] && box[2] > n[0] && box[1] < n[3] && box[3] > n[1])) out.push(box);
     });
@@ -98,6 +128,7 @@ export class Prologue {
   }
   free(x, z) {
     if (!NAV.some(n => x > n[0] && x < n[2] && z > n[1] && z < n[3])) return false;
+    for (const D of Object.values(DOORS)) if (!D.open && Math.abs(x - D.x) < R + 0.12 && z > D.z0 - 0.3 && z < D.z1 + 0.3) return false; // (shut)
     return !(this.blocks || []).some(b => x > b[0] - R && x < b[2] + R && z > b[1] - R && z < b[3] + R);
   }
 
@@ -106,7 +137,8 @@ export class Prologue {
   start(h) {
     this.h = h; this.t = 0; this.stage = 'booth'; this.k = -1; this.lineT = 0; this.targets = []; this.walkT = 0;
     this.yaw = 0; this.pitch = 0; this.camYaw = -Math.PI / 2; this.camPitch = 0.2; this.keys = new Set(); this.goal = null;
-    this.papers?.removeFromParent(); this.ticketObj?.removeFromParent();
+    this.papers?.removeFromParent(); this.ticketObj?.removeFromParent(); this.auto = null;
+    for (const D of Object.values(DOORS)) { D.k = 0; D.want = 0; D.open = false; }
     this.papers = sheet(h.divorce(), 0.21, 0.297, 0.004, 0xe9e4d8, true); this.papers.visible = false; this.scene.add(this.papers);
     if (this.her) { this.her.object.visible = true; this.her.object.position.copy(HER); this.her.play('sit_idle', { fade: 0 }); }
     if (this.me) this.me.object.visible = false;
@@ -156,23 +188,26 @@ export class Prologue {
       if (this.her) this.her.object.visible = false;
       if (this.me) { this.me.object.visible = true; this.me.object.position.copy(STAND); this.me.object.rotation.y = Math.PI / 2; this.me.play('idle', { fade: 0 }); }
       this.papers.visible = false;
-      this.stage = 'walk'; this.camYaw = -Math.PI / 2; this.camPitch = 0.18;
+      this.stage = 'walk'; this.camYaw = -Math.PI / 2; this.camPitch = 0.18; this.snapCam = true;
       this.h.black(false);
-      this.h.say('Get a drink. The 6twelve\'s across the street.');
-      this.setGoal('store');
+      this.h.say(this.h.pad() ? 'Left stick &nbsp;Walk &nbsp;&nbsp;&nbsp; Right stick &nbsp;Look around' : '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> &nbsp;Walk &nbsp;&nbsp;&nbsp; Drag &nbsp;Look around');
+      setTimeout(() => { if (this.goal === 'out') this.h.say('Head out.'); }, 5000);
+      this.setGoal('out');
     }, 1200);
   }
   // what you're heading for, and its marker
   setGoal(g) {
     this.goal = g;
     const T = {
-      store: { at: STORE_DOOR.clone().setY(2.6), label: '6twelve', near: STORE_DOOR, r: 1.6, go: () => this.setGoal('counter') },
+      out: { at: DOORS.pizza.outside.clone().setY(2.2), label: 'Door', near: DOORS.pizza.inside, r: 1.5, go: () => this.throughDoor('pizza', true, () => { this.h.say('Get a drink. The 6twelve\'s across the street.'); this.setGoal('store'); }) },
+      store: { at: DOORS.store.inside.clone().setY(3.0), label: '6twelve', near: DOORS.store.outside, r: 1.8, go: () => this.throughDoor('store', false, () => { this.h.say(''); this.setGoal('counter'); }) },
       counter: { at: COUNTER.clone().setY(1.9), label: 'The counter', near: COUNTER, r: 1.3, go: () => this.atCounter() },
       bottles: { at: BOTTLES, label: 'Something to drink', near: COUNTER, r: 2.2, go: () => this.thinkTwice() },
       lotto: { at: LOTTO, label: 'Mega 6', near: COUNTER, r: 2.6, go: () => this.buyTicket() },
-      leave: { at: STORE_DOOR.clone().setY(2.4), label: 'Home', near: STORE_DOOR, r: 1.4, go: () => this.goHome() },
+      leave: { at: DOORS.store.outside.clone().setY(2.2), label: 'Door', near: DOORS.store.inside, r: 1.6, go: () => this.throughDoor('store', true, () => this.goHome()) },
     }[g];
     this.goalT = T; this.targets = T ? [{ at: T.at, label: T.label, objs: [], hot: () => this.near() }] : [];
+    this.nearSaid = false;
   }
   near() { const T = this.goalT, p = this.me?.object.position; return !!(T && p && Math.hypot(p.x - T.near.x, p.z - T.near.z) < T.r); }
 
@@ -225,6 +260,27 @@ export class Prologue {
     for (const c of [this.her, this.me, this.clerk]) c?.update(dt);
     if (this.paperFrom && this.paperK < 1) { this.paperK = Math.min(1, this.paperK + dt / 0.9); this.papers.position.lerpVectors(this.paperFrom, this.paperTo, ease(this.paperK)); }
     if (this.paperBack > 0) { this.paperBack -= dt; if (this.paperBack <= 0) { this.paperFrom = this.papers.position.clone(); this.paperTo = TABLE.clone().add(new THREE.Vector3(0.3, 0.003, 0)); this.paperK = 0; } }
+    for (const D of Object.values(DOORS)) if (D.piv) {
+      D.k += ((D.want || 0) - D.k) * Math.min(1, dt * 4.5);
+      for (const { piv, dir } of D.piv) piv.rotation.y = dir * D.k * Math.PI * 0.5;
+    }
+    if (this.stage === 'door' && this.auto && this.me) { // (walking yourself through)
+      const A = this.auto, o = this.me.object, p = o.position;
+      if (A.delay > 0) { A.delay -= dt; this.me.play('idle'); }
+      else {
+        const to = A.path[A.i], dx = to.x - p.x, dz = to.z - p.z, d = Math.hypot(dx, dz), v = 1.4 * dt;
+        if (d < v) { p.x = to.x; p.z = to.z; if (++A.i >= A.path.length) { this.auto = null; this.me.play('idle'); A.then(); return; } }
+        else { p.x += dx / d * v; p.z += dz / d * v; let r = Math.atan2(dx, dz) - o.rotation.y; r = Math.atan2(Math.sin(r), Math.cos(r)); o.rotation.y += r * Math.min(1, dt * 8); this.me.play('walk', { speed: 1.4 / CLIP_INFO.walk.speed }); }
+        let c = (o.rotation.y + Math.PI) - this.camYaw; c = Math.atan2(Math.sin(c), Math.cos(c)); this.camYaw += c * Math.min(1, dt * 2);
+      }
+      return;
+    }
+    // (at a door, or what you came for: the button)
+    if (this.stage === 'walk' && this.goalT && this.near() !== this.nearSaid) {
+      this.nearSaid = this.near();
+      const verb = { out: 'Open the door', store: 'Go in', leave: 'Open the door', counter: 'Walk up', bottles: 'Get a bottle', lotto: 'Buy a ticket' }[this.goal];
+      if (this.nearSaid && verb) this.h.say(`${this.h.btn()} &nbsp;${verb}`); else if (!this.nearSaid && this.goal !== 'out') this.h.say('');
+    }
     if (this.stage !== 'walk' || !this.me) { if (this.me && this.me.clip !== 'idle' && this.stage !== 'booth') this.me.play('idle'); return; }
     // walking: the left stick or WASD, relative to the camera
     let mx = 0, mz = 0;
@@ -257,10 +313,18 @@ export class Prologue {
       // over the shoulder, kept inside the room you're in
       cam.fov = 62;
       const o = this.me.object.position, head = o.clone().setY(1.55);
-      const dist = 2.6, back = new THREE.Vector3(Math.sin(this.camYaw) * Math.cos(this.camPitch), Math.sin(this.camPitch), Math.cos(this.camYaw) * Math.cos(this.camPitch));
-      const want = head.clone().addScaledVector(back, dist);
-      const room = ROOMS.find(r => o.x > r[0] && o.x < r[2] && o.z > r[1] && o.z < r[3]) || ROOMS[1];
-      want.x = clamp(want.x, room[0] + 0.25, room[2] - 0.25); want.z = clamp(want.z, room[1] + 0.25, room[3] - 0.25); want.y = clamp(want.y, 0.6, room[4] - 0.2);
+      const dist = 2.6, room = ROOMS.find(r => o.x > r[0] && o.x < r[2] && o.z > r[1] && o.z < r[3]) || ROOMS[1];
+      const at = (yaw) => {
+        const back = new THREE.Vector3(Math.sin(yaw) * Math.cos(this.camPitch), Math.sin(this.camPitch), Math.cos(yaw) * Math.cos(this.camPitch));
+        const w = head.clone().addScaledVector(back, dist);
+        w.x = clamp(w.x, room[0] + 0.25, room[2] - 0.25); w.z = clamp(w.z, room[1] + 0.25, room[3] - 0.25); w.y = clamp(w.y, 0.6, room[4] - 0.2);
+        return w;
+      };
+      // (a wall right behind you, just out of a door: swing round to where there's room to stand back)
+      let want = at(this.camYaw);
+      if (head.distanceTo(want) < dist * 0.75 && this.stage === 'walk') {
+        for (const d of [0.5, -0.5, 1.0, -1.0, 1.5, -1.5]) { const w = at(this.camYaw + d); if (head.distanceTo(w) > dist * 0.85) { this.camYaw += d * Math.min(1, 0.06); break; } }
+      }
       // (at the counter: over your shoulder, close)
       const close = this.stage === 'counter' || ['bottles', 'lotto'].includes(this.goal);
       if (close) {
