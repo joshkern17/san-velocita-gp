@@ -38,8 +38,8 @@ const BOOKMARKS = [['news', 'The Paddock Wire', 'Motorsport news'], ['series', '
   ['classifieds', 'SVList', 'Cars and parts, by owner'], ['parts', 'Speed Parts Direct', 'Performance parts'], ['jobs', 'SVJobs', 'Hire staff'], ['giggo', 'GigGo Driver', 'Driving jobs. Be your own boss'], ['bank', 'First Velocita Bank', 'Business banking'],
   ['customer', 'Customer Racing', 'Homologated race cars: buy or lease']];
 // the Paddock Wire's sections, and what each kind of article is called on the page
-const NEWS_SECS = [['all', 'Front page'], ['report', 'Race reports'], ['paddock', 'Paddock'], ['opinion', 'Opinion'], ['brief', 'Other series']];
-const NEWS_KIND = { report: 'Race report', paddock: 'Paddock', opinion: 'Opinion', brief: 'In brief' };
+const NEWS_SECS = [['all', 'Front page'], ['story', 'Storylines'], ['report', 'Race reports'], ['paddock', 'Paddock'], ['opinion', 'Opinion'], ['brief', 'Other series']];
+const NEWS_KIND = { story: 'Storyline', report: 'Race report', paddock: 'Paddock', opinion: 'Opinion', brief: 'In brief' };
 const NEWS_ADS = ['YOUR LOGO HERE · Advertise on the Wire · call 555-0199', "DALE'S TIRE & LUBE · Open Sundays · Ask about our rotation special", 'VELOCITA MOTORS · 0% finance* · *Not on anything you want', 'GIGGO · Be your own boss · Terms apply', 'FIRST VELOCITA BANK · Banking for winners · Lottery winners especially'];
 // the bookmarks' little site icons (16 x 16, drawn as rects: [colour, x, y, w, h])
 const BM_ICON = {
@@ -400,7 +400,8 @@ export class Computer {
       const more = items.map((x, k) => [x, k]).filter(([x, k]) => k !== this.page.news && kindOf(x) !== 'brief').slice(0, 4)
         .map(([x, k]) => `<div class="nw-row" data-nav data-act="article" data-arg="${k}" data-key="art-${k}">${kick(x)}<a>${esc(cap(x.head))}</a></div>`).join('');
       const body = paras(n).map(p => /^\d+\. /.test(p) ? `<p class="nw-rank">${esc(p)}</p>` : `<p>${esc(p)}</p>`).join('');
-      return mast + `<div class="nw-story" data-nav data-scroll data-key="story" data-first>${kick(n)}<h1>${esc(cap(n.head))}</h1><div class="nw-by">By ${esc(n.by || 'Wire staff')} &middot; ${esc(n.when || '')} ${n.y}</div>${body}${this.reportTable(n.report, n.y)}</div>`
+      const tl = n.timeline ? `<div class="nw-tl"><b>The story so far</b>${n.timeline.map((b, i) => `<div class="nw-tl-row${i === n.timeline.length - 1 ? ' now' : ''}"><small>${esc(b.when)}</small><span>${esc(b.t)}</span></div>`).join('')}${n.closed ? '<p class="nw-tl-end">That seems to be the end of it. For now.</p>' : ''}</div>` : '';
+      return mast + `<div class="nw-story" data-nav data-scroll data-key="story" data-first>${kick(n)}<h1>${esc(cap(n.head))}</h1><div class="nw-by">By ${esc(n.by || 'Wire staff')} &middot; ${n.updated ? 'Updated ' : ''}${esc(n.when || '')} ${n.y}</div>${body}${tl}${this.reportTable(n.report, n.y)}</div>`
         + (more ? `<div class="nw-more"><b>More from the Wire</b>${more}</div>` : '');
     }
     const list = items.map((n, k) => [n, k]).filter(([n]) => inSec(n));
@@ -1087,4 +1088,4 @@ const SITE_TAB_NAME = { standings: 'Standings', teams: 'Teams', calendar: 'Calen
 const DB_TABS = ['street', 'gt', 'formula', 'retired'];
 const SERIES_COL = { street: '#e0642a', gt: '#2a8f5a', formula: '#2a4fa0' };
 // headlines are stored in capitals (for the phone); the news site writes them in title case
-function cap(s) { return String(s).toLowerCase().replace(/(^|[\s'-])([a-z])/g, (m, a, b) => a + b.toUpperCase()).replace(/\b(At|To|For|Of|The|In|Up)\b(?!$)/g, (m, x, i) => i ? m.toLowerCase() : m).replace(/\b(Sv|Gt|Gp|F1|Tv|Ai)\b/g, (m) => m.toUpperCase()); } // (series and initials stay capitals)
+function cap(s) { return String(s).toLowerCase().replace(/(^|[\s'-])([a-z])/g, (m, a, b, i, str) => a === "'" && /^(s|t|d|m|ll|re|ve)\b/.test(str.slice(i + 1)) ? m : a + b.toUpperCase()).replace(/\b(At|To|For|Of|The|In|Up)\b(?!$)/g, (m, x, i) => i ? m.toLowerCase() : m).replace(/\b(Sv|Gt|Gp|F1|Tv|Ai)\b/g, (m) => m.toUpperCase()); } // (series and initials stay capitals; O'Brien, but who's and don't)

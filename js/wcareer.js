@@ -1051,6 +1051,7 @@ export function setupApply(w) {
   let r = setupEntry(w, P.entry); if (!r.ok) return r;
   if (P.entry === 'fresh') { r = setupCar(w, P.car); if (!r.ok) return r; }
   setupSponsor(w, P.sponsor); setupMate(w, P.mate); setupFinish(w);
+  passedOn(w, (S.drivers || []).filter(pid => pid !== P.mate), 'second seat');
   return { ok: true };
 }
 // the three ways in (cost: what it takes out of your winnings)
@@ -1377,6 +1378,7 @@ function seasonApply(w) {
   const o = carPickOf(w); if (o && !acquireCar(w, o.how, o.id)) return { ok: false, why: 'That car has gone.' };
   if (S.sponsors.length) { S.sponsored = null; const x = S.sponsors[P.sponsor]; dealsOf(w).push({ sid: x.sid, slot: 'title', fee: x.fee, bonus: x.bonus, met: 0, misses: 0, since: w.year, obj: null, patience: x.patience, hosp: x.hosp || undefined }); if (x.signing) pay(w, x.signing, `${sponsorById(x.sid).name}: signing bonus`); }
   signSeat(w, S.seats[P.seat]);
+  passedOn(w, S.seats.filter((d, i) => i !== P.seat && d.kind !== 'gent' && d.kind !== 'share').flatMap(d => d.pids), 'second seat');
   S.done = true;
   const t = myTeam(w), d = S.seats[P.seat], q = w.people[d.pids[0]];
   news(w, `${t.name.toUpperCase()}: ${q.first.toUpperCase()} ${q.last.toUpperCase()} IN THE SECOND CAR`, d.kind === 'gent' ? `${nameOf(q)}, who ${q.biz}, joins ${t.name} for the ${w.year} ${seriesById(w.player.series).name}.` : d.kind === 'share' ? `${nameOf(q)} and ${nameOf(w.people[d.pids[1]])} will share ${t.name}'s second car.` : d.kind === 'junior' ? `${d.maker} places its junior ${nameOf(q)} with ${t.name}.` : `${t.name} signs ${nameOf(q)}.`);
@@ -1808,10 +1810,10 @@ function endCareer(w, why) {
   w.bankNote = null;
   if (why === 'bank') {
     mail(w, BANK, BANK_ADDR, 'Your account has been closed', [`We wrote to you about your account, which has been over its agreed limit of ${money$(L)} for ${BANK_ROUNDS} rounds.`, `We have now closed it. The balance of ${money$(-bal)} is due in full. A member of our recoveries team will be in touch.`, `Thank you for banking with First Velocita.`]);
-    news(w, `${t.name.toUpperCase()} FOLDS`, `${t.name}, the team founded by lottery winner ${w.player.name}, has stopped racing after its bank closed its account. The team's car and equipment are expected to be sold.`);
+    news(w, `${t.name.toUpperCase()} FOLDS`, `${t.name}, the team founded by ${epithetOf(w)} ${w.player.name}, has stopped racing after its bank closed its account. The team's car and equipment are expected to be sold.`);
   } else {
     mail(w, `${S.name} Entries`, addrOf(S, 'entries'), 'Withdrawal of your entry', [`${t.name} has now missed more rounds than our regulations allow. We have withdrawn its entry, with immediate effect, and offered it to the next team on our waiting list.`, `Thank you for your participation in the ${S.name}.`, `Entries Office, ${S.name}`]);
-    news(w, `${t.name.toUpperCase()} LOSES ITS ${S.name.toUpperCase()} ENTRY`, `${t.name}, the team founded by lottery winner ${w.player.name}, has had its entry withdrawn after missing ${satOut(w)} rounds this season.`);
+    news(w, `${t.name.toUpperCase()} LOSES ITS ${S.name.toUpperCase()} ENTRY`, `${t.name}, the team founded by ${epithetOf(w)} ${w.player.name}, has had its entry withdrawn after missing ${satOut(w)} rounds this season.`);
   }
   flag(w, 'folded');
 }
@@ -3674,11 +3676,133 @@ function seasonOpenNews(w, moves = []) {
 // the Paddock Wire's articles (js/wpress.js) get these to work with
 const PRESS_KIT = { SERIES, seriesById, standings: (w, sid) => standings(w, sid), teamStandings: (w, sid) => teamStandings(w, sid), teamOfPid: (w, pid) => teamOfPid(w, pid),
   ageOf: (w, p) => ageOf(w, p), DIRTY, news: (w, h, b, x) => news(w, h, b, x), pick: (w, a) => pickLine(w, a), rng: (w) => rng(w) };
+// ---------------- storylines: the sim's own stories, sifted out of what happened ----------------
+// After each round, a few patterns are looked for in the results and the incident ledger (a rival who keeps finishing
+// just ahead, the driver who put you out and the race you got them back, your teammate's run, a streak, the driver you
+// passed on winning elsewhere). Each story is one storyline with its own dated timeline: new chapters go on the end of
+// it, and its one Wire article is updated (and moved back to the top when the chapter's a big one), so there's never
+// more than one place to read it. At most one text a round comes from them (someone in the story).
+// w.stories: [{ id, key, kind, pid, head, beats: [{ y, r, track, t }], open, last, heat }]
+const storiesOf = (w) => (w.stories ??= []);
+const storyOpen = (w, key) => storiesOf(w).find(x => x.key === key && x.open);
+const lastName = (w, pid) => pid === 'P' ? w.player.name.split(' ').pop() : w.people[pid]?.last || '';
+// the drivers you said no to (setup, season setup): one of them winning elsewhere is a story
+function passedOn(w, pids, how) { for (const pid of pids) if (pid && w.people[pid]) (w.passedOn ??= []).push({ pid, y: w.year, how }); if (w.passedOn && w.passedOn.length > 24) w.passedOn.splice(0, w.passedOn.length - 24); }
+// a chapter: on the end of the storyline (opening it if it's new); big ones put its article back on top
+function storyBeat(w, key, o, t, heat = 1) {
+  const res = w.series[w.player.series].results.at(-1), beat = { y: w.year, r: res ? res.round : w.round, track: res ? res.track : '', t };
+  let x = storyOpen(w, key);
+  if (!x) { x = { id: 'st' + (w.nextId++), key, kind: o.kind, pid: o.pid || null, head: o.head, beats: [], open: true, heat: 0 }; storiesOf(w).push(x); if (o.first) x.beats.push(o.first); heat += 2; }
+  x.beats.push(beat); x.last = nowIdx(w); x.heat = heat;
+  if (o.lead) x.lead = o.lead;
+  if (o.close) x.open = false;
+  (w._told ??= []).push({ x, heat, text: o.text || null, from: o.from || null });
+  return x;
+}
+// the Wire's one article for a storyline: the latest chapter on top, the story so far underneath
+function storyArticle(w, x, bump) {
+  const at = w.news.findIndex(n => n.story === x.id);
+  const last = x.beats.at(-1), n = at >= 0 ? w.news[at] : { kind: 'story', story: x.id };
+  Object.assign(n, { head: x.head, body: [x.lead || last.t], timeline: x.beats.map(b => ({ when: b.track ? `R${b.r + 1} ${b.y} · ${b.track}` : `${b.y}`, t: b.t })), y: w.year, r: w.round, when: whenOf(w), updated: x.beats.length > 1, closed: !x.open });
+  if (at >= 0 && bump) w.news.splice(at, 1);
+  if (at < 0 || bump) w.news.unshift(n);
+}
+// the patterns, after each round (me: your row this round)
+function siftRound(w, me) {
+  if (w.pre || !me) return;
+  w._told = [];
+  const sid = w.player.series, S = w.series[sid], res = S.results.at(-1), rows = res.rows, row = (pid) => rows.find(r => r.pid === pid);
+  const pos = (r) => r && !r.dnf ? r.pos : 99, mineAt = (r, pid) => { const a = r.rows.find(x => x.pid === 'P'), b = r.rows.find(x => x.pid === pid); return a && b ? [pos(a), pos(b)] : null; };
+  const recent = S.results.slice(-4);
+  // 1. a rival who keeps finishing just ahead of you (3 of the last 4)
+  // (one rival at a time, never your own teammate: that's its own story)
+  let nemOpen = storiesOf(w).find(x => x.open && x.kind === 'nemesis');
+  for (const r of rows) {
+    if (r.pid === 'P' || !w.people[r.pid] || r.pid === teammateOf(w)) continue;
+    const key = 'nem:' + r.pid, p = w.people[r.pid], open = storyOpen(w, key);
+    if (nemOpen && !open) continue;
+    const just = recent.map(x => mineAt(x, r.pid)).filter(v => v && v[1] < v[0] && v[0] - v[1] <= 3 && v[0] < 99).length;
+    const [a, b] = [pos(me), pos(r)];
+    if (!open && just >= 3 && b < a) nemOpen = storyBeat(w, key, { kind: 'nemesis', pid: r.pid, head: `The ${p.last} problem`, lead: `For the third time in four races, ${nameOf(p)} has finished just ahead of ${w.player.name}.`, text: p.aggr > 55 || grudgeOf(w, r.pid) ? pickLine(w, [`P${b}. Again. Getting used to the view?`, `Same result as last time. And the time before.`]) : null, from: p.first }, `${p.last} P${b}, you P${a < 99 ? a : 'DNF'}: ahead of you for the third time in four races`, 4);
+    else if (open && b < a && a - b <= 3) { open.far = 0; storyBeat(w, key, {}, `${p.last} ahead again: P${b} to your ${a < 99 ? 'P' + a : 'DNF'}`, 1); }
+    else if (open && b < a) { open.far = (open.far || 0) + 1; if (open.far >= 2) open.open = false; } // (they've moved on up the field: it's not a fight any more)
+    else if (open && a < b) { const beaten = (open.beatThem || 0) + 1; open.beatThem = beaten; storyBeat(w, key, { close: beaten >= 2, lead: beaten >= 2 ? `${w.player.name} has now finished ahead of ${nameOf(p)} twice running. Problem solved, for now.` : `${w.player.name} finally finished ahead of ${nameOf(p)}.`, text: beaten === 1 ? pickLine(w, [`Fine. Enjoy it.`, `One race. Don't frame it.`]) : null, from: p.first }, beaten >= 2 ? `Ahead of ${p.last} again (P${a} to ${b < 99 ? 'P' + b : 'DNF'}): twice running` : `You beat ${p.last} at last: P${a} to ${b < 99 ? 'P' + b : 'DNF'}`, beaten >= 2 ? 4 : 5); }
+  }
+  // 2. the driver who put you out, and getting them back (they hit you, blamed, this round: it opens)
+  const hit = w.ledger.filter(e => e.y === w.year && e.r === res.round && e.s === sid && e.b === 'P' && (e.type === 'contact' && e.blame || DIRTY[e.type]));
+  for (const e of hit.slice(0, 1)) { const p = w.people[e.a]; if (!p) continue;
+    const did = { forcedoff: 'forced you off', bumprun: 'punted you off', braketest: 'brake-tested you' }[e.type] || (me.dnf ? 'put you out' : 'hit you');
+    const x0 = storyBeat(w, 'rev:' + e.a, { kind: 'revenge', pid: e.a, head: `${p.last} and the ${res.track} incident`, lead: `${nameOf(p)} ${did.replace('you', w.player.name)} at ${res.track}. The stewards ${e.blame ? 'saw it' : 'missed it'}.` }, `${p.last} ${did}`, me.dnf ? 4 : 2); x0.did = x0.did || did; }
+  for (const x of storiesOf(w).filter(x => x.open && x.kind === 'revenge' && x.beats.at(-1).r !== res.round || x.open && x.kind === 'revenge' && x.beats.at(-1).y !== w.year)) {
+    const r = row(x.pid); if (!r) { if (nowIdx(w) - x.last > 12) x.open = false; continue; }
+    const p = w.people[x.pid];
+    if (pos(me) < pos(r)) storyBeat(w, x.key, { close: true, lead: `${w.player.name} finished ahead of ${nameOf(p)} at ${res.track}, the first race since ${p.last} ${(x.did || 'hit you').replace('you', 'them')} at ${x.beats[0].track}.`, text: pickLine(w, [`Alright. We're even.`, `Fair enough. Call it square.`, `Saw that. Fine.`]), from: p.first }, `Payback: you P${pos(me)}, ${p.last} ${pos(r) < 99 ? 'P' + pos(r) : 'DNF'}`, 5);
+    else if (nowIdx(w) - x.last > 12) x.open = false;
+  }
+  // 3. your teammate's run (ahead of you three races in a row), and getting back on top
+  { const mid = teammateOf(w), p = w.people[mid], mr = row(mid);
+    for (const x of storiesOf(w)) if (x.open && x.kind === 'mate' && x.pid !== mid) x.open = false; // (they've left the team)
+    if (p && mr) { const key = 'mate:' + mid, open = storyOpen(w, key), run = recent.slice(-3).map(x => mineAt(x, mid)).filter(v => v && v[1] < v[0]).length;
+      if (!open && run >= 3 && recent.length >= 3) storyBeat(w, key, { kind: 'mate', pid: mid, head: `Who's number one at ${myTeam(w).name}?`, lead: `${nameOf(p)} has finished ahead of team owner ${w.player.name} three races running.`, text: pickLine(w, [`Three in a row. Just saying.`, `Should I ask for the number one car?`]), from: p.first }, `${p.last} ahead of you for the third race running`, 4);
+      else if (open && pos(mr) < pos(me)) storyBeat(w, key, {}, `${p.last} ahead again: P${pos(mr)} to your ${pos(me) < 99 ? 'P' + pos(me) : 'DNF'}`, 1);
+      else if (open && pos(me) < pos(mr)) storyBeat(w, key, { close: true, lead: `${w.player.name} is back ahead of ${nameOf(p)}. For now.`, text: pickLine(w, [`Alright boss. Normal service.`, `Good one. Don't get comfortable.`]), from: p.first }, `Back ahead of ${p.last}: P${pos(me)}`, 3); } }
+  // 4. a run of bad luck (DNFs), or of podiums
+  { const mine = S.results.slice(-3).map(x => x.rows.find(y => y.pid === 'P')).filter(Boolean), open = storyOpen(w, 'dnf'), podOpen = storyOpen(w, 'pods');
+    if (me.dnf && (open || mine.slice(-2).filter(m => m.dnf).length >= 2)) storyBeat(w, 'dnf', { kind: 'streak', head: `${myTeam(w).name}'s bad run`, lead: `${w.player.name} has failed to finish ${open ? open.beats.length + 1 : 2} races in a row.`, first: open ? null : { y: w.year, r: res.round - 1, track: S.results.at(-2)?.track || '', t: 'Did not finish' } }, `Did not finish, again`, open ? 2 : 3);
+    else if (!me.dnf && open) storyBeat(w, 'dnf', { close: true, lead: `${w.player.name} finally saw the flag at ${res.track}: P${me.pos}.` }, `Finished at last: P${me.pos}`, 3);
+    const pods = mine.filter(m => !m.dnf && m.pos <= 3).length;
+    if (pods >= 3 && mine.length >= 3 && !podOpen) storyBeat(w, 'pods', { kind: 'streak', head: `${myTeam(w).name} on a roll`, lead: `Three podiums in a row for ${w.player.name}.` }, `A third podium in a row: P${me.pos}`, 4);
+    else if (podOpen && !me.dnf && me.pos <= 3) storyBeat(w, 'pods', { lead: `${podOpen.beats.length + 1} podiums in a row for ${w.player.name}.` }, `Another podium: P${me.pos}`, 3);
+    else if (podOpen) storyBeat(w, 'pods', { close: true, lead: `${w.player.name}'s run of podiums ends at ${podOpen.beats.length}.` }, `The run ends: ${me.dnf ? 'DNF' : 'P' + me.pos}`, 2); }
+  // 5. the one that got away: someone you passed on, winning (or on the podium) anywhere
+  for (const g of (w.passedOn || []).filter(g => w.year - g.y <= 2)) {
+    const p = w.people[g.pid]; if (!p || p.team === w.player.team) continue;
+    const s2 = SERIES.find(s => w.series[s.id].results.at(-1)?.round === w.round && w.series[s.id].results.at(-1).rows.some(r => r.pid === g.pid)); if (!s2) continue;
+    const r = w.series[s2.id].results.at(-1).rows.find(x => x.pid === g.pid); if (r.dnf || r.pos > (s2.id === sid ? 3 : 1)) continue;
+    const key = 'away:' + g.pid, tn = w.teams[p.team]?.name || '', was = storyOpen(w, key);
+    if (was && (r.pos !== 1 || nowIdx(w) - (was.last || 0) < 3)) continue; // (after the first: wins only, now and then)
+    storyBeat(w, key, { kind: 'away', pid: g.pid, head: `The one that got away`, lead: `${nameOf(p)}, passed over by ${w.player.name} for the ${g.how} in ${g.y}, ${r.pos === 1 ? 'won' : `finished P${r.pos}`} for ${tn} at ${w.series[s2.id].results.at(-1).track}.`, first: { y: g.y, r: -1, track: '', t: `You passed on ${p.last} for the ${g.how}` }, text: r.pos === 1 && rng(w) < 0.5 ? pickLine(w, [`Thanks for passing on me btw. Worked out.`, `No hard feelings. Well. Some.`]) : null, from: p.first }, `${p.last} ${r.pos === 1 ? 'won' : 'P' + r.pos}${s2.id !== sid ? ` in the ${seriesById(s2.id).name}` : ''}, for ${tn}`, r.pos === 1 ? 5 : 3);
+  }
+  // old storylines close themselves (nothing new for a while)
+  for (const x of storiesOf(w)) if (x.open && nowIdx(w) - (x.last || 0) > 16) x.open = false;
+  if (storiesOf(w).length > 40) w.stories = storiesOf(w).filter(x => x.open).concat(storiesOf(w).filter(x => !x.open).slice(-30));
+  // the Wire: every storyline that moved is updated; the biggest chapter of the round goes back on top
+  const told = w._told.sort((a, b) => b.heat - a.heat), seen = new Set();
+  for (const t of told) { if (seen.has(t.x)) continue; seen.add(t.x); storyArticle(w, t.x, t === told[0] && t.heat >= 3); }
+  // one text, from someone in the biggest story that has one
+  const tx = told.find(t => t.text && t.from); if (tx) { text(w, tx.from, tx.text); w._texted = tx.x.pid; }
+}
+// the hub's next race: the storyline that's live in it, in a line (or what happened here last time)
+export function storyLine(w) {
+  if (w.over || w.pre) return null;
+  const sid = w.player.series, S = w.series[sid], next = S.cal[w.round], here = (pid) => pid && teamOfPid(w, pid) && w.teams[teamOfPid(w, pid)]?.series === sid;
+  const live = storiesOf(w).filter(x => x.open && (x.kind === 'streak' || here(x.pid))).sort((a, b) => b.heat - a.heat || b.last - a.last)[0];
+  if (live) { const p = w.people[live.pid];
+    const rs = S.results.slice(-4), ahead = rs.filter(x => { const a = x.rows.find(y => y.pid === 'P'), b = x.rows.find(y => y.pid === live.pid); return a && b && !b.dnf && (a.dnf || b.pos < a.pos); }).length;
+    return { who: live.kind === 'streak' ? 'Storyline' : p.last, text: { nemesis: `just ahead of you in ${ahead} of the last ${rs.length} races`, revenge: `${live.did || 'hit you'} at ${live.beats[0].track}`, mate: `your teammate, ahead of you in ${ahead} of the last ${rs.length}`, away: `the one you passed on`, streak: live.beats.at(-1).t }[live.kind] || live.head, story: live.id }; }
+  const been = (w.trackLog || {})[next?.name]?.at(-1);
+  if (been && (been.dnf || been.pos === 1)) return { who: next.name, text: been.dnf ? `you didn't finish here in ${been.y}` : `you won here in ${been.y}` };
+  return null;
+}
+// what you did at each circuit (for "back at the scene")
+function trackRemember(w, me) { const res = w.series[w.player.series].results.at(-1); if (!me || !res) return; ((w.trackLog ??= {})[res.track] ??= []).push({ y: w.year, pos: me.pos, dnf: !!me.dnf }); }
+// what the Wire calls you: the lottery winner, until you've earned something else
+export function epithetOf(w) {
+  const st = stainOf(w), t = w.player.titles, last = (w.player.hist || []).filter(h => h.pos === 1).at(-1);
+  if (st) return 'scandal-hit team owner';
+  if (t && last) return `${t > 1 ? `${t}-time ` : 'former '}${seriesById(last.s).name} champion`;
+  if (w.again) return 'two-time lottery winner';
+  if (repOf(w) >= 45 && w.player.wins) return 'race winner';
+  if (repOf(w) >= 45) return 'team owner';
+  return 'lottery winner';
+}
+
 function roundNews(w, me) {
   const sid = w.player.series;
   if (!(w.pre && w.year < START_YEAR - 2)) roundPress(w, PRESS_KIT);
   // texts about your race
   if (!me) return;
+  w._texted = null; trackRemember(w, me); siftRound(w, me);
   const res = w.series[sid].results.at(-1), mateId = teammateOf(w), mate = w.people[mateId];
   const mr = res.rows.find(r => r.pid === mateId);
   if (me.pos === 1 && !me.dnf && w.player.wins === 1) mail(w, 'Press Office', addrOf(seriesById(sid), 'press'), 'Interview requests',
@@ -3691,7 +3815,7 @@ function roundNews(w, me) {
        cp ? (cp === 1 ? `You lead the championship on ${lead.pts} points.` : `You are ${ord(cp)} in the championship on ${st[cp - 1].pts} points, ${lead.pts - st[cp - 1].pts} behind the leader.`) : '',
        w.round + 1 < w.opts.len ? `Next: round ${w.round + 2}, ${w.series[sid].cal[w.round + 1].name}.` : `That was the final round.`].filter(Boolean),
       { report: { s: sid, round: res.round } }); }
-  if (mate && mr) {
+  if (mate && mr && w._texted !== mateId) {
     const beat = !me.dnf && (mr.dnf || me.pos < mr.pos);
     if (rng(w) < 0.6) text(w, mate.first, beat ? pickLine(w, [`Fair play. P${me.pos}. I'll have you next time.`, `Good race. Don't get used to finishing ahead of me.`, `Nice one today. The team's happy.`])
       : me.dnf ? pickLine(w, [`Rough day. Shake it off, next round's a fresh start.`, `Saw your car in the barrier. You OK?`])

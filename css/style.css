@@ -1191,6 +1191,13 @@ body.drive-on #hud > *:not(#h-help) { visibility: hidden; }
 .nw-sec.f { outline: 2px solid #ffd23a; outline-offset: -2px; }
 .nw-kick { display: block; font: bold 11px Arial, Helvetica, sans-serif; color: #c23; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
 .nw-rank { margin: 2px 0 2px 12px !important; }
+/* (a storyline's timeline: what happened, in order, with when and where) */
+.nw-tl { margin: 14px 0 4px; padding: 10px 12px; border-top: 2px solid #111; background: rgba(0,0,0,.035); font-family: Arial, sans-serif; font-size: 14px; }
+.nw-tl > b { display: block; margin-bottom: 6px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+.nw-tl-row { display: grid; grid-template-columns: 190px 1fr; gap: 12px; padding: 3px 0; border-bottom: 1px dotted rgba(0,0,0,.18); }
+.nw-tl-row small { color: #666; font-size: 12px; }
+.nw-tl-row.now span { font-weight: bold; }
+.nw-tl-end { margin: 8px 0 0; font-style: italic; color: #555; }
 .nw-more { margin: 0 20px 16px; padding-top: 8px; border-top: 3px double #111; }
 .nw-more > b { display: block; font: bold 12px Arial, sans-serif; text-transform: uppercase; margin-bottom: 4px; }
 .nw-lead { margin: 12px 16px; padding: 8px; font-family: 'Times New Roman', Times, serif; }
@@ -1585,6 +1592,7 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .wk-targets { margin-top: var(--s3); padding: var(--s3) var(--s4); background: linear-gradient(90deg, rgba(6,4,10,.32), var(--sv-plate)); display: flex; gap: var(--s4); align-items: flex-start; }
 .wk-map { flex: none; width: 108px; height: 79px; }
 .wk-tg .br-row span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wk-tg .br-row.story b { color: var(--sv-amber); } /* (a storyline: who it's about) */
 .wk-tg { flex: 1; min-width: 0; }
 .wk-track { font: 700 26px/1 var(--f-display); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-hot); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wk-cond { margin: 5px 0 var(--s2); font: 500 var(--t-small)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-cyan); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }

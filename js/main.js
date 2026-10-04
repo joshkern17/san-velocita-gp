@@ -2115,7 +2115,9 @@ function renderWeekStrip() {
     const today = i === wk.used;
     return `<div class="wk-day${today ? ' today' : ''}"><small>${d}</small><b>${today ? 'Today' : 'Free'}</b><em>&nbsp;</em></div>`;
   }).join('');
-  const B = WC.briefing(w), tg = B.targets.slice(0, 3).map(t => `<div class="br-row tg"><span><b>${t.who}:</b> ${t.text.charAt(0).toLowerCase() + t.text.slice(1)}</span>${t.amt ? `<em>+${WC.money$(t.amt)}</em>` : ''}</div>`).join('');
+  // (the storyline that's live in this race, first, in a line: the targets make room for it)
+  const SL = WC.storyLine(w), sl = SL ? `<div class="br-row tg story"><span><b>${SL.who}:</b> ${SL.text}</span></div>` : '';
+  const B = WC.briefing(w), tg = sl + B.targets.slice(0, SL ? 2 : 3).map(t => `<div class="br-row tg"><span><b>${t.who}:</b> ${t.text.charAt(0).toLowerCase() + t.text.slice(1)}</span>${t.amt ? `<em>+${WC.money$(t.amt)}</em>` : ''}</div>`).join('');
   const tr = findCalTrack(R.name), T = tr ? hubTrackT(tr) : null, km = T ? (trackStats(T).length / 1000).toFixed(1) : null;
   el.innerHTML = `<div class="wk-head"><span>The week before round ${w.round + 1} of ${w.opts.len}</span><b>${left ? `${left} day${left === 1 ? '' : 's'} left` : 'Race day next'}</b></div>
     <div class="wk-days">${days}<div class="wk-day race"><small>Sat</small><b>Race</b><em>Round ${w.round + 1}</em></div></div>
