@@ -13,6 +13,11 @@
 - **The racer**: `models/helmet-paint.glb`, exported from `models/racer/helmet-paint.blend` (the long-sleeve suit
   with gloves, made from the coveralls guy, and the helmet). That `.blend` is also where the helmet is painted.
 
+- **The women's heads**: `models/heads-female.glb`, cut from BitSoft's *Rigged Low-Poly Female NPCs* (same licence)
+  by `female_heads.py` (everything in the skin material above the neck, one head per face texture):
+  `blender -b "<pack>/Rigged Low-Poly Female NPCs.blend" --python tools/characters/female_heads.py -- models/heads-female.glb`.
+  The game fits them onto the racer's head bone in place of his head while the helmet's off (`FACES` then these).
+
 ## Painting the helmet
 
 `models/racer/helmet-paint.blend` (made by `helmet_paint.py` from `Racer.glb`): Texture Paint tab, X mirror on.

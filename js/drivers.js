@@ -13,7 +13,7 @@
 //   photoOf(person) / faceHTML(person, cls)  // a World Career person's picture (or a silhouette that's swapped
 //                                     // for it in place once it's made: [data-face] elements)
 import * as THREE from 'three';
-import { loadCharacters, charactersReady, makeCharacter, FACES } from './characters.js';
+import { loadCharacters, charactersReady, makeCharacter, FACES, femaleFace } from './characters.js';
 import { HELMET_PATTERNS, VISOR_COL } from './livery.js';
 
 // a stable number from an id
@@ -25,7 +25,21 @@ const H_PATTERNS = Object.keys(HELMET_PATTERNS).filter(k => k !== 'solid');
 const VISORS = Object.keys(VISOR_COL);
 const SUITS = ['sides', 'twotone', 'shoulders', 'sash', 'panels', 'fade', 'chevron'];
 
-export const driverFace = (id) => hash('face:' + id) % FACES.length;
+// who's a woman: from their first name (World Career people: setPeopleSource), the names that go either way by a coin
+// that's theirs; a name we don't know (the stock field's initials) about one in three; you, by your name, or a man
+const WOMEN = new Set(['Giulia', 'Sofia', 'Elena', 'Amelia', 'Isla', 'Freya', 'Aoi', 'Mei', 'Ana', 'Beatriz', 'Lena', 'Mia', 'Camille', 'Chloe', 'Manon',
+  'Lucia', 'Marta', 'Ines', 'Elsa', 'Astrid', 'Linnea', 'Zofia', 'Maja', 'Ola', 'Ada', 'Ngozi', 'Kemi', 'Madison', 'Ruby', 'Zoe', 'Tahlia', 'Valeria',
+  'Ximena', 'Paola', 'Seoyeon', 'Yuna', 'Jisoo']);
+const EITHER = new Set(['Avery', 'Riley', 'Yuki', 'Sora', 'Andrea', 'Sam', 'Alex', 'Jo', 'Charlie', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Jamie']);
+let peopleOf = () => null; // () -> World Career people by id
+export function setPeopleSource(fn) { peopleOf = fn; }
+export function isWoman(id) {
+  const self = String(id).startsWith('P:'), first = self ? String(id).slice(2).split(' ')[0] : peopleOf()?.[id]?.first;
+  if (first) return WOMEN.has(first) || (!self && EITHER.has(first) && hash('sex:' + id) % 2 === 0);
+  return !self && hash('sex:' + id) % 3 === 0;
+}
+// their face: one of the men's (FACES) or, if there are any, the women's after them
+export const driverFace = (id) => { const f = isWoman(id) ? femaleFace(hash('face:' + id)) : null; return f ?? hash('face:' + id) % FACES.length; };
 // their own helmet design (for life)
 export function driverHelmet(id) {
   const r = rng('helmet:' + id), pick = (a) => a[Math.floor(r() * a.length)];

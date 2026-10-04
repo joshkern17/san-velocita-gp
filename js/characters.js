@@ -13,7 +13,8 @@
 //   makeCharacter({ look: 'racer', crew: true, livery: team })            // a pit crew member in the team's kit
 //                                                                         // (one painted kit per team, shared)
 //   makeCharacter({ look: 'racer', livery, face: 3, helmet: false })      // a driver with the helmet off: one of
-//                                                                         // FACES (js/drivers.js picks per person)
+//                                                                         // FACES, then the women's heads after them
+//                                                                         // (faceCount(); js/drivers.js picks per person)
 //
 // Clips are "in place": walk / walk_2 don't move the character, the caller does (CLIP_INFO.walk.speed m/s keeps
 // the feet from sliding). Sitting clips put the backside right above the origin at CLIP_INFO.sit_*.seat metres,
@@ -57,7 +58,7 @@ const modelUrl = () => (typeof window !== 'undefined' && window.__SVGP_CHARACTER
 export function loadCharacters() {
   if (loading) return loading;
   loading = new GLTFLoader().loadAsync(modelUrl())
-    .then(g => { TPL = makeTemplate(g); return true; })
+    .then(g => { TPL = makeTemplate(g); return loadFemaleHeads().then(() => true); })
     .catch(e => { loadError = e; console.warn('characters not loaded:', e && e.message); return false; });
   return loading;
 }
@@ -196,10 +197,16 @@ export class Character {
   setHead({ face = this.face, helmet = this.helmetOn ?? true } = {}) {
     this.face = face; this.helmetOn = helmet;
     if (this.look !== 'racer') return this;
-    const tex = face == null ? null : faceTexture(face);
+    // a woman's head (it has her hair): on the head bone in place of his, while the helmet's off
+    const fem = face != null && face >= FACES.length && FEMALE.length ? FEMALE[(face - FACES.length) % FEMALE.length] : null;
+    if (this.fHead && (!fem || this.fHead.userData.src !== fem)) { this.fHead.parent && this.fHead.parent.remove(this.fHead); this.fHead = null; }
+    if (fem && !this.fHead) this.fHead = attachFemaleHead(this, fem);
+    if (this.fHead) this.fHead.visible = !helmet;
+    const tex = face == null || fem ? null : faceTexture(face);
     this.body.traverse(o => {
       if (!o.isSkinnedMesh) return;
       if (lookOf(o.name) === 'racer' && /helmet/i.test(o.name)) o.visible = helmet;
+      if (fem && isHead(o)) o.visible = helmet; // (his head stays, under the helmet)
       if (!tex) return;
       const swap = (m) => { if (!/^skin-male/.test(m.name) || m.map === tex) return m; const base = m.userData.faceOf || m; return faceMat(base, tex); };
       o.material = Array.isArray(o.material) ? o.material.map(swap) : swap(o.material);
@@ -222,8 +229,44 @@ export class Character {
 
 export const makeCharacter = (opts) => new Character(opts);
 
-// the faces a racer can wear (the pack's heads share one UV layout): skin textures, darkest first
+// the faces a racer can wear (the pack's heads share one UV layout): skin textures, darkest first. After them come
+// the women's heads (models/heads-female.glb, tools/characters/female_heads.py), when that file's there
 export const FACES = ['skin-male7', 'skin-male9', 'skin-male11', 'skin-male12', 'skin-male10', 'skin-male8'];
+export const faceCount = () => FACES.length + FEMALE.length;
+export const femaleFace = (k) => FEMALE.length ? FACES.length + ((k % FEMALE.length) + FEMALE.length) % FEMALE.length : null;
+const FEMALE = []; // [{ geometry, material, name }]: head_f1 .. head_f6
+const isHead = (o) => (Array.isArray(o.material) ? o.material : [o.material]).some(m => /^skin-male/.test((m.userData.faceOf || m).name));
+function loadFemaleHeads() {
+  const url = (typeof window !== 'undefined' && window.__SVGP_HEADS_F_GLB) || 'models/heads-female.glb';
+  return new GLTFLoader().loadAsync(url).then(g => {
+    const list = [];
+    g.scene.traverse(o => { if (o.isMesh && /^head_f\d/.test(o.name)) { o.updateWorldMatrix(true, false); const geo = o.geometry.clone().applyMatrix4(o.matrixWorld); list.push({ name: o.name, geometry: geo, material: lambert(o.material.map, 0xffffff, o.material.name) }); } });
+    list.sort((a, b) => a.name.localeCompare(b.name, 'en', { numeric: true }));
+    FEMALE.push(...list);
+  }, () => {}); // (no file: men's faces only)
+}
+// where her head goes: his head's box in the skinning's bind space (metres), hers moved to sit in it (crowns level,
+// faces level, centred side to side), then into the head bone's own space
+let FIT = null;
+function femaleFit(geo) {
+  if (FIT) return FIT;
+  const his = TPL.looks.racer.find(isHead), box = new THREE.Box3(), v = new THREE.Vector3(), P = his.geometry.attributes.position;
+  for (let i = 0; i < P.count; i++) box.expandByPoint(v.fromBufferAttribute(P, i).applyMatrix4(his.bindMatrix));
+  geo.computeBoundingBox(); const hb = geo.boundingBox;
+  const t = new THREE.Vector3((box.min.x + box.max.x - hb.min.x - hb.max.x) / 2, box.max.y - hb.max.y + 0.005, box.max.z - hb.max.z);
+  return (FIT = { t, head: his });
+}
+function attachFemaleHead(ch, fem) {
+  const fit = femaleFit(fem.geometry);
+  let mesh = null; ch.body.traverse(o => { if (!mesh && o.isSkinnedMesh && isHead(o)) mesh = o; });
+  if (!mesh) return null;
+  const sk = mesh.skeleton, k = sk.bones.findIndex(b => /Head$/.test(b.name) && !/HeadTop/.test(b.name)); if (k < 0) return null;
+  const m = new THREE.Mesh(fem.geometry, fem.material);
+  m.matrixAutoUpdate = false; m.matrix.copy(sk.boneInverses[k]).multiply(new THREE.Matrix4().makeTranslation(fit.t.x, fit.t.y, fit.t.z));
+  m.castShadow = true; m.frustumCulled = false; m.userData.src = fem; m.name = 'FemaleHead';
+  sk.bones[k].add(m);
+  return m;
+}
 const FACE_TEX = new Map(), FACE_MATS = new Map();
 // (one material per head material and face, shared by everyone wearing it)
 function faceMat(base, tex) {

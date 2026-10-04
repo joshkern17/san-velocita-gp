@@ -35,7 +35,7 @@ import { loadEnvCatalog, loadEnvModels, envCatalog } from './envlib.js';
 import { setWorldOptions } from './world.js';
 import { TeamSetup } from './teamsetup.js';
 import { DayPlan } from './dayplan.js';
-import { portrait, photoOf, setPhotoContext, driverLivery, driverFace } from './drivers.js';
+import { portrait, photoOf, setPhotoContext, driverLivery, driverFace, setPeopleSource } from './drivers.js';
 import { setVertexSnapEnabled, setJitterScale, setAffineAmount, setAffineCap, setAffineFade } from '../vendor/psx/src/PSXMaterial.js';
 
 const $ = (id) => document.getElementById(id);
@@ -1485,6 +1485,7 @@ function sitDown(app, arg) {
 let pcWant = null;
 // drivers' portraits (js/drivers.js): their World Career team's suit; the computer redraws once a few have landed
 let photoT = 0;
+setPeopleSource(() => world && world.people);
 setPhotoContext({
   teamOf: (p) => (world && (p.id === 'P' ? world.teams[world.player.team] : p.team && world.teams[p.team])) || null,
   // you ({ id: 'P' }): in your own livery, with the face your character has at the races
