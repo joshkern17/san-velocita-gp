@@ -36,7 +36,7 @@ import { loadEnvCatalog, loadEnvModels, envCatalog } from './envlib.js';
 import { setWorldOptions } from './world.js';
 import { TeamSetup } from './teamsetup.js';
 import { DayPlan } from './dayplan.js';
-import { CarSheet, partEffect } from './carsheet.js';
+import { CarPanel, partEffect } from './carsheet.js';
 import { portrait, photoOf, setPhotoContext, driverLivery, driverFace, setPeopleSource } from './drivers.js';
 import { setVertexSnapEnabled, setJitterScale, setAffineAmount, setAffineCap, setAffineFade } from '../vendor/psx/src/PSXMaterial.js';
 
@@ -1377,7 +1377,7 @@ function phoneInput() {
   return true;
 }
 const phoneHints = [['nav', 'Scroll'], ['ok', 'Select'], ['back', 'Back'], ['phone', 'Put away']];
-HINTS['s-hub'] = () => carSheet.isOpen ? [['nav', 'Choose'], ['ok', `Work on the ${WC.PARTS[carSheet.part]?.name.toLowerCase() || 'car'}`], ['back', 'The car']] : dayPlan.isOpen ? [['nav', 'Choose'], ['ok', 'Do it'], ['back', 'Garage']] : tsw.isOpen ? [['lr', 'Choose'], ['ok', tsw.step === 'ready' ? 'Start the season' : 'Next'], ['back', tsw.at ? 'Back' : 'Garage']] : pcSeat ? [['nav', 'Move'], ['ok', 'Select'], ...(pc.hasTabs ? [['tab', 'Sections']] : []), ['back', pc.app ? 'Back' : 'Stand up']]
+HINTS['s-hub'] = () => dayPlan.isOpen ? [['nav', 'Choose'], ['ok', 'Do it'], ['back', 'Garage']] : tsw.isOpen ? [['lr', 'Choose'], ['ok', tsw.step === 'ready' ? 'Start the season' : 'Next'], ['back', tsw.at ? 'Back' : 'Garage']] : pcSeat ? [['nav', 'Move'], ['ok', 'Select'], ...(pc.hasTabs ? [['tab', 'Sections']] : []), ['back', pc.app ? 'Back' : 'Stand up']]
   : phone.isOpen ? phoneHints : hubMode === 'car' ? [['nav', 'Part'], ['ok', 'Select'], ['back', 'Back']] : [['nav', 'Navigate'], ['ok', 'Select'], ['phone', 'Phone']];
 
 // the computer on the desk: Mail, the news, the series' websites, the driver database (js/computer.js)
@@ -1583,15 +1583,15 @@ function hubTick(dt) {
 // the mouse over the monitor: a pointer, and the tag lights up
 let pcHover = false;
 $('s-hub').addEventListener('mousemove', (e) => {
-  const on = !!onRoom(e), car = !on && hubMode === 'room' && world && world.car && !pcSeat && !phone.isOpen && !tsw.isOpen && !dayPlan.isOpen && !carSheet.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head') && pitGarage.hitCar(e.clientX, e.clientY);
+  const on = !!onRoom(e), car = !on && hubMode === 'room' && world && world.car && !pcSeat && !phone.isOpen && !tsw.isOpen && !dayPlan.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head') && pitGarage.hitCar(e.clientX, e.clientY);
   if (on !== pcHover || car !== carHover) { pcHover = on; carHover = car; $('s-hub').style.cursor = on || car ? 'pointer' : ''; }
 });
 $('pc-tag').addEventListener('click', () => { if (screen === 's-hub' && !pcSeat) sitDown(); });
 // a click on the monitor sits you down (the hub's layer is over the 3D view, so it listens there, past its panels)
-const onRoom = (e) => screen === 's-hub' && world && !pcSeat && !phone.isOpen && !tsw.isOpen && !dayPlan.isOpen && !carSheet.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitScreen(e.clientX, e.clientY);
+const onRoom = (e) => screen === 's-hub' && world && !pcSeat && !phone.isOpen && !tsw.isOpen && !dayPlan.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitScreen(e.clientX, e.clientY);
 $('s-hub').addEventListener('click', (e) => {
   if (onRoom(e)) { sitDown(); return; }
-  if (screen === 's-hub' && world && world.car && !pcSeat && !phone.isOpen && !tsw.isOpen && !dayPlan.isOpen && !carSheet.isOpen && hubMode === 'room' && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitCar(e.clientX, e.clientY)) goToCar();
+  if (screen === 's-hub' && world && world.car && !pcSeat && !phone.isOpen && !tsw.isOpen && !dayPlan.isOpen && hubMode === 'room' && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitCar(e.clientX, e.clientY)) goToCar();
 });
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -1825,7 +1825,7 @@ function enterHub() {
   if (world.livery) { t.main = world.livery.main; t.accent = world.livery.accent; }
   pitGarage.openHome(hubCar(), { main: t.main, accent: t.accent, name: t.name });
   pitGarage.setPeople(mateInRoom(world));
-  pcSeat = false; pc.close(); if (tsw.isOpen) tsw.close(); if (dayPlan.isOpen) dayPlan.close(); if (carSheet.isOpen) carSheet.close(); $('s-hub').classList.remove('seated', 'at-car', 'wizard', 'planning', 'sheet');
+  pcSeat = false; pc.close(); if (tsw.isOpen) tsw.close(); if (dayPlan.isOpen) dayPlan.close(); $('s-hub').classList.remove('seated', 'at-car', 'wizard', 'planning');
   hubMode = 'room'; carSub = null; carPart = null; optSub = false;
   renderHub(); show('s-hub'); hubEnter();
   setTimeout(() => { if (world) warmPortraits(world); }, 1500);
@@ -1991,10 +1991,10 @@ function renderHubMenu() {
   m.setItems(items, true);
   const k = items.findIndex(it => it.label.replace(/<small>.*$/, '') === keep); if (k >= 0) { m.i = k; m.render(); }
 }
-menus['s-hub'] = [new Menu($('m-hub'), [], { desc: 'd-hub', onMove: (it) => { if (it && hubMode === 'car' && (it.part || it.sheet)) { carPart = it.part || null; pitGarage.setView('car', carPart); } } })];
+menus['s-hub'] = [new Menu($('m-hub'), [], { desc: 'd-hub', onMove: (it) => { if (it && it.part && hubMode === 'car') { carPart = it.part; pitGarage.setView('car', it.part); } if (hubMode === 'car') showCarPerf(it); } })];
 backs['s-hub'] = () => {
   if (tsw.isOpen) { tsw.back(); renderHints(); return; }
-  if (dayPlan.isOpen || carSheet.isOpen) return;
+  if (dayPlan.isOpen) return;
   if (pcSeat && pc.isOpen) { if (pc.app) { pc.back(); renderHints(); } else standUp(); return; }
   if (hubMode === 'car') { if (carSub) { carSub = null; sfx.back(); renderHubMenu(); } else leaveCar(); }
   else if (optSub) { optSub = false; sfx.back(); renderHubMenu(); }
@@ -2030,9 +2030,8 @@ function renderCarMenu() {
   const w = world, P = WC.carParts(w), m = menus['s-hub'][0], odds = WC.failOdds(w), lvl = WC.dataLevel(w);
   let items;
   if (!carSub) {
-    const hp = Math.round(CARS[carId({ chassis: w.car.chassis })].spec.power * WC.carMods(w).power / 745.7), imp = settings.units === 'mph';
-    items = [{ label: `Spec Sheet<small>${hp} HP</small>`, sheet: true, action: () => openCarSheet(), desc: 'What the car does, against how it left the factory: power, speed, grip, brakes, reliability. And where every difference comes from: wear, upgrades, development.' },
-      ...WC.PART_KEYS.map(k => {
+    const imp = settings.units === 'mph';
+    items = [...WC.PART_KEYS.map(k => {
       const p = P[k], f = p.fit, c = Math.round(p.cond * 100);
       return { label: `${WC.PARTS[k].name}<small>${c}%</small>`, part: k, action: () => { carSub = k; carPart = k; sfx.select(); renderHubMenu(); },
         desc: `${WC.PARTS[k].name}: <b>${condWord(p.cond)}</b> (${c}%).${odds[k] != null ? (lvl === 2 ? ` ${(odds[k] * 100).toFixed(1)}% chance it fails next race.` : p.cond < 0.5 ? ' It could let go in a race.' : '') : ''}${f ? ` Fitted: <b>${f.name}</b>, "${f.feel}"${f.measured ? `, measured ${f.measured.val >= 0 ? '+' : ''}${(f.measured.val * 100).toFixed(1)}% ${f.measured.stat}` : ''}.` : ''} ${partEffect(w, k, imp)}` };
@@ -2042,21 +2041,28 @@ function renderCarMenu() {
     const k = carSub, p = P[k], mech = WC.staffOf(w, 'mechanic');
     items = [
       { label: `${WC.PARTS[k].name}<small>${Math.round(p.cond * 100)}%</small>`, head: true },
-      { label: `Rebuild<small>${WC.money$(WC.rebuildCost(w, k))}</small>`, part: k, confirm: 'Pay for it? Select again', action: () => { WC.rebuildPart(w, k); sfx.best(); saveWorld(); renderHub(); },
+      { label: `Rebuild<small>${WC.money$(WC.rebuildCost(w, k))}</small>`, part: k, preview: 'rebuild', confirm: 'Pay for it? Select again', action: () => { WC.rebuildPart(w, k); sfx.best(); saveWorld(); renderHub(); },
         desc: mech ? `${mech.first} rebuilds it: back to good, not new.` : 'No chief mechanic: a shop rebuilds it (dearer, and only back to OK).' },
-      ...(WC.weekOpen(w) ? [{ label: `Rebuild It Yourself<small>${WC.money$(WC.selfCost(w, k))} + A DAY</small>`, part: k, confirm: 'Spend a day on it? Select again',
+      ...(WC.weekOpen(w) ? [{ label: `Rebuild It Yourself<small>${WC.money$(WC.selfCost(w, k))} + A DAY</small>`, part: k, preview: 'self', confirm: 'Spend a day on it? Select again',
         action: () => { if (!WC.rebuildSelf(w, k)) { sfx.error(); toast('No days left this week.'); return; } sfx.best(); saveWorld(); renderHub(); },
         desc: `Parts only, and a day of your week (${WC.daysLeft(w)} left). ${w.background === 'mechanic' ? 'You know what you\'re doing: back to good.' : 'You\'ll get it back to OK.'}` }] : []),
-      { label: `New ${WC.PARTS[k].name}<small>${WC.money$(WC.newPartCost(w, k))}</small>`, part: k, confirm: 'Pay for it? Select again', action: () => { WC.newPart(w, k); sfx.best(); saveWorld(); renderHub(); }, desc: 'A brand new part: 100%.' },
-      ...(k === 'engine' && w.grey ? [{ label: "Take Kev's Map Off", part: k, confirm: 'Take it off? Select again', action: () => { WC.removeGrey(w); sfx.select(); saveWorld(); renderHub(); }, desc: 'Back to the standard engine software. A little slower, and nothing for the scrutineers to find.' }] : []),
-      ...(p.fit ? [{ label: `Remove ${p.fit.name}`, part: k, confirm: 'Take it off? Select again', action: () => { WC.removeFit(w, k); saveWorld(); renderHub(); }, desc: 'Back to standard. The part is thrown away.' }] : []),
+      { label: `New ${WC.PARTS[k].name}<small>${WC.money$(WC.newPartCost(w, k))}</small>`, part: k, preview: 'new', confirm: 'Pay for it? Select again', action: () => { WC.newPart(w, k); sfx.best(); saveWorld(); renderHub(); }, desc: 'A brand new part: 100%.' },
+      ...(k === 'engine' && w.grey ? [{ label: "Take Kev's Map Off", part: k, preview: 'map', confirm: 'Take it off? Select again', action: () => { WC.removeGrey(w); sfx.select(); saveWorld(); renderHub(); }, desc: 'Back to the standard engine software. A little slower, and nothing for the scrutineers to find.' }] : []),
+      ...(p.fit ? [{ label: `Remove ${p.fit.name}`, part: k, preview: 'remove', confirm: 'Take it off? Select again', action: () => { WC.removeFit(w, k); saveWorld(); renderHub(); }, desc: 'Back to standard. The part is thrown away.' }] : []),
       { label: 'Upgrades For It', part: k, action: () => sitDown('parts'), desc: 'Speed Parts Direct and SVList, on the computer.' },
       { label: 'Back', part: k, action: () => { carSub = null; sfx.back(); renderHubMenu(); }, desc: 'The other parts.' },
     ];
   }
   m.setItems(items, true);
-  const want = carSub ? 1 : WC.PART_KEYS.indexOf(carPart) + 1; // (no part: the spec sheet)
+  const want = carSub ? 1 : Math.max(0, WC.PART_KEYS.indexOf(carPart));
   if (m.i >= items.length || !carSub) { m.i = want; m.render(); }
+  showCarPerf(m.items[m.i]);
+}
+// the performance panel beside the car (js/carsheet.js): the part you're on, and what the action you're on would do
+const carPerf = new CarPanel($('car-perf'), { world: () => world, imperial: () => settings.units === 'mph' });
+function showCarPerf(it) {
+  if (hubMode !== 'car' || !world || !world.car) return;
+  carPerf.render(it && it.part ? it.part : null, it && it.preview ? { kind: it.preview, part: it.part } : null);
 }
 // the car's tags: in the room, one over the car (like the computer's: the part in the worst state, if one needs
 // work); at the car, one on the part you're looking at
@@ -2261,28 +2267,6 @@ function openDayPlan(canRace) {
   if (!world || dayPlan.isOpen || WC.daysLeft(world) <= 0) return;
   dayRace = canRace; phone.close(); phone.hide(); $('s-hub').classList.add('planning'); sfx.select();
   dayPlan.open(dayPick); renderHints();
-}
-// the car's spec sheet (js/carsheet.js), from the car: the whole car in view beside it
-const carSheet = new CarSheet($('carsheet'), {
-  world: () => world,
-  imperial: () => settings.units === 'mph',
-  sfx: (k) => sfx[k] && sfx[k](),
-  changed: () => renderHints(),
-  closed: () => { $('s-hub').classList.remove('sheet'); carPart = null; renderHub(); renderHints(); },
-  work: (k) => { $('s-hub').classList.remove('sheet'); carSub = k; carPart = k; pitGarage.setView('car', k); renderHub(); renderHints(); },
-});
-function openCarSheet(key) {
-  if (!world || !world.car || carSheet.isOpen) return;
-  carPart = null; carSub = null; pitGarage.setView('car', null); phone.close(); phone.hide();
-  $('s-hub').classList.add('sheet'); sfx.select(); carSheet.open(key); renderHints();
-}
-function sheetInput() {
-  if (!carSheet.isOpen) return false;
-  const up = pressed('ArrowUp') | pressed('KeyW') | pressed('GP12') | pressed('GPSU'), down = pressed('ArrowDown') | pressed('KeyS') | pressed('GP13') | pressed('GPSD');
-  const ok = pressed('Enter') | pressed('Space') | pressed('GP0') | pressed('GP9'), back = pressed('Escape') | pressed('Backspace') | pressed('GP1');
-  pressed('ArrowLeft'); pressed('ArrowRight'); pressed('GP14'); pressed('GP15'); // (eaten)
-  carSheet.input({ up, down, ok, back });
-  return true;
 }
 function dayInput() {
   if (!dayPlan.isOpen) return false;
@@ -3670,7 +3654,7 @@ function frame(now) {
     opening.update(dt);
   } else if (PHONE_SCREENS.includes(screen)) {
     // World Career, your garage: the computer has the controls while you're sat at it, the phone while it's up (P / Y)
-    if (!tswInput() && !dayInput() && !sheetInput() && !pcInput() && !phoneInput()) menuInput();
+    if (!tswInput() && !dayInput() && !pcInput() && !phoneInput()) menuInput();
     hubTick(dt);
   } else if (screen !== 's-editor') {
     menuInput();
@@ -3682,7 +3666,7 @@ function frame(now) {
   if (screen === 'hud' && sim && !sim.paused && sim.mode !== 'attract') { const [a, b] = sim.feel(), k = VIBES[settings.vibration] ?? 0.8; rumble(a * k, b * k); }
   else if (now > vibeTestUntil) rumble(0, 0);
   setMusicScene(musicScene()); updateMusic(dt);
-  if (PHONE_SCREENS.includes(screen) && world && !pcSeat && !tsw.isOpen && !dayPlan.isOpen && !carSheet.isOpen) phone.show(); else phone.hide();
+  if (PHONE_SCREENS.includes(screen) && world && !pcSeat && !tsw.isOpen && !dayPlan.isOpen) phone.show(); else phone.hide();
   // sat at the garage computer: the 3D view at full resolution, so the screen in the scene is readable
   post.setSharp(screen === 's-hub' && (pcSeat || pitGarage.nearScreen));
   phone.update(dt);
@@ -3709,4 +3693,4 @@ requestAnimationFrame(frame);
 // debug handle
 window.__svgp = { get world() { return world; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openCarSheet: (k) => openCarSheet(k) } };
+  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp() } };

@@ -259,11 +259,12 @@ export class PitGarage {
   // at the car: looking at a part (or the whole car)
   carPose(part) {
     const C = this.carCentre();
-    if (!part) return { pos: C.clone().add(new THREE.Vector3(3.6, 1.7, 3.8)), at: C.clone(), fov: 46, shift: 0.18 };
+    // (shift 0: the car sits between the menu on the left and its performance panel on the right)
+    if (!part) return { pos: C.clone().add(new THREE.Vector3(3.6, 1.7, 3.8)), at: C.clone(), fov: 46, shift: 0 };
     const A = this.partAnchor(part) || C;
     const dir = new THREE.Vector3(A.x - C.x, 0, A.z - C.z); if (dir.lengthSq() < 0.04) dir.set(1, 0, 0.3); dir.normalize();
     const pos = A.clone().addScaledVector(dir, 3.6).add(new THREE.Vector3(0, 1.25, 0)).addScaledVector(new THREE.Vector3(-dir.z, 0, dir.x), 1.6);
-    return { pos, at: A.clone().lerp(C, 0.35), fov: 46, shift: 0.18 };
+    return { pos, at: A.clone().lerp(C, 0.35), fov: 46, shift: 0 };
   }
   // where each part is on the car (world space), from the car's size; the engine where this car keeps it
   partAnchor(part) {

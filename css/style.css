@@ -2255,70 +2255,41 @@ span.tsw-face { width: 64px; height: 64px; }
 #s-podium .footer-hints { background: none; }
 .pod-menu { opacity: 0; pointer-events: none; }
 
-/* ---------- World Career: the car's spec sheet, beside the car (js/carsheet.js; dresses as the day planner) ---------- */
-#s-hub.sheet .scr-head, #s-hub.sheet .hub-left, #s-hub.sheet .desc-bar, #s-hub.sheet .menu-shade, #s-hub.sheet .hub-week, #s-hub.sheet .pc-tag, #s-hub.sheet .car-tags { opacity: 0; pointer-events: none; }
-/* (the car stays in view on the right: the shade is dark under the sheet, and lifts toward the car) */
-.tsw.cs .tsw-shade { background: linear-gradient(90deg, rgba(4,3,8,.95) 0%, rgba(4,3,8,.9) 52%, rgba(4,3,8,.55) 72%, rgba(4,3,8,.2) 100%); }
-.tsw.cs .tsw-money { right: auto; left: calc(var(--edge) + 1010px); top: calc(4% + 6px); }
-.tsw.cs .tsw-money b.gain { color: var(--sv-cyan); } .tsw.cs .tsw-money b.neg { color: var(--sv-bad); }
-.tsw.cs .tsw-money b { font-size: 34px; }
-.tsw.cs .tsw-delta { opacity: 1; right: auto; left: 0; white-space: nowrap; color: var(--sv-red-dim); }
-.tsw.cs .tsw-head h1 { max-width: 960px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cs-body { position: absolute; left: var(--edge); top: 150px; bottom: 96px; width: min(1180px, calc(100% - 2 * var(--edge))); display: grid; grid-template-columns: 470px 1fr; gap: 44px; }
-/* the list: each stat, factory-to-today bar, today's number */
-.cs-list { display: flex; flex-direction: column; padding-top: 4px; }
-.cs-row { position: relative; display: grid; grid-template-columns: 1fr 104px 96px; align-items: center; gap: 14px; height: 38px; padding: 0 4px 0 26px; cursor: pointer; color: var(--sv-red); border-bottom: 1px solid var(--sv-red-faint); }
-.cs-row > b { font: 500 20px/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; padding-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cs-row > em { font: 500 var(--t-row)/1 var(--f-ui); font-style: normal; letter-spacing: var(--track); font-variant-numeric: tabular-nums; text-align: right; color: var(--sv-hot); white-space: nowrap; padding-top: 2px; }
-.cs-row > em small { margin-left: 3px; font-size: var(--t-small); color: var(--sv-red-dim); text-transform: uppercase; }
-.cs-row > em sup, .cs-big sup, .tsw.cs .tsw-money sup { margin-left: 2px; font-size: .6em; color: var(--sv-amber); }
-.cs-row > em.gain { color: var(--sv-cyan); } .cs-row > em.neg { color: var(--sv-bad); }
-.cs-row .tsw-cur { left: 4px; top: 50%; margin-top: -6px; }
-.cs-row.on { color: var(--sv-amber); }
-.cs-row.on .tsw-cur { opacity: 1; }
-.cs-row.on::after { content: ''; position: absolute; left: 26px; right: 0; bottom: -1px; height: 2px; background: var(--sv-amber); box-shadow: 0 0 2px var(--sv-amber), 0 0 5px var(--sv-amber); }
-/* bars: the factory's figure (a tick), what's left of it, a gain lit, a loss as a hollow red gap */
-.cs-bar { position: relative; display: block; height: 10px; background: color-mix(in srgb, var(--sv-red) 12%, transparent); }
-.cs-bar b { position: absolute; top: 0; bottom: 0; left: 0; }
-.cs-bar b.base { background: var(--sv-red); box-shadow: 0 0 3px color-mix(in srgb, var(--sv-red) 70%, transparent); }
-.cs-bar b.up { background: var(--sv-cyan); box-shadow: 0 0 3px var(--sv-cyan), 0 0 6px color-mix(in srgb, var(--sv-cyan) 60%, transparent); }
-.cs-bar b.down { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--sv-bad) 70%, transparent) 0 2px, transparent 2px 5px); box-shadow: inset 0 0 0 1px var(--sv-bad); }
-.cs-bar i.fac { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--sv-amber); box-shadow: 0 0 3px var(--sv-amber); }
-.cs-row.on .cs-bar b.base { background: var(--sv-amber); }
-/* the pane: today against the factory, then where the difference comes from */
-.cs-pane { display: flex; flex-direction: column; gap: 16px; min-width: 0; padding-top: 4px; }
-.cs-top { display: flex; align-items: flex-end; gap: 40px; }
-.cs-big small { display: block; font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); margin-bottom: 6px; }
-.cs-big h2 { font: 700 64px/.86 var(--f-display); letter-spacing: var(--track); text-transform: uppercase; font-variant-numeric: tabular-nums; color: var(--sv-hot); white-space: nowrap; }
-.cs-big h2.neg { color: var(--sv-bad); }
-.cs-big h2 span { margin-left: 8px; font: 500 var(--t-row)/1 var(--f-ui); color: var(--sv-red-dim); }
-.cs-facts { flex: 1; grid-template-columns: 1fr 1fr; padding-bottom: 2px; border-left: 2px solid var(--sv-red); box-shadow: -4px 0 6px -4px color-mix(in srgb, var(--sv-red) 60%, transparent); }
-.cs-facts > div:first-child { padding-left: var(--s5); }
-.cs-what { max-width: 640px; font: 500 var(--t-body)/1.45 var(--f-body); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body) !important; }
-.cs-fall { display: flex; flex-direction: column; border-top: 1px solid var(--sv-red-faint); }
-.cs-step { display: grid; grid-template-columns: 130px 1fr 120px; align-items: center; gap: 4px 16px; padding: 7px 0; border-bottom: 1px solid var(--sv-red-faint); color: var(--sv-red); }
-.cs-step > span { font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; }
-.cs-step > em { font: 500 var(--t-label)/1 var(--f-ui); font-style: normal; letter-spacing: var(--track); font-variant-numeric: tabular-nums; text-align: right; color: var(--sv-red); white-space: nowrap; }
-.cs-step > em.gain { color: var(--sv-cyan); } .cs-step > em.neg { color: var(--sv-bad); }
-.cs-step.end > span, .cs-step.end > em { color: var(--sv-hot); }
-.cs-step.now { border-bottom: 0; border-top: 1px solid var(--sv-red); }
-.cs-step.none p { grid-column: 2 / -1; font: 500 var(--t-small)/1.3 var(--f-body); color: var(--sv-red-dim); }
-/* (a step's bar grows from the middle: right for better, left for worse) */
-.cs-div { position: relative; display: block; height: 8px; }
-.cs-div::before { content: ''; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--sv-red-faint); }
-.cs-div b { position: absolute; top: 0; bottom: 0; }
-.cs-div b.up { background: var(--sv-cyan); box-shadow: 0 0 3px var(--sv-cyan); }
-.cs-div b.down { background: var(--sv-bad); box-shadow: 0 0 3px var(--sv-bad); }
-.cs-step.end .cs-div::before { display: none; }
-.cs-items { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 2px 18px; }
-.cs-items span { font: 500 var(--t-small)/1.3 var(--f-body); color: var(--sv-red-dim); }
-.cs-items span b { font-weight: 500; color: var(--sv-red); }
-.cs-items span.gain b { color: var(--sv-cyan); } .cs-items span.neg b { color: var(--sv-bad); } .cs-items span.q b { color: var(--sv-amber); }
-.cs-items span i { font-style: normal; text-transform: uppercase; font-size: 10px; letter-spacing: .06em; color: var(--sv-amber); }
-.cs-step.rel { grid-template-columns: 130px 1fr 120px; }
-.cs-notes { display: flex; flex-direction: column; gap: 6px; }
-.cs-notes p, .cs-doubt { max-width: 680px; font: 500 var(--t-small)/1.4 var(--f-body); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body) !important; }
-.cs-notes p.tip { color: var(--sv-red); } .cs-notes p b { font-weight: 500; color: var(--sv-cyan); }
-.cs-doubt { color: var(--sv-amber); }
-.tsw.cs .dp-go .sv-btn { padding: 9px 18px 8px; font-size: 17px; }
-.tsw.cs.enter .cs-pane { animation: tsw-fade .5s .45s both; }
+/* ---------- World Career: the car's performance, beside it in the garage (js/carsheet.js) ---------- */
+.car-perf { position: absolute; right: var(--edge); top: 4%; width: 380px; padding: var(--s4) var(--s5) var(--s3); opacity: 0; pointer-events: none; transition: opacity .3s;
+  background: rgba(5,3,8,.88); }
+#s-hub.at-car .car-perf { opacity: 1; }
+#s-hub.seated .car-perf, #s-hub.wizard .car-perf, #s-hub.planning .car-perf { opacity: 0; }
+.cp-head { margin-bottom: 8px; }
+.cp-head b { font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cp-head.pv b { color: var(--sv-amber); }
+.cp-key { display: flex; align-items: center; gap: 5px; padding-top: 8px; border-top: 1px solid var(--sv-red-faint); font: 500 10px/1 var(--f-ui); letter-spacing: .04em; text-transform: uppercase; color: var(--sv-red-dim); }
+.cp-key i { display: inline-block; width: 9px; height: 7px; margin-left: 6px; }
+.cp-key i.fac { width: 2px; height: 11px; background: var(--sv-amber); box-shadow: 0 0 3px var(--sv-amber); margin-left: 0; }
+.cp-key i.up { background: var(--sv-cyan); } .cp-key i.pv { background: var(--sv-amber); } .cp-key i.down { box-shadow: inset 0 0 0 1px var(--sv-bad); background: repeating-linear-gradient(135deg, var(--sv-bad) 0 1px, transparent 1px 3px); }
+.cp-row { padding: 7px 0 6px; border-top: 1px solid var(--sv-red-faint); transition: opacity .2s; }
+.cp-row.off { opacity: .4; }
+.cp-row.off > small { visibility: hidden; }
+.cp-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 5px; }
+.cp-top > span { font: 500 17px/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); }
+.cp-top > b { font: 500 21px/1 var(--f-ui); letter-spacing: var(--track); font-variant-numeric: tabular-nums; color: var(--sv-hot); text-shadow: var(--sv-glow); white-space: nowrap; }
+.cp-top > b small { margin-left: 4px; font-size: 12px; color: var(--sv-red-dim); text-transform: uppercase; }
+.cp-top > b s { color: var(--sv-red-dim); text-decoration-thickness: 1px; }
+.cp-top > b em { font-style: normal; }
+.cp-top .gain, .cp-row small .gain { color: var(--sv-cyan); } .cp-top .neg, .cp-row small .neg { color: var(--sv-bad); }
+.cp-row > small { display: block; margin-top: 5px; font: 500 12px/1.3 var(--f-body); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cp-row > small .q { color: var(--sv-amber); }
+/* the bar: segmented like the day planner's gauge; the factory's tick in amber; a preview blinks */
+.cp-bar { position: relative; display: block; height: 10px; background: color-mix(in srgb, var(--sv-red) 14%, transparent);
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 calc(5% - 2px), transparent 0 5%); mask: repeating-linear-gradient(90deg, #000 0 calc(5% - 2px), transparent 0 5%); }
+.cp-bar b { position: absolute; top: 0; bottom: 0; left: 0; }
+.cp-bar b.base { background: var(--sv-red); }
+.cp-bar b.bad { background: var(--sv-bad); }
+.cp-bar b.up { background: var(--sv-cyan); }
+.cp-bar b.down { background: repeating-linear-gradient(135deg, var(--sv-bad) 0 2px, transparent 2px 4px); }
+.cp-bar b.pv { background: var(--sv-amber); animation: dp-blink 1.6s ease-in-out infinite alternate; }
+.cp-bar b.pv.worse { background: var(--sv-bad); }
+.cp-row > .cp-bar + small { margin-top: 5px; }
+/* (the factory's tick sits outside the bar's mask, so it stays whole) */
+.cp-track { position: relative; display: block; }
+.cp-track i.fac { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--sv-amber); box-shadow: 0 0 2px var(--sv-amber), 0 0 4px var(--sv-amber); }
