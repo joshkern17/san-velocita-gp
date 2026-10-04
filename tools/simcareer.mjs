@@ -179,7 +179,7 @@ function career(P, s) {
   // a second driver (--mate=pay|quick|kid|keep)
   WC.setupPick(w, 'entry', ENTRY); if (WC.setupBudget(w).after < 0) WC.setupPick(w, 'entry', 'fresh');
   if (w.setup.picks.entry === 'fresh') WC.setupPick(w, 'car', w.ads[Math.min(1, w.ads.length - 1)].id);
-  WC.setupPick(w, 'sponsor', 1);
+  WC.setupPick(w, 'sponsor', +opt('spon', '1'));
   WC.setupPick(w, 'mate', w.setup.drivers[{ keep: 0, quick: 1, pay: 2, kid: 3 }[MATE] ?? 2] || w.setup.drivers[0]);
   const ok = WC.setupApply(w); if (!ok.ok) console.error('setup', ok.why);
   w.simSkill = GT ? 0.02 : SKILL;
