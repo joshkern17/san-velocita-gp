@@ -9,6 +9,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { audioBus } from './audio.js';
 import { LOTTERY } from './wcareer.js';
+import { hash, paperCanvas, text, lines, barcode, sheet, paperMats } from './papers.js';
+import { ClaimOffice } from './claimoffice.js';
 
 const loader = new GLTFLoader(), loads = {};
 const loadGlb = (url) => loads[url] || (loads[url] = loader.loadAsync(url).then(g => g.scene, () => null));
@@ -27,29 +29,12 @@ const smooth = (k) => k * k * (3 - 2 * k);
 const money$ = (n) => '$' + Math.round(n).toLocaleString('en-US');
 const pad2 = (n) => String(n).padStart(2, '0');
 // a pseudo-random number from an integer (the crowd's speckle, the drum's balls)
-const hash = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
 // when the draw's balls come out (seconds into the lottery show), the last one after a long wait
 const BALL_T = [7.5, 13, 18.5, 24.5, 31, 41.5];
 const SHOW_END = BALL_T[5] + 8;
 
 // ---------------------------------------------------------------- the papers --------------------------------------
-function paperCanvas(w, h, bg = '#f1ede2') {
-  const c = document.createElement('canvas'); c.width = w; c.height = h;
-  const g = c.getContext('2d'); g.fillStyle = bg; g.fillRect(0, 0, w, h);
-  return [c, g];
-}
-function text(g, s, x, y, font, color = '#1b1a18', align = 'left') { g.font = font; g.fillStyle = color; g.textAlign = align; g.fillText(s, x, y); }
-// grey lines standing in for small print
-function lines(g, x, y, w, n, gap = 9, seed = 1) {
-  g.fillStyle = 'rgba(40,38,34,0.38)';
-  for (let i = 0; i < n; i++) g.fillRect(x, y + i * gap, w * (i === n - 1 ? 0.55 : 0.82 + hash(seed + i) * 0.18), 2);
-}
-function barcode(g, x, y, w, h, seed) {
-  g.fillStyle = '#111';
-  for (let k = 0, cx = x; cx < x + w; k++) { const bw = 1 + Math.floor(hash(seed + k) * 3); if (k % 2 === 0) g.fillRect(cx, y, bw, h); cx += bw; }
-}
-
 // a race car side on (the magazine's cover photo, the TV's tracking shot)
 function carSide(g, x, y, s, body, stripe, wheelRot = 0) {
   g.save(); g.translate(x, y); g.scale(s, s);
@@ -175,15 +160,6 @@ function ticket(nums, lit, pulse) {
   return [c, gc];
 }
 
-const paperMats = []; // (every sheet's materials: the paper darkens with the room)
-// a sheet of paper as a thin box: its face (+z) printed, the edges and back plain
-function sheet(canvas, w, h, thick = 0.0012, back = 0xe9e4d8) {
-  const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-  const face = new THREE.MeshBasicMaterial({ map: tex }), edge = new THREE.MeshBasicMaterial({ color: back });
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, thick), [edge, edge, edge, edge, face, edge]);
-  m.userData.tex = tex; m.userData.mats = [face, edge]; paperMats.push(face, edge);
-  return m;
-}
 
 // ---------------------------------------------------------------- the TV's sound ----------------------------------
 // everything on the TV goes through a little speaker (band-limited); the room's sounds (the remote's click, your
@@ -267,6 +243,7 @@ export class Opening {
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     this.tv = c; this.tvTex = new THREE.CanvasTexture(c); this.tvTex.colorSpace = THREE.SRGBColorSpace;
     this.tvTex.magFilter = THREE.NearestFilter;
+    this.office = new ClaimOffice(); // (where it goes after the draw)
     this.load();
   }
 
@@ -363,29 +340,36 @@ export class Opening {
     if (this.remote) this.remote.visible = false; this.remT = -1;
     this.ui = {
       root: document.getElementById('s-opening'), tag: document.getElementById('op-tag'), say: document.getElementById('op-say'),
-      edgeL: document.getElementById('op-edge-l'), edgeR: document.getElementById('op-edge-r'), white: document.getElementById('op-white'), hint: document.querySelector('#s-opening .op-hint'),
+      tag2: document.getElementById('op-tag2'), line: document.getElementById('op-line'), edgeL: document.getElementById('op-edge-l'), edgeR: document.getElementById('op-edge-r'), white: document.getElementById('op-white'), hint: document.querySelector('#s-opening .op-hint'),
     };
     this.ui.white.className = ''; this.ui.hint.textContent = `Esc / B  ${opts.skipLabel || 'Back'}`;
-    this.say(''); this.target = null; this.ended = false;
+    this.say(''); this.fadeText(this.ui.line, ''); this.target = null; this.ended = false; this.result = null;
     this.stage = 'race';
     this.snd = new TVSound();
     const el = this.r.domElement;
     this.onDown = (e) => { this.drag = [e.clientX, e.clientY]; this.moved = 0; };
-    this.onMove = (e) => { if (!this.drag) return; const dx = e.clientX - this.drag[0], dy = e.clientY - this.drag[1]; this.moved += Math.abs(dx) + Math.abs(dy); if (this.free()) this.look(dx * -0.004, dy * -0.004); this.drag = [e.clientX, e.clientY]; };
+    this.onMove = (e) => { if (!this.drag) { if (this.stage === 'office') this.office.hover(this.pick(e.clientX, e.clientY, this.office.camera, this.office.forms.map(f => f.obj))); return; } const dx = e.clientX - this.drag[0], dy = e.clientY - this.drag[1]; this.moved += Math.abs(dx) + Math.abs(dy); if (this.free()) this.look(dx * -0.004, dy * -0.004); else if (this.stage === 'office') this.office.look(dx * -0.003, dy * -0.003); this.drag = [e.clientX, e.clientY]; };
     this.onUp = (e) => { if (this.drag && this.moved < 6) this.click(e.clientX, e.clientY); this.drag = null; };
-    this.onTag = (e) => { e.stopPropagation(); this.activate(); };
+    this.onTag = (e) => {
+      e.stopPropagation();
+      if (this.stage !== 'office') return this.activate();
+      const f = this.office.forms[e.currentTarget === this.ui.tag2 ? 1 : 0]; if (this.office.stage === 'choose') this.office.pick(f);
+    };
     el.addEventListener('pointerdown', this.onDown); addEventListener('pointermove', this.onMove); addEventListener('pointerup', this.onUp);
-    this.ui.tag.addEventListener('pointerup', this.onTag);
+    this.ui.tag.addEventListener('pointerup', this.onTag); this.ui.tag2.addEventListener('pointerup', this.onTag);
   }
   leave() {
     const el = this.r.domElement;
     el.removeEventListener('pointerdown', this.onDown); removeEventListener('pointermove', this.onMove); removeEventListener('pointerup', this.onUp);
-    this.ui.tag.removeEventListener('pointerup', this.onTag);
-    this.ui.tag.classList.remove('on'); this.ui.edgeL.classList.remove('on'); this.ui.edgeR.classList.remove('on');
+    this.ui.tag.removeEventListener('pointerup', this.onTag); this.ui.tag2.removeEventListener('pointerup', this.onTag);
+    this.ui.tag.classList.remove('on'); this.ui.tag2.classList.remove('on'); this.fadeText(this.ui.line, ''); this.office.leave(); this.ui.edgeL.classList.remove('on'); this.ui.edgeR.classList.remove('on');
     if (this.snd) { this.snd.stop(); this.snd = null; }
   }
-  // Esc / B: skip (or, from the main menu's preview, back)
-  skip() { if (this.ended) return; this.ended = true; this.leave(); if (this.done) this.done(); }
+  // Esc / B: skip (or, from the main menu's preview, back); at the claim office, with a form in your hand: put it back
+  back() { if (this.stage === 'office' && this.office.back()) return; this.skip(); }
+  skip() { if (this.ended) return; this.ended = true; this.leave(); if (this.done) this.done(this.result); }
+  // left / right: between the forms
+  nav(d) { if (this.stage === 'office') this.office.nav(d); }
   free() { return this.stage === 'race' || this.stage === 'turn'; }
   look(dy, dp) {
     this.aim = null;
@@ -402,31 +386,46 @@ export class Opening {
 
   // A / Enter: use what's prompted when it's in view, or turn towards it when it isn't
   confirm() {
+    if (this.stage === 'office') return this.office.confirm();
     if (this.stage === 'pile') return this.next();
     if (!this.target) return;
     if (this.onScreen) this.activate(); else this.aim = { ...this.aimAt(this.target.at), k: 3 };
   }
+  // what's under the pointer, of objs
+  pick(x, y, cam, objs) {
+    const r = this.r.domElement.getBoundingClientRect(), ray = new THREE.Raycaster();
+    ray.setFromCamera(new THREE.Vector2((x - r.left) / r.width * 2 - 1, -((y - r.top) / r.height) * 2 + 1), cam);
+    return ray.intersectObjects(objs, true).map(h => h.object);
+  }
   click(x, y) {
+    if (this.stage === 'office') return this.office.click(this.pick(x, y, this.office.camera, this.office.forms.map(f => f.obj)));
     if (this.stage === 'pile') return this.next();
     if (!this.target || !this.tagXY) return;
     const r = this.r.domElement.getBoundingClientRect(), [tx, ty] = this.tagXY;
     let hit = Math.hypot(x - tx, y - ty) < 150;
-    if (!hit) {
-      const ray = new THREE.Raycaster(), v = new THREE.Vector2((x - r.left) / r.width * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
-      ray.setFromCamera(v, this.camera); hit = ray.intersectObjects(this.target.objs, true).length > 0;
-    }
+    if (!hit) hit = this.pick(x, y, this.camera, this.target.objs).length > 0;
     if (hit) this.activate();
   }
   activate() {
     if (!this.target) return;
     const t = this.target; this.target = null; t.go();
   }
-  say(s) {
-    const el = this.ui.say; if (el.dataset.s === s) return;
+  say(s) { this.fadeText(this.ui.say, s); }
+  // a line of text that fades out, then in with what's new
+  fadeText(el, s) {
+    if (el.dataset.s === s) return;
     el.dataset.s = s; el.classList.remove('on');
-    clearTimeout(this.sayT); if (s) this.sayT = setTimeout(() => { el.innerHTML = s; el.classList.add('on'); }, el.innerHTML ? 260 : 0);
+    clearTimeout(el._t); if (s) el._t = setTimeout(() => { el.innerHTML = s; el.classList.add('on'); }, el.innerHTML ? 260 : 0);
   }
   btn() { return this.isPad() ? '<kbd class="pb a">A</kbd>' : 'Click'; }
+  backBtn() { return this.isPad() ? '<kbd class="pb b">B</kbd>' : '<kbd>Esc</kbd>'; }
+
+  // the claim office: after the draw's gone to black
+  startOffice() {
+    this.setStage('office'); this.ui.white.className = ''; this.target = null;
+    this.office.start({ snd: this.snd, say: (s) => this.say(s), line: (s) => this.fadeText(this.ui.line, s), btn: () => this.btn(), back: () => this.backBtn(),
+      done: (choice) => { this.result = choice ? { lottery: choice } : null; this.skip(); } });
+  }
 
   // ---------------------------------------------------------- the story ------------------------------------------
   setStage(s) { this.stage = s; this.stageT = 0; }
@@ -501,7 +500,9 @@ export class Opening {
       const ax = Math.abs(p.axes[2] || 0) > 0.15 ? p.axes[2] : Math.abs(p.axes[0] || 0) > 0.2 ? p.axes[0] : 0;
       const ay = Math.abs(p.axes[3] || 0) > 0.15 ? p.axes[3] : Math.abs(p.axes[1] || 0) > 0.2 ? p.axes[1] : 0;
       if ((ax || ay) && this.free()) this.look(-ax * dt * 2, -ay * dt * 1.4);
+      if ((ax || ay) && this.stage === 'office') this.office.look(-ax * dt * 0.8, -ay * dt * 0.6);
     }
+    if (this.stage === 'office') { this.office.update(dt); return; }
     if (this.aim) { const k = 1 - Math.exp(-dt * this.aim.k); this.yaw += (this.aim.yaw - this.yaw) * k; this.pitch += (this.aim.pitch - this.pitch) * k; }
     const s = this.stage;
     if (s === 'race' && this.stageT > 3.5 && !this.target && this.cur === undefined) this.promptPile();
@@ -566,7 +567,7 @@ export class Opening {
       if (t > BALL_T[5] + 7) { this.setStage('end'); this.snd?.ring(); this.ui.white.className = 'flash'; this.snd?.set(this.snd.out, 0, 1.2); }
     } else if (this.stage === 'end') {
       if (this.stageT > 1.2 && this.ui.white.className === 'flash') this.ui.white.className = 'black';
-      if (this.stageT > 5.5 && !this.ended) this.skip();
+      if (this.stageT > 4.2 && !this.ended) this.startOffice();
     }
     let any = false;
     for (const [n, v] of this.pulse) { const nv = Math.max(0, v - dt * 0.7); this.pulse.set(n, nv); any = any || v > 0; }
@@ -713,6 +714,7 @@ export class Opening {
 
   // ---------------------------------------------------------- drawing --------------------------------------------
   render() {
+    if (this.stage === 'office') { this.office.render(this.post, this.r.domElement.width / this.r.domElement.height); this.tag(); return; }
     const el = this.r.domElement, cam = this.camera;
     cam.aspect = el.width / el.height; cam.fov = this.fov ?? FOV; cam.updateProjectionMatrix();
     cam.position.copy(this.eye ? this.eye() : SEAT);
@@ -743,24 +745,26 @@ export class Opening {
   }
 
   // the marker over what's prompted (or an arrow at the edge of the screen, the way to turn, when it's out of view)
+  // (the claim office has two, one over each form; the selected one lit)
   tag() {
     const u = this.ui; if (!u) return;
-    const T = this.target;
-    if (!T) { u.tag.classList.remove('on'); u.edgeL.classList.remove('on'); u.edgeR.classList.remove('on'); this.tagXY = null; return; }
-    const r = this.r.domElement.getBoundingClientRect(), v = T.at.clone().project(this.camera);
-    const x = r.left + (v.x + 1) / 2 * r.width, y = r.top + (1 - v.y) / 2 * r.height;
-    const inView = v.z < 1 && Math.abs(v.x) < 0.92 && Math.abs(v.y) < 0.9;
-    this.onScreen = inView;
-    u.tag.classList.toggle('on', inView);
-    if (inView) {
-      this.tagXY = [x, y];
-      const z = parseFloat(getComputedStyle(u.root).zoom) || 1; // (the screens are CSS-zoomed to fit the window)
-      u.tag.style.left = x / z + 'px'; u.tag.style.top = (y - 6 + Math.sin(this.t * 3) * 3) / z + 'px';
-      u.tag.querySelector('b').textContent = T.label;
-      u.tag.querySelector('small').innerHTML = this.isPad() ? 'A' : 'Click';
-      u.tag.classList.toggle('hot', Math.abs(v.x) < 0.35 && Math.abs(v.y) < 0.45);
-    } else this.tagXY = null;
-    const a = this.aimAt(T.at), left = a.yaw - this.yaw > 0;
-    u.edgeL.classList.toggle('on', !inView && left); u.edgeR.classList.toggle('on', !inView && !left);
+    const office = this.stage === 'office', cam = office ? this.office.camera : this.camera;
+    const list = office ? this.office.targets : this.target ? [this.target] : [];
+    const r = this.r.domElement.getBoundingClientRect(), z = parseFloat(getComputedStyle(u.root).zoom) || 1; // (the screens are CSS-zoomed to fit the window)
+    this.tagXY = null; this.onScreen = false;
+    [u.tag, u.tag2].forEach((el, i) => {
+      const T = list[i]; if (!T) { el.classList.remove('on'); return; }
+      const v = T.at.clone().project(cam), x = r.left + (v.x + 1) / 2 * r.width, y = r.top + (1 - v.y) / 2 * r.height;
+      const inView = v.z < 1 && Math.abs(v.x) < 0.92 && Math.abs(v.y) < 0.9;
+      el.classList.toggle('on', inView);
+      if (i === 0) { this.onScreen = inView; if (inView) this.tagXY = [x, y]; }
+      if (!inView) return;
+      el.style.left = x / z + 'px'; el.style.top = (y - 6 + Math.sin(this.t * 3 + i) * 3) / z + 'px';
+      el.querySelector('b').textContent = T.label;
+      el.querySelector('small').innerHTML = this.isPad() ? 'A' : 'Click';
+      el.classList.toggle('hot', T.hot ? T.hot() : Math.abs(v.x) < 0.35 && Math.abs(v.y) < 0.45);
+    });
+    const T = !office && this.target, a = T && this.aimAt(T.at), left = T && a.yaw - this.yaw > 0;
+    u.edgeL.classList.toggle('on', !!T && !this.onScreen && left); u.edgeR.classList.toggle('on', !!T && !this.onScreen && !left);
   }
 }

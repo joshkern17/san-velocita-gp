@@ -296,9 +296,10 @@ function boot() {
 let bootGo = null;
 
 // the opening (js/opening.js): the trailer, the pile on the side table, the lottery on TV. Plays before a new World
-// Career (then: your garage), or from the main menu as a preview (then: back to the menu). Esc / B skips it.
+// Career (then: your garage, with how you took the winnings, chosen at the claim office), or from the main menu as a
+// preview (then: back to the menu). Esc / B skips it.
 function openOpening(then = null) {
-  const done = () => fadeTo(() => { opening.leave(); if (then) then(); else show('s-main'); }, 400);
+  const done = (r) => fadeTo(() => { opening.leave(); if (then) then(r); else show('s-main'); }, 400);
   fadeTo(() => { opening.enter({ name: settings.driverName || 'Driver', done, pad: () => device.kind === 'pad', skipLabel: then ? 'Skip' : 'Back' }); show('s-opening'); });
 }
 
@@ -354,7 +355,7 @@ function fillCredits() {
   const c = envCatalog(), el = $('credits-list');
   const esc = (t) => String(t || '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
   const packs = [...(c ? Object.values(c.packs) : []), ...Object.values(CAR_CREDITS), { title: 'PSX Mobile Phone', author: 'Retro Assets Library', license: 'see pack' },
-    { title: 'TV Remote - (PSX)', author: 'Kasugay', license: 'CC-BY-4.0' }, { title: 'PSX Trailer Park', author: 'see pack', license: 'see pack' },
+    { title: 'TV Remote - (PSX)', author: 'Kasugay', license: 'CC-BY-4.0' }, { title: 'PSX Computer Asset Pack', author: 'see pack', license: 'see pack' }, { title: 'Office furniture pack (chairs)', author: 'see pack', license: 'see pack' }, { title: 'PSX Trailer Park', author: 'see pack', license: 'see pack' },
     // the real-world circuits: layouts, buildings, trees, water from the map; hills from the terrain tiles
     ...(realTracks().length ? [{ title: 'Real-World Circuits: map data', author: 'OpenStreetMap contributors', license: 'ODbL 1.0' }, { title: 'Real-World Circuits: F1 outlines', author: 'bacinger/f1-circuits', license: 'MIT' }, { title: 'Real-World Circuits: elevation', author: 'AWS Terrain Tiles (Mapzen, USGS, SRTM)', license: 'see source' },
       { title: 'Real-World Circuits: road heights (LiDAR)', author: 'Service public de Wallonie · IGN France · GSI Japan · USGS 3DEP', license: 'open data, attribution' }] : [])];
@@ -1642,7 +1643,7 @@ function startWorld(noOpening = false) {
     teamName: `${name.split(' ').pop()} Racing`, colors: [settings.car.main, settings.car.accent], seed: Date.now(), streetCars }, poolOf(worldOpts)); // (this career's choice, not the last one loaded)
   world.opts.tracks = worldOpts.tracks ? worldOpts.tracks.slice() : null;
   saveWorld();
-  const hub = () => { enterHub(); const m = world.mail.find(x => x.link && x.link[0] === 'registry'); setTimeout(() => { if (screen === 's-hub') sitDown('mail', m && m.id); }, 700); };
+  const hub = (r) => { if (r && r.lottery) { WC.pickLottery(world, r.lottery); saveWorld(); } enterHub(); const m = world.mail.find(x => x.link && x.link[0] === 'registry'); setTimeout(() => { if (screen === 's-hub') sitDown('mail', m && m.id); }, 700); };
   if (noOpening) fadeTo(hub, 200); else openOpening(hub); // (the opening first: the lottery, then the garage)
 }
 
@@ -3581,8 +3582,10 @@ function frame(now) {
     if (screen === 's-garage') menuInput(); else clearEdges();
     garage.update(dt);
   } else if (screen === 's-opening') {
-    if (pressed('Escape') | pressed('Backspace') | pressed('GP1')) opening.skip();
+    if (pressed('Escape') | pressed('Backspace') | pressed('GP1')) opening.back();
     if (pressed('Enter') | pressed('Space') | pressed('GP0')) opening.confirm();
+    if (pressed('ArrowLeft') | pressed('GP14')) opening.nav(-1);
+    if (pressed('ArrowRight') | pressed('GP15')) opening.nav(1);
     opening.update(dt);
   } else if (PHONE_SCREENS.includes(screen)) {
     // World Career, your garage: the computer has the controls while you're sat at it, the phone while it's up (P / Y)

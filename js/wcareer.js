@@ -1298,6 +1298,20 @@ export function claimLottery(w, choice) {
   if (choice === 'lump') pay(w, Math.round(LOTTERY.lump * k), 'State Lottery: lump sum' + (k !== 1 ? ' (with a loophole)' : ''));
   else { m.annuityLeft = LOTTERY.years; annuityDay(w); }
 }
+// the choice made at the claim office in the opening (js/claimoffice.js): it's paid once the team's registered (the
+// background on Form SV-1 can change how much); the State Lottery's email becomes the receipt
+export function pickLottery(w, choice) {
+  const m = w.money; if (!m || m.choice || !['lump', 'annuity'].includes(choice)) return;
+  m.pick = choice;
+  const e = (w.mail || []).find(x => x.lottery);
+  if (e) {
+    e.answer = choice; e.subj = 'Your claim: received';
+    e.body = [`Dear Claimant,`, `Thank you for attending Winner Services in person. We have received your Form ${choice === 'lump' ? 'L-1 (Lump Sum)' : `A-${LOTTERY.years} (Annuity)`}.`,
+      choice === 'lump' ? `You will receive ${money$(LOTTERY.lump)}, in one payment, after tax.` : `You will receive ${money$(LOTTERY.annuity)} a year for ${LOTTERY.years} years, the first payment now.`,
+      `Winnings are only paid to a registered business. Payment will be made when you file Form SV-1.`, `This choice is final.`, `Winner Services, San Velocita State Lottery`];
+  }
+  if (w.founding?.reg) claimLottery(w, choice);
+}
 function annuityDay(w) {
   const m = w.money; if (!m || m.choice !== 'annuity' || m.annuityLeft <= 0) return;
   m.annuityLeft--; pay(w, annuityPay(w), `State Lottery: annuity payment (${m.annuityLeft} left)`);
@@ -2199,6 +2213,7 @@ export function registerTeam(w, f) {
   repOf(w); w.setup = newSetup(w);
   // (the previous team left a couple of things behind)
   w.tyreStock = { soft: 0, medium: 0, hard: 0, wet: 0 }; w.usedTyres = [{ c: 'medium', wf: 0.72, wr: 0.7 }, { c: 'medium', wf: 0.55, wr: 0.58 }];
+  if (w.money?.pick && !w.money.choice) claimLottery(w, w.money.pick); // (chosen at the claim office: paid now)
   mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'found you a car',
     [`Yo. Saw the lottery thing on the news. Congrats dude, for real`, `Also saw the divorce thing on the news. Less congrats`,
      `Anyway if you're doing the racing team thing you need a car. There's some good ones on the classifieds rn. The cheap one's probably fine. Probably`,

@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script></head>
+<body style="margin:0;background:#222"><script type="module">
+// dev: render glbs  .devtest/glbview.html?u=models/a.glb;models/b.glb&cam=x,y,z&at=x,y,z
+import * as THREE from 'three';
+import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
+const P = new URLSearchParams(location.search);
+const r = new THREE.WebGLRenderer(); r.setSize(900, 600); document.body.appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x30343a);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x404040, 2.5));
+const urls = P.get('u').split(';'); const out = [];
+let x = 0;
+for (const u of urls) { const g = await new GLTFLoader().loadAsync('../' + u); const m = g.scene; m.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(m); out.push(u + ' min ' + bb.min.toArray().map(v => v.toFixed(2)) + ' max ' + bb.max.toArray().map(v => v.toFixed(2))); if (urls.length > 1) { m.position.x = x - bb.min.x; x += bb.max.x - bb.min.x + 0.3; } scene.add(m); }
+const bb = new THREE.Box3().setFromObject(scene), c = bb.getCenter(new THREE.Vector3()), s = bb.getSize(new THREE.Vector3()).length();
+const cam = new THREE.PerspectiveCamera(40, 1.5, 0.01, 100);
+cam.position.copy(P.get('cam') ? new THREE.Vector3(...P.get('cam').split(',').map(Number)) : c.clone().add(new THREE.Vector3(0.6, 0.5, 1).multiplyScalar(s)));
+cam.lookAt(P.get('at') ? new THREE.Vector3(...P.get('at').split(',').map(Number)) : c);
+r.render(scene, cam); window.info = out; window.done = true;
+</script></body></html>

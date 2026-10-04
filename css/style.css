@@ -1643,6 +1643,8 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 #s-opening .op-tag.on.hot { opacity: 1; }
 #op-say { position: absolute; left: 50%; bottom: 5.5%; transform: translateX(-50%); white-space: nowrap; font: 500 22px/1 var(--f-ui); letter-spacing: var(--track); color: var(--sv-red); text-shadow: var(--sv-glow); opacity: 0; transition: opacity .26s; }
 #op-say.on { opacity: 1; }
+#op-line { position: absolute; left: 50%; bottom: 15%; transform: translateX(-50%); width: min(80%, 900px); text-align: center; font: 500 21px/1.35 var(--f-ui); letter-spacing: var(--track); color: #f1ebdf; text-shadow: 0 0 1px #f1ebdf, 0 0 2px rgba(241,235,223,.6); opacity: 0; transition: opacity .26s; }
+#op-line.on { opacity: 1; }
 #op-say kbd { vertical-align: middle; }
 .op-edge { position: absolute; top: 50%; width: 22px; height: 22px; margin-top: -11px; border: solid var(--sv-red); border-width: 0 0 2px 2px; filter: drop-shadow(0 0 2px var(--sv-red)); opacity: 0; transition: opacity .35s; }
 .op-edge.l { left: 36px; transform: rotate(45deg); }

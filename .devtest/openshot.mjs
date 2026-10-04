@@ -19,7 +19,23 @@ try {
   await pg.waitForFunction(() => __svgp.dbg.opening.ready && __svgp.dbg.opening.remote, null, { timeout: 60000 });
   const O = (f, a) => pg.evaluate(f, a);
   const shot = async (n) => { await W(700); await pg.screenshot({ path: join(OUT, n + '.png') }); console.log('shot', n); };
-  const only = process.argv[3] ? process.argv[3].split(',') : null, want = (n) => !only || only.includes(n);
+  const only = process.argv[3] && process.argv[3] !== 'office' ? process.argv[3].split(',') : null, want = (n) => !only || only.includes(n);
+  if (process.argv[3] === 'office') {
+    await pg.waitForFunction(() => __svgp.dbg.opening.office.ready && __svgp.dbg.opening.office.clerk, null, { timeout: 60000 });
+    await O(() => __svgp.dbg.opening.startOffice());
+    const F = (f, a) => O(f, a), of = '__svgp.dbg.opening.office';
+    await W(300); await F(() => { const f = __svgp.dbg.opening.office; f.t = 1.7; }); await W(600); await shot('o1flicker');
+    await F(() => { const f = __svgp.dbg.opening.office; f.onT = 2; }); await W(400); await shot('o2lit');
+    await F(() => { const f = __svgp.dbg.opening.office; f.onT = 3; }); await W(400);
+    for (let i = 0; i < 6; i++) await F(() => { const f = __svgp.dbg.opening.office; f.lineT = 99; f.update(0.01); });
+    await F(() => { const f = __svgp.dbg.opening.office; f.forms.forEach(x => x.k = 1); }); await shot('o3talk');
+    for (let i = 0; i < 3; i++) await F(() => { const f = __svgp.dbg.opening.office; f.lineT = 99; f.update(0.01); });
+    await W(500); await shot('o4choose');
+    await F(() => { const o = __svgp.dbg.opening; o.nav(1); o.confirm(); o.office.forms[1].k = 1; }); await shot('o5held');
+    await F(() => { const o = __svgp.dbg.opening; o.confirm(); o.office.signT = 1.0; }); await shot('o6signed');
+    await F(() => { const f = __svgp.dbg.opening.office; f.signT = 2; f.update(0.01); f.forms.forEach(x => x.k = 1); f.stampAt = 0; f.update(0.01); }); await shot('o7stamp');
+    console.log(await O(() => { const o = __svgp.dbg.opening.office; return o.stage + ' ' + o.choice + ' ' + o.lineI; }));
+  } else {
   await O(() => { const o = __svgp.dbg.opening; o.stageT = 4; });
   await W(500); console.log(await O(() => { const o = __svgp.dbg.opening; return JSON.stringify({ st: o.stage, sT: o.stageT, t: o.t, cur: o.cur, tg: !!o.target }); })); if (want("1race")) await shot("1race");
   await O(() => { const o = __svgp.dbg.opening; const a = o.aimAt(o.target.at); o.yaw = a.yaw; o.pitch = a.pitch; });
@@ -34,5 +50,6 @@ try {
   for (const [n, t] of [['9intro', 2], ['10drum', 6.5], ['11ball1', 8.6], ['12ball4', 27.5], ['13final', 40], ['14final', 43.8], ['15end', 47.5]]) {
     if (!want(n)) continue;
     await O((t) => { const o = __svgp.dbg.opening; o.tvT = t; o.pile[3].k = 1; }, t); await shot(n); console.log(await O(() => { const o = __svgp.dbg.opening, c = o.camera; return JSON.stringify({ st: o.stage, tvT: o.tvT, white: o.ui.white.className, fov: c.fov, pos: c.position, yaw: o.yaw, pitch: o.pitch, lean: o.lean, dim: o.dim, tk: (() => { const it = o.pile[3]; const l = c.worldToLocal(it.obj.position.clone()); return [it.state, it.k, l.x.toFixed(3), l.y.toFixed(3), l.z.toFixed(3)]; })(), tag: o.ui.tag.className, tgt: !!o.target }); }));
+  }
   }
 } finally { await b.close(); server.kill(); }
