@@ -1655,6 +1655,8 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 #op-choices .op-ch .op-sw { display: inline-block; width: 14px; height: 14px; margin-right: 4px; vertical-align: -1px; box-shadow: 0 0 0 1px rgba(255,255,255,.35); }
 #op-input { position: absolute; left: 50%; bottom: 24%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; align-items: center; opacity: 0; pointer-events: none; transition: opacity .26s; }
 #op-input.on { opacity: 1; pointer-events: auto; }
+#op-choices.side, #op-input.side { left: auto; right: 6%; bottom: auto; top: 30%; transform: none; align-items: flex-start; }
+#op-choices.side .op-ch { white-space: normal; max-width: 340px; }
 #op-input label { font: 500 13px/1 var(--f-ui); letter-spacing: var(--track-caption); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); }
 #op-input input { width: 320px; padding: 8px 14px 7px; font: 500 22px/1.2 var(--f-ui); letter-spacing: var(--track); color: #fff; text-align: center; background: rgba(5,3,8,.7); border: 1px solid var(--sv-red); box-shadow: var(--sv-glow-line); outline: none; caret-color: var(--sv-amber); }
 #op-choices .op-ch { padding: 7px 16px 6px; font: 500 18px/1.2 var(--f-ui); letter-spacing: var(--track); color: rgba(241,235,223,.55); background: rgba(5,3,8,.6); border: 1px solid transparent; cursor: pointer; white-space: nowrap; }

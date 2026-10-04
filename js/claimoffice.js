@@ -78,6 +78,52 @@ const PLAQUES = { lottery: ['R. HALVORSEN', 'STATE LOTTERY · WINNER SERVICES'],
 const COLORS = [[0xc8141c, 0xf2f2f2, 'Red and white'], [0x1d4fd8, 0xf2c21a, 'Blue and yellow'], [0x15181d, 0xf2c21a, 'Black and gold'],
   [0x18a058, 0xf2f2f2, 'Green and white'], [0xf06a12, 0x1d4fd8, 'Orange and blue'], [0x7a2cc8, 0x1fb5c8, 'Purple and teal']];
 const hexc = (c) => '#' + c.toString(16).padStart(6, '0');
+// Form SV-1, the paper: filled in as you go (f: the answers so far; at: the field you're on, highlighted; sign: how far
+// the signature's got; stamp: received)
+const SV1_ROWS = [['A', 'team', 'Name of enterprise'], ['A', 'colors', 'Colors'], ['A', 'home', 'Registered premises'],
+  ['B', 'name', 'Full name of proprietor'], ['B', 'background', 'Previous occupation'], ['C', 'ex', 'Former spouse'], ['C', 'years', 'Years married']];
+const SECTIONS = { A: 'Section A: the enterprise', B: 'Section B: the proprietor', C: 'Section C: marital status' };
+const HAND = '"Bradley Hand", "Segoe Print", "Comic Sans MS", cursive';
+function sv1Canvas(f, at, sign = 0, stamp = false) {
+  const [c, g] = paperCanvas(600, 850, '#f1eee4');
+  text(g, 'PROVINCE OF SAN VELOCITA', 300, 40, '700 18px Arial', '#333', 'center');
+  text(g, 'BUSINESS REGISTRY  ·  DEPARTMENT OF FORMS  ·  EST. 1957', 300, 62, '500 13px Arial', '#444', 'center');
+  g.fillStyle = '#333'; g.fillRect(40, 76, 520, 2);
+  text(g, 'FORM SV-1', 40, 122, '700 40px "Courier New", monospace', '#151515');
+  text(g, 'Registration of a Sporting Enterprise', 40, 150, '700 17px Arial', '#333');
+  let y = 190, sec = null;
+  for (const [s, key, label] of SV1_ROWS) {
+    if (s !== sec) { sec = s; y += 10; text(g, SECTIONS[s].toUpperCase(), 40, y, '700 13px Arial', '#555'); y += 38; }
+    if (at === key) { g.fillStyle = 'rgba(255,226,60,0.55)'; g.fillRect(32, y - 30, 536, 44); }
+    text(g, label, 40, y, '500 15px Arial', '#333');
+    g.fillStyle = '#555'; g.fillRect(250, y + 4, 310, 1.2);
+    const v = f[key];
+    if (key === 'colors' && v) { [0, 1].forEach(i => { g.fillStyle = hexc(v[i]); g.fillRect(256 + i * 52, y - 22, 40, 24); g.strokeStyle = '#333'; g.strokeRect(256 + i * 52, y - 22, 40, 24); }); }
+    else if (v != null && v !== '') text(g, String(key === 'home' ? TOWNS[v].name : key === 'background' ? BACKGROUNDS[v].name : v), 258, y, `28px ${HAND}`, '#1d3a8a');
+    y += 50;
+  }
+  g.strokeStyle = '#333'; g.lineWidth = 1.5; g.strokeRect(40, y - 6, 520, 46);
+  text(g, 'Processing fee: $250. Deducted from any winnings held by the Province.', 300, y + 22, '500 13px Arial', '#333', 'center');
+  y += 96;
+  if (at === 'sign') { g.fillStyle = 'rgba(255,226,60,0.55)'; g.fillRect(32, y - 40, 536, 54); }
+  text(g, 'x', 44, y - 2, 'italic 26px "Times New Roman", serif', '#222');
+  g.fillStyle = '#222'; g.fillRect(64, y, 300, 1.4);
+  text(g, 'Proprietor', 64, y + 18, '500 12px Arial', '#444');
+  if (sign > 0) {
+    g.strokeStyle = '#1d3a8a'; g.lineWidth = 2.6; g.lineCap = 'round'; g.beginPath(); g.moveTo(74, y - 8);
+    const n = 16, upto = Math.floor(n * sign);
+    for (let i = 0; i < upto; i++) g.quadraticCurveTo(80 + i * 16, y - 40 + hash(i + 11) * 38, 88 + i * 16, y - 8 - hash(i + 5) * 14);
+    g.stroke();
+  }
+  if (stamp) {
+    g.save(); g.translate(450, y - 30); g.rotate(-0.2); g.globalAlpha = 0.85; g.strokeStyle = '#c4231a'; g.lineWidth = 4;
+    g.strokeRect(-90, -34, 180, 68); text(g, 'REGISTERED', 0, 4, '700 26px Arial', '#c4231a', 'center'); text(g, 'D. PRUITT', 0, 24, '700 13px Arial', '#c4231a', 'center');
+    g.restore();
+  }
+  text(g, 'Form SV-1 (rev. 1957). Complete all sections. Do not write outside the boxes.', 300, 830, '500 11px Arial', '#666', 'center');
+  return c;
+}
+
 // a brass name plate on a wooden block: the name, and the job under it
 function plaqueCanvas([name, job]) {
   const [c, g] = paperCanvas(512, 112, '#3a2614');
@@ -139,13 +185,19 @@ export class ClaimOffice {
     });
     // the name plate, on the front edge of the desk facing you (its text swapped for each desk)
     this.plaque = sheet(plaqueCanvas(PLAQUES.lottery), 0.3, 0.066, 0.03, 0x3a2614, true);
-    this.plaque.position.set(0.25, 0.79, 0.28); this.plaque.rotation.set(-0.35, -0.1, 0); this.scene.add(this.plaque);
+    this.plaque.position.set(-0.5, 0.79, 0.27); this.plaque.rotation.set(-0.35, 0.12, 0); this.scene.add(this.plaque); // (the left end: clear of the forms)
     // the registry's desk: a stack of blank forms and a rubber stamp where the lottery's keyboard was
     this.regProps = new THREE.Group();
     for (let k = 0; k < 6; k++) { const f = sheet(paperCanvas(8, 8, '#efe9da')[0], 0.21, 0.297, 0.004, 0xe6e0d0, true); f.position.set(-0.3 + hash(k) * 0.01, 0.753 + k * 0.004, -0.12); f.rotation.set(-Math.PI / 2, 0, 0.2 + (hash(k + 3) - 0.5) * 0.08); this.regProps.add(f); }
     const stamp = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.09, 10), new THREE.MeshLambertMaterial({ color: 0x5a3a20 })); stamp.position.set(0.12, 0.8, -0.1);
     const pad = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.012, 0.08), new THREE.MeshLambertMaterial({ color: 0x2a2a6a })); pad.position.set(0.22, 0.756, -0.08);
     this.regProps.add(stamp, pad); this.regProps.visible = false; this.scene.add(this.regProps);
+    // Form SV-1: from his side of the desk to yours, then up into your hands (held left of centre: the answers go right)
+    const sv = sheet(sv1Canvas({}, null), 0.21, 0.2975, 0.001, 0xe6e2d6, true);
+    sv.visible = false; this.scene.add(sv);
+    this.sv1 = { key: 'sv1', obj: sv, state: 'away', k: 1, hold: [-0.09, -0.006, -0.47],
+      home: { p: new THREE.Vector3(0, 0.7515, 0.12), q: new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0.04)) },
+      start: { p: new THREE.Vector3(-0.05, 0.7515, -0.18), q: new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, Math.PI + 0.05)) } };
     // the forms, on your side of the desk once they're slid over
     this.forms = ['lump', 'annuity'].map((key, i) => {
       const m = sheet(formCanvas(FORMS[key]), 0.15, 0.195, 0.0008, 0xe0dccf, true);
@@ -171,17 +223,19 @@ export class ClaimOffice {
     if (this.crtObj) this.crtObj.visible = !reg; if (this.kbObj) this.kbObj.visible = !reg; this.regProps.visible = reg;
     const t = this.plaque.userData.tex; t.image = plaqueCanvas(PLAQUES[d]); t.needsUpdate = true;
     if (reg) for (const f of this.forms) f.obj.visible = false;
+    const sv = this.sv1; sv.obj.visible = false; sv.state = 'away'; sv.k = 1; sv.obj.position.copy(sv.start.p); sv.obj.quaternion.copy(sv.start.q);
   }
   redraw(f, sign = 0, stamp = false) { const t = f.obj.userData.tex; t.image = formCanvas(FORMS[f.key], sign, stamp); t.needsUpdate = true; }
 
   // ---- input (from js/opening.js) ----
-  pickables() { return this.forms.map(f => f.obj); }
+  pickables() { return [...this.forms.map(f => f.obj), this.sv1.obj]; }
   look(dy, dp) { this.yaw = clamp(this.yaw + dy, -0.6, 0.6); this.pitch = clamp(this.pitch + dp, -0.45, 0.3); }
   nav(d, axis = 'x') { if (axis === 'y') return this.h.choiceNav?.(d); if (this.stage !== 'choose' || axis !== 'x') return; const n = clamp(this.sel + d, 0, 1); if (n !== this.sel) { this.sel = n; this.h.snd?.hiss(0.12, 2600, 0.015, { room: true }); } }
   hover(objs) { if (this.stage !== 'choose') return; const i = this.forms.findIndex(f => objs.includes(f.obj)); if (i >= 0) this.sel = i; }
   confirm() {
     if (this.h.choiceOk?.() || this.h.inputOk?.()) return;
     if (this.lineWait) { if (this.lineWait.t > 0.5) this.lineWait.t = 99; return; }
+    if (this.signRes) return this.signSV1();
     if (this.stage === 'talk' || this.stage === 'outro') { if (this.lineT > 0.5) this.lineT = 99; return; }
     if (this.stage === 'choose') return this.pick(this.forms[this.sel]);
     if (this.stage === 'held') return this.signIt();
@@ -219,7 +273,7 @@ export class ClaimOffice {
   }
   poseOf(f) {
     if (f.state === 'held') {
-      const cam = this.camera, p = cam.localToWorld(new THREE.Vector3(0, 0.018, -0.34));
+      const cam = this.camera, p = cam.localToWorld(new THREE.Vector3(...(f.hold || [0, 0.018, -0.34])));
       return { p, q: cam.quaternion.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.25, 0, 0.02))) };
     }
     if (f.state === 'back') return f.start;
@@ -267,7 +321,7 @@ export class ClaimOffice {
       s?.note(70, 0.35, 0.22, { room: true, slide: 0.6 }); s?.hiss(0.12, 500, 0.12, { room: true });
       this.lines = OUTRO; this.lineI = -1; this.lineT = -0.8; this.nextLine(true);
     }
-    for (const f of this.forms) if (f.k < 1) f.k = Math.min(1, f.k + dt / f.dur);
+    for (const f of [...this.forms, this.sv1]) if (f.k < 1) f.k = Math.min(1, f.k + dt / f.dur);
   }
   nextLine(keepT) {
     this.lineI++; if (!keepT) this.lineT = 0;
@@ -298,35 +352,58 @@ export class ClaimOffice {
   // Form SV-1, asked across the desk: who you are, the team, its colours, where it's based, what you did before, the
   // marriage. Answers from a list, or typed (A / Enter keeps what's there)
   async registry() {
-    const f = { name: this.h.name || 'Driver' };
+    const sv = this.sv1, f = { name: this.h.name || 'Driver', colors: null, home: null, background: null, ex: null, years: null }, side = { side: true };
+    f.team = '';
+    const draw = (at, sign = 0, stamp = false) => { const t = sv.obj.userData.tex; t.image = sv1Canvas(f, at, sign, stamp); t.needsUpdate = true; };
+    const wait = (ms) => new Promise(r => setTimeout(r, ms));
+    const pen = () => { const snd = this.h.snd; if (snd) for (let k = 0; k < 5; k++) snd.hiss(0.06, 4400, 0.014, { room: true, delay: k * 0.08 }); };
+    draw(null);
     await this.say('Form SV-1. Registration of a Sporting Enterprise.');
-    await this.say('Full name.'); f.name = (await this.typeIn('Full name', f.name)) || f.name;
-    await this.say('Name of the enterprise.'); f.team = (await this.typeIn('Name of the enterprise', `${f.name.split(' ').pop()} Racing`)) || `${f.name.split(' ').pop()} Racing`;
-    await this.say('Colors. For the paperwork.');
-    const c = COLORS[await this.ask(COLORS.map(([a, b, n]) => `<i class="op-sw" style="background:${hexc(a)}"></i><i class="op-sw" style="background:${hexc(b)}"></i> ${n}`))]; f.colors = [c[0], c[1]];
-    await this.say('Registered premises. Racing near home saves you the travel.');
-    const towns = Object.keys(TOWNS); f.home = towns[await this.ask(towns.map(k => `${TOWNS[k].name} <small>${TOWNS[k].blurb}</small>`))];
-    await this.say('Previous occupation.');
-    const bgs = Object.keys(BACKGROUNDS); f.background = bgs[await this.ask(bgs.map(k => `${BACKGROUNDS[k].name} <small>${BACKGROUNDS[k].perk}</small>`))];
-    await this.say('Marital status.');
-    await this.ask(['Divorced.', 'Divorced. As of tonight.']);
-    await this.say('Former spouse.'); f.ex = (await this.typeIn('Former spouse', EX_NAMES[Math.floor(Math.random() * EX_NAMES.length)])) || 'Dana';
-    await this.say('Years married.');
-    f.years = [4, 7, 11, 15][await this.ask(['Four.', 'Seven.', 'Eleven.', 'Too many.'])];
-    await this.say('The processing fee is two hundred and fifty dollars. We\'ll take it out of the winnings.');
-    this.stampT = 0; this.h.snd?.note(70, 0.35, 0.22, { room: true, slide: 0.6 }); this.h.snd?.hiss(0.12, 500, 0.12, { room: true });
+    // he slides it over; you pick it up
+    sv.obj.visible = true; this.move(sv, 'desk'); sv.dur = 1.0; this.h.snd?.hiss(0.5, 1400, 0.02, { room: true });
+    await this.say('All of it. In pen.');
+    this.move(sv, 'held'); sv.dur = 0.7; this.h.snd?.hiss(0.25, 2200, 0.025, { room: true }); this.h.line('');
+    await wait(800);
+    // each line of the form: highlighted while you fill it in, written in when you have
+    const field = async (key, prompt, get) => { draw(key); this.h.say(prompt); f[key] = await get(); this.h.say(''); pen(); draw(null); await wait(450); };
+    const defTeam = `${f.name.split(' ').pop()} Racing`;
+    await field('team', 'Section A &middot; Name of the enterprise', async () => (await this.typeIn('Name of the enterprise', defTeam, side)) || defTeam);
+    await field('colors', 'Section A &middot; Colors', async () => { const c = COLORS[await this.ask(COLORS.map(([a, b, n]) => `<i class="op-sw" style="background:${hexc(a)}"></i><i class="op-sw" style="background:${hexc(b)}"></i> ${n}`), side)]; return [c[0], c[1]]; });
+    const towns = Object.keys(TOWNS), bgs = Object.keys(BACKGROUNDS);
+    await field('home', 'Section A &middot; Registered premises (racing near home saves the travel)', async () => towns[await this.ask(towns.map(k => `${TOWNS[k].name} <small>${TOWNS[k].blurb}</small>`), side)]);
+    await field('name', 'Section B &middot; Your full name', async () => (await this.typeIn('Full name', f.name, side)) || f.name);
+    await field('background', 'Section B &middot; Previous occupation', async () => bgs[await this.ask(bgs.map(k => `${BACKGROUNDS[k].name} <small>${BACKGROUNDS[k].perk}</small>`), side)]);
+    const exDef = EX_NAMES[Math.floor(Math.random() * EX_NAMES.length)];
+    await field('ex', 'Section C &middot; Former spouse', async () => (await this.typeIn('Former spouse', exDef, side)) || exDef);
+    await field('years', 'Section C &middot; Years married', async () => [4, 7, 11, 15][await this.ask(['4', '7', '11', '15'], side)]);
+    // sign it (the marker's on the line, on the paper in your hand)
+    draw('sign');
+    const sig = new THREE.Vector3(-0.035, -0.118, 0.001), o = sv.obj;
+    this.targets = [{ get at() { return o.localToWorld(sig.clone()); }, label: 'Sign here', objs: [o], hot: () => true }];
+    this.h.say(`${this.h.btn()} &nbsp;Sign it`);
+    await new Promise(res => { this.signRes = res; });
+    this.signRes = null; this.targets = []; this.h.say('');
+    const snd = this.h.snd; if (snd) for (let k = 0; k < 10; k++) snd.hiss(0.07, 4200 + hash(k) * 1500, 0.02, { room: true, delay: k * 0.09 });
+    for (let i = 1; i <= 12; i++) { draw(null, i / 12); await wait(80); }
+    await wait(500);
+    // back across the desk; the stamp
+    this.move(sv, 'back'); sv.dur = 0.8; await wait(1300);
+    this.stampT = 0; draw(null, 1, true); snd?.note(70, 0.35, 0.22, { room: true, slide: 0.6 }); snd?.hiss(0.12, 500, 0.12, { room: true });
+    await this.say('Two hundred and fifty dollars. We\'ll take it out of the winnings.');
     await this.say(`${f.team}. Registered.`);
     await this.say('Next.');
     this.reg = f; this.offT = 0; this.h.snd?.click();
   }
+  // the form in your hand, signed (A / Enter, a click on it, or its marker)
+  signSV1() { if (this.signRes) this.signRes(); }
   // a line of his (until it's had its time, or you click)
   say(s) {
     this.h.line(s);
     const snd = this.h.snd; if (snd) s.split(' ').forEach((w, i) => snd.note(120 + hash(i + s.length) * 50, 0.09, 0.018, { room: true, delay: 0.05 + i * 0.16 }));
     return new Promise(res => { this.lineWait = { res, t: 0, hold: Math.max(2.0, s.split(' ').length * 0.3 + 1.0) }; });
   }
-  ask(list) { return new Promise(res => this.h.choices(list, (i) => res(i))); }
-  typeIn(label, def) { return new Promise(res => this.h.input(label, def, (v) => res(v.trim()))); }
+  ask(list, o) { return new Promise(res => this.h.choices(list, (i) => res(i), o)); }
+  typeIn(label, def, o) { return new Promise(res => this.h.input(label, def, (v) => res(v.trim()), o)); }
 
   startHum() {
     const s = this.h.snd; if (!s || !s.ctx) return; const c = s.ctx;
@@ -345,7 +422,7 @@ export class ClaimOffice {
     cam.position.copy(EYE).add(new THREE.Vector3(Math.sin(this.t * 0.23) * 0.01, Math.sin(this.t * 1.1) * 0.004, 0));
     cam.lookAt(LOOK); cam.rotateY(this.yaw); cam.rotateX(this.pitch); cam.rotateZ(Math.sin(this.t * 0.17) * 0.006);
     cam.updateMatrixWorld();
-    for (const f of this.forms) {
+    for (const f of [...this.forms, this.sv1]) {
       const to = this.poseOf(f), o = f.obj;
       if (f.k < 1 && f.from) { const e = ease(f.k); o.position.lerpVectors(f.from.p, to.p, e); o.quaternion.slerpQuaternions(f.from.q, to.q, e); if (f.state === 'desk' || f.state === 'held') o.position.y += Math.sin(e * Math.PI) * (f.state === 'held' ? 0.05 : 0.004); }
       else { o.position.copy(to.p); o.quaternion.copy(to.q); }
@@ -353,7 +430,7 @@ export class ClaimOffice {
       const on = this.stage !== 'choose' || this.forms[this.sel] === f;
       f.lift = (f.lift || 0) + ((this.stage === 'choose' && on && f.state === 'desk' ? 1 : 0) - (f.lift || 0)) * 0.2;
       if (f.state === 'desk' && f.k >= 1) { o.position.y += f.lift * 0.02; o.rotateX(f.lift * 0.35); }
-      for (const m of o.userData.mats) m.color.setScalar(on ? 1 : 0.45);
+      if (f !== this.sv1) for (const m of o.userData.mats) m.color.setScalar(on ? 1 : 0.45);
     }
     post.render(this.scene, cam, { trails: 0, grade: [1.02, 0.99, 0.96] });
   }

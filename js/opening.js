@@ -378,7 +378,7 @@ export class Opening {
     this.onTag = (e) => {
       e.stopPropagation();
       if (this.stage !== 'office') return this.activate();
-      const O = this.office; if (O.stage === 'held') return O.signIt();
+      const O = this.office; if (O.stage === 'held') return O.signIt(); if (O.signRes) return O.signSV1();
       const f = O.forms[e.currentTarget === this.ui.tag2 ? 1 : 0]; if (O.stage === 'choose') O.pick(f);
     };
     el.addEventListener('pointerdown', this.onDown); addEventListener('pointermove', this.onMove); addEventListener('pointerup', this.onUp);
@@ -465,9 +465,10 @@ export class Opening {
       } });
   }
   // a list of answers to pick from (up / down and A, or click one); null: none
-  choices(list, pick) {
+  choices(list, pick, o = {}) {
     const el = this.ui.choices; this.choice = list ? { list, pick, i: 0 } : null;
     if (!list) { el.classList.remove('on'); return; }
+    el.classList.toggle('side', !!o.side); // (beside a paper you're holding, not under it)
     el.innerHTML = list.map((s, i) => `<div class="op-ch" data-i="${i}">${s}</div>`).join('');
     el.querySelectorAll('.op-ch').forEach(d => { d.onpointerup = (e) => { e.stopPropagation(); this.choice.i = +d.dataset.i; this.choiceOk(); }; d.onpointerenter = () => { this.choice.i = +d.dataset.i; this.choiceDraw(); }; });
     this.choiceDraw(); el.classList.add('on');
@@ -480,13 +481,14 @@ export class Opening {
   startOffice() {
     this.setStage('office'); this.ui.white.className = ''; this.target = null;
     this.office.start({ snd: this.snd, say: (s) => this.say(s), line: (s) => this.fadeText(this.ui.line, s), btn: () => this.btn(), back: () => this.backBtn(), pad: () => this.isPad(),
-      choices: (list, pick) => this.choices(list, pick), choiceNav: (d) => this.choiceNav(d), choiceOk: () => this.choiceOk(),
-      input: (label, def, cb) => this.input(label, def, cb), inputOk: () => this.inputOk(), name: this.name,
+      choices: (list, pick, o) => this.choices(list, pick, o), choiceNav: (d) => this.choiceNav(d), choiceOk: () => this.choiceOk(),
+      input: (label, def, cb, o) => this.input(label, def, cb, o), inputOk: () => this.inputOk(), name: this.name,
       done: (choice, reg) => { this.result = choice || reg ? { lottery: choice, reg } : null; this.skip(); } });
   }
   // a line to type into (a name), with what's there already; Enter, or A on a pad, files it
-  input(label, def, cb) {
+  input(label, def, cb, o = {}) {
     const el = this.ui.input, inp = el.querySelector('input');
+    el.classList.toggle('side', !!o.side);
     el.querySelector('label').textContent = label; inp.value = def || '';
     this.inputCb = cb; el.classList.add('on');
     setTimeout(() => { inp.focus(); inp.select(); }, 50);
