@@ -27,6 +27,8 @@ export class Ending {
     this.black = this.el.querySelector('.en-black'); this.card = this.el.querySelector('.en-card');
     this.black.style.opacity = 1;
     if (recordOnly || calm()) { this.toRecord(); return; }
+    // (the listing's photo first, with the lights still on: your car in your garage, or the empty bay)
+    try { this.photo = G.snapshot(G.carSnapPose()); } catch (e) { this.photo = null; }
     G.setNight(true);
     this.carStart = G.car ? G.car.group.position.clone() : null;
     this.listStart = G.listMesh ? { p: G.listMesh.position.clone(), q: G.listMesh.quaternion.clone() } : null;
@@ -136,7 +138,10 @@ export class Ending {
     g.font = '13px Arial'; g.fillText('san velocita > for sale > ' + a.section, 110, 29);
     g.fillStyle = '#111'; g.font = 'bold 26px Arial'; g.fillText(a.title, 22, 92);
     g.fillStyle = '#1f6b2f'; g.font = 'bold 24px Arial'; g.fillText(a.price, 22, 128);
-    g.fillStyle = '#ccc'; g.fillRect(22, 146, 250, 180); g.fillStyle = '#888'; g.font = '14px Arial'; g.fillText('(photo coming)', 92, 240);
+    // the photo (cropped to fill its box), or a grey box while there isn't one
+    g.fillStyle = '#ccc'; g.fillRect(22, 146, 250, 180);
+    if (this.photo) { const p = this.photo, k = Math.max(250 / p.width, 180 / p.height), sw = 250 / k, sh = 180 / k; g.drawImage(p, (p.width - sw) / 2, (p.height - sh) / 2, sw, sh, 22, 146, 250, 180); g.strokeStyle = '#999'; g.strokeRect(22.5, 146.5, 249, 179); }
+    else { g.fillStyle = '#888'; g.font = '14px Arial'; g.fillText('(photo coming)', 92, 240); }
     g.fillStyle = '#222'; g.font = '16px Arial';
     let y = 160; for (const para of a.body) { const words = para.split(' '); let line = '';
       for (const wd of words) { if (g.measureText(line + wd).width > 320) { g.fillText(line, 292, y); y += 21; line = ''; } line += wd + ' '; }

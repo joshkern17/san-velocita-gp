@@ -325,6 +325,25 @@ export class PitGarage {
   }
 
   // ---------- the ending (World Career: js/ending.js): a scripted camera, the room at night, the way out ----------
+  // a photo of the room from a pose ({ pos, at, fov }): rendered once, off screen, with the room's own lights; a canvas
+  // (the ending's SVList ad: your car, as you'd snap it on your phone before you list it)
+  snapshot(pose, W = 500, H = 360) {
+    const cam = new THREE.PerspectiveCamera(pose.fov || 50, W / H, 0.05, 120); cam.position.copy(pose.pos); cam.lookAt(pose.at);
+    if (pose.roll) cam.rotateZ(pose.roll);
+    const rt = new THREE.WebGLRenderTarget(W, H); rt.texture.colorSpace = THREE.SRGBColorSpace;
+    const r = this.r, prev = r.getRenderTarget();
+    r.setRenderTarget(rt); r.clear(); r.render(this.scene, cam); r.setRenderTarget(prev);
+    const px = new Uint8Array(W * H * 4); r.readRenderTargetPixels(rt, 0, 0, W, H, px); rt.dispose();
+    const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'), img = g.createImageData(W, H);
+    for (let y = 0; y < H; y++) img.data.set(px.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4); // (the GPU's rows are bottom-up)
+    g.putImageData(img, 0, 0);
+    return c;
+  }
+  // the car (or its empty bay) from the front three-quarter, at phone height
+  carSnapPose() {
+    const C = this.carCentre(), d = this.doorDir(), side = new THREE.Vector3(-d.z, 0, d.x);
+    return { pos: C.clone().addScaledVector(d, 3.4).addScaledVector(side, 2.3).setY(1.35), at: C.clone().setY(0.45), fov: 52, roll: -0.035 };
+  }
   // when your garage model (if there is one) is in the room: the shots are placed from what's in it
   roomReady() { return loadRoom().then(m => m && !this.custom ? new Promise(r => { const t0 = performance.now(), chk = () => this.custom || performance.now() - t0 > 3000 ? r() : setTimeout(chk, 50); chk(); }) : null); }
   // cine(pose, secs): move the camera to { pos, at, fov, shift } over secs (0: a cut)
