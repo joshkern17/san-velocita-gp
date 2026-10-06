@@ -9,6 +9,9 @@
 Saves: on the game's own port (8000) the game mirrors everything it saves (tracks, liveries, careers, settings,
 your livery images) into saves/ next to this file, and restores from it if the browser's storage comes back empty.
 A dated copy is kept each day for two weeks (saves/history/). Other ports (test servers) don't touch saves/.
+If iCloud Drive is on, saves/ (not the ChatGPT sign-in) is also copied to iCloud Drive/San Velocita Saves/ a few
+seconds after each save and when the server stops, so the saves outlive this Mac; if saves/ is ever empty at
+start-up, it's filled back from there first.
 
 Character voices (llm.py): "Sign in with ChatGPT" for the game's LLM layer, on /__llm/* and /auth/callback. The account's
 tokens are kept in saves/llm/ (a temp folder for test servers).
@@ -22,6 +25,9 @@ last_ping = time.time()
 SAVES = os.path.join(os.getcwd(), 'saves') if PORT == 8000 or '--saves' in sys.argv else None
 LS, ASSETS = (os.path.join(SAVES, 'storage'), os.path.join(SAVES, 'assets')) if SAVES else (None, None)
 lock = threading.Lock()
+CLOUD_DOCS = os.path.expanduser('~/Library/Mobile Documents/com~apple~CloudDocs')
+CLOUD = os.path.join(CLOUD_DOCS, 'San Velocita Saves') if SAVES and os.path.isdir(CLOUD_DOCS) else None
+CLOUD_PARTS = ('storage', 'assets', 'history')   # saves/llm holds sign-in tokens: those stay on this Mac
 sys.path.insert(0, os.getcwd())
 import llm
 VOICES = llm.Voices(os.path.join(SAVES, 'llm') if SAVES else os.path.join(tempfile.gettempdir(), f'svgp-llm-{PORT}'), PORT)
@@ -41,6 +47,71 @@ def daily_copy():
         shutil.copytree(ASSETS, os.path.join(day, 'assets'))
     for old in sorted(os.listdir(hist))[:-14]:
         shutil.rmtree(os.path.join(hist, old), ignore_errors=True)
+
+def sync_tree(src, dst):
+    # make dst match src: copy what's new or changed, drop what src no longer has
+    if not os.path.isdir(src):
+        return
+    for root, dirs, files in os.walk(src):
+        out = os.path.join(dst, os.path.relpath(root, src))
+        os.makedirs(out, exist_ok=True)
+        for f in files:
+            if f.endswith('.tmp'):
+                continue
+            a, b = os.path.join(root, f), os.path.join(out, f)
+            sa = os.stat(a)
+            try:
+                sb = os.stat(b)
+                if sb.st_size == sa.st_size and int(sb.st_mtime) == int(sa.st_mtime):
+                    continue
+            except OSError:
+                pass
+            shutil.copy2(a, b)
+    for root, dirs, files in os.walk(dst, topdown=False):
+        mine = os.path.join(src, os.path.relpath(root, dst))
+        for f in files:
+            if not os.path.exists(os.path.join(mine, f)):
+                os.remove(os.path.join(root, f))
+        if root != dst and not os.path.isdir(mine):
+            shutil.rmtree(root, ignore_errors=True)
+
+def cloud_copy():
+    # saves/ -> iCloud Drive (never allowed to get in the way of the game)
+    if not CLOUD:
+        return
+    try:
+        with lock:
+            for part in CLOUD_PARTS:
+                sync_tree(os.path.join(SAVES, part), os.path.join(CLOUD, part))
+    except Exception as e:
+        print('iCloud copy of saves failed:', e)
+
+cloud_timer = None
+def cloud_soon():
+    # a few seconds after the last save of a burst
+    global cloud_timer
+    if not CLOUD:
+        return
+    if cloud_timer:
+        cloud_timer.cancel()
+    cloud_timer = threading.Timer(5, cloud_copy)
+    cloud_timer.daemon = True
+    cloud_timer.start()
+
+def cloud_restore():
+    # saves/ is empty (a new Mac, or the folder was lost) but iCloud has a copy: put it back before the game asks
+    if not CLOUD or not os.path.isdir(os.path.join(CLOUD, 'storage')):
+        return
+    if os.path.isdir(LS) and os.listdir(LS):
+        return
+    try:
+        for part in CLOUD_PARTS:
+            src = os.path.join(CLOUD, part)
+            if os.path.isdir(src):
+                shutil.copytree(src, os.path.join(SAVES, part), dirs_exist_ok=True)
+        print('Saves restored from iCloud Drive.')
+    except Exception as e:
+        print('Restoring saves from iCloud failed:', e)
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
@@ -127,6 +198,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     fh.write(body)
             else:
                 self.send_response(404); self.end_headers(); return
+        cloud_soon()
         self.reply('ok', 'text/plain')
     def reply(self, text, ctype):
         data = text.encode('utf-8')
@@ -149,6 +221,10 @@ def watchdog(httpd):
             httpd.shutdown()
             return
 
+if CLOUD:
+    cloud_restore()
+    cloud_copy()
+
 with Server(('127.0.0.1', PORT), Handler) as httpd:
     url = f'http://localhost:{PORT}/'
     print(f'San Velocita Grand Prix running at {url}  (Ctrl+C to stop)')
@@ -160,3 +236,6 @@ with Server(('127.0.0.1', PORT), Handler) as httpd:
         httpd.serve_forever()
     except KeyboardInterrupt:
         pass
+    if cloud_timer:
+        cloud_timer.cancel()
+    cloud_copy()
