@@ -3130,7 +3130,7 @@ export class Race {
     }
     this.world.startLights.forEach((m, k) => m.color.setHex(k < this.lightsOn ? 0xff2010 : 0x220606));
 
-    if (racing && !this.net) this.raceTime += dt;
+    if (racing && (!this.net || this.quali)) this.raceTime += dt; // (online races take it from the shared start; a session times each car's laps on its own copy)
 
     // controls
     for (const car of this.cars) {
