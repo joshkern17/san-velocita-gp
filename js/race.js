@@ -2450,15 +2450,18 @@ export class Race {
     const pos = pit.REG[car.idx];
     const limitAt = pit.limitIn ?? Math.round(pit.nRamp * 0.55), limitEnd = pit.limitOut ?? pit.count - Math.round(pit.nRamp * 0.45);
     let vt;
+    // (how hard it can brake here: the dry-tarmac figures, less in the wet and on dirt, where the tyres can't stop the
+    // car that quickly and it would slide past the speed line and the box)
+    const gk = Math.max(0.4, Math.min(1, this.rainGrip || 1) * (this.dirt ? 0.6 : 1)), decL = 11 * gk, decB = 8 * gk;
     if (pos < 0) { // approaching the entry
       const d = ((pit.start - car.idx + N) % N) * T.ds + limitAt * T.ds;
-      vt = Math.min((car.lineV || this.lineV)[car.idx] * 0.95, Math.sqrt(pit.speed ** 2 + 2 * 11 * d));
-    } else if (pos < limitAt) vt = Math.sqrt(pit.speed ** 2 + 2 * 11 * (limitAt - pos) * T.ds);
+      vt = Math.min((car.lineV || this.lineV)[car.idx] * 0.95, Math.sqrt(pit.speed ** 2 + 2 * decL * d));
+    } else if (pos < limitAt) vt = Math.sqrt(pit.speed ** 2 + 2 * decL * (limitAt - pos) * T.ds);
     else if (pos <= limitEnd) vt = pit.speed * 0.97;
     else vt = (car.lineV || this.lineV)[car.idx];
     const through = car.pitReq && car.pitReq.dt; // (a drive-through: past the box at the limiter)
-    if (car.pitPhase === 'in' && toBox < 200 && !through) vt = Math.min(vt, Math.sqrt(2 * 8 * Math.max(0, toBox - 0.3)));
-    if (car.pitPhase === 'in' && fromBox < 8 && !through) vt = 0; // rolled just past the box: stop, the crew will come to you
+    if (car.pitPhase === 'in' && toBox < 200 && !through) vt = Math.min(vt, Math.sqrt(2 * decB * Math.max(0, toBox - 0.3)));
+    if (car.pitPhase === 'in' && fromBox < 40 && !through) vt = 0; // rolled past the box: stop, the crew will come to you
     // double stacking: your teammate's in the box (or nearer it): stop 7.5 m short and wait for it to clear
     const busy = car.pitPhase === 'in' && !through ? this.boxBusy(car) : null;
     if (busy) { vt = Math.min(vt, Math.sqrt(2 * 8 * Math.max(0, toBox - 7.8))); if (toBox < 12 && car.phys.speed < 1) car.pitWait = (car.pitWait || 0) + dt; }
@@ -2524,13 +2527,13 @@ export class Race {
       // at the box: stop (also if it arrives a touch quick or rolls a few metres past)
       // (overshot the box, past where it could stop: no stop, out again, the wheel back to you, rather than chasing a box
       // that's behind you)
-      const past = T.L - d;
-      if (car.pitReq && !car.pitReq.dt && past > 25 && past < 400) { car.pitPhase = 'out'; if (car.isPlayer) this.events.push({ type: 'radio', msg: car.pitReq.garage ? 'You went past the garage. Come in next lap.' : 'You overshot the box. No stop: come in again next lap.' }); return; }
-      if (car.pitReq && car.pitReq.garage) { if ((d < 1.5 || d > T.L - 6) && car.phys.speed < 3) this.enterGarage(car); } // (sessions: into the garage)
+      const past = T.L - d, at = d < 1.5 || past < 40; // (at the box, or stopped short of 40 m past it: the crew comes to you)
+      if (car.pitReq && !car.pitReq.dt && past >= 40 && past < 400) { car.pitPhase = 'out'; if (car.isPlayer) this.events.push({ type: 'radio', msg: car.pitReq.garage ? 'You went past the garage. Come in next lap.' : 'You overshot the box. No stop: come in again next lap.' }); return; }
+      if (car.pitReq && car.pitReq.garage) { if (at && car.phys.speed < 3) this.enterGarage(car); } // (sessions: into the garage)
       else if (car.pitReq && car.pitReq.dt) {
         // drive-through: served once past your box (no stop, and it isn't a pit stop for the strategy)
         if (d < 2 || d > T.L - 30) { car.pitPhase = 'out'; this.rc.driveThroughServed(car); }
-      } else if ((d < 1.5 || d > T.L - 6) && car.phys.speed < 3 && !this.boxBusy(car)) {
+      } else if (at && car.phys.speed < 3 && !this.boxBusy(car)) {
         // time penalties are served first: the crew can't touch the car until they're up
         const pen = car.pen || 0;
         car.pitPhase = 'stop'; car.penServing = pen; car.pen = 0;
