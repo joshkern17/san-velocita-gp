@@ -115,6 +115,7 @@ export class HUD {
     this.el.feed.innerHTML = ''; this.feedEls = [];
     $('h-radio').innerHTML = ''; $('h-radio').classList.remove('calling'); this.radioEls = []; this.call = null;
     this.st.el.classList.remove('on');
+    $('h-prog').classList.remove('on'); $('h-gate').classList.remove('on');
     this.secPaths = null; this.quali = null;
   }
 
@@ -186,6 +187,28 @@ export class HUD {
     // (the plan used to sit over the car: it's in the strategy panel now)
     this.set('plan', $('h-plan'), s.wear && s.plan && !s.strat ? `BOX LAP ${s.plan.lap}<i style="background:${TYRE_CSS[s.plan.tyre]}"></i>${s.plan.tyre.toUpperCase()}` : '', true);
     this.strategy(s);
+    this.programme(s.prog);
+  }
+
+  // the run plan's job on track (practice.js): gates through on this lap, its rating so far, the best lap's rating,
+  // and the brake points marked for the weekend
+  programme(P) {
+    const el = $('h-prog'); el.classList.toggle('on', !!P); if (!P) return;
+    const pc = (x) => Math.round(x * 100) + '%';
+    this.set('pgGates', $('h-pg-gates'), `${P.n}<small> / ${P.total}</small>`, true);
+    this.set('pgLap', $('h-pg-lap'), P.rating == null ? '\u2014' : pc(P.rating));
+    this.set('pgBest', $('h-pg-best'), P.best ? `<span class="${P.done ? 'done' : ''}">${pc(P.best)}</span>` : '\u2014', true);
+    this.set('pgMarks', $('h-pg-marks'), `${P.marks}<small> / ${P.brakes}</small>`, true);
+  }
+  // a gate just driven through: PERFECT / GOOD / TOO FAST / TOO SLOW / MISSED, and how far off its speed you were
+  gate(ev) {
+    const e = $('h-gate'), u = this.units === 'mph' ? 2.23694 : 3.6, d = Math.round(ev.dv * u), unit = this.units === 'mph' ? 'MPH' : 'KM/H';
+    const word = { perfect: 'PERFECT', good: 'GOOD', fast: 'TOO FAST', slow: 'TOO SLOW', wide: 'MISSED' }[ev.res];
+    const sub = ev.nailed ? 'BRAKE POINT MARKED' : ev.res === 'wide' ? 'OFF THE LINE' : `${d > 0 ? '+' : d < 0 ? '\u2212' : '\u00b1'}${Math.abs(d)} ${unit}`;
+    e.className = 'gate-msg on ' + (ev.res === 'perfect' ? 'perfect' : ev.res === 'good' ? 'good' : 'miss');
+    e.innerHTML = `${word}<small>${sub}</small>`;
+    clearTimeout(this.timers.gate);
+    this.timers.gate = setTimeout(() => e.classList.remove('on'), 900);
   }
 
   // the strategy panel (races with a pit lane, or tyre wear): the set you're on and how old it is, the plan, where a

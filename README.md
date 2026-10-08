@@ -31,6 +31,14 @@ stopped.
 (including your own tracks) to learn how fast each corner can be taken; difficulty is a percentage of that limit.
 Legend and Alien never slow down to let you catch up.
 
+**Practice run plan:** in practice, the garage's Run Plan gives you a job from the engineer instead of free
+running (`js/practice.js`). **Track Acclimatization**: gates on the line at each corner's braking (red), apex
+(amber) and exit (green), each showing the speed to carry, taken from a clean reference lap in your car. Through
+the middle at the speed is PERFECT, close is GOOD; a lap rated 70% or better does the job. Every brake point you
+nail gets a marker board beside the track for the rest of the weekend (qualifying and the race too; in the World
+Career a test day's count for race weekend). The gates can also be switched on from the pause menu in a time
+trial, and they're out from the start on a test day.
+
 ## Rendering (post processing)
 The main menu's background race uses a generated setting (town, city, Japanese streets or industrial) at dusk or night,
 with the same effects as a race.

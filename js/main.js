@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { PS2Post } from './post.js';
 import { Race, TYRE_FIT, buildScenery, setMirror } from './race.js';
+import { PROGRAMMES, progById, ACCLIM_PASS } from './practice.js';
 import { FX } from './tirefx.js';
 import { realTracks, needsHydrate, hydrateReal, nameCorners } from './realtracks.js';
 import { HUD, fmtTime, RADAR_ZOOMS, readThemeColours, condCol } from './hud.js';
@@ -994,8 +995,17 @@ function startWeekend(track, race, ret, format, len) {
 function startSession(kind, first = false) {
   const w = weekend; w.stage = kind;
   const carry = w.ret === 'world' && wkUse && world && world.money ? { startSet: sessionSet(kind) } : {}; // (raceReturn isn't 'world' yet on the first session)
-  const extra = { ...(w.race.extra || {}), ...(w.car ? { car: w.car } : {}), ...(w.roster ? { roster: w.roster, aiSetup: w.aiSetup } : {}), ...(w.rubber ? { rubber: w.rubber } : {}), ...carry };
+  const extra = { ...(w.race.extra || {}), ...(w.car ? { car: w.car } : {}), ...(w.roster ? { roster: w.roster, aiSetup: w.aiSetup } : {}), ...(w.rubber ? { rubber: w.rubber } : {}), ...(w.data ? { trackData: w.data } : {}), ...carry };
   startRace(w.track, { ...w.race, mode: kind, practiceTime: w.len[0], qualiTime: w.len[1], pick: first && w.race.pick, extra }, w.ret);
+}
+// the track data the run plan has gathered (race.tdata, practice.js): kept for the sessions after this one. A World
+// Career keeps it for the week (a test day's counts on race weekend); in co-op each of you keeps your own.
+function keepTrackData() {
+  if (!sim || !sim.tdata) return;
+  const d = JSON.parse(JSON.stringify(sim.tdata));
+  if (weekend) weekend.data = d;
+  if (world && (raceReturn === 'world' || raceReturn === 'testday')) { WC.weekOf(world).trackData = d; saveWorld(); }
+  if (coop && raceReturn === 'coop') coop.tdata = { key: sim.track.name, d };
 }
 // what the next session keeps from this one
 function keepWeekend() {
@@ -1026,7 +1036,7 @@ function showQualiResults() {
   const toRace = () => {
     const w = weekend, g = sim.qualiGrid();
     if (wkOn() && wkUse.carry) { WC.keepUsed(world, wkUse.carry); wkUse.carry = null; } // (the qualifying set comes off for the race)
-    startRace(w.track, { ...w.race, mode: 'race', pick: false, fromQuali: true, extra: { ...(w.race.extra || {}), ...g, car: { ...sim.opts.car }, ...(sim.rubber ? { rubber: sim.rubber.state() } : {}) } }, w.ret);
+    startRace(w.track, { ...w.race, mode: 'race', pick: false, fromQuali: true, extra: { ...(w.race.extra || {}), ...g, car: { ...sim.opts.car }, ...(sim.rubber ? { rubber: sim.rubber.state() } : {}), trackData: sim.tdata } }, w.ret);
   };
   const items = practice
     ? [{ label: 'Continue To Qualifying', cls: 'action primary', action: () => { keepWeekend(); startSession('quali'); }, desc: 'Same car, same field: now it counts.' }]
@@ -1204,6 +1214,7 @@ function renderGarageMenu() {
   pgSkipLbl = q.left > 330 ? 'Skip 5 Minutes' : 'Skip To The End';
   if (pgView === 'tyres') { const m = menus['s-pitgarage'][0]; m.setItems(tyreItems(), false); m.i = m.items.findIndex(it => !it.head); m.render(); renderHints(); return; }
   if (pgView === 'repair') { const m = menus['s-pitgarage'][0]; m.setItems(repairItems(), false); m.i = m.items.findIndex(it => !it.head); m.render(); renderHints(); return; }
+  if (pgView === 'plan') { const m = menus['s-pitgarage'][0], items = planItems(); m.setItems(items, false); m.i = Math.max(0, items.findIndex(it => it.on)); m.render(); renderHints(); return; }
   const t = sim.player.phys.tyre;
   const open = sim.T.open, runsLeft = open ? (q.runs || 1) - (q.used || 0) : 0;
   const items = [
@@ -1211,6 +1222,8 @@ function renderGarageMenu() {
         desc: `From the top: a standing start, timed from the line to the finish, then back up here. ${runsLeft === 1 ? '<b>Your last run.</b>' : `${runsLeft} runs left.`} ${q.kind === 'practice' ? 'Learn the road.' : 'Your best run sets your grid slot.'}` }]
       : [{ label: 'Flying Lap', cls: 'action primary', action: () => goOut('flying'), desc: 'Straight onto a flying lap: the clock starts at the line.' }]),
     ...(sim.pit && !open ? [{ label: 'Drive Out', cls: 'action', action: () => goOut('drive'), desc: 'Down the pit lane and an out lap first, to get the tyres going.' }] : []),
+    ...(q.kind === 'practice' ? [{ label: `Run Plan<small>${sim.prog ? progById(sim.prog.id).name : 'Free Running'}</small>`, action: () => { pgView = 'plan'; sfx.select(); renderGarageMenu(); },
+        desc: `What to do on track: free running, or a job from the engineer that gathers track data for the weekend. ${planSummary()}` }] : []),
     { label: `Tyres<small>${capit(t.c)} &middot; ${pct(t)}%</small>`, action: () => { pgView = 'tyres'; sfx.select(); renderGarageMenu(); }, desc: `Change tyres: a new set of any compound${wkOn() ? ` (${WC.money$(WC.tyreCost(world))} each)` : ''}, or one you ran earlier.` },
     repairItem(),
     { label: `Tuning<small>${activeName(sim.player.carId) || 'Standard'}</small>`, action: () => openTuning('s-pitgarage', sim.player.carId),
@@ -1228,6 +1241,28 @@ function renderGarageMenu() {
     ...(quick && raceReturn !== 'coop' ? [{ label: 'Quit', confirm: 'Quit? Select again', action: () => { weekend = null; pitGarage.close(); quitToMenu(); }, desc: 'Back to the main menu.' }] : []),
   ];
   const m = menus['s-pitgarage'][0]; m.setItems(items, true); m.render();
+}
+// the run plan (practice.js): free running or one of the engineer's jobs, each with how it's gone this weekend. Pick
+// a job and it's on from your next lap (the menu goes back with Flying Lap / Start Run under the cursor)
+const progStatus = (id) => {
+  const a = sim && sim.tdata && sim.tdata[id]; if (!a || !a.best) return 'Not done yet';
+  return `${a.done ? 'Done' : 'Best'} &middot; ${Math.round(a.best * 100)}%`;
+};
+function planSummary() {
+  const a = sim.tdata.acclim;
+  return a && a.marks && a.marks.length ? `Brake markers out so far: <b>${a.marks.length}</b>.` : '';
+}
+function planItems() {
+  const cur = sim.prog ? sim.prog.id : null, pick = (id) => {
+    sim.setProgramme(id); sfx.select(); pgView = 'main'; renderGarageMenu(); renderGarageInfo(); renderHints();
+    const m = menus['s-pitgarage'][0]; m.i = 0; m.render(); // (back on Flying Lap / Start Run)
+  };
+  const items = [{ label: 'Run Plan', head: true },
+    { label: `Free Running${cur ? '' : '<small>On</small>'}`, on: !cur, action: () => pick(null), desc: 'No job: drive as you like.' }];
+  for (const P of PROGRAMMES) items.push({ label: `${P.name}<small>${cur === P.id ? 'On &middot; ' : ''}${progStatus(P.id)}</small>`, on: cur === P.id, action: () => pick(P.id),
+    desc: P.desc + (P.id === 'acclim' && sim.tdata.acclim?.marks?.length ? ` You've marked <b>${sim.tdata.acclim.marks.length}</b> so far.` : '') });
+  items.push({ label: 'Back', action: () => { pgView = 'main'; sfx.back(); renderGarageMenu(); renderHints(); }, desc: 'Back to the garage.' });
+  return items;
 }
 // the repair row: how long the crew needs (it comes off the session clock)
 // the repairs row: what all of it would take; select it for the list, part by part
@@ -1297,18 +1332,28 @@ function renderGarageInfo() {
     const part = (name, x, secs) => `<div class="pg-row"><span>${name}</span><i class="pg-bar"><b style="width:${Math.round((1 - x) * 100)}%;background:${col(x)};color:${col(x)}"></b></i><em>${secs ? mmss(secs) : 'OK'}</em></div>`;
     const wear = Math.min(t.wf, t.wr);
     const rack = rackOf(), next = rack.length ? `${rack.length} used set${rack.length === 1 ? '' : 's'} on the rack` : '';
-    const real = pl.phys.engOn, key = [d.fw, d.rw, d.ch, d.rad || 0, d.gb || 0, d.fl || 0, wear, t.c, rack.length, wkOn() ? wkSpend() : 0].map(v => typeof v === 'number' ? v.toFixed(2) : v).join();
+    const real = pl.phys.engOn, key = [d.fw, d.rw, d.ch, d.rad || 0, d.gb || 0, d.fl || 0, wear, t.c, rack.length, wkOn() ? wkSpend() : 0, JSON.stringify(sim.tdata), sim.prog?.id].map(v => typeof v === 'number' ? v.toFixed(2) : v).join();
     if (key !== pgWorkKey) {
       pgWorkKey = key;
       const wc = condCol((1 - wear) / 0.7);
       $('pg-car').innerHTML = `<div class="panel-title">CAR</div>` + part('Front wing', d.fw, w.fw) + part('Rear wing', d.rw, w.rw) + part('Suspension', d.ch, w.ch)
         + (real ? part('Floor', d.fl || 0, w.fl) + part('Radiator', d.rad || 0, w.rad) + part('Gearbox', d.gb || 0, w.gb) : '') // (Realistic damage)
         + `<div class="pg-row"><span>${tyreDot(t.c)}${capit(t.c)} tyres</span><i class="pg-bar"><b style="width:${Math.round(wear * 100)}%;background:${wc};color:${wc}"></b></i><em>${Math.round(wear * 100)}%</em></div>`
-        + (next ? `<p class="pg-note">${next}</p>` : '');
+        + (next ? `<p class="pg-note">${next}</p>` : '') + (q.kind === 'practice' ? planRows() : '');
       if (wkOn()) pgReceipt();
     }
   }
   if ((q.left > 330 ? 'Skip 5 Minutes' : 'Skip To The End') !== pgSkipLbl) renderGarageMenu();
+}
+// the garage's car panel, in practice: each job on the run plan and how far it's got (its best lap's rating, the line
+// where it's done), and what it's paid out so far
+function planRows() {
+  const rows = PROGRAMMES.map(P => {
+    const a = sim.tdata[P.id] || {}, b = a.best || 0, col = a.done ? 'var(--sv-good)' : 'var(--sv-cyan)';
+    return `<div class="pg-row pg-plan${sim.prog?.id === P.id ? ' on' : ''}"><span>${P.short}</span><i class="pg-bar"><b style="width:${Math.round(b * 100)}%;background:${col};color:${col}"></b><u style="left:${ACCLIM_PASS * 100}%"></u></i><em>${b ? Math.round(b * 100) + '%' : '&mdash;'}</em></div>`;
+  }).join('');
+  const m = sim.tdata.acclim?.marks?.length || 0;
+  return `<div class="panel-title pg-plan-title">RUN PLAN</div>${rows}${m ? `<p class="pg-note">${m} brake marker${m === 1 ? '' : 's'} out for the weekend</p>` : ''}`;
 }
 function goOut(how) {
   if (sim && sim.net && sim.net.goT == null) { sfx.error(); const wt = netWaiting().filter(n => n !== sim.player?.name); toast(`The clock starts when everyone's loaded${wt.length ? `: waiting for <b>${wt.join(', ')}</b>` : ''}.`); return; }
@@ -1319,7 +1364,7 @@ function goOut(how) {
 }
 menus['s-pitgarage'] = [new Menu($('m-pitgarage'), [], { desc: 'd-pitgarage' })];
 backs['s-pitgarage'] = () => { if (pgView !== 'main' && !pgBusy) { pgView = 'main'; sfx.back(); renderGarageMenu(); renderHints(); } };
-HINTS['s-pitgarage'] = () => pgPcFocus ? [['nav', 'Move'], ['ok', 'Select'], ['tab', 'Sections'], ['back', 'Menu']] : pgView === 'tyres' ? [['nav', 'Navigate'], ['ok', 'Fit'], ['back', 'Back']] : pgView === 'repair' ? [['nav', 'Navigate'], ['ok', 'Fix'], ['back', 'Back']] : [['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ...(pgDesk && pc.isOpen ? [['tab', 'Computer']] : [])];
+HINTS['s-pitgarage'] = () => pgPcFocus ? [['nav', 'Move'], ['ok', 'Select'], ['tab', 'Sections'], ['back', 'Menu']] : pgView === 'tyres' ? [['nav', 'Navigate'], ['ok', 'Fit'], ['back', 'Back']] : pgView === 'repair' ? [['nav', 'Navigate'], ['ok', 'Fix'], ['back', 'Back']] : pgView === 'plan' ? [['nav', 'Navigate'], ['ok', 'Choose'], ['back', 'Back']] : [['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ...(pgDesk && pc.isOpen ? [['tab', 'Computer']] : [])];
 
 // ---------------- career / grand prix ----------------
 let career = null;
@@ -2773,7 +2818,8 @@ function startWorldRound() {
   if (w.coop && w.people[w.coop.pid]) tgs.unshift(`Targets: you top ${WC.driverTarget(w, 'P')}, ${w.people[w.coop.pid].first} top ${WC.driverTarget(w, w.coop.pid)} (${WC.money$(WC.targetBonus(w))} each)`);
   const brief = `<b>${seriesName(sid).toUpperCase()} &middot; ROUND ${w.round + 1} OF ${w.opts.len}</b>${tgs.length ? '<br>' + tgs.join('<br>') : ''}`;
   const race = { mode: 'race', laps: worldLaps(w, r), opponents: 11, brief, pick: !owned, onlyClass: cls,
-    extra: { car, mods, failure, bop: WC.bopTable(w, carsOfClass(cls).map(chassisKey)), difficulty: w.opts.difficulty, grid: 'back', team: 'garage', engineer: WC.staffOf(w, 'engineer')?.skill ?? 0, wx, roster: ent.roster, entries: ent.entries, teamPace: ent.teamPace, gridOrder, aiChassis: 'class', playerName: w.player.name.split(' ').pop().toUpperCase() } };
+    extra: { car, mods, failure, bop: WC.bopTable(w, carsOfClass(cls).map(chassisKey)), difficulty: w.opts.difficulty, grid: 'back', team: 'garage', engineer: WC.staffOf(w, 'engineer')?.skill ?? 0, wx, roster: ent.roster, entries: ent.entries, teamPace: ent.teamPace, gridOrder, aiChassis: 'class', playerName: w.player.name.split(' ').pop().toUpperCase(),
+      trackData: WC.weekOf(w).trackData || null } };
   phone.hide();
   if (coopLive()) return w.opts.weekend === 'race' ? coopStartRace(track, race, ent) : coopStartSession(w.opts.weekend === 'full' ? 'practice' : 'quali', { track, race, ent }); // (co-op: the weekend online)
   if (w.opts.weekend !== 'race') return startWeekend(track, race, 'world', w.opts.weekend, [w.opts.pracLen, w.opts.qualiLen]);
@@ -3263,7 +3309,14 @@ function startTestDay() {
   const base = calTrack(R);
   const track = cloneTrack(base); track.env.time = R.time; track.env.weather = R.weather;
   phone.hide();
-  startRace(track, { mode: 'test', pick: false, brief: `<b>TEST DAY &middot; ${R.name.toUpperCase()}</b><br>Five laps or more finds a setup for the race. Pause to end the day.`, extra: { car: worldCar(), mods: WC.carMods(w) } }, 'testday');
+  startRace(track, { mode: 'test', pick: false, brief: `<b>TEST DAY &middot; ${R.name.toUpperCase()}</b><br>Five laps or more finds a setup for the race. The acclimatization gates are out: nail the red ones and your brake points are marked for the weekend. Pause to end the day.`,
+    extra: { car: worldCar(), mods: WC.carMods(w), trackData: WC.weekOf(w).trackData || null, programme: 'acclim' } }, 'testday');
+}
+// what the test day's run plan found (the gates' best lap, the brake markers out for the weekend)
+function testPlanRows() {
+  const a = sim && sim.tdata && sim.tdata.acclim; if (!a || !a.best) return '';
+  return `<div class="row"><span>Acclimatization</span><span>${Math.round(a.best * 100)}%${a.done ? ' &middot; done' : ''}</span></div>`
+    + (a.marks.length ? `<div class="row"><span>Brake markers</span><span>${a.marks.length} for the weekend</span></div>` : '');
 }
 function testFinish() {
   const w = world; if (!w || !sim || !sim.player) return;
@@ -3272,7 +3325,7 @@ function testFinish() {
   sim.setPaused(true); saveWorld();
   const R = w.series[w.player.series].cal[w.round];
   weekResult('Test Day', `${R.name} · ${laps} lap${laps === 1 ? '' : 's'}`, [['Track hire (paid when booked)', -WC.testCost(w)], ['Fuel', w.money.balance - before]],
-    `${best ? `<div class="row"><span>Best lap</span><span>${fmtTime(best, 3)}</span></div>` : ''}<p class="hub-note">${ok ? `You found a setup: a little more grip at ${R.name} this weekend.` : `Not enough laps to find a setup (five needed).`}</p>`, w.money.balance - before - WC.testCost(w));
+    `${best ? `<div class="row"><span>Best lap</span><span>${fmtTime(best, 3)}</span></div>` : ''}${testPlanRows()}<p class="hub-note">${ok ? `You found a setup: a little more grip at ${R.name} this weekend.` : `Not enough laps to find a setup (five needed).`}</p>`, w.money.balance - before - WC.testCost(w));
 }
 
 // ---------------- online ----------------
@@ -3804,12 +3857,15 @@ function beginCoopRace(m, hostRace = null) {
   const extra = host ? { ...hostRace.extra, gridOrder: null }
     : { car: mine.car, mods: w && w.car ? WC.carMods(w, 'mate') : null, bop: m.bop, difficulty: m.difficulty, grid: 'back', team: 'garage', wx: m.wx, roster: m.roster, entries: m.entries, teamPace: m.teamPace, aiChassis: 'class', playerName: mine.name };
   extra.net = { host, myId: coop.net.id, grid: m.grid, t0: m.t0, goDelay: m.goDelay, pick: 0, strat: m.strat || 0, clock: () => coop.net.now() };
+  extra.trackData = coopTrackData(m.track);
   weekend = null;
   if (!host) { if (pcSeat) { pcSeat = false; pc.close(); $('s-hub').classList.remove('seated'); } phone.close(); phone.hide(); if (fp) fitPickClose(); }
   const R = w && w.series[w.player.series].cal[w.round];
   const brief = host ? hostRace.brief : `<b>${seriesName(w.player.series).toUpperCase()} &middot; ROUND ${w.round + 1} OF ${w.opts.len}</b><br>${w.teams[w.player.team].name}, car two${R ? ` &middot; ${R.name}` : ''}<br>Targets: you top ${WC.driverTarget(w, w.coop.pid)}, ${w.player.name.split(' ')[0]} top ${WC.driverTarget(w, 'P')} (${WC.money$(WC.targetBonus(w))} each)`;
   startRace(m.track, { mode: 'race', laps: m.laps, opponents: 11, brief, pick: false, onlyClass: m.cls, extra }, host ? 'world' : 'coop');
 }
+// your track data for this round (the run plan's, practice.js): the host's is the career week's, the friend's their own
+const coopTrackData = (track) => coop.host ? (world && WC.weekOf(world).trackData) || null : coop.tdata && coop.tdata.key === track.name ? coop.tdata.d : null;
 // ----- practice and qualifying, online: both of you on track, one clock (the host's), the AI field's laps simulated by
 // the host and sent over (race.js netField); the session ends for each when the flag's out and their lap is done, and
 // the host shows both the times once you're both in. The race after qualifying starts on that grid.
@@ -3830,6 +3886,7 @@ function beginCoopSession(m, hostRace = null) {
   const extra = host ? { ...hostRace.extra, gridOrder: null, ...(wkUse ? { startSet: sessionSet(m.kind) } : {}) }
     : { car: mine.car, mods: w && w.car ? WC.carMods(w, 'mate') : null, bop: m.bop, difficulty: m.difficulty, grid: 'back', team: 'garage', wx: m.wx, roster: m.roster, entries: m.entries, teamPace: m.teamPace, aiChassis: 'class', playerName: mine.name };
   extra.net = { host, myId: coop.net.id, grid: m.grid, pick: 0, strat: 0, goDelay: 0, qualiTeams: m.qualiTeams, clock: () => coop.net.now() };
+  extra.trackData = coopTrackData(m.track);
   weekend = null;
   if (!host) { if (pcSeat) { pcSeat = false; pc.close(); $('s-hub').classList.remove('seated'); } phone.close(); phone.hide(); if (fp) fitPickClose(); }
   const brief = `<b>${SESSION_NAME[m.kind].toUpperCase()} &middot; ONLINE</b><br>${Math.round(m.time / 60)} minutes, both of you on track. The clock starts when you've both loaded.`;
@@ -4467,6 +4524,15 @@ function handleRaceEvents() {
       hud.center(`SESSION COMPLETE<span class="sub">${me.pos === 1 ? (sim.quali.kind === 'practice' ? 'FASTEST' : 'POLE POSITION') : 'P' + me.pos}${isFinite(me.best) ? ' &middot; ' + fmtTime(me.best, 3) : ''}</span>`, me.pos === 1 ? '' : 'white', 2600);
       setTimeout(() => { if (sim && sim.quali && sim.quali.done && (screen === 'hud' || screen === 's-pitgarage')) { if (sim.net) coopSessionDone(); else showQualiResults(); } }, inGarage ? 900 : 2600);
     }
+    else if (ev.type === 'gate') hud.gate(ev);
+    else if (ev.type === 'tdata') keepTrackData();
+    else if (ev.type === 'progLap') {
+      const pc = Math.round(ev.rating * 100), need = Math.round(ACCLIM_PASS * 100);
+      hud.radio('eng', ev.done ? `That's the job done, ${pc}% on that lap. ${ev.marks ? `${ev.marks} brake point${ev.marks === 1 ? '' : 's'} marked for the weekend.` : 'Nail the red gates and we\'ll mark your brake points.'}`
+        : ev.rating >= ev.best && ev.rating >= ACCLIM_PASS ? `${pc}%. Best one yet.`
+        : ev.rating >= ACCLIM_PASS ? `${pc}% that time.` : `${pc}% on that lap. We need ${need}. Get the speed right in the red gates.`, { big: ev.done });
+      if (ev.done) sfx.best();
+    }
     else if (ev.type === 'dsq') { hud.center('DISQUALIFIED<span class="sub">BLACK FLAG</span>', 'white', 4500); sfx.error(); }
     else if (ev.type === 'rc') { hud.rcMessage(ev.msg, ev.cls, ev.me); if (ev.me && (ev.cls === 'pen' || ev.cls === 'bw' || ev.cls === 'bk' || ev.cls === 'mo')) sfx.error(); else if (ev.me) sfx.select(); }
     else if (ev.type === 'failure') carFailure(ev);
@@ -4646,6 +4712,10 @@ function pause() {
     pauseInfo(); show('s-pause'); sfx.back();
     return;
   }
+  // (time trial, a test day, the editor's test drive: the acclimatization gates, on or off)
+  const gates = sim.mode === 'test' && sim.player && raceReturn !== 'drivehome' && raceReturn !== 'gig' ? [{ label: `Acclimatization Gates<small>${sim.prog ? 'On' : 'Off'}</small>`,
+    action: () => { sim.setProgramme(sim.prog ? null : 'acclim'); sfx.select(); resume(); },
+    desc: sim.prog ? 'Take the gates down.' : progById('acclim').desc.replace('for the rest of the weekend', raceReturn === 'testday' ? 'for the race weekend' : 'for the rest of this drive') }] : [];
   if (raceReturn === 'drivehome') {
     menus['s-pause'][0].setItems([
       { label: 'Resume', cls: 'action primary', action: resume }, photoItem, opts,
@@ -4653,7 +4723,7 @@ function pause() {
     ]);
   } else if (raceReturn === 'gig' || raceReturn === 'testday') {
     menus['s-pause'][0].setItems([
-      { label: 'Resume', cls: 'action primary', action: resume }, photoItem,
+      { label: 'Resume', cls: 'action primary', action: resume }, photoItem, ...gates,
       opts,
       raceReturn === 'gig' ? { label: 'Abandon The Job', confirm: 'Abandon it? Select again', action: () => gigFinish(true), desc: 'You won\'t be paid, and it goes on your record.' }
         : { label: 'End The Test Day', action: () => testFinish(), desc: 'Pack up and go home. Five laps or more finds a setup.' },
@@ -4666,7 +4736,7 @@ function pause() {
       { label: 'Retire', confirm: 'Retire? Select again', action: () => raceReturn === 'world' ? worldEnd(true) : careerRoundDone(true), desc: 'You will be classified last in this round.' },
     ]);
   } else menus['s-pause'][0].setItems([
-    { label: 'Resume', cls: 'action primary', action: resume }, photoItem,
+    { label: 'Resume', cls: 'action primary', action: resume }, photoItem, ...gates,
     { label: 'Restart', confirm: 'Restart? Select again', action: () => startRace(lastRace.track, lastRace.cfg, lastRace.ret, true), desc: 'Start this race again from the grid.' },
     ...(rcTest ? [rcTest] : []),
     opts,

@@ -25,6 +25,7 @@ import { DirtTrack } from './dirttrack.js';
 import { Rubber } from './rubber.js';
 import { activeSetup, applySetup, stanceOf } from './setup.js';
 import { TireFX, SMOKE, DUST, FX } from './tirefx.js';
+import { Acclimatization, BrakeMarkers, ACCLIM_PASS } from './practice.js';
 
 const STEP = 1 / 240;
 // pace = fraction of the learned per-track limit
@@ -438,6 +439,12 @@ export class Race {
     }
     this.lineMode = opts.racingLine || 'off';
     if (this.player) { this.buildRacingLine(); this.buildPitGuide(); }
+    // the weekend's track data (practice.js): what the run plan's jobs have found so far, and what it pays off with
+    this.tdata = JSON.parse(JSON.stringify(opts.trackData || {}));
+    this.prog = null;
+    this.markers = this.player ? new BrakeMarkers(this) : null;
+    if (this.markers) this.markers.set(this.tdata.acclim?.marks);
+    if (opts.programme) this.setProgramme(opts.programme); // (a test day: the gates out from the start)
     this.pitLife = this.pit ? new PitLife(this) : null; // (the teams' signs and crews)
     this.drivers = new RaceDrivers(this); // (the drivers on the grid, and on the podium)
     if (this.quali && this.state === 'racing') this.qualiStart();
@@ -894,6 +901,8 @@ export class Race {
     for (const old of all ? [...this.cars] : [this.player]) this.rebuildCar(old, old.isPlayer && old.extra.cfg ? { ...old.extra, cfg: { ...cfg } } : old.extra);
     this.player = this.cars.find(c => c.isPlayer); this.focus = this.player;
     if (this.lineMesh) { this.scene.remove(this.lineMesh); this.lineMesh.geometry.dispose(); this.lineMesh.material.dispose(); this.buildRacingLine(); }
+    if (this.prog) { const id = this.prog.id; this.setProgramme(null); this.setProgramme(id); } // (the gates at the new car's speeds)
+    if (this.markers) { this.markers.key = null; this.markers.set(this.tdata.acclim?.marks); }
     this.pickedCar = true;
   }
   startAfterPick() { this.state = this.afterPick; this.stateT = 0; if (this.quali) this.qualiStart(); }
@@ -983,6 +992,7 @@ export class Race {
     const p = car.phys;
     p.place(g.x, g.z, g.heading); p.vx = p.vz = p.r = 0;
     car.idx = g.idx; car.lap = 0; car.cpNext = 1; car.runoffT = 0; car.lapInvalid = null; if (car.tl) car.tl.out = false;
+    if (car.isPlayer && this.prog) this.prog.restart();
     if (car.skL) car.skL = null; if (car.skR) car.skR = null;
     this.updateTracker(car, true);
     this.placeModel(car, 1);
@@ -1281,6 +1291,7 @@ export class Race {
       this.placeModel(car, 1); this.snapCamera();
     } else this.flyingStart(car);
     this.focus = car;
+    if (car.isPlayer && this.prog) this.prog.restart();
   }
   // a point-to-point session run is over (finished, or given up from the pause menu): back to the garage at the top;
   // the last of your runs ends the session
@@ -1390,6 +1401,7 @@ export class Race {
     car.cpNext = 1;
     car.lap++;
     if (car.isPlayer) this.events.push({ type: 'lap', time: t, best: wasBest, lap: car.lap, laps: this.laps, invalid: !valid });
+    if (car.isPlayer && this.prog) this.programmeLap();
     if (car.isPlayer && this.quali && this.quali.flag) this.qualiEnd();
     if (car.lap > this.laps && !car.finished) {
       car.finished = true; car.finishTime = this.raceTime;
@@ -3240,6 +3252,7 @@ export class Race {
     this.skids.update();
     this.updateRacingLine();
     this.updatePitGuide();
+    this.updateProgramme(dt);
     this.particles.update(dt);
     const fxCars = this._fxCars || (this._fxCars = []); fxCars.length = 0;
     for (const c of this.cars) if (!c.gone && c.phys && c.phys.speed > 2) fxCars.push({ x: c.phys.x, y: c.y, z: c.phys.z, vx: c.phys.vx, vz: c.phys.vz });
@@ -3528,6 +3541,44 @@ export class Race {
       set(i, C[c], (c === 0 ? 0.34 : 0.62) * fade);
     }
     m.geometry.attributes.color.needsUpdate = true;
+  }
+
+  // ---------- the run plan (practice.js) ----------
+  // the job you're doing on track (null: free running). Its gates are built for your car's line and speeds.
+  setProgramme(id) {
+    if (this.prog) { this.prog.dispose(); this.prog = null; }
+    if (id === 'acclim' && this.player && this.refV) { this.prog = new Acclimatization(this); this.prog.id = id; }
+  }
+  updateProgramme(dt) {
+    const pl = this.player; if (!pl) return;
+    if (!this.prog) return;
+    const live = this.state === 'racing' && dt > 0 && !pl.pitting && !pl.gone && !pl.finished;
+    for (const p of this.prog.update(dt, pl, live)) {
+      // (a red gate taken right: that brake point's yours, marked for the rest of the weekend)
+      const nailed = p.g.kind === 'brake' && (p.res === 'perfect' || p.res === 'good') && this.nailBrake(p.g.b);
+      this.events.push({ type: 'gate', res: p.res, dv: p.dv, kind: p.g.kind, nailed });
+    }
+  }
+  nailBrake(b) {
+    const a = this.tdata.acclim ||= { best: 0, done: false, marks: [] };
+    if (b == null || a.marks.includes(b)) return false;
+    a.marks.push(b); a.marks.sort((x, y) => x - y);
+    if (this.markers) this.markers.set(a.marks);
+    this.events.push({ type: 'tdata' });
+    return true;
+  }
+  // a lap done with the gates on: rated if you went through every one of them (from the line round to the line)
+  programmeLap() {
+    const r = this.prog.lapDone(); if (r == null) return;
+    const a = this.tdata.acclim ||= { best: 0, done: false, marks: [] }, first = !a.done && r >= ACCLIM_PASS;
+    a.best = Math.max(a.best || 0, r); if (r >= ACCLIM_PASS) a.done = true;
+    this.events.push({ type: 'progLap', id: 'acclim', rating: r, best: a.best, done: first, marks: a.marks.length }, { type: 'tdata' });
+  }
+  // the HUD's programme panel
+  progHud() {
+    const P = this.prog; if (!P) return null;
+    const a = this.tdata.acclim || { best: 0, done: false, marks: [] }, L = P.lap;
+    return { id: P.id, total: P.gates.length, n: L.n, rating: L.n ? L.pts / (100 * L.n) : null, best: a.best || 0, done: !!a.done, marks: a.marks.length, brakes: P.gates.filter(g => g.kind === 'brake').length };
   }
 
   // ---------- blue guide into the pits (with the racing line on) ----------
@@ -3887,6 +3938,7 @@ export class Race {
       hasPit: !!this.pit, slip: p.slip, plan: pl.plan ? this.nextPlannedStop(pl) : null, strat: this.mode === 'race' ? { ...this.strat, tyreLaps: Math.max(0, pl.lap - (pl.stintLap || 1)) } : null,
       rc: this.rc.hudFor(pl), lastInvalid: !!pl.lastInvalid, penServing: pl.penServing || 0,
       delta: this.quali || this.mode === 'test' ? this.shownDelta(pl) : null, // (against your best lap: sessions and time trial)
+      prog: this.progHud(),
       quali: this.quali ? {
         left: this.quali.left, flag: this.quali.flag, done: this.quali.done, rows: this.qualiRows(),
         status: pl.pitting ? (pl.pitPhase === 'out' || pl.lap === 0 ? 'PIT EXIT' : 'IN LAP')
@@ -4002,6 +4054,8 @@ export class Race {
     if (this.voice) this.voice.stop();
     this.aiVoices.forEach(v => v.stop());
     if (this.pitLife) this.pitLife.dispose();
+    if (this.prog) this.prog.dispose();
+    if (this.markers) this.markers.dispose();
     if (this.drivers) this.drivers.dispose();
     this.scene.traverse(o => {
       if (o.geometry) o.geometry.dispose();

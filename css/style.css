@@ -299,6 +299,14 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .hud-strat .hud-row.off { display: none; }
 .hud-strat .ty { width: 15px; height: 15px; border-radius: 50%; font: 500 10px/15px var(--f-ui); text-align: center; color: var(--sv-ink); text-shadow: none; -webkit-text-fill-color: currentColor; box-shadow: 0 0 3px currentColor; }
 .hud-strat .val .up { color: var(--sv-cyan); } .hud-strat .val .dn { color: var(--sv-red); }
+/* the run plan's job (practice.js): the rating so far, the best lap's (blue once it's done the job) */
+#h-prog .val .done { color: var(--sv-good); }
+#h-prog .val small { font-size: 15px; color: var(--sv-red-dim); }
+/* a gate just driven through: the verdict under the lap time, and by how much you were off its speed */
+.gate-msg { position: absolute; left: 0; right: 0; top: calc(var(--tc-top) + var(--tc-h) + 34px); text-align: center; font: 500 34px/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-hot); text-shadow: var(--sv-glow-hud); -webkit-text-fill-color: transparent; opacity: 0; transition: opacity .25s; }
+.gate-msg.on { opacity: 1; transition: none; }
+.gate-msg.perfect { color: var(--sv-good); } .gate-msg.good { color: var(--sv-amber); } .gate-msg.miss { color: var(--sv-bad); }
+.gate-msg small { display: block; margin-top: 6px; font-size: 18px; color: var(--sv-red); letter-spacing: var(--track-caption); }
 .st-sub { margin: -3px 0 5px; font: 500 13px/1.2 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; text-align: right; color: var(--sv-red); text-shadow: var(--sv-glow-hud); -webkit-text-fill-color: transparent; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .st-sub:empty { display: none; }
 .hud-pos { font: 700 72px/.9 var(--f-display); letter-spacing: var(--track); color: var(--sv-hot); text-shadow: var(--sv-glow-hud); -webkit-text-fill-color: transparent; white-space: nowrap; margin-top: 2px; padding-bottom: 8px; position: relative; }
@@ -1182,6 +1190,11 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .pg-car .pg-row em { font-size: 16px; }
 .pg-car .pg-bar { height: 5px; background: rgba(0,0,0,.45); }
 .pg-car .pg-note { margin-top: 6px; font-size: 11px; text-align: right; }
+/* practice: the run plan under the car (main.js planRows): each job's best lap rating, a tick where it's done */
+.pg-car .pg-plan-title { margin-top: 14px; }
+.pg-plan .pg-bar { position: relative; }
+.pg-plan .pg-bar u { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--sv-red-dim); }
+.pg-plan.on span { color: var(--sv-amber); }
 .pg-row { display: grid; grid-template-columns: 128px 1fr 52px; align-items: center; gap: 12px; height: 30px; font: 500 var(--t-small)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; background: linear-gradient(0deg, var(--sv-red-faint) 0 1px, transparent 1px); }
 .pg-row em { font-style: normal; font: 500 18px var(--f-num); text-align: right; color: var(--sv-hot); }
 .pg-bar { display: block; height: 6px; border-radius: 1px; background: var(--sv-red-faint); }
