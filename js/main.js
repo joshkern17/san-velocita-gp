@@ -32,7 +32,7 @@ import * as WCX from './wcareer.js';
 // sent to the host, whose copy is the career (coopSend / coopHostMessage 'op'); the host's copy comes back a moment later
 const WC_OPS = new Set(['acquireCar', 'buyCar', 'buyCar2', 'buyFit', 'newPart', 'rebuildPart', 'rebuildSelf', 'startProject', 'workOnProject', 'buildFacility', 'sellFacility', 'sellCar',
   'orderTyres', 'hireStaff', 'fireStaff', 'payBack', 'setPay', 'applyLoan', 'sellAnnuity', 'offerDriver', 'extendMate', 'setMatePay', 'setCar2Fix', 'removeFit', 'removeGrey',
-  'answerSponsor', 'answerWorks', 'answerInvestor', 'answerBuyout', 'answerPoach', 'answerGent', 'answerStory', 'answerOffer', 'rsvpEvent', 'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan']);
+  'answerSponsor', 'answerWorks', 'answerInvestor', 'answerBuyout', 'answerPoach', 'answerGent', 'answerStory', 'answerOffer', 'rsvpEvent', 'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan', 'coopAnswer']);
 const WC = new Proxy(WCX, { get(m, k) {
   const f = m[k]; if (typeof f !== 'function' || !WC_OPS.has(k)) return f;
   return (...a) => {
@@ -41,8 +41,10 @@ const WC = new Proxy(WCX, { get(m, k) {
     const send = guest ? a.slice(1).map(coopRef) : null; const r = f(...a); if (send) coopSend(k, send); return r;
   };
 } });
-// (what the co-owner may do on their own: their car, its upgrades and development, the tyres; the rest is the host's)
-const GUEST_OPS = new Set(['buyCar2', 'setCar2Fix', 'buyFit', 'removeFit', 'startProject', 'workOnProject', 'orderTyres', 'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan']);
+// (what the co-owner may do on their own: their car, the cars' upgrades, repairs and development, the tyres, their own
+// days; the team's business (staff, facilities, money, sponsors, the season) is the host's)
+const GUEST_OPS = new Set(['buyCar2', 'setCar2Fix', 'buyFit', 'removeFit', 'startProject', 'workOnProject', 'orderTyres', 'rebuildPart', 'newPart', 'rebuildSelf',
+  'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan', 'coopAnswer']);
 import { Phone } from './phone.js';
 import { Net, PROTO } from './net.js';
 import { LiveryDesigner } from './liverydesigner.js';
@@ -1768,7 +1770,7 @@ const pc = new Computer({
   },
   answer: (m, key) => {
     if (coopGuest()) { // (co-op: an interview either of you can give; the rest of the team's email is the host's)
-      if (key === 'yes' && m.arc) { const r = WC.coopInterview(world, m.id); if (!r.err) { sfx.best(); toast(r.msg, 3500); pc.render?.(); return; } if (r.err !== 'not theirs') { sfx.error(); toast(r.err); return; } }
+      if (m.gig || (key === 'yes' && m.arc)) { const r = WC.coopAnswer(world, m.id, key); if (!r.err) { if (r.msg) { sfx.best(); toast(r.msg, 3500); } pc.render?.(); return; } if (r.err !== 'not theirs') { sfx.error(); toast(r.err); return; } }
       return coopNotYours();
     }
     // (Kev's engine map: which car it goes on, through the chooser, then the answer)
@@ -2604,7 +2606,7 @@ function renderCarMenu() {
       { label: `Rebuild<small>${WC.money$(WC.rebuildCost(w, k))}</small>`, part: k, preview: 'rebuild', confirm: 'Pay for it? Select again', action: () => { WC.rebuildPart(w, k); sfx.best(); saveWorld(); renderHub(); },
         desc: mech ? `${mech.first} rebuilds it: back to good, not new.` : 'No chief mechanic: a shop rebuilds it (dearer, and only back to OK).' },
       ...(WC.weekOpen(w) ? [{ label: `Rebuild It Yourself<small>${WC.money$(WC.selfCost(w, k))} + A DAY</small>`, part: k, preview: 'self', confirm: 'Spend a day on it? Select again',
-        action: () => { if (!WC.rebuildSelf(w, k)) { sfx.error(); toast('No days left this week.'); return; } sfx.best(); saveWorld(); renderHub(); },
+        action: () => { if (!WC.rebuildSelf(w, k, coopGuest() ? 'C' : 'P')) { sfx.error(); toast('No days left this week.'); return; } sfx.best(); saveWorld(); renderHub(); },
         desc: `Parts only, and a day of your week (${WC.daysLeft(w)} left). ${w.background === 'mechanic' ? 'You know what you\'re doing: back to good.' : 'You\'ll get it back to OK.'}` }] : []),
       { label: `New ${WC.PARTS[k].name}<small>${WC.money$(WC.newPartCost(w, k))}</small>`, part: k, preview: 'new', confirm: 'Pay for it? Select again', action: () => { WC.newPart(w, k); sfx.best(); saveWorld(); renderHub(); }, desc: 'A brand new part: 100%.' },
       ...(k === 'engine' && w.grey ? [{ label: "Take Kev's Map Off", part: k, preview: 'map', confirm: 'Take it off? Select again', action: () => { WC.removeGrey(w); sfx.select(); saveWorld(); renderHub(); }, desc: 'Back to the standard engine software. A little slower, and nothing for the scrutineers to find.' }] : []),
@@ -3006,6 +3008,9 @@ function togetherChoices(w, me) {
 function coopDayChoices(w) {
   const $ = WC.money$, j = WC.coopJob(w), host = w.player.name.split(' ')[0], c2 = WC.car2Of(w), x = (w.projects || []).find(p => !p.done && !p.shop), out = [];
   const day = (key) => () => WC.coopDay(w, key) || { line: 'Not today' };
+  for (const g of WC.coopGigs(w)) { const K = WC.GIG_KINDS[g.kind];
+    out.push({ key: 'bk' + g.id, icon: 'gig', short: K.tag, tag: 'Booked', head: `Drive: ${K.name}`, desc: gigDesc(g), money: g.pay ? `${g.kind === 'rides' ? `${$(g.pay)} a ride` : `Up to ${$(g.pay)}`}` : 'Prizes', mcls: 'gain',
+      time: 'Booked: driving it uses the day', effect: 'You drive it now', go: true, goLabel: 'Drive it', run: () => startGig(g) }); }
   for (const p of WC.coopPlans(w)) out.push({ key: 'pl' + p.id, icon: 'work', short: p.tag, tag: 'Booked', head: p.what, desc: p.fx === 'press' ? 'Nadia from The Paddock Wire spends the day with you and the team. You said yes by email.' : 'You said yes to it.',
     money: 'Free', time: 'Booked: doing it uses the day', effect: p.fx === 'press' ? '+2 reputation, the piece runs this week' : 'You turn up', run: () => WC.coopDoPlan(w, p.id) || { line: 'No days left' } });
   out.push(...togetherChoices(w, 'C').filter(o => o.key === 'yes'));
@@ -3129,9 +3134,9 @@ function renderGuestMenu() {
     R ? { label: `Round ${w.round + 1}: Race Day`, cls: wk.left > 0 ? '' : 'action primary', values: [[true, 'READY'], [false, 'NOT READY']], get: () => !!coop.ready, set: v => { coop.ready = v; net.send({ t: 'ready', ready: v }); renderHub(); },
       desc: `${R.name}, ${R.time}, ${R.weather}. ${host} starts race day from their garage and you're on the grid when they do: straight to the race. Tell them you're ready.` }
       : { label: `${w.year} Season Complete`, disabled: true, desc: `${host} starts next season.` },
-    { label: `Computer${nm ? `<small>${nm} NEW</small>` : ''}`, action: () => sitDown(), desc: `The team's computer: Mail, Team (the cars, tyres, staff, data) and the Internet. Your car's upgrades, development and tyres are yours to buy; the rest of the business is ${host}'s.` },
+    { label: `Computer${nm ? `<small>${nm} NEW</small>` : ''}`, action: () => sitDown(), desc: `The team's computer: Mail, Team (the cars, tyres, staff, data) and the Internet. The cars' parts, upgrades, repairs and tyres, development and your jobs are yours to sort out; staff, facilities, money, sponsors and the season are ${host}'s.` },
     { label: `Phone${n ? `<small>${n} NEW</small>` : ''}`, action: () => { phone.open(); renderHints(); }, desc: 'The team\'s texts.' },
-    ...(w.car ? [{ label: 'Look At The Car', action: () => goToCar(), desc: `The race car's parts and their condition. Rebuilds and new parts are ${host}'s call.` }] : []),
+    ...(w.car ? [{ label: 'Look At The Car', action: () => goToCar(), desc: 'The race car\'s parts and their condition: rebuild them (a shop, or yourself with a day of your week) or buy new.' }] : []),
     { label: 'Career Options', action: () => { optSub = true; sfx.select(); renderHubMenu(); }, desc: 'Pit wall calls, and leaving the career.' },
   ];
   m.setItems(items, true);

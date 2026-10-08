@@ -2361,6 +2361,22 @@ export function coopInterview(w, mailId) {
   (coopWk(w).plans ??= []).push({ id: 'pl' + (w.nextId++), done: false, fx: 'press', what: 'An interview with The Paddock Wire', tag: 'Interview' });
   return { msg: 'It\'s in your week: do it from the day planner.' };
 }
+// the co-owner answers an email that's theirs to answer: a job offered (a track day, a run: it goes in their week, to drive
+// from their day planner), or an interview (coopInterview). Anything else: { err: 'not theirs' }
+export function coopAnswer(w, mailId, key) {
+  const m = (w.mail || []).find(x => x.id === mailId); if (!w.coop || !m) return { err: 'not theirs' };
+  if (m.answer) return { err: 'Already answered.' };
+  if (m.gig) {
+    if (key !== 'in') { m.answer = key; return {}; }
+    if (coopDaysLeft(w) - coopPlans(w).length - coopGigs(w).length <= 0) return { err: 'Every day left this week is spoken for.' };
+    if (!coopGigTake(w, m.gig)) return { err: 'That job has gone.' };
+    m.answer = 'in'; return { msg: 'It\'s in your week: drive it from your day planner.' };
+  }
+  if (m.arc && key === 'yes') return coopInterview(w, mailId);
+  return { err: 'not theirs' };
+}
+// the co-owner's jobs taken and not driven yet
+export const coopGigs = (w) => (coopWk(w).gigs || []).filter(g => !g.done);
 export const coopPlans = (w) => (coopWk(w).plans || []).filter(p => !p.done);
 export function coopDoPlan(w, id) {
   const p = coopPlans(w).find(x => x.id === id); if (!p || coopDaysLeft(w) <= 0) return null;
@@ -2672,12 +2688,14 @@ function noShows(w, wk) {
 }
 // your own spanners: a rebuild for the price of the parts, and a day
 export const selfCost = (w, k) => Math.round(rebuildCost(w, k) * (staffOf(w, 'mechanic') ? 0.45 : 0.3) * (w.background === 'mechanic' ? 0.8 : 1) / 50) * 50;
-export function rebuildSelf(w, k) {
-  const P = carParts(w); if (!P || daysLeft(w) <= 0) return false;
+// (who: 'C', the co-owner did it: a day of their week)
+export function rebuildSelf(w, k, who = 'P') {
+  const C = who === 'C' && !!w.coop, P = carParts(w); if (!P || (C ? coopDaysLeft(w) : daysLeft(w)) <= 0) return false;
   const to = (w.background === 'mechanic' ? 0.84 : 0.72) + (rng(w) - 0.5) * 0.1;
   P[k].cond = +Math.max(P[k].cond, clamp(to, 0.4, 0.92)).toFixed(3);
-  pay(w, -selfCost(w, k), `${PARTS[k].name}: parts for a rebuild (you did it)`);
-  useDay(w, `Rebuilt the ${PARTS[k].name.toLowerCase()} yourself`, -selfCost(w, k), 'Rebuild');
+  pay(w, -selfCost(w, k), `${PARTS[k].name}: parts for a rebuild (${C ? `${w.people[w.coop.pid].first} did it` : 'you did it'})`);
+  if (C) coopUse(w, `Rebuilt the ${PARTS[k].name.toLowerCase()}`, -selfCost(w, k), 'Rebuild');
+  else useDay(w, `Rebuilt the ${PARTS[k].name.toLowerCase()} yourself`, -selfCost(w, k), 'Rebuild');
   return true;
 }
 // a test day at the next round's circuit: track hire, then a practice session (main.js); enough laps and the setup
