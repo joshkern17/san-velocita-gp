@@ -32,7 +32,7 @@ import * as WCX from './wcareer.js';
 // sent to the host, whose copy is the career (coopSend / coopHostMessage 'op'); the host's copy comes back a moment later
 const WC_OPS = new Set(['acquireCar', 'buyCar', 'buyCar2', 'buyFit', 'newPart', 'rebuildPart', 'rebuildSelf', 'startProject', 'workOnProject', 'buildFacility', 'sellFacility', 'sellCar',
   'orderTyres', 'hireStaff', 'fireStaff', 'payBack', 'setPay', 'applyLoan', 'sellAnnuity', 'offerDriver', 'extendMate', 'setMatePay', 'setCar2Fix', 'removeFit', 'removeGrey',
-  'answerSponsor', 'answerWorks', 'answerInvestor', 'answerBuyout', 'answerPoach', 'answerGent', 'answerStory', 'answerOffer', 'rsvpEvent', 'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone']);
+  'answerSponsor', 'answerWorks', 'answerInvestor', 'answerBuyout', 'answerPoach', 'answerGent', 'answerStory', 'answerOffer', 'rsvpEvent', 'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan']);
 const WC = new Proxy(WCX, { get(m, k) {
   const f = m[k]; if (typeof f !== 'function' || !WC_OPS.has(k)) return f;
   return (...a) => {
@@ -42,7 +42,7 @@ const WC = new Proxy(WCX, { get(m, k) {
   };
 } });
 // (what the co-owner may do on their own: their car, its upgrades and development, the tyres; the rest is the host's)
-const GUEST_OPS = new Set(['buyCar2', 'setCar2Fix', 'buyFit', 'removeFit', 'startProject', 'workOnProject', 'orderTyres', 'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone']);
+const GUEST_OPS = new Set(['buyCar2', 'setCar2Fix', 'buyFit', 'removeFit', 'startProject', 'workOnProject', 'orderTyres', 'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan']);
 import { Phone } from './phone.js';
 import { Net, PROTO } from './net.js';
 import { LiveryDesigner } from './liverydesigner.js';
@@ -1763,7 +1763,10 @@ const pc = new Computer({
     renderHub();
   },
   answer: (m, key) => {
-    if (coopGuest()) return coopNotYours();
+    if (coopGuest()) { // (co-op: an interview either of you can give; the rest of the team's email is the host's)
+      if (key === 'yes' && m.arc) { const r = WC.coopInterview(world, m.id); if (!r.err) { sfx.best(); toast(r.msg, 3500); pc.render?.(); return; } if (r.err !== 'not theirs') { sfx.error(); toast(r.err); return; } }
+      return coopNotYours();
+    }
     // (Kev's engine map: which car it goes on, through the chooser, then the answer)
     if (m.tempt === 'grey' && key === 'yes' && !m.fitTo && WC.mateOf(world)) return fitPick({ title: 'Engine map (Kev)', from: 'Danny\'s mate Kev &middot; cash, no paperwork', price: m.price, bothPrice: m.price * 2, onPick: (to) => { m.fitTo = to; pc.src.answer(m, key); pc.render(); } });
     m.answer = key;
@@ -2999,6 +3002,8 @@ function togetherChoices(w, me) {
 function coopDayChoices(w) {
   const $ = WC.money$, j = WC.coopJob(w), host = w.player.name.split(' ')[0], c2 = WC.car2Of(w), x = (w.projects || []).find(p => !p.done && !p.shop), out = [];
   const day = (key) => () => WC.coopDay(w, key) || { line: 'Not today' };
+  for (const p of WC.coopPlans(w)) out.push({ key: 'pl' + p.id, icon: 'work', short: p.tag, tag: 'Booked', head: p.what, desc: p.fx === 'press' ? 'Nadia from The Paddock Wire spends the day with you and the team. You said yes by email.' : 'You said yes to it.',
+    money: 'Free', time: 'Booked: doing it uses the day', effect: p.fx === 'press' ? '+2 reputation, the piece runs this week' : 'You turn up', run: () => WC.coopDoPlan(w, p.id) || { line: 'No days left' } });
   out.push(...togetherChoices(w, 'C').filter(o => o.key === 'yes'));
   out.push({ key: 'work', short: 'Work', tag: `+${$(j.pay)}`, mcls: 'gain', head: j.name, desc: `Your pay goes in the team account.${w.coop.boss ? ` ${w.coop.boss} sponsors you: turn up for at least one shift a week, or they pay the team half.` : ''}`,
     money: `+${$(j.pay)}`, effect: w.coop.boss ? 'Pays, and keeps your boss sweet' : 'Pays the team', run: day('work') });

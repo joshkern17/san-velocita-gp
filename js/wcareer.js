@@ -2351,6 +2351,28 @@ export function coopGigTake(w, id) {
   g.booked = 'C'; wk.gigs = wk.gigs.filter(x => x !== g); wk.offered = (wk.offered || []).filter(x => x !== g); (coopWk(w).gigs ??= []).push(g); return true;
 }
 export const coopGigDone = (w, id, r) => gigDone(w, id, r, 'C');
+// the Paddock Wire wants a day with the team: either of you can give it. The co-owner's yes books a day of their own
+// week (it waits in their day planner), and the day they do it is theirs
+export function coopInterview(w, mailId) {
+  const m = (w.mail || []).find(x => x.id === mailId), a = m && m.arc && (w.dir?.arcs || []).find(x => x.id === m.arc);
+  if (!w.coop || !m || m.answer || !a || a.type !== 'press') return { err: 'not theirs' };
+  if (coopDaysLeft(w) - coopPlans(w).length <= 0) return { err: 'No days free this week. Ask her for next week instead.' };
+  m.answer = 'yes'; a.wait = null; a.done = true;
+  (coopWk(w).plans ??= []).push({ id: 'pl' + (w.nextId++), done: false, fx: 'press', what: 'An interview with The Paddock Wire', tag: 'Interview' });
+  return { msg: 'It\'s in your week: do it from the day planner.' };
+}
+export const coopPlans = (w) => (coopWk(w).plans || []).filter(p => !p.done);
+export function coopDoPlan(w, id) {
+  const p = coopPlans(w).find(x => x.id === id); if (!p || coopDaysLeft(w) <= 0) return null;
+  p.done = true;
+  if (p.fx === 'press') {
+    const C = w.people[w.coop.pid], T = w.teams[w.player.team];
+    coopUse(w, p.what, 0, p.tag); w.press = pressOf(w) + 2; w.rep = clamp(repOf(w) + 2, 0, 100);
+    news(w, `INSIDE ${T.name.toUpperCase()}: THE OTHER OWNER`, `"${w.player.name.split(' ')[0]} had the lottery money," says co-owner ${C.first} ${C.last}. "I had a ${w.coop.kind === 'car' ? 'car, until last month' : w.coop.kind === 'house' ? 'house. I still have most of it' : w.coop.kind === 'boss' ? 'job, and a boss who reads the Wire' : 'lot of confidence'}."`);
+    return { line: p.what, note: 'Nadia followed you round all day. The piece comes out this week.' };
+  }
+  return null;
+}
 // their job: the boss's company if the boss is a sponsor, otherwise a warehouse; about what a day job pays
 export function coopJob(w) { const pay = Math.round(dayJob(w).pay * 1.1 / 10) * 10; return { name: w.coop?.boss ? `A shift at ${w.coop.boss}` : 'A shift at the warehouse', pay }; }
 // car two's own repair, by hand (an owned car: the hire company fixes theirs)
