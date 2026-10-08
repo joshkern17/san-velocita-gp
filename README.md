@@ -31,6 +31,13 @@ stopped.
 (including your own tracks) to learn how fast each corner can be taken; difficulty is a percentage of that limit.
 Legend and Alien never slow down to let you catch up.
 
+**Sectors:** every lap is split in three (at about a third and two thirds of the way round, each split moved onto
+the nearest straight). Under the lap time, each sector fills as you cross its split: purple for the quickest anyone's
+been through it this session (in a time trial, your best ever there in that car), green for your own best, yellow for
+slower, with the time against your best. The garage shows your best sectors and the ideal lap they add up to; the
+timing screen and the session results have S1 / S2 / S3 columns. The AI's simulated practice and qualifying laps are
+split into sectors too, so they can take purples.
+
 **Practice run plan:** in practice, the garage's Run Plan gives you a job from the engineer instead of free
 running (`js/practice.js`). **Track Acclimatization**: gates on the line at each corner's braking (red), apex
 (amber) and exit (green), each showing the speed to carry, taken from a clean reference lap in your car. Through

@@ -118,7 +118,8 @@ function saveBalance(key, b) {
     localStorage.setItem(BALANCE_KEY, JSON.stringify(all));
   } catch (err) {}
 }
-export const TYRE_FIT = 20; // seconds of a session to fit a new set of tyres in the garage
+export const TYRE_FIT = 20;
+const SEC_KEY = 'svgp.sectorBests'; // (time trial: your best ever through each sector, per circuit + car) // seconds of a session to fit a new set of tyres in the garage
 const CAMS = ['chase', 'far', 'tcam', 'bumper'];
 // the rear-view mirror (top centre of the HUD): Options > Display > Rear-View Mirror
 let MIRROR = true;
@@ -157,6 +158,20 @@ function softTex(key, w, h, draw) {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   return (shadowTex[key] = t);
 }
+// the racing line's colors (green → yellow → orange → red) for how hard to brake (0..1), and the 3D tiles' layout:
+// a tile every `pitch` samples (2 m each), `len` of a sample long, `w` m wide (`taper` at the far edge); shown from `behind`
+// to `ahead` m, faded in over `near` m (from you); a tile tips up (hinged on its near edge) by how hard it brakes, a
+// little for yellow, up to `tilt` rad for red, blended with its neighbors so the wall rises and falls smoothly (raised
+// `raise` m); from `settle[1]`
+// m out it starts laying back down, flat by `settle[0]`; `rate`: how quickly they move; `lead`: the yellow → orange
+// build-up before a brake point, in seconds at your speed
+const LINE_COL = [[0.36, 0.86, 0.38], [0.96, 0.85, 0.28], [1.0, 0.5, 0.16], [0.95, 0.2, 0.13]];
+const LINE_TILES = { pitch: 2, len: 0.7, w: 1.45, taper: 0.86, ahead: 300, behind: 6, near: [1.5, 11], alpha: [0.5, 0.8], tilt: 0.6, raise: 0.06, settle: [2, 14], rate: 6, lead: 1.1 };
+const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const lineColor = (s) => {
+  const x = Math.max(0, Math.min(1, s)) * 3, k = Math.min(2, Math.floor(x)), f = x - k, a = LINE_COL[k], b = LINE_COL[k + 1];
+  return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
+};
 function groundCar(model) {
   const g = model.group;
   g.traverse(o => { if (o.isMesh && !(Array.isArray(o.material) ? o.material.some(m => m.transparent) : o.material?.transparent)) o.castShadow = true; });
@@ -438,7 +453,9 @@ export class Race {
       this.aiVoices = [new EngineVoice(false), new EngineVoice(false)];
     }
     this.lineMode = opts.racingLine || 'off';
+    this.lineStyle = opts.lineStyle || 'blocks';
     if (this.player) { this.buildRacingLine(); this.buildPitGuide(); }
+    this.buildSectors();
     // the weekend's track data (practice.js): what the run plan's jobs have found so far, and what it pays off with
     this.tdata = JSON.parse(JSON.stringify(opts.trackData || {}));
     this.prog = null;
@@ -904,7 +921,7 @@ export class Race {
     const all = !this.net && (this.opts.aiChassis || 'class') === 'class' && CARS[id].cls !== before;
     for (const old of all ? [...this.cars] : [this.player]) this.rebuildCar(old, old.isPlayer && old.extra.cfg ? { ...old.extra, cfg: { ...cfg } } : old.extra);
     this.player = this.cars.find(c => c.isPlayer); this.focus = this.player;
-    if (this.lineMesh) { this.scene.remove(this.lineMesh); this.lineMesh.geometry.dispose(); this.lineMesh.material.dispose(); this.buildRacingLine(); }
+    if (this.lineMesh) { this.disposeRacingLine(); this.buildRacingLine(); }
     if (this.prog) { const id = this.prog.id; this.setProgramme(null); this.setProgramme(id); } // (the gates at the new car's speeds)
     if (this.markers) { this.markers.key = null; this.markers.set(this.tdata.acclim?.marks); }
     this.pickedCar = true;
@@ -966,10 +983,11 @@ export class Race {
     }
     if (prev > N * 0.75 && cur < N * 0.25) {
       // qualifying: crossing the line in the pit lane doesn't start (or finish) a timed lap: it's an out / in lap
-      if (this.quali && car.pitting) { car.lap = 0; car.cpNext = 1; car.lapInvalid = null; car.trace = null; return; }
-      if (car.lap === 0) { car.lap = 1; car.lapStart = this.raceTime; car.cpNext = 1; car.lapInvalid = null; car.trace = null; }
+      if (this.quali && car.pitting) { car.lap = 0; car.cpNext = 1; car.lapInvalid = null; car.trace = null; car.sec = null; return; }
+      if (car.lap === 0) { car.lap = 1; car.lapStart = this.raceTime; car.cpNext = 1; car.lapInvalid = null; car.trace = null; this.secStart(car); }
       else if (car.cpNext >= 4) this.completeLap(car);
     }
+    if (car.lap > 0) this.secCross(car, prev, cur);
     if (car.isPlayer && car.lap > 0) this.traceLap(car, cur);
   }
 
@@ -978,9 +996,10 @@ export class Race {
   onIndexOpen(car, prev, cur) {
     const T = this.T, F = T.finish, q = F / 4, onRoute = (i) => i <= T.cut;
     if (car.lap === 0) {
-      if (!onRoute(prev) && onRoute(cur) && cur < F / 2) { car.lap = 1; car.lapStart = this.raceTime; car.cpNext = 1; car.lapInvalid = null; car.trace = null; }
+      if (!onRoute(prev) && onRoute(cur) && cur < F / 2) { car.lap = 1; car.lapStart = this.raceTime; car.cpNext = 1; car.lapInvalid = null; car.trace = null; this.secStart(car); }
       return;
     }
+    if (car.lap === 1) this.secCross(car, prev, cur);
     if (car.isPlayer && car.lap === 1) this.traceLap(car, cur);
     if (car.lap !== 1) return;
     if (car.cpNext <= 3) {
@@ -995,7 +1014,7 @@ export class Race {
     const g = gridSlot(this.T, Math.max(0, (car.startPos || 1) - 1));
     const p = car.phys;
     p.place(g.x, g.z, g.heading); p.vx = p.vz = p.r = 0;
-    car.idx = g.idx; car.lap = 0; car.cpNext = 1; car.runoffT = 0; car.lapInvalid = null; if (car.tl) car.tl.out = false;
+    car.idx = g.idx; car.lap = 0; car.cpNext = 1; car.runoffT = 0; car.lapInvalid = null; car.sec = null; if (car.tl) car.tl.out = false;
     if (car.isPlayer && this.prog) this.prog.restart();
     if (car.skL) car.skL = null; if (car.skR) car.skR = null;
     this.updateTracker(car, true);
@@ -1254,7 +1273,7 @@ export class Race {
   // ---------- the garage (practice / qualifying) ----------
   // in the garage your car is off the track (gone, like a retired car, but only until you go out); the session goes on
   enterGarage(car, first = false) {
-    car.inGarage = true; car.gone = true; car.model.group.visible = false;
+    car.inGarage = true; car.gone = true; car.model.group.visible = false; car.sec = null;
     car.pitting = false; car.pitPhase = null; car.pitReq = null; car.lap = 0; car.cpNext = 1; car.trace = null; car.lapInvalid = null;
     car.phys.vx = car.phys.vz = car.phys.r = 0;
     this.events.push({ type: 'garage', first });
@@ -1324,7 +1343,7 @@ export class Race {
     p.vx = T.FX[i] * v; p.vz = T.FZ[i] * v;
     const G = p.p.gears; let g = 1; while (g < G.length - 1 && v > G[g] * 0.92) g++;
     p.gear = g;
-    car.idx = i; car.pitting = false; car.pitPhase = null; car.pitReq = null; car.lap = 0; car.cpNext = 1; car.laneSide = undefined;
+    car.idx = i; car.pitting = false; car.pitPhase = null; car.pitReq = null; car.lap = 0; car.cpNext = 1; car.laneSide = undefined; car.sec = null;
     if (car.isPlayer) car.autoT = 2; // (the first two seconds drive themselves, so you're not thrown in at speed cold)
     this.updateTracker(car, true);
     this.placeModel(car, 1); this.snapCamera();
@@ -1349,6 +1368,7 @@ export class Race {
     r.done = true;
     const q = this.quali, where = this.corners.list.length ? 'Turn ' + (1 + Math.floor(Math.random() * this.corners.list.length)) : '';
     if (r.del) { if (this.rc && this.rc.on) this.rc.say(`Lap deleted · ${e.name} · track limits${where ? ' ' + where : ''}`, { cls: 'w' }); return; }
+    this.secPosted(e, r.time);
     if (r.time >= e.best) return;
     const pole = this.qualiRows()[0];
     e.best = r.time; e.when = this.raceTime; e.flash = this.raceTime;
@@ -1367,8 +1387,8 @@ export class Race {
   qualiRows() {
     const q = this.quali; if (!q) return [];
     const pl = this.player;
-    const rows = q.field.map(e => ({ key: e.teamIdx, name: e.name, team: e.team.name, color: e.color, best: e.best, when: e.when, flash: e.flash, isPlayer: false }));
-    if (pl) rows.push({ key: 'P', name: pl.name, team: pl.team.name, color: pl.team.main, best: pl.best, when: pl.bestWhen ?? Infinity, flash: pl.bestWhen, isPlayer: true });
+    const rows = q.field.map(e => ({ key: e.teamIdx, name: e.name, team: e.team.name, color: e.color, best: e.best, when: e.when, flash: e.flash, isPlayer: false, sec: e.secBest || null }));
+    if (pl) rows.push({ key: 'P', name: pl.name, team: pl.team.name, color: pl.team.main, best: pl.best, when: pl.bestWhen ?? Infinity, flash: pl.bestWhen, isPlayer: true, sec: pl.secBest || null });
     for (const c of this.cars) if (c.remote && c.human) rows.push({ key: c.teamIdx, name: c.name, team: c.team.name, color: c.team.main, best: c.best, when: c.bestWhen ?? Infinity, flash: c.bestWhen, isPlayer: false, human: true, pid: c.pid });
     // (laps set first, quickest first, earlier breaking a tie; no lap yet behind them. Kept consistent for the sort: two
     // without a time compare as equal, not as Infinity - Infinity, or the order comes out scrambled and a driver with no
@@ -1400,8 +1420,10 @@ export class Race {
     const wasBest = valid && t < car.best;
     if (wasBest) { car.best = t; car.bestWhen = this.raceTime; if (car.trace) car.bestTrace = car.trace; }
     if (car.isPlayer && this.rec) this.recordLap(car, t, valid);
+    this.secLap(car, valid);
     car.lapInvalid = null; car.trace = null;
     car.lapStart = this.raceTime;
+    if (!this.T.open) this.secStart(car);
     car.cpNext = 1;
     car.lap++;
     if (car.isPlayer) this.events.push({ type: 'lap', time: t, best: wasBest, lap: car.lap, laps: this.laps, invalid: !valid });
@@ -3261,7 +3283,7 @@ export class Race {
     setCrowdCars(this.cars.filter(c => !c.gone && c.phys).map(c => ({ x: c.phys.x, y: c.y, z: c.phys.z })), this.camera.position, this.camera.fov); // (the spectators watch them; the far ones aren't drawn)
     if (this.spray) this.updateSpray(dt);
     this.skids.update();
-    this.updateRacingLine();
+    this.updateRacingLine(dt);
     this.updatePitGuide();
     this.updateProgramme(dt);
     this.particles.update(dt);
@@ -3486,21 +3508,26 @@ export class Race {
   }
 
   // ---------- racing line (green = throttle, yellow = lift, red = brake) ----------
+  // Two looks (settings.lineStyle): 'blocks' (default), tiles along the line like F1 25's 3D line: the color runs
+  // green → yellow → orange → red with how hard you need to brake, the orange and red ones tip up off the road to face
+  // you (a stepped wall at the brake point), and as they come close they settle flat and fade out so they never get in
+  // the way. 'flat': the old ribbon painted on the road.
   buildRacingLine() {
     const T = this.T, N = T.N;
     // reference speed a good human can carry (a touch under the AI limit)
     const ref = this.refV = new Float32Array(N);
     for (let i = 0; i < N; i++) ref[i] = this.lineV[i] * 0.94;
-    // static colouring from the speed plan: decel needed at each point
-    const base = this.lineBase = new Uint8Array(N); // 0 green, 1 yellow, 2 red
+    // how hard each point brakes (0 = throttle, ~0.35 lift, 1 = brake hard), from the decel the speed plan needs there
+    const sev = this.lineBase = new Float32Array(N);
     for (let i = 0; i < N; i++) {
       const a = ref[i], b = ref[(i + 1) % N];
       const dec = (a * a - b * b) / (2 * T.ds);
-      base[i] = dec > 6 ? 2 : dec > 1.2 ? 1 : 0;
+      sev[i] = dec < 0.6 ? 0 : dec < 1.2 ? (dec - 0.6) / 0.6 * 0.35 : Math.min(1, 0.35 + (dec - 1.2) / 4.8 * 0.65);
     }
     // widen braking zones a little so they read clearly
-    const b2 = Uint8Array.from(base);
-    for (let i = 0; i < N; i++) if (b2[i] === 2) for (let k = -3; k <= 3; k++) { const j = (i + k + N) % N; if (base[j] < 2) base[j] = 2; }
+    const s2 = Float32Array.from(sev);
+    for (let i = 0; i < N; i++) if (s2[i] >= 0.9) for (let k = -3; k <= 3; k++) { const j = (i + k + N) % N; if (sev[j] < s2[i]) sev[j] = s2[i]; }
+    this.lineSev = new Float32Array(N);
     const pos = new Float32Array(N * 2 * 3), col = new Float32Array(N * 2 * 4), idx = [];
     const half = 0.34;
     for (let i = 0; i < N; i++) {
@@ -3522,36 +3549,196 @@ export class Race {
     this.lineMesh.frustumCulled = false;
     this.scene.add(this.lineMesh);
     this.lineCol = col;
+    this.buildLineTiles();
   }
 
-  updateRacingLine() {
+  // the tiles: one every LT.pitch samples, each LT.len of the way to the next sample, LT.w wide at the near edge and a
+  // little narrower at the far one (a subtle trapezoid, as in F1). Their flat corners are worked out once; each frame
+  // the ones ahead of you are tipped up (hinged on the far edge), colored and faded into a small dynamic mesh.
+  buildLineTiles() {
+    const T = this.T, N = T.N, LT = LINE_TILES, nT = Math.ceil(N / LT.pitch);
+    const C = this.tileC = new Float32Array(nT * 12); // near-left, near-right, far-left, far-right (x, y, z)
+    for (let t = 0; t < nT; t++) {
+      const i = t * LT.pitch, j = (i + 1) % N, o = this.line[i], oj = this.line[j];
+      const ax = T.X[i] + T.RX[i] * o, az = T.Z[i] + T.RZ[i] * o, bx = T.X[j] + T.RX[j] * oj, bz = T.Z[j] + T.RZ[j] * oj;
+      const fx = ax + (bx - ax) * LT.len, fz = az + (bz - az) * LT.len, of = o + (oj - o) * LT.len;
+      const corner = (k, x, z, s, f, w) => C.set([x + T.RX[i] * s * w, surfaceY(T, i, f, (f ? of : o) + s * w) + this.A.LIFT[i] + 0.02, z + T.RZ[i] * s * w], t * 12 + k * 3);
+      corner(0, ax, az, -0.5, 0, LT.w); corner(1, ax, az, 0.5, 0, LT.w);
+      corner(2, fx, fz, -0.5, LT.len, LT.w * LT.taper); corner(3, fx, fz, 0.5, LT.len, LT.w * LT.taper);
+    }
+    this.tileLift = new Float32Array(nT);
+    const max = Math.ceil((LT.ahead + LT.behind) / T.ds / LT.pitch) + 4;
+    const g = new THREE.BufferGeometry(), idx = [], uv = new Float32Array(max * 8);
+    for (let q = 0; q < max; q++) { const v = q * 4; idx.push(v, v + 2, v + 1, v + 1, v + 2, v + 3); uv.set([0, 0, 1, 0, 0, 1, 1, 1], q * 8); }
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(max * 12), 3).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(max * 16), 4).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    g.setDrawRange(0, 0);
+    // a tile with soft edges (the F1 tiles are a little blurred, never crisp decals)
+    const map = softTex('lineTile', 64, 64, (c, w, h) => {
+      c.filter = 'blur(2px)'; c.fillStyle = '#fff'; c.fillRect(5, 5, w - 10, h - 10);
+    });
+    map.wrapS = map.wrapT = THREE.ClampToEdgeWrapping;
+    const mat = new THREE.MeshBasicMaterial({ map, vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -8, fog: true });
+    this.tileMesh = new THREE.Mesh(g, mat);
+    this.tileMesh.renderOrder = 2;
+    this.tileMesh.frustumCulled = false;
+    this.tileMax = max;
+    this.scene.add(this.tileMesh);
+  }
+  disposeRacingLine() {
+    for (const m of [this.lineMesh, this.tileMesh]) if (m) { this.scene.remove(m); m.geometry.dispose(); m.material.dispose(); }
+    this.lineMesh = this.tileMesh = null;
+  }
+
+  updateRacingLine(dt = 0) {
     const m = this.lineMesh; if (!m) return;
-    m.visible = this.lineMode !== 'off' && this.state !== 'finished';
-    if (!m.visible) return;
-    const T = this.T, N = T.N, col = this.lineCol, pl = this.player, p = pl.phys;
-    const C = [[0.24, 0.86, 0.29], [0.95, 0.82, 0.23], [0.91, 0.2, 0.16]];
+    const on = this.lineMode !== 'off' && this.state !== 'finished', blocks = this.lineStyle !== 'flat';
+    m.visible = on && !blocks;
+    if (this.tileMesh) this.tileMesh.visible = on && blocks;
+    if (!on) return;
+    const T = this.T, N = T.N, pl = this.player, p = pl.phys, S = this.lineSev;
     const full = this.lineMode === 'full';
     const u = Math.max(0, p.u);
     const aMax = p.p.mu * (9.81 + (p.p.kd / p.p.mass) * u * u) * 0.85;
-    const ahead = Math.round(320 / T.ds), behind = Math.round(12 / T.ds);
-    const set = (i, c, a) => { for (const k of [0, 1]) col.set([c[0], c[1], c[2], a], (i * 2 + k) * 4); };
-    for (let i = 0; i < N; i++) set(i, C[0], 0);
+    const ahead = Math.round(LINE_TILES.ahead / T.ds), behind = Math.round(LINE_TILES.behind / T.ds);
+    // how hard to brake at each point ahead: the plan's, raised if you're too fast to make it (lowered if you're slow)
     for (let k = -behind; k < ahead; k++) {
       const i = (pl.idx + k + N) % N;
-      let c = this.lineBase[i];
-      // dynamic: if you're too fast to make this point, it turns red / yellow
+      let s = this.lineBase[i];
       if (k > 0) {
         const d = k * T.ds, v = this.refV[i];
         if (u > v) {
-          const need = (u * u - v * v) / (2 * d);
-          if (need > aMax * 0.75) c = 2; else if (need > aMax * 0.35) c = Math.max(c, 1);
-        } else if (c === 2 && u < v * 0.9) c = 1;
+          const r = (u * u - v * v) / (2 * d) / aMax;
+          if (r > 0.35) s = Math.max(s, Math.min(1, 0.35 + (r - 0.35) / 0.4 * 0.65));
+        } else if (s > 0.6 && u < v * 0.9) s = 0.5;
       }
-      if (!full && c === 0) continue;
+      S[i] = s;
+    }
+    // the build-up: yellow, then orange, over the last `lead` s before each brake point (as F1's does)
+    const L = Math.max(25, u * LINE_TILES.lead);
+    for (let k = ahead - 1, brk = Infinity; k >= -behind; k--) {
+      const i = (pl.idx + k + N) % N;
+      if (S[i] >= 0.9) { brk = k; continue; }
+      const dd = (brk - k) * T.ds;
+      if (dd < L) S[i] = Math.max(S[i], 0.88 * (1 - dd / L));
+    }
+    if (blocks) return this.updateLineTiles(dt, ahead, behind, full);
+    const col = this.lineCol;
+    const set = (i, c, a) => { for (const k of [0, 1]) col.set([c[0], c[1], c[2], a], (i * 2 + k) * 4); };
+    for (let i = 0; i < N; i++) set(i, LINE_COL[0], 0);
+    for (let k = -behind; k < ahead; k++) {
+      const i = (pl.idx + k + N) % N, s = S[i];
+      if (!full && s < 0.3) continue;
       const fade = Math.min(1, (k + behind) / behind) * Math.min(1, (ahead - k) / (ahead * 0.35));
-      set(i, C[c], (c === 0 ? 0.34 : 0.62) * fade);
+      set(i, lineColor(s), (s < 0.3 ? 0.34 : 0.62) * fade);
     }
     m.geometry.attributes.color.needsUpdate = true;
+  }
+  updateLineTiles(dt, ahead, behind, full) {
+    const T = this.T, LT = LINE_TILES, pl = this.player, S = this.lineSev, C = this.tileC, lift = this.tileLift;
+    const g = this.tileMesh.geometry, P = g.attributes.position.array, Cl = g.attributes.color.array;
+    const nT = lift.length, ease = 1 - Math.exp(-LT.rate * dt);
+    // the tiles in view, and how far each wants to tip: a little for yellow, more for orange, all the way for red
+    const t0 = Math.ceil((pl.idx - behind) / LT.pitch), t1 = Math.floor((pl.idx + ahead) / LT.pitch), n = t1 - t0 + 1;
+    const W = this._tileW && this._tileW.length >= n ? this._tileW : (this._tileW = new Float32Array(n + 8)), W2 = this._tileW2 && this._tileW2.length >= n ? this._tileW2 : (this._tileW2 = new Float32Array(n + 8));
+    for (let q = 0; q < n; q++) { const s = S[(((t0 + q) % nT + nT) % nT) * LT.pitch]; W[q] = s < 0.15 ? 0 : Math.pow((s - 0.15) / 0.85, 1.3); }
+    // smoothed along the line: a raised run tails off over the next few tiles either side, then a soft blur
+    for (let q = 1; q < n; q++) W[q] = Math.max(W[q], W[q - 1] * 0.72);
+    for (let q = n - 2; q >= 0; q--) W[q] = Math.max(W[q], W[q + 1] * 0.72);
+    for (let q = 0; q < n; q++) W2[q] = (W[Math.max(0, q - 1)] + 2 * W[q] + W[Math.min(n - 1, q + 1)]) / 4;
+    let q = 0;
+    for (let k = 0; k < n && q < this.tileMax; k++) {
+      const tt = t0 + k, t = ((tt % nT) + nT) % nT, i = t * LT.pitch;
+      if (i === T.cut) continue;
+      const d = (tt * LT.pitch - pl.idx) * T.ds, s = S[i];
+      // tip up as they come into view, and lay back down as they reach you
+      const want = W2[k] * smooth(LT.settle[0], LT.settle[1], d);
+      lift[t] += (want - lift[t]) * ease;
+      if (!full && s < 0.3) continue;
+      // fade in far away, out close up (and out behind you)
+      const a = (s < 0.3 ? LT.alpha[0] : LT.alpha[1]) * smooth(LT.near[0], LT.near[1], d) * Math.min(1, (LT.ahead - d) / (LT.ahead * 0.35));
+      if (a <= 0.005) continue;
+      const th = lift[t] * LT.tilt, cs = Math.cos(th), sn = Math.sin(th), up = lift[t] * LT.raise, b = t * 12, o = q * 12;
+      // near edge stays down (the hinge), the far edge swings up
+      for (let k2 = 0; k2 < 2; k2++) {
+        const nn = b + k2 * 3, f = b + (k2 + 2) * 3;
+        const vx = C[f] - C[nn], vy = C[f + 1] - C[nn + 1], vz = C[f + 2] - C[nn + 2], l = Math.hypot(vx, vz);
+        P[o + k2 * 3] = C[nn]; P[o + k2 * 3 + 1] = C[nn + 1] + up; P[o + k2 * 3 + 2] = C[nn + 2];
+        P[o + (k2 + 2) * 3] = C[nn] + vx * cs; P[o + (k2 + 2) * 3 + 1] = C[nn + 1] + vy * cs + l * sn + up; P[o + (k2 + 2) * 3 + 2] = C[nn + 2] + vz * cs;
+      }
+      const c = lineColor(s);
+      // the raised far edge brightest, the hinge faded: each tile reads as its own step, not one band
+      for (let k2 = 0; k2 < 4; k2++) { const lit = k2 < 2 ? 1 : 1 + lift[t] * 0.2; Cl.set([c[0] * lit, c[1] * lit, c[2] * lit, a * (k2 < 2 ? 1 - lift[t] * 0.55 : 1)], q * 16 + k2 * 4); }
+      q++;
+    }
+    g.setDrawRange(0, q * 6);
+    g.attributes.position.needsUpdate = true; g.attributes.color.needsUpdate = true;
+  }
+
+  // ---------- sectors ----------
+  // The lap in three, split at a third and two thirds of the way round (each split moved onto the straightest bit of
+  // road nearby, so it never falls in a corner). Every car on this machine is timed through them; in practice and
+  // qualifying the field's laps are simulated, so each lap they post is split the way the racing line's speeds split
+  // a lap (with a little noise). Purple: the quickest anyone's been through it this session (a time trial: your best
+  // ever there, in this car); green: your best this session; yellow: slower than that.
+  buildSectors() {
+    const T = this.T, N = T.N, len = T.open ? T.D[T.finish] : T.L, w = Math.max(1, Math.round(20 / T.ds));
+    const bend = (i) => { let a = 0; for (let k = -w; k <= w; k++) a += Math.abs(T.K[(i + k + N) % N]); return a; };
+    this.secCut = [1, 2].map(k => {
+      const want = Math.round(len * k / 3 / T.ds), span = Math.round(len * 0.08 / T.ds);
+      let best = want, bb = Infinity;
+      for (let i = want - span; i <= want + span; i++) { const b = bend(i) * (1 + 0.3 * Math.abs(i - want) / span); if (b < bb) { bb = b; best = i; } }
+      return (best + N) % N;
+    });
+    // how a lap splits (for the field's simulated laps): the racing line's speeds, time per sample
+    const V = this.lineV, fr = [0, 0, 0];
+    if (V) { const end = T.open ? T.finish : N; for (let i = 0; i < end; i++) fr[i < this.secCut[0] ? 0 : i < this.secCut[1] ? 1 : 2] += T.ds / Math.max(5, V[i]); }
+    const tot = fr[0] + fr[1] + fr[2]; this.secFrac = tot ? fr.map(x => x / tot) : [1 / 3, 1 / 3, 1 / 3];
+    this.secTop = [Infinity, Infinity, Infinity]; // (the session's quickest through each)
+    // a time trial: purple is your best ever, kept per circuit and car
+    if (this.mode === 'test' && this.player) {
+      this.secKey = lapKey(this.track, T, this.player.carId);
+      try { const e = JSON.parse(localStorage.getItem(SEC_KEY) || '{}')[this.secKey]; if (e && e.length === 3) this.secTop = e.slice(); } catch (err) {}
+    }
+  }
+  secStart(car) { if (car.team) car.sec = { k: 0, t0: this.raceTime, cur: [null, null, null] }; }
+  // crossed a split?
+  secCross(car, prev, cur) {
+    const S = car.sec; if (!S || S.k > 1 || !this.secCut) return;
+    const c = this.secCut[S.k], N = this.T.N;
+    if (prev < c && cur >= c && cur - prev < N / 4) { this.secDone(car, S.k, this.raceTime - S.t0, !car.lapInvalid); S.t0 = this.raceTime; S.k++; }
+  }
+  // the lap's done: its last sector (a lap that didn't go through both splits has no sectors to give)
+  secLap(car, valid) {
+    const S = car.sec; if (!S) return;
+    if (S.k === 2) this.secDone(car, 2, this.raceTime - S.t0, valid);
+    if (car.isPlayer) { car.secPrev = S.cur; car.secPrevAt = this.raceTime; }
+    car.sec = null;
+  }
+  // a sector time: was it a best (yours, everyone's)? What it shows: the time against your best before it
+  secDone(car, k, t, valid) {
+    const B = car.secBest ||= [Infinity, Infinity, Infinity], pb = B[k], top = this.secTop[k];
+    const col = !valid ? 'v' : t < top ? 'p' : t < pb ? 'g' : 'y';
+    if (valid) { if (t < pb) B[k] = t; if (t < top) { this.secTop[k] = t; if (this.secKey && car.isPlayer) this.saveSecTop(); } }
+    car.sec.cur[k] = { t, d: isFinite(pb) ? t - pb : null, col };
+  }
+  // one of the field's simulated laps, split into sectors
+  secPosted(e, time) {
+    if (!this.secFrac) return;
+    const n = [0, 1, 2].map(() => (Math.random() - 0.5) * 0.012), f = this.secFrac.map((x, k) => x * (1 + n[k])), tot = f[0] + f[1] + f[2];
+    const B = e.secBest ||= [Infinity, Infinity, Infinity];
+    f.forEach((x, k) => { const t = time * x / tot; if (t < B[k]) B[k] = t; if (t < this.secTop[k]) this.secTop[k] = t; });
+  }
+  saveSecTop() {
+    try { const all = JSON.parse(localStorage.getItem(SEC_KEY) || '{}'); all[this.secKey] = this.secTop.map(x => Math.round(x * 1000) / 1000); localStorage.setItem(SEC_KEY, JSON.stringify(all)); } catch (err) {}
+  }
+  // the HUD's sector strip: this lap's (or, for a few seconds after the line, the lap just done), your bests, the ideal
+  secHud(pl) {
+    const live = pl.sec && pl.sec.cur, recent = pl.secPrev && this.raceTime - pl.secPrevAt < 4 && (!live || !live[0]);
+    const B = pl.secBest || [Infinity, Infinity, Infinity];
+    return { cells: recent ? pl.secPrev : live || [null, null, null], k: recent ? 3 : pl.sec ? pl.sec.k : -1, best: B, ideal: B.every(isFinite) ? B[0] + B[1] + B[2] : null };
   }
 
   // ---------- the run plan (practice.js) ----------
@@ -3950,6 +4137,7 @@ export class Race {
       rc: this.rc.hudFor(pl), lastInvalid: !!pl.lastInvalid, penServing: pl.penServing || 0,
       delta: this.quali || this.mode === 'test' ? this.shownDelta(pl) : null, // (against your best lap: sessions and time trial)
       prog: this.progHud(),
+      sectors: this.secCut ? this.secHud(pl) : null,
       quali: this.quali ? {
         left: this.quali.left, flag: this.quali.flag, done: this.quali.done, rows: this.qualiRows(),
         status: pl.pitting ? (pl.pitPhase === 'out' || pl.lap === 0 ? 'PIT EXIT' : 'IN LAP')

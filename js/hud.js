@@ -115,7 +115,7 @@ export class HUD {
     this.el.feed.innerHTML = ''; this.feedEls = [];
     $('h-radio').innerHTML = ''; $('h-radio').classList.remove('calling'); this.radioEls = []; this.call = null;
     this.st.el.classList.remove('on');
-    $('h-prog').classList.remove('on'); $('h-gate').classList.remove('on');
+    $('h-prog').classList.remove('on'); $('h-gate').classList.remove('on'); $('h-secs').classList.remove('on');
     this.secPaths = null; this.quali = null;
   }
 
@@ -188,6 +188,18 @@ export class HUD {
     this.set('plan', $('h-plan'), s.wear && s.plan && !s.strat ? `BOX LAP ${s.plan.lap}<i style="background:${TYRE_CSS[s.plan.tyre]}"></i>${s.plan.tyre.toUpperCase()}` : '', true);
     this.strategy(s);
     this.programme(s.prog);
+    this.sectors(s.sectors);
+  }
+
+  // the lap's sectors under the lap time (race.js secHud): the cell you're in outlined, the ones done filled in their
+  // color with the time against your best (your first time through: the time itself)
+  sectors(S) {
+    const el = $('h-secs'), on = !!S && this.secOn !== false;
+    el.classList.toggle('on', on); if (!on) return;
+    const txt = (c) => c.d == null ? (c.t >= 60 ? fmtTime(c.t, 2) : c.t.toFixed(2)) : (c.d < 0 ? '\u2212' : '+') + Math.abs(c.d).toFixed(3);
+    const key = S.cells.map(c => c ? c.col + txt(c) : '-').join() + S.k;
+    if (key === this.cache.secs) return; this.cache.secs = key;
+    el.querySelectorAll('i').forEach((i, k) => { const c = S.cells[k]; i.className = c ? c.col : k === S.k ? 'now' : ''; i.textContent = c ? txt(c) : ''; });
   }
 
   // the run plan's job on track (practice.js): gates through on this lap, its rating so far, the best lap's rating,

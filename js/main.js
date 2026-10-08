@@ -77,7 +77,7 @@ voiceStatus(); // (character voices: is serve.py here, and is someone signed in 
 // ---------------- settings ----------------
 const DEFAULTS = {
   uiTheme: 'red', res: 'ps2', filter: 'soft', trails: true, scan: false, dither: true, retro: 'psx', palette: 128, psxMat: 'strong', crt: 'flat', grain: 'light', rays: true, fringe: true, shadows: true, dirtFx: 5, look: 'arcade', units: 'kmh', gearbox: 'auto', tc: true,
-  volume: 7, music: 5, camera: 'chase', mirror: 'on', racingLine: 'full', wear: 'normal', damage: 'normal', startTyre: 'auto', drift: 'off', aiChassis: 'class', rules: 'arcade', safetyCar: 'on', aiMistakes: 'normal', quali: 0, radarMap: 'satellite', radarZoom: 'normal', car: null, difficulty: 'medium', grid: 'back', team: 0, time: 'track', weather: 'track',
+  volume: 7, music: 5, camera: 'chase', mirror: 'on', racingLine: 'full', lineStyle: 'blocks', wear: 'normal', damage: 'normal', startTyre: 'auto', drift: 'off', aiChassis: 'class', rules: 'arcade', safetyCar: 'on', aiMistakes: 'normal', quali: 0, radarMap: 'satellite', radarZoom: 'normal', car: null, difficulty: 'medium', grid: 'back', team: 0, time: 'track', weather: 'track',
 };
 let settings = { ...DEFAULTS };
 try { settings = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('svgp.settings') || '{}') }; } catch (e) {}
@@ -585,7 +585,7 @@ const presetLabel = () => { const k = presetOf(settings); return k === 'custom' 
 function noteAidBonus() { if (sim && sim.player && sim.mode !== 'attract') sim.aidBonus = Math.min(sim.aidBonus ?? Infinity, bonusNow()); }
 function aidsChanged() {
   saveSettings();
-  if (sim && sim.player && sim.mode !== 'attract') { sim.setPlayerAids(aidsNow(), settings.gearbox); if (sim.lineMesh) sim.lineMode = settings.racingLine; noteAidBonus(); }
+  if (sim && sim.player && sim.mode !== 'attract') { sim.setPlayerAids(aidsNow(), settings.gearbox); if (sim.lineMesh) { sim.lineMode = settings.racingLine; sim.lineStyle = settings.lineStyle; } noteAidBonus(); }
   for (const id of ['s-options', 's-raceset', 's-paddock']) menus[id]?.[0]?.render();
 }
 const lockedByHost = (k) => raceAidRule === 'sim' || (raceAidRule === 'noassist' && (k === 'brake' || k === 'steer'));
@@ -597,6 +597,9 @@ const aidItem = (k) => ({ label: AIDS[k].label, values: AIDS[k].values, get: () 
   get desc() { return AIDS[k].desc + (lockedByHost(k) ? ' <b>Set by the host for this race.</b>' : '') + bonusTxt(); } });
 const lineItem = { label: 'Racing Line', values: [['full', 'Full'], ['brake', 'Braking only'], ['off', 'Off']], get: () => settings.racingLine, set: v => { settings.racingLine = v; aidsChanged(); },
   get desc() { return 'A guide line on the road that turns red where you should brake. Press L (or d-pad up) to toggle in a race.' + bonusTxt(); } };
+const lineStyleItem = { label: 'Line Style', values: [['blocks', '3D Blocks'], ['flat', 'Flat']], get: () => settings.lineStyle, set: v => { settings.lineStyle = v; aidsChanged(); },
+  get disabled() { return settings.racingLine === 'off'; },
+  desc: '<b>3D Blocks</b>: tiles along the line that go from green to red, and the braking ones lift up off the road to face you, then lay flat and fade as you reach them. <b>Flat</b>: a thin line painted on the road.' };
 const gearboxItem = { label: 'Gearbox', values: [['auto', 'Automatic'], ['manual', 'Manual']], get: () => settings.gearbox, set: v => { settings.gearbox = v; aidsChanged(); },
   get desc() { return 'Manual: shift with E / Q or RB / LB. The rev bar turns gold when it is time to shift.' + bonusTxt(); } };
 const TEMPS_VALS = [['off', 'Off'], ['normal', 'Normal'], ['realistic', 'Realistic']];
@@ -635,7 +638,7 @@ const OPTION_TABS = [
   ['Aids', [
     presetItem(' Pick a preset, or set each aid below.'),
     ...AID_KEYS.map(aidItem),
-    lineItem, gearboxItem,
+    lineItem, lineStyleItem, gearboxItem,
   ]],
   ['Controller', [
     { label: 'Vibration', values: [['off', 'Off'], ['low', 'Low'], ['normal', 'Normal'], ['strong', 'Strong']], get: () => settings.vibration, set: v => { settings.vibration = v; saveSettings(); if (VIBES[v]) { vibeTestUntil = performance.now() + 300; rumble(0.6 * VIBES[v], 0.5 * VIBES[v]); } },
@@ -1030,14 +1033,16 @@ function showQualiResults() {
   sim.setPaused(true);
   $('results-title').textContent = SESSION_NAME[kind];
   $('results-sub').textContent = `${sim.track.name} · ${Math.round(sim.quali.time / 60)} minute session · ${practice ? 'qualifying next' : 'grid for the race'}`;
-  $('results-table').innerHTML = `<tr><th>POS</th><th>DRIVER</th><th>TEAM</th><th class="r">BEST LAP</th><th class="r">GAP</th></tr>` + rows.map(r =>
-    `<tr class="${r.isPlayer ? 'me' : ''}"><td class="p">${posBadge(r.pos)}</td><td><span class="swatch" style="background:${hex(r.color)}"></span>${r.name}</td><td>${r.team}</td><td class="t">${isFinite(r.best) ? fmtTime(r.best, 3) : 'NO TIME'}</td><td class="t">${r.pos === 1 || !isFinite(r.best) ? '' : '+' + r.gap.toFixed(3)}</td></tr>`).join('');
+  const tops = secTops(rows);
+  $('results-table').innerHTML = `<tr><th>POS</th><th>DRIVER</th><th>TEAM</th><th class="r">BEST LAP</th><th class="r">GAP</th><th class="r">S1</th><th class="r">S2</th><th class="r">S3</th></tr>` + rows.map(r =>
+    `<tr class="${r.isPlayer ? 'me' : ''}"><td class="p">${posBadge(r.pos)}</td><td><span class="swatch" style="background:${hex(r.color)}"></span>${r.name}</td><td>${r.team}</td><td class="t">${isFinite(r.best) ? fmtTime(r.best, 3) : 'NO TIME'}</td><td class="t">${r.pos === 1 || !isFinite(r.best) ? '' : '+' + r.gap.toFixed(3)}</td>${secCells(r, tops)}</tr>`).join('');
   const row = (k, v) => `<div class="row"><span>${k}</span><span>${v}</span></div>`;
   const p = me.pos, o = ['TH', 'ST', 'ND', 'RD'][(p % 100 - 20) % 10] || ['TH', 'ST', 'ND', 'RD'][p % 100] || 'TH';
   const tag = !isFinite(me.best) ? 'NO TIME SET' : practice ? (p === 1 ? 'FASTEST IN PRACTICE' : 'IN PRACTICE') : p === 1 ? 'POLE POSITION' : 'ON THE GRID';
   $('result-card').innerHTML = `<div class="big-pos ${p === 1 ? 'gold' : p <= 3 ? 'podium' : ''}">${p}<sup>${o}</sup><small>${tag}</small></div>`
     + row('Best lap', isFinite(me.best) ? fmtTime(me.best, 3) : '&mdash;')
     + row(practice ? 'Gap to fastest' : 'Gap to pole', p === 1 || !isFinite(me.best) ? '&mdash;' : '+' + me.gap.toFixed(3))
+    + row('Ideal lap', me.sec && me.sec.every(isFinite) ? fmtTime(me.sec[0] + me.sec[1] + me.sec[2], 3) : '&mdash;')
     + row(practice ? 'Next' : 'Race', practice ? `Qualifying &middot; ${Math.round(weekend.len[1] / 60)} min` : `${weekend.race.laps} lap${weekend.race.laps === 1 ? '' : 's'} &middot; ${n} cars`);
   const toRace = () => {
     const w = weekend, g = sim.qualiGrid();
@@ -1322,14 +1327,24 @@ function repairNow(keys = null) {
   };
   requestAnimationFrame(tick);
 }
+// sector times in tables (race.js sectors): each column's quickest purple
+const secFmt = (t) => t == null || !isFinite(t) ? '&mdash;' : t >= 60 ? fmtTime(t, 3) : t.toFixed(3);
+const secTops = (rows) => [0, 1, 2].map(k => Math.min(...rows.map(r => r.sec ? r.sec[k] : Infinity)));
+const secCells = (r, tops) => [0, 1, 2].map(k => { const t = r.sec ? r.sec[k] : null; return `<td class="t${t != null && isFinite(t) && t === tops[k] ? ' sbest' : ''}">${secFmt(t)}</td>`; }).join('');
+// your best sectors and the lap they add up to, under the garage's numbers
+function secLine(B) {
+  B = B || [Infinity, Infinity, Infinity];
+  const ideal = B.every(isFinite) ? fmtTime(B[0] + B[1] + B[2], 3) : '&mdash;';
+  return `<div class="pg-secs">${[0, 1, 2].map(k => `<span>S${k + 1}<b>${secFmt(B[k])}</b></span>`).join('')}<span>Ideal<b>${ideal}</b></span></div>`;
+}
 function renderGarageInfo() {
   const q = sim.quali, rows = sim.qualiRows(), me = rows.find(r => r.isPlayer);
   const late = q.left < 60;
   $('pg-clock').textContent = fmtTime(Math.ceil(q.left), 0); $('pg-clock').classList.toggle('late', late);
   const cell = (k, v) => `<div><small>${k}</small><b>${v}</b></div>`;
-  $('pg-card').innerHTML = `<div class="ti-grid">${cell('Position', `${me.pos}<small>/${rows.length}</small>`)}${cell(sim.T.open ? 'Best run' : 'Best lap', isFinite(me.best) ? fmtTime(me.best, 3) : '&mdash;')}${cell(q.kind === 'practice' ? 'Gap to fastest' : 'Gap to pole', me.pos === 1 || !isFinite(me.best) ? '&mdash;' : '+' + me.gap.toFixed(3))}${sim.T.open ? cell('Runs', `${q.used || 0}<small>/${q.runs || 1}</small>`) : cell('Laps', sim.player.lapTimes.length)}</div>`;
-  if (pgTiming) $('pg-table').innerHTML = `<tr><th>POS</th><th>DRIVER</th><th class="r">BEST</th><th class="r">GAP</th></tr>` + rows.map(r =>
-    `<tr class="${r.isPlayer ? 'me' : ''}"><td class="p">${posBadge(r.pos)}</td><td><span class="swatch" style="background:${hex(r.color)}"></span>${r.name}</td><td class="t">${isFinite(r.best) ? fmtTime(r.best, 3) : '&mdash;'}</td><td class="t">${r.pos === 1 || !isFinite(r.best) ? '' : '+' + r.gap.toFixed(3)}</td></tr>`).join('');
+  $('pg-card').innerHTML = `<div class="ti-grid">${cell('Position', `${me.pos}<small>/${rows.length}</small>`)}${cell(sim.T.open ? 'Best run' : 'Best lap', isFinite(me.best) ? fmtTime(me.best, 3) : '&mdash;')}${cell(q.kind === 'practice' ? 'Gap to fastest' : 'Gap to pole', me.pos === 1 || !isFinite(me.best) ? '&mdash;' : '+' + me.gap.toFixed(3))}${sim.T.open ? cell('Runs', `${q.used || 0}<small>/${q.runs || 1}</small>`) : cell('Laps', sim.player.lapTimes.length)}</div>` + secLine(sim.player.secBest);
+  if (pgTiming) { const tops = secTops(rows); $('pg-table').innerHTML = `<tr><th>POS</th><th>DRIVER</th><th class="r">BEST</th><th class="r">GAP</th><th class="r">S1</th><th class="r">S2</th><th class="r">S3</th></tr>` + rows.map(r =>
+    `<tr class="${r.isPlayer ? 'me' : ''}"><td class="p">${posBadge(r.pos)}</td><td><span class="swatch" style="background:${hex(r.color)}"></span>${r.name}</td><td class="t">${isFinite(r.best) ? fmtTime(r.best, 3) : '&mdash;'}</td><td class="t">${r.pos === 1 || !isFinite(r.best) ? '' : '+' + r.gap.toFixed(3)}</td>${secCells(r, tops)}</tr>`).join(''); }
   pitGarage.setTiming(`${SESSION_NAME[q.kind].toUpperCase()} · ${fmtTime(Math.ceil(q.left), 0)}`, rows);
   // the car: each part, how bad, how long to fix; the tyres on it (and what goes on when you go out)
   if (!pgTiming) {
@@ -3920,7 +3935,7 @@ function coopSessionCheck() {
   if (f && !f.qDone && !f.gone && coop.peer) { if (screen !== 's-results') showCoopQuali(null); return; }
   coop.race.done = true;
   useSession();
-  const g = sim.qualiGrid(), rows = sim.qualiRows().map(r => ({ pos: r.pos, name: r.name, team: r.team, color: r.color, best: isFinite(r.best) ? r.best : null, gap: r.gap, who: r.isPlayer ? 'P' : r.human ? 'C' : null }));
+  const g = sim.qualiGrid(), rows = sim.qualiRows().map(r => ({ pos: r.pos, name: r.name, team: r.team, color: r.color, best: isFinite(r.best) ? r.best : null, gap: r.gap, who: r.isPlayer ? 'P' : r.human ? 'C' : null, sec: r.sec && r.sec.every(isFinite) ? r.sec : null }));
   coop.weekend.grid = g;
   if (coop.peer) coop.net.sendTo(coop.peer, { t: 'cqres', race: coop.race.id, kind: coop.race.session, rows });
   showCoopQuali(rows);
@@ -3931,13 +3946,13 @@ function showCoopQuali(rows) {
   const kind = coop?.race?.session || sim.quali.kind, practice = kind === 'practice', host = coop?.host, final = !!rows, hostName = world.player.name.split(' ')[0];
   if (pc.app === 'weekend') pc.close(); pitGarage.close();
   const me = host ? 'P' : 'C';
-  const R = rows || sim.qualiRows().map(r => ({ pos: r.pos, name: r.name, team: r.team, color: r.color, best: isFinite(r.best) ? r.best : null, gap: r.gap, who: r.isPlayer ? me : r.human ? (host ? 'C' : 'P') : null }));
+  const R = rows || sim.qualiRows().map(r => ({ pos: r.pos, name: r.name, team: r.team, color: r.color, best: isFinite(r.best) ? r.best : null, gap: r.gap, who: r.isPlayer ? me : r.human ? (host ? 'C' : 'P') : null, sec: r.sec && r.sec.every(isFinite) ? r.sec : null }));
   const other = sim.cars.find(c => c.human && c.remote);
   $('results-title').textContent = SESSION_NAME[kind];
   $('results-sub').textContent = `${sim.track.name} · ${Math.round(sim.quali.time / 60)} minute session · ${practice ? 'qualifying next' : 'grid for the race'}`;
   $('results-table').innerHTML = (final ? '' : `<caption class="live">${other && !other.qDone && !other.gone ? `Waiting for ${other.name} to finish the session&hellip;` : host ? 'Posting the times&hellip;' : `Waiting for ${hostName}&hellip;`}</caption>`)
-    + `<tr><th>POS</th><th>DRIVER</th><th>TEAM</th><th class="r">BEST LAP</th><th class="r">GAP</th></tr>` + R.map(r =>
-    `<tr class="${r.who === me ? 'me' : ''}"><td class="p">${posBadge(r.pos)}</td><td><span class="swatch" style="background:${hex(r.color)}"></span>${r.name}</td><td>${r.team}</td><td class="t">${r.best ? fmtTime(r.best, 3) : 'NO TIME'}</td><td class="t">${r.pos === 1 || r.gap == null ? '' : '+' + r.gap.toFixed(3)}</td></tr>`).join('');
+    + `<tr><th>POS</th><th>DRIVER</th><th>TEAM</th><th class="r">BEST LAP</th><th class="r">GAP</th><th class="r">S1</th><th class="r">S2</th><th class="r">S3</th></tr>` + R.map(r =>
+    `<tr class="${r.who === me ? 'me' : ''}"><td class="p">${posBadge(r.pos)}</td><td><span class="swatch" style="background:${hex(r.color)}"></span>${r.name}</td><td>${r.team}</td><td class="t">${r.best ? fmtTime(r.best, 3) : 'NO TIME'}</td><td class="t">${r.pos === 1 || r.gap == null ? '' : '+' + r.gap.toFixed(3)}</td>${secCells(r, secTops(R))}</tr>`).join('');
   const mine = R.find(r => r.who === me), p = mine ? mine.pos : R.length, o = ['TH', 'ST', 'ND', 'RD'][(p % 100 - 20) % 10] || ['TH', 'ST', 'ND', 'RD'][p % 100] || 'TH', row = (k, v) => `<div class="row"><span>${k}</span><span>${v}</span></div>`;
   const tag = !mine || !mine.best ? 'NO TIME SET' : practice ? (p === 1 ? 'FASTEST IN PRACTICE' : 'IN PRACTICE') : p === 1 ? 'POLE POSITION' : 'ON THE GRID';
   $('result-card').innerHTML = `<div class="big-pos ${p === 1 ? 'gold' : p <= 3 ? 'podium' : ''}">${p}<sup>${o}</sup><small>${tag}</small></div>` + row('Best lap', mine && mine.best ? fmtTime(mine.best, 3) : '&mdash;') + row(practice ? 'Gap to fastest' : 'Gap to pole', p === 1 || !mine || mine.gap == null ? '&mdash;' : '+' + mine.gap.toFixed(3))
@@ -4403,7 +4418,7 @@ function startRace(track, cfg, ret, quick = false) {
       const r = new Race(track, {
         mode: cfg.mode, laps: cfg.laps || track.env.laps || 3, opponents: cfg.opponents ?? track.env.opponents ?? 7, qualiTime: cfg.qualiTime, practiceTime: cfg.practiceTime,
         difficulty: settings.difficulty, grid: settings.grid, team: settings.team, gearbox: settings.gearbox, aids: aidsNow(), ghost: settings.ghost,
-        units: settings.units, camera: settings.camera, racingLine: settings.racingLine, car: settings.car,
+        units: settings.units, camera: settings.camera, racingLine: settings.racingLine, lineStyle: settings.lineStyle, car: settings.car,
         wear: settings.wear, temps: settings.temps, damage: settings.damage, rules: settings.rules, safetyCar: settings.safetyCar !== 'off', aiMistakes: settings.aiMistakes, startTyre: settings.startTyre, aiChassis: settings.aiChassis, drift: raceReturn === 'setup' ? settings.drift : 'off',
         pickCar: !!cfg.pick && !quick, pitWall: settings.pitWall !== 'off',
         ...(cfg.extra || {}), defer: true,
@@ -4419,6 +4434,7 @@ function startRace(track, cfg, ret, quick = false) {
       sim.render(post, settings);
       hud.setTrack(sim.T, sim.A, sim.world.roadLines);
       hud.reset(cfg.mode === 'race' ? 'race' : cfg.mode === 'quali' || cfg.mode === 'practice' ? 'quali' : 'test');
+      hud.secOn = ret !== 'gig' && ret !== 'drivehome'; // (sectors: not on a job or the drive home)
       driftHud.reset(); if (sim.drift) driftHud.show(); else driftHud.hide();
       const wait = Math.max(0, 1300 - (performance.now() - t0));
       setTimeout(() => {

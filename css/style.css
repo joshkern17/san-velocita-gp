@@ -352,8 +352,9 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 
 /* top centre: the current lap time, as big and plain as possible. A rear-view mirror can take the top slot later
    (--mirror-h pushes the timer down). Under it, the live delta to your best (qualifying / time trial). */
-#hud { --mirror-h: 0px; --tc-top: calc(4.5% + var(--mirror-h)); --tc-h: 98px; }
-#hud:has(.tc-delta.on) { --tc-h: 126px; }
+#hud { --mirror-h: 0px; --tc-top: calc(4.5% + var(--mirror-h)); --tc-base: 98px; --tc-sec: 0px; --tc-del: 0px; --tc-h: calc(var(--tc-base) + var(--tc-sec) + var(--tc-del)); }
+#hud:has(.tc-delta.on) { --tc-del: 28px; }
+#hud:has(.tc-secs.on) { --tc-sec: 34px; }
 /* the rear-view mirror (js/race.js draws the view behind into this box): the HUD's corner brackets round a clear
    pane, a faint red edge and a little glass sheen; the timer sits under it, a size down */
 .hud-mirror { display: none; position: absolute; left: 50%; top: 3.2%; width: 440px; height: 104px; margin-left: -220px;
@@ -366,12 +367,15 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
     linear-gradient(var(--c), var(--c)) bottom right / var(--l) 2px, linear-gradient(var(--c), var(--c)) bottom right / 2px var(--l);
   background-repeat: no-repeat; filter: drop-shadow(0 0 2px var(--c)); }
 #hud.mirror .hud-mirror { display: block; }
-#hud.mirror { --tc-top: calc(3.2% + 104px + 12px); --tc-h: 76px; }
-#hud.mirror:has(.tc-delta.on) { --tc-h: 101px; }
+#hud.mirror { --tc-top: calc(3.2% + 104px + 12px); --tc-base: 76px; }
+#hud.mirror:has(.tc-delta.on) { --tc-del: 25px; }
+#hud.mirror:has(.tc-secs.on) { --tc-sec: 29px; }
 #hud.mirror .hud-tc { width: 230px; margin-left: -115px; padding: 6px 0 8px; }
 #hud.mirror .hud-tc .hud-cap { font-size: 12px; }
 #hud.mirror .laptime { font-size: 46px; margin-top: 4px; }
 #hud.mirror .tc-delta { font-size: 19px; }
+#hud.mirror .tc-secs { margin-top: 7px; gap: 5px; padding: 0 12px; }
+#hud.mirror .tc-secs i { height: 22px; font-size: 14px; line-height: 20px; }
 /* (the start lights hang where the mirror is: it steps aside for them, as the timer does) */
 #hud:has(.lights.on) .hud-mirror { visibility: hidden; }
 .hud-tc { position: absolute; left: 50%; top: var(--tc-top); width: 272px; margin-left: -136px; padding: 8px 0 10px; text-align: center; }
@@ -379,6 +383,17 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .hud-tc .hud-cap.void { color: var(--sv-bad); }
 .laptime { font: 700 60px/1 var(--f-display); letter-spacing: var(--track); color: var(--sv-hot); text-shadow: var(--sv-glow-hud); -webkit-text-fill-color: transparent; margin-top: 6px; white-space: nowrap; }
 .laptime.void { color: var(--sv-red-dim); text-decoration: line-through; text-decoration-thickness: 3px; }
+/* the sectors (race.js secHud): three cells under the time. Waiting: a faint outline; the one you're in: a brighter
+   one; done: filled purple (quickest anyone's been), green (your best) or yellow (slower), the time against your best
+   in ink. A sector on a deleted lap: outlined, the time struck through. */
+.tc-secs { display: none; gap: 6px; margin-top: 9px; padding: 0 14px; }
+.tc-secs.on { display: flex; }
+.tc-secs i { flex: 1; height: 26px; border: 1px solid var(--sv-red-faint); border-radius: 1px; font: 500 19px/24px var(--f-num); font-style: normal; letter-spacing: var(--track); color: var(--sv-ink); text-shadow: var(--sv-glow-ink); -webkit-text-fill-color: transparent; white-space: nowrap; }
+.tc-secs i.now { border-color: var(--sv-red); box-shadow: var(--sv-glow-box); }
+.tc-secs i.p, .tc-secs i.g, .tc-secs i.y { border-color: transparent; box-shadow: var(--sv-glow-fill); }
+.tc-secs i.p { background: var(--sv-best); color: var(--sv-best); } .tc-secs i.g { background: var(--sv-sec-green); color: var(--sv-sec-green); } .tc-secs i.y { background: var(--sv-sec-yellow); color: var(--sv-sec-yellow); }
+.tc-secs i.p, .tc-secs i.g, .tc-secs i.y { -webkit-text-fill-color: var(--sv-ink); text-shadow: var(--sv-glow-ink); }
+.tc-secs i.v { color: var(--sv-red-dim); text-shadow: var(--sv-glow-hud); text-decoration: line-through; }
 .tc-delta { display: none; margin-top: 6px; font: 500 22px/1 var(--f-ui); text-shadow: var(--sv-glow-hud); -webkit-text-fill-color: transparent; }
 .tc-delta.on { display: block; }
 .tc-delta .faster { color: var(--sv-good); } .tc-delta .slower { color: var(--sv-bad); }
@@ -1182,7 +1197,13 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .pg-left { position: absolute; left: 5%; top: 19%; width: 410px; display: flex; flex-direction: column; gap: 14px; }
 .pg-menu .menu .item { font-size: 24px; line-height: 1.16; }
 .pg-card .ti-grid b { white-space: nowrap; }
-.pg-timing { position: absolute; right: 5%; top: 19%; width: 440px; max-height: 62%; overflow-y: auto; }
+.pg-timing { position: absolute; right: 5%; top: 19%; width: 620px; max-height: 62%; overflow-y: auto; }
+/* sector columns: the quickest in each, purple (racing convention) */
+.tbl td.sbest { color: var(--sv-best); }
+/* the garage: your best sectors and the ideal lap they add up to (main.js secLine) */
+.pg-secs { display: grid; grid-template-columns: repeat(3, 1fr) 1.35fr; margin-top: var(--s3); padding-top: 8px; border-top: 1px solid var(--sv-red-faint); }
+.pg-secs span { font: 500 var(--t-small)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+.pg-secs b { display: block; margin-top: 4px; font: 500 16px/1 var(--f-num); color: var(--sv-hot); }
 .pg-timing .tbl td, .pg-timing .tbl th { padding: 4px 8px; }
 .pg-car { position: absolute; right: 5%; bottom: 118px; width: 260px; padding: 12px 14px 10px; background: rgba(5,3,8,.6); border: 0; box-shadow: none; }
 .pg-car .panel-title { margin-bottom: 6px; }

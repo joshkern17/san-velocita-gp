@@ -20,6 +20,8 @@
   --sv-good: var(--sv-cyan);    /* faster, OK, gained */
   --sv-bad: #ff2d6f;            /* slower, damage, penalties (pinker than --sv-red so it reads as different) */
   --sv-best: #b66dff;           /* personal / session best (racing convention: purple) */
+  --sv-sec-green: #3ee07a;      /* sector timing (racing convention): your best this session */
+  --sv-sec-yellow: #f2d40c;     /* sector timing: slower than your best (yellower than amber, which is focus) */
   --sv-ink: #05060c;            /* page black */
   --sv-shade: rgba(4, 3, 8, .74);
   --sv-plate: rgba(6, 4, 10, .58);   /* the only "panel" fill: a dark plate behind text over bright scenes */
