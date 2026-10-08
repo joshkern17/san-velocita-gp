@@ -218,6 +218,15 @@ export function coopJoin(w, o) {
   if (old) text(w, old.first, pickLine(w, [`So your mate gets my seat. Cool. Cool cool cool.`, `Heard. Good luck to them, they'll need it in that car.`]));
   return { cash: b.cash, stake: b.stake };
 }
+// each driver's target (co-op): a place better than they've been finishing (their last three rounds; before any, the
+// middle of the field), so a quicker and a slower driver both have something to race for. Met, it pays the team.
+export function driverTarget(w, pid) {
+  const sid = w.player.series, S = w.series[sid], n = S.teams.reduce((a, t) => a + w.teams[t].drivers.length, 0) || 12;
+  const fins = S.results.filter(r => r.round < w.round).slice(-3).map(r => r.rows.find(x => x.pid === pid)).filter(Boolean).map(x => x.dnf ? n : x.pos);
+  const base = fins.length ? fins.reduce((a, b) => a + b, 0) / fins.length : Math.ceil(n * 0.6) + 1;
+  return clamp(Math.round(base) - 1, 1, n - 1);
+}
+export const targetBonus = (w) => Math.round((COSTS[w.player.series] || COSTS.street).prize[2] * 0.25 / 50) * 50;
 // the second seat is the friend's: anyone else in it goes (a season's setup, a seat deal, a story)
 function coopSeat(w) {
   const T = myTeam(w), pid = w.coop.pid; if (!T || !w.people[pid]) return;
@@ -1985,6 +1994,10 @@ export function settleRound(w, use, me) {
   for (const it of sponsorRound(w, use, me)) items.push(it);
   for (const it of seatRound(w)) items.push(it);
   for (const it of car2Round(w)) items.push(it);
+  // (co-op: each driver who met their target: driverTarget)
+  if (w.coop) { const res = w.series[w.player.series].results.find(r => r.round === w.round);
+    for (const pid of ['P', w.coop.pid]) { const t = driverTarget(w, pid), row = res && res.rows.find(r => r.pid === pid);
+      if (row && !row.dnf && row.pos <= t) items.push([`Target met: ${pid === 'P' ? w.player.name.split(' ')[0] : w.people[pid].first} (P${row.pos}, aiming for top ${t})`, targetBonus(w)]); } }
   if (w.coop?.boss) { const seen = (w.week?.co?.work || 0) > 0; items.push([`${w.coop.boss}: sponsoring ${coopPerson(w).first}${seen ? '' : ' (half: they never saw them at work)'}`, Math.round(buyinOf(w, 'boss').per * (seen ? 1 : 0.5) / 10) * 10]); } // (a co-owner's boss: pays in full when they've turned up for a shift that week)
   for (const it of worksRound(w, me)) items.push(it);
   for (const it of temptRound(w, use, me)) items.push(it);
@@ -3160,6 +3173,7 @@ export function briefing(w) {
       if (d.shady) continue;
       targets.push({ text: objText(w, dealObjective(w, d)), who: sp.name, amt: d.bonus });
     }
+    if (w.coop && w.people[w.coop.pid]) for (const pid of [w.coop.pid, 'P']) targets.unshift({ text: `Finish top ${driverTarget(w, pid)}`, who: `${pid === 'P' ? w.player.name.split(' ')[0] : w.people[pid].first}'s target`, amt: targetBonus(w) });
     const g = storyGoal(w); if (g) targets.push({ text: g.text, who: rivalName(w) || 'Rivalry' });
     if (raced && i > 0) { const gap = st[i - 1].pts - st[i].pts; targets.push({ text: gap ? `Close the ${gap}-point gap to P${i}` : `Get ahead of P${i}: you're level on points`, who: 'Championship' }); }
     else if (raced && i === 0 && st[1]) targets.push({ text: `Stay ahead: P2 is ${st[0].pts - st[1].pts} point${st[0].pts - st[1].pts === 1 ? '' : 's'} behind`, who: 'Championship' });

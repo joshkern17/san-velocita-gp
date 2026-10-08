@@ -2770,6 +2770,7 @@ function startWorldRound() {
   const mods = owned ? { ...WC.carMods(w), pitTime: w.staff ? WC.staffEffects(w).pitTime : 0 } : null;
   const failure = owned ? WC.rollFailure(w) : null;
   const tgs = WC.dealsOf(w).map(d => `${WC.sponsorName(d.sid)}: ${WC.objText(w, WC.dealObjective(w, d)).toLowerCase()}`);
+  if (w.coop && w.people[w.coop.pid]) tgs.unshift(`Targets: you top ${WC.driverTarget(w, 'P')}, ${w.people[w.coop.pid].first} top ${WC.driverTarget(w, w.coop.pid)} (${WC.money$(WC.targetBonus(w))} each)`);
   const brief = `<b>${seriesName(sid).toUpperCase()} &middot; ROUND ${w.round + 1} OF ${w.opts.len}</b>${tgs.length ? '<br>' + tgs.join('<br>') : ''}`;
   const race = { mode: 'race', laps: worldLaps(w, r), opponents: 11, brief, pick: !owned, onlyClass: cls,
     extra: { car, mods, failure, bop: WC.bopTable(w, carsOfClass(cls).map(chassisKey)), difficulty: w.opts.difficulty, grid: 'back', team: 'garage', engineer: WC.staffOf(w, 'engineer')?.skill ?? 0, wx, roster: ent.roster, entries: ent.entries, teamPace: ent.teamPace, gridOrder, aiChassis: 'class', playerName: w.player.name.split(' ').pop().toUpperCase() } };
@@ -2818,6 +2819,7 @@ function worldRoundDone(retired = false) {
   const mine = res.find(r => r.isPlayer) || {}, blamed = (sim.log || []).some(e => e.type === 'contact' && e.blame && e.a === 'P');
   const deals = WC.dealsOf(w).map(d => ({ name: WC.sponsorName(d.sid), obj: WC.objText(w, WC.dealObjective(w, d)) }));
   const goal = WC.storyGoal(w);
+  const tg = w.coop && w.people[w.coop.pid] ? { P: WC.driverTarget(w, 'P'), C: WC.driverTarget(w, w.coop.pid) } : null; // (before the round's scored: set from the rounds before)
   let car2 = null;
   if (coop && coop.race) { coop.race.done = true; coop.race.wait = null;
     const u = coop.race.use; if (u && w.money) { let t = 0; for (const c of u.sets) if (!WC.takeSet(w, c)) t++; car2 = { trackside: t, laps: u.laps }; } }
@@ -2839,12 +2841,13 @@ function worldRoundDone(retired = false) {
     <div class="row"><span>Points</span><span>${me ? '+' + me.pts : 0}</span></div>
     <div class="row"><span>Championship</span><span>${ord(cp)} &middot; ${st[cp - 1]?.pts ?? 0} pts</span></div>
     ${mr ? `<div class="row"><span>${w.people[mateId].last}</span><span>${mr.dnf ? 'DNF' : 'P' + mr.pos}</span></div>` : ''}
+    ${tg ? coopTargetRows(w, scored, tg, 'P') : ''}
     ${out.bill ? deals.map(d => { const got = out.bill.items.some(([t]) => t.startsWith(d.name + ' bonus')); return `<div class="row"><span>${d.name}: ${d.obj.toLowerCase()}</span><span class="${got ? 'ok' : 'bad'}">${got ? 'MET' : 'MISSED'}</span></div>`; }).join('') : ''}
     ${goal ? (() => { const met = me && !me.dnf && scored.rows.filter(r => WC.teamOfPid(w, r.pid) === goal.tid).every(r => r.dnf || r.pos > me.pos); return `<div class="row"><span>${goal.text}</span><span class="${met ? 'ok' : 'bad'}">${met ? 'DONE' : 'NOT DONE'}</span></div>`; })() : ''}
     ${out.bill ? `<div class="row"><span>The weekend</span><span class="${out.bill.net < 0 ? 'bad' : 'ok'}">${out.bill.net > 0 ? '+' : ''}${WC.money$(out.bill.net)}</span></div><div class="row"><span>Bank balance</span><span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span></div>` : ''}
     ${WC.listFresh(w).filter(k => WC.RUNGS[k] && w.list.done[k]?.r >= round && w.list.done[k]?.y === w.year).map(k => `<div class="row"><span>Crossed off the list</span><span class="ok">${WC.RUNGS[k].text(w)}</span></div>`).join('')}
     ${n ? `<div class="row"><span>Phone</span><span>${n} new</span></div>` : ''}`;
-  if (coop && coop.host && coop.peer && sim.net) coop.net.sendTo(coop.peer, { t: 'cround', round, res: res.map(r => ({ ...slimRow(r), pid: r.isPlayer ? 'P' : r.pid || null })), net: out.bill ? out.bill.net : null, w });
+  if (coop && coop.host && coop.peer && sim.net) coop.net.sendTo(coop.peer, { t: 'cround', round, tg, res: res.map(r => ({ ...slimRow(r), pid: r.isPlayer ? 'P' : r.pid || null })), net: out.bill ? out.bill.net : null, w });
   menus['s-round'][0].setItems([{ label: out.over ? 'Season Review' : 'Continue', cls: 'action primary', action: () => openHub() }]);
   show('s-round');
   if (me && !me.dnf && me.pos <= 3) sfx.finish();
@@ -3804,7 +3807,7 @@ function beginCoopRace(m, hostRace = null) {
   weekend = null;
   if (!host) { if (pcSeat) { pcSeat = false; pc.close(); $('s-hub').classList.remove('seated'); } phone.close(); phone.hide(); if (fp) fitPickClose(); }
   const R = w && w.series[w.player.series].cal[w.round];
-  const brief = host ? hostRace.brief : `<b>${seriesName(w.player.series).toUpperCase()} &middot; ROUND ${w.round + 1} OF ${w.opts.len}</b><br>${w.teams[w.player.team].name}, car two${R ? ` &middot; ${R.name}` : ''}`;
+  const brief = host ? hostRace.brief : `<b>${seriesName(w.player.series).toUpperCase()} &middot; ROUND ${w.round + 1} OF ${w.opts.len}</b><br>${w.teams[w.player.team].name}, car two${R ? ` &middot; ${R.name}` : ''}<br>Targets: you top ${WC.driverTarget(w, w.coop.pid)}, ${w.player.name.split(' ')[0]} top ${WC.driverTarget(w, 'P')} (${WC.money$(WC.targetBonus(w))} each)`;
   startRace(m.track, { mode: 'race', laps: m.laps, opponents: 11, brief, pick: false, onlyClass: m.cls, extra }, host ? 'world' : 'coop');
 }
 // ----- practice and qualifying, online: both of you on track, one clock (the host's), the AI field's laps simulated by
@@ -3916,10 +3919,20 @@ function coopGuestRound(m) {
     <div class="row"><span>Points</span><span>+${mine ? mine.pts : 0}</span></div>
     <div class="row"><span>Championship</span><span>${cp ? `${ord(cp)} &middot; ${st[cp - 1].pts} pts` : '&mdash;'}</span></div>
     ${you ? `<div class="row"><span>${w.player.name.split(' ').pop()}</span><span>${you.dnf ? 'DNF' : 'P' + you.pos}</span></div>` : ''}
+    ${m.tg && scored ? coopTargetRows(w, scored, m.tg, 'C') : ''}
     ${m.net != null ? `<div class="row"><span>The weekend</span><span class="${m.net < 0 ? 'bad' : 'ok'}">${m.net > 0 ? '+' : ''}${WC.money$(m.net)}</span></div><div class="row"><span>Bank balance</span><span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span></div>` : ''}`;
   menus['s-round'][0].setItems([{ label: 'Continue', cls: 'action primary', action: () => { if (coop) coop.race = null; openHub(); } }]);
   show('s-round');
   if (mine && !mine.dnf && mine.pos <= 3) sfx.finish();
+}
+// the round screen's co-op rows (me: 'P' the host, 'C' the friend): each driver's target, met or not, and the team's
+// place in the team championship
+function coopTargetRows(w, scored, tg, me) {
+  const C = w.people[w.coop.pid], who = (k) => k === me ? 'Your target' : `${k === 'P' ? w.player.name.split(' ')[0] : C.first}'s target`;
+  const row = (k) => { const r = scored.rows.find(x => x.pid === (k === 'P' ? 'P' : w.coop.pid)), met = r && !r.dnf && r.pos <= tg[k];
+    return `<div class="row"><span>${who(k)}: top ${tg[k]}</span><span class="${met ? 'ok' : 'bad'}">${met ? `MET &middot; +${WC.money$(WC.targetBonus(w))}` : 'MISSED'}</span></div>`; };
+  const ts = WC.teamStandings(w, w.player.series), k = ts.findIndex(e => e.tid === w.player.team);
+  return row(me) + row(me === 'P' ? 'C' : 'P') + (k >= 0 ? `<div class="row"><span>Team championship</span><span>${ord(k + 1)} &middot; ${ts[k].pts} pts</span></div>` : '');
 }
 // the results as they come in (either of you, home before the other)
 function showCoopLive() { renderCoopLive(); menus['s-results'][0].i = 0; show('s-results'); }
