@@ -75,7 +75,7 @@ voiceStatus(); // (character voices: is serve.py here, and is someone signed in 
 // ---------------- settings ----------------
 const DEFAULTS = {
   uiTheme: 'red', res: 'ps2', filter: 'soft', trails: true, scan: false, dither: true, retro: 'psx', palette: 128, psxMat: 'strong', crt: 'flat', grain: 'light', rays: true, fringe: true, shadows: true, dirtFx: 5, look: 'arcade', units: 'kmh', gearbox: 'auto', tc: true,
-  volume: 7, music: 5, camera: 'chase', mirror: 'on', racingLine: 'full', wear: 'normal', damage: 'normal', startTyre: 'auto', drift: 'off', aiChassis: 'class', rules: 'arcade', aiMistakes: 'normal', quali: 0, radarMap: 'satellite', radarZoom: 'normal', car: null, difficulty: 'medium', grid: 'back', team: 0, time: 'track', weather: 'track',
+  volume: 7, music: 5, camera: 'chase', mirror: 'on', racingLine: 'full', wear: 'normal', damage: 'normal', startTyre: 'auto', drift: 'off', aiChassis: 'class', rules: 'arcade', safetyCar: 'on', aiMistakes: 'normal', quali: 0, radarMap: 'satellite', radarZoom: 'normal', car: null, difficulty: 'medium', grid: 'back', team: 0, time: 'track', weather: 'track',
 };
 let settings = { ...DEFAULTS };
 try { settings = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('svgp.settings') || '{}') }; } catch (e) {}
@@ -567,6 +567,10 @@ const RULES_DESC = 'Flags and penalties. <b>Arcade</b>: yellow flags, no passing
 const MISTAKE_VALS = [['off', 'Off'], ['normal', 'Normal'], ['frequent', 'Frequent']];
 const MISTAKE_DESC = 'How often AI drivers brake too late, run wide or spin. Harder AI makes fewer mistakes.';
 const rulesItem = (desc = '') => ({ label: 'Race Rules', values: RULES_VALS, get: () => settings.rules, set: v => { settings.rules = v; saveSettings(); }, desc: RULES_DESC + desc });
+// the safety car on its own: off, and what would have brought it out is a Virtual Safety Car instead
+const SC_VALS = [['on', 'On'], ['off', 'Off (VSC only)']];
+const SC_DESC = 'A big crash or a car stopped on the track brings out the safety car: the field bunches up behind it for a lap or two. <b>Off</b>: a Virtual Safety Car instead (everyone slows to a delta, the gaps stay). Online, the host\'s setting counts.';
+const scItem = (desc = '') => ({ label: 'Safety Car', values: SC_VALS, get: () => settings.safetyCar || 'on', set: v => { settings.safetyCar = v; saveSettings(); }, desc: SC_DESC + desc });
 const mistakesItem = (desc = '') => ({ label: 'AI Mistakes', values: MISTAKE_VALS, get: () => settings.aiMistakes, set: v => { settings.aiMistakes = v; saveSettings(); }, desc: MISTAKE_DESC + desc });
 // ---------------- driver aids + controller ----------------
 // online, the host can limit the aids for a race (raceAidRule); everywhere else they're yours
@@ -607,7 +611,7 @@ const OPTION_TABS = [
     { label: 'Rear-View Mirror', values: [['on', 'On'], ['off', 'Off']], get: () => settings.mirror, set: v => { settings.mirror = v; setMirror(v !== 'off'); saveSettings(); }, desc: 'A mirror at the top of the screen, with your lap time under it.' },
     { label: 'AI Cars', values: [['class', 'Same Class As You'], ['same', 'Same Car As You'], ['multi', 'All Classes Mixed'], ['custom', 'F1: Your Model'], ['mixed', 'F1: Mixed Models'], ['svgp', 'F1: SVGP Classic']], get: () => settings.aiChassis, set: v => { settings.aiChassis = v; saveSettings(); }, desc: 'Which cars your opponents drive. <b>Same Class As You</b>: a mix of your class, each one tuned so it races as hard at your level as your own car would. <b>Same Car As You</b>: everyone in your model, so it comes down to the drivers.' },
     { label: 'Ghost Car', values: GHOST_VALS, get: () => settings.ghost, set: v => { settings.ghost = v; saveSettings(); if (sim && sim.setGhostMode) sim.setGhostMode(v); }, desc: GHOST_DESC },
-    rulesItem(' Changes apply from the next race.'),
+    rulesItem(' Changes apply from the next race.'), scItem(' Changes apply from the next race.'),
     mistakesItem(' Changes apply from the next race.'),
     { label: 'Speed Units', values: [['kmh', 'KM/H'], ['mph', 'MPH']], get: () => settings.units, set: v => { settings.units = v; applyVideo(); saveSettings(); }, desc: 'Speedometer units.' },
     { label: 'Dirty Air Indicator', values: [['on', 'On'], ['off', 'Off']], get: () => settings.dirtyAir, set: v => { settings.dirtyAir = v; applyVideo(); saveSettings(); },
@@ -959,7 +963,7 @@ menus['s-raceset'] = [
     { label: 'Tyre Wear', values: [['off', 'Off'], ['normal', 'Normal'], ['fast', 'Fast (x2.5)']], get: () => settings.wear, set: v => { settings.wear = v; saveSettings(); }, desc: 'Tyres lose grip as they wear. Fast wear makes pit stops matter in short races.' },
     { label: 'Tire Temps', values: TEMPS_VALS, get: () => settings.temps, set: v => { settings.temps = v; saveSettings(); }, desc: TEMPS_DESC },
     { label: 'Damage', values: [['off', 'Off'], ['normal', 'Normal'], ['high', 'Realistic']], get: () => settings.damage, set: v => { settings.damage = v; saveSettings(); }, desc: 'Contact breaks wings and chassis, costing grip and speed until you pit. <b>Realistic</b>: a big enough hit tears a wheel off or breaks the suspension, and that car is out of the race (yours too).' },
-    rulesItem(), mistakesItem(),
+    rulesItem(), scItem(), mistakesItem(),
     { label: 'Start Tyre', values: [['auto', 'Auto'], ['soft', 'Soft'], ['medium', 'Medium'], ['hard', 'Hard'], ['wet', 'Wet'], ['dirt', 'Dirt']], get: () => settings.startTyre, set: v => { settings.startTyre = v; saveSettings(); }, desc: 'The compound you start on. Auto picks the best one for the conditions (dirt tyres on a dirt track).' },
     { label: 'Pit Wall Calls', values: [['on', 'On'], ['off', 'Off']], get: () => settings.pitWall || 'on', set: v => { settings.pitWall = v; saveSettings(); }, desc: 'Your engineer asks you on the radio when there\'s a call to make: undercut, cover, a cheap stop under the VSC, your teammate. Answer with <b>X / B</b> (or <b>1 / 2</b>); if you don\'t, their pick happens. Off: they make the pit calls and tell you.' },
     { label: 'Drift Points', values: [['off', 'Off'], ['on', 'On']], get: () => settings.drift, set: v => { settings.drift = v; saveSettings(); }, desc: 'Score points for sliding road and GT cars. Records are kept per circuit.' },
@@ -3339,7 +3343,7 @@ let lobby = null;        // host-authoritative lobby state (clients hold a copy)
 let lobbyTrack = null;   // the chosen circuit (full JSON)
 let netRace = null;      // { id, recorded } for the race in progress
 let netSendT = 0;
-const ONLINE_SET = { track: 0, laps: 5, ai: 5, difficulty: 'medium', grid: 'random', wear: 'normal', temps: 'normal', damage: 'normal', rules: 'arcade', mistakes: 'normal', time: 'track', weather: 'track', drift: 'off', aids: 'any' };
+const ONLINE_SET = { track: 0, laps: 5, ai: 5, difficulty: 'medium', grid: 'random', wear: 'normal', temps: 'normal', damage: 'normal', rules: 'arcade', sc: 'on', mistakes: 'normal', time: 'track', weather: 'track', drift: 'off', aids: 'any' };
 const shuffleArr = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 let toastT = 0;
 // ---------------- which car (World Career): yours, your teammate's, or both ----------------
@@ -3576,6 +3580,7 @@ function renderLobby() {
       { label: 'Damage', values: [['off', 'Off'], ['normal', 'Normal'], ['high', 'Realistic']], get: () => S.damage, set: v => { S.damage = v; hostBroadcast(); } },
       { label: 'Drift Points', values: [['off', 'Off'], ['on', 'On']], get: () => S.drift || 'off', set: v => { S.drift = v; hostBroadcast(); }, desc: 'Score points for sliding road and GT cars. Everyone\'s drift score adds up in the session table.' },
       { label: 'Race Rules', values: RULES_VALS, get: () => S.rules || 'arcade', set: v => { S.rules = v; hostBroadcast(); }, desc: RULES_DESC },
+      { label: 'Safety Car', values: SC_VALS, get: () => S.sc || 'on', set: v => { S.sc = v; hostBroadcast(); }, desc: SC_DESC },
       { label: 'AI Mistakes', values: MISTAKE_VALS, get: () => S.mistakes || 'normal', set: v => { S.mistakes = v; hostBroadcast(); }, desc: MISTAKE_DESC },
       { label: 'Driver Aids', values: AID_RULES, get: () => S.aids || 'any', set: v => { S.aids = v; hostBroadcast(); }, desc: AID_RULE_DESC },
       { label: 'Garage', action: () => openGarage('s-lobby'), desc: 'Change your car and livery. Everyone sees it.' },
@@ -3607,7 +3612,7 @@ function hostStart() {
   const track = cloneTrack(lobbyTrack);
   if (S.time !== 'track') track.env.time = S.time;
   if (S.weather !== 'track') track.env.weather = S.weather;
-  const m = { t: 'start', race: Math.random().toString(36).slice(2, 9), track, grid, cfg: { laps: S.laps, difficulty: S.difficulty, wear: S.wear, temps: S.temps || 'normal', damage: S.damage, rules: S.rules || 'arcade', mistakes: S.mistakes || 'normal', drift: S.drift || 'off', aids: S.aids || 'any' },
+  const m = { t: 'start', race: Math.random().toString(36).slice(2, 9), track, grid, cfg: { laps: S.laps, difficulty: S.difficulty, wear: S.wear, temps: S.temps || 'normal', damage: S.damage, rules: S.rules || 'arcade', sc: S.sc || 'on', mistakes: S.mistakes || 'normal', drift: S.drift || 'off', aids: S.aids || 'any' },
     aiChassis: settings.aiChassis, aiClassCar: carId(settings.car), t0: net.now() + 4500, goDelay: 4.5 + 0.6 + Math.random() * 1.2, pick: 15, strat: 20 };
   net.send(m);
   lobby.races++;
@@ -3620,7 +3625,7 @@ function beginNetRace(m) {
   startRace(m.track, {
     mode: 'race', laps: m.cfg.laps,
     extra: {
-      aiChassis: m.aiChassis || 'custom', aiClassCar: m.aiClassCar || 'f1', difficulty: m.cfg.difficulty, wear: m.cfg.wear, temps: m.cfg.temps || 'off', damage: m.cfg.damage, rules: m.cfg.rules || 'arcade', aiMistakes: m.cfg.mistakes || 'normal', team: 'garage', startTyre: 'auto', grid: 'back', drift: m.cfg.drift || 'off', aidRule: m.cfg.aids || 'any',
+      aiChassis: m.aiChassis || 'custom', aiClassCar: m.aiClassCar || 'f1', difficulty: m.cfg.difficulty, wear: m.cfg.wear, temps: m.cfg.temps || 'off', damage: m.cfg.damage, rules: m.cfg.rules || 'arcade', safetyCar: (m.cfg.sc || 'on') !== 'off', aiMistakes: m.cfg.mistakes || 'normal', team: 'garage', startTyre: 'auto', grid: 'back', drift: m.cfg.drift || 'off', aidRule: m.cfg.aids || 'any',
       net: { host: net.isHost, myId: net.id, grid: m.grid, t0: m.t0, goDelay: m.goDelay, pick: m.pick || 0, strat: m.strat || 0, clock: () => net.now() },
     },
   }, 'online');
@@ -4394,7 +4399,7 @@ function startRace(track, cfg, ret, quick = false) {
         mode: cfg.mode, laps: cfg.laps || track.env.laps || 3, opponents: cfg.opponents ?? track.env.opponents ?? 7, qualiTime: cfg.qualiTime, practiceTime: cfg.practiceTime,
         difficulty: settings.difficulty, grid: settings.grid, team: settings.team, gearbox: settings.gearbox, aids: aidsNow(), ghost: settings.ghost,
         units: settings.units, camera: settings.camera, racingLine: settings.racingLine, car: settings.car,
-        wear: settings.wear, temps: settings.temps, damage: settings.damage, rules: settings.rules, aiMistakes: settings.aiMistakes, startTyre: settings.startTyre, aiChassis: settings.aiChassis, drift: raceReturn === 'setup' ? settings.drift : 'off',
+        wear: settings.wear, temps: settings.temps, damage: settings.damage, rules: settings.rules, safetyCar: settings.safetyCar !== 'off', aiMistakes: settings.aiMistakes, startTyre: settings.startTyre, aiChassis: settings.aiChassis, drift: raceReturn === 'setup' ? settings.drift : 'off',
         pickCar: !!cfg.pick && !quick, pitWall: settings.pitWall !== 'off',
         ...(cfg.extra || {}), defer: true,
       }, renderer);
