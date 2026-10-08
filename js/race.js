@@ -25,7 +25,7 @@ import { DirtTrack } from './dirttrack.js';
 import { Rubber } from './rubber.js';
 import { activeSetup, applySetup, stanceOf } from './setup.js';
 import { TireFX, SMOKE, DUST, FX } from './tirefx.js';
-import { Acclimatization, BrakeMarkers, ACCLIM_PASS } from './practice.js';
+import { Acclimatization, MiniSectors, BrakeMarkers, ACCLIM_PASS, MSEC_PASS, planMinis } from './practice.js';
 
 const STEP = 1 / 240;
 // pace = fraction of the learned per-track limit
@@ -456,6 +456,7 @@ export class Race {
     this.lineStyle = opts.lineStyle || 'blocks';
     if (this.player) { this.buildRacingLine(); this.buildPitGuide(); }
     this.buildSectors();
+    this.mini = planMinis(this.T, this.corners, this.secCut); // (the mini-sectors: practice.js)
     // the weekend's track data (practice.js): what the run plan's jobs have found so far, and what it pays off with
     this.tdata = JSON.parse(JSON.stringify(opts.trackData || {}));
     this.prog = null;
@@ -698,7 +699,7 @@ export class Race {
     const E = this.opts.entries, e = E && E[teamIdx];
     if (e && e.tid != null) return 't:' + e.tid;
     const pl = this.player || (this.cars || []).find(c => c.isPlayer);
-    if (E && pl && pl.teamIdx === teamIdx) { const m = E.find(x => x && x.mate); if (m && m.tid != null) return 't:' + m.tid; }
+    if (E && pl && pl.teamIdx === teamIdx) { const m = Object.values(E).find(x => x && x.mate); if (m && m.tid != null) return 't:' + m.tid; }
     return 'i:' + teamIdx;
   }
   // which pit box a team uses (an index into pit.boxes, numbered from the pit entry): yours is the last, nearest the exit,
@@ -3703,11 +3704,20 @@ export class Race {
       try { const e = JSON.parse(localStorage.getItem(SEC_KEY) || '{}')[this.secKey]; if (e && e.length === 3) this.secTop = e.slice(); } catch (err) {}
     }
   }
-  secStart(car) { if (car.team) car.sec = { k: 0, t0: this.raceTime, cur: [null, null, null] }; }
+  secStart(car) {
+    if (!car.team) return;
+    car.sec = { k: 0, t0: this.raceTime, cur: [null, null, null] };
+    if (car.isPlayer && this.mini) car.ms = { j: 0, t0: this.raceTime, cur: new Array(this.mini.n).fill(null) };
+  }
   // crossed a split?
   secCross(car, prev, cur) {
-    const S = car.sec; if (!S || S.k > 1 || !this.secCut) return;
-    const c = this.secCut[S.k], N = this.T.N;
+    const S = car.sec; if (!S || !this.secCut) return;
+    const N = this.T.N;
+    // (yours: the mini-sectors too)
+    const M = car.ms;
+    if (M && car.isPlayer && M.j < this.mini.cut.length) { const c = this.mini.cut[M.j]; if (prev < c && cur >= c && cur - prev < N / 4) { this.miniDone(car, M.j, this.raceTime - M.t0, !car.lapInvalid); M.t0 = this.raceTime; M.j++; } }
+    if (S.k > 1) return;
+    const c = this.secCut[S.k];
     if (prev < c && cur >= c && cur - prev < N / 4) { this.secDone(car, S.k, this.raceTime - S.t0, !car.lapInvalid); S.t0 = this.raceTime; S.k++; }
   }
   // the lap's done: its last sector (a lap that didn't go through both splits has no sectors to give)
@@ -3715,6 +3725,12 @@ export class Race {
     const S = car.sec; if (!S) return;
     if (S.k === 2) this.secDone(car, 2, this.raceTime - S.t0, valid);
     if (car.isPlayer) { car.secPrev = S.cur; car.secPrevAt = this.raceTime; }
+    const M = car.ms;
+    if (M && car.isPlayer) {
+      if (M.j === this.mini.cut.length) this.miniDone(car, M.j, this.raceTime - M.t0, valid);
+      car.msPrev = M.cur; car.ms = null;
+      this.miniLap(M);
+    }
     car.sec = null;
   }
   // a sector time: was it a best (yours, everyone's)? What it shows: the time against your best before it
@@ -3723,6 +3739,31 @@ export class Race {
     const col = !valid ? 'v' : t < top ? 'p' : t < pb ? 'g' : 'y';
     if (valid) { if (t < pb) B[k] = t; if (t < top) { this.secTop[k] = t; if (this.secKey && car.isPlayer) this.saveSecTop(); } }
     car.sec.cur[k] = { t, d: isFinite(pb) ? t - pb : null, col };
+  }
+  // a mini-sector of yours: in practice (and on a test day) your best through it is kept for the weekend; with the
+  // Mini-Sectors job on, did it beat the target (twice, on two laps, and it's lit for good); in qualifying, once the
+  // job's done, green or yellow against your practice best
+  miniDone(car, j, t, valid) {
+    const D = this.tdata.msec ||= { best: 0, done: false, hits: [], pb: [] }, P = this.prog;
+    let col = null;
+    if (P && P.id === 'msec') {
+      const ok = valid && t <= P.target[j];
+      if (ok) D.hits[j] = Math.min(2, (D.hits[j] || 0) + 1);
+      col = (D.hits[j] || 0) >= 2 ? 'g' : ok ? 'h' : 'y';
+    } else if (this.mode === 'quali' && D.done) col = !valid ? 'v' : D.pb[j] == null || t < D.pb[j] ? 'g' : 'y';
+    if (valid && (this.mode === 'practice' || this.mode === 'test') && !(t >= (D.pb[j] ?? Infinity))) { D.pb[j] = Math.round(t * 1000) / 1000; this.msChanged = true; }
+    if (col === 'g' || col === 'h') this.msChanged = true;
+    car.ms.cur[j] = col;
+  }
+  // a lap's mini-sectors done: how many are lit, the job done?
+  miniLap(M) {
+    const D = this.tdata.msec; if (!D) return;
+    if (this.prog && this.prog.id === 'msec') {
+      const n = this.mini.n, lit = (D.hits || []).filter(h => h >= 2).length, beat = M.cur.filter(c => c === 'g' || c === 'h').length, first = !D.done && lit / n >= MSEC_PASS;
+      D.best = Math.max(D.best || 0, lit / n); if (first) D.done = true;
+      this.events.push({ type: 'progLap', id: 'msec', lit, n, beat, done: first });
+    }
+    if (this.msChanged) { this.msChanged = false; this.events.push({ type: 'tdata' }); }
   }
   // one of the field's simulated laps, split into sectors
   secPosted(e, time) {
@@ -3738,14 +3779,23 @@ export class Race {
   secHud(pl) {
     const live = pl.sec && pl.sec.cur, recent = pl.secPrev && this.raceTime - pl.secPrevAt < 4 && (!live || !live[0]);
     const B = pl.secBest || [Infinity, Infinity, Infinity];
-    return { cells: recent ? pl.secPrev : live || [null, null, null], k: recent ? 3 : pl.sec ? pl.sec.k : -1, best: B, ideal: B.every(isFinite) ? B[0] + B[1] + B[2] : null };
+    // the mini-sectors' pips under the cells: with the job on (lit ones stay lit), or in qualifying once it's done
+    const D = this.tdata.msec, job = this.prog && this.prog.id === 'msec', show = !!this.mini && (job || (this.mode === 'quali' && !!D && D.done));
+    let pips = null;
+    if (show) {
+      const cur = recent ? pl.msPrev : pl.ms ? pl.ms.cur : null, at = recent ? -1 : pl.ms ? pl.ms.j : -1;
+      pips = { per: this.mini.per, cells: Array.from({ length: this.mini.n }, (_, j) => (cur && cur[j]) || (job && D && D.hits[j] >= 2 ? 'g' : j === at ? 'now' : '')) };
+    }
+    return { cells: recent ? pl.secPrev : live || [null, null, null], k: recent ? 3 : pl.sec ? pl.sec.k : -1, best: B, ideal: B.every(isFinite) ? B[0] + B[1] + B[2] : null, pips };
   }
 
   // ---------- the run plan (practice.js) ----------
   // the job you're doing on track (null: free running). Its gates are built for your car's line and speeds.
   setProgramme(id) {
     if (this.prog) { this.prog.dispose(); this.prog = null; }
-    if (id === 'acclim' && this.player && this.refV) { this.prog = new Acclimatization(this); this.prog.id = id; }
+    if (!this.player || !this.refV) return;
+    if (id === 'acclim') this.prog = new Acclimatization(this);
+    else if (id === 'msec' && this.mini) { this.prog = new MiniSectors(this); if (this.player.ms) this.player.ms = null; } // (lit from the next lap that starts at the line)
   }
   updateProgramme(dt) {
     const pl = this.player; if (!pl) return;
@@ -3767,16 +3817,25 @@ export class Race {
   }
   // a lap done with the gates on: rated if you went through every one of them (from the line round to the line)
   programmeLap() {
+    if (this.prog.id !== 'acclim') return; // (Mini-Sectors: miniLap)
     const r = this.prog.lapDone(); if (r == null) return;
     const a = this.tdata.acclim ||= { best: 0, done: false, marks: [] }, first = !a.done && r >= ACCLIM_PASS;
     a.best = Math.max(a.best || 0, r); if (r >= ACCLIM_PASS) a.done = true;
     this.events.push({ type: 'progLap', id: 'acclim', rating: r, best: a.best, done: first, marks: a.marks.length }, { type: 'tdata' });
   }
   // the HUD's programme panel
+  // the HUD's programme panel: its title and rows ([label, value html])
   progHud() {
     const P = this.prog; if (!P) return null;
+    const pc = (x) => Math.round(x * 100) + '%', of = (a, b) => `${a}<small> / ${b}</small>`;
+    if (P.id === 'msec') {
+      const D = this.tdata.msec || { hits: [] }, n = this.mini.n, lit = (D.hits || []).filter(h => h >= 2).length, M = this.player.ms;
+      const beat = M ? M.cur.filter(c => c === 'g' || c === 'h').length : 0, need = Math.ceil(n * MSEC_PASS);
+      return { title: 'MINI-SECTORS', rows: [['LIT', of(lit, n)], ['BEATEN THIS LAP', M ? of(beat, M.j) : '\u2014'], ['TO DO THE JOB', D.done ? '<span class="done">DONE</span>' : `${Math.max(0, need - lit)}<small> MORE</small>`]] };
+    }
     const a = this.tdata.acclim || { best: 0, done: false, marks: [] }, L = P.lap;
-    return { id: P.id, total: P.gates.length, n: L.n, rating: L.n ? L.pts / (100 * L.n) : null, best: a.best || 0, done: !!a.done, marks: a.marks.length, brakes: P.gates.filter(g => g.kind === 'brake').length };
+    return { title: 'ACCLIMATIZATION', rows: [['GATES', of(L.n, P.gates.length)], ['THIS LAP', L.n ? pc(L.pts / (100 * L.n)) : '\u2014'],
+      ['BEST LAP', a.best ? `<span class="${a.done ? 'done' : ''}">${pc(a.best)}</span>` : '\u2014'], ['BRAKE MARKERS', of(a.marks.length, P.gates.filter(g => g.kind === 'brake').length)]] };
   }
 
   // ---------- blue guide into the pits (with the racing line on) ----------

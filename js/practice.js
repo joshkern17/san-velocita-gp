@@ -2,6 +2,11 @@
 // one done pays off where you can see it later in the weekend (never a hidden stat). The track data a session gathers
 // (race.tdata) is carried on to the sessions after it (main.js: the weekend, a World Career week, co-op).
 //
+// Mini-Sectors: the lap cut into short stretches, about one a corner (the three sectors' splits among the cuts). Each
+// has a target, the reference lap's time through it plus a margin (looser in slower cars and at easier levels): beat it
+// on two laps and it lights for good. 80% lit does the job. The payoff: your practice best through each one is on the
+// board in qualifying, every mini-sector green or yellow against it as you cross it, under the sector it's in.
+//
 // Track Acclimatization: gates on the racing line at the brake points, apexes and exits, each with the speed to carry
 // through it (red: braking, amber: the apex, green: back on the power). Through the middle of a gate at its speed is
 // PERFECT, in the gate and near the speed is GOOD; a lap's gates add up to a rating, and a lap of 70% or better does
@@ -11,12 +16,40 @@ import * as THREE from 'three';
 import { surfaceY } from './track.js';
 import { CARS } from './cars.js';
 
+export const ACCLIM_PASS = 0.7;
+export const MSEC_PASS = 0.8;
+// (the programmes' tolerances, by the difficulty: Rookie gets the most room)
+const TOL_DIFF = { easy: 1.5, medium: 1.25, hard: 1, alien: 0.9, phantom: 0.85, godlike: 0.8 };
 export const PROGRAMMES = [
   { id: 'acclim', name: 'Track Acclimatization', short: 'Acclimatization',
-    desc: 'Gates on the racing line at the brake points, apexes and exits, each with the speed to carry through it. Red is braking, amber the apex, green back on the power. A lap rated 70% or better does the job, and every brake point you nail gets a marker board beside the track for the rest of the weekend.' },
+    pass: ACCLIM_PASS, desc: 'Gates on the racing line at the brake points, apexes and exits, each with the speed to carry through it. Red is braking, amber the apex, green back on the power. A lap rated 70% or better does the job, and every brake point you nail gets a marker board beside the track for the rest of the weekend.' },
+  { id: 'msec', name: 'Mini-Sectors', short: 'Mini-Sectors', pass: MSEC_PASS,
+    desc: 'No gates: the lap in short stretches, about one a corner, each with a target time. Beat a target on two laps and that mini-sector lights for good; light 80% of them to do the job. Then in qualifying every mini-sector shows green or yellow against your practice best, under the sector it\'s in, so you see which corner cost you.' },
 ];
+// the margin on a mini-sector's target (a fraction of the reference lap's time through it), by class and difficulty
+const MSEC_TOL = { shitbox: 0.06, street: 0.05, fun: 0.05, gt: 0.04, gt1: 0.04, gt2: 0.04, f1: 0.035 };
+export const msecTol = (cls, diff) => (MSEC_TOL[cls] ?? 0.04) * (TOL_DIFF[diff] ?? 1.25);
+
+// Where the mini-sectors split: halfway between one corner's apex and the next (corners closer than 120 m share one),
+// the three sectors' splits always among them (a cut within 60 m of one gives way to it); a sector left with a
+// single stretch is cut in two. From the circuit alone, so they're the same in every session and every car.
+// Returns { cut: [samples, in lap order, not the line], per: [mini-sectors in each sector] }
+export function planMinis(T, corners, secCut) {
+  const N = T.N, ds = T.ds, end = T.open ? T.finish : N;
+  const apex = corners.list.map(c => c.apex).filter(i => i > 0 && i < end).sort((a, b) => a - b);
+  const groups = [];
+  for (const a of apex) { const g = groups[groups.length - 1]; if (g && (a - g[g.length - 1]) * ds < 120) g.push(a); else groups.push([a]); }
+  let cut = [];
+  for (let k = 1; k < groups.length; k++) cut.push(Math.round((groups[k - 1][groups[k - 1].length - 1] + groups[k][0]) / 2));
+  cut = cut.filter(c => secCut.every(s => Math.abs(c - s) * ds >= 60) && c * ds > 60 && (end - c) * ds > 60).concat(secCut).sort((a, b) => a - b);
+  // a sector with one stretch: cut it in half
+  const bounds = [0, secCut[0], secCut[1], end];
+  for (let k = 0; k < 3; k++) if (!cut.some(c => c > bounds[k] && c < bounds[k + 1])) cut.push(Math.round((bounds[k] + bounds[k + 1]) / 2));
+  cut.sort((a, b) => a - b);
+  const per = [0, 1, 2].map(k => cut.filter(c => c > bounds[k] && c <= bounds[k + 1]).length + (k === 2 ? 1 : 0));
+  return { cut, per, n: cut.length + 1 };
+}
 export const progById = (id) => PROGRAMMES.find(p => p.id === id) || null;
-export const ACCLIM_PASS = 0.7;
 // gate colors: the racing line's (race.js updateRacingLine), brighter so they glow
 const KIND_COL = { brake: [0.91, 0.2, 0.16], apex: [0.95, 0.82, 0.23], exit: [0.24, 0.86, 0.29] };
 const KIND_CSS = { brake: '#e8331f', apex: '#f2d13a', exit: '#3ddb4a' };
@@ -24,8 +57,7 @@ const KIND_CSS = { brake: '#e8331f', apex: '#f2d13a', exit: '#3ddb4a' };
 // taken faster). Looser in the slower, looser cars.
 const TOL = { shitbox: [0.08, 0.16], street: [0.07, 0.14], fun: [0.07, 0.14], gt: [0.06, 0.12], f1: [0.05, 0.1] };
 const SLOW_K = 1.3;
-// (and by the difficulty: Rookie gets the most room)
-const TOL_DIFF = { easy: 1.5, medium: 1.25, hard: 1, alien: 0.9, phantom: 0.85, godlike: 0.8 };
+
 const GLOW = 1.25; // (a touch over 1: into the bloom, still its color)
 
 // Where the gates go, from a reference lap's speeds V (m/s per sample: the Lap Review's reference, a clean lap in your
@@ -101,7 +133,7 @@ function speedLabel(v, units, kind) {
 
 export class Acclimatization {
   constructor(race) {
-    this.race = race;
+    this.race = race; this.id = 'acclim';
     const T = race.T, cls = CARS[race.player?.carId]?.cls || 'gt';
     const dk = TOL_DIFF[race.opts.difficulty] ?? 1.25;
     this.tol = (TOL[cls] || TOL.gt).map(t => t * dk);
@@ -215,6 +247,26 @@ export class Acclimatization {
     for (const g of this.gates) { if (g.mat) g.mat.dispose(); if (g.lbl) { g.lbl.material.map.dispose(); g.lbl.material.dispose(); } }
     if (this.geo) this.geo.forEach(x => x.dispose());
   }
+}
+
+// The Mini-Sectors job: each mini-sector's target (the reference lap's time through it, plus the margin). The timing
+// and what's lit live in race.js (miniDone) and the weekend's track data (tdata.msec); there's nothing on track.
+export class MiniSectors {
+  constructor(race) {
+    this.race = race; this.id = 'msec';
+    const T = race.T, M = race.mini, cls = CARS[race.player?.carId]?.cls, tol = msecTol(cls, race.opts.difficulty);
+    const ref = race.referenceTelemetry(race.player.carId, race.condTyre('soft'));
+    // the reference's time at each cut (no reference: the line's speeds, added up)
+    let at;
+    if (ref) { const t = ref.ch.t; at = (i) => i == null ? ref.time : t[Math.min(i, t.length - 1)]; }
+    else { const V = race.refV, cum = new Float64Array(T.N + 1); for (let i = 0; i < T.N; i++) cum[i + 1] = cum[i] + T.ds / Math.max(5, V[i]); at = (i) => cum[i == null ? (T.open ? T.finish : T.N) : i]; }
+    const ends = [...M.cut, null];
+    this.target = ends.map((c, j) => (at(c) - (j ? at(M.cut[j - 1]) : 0)) * (1 + tol));
+  }
+  update() { return []; }
+  restart() {}
+  lapDone() { return null; }
+  dispose() {}
 }
 
 // The payoff: a marker board beside the track at each brake point you've nailed (the side the racing line comes in

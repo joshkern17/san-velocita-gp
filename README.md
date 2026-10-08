@@ -43,8 +43,12 @@ running (`js/practice.js`). **Track Acclimatization**: gates on the line at each
 (amber) and exit (green), each showing the speed to carry, taken from a clean reference lap in your car. Through
 the middle at the speed is PERFECT, close is GOOD; a lap rated 70% or better does the job. Every brake point you
 nail gets a marker board beside the track for the rest of the weekend (qualifying and the race too; in the World
-Career a test day's count for race weekend). The gates can also be switched on from the pause menu in a time
-trial, and they're out from the start on a test day.
+Career a test day's count for race weekend). **Mini-Sectors**: the lap in short stretches, about one a corner (the
+three sectors' splits among them), shown as pips under the sector cells; beat a stretch's target (the reference lap's
+time plus a margin by class and difficulty) on two laps and it lights for good, and 80% lit does the job. Your
+practice bests through each are kept for the weekend, and once the job's done qualifying shows every mini-sector
+green or yellow against them. The jobs can also be switched on from the pause menu in a time trial or on a test day
+(where the gates are out from the start).
 
 ## Rendering (post processing)
 The main menu's background race uses a generated setting (town, city, Japanese streets or industrial) at dusk or night,

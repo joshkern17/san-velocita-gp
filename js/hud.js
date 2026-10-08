@@ -115,7 +115,7 @@ export class HUD {
     this.el.feed.innerHTML = ''; this.feedEls = [];
     $('h-radio').innerHTML = ''; $('h-radio').classList.remove('calling'); this.radioEls = []; this.call = null;
     this.st.el.classList.remove('on');
-    $('h-prog').classList.remove('on'); $('h-gate').classList.remove('on'); $('h-secs').classList.remove('on');
+    $('h-prog').classList.remove('on'); $('h-gate').classList.remove('on'); $('h-secs').classList.remove('on'); $('h-pips').classList.remove('on');
     this.secPaths = null; this.quali = null;
   }
 
@@ -200,17 +200,24 @@ export class HUD {
     const key = S.cells.map(c => c ? c.col + txt(c) : '-').join() + S.k;
     if (key === this.cache.secs) return; this.cache.secs = key;
     el.querySelectorAll('i').forEach((i, k) => { const c = S.cells[k]; i.className = c ? c.col : k === S.k ? 'now' : ''; i.textContent = c ? txt(c) : ''; });
+    this.pips(S.pips);
+  }
+  // the mini-sectors under each sector cell: g green (lit / quicker than your practice best), h beaten once (the job),
+  // y yellow (slower / missed its target), v a deleted lap's, now the one you're in, '' to come
+  pips(P) {
+    const el = $('h-pips'); el.classList.toggle('on', !!P); if (!P) { this.cache.pips = null; return; }
+    const key = P.per.join() + '|' + P.cells.join();
+    if (key === this.cache.pips) return; this.cache.pips = key;
+    let j = 0;
+    el.innerHTML = P.per.map(n => `<span>${Array.from({ length: n }, () => `<b class="${P.cells[j++]}"></b>`).join('')}</span>`).join('');
   }
 
   // the run plan's job on track (practice.js): gates through on this lap, its rating so far, the best lap's rating,
   // and the brake points marked for the weekend
   programme(P) {
     const el = $('h-prog'); el.classList.toggle('on', !!P); if (!P) return;
-    const pc = (x) => Math.round(x * 100) + '%';
-    this.set('pgGates', $('h-pg-gates'), `${P.n}<small> / ${P.total}</small>`, true);
-    this.set('pgLap', $('h-pg-lap'), P.rating == null ? '\u2014' : pc(P.rating));
-    this.set('pgBest', $('h-pg-best'), P.best ? `<span class="${P.done ? 'done' : ''}">${pc(P.best)}</span>` : '\u2014', true);
-    this.set('pgMarks', $('h-pg-marks'), `${P.marks}<small> / ${P.brakes}</small>`, true);
+    this.set('pgName', $('h-pg-name'), P.title);
+    this.set('pgRows', $('h-pg-rows'), P.rows.map(([l, v]) => `<div class="hud-row"><span class="lbl">${l}</span><span class="val">${v}</span></div>`).join(''), true);
   }
   // a gate just driven through: PERFECT / GOOD / TOO FAST / TOO SLOW / MISSED, and how far off its speed you were
   gate(ev) {

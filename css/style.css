@@ -352,7 +352,8 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 
 /* top centre: the current lap time, as big and plain as possible. A rear-view mirror can take the top slot later
    (--mirror-h pushes the timer down). Under it, the live delta to your best (qualifying / time trial). */
-#hud { --mirror-h: 0px; --tc-top: calc(4.5% + var(--mirror-h)); --tc-base: 98px; --tc-sec: 0px; --tc-del: 0px; --tc-h: calc(var(--tc-base) + var(--tc-sec) + var(--tc-del)); }
+#hud { --mirror-h: 0px; --tc-top: calc(4.5% + var(--mirror-h)); --tc-base: 98px; --tc-sec: 0px; --tc-pip: 0px; --tc-del: 0px; --tc-h: calc(var(--tc-base) + var(--tc-sec) + var(--tc-pip) + var(--tc-del)); }
+#hud:has(.tc-pips.on) { --tc-pip: 10px; }
 #hud:has(.tc-delta.on) { --tc-del: 28px; }
 #hud:has(.tc-secs.on) { --tc-sec: 34px; }
 /* the rear-view mirror (js/race.js draws the view behind into this box): the HUD's corner brackets round a clear
@@ -394,6 +395,17 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .tc-secs i.p { background: var(--sv-best); color: var(--sv-best); } .tc-secs i.g { background: var(--sv-sec-green); color: var(--sv-sec-green); } .tc-secs i.y { background: var(--sv-sec-yellow); color: var(--sv-sec-yellow); }
 .tc-secs i.p, .tc-secs i.g, .tc-secs i.y { -webkit-text-fill-color: var(--sv-ink); text-shadow: var(--sv-glow-ink); }
 .tc-secs i.v { color: var(--sv-red-dim); text-shadow: var(--sv-glow-hud); text-decoration: line-through; }
+/* the mini-sectors: a row of thin pips under each sector cell, lined up with it */
+.tc-pips { display: none; gap: 6px; margin-top: 5px; padding: 0 14px; }
+.tc-pips.on { display: flex; }
+#hud.mirror .tc-pips { gap: 5px; padding: 0 12px; }
+.tc-pips span { flex: 1; display: flex; gap: 2px; }
+.tc-pips b { flex: 1; height: 5px; border-radius: 1px; background: var(--sv-red-faint); }
+.tc-pips b.now { background: var(--sv-red); box-shadow: var(--sv-glow-line); }
+.tc-pips b.g { background: var(--sv-sec-green); color: var(--sv-sec-green); box-shadow: var(--sv-glow-fill); }
+.tc-pips b.h { background: color-mix(in srgb, var(--sv-sec-green) 40%, transparent); }
+.tc-pips b.y { background: var(--sv-sec-yellow); color: var(--sv-sec-yellow); box-shadow: var(--sv-glow-fill); }
+.tc-pips b.v { background: var(--sv-red-dim); }
 .tc-delta { display: none; margin-top: 6px; font: 500 22px/1 var(--f-ui); text-shadow: var(--sv-glow-hud); -webkit-text-fill-color: transparent; }
 .tc-delta.on { display: block; }
 .tc-delta .faster { color: var(--sv-good); } .tc-delta .slower { color: var(--sv-bad); }

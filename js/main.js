@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { PS2Post } from './post.js';
 import { Race, TYRE_FIT, buildScenery, setMirror } from './race.js';
-import { PROGRAMMES, progById, ACCLIM_PASS } from './practice.js';
+import { PROGRAMMES, progById, ACCLIM_PASS, MSEC_PASS } from './practice.js';
 import { FX } from './tirefx.js';
 import { realTracks, needsHydrate, hydrateReal, nameCorners } from './realtracks.js';
 import { HUD, fmtTime, RADAR_ZOOMS, readThemeColours, condCol } from './hud.js';
@@ -1271,7 +1271,8 @@ function planItems() {
   const items = [{ label: 'Run Plan', head: true },
     { label: `Free Running${cur ? '' : '<small>On</small>'}`, on: !cur, action: () => pick(null), desc: 'No job: drive as you like.' }];
   for (const P of PROGRAMMES) items.push({ label: `${P.name}<small>${cur === P.id ? 'On &middot; ' : ''}${progStatus(P.id)}</small>`, on: cur === P.id, action: () => pick(P.id),
-    desc: P.desc + (P.id === 'acclim' && sim.tdata.acclim?.marks?.length ? ` You've marked <b>${sim.tdata.acclim.marks.length}</b> so far.` : '') });
+    desc: P.desc + (P.id === 'acclim' && sim.tdata.acclim?.marks?.length ? ` You've marked <b>${sim.tdata.acclim.marks.length}</b> so far.` : '')
+      + (P.id === 'msec' && sim.tdata.msec?.hits?.length ? ` Lit so far: <b>${sim.tdata.msec.hits.filter(h => h >= 2).length} of ${sim.mini.n}</b>.` : '') });
   items.push({ label: 'Back', action: () => { pgView = 'main'; sfx.back(); renderGarageMenu(); renderHints(); }, desc: 'Back to the garage.' });
   return items;
 }
@@ -1371,7 +1372,7 @@ function renderGarageInfo() {
 function planRows() {
   const rows = PROGRAMMES.map(P => {
     const a = sim.tdata[P.id] || {}, b = a.best || 0, col = a.done ? 'var(--sv-good)' : 'var(--sv-cyan)';
-    return `<div class="pg-row pg-plan${sim.prog?.id === P.id ? ' on' : ''}"><span>${P.short}</span><i class="pg-bar"><b style="width:${Math.round(b * 100)}%;background:${col};color:${col}"></b><u style="left:${ACCLIM_PASS * 100}%"></u></i><em>${b ? Math.round(b * 100) + '%' : '&mdash;'}</em></div>`;
+    return `<div class="pg-row pg-plan${sim.prog?.id === P.id ? ' on' : ''}"><span>${P.short}</span><i class="pg-bar"><b style="width:${Math.round(b * 100)}%;background:${col};color:${col}"></b><u style="left:${P.pass * 100}%"></u></i><em>${b ? Math.round(b * 100) + '%' : '&mdash;'}</em></div>`;
   }).join('');
   const m = sim.tdata.acclim?.marks?.length || 0;
   return `<div class="panel-title pg-plan-title">RUN PLAN</div>${rows}${m ? `<p class="pg-note">${m} brake marker${m === 1 ? '' : 's'} out for the weekend</p>` : ''}`;
@@ -3343,10 +3344,11 @@ function startTestDay() {
 }
 // what the test day's run plan found (the gates' best lap, the brake markers out for the weekend)
 function testPlanRows() {
-  const a = sim && sim.tdata && sim.tdata.acclim; if (!a || !a.best) return '';
+  const a = sim && sim.tdata && sim.tdata.acclim; if (!a || !a.best) return testMiniRow();
   return `<div class="row"><span>Acclimatization</span><span>${Math.round(a.best * 100)}%${a.done ? ' &middot; done' : ''}</span></div>`
-    + (a.marks.length ? `<div class="row"><span>Brake markers</span><span>${a.marks.length} for the weekend</span></div>` : '');
+    + (a.marks.length ? `<div class="row"><span>Brake markers</span><span>${a.marks.length} for the weekend</span></div>` : '') + testMiniRow();
 }
+const testMiniRow = () => { const m = sim && sim.tdata && sim.tdata.msec; return m && m.best ? `<div class="row"><span>Mini-sectors</span><span>${m.hits.filter(h => h >= 2).length} of ${sim.mini.n} lit${m.done ? ' &middot; done' : ''}</span></div>` : ''; };
 function testFinish() {
   const w = world; if (!w || !sim || !sim.player) return;
   const pl = sim.player, laps = pl.lapTimes.length, before = w.money.balance, best = laps ? Math.min(...pl.lapTimes) : null;
@@ -4557,6 +4559,12 @@ function handleRaceEvents() {
     }
     else if (ev.type === 'gate') hud.gate(ev);
     else if (ev.type === 'tdata') keepTrackData();
+    else if (ev.type === 'progLap' && ev.id === 'msec') {
+      const need = Math.max(0, Math.ceil(ev.n * MSEC_PASS) - ev.lit);
+      hud.radio('eng', ev.done ? `That's the job done, ${ev.lit} of ${ev.n} lit. Your practice bests are on the board for qualifying.`
+        : `${ev.beat} target${ev.beat === 1 ? '' : 's'} beaten that lap, ${ev.lit} of ${ev.n} lit.${need ? ` ${need} more for the job.` : ''}`, { big: ev.done });
+      if (ev.done) sfx.best();
+    }
     else if (ev.type === 'progLap') {
       const pc = Math.round(ev.rating * 100), need = Math.round(ACCLIM_PASS * 100);
       hud.radio('eng', ev.done ? `That's the job done, ${pc}% on that lap. ${ev.marks ? `${ev.marks} brake point${ev.marks === 1 ? '' : 's'} marked for the weekend.` : 'Nail the red gates and we\'ll mark your brake points.'}`
@@ -4744,9 +4752,10 @@ function pause() {
     return;
   }
   // (time trial, a test day, the editor's test drive: the acclimatization gates, on or off)
-  const gates = sim.mode === 'test' && sim.player && raceReturn !== 'drivehome' && raceReturn !== 'gig' ? [{ label: `Acclimatization Gates<small>${sim.prog ? 'On' : 'Off'}</small>`,
-    action: () => { sim.setProgramme(sim.prog ? null : 'acclim'); sfx.select(); resume(); },
-    desc: sim.prog ? 'Take the gates down.' : progById('acclim').desc.replace('for the rest of the weekend', raceReturn === 'testday' ? 'for the race weekend' : 'for the rest of this drive') }] : [];
+  // (time trial, a test day, the editor's test drive: the run plan's jobs, one at a time)
+  const gates = sim.mode === 'test' && sim.player && raceReturn !== 'drivehome' && raceReturn !== 'gig' ? PROGRAMMES.map(P => ({ label: `${P.name}<small>${sim.prog?.id === P.id ? 'On' : 'Off'}</small>`,
+    action: () => { sim.setProgramme(sim.prog?.id === P.id ? null : P.id); sfx.select(); resume(); },
+    desc: sim.prog?.id === P.id ? 'Stop this job: drive as you like.' : P.desc.replace('for the rest of the weekend', raceReturn === 'testday' ? 'for the race weekend' : 'for the rest of this drive').replace('Then in qualifying', raceReturn === 'testday' ? 'Then in qualifying' : 'In a race weekend\'s qualifying') })) : [];
   if (raceReturn === 'drivehome') {
     menus['s-pause'][0].setItems([
       { label: 'Resume', cls: 'action primary', action: resume }, photoItem, opts,
