@@ -171,6 +171,7 @@ export function drawDecal(g, d, x, y, onReady) {
     const h = w; // text decals: size = letter height
     g.font = `${FONT_W[d.font] || ''}${h}px ${FONT_CSS[d.font] || FONT_CSS.impact}`;
     g.textAlign = 'center'; g.textBaseline = 'middle';
+    if (d.bar != null) { const tw = g.measureText(d.text).width; g.fillStyle = hex(d.bar); g.fillRect(-tw / 2 - h * 0.4, -h * 0.7, tw + h * 0.8, h * 1.4); }
     if (d.outline) { g.lineJoin = 'round'; g.lineWidth = h * 0.16; g.strokeStyle = hex(d.outline); g.strokeText(d.text, 0, 0); }
     g.fillStyle = hex(d.color ?? 0xffffff); g.fillText(d.text, 0, 0);
   } else {
@@ -182,7 +183,7 @@ export function drawDecal(g, d, x, y, onReady) {
 
 // Everything drawn on ONE panel, in the panel's own metres (x right, y down, as seen from outside).
 // The caller has already set the transform + clip. Shared by atlas-mapped and projected models.
-export function panelArt(g, name, p, cfg, model, onReady) {
+export function panelArt(g, name, p, cfg, model, onReady, decals = true) {
   const L = cfg.decals && cfg.helmetDesign ? cfg : fillLivery(cfg);
   const main = hex(L.main), acc = hex(L.accent), third = hex(L.third), pat = L.pattern;
   const PW = p.W, PH = p.H, P = alongCross(p);
@@ -207,8 +208,9 @@ export function panelArt(g, name, p, cfg, model, onReady) {
       const grd = g.createLinearGradient(x0, y0, x1, y1); grd.addColorStop(0, acc); grd.addColorStop(1, main);
       g.fillStyle = grd; g.fillRect(0, 0, PW, PH);
     }
-    // nose tip in the third colour
-    if (p.role === 'top' || p.role === 'side') { g.fillStyle = third; poly(g, P, [[0.975, 0], [1, 0], [1, 1], [0.975, 1]]); }
+    // nose tip in the third colour (not on cars with a nose panel of their own: on a road car the top's last 2.5%
+    // is the bumper's top edge, a sliver under the grille, and the band came out as a jagged bar)
+    if ((p.role === 'top' || p.role === 'side') && !model.panels?.front) { g.fillStyle = third; poly(g, P, [[0.975, 0], [1, 0], [1, 1], [0.975, 1]]); }
   }
   // race number + sponsor (optional, part of the base livery)
   const num = String(L.number ?? 7), sp = String(L.sponsor || '').toUpperCase().slice(0, 14);
@@ -227,7 +229,8 @@ export function panelArt(g, name, p, cfg, model, onReady) {
     if (name === 'top') label(...(lab.topNumber || [0.83, 0.5]), num, 0.24, Math.min(0.4, PW * 0.8), numCol);
     if (name === 'sideL' || name === 'sideR') label(...(lab.sideNumber || [0.68, 0.5]), num, 0.22, 0.6, numCol);
   }
-  if (L.showSponsor && sp) {
+  // (once the stickers are decals, L.stickers === 'decals', they're drawn with the rest below, wherever they've been moved)
+  if (L.showSponsor && sp && L.stickers !== 'decals') {
     if (name === 'podL' || name === 'podR') label(0.5, 0.42, sp, Math.min(0.13, PH * 0.3), Math.min(1.2, PW * 0.6), acc, true);
     // (cars without sidepods, e.g. GT cars: on the flanks instead)
     if (lab.sideSponsor && (name === 'sideL' || name === 'sideR')) label(...lab.sideSponsor, sp, 0.12, 1.1, acc, true);
@@ -236,8 +239,10 @@ export function panelArt(g, name, p, cfg, model, onReady) {
     if (name === 'coverL' || name === 'coverR') label(0.55, 0.45, String(L.teamName || '').toUpperCase().slice(0, 18), Math.min(0.08, PH * 0.25), Math.min(1.1, PW * 0.6), acc);
   }
   // user decals on this panel, plus mirror copies of decals from its pair (or from itself)
-  for (const d of L.decals) {
-    const src = model.panels[d.panel]; if (!src) continue;
+  if (decals) for (const d0 of L.decals) {
+    const src = model.panels[d0.panel]; if (!src) continue;
+    const d = d0.bind ? { ...d0, text: boundText(L, d0.bind) } : d0;
+    if (d.bind && !d.text) continue;
     if (d.panel === name) {
       drawDecal(g, d, d.x, d.y, onReady);
       if (d.mirror && !(src.pair && model.panels[src.pair])) drawDecal(g, d, PW - d.x, d.y, onReady);
@@ -245,12 +250,203 @@ export function panelArt(g, name, p, cfg, model, onReady) {
   }
 }
 
+// Models that project decals across their panels (projectDecals: the F1 and the photo-textured road cars) take them as
+// layers instead: each one (and its mirror copy) drawn on its own canvas (w x h px) round it, k px per metre, its
+// top-left at x0, y0 in its panel's metres and rx / ry its half-sizes, in the livery's order
+export function decalLayers(cfg, model, ppm, onReady) {
+  const L = cfg.decals && cfg.helmetDesign ? cfg : fillLivery(cfg), out = [], g0 = document.createElement('canvas').getContext('2d');
+  const add = (d, panel, x, y) => {
+    const w = d.size || 0.4; let hw = w / 2, hh = w / 2;
+    if (d.text != null) { // (measured at 100x: canvas fonts this small in px don't measure reliably)
+      g0.font = `${FONT_W[d.font] || ''}${w * 100}px ${FONT_CSS[d.font] || FONT_CSS.impact}`;
+      hw = g0.measureText(d.text).width / 200 + w * (d.bar != null ? 0.4 : 0.1); hh = w * 0.7;
+    } else {
+      const im = decalImage(d.asset, onReady); if (!im) return;
+      hh = hw * im.naturalHeight / im.naturalWidth;
+    }
+    // (its rotated rectangle's bounds, half-widths across / down)
+    const t = ((d.rot || 0) * Math.PI) / 180, cs = Math.abs(Math.cos(t)), sn = Math.abs(Math.sin(t));
+    const rx = cs * hw + sn * hh + 0.01, ry = sn * hw + cs * hh + 0.01, k = Math.min(ppm, 2048 / (2 * Math.max(rx, ry)));
+    const c = document.createElement('canvas'); c.width = Math.max(2, Math.ceil(2 * rx * k)); c.height = Math.max(2, Math.ceil(2 * ry * k));
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.setTransform(k, 0, 0, k, (rx - x) * k, (ry - y) * k);
+    drawDecal(g, d, x, y, onReady);
+    out.push({ panel, x0: x - rx, y0: y - ry, rx, ry, k, w: c.width, h: c.height, rad: Math.max(0.05, Math.min(hw, hh)), data: g.getImageData(0, 0, c.width, c.height).data });
+  };
+  for (const d0 of L.decals) {
+    const src = model.panels[d0.panel]; if (!src) continue;
+    const d = d0.bind ? { ...d0, text: boundText(L, d0.bind) } : d0;
+    if (d.bind && !d.text) continue;
+    add(d, d.panel, d.x, d.y);
+    if (!d.mirror) continue;
+    const pr = src.pair && model.panels[src.pair];
+    if (pr) add(d, src.pair, (1 - d.x / src.W) * pr.W, (d.y / src.H) * pr.H);
+    else add(d, d.panel, src.W - d.x, d.y);
+  }
+  return out;
+}
+
+// Lays decal layers over a projected model's texels, like a projector aimed at the car. Each decal sits on the outer
+// surface under its centre (found along its panel's view: p.dir, from above, the left, the nose...) and shoots along
+// the way that surface faces on average under it (area-weighted, within its smaller half-size), so on a flat door it
+// goes straight in, and one slid over a bonnet's edge leans over to cover both the side and the bonnet, each a little
+// stretched (about 1.4x at most, across a right angle), as in Forza. It carries on over seams, fades where the surface
+// turns away, and lands only on the outermost surface at each spot (a stripe from above: bonnet, roof, then boot).
+// m: per texel pos (x, y, z), nrm (smooth normal, x127), ar (3D area); col: their paint colours (r, g, b), changed in
+// place.
+const FACE0 = 0.2, FACE1 = 0.45, DEPTH = 0.12; // facing (cos) where a decal starts / is full; how far under the outer surface (m)
+export function projectDecals(panels, names, layers, m, col) {
+  const { pos, nrm, ar } = m, G = texelGrid(m);
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  for (const { panel, x0, y0, rx, ry, k: kp, w: lw, h: lh, rad, data } of layers) {
+    const pn = panels[panel], dir0 = pn && pn.dir; if (!dir0) continue;
+    // the panel's projection is affine: panel metres = (right . p + o0[0], down . p + o0[1]), right / down / dir0 unit axes
+    const o0 = pn.proj(0, 0, 0), ex = pn.proj(1, 0, 0), ey = pn.proj(0, 1, 0), ez = pn.proj(0, 0, 1);
+    const right0 = [ex[0] - o0[0], ey[0] - o0[0], ez[0] - o0[0]], down0 = [ex[1] - o0[1], ey[1] - o0[1], ez[1] - o0[1]];
+    const cx = x0 + rx, cy = y0 + ry; // (the decal's centre)
+    // the anchor: the outer surface under the centre
+    const H = viewDepth(m, panel, names.indexOf(panel) + 1, pn, dir0, [...right0, o0[0], ...down0, o0[1]]);
+    const depth = nearestCell(H, cx, cy); if (depth == null) continue;
+    const C = [0, 1, 2].map(i => right0[i] * (cx - o0[0]) + down0[i] * (cy - o0[1]) + dir0[i] * depth);
+    // its direction: the surface's average facing near the anchor
+    const sum = [0, 0, 0];
+    G.each(C.map(v => v - rad), C.map(v => v + rad), (n) => {
+      const px = pos[n * 3] - C[0], py = pos[n * 3 + 1] - C[1], pz = pos[n * 3 + 2] - C[2];
+      if (px * px + py * py + pz * pz > rad * rad) return;
+      const nx = nrm[n * 3], ny = nrm[n * 3 + 1], nz = nrm[n * 3 + 2];
+      if (nx * dir0[0] + ny * dir0[1] + nz * dir0[2] < -0.2 * 127) return; // (not the far side of a thin part)
+      sum[0] += nx * ar[n]; sum[1] += ny * ar[n]; sum[2] += nz * ar[n];
+    });
+    const sl = Math.hypot(...sum), dir = sl > 0 && !globalThis.NOTILT ? sum.map(v => v / sl) : dir0;
+    // the decal's right / down turned with it (the smallest rotation from the panel's view to dir)
+    const kx = dir0[1] * dir[2] - dir0[2] * dir[1], ky = dir0[2] * dir[0] - dir0[0] * dir[2], kz = dir0[0] * dir[1] - dir0[1] * dir[0];
+    const sn = Math.hypot(kx, ky, kz), cs = dot(dir0, dir), kk = sn > 1e-6 ? [kx / sn, ky / sn, kz / sn] : null;
+    const turn = (v) => {
+      if (!kk) return v;
+      const kv = dot(kk, v), c = [kk[1] * v[2] - kk[2] * v[1], kk[2] * v[0] - kk[0] * v[2], kk[0] * v[1] - kk[1] * v[0]];
+      return [0, 1, 2].map(i => v[i] * cs + c[i] * sn + kk[i] * kv * (1 - cs));
+    };
+    const right = turn(right0), down = turn(down0);
+    // the texels it can reach (a box round its square, 60 cm deep each way: enough for a stripe from the bonnet over
+    // the roof), then a depth map along dir so it only lands on the outer surface
+    const reach = 0.6, lo = [], hi = [];
+    for (let i = 0; i < 3; i++) { const e = Math.abs(right[i]) * rx + Math.abs(down[i]) * ry + Math.abs(dir[i]) * reach; lo.push(C[i] - e); hi.push(C[i] + e); }
+    const DC = 0.04, gw = Math.ceil(2 * rx / DC) + 1, gh = Math.ceil(2 * ry / DC) + 1, gd = new Float32Array(gw * gh).fill(-Infinity);
+    const at = (n, f) => { // -> [u, v, depth, facing] relative to the anchor, or null if outside / facing away
+      const px = pos[n * 3] - C[0], py = pos[n * 3 + 1] - C[1], pz = pos[n * 3 + 2] - C[2];
+      const u = px * right[0] + py * right[1] + pz * right[2]; if (u <= -rx || u >= rx) return null;
+      const v = px * down[0] + py * down[1] + pz * down[2]; if (v <= -ry || v >= ry) return null;
+      const fa = (nrm[n * 3] * dir[0] + nrm[n * 3 + 1] * dir[1] + nrm[n * 3 + 2] * dir[2]) / 127; if (fa <= FACE0) return null;
+      f[0] = u; f[1] = v; f[2] = px * dir[0] + py * dir[1] + pz * dir[2]; f[3] = fa; return f;
+    };
+    const f = [0, 0, 0, 0], cell = () => Math.min(gh - 1, (f[1] + ry) / DC | 0) * gw + Math.min(gw - 1, (f[0] + rx) / DC | 0);
+    G.each(lo, hi, (n) => { if (!at(n, f)) return; const c = cell(); if (f[2] > gd[c]) gd[c] = f[2]; });
+    // anything thin sticking up (an aerial, a mirror stalk, stray edge texels) mustn't hide the paint round it: an
+    // opening (3x3 min, then 3x3 max) keeps only what's wider than about 3 cells
+    for (const pick of [Math.min, Math.max]) {
+      const src = gd.slice();
+      for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) {
+        let v = src[j * gw + i];
+        for (let b = Math.max(0, j - 1); b <= Math.min(gh - 1, j + 1); b++) for (let a = Math.max(0, i - 1); a <= Math.min(gw - 1, i + 1); a++) v = pick(v, src[b * gw + a]);
+        gd[j * gw + i] = v;
+      }
+    }
+    G.each(lo, hi, (n) => {
+      if (!at(n, f) || (!globalThis.NOOCC && f[2] < gd[cell()] - DEPTH)) return; // (hidden under the outer surface)
+      const q = (Math.min(lh - 1, (f[1] + ry) * kp | 0) * lw + Math.min(lw - 1, (f[0] + rx) * kp | 0)) * 4;
+      const a = data[q + 3] / 255 * Math.min(1, (f[3] - FACE0) / (FACE1 - FACE0)); if (!a) return;
+      col[n * 3] += (data[q] - col[n * 3]) * a; col[n * 3 + 1] += (data[q + 1] - col[n * 3 + 1]) * a; col[n * 3 + 2] += (data[q + 2] - col[n * 3 + 2]) * a;
+    });
+  }
+}
+// a height map's value at (x, y) in metres, or the nearest filled cell's within 40 cm (null if none)
+function nearestCell(H, x, y) {
+  const cx = Math.max(0, Math.min(H.gw - 1, x / H.C | 0)), cy = Math.max(0, Math.min(H.gh - 1, y / H.C | 0));
+  for (let r = 0; r <= 10; r++) {
+    let best = null, be = Infinity;
+    for (let j = cy - r; j <= cy + r; j++) for (let i = cx - r; i <= cx + r; i++) {
+      if (i < 0 || j < 0 || i >= H.gw || j >= H.gh || (Math.abs(i - cx) !== r && Math.abs(j - cy) !== r)) continue;
+      const v = H.g[j * H.gw + i], e = (i - cx) ** 2 + (j - cy) ** 2; if (v !== -Infinity && e < be) { be = e; best = v; }
+    }
+    if (best != null) return best;
+  }
+  return null;
+}
+
+// the texels bucketed on a 20 cm grid in car space (built once per texel map): each(lo, hi, fn) calls fn(texel) for
+// the texels in the cells overlapping that box
+function texelGrid(m) {
+  if (m.grid) return m.grid;
+  const { pos } = m, cnt = pos.length / 3, mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
+  for (let n = 0; n < cnt * 3; n++) { const a = n % 3; if (pos[n] < mn[a]) mn[a] = pos[n]; if (pos[n] > mx[a]) mx[a] = pos[n]; }
+  if (!cnt) mn.fill(0), mx.fill(0);
+  // (cells grow if something is far out, so the grid stays small whatever the model)
+  const C = Math.max(0.2, ...mn.map((v, a) => (mx[a] - v) / 64));
+  const d = mn.map((v, a) => Math.floor((mx[a] - v) / C) + 1), cell = new Uint32Array(cnt), start = new Uint32Array(d[0] * d[1] * d[2] + 1);
+  const at = (n, a) => Math.min(d[a] - 1, (pos[n * 3 + a] - mn[a]) / C | 0);
+  for (let n = 0; n < cnt; n++) { cell[n] = (at(n, 0) * d[1] + at(n, 1)) * d[2] + at(n, 2); start[cell[n] + 1]++; }
+  for (let i = 1; i < start.length; i++) start[i] += start[i - 1];
+  const fill = start.slice(0, -1), idx = new Uint32Array(cnt);
+  for (let n = 0; n < cnt; n++) idx[fill[cell[n]]++] = n;
+  return (m.grid = {
+    each(lo, hi, fn) {
+      const r = [0, 1, 2].map(a => [Math.max(0, Math.floor((lo[a] - mn[a]) / C)), Math.min(d[a] - 1, Math.floor((hi[a] - mn[a]) / C))]);
+      for (let i = r[0][0]; i <= r[0][1]; i++) for (let j = r[1][0]; j <= r[1][1]; j++) for (let k = r[2][0]; k <= r[2][1]; k++) {
+        const c = (i * d[1] + j) * d[2] + k;
+        for (let q = start[c]; q < start[c + 1]; q++) fn(idx[q]);
+      }
+    },
+  });
+}
+
+// the outermost depth along a panel's view on a 4 cm grid over the panel (built once per texel map): from its own
+// texels and every other one facing that way. Cells nothing faces stay -Infinity.
+function viewDepth(m, name, own, pn, [dx, dy, dz], [ax, ay, az, ao, bx, by, bz, bo]) {
+  const H = (m.depthMaps ||= {})[name]; if (H) return H;
+  const C = 0.04, gw = Math.ceil(pn.W / C) + 1, gh = Math.ceil(pn.H / C) + 1, g = new Float32Array(gw * gh).fill(-Infinity);
+  const { lp, pos, nrm } = m;
+  for (let n = 0; n < lp.length; n++) {
+    if (lp[n] !== own && (nrm[n * 3] * dx + nrm[n * 3 + 1] * dy + nrm[n * 3 + 2] * dz) / 127 <= FACE0) continue;
+    const x = pos[n * 3], y = pos[n * 3 + 1], z = pos[n * 3 + 2];
+    const i = Math.floor((ax * x + ay * y + az * z + ao) / C), j = Math.floor((bx * x + by * y + bz * z + bo) / C);
+    if (i < 0 || j < 0 || i >= gw || j >= gh) continue;
+    const d = x * dx + y * dy + z * dz; if (d > g[j * gw + i]) g[j * gw + i] = d;
+  }
+  return (m.depthMaps[name] = { C, gw, gh, g });
+}
+
+// Text decals tied to the livery (d.bind): the title sponsor's name or the team name, kept up to date
+export const BOUND = { sponsor: 'Title sponsor', team: 'Team name' };
+export function boundText(L, bind) {
+  return bind === 'sponsor' ? String(L.sponsor || '').toUpperCase().slice(0, 14) : bind === 'team' ? String(L.teamName || '').toUpperCase().slice(0, 18) : '';
+}
+// The built-in sponsor + team name stickers on this model, as decals in the same places (so they can be moved).
+// One decal per mirrored pair (the left one, 'Both sides' on).
+export function stickerDecals(cfg, model) {
+  const L = fillLivery(cfg), out = [], lab = model.labels || {}, g = document.createElement('canvas').getContext('2d');
+  const add = (bind, name, a, c, h, maxW, color, bar) => {
+    const p = model.panels[name], text = boundText(L, bind); if (!p || !text) return;
+    const [x, y] = alongCross(p)(a, c), size = textFit(g, text, 'impact', maxW, h);
+    out.push({ id: 'd' + Math.random().toString(36).slice(2, 8), bind, panel: name, x: +x.toFixed(3), y: +y.toFixed(3), size: +size.toFixed(3), rot: 0, opacity: 1,
+      mirror: !!(p.pair && model.panels[p.pair]), flip: false, text: '', font: 'impact', color, outline: bar ? null : L.third, ...(bar ? { bar: L.third } : {}), name: null });
+  };
+  const pick = (n) => model.panels[n + 'L'] ? n + 'L' : model.panels[n + 'R'] ? n + 'R' : null; // (the left of a pair, else the right)
+  const pod = pick('pod'), side = pick('side'), plate = pick('plate'), cover = pick('cover'), rw = model.panels.rwing;
+  if (pod) { const p = model.panels[pod]; add('sponsor', pod, 0.5, 0.42, Math.min(0.13, p.H * 0.3), Math.min(1.2, p.W * 0.6), L.accent, true); }
+  if (lab.sideSponsor && side) add('sponsor', side, ...lab.sideSponsor, 0.12, 1.1, L.accent, true);
+  if (rw) add('sponsor', 'rwing', 0.5, 0.5, Math.min(0.13, rw.H * 0.4), rw.W * 0.88, L.main, false);
+  if (plate) { const p = model.panels[plate]; add('sponsor', plate, 0.5, 0.6, Math.min(0.1, p.H * 0.3), p.W * 0.85, L.accent, false); }
+  if (cover) { const p = model.panels[cover]; add('team', cover, 0.55, 0.45, Math.min(0.08, p.H * 0.25), Math.min(1.1, p.W * 0.6), L.accent, false); }
+  return out;
+}
+
 // Paint a livery onto a model's livery canvas. onReady(): called if a decal image arrives later (repaint then).
 // Atlas models (panels are rects in the texture) are drawn directly; projected models (e.g. an imported .glb)
 // get each panel drawn on its own canvas and then mapped onto the surface by model.paintProjected().
 export function paintCar(canvas, cfg, model, onReady) {
   const L = fillLivery(cfg), W = canvas.width, H = canvas.height, g = canvas.getContext('2d');
-  if (model.paintProjected) return model.paintProjected(canvas, L, (pg, name, p) => { pg.fillStyle = hex(L.main); pg.fillRect(0, 0, p.W, p.H); panelArt(pg, name, p, L, model, onReady); });
+  if (model.paintProjected) return model.paintProjected(canvas, L, (pg, name, p) => { pg.fillStyle = hex(L.main); pg.fillRect(0, 0, p.W, p.H); panelArt(pg, name, p, L, model, onReady, !model.projectDecals); },
+    model.projectDecals ? (ppm) => decalLayers(L, model, ppm, onReady) : null);
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.fillStyle = hex(L.main); g.fillRect(0, 0, W, H);
   // model-specific dark areas (floor edges etc.)

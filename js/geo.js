@@ -135,7 +135,14 @@ export async function importOSM(geo, bboxLocal, opts, onStatus) {
   }
   if (!data) throw lastErr || new Error('Could not reach the map server');
   onStatus && onStatus('Building the neighbourhood…');
+  return parseOSM(geo, data, bboxLocal);
+}
 
+// Overpass JSON (out geom) -> the track's imported scenery { buildings, trees, bbox }
+// (also used by the real-circuit importer in tools/tracks, which passes rank(x, z) = distance to the track
+//  so a big area keeps the buildings / trees nearest the road rather than nearest the middle, and its own tree budget)
+export function parseOSM(geo, data, bboxLocal, { rank = null, maxTrees = 8000, step = 11 } = {}) {
+  const [x0, z0, x1, z1] = bboxLocal;
   const buildings = [], trees = [], woods = [];
   const R = (v) => Math.round(v * 10) / 10;
   for (const el of data.elements || []) {
@@ -177,16 +184,16 @@ export async function importOSM(geo, bboxLocal, opts, onStatus) {
     let a = Infinity, b = -Infinity, c = Infinity, d = -Infinity;
     for (const q of poly) { a = Math.min(a, q[0]); b = Math.max(b, q[0]); c = Math.min(c, q[1]); d = Math.max(d, q[1]); }
     a = Math.max(a, x0); b = Math.min(b, x1); c = Math.max(c, z0); d = Math.min(d, z1);
-    for (let x = a; x < b; x += 11) for (let z = c; z < d; z += 11) {
-      const px = x + (rnd() - 0.5) * 8, pz = z + (rnd() - 0.5) * 8;
+    for (let x = a; x < b; x += step) for (let z = c; z < d; z += step) {
+      const px = x + (rnd() - 0.5) * step * 0.73, pz = z + (rnd() - 0.5) * step * 0.73;
       if (pointInPoly(px, pz, poly)) trees.push([R(px), R(pz)]);
-      if (trees.length > 9000) break;
+      if (trees.length > (rank ? 120000 : 9000)) break;
     }
   }
   // keep the ones closest to the middle if the area is huge
   const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-  const d2 = (p) => (p[0] - cx) ** 2 + (p[1] - cz) ** 2;
+  const d2 = rank ? (p) => rank(p[0], p[1]) : (p) => (p[0] - cx) ** 2 + (p[1] - cz) ** 2;
   if (buildings.length > 6000) { buildings.sort((u, v) => d2(u.p[0]) - d2(v.p[0])); buildings.length = 6000; }
-  if (trees.length > 8000) { trees.sort((u, v) => d2(u) - d2(v)); trees.length = 8000; }
+  if (trees.length > maxTrees) { const k = trees.map(t => [d2(t), t]).sort((u, v) => u[0] - v[0]); trees.length = 0; for (let i = 0; i < maxTrees; i++) trees.push(k[i][1]); }
   return { buildings, trees, bbox: bboxLocal, date: Date.now() };
 }

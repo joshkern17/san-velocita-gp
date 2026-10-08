@@ -5,7 +5,7 @@ const { chromium } = await import(ROOT + '/tools/node_modules/playwright-core/in
 const PORT = 8100 + Math.floor(Math.random() * 90);
 const server = spawn('python3', [ROOT + '/serve.py', String(PORT), '--no-browser'], { stdio: 'ignore', cwd: ROOT });
 await new Promise(r => setTimeout(r, 2500));
-const cars = (process.argv[2] || 'gtr,m1procar,f1').split(','), TRK = process.argv[3] || '/.devtest/auburn2.json';
+const cars = (process.argv[2] || 'm3gtr,m1procar,f1').split(','), TRK = process.argv[3] || '/.devtest/auburn2.json';
 const b = await chromium.launch({ channel: 'chrome', headless: true });
 try {
   const pg = await b.newPage();

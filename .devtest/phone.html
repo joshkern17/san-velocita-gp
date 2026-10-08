@@ -1,0 +1,29 @@
+<!doctype html><html><head><meta charset="utf-8"><script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script>
+<link rel="stylesheet" href="../css/style.css"><style>body{margin:0;background:#3a3026;--edge:80px} #phone-cv{display:block}</style></head><body>
+<script>addEventListener('error', e => console.error('STACK', e.error && e.error.stack));</script>
+<script>window.__SVGP_PHONE_GLB = '../models/phone.glb';</script><script type="module">
+import { Phone } from '../js/phone.js';
+const q = new URLSearchParams(location.search);
+// the inbox, newest first (the way wcareer files it), bursts in reading order
+const msgs = []; let id = 1;
+const add = (from, lines, r, extra = {}, read = false) => { for (const l of lines) msgs.unshift({ id: 'm' + id++, y: 2026, r, from, body: l, read, ...extra }); };
+add('Danny', ['Yo my cousin\'s selling a Neun Elf RS', 'It\'s on SVList. Says he\'ll do $21,500'], 0, {}, true);
+add('Danny', ['No way', 'Bro you\'re not gonna regret this'], 0, {}, true);
+add('Marco', ['Marco here. Looks like we\'re sharing a garage this year. Don\'t put me in the wall.'], 0, {}, true);
+add('Danny', ['Yo someone was at the garage last night', 'Car\'s ok. Mostly', 'Sal says hi'], 1, {}, true);
+add('Street Cup', ['Entry confirmed for Round 2. Scrutineering opens 8am.'], 1, {}, true);
+add('Danny', ['Hey so the payroll thing', 'No rush', 'My landlord\'s just asking'], 2);
+add('Danny', ['Tyre guy offered me a job. Pay me what you owe or I take it?'], 2, { choices: [['pay', 'Pay him $4,000'], ['go', 'Let him go']] });
+add('Marco', ['P4 with a gearbox that sounds like a blender. I\'ll take it.'], 2);
+const ph = new Phone({ msgs: () => msgs, status: () => 'R3/6 2026', read: () => {}, choose: () => {}, sfx: {} });
+const wait = () => new Promise(r => setTimeout(r, 120));
+const t0 = performance.now(); let last = t0;
+(function loop(t) { ph.update(Math.min(0.05, (t - last) / 1000)); last = t; requestAnimationFrame(loop); })(t0);
+await new Promise(r => setTimeout(r, 1500));
+if (!q.get("peek")) ph.open(); else ph.show();
+await wait();
+for (const step of (q.get('do') || '').split(',').filter(Boolean)) { const [k, n] = [step.replace(/\d+$/, ''), +(step.match(/\d+$/)?.[0] || 1)]; for (let i = 0; i < n; i++) { ph.input({ [k]: true }); await wait(); } }
+await new Promise(r => setTimeout(r, 800));
+ph.drawLCD(); const im = document.createElement('canvas'); im.width = 112 * 4; im.height = 140 * 4; im.style.cssText = 'position:fixed;left:8px;top:8px;image-rendering:pixelated;outline:2px solid #000'; const g = im.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(ph.lcd, 0, 0, im.width, im.height); document.body.appendChild(im);
+window.done = 1;
+</script></body></html>

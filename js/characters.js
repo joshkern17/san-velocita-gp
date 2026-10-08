@@ -48,6 +48,11 @@ export const CLIP_INFO = {
   sit: { loop: true, seat: 0.48 }, sit_idle: { loop: true, seat: 0.48 }, sit_clap: { loop: true, seat: 0.48 },
   sit_clap_2: { loop: true, seat: 0.48 }, sit_yell: { loop: true, seat: 0.48 }, sit_yell_2: { loop: true, seat: 0.48 },
   sit_rub_arm: { loop: true, seat: 0.57 },
+  // leaning back on something hip high behind (a car's side): the backside about 0.9 m up. lean_2 has a foot up on it;
+  // stand_pose (still) is a lean too, against a wall: feet out, head back, hands behind
+  lean: { loop: true }, lean_2: { loop: true }, stand_pose: { loop: true },
+  // down on one knee (the right); kneel_down goes from standing to that, once
+  kneel: { loop: true }, kneel_down: { loop: false }, kneel_point: { loop: true },
 };
 export const CLIPS = Object.keys(CLIP_INFO);
 
@@ -114,10 +119,15 @@ function cloneLook(look) {
     return c;
   };
   const root = copy(src);
+  // the parts share one Skeleton when they're bound the same way (the file gives each its own): three.js works out
+  // and uploads a skeleton's bone matrices once a frame, so a pit crew of 84 in 10 parts each was 840 of them
+  const made = [];
   root.traverse(c => {
     if (!c.isSkinnedMesh) return;
-    const s = back.get(c);
-    c.bind(new THREE.Skeleton(s.skeleton.bones.map(b => map.get(b)), s.skeleton.boneInverses), s.bindMatrix);
+    const s = back.get(c), bones = s.skeleton.bones.map(b => map.get(b));
+    const same = made.find(k => k.bones.length === bones.length && k.bones.every((b, i) => b === bones[i]) && k.boneInverses.every((m, i) => m.equals(s.skeleton.boneInverses[i])));
+    const sk = same || new THREE.Skeleton(bones, s.skeleton.boneInverses); if (!same) made.push(sk);
+    c.bind(sk, s.bindMatrix);
   });
   return root;
 }

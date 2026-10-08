@@ -86,7 +86,18 @@ const SV1_ROWS = [['A', 'team', 'Name of enterprise'], ['A', 'colors', 'Colors']
   ['B', 'name', 'Full name of proprietor'], ['B', 'background', 'Previous occupation'], ['C', 'ex', 'Former spouse'], ['C', 'years', 'Years married']];
 const SECTIONS = { A: 'Section A: the enterprise', B: 'Section B: the proprietor', C: 'Section C: marital status' };
 const HAND = '"Bradley Hand", "Segoe Print", "Comic Sans MS", cursive';
-function sv1Canvas(f, at, sign = 0, stamp = false) {
+// where each line sits on the paper (canvas px, the line's baseline): the drawing and the zoom both use it
+function sv1Layout() {
+  const out = {}; let y = 190, sec = null;
+  for (const [s, key] of SV1_ROWS) { if (s !== sec) { sec = s; y += 48; } out[key] = y; y += 50; }
+  out.fee = y; out.sign = y + 96;
+  return out;
+}
+const SV1_Y = sv1Layout();
+// a value as it's written on the form
+const sv1Text = (key, v) => String(key === 'home' ? TOWNS[v].name : key === 'background' ? BACKGROUNDS[v].name : v);
+// draft: { key, v } an answer you're on but haven't given (a choice you're on, what you're typing), in faint pencil
+function sv1Canvas(f, at, sign = 0, stamp = false, draft = null) {
   const [c, g] = paperCanvas(600, 850, '#f1eee4');
   text(g, 'PROVINCE OF SAN VELOCITA', 300, 40, '700 18px Arial', '#333', 'center');
   text(g, 'BUSINESS REGISTRY  ·  DEPARTMENT OF FORMS  ·  EST. 1957', 300, 62, '500 13px Arial', '#444', 'center');
@@ -99,9 +110,11 @@ function sv1Canvas(f, at, sign = 0, stamp = false) {
     if (at === key) { g.fillStyle = 'rgba(255,226,60,0.55)'; g.fillRect(32, y - 30, 536, 44); }
     text(g, label, 40, y, '500 15px Arial', '#333');
     g.fillStyle = '#555'; g.fillRect(250, y + 4, 310, 1.2);
-    const v = f[key];
+    const dr = draft && draft.key === key && draft.v != null && draft.v !== '', v = dr ? draft.v : f[key];
+    g.save(); if (dr) g.globalAlpha = 0.42;
     if (key === 'colors' && v) { [0, 1].forEach(i => { g.fillStyle = hexc(v[i]); g.fillRect(256 + i * 52, y - 22, 40, 24); g.strokeStyle = '#333'; g.strokeRect(256 + i * 52, y - 22, 40, 24); }); }
-    else if (v != null && v !== '') text(g, String(key === 'home' ? TOWNS[v].name : key === 'background' ? BACKGROUNDS[v].name : v), 258, y, `28px ${HAND}`, '#1d3a8a');
+    else if (v != null && v !== '') text(g, sv1Text(key, v), 258, y, `28px ${HAND}`, dr ? '#3a4a6a' : '#1d3a8a');
+    g.restore();
     y += 50;
   }
   g.strokeStyle = '#333'; g.lineWidth = 1.5; g.strokeRect(40, y - 6, 520, 46);
@@ -197,7 +210,7 @@ export class ClaimOffice {
     // Form SV-1: from his side of the desk to yours, then up into your hands (held left of centre: the answers go right)
     const sv = sheet(sv1Canvas({}, null), 0.21, 0.2975, 0.001, 0xe6e2d6, true);
     sv.visible = false; this.scene.add(sv);
-    this.sv1 = { key: 'sv1', obj: sv, state: 'away', k: 1, hold: [-0.09, -0.006, -0.47],
+    this.sv1 = { key: 'sv1', obj: sv, state: 'away', k: 1, hold: [-0.09, -0.006, -0.47], focus: null, view: null,
       home: { p: new THREE.Vector3(0, 0.7515, 0.12), q: new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0.04)) },
       start: { p: new THREE.Vector3(-0.05, 0.7515, -0.18), q: new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, Math.PI + 0.05)) } };
     // the forms, on your side of the desk once they're slid over
@@ -225,7 +238,7 @@ export class ClaimOffice {
     if (this.crtObj) this.crtObj.visible = !reg; if (this.kbObj) this.kbObj.visible = !reg; this.regProps.visible = reg;
     const t = this.plaque.userData.tex; t.image = plaqueCanvas(PLAQUES[d]); t.needsUpdate = true;
     if (reg) for (const f of this.forms) f.obj.visible = false;
-    const sv = this.sv1; sv.obj.visible = false; sv.state = 'away'; sv.k = 1; sv.obj.position.copy(sv.start.p); sv.obj.quaternion.copy(sv.start.q);
+    const sv = this.sv1; sv.obj.visible = false; sv.state = 'away'; sv.k = 1; sv.focus = null; sv.view = null; sv.obj.position.copy(sv.start.p); sv.obj.quaternion.copy(sv.start.q);
   }
   redraw(f, sign = 0, stamp = false) { const t = f.obj.userData.tex; t.image = formCanvas(FORMS[f.key], sign, stamp); t.needsUpdate = true; }
 
@@ -273,7 +286,23 @@ export class ClaimOffice {
     const o = f.obj;
     f.from = { p: o.position.clone(), q: o.quaternion.clone() }; f.state = state; f.k = 0; f.dur = state === 'desk' && f.from.p.z < 0 ? 1.1 : 0.6;
   }
+  // Form SV-1 in your hand: whole (focus null) or close up on the line you're filling in (a key of SV1_Y), the paper
+  // left of centre so the answers beside it stay clear. view: where it is now (eased towards that each frame: it
+  // slides from line to line). { lx, ly: the point of the paper in the middle of it; cx, cy, d: where that sits, in
+  // front of your eyes; tilt: how far its top leans away }
+  svView(focus) {
+    if (!focus) return { lx: 0, ly: 0, cx: -0.09, cy: -0.006, d: 0.47, tilt: -0.25 };
+    const T = Math.tan(this.camera.fov * Math.PI / 360), aspect = this.camera.aspect || 16 / 9;
+    const d = Math.max(0.2, 0.175 / (T * aspect)), half = d * T * aspect; // (close enough that a line reads, the whole width still in view)
+    const py = SV1_Y[focus] - (focus === 'sign' ? 14 : 8); // (the middle of the line's highlight)
+    return { lx: 0, ly: (0.5 - py / 850) * 0.2975, cx: focus === 'sign' ? 0 : -half + 0.012 + 0.105, cy: 0.004, d, tilt: -0.1 }; // (signing: nothing beside it, so the middle)
+  }
   poseOf(f) {
+    if (f === this.sv1 && f.state === 'held' && f.view) {
+      const v = f.view, cam = this.camera, rq = new THREE.Quaternion().setFromEuler(new THREE.Euler(v.tilt, 0, 0.02));
+      const p = new THREE.Vector3(v.cx, v.cy, -v.d).sub(new THREE.Vector3(v.lx, v.ly, 0).applyQuaternion(rq));
+      return { p: cam.localToWorld(p), q: cam.quaternion.clone().multiply(rq) };
+    }
     if (f.state === 'held') {
       const cam = this.camera, p = cam.localToWorld(new THREE.Vector3(...(f.hold || [0, 0.018, -0.34])));
       return { p, q: cam.quaternion.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.25, 0, 0.02))) };
@@ -285,6 +314,9 @@ export class ClaimOffice {
   // ---- per frame ----
   update(dt) {
     this.t += dt; const h = this.h, s = h.snd;
+    // Form SV-1: glide to the line you're on (or back out to the whole page)
+    { const sv = this.sv1, want = this.svView(sv.focus); if (!sv.view) sv.view = { ...want };
+      const k = 1 - Math.exp(-dt * 4.2); for (const n in want) sv.view[n] += (want[n] - sv.view[n]) * k; }
     // the light
     if (this.stage === 'dark' && this.t > 1.6) { this.stage = 'on'; this.onT = 0; s?.click(); s?.note(52, 0.5, 0.05, { room: true, slide: 0.9 }); }
     if (this.onT !== undefined && this.onT >= 0) {
@@ -356,7 +388,7 @@ export class ClaimOffice {
   async registry() {
     const sv = this.sv1, f = { name: this.h.name || 'Driver', colors: null, home: null, background: null, ex: null, years: null }, side = { side: true };
     f.team = '';
-    const draw = (at, sign = 0, stamp = false) => { const t = sv.obj.userData.tex; t.image = sv1Canvas(f, at, sign, stamp); t.needsUpdate = true; };
+    const draw = (at, sign = 0, stamp = false, draft = null) => { const t = sv.obj.userData.tex; t.image = sv1Canvas(f, at, sign, stamp, draft); t.needsUpdate = true; };
     const wait = (ms) => new Promise(r => setTimeout(r, ms));
     const pen = () => { const snd = this.h.snd; if (snd) for (let k = 0; k < 5; k++) snd.hiss(0.06, 4400, 0.014, { room: true, delay: k * 0.08 }); };
     draw(null);
@@ -367,19 +399,27 @@ export class ClaimOffice {
     this.move(sv, 'held'); sv.dur = 0.7; this.h.snd?.hiss(0.25, 2200, 0.025, { room: true }); this.h.line('');
     await wait(800);
     // each line of the form: highlighted while you fill it in, written in when you have
-    const field = async (key, prompt, get) => { draw(key); this.h.say(prompt); f[key] = await get(); this.h.say(''); pen(); draw(null); await wait(450); };
+    // (the paper comes up close on the line and slides on to the next; what you're on shows on it in pencil until you pick)
+    const field = async (key, prompt, get) => {
+      sv.focus = key; draw(key); this.h.say(prompt);
+      const preview = (v) => draw(key, 0, false, { key, v });
+      f[key] = await get(preview); this.h.say(''); pen(); draw(key); await wait(550); draw(null);
+    };
     const defTeam = `${f.name.split(' ').pop()} Racing`;
-    await field('team', 'Section A &middot; Name of the enterprise', async () => (await this.typeIn('Name of the enterprise', defTeam, side)) || defTeam);
-    await field('colors', 'Section A &middot; Colors', async () => { const c = COLORS[await this.ask(COLORS.map(([a, b, n]) => `<i class="op-sw" style="background:${hexc(a)}"></i><i class="op-sw" style="background:${hexc(b)}"></i> ${n}`), side)]; return [c[0], c[1]]; });
+    const typed = (pv) => ({ side: true, onType: pv }), picked = (pv, vals) => ({ side: true, onSel: (i) => pv(vals[i]) });
+    await field('team', 'Section A &middot; Name of the enterprise', async (pv) => (await this.typeIn('Name of the enterprise', defTeam, typed(pv))) || defTeam);
+    const cols = COLORS.map(c => [c[0], c[1]]);
+    await field('colors', 'Section A &middot; Colors', async (pv) => cols[await this.ask(COLORS.map(([a, b, n]) => `<i class="op-sw" style="background:${hexc(a)}"></i><i class="op-sw" style="background:${hexc(b)}"></i> ${n}`), picked(pv, cols))]);
     const towns = Object.keys(TOWNS), bgs = Object.keys(BACKGROUNDS);
-    await field('home', 'Section A &middot; Registered premises (racing near home saves the travel)', async () => towns[await this.ask(towns.map(k => `${TOWNS[k].name} <small>${TOWNS[k].blurb}</small>`), side)]);
-    await field('name', 'Section B &middot; Your full name', async () => (await this.typeIn('Full name', f.name, side)) || f.name);
-    await field('background', 'Section B &middot; Previous occupation', async () => bgs[await this.ask(bgs.map(k => `${BACKGROUNDS[k].name} <small>${BACKGROUNDS[k].perk}</small>`), side)]);
+    await field('home', 'Section A &middot; Registered premises (racing near home saves the travel)', async (pv) => towns[await this.ask(towns.map(k => `${TOWNS[k].name} <small>${TOWNS[k].blurb}</small>`), picked(pv, towns))]);
+    await field('name', 'Section B &middot; Your full name', async (pv) => (await this.typeIn('Full name', f.name, typed(pv))) || f.name);
+    await field('background', 'Section B &middot; Previous occupation', async (pv) => bgs[await this.ask(bgs.map(k => `${BACKGROUNDS[k].name} <small>${BACKGROUNDS[k].perk}</small>`), picked(pv, bgs))]);
     const exDef = this.h.ex || EX_NAMES[Math.floor(Math.random() * EX_NAMES.length)]; // (the second time: the same one)
-    await field('ex', 'Section C &middot; Former spouse', async () => (await this.typeIn('Former spouse', exDef, side)) || exDef);
-    await field('years', 'Section C &middot; Years married', async () => [4, 7, 11, 15][await this.ask(['4', '7', '11', '15'], side)]);
-    // sign it (the marker's on the line, on the paper in your hand)
-    draw('sign');
+    await field('ex', 'Section C &middot; Former spouse', async (pv) => (await this.typeIn('Former spouse', exDef, typed(pv))) || exDef);
+    const yrs = [4, 7, 11, 15];
+    await field('years', 'Section C &middot; Years married', async (pv) => yrs[await this.ask(yrs.map(String), picked(pv, yrs))]);
+    // sign it (the marker's on the line, on the paper in your hand; the paper slides down to it)
+    sv.focus = 'sign'; draw('sign');
     const sig = new THREE.Vector3(-0.035, -0.118, 0.001), o = sv.obj;
     this.targets = [{ get at() { return o.localToWorld(sig.clone()); }, label: 'Sign here', objs: [o], hot: () => true }];
     this.h.say(`${this.h.btn()} &nbsp;Sign it`);
@@ -387,7 +427,7 @@ export class ClaimOffice {
     this.signRes = null; this.targets = []; this.h.say('');
     const snd = this.h.snd; if (snd) for (let k = 0; k < 10; k++) snd.hiss(0.07, 4200 + hash(k) * 1500, 0.02, { room: true, delay: k * 0.09 });
     for (let i = 1; i <= 12; i++) { draw(null, i / 12); await wait(80); }
-    await wait(500);
+    await wait(500); sv.focus = null; await wait(500); // (back out to the whole page, signed)
     // back across the desk; the stamp
     this.move(sv, 'back'); sv.dur = 0.8; await wait(1300);
     this.stampT = 0; draw(null, 1, true); snd?.note(70, 0.35, 0.22, { room: true, slide: 0.6 }); snd?.hiss(0.12, 500, 0.12, { room: true });
@@ -433,6 +473,10 @@ export class ClaimOffice {
       f.lift = (f.lift || 0) + ((this.stage === 'choose' && on && f.state === 'desk' ? 1 : 0) - (f.lift || 0)) * 0.2;
       if (f.state === 'desk' && f.k >= 1) { o.position.y += f.lift * 0.02; o.rotateX(f.lift * 0.35); }
       if (f !== this.sv1) for (const m of o.userData.mats) m.color.setScalar(on ? 1 : 0.45);
+      // (up close, Form SV-1 is out of the lamp's pool: as it comes in it catches the light, as if tilted to it, so it reads)
+      else { const v = f.view, near = f.state === 'held' && v ? clamp((0.47 - v.d) / 0.24, 0, 1) : 0, face = o.userData.mats[0];
+        if (!face.emissiveMap) { face.emissiveMap = o.userData.tex; face.needsUpdate = true; }
+        face.emissive.setRGB(0.95, 0.9, 0.8).multiplyScalar(near * 0.85 * this.light); }
     }
     post.render(this.scene, cam, { trails: 0, grade: [1.02, 0.99, 0.96] });
   }

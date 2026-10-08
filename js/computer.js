@@ -27,11 +27,14 @@ const APPS = [
   { id: 'mail', label: 'Mail', title: 'Mail' },
   { id: 'team', label: 'Team', title: 'Team' },
   { id: 'web', label: 'Internet', title: 'Web Browser' },
+  { id: 'weekend', label: 'Race Weekend', title: 'Race Weekend', hidden: true }, // (on the garage's computer at a race weekend: main.js opens it)
   ...[['news', 'Paddock Wire'], ['series', 'Series Site'], ['drivers', 'Driver Database'], ['bank', 'Bank'], ['classifieds', 'SVList'], ['parts', 'Speed Parts Direct'], ['jobs', 'SVJobs'], ['registry', 'Registry'], ['giggo', 'GigGo'], ['customer', 'Customer Racing']]
     .map(([id, label]) => ({ id, label, title: 'Web Browser', hidden: true, site: true })),
 ];
+// the Race Weekend app's sections
+const WK_TABS = [['session', 'Session'], ['weather', 'Weather'], ['tyres', 'Tires'], ['cars', 'The cars'], ['rivals', 'Rivals']];
 // the Team app's tabs (and the names they used to have as apps of their own, for links into them)
-const TEAM_TABS = [['overview', 'Overview'], ['money', 'Finances'], ['car', 'Car'], ['dev', 'Development'], ['tyres', 'Tyres'], ['drivers', 'Drivers'], ['staff', 'Staff'], ['facilities', 'Facilities'], ['sponsors', 'Sponsors'], ['data', 'Data']];
+const TEAM_TABS = [['overview', 'Overview'], ['money', 'Finances'], ['car', 'Car'], ['dev', 'Development'], ['tyres', 'Tires'], ['drivers', 'Drivers'], ['staff', 'Staff'], ['facilities', 'Facilities'], ['sponsors', 'Sponsors'], ['data', 'Data']];
 const TEAM_ALIAS = { money: 'money', finances: 'money', facilities: 'facilities', dev: 'dev', workshop: 'car', tyres: 'tyres', staff: 'staff', telemetry: 'data', sponsors: 'sponsors', teamdrivers: 'drivers' }; // ('drivers' alone is the Driver Database website)
 // the Internet's home page
 const BOOKMARKS = [['news', 'The Paddock Wire', 'Motorsport news'], ['series', 'Series websites', 'Standings, teams, calendars, champions'], ['drivers', 'Velocita Driver Database', 'Every driver, every season'],
@@ -130,8 +133,10 @@ export class Computer {
   }
 
   // ---------- open / close (main.js calls these as the camera arrives at / leaves the screen) ----------
-  open() { this.isOpen = true; this.el.hidden = false; this.el.classList.toggle('ghost', !this.fallback); requestAnimationFrame(() => this.el.classList.add('on')); this.render(); }
-  close() { this.isOpen = false; this.el.classList.remove('on'); this.el.hidden = true; this.app = null; this.hist = []; if (this.w) this.render(); }
+  // (crisp: the page itself on the glass rather than its snapshot in the room's light; the race weekend's desk, where
+  // you read it from further away)
+  open() { this.isOpen = true; this.el.hidden = false; this.el.classList.toggle('ghost', !this.fallback && !this.crisp); requestAnimationFrame(() => this.el.classList.add('on')); this.render(); }
+  close() { this.crisp = false; this.isOpen = false; this.el.classList.remove('on'); this.el.hidden = true; this.app = null; this.hist = []; if (this.w) this.render(); }
   // fit the screen onto a rect (CSS pixels: the monitor's glass on screen)
   place(r) {
     const s = this.el.style; s.left = r.x + 'px'; s.top = r.y + 'px'; s.width = r.w + 'px'; s.height = r.h + 'px';
@@ -142,7 +147,7 @@ export class Computer {
 
   get w() { return this.src.world(); }
   // does the open app have sections to flip through (LB / RB)?
-  get hasTabs() { return this.app === 'team' || this.app === 'series' || (this.app === 'drivers' && !this.page.pid) || (this.app === 'news' && this.page.news === 'home'); }
+  get hasTabs() { return this.app === 'team' || this.app === 'weekend' || this.app === 'series' || (this.app === 'drivers' && !this.page.pid) || (this.app === 'news' && this.page.news === 'home'); }
 
   // ---------- input ----------
   input({ up, down, left, right, ok, back, tabPrev, tabNext }) {
@@ -226,7 +231,8 @@ export class Computer {
     this.launch(app); if (page) { this.page = { ...this.page, ...page }; this.render(); }
   }
   flip(d) {
-    if (this.app === 'team') { const t = TEAM_TABS.map(x => x[0]), k = (t.indexOf(this.page.tab) + d + t.length) % t.length; this.page = { tab: t[k], file: null }; this.hist = []; this.armed = null; this.curKey = 'ttab-' + t[k]; this.render(); this.src.sfx?.move?.(); }
+    if (this.app === 'weekend') { const t = WK_TABS.map(x => x[0]), k = (t.indexOf(this.page.tab || 'session') + d + t.length) % t.length; this.page = { tab: t[k] }; this.curKey = 'wtab-' + t[k]; this.render(); this.src.sfx?.move?.(); }
+    else if (this.app === 'team') { const t = TEAM_TABS.map(x => x[0]), k = (t.indexOf(this.page.tab) + d + t.length) % t.length; this.page = { tab: t[k], file: null }; this.hist = []; this.armed = null; this.curKey = 'ttab-' + t[k]; this.render(); this.src.sfx?.move?.(); }
     else if (this.app === 'series') { const t = SITE_TABS, k = (t.indexOf(this.page.tab) + d + t.length) % t.length; this.page = { ...this.page, tab: t[k] }; this.hist = []; this.curKey = 'tab-' + t[k]; this.render(); this.src.sfx?.move?.(); }
     else if (this.app === 'news' && this.page.news === 'home') { const t = NEWS_SECS.map(x => x[0]), k = (t.indexOf(this.page.sec || 'all') + d + t.length) % t.length; this.act('nwsec', t[k]); }
     else if (this.app === 'drivers' && !this.page.pid) { const t = DB_TABS, k = (t.indexOf(this.page.db) + d + t.length) % t.length; this.page = { db: t[k], pid: null }; this.curKey = 'db-' + t[k]; this.render(); this.src.sfx?.move?.(); }
@@ -235,12 +241,14 @@ export class Computer {
   act(a, arg) {
     if (a === 'app') { this.stack = []; this.launch(arg); return; }
     if (a === 'profile') { const p = this.w.people[arg]; this.follow('drivers', { db: p?.series || this.w.player.series, pid: arg }); this.src.sfx?.select?.(); return; }
-    if (a === 'dsign' || a === 'dlow' || a === 'mextend') {
+    if (a === 'c2fix') { this.src.drivers?.('c2fix', arg); this.curKey = 'c2fix'; this.render(); this.src.sfx?.move?.(); return; }
+    if (a === 'dsign' || a === 'dlow' || a === 'mextend' || a === 'c2buy') {
       const k = a + ':' + arg; if (this.armed !== k) { this.armed = k; this.curKey = k; this.render(); this.src.sfx?.move?.(); return; }
       this.armed = null; this.src.drivers?.(a, arg); this.curKey = null; this.render(); return;
     }
     if (a === 'logo') { const [what, sid] = arg.split(':'); this.src.logo?.(what, sid); return; }
     if (a === 'mailto') { this.follow('mail', { mail: arg }); this.markRead(arg); this.render(); return; }
+    if (a === 'wtab') { this.page = { tab: arg }; this.curKey = 'wtab-' + arg; this.render(); this.src.sfx?.move?.(); return; }
     if (a === 'ttab') { this.page = { tab: arg, file: null }; this.hist = []; this.armed = null; this.curKey = 'ttab-' + arg; this.render(); this.src.sfx?.move?.(); return; }
     if (a === 'bm') { this.follow(arg); return; }
     if (a === 'close') { this.back(); return; }
@@ -281,7 +289,8 @@ export class Computer {
     if (a === 'slot') { this.page = { ...this.page, slot: arg }; this.curKey = 'slot-' + arg; this.armed = null; this.render(); this.src.sfx?.move?.(); return; }
     if (a === 'cltab') { this.page = { ad: null, tab: arg }; this.hist = []; this.curKey = 'cltab-' + arg; this.armed = null; this.render(); this.src.sfx?.move?.(); return; }
     // the car: rebuild / new / remove an upgrade / buy and fit one (select twice for anything that costs)
-    if (['rebuild', 'newpart', 'unfit', 'fitpart'].includes(a)) {
+    if (a === 'fitpart') { this.curKey = 'fitpart:' + arg; this.src.car?.(a, arg); return; } // (main.js asks which car: that's the confirmation)
+    if (['rebuild', 'newpart', 'unfit'].includes(a)) {
       const k = a + ':' + arg;
       if (this.armed !== k) { this.armed = k; this.curKey = k; this.render(); this.src.sfx?.move?.(); return; }
       this.armed = null; this.src.car?.(a, arg); this.curKey = null;
@@ -295,7 +304,8 @@ export class Computer {
     if (a === 'file') { if (!this.formOk()) { this.src.sfx?.back?.(); return; } this.src.register?.({ ...this.form, name: this.form.name.trim(), team: this.form.team.trim(), ex: this.form.ex.trim() }); this.curKey = null; this.render(); return; }
     // facilities and projects: select twice
     if (a === 'parea') { this.page = { ...this.page, area: arg }; this.armed = null; this.curKey = 'parea-' + arg; this.render(); this.src.sfx?.move?.(); return; }
-    if (a === 'build' || a === 'proj' || a === 'sellfac') { const k = a + ':' + arg; if (this.armed !== k) { this.armed = k; this.curKey = k; this.render(); this.src.sfx?.move?.(); return; } this.armed = null; this.src.team?.(a, arg); this.curKey = k; this.render(); return; }
+    if (a === 'proj') { this.curKey = 'proj:' + arg; this.src.team?.(a, arg); return; } // (the same: which car)
+    if (a === 'build' || a === 'sellfac') { const k = a + ':' + arg; if (this.armed !== k) { this.armed = k; this.curKey = k; this.render(); this.src.sfx?.move?.(); return; } this.armed = null; this.src.team?.(a, arg); this.curKey = k; this.render(); return; }
     if (a === 'cc') { this.go({ cc: arg }); this.armed = null; this.src.sfx?.select?.(); return; }
     if (a === 'getcar') { if (this.armed !== 'getcar:' + arg) { this.armed = 'getcar:' + arg; this.curKey = 'getcar:' + arg; this.render(); this.src.sfx?.move?.(); return; } this.armed = null; const [how, id] = arg.split('|'); this.src.getcar?.(how, id); this.page = { cc: null }; this.hist = []; this.curKey = null; this.render(); return; }
     if (a === 'ad') { this.go({ ad: arg }); this.buyArmed = false; this.src.sfx?.select?.(); return; }
@@ -321,8 +331,8 @@ export class Computer {
       // re-drawing the same page (a field changed, a list item picked) keeps its panes scrolled where they were
       const where = this.app === 'mail' ? 'mail' : this.app + ':' + this.url(), keepScroll = where === this.lastWhere ? [...win.querySelectorAll('*')].map(e => e.scrollTop) : null;
       this.lastWhere = where;
-      const body = this.app === 'mail' ? this.mailApp() : this.app === 'team' ? this.teamFrame() : this.browser();
-      const plain = ['mail', 'team'].includes(this.app);
+      const body = this.app === 'mail' ? this.mailApp() : this.app === 'team' ? this.teamFrame() : this.app === 'weekend' ? this.weekendApp() : this.browser();
+      const plain = ['mail', 'team', 'weekend'].includes(this.app);
       win.innerHTML = `<div class="pc-title"><span>${app.title}${!plain ? ' &mdash; ' + esc(this.url()) : ''}</span><i data-nav data-act="close" data-key="close">&times;</i></div>${body}`;
       if (keepScroll) win.querySelectorAll('*').forEach((e, i) => { if (keepScroll[i]) e.scrollTop = keepScroll[i]; });
       if (this.app === 'mail' && this.page.mail !== this.lastMail) { const b = win.querySelector('.pc-mbody'); if (b) b.scrollTop = 0; } // (a different email starts at its top)
@@ -472,7 +482,7 @@ export class Computer {
   get order() { return this._order || (this._order = { soft: 0, medium: 0, hard: 0, wet: 0 }); }
   tyreTab() {
     const w = this.w, st = WC.stockOf(w), used = WC.usedOf(w), price = WC.tyreCost(w), o = this.order;
-    const head = `<div class="tm-head"><b>Tyres</b><small>Ordered from Velocita Tyre &amp; Rubber &middot; ${WC.money$(price)} a set</small></div>`;
+    const head = `<div class="tm-head"><b>Tires</b><small>Ordered from Velocita Tire &amp; Rubber &middot; ${WC.money$(price)} a set</small></div>`;
     if (!w.founding?.reg) return head + '<p class="pc-empty">Register the team first.</p>';
     const S = w.series[w.player.series], R = !w.over ? S.cal[w.round] : null, need = R ? WC.tyreNeeds(w) : null;
     const mgr = WC.staffOf(w, 'manager');
@@ -495,6 +505,66 @@ export class Computer {
     const body = tab === 'car' ? this.workshopApp() : tab === 'tyres' ? `<div class="tm tx-page">${this.tyreTab()}</div>` : tab === 'staff' ? this.teamApp() : tab === 'sponsors' ? this.sponsorTab() : tab === 'drivers' ? this.driversTab() : tab === 'data' ? this.telApp() : tab === 'facilities' ? this.facTab() : tab === 'dev' ? this.devTab() : tab === 'money' ? this.moneyTab() : this.overview();
     return `<div class="tw tx"><nav class="tx-nav"><div class="tx-brand"><i style="background:${hex(t.main)};border-color:${hex(t.accent)}"></i><b>${esc(t.name)}</b><small>${esc(S.name)} &middot; ${w.year}</small></div>${nav}
       <div class="tx-nfoot"><small>Balance</small><b class="${m && m.balance < 0 ? 'neg' : ''}">${m && m.choice ? WC.money$(m.balance) : '&mdash;'}</b></div></nav>${body}</div>`;
+  }
+  // ---------- Race Weekend: the garage's computer during practice and qualifying ----------
+  // What you take stock of between runs: the session's timing, the weather (and the race's forecast), the tyres you've
+  // got, the two cars (what's on yours and on your teammate's), who to watch. src.weekend(): { kind, left, rows (the
+  // session's timing), car: { c, wf, wr } (the set on yours), rack (used sets in the garage) } or null.
+  weekendApp() {
+    const w = this.w, t = w.teams[w.player.team], S = WC.seriesById(w.player.series), wk = this.src.weekend?.(), tab = this.page.tab || 'session';
+    const nav = WK_TABS.map(([k, n]) => `<div class="tx-nl${k === tab ? ' on' : ''}" data-nav data-act="wtab" data-arg="${k}" data-key="wtab-${k}">${txIcon({ session: 'overview', weather: 'data', tyres: 'tyres', cars: 'car', rivals: 'drivers' }[k])}<span>${n}</span></div>`).join('');
+    const R = w.series[w.player.series].cal[w.round];
+    const body = !wk ? `<div class="tm tx-page">${pageHead('overview', 'Race Weekend', 'No session running.')}</div>` : this['wk_' + tab](wk, R);
+    return `<div class="tw tx"><nav class="tx-nav"><div class="tx-brand"><i style="background:${hex(t.main)};border-color:${hex(t.accent)}"></i><b>${esc(R ? R.name : 'Race Weekend')}</b><small>${esc(S.name)} &middot; round ${w.round + 1}</small></div>${nav}
+      <div class="tx-nfoot"><small>${wk ? (wk.kind === 'practice' ? 'Practice' : 'Qualifying') : 'Session'}</small><b>${wk ? this.mmss(wk.left) : '&mdash;'}</b></div></nav>${body}</div>`;
+  }
+  mmss(s) { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
+  lapT(t) { if (!isFinite(t) || t <= 0) return '&mdash;'; const m = Math.floor(t / 60); return `${m}:${(t - m * 60).toFixed(3).padStart(6, '0')}`; }
+  wk_session(wk) {
+    const w = this.w, me = wk.rows.find(r => r.isPlayer), mid = WC.mateOf(w)?.pid, mateName = mid ? w.people[mid]?.last : null;
+    const rows = wk.rows.map(r => `<tr class="${r.isPlayer ? 'wk-me' : r.name && mateName && r.name.toUpperCase().includes(mateName.toUpperCase()) ? 'wk-mate' : ''}"><td class="r">${r.pos}</td><td><i class="wk-sw" style="background:${hex(r.color)}"></i>${esc(r.isPlayer ? w.player.name : r.name)}</td><td>${esc(r.isPlayer ? w.teams[w.player.team].name : r.team || '')}</td><td class="r">${this.lapT(r.best)}</td><td class="r">${r.pos === 1 || !isFinite(r.best) ? '' : '+' + r.gap.toFixed(3)}</td></tr>`).join('');
+    return `<div class="tm tx-page">${pageHead('overview', wk.kind === 'practice' ? 'Practice' : 'Qualifying', wk.kind === 'practice' ? 'Find the setup, learn the place. Qualifying is next.' : 'Your best lap sets your grid slot.')}
+      <div class="tx-kpis">${kpi('Position', me ? `${me.pos}<small>/${wk.rows.length}</small>` : '&mdash;')}${kpi('Best lap', me ? this.lapT(me.best) : '&mdash;')}${kpi(wk.kind === 'practice' ? 'To the fastest' : 'To pole', me && me.pos > 1 && isFinite(me.best) ? '+' + me.gap.toFixed(3) : '&mdash;')}${kpi('Spent this weekend', WC.money$(wk.spend || 0), 'fuel, tires, repairs')}</div>
+      ${panel('Timing', `<table class="pc-tbl wk-tbl"><tr><th class="r">POS</th><th>DRIVER</th><th>TEAM</th><th class="r">BEST</th><th class="r">GAP</th></tr>${rows}</table>`, 'live')}</div>`;
+  }
+  wk_weather(wk, R) {
+    const w = this.w, fc = WC.forecastOf(w, R), wets = WC.stockOf(w).wet, c = fc && fc.chance || 0;
+    const now = { clear: 'Clear', overcast: 'Overcast', rain: 'Raining', fog: 'Fog' }[R.weather] || R.weather;
+    const when = fc ? (fc.at < 0.35 ? 'in the first third' : fc.at > 0.6 ? 'in the last third' : 'around half distance') : '';
+    return `<div class="tm tx-page">${pageHead('data', 'Weather', `${esc(R.name)} &middot; ${esc(R.time)}`)}
+      <div class="tx-kpis">${kpi('Now', now)}${kpi('Race forecast', fc && c ? `${Math.round(c * 100)}%` : 'Settled', fc && c ? (fc.to === 'rain' ? (fc.shower ? 'chance of a shower' : 'chance of rain') : 'chance it dries') : 'no change expected')}${kpi('Wets in stock', String(wets), wets < 2 ? 'trackside sets cost more' : '', wets < 2 && fc && fc.to === 'rain' && c >= 0.3 ? 'neg' : '')}</div>
+      ${panel('The race', `<div class="tx-mrow"><small>${esc(WC.forecastText(fc))}</small>${seg(c, c >= 0.5 ? 'warn' : 'blue')}</div>
+        <p class="tx-note">${!fc || !c ? 'Whatever it\'s doing at the start, it should do all race.' : fc.to === 'rain' ? `If it comes, it comes ${when}. Your engineer has the radar: they'll tell you a lap or two out, and ask when to change. Stay out on slicks too long and you're on ice; change too early and you're slow if it passes.` : `If it stops, it stops ${when}, and the track dries slowly. The first one onto slicks at the right moment gains the most.`}</p>`)}
+      ${panel('Your plan', `<p class="tx-note">${R.weather === 'rain' ? 'Wets from the start.' : fc && fc.to === 'rain' && c >= 0.5 ? 'A one-stop plan, ready to change it: if it rains, the stop becomes the one for wets.' : 'Set it on the strategy screen before the race.'}</p>`)}</div>`;
+  }
+  wk_tyres(wk) {
+    const w = this.w, st = WC.stockOf(w), used = WC.usedOf(w), car = wk.car;
+    const bar = (x) => `${seg(x, x > 0.6 ? 'good' : x > 0.3 ? 'warn' : 'bad', 8)}<span>${Math.round(x * 100)}%</span>`;
+    const rows = WC.COMPOUNDS.filter(c => c !== 'dirt' || st.dirt).map(c => `<tr><td><i class="tr-dot ${c}"></i>${c[0].toUpperCase() + c.slice(1)}</td><td class="r">${st[c] || 0}</td><td class="r">${used.filter(u => u.c === c).length}</td></tr>`).join('');
+    return `<div class="tm tx-page">${pageHead('tyres', 'Tires', `${WC.money$(WC.tyreCost(w))} a new set &middot; trackside ${WC.money$(WC.buyTrackside(w))}`)}
+      <div class="tx-grid">${panel('On the car', car ? `<div class="tx-spec"><b><i class="tr-dot ${car.c}"></i>${car.c[0].toUpperCase() + car.c.slice(1)}</b>${bar(Math.min(car.wf, car.wr))}</div><div class="tx-spec"><b>Fronts</b>${bar(car.wf)}</div><div class="tx-spec"><b>Rears</b>${bar(car.wr)}</div>` : '')}
+        ${panel('In the garage', (wk.rack || []).length ? (wk.rack || []).map(r => `<div class="tx-spec"><b><i class="tr-dot ${r.c}"></i>${r.c[0].toUpperCase() + r.c.slice(1)}</b>${bar(Math.min(r.wf, r.wr))}</div>`).join('') : '<p class="tx-note">No used sets here yet.</p>', 'used this weekend')}</div>
+      ${panel('In stock', `<table class="pc-tbl tr-tbl"><tr><th>COMPOUND</th><th class="r">NEW</th><th class="r">USED</th></tr>${rows}</table>`, 'change sets from the garage menu')}</div>`;
+  }
+  wk_cars(wk) {
+    const w = this.w, P = WC.carParts(w), m = WC.mateOf(w), p = m && w.people[m.pid];
+    if (!P) return `<div class="tm tx-page">${pageHead('car', 'The cars', 'No car.')}</div>`;
+    const fits = (who) => WC.PART_KEYS.flatMap(k => P[k].fits.filter(f => (f.on || 'both') === 'both' || f.on === who).map(f => `<li>${esc(f.name)}${(f.on || 'both') === 'both' ? '' : ` <em class="tx-for">(${who === 'me' ? (p ? `not on ${esc(p.first)}'s` : '') : 'not on yours'})</em>`}</li>`)).join('') || '<li class="tx-dim">Nothing fitted</li>';
+    const cond = WC.PART_KEYS.map(k => `<div class="tx-spec"><b>${WC.PARTS[k].name}</b>${seg(P[k].cond, P[k].cond > 0.7 ? 'good' : P[k].cond > 0.45 ? 'warn' : 'bad', 8)}<span>${Math.round(P[k].cond * 100)}%</span></div>`).join('');
+    const risk = WC.failRisk(w);
+    const mine = panel('Your car', `<ul class="tx-pl one">${fits('me')}</ul>`, `failure risk ${risk < 0.03 ? 'low' : risk < 0.08 ? 'some' : 'high'}`);
+    const c2 = WC.car2Of(w), c2k = c2 && { hire: 'a hire car', lease: 'leased', match: 'like yours', old: 'an older one', theirs: 'their own' }[c2.kind];
+    const theirs = p ? panel(`${esc(p.first)}'s car`, `${c2 && c2.kind !== 'theirs' ? `<div class="tx-spec"><b>Condition</b>${seg(c2.cond, c2.cond > 0.7 ? 'good' : c2.cond > 0.45 ? 'warn' : 'bad', 8)}<span>${Math.round(c2.cond * 100)}%</span></div>` : ''}<ul class="tx-pl one">${fits('mate')}</ul>`, `${c2k ? c2k + ' &middot; ' : ''}${WC.leanText(WC.carLean(w)).toLowerCase()}`) : panel('Second car', '<p class="tx-note">No teammate.</p>');
+    return `<div class="tm tx-page">${pageHead('car', 'The cars', esc(w.car.name), p ? kpi(`${esc(p.first)}'s trust`, WC.trustWord(WC.trustOf(w)), seg(WC.trustOf(w) / 100, WC.trustOf(w) >= 50 ? 'good' : WC.trustOf(w) >= 30 ? 'warn' : 'bad')) : '')}
+      <div class="tx-grid">${mine}${theirs}</div>${panel('Condition', cond, 'both cars, near enough')}</div>`;
+  }
+  wk_rivals(wk) {
+    const w = this.w, L = WC.storyLine(w), list = WC.raceStoryList(w), st = WC.seriesStandings(w, w.player.series), me = st.findIndex(e => e.pid === 'P');
+    const near = st.slice(Math.max(0, me - 2), me + 3).map((e, k) => `<tr class="${e.pid === 'P' ? 'wk-me' : ''}"><td class="r">${Math.max(0, me - 2) + k + 1}</td><td>${esc(e.pid === 'P' ? w.player.name : WC.displayName(w, e.pid, true))}</td><td class="r">${e.pts}</td></tr>`).join('');
+    const who = list.map(x => `<div class="wk-rv">${face(w.people[x.pid], 40)}<div><b>${esc(w.people[x.pid].first)} ${esc(w.people[x.pid].last)}</b><small>${esc(x.line)}</small></div>${chip({ nemesis: 'Rival', revenge: 'Score to settle', grudge: 'Grudge' }[x.kind] || 'Watch', x.hard ? 'bad' : 'warn')}</div>`).join('');
+    return `<div class="tm tx-page">${pageHead('drivers', 'Rivals', L ? `${esc(L.who)}: ${esc(L.text)}` : 'Nobody with a score to settle. Yet.')}
+      ${panel('Who to watch', who || '<p class="tx-note">Nobody in this field has history with you.</p>', 'your engineer will tell you when they\'re close')}
+      ${me >= 0 ? panel('The championship', `<table class="pc-tbl wk-tbl"><tr><th class="r">POS</th><th>DRIVER</th><th class="r">PTS</th></tr>${near}</table>`, 'around you') : ''}</div>`;
   }
   // the little flags on the sidebar: what needs you
   navBadges() {
@@ -586,18 +656,22 @@ export class Computer {
     if (!P) return `<div class="tm tx-page">${pageHead('car', 'No car yet', 'Danny sent some listings: they\'re on SVList.')}<div class="tx-actions"><button class="pc-btn pri" data-nav data-act="open" data-arg="classifieds" data-key="tocl" data-first>SVList &rarr;</button></div></div>`;
     const odds = WC.failOdds(w), risk = WC.failRisk(w), lvl = WC.dataLevel(w), m = WC.staffOf(w, 'mechanic'), eng = WC.staffOf(w, 'engineer');
     const riskTxt = risk < 0.03 ? 'low' : risk < 0.08 ? 'some' : risk < 0.15 ? 'high' : 'very high', riskCls = risk < 0.03 ? 'good' : risk < 0.08 ? 'warn' : 'bad';
-    const btn = (a, k, label) => `<button class="pc-btn sm" data-nav data-act="${a}" data-arg="${k}" data-key="${a}:${k}">${this.armed === a + ':' + k ? 'Sure? Select again' : label}</button>`;
+    // a price button: the verb on the left, the price on the right, so the prices line up down the list; armed, it asks to confirm what you're paying
+    const btn = (a, k, label, price = '') => { const on = this.armed === a + ':' + k;
+      return `<button class="pc-btn sm tx-buy${on ? ' armed' : ''}" data-nav data-act="${a}" data-arg="${k}" data-key="${a}:${k}"><span>${on ? (price ? 'Confirm' : 'Sure?') : label}</span>${price ? `<b>${price}</b>` : ''}</button>`; };
+    const mf = WC.mateOf(w) ? WC.people(w)[WC.mateOf(w).pid].first : '';
     const rows = WC.PART_KEYS.map(k => {
-      const p = P[k], c = p.cond, f = p.fit, odd = odds[k], prog = w.car.lease && (k === 'engine' || k === 'gearbox');
-      const fit = f ? `<div class="tx-fit">${chip('Fitted', 'blue')} <b>${esc(f.name)}</b>${f.used ? ' (used)' : ''} &middot; <i>"${esc(f.feel)}"</i>${f.measured ? ` &middot; <span class="ws-meas">${esc(f.measured.by)} measures ${f.measured.val >= 0 ? '+' : ''}${(f.measured.val * 100).toFixed(1)}% ${f.measured.stat}${f.measured.lvl < 2 ? ' (roughly)' : ''}</span>` : ''}</div>` : '';
-      return `<div class="tx-part"><b>${WC.PARTS[k].name}</b>${seg(c, condCls(c))}<span class="tx-pct ${condCls(c)}">${Math.round(c * 100)}%</span><small>${odd != null && lvl === 2 ? `${(odd * 100).toFixed(1)}% to fail` : ''}</small>
-        <div class="tm-acts">${prog ? `<small class="tx-dim">Rebuilt by ${esc(w.car.lease.prog)}</small>` : `${btn('rebuild', k, `Rebuild ${WC.money$(WC.rebuildCost(w, k))}`)}${btn('newpart', k, `New ${WC.money$(WC.newPartCost(w, k))}`)}`}${f ? btn('unfit', k, 'Remove') : ''}</div>${fit}</div>`;
+      const p = P[k], c = p.cond, odd = odds[k], prog = w.car.lease && (k === 'engine' || k === 'gearbox');
+      // every upgrade on it, a line each (they stack), each with its own Remove
+      const fit = p.fits.map((f, i) => `<div class="tx-fit"><span>${chip(!mf ? 'Fitted' : (f.on || 'both') === 'both' ? 'Both cars' : f.on === 'mate' ? `${esc(mf)}'s` : 'Yours', 'blue')}<span><b>${esc(f.name)}</b>${f.used ? ' (used)' : ''} &middot; <i>"${esc(f.feel)}"</i>${f.measured ? `<span class="ws-meas">${esc(f.measured.by)} measures ${f.measured.val >= 0 ? '+' : ''}${(f.measured.val * 100).toFixed(1)}% ${f.measured.stat}${f.measured.lvl < 2 ? ' (roughly)' : ''}</span>` : ''}</span></span>${btn('unfit', `${k}|${i}`, 'Remove')}</div>`).join('');
+      return `<div class="tx-part${p.fits.length ? ' has-fit' : ''}"><b>${WC.PARTS[k].name}</b>${seg(c, condCls(c))}<span class="tx-pct ${condCls(c)}">${Math.round(c * 100)}%</span><small>${odd != null && lvl === 2 ? `${(odd * 100).toFixed(1)}% to fail` : ''}</small>
+        ${prog ? `<small class="tx-prog">Rebuilt by ${esc(w.car.lease.prog)}</small>` : `${btn('rebuild', k, 'Rebuild', WC.money$(WC.rebuildCost(w, k)))}${btn('newpart', k, 'New', WC.money$(WC.newPartCost(w, k)))}`}${fit}</div>`;
     }).join('');
-    return `<div class="tm tx-page">${pageHead('car', `${WC.carClsOf(w) === 'street' ? w.car.year + ' ' : ''}${esc(w.car.name)}`, m ? `Chief mechanic: ${esc(m.first)} ${esc(m.last)}` : 'No chief mechanic: rebuilds go to a shop (dearer, and no better than OK)', chip(`Failure risk: ${riskTxt}${lvl === 2 ? ` (${(risk * 100).toFixed(1)}%)` : ''}`, riskCls))}
+    return `<div class="tm tx-page">${pageHead('car', `${WC.carClsOf(w) === 'street' ? w.car.year + ' ' : ''}${esc(w.car.name)}`, m ? `Chief mechanic: ${esc(m.first)} ${esc(m.last)}` : 'No chief mechanic: a shop does rebuilds (pricier, only back to OK)', chip(`Failure risk: ${riskTxt}${lvl === 2 ? ` (${(risk * 100).toFixed(1)}%)` : ''}`, riskCls))}
       ${this.carRules()}
       ${panel('Condition', rows, lvl === 2 ? `${esc(eng.first)}'s numbers` : 'Worn parts are slower, and can fail')}
       <div class="tx-actions"><button class="pc-btn" data-nav data-act="ttab" data-arg="dev" data-key="todev">Development &rarr;</button><button class="pc-btn" data-nav data-act="open" data-arg="parts" data-key="toparts">Speed Parts Direct &rarr;</button><button class="pc-btn" data-nav data-act="open" data-arg="classifieds" data-key="tocl">Used parts on SVList &rarr;</button></div>
-      <p class="tx-note">Upgrades go on a part: you know how they feel, and what they really do once a data engineer has looked at the data.</p></div>`;
+      <p class="tx-note">You'll know how an upgrade feels. A data engineer can tell you what it really does.</p></div>`;
   }
   // GT and up: the lease, balance of performance, success ballast (as chips)
   carRules() {
@@ -621,18 +695,20 @@ export class Computer {
       `<div class="tx-spec"><b>${n}</b>${seg((d[k] || 0) / CAP[k], 'blue', 8)}<span>${exact ? (k === 'rel' ? `${Math.round((d[k] || 0) * 100)}% fewer faults` : `+${((d[k] || 0) * 100).toFixed(1)}%`) : word(d[k] || 0, CAP[k])}</span></div>`).join('');
     const rate = WC.mechRate(w), max = WC.maxProjects(w);
     const live = (w.projects || []).filter(x => !x.done), mine = live.filter(x => !x.shop), shop = live.filter(x => x.shop);
+    const mf = WC.mateOf(w) ? WC.people(w)[WC.mateOf(w).pid].first : '', forWho = (x) => x.to === 'both' ? 'both cars' : x.to === 'mate' ? `${esc(mf)}'s car` : '';
     const card = (x) => { const left = x.days - (x.prog || 0), days = rate ? Math.ceil(left / (rate / WC.WEEK_DAYS)) : 0;
-      return `<div class="tx-bench${!x.shop && !rate ? ' idle' : ''}"><b>${esc(x.name)}</b>${seg((x.prog || 0) / x.days, 'good')}<small>${x.shop ? 'At Precision Race Prep &middot; back after the next race' : `${(x.prog || 0).toFixed(1)} of ${x.days} days of work done`}</small>
+      return `<div class="tx-bench${!x.shop && !rate ? ' idle' : ''}"><b>${esc(x.name)}</b>${seg((x.prog || 0) / x.days, 'good')}<small>${forWho(x) ? `<em class="tx-for">For ${forWho(x)}</em> &middot; ` : ''}${x.shop ? 'At Precision Race Prep &middot; back after the next race' : `${(x.prog || 0).toFixed(1)} of ${x.days} days of work done`}</small>
         ${x.shop ? '' : rate ? `<small>${esc(m.first)}: ${(rate / WC.WEEK_DAYS).toFixed(1)} a day, done in about ${days} day${days === 1 ? '' : 's'}. A Car work day of yours adds ${(1 + WC.facLevel(t, 'tools') * 0.25).toFixed(2)}.</small>` : `<small class="neg">Nobody's working on it. Pick Car work in the day picker (a day of yours is ${(1 + WC.facLevel(t, 'tools') * 0.25).toFixed(2)} days of work), hire a chief mechanic, or send it to a shop.</small>`}</div>`; };
     const bench = mine.map(card).join('') + Array.from({ length: Math.max(0, max - mine.length) }, () => `<div class="tx-bench empty"><b>Empty bench</b><small>Pick a project below</small></div>`).join('') + shop.map(card).join('');
     const AREAS = ['engine', 'chassis', 'aero', 'brakes', 'reliability'], list = WC.projectList(w), area = AREAS.includes(this.page.area) ? this.page.area : 'engine';
     const tabs = AREAS.map(a => `<span class="tx-st${a === area ? ' on' : ''}" data-nav data-act="parea" data-arg="${a}" data-key="parea-${a}">${a[0].toUpperCase() + a.slice(1)}<em>${list.filter(P => P.area === a && !P.locked).length}</em></span>`).join('');
-    const btn = (how, P, label, cls = '') => { const key = 'proj:' + how + '|' + P.key; return `<button class="pc-btn sm ${cls}" data-nav data-act="proj" data-arg="${how}|${P.key}" data-key="${key}">${this.armed === key ? 'Sure? Select again' : label}</button>`; };
+    const cost = (v) => WC.money$(v);
+    const btn = (how, P, label, cls = '') => { const arg = `${how}|${P.key}`; return `<button class="pc-btn sm ${cls}" data-nav data-act="proj" data-arg="${arg}" data-key="proj:${arg}">${label}</button>`; };
     const gainTxt = (P) => P.stat === 'rel' ? 'Fewer failures' : `About +${(P.gain * 100).toFixed(1)}% ${P.stat === 'downforce' ? 'downforce' : P.stat === 'brake' ? 'braking' : P.stat}`;
     const projs = list.filter(P => P.area === area).map(P => { const c = P.odds.chance;
       return `<div class="tx-proj${P.locked && P.locked !== 'Under way' ? ' locked' : ''}"><div class="tx-pn"><b>${esc(P.name)}</b><div class="tx-chips">${chip(`${P.days} day${P.days === 1 ? '' : 's'} of work`)}${chip(gainTxt(P), 'blue')}${P.joker ? chip('Uses a joker', 'warn') : ''}
           <span class="tx-odds">${seg(c, c >= 0.75 ? 'good' : c >= 0.6 ? 'warn' : 'bad', 8)}<span>${Math.round(c * 100)}% it works</span></span></div></div>
-        <div class="tm-acts">${P.locked === 'Under way' ? chip('Under way', 'good') : P.locked ? `<span class="tx-lock">${esc(P.locked)}</span>` : `${btn('team', P, `Do it &middot; ${WC.money$(P.cost)}`, 'pri')}${btn('shop', P, `Shop &middot; ${WC.money$(P.shopCost)}`)}`}</div></div>`; }).join('');
+        <div class="tm-acts">${P.locked === 'Under way' ? chip('Under way', 'good') : P.locked ? `<span class="tx-lock">${esc(P.locked)}</span>` : `${btn('team', P, `Do it &middot; ${cost(P.cost)}`, 'pri')}${btn('shop', P, `Shop &middot; ${cost(P.shopCost)}`)}`}</div></div>`; }).join('');
     const right = chip(`${mine.length} of ${max} bench${max === 1 ? '' : 'es'} in use`, mine.length >= max ? 'warn' : '') + (ser.ballast ? chip(`${WC.jokersLeft(w)} of ${WC.JOKERS} jokers left`, WC.jokersLeft(w) ? '' : 'bad') : '');
     return `<div class="tm tx-page">${pageHead('dev', 'Development', esc(w.car.name), right)}
       <div class="tx-grid">${panel('The car', spec, dyno || lvl ? 'measured' : 'how it feels')}${panel('On the bench', bench, m ? `${esc(m.first)}: ${rate.toFixed(1)} days of work a week` : 'no mechanic: only your days')}</div>
@@ -700,8 +776,8 @@ export class Computer {
         <div class="tx-kpis sm">${kpi('A round', WC.money$(d.fee))}${kpi('Target bonus', WC.money$(d.bonus))}</div>
         <div class="tx-target"><small>Next race</small><b>${esc(WC.objText(w, o))}</b></div>
         <div class="tx-mrow"><small>Targets met ${d.met} of ${tot}</small>${seg(tot ? d.met / tot : 0, 'good')}</div>
-        <div class="tx-chips">${chip(isTitle ? 'Name on the car' : on ? 'Logo on the car' : 'Logo not on the car: no pay', isTitle || on ? 'good' : 'bad')}${d.misses >= WC.patienceOf(d) ? chip('Losing patience', 'bad') : ''}</div>
-        <div class="tm-acts">${isTitle ? '' : `<button class="pc-btn sm" data-nav data-act="logo" data-arg="tocar:${d.sid}" data-key="lc-${d.sid}">${on ? 'Move logo' : 'Put it on'}</button>`}<button class="pc-btn sm" data-nav data-act="logo" data-arg="upload:${d.sid}" data-key="lu-${d.sid}">Upload logo</button></div></div>`;
+        <div class="tx-chips">${chip(on ? (isTitle ? 'Name on the car' : 'Logo on the car') : `${isTitle ? 'Name' : 'Logo'} not on the car: no pay`, on ? 'good' : 'bad')}${d.misses >= WC.patienceOf(d) ? chip('Losing patience', 'bad') : ''}</div>
+        <div class="tm-acts"><button class="pc-btn sm" data-nav data-act="logo" data-arg="tocar:${d.sid}" data-key="lc-${d.sid}">${on ? (isTitle ? 'Move name' : 'Move logo') : 'Put it on'}</button><button class="pc-btn sm" data-nav data-act="logo" data-arg="upload:${d.sid}" data-key="lu-${d.sid}">Upload logo</button></div></div>`;
     }).join('');
     return `<div class="tm tx-page">${pageHead('sponsors', 'Sponsors', 'A fee every round, a bonus for each target met', kpi('Standing', standWord(rep), seg(rep / 100, 'blue')))}
       ${offers.length ? `<div class="tx-alert warn">${offers.length} offer${offers.length === 1 ? '' : 's'} waiting in Mail <button class="pc-btn sm pri" data-nav data-act="mailto" data-arg="${offers[0].id}" data-key="offers">Read &rarr;</button></div>` : ''}
@@ -721,10 +797,11 @@ export class Computer {
       const last = m.until <= w.year, st = (k, v) => `<div class="wz-stat"><span>${k}</span>${seg(v / 100, v >= 65 ? 'good' : v >= 50 ? 'blue' : 'warn', 8)}<em>${Math.round(v)}</em></div>`;
       me = `<div class="tx-mate">${face(p, 72)}
         <div class="tx-mi"><b><a class="dv-name" data-nav data-act="profile" data-arg="${p.id}" data-key="pf-${p.id}">${esc(p.first)} ${esc(p.last)}</a></b><small>${WC.ageOf(w, p)} &middot; ${esc(p.nat)} &middot; ${quick(p)}</small><div class="tx-chips">${WC.traitsOf(w, p).map(t => chip(esc(WC.TRAITS[t].name), 'blue')).join('')}</div>
-          <div class="tx-mk"><div><small>Pay</small><b>${m.fee ? `Brought ${WC.money$(m.fee)}` : `${WC.money$(m.wage)} a round`}</b></div><div><small>Contract</small><b>To the end of ${m.until}</b></div>${h.races ? `<div><small>Ahead of you</small><b>${h.behind} of ${h.races}</b></div>` : ''}</div></div>
-        <div class="tx-ms">${st('Pace', p.pace)}${st('Consistency', p.cons)}${st('Racecraft', p.craft)}<div class="tx-cm"><small>Morale: ${mood}${m.owed ? ` &middot; <span class="neg">owed ${WC.money$(m.owed)}</span>` : ''}</small>${seg(m.morale / 100, mc, 8)}</div></div>
+          <div class="tx-mk"><div><small>Pay</small><b>${m.fee ? `Brought ${WC.money$(m.fee)}` : `${WC.money$(m.wage)} a round`}</b></div><div><small>Contract</small><b>To the end of ${m.until}</b></div>${h.races ? `<div><small>Ahead of you</small><b>${h.behind} of ${h.races}</b></div>` : ''}${w.car ? `<div><small>Upgrades</small><b${WC.carLean(w) >= 2 ? ' class="neg"' : ''}>${WC.leanText(WC.carLean(w))}</b></div>` : ''}</div></div>
+        <div class="tx-ms">${st('Pace', p.pace)}${st('Consistency', p.cons)}${st('Racecraft', p.craft)}${st('Wet', p.wet)}<div class="tx-cm"><small>Morale: ${mood}${m.owed ? ` &middot; <span class="neg">owed ${WC.money$(m.owed)}</span>` : ''}</small>${seg(m.morale / 100, mc, 8)}</div>
+          <div class="tx-cm"><small>Trust: ${WC.trustWord(WC.trustOf(w))}</small>${seg(WC.trustOf(w) / 100, WC.trustOf(w) >= 50 ? 'good' : WC.trustOf(w) >= 30 ? 'warn' : 'bad', 8)}</div></div>
         <div class="tx-ma">${m.wage ? `<div class="tx-cp"><small>Pay setting</small><div class="tm-pay" data-nav data-cycle="mpay" data-key="mpay"><i data-act="cyc" data-arg="mpay:-1">&#9664;</i><b>${WC.PAY_MODES.find(x => x[0] === m.pay)[1]}</b><i data-act="cyc" data-arg="mpay:1">&#9654;</i></div></div>` : ''}
-          ${last && !m.fee ? btn('mextend', '1', `Extend: ${WC.money$(WC.askOf(w, p).wage)} a round`, 'Sure? Select again') : ''}</div></div>`;
+          ${last && !m.fee ? (WC.mateAsk(w) == null ? '<span class="tx-lock">Won\'t re-sign</span>' : btn('mextend', '1', `Extend: ${WC.money$(WC.mateAsk(w))} a round`, 'Sure? Select again')) : ''}</div></div>`;
     }
     const market = WC.driverMarket(w).map(p => {
       const a = WC.askOf(w, p), t = p.team ? w.teams[p.team] : null, g = WC.grudgeOf(w, p.id);
@@ -733,9 +810,21 @@ export class Computer {
         <div class="tm-acts">${btn('dsign', p.id, a.fee ? 'Sign' : 'Offer', m ? `Replace ${esc(WC.people(w)[m.pid].first)}?` : 'Sure?')}${a.fee ? '' : btn('dlow', p.id, 'Lowball', '75%? Select again')}</div></div>`;
     }).join('');
     return `<div class="tm tx-page"><div class="tm-head"><b>Drivers</b><small>Your reputation with drivers: ${drep >= 70 ? 'good' : drep >= 45 ? 'fine' : drep >= 25 ? 'poor' : 'bad'}. Paying late, dropping people mid-season and dirty racing all get around.</small></div>
-      <h3 class="dv-h">Your teammate</h3>${me}
+      <h3 class="dv-h">Your teammate</h3>${me}${this.car2Card()}
       <h3 class="dv-h">${w.over ? 'Available for next season' : 'Free agents'}</h3>${market || '<p class="pc-empty">Nobody available right now.</p>'}
       <p class="tm-note">${w.over ? 'Between seasons you can approach drivers on other teams too.' : 'During the season only drivers without a seat are free. Between seasons, everyone in your series and below.'} Dropping your teammate mid-season means paying their wages to the end of it.</p></div>`;
+  }
+  // car 2: what your teammate drives (hired, one like yours, an older one, leased, their own), its condition, how
+  // it's repaired, and buying one
+  car2Card() {
+    const w = this.w, c = WC.car2Of(w); if (!c) return '';
+    const p = WC.people(w)[WC.mateOf(w).pid], P = WC.car2Price(w), cond = c.cond, cc = cond > 0.7 ? 'good' : cond > 0.45 ? 'warn' : 'bad';
+    const what = { hire: `A hire car, ${WC.money$(c.perRound)} a round: a little down on pace, and a little fragile`, lease: `Leased from the series, ${WC.money$(c.perRound)} a round`, match: `A ${esc(c.name)}, like yours`, old: `An older ${esc(c.name)}: cheaper, slower, breaks more`, theirs: `${esc(p.first)} brings their own` }[c.kind];
+    const btn = (k, label) => `<button class="pc-btn sm${k === 'match' ? ' pri' : ''}" data-nav data-act="c2buy" data-arg="${k}" data-key="c2buy:${k}">${this.armed === 'c2buy:' + k ? 'Sure? Select again' : label}</button>`;
+    const buys = c.kind === 'hire' ? btn('match', `Buy one like yours: ${WC.money$(P.match)}`) + btn('old', `An older one: ${WC.money$(P.old)}`) : c.kind === 'old' ? btn('match', `Buy one like yours: ${WC.money$(P.match)}`) : '';
+    const fix = c.kind === 'match' || c.kind === 'old' ? `<div class="tx-cp"><small>Repairs</small><div class="tm-pay" data-nav data-act="c2fix" data-arg="${c.fix === 'patch' ? 'full' : 'patch'}" data-key="c2fix"><i>&#9664;</i><b>${c.fix === 'patch' ? 'Patched up' : 'Done properly'}</b><i>&#9654;</i></div><small>${c.fix === 'patch' ? 'Less than half the bill. It breaks more.' : 'The full bill, the car as good as new.'}</small></div>` : '';
+    return `<div class="tx-card tx-car2"><div class="tx-ci"><b>Car 2</b><small>${what}</small>${c.kind === 'theirs' ? '' : `<div class="tx-cm"><small>Condition</small>${seg(cond, cc, 8)}</div>`}</div>
+      <div class="tm-acts">${fix}${buys}</div></div>`;
   }
   // the Internet's home page: bookmarks
   homePage() {
@@ -743,6 +832,12 @@ export class Computer {
     return `<div class="hp"><div class="hp-head"><b>SVNet</b><small>Your home on the web &middot; ${esc(this.clock())}</small></div><div class="hp-body"><h2>Bookmarks</h2>${rows}</div></div>`;
   }
 
+  // which car a part's already on (with a teammate): a note under it (which car it goes on is asked when you buy: main.js fitPick)
+  onWhich(c) {
+    const w = this.w, m = WC.mateOf(w); if (!m) return '';
+    const me = WC.isFitted(w, c, 'me'), them = WC.isFitted(w, c, 'mate'), n = WC.people(w)[m.pid].first;
+    return me && them ? '' : me ? ' <em class="tx-for">On your car.</em>' : them ? ` <em class="tx-for">On ${esc(n)}'s car.</em>` : '';
+  }
   // Speed Parts Direct: new parts, with the supplier's own claims
   partsSite() {
     const w = this.w, slot = this.page.slot || 'engine', items = WC.catalogue(w).filter(c => c.slot === slot), P = WC.carParts(w);
@@ -750,15 +845,15 @@ export class Computer {
     if (!P) return head + '<p class="pc-empty">You need a car first.</p>';
     const tabs = WC.PART_KEYS.map(k => `<span class="jb-tab${k === slot ? ' on' : ''}" data-nav data-act="slot" data-arg="${k}" data-key="slot-${k}">${WC.PARTS[k].name}</span>`).join('');
     const claim = (c) => Object.entries(c.claim || c.gains).map(([s2, v]) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(0)}% ${s2}`).join(', ');
-    const cur = P[slot].fit;
-    const rows = items.map((c, k) => `<div class="jb-row"><div><b>${esc(c.name)}</b><small>Manufacturer's figures: ${claim(c)}.</small></div><div class="jb-meta">${WC.money$(c.price)}</div>
-      ${WC.isFitted(w, c) ? '<span class="sp-fitted">Fitted</span>' : `<button class="pc-btn sm" data-nav data-act="fitpart" data-arg="${c.id}" data-key="fitpart:${c.id}"${k === 0 ? ' data-first' : ''}>${this.armed === 'fitpart:' + c.id ? (cur ? `Replace ${esc(cur.name)}? Select again` : 'Buy & fit? Select again') : 'Buy & fit'}</button>`}</div>`).join('');
-    return head + `<div class="jb-tabs">${tabs}</div><div class="jb-body">${cur ? `<p class="jb-cur">On your car now: ${esc(cur.name)}. A new one replaces it.</p>` : ''}${rows}<p class="tr-fine">Figures are the manufacturer's own, measured under ideal conditions.</p></div>`;
+    const cur = P[slot].fits.filter(f => (f.on || 'both') !== 'mate');
+    const rows = items.map((c, k) => `<div class="jb-row"><div><b>${esc(c.name)}</b><small>Manufacturer's figures: ${claim(c)}.${this.onWhich(c)}</small></div><div class="jb-meta">${WC.money$(c.price)}</div>
+      ${WC.isFitted(w, c, 'both') || (!WC.mateOf(w) && WC.isFitted(w, c)) ? '<span class="sp-fitted">Fitted</span>' : `<button class="pc-btn sm" data-nav data-act="fitpart" data-arg="${c.id}" data-key="fitpart:${c.id}"${k === 0 ? ' data-first' : ''}>Buy &amp; fit</button>`}</div>`).join('');
+    return head + `<div class="jb-tabs">${tabs}</div><div class="jb-body">${cur.length ? `<p class="jb-cur">On your ${WC.PARTS[slot].name.toLowerCase()} now: ${cur.map(f => esc(f.name)).join(', ')}. Upgrades go on alongside.</p>` : ''}${rows}<p class="tr-fine">Figures are the manufacturer's own, measured under ideal conditions.</p></div>`;
   }
 
   // GigGo: driving jobs by the job (the courier runs and the funeral home's work; drive them as soon as you take them)
   gigSite() {
-    const w = this.w, wk = WC.weekOf(w), r = WC.gigRating(w), G = w.gig || { jobs: 0 }, left = WC.daysLeft(w);
+    const w = this.w, wk = WC.weekOf(w), r = WC.gigRating(w), G = w.gig || { jobs: 0 }, left = this.src.daysFree?.() ?? WC.freeDays(w); // (co-op: the co-owner's own days)
     const head = `<div class="gg-head"><b>GigGo</b><span>Driver</span><small>${esc(w.player.name)} &middot; &#9733; ${r.toFixed(2)} &middot; ${G.jobs} job${G.jobs === 1 ? '' : 's'}</small></div>`;
     const warn = r < 4.2 ? `<p class="gg-warn">Your account is under review. While we review it, you may be offered fewer jobs.</p>` : r >= 4.8 && G.jobs >= 5 ? `<p class="gg-pro">GigGo Pro: you're seeing our best-paying jobs first.</p>` : '';
     const gigs = wk.gigs.filter(g => !g.booked);
@@ -846,7 +941,7 @@ export class Computer {
       return head + `<div class="cl-ad" data-nav data-scroll data-key="adpage">
         <h1>${ad.year} ${esc(ad.name)} &ndash; ${WC.money$(ad.price)} <small>(${esc(WC.TOWNS[['pinewood', 'gulch', 'city', 'azure'][ad.price % 4]].name)})</small></h1>
         <div class="cl-top">${this.photo(ad, 'cl-photo')}
-        <table class="cl-attrs"><tr><td>condition:</td><td><b>${WC.condName(ad.cond).toLowerCase()}</b></td></tr><tr><td>odometer:</td><td><b>${ad.miles.toLocaleString('en-US')}</b></td></tr><tr><td>title status:</td><td><b>${ad.cond < 0.6 ? 'salvage' : 'clean'}</b></td></tr>${this.specRows(ad.chassis)}<tr><td>seller:</td><td><b>${esc(ad.seller)}</b></td></tr></table></div>
+        <table class="cl-attrs"><tr><td>condition:</td><td><b>${WC.condName(ad.cond).toLowerCase()}</b></td></tr><tr><td>odometer:</td><td><b>${ad.miles.toLocaleString('en-US')}</b></td></tr><tr><td>title status:</td><td><b>${ad.cond < 0.6 ? 'salvage' : 'clean'}</b></td></tr>${this.specRows(ad.chassis)}${WC.seriesById('street').bop ? `<tr><td>street cup bop:</td><td><b>${esc(WC.bopWords(WC.bopFor(w, ad.chassis, 'street')))}</b></td></tr>` : ''}<tr><td>seller:</td><td><b>${esc(ad.seller)}</b></td></tr></table></div>
         <p>${esc(ad.blurb)}</p><p class="cl-fine">cash only. no test drives. post id: ${ad.id.slice(2)}${ad.price}</p></div>
         <div class="cl-buy">${can ? `<button class="pc-btn" data-nav data-act="buy" data-arg="${ad.id}" data-key="buy" data-first>${this.buyArmed ? `Pay ${WC.money$(ad.price)}? Select again` : `Buy it: ${WC.money$(ad.price)}`}</button>${broke ? '<small class="neg">This is more than your balance.</small>' : ''}<small>Condition matters: a tired car is down on power until it's sorted out.</small>` : '<small>You already own a car.</small>'}</div>`;
     }
@@ -859,7 +954,7 @@ export class Computer {
     if (!w.car) return '<p class="pc-empty">Buy a car first.</p>';
     const take = (u) => !m ? '' : m.skill >= 4 || (m.skill >= 2 && (u.q < 0.4 || u.q > 0.75)) ? `<em>${esc(m.first)}: "${u.q >= 0.75 ? 'that looks clean' : u.q >= 0.5 ? 'it\'ll do' : u.q >= 0.35 ? 'I wouldn\'t' : 'that\'s junk'}"</em>` : `<em>${esc(m.first)}: "can't tell from a listing"</em>`;
     const rows = list.map((u, k) => `<div class="cl-prow"><span class="cl-price">${WC.money$(u.price)}</span><div><a>${esc(u.name)} &ndash; ${esc(u.blurb.toLowerCase())}</a>${u.danny ? ' <b class="cl-danny">(Danny\'s guy)</b>' : ''}<small>${WC.PARTS[u.slot].name.toLowerCase()} &middot; seller ${esc(u.seller)}</small>${take(u)}</div>
-      ${WC.isFitted(w, u) ? '<span class="sp-fitted">Fitted</span>' : `<button class="pc-btn sm" data-nav data-act="fitpart" data-arg="${u.id}" data-key="fitpart:${u.id}"${k === 0 ? ' data-first' : ''}>${this.armed === 'fitpart:' + u.id ? (WC.carParts(w)[u.slot].fit ? `Replace ${esc(WC.carParts(w)[u.slot].fit.name)}? Select again` : 'Buy & fit? Select again') : 'Buy & fit'}</button>`}</div>`).join('');
+      <button class="pc-btn sm" data-nav data-act="fitpart" data-arg="${u.id}" data-key="fitpart:${u.id}"${k === 0 ? ' data-first' : ''}>Buy &amp; fit</button></div>`).join('');
     return `<div class="cl-list">${rows || '<p class="pc-empty">Nothing this week.</p>'}<p class="tr-fine">New listings every week. Cash only. No returns.</p></div>`;
   }
   // a listing's photo (rendered once, then cached by main.js)
@@ -998,7 +1093,7 @@ export class Computer {
   // the styles the snapshot needs (the computer's own rules; it uses system fonts, so nothing to embed)
   css() {
     if (this._css) return this._css;
-    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl|tm|jb|tl|tr|ws|sp|tw|ov|hp|sw|dv|gg|cr|fc|pj|tx|wz)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
+    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl|tm|jb|tl|tr|ws|sp|tw|ov|hp|sw|dv|gg|cr|fc|pj|tx|wz|wk)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
     for (const sh of document.styleSheets) { let rules; try { rules = sh.cssRules; } catch (e) { continue; } for (const r of rules) if (r.selectorText && want.test(r.selectorText)) out.push(r.cssText); }
     return (this._css = out.join('\n'));
   }

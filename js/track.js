@@ -1,5 +1,6 @@
 // Track data model, spline sampling and analysis (shared by editor + race)
 import { BUSINESSES } from './zones.js';
+import { runoffReach } from './runoff.js';
 
 export const SPACING = 2; // metres between track samples
 
@@ -26,6 +27,7 @@ export const PROP_TYPES = {
   building:   { label: 'Building',   color: '#8d8d99', r: 12, w: 22, d: 18 },
   tower:      { label: 'Tower',      color: '#6f7890', r: 14, w: 24, d: 24 },
   grandstand: { label: 'Grandstand', color: '#3b64b8', r: 20, w: 50, d: 14 },
+  bleachers:  { label: 'Bleachers', color: '#9aa0a8', r: 6, w: 7.8, d: 7.4, back: true }, // (your model: front edge at its origin, the rest behind)
   tires:      { label: 'Tire Stack', color: '#222',    r: 2 },
   billboard:  { label: 'Billboard',  color: '#d8b43a', r: 7, w: 14, d: 1 },
   cones:      { label: 'Cones',      color: '#ff7a1a', r: 2 },
@@ -33,9 +35,12 @@ export const PROP_TYPES = {
   courthouse: { label: 'Auburn Courthouse', color: '#d9a95f', r: 22, w: 46, d: 32 },
   ...Object.fromEntries(Object.entries(BUSINESSES).map(([k, b]) => [k, { label: b.label, color: b.color, r: Math.max(b.w, b.d) / 2, w: b.w, d: b.d, biz: true }])),
 };
-// paintable ground (editor PAINT tool). Just grass for now; each entry = colour in the editor + physics
+// paintable ground (editor PAINT tool): colour in the editor. Paved and gravel are runoff (runoff.js): painted
+// beside the track they replace its surface there, and painted out past the barrier they move it back
 export const PAINTS = {
-  grass: { label: 'Grass', color: 'rgba(92,170,64,0.6)', mu: 0.58, drag: 120 },
+  grass: { label: 'Grass', color: 'rgba(92,170,64,0.6)' },
+  paved: { label: 'Paved', color: 'rgba(150,152,160,0.8)', runoff: true },
+  gravel: { label: 'Gravel', color: 'rgba(214,186,128,0.85)', runoff: true },
 };
 // (the Nature brush, kind 'flora', paints a tree mix from scenery.js FLORA; its ground counts as grass)
 
@@ -80,11 +85,17 @@ function crPoint(p0, p1, p2, p3, u) {
   return L(B1, B2, t1, t2);
 }
 
-function crScalar(a, b, c, d, u) {
-  const u2 = u * u, u3 = u2 * u;
-  return 0.5 * ((2 * b) + (-a + c) * u + (2 * a - 5 * b + 4 * c - d) * u2 + (-a + 3 * b - 3 * c + d) * u3);
-}
 const smooth = (a, b, u) => a + (b - a) * (u * u * (3 - 2 * u));
+// Elevation between nodes: Catmull-Rom with the slopes measured per metre (each node's slope from its neighbours'
+// heights over the real distance between them), so the grade runs on smoothly through a node even when the
+// nodes either side are 5 m and 100 m away (plain Catmull-Rom assumes even spacing and kinks there). With evenly
+// spaced nodes it's exactly plain Catmull-Rom.
+function crElev(p0, p1, p2, p3, u) {
+  const L0 = Math.max(0.1, Math.hypot(p1.x - p0.x, p1.z - p0.z)), L1 = Math.max(0.1, Math.hypot(p2.x - p1.x, p2.z - p1.z)), L2 = Math.max(0.1, Math.hypot(p3.x - p2.x, p3.z - p2.z));
+  const m1 = (p2.e - p0.e) / (L0 + L1) * L1, m2 = (p3.e - p1.e) / (L1 + L2) * L1;
+  const u2 = u * u, u3 = u2 * u;
+  return (2 * u3 - 3 * u2 + 1) * p1.e + (u3 - 2 * u2 + u) * m1 + (-2 * u3 + 3 * u2) * p2.e + (u3 - u2) * m2;
+}
 
 // Point-to-point tracks (track.open): the road runs from the first node (start line) to the last (finish line).
 // The game adds a straight grid lead-in behind the start and a braking run-off past the finish, ending in walls.
@@ -115,7 +126,7 @@ function sampleOpen(track) {
     const steps = Math.max(8, Math.ceil(segLen / 0.75));
     for (let k = 0; k < steps; k++) {
       const u = k / steps, p = crPoint(p0, p1, p2, p3, u);
-      fine.push({ x: p.x, z: p.z, e: crScalar(p0.e, p1.e, p2.e, p3.e, u), w: smooth(p1.w, p2.w, u), b: smooth(p1.b, p2.b, u), node: i + u });
+      fine.push({ x: p.x, z: p.z, e: crElev(p0, p1, p2, p3, u), w: smooth(p1.w, p2.w, u), b: smooth(p1.b, p2.b, u), node: i + u });
     }
   }
   const last = pts[n - 1];
@@ -152,6 +163,7 @@ function sampleOpen(track) {
   for (let k = 1; k <= nRun; k++) put(nMain + k, last.x + ex * k * ds, last.z + ez * k * ds, last.e, last.w, last.b * Math.max(0, 1 - k * ds / 40), n - 1);
   const first = pts[0];
   for (let k = 1; k <= nLead; k++) put(N - k, first.x - sx * k * ds, first.z - sz * k * ds, first.e, first.w, first.b * Math.max(0, 1 - k * ds / 40), 0);
+  easeY(T);
   finishFrames(T);
   return T;
 }
@@ -201,7 +213,7 @@ export function sampleTrack(track) {
       const p = crPoint(p0, p1, p2, p3, u);
       fine.push({
         x: p.x, z: p.z,
-        e: crScalar(p0.e, p1.e, p2.e, p3.e, u),
+        e: crElev(p0, p1, p2, p3, u),
         w: smooth(p1.w, p2.w, u),
         b: smooth(p1.b, p2.b, u),
         node: ((s0 + i) % n) + u,
@@ -242,8 +254,21 @@ export function sampleTrack(track) {
     let nd = b.node < a.node ? b.node + n : b.node;
     T.NODE[i] = (a.node + (nd - a.node) * k) % n;
   }
+  easeY(T);
   finishFrames(T);
   return T;
+}
+
+// A light smoothing of the road's height over +-4 m: the spline runs at an uneven speed through tight hairpins,
+// which leaves ~10 cm of jitter between samples (felt as a buzz over the bumps). Nothing a driver can see is changed.
+function easeY(T) {
+  const N = T.N, src = T.Y.slice(), open = T.cut >= 0, base = T.cut + 1;
+  for (let i = 0; i < N; i++) {
+    let s = 0;
+    if (open) { const lin = (i - base + N) % N; for (let k = -2; k <= 2; k++) s += src[(base + Math.max(0, Math.min(N - 1, lin + k))) % N]; }
+    else for (let k = -2; k <= 2; k++) s += src[(i + k + N) % N];
+    T.Y[i] = s / 5;
+  }
 }
 
 // ---------- spatial hash ----------
@@ -271,19 +296,33 @@ export function buildHash(T, cell = 24) {
 export const circDist = (a, b, N) => { const d = Math.abs(a - b) % N; return Math.min(d, N - d); };
 
 // ---------- analysis: bridges, barriers ----------
-export function analyzeTrack(T, env) {
+// paint: the track's painted strokes (runoff painted past the barrier moves it back)
+export function analyzeTrack(T, env, paint = null) {
   const N = T.N;
   const hash = buildHash(T);
   const sep = Math.ceil(40 / T.ds);
   const BRIDGE = new Uint8Array(N);   // this sample passes over another section
   const LIFT = new Float32Array(N);   // tiny visual offset for flat crossings
+  // A bridge is where the road really passes over another part of the track: the two roads overlap (CROSS).
+  // Near enough to a real crossing, the deck also spans the lower road's runoff and barriers (so its embankment
+  // can't bury them). Two sections that only run close at different heights (the two legs of a chicane or hairpin
+  // on a hillside) are not a bridge: they stay on the ground.
+  const CROSS = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    hash.query(T.X[i], T.Z[i], 30, (j) => {
+      if (circDist(i, j, N) < sep) return;
+      const d = Math.hypot(T.X[i] - T.X[j], T.Z[i] - T.Z[j]);
+      if (T.Y[i] - T.Y[j] > 4 && d < (T.W[i] + T.W[j]) * 0.5 + 1) CROSS[i] = 1;
+    });
+  }
+  const nearCross = new Uint8Array(N), reachC = Math.ceil(30 / T.ds);
+  for (let i = 0; i < N; i++) if (CROSS[i]) for (let k = -reachC; k <= reachC; k++) nearCross[(i + k + N) % N] = 1;
   for (let i = 0; i < N; i++) {
     hash.query(T.X[i], T.Z[i], 30, (j) => {
       if (circDist(i, j, N) < sep) return;
       const d = Math.hypot(T.X[i] - T.X[j], T.Z[i] - T.Z[j]);
       const dy = T.Y[i] - T.Y[j];
-      // the deck spans the lower road's runoff and barriers too (so its embankment can't bury them)
-      if (dy > 4 && d < T.W[i] / 2 + T.W[j] / 2 + (env.runoff || 0) + 8) BRIDGE[i] = 1;
+      if (nearCross[i] && dy > 4 && d < T.W[i] / 2 + T.W[j] / 2 + (env.runoff || 0) + 8) BRIDGE[i] = 1;
       if (d < (T.W[i] + T.W[j]) * 0.5 + 6) {
         if (Math.abs(dy) <= 4 && i > j && d < (T.W[i] + T.W[j]) * 0.5) LIFT[i] = 0.06;
       }
@@ -316,6 +355,9 @@ export function analyzeTrack(T, env) {
     return o;
   };
   const BL = smoothArr(offL), BRt = smoothArr(offR);
+  // wider on the outside of fast corners and braking zones, and wherever the runoff's been painted out (runoff.js)
+  const RZ = runoffReach(T, env, paint, computeSpeedProfile(T, new Float32Array(N), { mu: 2.3, kdm: 0.0035, vmax: 88, brake: 1.0 }).V, hash, sep, BR2, [BL, BRt]);
+  const BMAX = [unfold(T, BL, -1), unfold(T, BRt, 1)];
   // barrier gaps where the barrier would sit on another section's road/runoff
   const HAS_L = new Uint8Array(N).fill(1), HAS_R = new Uint8Array(N).fill(1);
   for (let i = 0; i < N; i++) {
@@ -335,14 +377,56 @@ export function analyzeTrack(T, env) {
   }
   // kerbs on corners
   const KERB = new Uint8Array(N);
-  if (env.kerbs !== false) {
+  if (env.kerbs !== false && env.surface !== 'dirt') { // (dirt tracks have none)
     const tmp = new Uint8Array(N);
     for (let i = 0; i < N; i++) if (Math.abs(T.K[i]) > 1 / 140) tmp[i] = 1;
     const kd = Math.ceil(10 / T.ds);
     for (let i = 0; i < N; i++) if (tmp[i]) for (let k = -kd; k <= kd; k++) KERB[(i + k + N) % N] = 1;
     for (let i = 0; i < N; i++) if (BR2[i]) KERB[i] = 0;
   }
-  return { hash, BRIDGE: BR2, LIFT, BL, BR: BRt, HAS_L, HAS_R, KERB };
+  return { hash, BRIDGE: BR2, LIFT, BL, BR: BRt, HAS_L, HAS_R, KERB, RZ, BMAX };
+}
+
+// No loops in the wall. On a corner's inside, a line standing off the centre line further than the corner is tight
+// runs backwards and crosses itself (the wall, and the physics' wall with it, folds into a bow tie). From sample i
+// to j, the line moves along the track by (Cj - Ci).Fi + off[j] side Rj.Fi (Ri is square to Fi, so off[i] drops out):
+// on the inside that caps off[j] where it would still move forward a quarter of a sample (and the same seen from j
+// caps off[i]). Where the wall is past its cap, it's eased in (the dent spread out along the track, never less than
+// needed, the bigger the further), never onto the track. Returns the caps (the furthest out anything along the wall may stand: its top, the
+// ground it holds back).
+function unfold(T, off, side) {
+  const N = T.N, M = 0.25 * T.ds, cap = new Float32Array(N).fill(1e9);
+  for (let i = 0; i < N; i++) {
+    if (i === T.cut) continue;
+    const j = (i + 1) % N, dx = T.X[j] - T.X[i], dz = T.Z[j] - T.Z[i];
+    const a = -side * (T.RX[j] * T.FX[i] + T.RZ[j] * T.FZ[i]); // (> 0: j's normal leans back along i's heading)
+    if (a > 1e-4) cap[j] = Math.min(cap[j], (dx * T.FX[i] + dz * T.FZ[i] - M) / a);
+    const b = side * (T.RX[i] * T.FX[j] + T.RZ[i] * T.FZ[j]);
+    if (b > 1e-4) cap[i] = Math.min(cap[i], (dx * T.FX[j] + dz * T.FZ[j] - M) / b);
+  }
+  const dent = new Float32Array(N);
+  let any = false;
+  for (let i = 0; i < N; i++) if (off[i] > cap[i]) { dent[i] = off[i] - cap[i]; any = true; }
+  if (!any) return cap;
+  // spread as a cone (the wall comes in at most 1 m in every 1.7 m along: a big dent swings in from further back),
+  // both ways round (twice round a lap, so it carries over the line), then rounded off
+  const fall = T.ds / 1.7, c = new Float32Array(N), laps = T.cut < 0 ? 2 : 1;
+  const sweep = (dir) => {
+    let v = 0;
+    for (let n = 0; n < N * laps; n++) {
+      const i = T.cut < 0 ? ((dir > 0 ? n : -n) % N + N) % N : stepIdx(T, dir > 0 ? T.cut + 1 : T.cut, dir * n);
+      v = (T.cut >= 0 && n === 0) ? dent[i] : Math.max(dent[i], v - fall);
+      c[i] = Math.max(c[i], v);
+    }
+  };
+  sweep(1); sweep(-1);
+  const w = Math.max(2, Math.round(6 / T.ds)), m = new Float32Array(N);
+  for (let i = 0; i < N; i++) { let v = 0; for (let k = -w; k <= w; k++) v = Math.max(v, c[stepIdx(T, i, k)]); m[i] = v; }
+  for (let i = 0; i < N; i++) {
+    let v = 0; for (let k = -w; k <= w; k++) v += m[stepIdx(T, i, k)];
+    if (v > 0) off[i] = Math.max(T.W[i] / 2 + 0.3, off[i] - v / (2 * w + 1));
+  }
+  return cap;
 }
 
 // ---------- racing line & speed profile ----------
@@ -570,22 +654,30 @@ export function computeSpeedProfile(T, O, car) {
 
 
 // ---------- pit lane ----------
-// A lane parallel to the start/finish straight, separated by a pit wall, with ramps in and out.
+// A lane parallel to the start/finish straight, separated by a pit wall, with ramps in and out: 100 m long, so the
+// lane leaves (and rejoins) the track at a shallow angle, its tarmac tapering out of the track edge (75 m where a
+// longer one doesn't fit, so the pits stay where they always were).
 // Mutates A.BL / A.BR so barriers (and scenery clearance) move out to the garages.
-export const PIT = { width: 9, wallGap: 1.4, speed: 22.2 };
+// wallGap: the least room from the track edge to the pit wall (it stands where the barrier would, flush with it,
+// up to maxGap out); strip: the teams' stands between the wall and the fast lane (js/pitwall.js), behind a line
+export const PIT = { width: 9, wallGap: 1.4, maxGap: 45, strip: 2.0, speed: 22.2 };
+// the catch fence's height (Circuit tab: env.fenceH metres over the barrier, 0 for none); else as the barrier comes
+export const fenceHeight = (env, dflt) => env.fenceH ?? dflt ?? (env.barrier === 'armco' ? 1.65 : 2.8);
 
 export function buildPitLane(T, A, env) {
   if (env.pits === false || T.open) return null; // (a point-to-point run has no pit lane)
   const N = T.N, ds = T.ds;
-  const ramp = 75, nRamp = Math.round(ramp / ds);
+  let nRamp;
   const idxAt = (k) => ((k % N) + N) % N;
   const shifts = [0, 90, -90, 180, -180, 270, -270, 360, -360, 450, -450].map(m => Math.round(m / ds));
   // a long lane first (the garages well down it, so a car coming in quick still stops at the first one), then the
   // old shorter one where a long one doesn't fit
-  let nMain;
-  for (const Lmain of [Math.max(330, Math.min(420, T.L * 0.2)), Math.max(160, Math.min(320, T.L * 0.16))]) {
+  let nMain, cap;
+  // (the wall where the barrier would be; where the lane doesn't fit out there, as close as it can go)
+  for (cap of [PIT.maxGap, PIT.wallGap]) for (const Lmain of [Math.max(330, Math.min(420, T.L * 0.2)), Math.max(160, Math.min(320, T.L * 0.16))]) {
     nMain = Math.round(Lmain / ds);
-    for (const sh of shifts) {
+    for (const sh of shifts) for (const ramp of [100, 75]) {
+      nRamp = Math.round(ramp / ds);
       const res = tryPit(sh);
       if (res) return res;
     }
@@ -596,9 +688,20 @@ export function buildPitLane(T, A, env) {
   const k0 = -Math.round(nMain * 0.55) - nRamp + sh, k1 = Math.round(nMain * 0.45) + nRamp + sh;
   const sides = env.pitSide === 'left' ? [-1] : env.pitSide === 'right' ? [1] : [1, -1];
   const sep = Math.ceil(60 / ds);
-  const laneC = (i) => T.W[i] / 2 + PIT.wallGap + 0.6 + PIT.width / 2;
+  // the wall: its track face where the barrier would be, all along it (G: from the track edge to the wall's middle,
+  // by position along the pit region; eased over ~10 m so it runs smooth; the ramps take the main part's ends')
+  const G = new Float32Array(k1 - k0 + 1);
+  const gapAt = (i) => G[Math.max(nRamp, Math.min(k1 - k0 - nRamp, (i - idxAt(k0) + N) % N))];
+  const laneC = (i) => T.W[i] / 2 + gapAt(i) + 0.6 + PIT.strip + PIT.width / 2;
   let side = 0;
   for (const sd of sides) {
+    const raw = new Float32Array(k1 - k0 + 1), w = Math.max(1, Math.round(10 / ds));
+    for (let k = k0; k <= k1; k++) { const i = idxAt(k); raw[k - k0] = Math.max(PIT.wallGap, Math.min(cap, (sd < 0 ? A.BL : A.BR)[i] - T.W[i] / 2 + 0.25)); }
+    for (let q = nRamp; q <= k1 - k0 - nRamp; q++) {
+      let v = 0, n = 0;
+      for (let d = -w; d <= w; d++) { const r = Math.max(nRamp, Math.min(k1 - k0 - nRamp, q + d)); v += raw[r]; n++; }
+      G[q] = Math.max(raw[q], v / n); // (never nearer the track than the barrier would be)
+    }
     let ok = true;
     for (let k = k0; k <= k1 && ok; k++) {
       const i = idxAt(k);
@@ -624,6 +727,7 @@ export function buildPitLane(T, A, env) {
   const REG = new Int16Array(N).fill(-1);    // position along the pit region, -1 outside
   const CEN = new Float32Array(N).fill(NaN); // lane centre offset (absolute, on the pit side)
   const WALL = new Float32Array(N).fill(NaN);
+  const OUT = new Float32Array(N).fill(NaN); // the outer edge of the lane's tarmac (on the ramps: tapering from the track edge)
   const off = side < 0 ? A.BL : A.BR;
   const HIDE = new Uint8Array(N);
   // (reaching here means the lane fits, so it's safe to move the barriers)
@@ -636,8 +740,9 @@ export function buildPitLane(T, A, env) {
     if (pos < nRamp) f = pos / nRamp; else if (pos > count - nRamp) f = (count - pos) / nRamp; else f = 1;
     f = f * f * (3 - 2 * f);
     CEN[i] = edge + (laneC(i) - edge) * f;
+    OUT[i] = T.W[i] / 2 + (laneC(i) + PIT.width / 2 - T.W[i] / 2) * f;
     if (pos >= nRamp && pos <= count - nRamp) {
-      WALL[i] = T.W[i] / 2 + PIT.wallGap;
+      WALL[i] = T.W[i] / 2 + gapAt(i);
       off[i] = CEN[i] + PIT.width / 2 + 0.6;       // the garage fronts are the barrier here
       HIDE[i] = 1;
     } else off[i] = Math.max(off[i], CEN[i] + PIT.width / 2 + 0.6);
@@ -652,7 +757,7 @@ export function buildPitLane(T, A, env) {
   const limitIn = nRamp + Math.round(Math.min(40, lead * 0.4) / ds), limitOut = count - nRamp - Math.round(20 / ds);
   const start = idxAt(k0), end = idxAt(k1);
   // pit lane length and time lost vs. racing past (rough)
-  return { side, REG, CEN, WALL, HIDE, boxes, start, end, count, nRamp, commitAt: nRamp, limitIn, limitOut, mainStart: idxAt(k0 + nRamp), mainEnd: idxAt(k1 - nRamp), length: count * ds, width: PIT.width, speed: PIT.speed };
+  return { side, REG, CEN, WALL, OUT, HIDE, boxes, reach: gapAt(idxAt(k0 + nRamp)) + 0.6 + PIT.strip + PIT.width, gap: gapAt(idxAt(k0 + nRamp)), gapOut: gapAt(idxAt(k1 - nRamp)), strip: PIT.strip, start, end, count, nRamp, commitAt: nRamp, limitIn, limitOut, mainStart: idxAt(k0 + nRamp), mainEnd: idxAt(k1 - nRamp), length: count * ds, width: PIT.width, speed: PIT.speed };
   }
 }
 
@@ -763,7 +868,7 @@ export function presetTracks() {
   list.push({
     version: 1, name: 'Harbour Drift Yard', start: 0,
     desc: 'Drift · a wide loop between the container stacks · long sweepers to link, 16 m of tarmac',
-    env: { ...defaultEnv('coast'), time: 'dusk', weather: 'overcast', laps: 3, opponents: 0, runoff: 6, barrier: 'concrete', pits: false,
+    env: { ...defaultEnv('coast'), time: 'dusk', weather: 'overcast', laps: 3, opponents: 0, runoff: 6, runoffStyle: 'paved', barrier: 'concrete', pits: false,
       setting: setting('docks', { seed: 31, density: 0.8 }) },
     props: [],
     points: [

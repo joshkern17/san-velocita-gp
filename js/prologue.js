@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { loadCharacters, makeCharacter, femaleFace, CLIP_INFO } from './characters.js';
+import { isWheelPad } from './input.js';
 import { sheet } from './papers.js';
 
 const GROUND = 20.6;
@@ -41,15 +42,15 @@ const R = 0.28; // your radius, walking
 
 // what's said in the booth. Hers, then your answer (each choice gets its own reply)
 const TALK = [
-  { her: 'Thanks for coming. I didn\'t want to do this over email.',
-    you: [['It\'s fine.', 'Okay. Good.'], ['You picked the place we had our first date.', 'It\'s the only place in town that\'s open past nine.'], ['Is the lawyer coming?', 'He bills by the quarter hour. He\'s waiting in the car.']] },
-  { her: 'So. The papers. He says it\'s all standard. I keep the house, the car and the dog.', papers: true,
-    you: [['And the friends.', 'They picked. I didn\'t make them pick.'], ['What do I get?', 'The TV. The couch. Your uncle\'s trailer.'], ['The dog liked me better.', 'The dog likes whoever\'s holding the leash.']] },
-  { her: 'You just have to sign. Page four. By the yellow flag.',
-    you: [['Sign it.', 'Thank you.', 'sign'], ['I want to read it first.', 'It\'s forty pages. ... Fine. Sign it and mail it. Please.']] },
-  { her: 'What are you going to do now?',
-    you: [['Go racing.', 'With what money?'], ['No idea.', 'Yeah. Me neither.'], ['Get a drink.', 'Don\'t. You\'re driving.']] },
-  { her: 'I should go. Take care of yourself.', you: null },
+  { her: 'Thanks for coming. I didn\'t want to do this over the phone.',
+    you: [['Sure.', 'Okay. Good.'], ['You picked our first-date place.', 'It\'s the only place in town open past nine.'], ['Where\'s your lawyer?', 'Out in the car. He bills by the quarter hour.']] },
+  { her: 'So. The papers. Gary says it\'s all pretty standard.', papers: true,
+    you: [['Who gets the house?', 'Me. And the car. And the dog.'], ['What do I get?', 'The TV. The couch. Your uncle\'s trailer.'], ['Who gets the friends?', 'They picked. I didn\'t make them.']] },
+  { her: 'You just have to sign. Page four, by the yellow flag.',
+    you: [['Sign it.', 'Thank you.', 'sign'], ['I\'d like to read it first.', 'It\'s forty pages. ... Fine. Read it, sign it, mail it.']] },
+  { her: 'So what are you going to do now?',
+    you: [['Go racing.', 'With what money?'], ['No idea.', 'Yeah. Me neither.'], ['Get a drink.', 'Of course you are.']] },
+  { her: 'I should go. You\'ve got the check, right?', you: null },
 ];
 
 export class Prologue {
@@ -205,7 +206,7 @@ export class Prologue {
   setGoal(g) {
     this.goal = g;
     const T = {
-      out: { at: DOORS.pizza.outside.clone().setY(2.2), label: 'Door', near: DOORS.pizza.inside, r: 1.5, go: () => this.throughDoor('pizza', true, () => { this.h.say('Get a drink. The 6twelve\'s across the street.'); this.setGoal('store'); }) },
+      out: { at: DOORS.pizza.outside.clone().setY(2.2), label: 'Door', near: DOORS.pizza.inside, r: 1.5, go: () => this.throughDoor('pizza', true, () => { this.h.say('You could use a drink. The 6twelve is across the street.'); this.setGoal('store'); }) },
       store: { at: DOORS.store.inside.clone().setY(3.0), label: '6twelve', near: DOORS.store.outside, r: 1.8, go: () => this.throughDoor('store', false, () => { this.h.say(''); this.setGoal('counter'); }) },
       counter: { at: COUNTER.clone().setY(1.9), label: 'The counter', near: COUNTER, r: 1.4, go: () => this.atCounter() },
       leave: { at: DOORS.store.outside.clone().setY(2.2), label: 'Door', near: DOORS.store.inside, r: 1.6, go: () => this.throughDoor('store', true, () => this.goHome()) },
@@ -227,10 +228,10 @@ export class Prologue {
       T(line('You', you), () => {
         this.clerkTurn = 1; // (he turns to the shelf)
         T(line('Clerk', 'Sure thing.'), () => {
-          T(line(null, 'Your car keys are still in your hand.'), () => T(line(null, 'You\'re driving.'), () => ask(['Actually, forget the bottle. Just a Mega 6.', 'Never mind. A lottery ticket.'], (you2) => {
+          T(line(null, 'Your car keys are still in your hand.'), () => T(line(null, 'You\'ve still got to drive home.'), () => ask(['Actually, forget the bottle. Just a Mega 6.', 'Make that a lottery ticket.'], (you2) => {
             T(line('You', you2), () => {
               this.clerkTurn = 0;
-              T(line('Clerk', 'Quick pick? Jackpot\'s four hundred grand tonight.'), () => T(line('Clerk', 'That\'s a dollar.'), () => {
+              T(line('Clerk', 'Jackpot\'s four hundred grand tonight.'), () => T(line('Clerk', 'One quick pick. That\'s a dollar. Odds are on the back.'), () => {
                 this.h.line(''); this.h.snd?.note(1900, 0.06, 0.03, { room: true }); this.h.snd?.hiss(0.6, 3000, 0.02, { room: true, delay: 0.1 }); // (the printer)
                 this.showTicket();
                 T(3200, () => { this.hideTicket(); this.counterWant = 0; T(1200, () => { this.stage = 'walk'; this.setGoal('leave'); this.h.say('Drive home.'); }); });
@@ -297,7 +298,7 @@ export class Prologue {
     const K = this.keys;
     if (K.has('KeyW') || K.has('ArrowUp')) mz += 1; if (K.has('KeyS') || K.has('ArrowDown')) mz -= 1;
     if (K.has('KeyA') || K.has('ArrowLeft')) mx -= 1; if (K.has('KeyD') || K.has('ArrowRight')) mx += 1;
-    const pad = navigator.getGamepads ? [...navigator.getGamepads()].find(Boolean) : null;
+    const pad = navigator.getGamepads ? [...navigator.getGamepads()].find(p => p && !isWheelPad(p)) : null;
     if (pad) { const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0; if (Math.hypot(ax, ay) > 0.2) { mx = ax; mz = -ay; } }
     const amt = Math.min(1, Math.hypot(mx, mz)), o = this.me.object;
     if (amt > 0.05) {

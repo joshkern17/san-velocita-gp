@@ -23,6 +23,7 @@ on.
 |---|---|
 | `js/physics.js` | `CarPhysics` (the vehicle model every car uses), `CARSPEC` (the F1 car), tyres, `PHYS_VERSION`. No THREE: runs in node. |
 | `js/cars.js` | Every car's spec (`gt()` / `street()` helpers + per-car overrides). Field docs at the top. |
+| `js/contact.js` | Contact: cars hitting cars and walls as rigid bodies (boxes with rounded corners from each spec's `body`, mass + yaw inertia, restitution, body friction), `knock` (the yaw aids stand back after a real hit), `rock` (the body jolts on its springs). No THREE. Used by `race.js` `collideCars` / `barriers` / `pitWall`. |
 | `js/aids.js` | Driver aids, presets, Career bonus, `physAids()` → `CarPhysics.aid` / `aidBase`. AI drives with `AI_AIDS` (= Standard). |
 | `js/race.js` | `learnLimits` (the AI learns a speed plan per circuit + car by driving laps), `limitsFor` (+ session cache + localStorage `svgp.aiPlans`, keyed by `PHYS_VERSION`), `simLap` / `referenceTelemetry` / `lapFaults` (Lap Review reference + ghost), `brakeAssist`, `feel()` (pad rumble mix), `aiControls` (AI driver). |
 | `js/telemetry.js` | Lap recorder (per 2 m sample), corner analysis + coaching tips (Lap Review). |
@@ -74,7 +75,8 @@ F1 dirty air / DRS / ERS, tyre temperatures, learning the AI plans in a Web Work
   coast = engine braking). Implicit friction on the wheels' difference mode, so a locked pair stays locked at any step.
   Replaces the old viscous `diffVisc`. Values: F1 [100, 0.5, 0.3]; GT1 [120, 0, 0.25] (was 0.45 power lock: see the follow-up below); road default
   [50, 0.3, 0.15]; Kaze [80, 0.45, 0.3]; Pony (Torsen) [20, 0.43, 0.43]; 964 [60, 0.4, 0.4]; M5 [40, 0.25, 0.25];
-  Testa Rossa [50, 0.4, 0.2]; GT-R rear [60, 0.35, 0.2], front open (`lsdF`); vans open. Effect: a bit more power
+  Testa Rossa [50, 0.4, 0.2]; GT-R rear [60, 0.35, 0.2], front open (`lsdF`) (the GT-R has since been replaced by the
+  M3 GTR [60, 0.4, 0.25]); vans open. Effect: a bit more power
   oversteer on exits (both rears driven, the inside one no longer spins off the torque), a touch of push on the power
   in slow corners, and the car takes ~0.2 s longer to straighten after a fast flick (no oscillation).
 - **Aero map** (`CarPhysics.aero`): `kd` / `aeroF` hold at the reference ride height (each axle squashed by its
@@ -111,6 +113,122 @@ F1 dirty air / DRS / ERS, tyre temperatures, learning the AI plans in a Web Work
   GT cars no longer hold a drift with TC on (they do with TC off); road cars do. Tried and rejected: TC on the tyres'
   combined slip (worse: 117 swings on the M1), softer power lock 0.15-0.25 (still 60-86), drift-mode TC on the mean
   wheel slip (no help).
+- **Follow-up 2 (user, 2026-10-04: street and GT cars "losing the back and fishtailing on straights"; "a small
+  correction at high speed, the weight gets shifted, and then starts slowly slipping to that side"; worst in the Kaze,
+  Testa Rossa, Mustang)**, `PHYS_VERSION` 9, `PROTO` 25. Cause: `tyreForce` blended one curve between the sideways
+  shape (C/B) and the along-the-road shape (CX/BX) by slip direction, also under the peak. A driven rear on a straight
+  has more slip ratio than slip angle, so it read the along-the-road curve, whose small-slip slope (CX·BX ≈ 2.6) is far
+  below the sideways one (rears ≈ 4.2): any throttle took ~40% off the rears' cornering stiffness, and road / GT cars
+  turned 1.3-2.1x the steering's kinematic yaw on full power (0.9x off it). Fix: under the peak (s < 1) each direction
+  reads its own curve at the combined slip (Pacejka's theoretical-slip combination); past it the old blended curve
+  (both are 1 at s = 1, so they meet). Slides, drifts, lock-ups unchanged (suite `drift`, `driftHold`, `brakeTurn`).
+  Measured (`.devtest/weave.mjs`, and a release test: steer for 0.6 g on full power at 200 km/h, centre the stick):
+  time to straighten Kaze > 3 s → 0.29 s, Mustang 2.2 → 0.28 s, Testa Rossa 1.2 → 0.22 s, M1 0.58 → 0.21 s; full-power
+  yaw gain 0.75-1.1x. Part-throttle response is a touch more understeery at small angles (0.65-0.75x). `padrun.mjs`
+  now also reports the straights alone (Kaze max slide 9.4 → 6.2°, swings 16 → 10; Mustang whole-lap swings 68 → 29).
+  Not changed: after a swerve to the limit (~1 g at 150 km/h) on full power, the Kaze / Mustang (power lock 0.43-0.45)
+  hold a ~6° slide with the stick centred, both axles at 100%: a real slide to catch (only an open power lock removes
+  it, which would cost the road cars' held drifts).
+
+- **Dirty air (2026-10-06, `PROTO` 26).** `phys.wake` 0..1 (race.js `slipstream`, next to the tow): a car ahead
+  within 40 m, strongest right behind, the wake ~1.3 m + 3% of the gap wide, fading 1 m past that. `aero` takes
+  `wake [front, rear]` × it off each axle's downforce (F1 [0.4, 0.18], GT [0.3, 0.12], default `WAKE` [0.25, 0.1]):
+  right behind, an F1 at 200 km/h loses ~14% of its grip (corner speed -7%), mostly at the front (push); a GT car
+  ~4%; road cars nothing. The AI slows by the worst-hit axle's grip loss (`aiControls`; by the average instead, F1
+  wall hits per 2-lap race went 22 -> 41; with it 27, inside the usual 22-35). `opts.wake false` turns it off.
+  Part of the sim-depth plan: next track rubbering in, tyre temperatures, a tuning menu with saved setups.
+- **Track rubbering in (2026-10-06, `PROTO` 27, `js/rubber.js`).** 24 lanes across x every sample. The session starts
+  with rubber on the line (permanent circuit 0.7, street (`theme` city) 0.35: each wheel track ~0.8 m off the line +
+  a haze, darker where the line's plan brakes / corners / accelerates hard). Each car's wheels add `PASS` 0.0025 x
+  (0.5 + tyre work) of the way to full per pass; practice / qualifying's simulated field lays it along the line
+  (`field`). Grip per wheel (`wheelGround`, race cars only: `car.rub`, so the AI's learning laps don't see it) =
+  1 + 0.05 (r - r at session start) - 0.07 wet r: the session starts at 1 (what the AI learned on), the line gains up
+  to +1.5% (circuit) / +3% (street) over a weekend, and in the wet the rubbered line is the slippery one (rain also
+  washes it off slowly). The AI's speed target follows it (`gk`). Carried practice -> qualifying -> race
+  (`opts.rubber`, main.js weekend). Drawn by the road's shader (`patchRoad`: grain filled in, up to 72% darker, tyre
+  streaks, a little shine dry, a lot wet); the old fixed dark band in the asphalt texture is gone.
+  `.devtest/rubbershot.mjs <outdir>` shoots it (TV view of the fastest corner, session start vs a weekend).
+- **Tyre temperatures (2026-10-06, `PROTO` 28, `CarPhysics.tyreHeat`).** Setting `temps` off / normal / realistic
+  (Quick Race setup, online host; `tempMode` 0 / 1 / 2; learning and reference laps run without). Per tyre: heat from
+  sliding (|F| x slide speed, per the tyre's load: `HEAT.slide` 0.42) and rolling (speed x sqrt(load / static),
+  0.011), cooled toward `ambT` (30 °C dry day, 20 night, 16 rain) by the air (0.004 + 0.0004 v, x3.5 fully wet).
+  Normal: one temperature. Realistic: a surface (3x the sliding heat, fast) over a core (the rolling heat, slow), grip
+  from 65/35. Each compound has its best (`TYRES.opt`: soft 85, medium 95, hard 105, wet 55, dirt 50; the F1 car
+  +20, `tyreT`); grip = 1 - k ((T - best)/win)^2, at most max (`TEMP`: Normal 35 °C / 0.02 / 8%, Realistic 25 / 0.03 /
+  15%), per wheel in the grip (`tempG`). More than 12 °C over: wear x (1 + excess/20). F1 / GT1 fit tyres from warmers
+  (best - 12), the rest at the air + 5. The AI's speed target follows the four's mean (`tempGrip`). Calibrated on AI
+  laps of Auburn (`.devtest/physics/templap.mjs`, mediums): F1 fronts ~105 rears ~120-135, M1 ~90-110, J-Sport
+  ~80-95; laps 0.1-0.3 s slower than with them off. Road cars from cold reach the window in about a lap.
+  `.devtest/physics/tyretemp.mjs`: open-plane scenarios. HUD: the car diagram's tyres coloured by temperature (dull
+  cold, blue in the window, orange to pink hot), `COLD` / `HOT` after the compound.
+- **Setups / Tuning (2026-10-06, `js/setup.js`, `js/tuning.js`).** A setup is offsets on the car's spec (`applySetup`):
+  wings (each end's downforce ±7%/step, drag follows: `kd`, `aeroF`, `drag`), ride height (`rideOff`: the aero map's
+  height term and the bump travel; cgh moves 0.6x), springs (`springK`: frequency x(1 + 0.06 n), bars and aero
+  reference stay on the standard springs, so stiffer springs ride higher and lose a little ground effect), dampers,
+  anti-roll bars (`arbK`: ±12% of that axle's roll stiffness a step, allowed below zero bar on cars whose springs alone
+  exceed the roll target: F1), camber (`camberGrip`: sideways best ~-2.5° to the road, along best upright; the body's
+  roll x0.7 leans the outside wheel out; relative to the class standard `camber0`), toe (each wheel's own slip angle
+  against `toe0`), brake bias / pressure (`brakeP`; brake torque from the standard `gearsRef`/`kdRef`), the driven
+  axle's diff, final drive x(1 + 0.025 n) and each gear x0.8-1.2. The standard setup is bit-identical to the stock car
+  (`.devtest/physics/setupcheck.mjs`). Your car (and an online player's own) races its active setup (`activeSetup`,
+  `svgp.setups`); the AI never has one. `Race.applySetup(car)` swaps it on a car standing in the pit garage.
+  `measure(spec)` (top speed, 0-100 / 0-60, steady grip at 60 and 200 km/h by a steer sweep, 160-0 stop, balance =
+  rears' combined slip minus fronts' at the limit; a spin flags it) feeds the screen's Car Response panel.
+  The screen edits a draft: nothing reaches the car until Save (Esc with unsaved changes warns once, then discards).
+  The look (`carmodel.js setStance`, from `stanceOf`): body height and pitch from the ride height, each axle's wheels
+  leaned by camber, against the standard (stock cars and the AI look as before); on your car in the race and live on
+  the car behind the Tuning screen. True to scale (12 mm, a few degrees), so it's subtle; toe isn't drawn (< 0.5°).
+- **Detailed damage, step 1: suspension per corner (2026-10-06, Realistic damage only: `phys.bentOn`).** A hit bends
+  the corner nearest it (`Race.hitDamage` with the hit's lx / ly: side hits 0.7 of it, nose / tail hits 0.35 beside
+  the wing's 0.8) into `phys.bent[k]` (FL FR RL RR, 0..1); the first knock decides its toe (`bentDir`, 70% out). That
+  wheel: toe off by up to 3° (its own slip angle: the car pulls, the tyre scrubs and heats), 15% less grip. `dmg.ch`
+  = the worst corner (repairs, pit calls, AI, career bills read it) and its own all-round grip loss / pull step back.
+  Hands off at 40 m/s, a corner bent 0.25 turns the car ~10° in 3 s (about 2% of the steering to hold), fully bent
+  ~20° (~7%): `.devtest/physics/bentcheck.mjs`. `repairAll()` fixes it (pit stop, garage). On the model the wheel sits
+  6° out of true per full bend, camber and toe (`setBend`, live from the physics); the HUD diagram turns that tyre out
+  of line, outlined in the damage colour (the body stays neutral). Not yet sent online (remote cars' wheels stay true).
+- **Detailed damage, step 2: radiator + engine heat (2026-10-06, Realistic, `phys.engOn`).** `dmg.rad` from nose hits
+  (sidepod hits on the F1 car: `Race.radDamage`). `engineHeat`: water temp from throttle x revs, cooled by the air
+  through the radiator (speed, x(1 - 0.35 slip) in a tow, x(1 - 0.6 rad)), a thermostat holding ~88°C. Over 112°C
+  power falls (`engK`, to 55%); time over 132°C cooks it (`engCook` > 140 °C·s: `engBlown`, `engineCheck` retires the
+  car: yours with the crash-out moment titled ENGINE FAILURE). Lapping (`.devtest/physics/engcheck.mjs`): rad 0.35 ~100°C
+  (F1 ~110), 0.5 ~110 (F1 ~122, -15%), 0.7 lets go in 2.5-4 min, 0.9 in 1-2. Radio at 115 / 128°C; AI pit for it;
+  repairs, garage time, career bills count it. HUD car diagram redrawn (`hud.js drawCar`): each car to its own
+  proportions (open-wheeler / closed, a wing if it has aero), tyres by temperature + wear numbers, bent corners, wings
+  / bumpers / radiator, the water temperature; all condition colours on the green -> pink `condCol` scale.
+- **Detailed damage, step 3: gearbox (2026-10-06, Realistic, `phys.engOn`).** `dmg.gb` from hits on the driven end
+  (the tail; the nose of a front-wheel drive: `Race.gbDamage`) and from manual downshifts that spin the engine past
+  106% of the redline (`shift`: (over) x 1.5). `gbShift`: shifts take x(1 + 3 gb); from 0.35 a shift can miss (0.45 s
+  with no drive: `missT`); from 0.65 a gear is lost (`lostGear`, skipped by both boxes: `gbNext`); at 1 it's broken
+  (`gbBroken` -> retired like a blown engine, GEARBOX FAILURE). 0-250 km/h in the M1 (`.devtest/physics/gbcheck.mjs`):
+  12.9 s whole, 13.3 at 0.2, 13.8 at 0.45, 13.9-14.3 with a gear gone. Radio at 0.15 / 0.4 / a lost gear / the first
+  over-rev; AI pit for it; repairs, garage time (2-6 min), career bills, the pit garage's Gearbox row. HUD: a block at
+  the driven end in its condition, and GEARBOX · SLOW / MISSES / NO 4TH under the water line.
+- **Detailed damage, step 4: repair choices (2026-10-06).** `Race.pitParts(car)`: each damaged part (front / rear
+  wing, suspension (chassis or bent corners), radiator, gearbox) with its damage and the seconds it adds (x5 / 6 / 9 /
+  8 / 10). `pitReq.repair` is true (all: the AI, the pit wall's calls), or { part: bool } (yours: the pit menu, each
+  part worth it (> 0.08) set to fix on the way in; ‹ › leaves it); `serviceTime` adds up the chosen ones,
+  `phys.repairParts` fixes just those. The menu shows each part's condition (green -> pink) and the stop's total. The
+  pit garage's Repairs row opens the same list (each part's time off the session clock and, in World Career, its cost;
+  Fix Everything): `garageRepair(car, keys)`.
+- **Pit boxes and double stacking (2026-10-07).** `Race.boxSlot(teamIdx)`: teams by `teamKey` (World Career entries'
+  tid: both cars, you and your teammate too, share a garage; else each car its own), yours the last box (nearest the
+  exit: the most time to choose the stop on the way in), the rest their first car's slot or the next free one; online
+  each car's own as before. `boxBusy(car)`: a team car already in the box (or nearer it, or just pulling out): the one
+  behind stops 7.5 m short in the working lane (`pitControls`) and its stop can't start until it's clear (`pitWait`
+  counts the wait). The AI won't stack unless it must come in (tyres gone, damage, weather) or a VSC / safety car makes
+  it cheap. You: a radio warning, the pit menu's BEHIND <name> · WAIT x s. `.devtest/stacktest.mjs`: the second car
+  waited 5.6 s, never closer than 6.7 m.
+- **Detailed damage, step 5: floor and diffuser (2026-10-07, Realistic).** `floorCheck`: the floor's four corners at
+  `floorH` (F1 8.5 cm, GT 8.7, road 17: the heights at which a car on its standard setup keeps ~8 mm on a clean lap of
+  Auburn, `.devtest/physics/floorlap.mjs`; they're the model's, the body moves more than a real one) + the setup's ride
+  height, moved by heave / pitch / roll and lifted by a curb (x0.3). Touching down closing > 0.25 m/s: `floorHit`
+  (0.04 per m/s over); scraping wears it; two wheels in gravel / sand at speed grind it; a rear hit takes the diffuser.
+  `dmg.fl` costs downforce, 20% front / 45% rear when gone. Lowered 12 mm: the 935 bottoms (4 hits, 22% in two laps),
+  the F1 starts to touch. Radio at 0.2; repairs (pit menu Floor, garage 1.5-4.5 min), AI pit at 0.25. HUD: the floor
+  between the axles (a panel; on an open-wheeler its outline round the sidepods) in its condition.
+- **Dirty air on the HUD:** `DIRTY AIR` (Options: Dirty Air Indicator) in the slipstream's place when the wake is
+  taking more than 2% of the car's grip and it's cornering (> 0.5 g): `wakeLoss` from `aero`.
 
 What stage 2 is, and what was learned getting there:
 - **Four wheels** (`js/physics.js`): per-wheel load / slip angle / spin / slip ratio / ABS; each axle pair solved as
@@ -143,6 +261,12 @@ What stage 2 is, and what was learned getting there:
   lift; grass / gravel drag acts per wheel (two wheels off pull the car toward that side). Grass sits 8 cm below the
   road, undulating over ~4 / 7 m. The model's wheels follow the physics wheels (`bump`), and the old hand-made kerb /
   grass height offsets and random jitter in `placeModel` are gone (online rivals: centre-based height).
+- **Runoff surfaces** (`js/runoff.js`, PROTO 24): the runoff beside the track is laid out like a real circuit's (paved
+  off the white line, gravel traps on corner entries, paved exits; `env.runoffStyle` auto / mixed / paved / gravel /
+  grass) and fast corners widen it (barriers moved out in `analyzeTrack`). `surfaceKind` reads the same cells the
+  world draws (`runoffKind`): `runoff` (paved) grip 0.9, drag 6, flush with the road and counted as on-road for
+  skids / spray / AI but still off-track for track limits, forced-off and drift; gravel 0.5 / 260 sinks 10 cm and is
+  rougher. Corner gravel no longer comes from curvature alone (it used to cover both sides of any tight bend).
 - **Follow-up (user: "looks too bouncy", sidewalks too tall / abrupt)**: suspension geometry added (`rcH` roll
   centre, `antiDive` / `antiSquat`: the links carry that share of the load transfer straight to the tyres, so the
   tyres' loads shift the same but the body leans / dives less); road cars `rollGrad` 2.2 (sports car), damping 0.65
@@ -174,6 +298,11 @@ What stage 2 is, and what was learned getting there:
   holding ~25°), `aero` (downforce balance cruising / braking / on power), rumble grip signal, CPU cost). Compares with
   `.devtest/physics/baseline.json` (the stage 2 state) and prints only what moved. `--save` to re-baseline once a
   change is accepted; `--only=stop,exit` for some groups.
+- Contact (`js/contact.js`): `node .devtest/crash.mjs [car] [tires|wall|armco]` throws the player's car at a wall (25° /
+  60°) and into an AI car (rear-end, rear quarter, PIT, side swipe) and logs speed / heading / yaw / damage;
+  `node .devtest/racestart.mjs [car] [s]` runs a full AI grid's start and counts car contacts, wall incidents, spins
+  and damage (noisy: compare several runs, `ROOT=` an older checkout); `node .devtest/carsize.mjs` measures each car's
+  model in plan against its contact box (`body` in `cars.js`).
 - `node .devtest/physics/browser.mjs ai | ref | load`: in-game checks (needs Chrome and `cd tools && npm install`).
   The AI learning bench, the Lap Review reference on the user's circuit `.devtest/auburn2.json` (they race the M1
   ProCar, `m1procar`, on softs there), and race build times.
@@ -222,6 +351,8 @@ What stage 2 is, and what was learned getting there:
   `PHYS_VERSION` 6, `PROTO` 19. Suite re-baselined (new groups `driftHold`, `aero`).
 - 2026-10-01: fishtailing fix (smoother TC, GT diffs without power lock, GT softer rear bar). `PHYS_VERSION` 7,
   `PROTO` 20. `.devtest/padrun.mjs` added.
+- 2026-10-04: combined-slip fix (weaving on the straights under power, see Follow-up 2). `PHYS_VERSION` 9, `PROTO` 25.
+  `.devtest/weave.mjs` added. Suite re-baselined.
 - 2026-10-01: AI difficulty recalibrated for the honest physics (user: Pro and Legend GT AI "no contest" at Auburn;
   their M1 best 1:44.5, read from Lap Review's saved PB, AI best 1:47.2). Road / GT table: Rookie pace 0.85, Pro 0.93,
   Legend pace 1 + grip 1.03 / power 1.01, Alien grip 1.07 / power 1.04; the F1 class keeps the old table (`DIFF_F1`).
@@ -234,6 +365,35 @@ What stage 2 is, and what was learned getting there:
   are spaced by the edge. Road / GT: Legend 1.07 / 1.04 (old Alien), Alien 1.12 / 1.07, new Phantom 1.18 / 1.10,
   Godlike 1.25 / 1.14; F1 one step lower (Legend 1.03 / 1.01 ... Godlike 1.18 / 1.10). Fewer mistakes up the ladder.
   World Career difficulty can now be changed from the hub.
+- 2026-10-02: rigid-body contact (user: "interactions between cars don't feel realistic"; walls too). Before: every car
+  two 0.95 m circles (4.6 m long, smaller than the F1 model, so cars overlapped on screen before touching), a 50/50 push
+  whatever the masses, no friction, and a random spin after every hit, which the stability cap then took away. Now
+  (`js/contact.js`): each car a box with 0.4 m rounded corners sized from its model (`body` per spec), contact point +
+  normal from the boxes, impulse from both cars' mass and yaw inertia (restitution 0.3 in a nudge falling to 0.05 in
+  a big hit; body friction 0.2 car-on-car, 0.3 concrete / armco, 0.6 tyre walls). Walls: the corners past the wall
+  face, so the corner that hits first turns the car. After a real hit (yaw kick > 0.5 rad/s or > 5 m/s) `hitT` holds
+  the yaw cap + slide limiter off for 0.5-1.5 s, fading back (ESC braking stays). Damage by where the car was hit
+  (side: suspension), a second slap on the same part within 0.6 s counting only what it adds.
+  Crashing out (Realistic damage only, race.js `breakCheck`): a hit on a part at 26 m/s (wall) / 23 m/s (a car's
+  share) always breaks the car, the odds falling off squared over the 6 m/s below; a chassis already at 1 goes on any
+  hit over 12. A wheel off (open-wheelers 75% of corner hits, others 30%) or a corner folded; a yaw kick toward the
+  broken corner, then 7 / 4.5 m/s² of drag and a pull round while it slides. Measured (Auburn, 12 cars, 4 laps): F1
+  2, M1 1, M5 0 crash-outs (`.devtest/crashrate.mjs`); `.devtest/crashout.mjs` throws an AI car, then you, at the wall. AI follow / alongside
+  gaps scale with the two cars' lengths (they were set for 4.6 m). Body friction 0.35 was too sticky (bumpers "held"
+  and cancelled the spin); square corners gave no sideways shove from a corner-on-corner hit. Measured: AI bench 0
+  offs, 12-17 rounds (M1 / F1 / GT-R); reference M1 soft 105.7 s, 0 faults; race starts (10 cars, 40 s) a little more
+  contact than before for GT, about the same for F1. `PHYS_VERSION` 8, `PROTO` 23.
+- 2026-10-03: wheels off the road (user: after a big hit the body flew up with the wheels glued to the road; and up a
+  sidewalk the wheels stayed upright). Suspension travel (`travel [droop, bump]` per class: F1 4.5 / 3 cm, GT 7 / 5,
+  road 11 / 8, van + hearse 15 / 14; the bump stop further in by the top-speed aero squat): past full droop the wheel
+  hangs from the body and leaves the road (no load, no grip); a damped stop at each end (an undamped one bounced a car
+  landing on one side clean off the road). Normal driving never reaches either (hard manoeuvres use at most ~70%; a
+  pad lap at Auburn sits on a bump stop ~0.8 s, off the track). `contact.js` `rock` is now a trip: a hit lower than
+  the centre of mass (0.4 m) tips the body over it (side-on into a wall the far wheels lift; nose first the nose dives),
+  so a van tips a lot, a GT car barely and the F1 car a little the other way, held to just past wheel lift (≤ ~9°)
+  however many pushes a car pressed against a wall gets. On screen every wheel tilts (`tiltWheels` in carmodel.js):
+  half its axle's line, half the body's roll (independent suspension); a live rear axle (`solidR`: van, hearse) with
+  the beam. `.devtest/wheelshot.mjs` (sidewalk + side-on wall hit, screenshots + per-frame roll / wheel heights / loads).
 
 ## Next: the AI's line through fast S-bends (where the edge should come from instead)
 

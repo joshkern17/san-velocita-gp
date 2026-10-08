@@ -7,7 +7,7 @@ const PORT = 8600 + Math.floor(Math.random() * 50);
 const server = spawn('python3', [ROOT + '/serve.py', String(PORT), '--no-browser'], { stdio: 'ignore', cwd: ROOT });
 await new Promise(r => setTimeout(r, 1200));
 const b = await chromium.launch({ channel: 'chrome', headless: true });
-const [id = 'gtr', a0 = '300', a1 = '420', kind = 'fit', step = '4'] = process.argv.slice(2);
+const [id = 'm3gtr', a0 = '300', a1 = '420', kind = 'fit', step = '4'] = process.argv.slice(2);
 try {
   const pg = await b.newPage();
   await pg.goto(`http://127.0.0.1:${PORT}/.devtest/handling.html`); await pg.waitForTimeout(1200);

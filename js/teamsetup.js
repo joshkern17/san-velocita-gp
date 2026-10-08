@@ -5,6 +5,7 @@
 // written under each), the choices are columns with a bracket that slides to the one you're on, the money rolls as
 // you choose, and starting the season runs the start lights. The picks and the money live in js/wcareer.js
 // (setupPick / setupMove / setupBudget / setupApply); main.js opens it and says what happens when it's done (src.apply).
+// More than four choices (every car on the classifieds) scroll sideways: the next one cut off at the edge, with a cue.
 // Controls: left / right choose, A / Enter next (select a column twice with the mouse), B / Esc back (or out to the
 // garage from the first step), LB / RB step back and forward.
 import * as WC from './wcareer.js';
@@ -34,7 +35,7 @@ export class TeamSetup {
     this.el = el; this.src = src; this.isOpen = false; this.busy = false; this.sel = 0; this.shown = null;
     el.addEventListener('click', (e) => this.click(e));
     el.addEventListener('mousemove', (e) => { const c = e.target.closest('.tsw-col'); if (c && !this.busy && +c.dataset.i !== this.sel && !c.classList.contains('dis')) this.focus(+c.dataset.i); });
-    addEventListener('resize', () => { if (this.isOpen) this.place(true); });
+    addEventListener('resize', () => { if (this.isOpen) { this.reveal(); this.place(true); this.edges(); } });
   }
   get w() { return this.src.world(); }
   get season() { return WC.setupKind(this.w) === 'season'; }
@@ -50,15 +51,19 @@ export class TeamSetup {
       <header class="tsw-head"><h1>${this.season ? 'Season Setup' : 'Team Setup'}</h1><p>${esc(t.name)} &middot; ${esc(WC.seriesById(w.player.series).name)} &middot; ${w.year}</p></header>
       <div class="tsw-money"><div><small>In the bank</small><b data-k="now"></b></div><div><small>After your choices</small><b data-k="after"></b><em class="tsw-delta"></em></div>${this.season ? '<div title="The running costs, the lease, the staff, the sponsors\' fees and the second-seat deal: what\'s certain once it\'s signed. Prize money is up to you."><small>Season, before prizes</small><b data-k="season"></b></div>' : ''}</div>
       <nav class="tsw-rail"></nav>
-      <div class="tsw-stage"><div class="tsw-q"><h2></h2><p></p></div><div class="tsw-cols"></div><div class="tsw-focus"></div></div>
+      <div class="tsw-stage"><div class="tsw-q"><h2></h2><p></p></div><div class="tsw-cols"></div><div class="tsw-focus"></div><div class="tsw-more l" hidden><i>&lsaquo;</i><small></small></div><div class="tsw-more r" hidden><i>&rsaquo;</i><small></small></div></div>
       <div class="tsw-foot"><span class="tsw-count"></span><button class="sv-btn hot tsw-next" data-act="next"></button></div>
       <div class="tsw-lights"><div class="tsw-lamps">${'<i></i>'.repeat(5)}</div><b>Lights out</b><small></small></div>`;
+    // (more choices than fit: the columns scroll sideways; a mouse wheel scrolls them too)
+    const cols = this.el.querySelector('.tsw-cols');
+    cols.addEventListener('scroll', () => { this.place(true); this.edges(); });
+    cols.addEventListener('wheel', (e) => { if (!cols.classList.contains('strip') || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; cols.scrollLeft += e.deltaY; e.preventDefault(); }, { passive: false });
     this.el.hidden = false;
     this.el.classList.remove('leave'); this.el.classList.add('enter');
     setTimeout(() => this.el.classList.remove('enter'), 1400);
     this.render(0);
     // (the classifieds' photos take a moment to render: do them now, while you read the first step)
-    if (!this.season) setTimeout(() => { if (this.isOpen) (w.ads || []).slice(0, 3).forEach(a => this.src.photo(a)); }, 1500);
+    if (!this.season) setTimeout(() => { if (this.isOpen) (w.ads || []).forEach(a => this.src.photo(a)); }, 1500);
   }
   close(done = false) {
     if (!this.isOpen) return;
@@ -82,8 +87,9 @@ export class TeamSetup {
   nextOpen(d) { const o = this.options(); for (let i = this.sel + d; i >= 0 && i < o.length; i += d) if (!o[i].dis) return i; return this.sel; }
   click(e) {
     if (this.busy) { if (this.lights) this.lights.skip(); return; }
-    const c = e.target.closest('.tsw-col'), b = e.target.closest('[data-act]'), r = e.target.closest('.tsw-rail li.done');
-    if (c) { const i = +c.dataset.i; if (c.classList.contains('dis')) { this.src.sfx('error'); return; } if (i !== this.sel) this.focus(i); else this.next(); }
+    const c = e.target.closest('.tsw-col'), b = e.target.closest('[data-act]'), r = e.target.closest('.tsw-rail li.done'), m = e.target.closest('.tsw-more');
+    if (m) { const i = this.hiddenNext(m.classList.contains('r') ? 1 : -1); if (i != null) this.focus(i); }
+    else if (c) { const i = +c.dataset.i; if (c.classList.contains('dis')) { this.src.sfx('error'); return; } if (i !== this.sel) this.focus(i); else this.next(); }
     else if (b && b.dataset.act === 'next') this.next();
     else if (b && b.dataset.act === 'back') this.back();
     else if (r) { const d = +r.dataset.i - this.at; if (d < 0) { WC.setupMove(this.w, d); this.src.sfx('back'); this.src.save(); this.render(-1); } }
@@ -92,7 +98,7 @@ export class TeamSetup {
     if (i === this.sel) return;
     this.sel = i; this.src.sfx('move');
     this.el.querySelectorAll('.tsw-col').forEach((c, k) => c.classList.toggle('on', k === i));
-    this.place(); this.foot();
+    this.reveal(); this.place(); this.foot();
   }
   next() {
     const w = this.w, S = w.setup, step = this.step;
@@ -113,7 +119,7 @@ export class TeamSetup {
     if (step === 'entry') return WC.setupEntries(w).map(e => ({ val: e.key, ...this.leaves(step, e.key) }));
     if (step === 'car' && this.season) return S.cars.map((o, i) => ({ val: i, ...this.leaves(step, i) }));
     if (step === 'seat') return S.seats.map((d, i) => ({ val: i, ...this.leaves(step, i) }));
-    if (step === 'car') return (w.ads || []).slice(0, 3).map(a => ({ val: a.id, ...this.leaves(step, a.id) }));
+    if (step === 'car') return (w.ads || []).map(a => ({ val: a.id, ...this.leaves(step, a.id) }));
     if (step === 'sponsor') return S.sponsors.map((o, i) => ({ val: i, ...this.leaves(step, i) }));
     if (step === 'mate') return S.drivers.filter(pid => w.people[pid]).map(pid => ({ val: pid, ...this.leaves(step, pid) }));
     return [];
@@ -135,10 +141,10 @@ export class TeamSetup {
     const stage = this.el.querySelector('.tsw-stage'), cols = stage.querySelector('.tsw-cols'), qel = stage.querySelector('.tsw-q');
     const draw = () => {
       qel.querySelector('h2').textContent = q; qel.querySelector('p').textContent = sub;
-      cols.className = `tsw-cols n${step === 'ready' ? 0 : opts.length}`;
+      cols.className = `tsw-cols n${step === 'ready' ? 0 : opts.length}${opts.length > 4 ? ' strip' : ''}`;
       cols.innerHTML = step === 'ready' ? this.ready() : opts.map((o, i) => `<div class="tsw-col${i === this.sel ? ' on' : ''}${o.dis ? ' dis' : ''}" data-i="${i}"><i class="tsw-cur"></i>${this.card(step, o, i)}
         ${step === 'seat' ? '' : `<div class="tsw-left"><small>Leaves you</small><b class="${o.dis ? 'neg' : ''}">${o.dis ? 'More than you have' : WC.money$(o.after)}</b></div>`}</div>`).join(''); // (a seat deal costs nothing today: its money is on the card)
-      this.place(true); this.foot();
+      cols.scrollLeft = 0; this.reveal(); this.place(true); this.edges(); this.foot();
       // in: the question wipes on, the columns rise one after another (from the side you're heading)
       if (calm()) return;
       qel.classList.remove('wipe'); void qel.offsetWidth; qel.classList.add('wipe');
@@ -283,11 +289,38 @@ export class TeamSetup {
     const f = this.el.querySelector('.tsw-focus'), c = this.el.querySelectorAll('.tsw-col')[this.sel];
     if (!f) return;
     f.hidden = !c; if (!c) return;
-    const move = () => { const p = c.parentElement; f.style.transform = `translate(${p.offsetLeft + c.offsetLeft}px, ${p.offsetTop + c.offsetTop}px)`; f.style.width = c.offsetWidth + 'px'; f.style.height = c.offsetHeight + 'px'; };
+    const move = () => { const p = c.parentElement; f.style.transform = `translate(${p.offsetLeft + c.offsetLeft - p.scrollLeft}px, ${p.offsetTop + c.offsetTop}px)`; f.style.width = c.offsetWidth + 'px'; f.style.height = c.offsetHeight + 'px'; };
     clearTimeout(this.fadeT); this.fadeA?.cancel();
     if (snap || calm()) { f.style.opacity = ''; return move(); }
     this.fadeA = f.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 90, fill: 'forwards' });
     this.fadeT = setTimeout(() => { this.fadeA.cancel(); move(); this.fadeA = f.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 170, easing: 'ease-out' }); }, 90);
+  }
+  // the strip: the column you're on, fully in view (a jump, not a scroll: it's 2005). Three columns whole, and a sliver
+  // of the next one showing at whichever end has more, so the cue there never sits over a whole column
+  reveal() {
+    const cols = this.el.querySelector('.tsw-cols'), c = cols?.children[this.sel];
+    if (!c || !cols.classList.contains('strip')) return;
+    const W = c.offsetWidth, L = cols.scrollLeft, R = L + cols.clientWidth;
+    if (c.offsetLeft >= L - 1 && c.offsetLeft + W <= R + 1) return;
+    const first = c.offsetLeft < L ? this.sel : this.sel - 2;
+    cols.scrollLeft = Math.max(0, Math.min(cols.scrollWidth - cols.clientWidth, first * W - (first > 0 ? W * 0.2 : 0)));
+  }
+  // the first column that's cut off or out of view, that way
+  hiddenNext(d) {
+    const cols = this.el.querySelector('.tsw-cols'), o = this.options(), L = cols.scrollLeft, R = L + cols.clientWidth;
+    const out = [...cols.children].map((c, i) => (c.offsetLeft < L - 1 || c.offsetLeft + c.offsetWidth > R + 1) && !o[i]?.dis ? i : -1).filter(i => i >= 0 && (d > 0 ? i > this.sel : i < this.sel));
+    return out.length ? (d > 0 ? out[0] : out[out.length - 1]) : null;
+  }
+  // the cues at the strip's ends: a fade over the cut-off column, an arrow, and how many more there are that way
+  edges() {
+    const cols = this.el.querySelector('.tsw-cols'), strip = cols.classList.contains('strip'), L = cols.scrollLeft, R = L + cols.clientWidth;
+    for (const side of ['l', 'r']) {
+      const el = this.el.querySelector(`.tsw-more.${side}`);
+      const n = strip ? [...cols.children].filter(c => side === 'r' ? c.offsetLeft + c.offsetWidth > R + 1 : c.offsetLeft < L - 1).length : 0;
+      el.hidden = !n; if (!n) continue;
+      el.style.top = cols.offsetTop + 'px'; el.style.height = cols.clientHeight + 'px';
+      el.querySelector('small').textContent = `${n} more`;
+    }
   }
   foot() {
     const step = this.step, o = this.options()[this.sel], w = this.w;

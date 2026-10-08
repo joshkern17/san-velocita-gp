@@ -141,6 +141,20 @@ const nearStroke = (st, x, z) => {
   }
   return false;
 };
+// The PAINT tool's Erase brush. what: letters for what it removes, g grass paint, n trees & plants, b buildings
+// (older strokes have none: grass and plants). Things the world made (a setting's woods, zone tree lines, map
+// trees and buildings) go wherever any eraser touches them; Nature strokes painted after an eraser still grow.
+export const eraseHits = (st, letter) => (st.what || 'gn').includes(letter);
+export function eraser(track, letter) {
+  const list = (track.paint || []).filter(st => st.kind === 'erase' && eraseHits(st, letter) && (st.pts || []).length)
+    .map(st => { let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity; for (const [x, z] of st.pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); } const r = st.r || 8; return { st, b: [x0 - r, z0 - r, x1 + r, z1 + r] }; });
+  if (!list.length) return null;
+  return (x, z) => { for (const e of list) if (x > e.b[0] && x < e.b[2] && z > e.b[1] && z < e.b[3] && nearStroke(e.st, x, z)) return true; return false; };
+}
+export function erasedAt(track, x, z, letter) { const f = eraser(track, letter); return !!(f && f(x, z)); }
+// trees, bushes, grass, flowers, rocks: what the Nature eraser removes
+export const isNature = (id) => { const a = envAsset(id); return !!a && (a.cat === 'tree' || a.cat === 'bush' || a.cat === 'grass' || a.cat === 'rock'); };
+
 export function paintFlora(track, T, A, roads) {
   const out = { trees: [], props: [] };
   const strokes = track.paint || [];
@@ -151,7 +165,7 @@ export function paintFlora(track, T, A, roads) {
     if (st.kind !== 'flora' || !(st.pts || []).length) return;
     const F = FLORA[st.mix] || FLORA.mixed, r = st.r || 12, pts = st.pts, dens = st.d ?? 0.6;
     const rng = mulberry((st.seed || si + 1) * 7331 + 101);
-    const erased = (x, z) => { for (let k = si + 1; k < strokes.length; k++) if (strokes[k].kind === 'erase' && nearStroke(strokes[k], x, z)) return true; return false; };
+    const erased = (x, z) => { for (let k = si + 1; k < strokes.length; k++) if (strokes[k].kind === 'erase' && eraseHits(strokes[k], 'n') && nearStroke(strokes[k], x, z)) return true; return false; };
     // area: the segments' strips plus the round ends
     const segs = []; let len = 0;
     for (let i = 0; i + 1 < pts.length; i++) { const l = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); if (l > 0.01) { segs.push([pts[i], pts[i + 1], l]); len += l; } }
@@ -707,15 +721,63 @@ export function genStreets(track, T, A) {
   return out;
 }
 
-const styleOf = (a) => ({ house: 'house', kiosk: 'shop', shop: 'shop', facade: 'shop', midrise: 'apartment', highrise: 'office', tower: 'tower', industrial: 'warehouse', warehouse: 'warehouse' }[a.cls] || (a.cat === 'landmark' ? 'warehouse' : 'shop'));
+export const styleOf = (a) => ({ house: 'house', kiosk: 'shop', shop: 'shop', facade: 'shop', midrise: 'apartment', highrise: 'office', tower: 'tower', industrial: 'warehouse', warehouse: 'warehouse' }[a.cls] || (a.cat === 'landmark' ? 'warehouse' : 'shop'));
 
 // ---------------- models onto zone / imported buildings ----------------
 // Picks the model whose footprint best matches each building (stretching at most ~35% either way), turns its
-// front towards the nearest road or the circuit, and sizes it to the building's height. Buildings that don't
-// fit anything (odd shapes, houses mostly) stay as the classic extruded blocks.
+// front towards the nearest road or the circuit, and sizes it to the building's height. Houses always become one
+// of the PSX houses (any setting, models on or off); other buildings that don't fit anything (odd shapes) stay as
+// the classic extruded blocks unless a setting is on.
+// the nearest road / circuit point to (cx, cz), or null
+export function frontTarget(cx, cz, roads, T, A) {
+  let tx = null, tz = null, bd = Infinity;
+  if (roads) for (const pc of roads.pieces) for (const q of pc.s) { const d = (q.x - cx) ** 2 + (q.z - cz) ** 2; if (d < bd) { bd = d; tx = q.x; tz = q.z; } }
+  if (T && A && (bd > 60 * 60)) A.hash.query(cx, cz, 200, (j) => { const d = (T.X[j] - cx) ** 2 + (T.Z[j] - cz) ** 2; if (d < bd) { bd = d; tx = T.X[j]; tz = T.Z[j]; } });
+  return tx === null ? null : [tx, tz];
+}
+// the PSX houses (paintable: any wall, roof and colour)
+export const houseAssets = () => envAssets({ cat: 'building', cls: 'house' }).filter(a => a.paint);
+// A house on a footprint: the PSX house whose shape suits it best, its door towards the street, kept to its
+// own proportions (scaled evenly, 80-120%). Sets b.m, b.p, b.h. rng: picks among close fits.
+export function fitHouse(b, rng, roads, T, A) {
+  const list = houseAssets(); if (!list.length || !b.p || b.p.length < 3) return false;
+  const r = orientedRect(b.p); if (!r) return false;
+  const [cx, cz] = centroid(r.corners), tgt = frontTarget(cx, cz, roads, T, A);
+  // the rectangle side facing the street becomes the front
+  const dirs = [[r.ux, r.uz], [-r.uz, r.ux], [-r.ux, -r.uz], [r.uz, -r.ux]];
+  let ax = dirs[0], best = -Infinity;
+  for (const [ux, uz] of dirs) { const s = tgt ? (tgt[0] - cx) * -uz + (tgt[1] - cz) * ux : rng(); if (s > best) { best = s; ax = [ux, uz]; } }
+  const along = Math.abs(ax[0] * r.ux + ax[1] * r.uz) > 0.5, W = along ? r.len : r.wid, D = along ? r.wid : r.len;
+  let a = null, bs = Infinity;
+  for (const c of list) { const sc = Math.abs(Math.log(W / c.w)) + Math.abs(Math.log(D / c.d)) + rng() * 0.5; if (sc < bs) { bs = sc; a = c; } }
+  const s = Math.max(0.8, Math.min(1.2, Math.sqrt((W * D) / (a.w * a.d))));
+  b.p = corners(rect(cx, cz, ax[0], ax[1], a.w * s / 2, a.d * s / 2));
+  b.m = a.id; b.h = +(a.h * s).toFixed(2); b.s = 'house'; b.r = 'flat';
+  return true;
+}
+// a random building model for the PROPS tool: kind shop | apartment | office | tower | warehouse | house | any
+export const BUILDING_KINDS = {
+  house:     { label: 'House',      cls: ['house'] },
+  shop:      { label: 'Shop',       cls: ['shop', 'kiosk'] },
+  apartment: { label: 'Apartments', cls: ['midrise'] },
+  office:    { label: 'Office',     cls: ['highrise'] },
+  tower:     { label: 'Skyscraper', cls: ['tower'] },
+  warehouse: { label: 'Industrial', cls: ['warehouse', 'industrial'] },
+  any:       { label: 'Any',        cls: ['shop', 'kiosk', 'midrise', 'highrise', 'warehouse', 'industrial'] },
+};
+export function randomBuilding(kind, rng = Math.random) {
+  if (kind === 'house') { const l = houseAssets(); return l.length ? l[Math.floor(rng() * l.length)] : null; }
+  const K = BUILDING_KINDS[kind] || BUILDING_KINDS.any;
+  const l = envAssets({ cat: 'building', cls: K.cls });
+  return l.length ? pickW(rng, l.map(a => [a, a.w8 ?? 1])) : null;
+}
+// footprint corners for a model standing at (x, z), turned rot about +Y (front = local +Z), scaled s
+export function modelFootprint(a, x, z, rot, s = 1) {
+  return corners(rect(x, z, Math.cos(rot), -Math.sin(rot), a.w * s / 2, a.d * s / 2));
+}
 export function fitModels(buildings, track, T, A, roads) {
   const st = settingOf(track.env);
-  if (!st.models || !envReady()) return;
+  if (!envReady()) return;
   const tags = (SETTINGS[st.kind] && SETTINGS[st.kind].tags) || null;
   const rng = mulberry((st.seed || 1) * 131 + 7);
   const all = envAssets({ cat: 'building' });
@@ -723,21 +785,24 @@ export function fitModels(buildings, track, T, A, roads) {
   for (const b of buildings) {
     if (force && b.biz && b.from !== 'custom') delete b.biz; // (zone businesses too)
     if (b.m || b.biz || !b.p || b.p.length < 3) continue;
+    // houses (zone, map and your own): always a PSX house
+    if (b.s === 'house' || (b.r === 'gable' && !b.s)) { if (fitHouse(b, rng, roads, T, A)) continue; }
+    if (!st.models) continue;
     const r = orientedRect(b.p); if (!r) continue;
     const area = Math.abs(polyArea(b.p));
     if (!force && area / r.area < 0.72) continue; // L-shapes etc.: keep the exact footprint
     const L = Math.max(r.len, r.wid), Wd = Math.min(r.len, r.wid), h = b.h || 8;
-    const cls = b.s === 'house' ? 'house' : b.s === 'warehouse' ? ['warehouse', 'industrial'] : b.s === 'office' ? ['highrise', 'midrise'] : b.s === 'tower' ? ['tower', 'highrise'] : b.s === 'apartment' ? ['midrise', 'highrise']
+    const cls = b.s === 'warehouse' ? ['warehouse', 'industrial'] : b.s === 'office' ? ['highrise', 'midrise'] : b.s === 'tower' ? ['tower', 'highrise'] : b.s === 'apartment' ? ['midrise', 'highrise']
       : b.s === 'shop' ? ['shop', 'kiosk', 'midrise'] : area > 1500 && h < 15 ? ['warehouse', 'industrial'] : h > 60 ? ['tower', 'highrise'] : h > 22 ? ['highrise', 'midrise'] : h > 9 ? ['midrise', 'shop'] : area < 140 ? ['kiosk', 'house', 'shop'] : ['shop', 'kiosk', 'house'];
-    const clsL = Array.isArray(cls) ? cls : [cls];
-    let cands = all.filter(a => clsL.includes(a.cls) && (!tags || (a.tags || []).some(t => tags.includes(t))));
-    if (!cands.length) cands = all.filter(a => clsL.includes(a.cls));
-    // houses: few models, so most stay as the classic pitched-roof houses (unless a setting is on)
-    if (!force && clsL[0] === 'house' && rng() > 0.35) continue;
+    const clsL = cls;
+    // small, low unlabelled buildings (most OpenStreetMap homes): a house
+    if (clsL.includes('house') && area < 260 && h < 10 && fitHouse(b, rng, roads, T, A)) continue;
+    let cands = all.filter(a => clsL.includes(a.cls) && a.cls !== 'house' && (!tags || (a.tags || []).some(t => tags.includes(t))));
+    if (!cands.length) cands = all.filter(a => clsL.includes(a.cls) && a.cls !== 'house');
     if (force && cands.length < 3) cands = cands.concat(all.filter(a => ['shop', 'kiosk', 'midrise'].includes(a.cls)));
     let best = null, bs = Infinity;
     const lim = force ? [0.4, 2.5] : [0.65, 1.5];
-    for (const a of (force ? cands : cands)) for (const flip of [false, true]) {
+    for (const a of cands) for (const flip of [false, true]) {
       const aw = flip ? a.d : a.w, ad = flip ? a.w : a.d; // model width along the rect's long side?
       const sx = L / Math.max(aw, ad), sz = Wd / Math.min(aw, ad);
       if (sx < lim[0] || sx > lim[1] || sz < lim[0] || sz > lim[1]) continue;
@@ -745,13 +810,11 @@ export function fitModels(buildings, track, T, A, roads) {
       const score = Math.abs(Math.log(sx)) + Math.abs(Math.log(sz)) + Math.abs(Math.log(Math.max(0.3, sy))) * 0.6 + rng() * 0.25;
       if (score < bs) { bs = score; best = a; }
     }
-    if (!best && force) { let bd2 = Infinity; for (const a of all) { const d2 = Math.abs(Math.log(L * Wd / (a.w * a.d))) + Math.abs(Math.log(Math.max(0.3, h / a.h))) * 0.5; if (d2 < bd2) { bd2 = d2; best = a; } } }
+    if (!best && force) { let bd2 = Infinity; for (const a of all) { if (a.cls === 'house') continue; const d2 = Math.abs(Math.log(L * Wd / (a.w * a.d))) + Math.abs(Math.log(Math.max(0.3, h / a.h))) * 0.5; if (d2 < bd2) { bd2 = d2; best = a; } } }
     if (!best) continue;
     // which way is the front? towards the nearest road, else the circuit
-    const [cx, cz] = centroid(r.corners);
-    let tx = null, tz = null, bd = Infinity;
-    if (roads) for (const pc of roads.pieces) for (const q of pc.s) { const d = (q.x - cx) ** 2 + (q.z - cz) ** 2; if (d < bd) { bd = d; tx = q.x; tz = q.z; } }
-    if (T && A && (bd > 60 * 60)) A.hash.query(cx, cz, 200, (j) => { const d = (T.X[j] - cx) ** 2 + (T.Z[j] - cz) ** 2; if (d < bd) { bd = d; tx = T.X[j]; tz = T.Z[j]; } });
+    const [cx, cz] = centroid(r.corners), tgt = frontTarget(cx, cz, roads, T, A);
+    const tx = tgt ? tgt[0] : null, tz = tgt ? tgt[1] : null;
     const dirs = [[r.ux, r.uz], [-r.uz, r.ux], [-r.ux, -r.uz], [r.uz, -r.ux]]; // candidate local +X axes
     let ax = dirs[0], bestDot = -Infinity;
     for (const [ux, uz] of dirs) {

@@ -1,18 +1,26 @@
 // Top-down circuit designer
-import { sampleTrack, analyzeTrack, buildPitLane, computeRacingLine, computeSpeedProfile, trackStats, cloneTrack, newTrack, presetTracks, archivedTracks, THEMES, PROP_TYPES, PAINTS, defaultEnv, trackReady, minNodes } from './track.js';
+import { sampleTrack, analyzeTrack, buildPitLane, computeRacingLine, computeSpeedProfile, trackStats, cloneTrack, newTrack, presetTracks, archivedTracks, THEMES, PROP_TYPES, PAINTS, defaultEnv, trackReady, minNodes, fenceHeight } from './track.js';
 import { CARSPEC } from './car.js';
 import { sfx } from './audio.js';
 import { fmtTime } from './hud.js';
-import { ZONE_TYPES, STYLE_COLORS, newZone, collectScenery, BUSINESSES, BUSINESS_KEYS, pointInPoly, centroid } from './zones.js';
+import { ZONE_TYPES, STYLE_COLORS, newZone, collectScenery, BUSINESSES, BUSINESS_KEYS, pointInPoly, centroid, buildingClear } from './zones.js';
 import { ROAD_TYPES, MEET, newRoad, roadLayout, applyRoadsToCircuit, raiseTrackOverRoads } from './roads.js';
-import { SETTINGS, SETTING_KEYS, settingOf, FLORA, FLORA_KEYS } from './scenery.js';
-import { envReady } from './envlib.js';
+import { runoffLayout, runoffStyle, runoffCell, RUNOFF_STYLES, RUN_RES } from './runoff.js';
+import { trackPropFamilies, trackPropFamily, isTrackProp, LOGOS, logoSheetImage, drawLogo, LIGHT_FAMILIES } from './trackprops.js';
+import { thumb } from './propthumbs.js';
+import { SETTINGS, SETTING_KEYS, settingOf, FLORA, FLORA_KEYS, BUILDING_KINDS, randomBuilding, houseAssets, modelFootprint, styleOf, frontTarget, eraseHits, PROP_FLORA, natureModel } from './scenery.js';
+import { envReady, envAsset, envModelsReady, loadEnvModels, HOUSE_WALLS, HOUSE_ROOFS, HOUSE_PAINTS, houseLook, houseSwatch } from './envlib.js';
+import { SCULPT_MODES, SCULPT_MAX, sculptPreview } from './sculpt.js';
 import { TileLayer, MAP_STYLES, searchPlace, myLocation, importOSM } from './geo.js';
+import { realTracks, hydrateReal } from './realtracks.js';
 import { fetchElevation, packTerrain, projectOntoTrack, rawHeight, inGrid, EXAG_MAX, TERRAIN_ATTR } from './terrain.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const THEME_BG = { grass: '#142417', desert: '#2a1f14', city: '#16181e', coast: '#0c2030' };
+// house walls / roofs in the top-down view (when the texture swatches aren't loaded yet)
+const WALL_COL = ['#9a4a3c', '#e8e6df', '#5c5c5c', '#3f6a6a', '#a8a060', '#a4a29c'];
+const ROOF_COL = ['#4c6450', '#8a3a30', '#6a6e74', '#6e5e50', '#a0624c', '#2e3034'];
 const THEME_RUN = { grass: 'rgba(96,150,70,0.55)', desert: 'rgba(200,150,90,0.5)', city: 'rgba(150,150,150,0.45)', coast: 'rgba(210,190,130,0.45)' };
 
 export class Editor {
@@ -26,8 +34,15 @@ export class Editor {
     this.tool = 'edit';
     this.sel = new Set();
     this.selProp = -1; this.selRoad = -1; this.selBld = null;
-    this.propType = 'tree';
+    this.propType = 'house';   // what a click with PROPS places: 'house', 'house:<model>', 'bld:<kind>' or a PROP_TYPES key
+    this.propCat = 'houses';
     this.propRot = 0;
+    this.lineGap = null;       // spacing of a line of props (drag with PROPS), m; null: from the prop's size
+    this.tpPick = {};          // the race-track pack's families: the look picked for new ones (none: mixed)
+    this.tpSeed = 0;
+    this.housePaint = { random: true, w: 2, r: 3, c: null }; // the look new houses get (PROPS and the Houses brush)
+    this.sculptMode = 'up'; this.sculptR = 24; this.sculptK = 4; this.sculptS = 0.8;
+    this.eraseWhat = 'gnb';
     this.history = []; this.future = [];
     this.snap = false;
     this.defaultWidth = 13;
@@ -62,9 +77,10 @@ export class Editor {
   normalize(t) {
     t.env = { ...defaultEnv(t.env?.theme || 'grass'), ...(t.env || {}) };
     t.props = t.props || [];
+    t.propLines = t.propLines || [];
     t.zones = t.zones || [];
     t.paint = t.paint || [];
-    t.roads = t.roads || []; t.hidden = t.hidden || []; t.buildings = t.buildings || [];
+    t.roads = t.roads || []; t.hidden = t.hidden || []; t.buildings = t.buildings || []; t.sculpt = t.sculpt || [];
     t.map = { style: 'satellite', opacity: 0.8, ...(t.map || {}) };
     t.start = t.start || 0;
     t.points = t.points.map(p => ({ x: +p.x, z: +p.z, w: +(p.w ?? 13), e: +(p.e ?? 0), b: +(p.b ?? 0) }));
@@ -102,6 +118,7 @@ export class Editor {
   afterRestore() {
     this.sel = new Set([...this.sel].filter(i => i < this.track.points.length));
     if (this.selProp >= this.track.props.length) this.selProp = -1;
+    if (this.selLine && !this.lineById(this.selLine)) this.selLine = null;
     if (this.selZone >= this.track.zones.length) this.selZone = -1;
     $('ed-name').value = this.track.name;
     this.changed(true);
@@ -130,10 +147,11 @@ export class Editor {
     try {
       this.T = sampleTrack(t);
       raiseTrackOverRoads(t, this.T);
-      this.A = analyzeTrack(this.T, t.env);
+      this.A = analyzeTrack(this.T, t.env, t.paint);
       this.pit = buildPitLane(this.T, this.A, t.env);
       this.A.pit = this.pit;
       applyRoadsToCircuit(t, this.T, this.A);
+      this.A.run = runoffLayout(this.T, this.A, t);
     } catch (e) { console.error(e); this.T = this.A = this.pit = null; this.chunks = []; return; }
     // node -> lap distance
     const T = this.T;
@@ -161,7 +179,7 @@ export class Editor {
     this.lapT = setTimeout(() => {
       if (!this.active || !this.T) return;
       const O = computeRacingLine(this.T, 1.8, 160);
-      this.lapEst = computeSpeedProfile(this.T, O, { mu: CARSPEC.mu * 0.97, kdm: CARSPEC.kd / CARSPEC.mass, vmax: 92 }).lapEstimate;
+      this.lapEst = computeSpeedProfile(this.T, O, { mu: CARSPEC.mu * 0.97 * (this.track.env.surface === 'dirt' ? 0.68 : 1), kdm: CARSPEC.kd / CARSPEC.mass, vmax: 92 }).lapEstimate; // (dirt: race.js SURFACES.dirt)
       this.refreshStats();
     }, 300);
     if (fit) this.fit();
@@ -220,9 +238,7 @@ export class Editor {
     $('ed-name').addEventListener('input', (e) => { this.track.name = e.target.value || 'Untitled'; this.saveWork(); });
     $('ed-file').addEventListener('change', (e) => this.importFile(e.target.files[0]));
 
-    const pal = $('ed-palette');
-    pal.innerHTML = Object.entries(PROP_TYPES).map(([k, v]) => `<button data-prop="${k}"><i style="background:${v.color}"></i>${v.label}</button>`).join('');
-    pal.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { this.propType = b.dataset.prop; this.updatePalette(); sfx.move(); }));
+    loadEnvModels().then(() => { if (this.active) { this.renderNodeTab(); this.scheduleScenery(0); } }); // (house swatches, model sizes)
 
     const cv = this.canvas;
     cv.addEventListener('contextmenu', e => e.preventDefault());
@@ -253,19 +269,19 @@ export class Editor {
     this.tool = t;
     this.placing = false;
     document.querySelectorAll('#s-editor [data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
-    $('ed-palette').classList.toggle('on', t === 'props');
     const nb = document.querySelector('.ed-tabs [data-tab="node"]');
-    if (nb) nb.textContent = t === 'zones' ? 'ZONE' : t === 'paint' ? 'PAINT' : t === 'roads' ? 'ROAD' : t === 'props' ? 'ITEM' : 'NODE';
-    if (t === 'zones' || t === 'paint' || t === 'roads' || t === 'props') { this.showTab('node'); }
+    if (nb) nb.textContent = t === 'zones' ? 'ZONE' : t === 'paint' ? 'PAINT' : t === 'roads' ? 'ROAD' : t === 'props' ? 'PROPS' : t === 'sculpt' ? 'SCULPT' : 'NODE';
+    if (t === 'zones' || t === 'paint' || t === 'roads' || t === 'props' || t === 'sculpt') { this.showTab('node'); }
     if (this.track) this.renderNodeTab();
     this.updatePalette();
     const hints = {
       draw: '<b>DRAW</b> &mdash; hold the left mouse button and sketch a loop. Release to turn it into a circuit. The end joins back to the start automatically.',
       edit: '<b>EDIT</b> &mdash; drag nodes to reshape. <b>Double-click</b> the road to add a node, <b>DEL</b> removes. <b>Shift</b>+click or drag a box to multi-select, then tune width / elevation / banking on the right.',
-      props: '<b>PROPS</b> &mdash; pick an item below and click to place. Click any <b>building</b> (zones, imported, placed) to select it: drag to move, <b>Q/E</b> rotate, <b>DEL</b> removes. Right-click removes a prop.',
+      props: '<b>PROPS</b> &mdash; pick something on the right and click the map to place it (houses and buildings turn to face the nearest road), or <b>drag</b> to draw a line of props, as far apart as you set. Click any <b>building</b> or prop to select it: drag to move, <b>Q/E</b> rotate, <b>DEL</b> or right-click removes. Selected houses can be <b>painted</b> on the right.',
+      sculpt: '<b>SCULPT</b> &mdash; drag to raise, lower, smooth or flatten the land. Each stroke adds the strength once; go over it again for more. The track and its runoff never move: hills blend into the embankments. <b>[ ]</b> brush size.',
       pan: '<b>PAN</b> &mdash; drag to move the map. Scroll to zoom. (Right-drag pans in every tool.)',
       roads: '<b>ROADS</b> &mdash; drag to draw a street. Click a road to select it: drag its <b>nodes</b> to reshape it, <b>double-click</b> the road to add a node, <b>DEL</b> removes the picked node (or the road). Drag the road itself to move it.',
-      paint: '<b>PAINT</b> &mdash; drag to paint <b>grass</b> onto the ground, or pick <b>Nature</b> to paint trees and plants (cherry blossom, pine forest, autumn, meadow, rocks...). Cars on painted grass get grass grip. <b>Erase</b> removes paint and nature. Brush size on the right, <b>[ ]</b> to resize.',
+      paint: '<b>PAINT</b> &mdash; drag to paint <b>grass</b>, <b>paved</b> runoff or <b>gravel</b> (past the barrier, it moves back), <b>Nature</b> (trees and plants), a street of <b>Houses</b> or a <b>Crowd</b> of spectators. <b>Erase</b> removes anything under it: grass, every tree and plant (painted or from the World tab) and buildings. <b>[ ]</b> brush size.',
       zones: '<b>ZONES</b> &mdash; draw a line and buildings spawn along it. Pick the type, height, spacing and side on the right. Click a zone line to select it, drag to move it, <b>DEL</b> removes.',
     };
     if (this.track && this.track.open) {
@@ -274,7 +290,7 @@ export class Editor {
     }
     this.hints = hints;
     this.setHint();
-    this.canvas.style.cursor = t === 'pan' ? 'grab' : t === 'draw' || t === 'paint' || t === 'roads' ? 'crosshair' : 'default';
+    this.canvas.style.cursor = t === 'pan' ? 'grab' : t === 'draw' || t === 'paint' || t === 'roads' || t === 'sculpt' ? 'crosshair' : 'default';
     this.dirty = true;
   }
   setHint() {
@@ -284,7 +300,7 @@ export class Editor {
     $('ed-hint').innerHTML = h[this.tool];
   }
   updatePalette() {
-    document.querySelectorAll('#ed-palette button').forEach(b => b.classList.toggle('on', b.dataset.prop === this.propType));
+    document.querySelectorAll('#pr-grid [data-prop]').forEach(b => b.classList.toggle('on', b.dataset.prop === this.propType));
   }
   showTab(t) {
     document.querySelectorAll('.ed-tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
@@ -303,6 +319,7 @@ export class Editor {
     switch (a) {
       case 'new': this.push(); { const n = newTrack('New Circuit'); n.env = { ...t.env }; if (t.open) { n.open = true; n.points = []; } this.track = n; } $('ed-name').value = this.track.name; this.sel.clear(); this.selProp = -1; this.changed(true); this.fit(); this.setTool('draw'); this.toast(this.track.open ? 'NEW TRACK — DRAW IT FROM START TO FINISH' : 'NEW CIRCUIT — DRAW A LOOP'); break;
       case 'presets': this.modalList('Presets', [
+        ...realTracks().map(p => ({ title: p.name + ' (real)', desc: p.desc || p.real.country, pick: () => hydrateReal(cloneTrack(p)).then(t => this.load(t), () => this.toast('COULD NOT LOAD THE CIRCUIT DATA')) })),
         ...presetTracks().map(p => ({ title: p.name, desc: p.desc || `${THEMES[p.env.theme].label} · ${p.env.time} · ${p.env.weather}`, pick: () => this.load(p) })),
         ...archivedTracks().map(p => ({ title: p.name + ' (archived)', desc: `Old built-in ${p.open ? 'track' : 'circuit'} · ${THEMES[p.env.theme].label} · ${p.env.time} · ${p.env.weather}`, pick: () => this.load(p) })),
       ]); break;
@@ -462,7 +479,8 @@ export class Editor {
     const P = this.track.props;
     let best = -1, bd = Infinity;
     for (let i = 0; i < P.length; i++) {
-      const r = Math.max(PROP_TYPES[P[i].type]?.r || 3, 8 / this.view.scale);
+      const tp = isTrackProp(P[i].type) && trackPropFamily(P[i].type);
+      const r = Math.max(PROP_TYPES[P[i].type]?.r || (tp ? Math.max(tp.w * (P[i].sx || 1), tp.d) / 2 : 3), 8 / this.view.scale);
       const d = Math.hypot(P[i].x - wx, P[i].z - wz);
       if (d < r && d < bd) { bd = d; best = i; }
     }
@@ -482,8 +500,13 @@ export class Editor {
     const sx = e.offsetX, sy = e.offsetY;
     const [wx, wz] = this.s2w(sx, sy);
     if (e.button === 2 && this.tool === 'props') {
+      const lh = this.hitLine(wx, wz, sx, sy);
+      if (lh && lh.node >= 0) { if (lh.L.pts.length > 2) { this.push(); lh.L.pts.splice(lh.node, 1); this.regenLine(lh.L); sfx.del(); this.changed(); this.renderItemTab(); } return; }
+      if (lh) { this.push(); this.removeLine(lh.L); sfx.del(); this.changed(); this.renderItemTab(); this.toast('LINE REMOVED'); return; }
       const h = this.hitProp(wx, wz);
       if (h >= 0) { this.push(); this.track.props.splice(h, 1); this.selProp = -1; sfx.del(); this.changed(); return; }
+      const hb = this.hitBuilding(wx, wz);
+      if (hb) { this.selBld = hb; this.deleteBuilding(); return; }
     }
     if (e.button === 1 || e.button === 2 || this.tool === 'pan' || e.altKey) {
       this.drag = { type: 'pan', sx, sy, cx: this.view.cx, cz: this.view.cz };
@@ -530,9 +553,17 @@ export class Editor {
       this.dirty = true;
       return;
     }
+    if (this.tool === 'sculpt') {
+      const m = this.sculptMode;
+      this.drag = { type: 'sculpt', stroke: { m, r: Math.round(this.sculptR), k: m === 'up' || m === 'down' ? this.sculptK : this.sculptS, pts: [[+wx.toFixed(1), +wz.toFixed(1)]] } };
+      this.dirty = true;
+      return;
+    }
     if (this.tool === 'paint') {
       const kind = this.paintKind || 'grass', stroke = { kind, r: this.brush || 12, pts: [[+wx.toFixed(1), +wz.toFixed(1)]] };
       if (kind === 'flora') Object.assign(stroke, { mix: this.floraMix || 'blossom', d: this.floraDens ?? 0.6, seed: 1 + Math.floor(Math.random() * 1e6) });
+      if (kind === 'erase') stroke.what = this.eraseWhat || 'gnb';
+      if (kind === 'crowd') Object.assign(stroke, { d: this.crowdDens ?? 0.5, seed: 1 + Math.floor(Math.random() * 1e6) });
       this.drag = { type: 'paint', stroke };
       this.dirty = true;
       return;
@@ -550,6 +581,15 @@ export class Editor {
       return;
     }
     if (this.tool === 'props') {
+      // a line: a node of the picked one (reshape), or the line / one of its props (pick it, and move it all)
+      const lh = this.hitLine(wx, wz, sx, sy);
+      if (lh) {
+        this.selLine = lh.L.id; this.selProp = -1; this.selBld = null;
+        this.drag = lh.node >= 0 ? { type: 'lnode', L: lh.L, k: lh.node, moved: false } : { type: 'lmove', L: lh.L, wx, wz, pts0: lh.L.pts.map(q => [...q]), moved: false };
+        this.renderItemTab(); this.dirty = true; sfx.move();
+        return;
+      }
+      this.selLine = null;
       const h = this.hitProp(wx, wz);
       const hb = h < 0 ? this.hitBuilding(wx, wz) : null;
       if (hb) { // select a building (zone / imported / detached)
@@ -563,18 +603,12 @@ export class Editor {
         this.selProp = h;
         const p = this.track.props[h];
         this.drag = { type: 'prop', i: h, dx: p.x - wx, dz: p.z - wz, moved: false };
-      } else {
-        this.push();
+        this.renderItemTab(); sfx.move(); // (its picture and settings, straight away)
+      } else if (this.modelProp()) {
+        this.placeModel(...this.snapPt(wx, wz));
+      } else { // (a prop, or a line of them if you drag: placed when the button comes up, finishPropLine)
         const [x, z] = this.snapPt(wx, wz);
-        let rot = this.propRot;
-        if (['grandstand', 'billboard'].includes(this.propType) && this.T) {
-          const ns = this.nearestSample(x, z);
-          rot = Math.atan2(this.T.X[ns.i] - x, this.T.Z[ns.i] - z);
-        }
-        this.track.props.push({ type: this.propType, x, z, rot });
-        this.selProp = this.track.props.length - 1;
-        sfx.place();
-        this.changed();
+        this.drag = { type: 'pline', x0: x, z0: z, x1: x, z1: z };
       }
       this.dirty = true;
     }
@@ -590,7 +624,7 @@ export class Editor {
     this.mouse.wx = wx; this.mouse.wz = wz;
     const d = this.drag;
     if (this.profileDrag) return this.onProfileDrag(e);
-    if (!d) { this.hoverNode = this.tool === 'edit' ? this.hitNode(sx, sy) : -1; this.dirty = true; return; }
+    if (!d) { this.hoverNode = this.tool === 'edit' ? this.hitNode(sx, sy) : -1; this.hoverBld = this.tool === 'props' && (this.hitProp(wx, wz) >= 0 || !!this.hitBuilding(wx, wz)); this.dirty = true; return; }
     if (d.type === 'pan') {
       this.view.cx = d.cx - (sx - d.sx) / this.view.scale;
       this.view.cz = d.cz - (sy - d.sy) / this.view.scale;
@@ -613,12 +647,21 @@ export class Editor {
         const sb = this.scen && this.scen.buildings.find(q => q.from === 'custom' && q.ci === this.selBld.ci);
         if (sb) { sb.p.forEach(q => { q[0] += dx; q[1] += dz; }); } else this.scheduleScenery(40);
       }
-    } else if (d.type === 'paint') {
+    } else if (d.type === 'paint' || d.type === 'sculpt') {
       const pts = d.stroke.pts, last = pts[pts.length - 1];
       if (Math.hypot(wx - last[0], wz - last[1]) > Math.max(1, d.stroke.r * 0.35)) pts.push([+wx.toFixed(1), +wz.toFixed(1)]);
     } else if (d.type === 'zdraw') {
       const last = d.pts[d.pts.length - 1];
       if (Math.hypot(wx - last[0], wz - last[1]) > 2) d.pts.push([wx, wz]);
+    } else if (d.type === 'pline') {
+      [d.x1, d.z1] = this.snapPt(wx, wz);
+    } else if (d.type === 'lmove') {
+      if (!d.moved) { this.push(); d.moved = true; }
+      const dx = wx - d.wx, dz = wz - d.wz;
+      d.L.pts = d.pts0.map(q => [+(q[0] + dx).toFixed(1), +(q[1] + dz).toFixed(1)]); this.regenLine(d.L);
+    } else if (d.type === 'lnode') {
+      if (!d.moved) { this.push(); d.moved = true; }
+      const [x, z] = this.snapPt(wx, wz); d.L.pts[d.k] = [+x.toFixed(1), +z.toFixed(1)]; this.regenLine(d.L);
     } else if (d.type === 'zmove') {
       if (!d.moved) { this.push(); d.moved = true; }
       const z = this.track.zones[d.i];
@@ -653,16 +696,20 @@ export class Editor {
     this.drag = null;
     if (this.profileDrag) { this.profileDrag = null; this.changed(true); return; }
     if (!d) return;
-    this.canvas.style.cursor = this.tool === 'pan' ? 'grab' : this.tool === 'draw' ? 'crosshair' : 'default';
+    this.canvas.style.cursor = this.tool === 'pan' ? 'grab' : ['draw', 'paint', 'roads', 'sculpt'].includes(this.tool) ? 'crosshair' : 'default';
     if (d.type === 'rdraw') this.finishRoad(d.pts);
     else if ((d.type === 'rmove' || d.type === 'rnode') && d.moved) { this.changed(); this.scheduleScenery(0); }
     else if (d.type === 'bld' && d.moved) { this.changed(); this.scheduleScenery(0); }
-    if (d.type === 'paint') { this.push(); this.track.paint.push(d.stroke); sfx.place(); this.changed(); this.renderNodeTab(); if (this.track.paint.some(s => s.kind === 'flora')) this.scheduleScenery(0); }
+    if (d.type === 'paint' && d.stroke.kind === 'houses') this.paintHouses(d.stroke);
+    else if (d.type === 'paint') { this.push(); if (d.stroke.kind === 'erase') this.eraseUnder(d.stroke); this.track.paint.push(d.stroke); sfx.place(); this.changed(); this.renderNodeTab(); this.scheduleScenery(0); }
+    else if (d.type === 'sculpt') { this.push(); this.track.sculpt.push(d.stroke); this.sculptView = null; sfx.place(); this.changed(); this.renderNodeTab(); }
     else if (d.type === 'draw') this.finishDraw(d.pts);
     else if (d.type === 'zdraw') this.finishZone(d.pts);
     else if (d.type === 'zmove' && d.moved) this.changed();
     else if (d.type === 'nodes' && d.moved) this.changed(true);
     else if (d.type === 'prop' && d.moved) this.changed();
+    else if (d.type === 'pline') this.finishPropLine(d);
+    else if ((d.type === 'lmove' || d.type === 'lnode') && d.moved) { this.changed(); this.renderItemTab(); }
     else if (d.type === 'box') {
       const x0 = Math.min(d.sx, d.ex), x1 = Math.max(d.sx, d.ex), y0 = Math.min(d.sy, d.ey), y1 = Math.max(d.sy, d.ey);
       if (!d.add) this.sel.clear();
@@ -677,6 +724,7 @@ export class Editor {
 
   onDbl(e) {
     if (this.tool === 'roads') return this.insertRoadNode(...this.s2w(e.offsetX, e.offsetY));
+    if (this.tool === 'props') return this.insertLineNode(...this.s2w(e.offsetX, e.offsetY));
     if (this.tool !== 'edit') return;
     const [wx, wz] = this.s2w(e.offsetX, e.offsetY);
     if (this.hitNode(e.offsetX, e.offsetY) >= 0) return;
@@ -790,14 +838,17 @@ export class Editor {
     if (e.code === 'Digit5') this.setTool('pan');
     if (e.code === 'Digit6') this.setTool('paint');
     if (e.code === 'Digit7') this.setTool('roads');
+    if (e.code === 'Digit8') this.setTool('sculpt');
     if (this.tool === 'paint' && (e.code === 'BracketLeft' || e.code === 'BracketRight')) { this.brush = Math.max(2, Math.min(80, (this.brush || 12) * (e.code === 'BracketRight' ? 1.25 : 0.8))); this.renderNodeTab(); this.dirty = true; }
+    if (this.tool === 'sculpt' && (e.code === 'BracketLeft' || e.code === 'BracketRight')) { this.sculptR = Math.max(8, Math.min(150, this.sculptR * (e.code === 'BracketRight' ? 1.25 : 0.8))); this.renderNodeTab(); this.dirty = true; }
     if (e.code === 'KeyF') this.fit();
     if (e.code === 'KeyG') this.action('grid');
     if ((e.code === 'Escape' || e.code === 'Enter') && this.placing) { this.placing = false; this.setHint(); if (e.code === 'Enter') return; }
-    if (e.code === 'Escape') { this.sel.clear(); this.selProp = -1; this.selBld = null; this.selRoad = -1; this.renderPanels(); this.dirty = true; }
+    if (e.code === 'Escape') { this.sel.clear(); this.selProp = -1; this.selBld = null; this.selRoad = -1; this.selLine = null; this.renderPanels(); this.dirty = true; }
     if (e.code === 'Delete' || e.code === 'Backspace') {
       e.preventDefault();
-      if (this.tool === 'props' && this.selProp >= 0) { this.push(); this.track.props.splice(this.selProp, 1); this.selProp = -1; sfx.del(); this.changed(); }
+      if (this.tool === 'props' && this.selLine && this.lineById(this.selLine)) { this.push(); this.removeLine(this.lineById(this.selLine)); sfx.del(); this.changed(); this.renderItemTab(); }
+      else if (this.tool === 'props' && this.selProp >= 0) { this.push(); this.track.props.splice(this.selProp, 1); this.selProp = -1; sfx.del(); this.changed(); }
       else if (this.tool === 'props' && this.selBld) this.deleteBuilding();
       else if (this.tool === 'roads' && this.selRoad >= 0 && this.selRoadNode >= 0) this.deleteRoadNode();
       else if (this.tool === 'roads' && this.selRoad >= 0) this.deleteRoad();
@@ -806,9 +857,11 @@ export class Editor {
     }
     if ((e.code === 'KeyQ' || e.code === 'KeyE') && this.tool === 'props') {
       const d = (e.code === 'KeyQ' ? -1 : 1) * Math.PI / 12;
-      if (this.selProp >= 0) { this.push(); this.track.props[this.selProp].rot += d; this.changed(); }
+      const Ls = this.selLine && this.lineById(this.selLine);
+      if (Ls) { this.push(); Ls.turn = (Ls.turn || 0) + d; this.regenLine(Ls); this.changed(); }
+      else if (this.selProp >= 0) { this.push(); this.track.props[this.selProp].rot += d; this.changed(); }
       else if (this.selBld) this.rotateBuilding(d);
-      else this.propRot += d;
+      else { this.propRot += d; this.nextRot = null; }
       this.dirty = true;
     }
   }
@@ -1215,6 +1268,46 @@ export class Editor {
     });
   }
 
+  // the runoff each side, out to the barrier, with its paved, gravel and painted grass (runoff.js), as quads from
+  // sample to sample in world units (built once per layout, drawn under the view's transform)
+  runoffPaths() {
+    const T = this.T, A = this.A, L = A && A.run;
+    if (!L) return null;
+    if (this.runP && this.runP.L === L) return this.runP;
+    const P = { L, ground: new Path2D(), kinds: [new Path2D(), new Path2D(), new Path2D()] }, N = T.N, C = L.C;
+    const pt = (i, side, t) => { const s = side * (T.W[i] / 2 + t); return [T.X[i] + T.RX[i] * s, T.Z[i] + T.RZ[i] * s]; };
+    const quad = (path, i, j, side, a0, a1, b0, b1) => {
+      const p = [pt(i, side, a0), pt(i, side, a1), pt(j, side, b1), pt(j, side, b0)];
+      path.moveTo(p[0][0], p[0][1]); for (let k = 1; k < 4; k++) path.lineTo(p[k][0], p[k][1]); path.closePath();
+    };
+    for (let s = 0; s < 2; s++) {
+      const side = s ? 1 : -1, R = L.reach[s];
+      for (let i = 0; i < N; i++) {
+        if (i === T.cut || A.BRIDGE[i]) continue;
+        const j = (i + 1) % N;
+        quad(P.ground, i, j, side, 0, R[i], 0, R[j]);
+        // (each run of cells where one surface covers most)
+        let run = -1, c0 = 0;
+        for (let c = 0; c <= C; c++) {
+          let k = -1;
+          if (c < C) k = runoffCell(L, i, s, c) - 1; // (paved 0, gravel 1, grass 2; the ground -1)
+          if (k === run) continue;
+          if (run >= 0) quad(P.kinds[run], i, j, side, c0 * RUN_RES, c * RUN_RES, c0 * RUN_RES, c * RUN_RES);
+          run = k; c0 = c;
+        }
+      }
+    }
+    return (this.runP = P);
+  }
+  drawRunoff(c) {
+    const P = this.runoffPaths(); if (!P) return;
+    c.save();
+    c.translate(this.W / 2, this.H / 2); c.scale(this.view.scale, this.view.scale); c.translate(-this.view.cx, -this.view.cz);
+    c.fillStyle = THEME_RUN[this.track.env.theme]; c.fill(P.ground);
+    ['rgba(128,130,138,0.95)', 'rgba(214,186,128,0.95)', 'rgba(96,150,70,0.8)'].forEach((col, k) => { c.fillStyle = col; c.fill(P.kinds[k]); });
+    c.restore();
+  }
+
   // ---------------- main draw ----------------
   draw() {
     const c = this.ctx, T = this.T, A = this.A, t = this.track;
@@ -1240,6 +1333,7 @@ export class Editor {
     if (sc > 0.3) drawGrid(10 * (sc > 2 ? 1 : 5), 'rgba(255,255,255,0.035)');
     drawGrid(100, 'rgba(255,255,255,0.06)');
     drawGrid(500, 'rgba(255,255,255,0.11)');
+    this.drawSculpt(c);
     this.drawPaint(c);
     this.drawScenery(c);
 
@@ -1255,9 +1349,7 @@ export class Editor {
     };
     const ground = this.chunks.filter(ch => !ch.bridge);
     const bridges = this.chunks.filter(ch => ch.bridge).sort((a, b) => a.y - b.y);
-    // runoff
-    c.strokeStyle = THEME_RUN[t.env.theme];
-    for (const ch of ground) { c.lineWidth = (ch.w + runoff * 2) * sc; path(ch.idx); c.stroke(); }
+    this.drawRunoff(c);
     this.drawRoads(c); // (over the runoff: roads run up to the track edge)
     c.lineJoin = 'round'; c.lineCap = 'round';
     // barriers
@@ -1282,7 +1374,8 @@ export class Editor {
         if (deck) { c.strokeStyle = 'rgba(0,0,0,0.45)'; c.lineWidth = (ch.w + 8) * sc; path(ch.idx); c.stroke(); }
         c.strokeStyle = '#000'; c.lineWidth = (ch.w + 1.6) * sc + 2; path(ch.idx); c.stroke();
       }
-      for (const ch of chs) { c.strokeStyle = deck ? '#565a64' : '#43464e'; c.lineWidth = ch.w * sc; path(ch.idx); c.stroke(); }
+      const dirt = this.track.env.surface === 'dirt';
+      for (const ch of chs) { c.strokeStyle = dirt ? (deck ? '#8a6a4a' : '#76583a') : deck ? '#565a64' : '#43464e'; c.lineWidth = ch.w * sc; path(ch.idx); c.stroke(); }
       // kerbs
       if (sc > 0.25) for (const ch of chs) for (const side of [-1, 1]) {
         const idx = ch.idx.filter(i => A.KERB[i]);
@@ -1357,12 +1450,37 @@ export class Editor {
     this.drawZoneLines(c);
     // props
     this.drawRoadBridges(c);
-    t.props.forEach((p, i) => this.drawProp(c, p, i === this.selProp && this.tool === 'props'));
-    if (this.tool === 'props' && this.mouse.inside && !this.drag) {
+    t.props.forEach((p, i) => this.drawProp(c, p, (i === this.selProp || (p.ln && p.ln === this.selLine)) && this.tool === 'props'));
+    this.drawLines(c);
+    if (this.tool === 'props' && this.mouse.inside && !this.drag && !this.hoverBld) {
       c.globalAlpha = 0.5;
       const [x, z] = this.snapPt(this.mouse.wx, this.mouse.wz);
-      this.drawProp(c, { type: this.propType, x, z, rot: this.propRot }, false);
+      if (this.modelProp()) {
+        const a = this.pendingModel();
+        if (a) {
+          const rot = this.faceRot(x, z), p = modelFootprint(a, x, z, rot);
+          c.beginPath(); p.forEach((q, k) => { const [sx, sy] = this.w2s(q[0], q[1]); k ? c.lineTo(sx, sy) : c.moveTo(sx, sy); }); c.closePath();
+          c.fillStyle = a.paint ? '#e0a060' : STYLE_COLORS[styleOf(a)] || '#999'; c.fill();
+          c.globalAlpha = 0.9; c.strokeStyle = '#ffd66b'; c.lineWidth = 1.5; c.setLineDash([4, 3]); c.stroke(); c.setLineDash([]);
+          // front door side
+          const [fx, fy] = this.w2s((p[2][0] + p[3][0]) / 2, (p[2][1] + p[3][1]) / 2), [mx, my] = this.w2s(x, z);
+          c.beginPath(); c.moveTo(mx, my); c.lineTo(fx, fy); c.stroke();
+        }
+      } else { const p = this.propAt(this.propType, x, z); if (p) this.drawProp(c, p, false); }
       c.globalAlpha = 1;
+    }
+    // a line of props being drawn: where each one will go, and how far apart
+    if (this.drag && this.drag.type === 'pline') {
+      const d = this.drag, L = Math.hypot(d.x1 - d.x0, d.z1 - d.z0);
+      const list = L < 2.5 ? [this.propAt(this.propType, d.x0, d.z0)] : this.propLine(d.x0, d.z0, d.x1, d.z1);
+      c.globalAlpha = 0.6; list.forEach(p => p && this.drawProp(c, p, false)); c.globalAlpha = 1;
+      if (L >= 2.5) {
+        const [ax, ay] = this.w2s(d.x0, d.z0), [bx, by] = this.w2s(d.x1, d.z1);
+        c.strokeStyle = '#ffd66b'; c.lineWidth = 1.5; c.setLineDash([5, 4]); c.beginPath(); c.moveTo(ax, ay); c.lineTo(bx, by); c.stroke(); c.setLineDash([]);
+        const txt = `${list.length} · ${+this.lineGapFor(this.propType).toFixed(1)} m apart`;
+        c.font = '600 12px ' + getComputedStyle(document.body).getPropertyValue('--f-body'); c.textAlign = 'left'; c.textBaseline = 'middle';
+        c.lineWidth = 3; c.strokeStyle = 'rgba(0,0,0,.8)'; c.strokeText(txt, bx + 12, by); c.fillStyle = '#ffd66b'; c.fillText(txt, bx + 12, by);
+      }
     }
 
     // nodes
@@ -1429,10 +1547,13 @@ export class Editor {
     for (const b of S.buildings) {
       if (!vis(b.p[0])) continue;
       poly(b.p);
-      c.fillStyle = b.biz ? BUSINESSES[b.biz].color : b.lm ? '#b89ad8' : STYLE_COLORS[b.s] || '#999';
+      const house = this.isHouse(b), look = house && houseLook(b.hv, ...centroid(b.p));
+      // (a PSX house from above: its roof, with its walls round the edge)
+      c.fillStyle = house ? ROOF_COL[look.r - 1] : b.hv && b.hv.c ? b.hv.c : b.biz ? BUSINESSES[b.biz].color : b.lm ? '#b89ad8' : STYLE_COLORS[b.s] || '#999';
       c.globalAlpha = b.from === 'zone' && b.zi === selZ ? 1 : 0.85;
       c.fill();
       c.globalAlpha = 1;
+      if (house && sc > 0.5) { c.strokeStyle = look.c || WALL_COL[look.w - 1]; c.lineWidth = Math.max(1.5, 1.6 * sc); c.stroke(); }
       const picked = this.selBld && this.tool === 'props' && (this.selBld.from === 'custom' ? b.from === 'custom' && b.ci === this.selBld.ci : b.key === this.selBld.key);
       c.strokeStyle = picked ? '#ffd66b' : b.from === 'zone' && b.zi === selZ ? '#ffd66b' : 'rgba(0,0,0,0.7)';
       c.lineWidth = picked ? 3 : 1;
@@ -1458,7 +1579,7 @@ export class Editor {
     // lane
     c.beginPath();
     idx.forEach((i, k) => { const [x, y] = pt(i, T.W[i] / 2); k ? c.lineTo(x, y) : c.moveTo(x, y); });
-    for (let k = idx.length - 1; k >= 0; k--) { const i = idx[k]; const [x, y] = pt(i, p.CEN[i] + p.width / 2); c.lineTo(x, y); }
+    for (let k = idx.length - 1; k >= 0; k--) { const i = idx[k]; const [x, y] = pt(i, p.OUT ? p.OUT[i] : p.CEN[i] + p.width / 2); c.lineTo(x, y); }
     c.closePath(); c.fillStyle = '#50535c'; c.fill();
     // garages
     const main = idx.filter(i => !isNaN(p.WALL[i]));
@@ -1501,7 +1622,174 @@ export class Editor {
     }
   }
 
+  // ---------------- placing props: a click, or a line of them (drag) ----------------
+  tpFam(type) { const cls = type.slice(3); return trackPropFamilies().find(f => f.cls === cls) || null; }
+  // a prop of this type at (x, z): turned to face the track (stands, boards, the race-track pack's pieces) or, for the
+  // pieces that go over the track (gantries, arches) dropped on or near it, centred across it and stretched to its
+  // width (marked over: true, dropped before it's kept). k: its place in a line (a family with several looks takes
+  // them in turn, unless one's picked)
+  propAt(type, x, z, k = 0, look, seed = this.tpSeed) {
+    let id = type;
+    if (type.startsWith('tp:')) {
+      const f = this.tpFam(type); if (!f) return null;
+      const pick = look === undefined ? this.tpPick[f.cls] : look;
+      id = pick && f.ids.includes(pick) ? pick : f.ids[(seed + k) % f.ids.length];
+    }
+    const p = { type: id, x: +x.toFixed(1), z: +z.toFixed(1), rot: this.propRot };
+    if (!this.T) return p;
+    const T = this.T, ns = this.nearestSample(x, z), i = ns.i, fam = isTrackProp(id) ? trackPropFamily(id) : null;
+    if (fam && fam.span && ns.d < T.W[i] / 2 + 4) {
+      p.x = +T.X[i].toFixed(1); p.z = +T.Z[i].toFixed(1); p.rot = +Math.atan2(T.FX[i], T.FZ[i]).toFixed(3);
+      const sx = (T.W[i] + 3) / fam.w; if (sx > 1.02) p.sx = +sx.toFixed(3);
+      p.over = true;
+    } else if (fam || ['grandstand', 'billboard', 'bleachers'].includes(type)) p.rot = +Math.atan2(T.X[i] - x, T.Z[i] - z).toFixed(3);
+    return p;
+  }
+  // how far apart a line of them goes: the slider, or by default the prop's width and a little room
+  lineGapFor(type) {
+    if (this.lineGap != null) return this.lineGap;
+    if (type.startsWith('tp:')) { const f = this.tpFam(type); return f ? +(f.w + f.gap).toFixed(1) : 8; }
+    const def = PROP_TYPES[type]; if (!def) return 8;
+    return def.w ? def.w + (def.back ? 0.2 : 1) : Math.max(2, (def.r || 2) * 2.2); // (bleachers: side by side)
+  }
+  // the props a line from (x0, z0) to (x1, z1) would get (drawing one: the preview), as lineProps lays them out
+  propLine(x0, z0, x1, z1) {
+    const f = this.propType.startsWith('tp:') && this.tpFam(this.propType);
+    return this.lineProps({ id: 0, type: this.propType, pts: [[x0, z0], [x1, z1]], gap: this.lineGapFor(this.propType), look: f ? this.tpPick[f.cls] || '' : '', seed: this.tpSeed });
+  }
+  // a click: one prop; a drag: a line of them, kept as a line (it can be moved, reshaped and re-spaced after)
+  finishPropLine(d) {
+    const len = Math.hypot(d.x1 - d.x0, d.z1 - d.z0), t = this.track;
+    if (len < 2.5) {
+      const p = this.propAt(this.propType, d.x0, d.z0); if (!p) return;
+      const { over, ...q } = p;
+      this.push(); t.props.push(q); this.selProp = t.props.length - 1;
+    } else {
+      const f = this.propType.startsWith('tp:') && this.tpFam(this.propType);
+      const L = { id: 1 + Math.max(0, ...t.propLines.map(q => q.id)), type: this.propType, pts: [[+d.x0.toFixed(1), +d.z0.toFixed(1)], [+d.x1.toFixed(1), +d.z1.toFixed(1)]],
+        gap: +this.lineGapFor(this.propType).toFixed(1), look: f ? this.tpPick[f.cls] || '' : '', seed: this.tpSeed };
+      this.push(); t.propLines.push(L); this.regenLine(L);
+      this.selLine = L.id; this.selProp = -1;
+      this.toast(`${t.props.filter(p => p.ln === L.id).length} PLACED · ${L.gap} M APART · CLICK THE LINE TO EDIT IT`);
+    }
+    this.tpSeed = Math.floor(Math.random() * 1e6); // (the next one: another look)
+    sfx.place(); this.changed(); this.renderItemTab();
+  }
+
+  // ---------------- lines of props ----------------
+  // A line drawn with PROPS stays a line (track.propLines): { id, type (what the PROPS tool placed: a PROP_TYPES key
+  // or 'tp:<family>'), pts [[x, z], ...] (two or more nodes), gap (m), look ('' mixed, or one asset id), seed, flip
+  // (face away from the track), turn, crowd / fill (stands), light (floodlights) }. Its props are ordinary props, each
+  // marked ln: the line's id (so everything that reads track.props, the world, the crowd, sees them), made again from
+  // the line whenever it changes.
+  lineById(id) { return (this.track.propLines || []).find(L => L.id === id) || null; }
+  lineProps(L) {
+    const P = L.pts, gap = Math.max(0.5, L.gap), segs = [];
+    let tot = 0;
+    for (let i = 0; i + 1 < P.length; i++) { const l = Math.hypot(P[i + 1][0] - P[i][0], P[i + 1][1] - P[i][1]); segs.push({ i, s0: tot, l }); tot += l; }
+    if (!segs.length) return [];
+    // each stretch faces the track from its side of it (or the other way, flipped)
+    const side = segs.map(sg => {
+      const a = P[sg.i], b = P[sg.i + 1], ux = (b[0] - a[0]) / (sg.l || 1), uz = (b[1] - a[1]) / (sg.l || 1);
+      let nx = -uz, nz = ux;
+      if (this.T) { const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, ns = this.nearestSample(mx, mz); if ((this.T.X[ns.i] - mx) * nx + (this.T.Z[ns.i] - mz) * nz < 0) { nx = -nx; nz = -nz; } }
+      return L.flip ? [-nx, -nz] : [nx, nz];
+    });
+    const out = [];
+    for (let k = 0; k < 300; k++) {
+      const s = k * gap; if (s > tot + 1e-6) break;
+      let j = segs.findIndex(sg => s <= sg.s0 + sg.l + 1e-6); if (j < 0) j = segs.length - 1;
+      const sg = segs[j], a = P[sg.i], b = P[sg.i + 1], f = sg.l ? (s - sg.s0) / sg.l : 0;
+      const p = this.propAt(L.type, a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, k, L.look, L.seed); if (!p) continue;
+      const faces = isTrackProp(p.type) || ['grandstand', 'billboard', 'bleachers'].includes(p.type);
+      if (!p.over) p.rot = +((faces ? Math.atan2(side[j][0], side[j][1]) : p.rot) + (L.turn || 0)).toFixed(3);
+      delete p.over; p.ln = L.id;
+      if (L.crowd === false) p.crowd = false;
+      if (L.fill !== undefined) p.fill = L.fill;
+      if (L.light !== undefined) p.light = L.light;
+      out.push(p);
+    }
+    return out;
+  }
+  regenLine(L) { const t = this.track; t.props = t.props.filter(p => p.ln !== L.id).concat(this.lineProps(L)); this.dirty = true; }
+  removeLine(L) { const t = this.track; t.props = t.props.filter(p => p.ln !== L.id); t.propLines = t.propLines.filter(q => q !== L); if (this.selLine === L.id) this.selLine = null; this.selProp = -1; }
+  // what's under the pointer: a node of the picked line, else a line (on it, or one of its props). { L, node } or null
+  hitLine(wx, wz, sx, sy) {
+    const t = this.track, L0 = this.selLine && this.lineById(this.selLine);
+    if (L0) for (let k = 0; k < L0.pts.length; k++) { const [x, y] = this.w2s(L0.pts[k][0], L0.pts[k][1]); if ((x - sx) ** 2 + (y - sy) ** 2 < 100) return { L: L0, node: k }; }
+    const h = this.hitProp(wx, wz);
+    if (h >= 0 && t.props[h].ln) { const L = this.lineById(t.props[h].ln); if (L) return { L, node: -1 }; }
+    const tol = Math.max(2, 7 / this.view.scale);
+    for (const L of t.propLines) for (let i = 0; i + 1 < L.pts.length; i++) if (segDist(wx, wz, L.pts[i], L.pts[i + 1]) < tol) return { L, node: -1 };
+    return null;
+  }
+  // double-click on the picked line: a node there
+  insertLineNode(wx, wz) {
+    const L = this.selLine && this.lineById(this.selLine); if (!L) return;
+    let best = -1, bd = Math.max(2, 9 / this.view.scale);
+    for (let i = 0; i + 1 < L.pts.length; i++) { const d = segDist(wx, wz, L.pts[i], L.pts[i + 1]); if (d < bd) { bd = d; best = i; } }
+    if (best < 0) return;
+    this.push(); L.pts.splice(best + 1, 0, [+wx.toFixed(1), +wz.toFixed(1)]); this.regenLine(L); sfx.place(); this.changed(); this.renderItemTab();
+  }
+  drawLines(c) {
+    const on = this.tool === 'props';
+    for (const L of this.track.propLines || []) {
+      const sel = on && L.id === this.selLine;
+      c.beginPath(); L.pts.forEach((q, k) => { const [x, y] = this.w2s(q[0], q[1]); k ? c.lineTo(x, y) : c.moveTo(x, y); });
+      c.lineWidth = sel ? 2 : 1; c.strokeStyle = sel ? '#ffd66b' : 'rgba(255,214,107,.35)'; c.setLineDash([5, 4]); c.stroke(); c.setLineDash([]);
+      if (sel) L.pts.forEach(q => { const [x, y] = this.w2s(q[0], q[1]); c.fillStyle = '#ffd66b'; c.strokeStyle = '#000'; c.lineWidth = 1.5; c.fillRect(x - 5, y - 5, 10, 10); c.strokeRect(x - 5, y - 5, 10, 10); });
+    }
+  }
+  // the picked line's panel: spacing, look, facing, the stands' crowd, the floodlights' strength
+  renderLinePanel() {
+    const el = $('tab-node'), t = this.track, L = this.lineById(this.selLine);
+    const fam = L.type.startsWith('tp:') ? this.tpFam(L.type) : null, def = PROP_TYPES[L.type];
+    const label = fam ? fam.label : def ? def.label : L.type, n = t.props.filter(p => p.ln === L.id).length;
+    let len = 0; for (let i = 0; i + 1 < L.pts.length; i++) len += Math.hypot(L.pts[i + 1][0] - L.pts[i][0], L.pts[i + 1][1] - L.pts[i][1]);
+    const stand = fam ? fam.cls.startsWith('stand') : L.type === 'bleachers', light = fam && LIGHT_FAMILIES.includes(fam.cls);
+    const faces = !!fam || ['grandstand', 'billboard', 'bleachers'].includes(L.type);
+    el.innerHTML = `<h4>LINE OF ${esc(label).toUpperCase()}</h4>
+      ${this.cardHtml(L.type, label, `${n} along ${Math.round(len)} m`)}
+      <p class="muted">Drag the line (or any of them) to move it all, a square to reshape it. Double-click the line to add a corner; right-click a corner to take it out.</p>
+      ${fld('Spacing', 'ln-gap', 0.5, 60, 0.5, L.gap, 'm')}
+      ${fam && fam.ids.length > 1 ? `<div class="fld"><label>Look</label><div class="seg" id="ln-look"><button data-v="" class="${!L.look ? 'on' : ''}">Mixed</button>${fam.ids.map((id, k) => `<button data-v="${id}" class="${L.look === id ? 'on' : ''}">${k + 1}</button>`).join('')}</div></div>` : ''}
+      ${faces ? `<div class="fld"><label>Facing</label><div class="seg" id="ln-flip"><button data-v="0" class="${!L.flip ? 'on' : ''}">The track</button><button data-v="1" class="${L.flip ? 'on' : ''}">Away</button></div></div>` : ''}
+      ${stand ? `<div class="fld"><label>Crowd</label><div class="seg" id="ln-crowd"><button data-v="1" class="${L.crowd !== false ? 'on' : ''}">People</button><button data-v="0" class="${L.crowd === false ? 'on' : ''}">Empty</button></div></div>
+      ${L.crowd !== false ? fld('How full', 'ln-fill', 0.1, 1, 0.05, L.fill ?? 0.8, '') : ''}` : ''}
+      ${light ? fld('Light strength', 'ln-light', 0.2, 2, 0.05, L.light ?? 1, '×') : ''}
+      <div class="seg" style="margin-top:4px"><button id="ln-break">Break into single props</button></div>
+      <div class="seg" style="margin-top:8px"><button id="ln-del">Delete line</button><button id="ln-back">Done</button></div>`;
+    this.fillCards();
+    const live = (id, fn, fmt) => { const i = $(id); if (!i) return; i.addEventListener('pointerdown', () => this.push()); i.addEventListener('input', () => { fn(+i.value); $(id + '-v').textContent = fmt(+i.value); this.regenLine(L); }); i.addEventListener('change', () => { this.changed(); this.renderLinePanel(); }); };
+    live('ln-gap', v => L.gap = v, v => v + 'm');
+    live('ln-fill', v => L.fill = v, v => v.toFixed(2));
+    live('ln-light', v => L.light = v, v => v.toFixed(2) + '×');
+    const set = (fn) => { this.push(); fn(); this.regenLine(L); this.changed(); this.renderLinePanel(); };
+    segBind('ln-look', v => set(() => { L.look = v; }));
+    segBind('ln-flip', v => set(() => { L.flip = v === '1'; }));
+    segBind('ln-crowd', v => set(() => { if (v === '1') delete L.crowd; else L.crowd = false; }));
+    $('ln-break').addEventListener('click', () => { this.push(); for (const p of t.props) if (p.ln === L.id) delete p.ln; t.propLines = t.propLines.filter(q => q !== L); this.selLine = null; sfx.move(); this.changed(); this.renderItemTab(); this.toast(`${n} SINGLE PROPS NOW`); });
+    $('ln-del').addEventListener('click', () => { this.push(); this.removeLine(L); sfx.del(); this.changed(); this.renderItemTab(); });
+    $('ln-back').addEventListener('click', () => { this.selLine = null; this.renderItemTab(); this.dirty = true; });
+  }
+  // the race-track pack's pieces on the map: their footprint (stretched over the track if they span it), the front
+  // (the track side) in white, fans in a stand, a lamp's glow
+  drawTrackProp(c, p, sel) {
+    const f = trackPropFamily(p.type); if (!f) return;
+    const sc = this.view.scale, [x, y] = this.w2s(p.x, p.z);
+    const w = Math.max(4, f.w * (p.sx || 1) * sc), d = Math.max(3, f.d * sc);
+    c.save(); c.translate(x, y); c.rotate(-(p.rot || 0));
+    c.fillStyle = f.color; c.fillRect(-w / 2, -d / 2, w, d);
+    c.lineWidth = 2; c.strokeStyle = sel ? '#ffd66b' : '#000'; c.strokeRect(-w / 2, -d / 2, w, d);
+    if (f.cls.startsWith('stand') && p.crowd !== false) { c.fillStyle = 'rgba(232,120,150,.85)'; for (let k = 0; k < 18; k++) c.fillRect(-w / 2 + ((k * 37) % 17 + 0.5) / 17 * w - 1, -d / 2 + ((k * 23) % 11 + 0.5) / 11 * d - 1, 2, 2); }
+    if (f.span) { c.strokeStyle = 'rgba(255,255,255,.7)'; c.lineWidth = 1; c.setLineDash([3, 3]); c.beginPath(); c.moveTo(-w / 2, 0); c.lineTo(w / 2, 0); c.stroke(); c.setLineDash([]); }
+    else { c.fillStyle = '#fff'; c.fillRect(-w / 2, d / 2 - Math.max(1.2, d * 0.12), w, Math.max(1.2, d * 0.12)); }
+    if (LIGHT_FAMILIES.includes(f.cls)) { c.fillStyle = '#ffe9a8'; c.beginPath(); c.arc(0, d / 2, Math.max(2.5, 2 * sc), 0, 7); c.fill(); }
+    c.restore();
+  }
+
   drawProp(c, p, sel) {
+    if (isTrackProp(p.type)) return this.drawTrackProp(c, p, sel);
     const def = PROP_TYPES[p.type]; if (!def) return;
     const sc = this.view.scale;
     const [x, y] = this.w2s(p.x, p.z);
@@ -1510,7 +1798,9 @@ export class Editor {
     c.fillStyle = def.color;
     if (def.w) {
       const w = Math.max(6, def.w * sc), d = Math.max(4, def.d * sc);
+      if (def.back) c.translate(0, -d / 2); // (bleachers: the click is the front edge, the stand goes back from it)
       c.fillRect(-w / 2, -d / 2, w, d); c.strokeRect(-w / 2, -d / 2, w, d);
+      if (def.back) { c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 1; for (let k = 1; k < 6; k++) { const yy = -d / 2 + (d * k) / 6; c.beginPath(); c.moveTo(-w / 2, yy); c.lineTo(w / 2, yy); c.stroke(); } if (p.crowd !== false) { c.fillStyle = 'rgba(232,120,150,.85)'; for (let k = 0; k < 18; k++) c.fillRect(-w / 2 + ((k * 37) % 17 + 0.5) / 17 * w - 1, -d / 2 + ((k * 23) % 11 + 0.5) / 11 * d - 1, 2, 2); } c.fillStyle = '#fff'; c.fillRect(-w / 2, d / 2 - Math.max(1.5, d * 0.1), w, Math.max(1.5, d * 0.1)); }
       if (p.type === 'grandstand' || p.type === 'billboard') { c.fillStyle = '#fff'; c.fillRect(-w / 2, d / 2 - Math.max(1.5, d * 0.15), w, Math.max(1.5, d * 0.15)); }
       if (p.type === 'tower') { c.strokeStyle = 'rgba(0,0,0,.5)'; c.strokeRect(-w / 4, -d / 4, w / 2, d / 2); }
     } else {
@@ -1536,23 +1826,53 @@ export class Editor {
 
   renderPaintTab() {
     const el = $('tab-node'), t = this.track, kind = this.paintKind || 'grass', r = this.brush || 12;
-    const area = t.paint.filter(s => s.kind === 'grass').length, nat = t.paint.filter(s => s.kind === 'flora').length;
-    const mix = this.floraMix || 'blossom', dens = this.floraDens ?? 0.6;
+    const area = t.paint.filter(s => PAINTS[s.kind]).length, nat = t.paint.filter(s => s.kind === 'flora').length, er = t.paint.filter(s => s.kind === 'erase').length, cr = t.paint.filter(s => s.kind === 'crowd').length;
+    const mix = this.floraMix || 'blossom', dens = this.floraDens ?? 0.6, what = this.eraseWhat || 'gnb';
     el.innerHTML = `
       <h4>PAINT</h4>
-      <div class="fld"><label>Brush</label><div class="seg" id="p-kind">${[...Object.entries(PAINTS).map(([k, v]) => [k, v.label]), ['flora', 'Nature'], ['erase', 'Erase']].map(([k, l]) => `<button data-v="${k}" class="${kind === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <div class="fld"><label>Brush</label><div class="seg" id="p-kind">${[...Object.entries(PAINTS).map(([k, v]) => [k, v.label]), ['flora', 'Nature'], ['houses', 'Houses'], ['crowd', 'Crowd'], ['erase', 'Erase']].map(([k, l]) => `<button data-v="${k}" class="${kind === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
       ${kind === 'flora' ? `
       <div class="fld"><label>Mix</label><div class="seg" id="p-mix">${FLORA_KEYS.filter(k => k !== 'auto').map(k => `<button data-v="${k}" class="${mix === k ? 'on' : ''}"><i style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;background:${FLORA[k].color}"></i>${FLORA[k].label}</button>`).join('')}</div></div>
       ${fld('Density', 'p-d', 0.05, 1, 0.05, dens, '')}` : ''}
+      ${kind === 'crowd' ? `${fld('Density', 'p-cd', 0.05, 1, 0.05, this.crowdDens ?? 0.5, '')}
+      <p class="muted">Spectators on their feet, cheering and waving at the cars, turned toward the track. They keep off the track, its runoff, the roads and the pit lane. An eraser stroke clears them.</p>` : ''}
+      ${kind === 'houses' ? `${fld('Gap between houses', 'p-gap', 0, 20, 0.5, this.houseGap ?? 4, 'm')}
+      <p class="muted">A wide brush (16 m or more) lays a row each side of your stroke, facing each other across it like a street. A narrow one lays a single row facing the nearest road or the track. Houses never land on the track or roads, and use the look set in PROPS &rsaquo; Houses (${this.housePaint.random ? 'random' : 'your chosen paint'}).</p>` : ''}
+      ${PAINTS[kind] && PAINTS[kind].runoff ? `<p class="muted">Lays ${kind === 'paved' ? 'paved runoff' : 'a gravel trap'} beside the track. Paint out past the barrier and the barrier moves back to take it in, up to 80 m from the track. Grass paints over it; Erase &rsaquo; Ground puts the circuit's own runoff back.</p>` : ''}
+      ${kind === 'erase' ? `<div class="fld"><label>Erase</label><div class="seg" id="p-what">${[['g', 'Ground'], ['n', 'Trees &amp; plants'], ['b', 'Buildings']].map(([k, l]) => `<button data-v="${k}" class="${what.includes(k) ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <p class="muted">Removes everything you pick under the brush: painted grass, paved and gravel, every tree and plant (painted, from the World tab setting, zone tree lines, the map or placed with PROPS) and buildings of any kind.</p>` : ''}
       ${fld('Brush size', 'p-r', 2, 80, 1, Math.round(r), 'm')}
-      <p class="muted">${area} grass stroke${area === 1 ? '' : 's'}, ${nat} nature stroke${nat === 1 ? '' : 's'}. Painted grass has grass grip when you run wide. Nature paints trees with grass, flowers, shrubs or rocks under them &mdash; never on the track or roads.${envReady() ? '' : ' (Scenery models are still loading.)'}</p>
+      <p class="muted">${area} ground, ${nat} nature, ${cr} crowd and ${er} eraser stroke${er === 1 ? '' : 's'}. Painted ground grips (and slows you) like the real thing when you run wide.${envReady() ? '' : ' (Scenery models are still loading.)'}</p>
       <div class="seg"><button id="p-undo">Undo Last Stroke</button><button id="p-clear">Clear All Paint</button></div>`;
-    document.querySelectorAll('#p-kind button').forEach(b => b.addEventListener('click', () => { this.paintKind = b.dataset.v; sfx.move(); this.renderPaintTab(); }));
+    document.querySelectorAll('#p-kind button').forEach(b => b.addEventListener('click', () => { this.paintKind = b.dataset.v; sfx.move(); this.renderPaintTab(); this.dirty = true; }));
     document.querySelectorAll('#p-mix button').forEach(b => b.addEventListener('click', () => { this.floraMix = b.dataset.v; sfx.move(); this.renderPaintTab(); }));
+    document.querySelectorAll('#p-what button').forEach(b => b.addEventListener('click', () => {
+      const set = new Set(this.eraseWhat || 'gnb'); if (set.has(b.dataset.v)) { if (set.size > 1) set.delete(b.dataset.v); } else set.add(b.dataset.v);
+      this.eraseWhat = ['g', 'n', 'b'].filter(k => set.has(k)).join(''); sfx.move(); this.renderPaintTab();
+    }));
     const pd = $('p-d'); if (pd) pd.addEventListener('input', () => { this.floraDens = +pd.value; $('p-d-v').textContent = (+pd.value).toFixed(2); });
+    const pcd = $('p-cd'); if (pcd) pcd.addEventListener('input', () => { this.crowdDens = +pcd.value; $('p-cd-v').textContent = (+pcd.value).toFixed(2); });
+    const pg = $('p-gap'); if (pg) pg.addEventListener('input', () => { this.houseGap = +pg.value; $('p-gap-v').textContent = pg.value + 'm'; });
     const pr = $('p-r'); pr.addEventListener('input', () => { this.brush = +pr.value; $('p-r-v').textContent = pr.value + 'm'; this.dirty = true; });
     $('p-undo').addEventListener('click', () => { if (!t.paint.length) return; this.push(); t.paint.pop(); sfx.del(); this.changed(); this.renderPaintTab(); this.scheduleScenery(0); });
     $('p-clear').addEventListener('click', () => { if (!t.paint.length) return; this.push(); t.paint = []; sfx.del(); this.changed(); this.renderPaintTab(); this.scheduleScenery(0); this.toast('PAINT CLEARED'); });
+  }
+  renderSculptTab() {
+    const el = $('tab-node'), t = this.track, m = this.sculptMode, height = m === 'up' || m === 'down';
+    el.innerHTML = `
+      <h4>SCULPT</h4>
+      <div class="fld"><label>Brush</label><div class="seg" id="sc-mode">${Object.entries(SCULPT_MODES).map(([k, v]) => `<button data-v="${k}" class="${m === k ? 'on' : ''}">${v.label}</button>`).join('')}</div></div>
+      ${fld('Brush size', 'sc-r', 8, 150, 1, Math.round(this.sculptR), 'm')}
+      ${height ? fld('Height per stroke', 'sc-k', 0.5, SCULPT_MAX, 0.5, this.sculptK, 'm') : fld('Strength', 'sc-s', 0.1, 1, 0.05, this.sculptS, '')}
+      <p class="muted">${{ up: 'Raises the ground under the stroke. Go over it again to build it higher.', down: 'Digs the ground down: valleys, dips, a lake bed.', smooth: 'Rounds off bumps and sharp edges.', flat: 'Levels the ground to the height where the stroke starts. Start on a hilltop to make a plateau.' }[m]}</p>
+      <p class="muted">The track, its runoff and roads keep their own heights: the ground blends into them. Hills show in the test drive and race. Your own edits sit on top of the location's hills${t.terrain ? ' (here, the real elevation)' : ''}.</p>
+      <p class="muted">${t.sculpt.length} stroke${t.sculpt.length === 1 ? '' : 's'}.</p>
+      <div class="seg"><button id="sc-undo">Undo Last Stroke</button><button id="sc-clear">Clear Sculpting</button></div>`;
+    segBind('sc-mode', v => { this.sculptMode = v; this.renderSculptTab(); this.dirty = true; });
+    const num = (id, key, unit, dec) => { const e = $(id); if (!e) return; e.addEventListener('input', () => { this[key] = +e.value; $(id + '-v').textContent = (dec ? (+e.value).toFixed(2) : e.value) + unit; this.dirty = true; }); };
+    num('sc-r', 'sculptR', 'm'); num('sc-k', 'sculptK', 'm'); num('sc-s', 'sculptS', '', true);
+    $('sc-undo').addEventListener('click', () => { if (!t.sculpt.length) return; this.push(); t.sculpt.pop(); this.sculptView = null; sfx.del(); this.changed(); this.renderSculptTab(); });
+    $('sc-clear').addEventListener('click', () => { if (!t.sculpt.length) return; this.push(); t.sculpt = []; this.sculptView = null; sfx.del(); this.changed(); this.renderSculptTab(); this.toast('SCULPTING CLEARED'); });
   }
   // ---------------- roads ----------------
   roadLayoutCached() {
@@ -1737,6 +2057,8 @@ export class Editor {
     const b = this.scen && this.scen.buildings.find(q => q.key === s.key); if (!b) return -1;
     const nb = { p: b.p.map(q => q.slice()), h: b.h, s: b.s, r: b.r };
     if (b.m) nb.m = b.m;
+    // (a house keeps the look it had where it stood; a tint carries over)
+    if (this.isHouse(b)) nb.hv = houseLook(b.hv, ...centroid(b.p)); else if (b.hv) nb.hv = { ...b.hv };
     if (b.biz) { nb.biz = b.biz; nb.c = b.c.slice(); nb.face = b.face; }
     t.hidden.push(s.key); t.buildings.push(nb);
     this.selBld = { from: 'custom', ci: t.buildings.length - 1 };
@@ -1758,31 +2080,454 @@ export class Editor {
     else this.track.hidden.push(s.key);
     this.selBld = null; sfx.del(); this.changed(); this.scheduleScenery(0); this.renderNodeTab();
   }
+  // ---------------- PROPS: houses, buildings, nature, trackside ----------------
+  // what the PROPS tool places that is a model building (a house or a random building), or null
+  modelProp(t = this.propType) {
+    if (t === 'house') return { kind: 'house' };
+    if (t.startsWith('house:')) return { kind: 'house', id: t.slice(6) };
+    if (t.startsWith('bld:')) return { kind: t.slice(4) };
+    return null;
+  }
+  // the model the next click places (picked now so the ghost under the mouse shows exactly that)
+  pendingModel() {
+    const mp = this.modelProp(); if (!mp || !envReady()) return null;
+    if (this.pending && this.pending.key === this.propType && envAsset(this.pending.a.id)) return this.pending.a;
+    const a = mp.id ? envAsset(mp.id) : randomBuilding(mp.kind);
+    this.pending = a ? { key: this.propType, a } : null;
+    return a;
+  }
+  // turned to face the nearest road or the circuit (plus any Q/E turn)
+  faceRot(x, z) {
+    const tg = this.T && frontTarget(x, z, this.A && this.A.roadL, this.T, this.A);
+    return (tg ? Math.atan2(tg[0] - x, tg[1] - z) : 0) + this.propRot;
+  }
+  newHouseLook() {
+    const hp = this.housePaint;
+    return hp.random ? houseLook(null, Math.random() * 1e5, Math.random() * 1e5) : { w: hp.w, r: hp.r, c: hp.c || null };
+  }
+  placeModel(x, z) {
+    const a = this.pendingModel();
+    if (!a) { sfx.error(); this.toast(envReady() ? 'NO MODELS FOR THAT' : 'MODELS STILL LOADING'); return; }
+    this.push();
+    const rot = this.faceRot(x, z), b = { p: modelFootprint(a, x, z, rot).map(q => [Math.round(q[0] * 100) / 100, Math.round(q[1] * 100) / 100]), h: a.h, s: styleOf(a), r: 'flat', m: a.id, placed: 1 };
+    if (a.paint) b.hv = this.newHouseLook();
+    this.track.buildings.push(b);
+    this.selBld = { from: 'custom', ci: this.track.buildings.length - 1 }; this.selProp = -1;
+    this.pending = null;
+    if (this.T && !buildingClear(b.p, this.T, this.A)) this.toast('TOO CLOSE TO THE TRACK · DRAG IT CLEAR');
+    this.drag = { type: 'bld', wx: x, wz: z, moved: false }; // (keep holding to drag it into place)
+    sfx.place(); this.changed(); this.scheduleScenery(0); this.renderNodeTab();
+  }
+  isHouse(b) { const a = b && b.m && envAsset(b.m); return !!(a && a.paint); }
+  selBuilding() {
+    const s = this.selBld; if (!s) return null;
+    return s.from === 'custom' ? this.track.buildings[s.ci] : this.scen && this.scen.buildings.find(q => q.key === s.key);
+  }
+  // change the selected building (it becomes an independent copy first if it came from a zone / map / setting)
+  editBld(fn) {
+    this.push();
+    const b = this.track.buildings[this.detachSel()]; if (!b) return;
+    fn(b);
+    this.changed(); this.scheduleScenery(0); this.renderNodeTab();
+  }
+  // swap the selected building's model for another (same spot, same way round)
+  swapModel(a) {
+    this.editBld(b => {
+      const [cx, cz] = centroid(b.p), ux = b.p[1][0] - b.p[0][0], uz = b.p[1][1] - b.p[0][1];
+      const rot = Math.atan2(-uz, ux);
+      b.p = modelFootprint(a, cx, cz, rot).map(q => [Math.round(q[0] * 100) / 100, Math.round(q[1] * 100) / 100]);
+      b.m = a.id; b.h = a.h; b.s = styleOf(a);
+      if (a.paint && !b.hv) b.hv = this.newHouseLook();
+    });
+  }
+
+  // House paint swatches: walls, roofs, paint colours. look: { w, r, c }; pick(change) gets { w } / { r } / { c }
+  swatchImg(kind, n) {
+    this.swatches = this.swatches || {};
+    const k = kind + n;
+    if (!this.swatches[k]) { const u = houseSwatch(kind, n); if (u) this.swatches[k] = u; }
+    return this.swatches[k] ? `<img src="${this.swatches[k]}" alt="">` : `<i style="background:${(kind === 'wall' ? WALL_COL : ROOF_COL)[n - 1]}"></i>`;
+  }
+  paintHtml(look, id) {
+    return `
+      <div class="fld"><label>Walls<span>${HOUSE_WALLS[look.w - 1].label}</span></label><div class="sw" id="${id}-w">${HOUSE_WALLS.map((w, i) => `<button data-v="${i + 1}" class="${look.w === i + 1 ? 'on' : ''}" title="${w.label}">${this.swatchImg('wall', i + 1)}</button>`).join('')}</div></div>
+      <div class="fld"><label>Roof<span>${HOUSE_ROOFS[look.r - 1].label}</span></label><div class="sw" id="${id}-r">${HOUSE_ROOFS.map((w, i) => `<button data-v="${i + 1}" class="${look.r === i + 1 ? 'on' : ''}" title="${w.label}">${this.swatchImg('roof', i + 1)}</button>`).join('')}</div></div>
+      ${this.colourHtml(look.c, id, 'Paint')}
+      <p class="muted" style="margin-top:-4px">Paint colours the walls (strongest on white siding).</p>`;
+  }
+  colourHtml(c, id, label) {
+    return `<div class="fld"><label>${label}<span>${c ? c.toUpperCase() : 'None'}</span></label><div class="sw" id="${id}-c">
+      <button data-v="" class="${!c ? 'on' : ''}" title="No paint"><i class="none"></i></button>
+      ${HOUSE_PAINTS.map(p => `<button data-v="${p}" class="${c === p ? 'on' : ''}" title="${p}"><i style="background:${p}"></i></button>`).join('')}
+      <span class="pick ${c && !HOUSE_PAINTS.includes(c) ? 'on' : ''}" title="Any colour"><i style="background:${c && !HOUSE_PAINTS.includes(c) ? c : 'conic-gradient(#f55,#fd5,#5f8,#5cf,#a6f,#f55)'}"></i><input type="color" id="${id}-cc" value="${c || '#ffffff'}"></span>
+    </div></div>`;
+  }
+  bindPaint(id, pick) {
+    document.querySelectorAll(`#${id}-w button`).forEach(b => b.addEventListener('click', () => { sfx.move(); pick({ w: +b.dataset.v }); }));
+    document.querySelectorAll(`#${id}-r button`).forEach(b => b.addEventListener('click', () => { sfx.move(); pick({ r: +b.dataset.v }); }));
+    this.bindColour(id, pick);
+  }
+  bindColour(id, pick) {
+    document.querySelectorAll(`#${id}-c button`).forEach(b => b.addEventListener('click', () => { sfx.move(); pick({ c: b.dataset.v || null }); }));
+    const cc = $(id + '-cc'); if (cc) cc.addEventListener('change', () => pick({ c: cc.value }));
+  }
+
   renderItemTab() {
-    const el = $('tab-node'), t = this.track, s = this.selBld;
-    const hiddenN = t.hidden.length;
-    if (!s) {
-      el.innerHTML = `<h4>ITEMS</h4><p class="muted">Pick a prop below and click the map to place it.<br><br>Click any <b>building</b> (from a zone, an OpenStreetMap import or one you've edited) to select it: drag to move it, <b>Q/E</b> to rotate, <b>DEL</b> to remove.</p>
-        ${hiddenN ? `<div class="seg"><button id="i-restore">Restore ${hiddenN} removed / edited original${hiddenN > 1 ? 's' : ''}</button></div>` : ''}`;
-      $('i-restore') && $('i-restore').addEventListener('click', () => { this.push(); t.hidden = []; t.buildings = []; this.changed(); this.scheduleScenery(0); this.renderItemTab(); this.toast('ORIGINAL BUILDINGS RESTORED'); });
-      return;
+    const el = $('tab-node'), t = this.track;
+    if (this.selBld) return this.renderBuildingPanel();
+    if (this.selLine && this.lineById(this.selLine)) return this.renderLinePanel();
+    if (this.selProp >= 0 && t.props[this.selProp]) return this.renderPropPanel();
+    const cat = this.propCat;
+    // a picture card per prop, in groups; the one you're placing up top, big, with its options
+    const tile = (k, label) => `<button data-prop="${k}" class="pr-card${this.propType === k ? ' on' : ''}" title="${esc(label)}"><img data-thumb="${this.thumbKey(k) || ''}" alt=""><span>${esc(label)}</span></button>`;
+    const groups = [];
+    let extra = '';
+    if (cat === 'houses') {
+      const hs = envReady() ? houseAssets() : [];
+      groups.push(['', [['house', 'Random House'], ...hs.map((a, i) => ['house:' + a.id, 'House ' + (i + 1)])]]);
+      const hp = this.housePaint;
+      extra = `<h4>NEW HOUSES LOOK</h4>
+        <div class="fld"><div class="seg" id="hp-mode"><button data-v="1" class="${hp.random ? 'on' : ''}">Random</button><button data-v="0" class="${!hp.random ? 'on' : ''}">Choose</button></div></div>
+        ${hp.random ? '<p class="muted">Each house gets one of the pack\'s own wall and roof combinations, white siding often painted. Click a placed house to repaint it.</p>' : this.paintHtml(hp, 'hp')}`;
+    } else if (cat === 'buildings') {
+      groups.push(['By kind', [['bld:any', 'Random Building'], ...Object.entries(BUILDING_KINDS).filter(([k]) => k !== 'house' && k !== 'any').map(([k, v]) => ['bld:' + k, v.label])]]);
+      groups.push(['Landmarks', [...BUSINESS_KEYS.map(k => [k, BUSINESSES[k].label]), ['courthouse', PROP_TYPES.courthouse.label]]]);
+    } else if (cat === 'nature') {
+      groups.push(['', Object.keys(PROP_FLORA).map(k => [k, PROP_TYPES[k].label])]);
+    } else {
+      // (the classic props and the race-track pack's families, by what they're for)
+      const fams = envReady() ? trackPropFamilies() : [], have = new Set(fams.map(f => f.cls));
+      const fam = (...cls) => cls.filter(c => have.has(c)).map(c => ['tp:' + c, fams.find(f => f.cls === c).label]);
+      const classic = (...ks) => ks.map(k => [k, PROP_TYPES[k].label]);
+      groups.push(['Stands', [...fam('stand_roof', 'stand_flags'), ...classic('bleachers', 'grandstand')]]);
+      groups.push(['Sponsors and signs', [...fam('board', 'flag', 'adtower', 'lamppost'), ...classic('billboard')]]);
+      groups.push(['Over the track', fam('gantry', 'gantry_wide', 'arch', 'arch_balloons')]);
+      groups.push(['Lights', [...fam('floodmast', 'stadium_light', 'worklight', 'lamppost_plain', 'festoon'), ...classic('lamp')]]);
+      groups.push(['Barriers and pit', [...classic('tires', 'cones'), ...fam('fence', 'tire_rack', 'camera_tower', 'pit_building')]]);
+      extra = this.logoHtml();
     }
-    const b = s.from === 'custom' ? t.buildings[s.ci] : this.scen?.buildings.find(q => q.key === s.key);
+    const hiddenN = t.hidden.length;
+    el.innerHTML = `<h4>PLACE</h4>
+      <div class="fld"><div class="seg" id="pr-cat">${[['houses', 'Houses'], ['buildings', 'Buildings'], ['nature', 'Nature'], ['track', 'Trackside']].map(([k, l]) => `<button data-v="${k}" class="${cat === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <div id="pr-sel">${this.selectedHtml()}</div>
+      <div id="pr-grid">${groups.filter(g => g[1].length).map(([title, list]) => `${title ? `<h5 class="pr-group">${title}</h5>` : ''}<div class="pr-cards">${list.map(([k, l]) => tile(k, l)).join('')}</div>`).join('')}</div>
+      ${extra}
+      ${hiddenN ? `<div class="seg" style="margin-top:12px"><button id="i-restore">Restore ${hiddenN} removed / edited original${hiddenN > 1 ? 's' : ''}</button></div>` : ''}`;
+    segBind('pr-cat', v => { this.propCat = v; this.renderItemTab(); });
+    document.querySelectorAll('#pr-grid [data-prop]').forEach(b => b.addEventListener('click', () => {
+      this.propType = b.dataset.prop; this.pending = null; this.propRot = 0; this.updatePalette(); sfx.move(); this.dirty = true;
+      // (just the card up top: the list keeps its place)
+      $('pr-sel').innerHTML = this.selectedHtml(); this.bindSelected(); this.fillCards($('pr-sel'));
+    }));
+    segBind('hp-mode', v => { this.housePaint.random = v === '1'; this.renderItemTab(); });
+    this.bindSelected();
+    this.bindLines();
+    this.bindPaint('hp', (ch) => { Object.assign(this.housePaint, ch); this.renderItemTab(); });
+    $('i-restore') && $('i-restore').addEventListener('click', () => { this.push(); t.hidden = []; t.buildings = t.buildings.filter(b => b.placed); this.changed(); this.scheduleScenery(0); this.renderItemTab(); this.toast('ORIGINAL BUILDINGS RESTORED'); });
+    this.fillCards();
+  }
+  // ---- prop pictures (js/propthumbs.js) ----
+  // what to draw for a prop type (a tile, a placed one): its scenery model where it has one
+  thumbKey(type) {
+    if (!type) return null;
+    if (type.startsWith('tp:')) { const f = this.tpFam(type); if (!f) return null; const pick = this.tpPick[f.cls]; return 'env:' + (pick && f.ids.includes(pick) ? pick : f.ids[0]); }
+    if (type.startsWith('tp_')) return 'env:' + type;
+    if (PROP_FLORA[type]) { const m = envReady() && natureModel(type, () => 0.37, this.track.env); return m ? 'env:' + m.id : null; }
+    if (type === 'house') { const hs = envReady() ? houseAssets() : []; return hs.length ? 'env:' + hs[0].id : null; }
+    if (type.startsWith('house:')) return 'env:' + type.slice(6);
+    if (type.startsWith('bld:')) { const k = type.slice(4), a = envReady() && randomBuilding(k === 'any' ? 'apartment' : k, () => 0.3); return a ? 'env:' + a.id : null; }
+    if (BUSINESSES[type]) return 'biz:' + type;
+    if (type === 'courthouse') return 'courthouse';
+    if (type === 'bleachers') return 'bleachers';
+    if (['grandstand', 'billboard', 'tires', 'cones', 'lamp'].includes(type)) return 'classic:' + type;
+    return null;
+  }
+  // every picture in the panel (or in el) that isn't drawn yet
+  fillCards(el = $('tab-node')) {
+    if (!el) return;
+    el.querySelectorAll('img[data-thumb]').forEach(img => {
+      const key = img.dataset.thumb; if (!key || img.dataset.done === key) return;
+      img.dataset.done = key;
+      thumb(key).then(url => { if (url && img.dataset.done === key) { img.src = url; img.classList.add('in'); } });
+    });
+  }
+  // a big picture with a name and a line under it (the prop you're placing; a picked line or prop)
+  cardHtml(type, label, sub) {
+    return `<div class="pr-big"><img data-thumb="${this.thumbKey(type) || ''}" alt=""><div><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div></div>`;
+  }
+  // the prop you're placing: its picture, what it is, how it goes down, and its options (its look, a line's spacing)
+  selectedHtml() {
+    const type = this.propType, fam = type.startsWith('tp:') ? this.tpFam(type) : null, def = PROP_TYPES[type];
+    if (this.modelProp()) {
+      const label = type === 'house' ? 'Random House' : type.startsWith('house:') ? 'House' : type.startsWith('bld:') ? (BUILDING_KINDS[type.slice(4)] || { label: 'Building' }).label : (def ? def.label : '');
+      return this.cardHtml(type, label, 'Click the map to place it. It turns to face the nearest road.');
+    }
+    if (!fam && !def) return '';
+    const label = fam ? fam.label : def.label;
+    const how = fam && fam.span ? 'Drop it on the track: it spans it. Drag along the track for a row of them.'
+      : 'Click to place one, or drag to draw a line of them' + (fam || ['grandstand', 'billboard', 'bleachers'].includes(type) ? ', facing the track.' : '.');
+    const what = fam ? fam.sub || '' : type === 'bleachers' ? 'Compact, 11 rows, with a crowd. They stand back from where you click' : '';
+    return this.cardHtml(type, label, [what, how].filter(Boolean).join(' · ')) + this.lookHtml() + this.lineHtml();
+  }
+  bindSelected() {
+    segBind('pr-look', v => { const f = this.tpFam(this.propType); if (f) { if (v) this.tpPick[f.cls] = v; else delete this.tpPick[f.cls]; } $('pr-sel').innerHTML = this.selectedHtml(); this.bindSelected(); this.fillCards($('pr-sel')); this.dirty = true; });
+    const gi = $('pr-gap');
+    if (gi) gi.addEventListener('input', () => { this.lineGap = +gi.value; $('pr-gap-v').textContent = gi.value + 'm'; const a = $('pr-gap-auto'); if (a) a.classList.remove('on'); this.dirty = true; });
+    const ga = $('pr-gap-auto'); if (ga) ga.addEventListener('click', () => { this.lineGap = null; sfx.move(); $('pr-sel').innerHTML = this.selectedHtml(); this.bindSelected(); this.fillCards($('pr-sel')); this.dirty = true; });
+  }
+  // ---- the PLACE panel's extras: a family's looks, lines, logos ----
+  lookHtml() {
+    if (!this.propType.startsWith('tp:')) return '';
+    const f = this.tpFam(this.propType); if (!f || f.ids.length < 2) return '';
+    const pick = this.tpPick[f.cls] || '';
+    return `<div class="fld"><label>Look</label><div class="seg" id="pr-look"><button data-v="" class="${!pick ? 'on' : ''}" title="A different one each time (in turn along a line)">Mixed</button>${f.ids.map((id, k) => `<button data-v="${id}" class="${pick === id ? 'on' : ''}">${k + 1}</button>`).join('')}</div></div>`;
+  }
+  lineHtml() {
+    const g = this.lineGapFor(this.propType), auto = this.lineGap == null;
+    return `<div class="pr-gap">${fld('Line spacing', 'pr-gap', 0.5, 60, 0.5, Math.min(60, +g.toFixed(1)), 'm')}<button id="pr-gap-auto" class="${auto ? 'on' : ''}" title="From the prop's size">Auto</button></div>`;
+  }
+  logoHtml() {
+    const L = this.track.logos || {};
+    return `<h4 style="margin-top:18px">SPONSOR LOGOS</h4>
+      <p class="muted" style="margin-top:-2px">The logos on the banners, boards and flags. Click one to put your own image there (a team logo, your sponsor): everything showing it shows yours. Right-click puts the original back.</p>
+      <div class="logo-grid" id="pr-logos">${Object.entries(LOGOS).map(([k, v]) => `<button data-v="${k}" title="${esc(v.label)}" class="${L[k] ? 'on' : ''}"><canvas width="112" height="44"></canvas></button>`).join('')}</div>
+      <input type="file" id="pr-logo-file" accept="image/*" hidden>`;
+  }
+  bindLines() {
+    const grid = $('pr-logos'); if (!grid) return;
+    const t = this.track, sheet = logoSheetImage();
+    grid.querySelectorAll('button').forEach(b => {
+      const k = b.dataset.v, cv = b.querySelector('canvas'), g = cv.getContext('2d');
+      const own = t.logos && t.logos[k];
+      const show = (im, crop) => { g.clearRect(0, 0, cv.width, cv.height); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); const [sx, sy, sw, sh] = crop || [0, 0, im.width, im.height]; const tall = sh > sw * 1.6, w = tall ? sh : sw, h = tall ? sw : sh, kk = Math.min(cv.width * 0.92 / w, cv.height * 0.86 / h); g.save(); g.translate(cv.width / 2, cv.height / 2); if (tall) g.rotate(Math.PI / 2); g.drawImage(im, sx, sy, sw, sh, -sw * kk / 2, -sh * kk / 2, sw * kk, sh * kk); g.restore(); };
+      if (own) { const im = new Image(); im.onload = () => show(im); im.src = own; }
+      else if (sheet) { const [x, y, w, h] = LOGOS[k].r, W = sheet.width, H = sheet.height; show(sheet, [x * W, y * H, w * W, h * H]); }
+      b.addEventListener('click', () => { this.logoSlot = k; $('pr-logo-file').click(); });
+      b.addEventListener('contextmenu', (e) => { e.preventDefault(); if (!t.logos || !t.logos[k]) return; this.push(); delete t.logos[k]; sfx.del(); this.changed(); this.renderItemTab(); });
+    });
+    $('pr-logo-file').addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0], k = this.logoSlot; if (!file || !k) return;
+      const im = new Image(), url = URL.createObjectURL(file);
+      im.onload = () => {
+        // (kept small: it travels with the track. Its shape is kept; it's fitted into the slot in the game)
+        const s = Math.min(1, 384 / Math.max(im.width, im.height)), cv = document.createElement('canvas');
+        cv.width = Math.max(1, Math.round(im.width * s)); cv.height = Math.max(1, Math.round(im.height * s));
+        cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); URL.revokeObjectURL(url);
+        this.push(); t.logos = { ...(t.logos || {}), [k]: cv.toDataURL('image/png') };
+        sfx.place(); this.changed(); this.renderItemTab(); this.toast(`${LOGOS[k].label.toUpperCase()} REPLACED`);
+      };
+      im.src = url;
+    });
+  }
+  // a placed piece of the race-track pack: its look, its fans (stands), turning, deleting
+  renderTrackPropPanel() {
+    const el = $('tab-node'), p = this.track.props[this.selProp], f = trackPropFamily(p.type), fam = f && this.tpFam('tp:' + f.cls);
+    const stand = f && f.cls.startsWith('stand'), light = f && LIGHT_FAMILIES.includes(f.cls);
+    el.innerHTML = `<h4>${esc((f ? f.label : p.type)).toUpperCase()}</h4>
+      ${this.cardHtml(p.type, f ? f.label : p.type, 'Drag it on the map to move it.' + (f && f.span ? ' Drop it on the track and it spans it.' : ''))}
+      ${light ? fld('Light strength', 'pp-light', 0.2, 2, 0.05, p.light ?? 1, '×') : ''}
+      ${fam && fam.ids.length > 1 ? `<div class="fld"><label>Look</label><div class="seg" id="tp-look">${fam.ids.map((id, k) => `<button data-v="${id}" class="${p.type === id ? 'on' : ''}">${k + 1}</button>`).join('')}</div></div>` : ''}
+      ${stand ? `<div class="fld"><label>Crowd</label><div class="seg" id="pp-crowd"><button data-v="1" class="${p.crowd !== false ? 'on' : ''}">People</button><button data-v="0" class="${p.crowd === false ? 'on' : ''}">Empty</button></div></div>
+      ${p.crowd !== false ? fld('How full', 'pp-fill', 0.1, 1, 0.05, p.fill ?? 0.8, '') : ''}` : ''}
+      <div class="seg"><button id="pp-l">&#10226; Turn 15&deg;</button><button id="pp-r">Turn 15&deg; &#10227;</button></div>
+      <div class="seg" style="margin-top:8px"><button id="pp-del">Delete</button><button id="pp-back">Done</button></div>`;
+    this.fillCards();
+    segBind('tp-look', v => { this.push(); p.type = v; this.changed(); this.renderTrackPropPanel(); this.dirty = true; });
+    const pl = $('pp-light'); if (pl) { pl.addEventListener('pointerdown', () => this.push()); pl.addEventListener('input', () => { p.light = +pl.value; $('pp-light-v').textContent = (+pl.value).toFixed(2) + '×'; }); pl.addEventListener('change', () => this.changed()); }
+    segBind('pp-crowd', v => { this.push(); if (v === '1') delete p.crowd; else p.crowd = false; this.changed(); this.renderTrackPropPanel(); this.dirty = true; });
+    const pf = $('pp-fill'); if (pf) { pf.addEventListener('pointerdown', () => this.push()); pf.addEventListener('input', () => { p.fill = +pf.value; $('pp-fill-v').textContent = (+pf.value).toFixed(2); }); pf.addEventListener('change', () => this.changed()); }
+    const turn = (d) => { this.push(); p.rot = (p.rot || 0) + d; this.changed(); this.dirty = true; };
+    $('pp-l').addEventListener('click', () => turn(-Math.PI / 12));
+    $('pp-r').addEventListener('click', () => turn(Math.PI / 12));
+    $('pp-del').addEventListener('click', () => { this.push(); this.track.props.splice(this.selProp, 1); this.selProp = -1; sfx.del(); this.changed(); this.renderItemTab(); });
+    $('pp-back').addEventListener('click', () => { this.selProp = -1; this.renderItemTab(); this.dirty = true; });
+  }
+  renderPropPanel() {
+    if (isTrackProp(this.track.props[this.selProp].type)) return this.renderTrackPropPanel();
+    const el = $('tab-node'), p = this.track.props[this.selProp], def = PROP_TYPES[p.type] || { label: p.type };
+    el.innerHTML = `<h4>${esc(def.label).toUpperCase()}</h4>
+      ${this.cardHtml(p.type, def.label, 'Drag it on the map to move it. Q / E turns it.')}
+      ${p.type === 'lamp' ? fld('Light strength', 'pp-light', 0.2, 2, 0.05, p.light ?? 1, '×') : ''}
+      ${p.type === 'bleachers' ? `<div class="fld"><label>Crowd</label><div class="seg" id="pp-crowd"><button data-v="1" class="${p.crowd !== false ? 'on' : ''}">People</button><button data-v="0" class="${p.crowd === false ? 'on' : ''}">Empty</button></div></div>
+      ${p.crowd !== false ? fld('How full', 'pp-fill', 0.1, 1, 0.05, p.fill ?? 0.8, '') : ''}` : ''}
+      <div class="seg"><button id="pp-l">&#10226; Turn 15&deg;</button><button id="pp-r">Turn 15&deg; &#10227;</button></div>
+      <div class="seg" style="margin-top:8px"><button id="pp-del">Delete</button><button id="pp-back">Done</button></div>`;
+    const turn = (d) => { this.push(); p.rot = (p.rot || 0) + d; this.changed(); this.dirty = true; };
+    this.fillCards();
+    const pl = $('pp-light'); if (pl) { pl.addEventListener('pointerdown', () => this.push()); pl.addEventListener('input', () => { p.light = +pl.value; $('pp-light-v').textContent = (+pl.value).toFixed(2) + '×'; }); pl.addEventListener('change', () => this.changed()); }
+    segBind('pp-crowd', v => { this.push(); if (v === '1') delete p.crowd; else p.crowd = false; this.changed(); this.renderPropPanel(); this.dirty = true; });
+    const pf = $('pp-fill'); if (pf) { pf.addEventListener('pointerdown', () => this.push()); pf.addEventListener('input', () => { p.fill = +pf.value; $('pp-fill-v').textContent = (+pf.value).toFixed(2); }); pf.addEventListener('change', () => this.changed()); }
+    $('pp-l').addEventListener('click', () => turn(-Math.PI / 12));
+    $('pp-r').addEventListener('click', () => turn(Math.PI / 12));
+    $('pp-del').addEventListener('click', () => { this.push(); this.track.props.splice(this.selProp, 1); this.selProp = -1; sfx.del(); this.changed(); this.renderItemTab(); });
+    $('pp-back').addEventListener('click', () => { this.selProp = -1; this.renderItemTab(); this.dirty = true; });
+  }
+  renderBuildingPanel() {
+    const el = $('tab-node'), s = this.selBld, b = this.selBuilding();
     if (!b) { this.selBld = null; return this.renderItemTab(); }
-    const what = b.biz ? BUSINESSES[b.biz].label : b.lm ? 'Landmark' : ({ house: 'House', shop: 'Shop', apartment: 'Apartments', office: 'Office', tower: 'Skyscraper', warehouse: 'Warehouse' }[b.s] || 'Building');
+    const a = b.m && envAsset(b.m), house = this.isHouse(b);
+    const what = b.biz ? BUSINESSES[b.biz].label : b.lm ? 'Landmark' : ({ house: 'House', shop: 'Shop', apartment: 'Apartments', office: 'Office', tower: 'Skyscraper', warehouse: 'Industrial' }[b.s] || 'Building');
+    const from = s.from === 'zone' ? 'From a zone' : s.from === 'osm' ? 'From OpenStreetMap' : s.from === 'gen' ? 'From the World tab setting' : 'Placed by you';
+    let body = '';
+    if (house) {
+      const [cx, cz] = centroid(b.p), look = houseLook(b.hv, cx, cz), hs = houseAssets();
+      body = `<div class="fld"><label>Shape<span>House ${hs.findIndex(q => q.id === b.m) + 1}</span></label><div class="sw sw-num" id="bh-shape">${hs.map((q, i) => `<button data-v="${q.id}" class="${q.id === b.m ? 'on' : ''}">${i + 1}</button>`).join('')}<button data-v="?" title="Random shape">?</button></div></div>
+        ${this.paintHtml(look, 'bp')}
+        <div class="seg"><button id="bp-rand">Random Look</button><button id="bp-copy">Use For New Houses</button></div>`;
+    } else if (a) {
+      body = `${this.colourHtml(b.hv && b.hv.c, 'bt', 'Tint')}
+        <div class="seg"><button id="b-swap">Swap For Another ${esc(what)}</button></div>
+        ${fld('Height', 'b-h', 3, 200, 1, Math.round(b.h), 'm')}`;
+    } else if (!b.biz) body = fld('Height', 'b-h', 3, 200, 1, Math.round(b.h), 'm');
     el.innerHTML = `<h4>${what.toUpperCase()}</h4>
-      <p class="muted">${s.from === 'zone' ? 'From a zone' : s.from === 'osm' ? 'Imported from OpenStreetMap' : s.from === 'gen' ? 'From the setting' : 'Edited building'}${b.m ? ` &middot; model <b>${esc(b.m)}</b>` : ''}. Drag it on the map to move it.</p>
-      ${b.biz ? '' : fld('Height', 'b-h', 3, 200, 1, Math.round(b.h), 'm')}
-      <div class="seg"><button id="b-l">&#10226; Rotate 15&deg;</button><button id="b-r">Rotate 15&deg; &#10227;</button></div>
-      <div class="seg" style="margin-top:8px"><button id="b-del">Delete Building</button></div>`;
+      <p class="muted">${from}. Drag it on the map to move it.</p>
+      ${body}
+      <div class="seg" style="margin-top:12px"><button id="b-l">&#10226; Turn 15&deg;</button><button id="b-r">Turn 15&deg; &#10227;</button></div>
+      <div class="seg" style="margin-top:6px"><button id="b-del">Delete</button><button id="b-back">Done</button></div>`;
     $('b-l').addEventListener('click', () => this.rotateBuilding(-Math.PI / 12));
     $('b-r').addEventListener('click', () => this.rotateBuilding(Math.PI / 12));
     $('b-del').addEventListener('click', () => this.deleteBuilding());
+    $('b-back').addEventListener('click', () => { this.selBld = null; this.renderItemTab(); this.dirty = true; });
+    if (house) {
+      const [cx, cz] = centroid(b.p);
+      this.bindPaint('bp', (ch) => this.editBld(nb => { nb.hv = { ...houseLook(nb.hv, cx, cz), ...ch }; }));
+      document.querySelectorAll('#bh-shape button').forEach(btn => btn.addEventListener('click', () => {
+        const hs = houseAssets(); let q = btn.dataset.v === '?' ? hs[Math.floor(Math.random() * hs.length)] : envAsset(btn.dataset.v);
+        if (btn.dataset.v === '?' && hs.length > 1) while (q.id === b.m) q = hs[Math.floor(Math.random() * hs.length)];
+        if (q) { sfx.move(); this.swapModel(q); }
+      }));
+      $('bp-rand').addEventListener('click', () => { sfx.select(); this.editBld(nb => { nb.hv = this.newHouseLookRandom(); }); });
+      $('bp-copy').addEventListener('click', () => { const l = houseLook(b.hv, cx, cz); this.housePaint = { random: false, ...l }; sfx.select(); this.toast('NEW HOUSES WILL LOOK LIKE THIS'); });
+    } else if (a) {
+      this.bindColour('bt', (ch) => this.editBld(nb => { nb.hv = { ...(nb.hv || {}), c: ch.c }; if (!nb.hv.c) delete nb.hv; }));
+      $('b-swap').addEventListener('click', () => {
+        const kind = { shop: 'shop', apartment: 'apartment', office: 'office', tower: 'tower', warehouse: 'warehouse' }[b.s] || 'any';
+        let q = randomBuilding(kind); for (let k = 0; k < 6 && q && q.id === b.m; k++) q = randomBuilding(kind);
+        if (q) { sfx.move(); this.swapModel(q); }
+      });
+    }
     const bh = $('b-h');
     if (bh) {
       bh.addEventListener('pointerdown', () => { this.push(); this.detachSel(); });
-      bh.addEventListener('input', () => { const nb = t.buildings[this.detachSel()]; if (nb) nb.h = +bh.value; $('b-h-v').textContent = bh.value + 'm'; });
+      bh.addEventListener('input', () => { const nb = this.track.buildings[this.detachSel()]; if (nb) nb.h = +bh.value; $('b-h-v').textContent = bh.value + 'm'; });
       bh.addEventListener('change', () => { this.changed(); this.scheduleScenery(0); });
+    }
+  }
+  newHouseLookRandom() { return houseLook(null, Math.random() * 1e5, Math.random() * 1e5); }
+
+  // ---------------- PAINT: a street of houses, and the eraser ----------------
+  // Houses along the stroke: a wide brush gives a row each side facing each other (a street between them), a
+  // narrow one a single row facing the nearest road or the circuit. Each house is an ordinary placed building.
+  paintHouses(st) {
+    const T = this.T, A = this.A;
+    if (!T) { this.needTrack('PAINT HOUSES'); return; }
+    const list = envReady() ? houseAssets() : [];
+    if (!list.length) { sfx.error(); this.toast('HOUSE MODELS STILL LOADING'); return; }
+    const P = st.pts, cum = [0];
+    for (let i = 1; i < P.length; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+    const L = cum[cum.length - 1];
+    const at = (d) => {
+      let i = 1; while (i < P.length - 1 && cum[i] < d) i++;
+      if (P.length < 2) return { x: P[0][0], z: P[0][1], tx: 1, tz: 0 };
+      const a = P[i - 1], b = P[i], l = cum[i] - cum[i - 1] || 1, k = Math.max(0, Math.min(1, (d - cum[i - 1]) / l));
+      return { x: a[0] + (b[0] - a[0]) * k, z: a[1] + (b[1] - a[1]) * k, tx: (b[0] - a[0]) / l, tz: (b[1] - a[1]) / l };
+    };
+    const roads = A.roadL, grid = this.scen && this.scen.grid, made = [], gap = this.houseGap ?? 4;
+    const lanes = st.r >= 16 ? [-1, 1] : [0];
+    for (const lane of lanes) {
+      for (let d = 0, n = 0; (d <= L || n === 0) && n < 200; n++) {
+        const a = list[Math.floor(Math.random() * list.length)], sc = 0.92 + Math.random() * 0.16, w = a.w * sc, dp = a.d * sc;
+        const c = at(Math.min(L, d + w / 2)), nx = -c.tz, nz = c.tx;
+        const off = lane * Math.max(dp / 2 + 3, st.r - dp / 2);
+        const x = c.x + nx * off, z = c.z + nz * off;
+        let fx = -nx * lane, fz = -nz * lane;
+        if (!lane) { const tg = frontTarget(x, z, roads, T, A), sg = tg && (tg[0] - x) * nx + (tg[1] - z) * nz < 0 ? -1 : 1; fx = nx * sg; fz = nz * sg; }
+        const rot = Math.atan2(fx, fz), p = modelFootprint(a, x, z, rot, sc);
+        const rad = Math.hypot(w, dp) / 2;
+        const ok = buildingClear(p, T, A) && !(roads && (p.some(q => roads.onRoad(q[0], q[1])) || roads.onRoad(x, z))) && !(grid && grid.hits(x, z, Math.min(w, dp) * 0.3)) && !made.some(m => Math.hypot(m[0] - x, m[1] - z) < (m[2] + rad) * 0.75);
+        if (ok) { made.push([x, z, rad, { p: p.map(q => [Math.round(q[0] * 100) / 100, Math.round(q[1] * 100) / 100]), h: +(a.h * sc).toFixed(2), s: 'house', r: 'flat', m: a.id, hv: this.newHouseLook(), placed: 1 }]); d += w + gap * (0.6 + Math.random() * 0.8); }
+        else d += 3;
+      }
+    }
+    if (!made.length) { sfx.error(); this.toast('NO ROOM FOR HOUSES THERE'); this.dirty = true; return; }
+    this.push();
+    for (const m of made) this.track.buildings.push(m[3]);
+    sfx.place(); this.changed(); this.scheduleScenery(0); this.renderNodeTab();
+    this.toast(`${made.length} HOUSE${made.length > 1 ? 'S' : ''} PAINTED`);
+  }
+  // an eraser stroke takes out placed props and your own buildings under it straight away; trees, plants and
+  // buildings the world made are removed by the stroke itself (it's kept in track.paint)
+  eraseUnder(st) {
+    const t = this.track, under = (x, z) => this.nearStroke(st, x, z);
+    const N = eraseHits(st, 'n'), B = eraseHits(st, 'b');
+    const bProps = new Set(['building', 'tower', 'courthouse', ...BUSINESS_KEYS]);
+    const before = t.props.length + t.buildings.length;
+    t.props = t.props.filter(p => !(((N && PROP_FLORA[p.type]) || (B && bProps.has(p.type))) && under(p.x, p.z)));
+    if (B) t.buildings = t.buildings.filter(b => !under(...centroid(b.p)));
+    if (t.props.length + t.buildings.length !== before) { this.selProp = -1; this.selBld = null; }
+  }
+  nearStroke(st, x, z) {
+    const p = st.pts || [];
+    for (let i = 0; i < p.length; i++) {
+      const a = p[i], b = p[Math.min(p.length - 1, i + 1)], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1e-9;
+      const k = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2));
+      if (Math.hypot(x - a[0] - dx * k, z - a[1] - dz * k) < st.r) return true;
+    }
+    return false;
+  }
+
+  // sculpted land: a shaded relief (brown = raised, blue = dug down) under everything, plus the brush
+  drawSculpt(c) {
+    const t = this.track, live = this.drag && this.drag.type === 'sculpt' ? this.drag.stroke : null;
+    if (t.sculpt.length) {
+      let V = this.sculptView;
+      if (!V || V.src !== t.sculpt || V.n !== t.sculpt.length) {
+        const g = sculptPreview(t.sculpt);
+        V = this.sculptView = { src: t.sculpt, n: t.sculpt.length, g, cv: null };
+        if (g) {
+          const cv = document.createElement('canvas'); cv.width = g.nx; cv.height = g.nz;
+          const ctx = cv.getContext('2d'), im = ctx.createImageData(g.nx, g.nz), H = g.H;
+          for (let j = 0; j < g.nz; j++) for (let k = 0; k < g.nx; k++) {
+            const i = j * g.nx + k, h = H[i], o = i * 4;
+            if (Math.abs(h) < 0.05) { im.data[o + 3] = 0; continue; }
+            // light from the top left, contour lines every 2 m
+            const dx = H[j * g.nx + Math.min(g.nx - 1, k + 1)] - H[j * g.nx + Math.max(0, k - 1)], dz = H[Math.min(g.nz - 1, j + 1) * g.nx + k] - H[Math.max(0, j - 1) * g.nx + k];
+            const shade = Math.max(0.45, Math.min(1.35, 1 - (dx + dz) / (g.step * 2) * 0.9));
+            const band = (v) => Math.floor(v / 2), line = band(h) !== band(H[j * g.nx + Math.min(g.nx - 1, k + 1)]) || band(h) !== band(H[Math.min(g.nz - 1, j + 1) * g.nx + k]) ? 0.5 : 1;
+            const base = h > 0 ? [196, 140, 82] : [70, 130, 200], a = Math.min(1, Math.abs(h) / 6);
+            im.data[o] = base[0] * shade * line; im.data[o + 1] = base[1] * shade * line; im.data[o + 2] = base[2] * shade * line; im.data[o + 3] = 40 + 150 * a;
+          }
+          ctx.putImageData(im, 0, 0); V.cv = cv;
+        }
+      }
+      if (V.g && V.cv) {
+        const g = V.g, [x0, y0] = this.w2s(g.x0 - g.step / 2, g.z0 - g.step / 2), [x1, y1] = this.w2s(g.x0 + (g.nx - 0.5) * g.step, g.z0 + (g.nz - 0.5) * g.step);
+        c.save(); c.globalAlpha = this.tool === 'sculpt' ? 0.95 : 0.55; c.imageSmoothingEnabled = true; c.drawImage(V.cv, x0, y0, x1 - x0, y1 - y0); c.restore();
+      }
+    }
+    if (this.tool !== 'sculpt') return;
+    // smoothing / flattening strokes don't show in the relief (it's drawn over flat ground): outline where they went
+    c.save(); c.lineCap = c.lineJoin = 'round'; c.globalAlpha = 0.18;
+    for (const st of t.sculpt) {
+      if (st.m !== 'smooth' && st.m !== 'flat') continue;
+      c.strokeStyle = SCULPT_MODES[st.m].color; c.lineWidth = Math.max(2, st.r * 2 * this.view.scale);
+      c.beginPath(); st.pts.forEach((q, k) => { const [x, y] = this.w2s(q[0], q[1]); k ? c.lineTo(x, y) : c.moveTo(x, y); });
+      if (st.pts.length === 1) { const [x, y] = this.w2s(st.pts[0][0], st.pts[0][1]); c.lineTo(x + 0.01, y); }
+      c.stroke();
+    }
+    c.restore();
+    const col = SCULPT_MODES[this.sculptMode].color;
+    if (live) {
+      c.save(); c.lineCap = c.lineJoin = 'round'; c.globalAlpha = 0.35; c.strokeStyle = col; c.lineWidth = Math.max(2, live.r * 2 * this.view.scale);
+      c.beginPath(); live.pts.forEach((q, k) => { const [x, y] = this.w2s(q[0], q[1]); k ? c.lineTo(x, y) : c.moveTo(x, y); });
+      if (live.pts.length === 1) { const [x, y] = this.w2s(live.pts[0][0], live.pts[0][1]); c.lineTo(x + 0.01, y); }
+      c.stroke(); c.restore();
+    }
+    if (this.mouse.inside) {
+      const [x, y] = this.w2s(this.mouse.wx, this.mouse.wz), R = this.sculptR * this.view.scale;
+      c.strokeStyle = col; c.lineWidth = 1.5; c.setLineDash([4, 3]);
+      c.beginPath(); c.arc(x, y, R, 0, Math.PI * 2); c.stroke();
+      c.globalAlpha = 0.6; c.beginPath(); c.arc(x, y, R * 0.55, 0, Math.PI * 2); c.stroke(); c.globalAlpha = 1; c.setLineDash([]);
     }
   }
 
@@ -1800,7 +2545,7 @@ export class Editor {
     g.lineCap = g.lineJoin = 'round';
     for (const s of list) {
       g.globalCompositeOperation = s.kind === 'erase' ? 'destination-out' : 'source-over';
-      g.strokeStyle = s.kind === 'erase' ? '#000' : s.kind === 'flora' ? (FLORA[s.mix] || FLORA.mixed).color : (PAINTS[s.kind] || PAINTS.grass).color.replace(/[\d.]+\)$/, '1)');
+      g.strokeStyle = s.kind === 'erase' ? '#000' : s.kind === 'houses' ? '#e0a060' : s.kind === 'crowd' ? '#e8789a' : s.kind === 'flora' ? (FLORA[s.mix] || FLORA.mixed).color : (PAINTS[s.kind] || PAINTS.grass).color.replace(/[\d.]+\)$/, '1)');
       g.lineWidth = Math.max(1, s.r * 2 * this.view.scale);
       g.beginPath();
       s.pts.forEach((p, k) => { const [x, y] = this.w2s(p[0], p[1]); k ? g.lineTo(x, y) : g.moveTo(x, y); });
@@ -1812,7 +2557,7 @@ export class Editor {
     // brush outline under the mouse
     if (this.tool === 'paint' && this.mouse.inside) {
       const [x, y] = this.w2s(this.mouse.wx, this.mouse.wz);
-      c.strokeStyle = (this.paintKind || 'grass') === 'erase' ? '#ff8a5a' : this.paintKind === 'flora' ? (FLORA[this.floraMix || 'blossom'] || FLORA.mixed).color : '#bfff9a'; c.lineWidth = 1.5; c.setLineDash([4, 3]);
+      c.strokeStyle = (this.paintKind || 'grass') === 'erase' ? '#ff8a5a' : this.paintKind === 'houses' ? '#e0a060' : this.paintKind === 'crowd' ? '#ff9ab8' : this.paintKind === 'flora' ? (FLORA[this.floraMix || 'blossom'] || FLORA.mixed).color : this.paintKind === 'paved' ? '#d4d6dc' : this.paintKind === 'gravel' ? '#f0d49a' : '#bfff9a'; c.lineWidth = 1.5; c.setLineDash([4, 3]);
       c.beginPath(); c.arc(x, y, (this.brush || 12) * this.view.scale, 0, Math.PI * 2); c.stroke(); c.setLineDash([]);
     }
   }
@@ -1820,6 +2565,7 @@ export class Editor {
   renderNodeTab() {
     if (this.tool === 'zones') return this.renderZoneTab();
     if (this.tool === 'paint') return this.renderPaintTab();
+    if (this.tool === 'sculpt') return this.renderSculptTab();
     if (this.tool === 'roads') return this.renderRoadTab();
     if (this.tool === 'props') return this.renderItemTab();
     const el = $('tab-node');
@@ -1884,12 +2630,19 @@ export class Editor {
       ${fld('Opponents', 't-opp', 0, 11, 1, env.opponents, '')}
       <h4 style="margin-top:18px">${open ? 'TRACK' : 'CIRCUIT'}</h4>
       ${fld('Runoff width', 't-run', 2, 30, 1, env.runoff, 'm')}
+      <div class="fld"><label>Runoff</label><div class="seg" id="t-rstyle">${Object.entries(RUNOFF_STYLES).map(([k, v]) => `<button data-v="${k}" class="${(env.runoffStyle || 'auto') === k ? 'on' : ''}">${v.label}</button>`).join('')}</div></div>
+      <p class="muted" style="margin-top:-4px">${(() => { const st = runoffStyle(env); return (env.runoffStyle || 'auto') === 'auto' ? (st === 'none' ? (env.theme === 'city' ? 'Auto: a street circuit keeps its concrete.' : 'Auto: under 6 m of runoff it\'s a road, so plain ground beside it.') : 'Auto: ' + RUNOFF_STYLES[st].hint) : RUNOFF_STYLES[st].hint; })()} Fast corners get more room. Paint Paved or Gravel to change it anywhere.</p>
       <div class="fld"><label>Barriers</label><div class="seg" id="t-bar">${['tires', 'armco', 'concrete'].map(b => `<button data-v="${b}" class="${env.barrier === b ? 'on' : ''}">${b}</button>`).join('')}</div></div>
+      ${env.barrier === 'tires' ? '' : fld('Catch fence', 't-fence', 0, 6, 0.25, fenceHeight(env), 'm')}
+      <div class="fld"><label>Circuit lights</label><div class="seg" id="t-lights">${[['masts', 'Lamp posts'], ['banners', 'Banner posts'], ['off', 'Off']].map(([v, l]) => `<button data-v="${v}" class="${(env.circuitLights || 'masts') === v ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <p class="muted" style="margin-top:-4px">${{ masts: 'Tall lamps along the circuit, lit at night.', banners: 'Lamp posts with sponsor banners along the circuit (your logos too), lit at night.', off: 'No lamps along the circuit: just your own lights and floodlights.' }[env.circuitLights || 'masts']}</p>
       ${open ? '' : `<div class="fld"><label>Pit lane</label><div class="seg" id="t-pit">${[['1', 'On'], ['0', 'Off']].map(([v, l]) => `<button data-v="${v}" class="${(env.pits !== false) === (v === '1') ? 'on' : ''}">${l}</button>`).join('')}</div></div>
       <div class="fld"><label>Pit side</label><div class="seg" id="t-pitside">${['auto', 'left', 'right'].map(v => `<button data-v="${v}" class="${(env.pitSide || 'auto') === v ? 'on' : ''}">${v}</button>`).join('')}</div></div>`}
       <div class="fld"><label>Sidewalks</label><div class="seg" id="t-walk"><button data-v="1" class="${env.walks ? 'on' : ''}">On</button><button data-v="0" class="${!env.walks ? 'on' : ''}">Off</button></div></div>
       ${env.walks ? fld('Sidewalk width', 't-walkw', 1.5, 5, 0.25, env.walkW || 2.5, 'm') : ''}
-      <div class="fld"><label>Kerbs</label><div class="seg" id="t-kerb"><button data-v="1" class="${env.kerbs !== false ? 'on' : ''}">On</button><button data-v="0" class="${env.kerbs === false ? 'on' : ''}">Off</button></div></div>
+      <div class="fld"><label>Surface</label><div class="seg" id="t-surf"><button data-v="asphalt" class="${env.surface !== 'dirt' ? 'on' : ''}">Asphalt</button><button data-v="dirt" class="${env.surface === 'dirt' ? 'on' : ''}">Dirt</button></div></div>
+      ${env.surface === 'dirt' ? '<p class="muted" style="margin-top:-4px">Loose dirt: about two thirds of the grip, slides and dust. No kerbs. The pit lane and paved runoff stay paved.</p>' : ''}
+      ${env.surface === 'dirt' ? '' : `<div class="fld"><label>Kerbs</label><div class="seg" id="t-kerb"><button data-v="1" class="${env.kerbs !== false ? 'on' : ''}">On</button><button data-v="0" class="${env.kerbs === false ? 'on' : ''}">Off</button></div></div>`}
       ${fld('Draw width', 't-dw', 8, 22, 0.5, this.defaultWidth, 'm')}
       <div class="seg"><button id="t-allw">Apply Width To All Nodes</button></div>
       <p class="muted" style="margin-top:12px">Draw width is used for new ${open ? 'tracks' : 'circuits'} sketched with the DRAW tool.</p>`;
@@ -1904,8 +2657,13 @@ export class Editor {
     num('t-opp', v => { env.opponents = v; this.dirty = true; }, '');
     num('t-run', v => { env.runoff = v; this.recompute(); this.dirty = true; }, 'm');
     num('t-dw', v => this.defaultWidth = v, 'm');
-    segBind('t-bar', v => { this.push(); env.barrier = v; this.changed(true); });
+    segBind('t-bar', v => { this.push(); env.barrier = v; this.changed(true); this.renderTrackTab(); });
+    const fh = $('t-fence');
+    if (fh) { fh.addEventListener('pointerdown', () => this.push()); fh.addEventListener('input', () => { env.fenceH = +fh.value; $('t-fence-v').textContent = +fh.value ? fh.value + 'm' : 'Off'; }); fh.addEventListener('change', () => this.changed(true)); }
+    segBind('t-lights', v => { this.push(); if (v === 'masts') delete env.circuitLights; else env.circuitLights = v; this.changed(true); });
+    segBind('t-rstyle', v => { this.push(); if (v === 'auto') delete env.runoffStyle; else env.runoffStyle = v; this.changed(true); });
     segBind('t-kerb', v => { this.push(); env.kerbs = v === '1'; this.changed(true); });
+    segBind('t-surf', v => { this.push(); if (v === 'dirt') env.surface = 'dirt'; else delete env.surface; this.changed(true); this.renderTrackTab(); });
     segBind('t-walk', v => { this.push(); env.walks = v === '1'; this.changed(true); });
     const ww = $('t-walkw');
     if (ww) { ww.addEventListener('pointerdown', () => this.push()); ww.addEventListener('input', () => { env.walkW = +ww.value; $('t-walkw-v').textContent = ww.value + 'm'; }); ww.addEventListener('change', () => this.changed(true)); }
@@ -1959,7 +2717,8 @@ export class Editor {
       <h4>TREES</h4>
       <div class="seg set-cards" id="w-flora">${FLORA_KEYS.filter(k => !FLORA[k].brush).map(k => `<button data-v="${k}" class="${(st.flora || 'auto') === k ? 'on' : ''}">${FLORA[k].label}</button>`).join('')}</div>
       <p class="muted">The trees ${st.kind === 'none' ? 'around the circuit' : 'in this setting'}, zone tree lines and map trees, with grass, flowers, shrubs or rocks under them. Paint extra with the PAINT tool's <b>Nature</b> brush, or place single trees with PROPS.</p>
-      <div class="fld" style="margin-top:8px"><label>Zone &amp; map buildings</label><div class="seg" id="w-models"><button data-v="1" class="${st.models ? 'on' : ''}">PS1 models</button><button data-v="0" class="${!st.models ? 'on' : ''}">Plain blocks</button></div></div>`
+      <div class="fld" style="margin-top:8px"><label>Zone &amp; map buildings</label><div class="seg" id="w-models"><button data-v="1" class="${st.models ? 'on' : ''}">PS1 models</button><button data-v="0" class="${!st.models ? 'on' : ''}">Plain blocks</button></div></div>
+      <p class="muted" style="margin-top:-4px">Houses are always PSX houses, each with its own walls, roof and paint (click one with PROPS to repaint it).</p>`
       : '<p class="muted">Scenery models are still loading…</p>'}
       <h4>SCENERY</h4>
       ${fld('Auto scenery density', 'w-den', 0, 1, 0.05, env.scenery, '')}
@@ -1976,7 +2735,7 @@ export class Editor {
     d.addEventListener('pointerdown', () => this.push());
     d.addEventListener('input', () => { env.scenery = +d.value; $('w-den-v').textContent = (+d.value).toFixed(2); });
     d.addEventListener('change', () => this.changed());
-    $('w-clear').addEventListener('click', () => { if (!this.track.props.length) return; this.push(); this.track.props = []; this.selProp = -1; this.changed(true); });
+    $('w-clear').addEventListener('click', () => { if (!this.track.props.length) return; this.push(); this.track.props = []; this.track.propLines = []; this.selProp = -1; this.selLine = null; this.changed(true); });
     // setting: pick one (the ground / location follows it), tune it, reroll it
     const setSet = (patch, panels = false) => { env.setting = { ...settingOf(env), ...patch }; this.changed(panels); this.scheduleScenery(0); };
     segBind('w-set', v => {
@@ -2033,5 +2792,10 @@ function segBind(id, fn) {
     document.querySelectorAll('#' + id + ' button').forEach(x => x.classList.toggle('on', x === b));
     sfx.move(); fn(b.dataset.v);
   }));
+}
+// distance from (x, z) to the segment a-b ([x, z] each)
+function segDist(x, z, a, b) {
+  const dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1e-9, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2));
+  return Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t);
 }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }

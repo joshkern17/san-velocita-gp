@@ -9,6 +9,38 @@ import { loadCharacters, charactersReady, makeCharacter } from './characters.js'
 import { driverFace } from './drivers.js';
 
 const _f = new THREE.Vector3(), _r = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+// leaning on the car (stand_pose is a lean too: feet out, head back, hands behind on a wall), and what a driver who
+// isn't leaning does, round the field
+const LEANS = ['lean', 'stand_pose', 'lean_2', 'lean', 'stand_pose'];
+const STAND = ['idle_look', 'idle_stretch', 'idle', 'idle_look'];
+// how far in front of the bodywork the character's origin stands in each lean (its backside is behind its hips)
+const LEAN_BACK = { lean: 0.1, lean_2: -0.02, stand_pose: 0.12 };
+// where along the car (metres ahead of its middle) to try leaning, and to stand, by the door or a wheel
+const SPOT_LEAN = { door: [-0.15, 0.25, -0.5, 0.55], front: [1.0, 0.8, 1.2, 0.6], rear: [-1.0, -0.8, -1.2, -0.6] };
+const SPOT_STAND = { door: 0.4, front: 1.4, rear: -1.4 };
+
+// Two-bone arm IK on top of the clip: the hand (side 'Left' / 'Right') onto a world point, the elbow bending towards
+// the pole (a world direction). The elbow's place comes from the two bone lengths; then the upper arm aims at it
+// and the forearm at the point.
+const _s = new THREE.Vector3(), _e = new THREE.Vector3(), _h = new THREE.Vector3(), _d = new THREE.Vector3(), _p = new THREE.Vector3(), _E = new THREE.Vector3(), _a1 = new THREE.Vector3(), _a2 = new THREE.Vector3();
+const _qa = new THREE.Quaternion(), _qp = new THREE.Quaternion();
+function turnWorld(bone, q) { bone.parent.getWorldQuaternion(_qp); bone.quaternion.premultiply(_qp.clone().invert().multiply(q).multiply(_qp)); bone.updateWorldMatrix(false, true); }
+function reach(ch, side, target, pole) {
+  const B = ch._arm || (ch._arm = {});
+  const A = B[side + 'A'] ||= ch.bone(side + 'Arm'), F = B[side + 'F'] ||= ch.bone(side + 'ForeArm'), H = B[side + 'H'] ||= ch.bone(side + 'Hand');
+  if (!A || !F || !H) return;
+  A.updateWorldMatrix(true, true);
+  A.getWorldPosition(_s); F.getWorldPosition(_e); H.getWorldPosition(_h);
+  const la = _s.distanceTo(_e), lb = _e.distanceTo(_h);
+  _d.subVectors(target, _s); const d = Math.min(la + lb - 1e-3, Math.max(Math.abs(la - lb) + 1e-3, _d.length())); _d.normalize();
+  // the elbow: x along the shoulder-to-hand line, h out from it towards the pole
+  const x = (la * la - lb * lb + d * d) / (2 * d), h = Math.sqrt(Math.max(0, la * la - x * x));
+  _p.copy(pole).addScaledVector(_d, -pole.dot(_d)); if (_p.lengthSq() < 1e-6) _p.set(0, -1, 0); _p.normalize();
+  _E.copy(_s).addScaledVector(_d, x).addScaledVector(_p, h);
+  turnWorld(A, _qa.setFromUnitVectors(_a1.subVectors(_e, _s).normalize(), _a2.subVectors(_E, _s).normalize()));
+  F.getWorldPosition(_e); H.getWorldPosition(_h);
+  turnWorld(F, _qa.setFromUnitVectors(_a1.subVectors(_h, _e).normalize(), _a2.subVectors(target, _e).normalize()));
+}
 
 export class RaceDrivers {
   constructor(race) {
@@ -24,25 +56,98 @@ export class RaceDrivers {
     const id = car.isPlayer ? 'P:' + (race.opts.playerName || 'You') : race.driverId(car.teamIdx, car.team);
     return { livery: cfg, face: cfg.face ?? driverFace(id) };
   }
-  // each driver beside their car, on the side the intro camera passes, facing out; a few things to do while they wait
+  // each driver beside their car on the side towards the middle of the track (a car on the right of the grid: its
+  // left; on the left: its right), facing the middle where the intro camera comes down the grid, helmet on.
+  // Where the car has bodywork at backside height there (a road car's door, a GT's flank) they
+  // lean on it (yours always does); every fourth stands, stretches or looks about, and a car with nothing to lean on
+  // (an F1 car's low sidepods) gets one of those too: different things, so they don't all move alike
   makeGrid() {
     this.grid = true;
-    const cars = this.race.cars.filter(c => !c.gone);
+    const cars = this.race.cars.filter(c => !c.gone), T = this.race.T;
     let k = 0;
     const one = () => {
       if (!this.alive || this.started() || k >= cars.length) return;
       const car = cars[k++], who = this.personOf(car), g = car.model.group;
-      const clip = ['idle', 'idle_look', 'idle_stretch', 'idle', 'idle_look'][k % 5];
-      const ch = makeCharacter({ look: 'racer', clip, livery: who.livery, face: who.face, helmet: false, seed: k * 97 + 5 });
       _f.set(0, 0, 1).applyQuaternion(g.quaternion).setY(0).normalize(); _r.crossVectors(_f, _up).negate(); // (the car's right)
-      const T = this.race.T, i = car.idx, side = Math.sign(T.RX[i] * _r.x + T.RZ[i] * _r.z) || 1;
-      ch.object.position.copy(g.position).addScaledVector(_r, 1.85 * side).addScaledVector(_f, 0.4);
-      ch.object.position.y = g.position.y - 0.05;
-      ch.object.rotation.y = Math.atan2(_r.x * side, _r.z * side) - 0.35 * side; // facing out, turned a little to the front
+      const i = car.idx, lat = (car.phys.x - T.X[i]) * T.RX[i] + (car.phys.z - T.Z[i]) * T.RZ[i]; // (+: right of the middle)
+      const side = (Math.sign(T.RX[i] * _r.x + T.RZ[i] * _r.z) || 1) * (lat > 0 ? -1 : 1);
+      const out = _r.clone().multiplyScalar(side), feet = g.position.y - 0.05;
+      const stands = !car.isPlayer && k % 4 === 0;
+      const lean = !stands && this.leanSpot(car, out, feet);
+      const clip = lean ? LEANS[k % LEANS.length] : STAND[(k + car.teamIdx) % STAND.length];
+      const ch = makeCharacter({ look: 'racer', clip, livery: who.livery, face: who.face, helmet: true, seed: k * 97 + 5 }); // (on: about to get in)
+      this.place(ch, car, out, side, feet, lean, clip);
+      ch.car = car;
       this.root.add(ch.object); this.people.push(ch);
       setTimeout(one, 0); // (one per tick: painting the kits takes a moment)
     };
     one();
+  }
+  // a character beside a car (out: away from it, on side +1 its right / -1 its left): leaning on it with its backside
+  // at lean (a point on the bodywork) and hands back on it either side of the hips, or (no lean) standing dist metres
+  // clear, along metres ahead of the middle, turned a little to the front
+  place(ch, car, out, side, feet, lean, clip, { dist = 1.85, along = 0.4 } = {}) {
+    const g = car.model.group;
+    if (lean) {
+      ch.object.position.copy(lean).addScaledVector(out, LEAN_BACK[clip] ?? 0.1); ch.object.position.y = feet;
+      ch.object.rotation.y = Math.atan2(out.x, out.z);
+      const xa = new THREE.Vector3(out.z, 0, -out.x); // (the character's left)
+      const hand = (sgn) => { // (on the bodywork at hand height, or the top of a lower fender)
+        const at = ch.object.position.clone().addScaledVector(xa, 0.3 * sgn);
+        for (const h of [0.8, 0.74, 0.68]) { const p = this.surface(car, out, at, feet + h); if (p) return p.addScaledVector(out, 0.05); }
+        return null;
+      };
+      const L = hand(1), R = hand(-1);
+      // (elbows back towards the car and a little out from the body, as yours go with your hands behind you)
+      const pole = (sgn) => xa.clone().multiplyScalar(0.5 * sgn).addScaledVector(out, -0.85).normalize();
+      const pL = pole(1), pR = pole(-1);
+      ch.post = (c) => { if (L) reach(c, 'Left', L, pL); if (R) reach(c, 'Right', R, pR); };
+    } else {
+      const f = new THREE.Vector3(0, 0, 1).applyQuaternion(g.quaternion).setY(0).normalize();
+      ch.object.position.copy(g.position).addScaledVector(out, dist).addScaledVector(f, along); ch.object.position.y = feet;
+      ch.object.rotation.y = Math.atan2(out.x, out.z) - 0.35 * side;
+      ch.post = null;
+    }
+  }
+  // photo mode (js/photomode.js): this car's driver out beside it in a clip of your choice. side +1 its right, -1 its
+  // left; spot 'door' / 'front' / 'rear'. A lean clip leans where the bodywork's upright at backside height (nothing
+  // there, an F1 car's sidepods: they stand instead). -> { ch, leaned }
+  posed(car, { clip = 'lean', side = 1, spot = 'door', helmet = true } = {}) {
+    const g = car.model.group;
+    _f.set(0, 0, 1).applyQuaternion(g.quaternion).setY(0).normalize(); _r.crossVectors(_f, _up).negate();
+    const out = _r.clone().multiplyScalar(side), feet = g.position.y - 0.05;
+    const lean = clip in LEAN_BACK ? this.leanSpot(car, out, feet, SPOT_LEAN[spot]) : null;
+    const use = clip in LEAN_BACK && !lean ? 'idle' : clip, who = this.personOf(car);
+    const ch = makeCharacter({ look: 'racer', clip: use, livery: who.livery, face: who.face, helmet, seed: 7 });
+    // (kneeling by the wheel: closer in; standing: near enough to be in the same shot)
+    this.place(ch, car, out, side, feet, lean, use, { dist: use.startsWith('kneel') ? 1.05 : 1.3, along: SPOT_STAND[spot] });
+    return { ch, leaned: !!lean };
+  }
+  // the bodywork behind a point (out: away from the car), at height y: where a ray in towards the car meets it
+  surface(car, out, at, y) {
+    const g = car.model.group, ray = this.ray || (this.ray = new THREE.Raycaster());
+    const o = at.clone().addScaledVector(out, 1.5); o.y = y;
+    ray.set(o, out.clone().negate()); ray.far = 3; ray.camera = this.race.camera;
+    const x = ray.intersectObject(g, true).find(x => x.object.isMesh && x.object.visible);
+    return x ? x.point.clone() : null;
+  }
+  // where to lean on this car's side (out: away from the car, on the driver's side): the point on the bodywork at
+  // backside height near the door, where the side's upright (the same depth a little lower); null if it's too low there
+  leanSpot(car, out, feet, alongs = SPOT_LEAN.door) {
+    const g = car.model.group, ray = this.ray || (this.ray = new THREE.Raycaster());
+    const hit = (along, h) => {
+      const o = g.position.clone().addScaledVector(_f, along).addScaledVector(out, 4); o.y = feet + h;
+      ray.set(o, out.clone().negate()); ray.far = 4; ray.camera = this.race.camera; // (the lights' glow sprites need one)
+      const x = ray.intersectObject(g, true).find(x => x.object.isMesh && x.object.visible);
+      return x ? x.point : null;
+    };
+    for (const along of alongs) {
+      const a = hit(along, 0.88), b = hit(along, 0.62);
+      if (!a || !b) continue;
+      const da = a.clone().sub(g.position).dot(out), db = b.clone().sub(g.position).dot(out);
+      if (da > 0.5 && Math.abs(da - db) < 0.18) return a;
+    }
+    return null;
   }
   tick2() { const t = performance.now(), dt = this.last2 ? Math.min(0.1, (t - this.last2) / 1000) : 0; this.last2 = t; return dt; }
   tick() { const t = performance.now(), dt = this.last ? Math.min(0.1, (t - this.last) / 1000) : 0; this.last = t; return dt; }

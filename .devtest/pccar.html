@@ -1,0 +1,18 @@
+<!doctype html><html><head><meta charset="utf-8"><script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js", "postprocessing": "../vendor/postprocessing/index.js" } }</script><link rel="stylesheet" href="../css/style.css"><style>body{margin:0;background:#6b5a3a}</style></head><body>
+<script>addEventListener('error', e => console.error('STACK', e.error && e.error.stack));</script><script type="module">
+import * as WC from '../js/wcareer.js';
+import { Computer, W, H } from '../js/computer.js';
+const q = new URLSearchParams(location.search);
+const pool = Array.from({ length: 12 }, (_, i) => ({ name: 'Track ' + i, weather: 'Dry', pts: [] }));
+const w = WC.newWorld({ name: 'Josh Kern', seed: 7, teamName: 'Indica Motors' }, pool);
+w.founding = { reg: true, car: true }; w.money = { balance: 68740, choice: 'lump', tx: [] };
+w.car = { chassis: 'nine11', name: 'Neun Elf RS', cond: 0.8, year: 1991 };
+const P = WC.carParts(w); const c = { engine: .89, gearbox: .78, brakes: .83, suspension: .8, aero: .78, chassis: .75 };
+for (const k in c) P[k].cond = c[k];
+const fit = (k, name, feel, m) => P[k].fits.push({ name, feel, used: false, q: 1, measured: m || null });
+fit('engine', 'Sport exhaust', 'feels a bit stronger'); fit('engine', 'Performance chip', 'pulls noticeably harder'); fit('brakes', 'Race pads', 'stops a lot shorter', q.get('meas') ? { by: 'Ana', val: 0.031, stat: 'brake force', lvl: 1 } : null);
+fit('suspension', 'Coilovers', 'turns in much sharper'); fit('aero', 'Front splitter', 'stuck down in fast corners');
+const pc = new Computer({ world: () => w, sfx: {} }); pc.fallback = true; pc.open(); pc.place({ x: 0, y: 0, w: W * 1.5, h: H * 1.5 });
+pc.launch('workshop'); if (q.get('arm')) pc.armed = q.get('arm'); pc.render();
+setTimeout(() => window.done = 1, 800);
+</script></body></html>

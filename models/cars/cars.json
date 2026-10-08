@@ -101,23 +101,6 @@
    4.25
   ]
  },
- "gtr": {
-  "title": "Nissan GT-R (PS1 Low-Poly)",
-  "author": "Evgeniy (https://sketchfab.com/evgeniyy)",
-  "license": "CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)",
-  "source": "https://sketchfab.com/3d-models/nissan-gt-r-ps1-low-poly-d1f8a458410c410284be5f152a76eba0",
-  "wheels": [
-   "FL",
-   "FR",
-   "RL",
-   "RR"
-  ],
-  "size": [
-   2.07,
-   1.23,
-   4.71
-  ]
- },
  "mustang": {
   "title": "2016 Ford Mustang GT 5.0",
   "author": "3DCars (https://sketchfab.com/3DCarss)",
@@ -235,6 +218,40 @@
    1.71,
    1.37,
    4.19
+  ]
+ },
+ "r34": {
+  "title": "Nissan Skyline GT-R R34 (custom, made in Blender)",
+  "author": "you",
+  "license": "own work",
+  "source": "",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   1.8,
+   1.34,
+   4.6
+  ]
+ },
+ "m3gtr": {
+  "title": "BMW M3 GTR (custom, made in Blender)",
+  "author": "you",
+  "license": "own work",
+  "source": "",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   1.85,
+   1.32,
+   4.57
   ]
  }
 }

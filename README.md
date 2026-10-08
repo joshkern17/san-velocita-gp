@@ -125,6 +125,10 @@ sounds in `js/drifthud.js`.
 - **Tyres:** Soft (fastest, ~6 laps on a 2.5 km track), Medium (~10), Hard (~16), Wet (for rain; overheats in the dry).
   Fronts and rears wear separately; below 30% they fall off a cliff. Tyre life is measured per circuit.
 - **Damage:** front wing, rear wing and suspension. Costs downforce, grip and power; wings bend and break off.
+  On Realistic a big enough hit puts a car out: a wheel torn off or a corner's suspension folded, the car snapping
+  round and sliding to a stop. The wreck stays where it stopped (the AI sees it and goes round), out comes the safety
+  car (the VSC with no pit lane), and it's craned away about half a minute later, classified DNF. Yours: the moment,
+  then you're out.
 - **Pit stops:** a pit lane is generated beside the start straight (toggle / side in the editor's Circuit tab).
   Drive into the entry and the crew takes over: 80 km/h limiter, drive to your box, pick tyres and repairs
   with the arrows / d-pad, then go. AI teams plan 0–2 stop strategies and react to wear, damage and rain.
@@ -208,7 +212,8 @@ export it to `models/garage.glb` (see `docs/GARAGE-MODEL.md`; `tools/garage-temp
   **New Layout** rerolls it; town streets can be switched off. It's generated from a seed, so the same track always looks
   the same (and online players all see the same world). Every generated building can be moved, turned or deleted with the
   PROPS tool. **Zone & map buildings: PS1 models** swaps the plain blocks of zones and OpenStreetMap imports for the
-  best-fitting models (odd shapes and most houses stay as blocks).
+  best-fitting models (odd shapes stay as blocks). Houses are always one of the **PSX houses** (postdev's PSX Houses
+  pack: 10 shapes, 6 wall and 6 roof textures), from zones, the map, settings and the Classic scenery alike.
   - **Ambient life**: paper and leaves blowing along the pavements in the gusts (passing cars kick them up), steam
     rising from vents in the road, pigeons circling over town (dry days), and at night vending machines, phone
     boxes and signboards glow, with a few flickering.
@@ -221,7 +226,44 @@ export it to `models/garage.glb` (see `docs/GARAGE-MODEL.md`; `tools/garage-temp
     `assets/env/` (textures shrunk to PS1 size). Rebuild `dist/` afterwards.
 - **World** tab: location (Countryside, Desert, City Streets, Coastal Island), time of day,
   weather (clear / overcast / rain / fog), auto-scenery density.
-- **Props**: trees, palms, cacti, rocks, buildings, towers, grandstands, billboards, tyre stacks, cones, floodlights.
+- **Props** (3): a palette in the side panel in four groups. **Houses**: a random house every click, or any of the
+  10 shapes; **Buildings**: a random shop, apartment block, office, skyscraper or industrial building from the model
+  library, plus the branded businesses and the courthouse; **Nature**: single trees and plants; **Trackside**:
+  grandstands, billboards, tyre stacks, cones, floodlights. Houses and buildings turn to face the nearest road or the
+  track (Q/E adds a turn) and you can keep holding to drag them into place. Click any house (placed, zone, map or
+  setting) to **paint** it: shape, walls (brick, siding in four colours, stone), roof (six) and a paint colour
+  (presets or any colour). Other buildings can be tinted or swapped for another of the same kind.
+- **Paint** (6): **Grass**, **Nature** (tree mixes), **Houses** (a wide brush lays a street of houses facing each other
+  across your stroke, a narrow one a single row facing the nearest road) and **Erase**. The eraser removes anything you
+  tick under it: grass, every tree and plant (painted, the World tab's woods, zone tree lines, map trees, placed
+  ones) and buildings of any kind.
+- **Sculpt** (8): raise, lower, smooth or flatten the land with a brush (size and strength). The editor shows it as a
+  shaded relief with 2 m contours. In the 3D world it's applied to the ground as you'd see it (after the circuit's
+  embankments), fading out only at the runoff and barriers, so the track and roads never move.
+- **How the ground is built round the circuit** (every track, editor or real):
+  - **Runoff** (`js/verge.js`): its own mesh following the circuit, flat at the track edge from the road out to the
+    barrier (or the end of the runoff). The terrain grid (5-14 m) is too coarse to keep a narrow strip flat beside a
+    slope, so the terrain under it is tucked out of sight. Where two sections run back to back at different heights
+    (a hairpin's two legs, a figure of eight, switchbacks) each keeps its own flat runoff and they meet at the wall.
+  - **Barriers** stand on the higher of the track edge and the ground behind them; where the ground behind is
+    higher a concrete retaining wall (level along its length, capped on top) holds it back. Never buried, never
+    floating.
+  - **Bridges** only where the road really passes over another part of the track (two legs of a hillside chicane
+    running close at different heights stay on the ground).
+  - **Real elevation** (`roadProfile` in `js/terrain.js`): the road is a smooth best fit to the elevation data,
+    never steeper than a real road (`maxGrade`, default 18%; per circuit in `tools/tracks/catalog.mjs`), because the
+    coarse data smears steep hillsides into the road. Node heights are interpolated per metre, so uneven node
+    spacing can't kink the road.
+  - **Grandstands** are built in ~12 m modules, each sat on its own ground on a concrete base (they step up a hill).
+- **Buildings on hills**: every building (placed, painted, zones, the map, settings, businesses) gets a level plot:
+  the ground under it is levelled to its average height, dug into the hill on the uphill side and built up on the
+  downhill side, with banks back to the natural ground (about 1 in 1.6). Rows of houses on a slope step down it as
+  terraces. The plots are re-meshed at ~2.5 m so even a small house gets an exact level plot, and the game's ground
+  height includes them (trees, props and cars sit on them too). The track, its runoff and roads are never changed;
+  right next to them a building stands on the highest ground under it with a concrete foundation filling any drop
+  (`js/pads.js`).
+  The PSX houses are baked by `node tools/assets/bakehouses.mjs` (from `~/Downloads/PSX_Houses_100`, or set
+  `HOUSE_SRC`) into `assets/env/psx_houses.glb`; the full `bake.mjs` runs it too.
 - **Map tab (real places)**: search any town/street (or "Use My Location"), show a Streets or Satellite
   map under the editor at true scale, and trace real roads with DRAW.
   - **Import Around Circuit** pulls real building footprints and trees from OpenStreetMap. Buildings are
@@ -278,6 +320,7 @@ Saved circuits, best laps and settings live in your browser's localStorage.
 - `js/world.js` – terrain, road, kerbs, barriers, scenery, sky, weather
 - `js/glbcar.js` – your imported car (`models/car.glb`): loader, wheels, suspension links, projected liveries
 - `js/characters.js` – people (`models/characters.glb`): 16 looks, Mixamo clips, `makeCharacter()`; preview in `characters.html`, rebuild with `tools/characters/build.sh`
+- `js/pitlife.js` – the pit lane comes alive: each team's sign over its garage (team, driver, live position / PIT / OUT) and a 7-person crew per box that walks out for a stop, works the wheels and jacks, and waves the car out with the lollipop
 - `js/carmodel.js` – procedural F1 car: swappable parts, suspension, its livery panel map (`MODEL`)
 - `js/livery.js` – model-independent liveries: painter, decals (PNG/SVG in IndexedDB), helmet, suit, UV template
 - `js/liverydesigner.js` – the Livery Designer UI

@@ -131,23 +131,62 @@ export const inGrid = (terr, x, z) => x >= terr.x0 && z >= terr.z0 && x <= terr.
 // Project the terrain onto the circuit: node heights follow the ground (smoothed along the road so the
 // surface doesn't copy every bump of the elevation model), adding nodes where the hills change between
 // widely spaced nodes. `sample(track)` must return the sampled track (sampleTrack).
+// The road's own height profile from the real ground. The elevation data is a coarse grid (16-40 m), so on a road
+// cut into a steep hillside it mixes in the slope above and below the road and the raw profile lurches (a 26%
+// plunge on a 9% mountain road). A real road is built smooth and never steeper than it has to be: so the profile
+// is a smooth best fit to the data, never steeper than terr.maxGrade (real metres per metre, default 18%: Eau Rouge
+// and the Corkscrew keep their drama), with gentle vertical curves. The land is then shaped round the road
+// (cuttings and embankments, world.js).
+export const MAX_GRADE = 0.18;
+export function roadProfile(raw, ds, open, maxGrade = MAX_GRADE) {
+  const N = raw.length, at = open ? (i) => Math.max(0, Math.min(N - 1, i)) : (i) => ((i % N) + N) % N;
+  const box = (src, r) => { // moving average (prefix sums), r samples each side
+    const out = new Float32Array(N);
+    for (let i = 0; i < N; i++) { let s = 0; for (let k = -r; k <= r; k++) s += src[at(i + k)]; out[i] = s / (2 * r + 1); }
+    return out;
+  };
+  // the data, smoothed over ~70 m (hillside noise is about one grid cell wide)
+  const data = box(box(raw, Math.max(1, Math.round(18 / ds))), Math.max(1, Math.round(18 / ds)));
+  const G = maxGrade * ds;
+  // the steepest the road may be: run forwards and backwards clamping each step, and average the two (the average
+  // of two profiles that both obey the limit obeys it too). A loop starts both runs at its lowest point.
+  const limit = (y) => {
+    let s0 = 0; if (!open) for (let i = 1; i < N; i++) if (y[i] < y[s0]) s0 = i;
+    const f = new Float32Array(N), b = new Float32Array(N), e0 = open ? N - 1 : s0; // (backwards: from the far end)
+    for (let k = 0; k < N; k++) { const i = (s0 + k) % N, p = (s0 + k - 1 + N) % N; f[i] = k ? Math.max(f[p] - G, Math.min(f[p] + G, y[i])) : y[i]; }
+    for (let k = 0; k < N; k++) { const i = (e0 - k + N * 2) % N, p = (e0 - k + 1 + N * 2) % N; b[i] = k ? Math.max(b[p] - G, Math.min(b[p] + G, y[i])) : y[i]; }
+    for (let i = 0; i < N; i++) y[i] = (f[i] + b[i]) / 2;
+    return y;
+  };
+  let y = limit(Float32Array.from(data));
+  // settle it: pulled towards the data, eased (vertical curves), back within the limit
+  const r = Math.max(1, Math.round(10 / ds));
+  for (let it = 0; it < 24; it++) {
+    for (let i = 0; i < N; i++) y[i] += (data[i] - y[i]) * 0.5;
+    y = limit(box(y, r));
+  }
+  return box(y, r); // (an average of profiles within the limit is within it too)
+}
+
 export function projectOntoTrack(track, sample) {
   const terr = track.terrain; if (!terr) return 0;
   let added = 0;
-  for (let pass = 0; pass < 3; pass++) {
+  for (let pass = 0; pass < 6; pass++) {
     const T = sample(track), N = T.N, P = track.points, n = P.length;
-    // real height along the road, smoothed over ~50 m
-    const raw = new Float32Array(N); for (let i = 0; i < N; i++) raw[i] = rawHeight(terr, T.X[i], T.Z[i]);
-    const r = Math.max(1, Math.round(25 / T.ds)), sm = new Float32Array(N);
-    for (let i = 0; i < N; i++) { let s = 0; for (let k = -r; k <= r; k++) s += raw[(i + k + N) % N]; sm[i] = s / (2 * r + 1); }
+    // (point-to-point: the run-off past the finish and the grid behind the start follow the road on)
+    // (in driving order: a point-to-point track's samples start with the grid behind the start line at cut + 1)
+    const ord = new Int32Array(N); for (let k = 0; k < N; k++) ord[k] = T.open ? (T.cut + 1 + k) % N : k;
+    const raw = new Float32Array(N); for (let k = 0; k < N; k++) raw[k] = rawHeight(terr, T.X[ord[k]], T.Z[ord[k]]);
+    const fit = roadProfile(raw, T.ds, !!T.open, terr.maxGrade ?? MAX_GRADE), sm = new Float32Array(N);
+    for (let k = 0; k < N; k++) sm[ord[k]] = fit[k];
     let lo = Infinity; for (let i = 0; i < N; i++) lo = Math.min(lo, sm[i]);
     terr.base = lo;
     // where does each node sit?
     const at = new Int32Array(n).fill(-1);
     for (let i = 0; i < N; i++) { const nd = Math.round(T.NODE[i]) % n; if (at[nd] < 0 || Math.abs(T.NODE[i] - Math.round(T.NODE[i])) < Math.abs(T.NODE[at[nd]] - Math.round(T.NODE[at[nd]]))) at[nd] = i; }
     for (let k = 0; k < n; k++) if (at[k] >= 0) P[k].e = Math.round((sm[at[k]] - lo) * terr.exag * 10) / 10;
-    if (pass === 2) break;
-    // insert nodes where the road between two nodes misses the real profile by > 2.5 m
+    if (pass === 5) break;
+    // insert nodes where the road between two nodes misses the profile by > 35 cm
     const T2 = sample(track), ins = [];
     for (let k = 0; k < (T2.open ? n - 1 : n); k++) { // (point-to-point: nothing after the last node)
       let worst = 0, wi = -1, len = 0;
@@ -156,7 +195,7 @@ export function projectOntoTrack(track, sample) {
         const dev = Math.abs(T2.Y[i] - (sm[Math.min(N - 1, Math.round(i * N / T2.N))] - lo) * terr.exag);
         if (dev > worst) { worst = dev; wi = i; }
       }
-      if (worst > 2.5 && len > 40 && wi >= 0) ins.push({ k, i: wi, T: T2 });
+      if (worst > 0.35 && len > 10 && wi >= 0) ins.push({ k, i: wi, T: T2 });
     }
     if (!ins.length) break;
     // insert back to front so indices stay valid

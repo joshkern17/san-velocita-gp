@@ -134,7 +134,9 @@ export const PHYS = {
   flat12: { cyl: 12, gain: 0.748, phases: evenPh(12), jitter: 0.45, extractors: [70, 90], intake: 80, exhaust: 80, straight: 110, action: 0.08, ignition: 0.013, mix: [0.8, 0.6, 1] },
   i4turbo: { cyl: 4, gain: 0.395, extractors: [100], straight: 128, action: 0.18, mix: [0.5, 1, 1] },
   i4: { cyl: 4, gain: 0.395, extractors: [90], straight: 110, action: 0.12, ignition: 0.014, mix: [0.8, 1, 1] },
-  diesel: { cyl: 4, gain: 0.13, phases: evenPh(4), extractors: [160], intake: 140, exhaust: 140, straight: 220, muffler: [25, 35, 45, 55], action: 0.3, ignition: 0.03, mix: [0.5, 1.6, 0.8] },
+  // (action: the muffler's reflection sits right at the edge of feedback with these long tubes: from about 0.25 it rings
+  // up until the worklet's safety reset fires dozens of times a second, a stutter. 0.18 holds through rev sweeps and lifts)
+  diesel: { cyl: 4, gain: 0.13, phases: evenPh(4), extractors: [160], intake: 140, exhaust: 140, straight: 220, muffler: [25, 35, 45, 55], action: 0.18, ignition: 0.03, mix: [0.5, 1.6, 0.8] },
 };
 // every tube a bit longer than the presets say (lower, deeper resonances) and less intake hiss: the presets as written
 // came out thin and tinny. body / throat / bright = the voice's low-shelf (170 Hz) / low-mid (320 Hz) / high-shelf (3 kHz) EQ in dB

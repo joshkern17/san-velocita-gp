@@ -27,7 +27,7 @@ try {
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`${URL}/.devtest/handling.html`); await pg.waitForTimeout(1500);
   if (mode === 'ai') {
-    const cars = (a1 || 'f1,aventus,m1procar,bx300,rmx,testarossa,mustang,gtr,rs964,m5,jsport,transit,hearse').split(',');
+    const cars = (a1 || 'f1,aventus,m1procar,bx300,rmx,testarossa,mustang,m3gtr,rs964,m5,jsport,transit,hearse').split(',');
     const rows = await pg.evaluate(async (cars) => { const m = await import('/.devtest/aibench.js'); return m.bench({ tracks: [1], scales: [0.95, 0.97, 1], cars }); }, cars);
     for (const r of rows) console.log(r.id.padEnd(11), ['x0.95', 'x0.97', 'x1'].map(k => `${k} ${r[k].t}s offs ${r[k].offs}`).join(' | '), '| learn', r.rounds.split(' ').slice(0, 2).join(' '), 'rounds');
   } else if (mode === 'ref') {

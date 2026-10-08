@@ -1,7 +1,7 @@
 // Frame-time profile of a race (needs Chrome + tools/node_modules: cd tools && npm install). Starts its own server.
 //
 //   node .devtest/perf.mjs [track.json] [seconds] [car]   default .devtest/auburn2.json (the user's heavily decorated
-//                                                          circuit), 20 s, gtr
+//                                                          circuit), 20 s, m3gtr
 // Options (environment): PROFILE=1 top JS functions · DIAG=1 scenery batches drawn per category · DIAG=2 the model
 // library's materials / triangles · KINDS=1 meshes by material · SET='{"shadows":false}' game settings for the run ·
 // HIDE='o => ...' hide matching objects · SHOTS=prefix screenshots from fixed cameras (compare looks before / after)
@@ -15,7 +15,7 @@ import { fileURLToPath } from 'url';
 import { readFileSync } from 'fs';
 const HERE = dirname(fileURLToPath(import.meta.url)), ROOT = join(HERE, '..');
 const { chromium } = await import(join(ROOT, 'tools', 'node_modules', 'playwright-core', 'index.mjs'));
-const [file = join(HERE, 'auburn2.json'), secs = '20', car = 'gtr'] = process.argv.slice(2);
+const [file = join(HERE, 'auburn2.json'), secs = '20', car = 'm3gtr'] = process.argv.slice(2);
 const track = JSON.parse(readFileSync(file, 'utf8')); delete track.hidden;
 const PORT = 8790 + Math.floor(Math.random() * 100);
 const server = spawn('python3', [join(ROOT, 'serve.py'), String(PORT), '--no-browser'], { stdio: 'ignore' });

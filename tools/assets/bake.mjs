@@ -254,4 +254,7 @@ for (const [pack, list] of byPack) {
 }
 fs.writeFileSync(path.join(outDir, 'catalog.json'), JSON.stringify(catalog, null, 1));
 console.log(`total ${(total / 1024).toFixed(1)} MB, ${catalog.assets.length} assets`);
+// the PSX houses come from their own pack (OBJ + shared textures): bakehouses.mjs
+const { bakeHouses } = await import('./bakehouses.mjs');
+bakeHouses();
 }

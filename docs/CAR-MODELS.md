@@ -27,7 +27,11 @@ Liveries are model-independent: decals are stored on named **panels** in metres 
   spot on the car. The panels are then projected onto the surface: left/right sides from the side, top from
   above, wings from behind, sidepods and engine cover as windows of the side views. Any livery, including ones
   made for the classic car, lands in the same places. Garage → Livery Designer → Files → UV template shows which
-  panel covers which part of your model's texture.
+  panel covers which part of your model's texture. Decals aren't kept inside their panel: each one sits on the outer
+  surface under its centre (found along its panel's view, `dir` on the panel) and is projected along the way that
+  surface faces on average under it, so it carries on over seams and wraps over an edge (a sticker slid onto the
+  bonnet's edge covers both the side and the bonnet, a little stretched), fading out where the surface turns away. The
+  photo-textured road cars (`js/roadcar.js`) work the same way.
 - **Classic car (atlas):** each panel is a rectangle of a hand-made UV layout, described by `MODEL` in
   `js/carmodel.js`.
 

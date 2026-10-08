@@ -28,7 +28,6 @@ export const CAR_SOURCES = [
   { id: 'testarossa', pack: 'low_poly_ps1-syle_testarossa', L: 4.49, yaw: 0, split: ['Object_4'] },
   { id: 'jsport', pack: 'japanese_low-poly_sports_car', L: 4.45, yaw: 0, wheels: '/^Cylinder(\\.00\\d)?$/' },
   { id: 'rs964', pack: 'porsche_911_964_carrera_rs_club_sport', L: 4.25, yaw: 0, wheels: '/^Cylinder(\\.00\\d)?$/' },
-  { id: 'gtr', pack: 'nissan_gt-r_ps1_low-poly', L: 4.71, yaw: 90, wheels: '/^(FL|FR|RL|RR)_\\d$/' },
   { id: 'mustang', pack: '2016_ford_mustang_gt_5.0', L: 4.78, yaw: 0, carve: true },
   { id: 'm5', pack: 'bmw_m5_e39_gt2psx_style', L: 4.78, yaw: 180, wheels: '/^WHEEL_(FL|FR|BL|BR)$/' },
   { id: 'transit', pack: 'ford_transit_1999', L: 4.8, yaw: 0, split: ['Object_5'] },

@@ -17,3 +17,8 @@ tools/tracks/cache/
 
 # your saves (mirrored by serve.py): personal, not part of the game
 saves/
+
+# Blender working files and exports (the game loads the .glb files)
+*.blend
+*.blend1
+output/

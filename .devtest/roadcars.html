@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import { buildF1 } from '../js/carmodel.js';
 import { loadRoadCar } from '../js/roadcar.js';
 const P = new URLSearchParams(location.search);
-const ids = (P.get('ids') || 'aventus,bx300,testarossa,rs964,gtr,mustang').split(',');
+const ids = (P.get('ids') || 'aventus,bx300,testarossa,rs964,m3gtr,mustang').split(',');
 const paint = P.get('paint') || '';
 window.__SVGP_CARS = Object.fromEntries(ids.map(id => [id, '../models/cars/' + id + '.glb']));
 const views = [[5.5, 1.6, 5.5], [-6.5, 1.2, 0.3], [0.5, 1.4, -7], [2.5, 6, 3]];

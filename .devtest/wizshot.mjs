@@ -10,7 +10,7 @@ await new Promise(r => setTimeout(r, 1000));
 const b = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 try {
   const pg = await b.newPage(); await pg.setViewportSize({ width: 1600, height: 900 });
-  pg.on('pageerror', e => console.log('PAGE ERROR', e.message)); pg.on('console', m => m.type() === 'error' && console.log('ERR', m.text()));
+  pg.on('pageerror', e => console.log('PAGE ERROR', e.message, (e.stack || '').split('\n').slice(0, 4).join(' | '))); pg.on('console', m => m.type() === 'error' && console.log('ERR', m.text()));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
   await pg.addInitScript(() => { navigator.getGamepads = () => []; }); await pg.waitForFunction(() => window.__svgp, null, { timeout: 60000 }); await pg.waitForTimeout(1000);
   await pg.evaluate(async () => {

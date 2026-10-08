@@ -71,7 +71,7 @@ const GROUPS = {
   // 0-100 km/h with traction control high / low / off
   launch() {
     const out = {};
-    for (const id of ['jsport', 'mustang', 'm1procar', 'gtr', 'f1']) for (const tc of ['high', 'low', 'off']) {
+    for (const id of ['jsport', 'mustang', 'm1procar', 'r34', 'f1']) for (const tc of ['high', 'low', 'off']) {
       let t100 = 0;
       drive(car(id, { aids: { tc } }), 15, () => ({ throttle: 1 }), (t, p) => { if (p.speed >= 27.78) { t100 = t; return false; } });
       out[`${id} TC ${tc}`] = { s: r2(t100) };

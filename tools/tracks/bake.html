@@ -1,0 +1,9 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Track bake</title>
+<script type="importmap">{ "imports": { "three": "/vendor/three.module.min.js", "postprocessing": "/vendor/postprocessing/index.js" } }</script>
+<script type="module">
+  import { bake } from './bake.js';
+  window.bake = bake;
+  window.bakeReady = true;
+</script>

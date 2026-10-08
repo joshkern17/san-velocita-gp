@@ -8,7 +8,7 @@ import { buildF1 } from './carmodel.js';
 import { loadCharacters, makeCharacter } from './characters.js';
 
 const hex = (c) => '#' + (c >>> 0).toString(16).padStart(6, '0');
-const TYRE_CSS = { soft: '#e0302a', medium: '#f2d22a', hard: '#f0f0f0', wet: '#3a8af0' };
+const TYRE_CSS = { soft: '#e0302a', medium: '#f2d22a', hard: '#f0f0f0', wet: '#3a8af0', dirt: '#b8824a' };
 // the room: x across (-W/2..W/2), z from the back wall (-D) to the door (0), the car in the middle facing the door
 const W = 12, D = 14, H = 4.6, CAR_Z = -6.5;
 const BULB_SCALE = 0.0006;
@@ -18,7 +18,7 @@ const ENGINE_REAR = new Set(['rs964', 'testarossa', 'custom', 'svgp']); // (cars
 // car's spot at the origin; see docs/GARAGE-MODEL.md for the named hooks). The single-file build carries it in
 // window.__SVGP_GARAGE_GLB.
 let roomLoad = null;
-function loadRoom() {
+export function loadRoom() {
   if (roomLoad) return roomLoad;
   const url = (typeof window !== 'undefined' && window.__SVGP_GARAGE_GLB) || 'models/garage.glb';
   // (serve.py answers /__exists quietly; anywhere else a missing file is just a 404 once)
@@ -500,6 +500,14 @@ export class PitGarage {
   get nearScreen() { return this.shot === 'seat' || (this.prevShot === 'seat' && !this.settled); }
   get zoomK() { return this.shot === 'seat' ? this.blendK : this.prevShot === 'seat' ? 1 - this.blendK : 0; }
   carCentre() { return new THREE.Vector3(0, 0.55, CAR_Z); }
+  // look round the car (dyaw, dpitch rad; zoom × the distance); the first call starts from where the camera is now.
+  // look(null) hands the camera back to the room's own shot
+  look(dy, dp = 0, zoom = 1) {
+    if (dy === null) { this.orbit = null; return; }
+    if (!this.orbit) { const C = this.carCentre(), v = this.camera.position.clone().sub(C), r = Math.max(2.5, v.length());
+      this.orbit = { yaw: Math.atan2(v.x, v.z), pitch: Math.asin(Math.max(-0.2, Math.min(0.9, v.y / r))), dist: Math.min(7.4, r) }; }
+    const o = this.orbit; o.yaw += dy; o.pitch = Math.max(0.02, Math.min(1.1, o.pitch + dp)); o.dist = Math.max(2.6, Math.min(7.4, o.dist * zoom));
+  }
   roomPose(f, t) {
     // from in front of the car, looking past it to the desk: the car in the middle, the computer behind
     const C = this.carCentre(), D = f ? f.c.clone() : C.clone().add(new THREE.Vector3(-3, 0.6, -3));
@@ -563,6 +571,16 @@ export class PitGarage {
     rc.setFromCamera(new THREE.Vector2((cx - box.left) / box.width * 2 - 1, -(cy - box.top) / box.height * 2 + 1), this.camera);
     return rc.intersectObject(this.car.group, true).length > 0;
   }
+  // at a race weekend's desk: the glass a little smaller than when you sit down at home, and over to the right (the
+  // garage menu is on the left)
+  setDesk(on) { if (!!on === !!this.desk) return; this.desk = !!on; this.from = on ? { pos: this.camera.position.clone(), quat: this.camera.quaternion.clone(), fov: this.camera.fov, shift: this.shiftNow ?? this.shift ?? 0 } : null; this.blendK = on ? 0 : 1; }
+  get atDesk() { return !!this.desk && this.blendK >= 1; }
+  deskPose(f, aspect) {
+    const fov = 28, tn = Math.tan(fov * Math.PI / 360), fill = 0.74;
+    const d = Math.max(f.h / 2 / fill / tn, f.w / 2 / (tn * aspect * 0.58));
+    const drop = 0.1 * d * tn; // (the glass a little low: the session clock is top right)
+    return { pos: f.c.clone().addScaledVector(f.n, d).addScaledVector(f.up, drop), at: f.c.clone().addScaledVector(f.up, drop), fov, shift: 0.165 };
+  }
   seatPose(f, aspect) {
     // the glass fills 84% of the height, nudged up clear of the button prompts along the bottom
     const fov = 28, tn = Math.tan(fov * Math.PI / 360), fill = 0.84, lift = 0.06;
@@ -604,7 +622,7 @@ export class PitGarage {
       g.fillStyle = hex(r.color); g.fillRect(44, y - 9, 5, 18);
       g.fillStyle = '#fff'; g.textAlign = 'left'; g.fillText(String(r.pos).padStart(2, ' '), 14, y); g.fillText(r.name, 58, y);
       g.textAlign = 'right'; g.fillStyle = '#c6d4ea';
-      g.fillText(!isFinite(r.best) ? '-' : r.pos === 1 ? fmt(r.best) : '+' + r.gap.toFixed(3), 498, y);
+      g.fillText(!isFinite(r.best) ? '-' : r.pos === 1 || r.gap == null ? fmt(r.best) : '+' + r.gap.toFixed(3), 498, y);
     });
     this.tvTex.needsUpdate = true;
   }
@@ -647,7 +665,7 @@ export class PitGarage {
       });
     });
   }
-  close() { if (this.night) this.setNight(false); this.cinePose = null; this.carOff = false; if (this.car) this.car.group.visible = true; this.active = false; this.mode = 'pit'; this.shot = 'room'; this.prevShot = null; this.blendK = 1; this.from = null; }
+  close() { this.desk = false; if (this.night) this.setNight(false); this.cinePose = null; this.carOff = false; if (this.car) this.car.group.visible = true; this.active = false; this.mode = 'pit'; this.shot = 'room'; this.prevShot = null; this.blendK = 1; this.from = null; }
   update(dt) {
     if (!this.active) return;
     this.t += dt;
@@ -680,7 +698,28 @@ export class PitGarage {
       if (this.car) this.car.animate({ steer: 0, spin: 0, heave: Math.sin(this.t * 1.6) * 0.003, pitch: 0, roll: 0 });
       return;
     }
+    // a race weekend at the desk (World Career): the computer's screen to the right of the menu, the Race Weekend app on it
+    if (this.desk) {
+      const f = this.screenFrame(), el = this.r.domElement;
+      if (f) {
+        const b = this.deskPose(f, el.width / el.height), look = (p) => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(p.pos, p.at, new THREE.Vector3(0, 1, 0)));
+        this.blendK = Math.min(1, this.blendK + dt / 0.75);
+        const k = this.blendK * this.blendK * (3 - 2 * this.blendK), a = this.from || { pos: b.pos, quat: look(b), fov: b.fov, shift: b.shift };
+        this.camera.position.lerpVectors(a.pos, b.pos, k); this.camera.quaternion.copy(a.quat).slerp(look(b), k);
+        this.camera.fov = a.fov + (b.fov - a.fov) * k; this.shiftNow = a.shift + (b.shift - a.shift) * k;
+        return;
+      }
+    }
     this.shiftNow = this.shift;
+    // looking round the car yourself (the Tuning screen: drag, wheel, right stick): an orbit round it, kept in the room
+    if (this.orbit) {
+      const o = this.orbit, C = this.carCentre();
+      const p = new THREE.Vector3(C.x + Math.sin(o.yaw) * Math.cos(o.pitch) * o.dist, C.y + Math.sin(o.pitch) * o.dist, C.z + Math.cos(o.yaw) * Math.cos(o.pitch) * o.dist);
+      p.x = Math.max(-W / 2 + 0.6, Math.min(W / 2 - 0.6, p.x)); p.z = Math.max(-D + 0.6, Math.min(-0.4, p.z)); p.y = Math.max(0.35, Math.min(H - 0.4, p.y));
+      this.camera.position.lerp(p, Math.min(1, dt * 10)); this.camera.lookAt(C); this.camera.fov = 40;
+      if (this.car) this.car.animate({ steer: 0, spin: 0, heave: Math.sin(this.t * 1.6) * 0.003, pitch: 0, roll: 0 });
+      return;
+    }
     if (this.view) {
       const v = this.view, yaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.sin(this.t * 0.12) * 0.05);
       this.camera.position.copy(v.pos).sub(v.pivot).applyQuaternion(yaw).add(v.pivot);

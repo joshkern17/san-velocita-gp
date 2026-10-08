@@ -1,0 +1,20 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script></head>
+<body style="margin:0;background:#222"><script type="module">
+import * as THREE from 'three';
+window.__SVGP_CHARACTERS_GLB = "../models/characters.glb";
+const { loadCharacters, makeCharacter } = await import('../js/characters.js');
+const { crouchPose } = await import('../js/pitlife.js');
+const P = new URLSearchParams(location.search);
+const r = new THREE.WebGLRenderer(); r.setSize(900, 450); document.body.appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x30343a);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x404040, 2.5));
+const g = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshLambertMaterial({ color: 0x555555 })); g.rotation.x = -Math.PI / 2; scene.add(g);
+const cam = new THREE.PerspectiveCamera(30, 2, 0.1, 100); cam.position.set(...(P.get("cam") || "6.5,1.6,6.5").split(",").map(Number)); cam.lookAt(0, 0.7, 0);
+await loadCharacters();
+
+const list = (P.get('k') || '0,0.5,1').split(',').map(Number);
+const chars = list.map((k, n) => { const c = makeCharacter({ look: 'coveralls_navy', clip: P.get('clip') || 'idle' }); c.object.position.x = (n - (list.length - 1) / 2) * 1.6; c.object.rotation.y = +(P.get('rot') || 1.2); c.post = (ch) => crouchPose(ch, k, P.get('mode') || 'gun'); scene.add(c.object); return c; });
+for (let i = 0; i < 30; i++) chars.forEach(c => c.update(1 / 30));
+r.render(scene, cam); window.done = true;
+</script></body></html>

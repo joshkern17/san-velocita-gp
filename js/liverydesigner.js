@@ -1,7 +1,7 @@
 // Livery Designer UI: team colours + pattern, PNG/SVG + text decals placed by clicking on the car,
 // helmet, race suit, saved teams and livery files. Works on the model-independent livery data (livery.js).
 import { MODEL as CLASSIC } from './carmodel.js';
-import { PATTERNS, HELMET_PATTERNS, SUIT_PATTERNS, SUIT_NUMBERS, CREW_STYLES, VISORS, VISOR_STRIPS, FONTS, assets, importImageFile, decalImage, uvToPanel, uvTemplate, liveryAssetIds, fillLivery } from './livery.js';
+import { PATTERNS, HELMET_PATTERNS, SUIT_PATTERNS, SUIT_NUMBERS, CREW_STYLES, VISORS, VISOR_STRIPS, FONTS, assets, importImageFile, decalImage, uvToPanel, uvTemplate, liveryAssetIds, fillLivery, stickerDecals, boundText, BOUND } from './livery.js';
 import { sfx } from './audio.js';
 
 const $ = (id) => document.getElementById(id);
@@ -38,12 +38,21 @@ export class LiveryDesigner {
     this.active = true; this.sel = -1; this.ksel = -1;
     const c = this.car;
     Object.assign(c, fillLivery(c));
+    // the built-in sponsor + team name stickers become decals here (same places), so they move like the rest
+    if (c.stickers !== 'decals') { if (c.showSponsor) c.decals.unshift(...stickerDecals(c, this.def)); c.stickers = 'decals'; }
     assets.load(liveryAssetIds(c)).then(() => this.repaint());
     this.garage.shift = -0.13; this.garage.view('three');
     this.garage.onPick = (hit, phase) => this.onPick(hit, phase);
     this.render();
     // (World Career: a sponsor's logo, ready to place)
-    if (this.pending) { const d = this.pending; this.pending = null; assets.load([d.asset]).then(() => this.addDecal({ asset: d.asset, name: d.name, size: 0.45 })); }
+    // (World Career: a sponsor's logo or name, picked out if it's already on the car, else added, ready to place)
+    if (this.pending) {
+      const d = this.pending; this.pending = null; this.tab = 'decals'; this.dtarget = 'car';
+      const i = c.decals.findIndex(x => d.bind ? x.bind === d.bind : x.asset === d.asset);
+      if (i >= 0) { this.sel = i; this.render(); this.toast('CLICK OR DRAG ON THE CAR TO MOVE IT'); }
+      else if (d.bind) this.addBound(d.bind);
+      else assets.load([d.asset]).then(() => this.addDecal({ asset: d.asset, name: d.name, size: 0.45 }));
+    }
   }
   close() {
     if (!this.active) return;
@@ -124,8 +133,7 @@ export class LiveryDesigner {
       <h4>PATTERN</h4>
       ${this.seg('lv-pat', PATTERNS, c.pattern)}
       ${this.check('lv-shown', 'Race numbers on the car', c.showNumber)}
-      ${this.check('lv-shows', 'Sponsor + team name stickers', c.showSponsor)}
-      <p class="muted">Add your own logos and stickers in DECALS. Bodywork parts are in the Garage menu.</p>`;
+      <p class="muted">The sponsor and team name stickers, your own logos and text are in DECALS. Bodywork parts are in the Garage menu.</p>`;
   }
   bind_team() {
     const c = this.car;
@@ -134,7 +142,7 @@ export class LiveryDesigner {
     const n = $('lv-num'); n.addEventListener('input', () => { c.number = Math.max(0, Math.min(99, parseInt(n.value || '0', 10))); this.repaint(); }); n.addEventListener('keydown', e => e.stopPropagation());
     this.bindColour('lv-c1', v => c.main = v); this.bindColour('lv-c2', v => c.accent = v); this.bindColour('lv-c3', v => c.third = v);
     this.bindSeg('lv-pat', v => { c.pattern = v; this.repaint(); });
-    this.bindCheck('lv-shown', v => c.showNumber = v); this.bindCheck('lv-shows', v => c.showSponsor = v);
+    this.bindCheck('lv-shown', v => c.showNumber = v);
   }
 
   // DECALS
@@ -150,19 +158,19 @@ export class LiveryDesigner {
   carDecalsHtml() {
     const c = this.car, d = c.decals[this.sel];
     const list = c.decals.map((x, i) => {
-      const url = x.asset && assets.get(x.asset);
-      const th = x.text != null ? `<span class="th" style="color:${hex(x.color)}">${esc(x.text.slice(0, 3))}</span>` : `<span class="th" style="background-image:url('${url || ''}')"></span>`;
-      return `<div class="lv-item ${i === this.sel ? 'sel' : ''}" data-i="${i}">${th}<span class="nm">${esc(x.name || x.text || 'Decal')}<br><span class="pn">${esc(this.def.panels[x.panel]?.label || x.panel)}${x.mirror ? ' · BOTH SIDES' : ''}</span></span>
+      const url = x.asset && assets.get(x.asset), txt = x.bind ? boundText(c, x.bind) : x.text;
+      const th = txt != null ? `<span class="th" style="color:${hex(x.color)}">${esc(txt.slice(0, 3))}</span>` : `<span class="th" style="background-image:url('${url || ''}')"></span>`;
+      return `<div class="lv-item ${i === this.sel ? 'sel' : ''}" data-i="${i}">${th}<span class="nm">${esc(x.bind ? BOUND[x.bind] : x.name || x.text || 'Decal')}<br><span class="pn">${esc(this.def.panels[x.panel]?.label || x.panel)}${x.mirror ? ' · BOTH SIDES' : ''}</span></span>
         <button data-act="up" title="Draw earlier">&#9650;</button><button data-act="dup" title="Duplicate">+</button><button data-act="del" title="Delete">&#10005;</button></div>`;
     }).join('');
     let props = '<p class="muted">Select a decal to edit it.</p>';
     if (d) {
       const p = this.def.panels[d.panel] || Object.values(this.def.panels)[0];
       props = `<h4>SELECTED</h4>
-        ${d.text != null ? `<div class="fld"><label>Text</label>${this.text('lv-dt', d.text, 20)}</div>
+        ${d.text != null ? `${d.bind ? `<p class="muted">Reads ${esc(boundText(c, d.bind) || '(nothing yet)')}: it follows the ${d.bind === 'sponsor' ? 'title sponsor' : 'team name'}.</p>` : `<div class="fld"><label>Text</label>${this.text('lv-dt', d.text, 20)}</div>`}
           <div class="fld"><label>Font</label><select id="lv-df">${Object.entries(FONTS).map(([k, v]) => `<option value="${k}" ${d.font === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
           <div class="lv-row">${this.colour('Colour', 'lv-dc', d.color ?? 0xffffff)}${this.colour('Outline', 'lv-do', d.outline ?? 0x000000)}</div>
-          ${this.check('lv-dno', 'Outline', d.outline != null)}` : ''}
+          ${this.check('lv-dno', 'Outline', d.outline != null)}${this.check('lv-dbar', 'Background bar', d.bar != null)}` : ''}
         <div class="fld"><label>Panel</label><select id="lv-dp">${Object.entries(this.def.panels).map(([k, v]) => `<option value="${k}" ${d.panel === k ? 'selected' : ''}>${esc(v.label)}</option>`).join('')}</select></div>
         ${this.range('Across', 'lv-dx', 0, p.W, 0.01, d.x, ' m')}
         ${this.range('Up / down', 'lv-dy', 0, p.H, 0.005, d.y, ' m')}
@@ -174,6 +182,7 @@ export class LiveryDesigner {
     }
     return `<h4>DECALS</h4>
       <div class="seg"><button id="lv-addimg" class="hot">+ Image (PNG / SVG)</button><button id="lv-addtxt">+ Text</button></div>
+      <div class="seg"><button id="lv-addsp">+ Sponsor name</button><button id="lv-addteam">+ Team name</button></div>
       <p class="muted">Images are stored in your browser. SVGs stay sharp at any size.</p>
       <div class="lv-list" id="lv-list">${list || '<p class="muted">No decals yet.</p>'}</div>
       <div id="lv-props">${props}</div>`;
@@ -182,6 +191,7 @@ export class LiveryDesigner {
     const c = this.car;
     $('lv-addimg').addEventListener('click', () => { const f = $('lv-file'); f.dataset.for = 'decal'; f.value = ''; f.click(); });
     $('lv-addtxt').addEventListener('click', () => this.addDecal({ text: c.sponsor || 'SPONSOR', font: 'impact', color: 0xffffff, outline: 0x000000, size: 0.12, name: null }));
+    $('lv-addsp').addEventListener('click', () => this.addBound('sponsor')); $('lv-addteam').addEventListener('click', () => this.addBound('team'));
     document.querySelectorAll('#lv-list .lv-item').forEach(it => it.addEventListener('click', (e) => {
       const i = +it.dataset.i, act = e.target.dataset?.act;
       if (act === 'del') return this.removeDecal(i);
@@ -194,10 +204,11 @@ export class LiveryDesigner {
   bindDecalProps() {
     const d = this.car.decals[this.sel]; if (!d) return;
     if (d.text != null) {
-      this.bindText('lv-dt', v => { d.text = v; });
+      if (!d.bind) this.bindText('lv-dt', v => { d.text = v; });
       $('lv-df').addEventListener('change', (e) => { d.font = e.target.value; this.repaint(); });
       this.bindColour('lv-dc', v => d.color = v); this.bindColour('lv-do', v => { d.outline = v; });
       this.bindCheck('lv-dno', v => { d.outline = v ? unhex($('lv-do').value) : null; });
+      this.bindCheck('lv-dbar', v => { d.bar = v ? this.car.third : null; });
     }
     $('lv-dp').addEventListener('change', (e) => { const q = this.def.panels[e.target.value]; d.panel = e.target.value; d.x = q.W / 2; d.y = q.H / 2; this.changed(true); });
     this.bindRange('lv-dx', v => d.x = v, ' m'); this.bindRange('lv-dy', v => d.y = v, ' m', 3);
@@ -216,6 +227,11 @@ export class LiveryDesigner {
     this.sel = c.decals.length - 1; this.dtarget = 'car';
     sfx.select(); this.changed(true);
     this.toast('NOW CLICK ON THE CAR TO PLACE IT');
+  }
+  // the title sponsor's name / the team name, as a sticker that keeps up with it
+  addBound(bind) {
+    const c = this.car;
+    this.addDecal({ bind, text: '', font: 'impact', color: c.accent, outline: null, bar: c.third, size: bind === 'sponsor' ? 0.12 : 0.09, name: null });
   }
   removeDecal(i) { this.car.decals.splice(i, 1); this.sel = Math.min(this.sel, this.car.decals.length - 1); sfx.back(); this.changed(true); }
   async importFile(file, target) {

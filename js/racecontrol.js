@@ -3,6 +3,7 @@
 // without sending them); track limits and penalties are judged by whoever owns the car (you for yours, the host
 // for the AI) and a car's penalty seconds travel with its state.
 import * as THREE from 'three';
+import { placeName } from './realtracks.js';
 
 // 'off': no flags, no penalties. 'arcade': flags + lenient limits (all four wheels past the kerb). 'realistic': the white line.
 // kerbOk: the kerbs are part of the track. wideRoom: extra metres allowed past that on the OUTSIDE of a bend (running
@@ -77,24 +78,28 @@ export class RaceControl {
     this.lastYellowMsg = -99;
     this.panels = [];
     this.vsc = null;       // { phase: 'on' | 'ending', until, endAt, why }
+    this.sc = null;        // the safety car: { phase: 'out' | 'in', why } (race.js drives it: race.sc)
     this.lastVsc = -99;
     this.cases = [];       // collisions the stewards are looking at
     // online: only the host decides when the VSC comes out (everyone else follows its state)
     this.auth = !race.net || race.net.host;
     if (this.on && race.mode === 'race') this.buildPanels();
   }
-  vscOn() { return !!this.vsc; }
+  // (a VSC or the safety car: either way a stop is cheap and nobody overtakes)
+  vscOn() { return !!this.vsc || !!this.sc; }
 
   // ---------- places ----------
   where(idx) {
     const c = this.corners.at[idx];
-    return c > 0 ? 'Turn ' + c : 'Sector ' + (this.SEC[idx] + 1);
+    const nm = placeName(this.race.track, idx * this.race.T.ds); // real circuits: 'Turn 3 (Eau Rouge)'
+    return c > 0 ? 'Turn ' + c + (nm ? ` (${nm})` : '') : nm || 'Sector ' + (this.SEC[idx] + 1);
   }
   flagAt(idx) { return this.on ? this.flag[this.SEC[idx]] : null; }
   // the flag a driver at idx is being shown: this sector's, or a yellow in the next one when it is close
   flagAhead(idx) {
     if (!this.on) return null;
     if (this.vsc) return { f: 'vsc', k: this.SEC[idx] };
+    if (this.sc) return { f: 'sc', k: this.SEC[idx] };
     const T = this.race.T, k = this.SEC[idx], here = this.flag[k];
     if (here === 'y' || here === 'dy') return { f: here, k };
     const nk = (k + 1) % this.M, next = this.flag[nk];
@@ -243,26 +248,34 @@ export class RaceControl {
       // (they've since had their own moment: nothing to give back)
       if (o.rc && o.rc.hold > 0) { car.giveBack = null; if (car.isPlayer) this.say('No need to give the place back', { me: true, cls: 'g' }); return; }
       if (o.gone || o.finished || o.pitting || car.pitting || car.progress < o.progress) {
-        car.giveBack = null;
+        car.giveBack = null; car.gaveBack = { car: o, t: now }; // (so their pass back isn't a pass under yellow: below)
         if (car.isPlayer && !o.gone && car.progress < o.progress) this.say('Position given back · no further action', { me: true, cls: 'g' });
       } else if (now > gb.until) {
         car.giveBack = null;
-        this.penalise(car, PEN, gb.vsc ? 'passed under the VSC' : 'passed under yellow');
+        this.penalise(car, PEN, gb.vsc ? 'passed under the VSC' : gb.sc ? 'passed under the safety car' : 'passed under yellow');
       }
       return;
     }
     if (car.lap === 0 || car.finished || car.pitting || car.rcProg === undefined) return;
-    const fl = this.vsc ? 'vsc' : this.flagAt(car.idx);
-    if (fl !== 'y' && fl !== 'dy' && fl !== 'vsc') return;
+    const fl = this.vsc ? 'vsc' : this.sc ? 'sc' : this.flagAt(car.idx);
+    if (fl !== 'y' && fl !== 'dy' && fl !== 'vsc' && fl !== 'sc') return;
     for (const o of this.race.cars) {
       if (o === car || o.gone || o.finished || o.pitting || o.rcProg === undefined) continue;
       // passed this frame (and not by a mile: lap counting quirks)
       if (!(car.rcProg <= o.rcProg && car.progress > o.progress && car.progress - o.progress < 30)) continue;
       // passing the car that caused it, a crawling or off-track car, is fine
-      if ((o.rc && (o.rc.hold > 0 || now - (o.rc.last ?? -99) < 8)) || (o.giveBack && o.giveBack.car === car) || o.phys.speed < Math.max(10, car.phys.speed * 0.6) || Math.abs(o.s) > this.race.T.W[o.idx] / 2 + 1) continue;
+      // (under the VSC or the safety car everyone's slow: only a car that's stopped or crawling is fair game)
+      // (crawling: well under even the VSC's pace for that bit of track)
+      const crawl = fl === 'sc' || fl === 'vsc' ? Math.max(8, ((o.lineV || this.race.lineV)[o.idx] || 30) * 0.35) : Math.max(10, car.phys.speed * 0.6);
+      // (and fair: taking back the place a car just gave you; a car just out of the pits; a move already happening as
+      // the VSC or the safety car came out)
+      const t0 = fl === 'sc' ? this.sc.t0 : fl === 'vsc' ? this.vsc.t0 : null;
+      // (a pit stop under it reshuffles everyone: a car out of the pits in the last half minute, either one, isn't a pass)
+      if ((o.gaveBack && o.gaveBack.car === car && now - o.gaveBack.t < 4) || o.blue === car || o.lap < car.lap || now - (o.pitOutT ?? -99) < 30 || now - (car.pitOutT ?? -99) < 30 || (t0 != null && now - t0 < 3)) continue;
+      if ((o.rc && (o.rc.hold > 0 || now - (o.rc.last ?? -99) < 8)) || (o.giveBack && o.giveBack.car === car) || o.phys.speed < crawl || Math.abs(o.s) > this.race.T.W[o.idx] / 2 + 1) continue;
       const where = this.where(car.idx);
-      car.giveBack = { car: o, until: now + R.giveBack, where, total: R.giveBack, vsc: fl === 'vsc' };
-      if (car.isPlayer) this.say(`Passed ${o.name} under ${fl === 'vsc' ? 'the VSC' : 'yellow'} · give it back`, { me: true, cls: 'y' });
+      car.giveBack = { car: o, until: now + R.giveBack, where, total: R.giveBack, vsc: fl === 'vsc', sc: fl === 'sc' };
+      if (car.isPlayer) this.say(`Passed ${o.name} under ${fl === 'vsc' ? 'the VSC' : fl === 'sc' ? 'the safety car' : 'yellow'} · give it back`, { me: true, cls: 'y' });
       break;
     }
   }
@@ -318,7 +331,7 @@ export class RaceControl {
 
   // ---------- black and orange flag: a car with a wing hanging off has to come in for repairs ----------
   meatball(car) {
-    if (!this.race.damageK || car.finished || car.dsq) return;
+    if (!this.race.damageK || car.finished || car.dsq || car.wreck) return;
     const d = car.phys.dmg, broken = d.fw >= 0.72 || d.rw >= 0.72 || d.ch >= 0.85;
     if (!broken) { if (car.mo) { car.mo = null; if (car.isPlayer) this.say('Repairs done · black and orange flag withdrawn', { me: true, cls: 'g' }); } return; }
     if (!car.mo) {
@@ -367,6 +380,7 @@ export class RaceControl {
   // shows how far they are above it: keep it positive) and nobody may overtake. Pitting under it is cheap.
   vscUpdate(dt, now) {
     const race = this.race;
+    if (this.sc) return; // (race.js brings it in: scUpdate)
     if (this.vsc) {
       if (!this.auth) return;
       if (this.vsc.phase === 'on' && now > this.vsc.until) this.setVsc('ending');
@@ -378,13 +392,25 @@ export class RaceControl {
     if (!lead || lead.lap >= race.laps || race.T.open) return; // (not on the last lap, not on a one-run sprint)
     for (const car of race.cars) {
       if (car.gone || car.finished || car.pitting) continue;
-      if (car.rc && car.rc.stopT > 5) return this.setVsc('on', `${car.name} stopped at ${this.where(car.idx)}`);
-      if (car.crashT && now - car.crashT < 0.1 && car.crashV >= this.R.vscCrash) return this.setVsc('on', `crash at ${this.where(car.idx)}`);
+      // (the worst of them, a car stopped on the track or a heavy crash, now and then bring out the safety car instead)
+      const sc = race.opts.safetyCar !== false && race.pit && race.deploySC;
+      if (car.rc && car.rc.stopT > 5) return sc && Math.random() < 0.4 ? this.setSc('out', `${car.name} stopped at ${this.where(car.idx)}`) : this.setVsc('on', `${car.name} stopped at ${this.where(car.idx)}`);
+      if (car.crashT && now - car.crashT < 0.1 && car.crashV >= this.R.vscCrash) return sc && car.crashV >= this.R.vscCrash + 8 && Math.random() < 0.6 ? this.setSc('out', `crash at ${this.where(car.idx)}`) : this.setVsc('on', `crash at ${this.where(car.idx)}`);
     }
+  }
+  // a car crashed out (race.js wreckCar): it's sitting broken by the track, so out comes the safety car (no pit lane,
+  // or the safety car switched off: the VSC). Not on the last lap, and not over a safety car already out.
+  crashOut(car) {
+    if (!this.on || this.race.mode !== 'race') return;
+    const race = this.race, where = this.where(car.idx), lead = race.order && race.order.find(c => !c.gone && !c.wreck);
+    this.say(`Out · ${car.isPlayer ? 'You' : car.name} · crashed at ${where}`, { cls: 'y', me: true });
+    if (!this.auth || race.state !== 'racing' || this.sc || !lead || lead.lap >= race.laps || race.T.open) return;
+    const why = `${car.isPlayer ? 'your' : car.name + '\'s'} car stopped at ${where}`;
+    if (race.opts.safetyCar !== false && race.pit && race.deploySC) this.setSc('out', why); else this.setVsc('on', why);
   }
   // a wing came off: debris on the track (a VSC half the time)
   debris(car) {
-    if (!this.on || !this.auth || this.vsc || this.race.mode !== 'race' || this.race.state !== 'racing') return;
+    if (!this.on || !this.auth || this.vsc || this.sc || this.race.mode !== 'race' || this.race.state !== 'racing') return;
     const now = this.race.raceTime, lead = this.race.order && this.race.order[0];
     if (now < 10 || now - this.lastVsc < 60 || !lead || lead.lap >= this.race.laps || this.race.T.open) return;
     if (Math.random() < 0.5) this.setVsc('on', `debris at ${this.where(car.idx)}`);
@@ -392,6 +418,7 @@ export class RaceControl {
   setVsc(phase, why = '') {
     const race = this.race, now = race.raceTime, was = this.vsc ? this.vsc.phase : null;
     if (phase === was) return;
+    if (phase === 'on' && this.sc) return; // (never a VSC over the safety car: whatever calls for one)
     if (phase === 'on') {
       this.vsc = { phase: 'on', t0: now, until: now + 20 + Math.random() * 15, why };
       for (const c of race.cars) { c.vscDelta = 0; c.vscBad = 0; c.vscStrikes = 0; c.vscWarned = false; }
@@ -408,9 +435,19 @@ export class RaceControl {
       this.say('Green flag · racing resumes', { cls: 'g', me: true });
     }
   }
+  // the safety car: out (race.js puts it ahead of the leader), in this lap, gone (green)
+  setSc(phase, why = '') {
+    const race = this.race, now = race.raceTime;
+    if (phase === 'out') {
+      const wasVsc = !!this.vsc; this.vsc = null; this.sc = { phase: 'out', t0: now, why }; race.deploySC(); // (it takes over from a VSC)
+      this.say(`${wasVsc ? 'VSC now a ' : ''}Safety Car${why ? ' · ' + why : ''}`, { cls: 'vsc', me: true });
+      race.events.push({ type: 'radio', msg: `${wasVsc ? 'The VSC\'s now a safety car.' : 'Safety car.'} It's coming out ahead of the leader: catch the queue, <b>no overtaking</b>. The pit lane's open.` });
+    } else if (phase === 'in') { this.sc.phase = 'in'; this.say('Safety car in this lap', { cls: 'vsc', me: true }); }
+    else { this.sc = null; this.lastVsc = now; for (let k = 0; k < this.M; k++) if (!this.flag[k]) { this.flag[k] = 'g'; this.greenT[k] = 4; } this.say('Green flag · racing resumes', { cls: 'g', me: true }); }
+  }
   // your delta: seconds above the VSC reference time (positive = slow enough)
   vscRules(car, dt) {
-    if (!this.vsc) return;
+    if (!this.vsc || this.sc) return;
     const race = this.race, R = this.R;
     if (car.pitting || car.finished || car.lap === 0 || car.rcProg === undefined) { car.vscBad = 0; return; }
     const LV = car.lineV || race.lineV, v = Math.max(8, LV[car.idx] * VSC_PACE);
@@ -450,6 +487,10 @@ export class RaceControl {
       if (now - c.t < 2.5) return true;
       const d = c.vic.phys.dmg, hurt = d.fw + d.rw + d.ch - c.dmg0 > 0.15 || (c.vic.rc && (c.vic.rc.last ?? -99) >= c.t);
       if (c.hit.pid && c.vic.pid) this.race.log.push({ type: 'contact', a: c.hit.pid, b: c.vic.pid, blame: !!hurt, where: c.where, t: now });
+      if (c.hit.isPlayer && c.vic.pid && hurt) { // (a bump and run: race.js notePasses)
+        const R = this.race; (R.bumpHurt ||= {})[c.vic.pid] = c.t;
+        if (((R.bumpPass || {})[c.vic.pid] ?? -99) >= c.t) R.dirty('bumprun', c.vic);
+      }
       if (!c.hit.gone && !c.hit.dsq && hurt) this.penalise(c.hit, PEN, `caused a collision (${c.where.replace('Turn ', 'T')})`);
       else if (c.hit.isPlayer || c.vic.isPlayer) this.say('Incident reviewed · no further action', { me: true, cls: 'g' });
       return false;
@@ -524,6 +565,7 @@ export class RaceControl {
       giveBack: car.giveBack ? { name: car.giveBack.car.name, left: Math.max(0, car.giveBack.until - now), total: car.giveBack.total } : null,
       blue: running && car.blue && !car.pitting ? car.blue.name : null,
       vsc: this.vsc && running ? { phase: this.vsc.phase, delta: car.vscDelta || 0, ok: (car.vscDelta || 0) >= -this.R.vscWarn } : null,
+      sc: this.sc && running ? { phase: this.sc.phase } : null,
       mo: running && car.mo ? { laps: Math.max(0, car.mo.lap - car.lap + 1) } : null,
       dt: car.dt ? { laps: Math.max(0, car.dt.lap - car.lap + 1) } : null, dtTotal: car.dtTotal || 0,
       dsq: !!car.dsq,

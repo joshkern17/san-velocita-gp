@@ -39,7 +39,7 @@ const rnd = (seedObj) => { seedObj.s = (seedObj.s * 16807) % 2147483647; return 
 const shuffle = (a, R) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
 // ---------------- new runs ----------------
-export function newCareer({ rounds = 4, hard = false, laps = 5, pool = null } = {}) {
+export function newCareer({ rounds = 4, hard = false, laps = 5, dist = null, pool = null } = {}) {
   const seed = { s: (Date.now() % 2147483646) + 1 };
   const R = () => rnd(seed);
   const tracks = pool && pool.length ? pool : presetTracks();
@@ -54,11 +54,11 @@ export function newCareer({ rounds = 4, hard = false, laps = 5, pool = null } = 
     t.env.weather = w < 0.62 ? 'clear' : w < 0.8 ? 'overcast' : w < 0.94 ? 'rain' : 'fog';
     sched.push(t);
   }
-  return base('career', sched, { hard, laps, stars: 3, money: 300, upgrades: Object.fromEntries(Object.keys(UPGRADES).map(k => [k, 0])), perks: [], seed: seed.s });
+  return base('career', sched, { hard, laps, dist, stars: 3, money: 300, upgrades: Object.fromEntries(Object.keys(UPGRADES).map(k => [k, 0])), perks: [], seed: seed.s });
 }
 
-export function newGrandPrix({ tracks, laps = 5, difficulty = 'medium' }) {
-  return base('gp', tracks.map(t => JSON.parse(JSON.stringify(t))), { laps, difficulty });
+export function newGrandPrix({ tracks, laps = 5, dist = null, difficulty = 'medium' }) {
+  return base('gp', tracks.map(t => JSON.parse(JSON.stringify(t))), { laps, dist, difficulty });
 }
 
 function base(kind, schedule, extra) {

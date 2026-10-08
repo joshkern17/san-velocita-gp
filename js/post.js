@@ -1,6 +1,6 @@
 // Post processing, built on pmndrs/postprocessing (the one render owner: a single EffectComposer).
 //
-//   render → [trails] → PSX Fog (threejs-psx-shader FogEffect: depth fog with drifting noise)
+//   render → [trails] → [depth of field: photo mode only] → PSX Fog (threejs-psx-shader FogEffect: depth fog with drifting noise)
 //   → sun glow + violet distance tint + god rays (pmndrs GodRaysEffect) + bloom (mipmap) + grade (lookup table)
 //   + [vignette] + fade → [colour fringe] → retro stage: PSX Pixelation (colour crush) + PSX Dithering (the PS1 GPU
 //   kernel), or RetroPass (the library's class) → PSX CRT (the CRT, and/or its grain and scanlines) → screen.
@@ -11,7 +11,7 @@
 // ("Sharp pixels") or smoothed ("Soft"). The HUD is HTML on top, so it stays sharp. PSX vertex snapping and affine
 // texture warping are material patches (world.js, vendor/psx); their snap grid follows the resolution here.
 import * as THREE from 'three';
-import { EffectComposer, RenderPass, EffectPass, Effect, EffectAttribute, BloomEffect, GodRaysEffect, BlendFunction, KernelSize, LUT3DEffect, LookupTexture, VignetteEffect, ChromaticAberrationEffect, Pass, CopyMaterial } from 'postprocessing';
+import { EffectComposer, RenderPass, EffectPass, Effect, EffectAttribute, BloomEffect, GodRaysEffect, BlendFunction, KernelSize, LUT3DEffect, LookupTexture, VignetteEffect, ChromaticAberrationEffect, DepthOfFieldEffect, Pass, CopyMaterial } from 'postprocessing';
 import { psxGlobals } from '../vendor/psx/src/PSXMaterial.js';
 import { PixelationEffect } from '../vendor/psx/src/effects/PixelationEffect.js';
 import { DitheringEffect } from '../vendor/psx/src/effects/DitheringEffect.js';
@@ -138,7 +138,10 @@ class TrailsPass extends Pass {
     const [prev, next] = this.hist;
     this.fullscreenMaterial = this.blendMat;
     this.blendMat.uniforms.tNew.value = inputBuffer.texture; this.blendMat.uniforms.tPrev.value = prev.texture;
-    this.blendMat.uniforms.k.value = this.first ? 0 : this.k;
+    // (k is per 60 Hz frame: a slower frame fades the last one further, so the trail lasts as long at any frame rate
+    // and a heavy stretch of track doesn't smear the picture)
+    const now = performance.now(), dt = Math.min(0.1, Math.max(0.004, (now - (this.lastT || now - 16.7)) / 1000)); this.lastT = now;
+    this.blendMat.uniforms.k.value = this.first ? 0 : Math.pow(this.k, dt * 60);
     renderer.setRenderTarget(next); renderer.render(this.scene, this.camera);
     this.fullscreenMaterial = this.copyMat; this.copyMat.inputBuffer = next.texture;
     renderer.setRenderTarget(this.renderToScreen ? null : outputBuffer); renderer.render(this.scene, this.camera);
@@ -240,6 +243,11 @@ export class PS2Post {
     this.retroPass = new RetroPass({ colorPalette: ARCADE_PALETTE(128), dithering: true, autoDitheringOffset: true, resolution: new THREE.Vector2(640, 360) });
     this.retroStep = { name: 'retropass', space: 'linear', enabled: false, render: (renderer, quad, ctx, read, target) => this.retroPass.render(renderer, target, { texture: read }) };
     this.finish = new FinishEffect();
+    // depth of field (pmndrs DepthOfFieldEffect), only in photo mode: setDof({ target, range, scale }) or null.
+    // target: the world point in focus; range: metres either side that stay sharp (js/photomode.js works it out
+    // from the lens and aperture)
+    this.dof = new DepthOfFieldEffect(this.renderPass.mainCamera, { focusDistance: 6, focusRange: 2, bokehScale: 2, resolutionScale: 0.5 });
+    this.dofOn = false;
     this.lutKey = '';
     this.rebuild();
   }
@@ -282,6 +290,7 @@ export class PS2Post {
     const lib = (effects, final) => { const p = new PSXLibPass(effects, final); p.lookup = (n) => this.psxAll.find(e => e.name === n) ?? null; return p; };
     if (c.bypass) { comp.addPass(new EffectPass(cam, this.finish)); return; }
     if (c.trails) comp.addPass(this.trails);
+    if (this.dofOn) comp.addPass(new EffectPass(cam, this.dof));
     comp.addPass(this.fogPass = lib([this.psxFog], false));                                  // PSX Fog (linear)
     comp.addPass(new EffectPass(cam, ...[this.atmos, c.rays ? this.godRays : null, this.bloom, this.lutEffect, crt ? null : this.vignette, this.finish].filter(Boolean)));
     if (c.fringe && !crt) comp.addPass(new EffectPass(cam, this.fringe));
@@ -289,6 +298,10 @@ export class PS2Post {
     if (c.retro !== 'off' || this.psxCRT.enabled) comp.addPass(this.outPass = lib([this.retroStep, this.psxDither, this.psxPixel, this.psxCRT], true));
   }
 
+  setDof(d) {
+    if (!!d !== this.dofOn) { this.dofOn = !!d; this.rebuild(); this.resize(); }
+    if (d) { this.dof.target = d.target; this.dof.cocMaterial.focusRange = d.range; this.dof.bokehScale = d.scale ?? 2; }
+  }
   setSharp(on) { if (!!on !== !!this.sharp) { this.sharp = !!on; this.resize(); } }
   resize() {
     const r = this.r, c = this.cfg;

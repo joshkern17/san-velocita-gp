@@ -166,14 +166,14 @@ export function notesHtml(an, focus, units, cmpName, zones = null) {
     const worst = [...an.corners].filter(c => c.loss > 0.02).sort((a, b) => b.loss - a.loss).slice(0, 3);
     if (!worst.length) return `<div class="panel-title">WHERE THE TIME WENT</div><p class="rv-empty">You matched or beat ${cmpName} everywhere. Try a quicker comparison.</p>`;
     return `<div class="panel-title">WHERE THE TIME WENT</div>` + worst.map(c =>
-      `<div class="rv-card"><div class="rv-card-h"><b>TURN ${c.n}</b>${loss(c.loss)}</div><p>${tipText(c.tips[0]?.text || '', units)}</p></div>`).join('');
+      `<div class="rv-card"><div class="rv-card-h"><b>TURN ${c.n}${c.name ? ' &middot; ' + c.name.toUpperCase() : ''}</b>${loss(c.loss)}</div><p>${tipText(c.tips[0]?.text || '', units)}</p></div>`).join('');
   }
   const c = an.corners[focus], y = c.you, r = c.them, sp = (v) => fmtSpeed(v, units);
   const m = (v) => v == null ? '&mdash;' : Math.round(v) + ' m';
   const row = (k, a, b) => `<tr><td>${k}</td><td class="y">${a}</td><td class="c">${b}</td></tr>`;
   // (metres before the turn-in, the way the distance boards count)
   const brakeAt = (d) => d.brakeAt < 0 ? '&mdash;' : `${Math.round(Math.max(0, ti[focus] - d.brakeAt) * an.ds)} m out`;
-  return `<div class="panel-title rv-title-row"><span>TURN ${c.n}</span>${loss(c.loss)}</div>
+  return `<div class="panel-title rv-title-row"><span>TURN ${c.n}${c.name ? ' &middot; ' + c.name.toUpperCase() : ''}</span>${loss(c.loss)}</div>
     <table class="rv-stats"><tr><th></th><th class="y">YOU</th><th class="c">${cmpName.toUpperCase()}</th></tr>
     ${row('Braking', brakeAt(y), brakeAt(r))}
     ${row('Turn-in', sp(y.entryV), sp(r.entryV))}${row('Slowest', sp(y.minV), sp(r.minV))}${row('Exit', sp(y.exitV), sp(r.exitV))}</table>

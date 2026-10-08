@@ -1,13 +1,13 @@
 // compare line setups across cars: a solo clean lap (learned plan, pace 1) and a 2-lap 12-car race (AI mistakes off),
 // `runs` races each. Setups: JSON [{name, opts}] (Race opts: lineKind, lineMargin, lineComb, offSlow).
-// node .devtest/linebench/matrix.mjs '<setups>' gtr,m1procar,f1 [runs] [diff]
+// node .devtest/linebench/matrix.mjs '<setups>' m3gtr,m1procar,f1 [runs] [diff]
 import { spawn } from 'child_process';
 const ROOT = '/Users/joshkern/Downloads/Racing Game';
 const { chromium } = await import(ROOT + '/tools/node_modules/playwright-core/index.mjs');
 const PORT = 8500 + Math.floor(Math.random() * 90);
 const server = spawn('python3', [ROOT + '/serve.py', String(PORT), '--no-browser'], { stdio: 'ignore', cwd: ROOT });
 await new Promise(r => setTimeout(r, 2500));
-const setups = JSON.parse(process.argv[2]), cars = (process.argv[3] || 'gtr,m1procar,f1').split(','), runs = +(process.argv[4] || 2), diff = process.argv[5] || 'hard', TRK = process.argv[6] || '/.devtest/auburn2.json';
+const setups = JSON.parse(process.argv[2]), cars = (process.argv[3] || 'm3gtr,m1procar,f1').split(','), runs = +(process.argv[4] || 2), diff = process.argv[5] || 'hard', TRK = process.argv[6] || '/.devtest/auburn2.json';
 const b = await chromium.launch({ channel: 'chrome', headless: true });
 // (the dev server answers one request at a time: pages load their modules one after another, then run in parallel)
 let loading = Promise.resolve();

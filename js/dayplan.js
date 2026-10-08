@@ -6,7 +6,10 @@
 // The choices come from main.js (src.choices(): { key, short, head, desc, money, mcls, time, effect, icon, vis, go, run }):
 // run() does it here and returns { amt, line, note }; a choice with go (the computer, a test day, race day) closes
 // the planner and main.js takes it from there (src.leave).
-// Controls: up / down choose, A / Enter do it (twice for one that leaves the week), B / Esc back to the garage.
+// A choice with subs (a day with your teammate: the week's three ideas) shows them side by side in its pane: left /
+// right pick one, and the pane is that one's.
+// Controls: up / down choose, left / right pick among its ideas, A / Enter do it (twice for one that leaves the week),
+// B / Esc back to the garage.
 import * as WC from './wcareer.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -24,19 +27,23 @@ const ICONS = {
   test: '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 13.5V9M10 2.5h4M18.5 6l1.5-1.5"/>',
   off: '<path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5z"/>',
   race: '<path d="M5 21V3.5M5 4h13l-2.5 4.5L18 13H5"/><path d="M9 4v9M13 4v9M5 8.5h11.5" opacity=".55"/>',
+  mate: '<circle cx="8.5" cy="7.5" r="3"/><circle cx="16.5" cy="8.5" r="2.5"/><path d="M2.5 20c0-3.6 2.7-6 6-6s6 2.4 6 6M14.5 14.3c.6-.2 1.3-.3 2-.3 2.8 0 5 2 5 5"/>',
 };
 const icon = (k, cls = '') => `<svg class="dp-ico ${cls}" viewBox="0 0 24 24">${ICONS[k] || ICONS.off}</svg>`;
 
 export class DayPlan {
   constructor(el, src) {
-    this.el = el; this.src = src; this.isOpen = false; this.busy = false; this.sel = 0; this.armed = null;
+    this.el = el; this.src = src; this.isOpen = false; this.busy = false; this.sel = 0; this.armed = null; this.subAt = {};
     el.addEventListener('click', (e) => this.click(e));
     el.addEventListener('mousemove', (e) => { const r = e.target.closest('.dp-row'); if (r && !this.busy && +r.dataset.i !== this.sel) this.focus(+r.dataset.i); });
   }
   get w() { return this.src.world(); }
+  // whose week: yours, or (co-op) the co-owner's own ({ used, log, left, booked })
+  get wk() { const w = this.w; return (this.src.week && this.src.week(w)) || { used: WC.weekOf(w).used, log: WC.weekOf(w).log, left: WC.daysLeft(w), booked: WC.bookedDays(w) }; }
+  get onSubs() { return !!(this.isOpen && this.opts && this.opts[this.sel]?.subs); }
 
   open(pick) {
-    const w = this.w; if (!w || WC.daysLeft(w) <= 0) return;
+    const w = this.w; if (!w || this.wk.left <= 0) return;
     this.isOpen = true; this.busy = false; this.armed = null; this.bank = w.money.balance;
     this.el.innerHTML = `<div class="tsw-shade"></div><div class="tsw-scan"></div>
       <header class="tsw-head"><h1></h1><p></p></header>
@@ -55,19 +62,21 @@ export class DayPlan {
   }
 
   // ---------- input ----------
-  input({ up, down, ok, back }) {
+  input({ up, down, left, right, ok, back }) {
     if (!this.isOpen) return false;
     if (this.busy) { if ((ok || back) && this.skip) this.skip(); return true; }
     const n = this.opts.length;
     if (up) this.focus((this.sel + n - 1) % n);
     else if (down) this.focus((this.sel + 1) % n);
+    else if ((left || right) && this.opts[this.sel]?.subs) this.subPick((this.subOf(this.opts[this.sel]) + (right ? 1 : -1) + this.opts[this.sel].subs.length) % this.opts[this.sel].subs.length);
     else if (ok) this.choose();
     else if (back) { this.src.sfx('back'); this.close(); this.src.closed(); }
     return true;
   }
   click(e) {
     if (this.busy) { if (this.skip) this.skip(); return; }
-    const r = e.target.closest('.dp-row'), go = e.target.closest('[data-act="do"]');
+    const r = e.target.closest('.dp-row'), go = e.target.closest('[data-act="do"]'), sb = e.target.closest('.dp-sub');
+    if (sb) { const i = +sb.dataset.i; if (i !== this.subOf(this.opts[this.sel])) this.subPick(i); else this.choose(); return; }
     if (r) { const i = +r.dataset.i; if (i !== this.sel) this.focus(i); else this.choose(); }
     else if (go) this.choose();
   }
@@ -77,25 +86,29 @@ export class DayPlan {
     this.el.querySelectorAll('.dp-row').forEach((r, k) => r.classList.toggle('on', k === i));
     this.pane();
   }
+  // the idea you're on, in a choice with subs (and the choice as that idea)
+  subOf(o) { return Math.min(this.subAt[o.key] || 0, o.subs.length - 1); }
+  cur() { const o = this.opts[this.sel]; return o && o.subs ? { ...o, ...o.subs[this.subOf(o)], key: o.key, short: o.short } : o; }
+  subPick(i) { const o = this.opts[this.sel]; this.subAt[o.key] = i; this.armed = null; this.src.sfx('move'); this.pane(); }
   choose() {
-    const o = this.opts[this.sel]; if (!o) return;
+    const o = this.cur(); if (!o) return;
     // (leaving the week, or paying for a test day: select again to be sure)
     if (o.confirm && this.armed !== o.key) { this.armed = o.key; this.src.sfx('move'); this.pane(false); return; }
     this.armed = null;
     if (o.go) { this.src.sfx('select'); this.close(); this.src.leave(o); return; }
-    const day = WC.DAY_NAMES[WC.weekOf(this.w).used], r = o.run() || {};
+    const day = WC.DAY_NAMES[this.wk.used], r = o.run() || {};
     this.src.save();
     this.passDay(day, o, r);
   }
 
   // ---------- drawing ----------
   render(pick, first = false) {
-    const w = this.w, wk = WC.weekOf(w), day = WC.DAY_NAMES[wk.used], R = w.series[w.player.series].cal[w.round], left = WC.daysLeft(w);
+    const w = this.w, wk = this.wk, day = WC.DAY_NAMES[wk.used], R = w.series[w.player.series].cal[w.round], left = wk.left;
     this.opts = this.src.choices();
     const k = this.opts.findIndex(o => o.key === (pick ?? this.opts[this.sel]?.key)); this.sel = Math.max(0, k);
     const h = this.el.querySelector('.tsw-head');
     h.querySelector('h1').textContent = FULL[day] || 'Today';
-    h.querySelector('p').textContent = `Round ${w.round + 1} of ${w.opts.len}: ${R.name} · ${left} day${left === 1 ? '' : 's'} before race day`;
+    h.querySelector('p').textContent = `Round ${w.round + 1} of ${w.opts.len}: ${R.name} · ${left} day${left === 1 ? '' : 's'} before race day${wk.booked ? `, ${wk.booked} booked` : ''}`;
     if (!first && !calm()) h.querySelector('h1').animate([{ clipPath: 'inset(-10% 100% -10% 0)' }, { clipPath: 'inset(-10% -2% -10% 0)' }], { duration: 460, easing: 'cubic-bezier(.2,.8,.2,1)' });
     this.week(); this.purse(false);
     const list = this.el.querySelector('.dp-list');
@@ -105,13 +118,15 @@ export class DayPlan {
   }
   // the one you're on: what it is, the numbers, and a picture where there is one
   pane(fresh = true) {
-    const o = this.opts[this.sel], el = this.el.querySelector('.dp-pane'); if (!o) return;
+    const o = this.cur(), el = this.el.querySelector('.dp-pane'); if (!o) return;
+    const S = this.opts[this.sel].subs, si = S ? this.subOf(this.opts[this.sel]) : 0;
+    const subs = S ? `<div class="dp-subs" style="--n:${S.length}">${S.map((x, i) => `<div class="dp-sub${i === si ? ' on' : ''}" data-i="${i}"><b>${esc(x.pick)}</b><small class="${x.mcls || ''}">${x.price}</small>${x.star ? `<em>${esc(x.star)}</em>` : ''}</div>`).join('')}</div>` : '';
     const facts = [['Money', o.money || '&mdash;', o.mcls], ['Time', o.time || 'Uses the day'], ['Does', o.effect || '&mdash;']];
     const v = o.vis;
     const vis = !v ? '' : v.type === 'map' ? `<div class="dp-vis map"><canvas width="360" height="200"></canvas><span>${esc(v.label)}</span></div>`
       : `<div class="dp-vis bar"><span>${esc(v.label)}</span><i class="dp-gauge"><b class="was" style="--a:${v.from.toFixed(3)}"></b><b class="now" style="--a:${v.from.toFixed(3)};--b:${v.to.toFixed(3)}"></b></i><em>${esc(v.text)}</em></div>`;
     const btn = this.armed === o.key ? (o.confirm || 'Sure? Select again') : o.go ? (o.goLabel || 'Go') : 'Do it';
-    el.innerHTML = `<div class="dp-top">${icon(o.icon || o.key, 'big')}<div><h2>${o.head}</h2><p>${o.desc}</p></div></div>
+    el.innerHTML = `${subs}<div class="dp-top">${icon(o.icon || o.key, 'big')}<div><h2>${o.head}</h2><p>${o.desc}</p></div></div>
       <div class="dp-facts">${facts.map(([k, x, c]) => `<div><small>${k}</small><b class="${c || ''}">${x}</b></div>`).join('')}</div>${vis}
       <div class="dp-go"><button class="sv-btn hot${this.armed === o.key ? ' on' : ''}" data-act="do">${btn} &rsaquo;</button></div>`;
     if (v && v.type === 'map') this.src.map(el.querySelector('canvas'));
@@ -119,7 +134,7 @@ export class DayPlan {
   }
   // the week across the top: Monday to Friday, then race day
   week(stamp = -1) {
-    const w = this.w, wk = WC.weekOf(w), el = this.el.querySelector('.dp-week'), at = wk.used;
+    const w = this.w, wk = this.wk, el = this.el.querySelector('.dp-week'), at = wk.used;
     const cells = WC.DAY_NAMES.map((d, i) => {
       const e = wk.log.filter(x => x.day === i), x = e[e.length - 1], amt = e.reduce((a, y) => a + (y.amt || 0), 0);
       const sub = x ? (x.gig && !x.done ? 'To drive' : amt ? `${amt > 0 ? '+' : '−'}${WC.money$(Math.abs(amt))}` : '') : i === at ? 'Today' : '';
@@ -133,7 +148,7 @@ export class DayPlan {
   }
   // the bank and the week's takings, rolling to their new numbers
   purse(roll = true) {
-    const w = this.w, wk = WC.weekOf(w), el = this.el.querySelector('.tsw-money'), net = wk.log.reduce((a, e) => a + (e.amt || 0), 0), bal = w.money.balance;
+    const w = this.w, wk = this.wk, el = this.el.querySelector('.tsw-money'), net = wk.log.reduce((a, e) => a + (e.amt || 0), 0), bal = w.money.balance;
     const fmt = { bank: (v) => WC.money$(v), week: (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${WC.money$(Math.abs(v))}` };
     const set = (k, v) => { const b = el.querySelector(`[data-k="${k}"]`); b.textContent = fmt[k](v); b.classList.toggle('neg', v < 0); };
     const from = { bank: this.bank ?? bal, week: this.net ?? net }; this.bank = bal; this.net = net;
@@ -155,7 +170,7 @@ export class DayPlan {
     const fmt = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${WC.money$(Math.abs(v))}`;
     b.textContent = amt ? fmt(0) : 'Done';
     let landed = false;
-    const land = () => { if (landed) return; landed = true; if (amt) b.textContent = fmt(amt); this.src.sfx(amt > 0 ? 'best' : 'select'); this.week(WC.weekOf(w).used - 1); this.purse(); };
+    const land = () => { if (landed) return; landed = true; if (amt) b.textContent = fmt(amt); this.src.sfx(amt > 0 ? 'best' : 'select'); this.week(this.wk.used - 1); this.purse(); };
     const t0 = performance.now(), T = calm() || !amt ? 0 : 650;
     const tick = (t) => { const k = T ? Math.min(1, (t - t0 - 250) / T) : 1; if (k > 0 && amt && !landed) b.textContent = fmt(Math.round(amt * (1 - Math.pow(1 - k, 3)))); if (k < 1) requestAnimationFrame(tick); else land(); };
     requestAnimationFrame(tick);
@@ -163,7 +178,7 @@ export class DayPlan {
     const next = () => {
       if (done) return; done = true; land(); clearTimeout(tm); this.skip = null;
       card.classList.remove('on'); this.el.classList.remove('passing'); this.busy = false;
-      if (WC.daysLeft(w) <= 0) { this.close(); this.src.closed(true); return; }
+      if (this.wk.left <= 0) { this.close(); this.src.closed(true); return; }
       this.render(o.key);
     };
     const tm = setTimeout(next, calm() ? 700 : 2100);

@@ -1,6 +1,6 @@
 // Building zones, imported real-world data and footprint utilities.
 import { roadLayout } from './roads.js';
-import { generateSetting, fitModels, settingOf, paintFlora, natureModel } from './scenery.js';
+import { generateSetting, fitModels, settingOf, paintFlora, natureModel, eraser, isNature } from './scenery.js';
 // Shared by the editor preview and the 3D world so both show exactly the same buildings.
 
 export const STYLE_COLORS = {
@@ -152,7 +152,10 @@ export function collectScenery(track, T, A) {
   const roads = A.roadL || ((track.roads || []).length ? roadLayout(track, T, A) : null);
   const onRoad = (b) => roads && (b.p.some(q => roads.onRoad(q[0], q[1])) || roads.onRoad(...centroid(b.p)));
   const keep = [], rejected = [];
-  for (const b of src) (buildingClear(b.p, T, A) && !onRoad(b) ? keep : rejected).push(b);
+  // the PAINT tool's eraser (set to buildings) takes out zone / map / setting buildings it touches
+  const eraseB = eraser(track, 'b'), eraseN = eraser(track, 'n');
+  const erasedB = (b) => eraseB && b.from !== 'custom' && eraseB(...centroid(b.p));
+  for (const b of src) { if (erasedB(b)) continue; (buildingClear(b.p, T, A) && !onRoad(b) ? keep : rejected).push(b); }
   // buildings you draw with zones replace any imported ones they overlap
   const zoneB = keep.filter(b => b.from === 'zone');
   if (zoneB.length && keep.length > zoneB.length) {
@@ -167,19 +170,21 @@ export function collectScenery(track, T, A) {
   fitModels(keep, track, T, A, roads);
   const gen = generateSetting(track, T, A, roads, keep);
   const seed = settingOf(track.env).seed;
-  gen.buildings.forEach((b, k) => { const key = 'g' + seed + '_' + k; if (!hidden.has(key)) keep.push({ ...b, from: 'gen', key }); });
+  gen.buildings.forEach((b, k) => { const key = 'g' + seed + '_' + k; if (!hidden.has(key) && !(eraseB && eraseB(...centroid(b.p)))) keep.push({ ...b, from: 'gen', key }); });
   const grid = buildingGrid(keep);
-  const treeKeep = trees.filter(t => pointClear(t[0], t[1], 2.5, T, A) && !grid.hits(t[0], t[1], 2) && !(roads && roads.onRoad(t[0], t[1])))
+  // (trees the world made - map, zone lines, the setting's woods - go wherever you've erased nature)
+  const treeKeep = trees.filter(t => pointClear(t[0], t[1], 2.5, T, A) && !grid.hits(t[0], t[1], 2) && !(roads && roads.onRoad(t[0], t[1])) && !(eraseN && eraseN(t[0], t[1])))
     .map(t => { // zone tree lines / map trees: a model from the track's tree mix (the same one every time for that spot)
       if (t[2]) return t;
       const m = natureModel('tree', mulberry(Math.floor(t[0] * 73.13) ^ Math.floor(t[1] * 91.7)), track.env, true);
       return m ? [t[0], t[1], m.id, m.s] : t;
     });
-  for (const t of gen.trees) if (!grid.hits(t[0], t[1], 1)) treeKeep.push(t);
+  for (const t of gen.trees) if (!grid.hits(t[0], t[1], 1) && !(eraseN && eraseN(t[0], t[1]))) treeKeep.push(t);
   // the PAINT tool's Nature brush
   const fl = paintFlora(track, T, A, roads);
   for (const t of fl.trees) if (!grid.hits(t[0], t[1], 1)) treeKeep.push(t);
-  const props = fl.props.length ? [...gen.props, ...fl.props.filter(q => !grid.hits(q.x, q.z, 0))] : gen.props;
+  const genProps = eraseN ? gen.props.filter(q => !(isNature(q.id) && eraseN(q.x, q.z))) : gen.props;
+  const props = fl.props.length ? [...genProps, ...fl.props.filter(q => !grid.hits(q.x, q.z, 0))] : genProps;
   return { buildings: keep, rejected, trees: treeKeep, props, paving: gen.paving || [], life: { glows: gen.glows || [], spots: gen.spots || [], vents: gen.vents || [] }, grid };
 }
 

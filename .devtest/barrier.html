@@ -1,0 +1,24 @@
+<!doctype html><meta charset="utf-8">
+<!-- dev: the barriers round a sample, from above and from a driver's height   .devtest/barrier.html?t=<preset name | real id>&i=<sample>&h=<height> -->
+<style>body{margin:0;background:#111}canvas{display:block}</style>
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js", "postprocessing": "../vendor/postprocessing/index.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { buildScenery } from '../js/race.js';
+import { presetTracks } from '../js/track.js';
+const q = new URLSearchParams(location.search), name = q.get('t') || 'suzuka', i = +(q.get('i') || 0), H0 = +(q.get('h') || 90);
+let track = presetTracks().find(t => t.name === name);
+if (!track) { const { hydrateReal } = await import('../js/realtracks.js'); track = await (await fetch('../tracks/real/' + name + '.json')).json(); await hydrateReal(track); }
+track.env.time = 'day'; track.env.weather = 'clear';
+const S = buildScenery(track), T = S.T, N = T.N, idx = (j) => ((j % N) + N) % N;
+const W = 640, H = 400, out = document.createElement('canvas'); out.width = W * 2; out.height = H; document.body.appendChild(out);
+const g = out.getContext('2d'), r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H); r.outputColorSpace = THREE.SRGBColorSpace;
+const cam = new THREE.PerspectiveCamera(60, W / H, 0.3, 4000);
+cam.position.set(T.X[i], T.Y[i] + H0, T.Z[i] + 1); cam.lookAt(T.X[i], T.Y[i], T.Z[i]);
+r.render(S.scene, cam); g.drawImage(r.domElement, 0, 0);
+const b = idx(i - Math.round(45 / T.ds));
+cam.position.set(T.X[b], T.Y[b] + 2.5, T.Z[b]); cam.lookAt(T.X[i], T.Y[i] + 0.5, T.Z[i]);
+r.render(S.scene, cam); g.drawImage(r.domElement, W, 0);
+g.fillStyle = '#fff'; g.font = '13px sans-serif'; g.fillText(`${name} · sample ${i}`, 8, 18);
+window.done = true;
+</script>

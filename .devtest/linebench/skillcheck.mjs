@@ -6,7 +6,7 @@ const { chromium } = await import(ROOT + '/tools/node_modules/playwright-core/in
 const PORT = 8300 + Math.floor(Math.random() * 90);
 const server = spawn('python3', [ROOT + '/serve.py', String(PORT), '--no-browser'], { stdio: 'ignore', cwd: ROOT });
 await new Promise(r => setTimeout(r, 2500));
-const cars = (process.argv[2] || 'gtr,m1procar,aventus,f1').split(','), LAPS = +(process.argv[3] || 4), TRK = process.argv[4] || '/.devtest/auburn2.json';
+const cars = (process.argv[2] || 'm3gtr,m1procar,aventus,f1').split(','), LAPS = +(process.argv[3] || 4), TRK = process.argv[4] || '/.devtest/auburn2.json';
 const b = await chromium.launch({ channel: 'chrome', headless: true });
 let loading = Promise.resolve();
 const job = async (id) => {

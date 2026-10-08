@@ -13,6 +13,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { audioBus } from './audio.js';
+import { isWheelPad } from './input.js';
 import { LOTTERY } from './wcareer.js';
 import { hash, paperCanvas, text, lines, barcode, sheet, paperMats } from './papers.js';
 import { ClaimOffice } from './claimoffice.js';
@@ -466,14 +467,18 @@ export class Opening {
   }
   // a list of answers to pick from (up / down and A, or click one); null: none
   choices(list, pick, o = {}) {
-    const el = this.ui.choices; this.choice = list ? { list, pick, i: 0 } : null;
+    const el = this.ui.choices; this.choice = list ? { list, pick, i: 0, onSel: o.onSel } : null; // (onSel(i): told each time the one you're on changes)
     if (!list) { el.classList.remove('on'); return; }
     el.classList.toggle('side', !!o.side); // (beside a paper you're holding, not under it)
     el.innerHTML = list.map((s, i) => `<div class="op-ch" data-i="${i}">${s}</div>`).join('');
     el.querySelectorAll('.op-ch').forEach(d => { d.onpointerup = (e) => { e.stopPropagation(); this.choice.i = +d.dataset.i; this.choiceOk(); }; d.onpointerenter = () => { this.choice.i = +d.dataset.i; this.choiceDraw(); }; });
     this.choiceDraw(); el.classList.add('on');
   }
-  choiceDraw() { if (this.choice) this.ui.choices.querySelectorAll('.op-ch').forEach((d, i) => d.classList.toggle('sel', i === this.choice.i)); }
+  choiceDraw() {
+    if (!this.choice) return;
+    this.ui.choices.querySelectorAll('.op-ch').forEach((d, i) => d.classList.toggle('sel', i === this.choice.i));
+    if (this.choice.onSel && this.choice.shown !== this.choice.i) { this.choice.shown = this.choice.i; this.choice.onSel(this.choice.i); }
+  }
   choiceNav(d) { if (!this.choice) return; this.choice.i = clamp(this.choice.i + d, 0, this.choice.list.length - 1); this.choiceDraw(); this.snd?.hiss(0.05, 2600, 0.012, { room: true }); }
   choiceOk() { if (!this.choice) return false; const { pick, i } = this.choice; this.choices(null); pick(i); return true; }
 
@@ -493,6 +498,7 @@ export class Opening {
     this.inputCb = cb; el.classList.add('on');
     setTimeout(() => { inp.focus(); inp.select(); }, 50);
     inp.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); this.inputOk(); } };
+    inp.oninput = () => o.onType?.(inp.value); o.onType?.(inp.value); // (onType(text): what's typed so far, as it's typed)
     inp.onkeyup = (e) => e.stopPropagation();
   }
   inputOk() {
@@ -596,7 +602,7 @@ export class Opening {
   // ---------------------------------------------------------- per frame ------------------------------------------
   update(dt) {
     this.t += dt; this.stageT += dt;
-    const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+    const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(p => p && !isWheelPad(p)) : []; // (not the wheel: its axes are a rim and pedals)
     for (const p of pads) {
       const ax = Math.abs(p.axes[2] || 0) > 0.15 ? p.axes[2] : Math.abs(p.axes[0] || 0) > 0.2 ? p.axes[0] : 0;
       const ay = Math.abs(p.axes[3] || 0) > 0.15 ? p.axes[3] : Math.abs(p.axes[1] || 0) > 0.2 ? p.axes[1] : 0;

@@ -7,6 +7,7 @@
 //   node tools/simcareer.mjs 40 3 --policy=sketchy one policy, with a line per career
 //   node tools/simcareer.mjs 40 3 --gt             win the Street Cup first (a quick driver), then GT seasons at --skill
 //                                                  (--gentleman=no: no gentleman driver; --car=buy: buy, not lease)
+//   --street=0.02                                  (--gt) your pace in the Street Cup on the way up (default: quick)
 //   --seasonly                                     where the money went, season by season (careers that last)
 //   --seat=gent                                    the second seat in the season setup (gent, pro, share, junior)
 //   --sellup=no                                    never sell the car or facilities when deep in the red
@@ -22,6 +23,7 @@ const args = process.argv.slice(2), opt = (k, d) => { const a = args.find(x => x
 const ENTRY = opt('entry', 'fresh'), MATE = opt('mate', 'pay'), GT = args.includes('--gt'), GENT = opt('gentleman', 'yes') !== 'no', CARHOW = opt('car', 'lease');
 const HOSP = args.includes('--hosp'), WORKS = opt('works', 'yes') !== 'no', WORKSN = { offers: 0, took: 0 };
 const INV = opt('inv', 'yes') !== 'no', INVS = [], INVOUT = [], OFFERS = { n: 0 }, MET = { n: 0 };
+const STREETSKILL = +opt('street', 0.02); // (--gt: your pace in the Street Cup, before GT)
 const SEAT = opt('seat', 'gent'), SELLUP = opt('sellup', 'yes') !== 'no', LEN = +opt('len', 6), AMB = opt('amb', 'par'), SEASONLY = args.includes('--seasonly');
 // a transaction's kind, for --seasonly
 const cat = (what) => { const s = what.replace(/^[A-Z][\w' ]*?: (?=[a-z])/, ''); for (const [k, re] of [['prize', /prize money|prize fund/i], ['sponsors', /sponsor|bonus|associate|seat fee|seat money/i], ['entry+travel+crew', /^(entry fee|travel|pit crew)/i], ['tyres+fuel', /tyre|tire|fuel/i], ['repairs+parts', /repair|rebuild|part|Speed Parts|SVList/i], ['staff', /payroll|back pay|labour|wage/i], ['week', /fare|GigGo|Restwell|day job|track day|time attack|street race|appearance|coaching|hot laps|shift|winnings|stake|ride/i], ['facilities', /premises|facilit|unit|transporter|lift|tools|sim rig|built/i], ['projects', /project|wind tunnel|shop/i], ['bank', /overdraft|loan|interest/i]]) if (re.test(s)) return k; return 'other: ' + s.slice(0, 28); };
@@ -29,7 +31,7 @@ const N = +(args.find(a => /^\d+$/.test(a)) || 40), SEASONS = +(args.filter(a =>
 
 const POOL = [['Pine Ridge', 'grass'], ['Mesa Loop', 'desert'], ['Harbour Run', 'coast'], ['Downtown GP', 'city'], ['Oak Valley', 'grass'], ['Red Rock', 'desert'], ['Bay Point', 'coast'], ['Uptown Ring', 'city']]
   .map(([name, theme]) => ({ name, env: { theme, time: 'day' } }));
-const STREET = [['testarossa', 'Testa Rossa', 290000], ['jsport', 'Kaze Sports Coupe', 280000], ['rs964', 'Neun Elf RS', 195000], ['gtr', 'Godzilla R35', 400000], ['mustang', 'Pony GT 5.0', 320000], ['m5', 'Bavaria M5 E39', 294000]]
+const STREET = [['testarossa', 'Testa Rossa', 290000], ['jsport', 'Kaze Sports Coupe', 280000], ['rs964', 'Neun Elf RS', 195000], ['mustang', 'Pony GT 5.0', 320000], ['m5', 'Bavaria M5 E39', 294000], ['r34', 'Nissan Skyline GT-R R34', 245000]]
   .map(([key, name, p]) => ({ key, name, value: Math.round(12000 + p * 0.11) }));
 // the GT cars (js/cars.js), for the customer programmes
 const CAT = { gt1: [['aventus', 'Emery Aventus ’92', 470000, 1120], ['bx300', 'Horai BX300 ’96', 430000, 1040], ['rmx', 'Kineto RM-X ’94', 500000, 1180], ['m1procar', 'Bavaria M1 ProCar ’79', 400000, 1020], ['porsche935', 'Porsche 935', 480000, 1030]]
@@ -51,6 +53,9 @@ const POLICIES = {
   grey:    { tempt: (w, m, d) => ['shady', 'shark'].includes(m.tempt) && d > 0.5 ? 'yes' : m.tempt === 'grey' ? 'yes' : 'no', inflate: 'inflate', work: 'hustle', staff: 'careful', diy: true },
   // takes every offer, throws races for Lenny when desperate
   sketchy: { tempt: (w, m, d) => m.tempt === 'bet' ? (d > 0.6 ? 'against' : 'for') : 'yes', inflate: 'inflate', work: 'hustle', staff: 'careful', diy: true, throwRaces: true },
+  // works the week, a mechanic when it can afford one, and spends what's spare on whatever buys the most lap time per
+  // dollar (projects and parts, by the engineer's numbers), keeping a few rounds' costs in hand: a good player
+  invest:  { tempt: () => 'no', inflate: 'real', work: 'hustle', staff: 'careful', diy: true, upgrades: 'smart' },
   // hires a full crew straight away and spends on upgrades
   big:     { tempt: () => 'no', inflate: 'real', work: 'some', staff: 'full', diy: false, upgrades: true },
 };
@@ -128,7 +133,12 @@ function week(w, P) {
   }
   // the team: facilities when there's money to spare, and projects (worked on with your spare days)
   teamWork(w, P);
-  if (P.upgrades && w.money.balance > 60000) { const c = WC.catalogue(w).filter(x => !WC.isFitted(w, x)).sort((a, b) => a.price - b.price)[0]; if (c && c.price < w.money.balance * 0.2) WC.buyFit(w, c); }
+  if (P.upgrades === 'smart') {
+    const C = WC.COSTS[w.player.series], keep = (C.entry + C.travel + C.crew + C.tyre * 3) * 4, K = WC.lapKOf(w.player.series);
+    const worth = (x) => Object.entries(x.gains).reduce((a, [k, v]) => a + (K[k] || 0) * v, 0) * (x.q ?? 1);
+    const c = WC.catalogue(w).filter(x => !WC.isFitted(w, x) && worth(x) > 0.0005).sort((a, b) => worth(b) / b.price - worth(a) / a.price)[0];
+    if (c && w.money.balance - c.price > keep) WC.buyFit(w, c);
+  } else if (P.upgrades && w.money.balance > 60000) { const c = WC.catalogue(w).filter(x => !WC.isFitted(w, x)).sort((a, b) => a.price - b.price)[0]; if (c && c.price < w.money.balance * 0.2) WC.buyFit(w, c); }
   if (P.work !== 'none') while (WC.daysLeft(w) > 0) w.simWork = (w.simWork || 0) + WC.workDay(w).amt;
   // tyres for the weekend
   const st = WC.stockOf(w), order = { soft: Math.max(0, 1 - st.soft), medium: Math.max(0, 1 - st.medium) };
@@ -146,7 +156,8 @@ function teamWork(w, P) {
   if (P.work === 'none' && P.staff !== 'full') return;
   const live = (w.projects || []).filter(x => !x.done);
   if (live.length < WC.maxProjects(w) && w.money.balance > keep * 0.6) {
-    const opts = WC.projectList(w).filter(x => !x.locked && x.stat !== 'rel' && x.cost < (w.money.balance - keep * 0.6) * 0.3).sort((a, b) => b.gain / b.cost - a.gain / a.cost);
+    const K = WC.lapKOf(w.player.series);
+    const opts = WC.projectList(w).filter(x => !x.locked && x.stat !== 'rel' && x.cost < (w.money.balance - keep * 0.6) * 0.3).sort((a, b) => b.gain * K[b.stat] / b.cost - a.gain * K[a.stat] / a.cost); // (lap time per dollar, as the engineer's numbers show it)
     if (opts[0]) WC.startProject(w, opts[0].key, 'team');
   }
   // a day or two of your own on them
@@ -182,7 +193,7 @@ function career(P, s) {
   WC.setupPick(w, 'sponsor', +opt('spon', '1'));
   WC.setupPick(w, 'mate', w.setup.drivers[{ keep: 0, quick: 1, pay: 2, kid: 3 }[MATE] ?? 2] || w.setup.drivers[0]);
   const ok = WC.setupApply(w); if (!ok.ok) console.error('setup', ok.why);
-  w.simSkill = GT ? 0.02 : SKILL;
+  w.simSkill = GT ? STREETSKILL : SKILL;
   const out = { sl: [], seen: w.money.tx[0], start: w.money.balance, low: w.money.balance, bal: [], pos: [], broke: null, rounds: 0, flags: {}, gt: [] };
   for (let y = 0; y < SEASONS && out.broke == null; y++) {
     while (!w.over) {
@@ -207,7 +218,12 @@ function career(P, s) {
     }
     if (out.broke != null) break;
     out.bal.push(w.money.balance); out.pos.push(w.seasons.at(-1)?.you?.pos ?? null);
-    if (GT && w.player.series === 'gt') out.gt.push(w.money.balance);
+    // (your car against the median AI team's in the series, % of a lap: + = yours is quicker)
+    { const sid = w.player.series, vs = w.series[sid].teams.filter(t => !w.teams[t].mine).map(t => WC.carValue(w, w.teams[t])).sort((a, b) => a - b);
+      if (args.includes('--carwhy') && w.car) { const B = WC.carBreakdown(w), K = WC.lapKOf(w.player.series), by = {}; for (const ch of Object.keys(K)) for (const x of (B[ch] || [])) { const k = x.src + ':' + x.label.replace(/\(.*\)/, '').trim(); by[k] = (by[k] || 0) + (x.v || 0) * K[ch] * 100; } (globalThis.CARWHY ||= []).push([w.year, by]); }
+      if (args.includes('--devref')) for (const S of WC.SERIES) { const vs = w.series[S.id].teams.filter(t => !w.teams[t].mine).map(t => (WC.carValue(w, w.teams[t]) - S.base) * 0.0275).sort((a, b) => a - b); ((globalThis.DEVREF ||= {})[S.id] ||= []).push(vs[Math.floor(vs.length / 2)]); }
+      (out.car ||= []).push(w.car ? +((WC.carValue(w, WC.myTeam(w)) - vs[Math.floor(vs.length / 2)]) * 0.0275).toFixed(2) : null); }
+    if (GT && w.player.series === 'gt') { out.gt.push(w.money.balance); (out.gtPos ||= []).push(w.seasons.at(-1)?.you?.pos ?? null); (out.gtCar ||= []).push(out.car?.at(-1) ?? null); }
     answerAll(w, P);
     { const t = WC.myTeam(w), off = w.player.offer; if (off && off.answer === 'move') for (const [k] of WC.seriesMissing(t, off.to)) { const nx = WC.facNext(t, k); if (nx && w.money.balance > nx.cost) WC.buildFacility(w, k); } }
     WC.nextSeason(w, POOL);
@@ -232,6 +248,7 @@ if (GT) {
     if (globalThis.LEDGER) { const sum = {}; for (const c of LEDGER) for (const [k, v] of Object.entries(c)) sum[k] = (sum[k] || 0) + v / LEDGER.length; for (const [k, v] of Object.entries(sum).sort((a, b) => a[1] - b[1])) if (Math.abs(v) > 8000) console.log(`   ${k.padEnd(36)} ${Math.round(v / 1000)}k`); globalThis.LEDGER = null; }
     if (SEASONLY) { const ok = runs.filter(r => r.broke == null); for (let y = 0; y < SEASONS; y++) { const sum = {}; for (const r of ok) for (const [k, v] of Object.entries(r.sl[y] || {})) sum[k] = (sum[k] || 0) + v / ok.length; const net = Object.values(sum).reduce((a, b) => a + b, 0); console.log(`  season ${y + 1} net ${k$(net)}: ${Object.entries(sum).sort((a, b) => a[1] - b[1]).filter(([, v]) => Math.abs(v) > 2000).map(([k, v]) => `${k} ${k$(v).trim()}`).join(', ')}`); } }
     console.log(`${name.padEnd(8)} moved up ${up.length}/${N}  broke in GT ${pct(broke.length / Math.max(1, up.length))}  entering GT ${k$(med(up.map(r => r.gtStart)))}  after GT season ${[0, 1].map(i => k$(med(up.map(r => r.gt[i])))).join(' ')}  lowest ${k$(med(up.map(r => r.low)))}`);
+    console.log(`  GT seasons: finish ${[0, 1, 2].map(i => med(up.map(r => r.gtPos?.[i] ?? null)) ?? '-').join('/')}, car vs the median team ${[0, 1, 2].map(i => { const v = med(up.map(r => r.gtCar?.[i] ?? null)); return v == null ? '-' : (v > 0 ? '+' : '') + v.toFixed(2); }).join(' / ')}, top 3 ${[0, 1, 2].map(i => `${Math.round(up.filter(r => r.gtPos?.[i] && r.gtPos[i] <= 3).length / Math.max(1, up.length) * 100)}%`).join(' / ')}`);
     if (WORKSN.offers) { console.log(`  works support: offered ${WORKSN.offers}, took ${WORKSN.took}`); WORKSN.offers = 0; WORKSN.took = 0; }
     if (INVS.length || INVOUT.length || OFFERS.n) { console.log(`  investors: met ${MET.n}, offers ${OFFERS.n}, took ${INVS.length} (${INVS.slice(0, 8).map(x => `${k$(x.amt).trim()} for ${Math.round(x.share * 100)}% ${x.s} ${x.y}`).join(', ')}), wanted out ${INVOUT.length} (${INVOUT.join(', ')})`); INVS.length = 0; INVOUT.length = 0; OFFERS.n = 0; MET.n = 0; }
   }
@@ -250,5 +267,8 @@ for (const [name, P] of Object.entries(POLICIES)) {
   if (caught && caught < N) { const was = (r) => r.flags.greyCaught || r.flags.betCaught || r.flags.fraudCaught || r.flags.liesCaught, cs = runs.filter(was), ns = runs.filter(r => !was(r));
     console.log(`  caught ${cs.length}: broke ${pct(cs.filter(r => r.broke != null).length / cs.length)}, end ${k$(med(cs.map(r => r.end)))}, finish s3 ${med(cs.map(r => r.pos[2])) ?? '-'}, rep ${Math.round(med(cs.map(r => r.rep)))}   never caught ${ns.length}: broke ${pct(ns.filter(r => r.broke != null).length / ns.length)}, end ${k$(med(ns.map(r => r.end)))}, finish s3 ${med(ns.map(r => r.pos[2])) ?? '-'}, rep ${Math.round(med(ns.map(r => r.rep)))}`); }
   if (SEASONLY) { const ok = runs.filter(r => r.broke == null); for (let y = 0; y < SEASONS; y++) { const sum = {}; for (const r of ok) for (const [k, v] of Object.entries(r.sl[y] || {})) sum[k] = (sum[k] || 0) + v / ok.length; const net = Object.values(sum).reduce((a, b) => a + b, 0); console.log(`  season ${y + 1} (${ok.length} that lasted) net ${k$(net)}: ${Object.entries(sum).sort((a, b) => a[1] - b[1]).filter(([, v]) => Math.abs(v) > 800).map(([k, v]) => `${k} ${k$(v).trim()}`).join(', ')}`); } }
+  if (globalThis.DEVREF) { console.log('  median AI team car vs the series base (% of a lap; should be AI_AHEAD): ' + Object.entries(DEVREF).map(([k, a]) => { const b = a.slice().sort((x, y) => x - y); return `${k} ${b[Math.floor(b.length / 2)].toFixed(2)}`; }).join(', ')); globalThis.DEVREF = null; }
+  if (globalThis.CARWHY) { const ys = [...new Set(CARWHY.map(x => x[0]))].sort(); for (const y of ys) { const rows = CARWHY.filter(x => x[0] === y), sum = {}; for (const [, by] of rows) for (const [k, v] of Object.entries(by)) sum[k] = (sum[k] || 0) + v / rows.length; console.log(`  ${y}: ` + Object.entries(sum).filter(([, v]) => Math.abs(v) > 0.02).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v > 0 ? '+' : ''}${v.toFixed(2)}`).join(', ')); } CARWHY.length = 0; }
+  console.log(`          car vs the median team (% of a lap, end of each season): ${[0, 1, 2].map(i => { const v = med(runs.map(r => r.car?.[i] ?? null)); return v == null ? '-' : (v > 0 ? '+' : '') + v.toFixed(2); }).join(' / ')}`);
   if (ONLY) for (const [i, r] of runs.entries()) console.log(`  #${i + 1} ${r.broke != null ? `broke after ${r.broke} rounds` : 'ok'}  end ${k$(r.end)}  low ${k$(r.low)}  finish ${r.pos.join('/')}  ${JSON.stringify(r.flags)}`);
 }

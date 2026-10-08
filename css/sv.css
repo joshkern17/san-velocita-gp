@@ -27,6 +27,7 @@
   --sv-signal-glow: rgba(45, 54, 242, .7);
   --sv-map: #2d36f2;            /* the circuit line on the HUD map, the car on the car-status diagram */
   --sv-signal: linear-gradient(90deg, #a9b0ff 0%, #6a72ff 30%, #2d36f2 65%, #5a1fd6 100%);
+  --sv-signal-v: linear-gradient(0deg, #5a1fd6 0%, #2d36f2 35%, #6a72ff 70%, #a9b0ff 100%);   /* the same ramp standing up (the radio's EQ) */
 
   /* ---- soft text: the letters are two blurred copies of themselves stacked, in exactly their own colour ----
      (the crisp fill is hidden wherever these are used), so type reads soft and lit, never razor-sharp. Never a dark
@@ -76,6 +77,7 @@
   --sv-signal-glow: rgba(255, 43, 0, .7);
   --sv-map: #ff2b00;
   --sv-signal: linear-gradient(90deg, #ffb070 0%, #ff7a2a 30%, #ff2b00 65%, #c8002e 100%);
+  --sv-signal-v: linear-gradient(0deg, #c8002e 0%, #ff2b00 35%, #ff7a2a 70%, #ffb070 100%);
 }
 
 /* ---------- base ---------- */

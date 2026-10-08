@@ -6,8 +6,8 @@
 // brighter when braking / at night, with a glow on each (left / right halves of one object get one glow each).
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
-import { CHASSIS, driverKit, carLights, blobShadow } from './carmodel.js';
-import { fillLivery, paintCar } from './livery.js';
+import { CHASSIS, tiltWheels, driverKit, carLights, blobShadow } from './carmodel.js';
+import { fillLivery, paintCar, projectDecals } from './livery.js';
 import { CARS } from './cars.js';
 
 const TPL = {}, loading = {};
@@ -178,17 +178,18 @@ function liveryTemplate(id, T, map) {
   const bb = T.bb, zF = bb.max.z + 0.02, zR = bb.min.z - 0.02, top = bb.max.y + 0.02, half = Math.max(bb.max.x, -bb.min.x) + 0.02, len = zF - zR;
   // proj(x, y, z) -> panel metres (x right, y down, as seen from outside)
   const panels = {
-    top:   { W: half * 2, H: len, role: 'top', nose: 'top', label: 'Bonnet, roof + wing', proj: (x, y, z) => [half - x, zF - z] },
-    sideL: { W: len, H: top, role: 'side', nose: 'left', pair: 'sideR', label: 'Left side', proj: (x, y, z) => [zF - z, top - y] },
-    sideR: { W: len, H: top, role: 'side', nose: 'right', pair: 'sideL', label: 'Right side', proj: (x, y, z) => [z - zR, top - y] },
-    front: { W: half * 2, H: top, role: 'end', label: 'Nose', proj: (x, y, z) => [x + half, top - y] },
-    rear:  { W: half * 2, H: top, role: 'end', label: 'Tail', proj: (x, y, z) => [half - x, top - y] },
+    top:   { W: half * 2, H: len, role: 'top', dir: [0, 1, 0], nose: 'top', label: 'Bonnet, roof + wing', proj: (x, y, z) => [half - x, zF - z] },
+    sideL: { W: len, H: top, role: 'side', dir: [1, 0, 0], nose: 'left', pair: 'sideR', label: 'Left side', proj: (x, y, z) => [zF - z, top - y] },
+    sideR: { W: len, H: top, role: 'side', dir: [-1, 0, 0], nose: 'right', pair: 'sideL', label: 'Right side', proj: (x, y, z) => [z - zR, top - y] },
+    front: { W: half * 2, H: top, role: 'end', dir: [0, 0, 1], label: 'Nose', proj: (x, y, z) => [x + half, top - y] },
+    rear:  { W: half * 2, H: top, role: 'end', dir: [0, 0, -1], label: 'Tail', proj: (x, y, z) => [half - x, top - y] },
   };
   const L = { id, T, map, panels, names: Object.keys(panels), parts: T.body.filter(p => p.map === map), maps: {} };
   L.def = {
     id: 'road-' + id, aspect: 1, projected: true, panels, startPanel: 'sideL',
     labels: CARS[id].liveryLabels || {},
-    paintProjected: (canvas, cfg, drawPanel) => paintProjected(L, canvas, cfg, drawPanel),
+    projectDecals: true,
+    paintProjected: (canvas, cfg, drawPanel, decalLayers) => paintProjected(L, canvas, cfg, drawPanel, decalLayers),
     // designer click-to-place: body uv -> panel + metres
     uvToPanel(u, v) {
       const R = PICK_RES, m = texelMap(L, R), px = Math.min(R - 1, Math.max(0, (u * R) | 0)), py = Math.min(R - 1, Math.max(0, (vRow(L, v) * R) | 0));
@@ -223,6 +224,8 @@ function assignPanel(x, nx, ny, nz) {
 function texelMap(L, R) {
   if (L.maps[R]) return L.maps[R];
   const n = R * R, panel = new Uint8Array(n), X = new Float32Array(n), Y = new Float32Array(n);
+  // where each texel sits on the car and which way it faces (smooth normal), for decals projected across panels
+  const P3 = new Float32Array(n * 3), N3 = new Int8Array(n * 3);
   const idxOf = Object.fromEntries(L.names.map((nm, k) => [nm, k + 1])), SOLID = L.names.length + 1;
   // faces sharing texels (e.g. a nose face unwrapped onto the bonnet's tip in the top photo): the one the photo sees
   // most squarely keeps them, i.e. the least stretched (3D area per texel)
@@ -266,12 +269,19 @@ function texelMap(L, R) {
         const x = P.getX(i0) * a + P.getX(i1) * b + P.getX(i2) * c, y = P.getY(i0) * a + P.getY(i1) * b + P.getY(i2) * c, z = P.getZ(i0) * a + P.getZ(i1) * b + P.getZ(i2) * c;
         const [sx, sy] = pn.proj(x, y, z);
         panel[id] = idxOf[name]; X[id] = Math.min(pn.W, Math.max(0, sx)); Y[id] = Math.min(pn.H, Math.max(0, sy));
+        // (the 3D spot clamped onto the triangle: a texel a sliver only touches can sit far outside it in barycentric
+        // terms, metres off the car)
+        const A = Math.max(0, a), B = Math.max(0, b), Cc = Math.max(0, c), sum = A + B + Cc || 1, wa = A / sum, wb = B / sum, wc = Cc / sum;
+        const vx = N.getX(i0) * wa + N.getX(i1) * wb + N.getX(i2) * wc, vy = N.getY(i0) * wa + N.getY(i1) * wb + N.getY(i2) * wc, vz = N.getZ(i0) * wa + N.getZ(i1) * wb + N.getZ(i2) * wc, vl = 127 / (Math.hypot(vx, vy, vz) || 1);
+        P3[id * 3] = P.getX(i0) * wa + P.getX(i1) * wb + P.getX(i2) * wc; P3[id * 3 + 1] = P.getY(i0) * wa + P.getY(i1) * wb + P.getY(i2) * wc; P3[id * 3 + 2] = P.getZ(i0) * wa + P.getZ(i1) * wb + P.getZ(i2) * wc; N3[id * 3] = vx * vl; N3[id * 3 + 1] = vy * vl; N3[id * 3 + 2] = vz * vl;
       }
     }
   }
   for (let s = 0; s < solid.length; s += 2) {
     const cx = Math.min(R - 1, solid[s] | 0), cy = Math.min(R - 1, solid[s + 1] | 0);
-    for (let py = Math.max(0, cy - 1); py <= Math.min(R - 1, cy + 1); py++) for (let px = Math.max(0, cx - 1); px <= Math.min(R - 1, cx + 1); px++) panel[py * R + px] = SOLID;
+    // (only texels no proper face uses: a strut whose uvs collapse onto the roof's photo mustn't punch a plain square
+    // through a stripe painted there)
+    for (let py = Math.max(0, cy - 1); py <= Math.min(R - 1, cy + 1); py++) for (let px = Math.max(0, cx - 1); px <= Math.min(R - 1, cx + 1); px++) if (!panel[py * R + px]) panel[py * R + px] = SOLID;
   }
   // grow islands by a few texels so filtering never shows seams
   for (let pass = 0; pass < 3; pass++) {
@@ -280,7 +290,7 @@ function texelMap(L, R) {
       const id = py * R + px; if (src[id]) continue;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const qx = px + dx, qy = py + dy; if (qx < 0 || qy < 0 || qx >= R || qy >= R) continue;
-        const q = qy * R + qx; if (src[q]) { panel[id] = src[q]; X[id] = X[q]; Y[id] = Y[q]; break; }
+        const q = qy * R + qx; if (src[q]) { panel[id] = src[q]; X[id] = X[q]; Y[id] = Y[q]; P3.copyWithin(id * 3, q * 3, q * 3 + 3); N3.copyWithin(id * 3, q * 3, q * 3 + 3); break; }
       }
     }
   }
@@ -298,12 +308,18 @@ function texelMap(L, R) {
   }
   // kept per paintable texel only (the full-size tables only at the designer's pick resolution)
   const m = { photo, list: Uint32Array.from(list), k: Float32Array.from(kl), sh: Float32Array.from(sl),
-    lp: Uint8Array.from(list, i => panel[i]), lx: Float32Array.from(list, i => X[i]), ly: Float32Array.from(list, i => Y[i]) };
+    lp: Uint8Array.from(list, i => panel[i]), lx: Float32Array.from(list, i => X[i]), ly: Float32Array.from(list, i => Y[i]),
+    pos: new Float32Array(list.length * 3), nrm: new Int8Array(list.length * 3), ar: Float32Array.from(list, i => isFinite(stretch[i]) ? stretch[i] : 0) }; // (ar: 3D area per texel)
+  list.forEach((i, k) => { m.pos.set(P3.subarray(i * 3, i * 3 + 3), k * 3); m.nrm.set(N3.subarray(i * 3, i * 3 + 3), k * 3); });
   if (mask) Object.assign(m, { panel, X, Y, mask });
   return (L.maps[R] = m);
 }
 
-function paintProjected(L, canvas, cfg, drawPanel) {
+// The base livery (colours, pattern, numbers) is drawn per panel and looked up by each texel's own panel. Decals are
+// projected: each one shoots along its panel's view (from above, the left, the nose...) onto every texel facing that
+// way, whichever panel it belongs to, so a decal carries on over a seam (door onto a fender's curve, bonnet onto the
+// bumper's top) and fades where the surface turns away. A depth window keeps it off surfaces far behind it.
+function paintProjected(L, canvas, cfg, drawPanel, decalLayers) {
   const R = canvas.width, m = texelMap(L, R), ppm = Math.max(40, R / 8);
   // each panel drawn on its own canvas (in metres), then looked up per texel
   const datas = [null];
@@ -317,17 +333,22 @@ function paintProjected(L, canvas, cfg, drawPanel) {
   }
   const mc = (cfg.main ?? 0) >>> 0;
   datas.push({ d: [(mc >> 16) & 255, (mc >> 8) & 255, mc & 255, 255], w: 1, h: 1 }); // texelMap's SOLID
+  const { photo, list, k, sh, lp, lx, ly } = m, cnt = list.length;
+  // the paint colour of every paintable texel
+  const col = new Float32Array(cnt * 3);
+  for (let n = 0; n < cnt; n++) {
+    const D = datas[lp[n]], q = (Math.min(D.h - 1, (ly[n] * ppm) | 0) * D.w + Math.min(D.w - 1, (lx[n] * ppm) | 0)) * 4;
+    col[n * 3] = D.d[q]; col[n * 3 + 1] = D.d[q + 1]; col[n * 3 + 2] = D.d[q + 2];
+  }
+  if (decalLayers) projectDecals(L.panels, L.names, decalLayers(ppm), m, col);
   const ctx = canvas.getContext('2d'), out = ctx.createImageData(R, R), o = out.data;
-  o.set(m.photo); // everything that isn't paint stays as photographed
-  const { photo, list, k, sh, lp, lx, ly } = m;
-  for (let n = 0; n < list.length; n++) {
-    const j = list[n] * 4, D = datas[lp[n]];
-    const q = (Math.min(D.h - 1, (ly[n] * ppm) | 0) * D.w + Math.min(D.w - 1, (lx[n] * ppm) | 0)) * 4, kk = k[n], s = sh[n];
-    o[j] = photo[j] + (D.d[q] * s - photo[j]) * kk; o[j + 1] = photo[j + 1] + (D.d[q + 1] * s - photo[j + 1]) * kk; o[j + 2] = photo[j + 2] + (D.d[q + 2] * s - photo[j + 2]) * kk;
+  o.set(photo); // everything that isn't paint stays as photographed
+  for (let n = 0; n < cnt; n++) {
+    const j = list[n] * 4, kk = k[n], s = sh[n];
+    o[j] = photo[j] + (col[n * 3] * s - photo[j]) * kk; o[j + 1] = photo[j + 1] + (col[n * 3 + 1] * s - photo[j + 1]) * kk; o[j + 2] = photo[j + 2] + (col[n * 3 + 2] * s - photo[j + 2]) * kk;
   }
   ctx.putImageData(out, 0, 0);
 }
-
 // where the glows go: the middle of each lamp object (split into left / right if it spans the car), just outside its
 // rear face (dir -1) or front face (dir 1)
 function lampSpots(list, dir) {
@@ -529,13 +550,14 @@ function buildRoadCar(id, cfg, opts = {}) {
     body.children.forEach((m, k) => { const p = T.body[k]; if (p && p.map) m.material = skin(p); });
   };
   // road cars are softer: more roll and pitch than the F1 car
-  model.animate = ({ steer = 0, spin = 0, pitch = 0, roll = 0, heave = 0, bump = [0, 0, 0, 0] } = {}) => {
+  model.animate = ({ steer = 0, spin = 0, pitch = 0, roll = 0, heave = 0, bump = [0, 0, 0, 0], solidR = false } = {}) => {
     body.rotation.x = pitch * 1.6; body.rotation.z = roll * 1.8; body.position.y = heave;
     wheels.forEach((w, k) => {
       w.mesh.rotation.x += spin / w.r;
       if (w.front) w.pivot.rotation.y = steer;
       w.pivot.position.y = w.baseY + (bump[k] || 0);
     });
+    tiltWheels(wheels, roll * 1.8, solidR);
   };
   group.updateMatrixWorld(true);
   return model;

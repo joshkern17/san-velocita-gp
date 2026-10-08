@@ -254,6 +254,50 @@ export function blobShadow(w = 2.7, l = 6.4) {
 }
 
 // ---------------- build ----------------
+// Each wheel's tilt on screen (about the car's forward axis), once the wheels are at their heights: a wheel on
+// independent suspension sits between square to its axle's line (one wheel up a kerb: both lean) and leaning with the
+// body (the links hold it to the body as it rolls); a live axle (solidR) tilts both its wheels with the beam. A wheel
+// hanging at full droop as the body lifts tilts the same way. roll: the body's roll as drawn.
+export function tiltWheels(wheels, roll = 0, solidR = false) {
+  for (const w of wheels) {
+    const m = w.mate ?? (w.mate = wheels.find(o => o !== w && o.front === w.front) || null);
+    if (!m) continue;
+    const a = w.pivot.position, b = m.pivot.position, dx = a.x - b.x;
+    const axle = Math.abs(dx) > 0.1 ? Math.atan((a.y - b.y) / dx) : 0;
+    w.pivot.rotation.z = solidR && !w.front ? axle : (axle + roll) / 2;
+  }
+}
+
+// A setup's stance on a car model (setup.js stanceOf): the body raised / lowered and pitched by the ride height
+// (front against rear), each wheel leaned by its camber, all against the car's standard (a car on its standard
+// setup looks as it always has). And a bent corner (Realistic damage, setBend): that wheel leaned out and turned out of
+// line, read live from the physics (so a repair straightens it). Both wrap the model's animate once, so they stay
+// through every frame's suspension.
+const BEND_LOOK = [6 * Math.PI / 180, 6 * Math.PI / 180]; // (a corner bent all the way: its wheel 6° out of true, camber and toe)
+function wrapAnimate(model) {
+  if (model.animate0) return;
+  const a = model.animate0 = model.animate;
+  model.animate = (o = {}) => {
+    const S = model.stance, B = model.bendOf;
+    a(S ? { ...o, heave: (o.heave || 0) + S.dy, pitch: (o.pitch || 0) + S.pitch } : o);
+    for (const w of model.wheels) {
+      const sx = Math.sign(w.pivot.position.x) || 1; // (the model's +x is the physics' left)
+      if (S) w.pivot.rotation.z += -sx * S.cam[w.front ? 0 : 1];
+      // (animate sets each wheel's lean every frame, and the fronts' turn (the steering); a rear's turn isn't, so it's set
+      // here, or a bent rear's toe would add up frame on frame and the wheel spin round)
+      if (B) { const k = (w.front ? 0 : 2) + (sx > 0 ? 0 : 1), b = B.bent[k]; if (!w.front) w.pivot.rotation.y = 0; if (b) { w.pivot.rotation.z += -sx * b * BEND_LOOK[0]; w.pivot.rotation.y += -B.bentDir[k] * sx * b * BEND_LOOK[1]; } }
+    }
+  };
+}
+export function setStance(model, st) {
+  if (!model) return;
+  model.stance = st || null; wrapAnimate(model); model.animate();
+}
+export function setBend(model, phys) {
+  if (!model || !phys) return;
+  model.bendOf = phys; wrapAnimate(model);
+}
+
 export function buildF1(cfg = DEFAULT_CAR, opts = {}) {
   cfg = fillLivery({ ...DEFAULT_CAR, ...cfg });
   if (cfg.chassis && cfg.chassis !== 'svgp' && chassisReady(cfg.chassis)) return CHASSIS[cfg.chassis].build(cfg, opts);
@@ -484,7 +528,7 @@ export function buildF1(cfg = DEFAULT_CAR, opts = {}) {
   const model = { group, body, wheels, shadow, lightMat, tail, coronaMat, fwing, rwing, livery: livCanvas, livTex, cfg, def: MODEL, helmet, suitTex, limbTex, armTex, helTex, helCanvas, visorMat };
 
   model.setCompound = (c, css) => {
-    const col = { soft: 0xe0302a, medium: 0xf2d22a, hard: 0xf0f0f0, wet: 0x2a7ae0 }[c] ?? 0xf2d22a;
+    const col = { soft: 0xe0302a, medium: 0xf2d22a, hard: 0xf0f0f0, wet: 0x2a7ae0, dirt: 0xa8743a }[c] ?? 0xf2d22a;
     const mat = stripeMats[c] || (stripeMats[c] = new THREE.MeshBasicMaterial({ color: col }));
     for (const w of wheels) w.mesh.traverse(o => { if (o.userData.stripe) o.material = mat; });
   };
@@ -497,13 +541,14 @@ export function buildF1(cfg = DEFAULT_CAR, opts = {}) {
 
   // suspension: body heaves / pitches / rolls on the springs, wheels stay planted, arms follow
   const _tmp = new THREE.Vector3();
-  model.animate = ({ steer = 0, spin = 0, pitch = 0, roll = 0, heave = 0, bump = [0, 0, 0, 0] } = {}) => {
+  model.animate = ({ steer = 0, spin = 0, pitch = 0, roll = 0, heave = 0, bump = [0, 0, 0, 0], solidR = false } = {}) => {
     body.rotation.x = pitch; body.rotation.z = roll; body.position.y = heave;
     wheels.forEach((w, k) => {
       w.mesh.rotation.x += spin / w.r;
       if (w.front) w.pivot.rotation.y = steer;
       w.pivot.position.y = w.baseY + bump[k];
     });
+    tiltWheels(wheels, roll, solidR);
     body.updateMatrix();
     const inv = body.matrix.clone().invert();
     for (const r of rods) {

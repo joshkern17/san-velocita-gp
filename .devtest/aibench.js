@@ -35,7 +35,7 @@ export function lap(race, id, V, pace = 1) {
   const at = (race.offAt || []).join(' '); race.offAt = []; return { at, t: t1 === null ? NaN : +(t - t1).toFixed(2), offs, slide: +slide.toFixed(2) };
 }
 
-export function bench({ tracks = [0, 1], cars = ['f1', 'aventus', 'm1procar', 'testarossa', 'gtr', 'mustang', 'rs964', 'transit'], scales = [1, 1.05, 1.1, 1.15, 1.2] } = {}) {
+export function bench({ tracks = [0, 1], cars = ['f1', 'aventus', 'm1procar', 'testarossa', 'm3gtr', 'mustang', 'rs964', 'transit'], scales = [1, 1.05, 1.1, 1.15, 1.2] } = {}) {
   const out = [];
   for (const ti of tracks) {
     const trk = presetTracks()[ti];

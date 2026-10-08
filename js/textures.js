@@ -34,33 +34,65 @@ function blotches(g, w, h, n, colors, rmin, rmax) {
   }
 }
 
+// The photo textures (assets/textures): the PSX Natural Ground pack (128 px) and the PSX Industrial pack (64 px), all
+// seamless. The single-file build carries them in window.__SVGP_TEXTURES
+export const textureUrl = (n) => ((typeof window !== 'undefined' && window.__SVGP_TEXTURES) || {})[n] || `assets/textures/${n}.png`;
+// The natural ground, drawn by the terrain shader (world.js). grass: Grass_02, dry: Grass_10, desert: Sand_08,
+// beach: Sand_03, earth: Dirt_02, gravel: Gravel_02, clay: Dirt_10
+const GROUND = ['grass', 'dry', 'desert', 'beach', 'earth', 'gravel', 'clay'];
+// (each starts as its usual colour, so nothing draws black before its photo has loaded)
+const GROUND_BASE = { grass: '#5b7f25', dry: '#717643', desert: '#c49052', beach: '#dcc8ab', earth: '#624931', gravel: '#897971', clay: '#7f5d49' };
+let ground = null;
+export function getGroundTextures() {
+  if (ground) return ground;
+  ground = {};
+  for (const n of GROUND) ground[n] = photoTex(128, 128, [n], (g, P) => tilePhoto(g, P(n), 128, 128, GROUND_BASE[n]));
+  return ground;
+}
+// A canvas texture painted over photos: paint(g, P), where P(name) is that photo once it's loaded (null before), is
+// called now and again as each photo arrives. It mustn't use the shared random numbers (it runs again later)
+const photos = {};
+function photo(n) {
+  let im = photos[n];
+  if (!im) { im = photos[n] = new Image(); im.src = textureUrl(n); }
+  return im;
+}
+function photoTex(w, h, names, paint) {
+  const [c, g] = canvas(w, h), t = tex(c);
+  const ready = (im) => im.complete && im.naturalWidth > 0;
+  const draw = () => { g.clearRect(0, 0, w, h); paint(g, (n) => (ready(photo(n)) ? photo(n) : null)); t.needsUpdate = true; };
+  draw();
+  for (const n of names) if (!ready(photo(n))) photo(n).addEventListener('load', draw);
+  return t;
+}
+// cover the canvas with a photo at its own size (or its usual colour until it's loaded), then lighten it toward
+// (screen) a grey: 0 leaves it, 255 is white
+function tilePhoto(g, im, w, h, base, lift = 0) {
+  if (im) { for (let y = 0; y < h; y += im.height) for (let x = 0; x < w; x += im.width) g.drawImage(im, x, y); }
+  else { g.fillStyle = base; g.fillRect(0, 0, w, h); }
+  if (lift) { g.globalCompositeOperation = 'screen'; g.fillStyle = `rgb(${lift},${lift},${lift})`; g.fillRect(0, 0, w, h); g.globalCompositeOperation = 'source-over'; }
+}
+const burn = (n) => { for (let k = 0; k < n; k++) rnd(); }; // (random numbers a replaced canvas used, so the textures after keep theirs)
+
 const cache = {};
 export function getTextures() {
   if (cache.asphalt) return cache;
   seed = 1337;
 
-  // asphalt with painted edge lines (u across width, v along track)
-  {
-    const [c, g] = canvas(128, 128);
-    noiseFill(g, 128, 128, '#4a4a4e', 0.22, 1);
-    blotches(g, 128, 128, 30, ['rgba(20,20,24,0.18)', 'rgba(120,120,120,0.08)'], 3, 12);
-    // racing line rubber
-    const grd = g.createLinearGradient(0, 0, 128, 0);
-    grd.addColorStop(0.2, 'rgba(0,0,0,0)'); grd.addColorStop(0.45, 'rgba(10,10,10,0.18)');
-    grd.addColorStop(0.6, 'rgba(10,10,10,0.18)'); grd.addColorStop(0.85, 'rgba(0,0,0,0)');
-    g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+  // asphalt with painted edge lines (u across width, v along track): asphalt_01, 6.5 m a photo
+  cache.asphalt = photoTex(128, 128, ['asphalt_01'], (g, P) => {
+    tilePhoto(g, P('asphalt_01'), 128, 128, '#4a4a4e', 14);
+    // (the racing line's rubber is drawn by the road's shader, where the line really is: rubber.js)
     g.fillStyle = '#e8e8e0'; g.fillRect(3, 0, 3, 128); g.fillRect(122, 0, 3, 128);
-    cache.asphalt = tex(c);
-  }
-  // city asphalt (dashed centre line)
-  {
-    const [c, g] = canvas(128, 128);
-    noiseFill(g, 128, 128, '#414147', 0.2, 1);
-    blotches(g, 128, 128, 26, ['rgba(20,20,24,0.2)', 'rgba(130,130,130,0.07)'], 3, 14);
+  });
+  burn(128 * 128 + 30 * 14);
+  // city asphalt (yellow edges, dashed centre line): cracked_asphalt_01
+  cache.asphaltCity = photoTex(128, 128, ['cracked_asphalt_01'], (g, P) => {
+    tilePhoto(g, P('cracked_asphalt_01'), 128, 128, '#414147', 8);
     g.fillStyle = '#d9c85a'; g.fillRect(3, 0, 3, 128); g.fillRect(122, 0, 3, 128);
     g.fillStyle = 'rgba(230,230,230,0.8)'; g.fillRect(62, 0, 3, 64);
-    cache.asphaltCity = tex(c);
-  }
+  });
+  burn(128 * 128 + 26 * 14);
   // kerb red/white
   {
     const [c, g] = canvas(16, 64);
@@ -68,35 +100,25 @@ export function getTextures() {
     noiseFill(g, 16, 64, 'rgba(0,0,0,0)', 0.1, 1);
     const t = tex(c); cache.kerb = t;
   }
-  // grass
+  // grass and sand: the PSX ground textures (getGroundTextures). (The random numbers their old canvases used, so the
+  // textures after keep theirs)
+  for (let k = 0; k < 2 * (64 * 64 + 40 * 14); k++) rnd();
+  // concrete (walls, the pits' buildings, retaining walls, pillars): concrete_01, 2 x 2 panels with their joints
+  cache.concrete = photoTex(128, 128, ['concrete_01'], (g, P) => {
+    tilePhoto(g, P('concrete_01'), 128, 128, '#8f8c86');
+    g.fillStyle = 'rgba(30,28,24,0.12)'; g.fillRect(0, 0, 128, 128); // (a touch darker: the materials' colours lighten it)
+    g.fillStyle = 'rgba(40,40,40,0.35)'; for (const i of [0, 64]) { g.fillRect(i, 0, 1, 128); g.fillRect(0, i, 128, 1); }
+  });
+  burn(64 * 64 + 20 * 14);
+  const seed0 = seed;
   {
-    const [c, g] = canvas(128, 128);
-    noiseFill(g, 128, 128, '#6f8f45', 0.28, 2);
-    blotches(g, 128, 128, 40, ['rgba(60,90,30,0.35)', 'rgba(150,160,80,0.25)', 'rgba(90,70,40,0.2)'], 4, 16);
-    cache.grass = tex(c);
+    const G = getGroundTextures();
+    cache.grass = G.grass; cache.sand = G.desert; cache.gravel = G.gravel;
   }
-  // sand
-  {
-    const [c, g] = canvas(128, 128);
-    noiseFill(g, 128, 128, '#c89a62', 0.22, 2);
-    blotches(g, 128, 128, 40, ['rgba(160,100,50,0.3)', 'rgba(230,190,130,0.3)'], 4, 18);
-    cache.sand = tex(c);
-  }
-  // concrete / pavement
-  {
-    const [c, g] = canvas(128, 128);
-    noiseFill(g, 128, 128, '#8f8c86', 0.2, 2);
-    g.strokeStyle = 'rgba(40,40,40,0.35)'; g.lineWidth = 1;
-    for (let i = 0; i <= 128; i += 32) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 128); g.stroke(); g.beginPath(); g.moveTo(0, i); g.lineTo(128, i); g.stroke(); }
-    blotches(g, 128, 128, 20, ['rgba(40,40,30,0.15)'], 3, 10);
-    cache.concrete = tex(c);
-  }
-  // gravel
-  {
-    const [c, g] = canvas(64, 64);
-    noiseFill(g, 64, 64, '#a89878', 0.4, 1);
-    cache.gravel = tex(c);
-  }
+  // paved runoff: asphalt_01 like the track, lighter (cars rarely run on it)
+  cache.runoffAsphalt = photoTex(128, 128, ['asphalt_01'], (g, P) => tilePhoto(g, P('asphalt_01'), 128, 128, '#6a6a70', 55));
+  // (the textures after these keep the random numbers they always had)
+  seed = seed0; for (let k = 0; k < 64 * 64; k++) rnd();
   // tire wall
   {
     const [c, g] = canvas(64, 32);
@@ -109,20 +131,19 @@ export function getTextures() {
     g.fillStyle = 'rgba(220,40,40,0.9)'; g.fillRect(0, 13, 64, 5);
     cache.tires = tex(c);
   }
-  // armco
-  {
-    const [c, g] = canvas(64, 32);
+  // armco: the rail's profile, galvanized_metal blended into it
+  cache.armco = photoTex(64, 32, ['galvanized_metal'], (g, P) => {
     const grd = g.createLinearGradient(0, 0, 0, 32);
     grd.addColorStop(0, '#d8dce0'); grd.addColorStop(0.3, '#9aa0a8'); grd.addColorStop(0.5, '#e8ecf0');
     grd.addColorStop(0.7, '#8a9098'); grd.addColorStop(1, '#6a7078');
     g.fillStyle = grd; g.fillRect(0, 0, 64, 32);
+    const im = P('galvanized_metal');
+    if (im) { g.globalCompositeOperation = 'luminosity'; g.globalAlpha = 0.25; g.drawImage(im, 0, 0); g.globalCompositeOperation = 'overlay'; g.globalAlpha = 0.6; g.drawImage(im, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; }
     g.fillStyle = '#444'; g.fillRect(30, 0, 4, 32);
-    cache.armco = tex(c);
-  }
-  // concrete wall with ad banners
-  {
-    const [c, g] = canvas(256, 32);
-    noiseFill(g, 256, 32, '#b5b0a6', 0.15, 2);
+  });
+  // concrete wall with ad banners: concrete_03
+  cache.wall = photoTex(256, 32, ['concrete_03'], (g, P) => {
+    tilePhoto(g, P('concrete_03'), 256, 32, '#b5b0a6');
     const ads = [['VOLTA COLA', '#c01818', '#fff'], ['KOBRA OIL', '#111', '#f2c21b'], ['RAPID TYRES', '#1a4fb0', '#fff'], ['NEON 98.1 FM', '#6a1ab0', '#ffe0ff']];
     ads.forEach((a, i) => {
       g.fillStyle = a[1]; g.fillRect(i * 64 + 2, 6, 60, 18);
@@ -130,8 +151,8 @@ export function getTextures() {
       g.fillText(a[0], i * 64 + 32, 15.5);
     });
     g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(0, 28, 256, 4);
-    cache.wall = tex(c);
-  }
+  });
+  burn(128 * 16);
   // building windows (tiles vertically per floor)
   const makeWindows = (base, lit) => {
     const [c, g] = canvas(64, 64);
@@ -237,6 +258,35 @@ export function getTextures() {
     cache.wheel = tex(c, false);
   }
   streetTextures(cache);
+  // pit lane: oil_stained_asphalt, no lines or rubber (the lane's lines are painted: world.js)
+  cache.pitAsphalt = photoTex(128, 128, ['oil_stained_asphalt'], (g, P) => tilePhoto(g, P('oil_stained_asphalt'), 128, 128, '#4c4c51', 48));
+  // dirt track (u across the width, v along): the PSX clay (assets/textures) with a darker damp groove where the cars
+  // run, loose lighter dirt (the cushion) built up at both edges and tyre lines along it. Painted procedurally until
+  // the photo arrives, then again over it. Own seed: the rest don't change
+  {
+    // (256 px: the clay photo 2 x 2, about 6.5 m a photo, its stones at their size; the rest drawn at 128 and doubled)
+    const [c, g] = canvas(256, 256);
+    const paint = (img) => {
+      const s0 = seed; seed = 4242;
+      g.setTransform(2, 0, 0, 2, 0, 0);
+      noiseFill(g, 128, 128, '#7a5a3c', 0.24, 1);
+      blotches(g, 128, 128, 40, ['rgba(60,40,24,0.22)', 'rgba(150,118,84,0.14)', 'rgba(96,70,46,0.18)'], 3, 14);
+      if (img) for (const [x, y] of [[0, 0], [64, 0], [0, 64], [64, 64]]) g.drawImage(img, x, y, 64, 64);
+      const grd = g.createLinearGradient(0, 0, 128, 0);
+      grd.addColorStop(0, 'rgba(176,142,104,0.55)'); grd.addColorStop(0.12, 'rgba(150,118,84,0.25)'); grd.addColorStop(0.3, 'rgba(40,26,14,0.22)');
+      grd.addColorStop(0.7, 'rgba(40,26,14,0.22)'); grd.addColorStop(0.88, 'rgba(150,118,84,0.25)'); grd.addColorStop(1, 'rgba(176,142,104,0.55)');
+      g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+      for (let k = 0; k < 14; k++) { const x = 18 + rnd() * 92; g.fillStyle = `rgba(36,22,12,${0.06 + rnd() * 0.08})`; g.fillRect(x, 0, 1 + rnd() * 2, 128); }
+      if (!img) for (let k = 0; k < 420; k++) { const v = rnd(); g.fillStyle = v < 0.5 ? `rgba(196,170,136,${0.3 + rnd() * 0.4})` : `rgba(48,32,20,${0.3 + rnd() * 0.4})`; g.fillRect(rnd() * 128, rnd() * 128, 1 + (rnd() < 0.2), 1); }
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      seed = s0;
+    };
+    paint(null);
+    cache.dirt = tex(c);
+    const im = new Image();
+    im.onload = () => { paint(im); cache.dirt.needsUpdate = true; };
+    im.src = textureUrl('clay');
+  }
   return cache;
 }
 
@@ -248,35 +298,23 @@ function streetTextures(cache) {
   const wrap = (w, h, fn) => { for (const ox of [-w, 0, w]) for (const oy of [-h, 0, h]) fn(ox, oy); };
   const speckle = (g, w, h, n, cols, sz = 1) => { for (let i = 0; i < n; i++) { g.fillStyle = cols[Math.floor(r() * cols.length)]; g.fillRect(Math.floor(r() * w), Math.floor(r() * h), sz, sz); } };
   const grain = (g, w, h, amt) => { for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const v = (r() - 0.5) * amt; g.fillStyle = v > 0 ? `rgba(255,255,255,${v})` : `rgba(0,0,0,${-v})`; g.fillRect(x, y, 1, 1); } };
-  // road asphalt, no painted lines (8 m square per repeat): aggregate, tar-sealed cracks, patches, oil stains, wear
-  {
-    const W = 256, [c, g] = canvas(W, W);
-    g.fillStyle = '#48494e'; g.fillRect(0, 0, W, W);
-    grain(g, W, W, 0.16);
-    speckle(g, W, W, 2600, ['#5d5e63', '#393a3e', '#6b6a66', '#2e2f33']);
-    // big soft tonal variation
-    for (let i = 0; i < 14; i++) { const x = r() * W, y = r() * W, rr = 20 + r() * 50, dark = r() < 0.5; wrap(W, W, (ox, oy) => { const gr = g.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, rr); gr.addColorStop(0, dark ? 'rgba(20,20,24,0.16)' : 'rgba(150,150,150,0.07)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x + ox - rr, y + oy - rr, rr * 2, rr * 2); }); }
-    // patch repairs (slightly darker, crisp edges)
-    for (let i = 0; i < 3; i++) { const x = r() * W, y = r() * W, w = 24 + r() * 40, h = 16 + r() * 50, col = r() < 0.6 ? 'rgba(28,28,32,0.22)' : 'rgba(110,110,112,0.12)'; wrap(W, W, (ox, oy) => { g.fillStyle = col; g.fillRect(x + ox, y + oy, w, h); g.strokeStyle = 'rgba(15,15,18,0.25)'; g.lineWidth = 1; g.strokeRect(x + ox + 0.5, y + oy + 0.5, w, h); }); }
-    // cracks sealed with tar: wandering dark lines
-    for (let i = 0; i < 9; i++) {
-      let x = r() * W, y = r() * W, a = r() * Math.PI * 2; const pts = [[x, y]], n = 6 + Math.floor(r() * 10);
-      for (let k = 0; k < n; k++) { a += (r() - 0.5) * 1.1; x += Math.cos(a) * 4; y += Math.sin(a) * 4; pts.push([x, y]); }
-      wrap(W, W, (ox, oy) => { g.beginPath(); pts.forEach(([px, py], k) => k ? g.lineTo(px + ox, py + oy) : g.moveTo(px + ox, py + oy)); g.strokeStyle = 'rgba(0,0,0,0.12)'; g.lineWidth = 2.6; g.stroke(); g.strokeStyle = 'rgba(18,18,20,0.4)'; g.lineWidth = 1; g.stroke(); });
-    }
+  // road asphalt, no painted lines (8 m square per repeat): cracked_asphalt_02, 2 m a photo, with oil stains
+  cache.roadAsphalt = photoTex(256, 256, ['cracked_asphalt_02'], (g, P) => {
+    const W = 256; sd = 90210;
+    tilePhoto(g, P('cracked_asphalt_02'), W, W, '#48494e', 34);
     // oil drips (the texture is mapped in world space, so they're scattered, not in lanes)
     for (let i = 0; i < 30; i++) { const x = r() * W, y = r() * W, rr = 1.5 + r() * 5; wrap(W, W, (ox, oy) => { g.fillStyle = `rgba(10,10,12,${0.15 + r() * 0.25})`; g.beginPath(); g.ellipse(x + ox, y + oy, rr, rr * (1 + r()), 0, 0, 7); g.fill(); }); }
-    cache.roadAsphalt = tex(c); cache.roadAsphalt.anisotropy = 4;
-  }
-  // paving slabs: 2 m square per repeat, 3 x 3 slabs with joints, a few cracked / stained / replaced ones, gum
-  {
-    const W = 128, n = 3, sz = W / n, [c, g] = canvas(W, W);
+  });
+  cache.roadAsphalt.anisotropy = 4;
+  // paving slabs: 2 m square per repeat, 3 x 3 slabs of concrete_02 with joints, a few cracked / stained / replaced
+  // ones, gum
+  cache.pavement = photoTex(128, 128, ['concrete_02'], (g, P) => {
+    const W = 128, n = 3, sz = W / n; sd = 31337;
+    tilePhoto(g, P('concrete_02'), W, W, '#b2aea4');
     for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) {
-      const t = (r() - 0.5) * 18, warm = r() < 0.15 ? 10 : 0;
-      g.fillStyle = `rgb(${178 + t + warm},${174 + t + warm * 0.6},${164 + t})`; g.fillRect(a * sz, b * sz, sz, sz);
+      const t = (r() - 0.5) * 0.16, warm = r() < 0.15;
+      g.fillStyle = warm ? 'rgba(150,120,80,0.1)' : t > 0 ? `rgba(255,255,255,${t})` : `rgba(0,0,0,${-t})`; g.fillRect(a * sz, b * sz, sz, sz);
     }
-    grain(g, W, W, 0.12);
-    speckle(g, W, W, 500, ['rgba(90,86,80,0.5)', 'rgba(220,216,206,0.5)']);
     for (let i = 0; i < 8; i++) { const x = r() * W, y = r() * W, rr = 3 + r() * 9; wrap(W, W, (ox, oy) => { g.fillStyle = 'rgba(70,64,52,0.13)'; g.beginPath(); g.ellipse(x + ox, y + oy, rr, rr * 0.7, r() * 3, 0, 7); g.fill(); }); }
     speckle(g, W, W, 14, ['rgba(40,40,40,0.55)', 'rgba(230,230,225,0.7)'], 2); // chewing gum
     // joints: dark groove + light bevel
@@ -286,8 +324,8 @@ function streetTextures(cache) {
     }
     // a couple of cracked slabs
     for (let i = 0; i < 2; i++) { const a = Math.floor(r() * n), b = Math.floor(r() * n); g.strokeStyle = 'rgba(50,48,44,0.7)'; g.lineWidth = 1; g.beginPath(); g.moveTo(a * sz + 2, b * sz + r() * sz); g.lineTo(a * sz + sz * 0.5, b * sz + r() * sz); g.lineTo(a * sz + sz - 2, b * sz + r() * sz); g.stroke(); }
-    cache.pavement = tex(c);
-  }
+  });
+  sd = 4242; // (kerbstones and gutters: their own random numbers)
   // granite kerbstones: 2 m per repeat (two 1 m blocks). v runs across the kerb (top / face)
   {
     const W = 128, H = 32, [c, g] = canvas(W, H);

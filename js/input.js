@@ -5,7 +5,11 @@ let gpPrev = [];
 export const gp = { connected: false };
 // the last device used, so on-screen prompts can show keyboard keys or pad buttons
 export const device = { kind: 'kb', listeners: [] };
-function useDevice(k) { if (device.kind === k) return; device.kind = k; device.listeners.forEach(f => f(k)); }
+function useDevice(k) { if (k === 'pad') hideCursor(true); if (device.kind === k) return; device.kind = k; device.listeners.forEach(f => f(k)); }
+// the mouse pointer goes as soon as a pad (or the wheel) is used, and comes back when the mouse really moves
+// (a few px: Chrome sends a mousemove when the page changes under a still pointer) or is clicked
+let cursorHidden = false, mx = null, my = null;
+function hideCursor(on) { if (cursorHidden === on) return; cursorHidden = on; document.documentElement.classList.toggle('no-cursor', on); if (on) mx = null; }
 export const onDevice = (f) => device.listeners.push(f);
 
 export function initInput() {
@@ -18,23 +22,82 @@ export function initInput() {
   });
   window.addEventListener('keyup', (e) => down.delete(e.code));
   window.addEventListener('blur', () => down.clear());
-  window.addEventListener('pointerdown', () => useDevice('kb'));
+  window.addEventListener('pointerdown', () => { hideCursor(false); useDevice('kb'); });
+  window.addEventListener('mousemove', (e) => {
+    if (!cursorHidden) return;
+    if (mx == null) { mx = e.screenX; my = e.screenY; return; }
+    if (Math.abs(e.screenX - mx) + Math.abs(e.screenY - my) > 6) hideCursor(false);
+  });
 }
 
 export const isDown = (c) => down.has(c);
 export function pressed(c) { if (edges.has(c)) { edges.delete(c); return true; } return false; }
 export function clearEdges() { edges.clear(); }
 
+// the pad: the first controller that isn't the set-up wheel
 function pad() {
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-  for (const p of pads) if (p && p.connected) return p;
+  for (const p of pads) if (p && p.connected && !isWheelPad(p) && !(wheel.raw && (!wheel.rawId || p.id === wheel.rawId))) return p;
   return null;
+}
+
+// ---------------- racing wheels ----------------
+// A wheel shows up as a "gamepad" whose axes and buttons differ by maker, so it's set up once by pressing things
+// (Options > Wheel > Set Up Wheel): wheel.cfg = { id (the browser's name for it), steer { a, l, r } (axis, its value at
+// full left and full right), thr / brk { a, rest, full }, btn { ok: { b } | { a, v }, … } (a button, or a hat switch read
+// as an axis at value v) }. Its buttons then press the pad's: everything that reads GP0..GP15 works from the wheel.
+// rot = the wheel's own rotation in degrees (the maker's control panel), lock = how far you turn it for full lock.
+export const wheel = { cfg: null, on: true, rot: 900, lock: 360, raw: false, rawId: null }; // (raw: the setup screen is reading rawId, or every pad while it's finding the wheel)
+export const WHEEL_BTNS = [ // [key, the pad button it stands for]
+  ['ok', 0], ['back', 1], ['x', 2], ['y', 3], ['lb', 4], ['rb', 5], ['view', 8], ['menu', 9], ['up', 12], ['down', 13], ['left', 14], ['right', 15],
+];
+export const isWheelPad = (p) => !!(p && wheel.cfg && p.id === wheel.cfg.id);
+// does the browser's name for a controller look like a wheel? (Thrustmaster, Logitech, Fanatec, Moza, or 'wheel' / 'racer')
+export const looksLikeWheel = (id) => /wheel|racer|thrustmaster|044f|fanatec|0eb7|moza|346e|driving force|g29|g920|g923|g27|g25|simagic|cammus/i.test(id || '');
+export function wheelPad() {
+  if (!wheel.cfg || !wheel.on) return null;
+  for (const p of navigator.getGamepads ? navigator.getGamepads() : []) if (p && p.connected && isWheelPad(p)) return p;
+  return null;
+}
+export function allPads() { return navigator.getGamepads ? [...navigator.getGamepads()].filter(p => p && p.connected) : []; }
+export function bindHit(p, b) {
+  if (!p || !b) return false;
+  if (b.b != null) return !!(p.buttons[b.b] && p.buttons[b.b].pressed);
+  if (b.a != null) { const v = p.axes[b.a]; return v != null && Math.abs(v - b.v) < 0.1; }
+  return false;
+}
+// a pedal 0..1 from its axis (a few % dead at each end, so a pedal at rest reads 0 and one on the floor reads 1).
+// Chrome reports an axis as 0 until it first moves: an untouched pedal whose rest isn't 0 reads as released.
+const moved = new Set();
+export function pedal(p, c) {
+  if (!p || !c) return 0;
+  const v = p.axes[c.a]; if (v == null) return 0;
+  if (v !== 0) moved.add(c.a + '|' + p.id); else if (!moved.has(c.a + '|' + p.id) && Math.abs(c.rest) > 0.2) return 0;
+  const k = (v - c.rest) / ((c.full - c.rest) || 1);
+  return Math.max(0, Math.min(1, (k - 0.03) / 0.94));
+}
+// the wheel's angle, -1 (full left) .. 1 (full right) of its own rotation
+export function wheelAngle(p, c) {
+  if (!p || !c) return 0;
+  // (each side from the centre measured at setup: a wheel's axis isn't always symmetric. Older setups: the midpoint)
+  const v = p.axes[c.a] ?? 0, mid = c.c ?? (c.l + c.r) / 2;
+  const k = (v - mid) / (Math.sign(v - mid) === Math.sign(c.r - mid) ? (c.r - mid) : (mid - c.l)) || 0;
+  return Math.max(-1, Math.min(1, k));
+}
+const wheelPrev = {};
+
+// the right stick (x, y), deadzoned; zeros with no pad
+export function rightStick(dz = 0.18) {
+  const p = pad(); if (!p) return [0, 0];
+  const f = (v) => Math.abs(v) < dz ? 0 : (v - Math.sign(v) * dz) / (1 - dz);
+  return [f(p.axes[2] || 0), f(p.axes[3] || 0)];
 }
 
 // virtual gamepad buttons become edge codes: GP0..GP15
 export function pollGamepad() {
   const p = pad();
   gp.connected = !!p;
+  pollWheel();
   if (!p) return null;
   p.buttons.forEach((b, i) => {
     const v = b.pressed;
@@ -48,12 +111,35 @@ export function pollGamepad() {
   gp.lastDir = dir;
   return p;
 }
+// the set-up wheel's buttons as pad buttons (not while the set-up screen is reading it raw)
+function pollWheel() {
+  const w = wheelPad(); if (!w) return null;
+  if (wheel.raw) return w;
+  for (const [k, gpI] of WHEEL_BTNS) {
+    const v = bindHit(w, wheel.cfg.btn && wheel.cfg.btn[k]);
+    if (v && !wheelPrev[k]) { edges.add('GP' + gpI); useDevice('pad'); }
+    wheelPrev[k] = v;
+  }
+  if (Math.abs(wheelAngle(w, wheel.cfg.steer)) > 0.05 || pedal(w, wheel.cfg.thr) > 0.1 || pedal(w, wheel.cfg.brk) > 0.1) gp.connected = true;
+  return w;
+}
 
 // controller steering feel (Options > Driving): stick curve exponent (1 = linear), deadzone, smoothing time (s)
 export const STEER_CURVES = { linear: 1, normal: 1.6, smooth: 2.2 };
 export const DEADZONES = { small: 0.06, normal: 0.12, large: 0.2 };
 export const STEER_LAGS = { quick: 0.03, normal: 0.05, smooth: 0.09 };
-export const padFeel = { curve: 1.6, dz: 0.12, lag: 0.05 };
+export const padFeel = { curve: 1.6, dz: 0.12, lag: 0.05, brake: 'linear' };
+// brake trigger response: 'progressive' spreads the range where the tyres reach their limit (roughly 60-75% brake)
+// over more of the trigger, so it's easier to hold without ABS; a full pull is still full brake. Points: [trigger, brake]
+const BRAKE_PROG = [[0, 0], [0.25, 0.35], [0.9, 0.8], [1, 1]];
+const brakeCurve = (x) => {
+  if (padFeel.brake !== 'progressive') return x;
+  for (let i = 1; i < BRAKE_PROG.length; i++) {
+    const [x1, y1] = BRAKE_PROG[i];
+    if (x <= x1) { const [x0, y0] = BRAKE_PROG[i - 1]; return y0 + (y1 - y0) * (x - x0) / (x1 - x0); }
+  }
+  return 1;
+};
 
 export function driveControls(p) {
   let steer = 0, throttle = 0, brake = 0, handbrake = 0, analog = false, pad = false;
@@ -72,21 +158,42 @@ export function driveControls(p) {
     }
     const rt = p.buttons[7] ? p.buttons[7].value : 0, lt = p.buttons[6] ? p.buttons[6].value : 0;
     if (rt > 0.05) throttle = Math.max(throttle, rt);
-    if (lt > 0.05) brake = Math.max(brake, lt);
+    if (lt > 0.05) brake = Math.max(brake, brakeCurve(lt));
     if (p.buttons[2] && p.buttons[2].pressed) brake = 1;
     if (p.buttons[0] && p.buttons[0].pressed) handbrake = 1; // A / Cross (throttle is the trigger)
+  }
+  // the wheel: its angle over the lock you've set (turn 'lock' degrees for full lock), straight through like the AI's
+  // stick (no smoothing: the rim is already smooth), and the pedals as they are
+  const w = wheelPad();
+  if (w && !wheel.raw) {
+    const deg = wheelAngle(w, wheel.cfg.steer) * wheel.rot / 2, s = Math.max(-1, Math.min(1, deg / (wheel.lock / 2)));
+    const t = pedal(w, wheel.cfg.thr), b = pedal(w, wheel.cfg.brk);
+    if (Math.abs(s) > 0.004 || !pad) { steer = s; analog = true; pad = false; }
+    throttle = Math.max(throttle, t); brake = Math.max(brake, b);
   }
   return { steer, throttle, brake, handbrake, analog, pad, lag: padFeel.lag };
 }
 
 // controller vibration (Chrome / Edge: 'dual-rumble' on Xbox and PlayStation pads). strong = the big low motor
 // (impacts, slides, lock-ups), weak = the small fast one (kerbs, tyre scrub, ABS). Sent every ~50 ms while it changes.
+// Only the window you're looking at rumbles: never a test browser (Playwright sets navigator.webdriver, and a headless
+// Chrome still sees the real pad), a hidden tab or an unfocused window. Losing focus stops every pad at once.
 let rumbleAt = 0, rumbleOn = false;
+function rumbleStop() {
+  rumbleOn = false;
+  for (const p of navigator.getGamepads ? navigator.getGamepads() : []) {
+    const a = p && p.vibrationActuator; if (!a) continue;
+    try { a.reset ? a.reset() : a.playEffect('dual-rumble', { duration: 0, strongMagnitude: 0, weakMagnitude: 0 }); } catch (e) {}
+  }
+}
+for (const ev of ['blur', 'pagehide']) window.addEventListener(ev, rumbleStop);
+document.addEventListener('visibilitychange', () => { if (document.hidden) rumbleStop(); });
 export function rumble(strong, weak) {
   const p = pad(), a = p && p.vibrationActuator; if (!a) return;
   strong = Math.min(1, Math.max(0, strong)); weak = Math.min(1, Math.max(0, weak));
-  const now = performance.now(), on = strong > 0.02 || weak > 0.02;
-  if (!on) { if (rumbleOn) { rumbleOn = false; try { a.reset ? a.reset() : a.playEffect('dual-rumble', { duration: 0, strongMagnitude: 0, weakMagnitude: 0 }); } catch (e) {} } return; }
+  const now = performance.now(), live = !navigator.webdriver && !document.hidden && document.hasFocus();
+  const on = live && (strong > 0.02 || weak > 0.02);
+  if (!on) { if (rumbleOn) rumbleStop(); return; }
   if (now - rumbleAt < 50) return;
   rumbleAt = now; rumbleOn = true;
   try { a.playEffect('dual-rumble', { startDelay: 0, duration: 90, strongMagnitude: strong, weakMagnitude: weak }).catch(() => {}); } catch (e) {}

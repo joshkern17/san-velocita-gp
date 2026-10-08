@@ -13,8 +13,8 @@
 // surface. The model's own UV layout doesn't matter, and every livery / decal ports over.
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
-import { CHASSIS, driverKit, carLights, blobShadow, carbonTex, RIMCOL } from './carmodel.js';
-import { paintCar, fillLivery } from './livery.js';
+import { CHASSIS, tiltWheels, driverKit, carLights, blobShadow, carbonTex, RIMCOL } from './carmodel.js';
+import { paintCar, fillLivery, projectDecals } from './livery.js';
 
 let TPL = null, loading = null, loadError = null;
 const modelUrl = () => (typeof window !== 'undefined' && window.__SVGP_CAR_GLB) || 'models/car.glb';
@@ -36,13 +36,13 @@ function makePanels(bb) {
   const zF = bb.max.z + 0.02, zR = bb.min.z - 0.02, top = bb.max.y + 0.02, half = Math.max(bb.max.x, -bb.min.x) + 0.02;
   const len = zF - zR;
   return {
-    top:    { W: half * 2, H: len, role: 'top', nose: 'top', label: 'Nose + top', proj: (x, y, z) => [half - x, zF - z] },
-    sideL:  { W: len, H: top - 0.1, role: 'side', nose: 'left', pair: 'sideR', label: 'Left flank', proj: (x, y, z) => [zF - z, top - y] },
-    sideR:  { W: len, H: top - 0.1, role: 'side', nose: 'right', pair: 'sideL', label: 'Right flank', proj: (x, y, z) => [z - zR, top - y] },
-    podL:   { W: 2.1, H: 0.62, role: 'pod', nose: 'left', pair: 'podR', label: 'Left sidepod', proj: (x, y, z) => [0.7 - z, 0.8 - y] },
-    podR:   { W: 2.1, H: 0.62, role: 'pod', nose: 'right', pair: 'podL', label: 'Right sidepod', proj: (x, y, z) => [z + 1.4, 0.8 - y] },
-    coverL: { W: 2.0, H: 0.55, role: 'cover', nose: 'left', pair: 'coverR', label: 'Engine cover, left', proj: (x, y, z) => [0.1 - z, 1.15 - y] },
-    coverR: { W: 2.0, H: 0.55, role: 'cover', nose: 'right', pair: 'coverL', label: 'Engine cover, right', proj: (x, y, z) => [z + 1.9, 1.15 - y] },
+    top:    { W: half * 2, H: len, role: 'top', dir: [0, 1, 0], nose: 'top', label: 'Nose + top', proj: (x, y, z) => [half - x, zF - z] },
+    sideL:  { W: len, H: top - 0.1, role: 'side', dir: [1, 0, 0], nose: 'left', pair: 'sideR', label: 'Left flank', proj: (x, y, z) => [zF - z, top - y] },
+    sideR:  { W: len, H: top - 0.1, role: 'side', dir: [-1, 0, 0], nose: 'right', pair: 'sideL', label: 'Right flank', proj: (x, y, z) => [z - zR, top - y] },
+    podL:   { W: 2.1, H: 0.62, role: 'pod', dir: [1, 0, 0], nose: 'left', pair: 'podR', label: 'Left sidepod', proj: (x, y, z) => [0.7 - z, 0.8 - y] },
+    podR:   { W: 2.1, H: 0.62, role: 'pod', dir: [-1, 0, 0], nose: 'right', pair: 'podL', label: 'Right sidepod', proj: (x, y, z) => [z + 1.4, 0.8 - y] },
+    coverL: { W: 2.0, H: 0.55, role: 'cover', dir: [1, 0, 0], nose: 'left', pair: 'coverR', label: 'Engine cover, left', proj: (x, y, z) => [0.1 - z, 1.15 - y] },
+    coverR: { W: 2.0, H: 0.55, role: 'cover', dir: [-1, 0, 0], nose: 'right', pair: 'coverL', label: 'Engine cover, right', proj: (x, y, z) => [z + 1.9, 1.15 - y] },
     fwing:  null, rwing: null, plateL: null, plateR: null, // filled in from the wing objects' sizes
   };
 }
@@ -102,13 +102,13 @@ function makeTemplate(scene) {
   // panels
   const panels = makePanels(bb);
   const fb = T.fwingBox, rb = T.rwingBox;
-  if (fb) panels.fwing = { W: fb.max.x - fb.min.x, H: fb.max.z - fb.min.z, role: 'wing', label: 'Front wing (from behind)', proj: (x, y, z) => [fb.max.x - x, fb.max.z - z] };
+  if (fb) panels.fwing = { W: fb.max.x - fb.min.x, H: fb.max.z - fb.min.z, role: 'wing', dir: [0, 1, 0], label: 'Front wing (from behind)', proj: (x, y, z) => [fb.max.x - x, fb.max.z - z] };
   else delete panels.fwing;
   if (rb) {
-    panels.rwing = { W: rb.max.x - rb.min.x, H: rb.max.z - rb.min.z, role: 'wing', label: 'Rear wing (from behind)', proj: (x, y, z) => [rb.max.x - x, rb.max.z - z] };
+    panels.rwing = { W: rb.max.x - rb.min.x, H: rb.max.z - rb.min.z, role: 'wing', dir: [0, 1, 0], label: 'Rear wing (from behind)', proj: (x, y, z) => [rb.max.x - x, rb.max.z - z] };
     const pw = rb.max.z - rb.min.z, ph = rb.max.y - rb.min.y;
-    panels.plateL = { W: pw, H: ph, role: 'plate', nose: 'left', pair: 'plateR', label: 'Rear wing endplates, left', proj: (x, y, z) => [rb.max.z - z, rb.max.y - y] };
-    panels.plateR = { W: pw, H: ph, role: 'plate', nose: 'right', pair: 'plateL', label: 'Rear wing endplates, right', proj: (x, y, z) => [z - rb.min.z, rb.max.y - y] };
+    panels.plateL = { W: pw, H: ph, role: 'plate', dir: [1, 0, 0], nose: 'left', pair: 'plateR', label: 'Rear wing endplates, left', proj: (x, y, z) => [rb.max.z - z, rb.max.y - y] };
+    panels.plateR = { W: pw, H: ph, role: 'plate', dir: [-1, 0, 0], nose: 'right', pair: 'plateL', label: 'Rear wing endplates, right', proj: (x, y, z) => [z - rb.min.z, rb.max.y - y] };
   } else { delete panels.rwing; delete panels.plateL; delete panels.plateR; }
   for (const k of Object.keys(panels)) if (!panels[k]) delete panels[k];
   T.panels = panels; T.panelNames = Object.keys(panels);
@@ -153,6 +153,7 @@ function assign(T, group, x, y, z, nx, ny, nz) {
 function texelMap(T, R) {
   if (T.maps[R]) return T.maps[R];
   const panel = new Uint8Array(R * R), X = new Float32Array(R * R), Y = new Float32Array(R * R);
+  const P3 = new Float32Array(R * R * 3), N3 = new Int8Array(R * R * 3), AR = new Float32Array(R * R); // (position, smooth normal, surface area: for projected decals)
   const idxOf = Object.fromEntries(T.panelNames.map((n, k) => [n, k + 1]));
   const offs = { body: new THREE.Vector3(), fwing: T.fwingCtr, rwing: T.rwingCtr };
   for (const p of T.livery) {
@@ -165,6 +166,8 @@ function texelMap(T, R) {
       const minY = Math.max(0, Math.floor(Math.min(...vs))), maxY = Math.min(R - 1, Math.ceil(Math.max(...vs)));
       const [x0, x1, x2] = us, [y0, y1, y2] = vs;
       const den = (y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2); if (Math.abs(den) < 1e-9) continue;
+      const [j0, j1, j2] = ids, e1 = [P.getX(j1) - P.getX(j0), P.getY(j1) - P.getY(j0), P.getZ(j1) - P.getZ(j0)], e2 = [P.getX(j2) - P.getX(j0), P.getY(j2) - P.getY(j0), P.getZ(j2) - P.getZ(j0)];
+      const st = Math.hypot(e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]) / Math.abs(den); // (3D area per texel)
       for (let py = minY; py <= maxY; py++) for (let px = minX; px <= maxX; px++) {
         const cx = px + 0.5, cy = py + 0.5;
         const a = ((y1 - y2) * (cx - x2) + (x2 - x1) * (cy - y2)) / den, b = ((y2 - y0) * (cx - x2) + (x0 - x2) * (cy - y2)) / den, c = 1 - a - b;
@@ -176,6 +179,7 @@ function texelMap(T, R) {
         const name = assign(T, p.group, x, y, z, nx / nl, ny / nl, nz / nl), pn = T.panels[name];
         const [sx, sy] = pn.proj(x, y, z), id = py * R + px;
         panel[id] = idxOf[name]; X[id] = Math.min(pn.W, Math.max(0, sx)); Y[id] = Math.min(pn.H, Math.max(0, sy));
+        P3[id * 3] = x; P3[id * 3 + 1] = y; P3[id * 3 + 2] = z; N3[id * 3] = nx / nl * 127; N3[id * 3 + 1] = ny / nl * 127; N3[id * 3 + 2] = nz / nl * 127; AR[id] = st;
       }
     }
   }
@@ -186,18 +190,23 @@ function texelMap(T, R) {
       const id = py * R + px; if (src[id]) continue;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const qx = px + dx, qy = py + dy; if (qx < 0 || qy < 0 || qx >= R || qy >= R) continue;
-        const q = qy * R + qx; if (src[q]) { panel[id] = src[q]; X[id] = X[q]; Y[id] = Y[q]; break; }
+        const q = qy * R + qx; if (src[q]) { panel[id] = src[q]; X[id] = X[q]; Y[id] = Y[q]; P3.copyWithin(id * 3, q * 3, q * 3 + 3); N3.copyWithin(id * 3, q * 3, q * 3 + 3); break; }
       }
     }
   }
-  return (T.maps[R] = { panel, X, Y });
+  // the mapped texels as a list too (what projectDecals reads)
+  const list = []; for (let i = 0; i < R * R; i++) if (panel[i]) list.push(i);
+  const lpos = new Float32Array(list.length * 3), lnrm = new Int8Array(list.length * 3);
+  list.forEach((i, k) => { lpos.set(P3.subarray(i * 3, i * 3 + 3), k * 3); lnrm.set(N3.subarray(i * 3, i * 3 + 3), k * 3); });
+  return (T.maps[R] = { panel, X, Y, list: Uint32Array.from(list), lp: Uint8Array.from(list, i => panel[i]), lx: Float32Array.from(list, i => X[i]), ly: Float32Array.from(list, i => Y[i]), pos: lpos, nrm: lnrm, ar: Float32Array.from(list, i => AR[i]) });
 }
 
 function makeDef(T) {
   const def = {
     id: 'custom-glb', aspect: 1, projected: true, panels: T.panels,
     labels: { topNumber: [0.8, 0.5], sideNumber: [0.7, 0.55] },
-    paintProjected(canvas, L, drawPanel) {
+    projectDecals: true,
+    paintProjected(canvas, L, drawPanel, decalLayers) {
       const R = canvas.width, map = texelMap(T, R), ppm = Math.max(40, R / 8);
       const datas = [null];
       for (const name of T.panelNames) {
@@ -210,13 +219,14 @@ function makeDef(T) {
       }
       const ctx = canvas.getContext('2d'), out = ctx.createImageData(R, R), o = out.data;
       const mc = (L.main ?? 0) >>> 0, sr = (mc >> 16) & 255, sg = (mc >> 8) & 255, sb = mc & 255; // unmapped texels: main colour
-      const { panel, X, Y } = map;
-      for (let i = 0, n = R * R; i < n; i++) {
-        const k = panel[i], j = i * 4;
-        if (!k) { o[j] = sr; o[j + 1] = sg; o[j + 2] = sb; o[j + 3] = 255; continue; }
-        const D = datas[k], px = Math.min(D.w - 1, (X[i] * ppm) | 0), py = Math.min(D.h - 1, (Y[i] * ppm) | 0), q = (py * D.w + px) * 4;
-        o[j] = D.d[q]; o[j + 1] = D.d[q + 1]; o[j + 2] = D.d[q + 2]; o[j + 3] = 255;
+      for (let j = 0; j < o.length; j += 4) { o[j] = sr; o[j + 1] = sg; o[j + 2] = sb; o[j + 3] = 255; }
+      const { list, lp, lx, ly } = map, cnt = list.length, col = new Float32Array(cnt * 3);
+      for (let n = 0; n < cnt; n++) {
+        const D = datas[lp[n]], q = (Math.min(D.h - 1, (ly[n] * ppm) | 0) * D.w + Math.min(D.w - 1, (lx[n] * ppm) | 0)) * 4;
+        col[n * 3] = D.d[q]; col[n * 3 + 1] = D.d[q + 1]; col[n * 3 + 2] = D.d[q + 2];
       }
+      if (decalLayers) projectDecals(T.panels, T.panelNames, decalLayers(ppm), map, col);
+      for (let n = 0; n < cnt; n++) { const j = list[n] * 4; o[j] = col[n * 3]; o[j + 1] = col[n * 3 + 1]; o[j + 2] = col[n * 3 + 2]; }
       ctx.putImageData(out, 0, 0);
     },
     // designer click-to-place: livery uv -> panel + metres
@@ -304,7 +314,7 @@ function buildCar(cfg, opts = {}) {
     livery: livCanvas, livTex, cfg, def: T.def, helmet: kit.helmet, visorMat: kit.visorMat, suitTex: kit.suitTex, limbTex: kit.limbTex, armTex: kit.armTex, helTex: kit.helTex, helCanvas: kit.helCanvas };
   const stripeMats = {};
   model.setCompound = (c) => {
-    const col = { soft: 0xe0302a, medium: 0xf2d22a, hard: 0xf0f0f0, wet: 0x2a7ae0 }[c] ?? 0xf2d22a;
+    const col = { soft: 0xe0302a, medium: 0xf2d22a, hard: 0xf0f0f0, wet: 0x2a7ae0, dirt: 0xa8743a }[c] ?? 0xf2d22a;
     const mat = stripeMats[c] || (stripeMats[c] = new THREE.MeshBasicMaterial({ color: col }));
     for (const w of wheels) w.mesh.traverse(o => { if (o.userData.stripe) o.material = mat; });
   };
@@ -317,13 +327,14 @@ function buildCar(cfg, opts = {}) {
   };
   model.repaint = (L) => { if (L && L !== model.cfg) Object.assign(model.cfg, fillLivery(L)); cfg = model.cfg; repaintAll(); };
   const _t = new THREE.Vector3(), _d = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0), inv = new THREE.Matrix4();
-  model.animate = ({ steer = 0, spin = 0, pitch = 0, roll = 0, heave = 0, bump = [0, 0, 0, 0] } = {}) => {
+  model.animate = ({ steer = 0, spin = 0, pitch = 0, roll = 0, heave = 0, bump = [0, 0, 0, 0], solidR = false } = {}) => {
     body.rotation.x = pitch; body.rotation.z = roll; body.position.y = heave;
     wheels.forEach((w, k) => {
       w.mesh.rotation.x += spin / w.r;
       if (w.front) w.pivot.rotation.y = steer;
       w.pivot.position.y = w.baseY + (bump[k] || 0);
     });
+    tiltWheels(wheels, roll, solidR);
     body.updateMatrix(); inv.copy(body.matrix).invert();
     for (const a of arms) {
       const w = wheels[a.wheel]; if (!w || !a.outerRel) continue;

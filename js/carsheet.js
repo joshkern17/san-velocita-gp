@@ -78,11 +78,11 @@ function after(w, pv) {
   if (pv.kind === 'rebuild') parts[k].cond = Math.max(P[k].cond, WC.rebuildTo(w));
   else if (pv.kind === 'self') parts[k].cond = Math.max(P[k].cond, w.background === 'mechanic' ? 0.84 : 0.72);
   else if (pv.kind === 'new') parts[k].cond = 1;
-  else if (pv.kind === 'remove') parts[k].fit = null;
+  else if (pv.kind === 'remove') parts[k].fits = P[k].fits.filter((_, i) => i !== (pv.idx || 0)); // (that one upgrade off)
   else if (pv.kind === 'map') w2.grey = null;
   return w2;
 }
-const PREVIEW_HEAD = { rebuild: 'If you rebuild the {}', self: 'If you rebuild the {} yourself', new: 'With a new {}', remove: 'Without the {} upgrade', map: 'Without Kev\'s map' };
+const PREVIEW_HEAD = { rebuild: 'If you rebuild the {}', self: 'If you rebuild the {} yourself', new: 'With a new {}', remove: 'Without the upgrade', map: 'Without Kev\'s map' };
 const riskWord = (r) => r < 0.03 ? 'Low' : r < 0.08 ? 'Some' : r < 0.15 ? 'High' : 'Very high';
 
 export class CarPanel {
@@ -119,7 +119,7 @@ export class CarPanel {
       return `<div class="cp-row${on ? '' : ' off'}"><div class="cp-top"><span>${name}</span><b>${val}</b></div>
         <i class="cp-track"><i class="cp-bar">${segs.join('')}</i><i class="fac" style="left:${(a * 100).toFixed(1)}%"></i></i><small>${this.why(S, s, B, mods, focus, u, fn, unit, vs)}</small></div>`;
     }).join('');
-    const head = pv ? (PREVIEW_HEAD[pv.kind] || '').replace('{}', WC.PARTS[pv.part].name.toLowerCase()) : focus ? `What ${the(focus)} ${does(focus)}` : 'Performance';
+    const head = pv?.kind === 'remove' ? `Without the ${P[pv.part].fits[pv.idx || 0]?.name || 'upgrade'}` : pv ? (PREVIEW_HEAD[pv.kind] || '').replace('{}', WC.PARTS[pv.part].name.toLowerCase()) : focus ? `What ${the(focus)} ${does(focus)}` : 'Performance';
     const key = head + rows;
     if (key === this.key) return; this.key = key;
     this.el.innerHTML = `<div class="cp-head${pv ? ' pv' : ''}"><b>${head}</b></div>${rows}<div class="cp-key"><i class="fac"></i>Factory car<i class="up"></i>Better<i class="down"></i>Worse${pv ? '<i class="pv"></i>Would change' : ''}</div>`;

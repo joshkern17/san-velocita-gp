@@ -65,6 +65,20 @@ export function updateMusic(dt) {
   musicLevel += (target - musicLevel) * Math.min(1, dt / (target < musicLevel ? 0.8 : 3.5));
   music.volume = Math.min(1, musicLevel);
   if (musicVol === 0 && musicLevel < 0.002 && !music.paused) music.pause();
+  if (musicVol > 0) musicWatchdog(dt);
+}
+// Nothing else restarts the music once it stops: the browser or OS pausing it (a media key, headphones, the system
+// taking the audio device), a track that stalls mid-stream, or a run of load errors that used up the skips. So every
+// frame: if it should be playing and hasn't moved for 3 s, start it again (the same track if it was only paused,
+// otherwise the next one), from silence so it fades back in rather than jumping.
+let musicStuck = 0, musicLastT = -1;
+function musicWatchdog(dt) {
+  const t = music.currentTime;
+  if (!music.paused && !music.ended && t !== musicLastT) { musicStuck = 0; musicLastT = t; return; }
+  if ((musicStuck += dt) < 3) return;
+  musicStuck = 0; musicLastT = -1; musicLevel = 0; music.volume = 0;
+  if (music.paused && !music.ended && !music.error) musicPlay();
+  else { musicFails = 0; playTrack(musicIdx + 1); }
 }
 
 function noiseSrc() { const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true; return s; }
@@ -352,6 +366,7 @@ export const sfx = {
   shift: () => burst(0.04, 3000, 0.05),
   place: () => tone(980, 0.05, 'square', 0.05),
   del: () => tone(300, 0.08, 'square', 0.06, 0.6),
+  shutter: () => { burst(0.025, 6000, 0.14); burst(0.04, 3200, 0.1, 0.075); },
   error: () => { tone(200, 0.15, 'square', 0.08); tone(160, 0.2, 'square', 0.08, 0, 0.15); },
   // the career phone: a vibrate (low buzz pulses) and the old two-note message tone
   buzz: () => { for (let i = 0; i < 3; i++) tone(92, 0.16, 'sawtooth', 0.045, 0, i * 0.24); tone(1318, 0.07, 'square', 0.035, 0, 0.8); tone(1760, 0.1, 'square', 0.035, 0, 0.9); },

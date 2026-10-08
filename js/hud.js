@@ -11,6 +11,18 @@ const pad2 = (n) => String(n).padStart(2, '0');
 // tower name: the surname in full ("M. OKAFOR" -> OKAFOR); you stay YOU
 const code = (r) => r.isPlayer ? 'YOU' : String(r.name).trim().split(/\s+/).pop().toUpperCase() || r.name;
 // canvas drawing uses the design system's colours and fonts (css/sv.css)
+// a tyre's temperature (-1 cold .. 0 at its best .. 1 overheated) as a colour
+// (any CSS colour, read back through a canvas as #rrggbb or rgba(): the theme's colours come from the stylesheet)
+let rgbCtx = null;
+const rgbOf = (c) => { rgbCtx ||= document.createElement('canvas').getContext('2d'); rgbCtx.fillStyle = '#000'; rgbCtx.fillStyle = c; const f = rgbCtx.fillStyle;
+  return f[0] === '#' ? [1, 3, 5].map(k => parseInt(f.slice(k, k + 2), 16)) : f.match(/[\d.]+/g).slice(0, 3).map(Number); };
+const mixHex = (a, b, t) => { const A = rgbOf(a), B = rgbOf(b), q = Math.max(0, Math.min(1, t));
+  return '#' + [0, 1, 2].map(k => Math.round(A[k] + (B[k] - A[k]) * q).toString(16).padStart(2, '0')).join(''); };
+// The car's condition (damage, wear, heat) has a scale of its own, green (fine) through amber to pink (bad), so it
+// never reads as the UI's red and blue (labels, the cursor, "good" times)
+const COND = { ok: '#3ee07a', mid: '#ffc21a', bad: '#ff2d6f', cold: '#4a4a5e' };
+export const condCol = (x) => { x = Math.max(0, Math.min(1, x)); return x < 0.5 ? mixHex(COND.ok, COND.mid, x / 0.5) : mixHex(COND.mid, COND.bad, (x - 0.5) / 0.5); };
+const tempCol = (x) => x < -0.25 ? mixHex(COND.cold, COND.ok, (x + 1) / 0.75) : x < 0.3 ? COND.ok : condCol((x - 0.3) / 0.7);
 const SV = { red: '#ff2b00', hot: '#ff6a1c', amber: '#ffc21a', cyan: '#2d36f2', good: '#2d36f2', blue: '#2d36f2', bad: '#ff2d6f', ink: '#05060c' };
 // (re-read from the stylesheet when the UI colour changes: Options > Display > UI Colour)
 export function readThemeColours() {
@@ -21,7 +33,7 @@ const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 const RADAR_ZOOM = { near: 1.35, normal: 1, far: 0.62, vfar: 0.36 };
 export const RADAR_ZOOMS = ['near', 'normal', 'far', 'vfar'];
 const TOWER_HEAD = '<div class="h"><span class="n">POS</span><span class="nm">DRIVER</span><span class="g">GAP</span></div>';
-const TYRE_CSS = { soft: '#e0302a', medium: '#f2d22a', hard: '#f0f0f0', wet: '#3a8af0' };
+const TYRE_CSS = { soft: '#e0302a', medium: '#f2d22a', hard: '#f0f0f0', wet: '#3a8af0', dirt: '#b8824a' };
 
 export class HUD {
   constructor() {
@@ -32,7 +44,9 @@ export class HUD {
       timeLbl: $('h-timelbl'), penRow: $('h-penrow'), pen: $('h-pen'), deltaRow: $('h-deltarow'), delta: $('h-delta'),
       flag: $('h-flag'), flagI: $('h-flag-i'), flagT: $('h-flag-t'), flagS: $('h-flag-s'), flagBar: $('h-flag-bar'), flagD: $('h-flag-d'), feed: $('h-rc'),
     };
-    this.feedEls = [];
+    this.feedEls = []; this.radioEls = [];
+    this.st = { el: $('h-strat'), tyre: $('h-st-tyre'), plan: $('h-st-plan'), pitRow: $('h-st-pitrow'), pit: $('h-st-pit'), pitSub: $('h-st-pitsub'), mateRow: $('h-st-materow'), mateLbl: $('h-st-matelbl'), mate: $('h-st-mate'), wxRow: $('h-st-wxrow'), wx: $('h-st-wx') };
+    this.padGlyphs = false; // (main.js: true when the pad is the device, for the radio's answers)
     this.radar = $('radar');
     this.carCv = $('h-car'); this.cc = this.carCv.getContext('2d');
     this.pitEl = $('h-pit');
@@ -99,6 +113,8 @@ export class HUD {
     this.el.help.classList.remove('shift');
     this.el.flag.className = 'rc-board';
     this.el.feed.innerHTML = ''; this.feedEls = [];
+    $('h-radio').innerHTML = ''; $('h-radio').classList.remove('calling'); this.radioEls = []; this.call = null;
+    this.st.el.classList.remove('on');
     this.secPaths = null; this.quali = null;
   }
 
@@ -135,10 +151,16 @@ export class HUD {
     this.set('best', E.best, isFinite(s.best) ? fmtTime(s.best) : '\u2014');
     const sp = this.units === 'mph' ? s.speed * 2.23694 : s.speed * 3.6;
     this.set('speed', E.speed, String(Math.round(sp)));
-    const lim = s.pitting && s.pitPhase !== 'stop';
+    const lim = s.pitLim ?? (s.pitting && s.pitPhase !== 'stop');
     this.set('unit', E.unit, lim ? 'PIT LIMITER' : this.units === 'mph' ? 'MPH' : 'KM/H');
     E.speed.classList.toggle('lim', !!lim);
-    $('h-tow').classList.toggle('on', (s.slip || 0) > 0.3 && !lim);
+    // the tow on a straight; through a corner, a car ahead's dirty air costing you grip (Options: Dirty Air Indicator)
+    // (held on 0.6 s after it fades, so it doesn't flicker through a corner's changes of load)
+    const now = performance.now();
+    if (this.dirtyAir && !lim && (s.wake || 0) > 0.02 && Math.abs(s.latG || 0) > 0.5) this.dirtyUntil = now + 600;
+    const dirty = !lim && now < (this.dirtyUntil || 0);
+    $('h-tow').classList.toggle('on', (s.slip || 0) > 0.3 && !lim && !dirty);
+    $('h-dirty').classList.toggle('on', !!dirty);
     this.set('gear', E.gear, s.gear === -1 ? 'R' : s.speed < 0.5 && s.gear === 1 ? 'N' : String(s.gear));
     const r = Math.max(0, Math.min(1, (s.rpm - 4000) / 8500));
     const rw = Math.round(r * 100);
@@ -149,20 +171,78 @@ export class HUD {
       // timing screen: pole time, then gaps; a time just set flashes purple
       const now = race.raceTime;
       const html = TOWER_HEAD.replace('GAP', 'TIME') + Q.rows.slice(0, 12).map(r => {
-        const t = !isFinite(r.best) ? '\u2014' : r.pos === 1 ? fmtTime(r.best, 3) : '+' + r.gap.toFixed(3);
+        const t = !isFinite(r.best) ? '\u2014' : r.pos === 1 || r.gap == null ? fmtTime(r.best, 3) : '+' + r.gap.toFixed(3);
         const fresh = r.flash !== undefined && now - r.flash < 3;
         return `<div class="r${r.isPlayer ? ' me' : ''}${fresh ? ' new' : ''}"><span class="n">${r.pos}</span><span class="c" style="background:${hex(r.color)}"></span><span class="nm">${code(r)}</span><span class="g q">${t}</span></div>`;
       }).join('');
       if (this.cache.towerT === undefined || performance.now() - this.cache.towerT > 250) { this.cache.towerT = performance.now(); this.set('tower', E.tower, html, true); }
     } else if (this.mode === 'race') {
-      const html = TOWER_HEAD + s.standings.slice(0, 12).map(r =>
-        `<div class="r${r.isPlayer ? ' me' : ''}"><span class="n">${r.pos}</span><span class="c" style="background:${hex(r.color)}"></span><span class="nm">${code(r)}</span>${r.pit ? '<span class="pt">PIT</span>' : ''}${r.pen ? `<span class="pn">+${r.pen}s</span>` : ''}${r.dt ? '<span class="pn">DT</span>' : ''}${s.wear ? `<span class="ty" style="background:${TYRE_CSS[r.tyre]}">${r.tyre[0].toUpperCase()}</span>` : ''}<span class="g">${r.gap || '\u2014'}</span></div>`).join('');
+      const html = TOWER_HEAD.replace('GAP', 'INT') + s.standings.slice(0, 12).map(r =>
+        `<div class="r${r.isPlayer ? ' me' : ''}${r.mate ? ' mt' : ''}"><span class="n">${r.pos}</span><span class="c" style="background:${hex(r.color)}"></span><span class="nm">${code(r)}</span>${r.pit ? '<span class="pt">PIT</span>' : ''}${r.pen ? `<span class="pn">+${r.pen}s</span>` : ''}${r.dt ? '<span class="pn">DT</span>' : ''}${s.wear ? `<span class="ty" style="background:${TYRE_CSS[r.tyre]}">${r.tyre[0].toUpperCase()}</span>` : ''}<span class="g">${r.gap || '\u2014'}</span></div>`).join('');
       if (this.cache.towerT === undefined || performance.now() - this.cache.towerT > 250) { this.cache.towerT = performance.now(); this.set('tower', E.tower, html, true); }
     }
     this.drawRadar(race);
     this.drawCar(s);
-    const plan = s.wear && s.plan ? `BOX LAP ${s.plan.lap}<i style="background:${TYRE_CSS[s.plan.tyre]}"></i>${s.plan.tyre.toUpperCase()}` : '';
-    this.set('plan', $('h-plan'), plan, true);
+    // (the plan used to sit over the car: it's in the strategy panel now)
+    this.set('plan', $('h-plan'), s.wear && s.plan && !s.strat ? `BOX LAP ${s.plan.lap}<i style="background:${TYRE_CSS[s.plan.tyre]}"></i>${s.plan.tyre.toUpperCase()}` : '', true);
+    this.strategy(s);
+  }
+
+  // the strategy panel (races with a pit lane, or tyre wear): the set you're on and how old it is, the plan, where a
+  // stop now would put you (and who you'd come out behind), your teammate (World Career)
+  strategy(s) {
+    const S = this.st, x = s.strat, show = !!(x && this.mode === 'race' && (s.wear || s.hasPit));
+    S.el.classList.toggle('on', show); if (!show) return;
+    const dot = (c) => `<span class="ty" style="background:${TYRE_CSS[c] || '#777'}">${c[0].toUpperCase()}</span>`;
+    // (a race whose weather may change: the track as it is, and the rain on its way)
+    const X = x.wx; S.wxRow.classList.toggle('off', !X);
+    if (X) this.set('st-wx', S.wx, X.eta != null ? `RAIN IN ${Math.max(1, Math.round(X.eta))} LAP${Math.round(X.eta) > 1 ? 'S' : ''}` : X.wet > 0.6 ? (X.rainK > 0.3 ? 'WET' : 'DRYING') : X.wet > 0.2 ? (X.rainK > 0.3 ? 'GETTING WET' : 'DRYING') : X.rainK > 0.3 ? 'SPITTING' : 'DRY', true);
+    this.set('st-tyre', S.tyre, `${dot(s.tyre.c)}${x.tyreLaps} LAP${x.tyreLaps === 1 ? '' : 'S'}`, true);
+    this.set('st-plan', S.plan, s.plan ? `BOX L${s.plan.lap}${dot(s.plan.tyre)}` : 'TO THE END', true);
+    const P = x.proj, pit = !!(P && s.hasPit && !s.pitting);
+    S.pitRow.classList.toggle('off', !pit);
+    this.set('st-pit', S.pit, pit ? `P${P.pos}` : '', true);
+    this.set('st-pitsub', S.pitSub, pit ? (P.ahead ? `behind ${String(P.ahead).split(' ').pop()} +${Math.max(0.1, P.aheadBy).toFixed(1)}` : P.pos === 1 ? 'in the lead' : '') : '', true);
+    const M = x.mate; S.mateRow.classList.toggle('off', !M);
+    if (M) { this.set('st-matelbl', S.mateLbl, String(M.name).split(' ').pop().toUpperCase());
+      this.set('st-mate', S.mate, `P${M.pos}${M.gap == null ? '' : M.gap < 0 ? ` <span class="up">&#9650;${(-M.gap).toFixed(1)}</span>` : ` <span class="dn">&#9660;${M.gap.toFixed(1)}</span>`}`, true); }
+  }
+
+  // the radio (your engineer, your teammate), bottom centre: a wide strip with an EQ that jumps while they're talking.
+  // The newest sits at the bottom; the one before shrinks to a dim line above it (one at most, and none during a call).
+  // who: 'eng' | 'mate'; o: { name (the label), color (their team's), big (stays longer) }
+  radio(who, msg, o = {}) {
+    const el = document.createElement('div');
+    el.className = 'rd-msg sv-frame ' + who; if (o.color) el.style.setProperty('--f', o.color);
+    el.innerHTML = `<div class="rd-eq">${'<i></i>'.repeat(9)}</div><div class="rd-body"><small>${o.name || (who === 'eng' ? 'Engineer' : 'Teammate')}</small><p>${msg}</p></div>`;
+    this.pushRadio(el, o.big ? 8000 : 6000);
+    // (talking: about as long as it'd take to say it)
+    el.classList.add('talk'); el.talkT = setTimeout(() => el.classList.remove('talk'), Math.max(1200, Math.min(4000, String(msg).length * 45)));
+    return el;
+  }
+  pushRadio(el, ms) {
+    const box = $('h-radio'); box.append(el); this.radioEls.forEach(e => { e.classList.add('old'); e.classList.remove('talk'); }); this.radioEls.push(el);
+    requestAnimationFrame(() => el.classList.add('on'));
+    while (this.radioEls.filter(e => !e.call).length > 2) { const old = this.radioEls.find(e => !e.call); old.remove(); this.radioEls = this.radioEls.filter(e => e !== old); }
+    if (ms) el.dropT = setTimeout(() => this.dropRadio(el), ms);
+  }
+  dropRadio(el) { clearTimeout(el.dropT); clearTimeout(el.talkT); el.classList.remove('on'); setTimeout(() => { el.remove(); this.radioEls = this.radioEls.filter(e => e !== el); }, 350); }
+  // a call: a question with two answers (a: X / 1, b: B / 2) side by side under it, the recommended one lit; callTick(k)
+  // runs the segmented bar along the bottom down (k: what's left, 1..0), callDone(which) shows what was chosen and lets it go
+  radioCall(who, msg, a, b, rec, o = {}) {
+    if (this.call) this.dropRadio(this.call);
+    const el = this.radio(who, msg, { ...o, big: true }); clearTimeout(el.dropT); el.call = true; el.classList.add('call');
+    $('h-radio').classList.add('calling'); // (while a call's open, it's the only thing on the radio)
+    const key = (k) => this.padGlyphs ? `<kbd class="pb ${k === 'a' ? 'x' : 'b'}">${k === 'a' ? 'X' : 'B'}</kbd>` : `<kbd>${k === 'a' ? '1' : '2'}</kbd>`;
+    el.querySelector('.rd-body').insertAdjacentHTML('beforeend', `<div class="rd-acts"><span class="${rec === 'a' ? 'rec' : ''}" data-k="a">${key('a')}<b>${a}</b></span><span class="${rec === 'b' ? 'rec' : ''}" data-k="b">${key('b')}<b>${b}</b></span></div>`);
+    el.insertAdjacentHTML('beforeend', '<i class="rd-bar"></i>');
+    this.call = el; return el;
+  }
+  callTick(k) { if (this.call) this.call.querySelector('.rd-bar').style.setProperty('--v', Math.max(0, Math.min(1, k)).toFixed(3)); }
+  callDone(which) {
+    const el = this.call; if (!el) return; this.call = null; el.call = false; $('h-radio').classList.remove('calling');
+    el.querySelectorAll('.rd-acts span').forEach(x => x.classList.add(x.dataset.k === which ? 'pick' : 'no'));
+    el.querySelector('.rd-bar').remove(); el.dropT = setTimeout(() => this.dropRadio(el), 2500);
   }
 
   // race control's board: what the marshals are showing you right now (one thing at a time, most urgent first)
@@ -172,6 +252,7 @@ export class HUD {
       if (rc.dsq) { f = 'bk'; t = 'BLACK FLAG'; sub = 'Disqualified'; }
       else if (rc.giveBack) { f = 'y'; t = 'GIVE THE PLACE BACK'; sub = `Let ${rc.giveBack.name} past · ${Math.ceil(rc.giveBack.left)}s`; bar = rc.giveBack.left / rc.giveBack.total; }
       else if (rc.mo) { f = 'mo'; t = 'BLACK & ORANGE FLAG'; sub = rc.mo.laps > 1 ? `Box for repairs · ${rc.mo.laps} laps` : 'Box this lap for repairs'; }
+      else if (rc.sc) { f = 'vsc'; t = rc.sc.phase === 'in' ? 'SAFETY CAR IN THIS LAP' : 'SAFETY CAR'; sub = rc.sc.phase === 'in' ? 'Get ready · no overtaking' : 'No overtaking · pit lane open'; }
       else if (rc.vsc) {
         f = 'vsc'; t = rc.vsc.phase === 'ending' ? 'VSC ENDING' : 'VIRTUAL SAFETY CAR';
         sub = rc.vsc.phase === 'ending' ? 'Get ready · no overtaking' : 'Slow down · no overtaking';
@@ -188,7 +269,7 @@ export class HUD {
     const E = this.el, key = f ? f + t + sub : '';
     if (this.cache.flag !== key) {
       this.cache.flag = key;
-      if (f) { E.flagI.className = 'rc-flag ' + f + (f === 'y' || f === 'dy' || f === 'blue' ? ' blink' : ''); E.flagI.textContent = f === 'vsc' ? 'VSC' : ''; E.flagT.textContent = t; E.flagS.textContent = sub; }
+      if (f) { E.flagI.className = 'rc-flag ' + f + (f === 'y' || f === 'dy' || f === 'blue' ? ' blink' : ''); E.flagI.textContent = f === 'vsc' ? (rc && rc.sc ? 'SC' : 'VSC') : ''; E.flagT.textContent = t; E.flagS.textContent = sub; }
       E.flag.className = 'rc-board' + (f ? ' on ' + f : '') + (bar >= 0 ? ' timed' : '') + (delta ? ' delta' : '');
     }
     if (this.cache.delta !== delta + dcls) { this.cache.delta = delta + dcls; E.flagD.textContent = delta; E.flagD.className = 'rc-delta ' + dcls; }
@@ -208,39 +289,96 @@ export class HUD {
   }
 
   // top-down car: tyre wear per axle (% beside each axle), wing / chassis damage
+  // The car diagram (bottom right): your car from above, drawn to its own proportions: an open-wheeler (tub, wings,
+  // sidepods: its radiators) or a closed car (body outline, bumpers or a splitter, a wing if it has one, the radiator
+  // in the nose). Its tyres: temperature as their colour (with temperatures on; else wear), wear as the numbers beside
+  // them, a bent corner (Realistic damage) turned out of line and outlined. Wings / bumpers and the radiator take the
+  // damage colour. Under it: the compound (COLD / HOT), and the engine's water temperature (Realistic damage).
   drawCar(s) {
-    const c = this.cc, W = this.carCv.width, H = this.carCv.height;
-    const show = s.wear || s.damage;
-    this.carCv.style.display = show ? '' : 'none';
+    const c = this.cc, cv = this.carCv;
+    const show = s.wear || s.damage || s.temps;
+    cv.style.display = show ? '' : 'none';
     if (!show) return;
-    const key = [SV.red, s.tyre.c, (s.tyre.wf * 50) | 0, (s.tyre.wr * 50) | 0, (s.dmg.fw * 20) | 0, (s.dmg.rw * 20) | 0, (s.dmg.ch * 20) | 0].join();
+    const T = s.temps, E = s.eng, S = s.shape || { open: true, aero: true, f: 2.9, r: 2.7, w: 1, a: 1.85, b: 1.75, tw: 1.6, wr: 0.33 };
+    const q = (x, n) => Math.round(x * n);
+    const key = [SV.red, s.tyre.c, q(s.tyre.wf, 50), q(s.tyre.wr, 50), q(s.dmg.fw, 20), q(s.dmg.rw, 20), q(s.dmg.ch, 20), T ? T.map(x => q(x, 12)).join('/') : '',
+      s.bent ? s.bent.map(x => q(x, 20)).join('/') : '', E ? [q(E.t, 1), q(E.rad, 20), q(E.gb, 20), q(E.fl, 20), E.lost].join('/') : '', S.open, S.f, this.units].join();
     if (this.cache.car === key) return; this.cache.car = key;
-    c.clearRect(0, 0, W, H);
-    const wearCol = (w) => w > 0.6 ? SV.good : w > 0.3 ? SV.amber : SV.bad;
-    const dmgCol = (d) => d < 0.15 ? SV.blue : d < 0.45 ? SV.amber : SV.bad;
-    const cx = W / 2, y0 = 6;
-    c.shadowBlur = 3;
-    const glow = (col) => { c.fillStyle = col; c.shadowColor = col; };
-    // front wing, body, rear wing
-    const wing = (x, y, w, h, d) => { if (d < 0.72) { glow(dmgCol(d)); c.fillRect(x, y, w, h); } else { c.strokeStyle = c.shadowColor = SV.bad; c.setLineDash([4, 3]); c.strokeRect(x, y, w, h); c.setLineDash([]); } };
-    wing(cx - 30, y0 + 4, 60, 6, s.dmg.fw);
-    glow(dmgCol(s.dmg.ch));
-    c.beginPath(); c.moveTo(cx - 4, y0 + 11); c.lineTo(cx + 4, y0 + 11); c.lineTo(cx + 11, y0 + 56); c.lineTo(cx + 15, y0 + 86); c.lineTo(cx + 9, y0 + 104); c.lineTo(cx - 9, y0 + 104); c.lineTo(cx - 15, y0 + 86); c.lineTo(cx - 11, y0 + 56); c.closePath(); c.fill();
-    wing(cx - 21, y0 + 106, 42, 7, s.dmg.rw);
+    // (drawn at twice the size it's shown, in a 128 x 146 frame)
+    const W = 128, H = 160; c.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0); c.clearRect(0, 0, W, H);
+    const wearCol = (w) => condCol((1 - w) / 0.7); // (new: green; at the 30% cliff: pink)
+    const dmgCol = (d) => condCol(d / 0.72);        // (whole: green; about to break off: pink)
+    const glow = (col) => { c.fillStyle = col; c.strokeStyle = col; c.shadowColor = col; };
+    c.shadowBlur = 3; c.lineJoin = 'round';
+    // the frame: the car's length fills 92 px; everything to the same scale
+    const k = 92 / (S.f + S.r), cx = W / 2, y0 = 6, yF = y0, yR = y0 + (S.f + S.r) * k;
+    const yAF = y0 + (S.f - S.a) * k, yAR = y0 + (S.f + S.b) * k, hw = S.w * k, tx = S.tw / 2 * k;
+    const tW = Math.max(6, (S.open ? 0.34 : 0.26) * k), tH = Math.max(11, S.wr * 2 * k);
+    const body = s.bent ? 0 : s.dmg.ch; // (Realistic damage shows the suspension at its corners instead)
+    const part = (x, y, w, h, d) => { if (d < 0.72) { glow(dmgCol(d)); c.fillRect(x, y, w, h); } else { glow(COND.bad); c.lineWidth = 1.5; c.setLineDash([3, 2]); c.strokeRect(x, y, w, h); c.setLineDash([]); } };
+    const rad = E ? E.rad : 0;
+    // the floor (Realistic damage): the plank between the axles, under everything, in its condition
+    // (an open-wheeler's tub and sidepods cover it: there it's the floor's outline round them)
+    if (E) {
+      glow(condCol(E.fl / 0.72));
+      if (S.open) { const fw = tx - tW / 2 - 1.5, y1 = yAF + tH / 2 + 3, y2 = yAR - tH / 2 - 3; c.globalAlpha = 0.85; c.lineWidth = 1.5; c.strokeRect(cx - fw, y1, fw * 2, y2 - y1); }
+      else { const fw = hw * 0.86; c.globalAlpha = 0.3; c.fillRect(cx - fw, yAF + 6, fw * 2, yAR - yAF - 12); }
+      c.globalAlpha = 1;
+    }
+    if (S.open) {
+      // tub: a narrow nose widening to the cockpit, the sidepods (radiators) either side, the engine cover tapering back
+      glow(dmgCol(body)); c.beginPath();
+      c.moveTo(cx - 3, yF + 7); c.lineTo(cx + 3, yF + 7); c.lineTo(cx + 7, yAF + 18); c.lineTo(cx + 8, yAR - 8); c.lineTo(cx + 5, yR - 6);
+      c.lineTo(cx - 5, yR - 6); c.lineTo(cx - 8, yAR - 8); c.lineTo(cx - 7, yAF + 18); c.closePath(); c.fill();
+      const pw = Math.max(5, tx - tW / 2 - 10), py = yAF + (yAR - yAF) * 0.38, ph = (yAR - yAF) * 0.36;
+      glow(dmgCol(rad)); c.fillRect(cx - 9 - pw, py, pw, ph); c.fillRect(cx + 9, py, pw, ph);
+      part(cx - tx - tW / 2, yF, 2 * tx + tW, 5, s.dmg.fw);             // front wing, as wide as the car
+      part(cx - tx * 0.62, yR - 5, tx * 1.24, 6, s.dmg.rw);              // rear wing
+    } else {
+      // body: its outline (the roof a fainter inner one), bumpers front and rear in the damage colour, the radiator
+      // behind the grille, a splitter and a wing on a car with real aero
+      glow(dmgCol(body)); c.lineWidth = 2; const r = Math.min(hw * 0.55, 9);
+      c.beginPath(); c.roundRect(cx - hw, yF, hw * 2, yR - yF, r); c.stroke();
+      c.globalAlpha = 0.4; c.lineWidth = 1.5; c.beginPath(); c.roundRect(cx - hw * 0.62, yF + (yR - yF) * 0.34, hw * 1.24, (yR - yF) * 0.36, 4); c.stroke(); c.globalAlpha = 1;
+      part(cx - hw * 0.8, yF + 1, hw * 1.6, S.aero ? 5 : 4, s.dmg.fw);
+      part(cx - hw * 0.8, yR - 5, hw * 1.6, 4, s.dmg.rw);
+      if (S.aero) part(cx - hw * 0.9, yR - 1, hw * 1.8, 5, s.dmg.rw);
+      if (E) { glow(dmgCol(rad)); c.fillRect(cx - hw * 0.42, yF + 8, hw * 0.84, 3); }
+    }
+    // the gearbox: at the driven end (between the rear wheels; the front on a front-wheel drive), in its condition
+    if (E) { const gy = E.fd >= 1 ? yAF : yAR; glow(condCol(E.gb)); c.fillRect(cx - 4, gy - 4, 8, 8); }
     // tyres
-    const tyre = (x, y, w, h, wear) => { glow(s.wear ? wearCol(wear) : '#6a6a72'); c.fillRect(x, y, w, h); };
-    tyre(cx - 30, y0 + 18, 12, 22, s.tyre.wf); tyre(cx + 18, y0 + 18, 12, 22, s.tyre.wf);
-    tyre(cx - 32, y0 + 70, 14, 26, s.tyre.wr); tyre(cx + 18, y0 + 70, 14, 26, s.tyre.wr);
-    // wear % either side, the compound underneath
+    const tyre = (k2, x, y) => {
+      const b = s.bent ? s.bent[k2] : 0, wear = k2 < 2 ? s.tyre.wf : s.tyre.wr;
+      c.save(); c.translate(x, y);
+      if (b > 0.05) c.rotate((s.bentDir[k2] || -1) * (k2 % 2 ? -1 : 1) * b * 0.35); // (toe-out: the front of the tyre turned outward)
+      glow(T ? tempCol(T[k2]) : s.wear ? wearCol(wear) : '#6a6a72'); c.fillRect(-tW / 2, -tH / 2, tW, tH);
+      if (b > 0.12) { glow(dmgCol(b)); c.lineWidth = 1.5; c.strokeRect(-tW / 2 - 2.5, -tH / 2 - 2.5, tW + 5, tH + 5); }
+      c.restore();
+    };
+    tyre(0, cx - tx, yAF); tyre(1, cx + tx, yAF); tyre(2, cx - tx, yAR); tyre(3, cx + tx, yAR);
+    // wear beside them (just outside each car's own track, the same gap either side)
     c.textBaseline = 'middle';
     if (s.wear) {
-      c.font = "500 15px 'SV UI'"; glow(SV.red);
-      const pf = Math.round(s.tyre.wf * 100) + '%', pr = Math.round(s.tyre.wr * 100) + '%';
-      c.textAlign = 'right'; c.fillText(pf, cx - 36, y0 + 30); c.fillText(pr, cx - 38, y0 + 84);
-      c.textAlign = 'left'; c.fillText(pf, cx + 36, y0 + 30); c.fillText(pr, cx + 38, y0 + 84);
+      c.font = "500 11px 'SV UI'";
+      const pf = Math.round(s.tyre.wf * 100) + '%', pr = Math.round(s.tyre.wr * 100) + '%', gx = tx + tW / 2 + 5;
+      glow(wearCol(s.tyre.wf)); c.textAlign = 'right'; c.fillText(pf, cx - gx, yAF); c.textAlign = 'left'; c.fillText(pf, cx + gx, yAF);
+      glow(wearCol(s.tyre.wr)); c.textAlign = 'right'; c.fillText(pr, cx - gx, yAR); c.textAlign = 'left'; c.fillText(pr, cx + gx, yAR);
     }
-    c.font = "500 17px 'SV UI'"; c.textAlign = 'center'; glow(TYRE_CSS[s.tyre.c]); c.fillText(s.tyre.c.toUpperCase(), cx, H - 12);
-    c.shadowBlur = 0;
+    // the compound (and the set's state), then the engine's water
+    const cold = T && T.reduce((a, x) => a + x, 0) / 4 < -0.35, hot = T && Math.max(...T) > 0.45;
+    c.textAlign = 'center'; c.font = "500 13px 'SV UI'"; glow(TYRE_CSS[s.tyre.c]);
+    c.fillText(s.tyre.c.toUpperCase() + (cold ? ' · COLD' : hot ? ' · HOT' : ''), cx, 116);
+    if (E) {
+      const t = E.t, txt = this.units === 'mph' ? Math.round(t * 1.8 + 32) + '°F' : Math.round(t) + '°C';
+      c.font = "500 12px 'SV UI'"; glow(condCol((t - 100) / 30)); // (green up to 100°C, pink by 130°C)
+      c.fillText(`WATER ${txt}${E.k < 0.98 ? ' · −' + Math.round((1 - E.k) * 100) + '%' : ''}`, cx, 133); // (and the power it's costing)
+      if (E.gb >= 0.15) { // (a damaged gearbox: how bad, and the gear it's lost)
+        const ord = (n) => n + (['th', 'st', 'nd', 'rd'][n % 10 > 3 || Math.floor(n / 10) === 1 ? 0 : n % 10] || 'th');
+        glow(condCol(E.gb)); c.fillText(E.lost ? `GEARBOX · NO ${ord(E.lost).toUpperCase()}` : E.gb >= 0.35 ? 'GEARBOX · MISSES' : 'GEARBOX · SLOW', cx, 150);
+      }
+    }
+    c.shadowBlur = 0; c.setTransform(1, 0, 0, 1, 0, 0);
   }
 
   pitMenu(s, sel, open) {
@@ -249,7 +387,6 @@ export class HUD {
     if (!open || !s || !s.pitting || (!s.pitReq && s.pitPhase === 'out')) { el.classList.remove('on'); return; }
     el.classList.add('on');
     const r = s.pitReq || {};
-    const dmgAny = Math.max(s.dmg.fw, s.dmg.rw, s.dmg.ch) > 0.02;
     let html = `<h3>${r.garage ? 'Garage' : 'Pit Stop'}</h3>`;
     if (s.pitPhase === 'stop' || s.pitPhase === 'out') {
       const done = s.pitPhase === 'out' ? 1 : 1 - Math.max(0, s.pitTimer) / (s.pitTotal || 1);
@@ -265,9 +402,20 @@ export class HUD {
       html += `<div class="row"><span>DRIVE-THROUGH</span><span class="v">NO STOP</span></div>`;
       html += `<div class="foot">penalty · the crew waves you straight through the pit lane</div>`;
     } else {
-      html += `<div class="row${sel === 0 ? ' sel' : ''}"><span>TYRES</span><span class="v"><span class="tyre-dot" style="background:${TYRE_CSS[r.tyre] || '#777'}"></span>${(r.tyre || 'no change').toUpperCase()}</span></div>`;
-      html += `<div class="row${sel === 1 ? ' sel' : ''}"><span>REPAIR</span><span class="v">${dmgAny ? (r.repair ? 'FIX DAMAGE' : 'NO') : 'NOT NEEDED'}</span></div>`;
-      html += `<div class="foot">&#8593;&#8595; SELECT &nbsp; &#8592;&#8594; CHANGE &nbsp;·&nbsp; the crew is driving you to the box</div>`;
+      // tyres, then each damaged part (how bad, in the car's condition colours; fix it or leave it, and what it adds),
+      // then the stop it comes to
+      html += `<div class="row${sel === 0 ? ' sel' : ''}"><span>TIRES</span><span class="v"><span class="tyre-dot" style="background:${TYRE_CSS[r.tyre] || '#777'}"></span>${(r.tyre || 'no change').toUpperCase()}</span></div>`;
+      const parts = s.pitParts || [];
+      if (!parts.length) html += `<div class="row dim"><span>REPAIRS</span><span class="v">NOT NEEDED</span></div>`;
+      parts.forEach((x, k) => {
+        const col = condCol(x.dmg / 0.72);
+        html += `<div class="row part${sel === k + 1 ? ' sel' : ''}${x.fix ? '' : ' off'}"><span>${x.label.toUpperCase()}</span><i class="cond"><b style="width:${Math.round((1 - Math.min(1, x.dmg)) * 100)}%;background:${col};color:${col}"></b></i>`
+          + `<span class="v">${x.fix ? `FIX <small>+${x.secs.toFixed(1)}s</small>` : 'LEAVE'}</span></div>`;
+      });
+      // (double stacking: queued behind your teammate, and how long they've left in the box)
+      if (s.pitStack) html += `<div class="row stack"><span>BEHIND ${s.pitStack.name.toUpperCase()}</span><span class="v">${s.pitStack.left != null ? 'WAIT ' + s.pitStack.left.toFixed(1) + 's' : 'IN THE BOX'}</span></div>`;
+      html += `<div class="row total"><span>STOP</span><span class="v">${(s.pitEst || 0).toFixed(1)}s</span></div>`;
+      html += `<div class="foot">&#8593;&#8595; SELECT &nbsp; &#8592;&#8594; CHANGE &nbsp;&middot;&nbsp; the crew is driving you to the box</div>`;
     }
     this.set('pitm', el, html, true);
   }
@@ -333,6 +481,12 @@ export class HUD {
       const s = 6 / zoom, col = hex(car.team.main === 0x121214 ? 0x8a8a96 : car.team.main);
       c.beginPath(); c.arc(car.phys.x, car.phys.z, s + 1.5 / zoom, 0, Math.PI * 2); c.fillStyle = SV.ink; c.fill();
       c.beginPath(); c.arc(car.phys.x, car.phys.z, s, 0, Math.PI * 2); c.fillStyle = col; c.shadowColor = col; c.shadowBlur = 3; c.fill(); c.shadowBlur = 0;
+    }
+    // the safety car: a blinking yellow dot, a little bigger than a car's
+    if (race.sc && race.sc.model && Math.floor(performance.now() / 350) % 2 === 0) {
+      const m = race.sc.model.position, s = 8 / zoom;
+      c.beginPath(); c.arc(m.x, m.z, s + 1.5 / zoom, 0, Math.PI * 2); c.fillStyle = SV.ink; c.fill();
+      c.beginPath(); c.arc(m.x, m.z, s, 0, Math.PI * 2); c.fillStyle = '#ffc414'; c.shadowColor = '#ffc414'; c.shadowBlur = 6; c.fill(); c.shadowBlur = 0;
     }
     c.restore();
     // ring: a glowing red hairline with compass ticks that turn with the map

@@ -1,0 +1,67 @@
+<!doctype html><meta charset="utf-8"><base href="/">
+<!-- dev: the runoff (paved, gravel, grass) at a track's corners   .devtest/runoff.html?t=<preset name | real id>&c=<corner indices>&v=<views> -->
+<style>body{margin:0;background:#111}canvas{display:block}</style>
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js", "postprocessing": "../vendor/postprocessing/index.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { buildScenery } from '../js/race.js';
+import { presetTracks, computeSpeedProfile } from '../js/track.js';
+import { cornerZones } from '../js/runoff.js';
+const q = new URLSearchParams(location.search), name = q.get('t') || 'Maple Ridge GP';
+let track = presetTracks().find(t => t.name === name);
+if (!track) { const { hydrateReal } = await import('../js/realtracks.js'); track = await (await fetch('../tracks/real/' + name + '.json')).json(); await hydrateReal(track); }
+if (q.get('style')) track.env.runoffStyle = q.get('style');
+track.env.time = q.get('time') || 'day'; track.env.weather = 'clear'; if (q.get('lights')) track.env.circuitLights = q.get('lights');
+if (q.get('models')) { const E = await import('../js/envlib.js'); await E.loadEnvModels(); console.error('models', E.envModelsReady(), !!E.envModel('tp_start_gantry')); }
+const S = buildScenery(track), T = S.T, N = T.N;
+const Z = cornerZones(T, computeSpeedProfile(T, new Float32Array(N), { mu: 2.3, kdm: 0.0035, vmax: 88, brake: 1.0 }).V);
+const W = 640, H = 360, views = (q.get('v') || 'high,low').split(',');
+const picks = (q.get('c') || '0,1,2').split(',').map(Number).filter(k => Z.corners[k] || k < 0);
+const out = document.createElement('canvas'); out.width = W * views.length; out.height = H * picks.length; document.body.appendChild(out);
+const g = out.getContext('2d');
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H); r.outputColorSpace = THREE.SRGBColorSpace;
+const cam = new THREE.PerspectiveCamera(60, W / H, 0.3, 4000);
+const idx = (j) => ((j % N) + N) % N;
+picks.forEach((k, row) => {
+  const c = Z.corners[Math.max(0, k)], a = idx(c.a), out = c.sg > 0 ? -1 : 1; // (the outside's sign: K > 0 bends right)
+  views.forEach((v, col) => {
+    if (v === 'high') { // up above the inside before turn-in, looking across at the outside of the corner
+      const i = idx(c.a - Math.round(30 / T.ds)), m = idx(Math.round((c.a + c.b) / 2));
+      cam.position.set(T.X[i] - T.RX[i] * out * 25, T.Y[i] + 26, T.Z[i] - T.RZ[i] * out * 25);
+      cam.lookAt(T.X[m] + T.RX[m] * out * 14, T.Y[m], T.Z[m] + T.RZ[m] * out * 14);
+    } else if (v === 'low') { // a driver's eye on the approach
+      const i = idx(c.a - Math.round(70 / T.ds)), m = idx(c.a + Math.round(10 / T.ds));
+      cam.position.set(T.X[i], T.Y[i] + 1.3, T.Z[i]); cam.lookAt(T.X[m], T.Y[m] + 0.8, T.Z[m]);
+    } else if (v === 'pitmouth' || v === 'pitnose' || v === 'pitexit') { // close: the lane leaving the track, the wall's nose, the lane rejoining
+      const P = S.A.pit, sd = P.side, nr = P.nRamp;
+      const e = v === 'pitmouth' ? idx(P.start + Math.round(nr * 0.35)) : v === 'pitnose' ? P.mainStart : idx(P.end - Math.round(nr * 0.35));
+      const back = v === 'pitexit' ? -1 : 1, i = idx(e - back * Math.round(28 / T.ds));
+      cam.position.set(T.X[i] - T.RX[i] * sd * 4, T.Y[i] + 9, T.Z[i] - T.RZ[i] * sd * 4); cam.lookAt(T.X[e] + T.RX[e] * sd * (T.W[e] / 2 + 3), T.Y[e], T.Z[e] + T.RZ[e] * sd * (T.W[e] / 2 + 3));
+    } else if (v === 'pitin' || v === 'pitout' || v === 'pitinlow' || v === 'pitoutlow') { // the pit lane's ends (c: ignored)
+      const P = S.A.pit, sd = P.side, inn = v.startsWith('pitin'), low = v.endsWith('low');
+      const e = inn ? P.start : P.end, dir = inn ? 1 : -1;
+      if (low) { // a driver on the track before it (after it, looking back, for the exit)
+        const i = idx(e - dir * Math.round(60 / T.ds)), m = idx(e + dir * Math.round(30 / T.ds));
+        cam.position.set(T.X[i] + T.RX[i] * sd * 2, T.Y[i] + 1.3, T.Z[i] + T.RZ[i] * sd * 2); cam.lookAt(T.X[m] + T.RX[m] * sd * 6, T.Y[m] + 0.5, T.Z[m] + T.RZ[m] * sd * 6);
+      } else {
+        const m = idx(e + dir * Math.round(30 / T.ds)), i = idx(e - dir * Math.round(50 / T.ds));
+        cam.position.set(T.X[i] - T.RX[i] * sd * 30, T.Y[i] + 45, T.Z[i] - T.RZ[i] * sd * 30); cam.lookAt(T.X[m] + T.RX[m] * sd * 10, T.Y[m], T.Z[m] + T.RZ[m] * sd * 10);
+      }
+    } else if (v === 'gantry' || v === 'gantryhi') { // the start lights, from the grid (and from up high)
+      const g = idx(Math.round(-3 / T.ds)), i = idx(g - Math.round((v === 'gantry' ? 24 : 30) / T.ds));
+      cam.position.set(T.X[i] + T.RX[i] * 2, T.Y[i] + (v === 'gantry' ? 2.2 : 16), T.Z[i] + T.RZ[i] * 2); cam.lookAt(T.X[g], T.Y[g] + (v === 'gantry' ? 7 : 4), T.Z[g]);
+    } else if (v === 'heli') { // well up, over the inside, looking down across the whole corner
+      const m = idx(Math.round((c.a + c.b) / 2));
+      cam.position.set(T.X[m] - T.RX[m] * out * 70, T.Y[m] + 85, T.Z[m] - T.RZ[m] * out * 70);
+      cam.lookAt(T.X[m] + T.RX[m] * out * 12, T.Y[m], T.Z[m] + T.RZ[m] * out * 12);
+    } else if (v === 'top') { // straight down
+      const m = idx(Math.round((c.a + c.b) / 2));
+      cam.position.set(T.X[m] + T.RX[m] * out * 10, T.Y[m] + +(q.get("h") || 70), T.Z[m] + T.RZ[m] * out * 10 + 1); cam.lookAt(T.X[m] + T.RX[m] * out * 10, T.Y[m], T.Z[m] + T.RZ[m] * out * 10);
+    }
+    r.render(S.scene, cam);
+    g.drawImage(r.domElement, col * W, row * H);
+    g.fillStyle = '#fff'; g.font = '13px sans-serif'; g.fillText(`${name} · corner ${k} · ${v}`, col * W + 8, row * H + 18);
+  });
+});
+window.done = true;
+</script>

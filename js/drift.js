@@ -67,7 +67,7 @@ export class DriftScore {
     const beta = speed > 3 ? deg(Math.atan2(v, Math.max(0.5, Math.abs(u)))) : 0;
     const a = Math.abs(beta);
     this.angle = a;
-    const offRoad = !car.onRoad && car.surface !== 'kerb' && !car.publicRoad && car.surface !== 'walk';
+    const offRoad = car.surface === 'runoff' || (!car.onRoad && car.surface !== 'kerb' && !car.publicRoad && car.surface !== 'walk');
 
     // chain killers
     if (this.active) {
