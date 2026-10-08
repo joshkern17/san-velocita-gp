@@ -690,7 +690,11 @@ export class Race {
   // before (every machine would put its own player last).
   boxSlot(teamIdx) {
     const n = this.pit ? this.pit.boxes.length : 1;
-    if (this.net || !this.pit) return teamIdx % n;
+    if (!this.pit) return teamIdx % n;
+    // (online: the drivers get the boxes nearest the exit, in grid-list order, the same on every copy; the AI share the
+    // rest. Box 0 is right by the entry: too close to stop in from pit-entry speed)
+    if (this.net) { const H = this.net.grid.filter(g => g.k === 'h').map(g => g.team), h = H.indexOf(teamIdx);
+      return h >= 0 ? Math.max(0, n - 1 - h) : teamIdx % Math.max(1, n - H.length); }
     const pl = this.player || (this.cars || []).find(c => c.isPlayer), idxs = [...(this.cars || []).map(c => c.teamIdx), ...(this.quali ? this.qualiTeams || [] : [])];
     const sig = idxs.join() + '|' + (pl ? pl.teamIdx : '') + '|' + teamIdx;
     if (this._boxSig !== sig) {
@@ -2518,6 +2522,10 @@ export class Race {
       const box = pit.boxes[this.boxSlot(car.teamIdx)];
       const d = ((box - car.idx + N) % N) * T.ds;
       // at the box: stop (also if it arrives a touch quick or rolls a few metres past)
+      // (overshot the box, past where it could stop: no stop, out again, the wheel back to you, rather than chasing a box
+      // that's behind you)
+      const past = T.L - d;
+      if (car.pitReq && !car.pitReq.dt && past > 25 && past < 400) { car.pitPhase = 'out'; if (car.isPlayer) this.events.push({ type: 'radio', msg: car.pitReq.garage ? 'You went past the garage. Come in next lap.' : 'You overshot the box. No stop: come in again next lap.' }); return; }
       if (car.pitReq && car.pitReq.garage) { if ((d < 1.5 || d > T.L - 6) && car.phys.speed < 3) this.enterGarage(car); } // (sessions: into the garage)
       else if (car.pitReq && car.pitReq.dt) {
         // drive-through: served once past your box (no stop, and it isn't a pit stop for the strategy)
