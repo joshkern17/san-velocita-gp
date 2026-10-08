@@ -2875,7 +2875,7 @@ function worldRoundDone(retired = false) {
   const tg = w.coop && w.people[w.coop.pid] ? { P: WC.driverTarget(w, 'P'), C: WC.driverTarget(w, w.coop.pid) } : null; // (before the round's scored: set from the rounds before)
   let car2 = null;
   if (coop && coop.race) { coop.race.done = true; coop.race.wait = null;
-    const u = coop.race.use; if (u && w.money) { let t = 0; for (const c of u.sets) if (!WC.takeSet(w, c)) t++; car2 = { trackside: t, laps: u.laps }; } }
+    const u = coop.race.use; if (u && w.money) { let t = 0; for (const c of u.sets) if (!WC.takeSet(w, c)) t++; car2 = { trackside: t, laps: u.laps, damage: u.damage }; } }
   const out = WC.recordPlayerRound(w, res, sim.log || [], wkUse && w.money ? { trackside: wkUse.trackside, laps: wkUse.laps, damage: wkUse.damage, failed: wkUse.failed || null, aidPct: Math.max(0, sim.aidBonus ?? 0), grid: mine.grid ?? null, led: mine.led || 0, blamed, teamTrust: sim.trustDelta || 0, car2 } : null);
   wkUse = null;
   saveWorld();
@@ -3826,7 +3826,7 @@ function coopHostMessage(m, from) {
     else if (spent && tx) toast(`<b>${who}</b>: ${escP(tx.what)} <b>${WC.money$(spent)}</b>`, 5000);
     if (screen === 's-hub') { renderHub(); if (pcSeat) pc.render?.(); if (dayPlan.isOpen && !dayPlan.busy) dayPlan.render(); }
   } else if (m.t === 'lock') { hostLocked(from, m.race);
-  } else if (m.t === 'cuse') { if (coop.race && m.race === coop.race.id) coop.race.use = { sets: (m.sets || []).filter(c => typeof c === 'string').slice(0, 8), laps: Math.max(0, Math.min(500, m.laps | 0)) };
+  } else if (m.t === 'cuse') { if (coop.race && m.race === coop.race.id) coop.race.use = { sets: (m.sets || []).filter(c => typeof c === 'string').slice(0, 8), laps: Math.max(0, Math.min(500, m.laps | 0)), damage: Math.max(0, Math.min(1, +m.damage || 0)) };
   } else if (m.t === 'ready') { coop.ready = !!m.ready; if (screen === 's-hub') { renderHub(); if (optSub) renderOptMenu(); } }
   else if (m.t === 'bye') coop.net.hostDrop(from);
 }
@@ -4030,7 +4030,7 @@ function coopTick(dt) {
   if ((coopSendT += dt) >= 0.05) { coopSendT = 0; coop.net.sendState({ t: 'st', race: coop.race.id, time: coop.net.now(), cars: sim.netStates(), ...(coop.host ? { rc: sim.rc.netState() } : {}) }); }
   if (coop.host && coop.race.wait && coopFriendDone()) { const r = coop.race.wait; coop.race.wait = null; worldRoundDone(r.retired); return; }
   // the friend: once you're home (or out), what your car used goes to the host for the bill
-  if (!coop.host && !coop.race.useSent && sim.player && (sim.player.finished || sim.player.gone)) { coop.race.useSent = true; net.send({ t: 'cuse', race: coop.race.id, sets: sim.player.setsUsed || [], laps: sim.player.lapTimes.length }); }
+  if (!coop.host && !coop.race.useSent && sim.player && (sim.player.finished || sim.player.gone)) { coop.race.useSent = true; const pl = sim.player; net.send({ t: 'cuse', race: coop.race.id, sets: pl.setsUsed || [], laps: pl.lapTimes.length, damage: Math.max(dmgOf(pl.phys.dmg), (pl.maxDmg || 0) / 3, pl.wreck ? (pl.wreck.kind === 'wheel' ? 0.6 : 0.5) : 0) }); }
   if (!sim.quali && screen === 's-results' && (coopLiveT += dt) > 1) { coopLiveT = 0; renderCoopLive(); }
 }
 

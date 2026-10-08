@@ -1993,7 +1993,7 @@ export function settleRound(w, use, me) {
   if (use.damage > 0.005) items.push([bg.repair ? 'Repairs (mostly done yourself)' : 'Repairs', -Math.round(use.damage * c.repair * (bg.repair || 1) * fx.repair / 100) * 100]);
   for (const it of sponsorRound(w, use, me)) items.push(it);
   for (const it of seatRound(w)) items.push(it);
-  for (const it of car2Round(w)) items.push(it);
+  for (const it of car2Round(w, use)) items.push(it);
   // (co-op: each driver who met their target: driverTarget)
   if (w.coop) { const res = w.series[w.player.series].results.find(r => r.round === w.round);
     for (const pid of ['P', w.coop.pid]) { const t = driverTarget(w, pid), row = res && res.rows.find(r => r.pid === pid);
@@ -3647,14 +3647,16 @@ export function car2Mods(w) {
     label: `Car 2 (${{ match: 'like yours', old: 'older', hire: 'hired', lease: 'leased' }[c.kind] || 'theirs'}) at ${Math.round(c.cond * 100)}%` };
 }
 // after a round: what it went through, and the bill (the hire or the lease, the repairs)
-function car2Round(w) {
+// (use.car2.damage: co-op, what the co-owner's car really went through, 0..1 of a write-off, as yours is measured;
+// otherwise a guess: a scrape, or worse if it didn't finish)
+function car2Round(w, use = null) {
   const c = car2Of(w); if (!c || c.kind === 'theirs') return [];
   const items = [], cost = COSTS[w.player.series], m = mateOf(w), res = w.series[w.player.series].results.find(x => x.round === w.round), row = res && res.rows.find(r => r.pid === m.pid);
   if (c.perRound) items.push([c.kind === 'lease' ? `Car 2 lease (${w.car.name})` : 'Car 2: the hire car', -c.perRound]);
   if (!row) return items;
-  const dmg = row.dnf && !row.dsq ? 0.2 + rng(w) * 0.3 : 0.02 + rng(w) * 0.04;
+  const real = use && use.car2 && use.car2.damage != null, dmg = real ? use.car2.damage : row.dnf && !row.dsq ? 0.2 + rng(w) * 0.3 : 0.02 + rng(w) * 0.04;
   // (a hire car: they fix it and bill the damage; yours: fixed properly, or patched)
-  if (c.kind === 'hire' || c.kind === 'lease') { if (row.dnf && !row.dsq) items.push(['Car 2: damage (the hire company)', -Math.round(dmg * cost.repair * 0.3 / 100) * 100]); return items; }
+  if (c.kind === 'hire' || c.kind === 'lease') { if ((real && dmg > 0.03) || (!real && row.dnf && !row.dsq)) items.push(['Car 2: damage (the hire company)', -Math.round(dmg * cost.repair * 0.3 / 100) * 100]); return items; }
   const full = c.fix !== 'patch', bill = Math.round(dmg * cost.repair * (full ? 1 : 0.4) / 100) * 100;
   c.cond = +clamp(full ? Math.max(c.cond, 0.95) : c.cond - dmg * 0.5, 0.3, 1).toFixed(3);
   if (bill) items.push([`Car 2: repairs${full ? '' : ' (patched)'}${row.dnf ? ` (${w.people[m.pid].first} didn't finish)` : ''}`, -bill]);
