@@ -390,7 +390,8 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .tc-secs { display: none; gap: 6px; margin-top: 9px; padding: 0 14px; }
 .tc-secs.on { display: flex; }
 .tc-secs i { flex: 1; height: 26px; border: 1px solid var(--sv-red-faint); border-radius: 1px; font: 500 19px/24px var(--f-num); font-style: normal; letter-spacing: var(--track); color: var(--sv-ink); text-shadow: var(--sv-glow-ink); -webkit-text-fill-color: transparent; white-space: nowrap; }
-.tc-secs i.now { border-color: var(--sv-red); box-shadow: var(--sv-glow-box); }
+.tc-secs i.now { border-color: var(--sv-red); box-shadow: var(--sv-glow-box); color: var(--sv-hot); text-shadow: var(--sv-glow-hud); font-size: 18px; }
+.tc-secs i.now.faster { color: var(--sv-good); } .tc-secs i.now.slower { color: var(--sv-bad); }
 .tc-secs i.p, .tc-secs i.g, .tc-secs i.y { border-color: transparent; box-shadow: var(--sv-glow-fill); }
 .tc-secs i.p { background: var(--sv-best); color: var(--sv-best); } .tc-secs i.g { background: var(--sv-sec-green); color: var(--sv-sec-green); } .tc-secs i.y { background: var(--sv-sec-yellow); color: var(--sv-sec-yellow); }
 .tc-secs i.p, .tc-secs i.g, .tc-secs i.y { -webkit-text-fill-color: var(--sv-ink); text-shadow: var(--sv-glow-ink); }

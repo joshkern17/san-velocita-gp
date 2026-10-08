@@ -3786,7 +3786,20 @@ export class Race {
       const cur = recent ? pl.msPrev : pl.ms ? pl.ms.cur : null, at = recent ? -1 : pl.ms ? pl.ms.j : -1;
       pips = { per: this.mini.per, cells: Array.from({ length: this.mini.n }, (_, j) => (cur && cur[j]) || (job && D && D.hits[j] >= 2 ? 'g' : j === at ? 'now' : '')) };
     }
-    return { cells: recent ? pl.secPrev : live || [null, null, null], k: recent ? 3 : pl.sec ? pl.sec.k : -1, best: B, ideal: B.every(isFinite) ? B[0] + B[1] + B[2] : null, pips };
+    return { cells: recent ? pl.secPrev : live || [null, null, null], k: recent ? 3 : pl.sec ? pl.sec.k : -1, best: B, ideal: B.every(isFinite) ? B[0] + B[1] + B[2] : null, pips, now: recent ? null : this.secLive(pl) };
+  }
+  // the sector you're in, as you drive it: your time in it so far against your best through it (that best spread
+  // along it the way your best lap went through it, so it lands on the delta the cell fills with at the split); no
+  // best yet, or a lap already deleted: the time in it so far. { d: delta } or { t: time }
+  secLive(pl) {
+    const S = pl.sec; if (!S || S.k > 2 || pl.pitting || pl.finished) return null;
+    const el = this.raceTime - S.t0, best = pl.secBest ? pl.secBest[S.k] : Infinity, B = pl.bestTrace;
+    if (!isFinite(best) || !B || pl.lapInvalid) return { t: el };
+    const at = (i) => B[i], c = this.secCut, start = S.k ? at(c[S.k - 1]) : 0, end = S.k < 2 ? at(c[S.k]) : pl.best;
+    const a = at(pl.i), b = at((pl.i + 1) % this.T.N);
+    if ([start, end, a].some(x => x == null || isNaN(x)) || end <= start) return { t: el };
+    const here = (isNaN(b) || b < a ? a : a + (b - a) * pl.f) - start;
+    return { d: el - Math.max(0, here) * best / (end - start) };
   }
 
   // ---------- the run plan (practice.js) ----------

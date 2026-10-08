@@ -135,7 +135,7 @@ export class HUD {
     if (Q) this.set('lap', E.lap, `<span class="qstat">${Q.status}</span>`, true);
     else this.set('lap', E.lap, this.mode === 'race' ? `${pad2(s.lap)} / ${pad2(s.laps)}` : pad2(Math.max(1, race.player.lap)));
     // live delta to your best lap (qualifying, time trial)
-    const dl = s.delta;
+    const dl = s.sectors && this.secOn !== false ? null : s.delta;
     E.deltaRow.classList.toggle('on', dl !== null && dl !== undefined);
     if (dl !== null && dl !== undefined) { this.set('delta', E.delta, (dl < 0 ? '\u2212' : '+') + Math.abs(dl).toFixed(2)); E.delta.classList.toggle('faster', dl < 0); E.delta.classList.toggle('slower', dl >= 0); }
     this.set('time', E.time, fmtTime(s.lapTime));
@@ -195,11 +195,12 @@ export class HUD {
   // color with the time against your best (your first time through: the time itself)
   sectors(S) {
     const el = $('h-secs'), on = !!S && this.secOn !== false;
-    el.classList.toggle('on', on); if (!on) return;
+    el.classList.toggle('on', on); if (!on) { this.pips(null); return; }
     const txt = (c) => c.d == null ? (c.t >= 60 ? fmtTime(c.t, 2) : c.t.toFixed(2)) : (c.d < 0 ? '\u2212' : '+') + Math.abs(c.d).toFixed(3);
-    const key = S.cells.map(c => c ? c.col + txt(c) : '-').join() + S.k;
-    if (key === this.cache.secs) return; this.cache.secs = key;
-    el.querySelectorAll('i').forEach((i, k) => { const c = S.cells[k]; i.className = c ? c.col : k === S.k ? 'now' : ''; i.textContent = c ? txt(c) : ''; });
+    // (the one you're in: its live delta, or its time so far)
+    const n = S.now, live = n ? (n.d != null ? (n.d < 0 ? '\u2212' : '+') + Math.abs(n.d).toFixed(2) : n.t >= 60 ? fmtTime(n.t, 1) : n.t.toFixed(1)) : '';
+    const liveCls = n && n.d != null ? (n.d < 0 ? ' faster' : ' slower') : '';
+    el.querySelectorAll('i').forEach((i, k) => { const c = S.cells[k], now = !c && k === S.k; const cls = c ? c.col : now ? 'now' + liveCls : ''; if (i.className !== cls) i.className = cls; const tx = c ? txt(c) : now ? live : ''; if (i.textContent !== tx) i.textContent = tx; });
     this.pips(S.pips);
   }
   // the mini-sectors under each sector cell: g green (lit / quicker than your practice best), h beaten once (the job),

@@ -24,7 +24,7 @@ try {
   const drive = (until) => pg.evaluate((until) => {
     const sim = window.__svgp.sim, car = sim.player, p = car.phys, T = sim.T, RV = sim.referenceTelemetry(car.carId, sim.condTyre('soft')).ch.v, log = [];
     for (let f = 0; f < 60 * 400; f++) {
-      if (until === 'lap2s2' ? car.lapTimes.length >= 1 && car.sec && car.sec.k >= 2 : car.lapTimes.length >= 1) break;
+      if (until === 'lap2s2' ? car.lapTimes.length >= 1 && car.sec && car.sec.k >= 2 && sim.raceTime - car.sec.t0 > 9 : car.lapTimes.length >= 1) break;
       const i = car.idx, la = (i + Math.round((8 + p.speed * 0.35) / T.ds)) % T.N, off = sim.line[la];
       const tx = T.X[la] + T.RX[la] * off, tz = T.Z[la] + T.RZ[la] * off, dx = tx - p.x, dz = tz - p.z;
       const left = dx * Math.cos(p.h) - dz * Math.sin(p.h), fwd = dx * Math.sin(p.h) + dz * Math.cos(p.h);
@@ -33,7 +33,7 @@ try {
       sim.update(1 / 60, { steer, throttle: p.speed < Math.min(vt, vt2 + 6) ? 1 : 0, brake: p.speed > Math.min(vt, vt2 + 6) + 2 ? 1 : 0, handbrake: 0, analog: true, pad: true, lag: 0.05 }, {});
       sim.events.length = 0;
     }
-    return { cut: sim.secCut, frac: sim.secFrac.map(x => x.toFixed(3)), laps: car.lapTimes.map(x => x.toFixed(3)), best: (car.secBest || []).map(x => x.toFixed(3)), top: sim.secTop.map(x => x.toFixed(3)), hud: sim.hudState().sectors };
+    return { cut: sim.secCut, frac: sim.secFrac.map(x => x.toFixed(3)), laps: car.lapTimes.map(x => x.toFixed(3)), best: (car.secBest || []).map(x => x.toFixed(3)), top: sim.secTop.map(x => x.toFixed(3)), hud: sim.hudState().sectors, delta: sim.hudState().delta, dbg: car.bestTrace ? { i: car.i, idx: car.idx, el: sim.raceTime - car.lapStart, bt: [0, 200, 500, 900, 1200, 1600, 2000, 2400, car.i].map(k => [k, +car.bestTrace[k]?.toFixed(2)]), cur: car.trace ? [200, 900, 1600, car.i].map(k => [k, +car.trace[k]?.toFixed(2)]) : null } : null };
   }, until);
   console.log('lap1', JSON.stringify(await drive('lap1')));
   console.log('lap2', JSON.stringify(await drive('lap2s2')));
