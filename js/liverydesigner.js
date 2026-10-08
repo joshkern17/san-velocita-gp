@@ -3,13 +3,13 @@
 import { MODEL as CLASSIC } from './carmodel.js';
 import { PATTERNS, HELMET_PATTERNS, SUIT_PATTERNS, SUIT_NUMBERS, CREW_STYLES, VISORS, VISOR_STRIPS, FONTS, assets, importImageFile, decalImage, uvToPanel, uvTemplate, liveryAssetIds, fillLivery, stickerDecals, boundText, BOUND } from './livery.js';
 import { sfx } from './audio.js';
+import { savedLiveries, saveLivery, deleteLivery, ensureThumb, liveryDate } from './liveries.js';
 
 const $ = (id) => document.getElementById(id);
 const hex = (c) => '#' + ((c ?? 0) >>> 0).toString(16).padStart(6, '0').slice(-6);
 const unhex = (s) => parseInt(String(s).replace('#', ''), 16);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const SWATCH = [0xc8141c, 0xf2f2f2, 0x121214, 0x1d4fb8, 0x0e2a55, 0x1c7a3a, 0xa4e04a, 0xf4c01a, 0xf07a2a, 0x8d2bd8, 0xff5ce1, 0x3ef0ff, 0xb8bcc4, 0xc9a23a, 0x7a3b12, 0x2a2a30];
-const TEAMS_KEY = 'svgp.teams';
 const KIT_PARTS = { torso: 'Suit', armL: 'Left sleeve', armR: 'Right sleeve', legL: 'Left leg', legR: 'Right leg', helmet: 'Helmet' };
 // where a decal lands when it's moved to a part from the list (his left breast; the outside of a sleeve or leg; the side of the helmet)
 const KIT_START = { torso: [0.09, 0.3], armL: [0.25, 0.25], armR: [0.75, 0.25], legL: [0.25, 0.3], legR: [0.75, 0.3], helmet: [0.25, 0.42] };
@@ -381,12 +381,14 @@ export class LiveryDesigner {
   removeKitDecal(i) { const s = this.car.suit; s.decals.splice(i, 1); this.ksel = Math.min(this.ksel, s.decals.length - 1); sfx.back(); this.changed(true); }
 
   // FILES: saved teams, export / import, modeller tools
-  teams() { try { return JSON.parse(localStorage.getItem(TEAMS_KEY)) || []; } catch (e) { return []; } }
+  // (every save its own entry, with a photo: liveries.js)
+  teams() { return savedLiveries(); }
   tab_files() {
-    const list = this.teams().map((t, i) => `<div class="lv-item" data-i="${i}"><span class="th" style="background:${hex(t.car.main)}"></span><span class="nm">${esc(t.name)}<br><span class="pn">#${t.car.number} · ${esc(t.car.sponsor || '')}</span></span><button data-act="load">Load</button><button data-act="del">&#10005;</button></div>`).join('');
-    return `<h4>MY TEAMS</h4>
-      <div class="lv-teams" id="lv-teams">${list || '<p class="muted">No saved teams yet.</p>'}</div>
-      <button class="wide hot" id="lv-save">Save "${esc(this.car.teamName)}"</button>
+    const list = this.teams().map((t, i) => { if (!t.thumb) ensureThumb(t.id, () => { if (this.tab === 'files') this.render(); });
+      return `<div class="lv-item" data-i="${i}"><span class="th" style="background:${t.thumb ? `#000 url(${t.thumb}) center/cover` : hex(t.car.main)}"></span><span class="nm">${esc(t.name)}<br><span class="pn">#${t.car.number} · ${esc(liveryDate(t))}</span></span><button data-act="load">Load</button><button data-act="del">${this.delArm === t.id ? 'Sure?' : '&#10005;'}</button></div>`; }).join('');
+    return `<h4>MY LIVERIES</h4>
+      <div class="lv-teams" id="lv-teams">${list || '<p class="muted">No saved liveries yet.</p>'}</div>
+      <button class="wide hot" id="lv-save">Save "${esc(this.car.teamName)}" as a new livery</button>
       <h4 style="margin-top:16px">SHARE</h4>
       <p class="muted">A livery file holds the whole design including your images. Send it to a friend, or keep a backup.</p>
       <div class="seg"><button id="lv-exp">Export livery file</button><button id="lv-imp">Import livery file</button></div>
@@ -398,14 +400,12 @@ export class LiveryDesigner {
     const c = this.car;
     document.querySelectorAll('#lv-teams .lv-item').forEach(it => it.addEventListener('click', (e) => {
       const i = +it.dataset.i, list = this.teams(), act = e.target.dataset?.act;
-      if (act === 'del') { list.splice(i, 1); localStorage.setItem(TEAMS_KEY, JSON.stringify(list)); sfx.back(); return this.render(); }
+      if (act === 'del') { const t = list[i]; if (this.delArm !== t.id) { this.delArm = t.id; sfx.select(); return this.render(); } this.delArm = null; deleteLivery(t.id); sfx.back(); this.toast('DELETED ' + t.name.toUpperCase()); return this.render(); }
       if (act === 'load') { const t = list[i]; Object.keys(c).forEach(k => delete c[k]); Object.assign(c, fillLivery(JSON.parse(JSON.stringify(t.car)))); assets.load(liveryAssetIds(c)).then(() => this.repaint()); this.sel = -1; this.rebuild(); this.toast('LOADED ' + t.name.toUpperCase()); sfx.select(); this.render(); }
     }));
     $('lv-save').addEventListener('click', () => {
-      const list = this.teams(), name = c.teamName || 'My Team';
-      const k = list.findIndex(t => t.name === name), entry = { name, car: JSON.parse(JSON.stringify(c)), saved: Date.now() };
-      if (k >= 0) list[k] = entry; else list.unshift(entry);
-      try { localStorage.setItem(TEAMS_KEY, JSON.stringify(list.slice(0, 30))); this.toast('SAVED ' + name.toUpperCase()); sfx.best(); } catch (e) { this.toast('COULD NOT SAVE (STORAGE FULL)'); }
+      const name = c.teamName || 'My Team';
+      if (saveLivery(c, () => { if (this.tab === 'files') this.render(); })) { this.toast('SAVED ' + name.toUpperCase()); sfx.best(); } else this.toast('COULD NOT SAVE (STORAGE FULL)');
       this.render();
     });
     $('lv-exp').addEventListener('click', () => {

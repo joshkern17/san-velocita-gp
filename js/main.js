@@ -52,7 +52,8 @@ import { PhotoMode, OPTS as PHOTO_OPTS } from './photomode.js';
 import { CARS, CLASSES, CAR_CREDITS, carId, carOf, chassisKey, carsInClass } from './cars.js';
 import { Tuning } from './tuning.js';
 import { activeName, activeSetup, stanceOf } from './setup.js';
-import { assets, liveryAssetIds, importImageFile } from './livery.js';
+import { assets, liveryAssetIds, importImageFile, fillLivery } from './livery.js';
+import { savedLiveries, saveLivery, deleteLivery, liveryDate } from './liveries.js';
 import { loadEnvCatalog, loadEnvModels, envCatalog } from './envlib.js';
 import { setWorldOptions } from './world.js';
 import { TeamSetup } from './teamsetup.js';
@@ -453,11 +454,45 @@ menus['s-garage'] = [new Menu($('m-garage'), [
   part('Wheels', 'rims', true, BODY_DESC), part('Rim Colour', 'rimCol', true, 'Colour of the wheel rims.'),
   { label: 'Livery', head: true, disabled: true },
   { label: 'Livery Designer', cls: 'action', action: () => openLivery(), desc: 'Place decals (your own PNG or SVG too), design the helmet and suit, and save whole team liveries.' },
+  { get label() { return `Saved Liveries<small>${savedLiveries().length}</small>`; }, cls: 'action', action: () => openSavedLiveries(), desc: 'Every livery you\'ve saved, each one tried on the car as you move to it. Load one, save this one as a new entry, or delete old ones.' },
   part('Pattern', 'pattern', false, 'The paint pattern your three colours are laid out in.'), paintOpt('Main', 'main', 'The main body colour.'), paintOpt('Accent', 'accent', 'The second colour of the pattern.'), paintOpt('Detail', 'third', 'Stripes, pinstripes and small details.'),
   { label: 'Number', values: Array.from({ length: 99 }, (_, i) => [i + 1, String(i + 1)]), get: () => settings.car.number, set: v => { settings.car.number = v; garage.repaint(settings.car); }, desc: 'Your race number.' },
   { label: 'Sponsor', values: SPONSORS.map(s => [s, s]), get: () => settings.car.sponsor, set: v => { settings.car.sponsor = v; garage.repaint(settings.car); }, desc: 'The title sponsor sticker. Move it or take it off in the Livery Designer (Decals).' },
 ], { desc: 'd-garage' })];
 menus['s-garage'][0].i = 1;
+// ---- saved liveries (liveries.js) in the garage: the list in place of the menu, each one on the car as you move to it;
+// loading keeps the car you're in (in the World Career, the car you bought). Back puts your livery back.
+const GARAGE_ITEMS = menus['s-garage'][0].items;
+let lvList = null; // { was: the livery before the list opened, del: deleting }
+const lvCar = (e) => ({ ...fillLivery(JSON.parse(JSON.stringify(e.car))), chassis: lvList.was.chassis });
+function lvShow(c) { garage.setCar(c); assets.load(liveryAssetIds(c)).then(() => { if (lvList && screen === 's-garage') garage.repaint(c); }).catch(() => {}); }
+function openSavedLiveries() { lvList = { was: JSON.parse(JSON.stringify(settings.car)), del: false }; sfx.select(); renderSavedLiveries(true); }
+function renderSavedLiveries(first = false) {
+  const list = savedLiveries(), m = menus['s-garage'][0], D = lvList.del;
+  const items = [{ label: `Saved Liveries<small>${list.length}</small>`, head: true }];
+  if (!list.length) items.push({ label: 'None Saved Yet', disabled: true });
+  for (const e of list) items.push({ label: `${escP(e.name)}<small>#${e.car.number} &middot; ${liveryDate(e)}</small>`, lv: e, confirm: D ? 'Delete it? Select again' : 'Wear it? Select again',
+    action: () => D ? lvDelete(e) : lvLoad(e), desc: D ? `Deletes this ${escP(e.name)} livery for good. Your other saves stay.` : `Saved ${liveryDate(e)}. It's on the car now: select it twice to keep it${world && garageSwap ? ' (your car stays the same model)' : ''}.` });
+  items.push({ label: 'Save This Livery', action: () => { if (saveLivery(settings.car, () => { if (lvList && screen === 's-garage') renderSavedLiveries(); })) { sfx.best(); toast(`Saved <b>${escP(settings.car.teamName || 'My Team')}</b> as a new livery.`); } else { sfx.error(); toast('There\'s no room left to save it.'); } renderSavedLiveries(); },
+      desc: 'The livery on your car, saved as a new entry. Nothing is written over.' },
+    ...(list.length ? [{ label: D ? 'Stop Deleting' : 'Delete Liveries', action: () => { lvList.del = !D; sfx.select(); renderSavedLiveries(); }, desc: D ? 'Back to trying them on.' : 'Pick the ones to delete.' }] : []),
+    { label: 'Back', action: () => closeSavedLiveries(), desc: 'Back to the garage, in the livery you had.' });
+  m.setItems(items, !first);
+  if (first) { m.i = list.length ? 1 : items.findIndex(it => it.label === 'Save This Livery'); m.render(); }
+  lvPreview(m.items[m.i]);
+}
+function lvPreview(it) { if (!lvList) return; lvShow(it && it.lv ? lvCar(it.lv) : settings.car); }
+function lvLoad(e) {
+  const c = lvCar(e); Object.keys(settings.car).forEach(k => delete settings.car[k]); Object.assign(settings.car, c);
+  lvList.was = JSON.parse(JSON.stringify(settings.car)); saveSettings(); sfx.best(); toast(`<b>${escP(e.name)}</b> is on your car.`); closeSavedLiveries(true);
+}
+function lvDelete(e) { deleteLivery(e.id); sfx.back(); toast(`Deleted <b>${escP(e.name)}</b> (${liveryDate(e)}).`); renderSavedLiveries(); }
+function closeSavedLiveries(kept = false) {
+  if (!lvList) return; lvList = null; if (!kept) sfx.back();
+  const m = menus['s-garage'][0]; m.setItems(GARAGE_ITEMS); m.i = GARAGE_ITEMS.findIndex(it => it.action && String(it.label).startsWith('Saved Liveries')); m.render();
+  garage.setCar(settings.car); classicOnly();
+}
+menus['s-garage'][0].opts.onMove = (it) => { if (lvList) lvPreview(it); };
 // bodywork swaps only exist on the classic car; grey them out while your own model is selected
 function classicOnly() {
   const custom = (settings.car.chassis || 'custom') !== 'svgp' && customCarStatus() === 'ready';
@@ -490,7 +525,7 @@ function openLivery() { fadeTo(() => { show('s-livery'); if (pendingDecal) { des
 assets.load(liveryAssetIds(settings.car));
 function openGarage(from = 's-main') { garageReturn = from; fadeTo(() => { disposeSim(); show('s-garage'); garage.open(settings.car); classicOnly(); }); }
 let garageReturn = 's-main';
-backs['s-garage'] = () => { sfx.back(); saveSettings(); fadeTo(() => { garage.close(); if (garageReturn === 's-paddock') { renderPaddock(); show('s-paddock'); startAttract(); }
+backs['s-garage'] = () => { if (lvList) return closeSavedLiveries(); sfx.back(); saveSettings(); fadeTo(() => { garage.close(); if (garageReturn === 's-paddock') { renderPaddock(); show('s-paddock'); startAttract(); }
     else if (garageReturn === 's-hub' && world) { closeWorldGarage(); enterHub(); }
     else if (garageReturn === 's-lobby' && lobby) { onGarageDoneOnline(); startAttract(); renderLobby(); show('s-lobby'); } else { startAttract(); show('s-main'); } garageReturn = 's-main'; }); };
 
