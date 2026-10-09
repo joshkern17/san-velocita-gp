@@ -2986,7 +2986,8 @@ function worldRoundDone(retired = false) {
     ${n ? `<div class="row"><span>Phone</span><span>${n} new</span></div>` : ''}`;
   if (coop && coop.host && coop.peer && sim.net) coop.net.sendTo(coop.peer, { t: 'cround', round, tg, res: res.map(r => ({ ...slimRow(r), pid: r.isPlayer ? 'P' : r.pid || null })), net: out.bill ? out.bill.net : null, w });
   menus['s-round'][0].setItems([{ label: out.over ? 'Season Review' : 'Continue', cls: 'action primary', action: () => openHub() }]);
-  show('s-round');
+  // (co-op: the podium first, as offline; it was skipped while the race went on)
+  if (!(sim.net && openPodium(() => show('s-round'), true))) show('s-round');
   if (me && !me.dnf && me.pos <= 3) sfx.finish();
 }
 
@@ -4078,7 +4079,7 @@ function coopGuestRound(m) {
     ${m.tg && scored ? coopTargetRows(w, scored, m.tg, 'C') : ''}
     ${m.net != null ? `<div class="row"><span>The weekend</span><span class="${m.net < 0 ? 'bad' : 'ok'}">${m.net > 0 ? '+' : ''}${WC.money$(m.net)}</span></div><div class="row"><span>Bank balance</span><span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span></div>` : ''}`;
   menus['s-round'][0].setItems([{ label: 'Continue', cls: 'action primary', action: () => { if (coop) coop.race = null; openHub(); } }]);
-  show('s-round');
+  if (!openPodium(() => show('s-round'), true)) show('s-round'); // (the podium first)
   if (mine && !mine.dnf && mine.pos <= 3) sfx.finish();
 }
 // the round screen's co-op rows (me: 'P' the host, 'C' the friend): each driver's target, met or not, and the team's
@@ -4679,8 +4680,9 @@ const driftRecords = () => { try { return JSON.parse(localStorage.getItem('svgp.
 // ---- the podium: after a race, the top three on the steps, before the results ----
 let podiumNext = null;
 const escP = (t) => String(t ?? '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
-function openPodium(next) {
-  if (!sim || sim.mode !== 'race' || sim.drift || sim.net || raceReturn === 'gig' || !sim.drivers) return false;
+// (net: a co-op round, once it's scored: online races otherwise skip it, the race goes on behind)
+function openPodium(next, net = false) {
+  if (!sim || sim.mode !== 'race' || sim.drift || (sim.net && !net) || raceReturn === 'gig' || !sim.drivers) return false;
   const top = sim.classified().slice(0, 3);
   if (!top.length || !sim.drivers.podium(top)) return false;
   podiumNext = next; sim.setPaused(true);
@@ -5279,7 +5281,7 @@ function frameBody(now) {
       const ctl = pl && (pl.finished || pl.gone) ? sim.aiControlsFor(pl, dt) : { steer: 0, throttle: 0, brake: 0.6 };
       sim.update(dt, ctl, {});
       handleRaceEvents();
-      if (screen === 's-results' && !(netRace && netRace.final) && (resultsT += dt) > 0.5) { resultsT = 0; renderNetResults(); }
+      if (raceReturn === 'online' && screen === 's-results' && !(netRace && netRace.final) && (resultsT += dt) > 0.5) { resultsT = 0; renderNetResults(); } // (the lobby's live results; co-op keeps its own: coopTick)
     }
   } else if (screen === 's-review' && sim) {
     // lap review: the session carries on behind it, as in the pit garage
