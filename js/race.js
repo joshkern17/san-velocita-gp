@@ -1343,16 +1343,21 @@ export class Race {
     const el = q.time - q.left;
     for (const e of q.field) for (const r of e.plan) if (!r.done && r.at <= el) this.qualiPost(e, r);
   }
-  // put a car on the racing line at the apex of the last corner (or ~250 m before the line), at the speed it would
-  // carry there on a normal lap, in the right gear
+  // put a car on the racing line on the straightest bit before the line (80-350 m back), pointed along the line, at
+  // the speed it would carry there, in the right gear (not mid-corner: dropped in at an apex it went into the wall)
   flyingStart(car) {
-    const T = this.T, N = T.N, LV = car.lineV || this.lineV, list = this.corners.list;
-    const last = list.length ? list[list.length - 1] : null;
-    const back = last ? ((N - last.apex) % N) * T.ds : Infinity;
-    const i = last && back > 60 && back < T.L * 0.5 ? last.apex : (N - Math.round(Math.min(250, T.L * 0.25) / T.ds)) % N;
-    const p = car.phys, v = Math.max(12, LV[i] * 0.95), o = this.line[i];
-    p.place(T.X[i] + T.RX[i] * o, T.Z[i] + T.RZ[i] * o, Math.atan2(T.FX[i], T.FZ[i]));
-    p.vx = T.FX[i] * v; p.vz = T.FZ[i] * v;
+    const T = this.T, N = T.N, LV = car.lineV || this.lineV, ds = T.ds;
+    const near = Math.round(80 / ds), far = Math.max(near + 1, Math.round(Math.min(350, T.L * 0.3) / ds)), w = Math.round(30 / ds);
+    let i = (N - near) % N, best = Infinity;
+    for (let b = near; b <= far; b++) {
+      const k = (N - b) % N; let m = 0;
+      for (let j = -w; j <= w; j++) m = Math.max(m, Math.abs(T.K[(k + j + N) % N]));
+      if (m < best - 1e-5) { best = m; i = k; }
+    }
+    const p = car.phys, v = Math.max(12, LV[i] * 0.9), o = this.line[i], j = (i + 3) % N, oj = this.line[j];
+    const x = T.X[i] + T.RX[i] * o, z = T.Z[i] + T.RZ[i] * o, hx = T.X[j] + T.RX[j] * oj - x, hz = T.Z[j] + T.RZ[j] * oj - z, hl = Math.hypot(hx, hz) || 1;
+    p.place(x, z, Math.atan2(hx, hz));
+    p.vx = hx / hl * v; p.vz = hz / hl * v;
     const G = p.p.gears; let g = 1; while (g < G.length - 1 && v > G[g] * 0.92) g++;
     p.gear = g;
     car.idx = i; car.pitting = false; car.pitPhase = null; car.pitReq = null; car.lap = 0; car.cpNext = 1; car.laneSide = undefined; car.sec = null;
