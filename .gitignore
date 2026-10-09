@@ -22,3 +22,6 @@ saves/
 *.blend
 *.blend1
 output/
+
+# voice auditions and test takes (tools/voice): listening material, not part of the game
+assets/voice/auditions/

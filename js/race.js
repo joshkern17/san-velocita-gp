@@ -119,6 +119,10 @@ function saveBalance(key, b) {
   } catch (err) {}
 }
 export const TYRE_FIT = 20;
+// World Career part failures (wcareer.js): the engineer's spoken warning for each written one (vo.js)
+const FAIL_VO = { 'Oil pressure is dropping. Nurse it.': 'fail.oil', 'Engine temps are climbing.': 'fail.engine.temps',
+  'The gearbox is making a noise.': 'fail.gearbox.noise', 'Shifts are getting slow.': 'fail.gearbox.slow',
+  'Brake temperatures are very high.': 'fail.brakes', 'Something is loose at the rear.': 'fail.rear.loose' };
 const SEC_KEY = 'svgp.sectorBests'; // (time trial: your best ever through each sector, per circuit + car) // seconds of a session to fit a new set of tyres in the garage
 const CAMS = ['chase', 'far', 'tcam', 'bumper'];
 // the rear-view mirror (top centre of the HUD): Options > Display > Rear-View Mirror
@@ -1793,7 +1797,7 @@ export class Race {
     if (amt <= 0 || this.flagSafe(car)) return;
     const d = car.phys.dmg, before = d.rad || 0;
     d.rad = Math.min(1, before + amt * (car.dmgK || 1)); car.maxDmg = Math.max(car.maxDmg || 0, d.rad);
-    if (car.isPlayer && before < 0.2 && d.rad >= 0.2) this.events.push({ type: 'radio', msg: d.rad > 0.55 ? 'Radiator\'s badly damaged. Box now or the engine won\'t last.' : 'Radiator damage. Water temps will climb: lift early, short-shift, keep out of the tow.', big: d.rad > 0.55 });
+    if (car.isPlayer && before < 0.2 && d.rad >= 0.2) this.events.push({ type: 'radio', vo: d.rad > 0.55 ? 'radiator.bad' : 'radiator.hit', msg: d.rad > 0.55 ? 'Radiator\'s badly damaged. Box now or the engine won\'t last.' : 'Radiator damage. Water temps will climb: lift early, short-shift, keep out of the tow.', big: d.rad > 0.55 });
   }
   // the gearbox knocked (Realistic damage: physics.js gbHurt); the radio as it gets worse (engineCheck says the rest)
   gbDamage(car, amt) {
@@ -1806,19 +1810,19 @@ export class Race {
     const p = car.phys; if (!p.engOn || car.gone || car.finished || car.wreck || this.state !== 'racing') return;
     if (car.isPlayer) {
       const T = p.engT, deg = (t) => this.units === 'mph' ? Math.round(t * 1.8 + 32) + '°F' : Math.round(t) + '°C';
-      if (T > 115 && !car.radio.eng1) { car.radio.eng1 = true; this.events.push({ type: 'radio', msg: `Engine's running hot, ${deg(T)}. It's lost some power. Lift and coast where you can.` }); }
-      if (T > 128 && !car.radio.eng2) { car.radio.eng2 = true; this.events.push({ type: 'radio', msg: `Water's at ${deg(T)}. It won't take much more. <b>Box, or back right off.</b>`, big: true }); }
+      if (T > 115 && !car.radio.eng1) { car.radio.eng1 = true; this.events.push({ type: 'radio', vo: 'engine.hot', msg: `Engine's running hot, ${deg(T)}. It's lost some power. Lift and coast where you can.` }); }
+      if (T > 128 && !car.radio.eng2) { car.radio.eng2 = true; this.events.push({ type: 'radio', vo: 'engine.critical', msg: `Water's at ${deg(T)}. It won't take much more. <b>Box, or back right off.</b>`, big: true }); }
       if (T < 105) car.radio.eng1 = car.radio.eng2 = false;
       // the gearbox: slow shifts, then missed ones, then a gear gone; and the downshifts that are doing it
       const gb = p.dmg.gb || 0, ord = (n) => n + (['th', 'st', 'nd', 'rd'][n % 10 > 3 || Math.floor(n / 10) === 1 ? 0 : n % 10] || 'th');
-      if (gb >= 0.15 && !car.radio.gb1) { car.radio.gb1 = true; this.events.push({ type: 'radio', msg: 'Gearbox damage. Shifts are slow. Be gentle with it.' }); }
-      if (gb >= 0.4 && !car.radio.gb2) { car.radio.gb2 = true; this.events.push({ type: 'radio', msg: 'The gearbox is missing shifts. Short-shift, no big downshifts.' }); }
-      if (p.lostGear && car.radio.gbLost !== p.lostGear) { car.radio.gbLost = p.lostGear; this.events.push({ type: 'radio', msg: `We've lost ${ord(p.lostGear)} gear. It'll skip it.`, big: true }); }
-      if (p.overRev && !car.radio.gbRev) { car.radio.gbRev = true; this.events.push({ type: 'radio', msg: 'Careful on the downshifts: you\'re over-revving it and the gearbox is taking it.' }); }
+      if (gb >= 0.15 && !car.radio.gb1) { car.radio.gb1 = true; this.events.push({ type: 'radio', vo: 'gearbox.hit', msg: 'Gearbox damage. Shifts are slow. Be gentle with it.' }); }
+      if (gb >= 0.4 && !car.radio.gb2) { car.radio.gb2 = true; this.events.push({ type: 'radio', vo: 'gearbox.bad', msg: 'The gearbox is missing shifts. Short-shift, no big downshifts.' }); }
+      if (p.lostGear && car.radio.gbLost !== p.lostGear) { car.radio.gbLost = p.lostGear; this.events.push({ type: 'radio', vo: 'gearbox.lost.' + p.lostGear, msg: `We've lost ${ord(p.lostGear)} gear. It'll skip it.`, big: true }); }
+      if (p.overRev && !car.radio.gbRev) { car.radio.gbRev = true; this.events.push({ type: 'radio', vo: 'gearbox.overrev', msg: 'Careful on the downshifts: you\'re over-revving it and the gearbox is taking it.' }); }
       if (gb === 0) car.radio.gb1 = car.radio.gb2 = car.radio.gbLost = false;
       // the floor: lost downforce, mostly at the rear
       const fl = p.dmg.fl || 0;
-      if (fl >= 0.2 && !car.radio.fl1) { car.radio.fl1 = true; this.events.push({ type: 'radio', msg: `Floor damage. We've lost rear downforce: ${fl > 0.5 ? 'it\'ll be loose in the fast stuff. Box when you can.' : 'careful in the fast corners.'}`, big: fl > 0.5 }); }
+      if (fl >= 0.2 && !car.radio.fl1) { car.radio.fl1 = true; this.events.push({ type: 'radio', vo: fl > 0.5 ? 'floor.bad' : 'floor.hit', msg: `Floor damage. We've lost rear downforce: ${fl > 0.5 ? 'it\'ll be loose in the fast stuff. Box when you can.' : 'careful in the fast corners.'}`, big: fl > 0.5 }); }
       if (fl === 0) car.radio.fl1 = false;
     }
     if (p.gbBroken && !p.engBlown) {
@@ -1832,7 +1836,7 @@ export class Race {
     if (!p.gbBrokenSeen) this.particles.burst(p.x, car.y + 0.8, p.z, 26, 0xd8d8d8, 1.6); // (an engine: a cloud of steam and smoke)
     if (this.rc) this.rc.crashOut(car);
     if (car.isPlayer) { if (!p.gbBrokenSeen) this.events.push({ type: 'crashout', title: 'Engine failure', why: 'The engine overheated and let go.', v: 0 }); }
-    else if (this.player && !this.player.gone && car.ai && car.ai.trust != null) this.events.push({ type: 'radio', msg: `${car.name} is out. ${p.gbBrokenSeen ? 'Gearbox.' : 'The engine\'s gone.'}` });
+    else if (this.player && !this.player.gone && car.ai && car.ai.trust != null) this.events.push({ type: 'radio', vo: p.gbBrokenSeen ? 'mate.out.gearbox' : 'mate.out.engine', msg: `${car.name} is out. ${p.gbBrokenSeen ? 'Gearbox.' : 'The engine\'s gone.'}` });
   }
   // a corner's suspension bent (Realistic damage): that wheel knocked out of line (physics.js addBend); the radio says
   // which once it's enough to feel
@@ -1843,7 +1847,7 @@ export class Race {
     car.maxDmg = Math.max(car.maxDmg || 0, p.dmg.ch);
     if (car.isPlayer && before < 0.25 && p.bent[k] >= 0.25) {
       const where = `${k < 2 ? 'Front' : 'Rear'} ${k % 2 ? 'right' : 'left'}`;
-      this.events.push({ type: 'radio', msg: `${where} suspension's bent. The car will pull and that tire will scrub. Box to fix it.` });
+      this.events.push({ type: 'radio', vo: 'suspension.bent.' + (k < 2 ? 'f' : 'r') + (k % 2 ? 'r' : 'l'), msg: `${where} suspension's bent. The car will pull and that tire will scrub. Box to fix it.` });
     }
   }
 
@@ -1858,9 +1862,9 @@ export class Race {
       // wing breaks off: debris
       this.particles.burst(car.phys.x, car.y + 0.4, car.phys.z, 10, 0x222222, 1.2);
       if (this.rc && !car.remote) this.rc.debris(car);
-      if (car.isPlayer) this.events.push({ type: 'radio', msg: `${part === 'fw' ? 'Front' : 'Rear'} wing is gone! Box for a new one.`, big: true });
+      if (car.isPlayer) this.events.push({ type: 'radio', vo: part === 'fw' ? 'wing.front.gone' : 'wing.rear.gone', msg: `${part === 'fw' ? 'Front' : 'Rear'} wing is gone! Box for a new one.`, big: true });
     } else if (car.isPlayer && before < 0.3 && d[part] >= 0.3) {
-      this.events.push({ type: 'radio', msg: part === 'ch' ? 'Suspension damage — the car will pull and feel slower.' : `${part === 'fw' ? 'Front' : 'Rear'} wing damage, we've lost downforce.` });
+      this.events.push({ type: 'radio', vo: part === 'ch' ? 'suspension.hit' : part === 'fw' ? 'wing.front.hit' : 'wing.rear.hit', msg: part === 'ch' ? 'Suspension damage — the car will pull and feel slower.' : `${part === 'fw' ? 'Front' : 'Rear'} wing damage, we've lost downforce.` });
     }
   }
 
@@ -1899,7 +1903,7 @@ export class Race {
       const where = this.rc ? this.rc.where(car.idx) : '', fl = `${front ? 'front' : 'rear'} ${side > 0 ? 'left' : 'right'}`;
       const why = kind === 'wheel' ? `The ${fl} wheel's come off${where ? ' at ' + where : ''}.` : `The ${fl} suspension's broken${where ? ' at ' + where : ''}.`;
       this.events.push({ type: 'crashout', why, v });
-    } else if (this.player && !this.player.gone && car.ai && car.ai.trust != null) this.events.push({ type: 'radio', msg: `${car.name} is out. Crashed${this.rc ? ' at ' + this.rc.where(car.idx) : ''}.` });
+    } else if (this.player && !this.player.gone && car.ai && car.ai.trust != null) this.events.push({ type: 'radio', vo: 'mate.out.crash', msg: `${car.name} is out. Crashed${this.rc ? ' at ' + this.rc.where(car.idx) : ''}.` });
   }
   // how a wreck looks: the broken corner's wheel gone (and bouncing off down the road) or folded in under the car,
   // the body down on that corner. Also from an online snapshot's code (s.wk) for a car another machine runs.
@@ -2140,7 +2144,7 @@ export class Race {
     if (car.lap === nx.lap && toEntry < 700 && !car.planRadio[key]) {
       car.planRadio[key] = true;
       car.pitReq = { tyre: nx.tyre, repair: false };
-      this.events.push({ type: 'radio', msg: `Box, box! Box this lap for <b>${nx.tyre.toUpperCase()}S</b>.`, big: true });
+      this.events.push({ type: 'radio', vo: 'box.plan.' + nx.tyre, msg: `Box, box! Box this lap for <b>${nx.tyre.toUpperCase()}S</b>.`, big: true });
     }
   }
   // ---------- the race brain: stop now, before the plan says? ----------
@@ -2205,39 +2209,39 @@ export class Race {
         const onWets = car.phys.tyre.c === 'wet', dry = this.callTyre(car) === 'wet' ? 'medium' : this.callTyre(car);
         const ask = !onWets && this.wet > 0.18 && this.rainK > 0.5 ? { msg: `It's raining${this.wet > 0.45 ? ' hard' : ''}. Wets now?`, tyre: 'wet', good: this.wet > 0.32 || !this.wx.until }
           : onWets && this.wet < 0.6 && this.rainK < 0.15 ? { msg: `The track's drying${this.wet < 0.35 ? ' fast' : ''}. Slicks now?`, tyre: dry, good: this.wet < 0.45 } : null;
-        if (ask) return this.openCall({ kind: 'wx', who: 'eng', msg: ask.msg, a: ask.tyre === 'wet' ? 'Box for wets' : 'Box for slicks', b: 'Stay out', rec: pick(ask.good), from: toEntry, entry: 260,
-          run: (w) => { if (w === 'a') { car.pitReq = { tyre: ask.tyre, repair: false }; this.events.push({ type: 'radio', msg: `Box, box. <b>${ask.tyre.toUpperCase()}S</b>.`, big: true }); } else this.events.push({ type: 'radio', msg: 'Copy. Staying out.' }); } });
+        if (ask) return this.openCall({ kind: 'wx', who: 'eng', vo: ask.tyre === 'wet' ? (this.wet > 0.45 ? 'call.rain.hard' : 'call.rain') : (this.wet < 0.35 ? 'call.drying.fast' : 'call.drying'), msg: ask.msg, a: ask.tyre === 'wet' ? 'Box for wets' : 'Box for slicks', b: 'Stay out', rec: pick(ask.good), from: toEntry, entry: 260,
+          run: (w) => { if (w === 'a') { car.pitReq = { tyre: ask.tyre, repair: false }; this.events.push({ type: 'radio', vo: 'box.confirm.' + ask.tyre, msg: `Box, box. <b>${ask.tyre.toUpperCase()}S</b>.`, big: true }); } else this.events.push({ type: 'radio', vo: 'box.stayout', msg: 'Copy. Staying out.' }); } });
       }
       // both of you due this lap or the next: who stops first (the first gets the fresher tyres sooner)
       const mine = this.nextPlannedStop(car), theirs = mate && !mate.pitting ? this.nextPlannedStop(mate) : null;
       if (mine && theirs && mine.lap === car.lap && Math.abs(theirs.lap - mine.lap) <= 1 && this.laps - car.lap > 2) {
         const ahead = mate.pos < car.pos;
-        return this.openCall({ kind: 'first', who: 'eng', msg: `You and ${name(mate)} are both due. Who stops first?`, a: 'Me first', b: `${name(mate)} first`, rec: ahead ? 'b' : 'a', from: toEntry, entry: 720,
+        return this.openCall({ kind: 'first', who: 'eng', vo: 'call.whofirst', msg: `You and ${name(mate)} are both due. Who stops first?`, a: 'Me first', b: `${name(mate)} first`, rec: ahead ? 'b' : 'a', from: toEntry, entry: 720,
           run: (w) => { const shift = (c) => { const st = c.plan.stints; if (st[c.pits + 1] && st[c.pits + 1].laps > 1) { st[c.pits].laps++; st[c.pits + 1].laps--; } };
             if (w === 'a') { shift(mate); this.trust(ahead ? -5 : -1); this.mateSay(mate, ahead ? ['Of course you are.', '...Copy. Next lap.'] : ['Copy. I\'ll go next lap.']); }
-            else { shift(car); this.trust(3); car.pitReq = null; this.events.push({ type: 'radio', msg: `${name(mate)} first. You box next lap.` }); this.mateSay(mate, ['Copy. Thanks.']); } } });
+            else { shift(car); this.trust(3); car.pitReq = null; this.events.push({ type: 'radio', vo: 'call.whofirst.mate', msg: `${name(mate)} first. You box next lap.` }); this.mateSay(mate, ['Copy. Thanks.']); } } });
       }
       if (this.opts.pitWall === false) return;
       const c = this.stratCall(car); if (!c) return;
       const nx = this.callTyre(car), why = c.kind === 'vsc' ? (this.rc.sc ? 'Safety car: a stop costs a lot less now.' : 'The VSC is out: a stop is half price.') : c.kind === 'cover' ? `${name(c.o)} has stopped. Box now to stay ahead?` : `${name(c.o)} is close and due too. Box now for the undercut?`;
-      return this.openCall({ kind: c.kind, who: 'eng', msg: why, a: 'Box now', b: 'Stay out', rec: pick(true), from: toEntry, entry: 260,
-        run: (w) => { if (w === 'a') { car.pitReq = { tyre: nx, repair: Math.max(car.phys.dmg.fw, car.phys.dmg.rw) > 0.12 }; this.events.push({ type: 'radio', msg: `Box, box. <b>${nx.toUpperCase()}S</b>.`, big: true }); }
-          else this.events.push({ type: 'radio', msg: 'Copy. Staying out.' }); } });
+      return this.openCall({ kind: c.kind, who: 'eng', vo: c.kind === 'vsc' ? (this.rc.sc ? 'call.sc' : 'call.vsc') : c.kind === 'cover' ? 'call.cover' : 'call.undercut', msg: why, a: 'Box now', b: 'Stay out', rec: pick(true), from: toEntry, entry: 260,
+        run: (w) => { if (w === 'a') { car.pitReq = { tyre: nx, repair: Math.max(car.phys.dmg.fw, car.phys.dmg.rw) > 0.12 }; this.events.push({ type: 'radio', vo: 'box.confirm.' + nx, msg: `Box, box. <b>${nx.toUpperCase()}S</b>.`, big: true }); }
+          else this.events.push({ type: 'radio', vo: 'box.stayout', msg: 'Copy. Staying out.' }); } });
     }
     // the team's calls: you and your teammate nose to tail, one of you quicker
     if (!mate || mate.pitting || car.lap < 2 || this.raceTime - (this.teamCallT ?? -99) < 90) return;
     const quicker = (a, b) => isFinite(a.last) && isFinite(b.last) && b.last - a.last > 0.4;
     if (this.order[car.pos - 2] === mate && quicker(car, mate)) { const g = this.timeBehind(car, mate); if (g == null || g > 1) return;
       this.teamCallT = this.raceTime;
-      return this.openCall({ kind: 'swap', who: 'eng', msg: `You're quicker than ${name(mate)}. Ask them to let you by?`, a: 'Ask', b: 'Race them', rec: car.last < mate.last - 0.6 ? 'a' : 'b', until: this.raceTime + 7,
-        run: (w) => { if (w !== 'a') return this.events.push({ type: 'radio', msg: 'Copy. Keep it clean.' });
+      return this.openCall({ kind: 'swap', who: 'eng', vo: 'call.swap', msg: `You're quicker than ${name(mate)}. Ask them to let you by?`, a: 'Ask', b: 'Race them', rec: car.last < mate.last - 0.6 ? 'a' : 'b', until: this.raceTime + 7,
+        run: (w) => { if (w !== 'a') return this.events.push({ type: 'radio', vo: 'call.raceit', msg: 'Copy. Keep it clean.' });
           const t = mate.ai.trust; if (t >= 50 || (t >= 30 && Math.random() < 0.5)) { mate.ai.yieldTo = { car, until: this.raceTime + 20 }; this.trust(-2); this.mateSay(mate, t >= 50 ? ['Copy.', 'Copy. Go on then.'] : ['...Copy.']); }
           else { this.trust(-1); this.mateSay(mate, ['Negative. Race me.', 'Not happening.']); } } });
     }
     if (this.order[car.pos] === mate && quicker(mate, car)) { const g = this.timeBehind(mate, car); if (g == null || g > 0.8) return;
       this.teamCallT = this.raceTime;
-      return this.openCall({ kind: 'letby', who: 'eng', msg: `${name(mate)} is quicker and right behind you. Let them by?`, a: 'Let them by', b: 'Tell them to hold', rec: mate.last < car.last - 0.6 ? 'a' : 'b', until: this.raceTime + 7,
-        run: (w) => { if (w === 'a') { this.letBy = { mate, until: this.raceTime + 25 }; this.events.push({ type: 'radio', msg: `Let ${name(mate)} through.` }); return; }
+      return this.openCall({ kind: 'letby', who: 'eng', vo: 'call.letby', msg: `${name(mate)} is quicker and right behind you. Let them by?`, a: 'Let them by', b: 'Tell them to hold', rec: mate.last < car.last - 0.6 ? 'a' : 'b', until: this.raceTime + 7,
+        run: (w) => { if (w === 'a') { this.letBy = { mate, until: this.raceTime + 25 }; this.events.push({ type: 'radio', vo: 'call.letthrough', msg: `Let ${name(mate)} through.` }); return; }
           const t = mate.ai.trust; if (t < 30) { this.trust(-1); this.mateSay(mate, ['Not happening. I\'m quicker.', 'Negative.']); }
           else { mate.ai.hold = { car, until: this.raceTime + 40 }; this.trust(-2); this.mateSay(mate, t < 50 ? ['...Copy.'] : ['Copy. Holding.']); } } });
     }
@@ -2259,8 +2263,8 @@ export class Race {
     // (the radar: rain about two laps out, or it's stopped)
     const pl = this.player; if (!pl || pl.finished) return;
     const eta = this.wxEta();
-    if (W.to === 'rain' && eta != null && eta <= 2.2 && eta > 0.3 && !W.told) { W.told = true; this.events.push({ type: 'radio', msg: `Rain on the radar. About <b>${eta <= 1.2 ? 'a lap' : 'two laps'}</b> out.` }); }
-    if (!raining && this.rainK < 0.05 && this.wet > 0.3 && !W.toldDry && (W.to === 'dry' || W.until)) { W.toldDry = true; this.events.push({ type: 'radio', msg: 'The rain\'s stopped. It\'ll dry from here.' }); }
+    if (W.to === 'rain' && eta != null && eta <= 2.2 && eta > 0.3 && !W.told) { W.told = true; this.events.push({ type: 'radio', vo: eta <= 1.2 ? 'rain.radar.1' : 'rain.radar.2', msg: `Rain on the radar. About <b>${eta <= 1.2 ? 'a lap' : 'two laps'}</b> out.` }); }
+    if (!raining && this.rainK < 0.05 && this.wet > 0.3 && !W.toldDry && (W.to === 'dry' || W.until)) { W.toldDry = true; this.events.push({ type: 'radio', vo: 'rain.stopped', msg: 'The rain\'s stopped. It\'ll dry from here.' }); }
   }
   // laps (the leader's) until the rain comes, if it's still coming
   wxEta() {
@@ -2312,7 +2316,7 @@ export class Race {
     // past it (round the side): drop back behind it, or it's a drive-through (12 s to do it)
     if (pl && !pl.pitting && !pl.finished && this.rc.on) {
       if (pl.raw > S.raw + 3) {
-        if (S.passT == null) { S.passT = this.raceTime; this.rc.say('Passed the safety car · drop back behind it', { me: true, cls: 'y' }); this.events.push({ type: 'radio', msg: 'You\'ve passed the safety car! <b>Lift and let it back past.</b>', big: true }); }
+        if (S.passT == null) { S.passT = this.raceTime; this.rc.say('Passed the safety car · drop back behind it', { me: true, cls: 'y' }); this.events.push({ type: 'radio', vo: 'sc.passed', msg: 'You\'ve passed the safety car! <b>Lift and let it back past.</b>', big: true }); }
         else if (!S.passed && this.raceTime - S.passT > 12) { S.passed = true; this.rc.driveThrough(pl, 'overtook the safety car'); }
       } else if (S.passT != null && !S.passed) S.passT = null;
     }
@@ -2528,7 +2532,7 @@ export class Race {
         // (owing a drive-through: this visit is it, no work allowed)
         car.pitReq = car.dt ? { dt: true } : this.quali ? { garage: true } : { tyre: car.pitReq?.tyre || this.nextPlannedStop(car)?.tyre || (this.dirt ? 'dirt' : this.rain ? 'wet' : p.tyre.c), repair: fix };
         this.events.push({ type: 'pitIn' });
-        { const m = this.teamMate(car); if (m && m.pitting && !(car.pitReq && (car.pitReq.dt || car.pitReq.garage))) this.events.push({ type: 'radio', msg: `Double stack: you're in behind ${m.name}. Expect a wait at the box.` }); }
+        { const m = this.teamMate(car); if (m && m.pitting && !(car.pitReq && (car.pitReq.dt || car.pitReq.garage))) this.events.push({ type: 'radio', vo: 'box.doublestack', msg: `Double stack: you're in behind ${m.name}. Expect a wait at the box.` }); }
       }
       if (car.pitting) car.pitPhase = 'in';
       return;
@@ -2540,7 +2544,7 @@ export class Race {
       if (onTrackSide || car.pitStuck > 6) {
         if (car.pitStuck > 6) this.resetCar(car);
         car.pitting = false; car.pitPhase = null; car.pitStuck = 0; car.laneSide = undefined;
-        if (car.isPlayer && car.pits === 0 && car.pitReq) this.events.push({ type: 'radio', msg: 'We missed the pit entry. Box next lap.' });
+        if (car.isPlayer && car.pits === 0 && car.pitReq) this.events.push({ type: 'radio', vo: 'box.missed.entry', msg: 'We missed the pit entry. Box next lap.' });
         return;
       }
     }
@@ -2551,7 +2555,7 @@ export class Race {
       // (overshot the box, past where it could stop: no stop, out again, the wheel back to you, rather than chasing a box
       // that's behind you)
       const past = T.L - d, at = d < 1.5 || past < 40; // (at the box, or stopped short of 40 m past it: the crew comes to you)
-      if (car.pitReq && !car.pitReq.dt && past >= 40 && past < 400) { car.pitPhase = 'out'; if (car.isPlayer) this.events.push({ type: 'radio', msg: car.pitReq.garage ? 'You went past the garage. Come in next lap.' : 'You overshot the box. No stop: come in again next lap.' }); return; }
+      if (car.pitReq && !car.pitReq.dt && past >= 40 && past < 400) { car.pitPhase = 'out'; if (car.isPlayer) this.events.push({ type: 'radio', vo: car.pitReq.garage ? 'box.pastgarage' : 'box.overshot', msg: car.pitReq.garage ? 'You went past the garage. Come in next lap.' : 'You overshot the box. No stop: come in again next lap.' }); return; }
       if (car.pitReq && car.pitReq.garage) { if (at && car.phys.speed < 3) this.enterGarage(car); } // (sessions: into the garage)
       else if (car.pitReq && car.pitReq.dt) {
         // drive-through: served once past your box (no stop, and it isn't a pit stop for the strategy)
@@ -2561,7 +2565,7 @@ export class Race {
         const pen = car.pen || 0;
         car.pitPhase = 'stop'; car.penServing = pen; car.pen = 0;
         car.pitTimer = this.serviceTime(car) + pen + Math.random() * 0.4; car.pitTotal = car.pitTimer;
-        if (pen && car.isPlayer) this.events.push({ type: 'radio', msg: `Serving your <b>${pen} second penalty</b>, then the crew goes to work.` });
+        if (pen && car.isPlayer) this.events.push({ type: 'radio', vo: 'box.penalty', msg: `Serving your <b>${pen} second penalty</b>, then the crew goes to work.` });
       }
       if (pos < 0 && ((car.idx - pit.end + N) % N) < 50) { car.pitting = false; car.pitPhase = null; } // somehow missed the lane
     } else if (car.pitPhase === 'stop') {
@@ -2606,7 +2610,7 @@ export class Race {
   failureCheck(car) {
     const f = this.opts.failure; if (!f || this.mode !== 'race' || this.state !== 'racing' || car.finished || f.done) return;
     const len = this.T.open ? this.T.finish + 1 : this.T.N, prog = (car.lap + (car.idx || 0) / len) / Math.max(1, this.laps);
-    if (!f.warned && prog > f.at - 0.12) { f.warned = true; this.events.push({ type: 'radio', msg: f.warn, big: true }); }
+    if (!f.warned && prog > f.at - 0.12) { f.warned = true; this.events.push({ type: 'radio', vo: FAIL_VO[f.warn], msg: f.warn, big: true }); }
     if (prog < f.at) return;
     f.done = true;
     if (f.fatal) { car.phys.powerMul = 0; car.failed = f; }
@@ -2619,8 +2623,8 @@ export class Race {
   tyreRadio(car) {
     if (!this.wearK || car.finished) return;
     const w = Math.min(car.phys.tyre.wf, car.phys.tyre.wr);
-    if (w < 0.4 && !car.radio.t40) { car.radio.t40 = true; this.events.push({ type: 'radio', msg: 'Tyres are starting to go off. Box when you can.' }); }
-    if (w < 0.25 && !car.radio.t25) { car.radio.t25 = true; this.events.push({ type: 'radio', msg: 'Tyres are gone! <b>Box, box!</b>', big: true }); }
+    if (w < 0.4 && !car.radio.t40) { car.radio.t40 = true; this.events.push({ type: 'radio', vo: 'tires.fading', msg: 'Tyres are starting to go off. Box when you can.' }); }
+    if (w < 0.25 && !car.radio.t25) { car.radio.t25 = true; this.events.push({ type: 'radio', vo: 'tires.gone', msg: 'Tyres are gone! <b>Box, box!</b>', big: true }); }
   }
 
   // ---------- online ----------

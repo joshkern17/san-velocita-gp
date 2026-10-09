@@ -1,0 +1,641 @@
+{
+ "eng": {
+  "tires.gone": {
+   "file": "eng/tires.gone.mp3",
+   "hash": "996f24ab396c",
+   "text": "[firm, composed, with controlled urgency] We're out of tire. Box, box."
+  },
+  "box.missed.entry": {
+   "file": "eng/box.missed.entry.mp3",
+   "hash": "0ed1edc37273",
+   "text": "[quietly amused, trying to remain professional] ...Alright. Missed pit entry... box next lap."
+  },
+  "radiator.bad": {
+   "file": "eng/radiator.bad.mp3",
+   "hash": "3b80635b262d",
+   "text": "[firm, composed, speaking with authority] Radiator's badly damaged. Box now. The engine won't last if we stay out."
+  },
+  "box.overshot": {
+   "file": "eng/box.overshot.mp3",
+   "hash": "b5e183437197",
+   "text": "[dry, understated sarcasm] Little past where the crew can reach you. [back to business, matter-of-fact] You overshot the box, so no stop. Come in again next lap."
+  },
+  "engine.critical": {
+   "file": "eng/engine.critical.mp3",
+   "hash": "cb8c4324d68b",
+   "text": "[firm, composed, speaking with authority] Water temp's critical. It won't take much more. Box, or back RIGHT off."
+  },
+  "engine.hot": {
+   "file": "eng/engine.hot.mp3",
+   "hash": "7e3ca522703d",
+   "text": "[calm, conversational, taking the problem seriously] Engine's running hot, and we're down on power. Lift and coast where you can."
+  },
+  "radiator.hit": {
+   "file": "eng/radiator.hit.mp3",
+   "hash": "5958e6e2565f",
+   "text": "[slightly concerned, calm and focused] We've hurt the radiator. Water temps are going to climb... lift early, short-shift, and stay out of the tow."
+  },
+  "gearbox.hit": {
+   "file": "eng/gearbox.hit.mp3",
+   "hash": "9567423cb788",
+   "text": "We've hurt the gearbox. Shifts are slow now... be gentle with it."
+  },
+  "gearbox.bad": {
+   "file": "eng/gearbox.bad.mp3",
+   "hash": "b65f65091f1b",
+   "text": "[calm, matter-of-fact, with a faintly wry edge] Gearbox isn't real happy. It's missing shifts. Short-shift it... no big downshifts."
+  },
+  "gearbox.overrev": {
+   "file": "eng/gearbox.overrev.mp3",
+   "hash": "d1419eaee54b",
+   "text": "[firm, calm, correcting without scolding] Easy on those downshifts. You're over-revving it, and the gearbox is taking the damage."
+  },
+  "gearbox.lost.1": {
+   "file": "eng/gearbox.lost.1.mp3",
+   "hash": "343017b256d1",
+   "text": "[firm, composed, giving a clear update] First gear's gone. It'll skip that gear now."
+  },
+  "gearbox.lost.2": {
+   "file": "eng/gearbox.lost.2.mp3",
+   "hash": "de596721f378",
+   "text": "[firm, composed, giving a clear update] Second gear's gone. It'll skip that gear now."
+  },
+  "gearbox.lost.3": {
+   "file": "eng/gearbox.lost.3.mp3",
+   "hash": "14bc70f57f72",
+   "text": "[firm, composed, giving a clear update] Third gear's gone. It'll skip that gear now."
+  },
+  "gearbox.lost.4": {
+   "file": "eng/gearbox.lost.4.mp3",
+   "hash": "aaea7f854564",
+   "text": "[firm, composed, giving a clear update] Fourth gear's gone. It'll skip that gear now."
+  },
+  "gearbox.lost.5": {
+   "file": "eng/gearbox.lost.5.mp3",
+   "hash": "8e3866aa08f5",
+   "text": "[firm, composed, giving a clear update] Fifth gear's gone. It'll skip that gear now."
+  },
+  "gearbox.lost.6": {
+   "file": "eng/gearbox.lost.6.mp3",
+   "hash": "f0aa1e35d5e1",
+   "text": "[firm, composed, giving a clear update] Sixth gear's gone. It'll skip that gear now."
+  },
+  "gearbox.lost.7": {
+   "file": "eng/gearbox.lost.7.mp3",
+   "hash": "dc7ccf4cde35",
+   "text": "[firm, composed, giving a clear update] Seventh gear's gone. It'll skip that gear now."
+  },
+  "floor.hit": {
+   "file": "eng/floor.hit.mp3",
+   "hash": "fe94e1b35393",
+   "text": "We've damaged the floor and lost some rear downforce. Watch it in the fast corners."
+  },
+  "wing.front.hit": {
+   "file": "eng/wing.front.hit.mp3",
+   "hash": "df76a91f5bef",
+   "text": "Front wing's damaged. That's cost us some downforce."
+  },
+  "floor.bad": {
+   "file": "eng/floor.bad.mp3",
+   "hash": "0ec60fc91544",
+   "text": "[slightly concerned, calm and focused] Floor's damaged. We've lost rear downforce, so it'll be loose in the fast stuff. Box when you can."
+  },
+  "wing.rear.hit": {
+   "file": "eng/wing.rear.hit.mp3",
+   "hash": "6bcf6f66e803",
+   "text": "Rear wing's damaged. That's cost us some downforce."
+  },
+  "wing.rear.gone": {
+   "file": "eng/wing.rear.gone.mp3",
+   "hash": "50caeefed469",
+   "text": "[focused, controlled urgency, keeping the instruction clear] Rear wing's gone. Box for a new one."
+  },
+  "wing.front.gone": {
+   "file": "eng/wing.front.gone.mp3",
+   "hash": "4f30bdf0b5d5",
+   "text": "[focused, controlled urgency, keeping the instruction clear] Front wing's gone. Box for a new one."
+  },
+  "suspension.hit": {
+   "file": "eng/suspension.hit.mp3",
+   "hash": "620aeb365dd0",
+   "text": "We've hurt the suspension. The car's going to pull, and it'll cost us some pace."
+  },
+  "suspension.bent.fl": {
+   "file": "eng/suspension.bent.fl.mp3",
+   "hash": "bb7aca7f942f",
+   "text": "[calm, focused, explaining the handling change] Front left suspension's bent. The car will pull, and that tire will scrub. Box to get it fixed."
+  },
+  "suspension.bent.fr": {
+   "file": "eng/suspension.bent.fr.mp3",
+   "hash": "b8206389ca6a",
+   "text": "[calm, focused, explaining the handling change] Front right suspension's bent. The car will pull, and that tire will scrub. Box to get it fixed."
+  },
+  "tires.fading": {
+   "file": "eng/tires.fading.mp3",
+   "hash": "5cd026e75c47",
+   "text": "Tires are starting to give up some grip. Bring it in when you can."
+  },
+  "suspension.bent.rl": {
+   "file": "eng/suspension.bent.rl.mp3",
+   "hash": "0ded13924413",
+   "text": "[calm, focused, explaining the handling change] Rear left suspension's bent. The car will pull, and that tire will scrub. Box to get it fixed."
+  },
+  "box.plan.medium": {
+   "file": "eng/box.plan.medium.mp3",
+   "hash": "e8b59aef83e5",
+   "text": "[firm, composed, clear and decisive] Box, box. Mediums this lap."
+  },
+  "box.plan.soft": {
+   "file": "eng/box.plan.soft.mp3",
+   "hash": "a17d0866cbfb",
+   "text": "[firm, composed, clear and decisive] Box, box. Softs this lap."
+  },
+  "suspension.bent.rr": {
+   "file": "eng/suspension.bent.rr.mp3",
+   "hash": "3659eea9b60e",
+   "text": "[calm, focused, explaining the handling change] Rear right suspension's bent. The car will pull, and that tire will scrub. Box to get it fixed."
+  },
+  "box.plan.wet": {
+   "file": "eng/box.plan.wet.mp3",
+   "hash": "81cbf460db7f",
+   "text": "[firm, composed, clear and decisive] Box, box. Wets this lap."
+  },
+  "box.plan.hard": {
+   "file": "eng/box.plan.hard.mp3",
+   "hash": "13985b5eff7c",
+   "text": "[firm, composed, clear and decisive] Box, box. Hards this lap."
+  },
+  "box.confirm.soft": {
+   "file": "eng/box.confirm.soft.mp3",
+   "hash": "85757e863ec0",
+   "text": "Copy that. Box, box. Softs."
+  },
+  "box.confirm.medium": {
+   "file": "eng/box.confirm.medium.mp3",
+   "hash": "a9b2f451a01d",
+   "text": "Copy that. Box, box. Mediums."
+  },
+  "box.confirm.hard": {
+   "file": "eng/box.confirm.hard.mp3",
+   "hash": "ecd0f841a7ee",
+   "text": "Copy that. Box, box. Hards."
+  },
+  "box.confirm.wet": {
+   "file": "eng/box.confirm.wet.mp3",
+   "hash": "22ad0fe0e217",
+   "text": "Copy that. Box, box. Wets."
+  },
+  "box.stayout": {
+   "file": "eng/box.stayout.mp3",
+   "hash": "c7af1ea0d375",
+   "text": "Copy that. Staying out."
+  },
+  "box.pastgarage": {
+   "file": "eng/box.pastgarage.mp3",
+   "hash": "b811ffb2871a",
+   "text": "[calm, conversational, a little bemused] You've gone past the garage. Bring it in next lap."
+  },
+  "box.missed.entry.2": {
+   "file": "eng/box.missed.entry.2.mp3",
+   "hash": "fdadde5f00c8",
+   "text": "[quietly amused, holding back a smile] Yeah... pit road was back there. Box next lap."
+  },
+  "box.penalty": {
+   "file": "eng/box.penalty.mp3",
+   "hash": "e899e575a172",
+   "text": "[patient, matter-of-fact] Penalty first. Once that's served, the crew goes to work."
+  },
+  "box.doublestack": {
+   "file": "eng/box.doublestack.mp3",
+   "hash": "339d1e13226f",
+   "text": "We're double stacking. You'll be in behind your teammate... expect a wait at the box."
+  },
+  "call.rain": {
+   "file": "eng/call.rain.mp3",
+   "hash": "782969348aeb",
+   "text": "Rain's starting. Want to go to wets now?"
+  },
+  "call.drying": {
+   "file": "eng/call.drying.mp3",
+   "hash": "4683ce643220",
+   "text": "Track's drying out. Want slicks now?"
+  },
+  "call.rain.hard": {
+   "file": "eng/call.rain.hard.mp3",
+   "hash": "72caa35ad3c7",
+   "text": "[slightly concerned, calm and focused] Rain's coming down hard. Want wets now?"
+  },
+  "call.drying.fast": {
+   "file": "eng/call.drying.fast.mp3",
+   "hash": "cb1192e21bd1",
+   "text": "[focused, conversational, weighing the opportunity] Track's drying fast. Want to go to slicks now?"
+  },
+  "call.whofirst.mate": {
+   "file": "eng/call.whofirst.mate.mp3",
+   "hash": "08c4a8a4b9fd",
+   "text": "Copy. Teammate first, then you box next lap."
+  },
+  "call.whofirst": {
+   "file": "eng/call.whofirst.mp3",
+   "hash": "08ed5a2b7a33",
+   "text": "You're both due a stop. Who are we bringing in first, you or your teammate?"
+  },
+  "call.vsc": {
+   "file": "eng/call.vsc.mp3",
+   "hash": "d95d9f05a4d6",
+   "text": "[thoughtful, calm, quietly confident] VSC's out. A stop costs half right now."
+  },
+  "call.cover": {
+   "file": "eng/call.cover.mp3",
+   "hash": "8bb6fab30ae0",
+   "text": "Car behind has stopped. Want to box now and stay ahead?"
+  },
+  "call.sc": {
+   "file": "eng/call.sc.mp3",
+   "hash": "b618f3e5e2a2",
+   "text": "[thoughtful, calm, quietly confident] Safety car's out. A stop costs us a lot less now."
+  },
+  "call.undercut": {
+   "file": "eng/call.undercut.mp3",
+   "hash": "b30d9910d11b",
+   "text": "[focused, conversational, weighing the opportunity] Car ahead's close, and they're due a stop too. Want to box now for the undercut?"
+  },
+  "call.swap": {
+   "file": "eng/call.swap.mp3",
+   "hash": "429e962e8e95",
+   "text": "You've got more pace than your teammate. Want me to ask them to let you by?"
+  },
+  "call.letby": {
+   "file": "eng/call.letby.mp3",
+   "hash": "a586cb2ce0a7",
+   "text": "Your teammate's quicker and right on you. Want to let them by?"
+  },
+  "call.raceit": {
+   "file": "eng/call.raceit.mp3",
+   "hash": "e18a2ca8efbf",
+   "text": "[relaxed, confident, with a gentle reminder] Copy, we'll race them. Keep it clean."
+  },
+  "call.letthrough": {
+   "file": "eng/call.letthrough.mp3",
+   "hash": "a0408fff42e6",
+   "text": "[firm, composed, speaking with authority] Copy. Let your teammate through."
+  },
+  "rain.radar.1": {
+   "file": "eng/rain.radar.1.mp3",
+   "hash": "3046e8ec4cb3",
+   "text": "We've got rain on the radar. About a lap away."
+  },
+  "rain.radar.2": {
+   "file": "eng/rain.radar.2.mp3",
+   "hash": "b669a966ac89",
+   "text": "We've got rain on the radar. About two laps away."
+  },
+  "rain.stopped": {
+   "file": "eng/rain.stopped.mp3",
+   "hash": "840f7042b985",
+   "text": "Rain's stopped now. Track should start drying from here."
+  },
+  "vsc.out": {
+   "file": "eng/vsc.out.mp3",
+   "hash": "8863471b22f5",
+   "text": "[firm, composed, speaking with authority] Virtual Safety Car. Bring the speed down and keep your delta positive."
+  },
+  "vsc.box": {
+   "file": "eng/vsc.box.mp3",
+   "hash": "00bbde83c881",
+   "text": "[focused, controlled urgency, clear and decisive] VSC's out. Box this lap... good chance for a cheap stop."
+  },
+  "sc.out": {
+   "file": "eng/sc.out.mp3",
+   "hash": "6ec2428cd295",
+   "text": "[firm, composed, speaking with authority] Safety car, safety car. Catch the queue. NO overtaking. Pit lane's open."
+  },
+  "sc.fromvsc": {
+   "file": "eng/sc.fromvsc.mp3",
+   "hash": "fd58c05fc1e6",
+   "text": "[firm, composed, clear and steady] VSC's become a full safety car. Catch the queue, no overtaking. Pit lane's open."
+  },
+  "sc.passed": {
+   "file": "eng/sc.passed.mp3",
+   "hash": "5e6792d4cb36",
+   "text": "[focused, controlled urgency, speaking with authority] You've passed the safety car. Lift now and let it back past."
+  },
+  "pen.drivethrough": {
+   "file": "eng/pen.drivethrough.mp3",
+   "hash": "ae7f7a5f4430",
+   "text": "[firm, composed, giving precise instructions] We've got a drive-through penalty. Through the pits in the next three laps... no stop allowed."
+  },
+  "mate.out.engine": {
+   "file": "eng/mate.out.engine.mp3",
+   "hash": "4b31bf81ca23",
+   "text": "[low-key, matter-of-fact, delivering unwelcome news] Teammate's out of the race. Engine's gone."
+  },
+  "flag.blackorange": {
+   "file": "eng/flag.blackorange.mp3",
+   "hash": "e9bdec264cf4",
+   "text": "[focused, controlled urgency, giving precise instructions] Black and orange flag. Box, box. We need a new wing within two laps."
+  },
+  "mate.out.gearbox": {
+   "file": "eng/mate.out.gearbox.mp3",
+   "hash": "82816cf82c6a",
+   "text": "[low-key, matter-of-fact, delivering unwelcome news] Teammate's out of the race. Gearbox failure."
+  },
+  "mate.out.crash": {
+   "file": "eng/mate.out.crash.mp3",
+   "hash": "f99e96f700f8",
+   "text": "[subdued, calm and professional] Teammate's out of the race. They've crashed."
+  },
+  "fail.oil": {
+   "file": "eng/fail.oil.mp3",
+   "hash": "5eb02c4b6bab",
+   "text": "[slightly concerned, calm and focused] We're losing oil pressure. Need you to nurse it."
+  },
+  "fail.engine.temps": {
+   "file": "eng/fail.engine.temps.mp3",
+   "hash": "1d3add4bbff1",
+   "text": "[slightly concerned, calm and focused] Engine temps are starting to climb."
+  },
+  "fail.gearbox.noise": {
+   "file": "eng/fail.gearbox.noise.mp3",
+   "hash": "a2de94f531b8",
+   "text": "[attentive, calm, with restrained concern] Gearbox is starting to sound rough."
+  },
+  "fail.gearbox.slow": {
+   "file": "eng/fail.gearbox.slow.mp3",
+   "hash": "d10861c0df8d",
+   "text": "Shifts are starting to get slow on us."
+  },
+  "fail.brakes": {
+   "file": "eng/fail.brakes.mp3",
+   "hash": "32bd64614916",
+   "text": "[slightly concerned, calm and focused] Brake temps are very high now."
+  },
+  "fail.rear.loose": {
+   "file": "eng/fail.rear.loose.mp3",
+   "hash": "3f9fe3ee39cd",
+   "text": "[attentive, calm, with restrained concern] We've got something loose at the rear."
+  },
+  "prac.minisec.done": {
+   "file": "eng/prac.minisec.done.mp3",
+   "hash": "01057c274ad7",
+   "text": "[pleased, understated, quietly confident] That's the job done. Your practice bests are on the board for qualifying."
+  },
+  "prac.minisec.lap": {
+   "file": "eng/prac.minisec.lap.mp3",
+   "hash": "de1624d6b8b5",
+   "text": "Nice, more targets beaten on that lap. Keep at it."
+  },
+  "prac.acclim.done": {
+   "file": "eng/prac.acclim.done.mp3",
+   "hash": "087f7dd3fab1",
+   "text": "[pleased, relaxed, getting back to business] That takes care of it. Brake points are marked for the weekend."
+  },
+  "prac.acclim.best": {
+   "file": "eng/prac.acclim.best.mp3",
+   "hash": "0a4306f3cafa",
+   "text": "[pleased, understated, with a small smile] There we go. Best one yet."
+  },
+  "prac.acclim.ok": {
+   "file": "eng/prac.acclim.ok.mp3",
+   "hash": "a8e44291af10",
+   "text": "Good lap. That'll do the job."
+  },
+  "prac.acclim.short": {
+   "file": "eng/prac.acclim.short.mp3",
+   "hash": "43a95b5e7382",
+   "text": "[encouraging, calm, giving a practical correction] Not quite there yet. Get the speed right in the red gates."
+  }
+ },
+ "booth": {
+  "track.spa.welcome": {
+   "file": "booth/track.spa.welcome.mp3",
+   "hash": "12241c32f17b",
+   "text": "[warm, confident, building a sense of occasion] Welcome to Spa-Francorchamps! Over four miles through the Ardennes forest... and one of the great racetracks on the planet. | [warm, appreciative, natural Southern drawl] And that climb through Eau Rouge... you feel that one in your stomach. Quite a sight from up here, too."
+  },
+  "track.monaco.welcome": {
+   "file": "booth/track.monaco.welcome.mp3",
+   "hash": "d1a92f5db943",
+   "text": "[polished, measured, warm] Welcome to Monaco. Tight city streets, barriers close by... and very little room for a mistake. | [after a beat, thoughtful, natural drawl] You spend the whole lap wishing you had another inch. And when you're stuck behind somebody, it feels even narrower."
+  },
+  "track.suzuka.welcome": {
+   "file": "booth/track.suzuka.welcome.mp3",
+   "hash": "c4f432e54691",
+   "text": "[warm, admiring, conversational broadcast rhythm] Welcome to Suzuka! A figure-eight circuit with a wonderful rhythm... and very little room to get that rhythm wrong. | [engaged, knowing, easy drawl] Those Esses will keep you busy. Get a little out of shape through the first one, and you're still sorting it out two corners later."
+  },
+  "cond.day.clear": {
+   "file": "booth/cond.day.clear.mp3",
+   "hash": "194d7c4f781e",
+   "text": "[bright, upbeat, easy broadcast rhythm] Sunshine and blue skies today, and the track temperature is climbing. | [conversational, explaining like a driver] Hot track eats tires. Look after 'em early... or you'll be sliding all over the place at the end."
+  },
+  "track.laguna.welcome": {
+   "file": "booth/track.laguna.welcome.mp3",
+   "hash": "1648270f9546",
+   "text": "[relaxed, professional, with a hint of a smile] Welcome to Laguna Seca, up in the hills of Monterey, California. Eleven turns... and one very famous corner. | [conversational, knowing, a small smile] The Corkscrew. You turn in before you can see much of what's below you... takes a little getting used to."
+  },
+  "track.haruna.welcome": {
+   "file": "booth/track.haruna.welcome.mp3",
+   "hash": "1645cf1c47e6",
+   "text": "[intrigued, a little hushed, atmospheric] Mount Haruna. No grandstands, no pit lane... just a mountain road, and a whole lot of hairpins on the way down. | [thoughtful, quietly experienced] And on the way down, it's awful easy to ask too much of the brakes. You want a little patience here... even when that road's tempting you."
+  },
+  "cond.night": {
+   "file": "booth/cond.night.mp3",
+   "hash": "6a7e3da43e06",
+   "text": "[anticipatory, atmospheric, a little hushed] Under the lights tonight, and it's a beautiful sight from up here. | [after a beat, warm and nostalgic, then lively] I always loved racing at night. Track cools off, the car's got more grip... and everything feels about twice as fast!"
+  },
+  "cond.dusk": {
+   "file": "booth/cond.dusk.mp3",
+   "hash": "55c0a6ff10c1",
+   "text": "[calm, a little atmospheric] The sun's getting low as we get set to go, and the shadows are stretching across the track. | [knowing, a bit wry] That low sun is tricky. You come over a rise, and it's right in your eyes. Can't see a thing for a second."
+  },
+  "cond.overcast": {
+   "file": "booth/cond.overcast.mp3",
+   "hash": "bf8a608099c9",
+   "text": "[steady, matter-of-fact] Gray skies overhead and cool temperatures this afternoon. | [explaining, folksy] Cool track, you gotta work to get heat in the tires. First couple laps, it's like driving on ice skates."
+  },
+  "cond.rain": {
+   "file": "booth/cond.rain.mp3",
+   "hash": "89672244a042",
+   "text": "[serious, building concern] And it is WET out there. Rain coming down, and spray everywhere. | [jumping in, half laughing, half dreading it] Oh, I hated this! You can't see the car in front of you. You're aiming at a red light in the spray and hoping!"
+  },
+  "incident.save": {
+   "file": "booth/incident.save.mp3",
+   "hash": "420c37e7e7c3",
+   "text": "[sharply surprised, urgent] Oh, the rear steps out! He's sideways! | [tense, quick bursts] Hang on... hang on... | [relieved, impressed] And he gathers it up. What a save! | [astonished, releasing a small laugh] Man alive. I'd have needed a minute after that."
+  },
+  "pass.aggressive": {
+   "file": "booth/pass.aggressive.mp3",
+   "hash": "2e64c93a767f",
+   "text": "[surprised, animated] Oh, he's going for it! Way down on the inside! | [explosive surprise, incredulous] Oh, BUDDY! He just threw that thing in there! | [excited, impressed] And somehow, he makes it stick! | [laughing briefly, admiring] I don't know how he did it... but I like it!"
+  },
+  "intro.standard": {
+   "file": "booth/intro.standard.mp3",
+   "hash": "b6bd03210ace",
+   "text": "[warm, professional, building anticipation] Well, we've got a packed grandstand, a full field, and every one of these drivers thinks they can win this thing! | [playful, natural Southern drawl, chuckling] Well, I'll tell ya what, buddy... they might all THINK they can win. Most of 'em are fixin' to find out otherwise. | [laughing warmly] Well, that's one way to look at it! | [suddenly animated, rising in pitch] Aw, come on now, you know I'm right! Let's go racin'!"
+  },
+  "finish.close": {
+   "file": "booth/finish.close.mp3",
+   "hash": "077d55ac67e9",
+   "text": "[intensely excited, rapidly building energy] Here they come! Side by side, heading for the checkered flag! | [jumping in, burst of exhilaration, rising in pitch] Come ON! Who's it gonna be?! | [explosive, triumphant, clear] At the line... he gets him! Unbelievable! | [astonished, laughing with excitement] Oh, man! That's racin' right there!"
+  },
+  "quiet.mirrors": {
+   "file": "booth/quiet.mirrors.mp3",
+   "hash": "f27b1e327096",
+   "text": "[curious, relaxed] How much do you think about the car behind when the gap gets that small? | [knowing, unhurried drawl] More than you ought to. I used to look in that mirror so much, I nearly forgot there was a corner in front of me. | [smiling, gently teasing] Nearly? | [brief laugh] We're gonna leave it at nearly."
+  },
+  "moment.wouldve": {
+   "file": "booth/moment.wouldve.mp3",
+   "hash": "170b9ae7a496",
+   "text": "[dry, observant] Bold move there. | [confident, amused] I would've tried that pass. | [dry, a small smile] Yes. That's what concerns me. | [surprised chuckle, affectionate] Aw, you're not gonna let me have that one, are ya?"
+  },
+  "intro.championship": {
+   "file": "booth/intro.championship.mp3",
+   "hash": "52744041bec9",
+   "text": "[authoritative, restrained, gradually building] It all comes down to this. A whole season of racing... and one afternoon left to settle it. | [sober, quietly experienced] I've sat in that car on a day like this. You tell yourself it's just another race. It ain't. Your hands know it ain't."
+  },
+  "start.approaching": {
+   "file": "booth/start.approaching.mp3",
+   "hash": "5571c2624cea",
+   "text": "[focused, gradually building anticipation] Here they come, lined up two by two... and we're just about ready. | [leaning in, quietly intense] Right now every one of 'em is staring at the car in front. Nobody's thinking about turn one yet. They will be in about five seconds."
+  },
+  "intro.standard.2": {
+   "file": "booth/intro.standard.2.mp3",
+   "hash": "69f37314a516",
+   "text": "[relaxed, warm, conversational] Good to be back with you. Plenty to talk about today, and plenty of drivers with something to prove. | [easy drawl, knowing] Something to prove is the most dangerous thing you can bring to a racetrack. Makes you brave... and it makes you dumb, about the same amount. | [dryly amused, a small smile] Spoken like a man who brought it a few times. | [brief laugh] Every single week."
+  },
+  "start.green": {
+   "file": "booth/start.green.mp3",
+   "hash": "e7270970e274",
+   "text": "[sudden burst of excitement, powerful but clear] And there's the green flag! We are underway! | [jumping in, delighted] Here we go!"
+  },
+  "start.green.2": {
+   "file": "booth/start.green.2.mp3",
+   "hash": "b01287cdc00c",
+   "text": "[excited, classic American broadcast rhythm] Green flag! Let's go racing! | [jumping in, laughing] Hang on, everybody!"
+  },
+  "start.chaos": {
+   "file": "booth/start.chaos.mp3",
+   "hash": "502e4c783e7b",
+   "text": "[surprised, animated, speaking quickly] And they're three wide already, heading into turn one! | [jumping in, rising in pitch] Ain't room for three in there! Somebody's gotta lift... and nobody wants to be first!"
+  },
+  "pass.clean": {
+   "file": "booth/pass.clean.mp3",
+   "hash": "a97dee5b1ba9",
+   "text": "[impressed, controlled] A beautiful run off the corner. And he's through. | [warm, appreciative] That's patience right there. He waited for a run he could actually do something with."
+  },
+  "pass.failed": {
+   "file": "booth/pass.failed.mp3",
+   "hash": "ddbc04118544",
+   "text": "[interested, then a little deflated] He had a look there... couldn't quite get alongside. | [knowing, conversational] He just didn't have the run. Wanted that opening a little more than the car did."
+  },
+  "battle.sidebyside": {
+   "file": "booth/battle.sidebyside.mp3",
+   "hash": "d7d98e5ca740",
+   "text": "[building excitement, rhythmic] Side by side down the straight... and neither one's giving an inch. | [delighted, quick] Oh, I love this. Door to door, and both of 'em know exactly where the other one is. That's trust, right there."
+  },
+  "battle.defense": {
+   "file": "booth/battle.defense.mp3",
+   "hash": "8f7506bed434",
+   "text": "[engaged, conversational] Covering the inside again. Making it awfully hard to find a way by. | [chuckling, experienced] Make 'em go the long way around. I used to do that... and make 'em mad doin' it. | [dry, small smile] I don't doubt that for a second."
+  },
+  "battle.closing": {
+   "file": "booth/battle.closing.mp3",
+   "hash": "2073f502ad29",
+   "text": "[observant, focused] He's closing that gap in a hurry... and the car ahead knows it. | [easy drawl, then sharpening] Oh, he knows it. You see a car get bigger in that mirror every lap, it starts to feel like it's sittin' in the passenger seat."
+  },
+  "battle.stuck": {
+   "file": "booth/battle.stuck.mp3",
+   "hash": "545c1f3b7b9d",
+   "text": "[observant, conversational] He's really having to work that car off the corners, trying to find a way by. | [thoughtful, experienced] Yeah, he's waiting on it to settle down. And every second you wait feels about ten seconds long when you're chasing somebody. | [engaged, warm] A tough place to be, when you can see the car you're trying to catch."
+  },
+  "incident.offtrack": {
+   "file": "booth/incident.offtrack.mp3",
+   "hash": "28197fb3180d",
+   "text": "[surprised, then composed] Oh, he's missed the corner completely. Back on track now. | [dryly amused, small chuckle] Well... that's one way to get a better look at the scenery. | [briefly amused, settling back] Unfortunately, it's cost him a couple of spots."
+  },
+  "incident.spin": {
+   "file": "booth/incident.spin.mp3",
+   "hash": "426f7d7e0454",
+   "text": "[sharply surprised, then composed] Oh, around he goes! Gets it pointed the right way again. | [calm, explaining from experience] Got in there a little hot, and the rear just let go. Once it steps out that far, you're a passenger. Good job keeping it off the wall."
+  },
+  "incident.crash.relief": {
+   "file": "booth/incident.crash.relief.mp3",
+   "hash": "5eff3f08dc20",
+   "text": "[relieved, warm] And the driver is out of the car. | [softened, sincere] Boy, that's good to see."
+  },
+  "incident.crash": {
+   "file": "booth/incident.crash.mp3",
+   "hash": "4ef4b46bc5ac",
+   "text": "[shocked, clear, genuinely concerned] Hard into the wall. That is a heavy impact. | [sober, direct] It certainly is. Let's hope we see him climb out."
+  },
+  "incident.multicar": {
+   "file": "booth/incident.multicar.mp3",
+   "hash": "58f1ac600f09",
+   "text": "[urgent, clear] Trouble in the corner! Several cars involved! | [jumping in, urgent] Nowhere to go! When it happens right in front of you, you just grab the wheel and hope."
+  },
+  "finish.finallap": {
+   "file": "booth/finish.finallap.mp3",
+   "hash": "ef10f25138e1",
+   "text": "[building anticipation, authoritative] One lap to go. | [quiet, intense] That mirror's getting an awful lot of his attention right now."
+  },
+  "finish.win": {
+   "file": "booth/finish.win.mp3",
+   "hash": "7f05332f75ce",
+   "text": "[triumphant, warm, clear] And there's the checkered flag! What a drive! | [delighted, warm drawl] Oh, that's a good one. That's gonna feel real good for a long time."
+  },
+  "finish.dominant": {
+   "file": "booth/finish.dominant.mp3",
+   "hash": "b1a5776bd827",
+   "text": "[warm, reflective, sincerely impressed] A commanding performance. Nobody had an answer today. | [matter-of-fact, admiring] He made that look easy. Keeping it that tidy all afternoon takes some doing."
+  },
+  "finish.upset": {
+   "file": "booth/finish.upset.mp3",
+   "hash": "7cc7ef9ddb7d",
+   "text": "[genuinely astonished, excited] Would you believe it?! Against all the odds... he's done it! | [laughing, incredulous] I did NOT have that one on my card this morning! | [dry, a small smile] Nobody did."
+  },
+  "finish.reflect": {
+   "file": "booth/finish.reflect.mp3",
+   "hash": "0382327f05e3",
+   "text": "[warm, reflective] There were plenty of times today when that win looked a long way off. | [sincere, quietly proud] He stayed with it. That's what I love about that drive. He just kept giving himself another chance."
+  },
+  "quiet.gap": {
+   "file": "booth/quiet.gap.mp3",
+   "hash": "d1d974e7f2b6",
+   "text": "[relaxed, conversational] A little breathing room for the leader now. | [easy drawl, knowing] Little bit. I never trusted breathing room till I could see the checkered flag. | [lightly amused] You weren't much for relaxing, were you? | [chuckling, matter-of-fact] Not while somebody behind me was havin' a better afternoon."
+  },
+  "quiet.tires": {
+   "file": "booth/quiet.tires.mp3",
+   "hash": "075dce14192c",
+   "text": "[observant, conversational] Tires starting to fall away now. You can see the cars moving around a little more. | [explaining like a driver] You feel it first on the way in. The front starts pushing... then the back wants to come around on you on the way out."
+  },
+  "quiet.pitwindow": {
+   "file": "booth/quiet.pitwindow.mp3",
+   "hash": "4e4dce080ff2",
+   "text": "[interested, a little quicker] Pit window's open. Now it gets interesting. | [thoughtful, matter-of-fact] In the car, you're just waitin' on that call. Every lap feels about a mile longer."
+  },
+  "quiet.rain": {
+   "file": "booth/quiet.rain.mp3",
+   "hash": "43e46f21fe9f",
+   "text": "[observant, slightly concerned] Clouds building out there. Rain's not far away. | [concerned, drawl] First few drops are the worst. Track gets greasy, and you can't trust a thing."
+  },
+  "quiet.early": {
+   "file": "booth/quiet.early.mp3",
+   "hash": "46032f1aa719",
+   "text": "[relaxed, warm] Long way to go yet. | [calm, a little folksy] My old crew chief used to say, you can't win it on the first lap. But you sure can lose it."
+  },
+  "moment.closecall": {
+   "file": "booth/moment.closecall.mp3",
+   "hash": "5d5b81f21435",
+   "text": "[sharply surprised] Oh, that was close! | [relieved, incredulous chuckle] Hoo, boy. I'd still be holding my breath."
+  },
+  "moment.ambitious": {
+   "file": "booth/moment.ambitious.mp3",
+   "hash": "399687b90be3",
+   "text": "[considering, mildly doubtful] I wonder if he might have been better off waiting another corner. | [friendly, animated] Maybe. But when you see a little daylight, it's awful hard to tell your right foot to be patient. | [dryly amused] That sounds like experience talking. | [chuckling, self-deprecating] Experience... and a couple of unhappy crew chiefs."
+  },
+  "moment.surprise": {
+   "file": "booth/moment.surprise.mp3",
+   "hash": "f3b65edcbf50",
+   "text": "[pleasantly surprised, genuinely impressed] Well, look who's joined the party! He's been quietly working his way forward. | [delighted, easy drawl] Nobody was watching him, and that's just how he likes it."
+  }
+ }
+}

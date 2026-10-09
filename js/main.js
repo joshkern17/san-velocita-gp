@@ -15,6 +15,7 @@ import { drawChart, drawMap, notesHtml, fmtGap, fmtSpeed, drawLineMap, lineMapHi
 import { garbleTree } from './garble.js';
 import { AIDS, AID_KEYS, PRESETS, PRESET_VALS, aidsOf, presetOf, applyPreset, aidBonus, AID_RULES, AID_RULE_DESC, limitAids } from './aids.js';
 import { initAudio, sfx, setVolume, setMusicVolume, setMusicScene, updateMusic } from './audio.js';
+import { engSay, preload as voPreload, voStopAll, setVoiceOn } from './vo.js';
 import { presetTracks, sampleTrack, trackStats, THEMES, cloneTrack } from './track.js';
 import { TEAMS } from './car.js';
 import { Garage } from './garage.js';
@@ -109,6 +110,7 @@ renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const post = new PS2Post(renderer);
 function applyVideo() {
+  setVoiceOn('eng', settings.engVoice !== 'off');
   post.configure({ crt: settings.crt, mode: settings.res, filter: settings.filter, scanlines: settings.scan, trails: settings.trails, retro: settings.retro, palette: settings.palette, grain: settings.grain, rays: settings.rays, fringe: settings.fringe, bypass: settings.look === 'off' });
   applyPsxMaterials(settings.psxMat);
   setWorldOptions({ shadows: settings.shadows });
@@ -339,7 +341,7 @@ function startAttract() {
     sim = new Race(t, { mode: 'attract', difficulty: 'hard', units: settings.units }, renderer);
   });
 }
-function disposeSim() { driftHud.hide(); if (sim) { sim.dispose(); sim = null; } }
+function disposeSim() { driftHud.hide(); voStopAll(); if (sim) { sim.dispose(); sim = null; } }
 
 // ---------------- boot ----------------
 let booted = false;
@@ -612,6 +614,7 @@ const OPTION_TABS = [
   ['Game', [
     { label: 'Volume', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'MUTE']), get: () => settings.volume, set: v => { settings.volume = v; applyVideo(); saveSettings(); }, desc: 'Master volume for engines, effects and menus.' },
     { label: 'Music', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'OFF']), get: () => settings.music, set: v => { settings.music = v; applyVideo(); saveSettings(); }, desc: 'Soundtrack volume. The eight tracks play in order and loop: fuller in the menus, quietly in the background on track.' },
+    { label: 'Engineer Voice', values: [['on', 'On'], ['off', 'Off']], get: () => settings.engVoice || 'on', set: v => { settings.engVoice = v; setVoiceOn('eng', v !== 'off'); saveSettings(); }, desc: 'Your race engineer reads his radio messages out loud, over the team radio. Off: the messages still show on screen.' },
     { label: 'Camera', values: [['chase', 'Chase'], ['far', 'Far Chase'], ['tcam', 'T-Cam'], ['bumper', 'Nose']], get: () => settings.camera, set: v => { settings.camera = v; saveSettings(); }, desc: 'The view you start races in. Press C (or Y) while driving to switch.' },
     { label: 'Rear-View Mirror', values: [['on', 'On'], ['off', 'Off']], get: () => settings.mirror, set: v => { settings.mirror = v; setMirror(v !== 'off'); saveSettings(); }, desc: 'A mirror at the top of the screen, with your lap time under it.' },
     { label: 'AI Cars', values: [['class', 'Same Class As You'], ['same', 'Same Car As You'], ['multi', 'All Classes Mixed'], ['custom', 'F1: Your Model'], ['mixed', 'F1: Mixed Models'], ['svgp', 'F1: SVGP Classic']], get: () => settings.aiChassis, set: v => { settings.aiChassis = v; saveSettings(); }, desc: 'Which cars your opponents drive. <b>Same Class As You</b>: a mix of your class, each one tuned so it races as hard at your level as your own car would. <b>Same Car As You</b>: everyone in your model, so it comes down to the drivers.' },
@@ -4428,6 +4431,7 @@ function startRace(track, cfg, ret, quick = false) {
       await r.prepare((f, label) => loadStep(0.08 + f * 0.82, label));
       if (screen !== 's-loading') { r.dispose?.(); return; } // (left while it was building)
       sim = r;
+      voPreload('eng'); // (the engineer's clips decoded now, so the first call isn't late)
       loadStep(0.92, 'Warming up');
       sim.aidBonus = bonusNow(); // (the lowest you race with counts: see noteAidBonus)
       // warm-up render so shaders compile behind the loading screen (all of them, not just what the start camera sees)
@@ -4563,6 +4567,7 @@ function handleRaceEvents() {
       const need = Math.max(0, Math.ceil(ev.n * MSEC_PASS) - ev.lit);
       hud.radio('eng', ev.done ? `That's the job done, ${ev.lit} of ${ev.n} lit. Your practice bests are on the board for qualifying.`
         : `${ev.beat} target${ev.beat === 1 ? '' : 's'} beaten that lap, ${ev.lit} of ${ev.n} lit.${need ? ` ${need} more for the job.` : ''}`, { big: ev.done });
+      if (ev.done || ev.beat) engSay(ev.done ? 'prac.minisec.done' : 'prac.minisec.lap');
       if (ev.done) sfx.best();
     }
     else if (ev.type === 'progLap') {
@@ -4570,15 +4575,16 @@ function handleRaceEvents() {
       hud.radio('eng', ev.done ? `That's the job done, ${pc}% on that lap. ${ev.marks ? `${ev.marks} brake point${ev.marks === 1 ? '' : 's'} marked for the weekend.` : 'Nail the red gates and we\'ll mark your brake points.'}`
         : ev.rating >= ev.best && ev.rating >= ACCLIM_PASS ? `${pc}%. Best one yet.`
         : ev.rating >= ACCLIM_PASS ? `${pc}% that time.` : `${pc}% on that lap. We need ${need}. Get the speed right in the red gates.`, { big: ev.done });
+      engSay(ev.done ? 'prac.acclim.done' : ev.rating >= ev.best && ev.rating >= ACCLIM_PASS ? 'prac.acclim.best' : ev.rating >= ACCLIM_PASS ? 'prac.acclim.ok' : 'prac.acclim.short');
       if (ev.done) sfx.best();
     }
     else if (ev.type === 'dsq') { hud.center('DISQUALIFIED<span class="sub">BLACK FLAG</span>', 'white', 4500); sfx.error(); }
     else if (ev.type === 'rc') { hud.rcMessage(ev.msg, ev.cls, ev.me); if (ev.me && (ev.cls === 'pen' || ev.cls === 'bw' || ev.cls === 'bk' || ev.cls === 'mo')) sfx.error(); else if (ev.me) sfx.select(); }
     else if (ev.type === 'failure') carFailure(ev);
     else if (ev.type === 'crashout') crashOut(ev);
-    else if (ev.type === 'radio') { hud.radio(ev.who || 'eng', ev.msg, { big: ev.big, name: ev.name, color: ev.color }); if (ev.big) sfx.lap(); }
+    else if (ev.type === 'radio') { hud.radio(ev.who || 'eng', ev.msg, { big: ev.big, name: ev.name, color: ev.color }); if (ev.big) sfx.lap(); if (ev.vo) engSay(ev.vo, { urgent: ev.big }); }
     // the pit wall's calls (race.js wallUpdate): the question, then what was chosen
-    else if (ev.type === 'call') { const c = ev.call; hud.radioCall(c.who, c.msg, c.a, c.b, c.rec); sfx.lap(); }
+    else if (ev.type === 'call') { const c = ev.call; hud.radioCall(c.who, c.msg, c.a, c.b, c.rec); sfx.lap(); if (c.vo) engSay(c.vo, { urgent: true }); }
     else if (ev.type === 'callDone') { hud.callDone(ev.which); if (!ev.late) sfx.select(); }
     else if (ev.type === 'pitIn') { pitSel = 0; sfx.select(); }
     else if (ev.type === 'pitOut') { hud.split(`<span class="t">PIT STOP</span><span class="faster">${ev.time.toFixed(1)}s</span>`, 2500); sfx.go(); }
@@ -5290,6 +5296,6 @@ if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) setInterval(() => fetc
 requestAnimationFrame(frame);
 
 // debug handle
-window.__svgp = { get world() { return world; }, get photo() { return photo; }, get hud() { return hud; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, openEditor, show, get screen() { return screen; },
+window.__svgp = { get world() { return world; }, get photo() { return photo; }, get hud() { return hud; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, handleRaceEvents, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
   dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); } } };

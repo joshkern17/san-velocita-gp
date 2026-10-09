@@ -306,7 +306,7 @@ export class RaceControl {
     car.dt = { lap: car.lap + DT_LAPS - 1, why }; // (this lap counts as the first)
     car.dtTotal = (car.dtTotal || 0) + 1;
     this.say(`Drive-through · ${car.isPlayer ? 'You' : car.name} · ${why}`, { me: car.isPlayer, cls: 'pen' });
-    if (car.isPlayer) this.race.events.push({ type: 'radio', msg: `Drive-through penalty. Come through the pits in the next <b>${DT_LAPS} laps</b>, no stop allowed.` });
+    if (car.isPlayer) this.race.events.push({ type: 'radio', vo: 'pen.drivethrough', msg: `Drive-through penalty. Come through the pits in the next <b>${DT_LAPS} laps</b>, no stop allowed.` });
   }
   driveThroughServed(car) {
     car.dt = null; car.dtServed = (car.dtServed || 0) + 1;
@@ -337,7 +337,7 @@ export class RaceControl {
     if (!car.mo) {
       car.mo = { lap: car.lap + 1 }; // (this lap and the next)
       this.say(`Black and orange flag · ${car.isPlayer ? 'You' : car.name} · box for repairs`, { me: car.isPlayer, cls: 'mo' });
-      if (car.isPlayer) this.race.events.push({ type: 'radio', msg: 'Black and orange flag! <b>Box, box</b> for a new wing within 2 laps.', big: true });
+      if (car.isPlayer) this.race.events.push({ type: 'radio', vo: 'flag.blackorange', msg: 'Black and orange flag! <b>Box, box</b> for a new wing within 2 laps.', big: true });
       return;
     }
     if (car.lap > car.mo.lap && !car.pitting) {
@@ -424,8 +424,8 @@ export class RaceControl {
       for (const c of race.cars) { c.vscDelta = 0; c.vscBad = 0; c.vscStrikes = 0; c.vscWarned = false; }
       this.say(`Virtual Safety Car${why ? ' · ' + why : ''}`, { cls: 'vsc', me: true });
       const pl = race.player, stop = pl && race.nextPlannedStop && race.nextPlannedStop(pl);
-      if (pl && !pl.finished && stop && stop.lap - pl.lap <= 4) race.events.push({ type: 'radio', msg: 'VSC! <b>Box this lap</b> for a cheap stop.', big: true });
-      else if (pl && !pl.finished) race.events.push({ type: 'radio', msg: 'Virtual Safety Car. Slow down and keep your delta positive.' });
+      if (pl && !pl.finished && stop && stop.lap - pl.lap <= 4) race.events.push({ type: 'radio', vo: 'vsc.box', msg: 'VSC! <b>Box this lap</b> for a cheap stop.', big: true });
+      else if (pl && !pl.finished) race.events.push({ type: 'radio', vo: 'vsc.out', msg: 'Virtual Safety Car. Slow down and keep your delta positive.' });
     } else if (phase === 'ending') {
       this.vsc = { ...(this.vsc || {}), phase: 'ending', endAt: now + 5 };
       this.say('VSC ending · get ready', { cls: 'vsc', me: true });
@@ -441,7 +441,7 @@ export class RaceControl {
     if (phase === 'out') {
       const wasVsc = !!this.vsc; this.vsc = null; this.sc = { phase: 'out', t0: now, why }; race.deploySC(); // (it takes over from a VSC)
       this.say(`${wasVsc ? 'VSC now a ' : ''}Safety Car${why ? ' · ' + why : ''}`, { cls: 'vsc', me: true });
-      race.events.push({ type: 'radio', msg: `${wasVsc ? 'The VSC\'s now a safety car.' : 'Safety car.'} It's coming out ahead of the leader: catch the queue, <b>no overtaking</b>. The pit lane's open.` });
+      race.events.push({ type: 'radio', vo: wasVsc ? 'sc.fromvsc' : 'sc.out', msg: `${wasVsc ? 'The VSC\'s now a safety car.' : 'Safety car.'} It's coming out ahead of the leader: catch the queue, <b>no overtaking</b>. The pit lane's open.` });
     } else if (phase === 'in') { this.sc.phase = 'in'; this.say('Safety car in this lap', { cls: 'vsc', me: true }); }
     else { this.sc = null; this.lastVsc = now; for (let k = 0; k < this.M; k++) if (!this.flag[k]) { this.flag[k] = 'g'; this.greenT[k] = 4; } this.say('Green flag · racing resumes', { cls: 'g', me: true }); }
   }

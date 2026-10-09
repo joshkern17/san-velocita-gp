@@ -67,9 +67,27 @@ if (fs.existsSync(path.join(realDir, 'index.json'))) {
 const texDir = path.join(root, 'assets/textures'), texPngs = {};
 if (fs.existsSync(texDir)) for (const f of fs.readdirSync(texDir)) if (f.endsWith('.png')) texPngs[f.slice(0, -4)] = 'data:image/png;base64,' + fs.readFileSync(path.join(texDir, f)).toString('base64');
 const texTag = inlineScript(`window.__SVGP_TEXTURES = ${JSON.stringify(texPngs)};`);
+// the recorded voices (assets/voice: the engineer and the booth, see tools/voice/gen.mjs), read from window.__SVGP_VOICE
+// (js/vo.js). Inline because a page opened from disk can't decode files beside it in Web Audio; squeezed to 64 kbps mono
+// on the way (ffmpeg; if it isn't installed, the clips go in as they are).
+const voiceDir = path.join(root, 'assets/voice');
+let voiceTag = '';
+if (fs.existsSync(path.join(voiceDir, 'manifest.json'))) {
+  const manifest = JSON.parse(fs.readFileSync(path.join(voiceDir, 'manifest.json'), 'utf8')), files = {};
+  for (const sec of Object.values(manifest)) for (const m of Object.values(sec)) {
+    const src = path.join(voiceDir, m.file);
+    if (!fs.existsSync(src)) continue;
+    let bytes;
+    try { bytes = execFileSync('ffmpeg', ['-loglevel', 'error', '-i', src, '-ac', '1', '-b:a', '64k', '-f', 'mp3', 'pipe:1'], { maxBuffer: 1 << 26 }); }
+    catch (e) { bytes = fs.readFileSync(src); }
+    files[m.file] = bytes.toString('base64');
+  }
+  for (const sec of Object.values(manifest)) for (const m of Object.values(sec)) delete m.text; // (the game only needs the files)
+  voiceTag = inlineScript(`window.__SVGP_VOICE = ${JSON.stringify({ manifest, files })};`);
+}
 // the soundtrack is too big to inline: it goes in a music/ folder beside the HTML (js/audio.js reads __SVGP_MUSIC_DIR)
 const musicTag = inlineScript(`window.__SVGP_MUSIC_DIR = 'music/';`);
-swap('<script type="module" src="js/main.js"></script>', glbTag + garageTag + phoneTag + charsTag + blTag + envTag + carsTag + realTag + texTag + musicTag + inlineScript(js, 'module'));
+swap('<script type="module" src="js/main.js"></script>', glbTag + garageTag + phoneTag + charsTag + blTag + envTag + carsTag + realTag + texTag + voiceTag + musicTag + inlineScript(js, 'module'));
 
 fs.mkdirSync(dist, { recursive: true });
 const name = 'San Velocita GP.html';

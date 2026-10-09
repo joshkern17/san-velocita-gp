@@ -1,0 +1,517 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  SAN VELOCITA — VOICE LINES
+# ─────────────────────────────────────────────────────────────────────────────
+#
+#  Each line is   id = what they say
+#
+#  • Edit the words after the "=" freely. Leave the id (left side) alone:
+#    the game uses it to find the clip.
+#  • The radio HUD keeps showing the full written message (with exact numbers),
+#    so a spoken line can be shorter or looser than the text.
+#  • Lines starting with # are notes: "HUD:" is what's on screen, "when:" is
+#    when it plays. They're never spoken.
+#  • To delete a line, put # in front of it. To add a take, copy a line and
+#    add .2 to the id (e.g. tires.gone.2): the game picks one at random.
+#
+#  Delivery tricks (the v4 model reads these):
+#    ...        a longer pause          Box, box... box this lap.
+#    —          a short beat            Copy — staying out.
+#    CAPS       emphasis (sparingly)    Do NOT touch the gearbox.
+#    [tag]      tone for what follows   [urgent] Box now.   [calm]  [firm]
+#
+#  Voices
+#    eng   = San Velocita Engineer (US C), already has a radio sound
+#    mate  = your teammate (voice not picked yet; Southern A is saved)
+#    announcer = modern American motorsports television commentator
+#
+#  No names or exact numbers yet: where the HUD has a driver name or a
+#  number, the spoken line goes around it ("the car ahead", "he's stopped").
+#  Names/numbers can be stitched in later.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+[eng]
+
+# ── ENGINE & COOLING ─────────────────────────────────────────────────────────
+# HUD: Radiator damage. Water temps will climb: lift early, short-shift, keep out of the tow.
+radiator.hit = [slightly concerned, calm and focused] We've hurt the radiator. Water temps are going to climb... lift early, short-shift, and stay out of the tow.
+# HUD: Radiator's badly damaged. Box now or the engine won't last.
+radiator.bad = [firm, composed, speaking with authority] Radiator's badly damaged. Box now. The engine won't last if we stay out.
+# HUD: Engine's running hot, 118°C. It's lost some power. Lift and coast where you can.
+engine.hot = [calm, conversational, taking the problem seriously] Engine's running hot, and we're down on power. Lift and coast where you can.
+# HUD: Water's at 129°C. It won't take much more. Box, or back right off.
+engine.critical = [firm, composed, speaking with authority] Water temp's critical. It won't take much more. Box, or back RIGHT off.
+
+# ── GEARBOX ──────────────────────────────────────────────────────────────────
+# HUD: Gearbox damage. Shifts are slow. Be gentle with it.
+gearbox.hit = We've hurt the gearbox. Shifts are slow now... be gentle with it.
+# HUD: The gearbox is missing shifts. Short-shift, no big downshifts.
+gearbox.bad = [calm, matter-of-fact, with a faintly wry edge] Gearbox isn't real happy. It's missing shifts. Short-shift it... no big downshifts.
+# HUD: Careful on the downshifts: you're over-revving it and the gearbox is taking it.
+gearbox.overrev = [firm, calm, correcting without scolding] Easy on those downshifts. You're over-revving it, and the gearbox is taking the damage.
+# HUD: We've lost 3rd gear. It'll skip it.   (one clip per gear)
+gearbox.lost.1 = [firm, composed, giving a clear update] First gear's gone. It'll skip that gear now.
+gearbox.lost.2 = [firm, composed, giving a clear update] Second gear's gone. It'll skip that gear now.
+gearbox.lost.3 = [firm, composed, giving a clear update] Third gear's gone. It'll skip that gear now.
+gearbox.lost.4 = [firm, composed, giving a clear update] Fourth gear's gone. It'll skip that gear now.
+gearbox.lost.5 = [firm, composed, giving a clear update] Fifth gear's gone. It'll skip that gear now.
+gearbox.lost.6 = [firm, composed, giving a clear update] Sixth gear's gone. It'll skip that gear now.
+gearbox.lost.7 = [firm, composed, giving a clear update] Seventh gear's gone. It'll skip that gear now.
+
+# ── BODY & SUSPENSION ────────────────────────────────────────────────────────
+# HUD: Floor damage. We've lost rear downforce: careful in the fast corners.
+floor.hit = We've damaged the floor and lost some rear downforce. Watch it in the fast corners.
+# HUD: Floor damage. We've lost rear downforce: it'll be loose in the fast stuff. Box when you can.
+floor.bad = [slightly concerned, calm and focused] Floor's damaged. We've lost rear downforce, so it'll be loose in the fast stuff. Box when you can.
+# HUD: Front wing damage, we've lost downforce.
+wing.front.hit = Front wing's damaged. That's cost us some downforce.
+# HUD: Rear wing damage, we've lost downforce.
+wing.rear.hit = Rear wing's damaged. That's cost us some downforce.
+# HUD: Front wing is gone! Box for a new one.
+wing.front.gone = [focused, controlled urgency, keeping the instruction clear] Front wing's gone. Box for a new one.
+# HUD: Rear wing is gone! Box for a new one.
+wing.rear.gone = [focused, controlled urgency, keeping the instruction clear] Rear wing's gone. Box for a new one.
+# HUD: Suspension damage — the car will pull and feel slower.
+suspension.hit = We've hurt the suspension. The car's going to pull, and it'll cost us some pace.
+# HUD: Front left suspension's bent. The car will pull and that tire will scrub. Box to fix it.
+suspension.bent.fl = [calm, focused, explaining the handling change] Front left suspension's bent. The car will pull, and that tire will scrub. Box to get it fixed.
+suspension.bent.fr = [calm, focused, explaining the handling change] Front right suspension's bent. The car will pull, and that tire will scrub. Box to get it fixed.
+suspension.bent.rl = [calm, focused, explaining the handling change] Rear left suspension's bent. The car will pull, and that tire will scrub. Box to get it fixed.
+suspension.bent.rr = [calm, focused, explaining the handling change] Rear right suspension's bent. The car will pull, and that tire will scrub. Box to get it fixed.
+
+# ── TIRES ────────────────────────────────────────────────────────────────────
+# HUD: Tyres are starting to go off. Box when you can.
+tires.fading = Tires are starting to give up some grip. Bring it in when you can.
+# HUD: Tyres are gone! Box, box!
+tires.gone = [firm, composed, with controlled urgency] We're out of tire. Box, box.
+
+# ── PIT CALLS ────────────────────────────────────────────────────────────────
+# HUD: Box, box! Box this lap for SOFTS.   (the strategy's planned stop)
+box.plan.soft = [firm, composed, clear and decisive] Box, box. Softs this lap.
+box.plan.medium = [firm, composed, clear and decisive] Box, box. Mediums this lap.
+box.plan.hard = [firm, composed, clear and decisive] Box, box. Hards this lap.
+box.plan.wet = [firm, composed, clear and decisive] Box, box. Wets this lap.
+# HUD: Box, box. SOFTS.   (after you answer "Box" to a call)
+box.confirm.soft = Copy that. Box, box. Softs.
+box.confirm.medium = Copy that. Box, box. Mediums.
+box.confirm.hard = Copy that. Box, box. Hards.
+box.confirm.wet = Copy that. Box, box. Wets.
+# HUD: Copy. Staying out.
+box.stayout = Copy that. Staying out.
+# HUD: We missed the pit entry. Box next lap.
+box.missed.entry = [quietly amused, trying to remain professional] ...Alright. Missed pit entry... box next lap.
+box.missed.entry.2 = [quietly amused, holding back a smile] Yeah... pit road was back there. Box next lap.
+# HUD: You overshot the box. No stop: come in again next lap.
+box.overshot = [dry, understated sarcasm] Little past where the crew can reach you. [back to business, matter-of-fact] You overshot the box, so no stop. Come in again next lap.
+# HUD: You went past the garage. Come in next lap.
+box.pastgarage = [calm, conversational, a little bemused] You've gone past the garage. Bring it in next lap.
+# HUD: Double stack: you're in behind (teammate). Expect a wait at the box.
+box.doublestack = We're double stacking. You'll be in behind your teammate... expect a wait at the box.
+# HUD: Serving your 5 second penalty, then the crew goes to work.
+box.penalty = [patient, matter-of-fact] Penalty first. Once that's served, the crew goes to work.
+
+# ── CALLS YOU ANSWER (X / B) ─────────────────────────────────────────────────
+# HUD: It's raining. Wets now?
+call.rain = Rain's starting. Want to go to wets now?
+# HUD: It's raining hard. Wets now?
+call.rain.hard = [slightly concerned, calm and focused] Rain's coming down hard. Want wets now?
+# HUD: The track's drying. Slicks now?
+call.drying = Track's drying out. Want slicks now?
+# HUD: The track's drying fast. Slicks now?
+call.drying.fast = [focused, conversational, weighing the opportunity] Track's drying fast. Want to go to slicks now?
+# HUD: You and (teammate) are both due. Who stops first?
+call.whofirst = You're both due a stop. Who are we bringing in first, you or your teammate?
+# HUD: (teammate) first. You box next lap.
+call.whofirst.mate = Copy. Teammate first, then you box next lap.
+# HUD: The VSC is out: a stop is half price.
+call.vsc = [thoughtful, calm, quietly confident] VSC's out. A stop costs half right now.
+# HUD: Safety car: a stop costs a lot less now.
+call.sc = [thoughtful, calm, quietly confident] Safety car's out. A stop costs us a lot less now.
+# HUD: (rival) has stopped. Box now to stay ahead?
+call.cover = Car behind has stopped. Want to box now and stay ahead?
+# HUD: (rival) is close and due too. Box now for the undercut?
+call.undercut = [focused, conversational, weighing the opportunity] Car ahead's close, and they're due a stop too. Want to box now for the undercut?
+# HUD: You're quicker than (teammate). Ask them to let you by?
+call.swap = You've got more pace than your teammate. Want me to ask them to let you by?
+# HUD: (teammate) is quicker and right behind you. Let them by?
+call.letby = Your teammate's quicker and right on you. Want to let them by?
+# HUD: Copy. Keep it clean.   (you chose to race them)
+call.raceit = [relaxed, confident, with a gentle reminder] Copy, we'll race them. Keep it clean.
+# HUD: Let (teammate) through.
+call.letthrough = [firm, composed, speaking with authority] Copy. Let your teammate through.
+
+# ── WEATHER ──────────────────────────────────────────────────────────────────
+# HUD: Rain on the radar. About a lap out.
+rain.radar.1 = We've got rain on the radar. About a lap away.
+# HUD: Rain on the radar. About two laps out.
+rain.radar.2 = We've got rain on the radar. About two laps away.
+# HUD: The rain's stopped. It'll dry from here.
+rain.stopped = Rain's stopped now. Track should start drying from here.
+
+# ── RACE CONTROL ─────────────────────────────────────────────────────────────
+# HUD: Virtual Safety Car. Slow down and keep your delta positive.
+vsc.out = [firm, composed, speaking with authority] Virtual Safety Car. Bring the speed down and keep your delta positive.
+# HUD: VSC! Box this lap for a cheap stop.
+vsc.box = [focused, controlled urgency, clear and decisive] VSC's out. Box this lap... good chance for a cheap stop.
+# HUD: Safety car. It's coming out ahead of the leader: catch the queue, no overtaking. The pit lane's open.
+sc.out = [firm, composed, speaking with authority] Safety car, safety car. Catch the queue. NO overtaking. Pit lane's open.
+# HUD: The VSC's now a safety car. ...
+sc.fromvsc = [firm, composed, clear and steady] VSC's become a full safety car. Catch the queue, no overtaking. Pit lane's open.
+# HUD: You've passed the safety car! Lift and let it back past.
+sc.passed = [focused, controlled urgency, speaking with authority] You've passed the safety car. Lift now and let it back past.
+# HUD: Drive-through penalty. Come through the pits in the next 3 laps, no stop allowed.
+pen.drivethrough = [firm, composed, giving precise instructions] We've got a drive-through penalty. Through the pits in the next three laps... no stop allowed.
+# HUD: Black and orange flag! Box, box for a new wing within 2 laps.
+flag.blackorange = [focused, controlled urgency, giving precise instructions] Black and orange flag. Box, box. We need a new wing within two laps.
+
+# ── OTHER CARS ───────────────────────────────────────────────────────────────
+# HUD: (teammate) is out. The engine's gone.
+mate.out.engine = [low-key, matter-of-fact, delivering unwelcome news] Teammate's out of the race. Engine's gone.
+# HUD: (teammate) is out. Gearbox.
+mate.out.gearbox = [low-key, matter-of-fact, delivering unwelcome news] Teammate's out of the race. Gearbox failure.
+# HUD: (teammate) is out. Crashed at Turn 4.
+mate.out.crash = [subdued, calm and professional] Teammate's out of the race. They've crashed.
+
+# ── WORLD CAREER: PART FAILURE WARNINGS ──────────────────────────────────────
+# (these play a little before a part fails)
+fail.oil = [slightly concerned, calm and focused] We're losing oil pressure. Need you to nurse it.
+fail.engine.temps = [slightly concerned, calm and focused] Engine temps are starting to climb.
+fail.gearbox.noise = [attentive, calm, with restrained concern] Gearbox is starting to sound rough.
+fail.gearbox.slow = Shifts are starting to get slow on us.
+fail.brakes = [slightly concerned, calm and focused] Brake temps are very high now.
+fail.rear.loose = [attentive, calm, with restrained concern] We've got something loose at the rear.
+
+# ── PRACTICE PROGRAMMES ──────────────────────────────────────────────────────
+# HUD: That's the job done, 12 of 14 lit. Your practice bests are on the board for qualifying.
+prac.minisec.done = [pleased, understated, quietly confident] That's the job done. Your practice bests are on the board for qualifying.
+# HUD: 3 targets beaten that lap, 9 of 14 lit. 3 more for the job.
+prac.minisec.lap = Nice, more targets beaten on that lap. Keep at it.
+# HUD: That's the job done, 92% on that lap. 6 brake points marked for the weekend.
+prac.acclim.done = [pleased, relaxed, getting back to business] That takes care of it. Brake points are marked for the weekend.
+# HUD: 94%. Best one yet.
+prac.acclim.best = [pleased, understated, with a small smile] There we go. Best one yet.
+# HUD: 88% that time.
+prac.acclim.ok = Good lap. That'll do the job.
+# HUD: 71% on that lap. We need 85. Get the speed right in the red gates.
+prac.acclim.short = [encouraging, calm, giving a practical correction] Not quite there yet. Get the speed right in the red gates.
+
+
+[mate]
+# Your teammate on the radio. Voice not picked yet.
+# Several takes per moment: the game already picks one at random.
+
+# You chose to stop first while they were ahead
+mate.first.annoyed = Of course you are.
+mate.first.annoyed.2 = ...Copy. Next lap.
+# You chose to stop first, they were behind anyway
+mate.first.ok = Copy. I'll go next lap.
+# You let them stop first
+mate.first.thanks = Copy. Thanks.
+# You asked them to let you by: they agree
+mate.yield.yes = Copy.
+mate.yield.yes.2 = Copy. Go on then.
+mate.yield.grudging = ...Copy.
+# ...they refuse
+mate.yield.no = Negative. Race me.
+mate.yield.no.2 = Not happening.
+# You told them to hold: they refuse
+mate.hold.no = Not happening. I'm quicker.
+mate.hold.no.2 = Negative.
+mate.hold.yes = Copy. Holding.
+# You let them through
+mate.passed.thanks = Thanks. Owe you one.
+mate.passed.thanks.2 = Cheers.
+# You were told to let them through and didn't
+mate.passed.ignored = So that's a no, then.
+mate.passed.ignored.2 = Guess not.
+# Start of the race, after you hit them last week
+mate.owe.hit = You owe me one after last week. Remember that.
+mate.owe.hit.2 = Last week? Still got the dent.
+# Start of the race, after you used team orders last week
+mate.owe.orders = Don't ask me to move over today.
+mate.owe.orders.2 = No team orders today, yeah?
+# Stuck behind you for a while
+mate.stuck.angry = Are we racing or holding hands?
+mate.stuck.angry.2 = Move. Over.
+mate.stuck.polite = I'm quicker. Just saying.
+mate.stuck.polite.2 = Any chance of a run?
+# They passed you (low trust)
+mate.pass.cocky = See you.
+mate.pass.cocky.2 = Bye.
+mate.pass.cocky.3 = That's how it's done.
+# You passed them
+mate.passedby.good = Go get 'em.
+mate.passedby.good.2 = Fair. Go.
+mate.passedby.bitter = Enjoy it while it lasts.
+mate.passedby.bitter.2 = Sure. Whatever.
+
+
+# ── NOT VOICED (yet) ─────────────────────────────────────────────────────────
+# Rival storylines ("That's Moreno. Finished just ahead of you 3 of the last 4.")
+#   are built from names and race history, so they stay text-only for now.
+# Announcer track intros get their own file, one per track.
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  THE BOOTH — RACE MOMENTS
+# ─────────────────────────────────────────────────────────────────────────────
+# Written to assets/voice/STYLE_GUIDE.md: two longtime colleagues watching the
+# same race. Authenticity first, personality second, humor third.
+#   M = Announcer (SV announcer 002): clear, warm, dry understatement
+#   C = Color Commentator (SV announcer 004): a race car driver who happens to
+#       have a microphone; NC drawl, driver's insight, bursts of delight
+#
+# Each exchange (an M line + the lines right under it) is ONE dialogue take.
+# The reply picks up what the other man just said. Many are only two lines.
+# Several takes of a moment: add .2, .3 to the id; the game picks one.
+# "when:" notes are what the game has to detect (new triggers: see the end).
+# (he) marks exchanges that say "he": a "she" take may be wanted later.
+
+[booth]
+
+# ── RACE OPENINGS (before the track intro; never mention weather) ────────────
+# when: pre-race, a normal round
+M intro.standard = [warm, professional, building anticipation] Well, we've got a packed grandstand, a full field, and every one of these drivers thinks they can win this thing!
+C intro.standard.color = [playful, natural Southern drawl, chuckling] Well, I'll tell ya what, buddy... they might all THINK they can win. Most of 'em are fixin' to find out otherwise.
+M = [laughing warmly] Well, that's one way to look at it!
+C = [suddenly animated, rising in pitch] Aw, come on now, you know I'm right! Let's go racin'!
+
+# when: pre-race, a normal round (another take)
+M intro.standard.2 = [relaxed, warm, conversational] Good to be back with you. Plenty to talk about today, and plenty of drivers with something to prove.
+C intro.standard.2.color = [easy drawl, knowing] Something to prove is the most dangerous thing you can bring to a racetrack. Makes you brave... and it makes you dumb, about the same amount.
+M = [dryly amused, a small smile] Spoken like a man who brought it a few times.
+C = [brief laugh] Every single week.
+
+# when: pre-race, the season finale with the title still open
+M intro.championship = [authoritative, restrained, gradually building] It all comes down to this. A whole season of racing... and one afternoon left to settle it.
+C intro.championship.color = [sober, quietly experienced] I've sat in that car on a day like this. You tell yourself it's just another race. It ain't. Your hands know it ain't.
+
+# ── THE START ────────────────────────────────────────────────────────────────
+# when: the field is coming to the green (rolling start)
+M start.approaching = [focused, gradually building anticipation] Here they come, lined up two by two... and we're just about ready.
+C start.approaching.color = [leaning in, quietly intense] Right now every one of 'em is staring at the car in front. Nobody's thinking about turn one yet. They will be in about five seconds.
+
+# when: the race goes green
+M start.green = [sudden burst of excitement, powerful but clear] And there's the green flag! We are underway!
+C start.green.color = [jumping in, delighted] Here we go!
+
+# when: the race goes green (another take)
+M start.green.2 = [excited, classic American broadcast rhythm] Green flag! Let's go racing!
+C start.green.2.color = [jumping in, laughing] Hang on, everybody!
+
+# when: three or more cars side by side into the first corner
+M start.chaos = [surprised, animated, speaking quickly] And they're three wide already, heading into turn one!
+C start.chaos.color = [jumping in, rising in pitch] Ain't room for three in there! Somebody's gotta lift... and nobody wants to be first!
+
+# ── PASSES AND BATTLES ───────────────────────────────────────────────────────
+# when: a clean pass after a good corner exit (he)
+M pass.clean = [impressed, controlled] A beautiful run off the corner. And he's through.
+C pass.clean.color = [warm, appreciative] That's patience right there. He waited for a run he could actually do something with.
+
+# when: a late, bold pass that sticks (he)
+M pass.aggressive = [surprised, animated] Oh, he's going for it! Way down on the inside!
+C pass.aggressive.color = [explosive surprise, incredulous] Oh, BUDDY! He just threw that thing in there!
+M = [excited, impressed] And somehow, he makes it stick!
+C = [laughing briefly, admiring] I don't know how he did it... but I like it!
+
+# when: an attempted pass doesn't come off (he)
+M pass.failed = [interested, then a little deflated] He had a look there... couldn't quite get alongside.
+C pass.failed.color = [knowing, conversational] He just didn't have the run. Wanted that opening a little more than the car did.
+
+# when: two cars side by side for a while
+M battle.sidebyside = [building excitement, rhythmic] Side by side down the straight... and neither one's giving an inch.
+C battle.sidebyside.color = [delighted, quick] Oh, I love this. Door to door, and both of 'em know exactly where the other one is. That's trust, right there.
+
+# when: the car ahead defends the inside and holds on
+M battle.defense = [engaged, conversational] Covering the inside again. Making it awfully hard to find a way by.
+C battle.defense.color = [chuckling, experienced] Make 'em go the long way around. I used to do that... and make 'em mad doin' it.
+M = [dry, small smile] I don't doubt that for a second.
+
+# when: a car closes in quickly on the one ahead (he)
+M battle.closing = [observant, focused] He's closing that gap in a hurry... and the car ahead knows it.
+C battle.closing.color = [easy drawl, then sharpening] Oh, he knows it. You see a car get bigger in that mirror every lap, it starts to feel like it's sittin' in the passenger seat.
+
+# when: one car stuck behind another for several laps (he)
+M battle.stuck = [observant, conversational] He's really having to work that car off the corners, trying to find a way by.
+C battle.stuck.color = [thoughtful, experienced] Yeah, he's waiting on it to settle down. And every second you wait feels about ten seconds long when you're chasing somebody.
+M = [engaged, warm] A tough place to be, when you can see the car you're trying to catch.
+
+# ── INCIDENTS ────────────────────────────────────────────────────────────────
+# when: a car spins and carries on (he)
+M incident.spin = [sharply surprised, then composed] Oh, around he goes! Gets it pointed the right way again.
+C incident.spin.color = [calm, explaining from experience] Got in there a little hot, and the rear just let go. Once it steps out that far, you're a passenger. Good job keeping it off the wall.
+
+# when: a car runs wide through the grass or runoff and continues (he)
+M incident.offtrack = [surprised, then composed] Oh, he's missed the corner completely. Back on track now.
+C incident.offtrack.color = [dryly amused, small chuckle] Well... that's one way to get a better look at the scenery.
+M = [briefly amused, settling back] Unfortunately, it's cost him a couple of spots.
+
+# when: a big slide that's caught without hitting anything (he)
+M incident.save = [sharply surprised, urgent] Oh, the rear steps out! He's sideways!
+C incident.save.color = [tense, quick bursts] Hang on... hang on...
+M = [relieved, impressed] And he gathers it up. What a save!
+C = [astonished, releasing a small laugh] Man alive. I'd have needed a minute after that.
+
+# when: a heavy impact with the wall (only for a genuinely big hit) (he)
+M incident.crash = [shocked, clear, genuinely concerned] Hard into the wall. That is a heavy impact.
+C incident.crash.color = [sober, direct] It certainly is. Let's hope we see him climb out.
+
+# when: after a big crash, the driver is out of the car
+M incident.crash.relief = [relieved, warm] And the driver is out of the car.
+C incident.crash.relief.color = [softened, sincere] Boy, that's good to see.
+
+# when: several cars caught up in one incident
+M incident.multicar = [urgent, clear] Trouble in the corner! Several cars involved!
+C incident.multicar.color = [jumping in, urgent] Nowhere to go! When it happens right in front of you, you just grab the wheel and hope.
+
+# ── THE FINISH ───────────────────────────────────────────────────────────────
+# when: the leader starts the final lap (he)
+M finish.finallap = [building anticipation, authoritative] One lap to go.
+C finish.finallap.color = [quiet, intense] That mirror's getting an awful lot of his attention right now.
+
+# when: two cars side by side approaching the line (he)
+M finish.close = [intensely excited, rapidly building energy] Here they come! Side by side, heading for the checkered flag!
+C finish.close.color = [jumping in, burst of exhilaration, rising in pitch] Come ON! Who's it gonna be?!
+M = [explosive, triumphant, clear] At the line... he gets him! Unbelievable!
+C = [astonished, laughing with excitement] Oh, man! That's racin' right there!
+
+# when: the winner crosses the line (a normal finish)
+M finish.win = [triumphant, warm, clear] And there's the checkered flag! What a drive!
+C finish.win.color = [delighted, warm drawl] Oh, that's a good one. That's gonna feel real good for a long time.
+
+# when: the winner led most of the race (he)
+M finish.dominant = [warm, reflective, sincerely impressed] A commanding performance. Nobody had an answer today.
+C finish.dominant.color = [matter-of-fact, admiring] He made that look easy. Keeping it that tidy all afternoon takes some doing.
+
+# when: an underdog wins (he)
+M finish.upset = [genuinely astonished, excited] Would you believe it?! Against all the odds... he's done it!
+C finish.upset.color = [laughing, incredulous] I did NOT have that one on my card this morning!
+M = [dry, a small smile] Nobody did.
+
+# when: after a win that was hard work (a comeback, a long fight) (he)
+M finish.reflect = [warm, reflective] There were plenty of times today when that win looked a long way off.
+C finish.reflect.color = [sincere, quietly proud] He stayed with it. That's what I love about that drive. He just kept giving himself another chance.
+
+# ── QUIET STRETCHES (during the race, nothing else happening) ────────────────
+# when: the leader has pulled out a gap
+M quiet.gap = [relaxed, conversational] A little breathing room for the leader now.
+C quiet.gap.color = [easy drawl, knowing] Little bit. I never trusted breathing room till I could see the checkered flag.
+M = [lightly amused] You weren't much for relaxing, were you?
+C = [chuckling, matter-of-fact] Not while somebody behind me was havin' a better afternoon.
+
+# when: a car is pulling closer to the one ahead, mid-race
+M quiet.mirrors = [curious, relaxed] How much do you think about the car behind when the gap gets that small?
+C quiet.mirrors.color = [knowing, unhurried drawl] More than you ought to. I used to look in that mirror so much, I nearly forgot there was a corner in front of me.
+M = [smiling, gently teasing] Nearly?
+C = [brief laugh] We're gonna leave it at nearly.
+
+# when: tires are past halfway
+M quiet.tires = [observant, conversational] Tires starting to fall away now. You can see the cars moving around a little more.
+C quiet.tires.color = [explaining like a driver] You feel it first on the way in. The front starts pushing... then the back wants to come around on you on the way out.
+
+# when: the pit window opens
+M quiet.pitwindow = [interested, a little quicker] Pit window's open. Now it gets interesting.
+C quiet.pitwindow.color = [thoughtful, matter-of-fact] In the car, you're just waitin' on that call. Every lap feels about a mile longer.
+
+# when: rain is on the way (the radar has it)
+M quiet.rain = [observant, slightly concerned] Clouds building out there. Rain's not far away.
+C quiet.rain.color = [concerned, drawl] First few drops are the worst. Track gets greasy, and you can't trust a thing.
+
+# when: early in a long race
+M quiet.early = [relaxed, warm] Long way to go yet.
+C quiet.early.color = [calm, a little folksy] My old crew chief used to say, you can't win it on the first lap. But you sure can lose it.
+
+# ── PERSONALITY MOMENTS ──────────────────────────────────────────────────────
+# when: a driver tries something very ambitious that doesn't work (he)
+M moment.ambitious = [considering, mildly doubtful] I wonder if he might have been better off waiting another corner.
+C moment.ambitious.color = [friendly, animated] Maybe. But when you see a little daylight, it's awful hard to tell your right foot to be patient.
+M = [dryly amused] That sounds like experience talking.
+C = [chuckling, self-deprecating] Experience... and a couple of unhappy crew chiefs.
+
+# when: a close call, two cars nearly touch
+M moment.closecall = [sharply surprised] Oh, that was close!
+C moment.closecall.color = [relieved, incredulous chuckle] Hoo, boy. I'd still be holding my breath.
+
+# when: after an aggressive pass, the color guy says he'd have done it
+M moment.wouldve = [dry, observant] Bold move there.
+C moment.wouldve.color = [confident, amused] I would've tried that pass.
+M = [dry, a small smile] Yes. That's what concerns me.
+C = [surprised chuckle, affectionate] Aw, you're not gonna let me have that one, are ya?
+
+# when: a car comes from well back to fight near the front (he)
+M moment.surprise = [pleasantly surprised, genuinely impressed] Well, look who's joined the party! He's been quietly working his way forward.
+C moment.surprise.color = [delighted, easy drawl] Nobody was watching him, and that's just how he likes it.
+
+# ── NEW TRIGGERS THE GAME NEEDS ──────────────────────────────────────────────
+# These moments don't exist in the race code yet, so they need detecting:
+#   passes (clean / late / failed), side by side, defending, closing, stuck
+#   behind, spins, off-tracks, saves, big impacts, multi-car incidents,
+#   three wide at the start, close finishes, underdog / dominant / comeback
+#   wins, close calls, coming from the back.
+# Already in the game: green flag, final lap, checkered flag, pit window,
+#   rain on the radar, race start / finale.
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  THE BOOTH — TRACK INTRO CONVERSATIONS
+# ─────────────────────────────────────────────────────────────────────────────
+# Plays over the track flyover before a race: two exchanges, back to back.
+#   1  the TRACK exchange        track.<track>.welcome   (which track you're at)
+#   2  the CONDITIONS exchange   cond.<conditions>       (weather and time of day)
+# Track lines never mention the weather and condition lines never mention the
+# track, so any track works with any conditions.
+#
+#   M = main commentator (SV announcer 002)   C = color commentator (SV announcer 004)
+#
+# Each exchange is recorded as ONE take of both of them (ElevenLabs dialogue),
+# so they play off each other naturally. An exchange is an M line plus the
+# lines right under it: keep them together, with no blank line between.
+# It can be longer than two lines (M, C, M, C...) if you want.
+#
+# Steer the timing with tags at the start of a C line:
+#   [jumping in]  [cutting in]  [talking over him]  [after a beat]  [laughing]
+# Always write complete sentences. The main commentator finishes his words;
+# the tag does the interrupting.
+
+[booth]
+
+# ── SPA-FRANCORCHAMPS ────────────────────────────────────────────────────────
+M track.spa.welcome = [warm, confident, building a sense of occasion] Welcome to Spa-Francorchamps! Over four miles through the Ardennes forest... and one of the great racetracks on the planet.
+C track.spa.welcome.color = [warm, appreciative, natural Southern drawl] And that climb through Eau Rouge... you feel that one in your stomach. Quite a sight from up here, too.
+
+# ── SUZUKA ───────────────────────────────────────────────────────────────────
+M track.suzuka.welcome = [warm, admiring, conversational broadcast rhythm] Welcome to Suzuka! A figure-eight circuit with a wonderful rhythm... and very little room to get that rhythm wrong.
+C track.suzuka.welcome.color = [engaged, knowing, easy drawl] Those Esses will keep you busy. Get a little out of shape through the first one, and you're still sorting it out two corners later.
+
+# ── MONACO ───────────────────────────────────────────────────────────────────
+M track.monaco.welcome = [polished, measured, warm] Welcome to Monaco. Tight city streets, barriers close by... and very little room for a mistake.
+C track.monaco.welcome.color = [after a beat, thoughtful, natural drawl] You spend the whole lap wishing you had another inch. And when you're stuck behind somebody, it feels even narrower.
+
+# ── LAGUNA SECA ──────────────────────────────────────────────────────────────
+M track.laguna.welcome = [relaxed, professional, with a hint of a smile] Welcome to Laguna Seca, up in the hills of Monterey, California. Eleven turns... and one very famous corner.
+C track.laguna.welcome.color = [conversational, knowing, a small smile] The Corkscrew. You turn in before you can see much of what's below you... takes a little getting used to.
+
+# ── MT. HARUNA DOWNHILL ──────────────────────────────────────────────────────
+M track.haruna.welcome = [intrigued, a little hushed, atmospheric] Mount Haruna. No grandstands, no pit lane... just a mountain road, and a whole lot of hairpins on the way down.
+C track.haruna.welcome.color = [thoughtful, quietly experienced] And on the way down, it's awful easy to ask too much of the brakes. You want a little patience here... even when that road's tempting you.
+
+# ── CONDITIONS ───────────────────────────────────────────────────────────────
+# when: daytime, clear skies
+M cond.day.clear = [bright, upbeat, easy broadcast rhythm] Sunshine and blue skies today, and the track temperature is climbing.
+C cond.day.clear.color = [conversational, explaining like a driver] Hot track eats tires. Look after 'em early... or you'll be sliding all over the place at the end.
+
+# when: dusk
+M cond.dusk = [calm, a little atmospheric] The sun's getting low as we get set to go, and the shadows are stretching across the track.
+C cond.dusk.color = [knowing, a bit wry] That low sun is tricky. You come over a rise, and it's right in your eyes. Can't see a thing for a second.
+
+# when: night
+M cond.night = [anticipatory, atmospheric, a little hushed] Under the lights tonight, and it's a beautiful sight from up here.
+C cond.night.color = [after a beat, warm and nostalgic, then lively] I always loved racing at night. Track cools off, the car's got more grip... and everything feels about twice as fast!
+
+# when: overcast
+M cond.overcast = [steady, matter-of-fact] Gray skies overhead and cool temperatures this afternoon.
+C cond.overcast.color = [explaining, folksy] Cool track, you gotta work to get heat in the tires. First couple laps, it's like driving on ice skates.
+
+# when: raining
+M cond.rain = [serious, building concern] And it is WET out there. Rain coming down, and spray everywhere.
+C cond.rain.color = [jumping in, half laughing, half dreading it] Oh, I hated this! You can't see the car in front of you. You're aiming at a red light in the spray and hoping!

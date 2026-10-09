@@ -1,0 +1,891 @@
+{
+ "eng/radiator.bad": {
+  "hash": "3b80635b262d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Radiator's badly damaged. Box now. The engine won't last if we stay out"
+ },
+ "eng/box.missed.entry": {
+  "hash": "0ed1edc37273",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "All right. Mist pit entry, box next lap"
+ },
+ "eng/tires.gone": {
+  "hash": "996f24ab396c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "We're out of tire. Box, box"
+ },
+ "eng/engine.critical": {
+  "hash": "cb8c4324d68b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Water temp's critical. It won't take much more. Box or back right off"
+ },
+ "eng/box.overshot": {
+  "hash": "b5e183437197",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Little past where the crew can reach you. You overshot the box, so no stop. Come in again next lap"
+ },
+ "eng/engine.hot": {
+  "hash": "7e3ca522703d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Engine's running hot, and we're down on power. Lift and coast where you can"
+ },
+ "eng/radiator.hit": {
+  "hash": "5958e6e2565f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "We've hurt the radiator. Water temps are going to climb. Lift early, short shift, and stay out of the tow"
+ },
+ "eng/gearbox.hit": {
+  "hash": "9567423cb788",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "We've hurt the gearbox. Shifts are slow now. Be gentle with it"
+ },
+ "eng/gearbox.bad": {
+  "hash": "b65f65091f1b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Gearbox isn't real happy. It's missing shifts. Short shift it. No big downshifts"
+ },
+ "eng/gearbox.lost.1": {
+  "hash": "343017b256d1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "First gear's gone. It'll skip that gear now"
+ },
+ "eng/gearbox.lost.2": {
+  "hash": "de596721f378",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Second gear's gone. It'll skip that gear now"
+ },
+ "eng/gearbox.overrev": {
+  "hash": "d1419eaee54b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Easy on those downshifts. You're over-revving it, and the gearbox is taking the damage"
+ },
+ "eng/gearbox.lost.3": {
+  "hash": "14bc70f57f72",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Third gear's gone. It'll skip that gear now"
+ },
+ "eng/gearbox.lost.5": {
+  "hash": "8e3866aa08f5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Fifth gear's gone. It'll skip that gear now"
+ },
+ "eng/gearbox.lost.4": {
+  "hash": "aaea7f854564",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Fourth gear's gone. It'll skip that gear now"
+ },
+ "eng/gearbox.lost.7": {
+  "hash": "dc7ccf4cde35",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Seventh gear's gone. It'll skip that gear now"
+ },
+ "eng/gearbox.lost.6": {
+  "hash": "f0aa1e35d5e1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Sixth gear's gone. It'll skip that gear now"
+ },
+ "eng/floor.bad": {
+  "hash": "0ec60fc91544",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Floor's damaged. We've lost rear downforce, so it'll be loose in the fast stuff. Box when you can"
+ },
+ "eng/floor.hit": {
+  "hash": "fe94e1b35393",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "We've damaged the floor and lost some rear downforce. Watch it in the fast corners"
+ },
+ "eng/wing.front.hit": {
+  "hash": "df76a91f5bef",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Front wings damaged. That's cost us some downforce"
+ },
+ "eng/wing.rear.gone": {
+  "hash": "50caeefed469",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rear wing's gone. Box for a new one"
+ },
+ "eng/wing.front.gone": {
+  "hash": "4f30bdf0b5d5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Front wing's gone. Box for a new one"
+ },
+ "eng/wing.rear.hit": {
+  "hash": "6bcf6f66e803",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rear wings damaged. That's cost us some downforce"
+ },
+ "eng/suspension.bent.fr": {
+  "hash": "b8206389ca6a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Front right suspension's bent. The car will pull and that tire will scrub. Box to get it fixed"
+ },
+ "eng/suspension.bent.fl": {
+  "hash": "bb7aca7f942f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Front left suspension's bent. The car will pull and that tire will scrub. Box to get it fixed"
+ },
+ "eng/suspension.hit": {
+  "hash": "620aeb365dd0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "We've hurt the suspension. The car's going to pull, and it'll cost us some pace."
+ },
+ "eng/tires.fading": {
+  "hash": "5cd026e75c47",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Tires are starting to give up some grip. Bring it in when you can"
+ },
+ "eng/box.plan.medium": {
+  "hash": "e8b59aef83e5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Box, box. Mediums this lap"
+ },
+ "eng/suspension.bent.rl": {
+  "hash": "0ded13924413",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rear left suspension's bent. The car will pull and that tire will scrub. Box to get it fixed"
+ },
+ "eng/box.plan.soft": {
+  "hash": "a17d0866cbfb",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Box, box. Softs this lap"
+ },
+ "eng/box.plan.wet": {
+  "hash": "81cbf460db7f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Box, box. Wets this lap"
+ },
+ "eng/suspension.bent.rr": {
+  "hash": "3659eea9b60e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rear right suspension's bent. The car will pull and that tire will scrub. Box to get it fixed"
+ },
+ "eng/box.plan.hard": {
+  "hash": "13985b5eff7c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Box, box. Hards this lap"
+ },
+ "eng/box.confirm.soft": {
+  "hash": "85757e863ec0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Copy that. Box, box. Softs"
+ },
+ "eng/box.confirm.medium": {
+  "hash": "a9b2f451a01d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Copy that. Box, box. Mediums"
+ },
+ "eng/box.confirm.hard": {
+  "hash": "ecd0f841a7ee",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Copy that. Box, box. Hards"
+ },
+ "eng/box.stayout": {
+  "hash": "c7af1ea0d375",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Copy that. Staying out"
+ },
+ "eng/box.confirm.wet": {
+  "hash": "22ad0fe0e217",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Copy that. Box, box. Wets"
+ },
+ "eng/box.pastgarage": {
+  "hash": "b811ffb2871a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "You've gone past the garage. Bring it in next lap"
+ },
+ "eng/box.penalty": {
+  "hash": "e899e575a172",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Penalty first. Once that's served, the crew goes to work"
+ },
+ "eng/box.missed.entry.2": {
+  "hash": "fdadde5f00c8",
+  "ok": true,
+  "score": 1,
+  "extra": 1,
+  "heard": "[laughs] Yeah. Yeah. Pit road was back there. Box next lap"
+ },
+ "eng/box.doublestack": {
+  "hash": "339d1e13226f",
+  "ok": true,
+  "score": 0.93,
+  "extra": 1,
+  "heard": "We're double stacking. You'll be in behind your teammate. Expect to wait at the box"
+ },
+ "eng/call.rain": {
+  "hash": "782969348aeb",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rain's starting. Wanna go to Wets now?"
+ },
+ "eng/call.rain.hard": {
+  "hash": "72caa35ad3c7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rain's coming down hard. Want wets now?"
+ },
+ "eng/call.drying": {
+  "hash": "4683ce643220",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Track's drying out. Want slicks now?"
+ },
+ "eng/call.drying.fast": {
+  "hash": "cb1192e21bd1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Track's drying fast. Wanna go to slicks now?"
+ },
+ "eng/call.whofirst": {
+  "hash": "08ed5a2b7a33",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "You're both due a stop. Who are we bringing in first? You or your teammate?"
+ },
+ "eng/call.whofirst.mate": {
+  "hash": "08c4a8a4b9fd",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Copy. Teammate first, then you box next lap"
+ },
+ "eng/call.vsc": {
+  "hash": "d95d9f05a4d6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "VSC's out. A stop costs half right now"
+ },
+ "eng/call.cover": {
+  "hash": "8bb6fab30ae0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Car behind has stopped. Want to box now and stay ahead?"
+ },
+ "eng/call.undercut": {
+  "hash": "b30d9910d11b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Car ahead's close, and they're due a stop too. Want to box now for the undercut?"
+ },
+ "eng/call.sc": {
+  "hash": "b618f3e5e2a2",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Safety car's out. A stop costs us a lot less now"
+ },
+ "eng/call.swap": {
+  "hash": "429e962e8e95",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "You've got more pace than your teammate. Want me to ask them to let you by?"
+ },
+ "eng/call.letby": {
+  "hash": "a586cb2ce0a7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Your teammate's quicker and right on you. Wanna let them by?"
+ },
+ "eng/call.raceit": {
+  "hash": "e18a2ca8efbf",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Copy. We'll race them. Keep it clean"
+ },
+ "eng/call.letthrough": {
+  "hash": "a0408fff42e6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Copy. Let your teammate through"
+ },
+ "eng/rain.radar.2": {
+  "hash": "b669a966ac89",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "We've got rain on the radar about two laps away"
+ },
+ "eng/rain.radar.1": {
+  "hash": "3046e8ec4cb3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "We've got rain on the radar, about a lap away"
+ },
+ "eng/rain.stopped": {
+  "hash": "840f7042b985",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rain's stopped now. Track should start drying from here"
+ },
+ "eng/vsc.out": {
+  "hash": "8863471b22f5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Virtual safety car. Bring the speed down and keep your delta positive"
+ },
+ "eng/vsc.box": {
+  "hash": "00bbde83c881",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "VSC's out. Box this lap, good chance for a cheap stop"
+ },
+ "eng/sc.out": {
+  "hash": "6ec2428cd295",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Safety car, safety car. Catch the queue. No overtaking. Pit lane's open"
+ },
+ "eng/sc.fromvsc": {
+  "hash": "fd58c05fc1e6",
+  "ok": true,
+  "score": 0.93,
+  "extra": 1,
+  "heard": "VSCs become a full safety car. Catch the queue, no overtaking. Pit lane's open"
+ },
+ "eng/sc.passed": {
+  "hash": "5e6792d4cb36",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "You've passed the safety car. Lift now and let it back past"
+ },
+ "eng/pen.drivethrough": {
+  "hash": "ae7f7a5f4430",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "We've got a drive-through penalty. Through the pits in the next three laps. No stop allowed"
+ },
+ "eng/mate.out.engine": {
+  "hash": "4b31bf81ca23",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Teammate's out of the race engine's gone."
+ },
+ "eng/flag.blackorange": {
+  "hash": "e9bdec264cf4",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Black and orange flag. Box, box. We need a new wing within two laps"
+ },
+ "eng/mate.out.gearbox": {
+  "hash": "82816cf82c6a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Teammates out of the race gearbox failure"
+ },
+ "eng/mate.out.crash": {
+  "hash": "f99e96f700f8",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Teammates out of the race. They've crashed"
+ },
+ "eng/fail.engine.temps": {
+  "hash": "1d3add4bbff1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Engine temps are starting to climb"
+ },
+ "eng/fail.oil": {
+  "hash": "5eb02c4b6bab",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "We're losing oil pressure. Need you to nurse it"
+ },
+ "eng/fail.gearbox.noise": {
+  "hash": "a2de94f531b8",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Gearbox is starting to sound rough"
+ },
+ "eng/fail.gearbox.slow": {
+  "hash": "d10861c0df8d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Shifts are starting to get slow on us"
+ },
+ "eng/fail.brakes": {
+  "hash": "32bd64614916",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Brake temps are very high now"
+ },
+ "eng/fail.rear.loose": {
+  "hash": "3f9fe3ee39cd",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "We've got something loose at the rear."
+ },
+ "eng/prac.minisec.lap": {
+  "hash": "de1624d6b8b5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Nice. More targets beaten on that lap. Keep at it"
+ },
+ "eng/prac.minisec.done": {
+  "hash": "01057c274ad7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "That's the job done. Your practice bests are on the board for qualifying"
+ },
+ "eng/prac.acclim.best": {
+  "hash": "0a4306f3cafa",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "There we go. Best one yet"
+ },
+ "eng/prac.acclim.ok": {
+  "hash": "a8e44291af10",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Good lap. That'll do the job"
+ },
+ "eng/prac.acclim.done": {
+  "hash": "087f7dd3fab1",
+  "ok": false,
+  "score": 0.83,
+  "extra": 1,
+  "heard": "That takes care of it. Breakpoints are marked for the weekend"
+ },
+ "eng/prac.acclim.short": {
+  "hash": "43a95b5e7382",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Not quite there yet. Get the speed right in the red gates"
+ },
+ "booth/track.monaco.welcome": {
+  "hash": "d1a92f5db943",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Welcome to Monaco. Tight city streets, barriers close by, and very little room for a mistake. You spend the whole lap wishing you had another inch, and when you're stuck behind somebody, it feels even narrower"
+ },
+ "booth/track.spa.welcome": {
+  "hash": "12241c32f17b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Welcome to Spa-Francorchamps, over four miles through the Ardennes Forest and one of the great racetracks on the planet. And that climb through Eau Rouge, you feel that one in your stomach. Quite a sight from up here, too"
+ },
+ "booth/track.suzuka.welcome": {
+  "hash": "c4f432e54691",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Welcome to Suzuka, a figure eight circuit with a wonderful rhythm and very little room to get that rhythm wrong. Those S's will keep you busy. Get a little out of shape through the first one, and you're still sorting it out two corners later"
+ },
+ "booth/cond.day.clear": {
+  "hash": "194d7c4f781e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Sunshine and blue skies today, and the track temperature is climbing. Hot track eats tires. Look after them early, or you'll be sliding all over the place at the end"
+ },
+ "booth/track.laguna.welcome": {
+  "hash": "1648270f9546",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Welcome to Laguna Seca, up in the hills of Monterey, California. Eleven turns and one very famous corner. The Corkscrew. You turn in before you can see much of what's below you. Takes a little getting used to"
+ },
+ "booth/track.haruna.welcome": {
+  "hash": "1645cf1c47e6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Mount Haruna. No grandstands, no pit lane, just a mountain road and a whole lot of hairpins on the way down. And on the way down, it's awful easy to ask too much of the brakes. You want a little patience here, even when that road's tempting you"
+ },
+ "booth/cond.night": {
+  "hash": "6a7e3da43e06",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Under the lights tonight, and it's a beautiful sight from up here. I always loved racing at night. Track cools off, the car's got more grip, and everything feels about twice as fast."
+ },
+ "booth/cond.dusk": {
+  "hash": "55c0a6ff10c1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "The sun's getting low as we get set to go, and the shadows are stretching across the track. That low sun is tricky. You come over a rise, and it's right in your eyes. Can't see a thing for a second"
+ },
+ "booth/cond.overcast": {
+  "hash": "bf8a608099c9",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Gray skies overhead and cool temperatures this afternoon. Cool track. You gotta work to get heat in the tires. First couple laps, it's like driving on ice skates."
+ },
+ "booth/cond.rain": {
+  "hash": "89672244a042",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "And it is wet out there. Rain coming down and spray everywhere. Oh, I hated this. You can't see the car in front of you. You're aiming at a red light in the spray and hoping"
+ },
+ "booth/incident.save": {
+  "hash": "420c37e7e7c3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, the rear steps out. He's sideways Hang on, hang on And he gathers it up. What a save [laughs] Man alive, I'd have needed a minute after that"
+ },
+ "booth/pass.aggressive": {
+  "hash": "2e64c93a767f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, he's going for it, way down on the inside. Oh, buddy, he just threw that thing in there. And somehow he makes it stick. [laughs] I don't know how he did it, but I like it"
+ },
+ "booth/intro.standard": {
+  "hash": "b6bd03210ace",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Well, we've got a packed grandstand, a full field, and every one of these drivers thinks they can win this thing. Well, [laughs] I'll tell you what, buddy. They might all think they can win. Most of them are fixing to find out otherwise. [laughs] Well, that's one way to look at it. Aw, come on now. You know I'm right. Let's go racing"
+ },
+ "booth/finish.close": {
+  "hash": "077d55ac67e9",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Here they come, side by side, heading for the checkered flag. Come on, who's it gonna be? At the line, he gets him. Unbelievable. Oh man, that's racing right there"
+ },
+ "booth/moment.wouldve": {
+  "hash": "170b9ae7a496",
+  "ok": true,
+  "score": 0.92,
+  "extra": 3,
+  "heard": "Bold move there I would have tried that pass Yes, that's what concerns me Oh, you're not gonna let me have that one, are you?"
+ },
+ "booth/quiet.mirrors": {
+  "hash": "f27b1e327096",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "How much do you think about the car behind when the gap gets that small? More than you ought to. I used to look in that mirror so much, I nearly forgot there was a corner in front of me. Nearly? [laughs] We're gonna leave it at nearly"
+ },
+ "booth/intro.championship": {
+  "hash": "52744041bec9",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "It all comes down to this, a whole season of racing and one afternoon left to settle it. I've sat in that car on a day like this. You tell yourself it's just another race. It ain't. Your hands know it ain't."
+ },
+ "booth/start.approaching": {
+  "hash": "5571c2624cea",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Here they come, lined up two by two, and we're just about ready. Right now, every one of them is staring at the car in front. Nobody's thinking about turn one yet. They will be in about five seconds"
+ },
+ "booth/start.green": {
+  "hash": "e7270970e274",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "And there's the green flag. We are underway. Here we go"
+ },
+ "booth/intro.standard.2": {
+  "hash": "69f37314a516",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Good to be back with you. Plenty to talk about today, and plenty of drivers with something to prove. Something to prove is the most dangerous thing you can bring to a racetrack. Makes you brave, and it makes you dumb, about the same amount. Spoken like a man who brought it a few times. [laughs] Every single week"
+ },
+ "booth/start.green.2": {
+  "hash": "b01287cdc00c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Green flag. Let's go racing. [laughs] Hang on, everybody"
+ },
+ "booth/pass.clean": {
+  "hash": "a97dee5b1ba9",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "A beautiful run off the corner, and he's through. That's patience right there. He waited for a run he could actually do something with"
+ },
+ "booth/start.chaos": {
+  "hash": "502e4c783e7b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "And they're three wide already heading into turn one. Ain't room for three in there. Somebody's gotta lift, and nobody wants to be first"
+ },
+ "booth/pass.failed": {
+  "hash": "ddbc04118544",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "He had a look there. Couldn't quite get alongside. He just didn't have the run. Wanted that opening a little more than the car did"
+ },
+ "booth/battle.sidebyside": {
+  "hash": "d7d98e5ca740",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Side by side down the straight, and neither one's giving an inch. Oh, I love this. Door to door, and both of them know exactly where the other one is. That's trust right there"
+ },
+ "booth/battle.defense": {
+  "hash": "8f7506bed434",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Covering the inside again, making it awfully hard to find a way by. [laughs] Make 'em go the long way around. I used to do that and make 'em mad doing it. [laughs] I don't doubt that for a second"
+ },
+ "booth/battle.closing": {
+  "hash": "2073f502ad29",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "He's closing that gap in a hurry, and the car ahead knows it. Oh, he knows it. You see a car get bigger in that mirror every lap, it starts to feel like it's sitting in the passenger seat"
+ },
+ "booth/battle.stuck": {
+  "hash": "545c1f3b7b9d",
+  "ok": true,
+  "score": 0.98,
+  "extra": 1,
+  "heard": "He's really having to work that car off the corners, trying to find a way by. Yeah, he's waiting on it to settle down, and every second you wait feels about 10 seconds long when you're chasing somebody. A tough place to be when you can see the car you're trying to catch"
+ },
+ "booth/incident.offtrack": {
+  "hash": "28197fb3180d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, he's missed the corner completely. Back on track now. [laughs] Well, that's one way to get a better look at the scenery. Unfortunately, it's cost him a couple of spots"
+ },
+ "booth/incident.spin": {
+  "hash": "426f7d7e0454",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, around he goes. Gets it pointed the right way again. Got in there a little hot and the rear just let go. Once it steps out that far, you're a passenger. Good job keeping it off the wall"
+ },
+ "booth/incident.crash.relief": {
+  "hash": "5eff3f08dc20",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "And the driver is out of the car. Boy, that's good to see"
+ },
+ "booth/incident.crash": {
+  "hash": "4ef4b46bc5ac",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Hard into the wall. That is a heavy impact It certainly is. Let's hope we see him climb out"
+ },
+ "booth/finish.finallap": {
+  "hash": "ef10f25138e1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "One lap to go. That mirror's getting an awful lot of his attention right now"
+ },
+ "booth/incident.multicar": {
+  "hash": "58f1ac600f09",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Trouble in the corner. Several cars involved. Nowhere to go. When it happens right in front of you, you just grab the wheel and hope"
+ },
+ "booth/finish.win": {
+  "hash": "7f05332f75ce",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "And there's the checkered flag. What a drive [laughs] Oh, that's a good one. That's gonna feel real good for a long time"
+ },
+ "booth/finish.dominant": {
+  "hash": "b1a5776bd827",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "A commanding performance. Nobody had an answer today. He made that look easy. Keeping it that tidy all afternoon takes some doing."
+ },
+ "booth/finish.upset": {
+  "hash": "7cc7ef9ddb7d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Would you believe it? Against all the odds, he's done it. [laughs] I did not have that one on my card this morning. [laughs] Nobody did"
+ },
+ "booth/finish.reflect": {
+  "hash": "0382327f05e3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "There were plenty of times today when that win looked a long way off. He stayed with it. That's what I love about that drive. He just kept giving himself another chance."
+ },
+ "booth/quiet.gap": {
+  "hash": "d1d974e7f2b6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "A little breathing room for the leader now. Little bit. I never trusted breathing room till I could see the checkered flag. You weren't much for relaxing, were you? [laughs] Not while somebody behind me was having a better afternoon"
+ },
+ "booth/quiet.pitwindow": {
+  "hash": "4e4dce080ff2",
+  "ok": true,
+  "score": 0.96,
+  "extra": 1,
+  "heard": "Pit windows open. Now it gets interesting. In the car, you're just waiting on that call. Every lap feels about a mile longer"
+ },
+ "booth/quiet.tires": {
+  "hash": "075dce14192c",
+  "ok": true,
+  "score": 0.98,
+  "extra": 1,
+  "heard": "Tires starting to fall away now. You can see the car's moving around a little more. You feel it first on the way in. The front starts pushing, then the back wants to come around on you on the way out."
+ },
+ "booth/quiet.early": {
+  "hash": "46032f1aa719",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Long way to go yet. My old crew chief used to say, \"You can't win it on the first lap, but you sure can lose it.\""
+ },
+ "booth/moment.closecall": {
+  "hash": "5d5b81f21435",
+  "ok": true,
+  "score": 1,
+  "extra": 2,
+  "heard": "Oh, that was close. Hoo-hoo. Hoo, boy. I'd still be holding my breath"
+ },
+ "booth/quiet.rain": {
+  "hash": "43e46f21fe9f",
+  "ok": true,
+  "score": 0.96,
+  "extra": 1,
+  "heard": "Cloud's building out there. Rain's not far away. First few drops are the worst. Track gets greasy, and you can't trust a thing."
+ },
+ "booth/moment.ambitious": {
+  "hash": "399687b90be3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "I wonder if he might have been better off waiting another corner. Maybe. But when you see a little daylight, it's awful hard to tell your right foot to be patient. That sounds like experience talking. Experience, and a couple of unhappy crew chiefs."
+ },
+ "booth/moment.surprise": {
+  "hash": "f3b65edcbf50",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Well, look who's joined the party. He's been quietly working his way forward. Nobody was watching him, and that's just how he likes it"
+ }
+}

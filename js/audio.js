@@ -58,10 +58,13 @@ function startMusic() {
 export function setMusicVolume(v) { musicVol = v; if (v > 0 && music && music.paused) musicPlay(); }
 // 'menu', 'pause', 'grid' (on the grid: the lights and engines take over) or 'race'
 export function setMusicScene(s) { musicScene = s; }
+// a voice is talking (vo.js): the music dips to a share of its level, and eases back once they stop
+let musicDuck = 1;
+export function setMusicDuck(k) { musicDuck = k; }
 // every frame: ease towards the scene's level. Dips in about a second, comes back up slowly (e.g. after the start).
 export function updateMusic(dt) {
   if (!music) return;
-  const target = musicVol * musicVol * (MUSIC_MIX[musicScene] ?? 1);
+  const target = musicVol * musicVol * (MUSIC_MIX[musicScene] ?? 1) * musicDuck;
   musicLevel += (target - musicLevel) * Math.min(1, dt / (target < musicLevel ? 0.8 : 3.5));
   music.volume = Math.min(1, musicLevel);
   if (musicVol === 0 && musicLevel < 0.002 && !music.paused) music.pause();
