@@ -27,7 +27,7 @@ function race(n = 8, playerAt = 4) {
     r.sort();
     bc.busy = r.talkUntil != null && r.raceTime < r.talkUntil;
     bc.update(dt);
-    for (const e of r.events) { r.said.push({ id: e.id, t: r.raceTime, force: e.force, cap: e.cap }); r.talkUntil = r.raceTime + talkS; }
+    for (const e of r.events) { r.said.push({ id: e.type === 'pbp' ? 'LIVE ' + e.parts.join(' ') : e.id, parts: e.parts, t: r.raceTime, force: e.force, cap: e.cap }); r.talkUntil = r.raceTime + (e.type === 'pbp' ? 2.5 : talkS); } // (a live call is a couple of seconds)
     r.events.length = 0;
   };
   r.said = []; r.bc = bc;
@@ -114,6 +114,44 @@ expect(finish(r => { const w = r.cars[0]; w.bcLed = 100; w.bcSeen = 110; w.finis
 {
   const r = race(8, 4); run(r, 300);
   expect(r.said.length <= 6, `five uneventful minutes: a few words, not a stream (${r.said.length}: ${r.said.map(s => s.id).join(',')})`);
+}
+
+// 9. live calls: the announcer, by name
+const PBP = new Set(['pbp.green', ...Array.from({ length: 11 }, (_, k) => 'pbp.green.' + (k + 2)), 'pbp.pass.inside', 'pbp.pass.outside', 'pbp.pass.exit', 'pbp.pass.straight', 'pbp.pass.brakes', 'pbp.pass.contact', 'pbp.pass.generic',
+  ...Array.from({ length: 10 }, (_, k) => 'pbp.up.' + (k + 1)), 'pbp.sbs', 'pbp.sbs.2', 'pbp.pressure', 'pbp.closing', 'pbp.look', 'pbp.contact', 'pbp.spin', 'pbp.spin.2', 'pbp.save', 'pbp.offtrack', 'pbp.crash', 'pbp.finallap', 'pbp.win', 'pbp.win.close']);
+const live = (n = 8, at = 2, named = (k) => true) => { const r = race(n, at); r.bc.pbp = PBP; r.bc.names = new Set(r.cars.flatMap((c, k) => named(k) ? ['name.c' + k, 'name.c' + k + '.end'] : [])); r.opts = { commentaryName: 'c' + (at - 1) }; return r; };
+{
+  const r = live(); run(r, 1);
+  expect(/^LIVE pbp\.green/.test(r.said[0]?.id), 'the start: the announcer calls the green flag live', r.said[0]?.id);
+  const greens = new Set(); for (let k = 0; k < 12; k++) { const q = live(); run(q, 1); greens.add(q.said[0]?.parts?.[0]); }
+  expect(greens.size >= 6, `the green-flag call varies race to race (${greens.size} different in 12 races)`);
+}
+{
+  const r = live(12, 4); run(r, 20);
+  const n0 = r.said.length; r.cars[2].progress = r.player.progress - 1; r.player.progress += 2; run(r, 3);
+  const call = r.said.slice(n0).find(s => s.parts);
+  expect(call && call.parts[0] === 'name.c3' && /^pbp\.pass\./.test(call.parts[1]) && call.parts[2] === 'pbp.up.3', 'your pass, live: your name, how, the place', call && call.parts.join(' '));
+}
+{
+  const r = live(8, 2, (k) => k !== 0); run(r, 30); // (the leader's name isn't recorded)
+  const a = r.cars[0], b = r.player, n0 = r.said.length;
+  run(r, 15, () => { b.progress = a.progress - 1.5; a.s = -1.5; b.s = 1.6; });
+  const got = r.said.slice(n0).map(s => s.id);
+  expect(got.includes('battle.sidebyside') && !got.some(x => x.startsWith('LIVE') && x.includes('sbs')), 'a name that isn\'t recorded: the booth takes it instead', got.join(','));
+}
+{
+  const r = live(8, 2); run(r, 30);
+  const a = r.cars[0], b = r.player, n0 = r.said.length;
+  run(r, 16, () => { b.progress = a.progress - 1.5; a.s = -1.5; b.s = 1.6; });
+  const got = r.said.slice(n0);
+  const l = got.findIndex(s => s.parts && s.parts.includes('name.c0') && s.parts.some(p => p.startsWith('pbp.sbs'))), bo = got.findIndex(s => s.id === 'battle.sidebyside');
+  expect(l >= 0 && bo > l, 'side by side: called live straight away, then the booth talks about it if it goes on', got.map(s => s.id).join(' / '));
+}
+{
+  const r = live(10, 3); run(r, 15); let flip = 0;
+  run(r, 120, (r) => { if (Math.round(r.raceTime * 30) % 60 === 0) { const a = r.player, b = r.cars[flip++ % 2 ? 1 : 3]; const p = a.progress; a.progress = b.progress; b.progress = p; } });
+  const lv = r.said.filter(s => s.parts && s.t > 15), gaps = lv.slice(1).map((s, i) => s.t - lv[i].t);
+  expect(lv.length >= 3 && gaps.every(g => g >= 3.4), `live calls come quicker than the booth but never on top of each other (${lv.length} in 2 min)`, gaps.map(g => g.toFixed(1)).join(' '));
 }
 
 console.log(fails ? `${fails} failed` : 'all passed');

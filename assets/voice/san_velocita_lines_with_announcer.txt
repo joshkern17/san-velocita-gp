@@ -515,3 +515,106 @@ C cond.overcast.color = [explaining, folksy] Cool track, you gotta work to get h
 # when: raining
 M cond.rain = [serious, building concern] And it is WET out there. Rain coming down, and spray everywhere.
 C cond.rain.color = [jumping in, half laughing, half dreading it] Oh, I hated this! You can't see the car in front of you. You're aiming at a red light in the spray and hoping!
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  PLAY-BY-PLAY — THE ANNOUNCER CALLING IT LIVE (one voice, short, in the moment)
+# ─────────────────────────────────────────────────────────────────────────────
+# The main commentator alone, calling what's happening as it happens. The game
+# builds a call from pieces:
+#   NAME + piece                "Valdez..."  "down the inside... and makes it stick!"
+#   NAME + piece + NAME         "Okonkwo..." "right on the back of..." "Tanaka."
+#   NAME + piece + position     "Valdez..." "takes the spot!" "Up to third."
+# So a piece never says who; the names (assets/voice/names.txt) do that.
+# Pieces that end with "..." are followed by a second name.
+# No "he" / "she": the names carry it.
+# Takes: .2, .3 ... the game picks one it hasn't used lately.
+
+[pbp]
+
+# ── THE START (no name: the whole field) ─────────────────────────────────────
+pbp.green = [sudden burst of energy] Green flag, and we are racing!
+pbp.green.2 = [excited, punchy] And they're away!
+pbp.green.3 = [rising, thrilled] Here we go! A clean getaway!
+pbp.green.4 = [loud, energetic] Green, green, green!
+pbp.green.5 = [building, excited] And the field streams down toward the first corner!
+pbp.green.6 = [crisp, energized] We are underway!
+pbp.green.7 = [excited, quick] Off they go, and it is tight already!
+pbp.green.8 = [booming, delighted] Away they go! Let's go racing!
+pbp.green.9 = [quick, alert] Good start, everybody gets away cleanly!
+pbp.green.10 = [excited, rapid] And it's a drag race to the first turn!
+pbp.green.11 = [punchy] The green flag waves, and here they come!
+pbp.green.12 = [warm, building] And we're off. Everybody looking for a gap.
+
+# ── PASSES (after a name) ────────────────────────────────────────────────────
+pbp.pass.inside = [building, quick] down the inside... and makes it stick!
+pbp.pass.inside.2 = [quick, rising] dives down the inside... and through!
+pbp.pass.inside.3 = [sharp, energetic] up the inside, and that's done!
+pbp.pass.outside = [impressed, building] around the outside... what a move!
+pbp.pass.outside.2 = [admiring, rising] all the way around the outside!
+pbp.pass.exit = [quick, clear] gets the better run off the corner... and takes the spot!
+pbp.pass.exit.2 = [crisp] better drive off the corner, and by!
+pbp.pass.brakes = [surprised, quick] late on the brakes... and gets it done!
+pbp.pass.brakes.2 = [startled, rising] leaves it late... and gets away with it!
+pbp.pass.straight = [rising, energetic] pulls alongside down the straight... and by!
+pbp.pass.straight.2 = [punchy] right past on the straightaway!
+pbp.pass.contact = [alarmed, quick] a bit of contact there... but gets through!
+pbp.pass.generic = [crisp] takes the position!
+pbp.pass.generic.2 = [energetic] and through!
+pbp.pass.generic.3 = [quick, pleased] gets the job done!
+
+# ── POSITION (after a pass piece) ────────────────────────────────────────────
+pbp.up.1 = [thrilled, loud] And that's the lead!
+pbp.up.1.2 = [excited, booming] Into the lead!
+pbp.up.2 = [bright] Up to second.
+pbp.up.3 = [bright] Up to third.
+pbp.up.4 = [clear] Up to fourth.
+pbp.up.5 = [clear] Up to fifth.
+pbp.up.6 = [clear] Up to sixth.
+pbp.up.7 = [clear] Up to seventh.
+pbp.up.8 = [clear] Up to eighth.
+pbp.up.9 = [clear] Up to ninth.
+pbp.up.10 = [clear] Up to tenth.
+
+# ── BATTLES (after a name, then the other name) ──────────────────────────────
+pbp.sbs = [rising, excited] side by side with...
+pbp.sbs.2 = [building] door to door with...
+pbp.pressure = [intense, focused] right on the back of...
+pbp.pressure.2 = [focused, building] all over the back of...
+pbp.closing = [observant, building] closing in on...
+pbp.closing.2 = [quick, alert] reeling in...
+pbp.look = [quick, rising] has a look at...
+pbp.look.2 = [interested] sizing up...
+pbp.contact = [sharp, alarmed] makes contact with...
+pbp.contact.2 = [quick, surprised] bumps...
+# (the other name, then one of these, when a look doesn't come off)
+pbp.holds = [steady] holds on to the spot.
+pbp.holds.2 = [approving] keeps the door shut.
+
+# ── INCIDENTS (after a name) ─────────────────────────────────────────────────
+pbp.spin = [sharp surprise] spins! Around it goes!
+pbp.spin.2 = [startled] loses it! Around!
+pbp.spin.3 = [quick, surprised] goes around!
+pbp.offtrack = [surprised] runs wide... and through the grass!
+pbp.offtrack.2 = [quick] off the road!
+pbp.save = [sharp, then relieved] big moment... and saves it!
+pbp.save.2 = [tense, then impressed] sideways... and catches it!
+pbp.crash = [shocked] into the wall! Hard!
+pbp.crash.2 = [alarmed] goes off, and hits the barrier!
+pbp.crash.3 = [shocked, urgent] heavy contact with the wall!
+pbp.pits = [observant, calm] heads for the pits.
+pbp.pits.2 = [calm] comes down pit road.
+pbp.out = [subdued] is out of the race.
+
+# ── THE FINISH ───────────────────────────────────────────────────────────────
+# (no name)
+pbp.finallap = [building, authoritative] There's the white flag! One lap to go!
+pbp.finallap.2 = [rising] Last lap!
+pbp.finallap.3 = [building] One lap left in this one!
+# (after a name)
+pbp.win = [triumphant, loud] wins it!
+pbp.win.2 = [triumphant] takes the checkered flag!
+pbp.win.3 = [thrilled, booming] gets the win!
+pbp.win.close = [explosive, rapid] gets there first! By inches!
+pbp.leads = [clear] leads the way.
+pbp.leads.2 = [steady] out front.

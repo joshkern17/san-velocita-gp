@@ -19,7 +19,9 @@ const M = {
   'start.green': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'start', force: true },
   'start.chaos': { w: 8, min: 0, gap: 0, cd: 1e9, cat: 'start', stale: 6 },
   'pass.clean': { w: 3, min: 4.5, p: 0.75, gap: 6, cd: 80, cat: 'pass' },
-  'pass.aggressive': { w: 4, min: 4.5, p: 0.85, gap: 5, cd: 80, cat: 'pass', alt: ['moment.wouldve'] },
+  'pass.aggressive': { w: 4, min: 4.5, p: 0.85, gap: 5, cd: 80, cat: 'pass' },
+  'moment.wouldve': { w: 3, min: 0, gap: 2, cd: 300, cat: 'react', anywhere: true },
+  'battle.pressure': { w: 2.5, min: 4.5, p: 0.8, gap: 6, cd: 60, cat: 'battle' },
   'pass.failed': { w: 2.5, min: 4.5, p: 0.6, gap: 8, cd: 100, cat: 'pass' },
   'moment.ambitious': { w: 3, min: 4.5, p: 0.8, gap: 6, cd: 150, cat: 'pass' },
   'battle.sidebyside': { w: 3, min: 4.5, p: 0.8, gap: 5, cd: 90, cat: 'battle' },
@@ -48,7 +50,21 @@ const M = {
   'quiet.rain': { w: 2.5, min: 0, gap: 20, cd: 1e9, cat: 'quiet', stale: 30 },
   'quiet.tires': { w: 2, min: 0, gap: 30, cd: 1e9, cat: 'quiet', stale: 60 },
 };
-const CAT_GAP = { pass: 25, battle: 40, incident: 10, quiet: 60, crash: 30, start: 0, flow: 0, finish: 0, relief: 0 };
+const CAT_GAP = { pass: 25, battle: 40, incident: 10, quiet: 60, crash: 30, start: 0, flow: 0, finish: 0, relief: 0, react: 0 };
+
+// The live calls: the announcer alone, as it happens, a call built from names and pieces ([pbp] in the lines file):
+// "Valdez... down the inside... and makes it stick! Up to third." They come quicker than the booth (a few seconds
+// apart, cd: the same moment again, and the same cars not again for 25 s), and only when nobody's talking unless
+// force. A moment with no live call, or whose names aren't recorded, goes to the booth as before.
+const LIVE = {
+  'start.green': { force: true }, 'pass.clean': { cd: 6 }, 'pass.aggressive': { cd: 6 }, 'pass.failed': { cd: 20 },
+  'moment.ambitious': { cd: 20 }, 'battle.sidebyside': { cd: 25 }, 'battle.closing': { cd: 30 }, 'battle.pressure': { cd: 40 },
+  'incident.spin': { cd: 8 }, 'incident.save': { cd: 15 }, 'incident.offtrack': { cd: 15 }, 'incident.crash': { force: true, cd: 20 },
+  'finish.finallap': { half: true }, 'finish.win': { force: true }, 'finish.close': { force: true },
+};
+// after a live call, sometimes the booth picks it up (the exchange, the chance)
+const FOLLOW = { 'pass.aggressive': ['moment.wouldve', 0.3], 'moment.ambitious': ['moment.ambitious', 0.6] };
+const LIVE_GAP = 3.5, PIECE_CD = 90;
 const STALE = 2.5; // (seconds: a moment older than this isn't news any more; m.stale: incidents keep a little longer)
 const TAKE_CD = 300; // (seconds before the same recorded take again: a single-take moment waits that long, unless it's forced)
 
@@ -64,6 +80,8 @@ export class Broadcast {
     this.ps = new Map(); // per pair (a ahead of b): side by side, attempts, gaps
     this.passT = {}; this.once = {};
     this.prevOrder = null;
+    this.pbp = null; this.names = null; // (main.js: the recorded play-by-play pieces and names)
+    this.liveT = -99; this.liveSaid = {}; this.later = [];
   }
   rel(car) {
     const r = this.r, pl = r.player;
@@ -82,7 +100,7 @@ export class Broadcast {
     if ((this.r.finishOrder || []).length && m.cat !== 'finish' && m.cat !== 'relief') return;
     const score = m.w * Math.max(1, ...cars.map(c => this.rel(c))) * (o.k || 1);
     if (score < m.min) return;
-    const old = this.cand.find(c => c.id === id);
+    const old = this.cand.find(c => c.id === id && !!(c.o && c.o.booth) === !!o.booth);
     if (old) { if (score > old.score) Object.assign(old, { score, cars }); return; } // (still happening: the first sighting stands)
     this.cand.push({ id, score, t: this.t, m, cars, o });
   }
@@ -110,6 +128,12 @@ export class Broadcast {
     this.cand.sort((a, b) => (b.m.force ? 1e3 : 0) + b.score - ((a.m.force ? 1e3 : 0) + a.score));
     for (const c of this.cand) {
       const m = c.m;
+      if (LIVE[c.id] && !c.o.booth && this.pbp) {
+        const r = this.live(c);
+        if (r === 'said') { this.cand = this.cand.filter(x => x !== c && !(x.m.cat === m.cat && !x.m.force)); return; }
+        if (r === 'wait') continue;
+        // ('none': its names aren't recorded: the booth's exchange instead)
+      }
       if (now - (this.saidT[c.id] ?? -1e9) < m.cd) continue;
       if (m.force && m.cat === 'crash' && now - (this.catT.crash ?? -1e9) < CAT_GAP.crash) continue; // (one wreck call at a time, even cutting in)
       if (!m.force) {
@@ -124,6 +148,69 @@ export class Broadcast {
       this.say(c.id, id, m, c);
       this.cand = this.cand.filter(x => x.m.cat !== m.cat && !x.m.force); // (said: the rest of its kind is old news)
       break;
+    }
+  }
+  // a live call for a candidate: 'said', 'wait' (not now), 'none' (no call for it: the booth's turn)
+  live(c) {
+    const L = LIVE[c.id], now = this.t;
+    if (L.half && c.o.half == null) c.o.half = Math.random() < 0.5;
+    if (c.o.half === false) return 'none';
+    const parts = this.build(c); if (!parts) return 'none';
+    if (!L.force) {
+      if (this.busy || now - this.liveT < LIVE_GAP) return 'wait';
+      if (now - (this.liveSaid[c.id] ?? -1e9) < (L.cd || 0)) return 'wait';
+      const key = c.id + ':' + c.cars.map(x => x && (x.pid || x.name)).join('|');
+      if (now - (this.liveSaid[key] ?? -1e9) < 25) return 'wait';
+      this.liveSaid[key] = now;
+    } else if (now - (this.liveSaid[c.id] ?? -1e9) < (L.cd || 0)) return 'wait';
+    this.liveT = now; this.liveSaid[c.id] = now; this.lastSay = now; this.busy = true;
+    for (const p of parts) if (p.startsWith('pbp.')) this.takeT[p] = now;
+    this.r.events.push({ type: 'pbp', parts, force: !!L.force, cap: caption(c.id, c.cars, c.o, this.r) });
+    const f = FOLLOW[c.id]; if (f && Math.random() < f[1]) this.later.push({ t: now + 1.5, id: f[0], cars: c.cars, o: { booth: true, anywhere: true } });
+    if (c.o.story) this.later.push({ t: now + 0.5, id: c.o.story, cars: c.cars, o: { booth: true } });
+    return 'said';
+  }
+  // a piece: one of base's takes not heard in the last PIECE_CD seconds, else the least recent
+  take(base) {
+    const P = this.pbp; if (!P) return null;
+    const ids = [...P].filter(k => k === base || (k.startsWith(base + '.') && /^\d+$/.test(k.slice(base.length + 1))));
+    if (!ids.length) return null;
+    const fresh = ids.filter(k => this.t - (this.takeT[k] ?? -1e9) >= PIECE_CD);
+    const pool = fresh.length ? fresh : [...ids].sort((a, b) => (this.takeT[a] ?? -1e9) - (this.takeT[b] ?? -1e9)).slice(0, 1);
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+  // a car's name as recorded (names.txt): to start a call, or (end) to finish one. You: your commentary name.
+  nameOf(car, end) {
+    if (!car || !this.names) return null;
+    const raw = car.isPlayer ? this.r.opts && this.r.opts.commentaryName : String(car.name || '').split(' ').pop();
+    const slug = slugName(raw);
+    const id = `name.${slug}${end ? '.end' : ''}`;
+    return slug && this.names.has(id) ? id : null;
+  }
+  // the pieces of a moment's call (null: it can't be called: a name or a piece missing)
+  build(c) {
+    const [a, b] = c.cars, N = (x, end) => this.nameOf(x, end), T = (k) => this.take(k);
+    const all = (...p) => p.every(Boolean) ? p : null;
+    switch (c.id) {
+      case 'start.green': return all(T('pbp.green'));
+      case 'pass.clean': case 'pass.aggressive': {
+        const piece = T('pbp.pass.' + (c.o.kind || 'generic')) || T('pbp.pass.generic');
+        const up = a && a.pos <= 10 ? T('pbp.up.' + a.pos) : null;
+        const p = all(N(a), piece); return p && up ? [...p, up] : p;
+      }
+      case 'pass.failed': return all(N(a), T('pbp.look'), N(b, true));
+      case 'moment.ambitious': return all(N(a), T('pbp.contact'), N(b, true));
+      case 'battle.sidebyside': return all(N(a), T('pbp.sbs'), N(b, true));
+      case 'battle.closing': return all(N(a), T('pbp.closing'), N(b, true));
+      case 'battle.pressure': return all(N(a), T('pbp.pressure'), N(b, true));
+      case 'incident.spin': return all(N(a), T('pbp.spin'));
+      case 'incident.save': return all(N(a), T('pbp.save'));
+      case 'incident.offtrack': return all(N(a), T('pbp.offtrack'));
+      case 'incident.crash': return all(N(a), T('pbp.crash'));
+      case 'finish.finallap': return all(T('pbp.finallap'));
+      case 'finish.win': return all(N(a), T('pbp.win'));
+      case 'finish.close': return all(N(a), T('pbp.win.close'));
+      default: return null;
     }
   }
   say(moment, id, m, c = {}) {
@@ -163,6 +250,8 @@ export class Broadcast {
     // (racing: not a wreck, not parked, not in the pits; a car going past one of those isn't a pass or a battle)
     const live = order.filter(c => !c.wreck && !c.pitting && !(c.phys && c.phys.speed < 8 && this.t > 10));
     if (!this.once.green && r.state === 'racing') { this.once.green = true; this.note('start.green'); }
+    // (booth follow-ups due: they pick up a live call a moment later)
+    if (this.later.length) { const due = this.later.filter(x => this.t >= x.t); this.later = this.later.filter(x => this.t < x.t); for (const x of due) this.note(x.id, x.cars, x.o); }
     if (r.state === 'racing') {
       this.start(order);
       this.passes(live);
@@ -199,11 +288,17 @@ export class Broadcast {
       const T = this.r.T, corner = T.K ? Math.abs(T.K[a.idx]) > 1 / 150 : false;
       const sa = this.car(a), touched = this.t - (sa.touchT ?? -99) < 2 && sa.touchWith === b;
       // (it has to stick: still ahead a second and a half later, or it was a swap that swapped straight back)
-      (this.pend ||= []).push({ a, b, t: this.t, id: corner || touched ? 'pass.aggressive' : 'pass.clean' });
+      // (how: in a corner, the inside or the outside of it (the inside is the side it turns towards), late on the
+      // brakes going in; off a corner; or flat out down a straight)
+      const K = T.K, NN = T.N, ks = (i0, i1) => { let v = 0; if (K) for (let i = i0; i <= i1; i++) v += K[((a.idx + i) % NN + NN) % NN]; return v; };
+      const here = ks(-6, 14), before = ks(-40, -8);
+      const kind = touched ? 'contact' : Math.abs(here) > 0.02 ? ((a.s - b.s) * Math.sign(here) > 0 ? (Math.random() < 0.4 ? 'brakes' : 'inside') : 'outside')
+        : Math.abs(before) > 0.03 ? 'exit' : 'straight';
+      (this.pend ||= []).push({ a, b, t: this.t, id: corner || touched ? 'pass.aggressive' : 'pass.clean', kind });
     }
     for (const P of (this.pend || []).filter(P => this.t - P.t >= 1.5)) {
       if (!P.a.gone && !P.b.gone && P.a.progress > P.b.progress && !P.a.pitting && !P.b.pitting) {
-        this.note(P.id, [P.a, P.b]);
+        this.note(P.id, [P.a, P.b], { kind: P.kind });
         const ps = this.pair(P.b, P.a); ps.att = 0; ps.close = 0; ps.attempt = null; // (the old pair's story is over)
       }
     }
@@ -226,7 +321,8 @@ export class Broadcast {
       const fast = b.phys.speed > 25;
       // side by side
       if (along < 4 && lat > 1.4 && lat < 5 && fast) s.sbs += dt; else s.sbs = 0;
-      if (s.sbs > 2.5) this.note('battle.sidebyside', [a, b]);
+      if (s.sbs > 1.2) this.note('battle.sidebyside', [a, b]);
+      if (s.sbs > 8) this.note('battle.sidebyside', [a, b], { booth: true }); // (still at it: the booth talks about it)
       // a close call: right alongside, inches apart, and nobody touched
       if (along < 4 && lat > 1.3 && lat < 2.15 && fast) s.tight = this.t;
       if (s.tight != null && this.t - s.tight > 1) {
@@ -254,6 +350,7 @@ export class Broadcast {
       if (s.close > 45 && !s.stuckSaid) { s.stuckSaid = true; this.note(s.att >= 2 ? 'battle.defense' : 'battle.stuck', [a, b]); }
       if (s.close === 0) s.stuckSaid = false;
       if (gap < 0.6) s.near += dt; else s.near = 0;
+      if (s.near > 4 && s.near < 30 && s.sbs === 0 && along > 3) this.note('battle.pressure', [b, a]); // (behind, not alongside)
       if (s.near > 20) { s.near = -1e9; this.note('quiet.mirrors', [a, b]); }
     }
   }
@@ -326,21 +423,24 @@ export class Broadcast {
     this.once.fin = true;
     const n = r.cars.length, margin = second ? second.finishTime - w.finishTime : 99;
     const led = (w.bcLed || 0) / Math.max(1, w.bcSeen || 1);
-    const id = margin < 0.3 ? 'finish.close'
-      : (w.startPos || 1) >= Math.max(6, Math.ceil(n / 2)) ? 'finish.upset'
+    // the call (the announcer: who won), then the story of it (the booth: an upset, a runaway, a comeback)
+    const story = (w.startPos || 1) >= Math.max(6, Math.ceil(n / 2)) ? 'finish.upset'
       : led > 0.75 && margin > 4 ? 'finish.dominant'
-      : (w.bcWorst || 1) >= 5 ? 'finish.reflect'
-      : 'finish.win';
-    this.note(id, [w]);
+      : (w.bcWorst || 1) >= 5 ? 'finish.reflect' : null;
+    const call = margin < 0.3 ? 'finish.close' : 'finish.win';
+    if (this.pbp && this.nameOf(w)) this.note(call, [w], { story });
+    else this.note(story || call, [w]); // (no name to call: the booth's exchange, as before)
   }
 }
 
 // ---- the captions (what the graphic says, with the call) ----
-const last = (c) => c ? (c.isPlayer && (!c.name || c.name === 'YOU') ? 'YOU' : String(c.name || '').split(' ').pop().toUpperCase()) : '';
+let youAre = 'YOU'; // (main.js, through race.opts.commentaryLabel: what the graphic calls you)
+const last = (c) => c ? (c.isPlayer && (!c.name || c.name === 'YOU') ? youAre : String(c.name || '').split(' ').pop().toUpperCase()) : '';
 const ord = (n) => n + (n % 100 >= 11 && n % 100 <= 13 ? 'TH' : ['TH', 'ST', 'ND', 'RD'][n % 10] || 'TH');
 const P = (c) => c && c.pos ? 'P' + c.pos : '';
 // { tag (the block on the left: a position, or a short word), name (the big line), sub (the line under it) }; null: none
 export function caption(id, cars, o, race) {
+  youAre = (race && race.opts && race.opts.commentaryLabel) || 'YOU';
   const [a, b] = cars, gap = (x, y) => x && y ? Math.abs((x.progress - y.progress) / Math.max(15, (y.phys && y.phys.speed) || 15)).toFixed(1) : null;
   const F = race && race.finishOrder || [];
   switch (id) {
@@ -350,6 +450,8 @@ export function caption(id, cars, o, race) {
     case 'battle.sidebyside': return { tag: P(a), name: `${last(a)} · ${last(b)}`, sub: `SIDE BY SIDE FOR ${ord(a.pos)}` };
     case 'battle.defense': case 'battle.stuck': return { tag: P(a), name: last(a), sub: `HOLDING OFF ${last(b)} · ${gap(a, b)}S` };
     case 'battle.closing': return { tag: P(a), name: last(a), sub: `CLOSING ON ${last(b)} · ${gap(b, a)}S` };
+    case 'battle.pressure': return { tag: P(a), name: last(a), sub: `ON THE BACK OF ${last(b)} · ${gap(b, a)}S` };
+    case 'moment.wouldve': return null;
     case 'moment.closecall': return { tag: P(a), name: `${last(a)} · ${last(b)}`, sub: 'TOO CLOSE FOR COMFORT' };
     case 'moment.surprise': return { tag: P(a), name: last(a), sub: `UP TO ${ord(a.pos)} FROM ${ord(a.startPos || a.pos)} ON THE GRID` };
     case 'incident.spin': return { tag: P(a), name: last(a), sub: 'SPINS' };
@@ -371,3 +473,12 @@ export function caption(id, cars, o, race) {
     default: return null;
   }
 }
+// the nicknames the announcer can call you (assets/voice/names.txt [nicknames]: keep the two the same), for when your
+// surname isn't one he has (Options > Commentary Name)
+export const NICKNAMES = ['Ace', 'Rookie', 'The Kid', 'Hot Rod', 'Lightning', 'Maverick', 'Showtime', 'Smokey', 'Bulldog', 'Iceman', 'Tex', 'Doc',
+  'Flash', 'Rocket', 'Bandit', 'Cowboy', 'Duke', 'Gator', 'Hollywood', 'Junior', 'Lucky', 'Mad Dog', 'Moose', 'Outlaw', 'Pistol', 'Rebel', 'Scooter',
+  'Slick', 'Sparky', 'Thunder', 'Tiger', 'Wildcat', 'Wheels', 'Chief', 'Buddy', 'Champ', 'Hammer', 'Viper', 'Comet', 'Turbo', 'Boomer', 'Dusty', 'Red',
+  'Rusty', 'Shotgun', 'Hurricane', 'Kingfish', 'The Boss', 'Ghost', 'Nitro', 'Blaze', 'Captain', 'Professor', 'Sarge', 'Big Country', 'Wrecking Ball',
+  'Cannonball', 'Knuckles', 'Sundance', 'Skeeter'];
+// a name's id in the recordings (tools/voice/gen.mjs uses the same): "O'Brien" -> obrien, "Hot Rod" -> hotrod
+export const slugName = (n) => String(n || '').toLowerCase().replace(/[^a-z0-9]/g, '');

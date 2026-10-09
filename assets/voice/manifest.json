@@ -637,5 +637,367 @@
    "hash": "f3b65edcbf50",
    "text": "[pleasantly surprised, genuinely impressed] Well, look who's joined the party! He's been quietly working his way forward. | [delighted, easy drawl] Nobody was watching him, and that's just how he likes it."
   }
+ },
+ "pbp": {
+  "pbp.green.2": {
+   "file": "pbp/pbp.green.2.mp3",
+   "hash": "03e432888d49",
+   "text": "[excited, punchy] And they're away!"
+  },
+  "pbp.green": {
+   "file": "pbp/pbp.green.mp3",
+   "hash": "701629fb52bf",
+   "text": "[sudden burst of energy] Green flag, and we are racing!"
+  },
+  "pbp.green.3": {
+   "file": "pbp/pbp.green.3.mp3",
+   "hash": "8402d30660a8",
+   "text": "[rising, thrilled] Here we go! A clean getaway!"
+  },
+  "pbp.green.6": {
+   "file": "pbp/pbp.green.6.mp3",
+   "hash": "014d8482bfa3",
+   "text": "[crisp, energized] We are underway!"
+  },
+  "pbp.green.4": {
+   "file": "pbp/pbp.green.4.mp3",
+   "hash": "1d970470af75",
+   "text": "[loud, energetic] Green, green, green!"
+  },
+  "pbp.green.5": {
+   "file": "pbp/pbp.green.5.mp3",
+   "hash": "f45b19861737",
+   "text": "[building, excited] And the field streams down toward the first corner!"
+  },
+  "pbp.green.7": {
+   "file": "pbp/pbp.green.7.mp3",
+   "hash": "95c97b803c50",
+   "text": "[excited, quick] Off they go, and it is tight already!"
+  },
+  "pbp.green.8": {
+   "file": "pbp/pbp.green.8.mp3",
+   "hash": "10647a3dec7d",
+   "text": "[booming, delighted] Away they go! Let's go racing!"
+  },
+  "pbp.green.9": {
+   "file": "pbp/pbp.green.9.mp3",
+   "hash": "ded980e63502",
+   "text": "[quick, alert] Good start, everybody gets away cleanly!"
+  },
+  "pbp.green.10": {
+   "file": "pbp/pbp.green.10.mp3",
+   "hash": "3eb62de80784",
+   "text": "[excited, rapid] And it's a drag race to the first turn!"
+  },
+  "pbp.green.11": {
+   "file": "pbp/pbp.green.11.mp3",
+   "hash": "50ab6d563182",
+   "text": "[punchy] The green flag waves, and here they come!"
+  },
+  "pbp.green.12": {
+   "file": "pbp/pbp.green.12.mp3",
+   "hash": "ed444e9c0caf",
+   "text": "[warm, building] And we're off. Everybody looking for a gap."
+  },
+  "pbp.pass.inside": {
+   "file": "pbp/pbp.pass.inside.mp3",
+   "hash": "fcfbbc5293ec",
+   "text": "[building, quick] down the inside... and makes it stick!"
+  },
+  "pbp.pass.inside.2": {
+   "file": "pbp/pbp.pass.inside.2.mp3",
+   "hash": "fea5a6f25a03",
+   "text": "[quick, rising] dives down the inside... and through!"
+  },
+  "pbp.pass.inside.3": {
+   "file": "pbp/pbp.pass.inside.3.mp3",
+   "hash": "b2914e3a4fee",
+   "text": "[sharp, energetic] up the inside, and that's done!"
+  },
+  "pbp.pass.outside.2": {
+   "file": "pbp/pbp.pass.outside.2.mp3",
+   "hash": "e6efd0357ce4",
+   "text": "[admiring, rising] all the way around the outside!"
+  },
+  "pbp.pass.outside": {
+   "file": "pbp/pbp.pass.outside.mp3",
+   "hash": "1e3410ec9df7",
+   "text": "[impressed, building] around the outside... what a move!"
+  },
+  "pbp.pass.exit": {
+   "file": "pbp/pbp.pass.exit.mp3",
+   "hash": "68227de17d33",
+   "text": "[quick, clear] gets the better run off the corner... and takes the spot!"
+  },
+  "pbp.pass.exit.2": {
+   "file": "pbp/pbp.pass.exit.2.mp3",
+   "hash": "541b065c5224",
+   "text": "[crisp] better drive off the corner, and by!"
+  },
+  "pbp.pass.brakes": {
+   "file": "pbp/pbp.pass.brakes.mp3",
+   "hash": "0581b37d6e6a",
+   "text": "[surprised, quick] late on the brakes... and gets it done!"
+  },
+  "pbp.pass.brakes.2": {
+   "file": "pbp/pbp.pass.brakes.2.mp3",
+   "hash": "a13b85f72d65",
+   "text": "[startled, rising] leaves it late... and gets away with it!"
+  },
+  "pbp.pass.straight.2": {
+   "file": "pbp/pbp.pass.straight.2.mp3",
+   "hash": "4a5cdb23c261",
+   "text": "[punchy] right past on the straightaway!"
+  },
+  "pbp.pass.straight": {
+   "file": "pbp/pbp.pass.straight.mp3",
+   "hash": "65136589da6c",
+   "text": "[rising, energetic] pulls alongside down the straight... and by!"
+  },
+  "pbp.pass.generic.2": {
+   "file": "pbp/pbp.pass.generic.2.mp3",
+   "hash": "e8bbd7a09d20",
+   "text": "[energetic] and through!"
+  },
+  "pbp.pass.contact": {
+   "file": "pbp/pbp.pass.contact.mp3",
+   "hash": "f3082220ec76",
+   "text": "[alarmed, quick] a bit of contact there... but gets through!"
+  },
+  "pbp.pass.generic": {
+   "file": "pbp/pbp.pass.generic.mp3",
+   "hash": "bdcee8784eb3",
+   "text": "[crisp] takes the position!"
+  },
+  "pbp.pass.generic.3": {
+   "file": "pbp/pbp.pass.generic.3.mp3",
+   "hash": "60f4f2a14e0f",
+   "text": "[quick, pleased] gets the job done!"
+  },
+  "pbp.up.1": {
+   "file": "pbp/pbp.up.1.mp3",
+   "hash": "362824664858",
+   "text": "[thrilled, loud] And that's the lead!"
+  },
+  "pbp.up.1.2": {
+   "file": "pbp/pbp.up.1.2.mp3",
+   "hash": "1c56b76c3430",
+   "text": "[excited, booming] Into the lead!"
+  },
+  "pbp.up.3": {
+   "file": "pbp/pbp.up.3.mp3",
+   "hash": "c301c8476213",
+   "text": "[bright] Up to third."
+  },
+  "pbp.up.2": {
+   "file": "pbp/pbp.up.2.mp3",
+   "hash": "d13474b4cab2",
+   "text": "[bright] Up to second."
+  },
+  "pbp.up.4": {
+   "file": "pbp/pbp.up.4.mp3",
+   "hash": "01251a9e5542",
+   "text": "[clear] Up to fourth."
+  },
+  "pbp.up.5": {
+   "file": "pbp/pbp.up.5.mp3",
+   "hash": "22a701c7650b",
+   "text": "[clear] Up to fifth."
+  },
+  "pbp.up.6": {
+   "file": "pbp/pbp.up.6.mp3",
+   "hash": "7a09bb8a458e",
+   "text": "[clear] Up to sixth."
+  },
+  "pbp.up.7": {
+   "file": "pbp/pbp.up.7.mp3",
+   "hash": "6fa8bca8374a",
+   "text": "[clear] Up to seventh."
+  },
+  "pbp.up.8": {
+   "file": "pbp/pbp.up.8.mp3",
+   "hash": "3985524d6c20",
+   "text": "[clear] Up to eighth."
+  },
+  "pbp.up.9": {
+   "file": "pbp/pbp.up.9.mp3",
+   "hash": "eb6347ef2ae8",
+   "text": "[clear] Up to ninth."
+  },
+  "pbp.up.10": {
+   "file": "pbp/pbp.up.10.mp3",
+   "hash": "9662dcbfba05",
+   "text": "[clear] Up to tenth."
+  },
+  "pbp.sbs.2": {
+   "file": "pbp/pbp.sbs.2.mp3",
+   "hash": "4cc77d8a0dc2",
+   "text": "[building] door to door with..."
+  },
+  "pbp.sbs": {
+   "file": "pbp/pbp.sbs.mp3",
+   "hash": "3e5a2bccb2e1",
+   "text": "[rising, excited] side by side with..."
+  },
+  "pbp.pressure": {
+   "file": "pbp/pbp.pressure.mp3",
+   "hash": "23070ac0a7fe",
+   "text": "[intense, focused] right on the back of..."
+  },
+  "pbp.pressure.2": {
+   "file": "pbp/pbp.pressure.2.mp3",
+   "hash": "49dc56dc4e62",
+   "text": "[focused, building] all over the back of..."
+  },
+  "pbp.closing": {
+   "file": "pbp/pbp.closing.mp3",
+   "hash": "6b50f07ce4c0",
+   "text": "[observant, building] closing in on..."
+  },
+  "pbp.closing.2": {
+   "file": "pbp/pbp.closing.2.mp3",
+   "hash": "e9dddc43ea94",
+   "text": "[quick, alert] reeling in..."
+  },
+  "pbp.look": {
+   "file": "pbp/pbp.look.mp3",
+   "hash": "7198fcda50ac",
+   "text": "[quick, rising] has a look at..."
+  },
+  "pbp.look.2": {
+   "file": "pbp/pbp.look.2.mp3",
+   "hash": "b4e853b8868b",
+   "text": "[interested] sizing up..."
+  },
+  "pbp.contact": {
+   "file": "pbp/pbp.contact.mp3",
+   "hash": "f4f59e630fe2",
+   "text": "[sharp, alarmed] makes contact with..."
+  },
+  "pbp.contact.2": {
+   "file": "pbp/pbp.contact.2.mp3",
+   "hash": "85f0a10c2209",
+   "text": "[quick, surprised] bumps..."
+  },
+  "pbp.holds": {
+   "file": "pbp/pbp.holds.mp3",
+   "hash": "3d544e9ec32b",
+   "text": "[steady] holds on to the spot."
+  },
+  "pbp.holds.2": {
+   "file": "pbp/pbp.holds.2.mp3",
+   "hash": "f764e0096071",
+   "text": "[approving] keeps the door shut."
+  },
+  "pbp.spin": {
+   "file": "pbp/pbp.spin.mp3",
+   "hash": "136d5c945fc8",
+   "text": "[sharp surprise] spins! Around it goes!"
+  },
+  "pbp.spin.2": {
+   "file": "pbp/pbp.spin.2.mp3",
+   "hash": "87597693e345",
+   "text": "[startled] loses it! Around!"
+  },
+  "pbp.spin.3": {
+   "file": "pbp/pbp.spin.3.mp3",
+   "hash": "7c07e1cd1471",
+   "text": "[quick, surprised] goes around!"
+  },
+  "pbp.offtrack.2": {
+   "file": "pbp/pbp.offtrack.2.mp3",
+   "hash": "180c74d18fa2",
+   "text": "[quick] off the road!"
+  },
+  "pbp.offtrack": {
+   "file": "pbp/pbp.offtrack.mp3",
+   "hash": "a5e4e750534c",
+   "text": "[surprised] runs wide... and through the grass!"
+  },
+  "pbp.save": {
+   "file": "pbp/pbp.save.mp3",
+   "hash": "c3e9a590fc90",
+   "text": "[sharp, then relieved] big moment... and saves it!"
+  },
+  "pbp.save.2": {
+   "file": "pbp/pbp.save.2.mp3",
+   "hash": "336e4a981216",
+   "text": "[tense, then impressed] sideways... and catches it!"
+  },
+  "pbp.crash": {
+   "file": "pbp/pbp.crash.mp3",
+   "hash": "c2bf66829d4e",
+   "text": "[shocked] into the wall! Hard!"
+  },
+  "pbp.crash.2": {
+   "file": "pbp/pbp.crash.2.mp3",
+   "hash": "d6098d0c2d9a",
+   "text": "[alarmed] goes off, and hits the barrier!"
+  },
+  "pbp.pits": {
+   "file": "pbp/pbp.pits.mp3",
+   "hash": "49e5f4229d38",
+   "text": "[observant, calm] heads for the pits."
+  },
+  "pbp.crash.3": {
+   "file": "pbp/pbp.crash.3.mp3",
+   "hash": "2bbbec842259",
+   "text": "[shocked, urgent] heavy contact with the wall!"
+  },
+  "pbp.pits.2": {
+   "file": "pbp/pbp.pits.2.mp3",
+   "hash": "dae8ac12fc40",
+   "text": "[calm] comes down pit road."
+  },
+  "pbp.out": {
+   "file": "pbp/pbp.out.mp3",
+   "hash": "064eb4acc957",
+   "text": "[subdued] is out of the race."
+  },
+  "pbp.finallap.2": {
+   "file": "pbp/pbp.finallap.2.mp3",
+   "hash": "b1974db38460",
+   "text": "[rising] Last lap!"
+  },
+  "pbp.finallap": {
+   "file": "pbp/pbp.finallap.mp3",
+   "hash": "a44631a074e1",
+   "text": "[building, authoritative] There's the white flag! One lap to go!"
+  },
+  "pbp.finallap.3": {
+   "file": "pbp/pbp.finallap.3.mp3",
+   "hash": "4c1ba029ed8d",
+   "text": "[building] One lap left in this one!"
+  },
+  "pbp.win": {
+   "file": "pbp/pbp.win.mp3",
+   "hash": "6a694b5c65fc",
+   "text": "[triumphant, loud] wins it!"
+  },
+  "pbp.win.2": {
+   "file": "pbp/pbp.win.2.mp3",
+   "hash": "368d1bcd955b",
+   "text": "[triumphant] takes the checkered flag!"
+  },
+  "pbp.win.3": {
+   "file": "pbp/pbp.win.3.mp3",
+   "hash": "cdeaf8e013c1",
+   "text": "[thrilled, booming] gets the win!"
+  },
+  "pbp.win.close": {
+   "file": "pbp/pbp.win.close.mp3",
+   "hash": "a27228d2dded",
+   "text": "[explosive, rapid] gets there first! By inches!"
+  },
+  "pbp.leads": {
+   "file": "pbp/pbp.leads.mp3",
+   "hash": "6e51e084675a",
+   "text": "[clear] leads the way."
+  },
+  "pbp.leads.2": {
+   "file": "pbp/pbp.leads.2.mp3",
+   "hash": "e76a0a35fb62",
+   "text": "[steady] out front."
+  }
  }
 }

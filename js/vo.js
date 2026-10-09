@@ -144,6 +144,43 @@ let seq = null;
 export function stopBooth() { seq = null; for (let i = queue.length - 1; i >= 0; i--) if (queue[i].kind === 'booth') queue.splice(i, 1); stop('booth'); }
 // the booth's recorded exchanges (the director only calls moments it has lines for)
 export const boothLines = () => new Set(manifest && manifest.booth ? Object.keys(manifest.booth) : []);
+// any section's recorded lines (the director's play-by-play pieces: 'pbp', the names: 'name')
+export const lineSet = (sec) => new Set(manifest && manifest[sec] ? Object.keys(manifest[sec]) : []);
+
+// ---------- play-by-play: a call stitched from pieces ----------
+// (each clip carries a little silence at both ends: where its speech starts and stops, found once per clip)
+const SPEECH = new WeakMap();
+function speech(buf) {
+  let r = SPEECH.get(buf); if (r) return r;
+  const d = buf.getChannelData(0), th = 0.006; let a = 0, b = d.length - 1;
+  while (a < b && Math.abs(d[a]) < th) a++;
+  while (b > a && Math.abs(d[b]) < th) b--;
+  r = [Math.max(0, a / buf.sampleRate - 0.02), Math.min(buf.duration, b / buf.sampleRate + 0.05)];
+  SPEECH.set(buf, r); return r;
+}
+// the pause between two pieces: a name runs straight into what it did; a position or a second name a touch later
+const pieceGap = (a, b) => b.startsWith('pbp.up.') ? 0.14 : a.startsWith('name.') ? 0.07 : 0.05;
+// The announcer calls it live: parts are line ids ('name.valdez', 'pbp.pass.inside', 'pbp.up.3', 'name.tanaka.end'),
+// played back to back as one call. It doesn't talk over anyone unless o.force (the win, a crash). Resolves when done.
+export async function pbpSay(parts, o = {}) {
+  if (!enabled.booth || !manifest || !parts.length) return false;
+  if ((now.booth || now.eng) && !o.force) return false;
+  const files = parts.map(id => { const S = manifest[id.startsWith('name.') ? 'name' : 'pbp']; return S && S[id] && S[id].file; });
+  if (files.some(f => !f) || !chains()) return false;
+  const bufs = await Promise.all(files.map(buffer)); if (bufs.some(b => !b)) return false;
+  if (now.eng && !o.force) return false;
+  const { ctx } = radio; let t = ctx.currentTime + 0.03; const srcs = [];
+  bufs.forEach((buf, i) => {
+    const [s0, s1] = speech(buf), src = ctx.createBufferSource(); src.buffer = buf; src.connect(boothOut);
+    src.start(t, s0, s1 - s0); srcs.push(src);
+    t += s1 - s0 + (i < bufs.length - 1 ? pieceGap(parts[i], parts[i + 1]) : 0);
+  });
+  let done; const over = new Promise(r => { done = r; });
+  const p = { src: srcs[srcs.length - 1], extra: srcs.slice(0, -1), ends: t, done };
+  stop('booth'); now.booth = p; settle();
+  p.src.onended = () => { done(true); if (now.booth === p) { now.booth = null; settle(); next(); } };
+  return over;
+}
 // anyone talking (the director waits)
 export const voBusy = () => !!(now.eng || now.booth);
 export const boothBusy = () => !!now.booth;

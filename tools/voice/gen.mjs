@@ -21,7 +21,14 @@ const VOICES = {
   eng: 'hoiJIjqBjNO1OD2v0ObR',       // SV engineer 001 - modern drawl
   announcer: 'JDrV7ejkLZSvqwpOlu3t', // SV announcer 002 - Modern American (main commentator)
   color: 'hQSbu3htRm8eJbMhfZcZ',     // SV announcer 004 (color commentator: a race car driver who happens to have a microphone)
+  pbp: 'JDrV7ejkLZSvqwpOlu3t',       // the main commentator again, calling it live
+  name: 'JDrV7ejkLZSvqwpOlu3t',      // ...and the names he calls (assets/voice/names.txt)
 };
+// The names: each recorded twice, to start a call ("Valdez... down the inside!") and to end one ("...on the back of
+// Valdez."). How they're said (the style the user picked from the test calls):
+const NAMES = path.join(ROOT, 'assets/voice/names.txt');
+const NAME_STYLE = { start: (n) => `[energetic] ${n}...`, end: (n) => `${n}.` }; // (short: tags count against the plan's characters)
+const slugName = (n) => String(n || '').toLowerCase().replace(/[^a-z0-9]/g, ''); // (js/broadcast.js: the same)
 
 const args = process.argv.slice(2);
 const flag = (k) => { const i = args.indexOf(k); return i < 0 ? null : args[i + 1]; };
@@ -58,7 +65,19 @@ if (!key && !dry) { console.error('ELEVENLABS_API_KEY is not set (run from a she
 const manifest = fs.existsSync(MANIFEST) ? JSON.parse(fs.readFileSync(MANIFEST, 'utf8')) : {};
 const hash = (l) => crypto.createHash('sha1').update(`${voiceOf(l)}|${MODEL}|${l.text}`).digest('hex').slice(0, 12);
 
-const lines = parse(fs.readFileSync(LINES, 'utf8')).filter(l => (VOICES[l.sec] || l.sec === 'booth') && (!section || l.sec === section) && (!only || only.has(l.id)));
+function nameLines() {
+  if (!fs.existsSync(NAMES)) return [];
+  const out = [], seen = new Set();
+  for (const raw of fs.readFileSync(NAMES, 'utf8').split('\n')) {
+    const l = raw.trim(); if (!l || l.startsWith('#') || /^\[.*\]$/.test(l)) continue;
+    const [name, say] = l.split('=').map(x => x.trim()), slug = slugName(name);
+    if (!slug || seen.has(slug)) continue; // (a surname that's also a nickname: once)
+    seen.add(slug);
+    out.push({ sec: 'name', id: `name.${slug}`, text: NAME_STYLE.start(say || name) }, { sec: 'name', id: `name.${slug}.end`, text: NAME_STYLE.end(say || name) });
+  }
+  return out;
+}
+const lines = [...parse(fs.readFileSync(LINES, 'utf8')), ...nameLines()].filter(l => (VOICES[l.sec] || l.sec === 'booth') && (!section || l.sec === section) && (!only || only.has(l.id)));
 const dup = lines.map(l => `${l.sec}/${l.id}`).filter((k, i, a) => a.indexOf(k) !== i);
 if (dup.length) { console.error('Duplicate ids:', [...new Set(dup)].join(', ')); process.exit(1); }
 const todo = lines.filter(l => {
