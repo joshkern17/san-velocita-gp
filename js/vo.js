@@ -30,9 +30,10 @@ function buffer(file) {
   }
   return buffers.get(file);
 }
-// the takes of a line: id, id.2, id.3...
-function takes(sec, id) {
+// the takes of a line: id, id.2, id.3... (exact: just that one)
+function takes(sec, id, exact) {
   const S = manifest && manifest[sec]; if (!S) return [];
+  if (exact) return S[id] ? [S[id].file] : [];
   return Object.keys(S).filter(k => k === id || (k.startsWith(id + '.') && /^\d+$/.test(k.slice(id.length + 1)))).map(k => S[k].file);
 }
 export const hasLine = (sec, id) => takes(sec, id).length > 0;
@@ -77,19 +78,21 @@ function stop(kind) {
   const p = now[kind]; if (!p) return;
   try { p.src.stop(); } catch (e) {}
   p.extra.forEach(s => { try { s.stop(); } catch (e) {} });
-  now[kind] = null; settle();
+  now[kind] = null; settle(); p.done(false);
 }
 // the music dips while anyone's talking; the booth dips under the engineer
 function settle() {
   setMusicDuck(now.eng || now.booth ? 0.45 : 1);
   if (boothOut) boothOut.gain.setTargetAtTime(now.eng ? 0.3 : 0.85, radio.ctx.currentTime, 0.12);
 }
-async function start(kind, sec, id) {
-  const files = takes(sec, id); if (!files.length || !chains()) return false;
+// plays a line; resolves when it's over (or cut off), false if there was nothing to play
+async function start(kind, sec, id, exact) {
+  const files = takes(sec, id, exact); if (!files.length || !chains()) return false;
   const buf = await buffer(files[Math.floor(Math.random() * files.length)]); if (!buf) return false;
   const { ctx } = radio, t0 = ctx.currentTime + 0.02;
   const src = ctx.createBufferSource(); src.buffer = buf;
-  const p = { src, extra: [], ends: t0 };
+  let done; const over = new Promise(r => { done = r; });
+  const p = { src, extra: [], ends: t0, done };
   if (kind === 'eng') {
     // key-up squelch, the voice, a faint static bed under it, key-down squelch
     p.extra.push(noise(t0, 0.07, 0.2, 900, 4500), noise(t0 + 0.04, buf.duration + 0.16, 0.012));
@@ -98,15 +101,15 @@ async function start(kind, sec, id) {
     p.ends = t0 + 0.25 + buf.duration;
   } else { src.connect(boothOut); src.start(t0); p.ends = t0 + buf.duration; }
   stop(kind); now[kind] = p; settle();
-  src.onended = () => setTimeout(() => { if (now[kind] === p) { now[kind] = null; settle(); next(); } }, kind === 'eng' ? 200 : 0);
-  return true;
+  src.onended = () => setTimeout(() => { done(true); if (now[kind] === p) { now[kind] = null; settle(); next(); } }, kind === 'eng' ? 200 : 0);
+  return over;
 }
 function next() {
   // what's waiting and still worth saying (a call that's 6 seconds stale is news nobody needs)
   const t = performance.now();
   while (queue.length && t - queue[0].at > 6000) queue.shift();
   const i = queue.findIndex(q => !now[q.kind] && !(q.kind === 'booth' && now.eng)); if (i < 0) return;
-  const q = queue.splice(i, 1)[0]; start(q.kind, q.sec, q.id);
+  const q = queue.splice(i, 1)[0]; start(q.kind, q.sec, q.id, q.exact);
 }
 // The engineer says a line: o.urgent cuts in over whatever he's saying (box now, wing gone); otherwise it waits its turn.
 export function engSay(id, o = {}) {
@@ -115,14 +118,35 @@ export function engSay(id, o = {}) {
   else if (queue.filter(q => q.kind === 'eng').length < 2) queue.push({ kind: 'eng', sec: 'eng', id, at: performance.now() });
 }
 // The booth plays an exchange (both commentators in one take). Waits for the engineer; skips if they're mid-exchange
-// unless o.force (a finish call beats whatever they were chatting about).
+// unless o.force (a finish call beats whatever they were chatting about). o.exact: that take, not a random one of id's.
 export function boothSay(id, o = {}) {
-  if (!enabled.booth || !manifest || !hasLine('booth', id)) return;
+  if (!enabled.booth || !manifest || !takes('booth', id, o.exact).length) return;
   if (now.booth && !o.force) return;
-  if (now.eng && !o.force) { queue.push({ kind: 'booth', sec: 'booth', id, at: performance.now() }); return; }
-  start('booth', 'booth', id);
+  if (now.eng && !o.force) { queue.push({ kind: 'booth', sec: 'booth', id, exact: o.exact, at: performance.now() }); return; }
+  start('booth', 'booth', id, o.exact);
 }
+// The pre-race broadcast: exchanges one after another, a short pause between (missing ones skipped). Resolves when
+// it's over or cut off (stopBooth): true if it played to the end.
+export async function boothSequence(ids, pause = 0.6) {
+  if (!enabled.booth || !manifest) return false;
+  seq = {};
+  const mine = seq;
+  for (const id of ids) {
+    if (seq !== mine) return false;
+    if (!hasLine('booth', id)) continue;
+    const ok = await start('booth', 'booth', id);
+    if (!ok || seq !== mine) return false;
+    await new Promise(r => setTimeout(r, pause * 1000));
+  }
+  return seq === mine;
+}
+let seq = null;
+export function stopBooth() { seq = null; for (let i = queue.length - 1; i >= 0; i--) if (queue[i].kind === 'booth') queue.splice(i, 1); stop('booth'); }
+// the booth's recorded exchanges (the director only calls moments it has lines for)
+export const boothLines = () => new Set(manifest && manifest.booth ? Object.keys(manifest.booth) : []);
+// anyone talking (the director waits)
+export const voBusy = () => !!(now.eng || now.booth);
 export const boothBusy = () => !!now.booth;
-export function voStopAll() { queue.length = 0; stop('eng'); stop('booth'); }
+export function voStopAll() { queue.length = 0; seq = null; stop('eng'); stop('booth'); }
 // (for dev tools and tests: who's talking right now)
 export const voState = () => ({ manifest: !!manifest, eng: !!now.eng, booth: !!now.booth, queued: queue.length });

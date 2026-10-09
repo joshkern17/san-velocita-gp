@@ -2750,3 +2750,6 @@ span.tsw-face { width: 64px; height: 64px; }
 .tn-desc { right: auto; left: 4%; width: 460px; font-size: 14px; }
 .tn-desc p { margin: 0 0 4px; }
 .tn-desc p b { display: inline-block; width: 64px; font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red-dim); }
+
+/* the pre-race broadcast (race.js flyCamera): just the pictures, and the skip hint */
+#hud.bcast > :not(#h-help):not(:has(#h-help)) { opacity: 0; transition: opacity .4s; }

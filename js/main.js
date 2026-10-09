@@ -15,7 +15,7 @@ import { drawChart, drawMap, notesHtml, fmtGap, fmtSpeed, drawLineMap, lineMapHi
 import { garbleTree } from './garble.js';
 import { AIDS, AID_KEYS, PRESETS, PRESET_VALS, aidsOf, presetOf, applyPreset, aidBonus, AID_RULES, AID_RULE_DESC, limitAids } from './aids.js';
 import { initAudio, sfx, setVolume, setMusicVolume, setMusicScene, updateMusic } from './audio.js';
-import { engSay, preload as voPreload, voStopAll, setVoiceOn } from './vo.js';
+import { engSay, preload as voPreload, voStopAll, setVoiceOn, boothSay, boothSequence, stopBooth, boothLines, voBusy } from './vo.js';
 import { presetTracks, sampleTrack, trackStats, THEMES, cloneTrack } from './track.js';
 import { TEAMS } from './car.js';
 import { Garage } from './garage.js';
@@ -110,7 +110,7 @@ renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const post = new PS2Post(renderer);
 function applyVideo() {
-  setVoiceOn('eng', settings.engVoice !== 'off');
+  setVoiceOn('eng', settings.engVoice !== 'off'); setVoiceOn('booth', settings.commentary !== 'off');
   post.configure({ crt: settings.crt, mode: settings.res, filter: settings.filter, scanlines: settings.scan, trails: settings.trails, retro: settings.retro, palette: settings.palette, grain: settings.grain, rays: settings.rays, fringe: settings.fringe, bypass: settings.look === 'off' });
   applyPsxMaterials(settings.psxMat);
   setWorldOptions({ shadows: settings.shadows });
@@ -614,6 +614,7 @@ const OPTION_TABS = [
   ['Game', [
     { label: 'Volume', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'MUTE']), get: () => settings.volume, set: v => { settings.volume = v; applyVideo(); saveSettings(); }, desc: 'Master volume for engines, effects and menus.' },
     { label: 'Music', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'OFF']), get: () => settings.music, set: v => { settings.music = v; applyVideo(); saveSettings(); }, desc: 'Soundtrack volume. The eight tracks play in order and loop: fuller in the menus, quietly in the background on track.' },
+    { label: 'Commentary', values: [['full', 'Full'], ['intro', 'Track Intros'], ['off', 'Off']], get: () => settings.commentary || 'full', set: v => { settings.commentary = v; setVoiceOn('booth', v !== 'off'); saveSettings(); }, desc: 'The broadcast booth. <b>Full</b>: a flyover of the circuit before each race while they introduce it, then they call the race: passes, battles, crashes, the finish. <b>Track Intros</b>: just the flyover. Changes apply from the next race.' },
     { label: 'Engineer Voice', values: [['on', 'On'], ['off', 'Off']], get: () => settings.engVoice || 'on', set: v => { settings.engVoice = v; setVoiceOn('eng', v !== 'off'); saveSettings(); }, desc: 'Your race engineer reads his radio messages out loud, over the team radio. Off: the messages still show on screen.' },
     { label: 'Camera', values: [['chase', 'Chase'], ['far', 'Far Chase'], ['tcam', 'T-Cam'], ['bumper', 'Nose']], get: () => settings.camera, set: v => { settings.camera = v; saveSettings(); }, desc: 'The view you start races in. Press C (or Y) while driving to switch.' },
     { label: 'Rear-View Mirror', values: [['on', 'On'], ['off', 'Off']], get: () => settings.mirror, set: v => { settings.mirror = v; setMirror(v !== 'off'); saveSettings(); }, desc: 'A mirror at the top of the screen, with your lap time under it.' },
@@ -4436,7 +4437,7 @@ function startRace(track, cfg, ret, quick = false) {
         difficulty: settings.difficulty, grid: settings.grid, team: settings.team, gearbox: settings.gearbox, aids: aidsNow(), ghost: settings.ghost,
         units: settings.units, camera: settings.camera, racingLine: settings.racingLine, lineStyle: settings.lineStyle, car: settings.car,
         wear: settings.wear, temps: settings.temps, damage: settings.damage, rules: settings.rules, safetyCar: settings.safetyCar !== 'off', aiMistakes: settings.aiMistakes, startTyre: settings.startTyre, aiChassis: settings.aiChassis, drift: raceReturn === 'setup' ? settings.drift : 'off',
-        pickCar: !!cfg.pick && !quick, pitWall: settings.pitWall !== 'off',
+        pickCar: !!cfg.pick && !quick, pitWall: settings.pitWall !== 'off', commentary: settings.commentary || 'full',
         ...(cfg.extra || {}), defer: true,
       }, renderer);
       await r.prepare((f, label) => loadStep(0.08 + f * 0.82, label));
@@ -4526,6 +4527,9 @@ function drawLoadArt(track, cv = $('load-canvas'), tm = track.env.time) {
 
 function handleRaceEvents() {
   if (!sim || sim.mode === 'attract') return;
+  // the booth's director (broadcast.js) waits while anyone's talking; the pre-race broadcast hides the HUD
+  if (sim.bc) { sim.bc.busy = voBusy(); if (!sim.bc.lines) sim.bc.lines = boothLines(); }
+  $('hud').classList.toggle('bcast', sim.state === 'broadcast');
   while (sim.events.length) {
     const ev = sim.events.shift();
     if (ev.type === 'countdown') hud.lights(0, true);
@@ -4602,6 +4606,12 @@ function handleRaceEvents() {
     else if (ev.type === 'crashout') crashOut(ev);
     else if (ev.type === 'radio') { hud.radio(ev.who || 'eng', ev.msg, { big: ev.big, name: ev.name, color: ev.color }); if (ev.big) sfx.lap(); if (ev.vo) engSay(ev.vo, { urgent: ev.big }); }
     // the pit wall's calls (race.js wallUpdate): the question, then what was chosen
+    else if (ev.type === 'booth') boothSay(ev.id, { force: ev.force, exact: true });
+    else if (ev.type === 'booth-intro') {
+      const s = sim; hud.help(`${hintKeys('ok')} Skip`, 9000);
+      boothSequence(ev.ids).then(() => { if (sim === s) s.bcIntroEnd = true; });
+    }
+    else if (ev.type === 'booth-stop') stopBooth();
     else if (ev.type === 'call') { const c = ev.call; hud.radioCall(c.who, c.msg, c.a, c.b, c.rec); sfx.lap(); if (c.vo) engSay(c.vo, { urgent: true }); }
     else if (ev.type === 'callDone') { hud.callDone(ev.which); if (!ev.late) sfx.select(); }
     else if (ev.type === 'pitIn') { pitSel = 0; sfx.select(); }

@@ -25,6 +25,7 @@ import { DirtTrack } from './dirttrack.js';
 import { Rubber } from './rubber.js';
 import { activeSetup, applySetup, stanceOf } from './setup.js';
 import { TireFX, SMOKE, DUST, FX } from './tirefx.js';
+import { Broadcast } from './broadcast.js';
 import { Acclimatization, MiniSectors, QualiSim, BrakeMarkers, ACCLIM_PASS, MSEC_PASS, QSIM_NOISE, planMinis } from './practice.js';
 
 const STEP = 1 / 240;
@@ -429,6 +430,11 @@ export class Race {
 
 
     this.afterPick = this.mode === 'race' ? (opts.strategy !== false && this.player ? 'strategy' : 'intro') : 'racing';
+    // the broadcast booth (broadcast.js, main.js plays it): 'full' talks through the race, 'intro' just the flyover
+    // before it (offline: online starts run on a shared clock), 'off' neither
+    const booth = this.mode === 'race' && this.player ? opts.commentary || 'off' : 'off';
+    if (booth === 'full') this.bc = new Broadcast(this);
+    this.bcIntro = booth !== 'off' && !this.net;
     // a timed session (practice / qualifying): this.quali holds it either way (kind says which)
     if (this.mode === 'quali' || this.mode === 'practice') {
       const time = (this.mode === 'practice' ? opts.practiceTime : opts.qualiTime) || 300;
@@ -1783,6 +1789,7 @@ export class Race {
   // a hard hit (race control: a big one brings out the yellow flags)
   crashed(car, v) {
     if (v < 12) return;
+    if (this.bc && this.state === 'racing') this.bc.hit(car, v);
     if (!car.crashT || this.raceTime - car.crashT > 1.5 || v > car.crashV) { car.crashT = this.raceTime; car.crashV = v; }
   }
 
@@ -1991,6 +1998,7 @@ export class Race {
       cars[a].impact = Math.max(cars[a].impact || 0, vn); cars[b].impact = Math.max(cars[b].impact || 0, vn); // (drift scoring)
       if (vn > 3) { cars[a].hits = (cars[a].hits || 0) + 1; cars[b].hits = (cars[b].hits || 0) + 1; }
       this.crashed(cars[a], vn); this.crashed(cars[b], vn);
+      if (this.bc) this.bc.contact(cars[a], cars[b], vn);
       if (vn > 5 && this.rc) this.rc.contact(cars[a], cars[b], pa, pb, vn);
       const pl = cars[a].isPlayer ? cars[a] : cars[b].isPlayer ? cars[b] : null;
       if (vn > 2 && (cars[a].hitCd <= 0 || cars[b].hitCd <= 0)) {
@@ -3159,7 +3167,17 @@ export class Race {
 
     // state machine (online: everyone follows the host's shared clock)
     if (this.net && !this.quali) this.netClock();
-    else if (this.state === 'intro') {
+    else if (this.state === 'intro' && this.bcIntro && !this.bcIntroDone) {
+      // first, the broadcast: a flyover of the circuit while the booth introduces it (main.js plays it, and sets
+      // bcIntroEnd when they're done). Enter / A skips it.
+      this.bcIntroDone = true; this.state = 'broadcast'; this.stateT = 0;
+      this.events.push({ type: 'booth-intro', ids: this.introIds() });
+    } else if (this.state === 'broadcast') {
+      if (press.skip || this.bcIntroEnd || this.stateT > 75) {
+        if (!this.bcIntroEnd) this.events.push({ type: 'booth-stop' });
+        this.state = 'intro'; this.stateT = 0;
+      }
+    } else if (this.state === 'intro') {
       if (this.stateT > 3.2 || press.skip) { this.state = 'countdown'; this.stateT = 0; this.events.push({ type: 'countdown' }); }
     } else if (this.state === 'countdown') {
       const n = Math.min(5, Math.floor(this.stateT / 0.9));
@@ -3262,6 +3280,7 @@ export class Race {
     order.forEach((c, k) => c.pos = k + 1);
     this.order = order;
     if (this.rc) this.rc.update(dt);
+    if (this.bc) this.bc.update(dt);
     if (this.quali && !this.paused) this.qualiUpdate(dt);
 
     // visuals
@@ -4034,6 +4053,7 @@ export class Race {
   updateCamera(dt, snap = false) {
     const car = this.focus, p = car.phys, cam = this.camera;
     if (this.state === 'intro') return this.introCamera(dt);
+    if (this.state === 'broadcast') return this.flyCamera(dt);
     if (this.state === 'strategy') return this.stratCamera(dt);
     if (this.state === 'carselect') return this.showroomCamera(dt);
     const useTV = this.mode === 'attract' || (this.state === 'finished' && this.stateT > 2.5);
@@ -4139,6 +4159,64 @@ export class Race {
 
   // tracking shot down the middle of the grid before the lights, between the drivers (they stand facing the middle) (the track sampled between its points, so the camera glides
   // instead of stepping 2 m at a time, and the aim eased so it doesn't twitch where the track bends)
+  // The pre-race broadcast: the race opening (some of the time, always when the track has no welcome of its own), the
+  // track's welcome (real circuits: track.<id>.welcome), then today's conditions.
+  introIds() {
+    const env = this.track.env || {}, real = this.track.real && this.track.real.id;
+    const cond = env.weather === 'rain' || this.wet > 0.3 ? 'rain' : env.time === 'night' ? 'night' : env.time === 'dusk' ? 'dusk' : env.weather === 'overcast' ? 'overcast' : 'day.clear';
+    return [!real || Math.random() < 0.5 ? 'intro.standard' : null, real ? `track.${real}.welcome` : null, `cond.${cond}`].filter(Boolean);
+  }
+  // the flyover: helicopter shots of the circuit, a cut every few seconds, each drifting along its stretch of track
+  // (alternately high and wide, and low on the outside), the last ones over the start. Each shot checks it can see
+  // the track (a ray from the road back to the camera, at both ends of its drift): a building or a hill in the way
+  // and it tries the other side, higher, then straight over the top.
+  flyCamera(dt) {
+    const T = this.T, N = T.N, cam = this.camera, SHOT = 6;
+    const k = Math.floor(this.stateT / SHOT), u = (this.stateT % SHOT) / SHOT;
+    const at = (d) => {
+      const x = ((d / T.ds) % N + N) % N, i0 = Math.floor(x), f = x - i0, b = (i0 + 1) % N, l = (A) => A[i0] + (A[b] - A[i0]) * f;
+      return { x: l(T.X), y: l(T.Y), z: l(T.Z), rx: l(T.RX), rz: l(T.RZ), w: l(T.W) };
+    };
+    // where the camera is for a shot (side: metres out from the road's edge, -ve the left; h: up) and what it looks at
+    const place = (F, u) => {
+      const d = F.d0 + u * F.run, c = at(d), side = Math.sign(F.side || 1) * (c.w / 2 + Math.abs(F.side)) * (F.side === 0 ? 0 : 1);
+      const t = at(d + F.ahead);
+      return { p: new THREE.Vector3(c.x + c.rx * side, c.y + F.h, c.z + c.rz * side), t: new THREE.Vector3(t.x, t.y + 1, t.z), road: new THREE.Vector3(c.x, c.y + 1.5, c.z) };
+    };
+    if (!this.fly || this.fly.k !== k) {
+      const n = 7, d0 = ((k % n) + 1) / (n + 1) * T.L, high = k % 2 === 0, s = (k * 7919) % 3 === 0 ? -1 : 1;
+      const tries = high
+        ? [{ side: 34 * s, h: 42 }, { side: -34 * s, h: 42 }, { side: 20 * s, h: 65 }, { side: 0, h: 85 }]
+        : [{ side: 14 * s, h: 7 }, { side: -14 * s, h: 7 }, { side: 34 * s, h: 42 }, { side: 0, h: 85 }];
+      // (what can block a shot: every solid thing taller than a car, as a box, gathered once; the ground and the road,
+      // whose boxes are the size of the map, left out. Boxes, not triangles: a city has thousands of them.)
+      if (!this.flyBoxes) {
+        this.flyBoxes = [];
+        this.world.root.updateMatrixWorld(true);
+        this.world.root.traverse(o => {
+          if (!o.isMesh || o.isInstancedMesh || !o.geometry || !o.visible) return;
+          const bb = new THREE.Box3().setFromObject(o), sz = bb.getSize(new THREE.Vector3());
+          if (sz.y > 4 && sz.x < 250 && sz.z < 250) this.flyBoxes.push(bb);
+        });
+      }
+      const ray = new THREE.Ray(), hit = new THREE.Vector3();
+      // (clear: from the camera it can see both the road beside it and the stretch it's looking at)
+      const sees = (from, to) => {
+        const dir = to.clone().sub(from), dist = dir.length(); ray.set(from, dir.normalize());
+        return !this.flyBoxes.some(bb => !bb.containsPoint(from) && ray.intersectBox(bb, hit) && hit.distanceTo(from) < dist - 2);
+      };
+      const clear = (F) => [0, 0.5, 1].every(u => { const q = place(F, u); return sees(q.road, q.p) && sees(q.t, q.p); });
+      this.fly = { k };
+      for (const o of tries) { const F = { k, d0, run: o.h > 30 ? 60 : 90, ahead: o.side === 0 ? 170 : o.h > 30 ? 70 : 45, ...o }; if (o === tries[tries.length - 1] || clear(F)) { Object.assign(this.fly, F); break; } }
+    }
+    const q = place(this.fly, u);
+    cam.position.copy(q.p);
+    cam.up.set(0, 1, 0);
+    cam.lookAt(q.t);
+    cam.fov = this.fly.h > 30 ? 45 : 55;
+    cam.updateProjectionMatrix();
+    this.camPos.copy(cam.position);
+  }
   introCamera(dt) {
     const T = this.T, N = T.N, cam = this.camera;
     const at = (d) => {

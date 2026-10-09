@@ -1,0 +1,106 @@
+// dev: the booth's director (js/broadcast.js) on scripted race situations, no browser: what it says, what it lets go,
+// and how it paces itself. node .devtest/broadcast.mjs
+import { Broadcast } from '../js/broadcast.js';
+// (the same dice every run)
+let seed = 7; Math.random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+
+let fails = 0;
+const expect = (ok, what, extra = '') => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}${extra ? '  ' + extra : ''}`); if (!ok) fails++; };
+const LINES = new Set(['start.green', 'start.green.2', 'pass.clean', 'pass.aggressive', 'moment.wouldve', 'pass.failed', 'battle.sidebyside',
+  'incident.spin', 'incident.save', 'incident.crash', 'incident.crash.relief', 'incident.multicar', 'finish.close', 'finish.win', 'finish.upset',
+  'finish.dominant', 'finish.reflect', 'finish.finallap', 'quiet.early', 'battle.stuck', 'battle.defense', 'moment.closecall', 'quiet.gap']);
+
+// a straight track, cars with a progress (m along the race), a lateral s, a speed and a slip angle
+function race(n = 8, playerAt = 4) {
+  const T = { N: 1000, ds: 5, L: 5000, K: new Float32Array(1000) };
+  const cars = Array.from({ length: n }, (_, k) => ({ pid: 'c' + k, name: 'c' + k, isPlayer: k === playerAt - 1, startPos: k + 1, lap: 1, s: 0, idx: 0,
+    progress: 1000 - k * 40, onRoad: true, phys: { speed: 50, beta: 0, tyre: { wf: 1, wr: 1 } } }));
+  const r = { mode: 'race', state: 'racing', raceTime: 0, T, cars, laps: 5, events: [], finishOrder: [], teamMate: () => null };
+  r.player = cars[playerAt - 1];
+  r.sort = () => { r.order = [...cars].sort((a, b) => b.progress - a.progress); r.order.forEach((c, k) => c.pos = k + 1); };
+  r.sort();
+  const bc = new Broadcast(r); bc.lines = LINES;
+  // a frame: the cars move, positions update, the director looks; whatever it says "plays" for talkS seconds
+  r.step = (dt = 1 / 30, talkS = 8) => {
+    r.raceTime += dt;
+    for (const c of cars) { c.progress += c.phys.speed * dt; c.idx = Math.floor((c.progress / T.ds) % T.N); }
+    r.sort();
+    bc.busy = r.talkUntil != null && r.raceTime < r.talkUntil;
+    bc.update(dt);
+    for (const e of r.events) { r.said.push({ id: e.id, t: r.raceTime, force: e.force }); r.talkUntil = r.raceTime + talkS; }
+    r.events.length = 0;
+  };
+  r.said = []; r.bc = bc;
+  return r;
+}
+const run = (r, sec, f) => { for (let t = 0; t < sec; t += 1 / 30) { f && f(r); r.step(); } };
+
+// 1. the green flag, straight away
+{ const r = race(); run(r, 1); expect(r.said[0] && r.said[0].id.startsWith('start.green'), 'the green flag is called at the start', r.said.map(s => s.id).join(',')); }
+
+// 2. you pass someone: said. A backmarker passing another far from you: let go.
+{
+  const r = race(12, 4); run(r, 20);
+  const n0 = r.said.length;
+  r.cars[2].progress = r.player.progress - 1; r.player.progress += 2; run(r, 1); // (the player gets by the car ahead)
+  expect(r.said.slice(n0).some(s => s.id.startsWith('pass.')), 'your pass gets on air', r.said.slice(n0).map(s => s.id).join(','));
+  run(r, 40);
+  const n1 = r.said.length;
+  r.cars[10].progress = r.cars[9].progress + 2; run(r, 1);
+  expect(r.said.length === n1, 'a pass at the back, far from you, goes unsaid');
+}
+
+// 3. pacing: the player passing and being passed every few seconds for four minutes
+{
+  const r = race(10, 3); run(r, 15);
+  let flip = 0;
+  run(r, 240, (r) => { if (Math.round(r.raceTime * 30) % 120 === 0) { const a = r.player, b = r.cars[flip++ % 2 ? 1 : 3]; const p = a.progress; a.progress = b.progress; b.progress = p; } });
+  const passes = r.said.filter(s => s.t > 15 && (s.id.startsWith('pass.') || s.id === 'moment.wouldve'));
+  const gaps = passes.slice(1).map((s, i) => s.t - passes[i].t);
+  expect(passes.length >= 1 && passes.length <= 8, `passes every 4 s for 4 minutes: some said, most not (${passes.length} said)`);
+  expect(gaps.every(g => g >= 20), 'never two passes back to back', gaps.map(g => g.toFixed(0)).join(' '));
+  expect(passes.slice(1).every((s, i) => s.id !== passes[i].id), 'never the same exchange twice in a row', passes.map(s => s.id).join(','));
+}
+
+// 4. a spin: sideways, then going again
+{
+  const r = race(8, 2); run(r, 30);
+  const c = r.player, n0 = r.said.length;
+  run(r, 1.5, () => { c.phys.beta = 2.2; c.phys.speed = 12; });
+  run(r, 8, () => { c.phys.beta = 0.05; c.phys.speed = 18; }); // (then a moment for the booth to get to it)
+  expect(r.said.slice(n0).some(s => s.id === 'incident.spin'), 'your spin is called', r.said.slice(n0).map(s => s.id).join(','));
+}
+
+// 5. a big crash while they're talking: it goes now; later, the relief
+{
+  const r = race(8, 2); run(r, 30);
+  r.talkUntil = r.raceTime + 30; // (mid-exchange)
+  const c = r.cars[0]; r.bc.hit(c, 35); c.phys.speed = 0; c.wreck = true;
+  run(r, 0.5);
+  expect(r.said.some(s => s.id === 'incident.crash' && s.force), 'a big crash cuts in');
+  r.talkUntil = null; run(r, 20);
+  expect(r.said.some(s => s.id === 'incident.crash.relief'), 'and later: the driver is out of the car');
+}
+
+// 6. the finish: a photo finish, an underdog, a runaway win
+const finish = (setup) => { const r = race(10, 3); run(r, 60); setup(r); r.state = 'finished'; run(r, 1.5); return r.said.filter(s => s.id.startsWith('finish.')).map(s => s.id); };
+expect(finish(r => { const [a, b] = r.cars; a.finishTime = 300; b.finishTime = 300.12; r.finishOrder.push(a, b); })[0] === 'finish.close', 'two across the line together: the close finish');
+expect(finish(r => { const w = r.cars[8]; w.startPos = 9; w.finishTime = 300; r.finishOrder.push(w, r.cars[0]); r.cars[0].finishTime = 302; })[0] === 'finish.upset', 'won from ninth on the grid: the upset');
+expect(finish(r => { const w = r.cars[0]; w.bcLed = 100; w.bcSeen = 110; w.finishTime = 300; r.cars[1].finishTime = 309; r.finishOrder.push(w, r.cars[1]); })[0] === 'finish.dominant', 'led nearly all of it, 9 s clear: dominant');
+
+// 7. side by side for a few seconds, you and the car ahead
+{
+  const r = race(8, 2); run(r, 30);
+  const a = r.cars[0], b = r.player, n0 = r.said.length;
+  run(r, 15, () => { b.progress = a.progress - 1.5; a.s = -1.5; b.s = 1.6; });
+  expect(r.said.slice(n0).some(s => s.id === 'battle.sidebyside'), 'side by side down the straight', r.said.slice(n0).map(s => s.id).join(','));
+}
+
+// 8. a quiet race: they don't fill every second
+{
+  const r = race(8, 4); run(r, 300);
+  expect(r.said.length <= 6, `five uneventful minutes: a few words, not a stream (${r.said.length}: ${r.said.map(s => s.id).join(',')})`);
+}
+
+console.log(fails ? `${fails} failed` : 'all passed');
+process.exit(fails ? 1 : 0);
