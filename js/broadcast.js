@@ -52,13 +52,14 @@ const M = {
 };
 const CAT_GAP = { pass: 25, battle: 40, incident: 10, quiet: 60, crash: 30, start: 0, flow: 0, finish: 0, relief: 0, react: 0 };
 
-// The live calls: the announcer alone, as it happens, a call built from names and pieces ([pbp] in the lines file):
-// "Valdez... down the inside... and makes it stick! Up to third." They come quicker than the booth (a few seconds
+// The live calls: short whole sentences as it happens, by name when there's one recorded (calls.txt x names.txt:
+// "Valdez gets the run... and makes it stick!"), else one without ([pbp]), and now and then the color commentator
+// takes the call himself ([pbpc]: "Oh, buddy! Look at that!"). They come quicker than the booth (a few seconds
 // apart, cd: the same moment again, and the same cars not again for 25 s), and only when nobody's talking unless
 // force. A moment with no live call, or whose names aren't recorded, goes to the booth as before.
 const LIVE = {
   'start.green': { force: true }, 'pass.clean': { cd: 6 }, 'pass.aggressive': { cd: 6 }, 'pass.failed': { cd: 20 },
-  'moment.ambitious': { cd: 20 }, 'battle.sidebyside': { cd: 25 }, 'battle.closing': { cd: 30 }, 'battle.pressure': { cd: 40 },
+  'moment.ambitious': { cd: 20 }, 'moment.closecall': { cd: 40 }, 'battle.sidebyside': { cd: 25 }, 'battle.closing': { cd: 30 }, 'battle.pressure': { cd: 40 },
   'incident.spin': { cd: 8 }, 'incident.save': { cd: 15 }, 'incident.offtrack': { cd: 15 }, 'incident.crash': { force: true, cd: 20 },
   'finish.finallap': { half: true }, 'finish.win': { force: true }, 'finish.close': { force: true },
 };
@@ -80,7 +81,7 @@ export class Broadcast {
     this.ps = new Map(); // per pair (a ahead of b): side by side, attempts, gaps
     this.passT = {}; this.once = {};
     this.prevOrder = null;
-    this.pbp = null; this.names = null; // (main.js: the recorded play-by-play pieces and names)
+    this.pbp = null; this.pbpc = null; this.calls = null; // (main.js: the recorded live calls: no name, the color's, named)
     this.liveT = -99; this.liveSaid = {}; this.later = [];
   }
   rel(car) {
@@ -164,52 +165,52 @@ export class Broadcast {
       this.liveSaid[key] = now;
     } else if (now - (this.liveSaid[c.id] ?? -1e9) < (L.cd || 0)) return 'wait';
     this.liveT = now; this.liveSaid[c.id] = now; this.lastSay = now; this.busy = true;
-    for (const p of parts) if (p.startsWith('pbp.')) this.takeT[p] = now;
+    for (const p of parts) this.takeT[p] = now;
     this.r.events.push({ type: 'pbp', parts, force: !!L.force, cap: caption(c.id, c.cars, c.o, this.r) });
     const f = FOLLOW[c.id]; if (f && Math.random() < f[1]) this.later.push({ t: now + 1.5, id: f[0], cars: c.cars, o: { booth: true, anywhere: true } });
     if (c.o.story) this.later.push({ t: now + 0.5, id: c.o.story, cars: c.cars, o: { booth: true } });
     return 'said';
   }
-  // a piece: one of base's takes not heard in the last PIECE_CD seconds, else the least recent
-  take(base) {
-    const P = this.pbp; if (!P) return null;
-    const ids = [...P].filter(k => k === base || (k.startsWith(base + '.') && /^\d+$/.test(k.slice(base.length + 1))));
+  // a take of base (base, base.2, ...) from a set, not heard in the last PIECE_CD seconds, else the least recent
+  take(base, set = this.pbp) {
+    if (!set) return null;
+    const ids = [...set].filter(k => k === base || (k.startsWith(base + '.') && /^\d+$/.test(k.slice(base.length + 1))));
     if (!ids.length) return null;
     const fresh = ids.filter(k => this.t - (this.takeT[k] ?? -1e9) >= PIECE_CD);
     const pool = fresh.length ? fresh : [...ids].sort((a, b) => (this.takeT[a] ?? -1e9) - (this.takeT[b] ?? -1e9)).slice(0, 1);
     return pool[Math.floor(Math.random() * pool.length)];
   }
-  // a car's name as recorded (names.txt): to start a call, or (end) to finish one. You: your commentary name.
-  nameOf(car, end) {
-    if (!car || !this.names) return null;
-    const raw = car.isPlayer ? this.r.opts && this.r.opts.commentaryName : String(car.name || '').split(' ').pop();
-    const slug = slugName(raw);
-    const id = `name.${slug}${end ? '.end' : ''}`;
-    return slug && this.names.has(id) ? id : null;
+  // a car's name as the recordings know it (names.txt: call.<type>.<name>); you: your commentary name
+  slugOf(car) {
+    if (!car) return null;
+    return slugName(car.isPlayer ? this.r.opts && this.r.opts.commentaryName : String(car.name || '').split(' ').pop()) || null;
   }
-  // the pieces of a moment's call (null: it can't be called: a name or a piece missing)
+  // the named call of a type for a car (a whole sentence with the name in it), if it's recorded
+  named(type, car) { const s = this.slugOf(car), id = s && `call.${type}.${s}`; return id && this.calls && this.calls.has(id) ? id : null; }
+  // the call for a moment: a whole sentence (named if it can be, else one without a name), now and then the color
+  // commentator's burst instead. null: nothing to say live (the booth's turn)
   build(c) {
-    const [a, b] = c.cars, N = (x, end) => this.nameOf(x, end), T = (k) => this.take(k);
-    const all = (...p) => p.every(Boolean) ? p : null;
+    const [a] = c.cars, G = (k) => this.take(k, this.pbp), C = (k) => this.take(k, this.pbpc), N = (t) => this.named(t, a);
+    const color = (p) => Math.random() < p;
+    const one = (id) => id ? [id] : null;
     switch (c.id) {
-      case 'start.green': return all(T('pbp.green'));
+      case 'start.green': return one(G('pbp.green'));
       case 'pass.clean': case 'pass.aggressive': {
-        const piece = T('pbp.pass.' + (c.o.kind || 'generic')) || T('pbp.pass.generic');
-        const up = a && a.pos <= 10 ? T('pbp.up.' + a.pos) : null;
-        const p = all(N(a), piece); return p && up ? [...p, up] : p;
+        if (a && a.pos === 1) return one(N('lead') || G('pbp.pass'));
+        if (c.id === 'pass.aggressive' && color(0.4)) return one(N('bold') || C('pbpc.bold'));
+        return one(color(0.5) && N('pass') || G('pbp.pass') || N('pass'));
       }
-      case 'pass.failed': return all(N(a), T('pbp.look'), N(b, true));
-      case 'moment.ambitious': return all(N(a), T('pbp.contact'), N(b, true));
-      case 'battle.sidebyside': return all(N(a), T('pbp.sbs'), N(b, true));
-      case 'battle.closing': return all(N(a), T('pbp.closing'), N(b, true));
-      case 'battle.pressure': return all(N(a), T('pbp.pressure'), N(b, true));
-      case 'incident.spin': return all(N(a), T('pbp.spin'));
-      case 'incident.save': return all(N(a), T('pbp.save'));
-      case 'incident.offtrack': return all(N(a), T('pbp.offtrack'));
-      case 'incident.crash': return all(N(a), T('pbp.crash'));
-      case 'finish.finallap': return all(T('pbp.finallap'));
-      case 'finish.win': return all(N(a), T('pbp.win'));
-      case 'finish.close': return all(N(a), T('pbp.win.close'));
+      case 'pass.failed': return one(G('pbp.look'));
+      case 'moment.ambitious': return one(G('pbp.contact'));
+      case 'battle.sidebyside': return one(color(0.3) && C('pbpc.sbs') || G('pbp.sbs'));
+      case 'battle.closing': case 'battle.pressure': return one(color(0.3) && C('pbpc.run') || G('pbp.pressure'));
+      case 'moment.closecall': return one(C('pbpc.close'));
+      case 'incident.spin': return one(N('spin') || G('pbp.spin'));
+      case 'incident.save': return one(N('save') || C('pbpc.save'));
+      case 'incident.offtrack': return one(G('pbp.offtrack'));
+      case 'incident.crash': return one(N('crash') || G('pbp.crash'));
+      case 'finish.finallap': return one(G('pbp.finallap'));
+      case 'finish.win': case 'finish.close': return one(N('win'));
       default: return null;
     }
   }
@@ -428,7 +429,7 @@ export class Broadcast {
       : led > 0.75 && margin > 4 ? 'finish.dominant'
       : (w.bcWorst || 1) >= 5 ? 'finish.reflect' : null;
     const call = margin < 0.3 ? 'finish.close' : 'finish.win';
-    if (this.pbp && this.nameOf(w)) this.note(call, [w], { story });
+    if (this.pbp && this.named('win', w)) this.note(call, [w], { story });
     else this.note(story || call, [w]); // (no name to call: the booth's exchange, as before)
   }
 }
@@ -476,9 +477,7 @@ export function caption(id, cars, o, race) {
 // the nicknames the announcer can call you (assets/voice/names.txt [nicknames]: keep the two the same), for when your
 // surname isn't one he has (Options > Commentary Name)
 export const NICKNAMES = ['Ace', 'Rookie', 'The Kid', 'Hot Rod', 'Lightning', 'Maverick', 'Showtime', 'Smokey', 'Bulldog', 'Iceman', 'Tex', 'Doc',
-  'Flash', 'Rocket', 'Bandit', 'Cowboy', 'Duke', 'Gator', 'Hollywood', 'Junior', 'Lucky', 'Mad Dog', 'Moose', 'Outlaw', 'Pistol', 'Rebel', 'Scooter',
-  'Slick', 'Sparky', 'Thunder', 'Tiger', 'Wildcat', 'Wheels', 'Chief', 'Buddy', 'Champ', 'Hammer', 'Viper', 'Comet', 'Turbo', 'Boomer', 'Dusty', 'Red',
-  'Rusty', 'Shotgun', 'Hurricane', 'Kingfish', 'The Boss', 'Ghost', 'Nitro', 'Blaze', 'Captain', 'Professor', 'Sarge', 'Big Country', 'Wrecking Ball',
-  'Cannonball', 'Knuckles', 'Sundance', 'Skeeter'];
+  'Flash', 'Rocket', 'Bandit', 'Cowboy', 'Gator', 'Hollywood', 'Junior', 'Lucky', 'Outlaw', 'Pistol', 'Rebel', 'Slick', 'Thunder', 'Tiger', 'Wildcat',
+  'Turbo', 'Hurricane', 'The Boss'];
 // a name's id in the recordings (tools/voice/gen.mjs uses the same): "O'Brien" -> obrien, "Hot Rod" -> hotrod
 export const slugName = (n) => String(n || '').toLowerCase().replace(/[^a-z0-9]/g, '');

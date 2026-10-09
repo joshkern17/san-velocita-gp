@@ -887,5 +887,397 @@
   "score": 1,
   "extra": 0,
   "heard": "Well, look who's joined the party. He's been quietly working his way forward. Nobody was watching him, and that's just how he likes it"
+ },
+ "pbp/pbp.green.2": {
+  "hash": "03e432888d49",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "And they're away"
+ },
+ "pbp/pbp.green": {
+  "hash": "701629fb52bf",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Green flag and we are racing"
+ },
+ "pbp/pbp.green.3": {
+  "hash": "8402d30660a8",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Here we go. A clean getaway"
+ },
+ "pbp/pbp.green.6": {
+  "hash": "014d8482bfa3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "We are underway"
+ },
+ "pbp/pbp.green.4": {
+  "hash": "1d970470af75",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Green, green, green!"
+ },
+ "pbp/pbp.green.5": {
+  "hash": "f45b19861737",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "And the field streams down toward the first corner!"
+ },
+ "pbp/pbp.green.7": {
+  "hash": "95c97b803c50",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Off they go, and it is tight already"
+ },
+ "pbp/pbp.green.8": {
+  "hash": "10647a3dec7d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Away they go. Let's go racing"
+ },
+ "pbp/pbp.green.10": {
+  "hash": "3eb62de80784",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "And it's a drag race to the first turn"
+ },
+ "pbp/pbp.green.9": {
+  "hash": "ded980e63502",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Good start. Everybody gets away cleanly"
+ },
+ "pbp/pbp.green.11": {
+  "hash": "50ab6d563182",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "The green flag waves, and here they come"
+ },
+ "pbp/pbp.green.12": {
+  "hash": "ed444e9c0caf",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "And we're off. Everybody looking for a gap"
+ },
+ "pbp/pbp.sbs.2": {
+  "hash": "4c1a9f95932c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Door to door neither one lifting"
+ },
+ "pbp/pbp.sbs": {
+  "hash": "61b672199c8e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Side by side down the straight"
+ },
+ "pbp/pbp.pressure": {
+  "hash": "69e36fc7cd45",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Right on the back of the car ahead now"
+ },
+ "pbp/pbp.pressure.2": {
+  "hash": "cb28cbf51c9b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "The gap is coming down and fast"
+ },
+ "pbp/pbp.look.2": {
+  "hash": "4a8a7f5ca35a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Tries the inside, and the door's shut"
+ },
+ "pbp/pbp.contact": {
+  "hash": "0b83b788bafb",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "A bit of contact there"
+ },
+ "pbp/pbp.look": {
+  "hash": "a2defe3af342",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Has a look Can't quite get there"
+ },
+ "pbp/pbp.spin": {
+  "hash": "dd51fee855ab",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Spin! Around it goes"
+ },
+ "pbp/pbp.offtrack.2": {
+  "hash": "9151e4821196",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Runs wide, and that'll cost a spot or two"
+ },
+ "pbp/pbp.contact.2": {
+  "hash": "403838ed1573",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "They've touched"
+ },
+ "pbp/pbp.finallap.2": {
+  "hash": "b1974db38460",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Last lap"
+ },
+ "pbp/pbp.crash": {
+  "hash": "44084d91cae6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Hard into the wall"
+ },
+ "pbp/pbp.offtrack": {
+  "hash": "8b08cbb30354",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Off the road and through the grass"
+ },
+ "pbp/pbp.finallap": {
+  "hash": "a44631a074e1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "There's the white flag. One lap to go"
+ },
+ "pbp/pbp.finallap.3": {
+  "hash": "4c1ba029ed8d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "One lap left in this one."
+ },
+ "pbp/pbp.pass.2": {
+  "hash": "962580a22b5c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Gets the run and takes the spot"
+ },
+ "pbp/pbp.pass": {
+  "hash": "9d0c3f3a4159",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Down the inside and through"
+ },
+ "pbp/pbp.pass.3": {
+  "hash": "eb7fe301d161",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Around the outside. What a move"
+ },
+ "pbp/pbp.pass.5": {
+  "hash": "9d0f4d097c11",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Right past on the straightaway"
+ },
+ "pbp/pbp.pass.4": {
+  "hash": "13e6b9957899",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Late on the brakes and makes it stick"
+ },
+ "pbp/pbp.sbs.3": {
+  "hash": "ec15853f4ea9",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "They're side by side"
+ },
+ "pbp/pbp.pressure.3": {
+  "hash": "d65d67ce3aea",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "All over the back of the car in front"
+ },
+ "call/call.lead.okonkwo": {
+  "hash": "6bb8a0cdeb62",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Okonkwo takes the lead"
+ },
+ "call/call.lead.shuttleworth": {
+  "hash": "bd03367711af",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Shuttleworth takes the lead!"
+ },
+ "call/call.pass.shuttleworth": {
+  "hash": "8edfa96b4ada",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Shuttleworth gets the run and makes it stick"
+ },
+ "call/call.pass.valdez": {
+  "hash": "e4b65d39841c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Valdez gets the run and makes it stick"
+ },
+ "call/call.bold.shuttleworth": {
+  "hash": "23f83b35dd6f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Shuttleworth just threw it in there!"
+ },
+ "call/call.win.shuttleworth": {
+  "hash": "277f1cb6aeb5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Shuttleworth wins it!"
+ },
+ "call/call.spin.valdez": {
+  "hash": "3444aaa56c7b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Valdez spins. Around it goes"
+ },
+ "call/call.lead.valdez": {
+  "hash": "f6ca12d71881",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Valdez takes the lead"
+ },
+ "call/call.crash.valdez": {
+  "hash": "922210bdd43f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Valdez hard into the wall"
+ },
+ "call/call.win.valdez": {
+  "hash": "f91db4e42eb1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Valdez wins it"
+ },
+ "call/call.bold.valdez": {
+  "hash": "488232eb8dcb",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Valdez just threw it in there!"
+ },
+ "call/call.spin.hotrod": {
+  "hash": "1cc822a87b34",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Hot Rod spins. Around it goes"
+ },
+ "call/call.save.valdez": {
+  "hash": "c322966b6573",
+  "ok": false,
+  "score": 0.89,
+  "extra": 2,
+  "heard": "[laughs] Valdez is sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.save.hotrod": {
+  "hash": "22af2e4484a7",
+  "ok": true,
+  "score": 0.9,
+  "extra": 1,
+  "heard": "[laughs] Hot rod sideways. Hang on. And saves it! Man alive"
+ },
+ "pbpc/pbpc.run": {
+  "hash": "68508262f88b",
+  "ok": false,
+  "score": 0.71,
+  "extra": 1,
+  "heard": "Oh, gotta run on 'em now"
+ },
+ "pbpc/pbpc.bold": {
+  "hash": "7a494248ae29",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy, look at that!"
+ },
+ "pbpc/pbpc.bold.2": {
+  "hash": "77e1d9d23ff1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] Now that took some nerve"
+ },
+ "pbpc/pbpc.sbs.2": {
+  "hash": "03d9c5847a00",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Now that's racing"
+ },
+ "pbpc/pbpc.run.2": {
+  "hash": "ca83d7064771",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Here it comes. Here it comes"
+ },
+ "pbpc/pbpc.sbs": {
+  "hash": "5d338fc82c0b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] Somebody's gonna have to lift here"
+ },
+ "pbpc/pbpc.save": {
+  "hash": "2aa3be79a52c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Hang on hang on got it!"
+ },
+ "pbpc/pbpc.close": {
+  "hash": "63ea90a03213",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] Man alive, that was close"
  }
 }

@@ -15,7 +15,7 @@ import { drawChart, drawMap, notesHtml, fmtGap, fmtSpeed, drawLineMap, lineMapHi
 import { garbleTree } from './garble.js';
 import { AIDS, AID_KEYS, PRESETS, PRESET_VALS, aidsOf, presetOf, applyPreset, aidBonus, AID_RULES, AID_RULE_DESC, limitAids } from './aids.js';
 import { initAudio, sfx, setVolume, setMusicVolume, setMusicScene, updateMusic } from './audio.js';
-import { engSay, preload as voPreload, voStopAll, setVoiceOn, boothSay, boothSequence, stopBooth, boothLines, voBusy, pbpSay, lineSet } from './vo.js';
+import { engSay, preload as voPreload, voStopAll, setVoiceOn, boothSay, boothSequence, stopBooth, boothLines, voBusy, pbpSay, lineSet, voReload } from './vo.js';
 import { NICKNAMES, slugName } from './broadcast.js';
 import { presetTracks, sampleTrack, trackStats, THEMES, cloneTrack } from './track.js';
 import { TEAMS } from './car.js';
@@ -344,11 +344,27 @@ function startAttract() {
 }
 // what the announcer calls you (broadcast.js): your surname if it's one he has recorded, else the nickname you picked
 // ({} when neither: calls about you go to the booth, who don't use names)
+// Options > Record Your Name: the announcers' calls with your surname, recorded once (serve.py /__voice/name runs
+// tools/voice/gen.mjs with the ElevenLabs key from its shell), then they call you by it
+async function recordMyName() {
+  const st = await fetch('__voice/status').then(r => r.json()).catch(() => ({ ok: false }));
+  if (!st.ok) return toast('Recording a name needs the game running from serve.py, in a shell with your ElevenLabs key.');
+  let name = String(settings.driverName || '').trim().split(' ').pop();
+  if (!name) { name = (prompt('Your surname, the way the announcers should say it:') || '').trim().split(' ').pop(); if (!name) return; }
+  if (lineSet('call').has('call.pass.' + slugName(name))) { settings.commentaryName = 'auto'; saveSettings(); return toast(`The announcers already know ${name}.`); }
+  toast(`Recording "${name}"... about a minute.`);
+  const r = await fetch('__voice/name', { method: 'POST', body: JSON.stringify({ name }) }).then(r => r.json()).catch(e => ({ ok: false, error: String(e) }));
+  if (!r.ok) return toast('Recording failed: ' + (r.error || 'unknown'));
+  await voReload();
+  if (!settings.driverName) settings.driverName = name;
+  settings.commentaryName = 'auto'; saveSettings();
+  toast(`Done: the announcers will call you ${name}.`);
+}
 function commentaryName() {
-  const pick = settings.commentaryName || 'auto', names = lineSet('name');
-  if (pick !== 'auto') { const n = NICKNAMES.find(x => slugName(x) === pick); return n && names.has('name.' + pick) ? { commentaryName: pick, commentaryLabel: n.toUpperCase() } : {}; }
+  const pick = settings.commentaryName || 'auto', calls = lineSet('call'), has = (slug) => calls.has('call.pass.' + slug);
+  if (pick !== 'auto') { const n = NICKNAMES.find(x => slugName(x) === pick); return n && has(pick) ? { commentaryName: pick, commentaryLabel: n.toUpperCase() } : {}; }
   const sur = String(settings.driverName || '').trim().split(' ').pop(), slug = slugName(sur);
-  return slug && names.has('name.' + slug) ? { commentaryName: slug, commentaryLabel: sur.toUpperCase() } : {};
+  return slug && has(slug) ? { commentaryName: slug, commentaryLabel: sur.toUpperCase() } : {};
 }
 function disposeSim() { driftHud.hide(); voStopAll(); if (sim) { sim.dispose(); sim = null; } }
 
@@ -626,6 +642,8 @@ const OPTION_TABS = [
     { label: 'Commentary', values: [['full', 'Full'], ['intro', 'Track Intros'], ['off', 'Off']], get: () => settings.commentary || 'full', set: v => { settings.commentary = v; setVoiceOn('booth', v !== 'off'); saveSettings(); }, desc: 'The broadcast booth. <b>Full</b>: a flyover of the circuit before each race while they introduce it, then they call the race: passes, battles, crashes, the finish. <b>Track Intros</b>: just the flyover. Changes apply from the next race.' },
     { label: 'Commentary Name', values: [['auto', 'Your Surname'], ...NICKNAMES.map(n => [slugName(n), n])], get: () => settings.commentaryName || 'auto', set: v => { settings.commentaryName = v; saveSettings(); },
       get desc() { const c = commentaryName(); return `What the announcer calls you. <b>Your Surname</b>: your driver's last name (${(settings.driverName || 'not set yet').split(' ').pop()}), if it's one he can say${c.commentaryName ? '' : ': it isn\'t, so pick a nickname'}. Or a nickname.`; } },
+    { label: 'Record Your Name', action: () => recordMyName(),
+      get desc() { const s = String(settings.driverName || '').trim().split(' ').pop(); return `The announcers learn your name: they record their calls with it (once, about a minute; needs the game running from serve.py with your ElevenLabs key). ${s ? (commentaryName().commentaryName === slugName(s) ? `They already know <b>${s}</b>.` : `Your driver: <b>${s}</b>.`) : 'It asks for your surname.'}`; } },
     { label: 'Engineer Voice', values: [['on', 'On'], ['off', 'Off']], get: () => settings.engVoice || 'on', set: v => { settings.engVoice = v; setVoiceOn('eng', v !== 'off'); saveSettings(); }, desc: 'Your race engineer reads his radio messages out loud, over the team radio. Off: the messages still show on screen.' },
     { label: 'Camera', values: [['chase', 'Chase'], ['far', 'Far Chase'], ['tcam', 'T-Cam'], ['bumper', 'Nose']], get: () => settings.camera, set: v => { settings.camera = v; saveSettings(); }, desc: 'The view you start races in. Press C (or Y) while driving to switch.' },
     { label: 'Rear-View Mirror', values: [['on', 'On'], ['off', 'Off']], get: () => settings.mirror, set: v => { settings.mirror = v; setMirror(v !== 'off'); saveSettings(); }, desc: 'A mirror at the top of the screen, with your lap time under it.' },
@@ -4539,7 +4557,7 @@ function drawLoadArt(track, cv = $('load-canvas'), tm = track.env.time) {
 function handleRaceEvents() {
   if (!sim || sim.mode === 'attract') return;
   // the booth's director (broadcast.js) waits while anyone's talking; the pre-race broadcast hides the HUD
-  if (sim.bc) { sim.bc.busy = voBusy(); if (!sim.bc.lines) { sim.bc.lines = boothLines(); sim.bc.pbp = lineSet('pbp'); sim.bc.names = lineSet('name'); } }
+  if (sim.bc) { sim.bc.busy = voBusy(); if (!sim.bc.lines) { sim.bc.lines = boothLines(); sim.bc.pbp = lineSet('pbp'); sim.bc.pbpc = lineSet('pbpc'); sim.bc.calls = lineSet('call'); } }
   $('hud').classList.toggle('bcast', sim.state === 'broadcast');
   while (sim.events.length) {
     const ev = sim.events.shift();

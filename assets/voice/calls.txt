@@ -1,0 +1,25 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  SAN VELOCITA — LIVE CALLS WITH A NAME
+# ─────────────────────────────────────────────────────────────────────────────
+# Whole sentences, recorded once for every name in names.txt (so a call never
+# sounds stitched together): {N} is the name. Written to STYLE_GUIDE.md.
+#
+#   [main]   the Announcer: clear, building, a big call when it's earned
+#   [color]  the Color Commentator: a driver with a microphone, bursts of delight
+#
+# Each line here becomes one clip per name (id = call.<type>.<name>), so every
+# line costs about 45 characters x the number of names: keep them short, and the
+# [tags] short too (they count).
+# The other car in a moment is on the graphic, not in the sentence: one name each.
+# No "he" / "she": the name carries it.
+
+[main]
+call.pass = [building] {N} gets the run... and makes it stick!
+call.lead = [thrilled] {N} takes the lead!
+call.spin = [surprised] {N} spins! Around it goes!
+call.crash = [shocked] Oh, trouble! {N}, hard into the wall!
+call.win = [triumphant] Checkered flag... and {N} wins it!
+
+[color]
+call.bold = [explosive] Oh, buddy! {N} just threw it in there!
+call.save = [tense, laughing] {N}'s sideways... hang on... and saves it! Man alive!

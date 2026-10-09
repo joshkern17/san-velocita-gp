@@ -16,6 +16,8 @@ const loading = (async () => {
   catch (e) { manifest = null; }
 })();
 export const voReady = () => loading;
+// after recording something new (your own name, main.js): read the list of clips again
+export async function voReload() { if (embedded()) return; try { const m = await fetch(DIR + 'manifest.json', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)); if (m) manifest = m; } catch (e) {} }
 // Options: the engineer's voice and the commentary can each be turned off
 export function setVoiceOn(kind, on) { enabled[kind] = !!on; if (!on) stop(kind); }
 
@@ -160,12 +162,11 @@ function speech(buf) {
 }
 // the pause between two pieces: a name runs straight into what it did; a position or a second name a touch later
 const pieceGap = (a, b) => b.startsWith('pbp.up.') ? 0.14 : a.startsWith('name.') ? 0.07 : 0.05;
-// The announcer calls it live: parts are line ids ('name.valdez', 'pbp.pass.inside', 'pbp.up.3', 'name.tanaka.end'),
-// played back to back as one call. It doesn't talk over anyone unless o.force (the win, a crash). Resolves when done.
+// A live call: parts are line ids ('call.pass.valdez', 'pbp.sbs.2', 'pbpc.bold'), usually one, played back to back. It doesn't talk over anyone unless o.force (the win, a crash). Resolves when done.
 export async function pbpSay(parts, o = {}) {
   if (!enabled.booth || !manifest || !parts.length) return false;
   if ((now.booth || now.eng) && !o.force) return false;
-  const files = parts.map(id => { const S = manifest[id.startsWith('name.') ? 'name' : 'pbp']; return S && S[id] && S[id].file; });
+  const files = parts.map(id => { const S = manifest[id.split('.')[0]]; return S && S[id] && S[id].file; }); // (the section is the id's first word: call., pbp., pbpc.)
   if (files.some(f => !f) || !chains()) return false;
   const bufs = await Promise.all(files.map(buffer)); if (bufs.some(b => !b)) return false;
   if (now.eng && !o.force) return false;

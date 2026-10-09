@@ -16,11 +16,12 @@ start-up, it's filled back from there first.
 Character voices (llm.py): "Sign in with ChatGPT" for the game's LLM layer, on /__llm/* and /auth/callback. The account's
 tokens are kept in saves/llm/ (a temp folder for test servers).
 """
-import http.server, socketserver, webbrowser, os, sys, threading, time, json, re, shutil, datetime, tempfile
+import http.server, socketserver, webbrowser, os, sys, threading, time, json, re, shutil, datetime, tempfile, subprocess
 
 PORT = next((int(a) for a in sys.argv[1:] if a.isdigit()), 8000)
 AUTO_EXIT = '--auto-exit' in sys.argv
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.getcwd()
 last_ping = time.time()
 SAVES = os.path.join(os.getcwd(), 'saves') if PORT == 8000 or '--saves' in sys.argv else None
 LS, ASSETS = (os.path.join(SAVES, 'storage'), os.path.join(SAVES, 'assets')) if SAVES else (None, None)
@@ -137,6 +138,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             page = llm.PAGE.format(title='Signed in' if ok else 'Sign-in didn\'t work',
                                    body=(f'Character voices will use {msg}\'s ChatGPT plan. You can close this tab and go back to the game.' if ok else msg))
             return self.reply(page, 'text/html; charset=utf-8')
+        if self.path.startswith('/__voice/status'):
+            # the voice tools (tools/voice/gen.mjs) can run: an ElevenLabs key, and node
+            ok = bool(os.environ.get('ELEVENLABS_API_KEY')) and shutil.which('node') is not None
+            return self.reply(json.dumps({'ok': ok}), 'application/json')
         if self.path.startswith('/__llm/status'):
             return self.reply(json.dumps(VOICES.status()), 'application/json')
         if self.path.startswith('/__saves') and SAVES:
@@ -177,6 +182,24 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     a = {}
                 return self.reply(json.dumps(VOICES.say(str(a.get('instructions') or ''), str(a.get('input') or ''))), 'application/json')
             self.send_response(404); self.end_headers(); return
+        # a player's own name for the commentators: /__voice/name { name, say } records its calls (tools/voice/gen.mjs,
+        # with the ElevenLabs key from this shell: it never goes to the game), once
+        if u.path == '/__voice/name':
+            try:
+                a = json.loads(body or '{}')
+            except Exception:
+                a = {}
+            name = re.sub(r"[^A-Za-z' -]", '', str(a.get('name') or '')).strip()[:30]
+            say = re.sub(r"[^A-Za-z' -]", '', str(a.get('say') or '')).strip()[:40]
+            if not name or not os.environ.get('ELEVENLABS_API_KEY'):
+                return self.reply(json.dumps({'ok': False, 'error': 'no name' if not name else 'no ElevenLabs key in this shell'}), 'application/json')
+            cmd = ['node', os.path.join(ROOT, 'tools', 'voice', 'gen.mjs'), '--custom-name', name] + (['--say', say] if say else [])
+            try:
+                r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=180)
+                ok = r.returncode == 0
+                return self.reply(json.dumps({'ok': ok, 'slug': re.sub(r'[^a-z0-9]', '', name.lower()), 'error': '' if ok else (r.stderr or r.stdout)[-300:]}), 'application/json')
+            except Exception as e:
+                return self.reply(json.dumps({'ok': False, 'error': str(e)}), 'application/json')
         if not SAVES:
             self.send_response(404); self.end_headers(); return
         with lock:
