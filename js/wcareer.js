@@ -3656,6 +3656,10 @@ export function buyCar2(w, kind) {
   w.car2 = { kind, name: w.car.name, cond: kind === 'match' ? 1 : 0.78, paid: price, fix: c2.fix || 'full', series: w.player.series };
   return true;
 }
+// selling car two (one you bought, not the hire car or a lease): what it fetches, the same as when a move up a series
+// sells it for you; the hire car takes its place
+export const car2Sale = (w) => { const c = w.car2; return c && ['match', 'old'].includes(c.kind) && c.paid ? Math.round(c.paid * 0.4 * c.cond / 500) * 500 : 0; };
+export function sellCar2(w) { const v = car2Sale(w); if (!v) return 0; pay(w, v, `Car 2 sold (${w.car2.name})`); w.car2 = null; return v; }
 export function setCar2Fix(w, fix) { const c = car2Of(w); if (c && c.kind !== 'theirs') c.fix = fix; }
 // what it does to the second car: { power, grip (multipliers), fail (the chance of a DNF, times), label }
 export function car2Mods(w) {

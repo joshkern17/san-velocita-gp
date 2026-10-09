@@ -34,7 +34,7 @@ import * as WCX from './wcareer.js';
 // sent to the host, whose copy is the career (coopSend / coopHostMessage 'op'); the host's copy comes back a moment later
 const WC_OPS = new Set(['acquireCar', 'buyCar', 'buyCar2', 'buyFit', 'newPart', 'rebuildPart', 'rebuildSelf', 'startProject', 'workOnProject', 'buildFacility', 'sellFacility', 'sellCar',
   'orderTyres', 'hireStaff', 'fireStaff', 'payBack', 'setPay', 'applyLoan', 'sellAnnuity', 'offerDriver', 'extendMate', 'setMatePay', 'setCar2Fix', 'removeFit', 'removeGrey',
-  'answerSponsor', 'answerWorks', 'answerInvestor', 'answerBuyout', 'answerPoach', 'answerGent', 'answerStory', 'answerOffer', 'rsvpEvent', 'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan', 'coopAnswer']);
+  'answerSponsor', 'answerWorks', 'answerInvestor', 'answerBuyout', 'answerPoach', 'answerGent', 'answerStory', 'answerOffer', 'rsvpEvent', 'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan', 'coopAnswer', 'sellCar2']);
 const WC = new Proxy(WCX, { get(m, k) {
   const f = m[k]; if (typeof f !== 'function' || !WC_OPS.has(k)) return f;
   return (...a) => {
@@ -45,7 +45,7 @@ const WC = new Proxy(WCX, { get(m, k) {
 } });
 // (what the co-owner may do on their own: their car, the cars' upgrades, repairs and development, the tyres, their own
 // days; the team's business (staff, facilities, money, sponsors, the season) is the host's)
-const GUEST_OPS = new Set(['buyCar2', 'setCar2Fix', 'buyFit', 'removeFit', 'startProject', 'workOnProject', 'orderTyres', 'rebuildPart', 'newPart', 'rebuildSelf',
+const GUEST_OPS = new Set(['buyCar2', 'setCar2Fix', 'buyFit', 'removeFit', 'startProject', 'workOnProject', 'orderTyres', 'rebuildPart', 'newPart', 'rebuildSelf', 'sellCar2',
   'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan', 'coopAnswer']);
 import { Phone } from './phone.js';
 import { Net, PROTO } from './net.js';
@@ -2676,6 +2676,9 @@ function renderCarMenu() {
     items.push({ label: 'Shop For Upgrades', action: () => sitDown('parts'), desc: 'Speed Parts Direct and SVList, on the computer.' },
       ...(sale ? [{ label: `${sale.lease ? 'Hand It Back' : 'Sell The Car'}<small>+${WC.money$(sale.value)}</small>`, confirm: `${sale.lease ? 'Hand it back' : 'Sell it'}? Select again`, action: () => sellTheCar(),
         desc: sale.lease ? `Back to the programme: you get <b>${WC.money$(sale.value)}</b> of the deposit back (less what it needs putting right). No race car until you get another.` : `A dealer gives <b>${WC.money$(sale.value)}</b> for it this week (what it cost you, less wear). No race car until you buy another: you can still work the week and sit rounds out.` }] : []),
+      // (car two, if you bought it: a co-owner sells their own; the hire car comes back in its place)
+      ...(WC.car2Sale(w) ? [{ label: `Sell Car Two<small>+${WC.money$(WC.car2Sale(w))}</small>`, confirm: 'Sell car two? Select again', action: () => { const v = WC.sellCar2(w); if (!v) return; sfx.best(); saveWorld(); toast(`Car two sold for ${WC.money$(v)}. A hire car takes its place.`); renderHub(); },
+        desc: `The ${w.car2.name} in car two: <b>${WC.money$(WC.car2Sale(w))}</b> (what it cost, less wear). A hire car takes its place. Moving up a series sells it for the same, so sell now if you want the money now.` }] : []),
       { label: 'Back', action: () => leaveCar(), desc: 'Back to the garage.' });
   } else {
     const k = carSub, p = P[k], mech = WC.staffOf(w, 'mechanic');
