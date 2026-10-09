@@ -700,11 +700,11 @@
   "heard": "And there's the green flag. We are underway. Here we go"
  },
  "booth/intro.standard.2": {
-  "hash": "69f37314a516",
+  "hash": "d0dca686a1d1",
   "ok": true,
   "score": 1,
   "extra": 0,
-  "heard": "Good to be back with you. Plenty to talk about today, and plenty of drivers with something to prove. Something to prove is the most dangerous thing you can bring to a racetrack. Makes you brave, and it makes you dumb, about the same amount. Spoken like a man who brought it a few times. [laughs] Every single week"
+  "heard": "Good to be back with you. Plenty to talk about today, and plenty of drivers with something to prove. Something to prove can make you try a little too hard. I brought plenty of that to the track. You learned to leave some of it at home? [laughs] Eventually. Took a while"
  },
  "booth/start.green.2": {
   "hash": "b01287cdc00c",
@@ -8188,5 +8188,628 @@
   "score": 0.9,
   "extra": 2,
   "heard": "[laughs] The boss is sideways. Hang on. And saves it! Man alive!"
+ },
+ "booth/quiet.chat.3": {
+  "hash": "2066959e0940",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "We talk about speed, but it still comes back to those tires. You can have all the power you want. If you can't put it on the road, it won't help you much"
+ },
+ "booth/quiet.chat.2": {
+  "hash": "85f0d3cec18b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Did you have a superstition before a race? Left glove first, every time. Forgot once and spun on the warm-up lap. [laughs] One race was all the evidence you needed? [laughs] Plenty for me"
+ },
+ "booth/quiet.chat.5": {
+  "hash": "5469df3e9beb",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "What do you actually listen for in the car? Everything. The engine, the tires, the wind. You hear a new noise and your stomach drops before your brain catches up."
+ },
+ "booth/quiet.chat.4": {
+  "hash": "81a309c11abd",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Patience didn't come naturally to you, did it? I was quick before I was patient. Took a few expensive afternoons to put the two together"
+ },
+ "booth/quiet.chat.1": {
+  "hash": "fcff730b7b78",
+  "ok": true,
+  "score": 0.96,
+  "extra": 1,
+  "heard": "What's the hardest part of a long race from the driver's seat? Keeping your mind where it belongs. You get into a rhythm, and then you start thinking about everything except the next corner. And what did you tell yourself? [laughs] Mostly, \"Pay attention. You've still gotta drive this thing.\""
+ },
+ "booth/quiet.chat.8": {
+  "hash": "092a54e2d5e6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Fast corners always look different from up here. Sure do. In the car, you want confidence in what it's going to do next. Bravery only gets you so far"
+ },
+ "booth/quiet.chat.6": {
+  "hash": "76e923fcf53c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] I'm told you once ran out of fuel on the last lap. [sighs] Coasted across the line in second. My crew chief didn't talk to me for a week. Just the one week? [laughs] He was a forgiving man"
+ },
+ "booth/quiet.chat.7": {
+  "hash": "d2c21136c99f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "You put a lot of trust in the people on that radio. You do. They're watching things you can't, and you need them to be clear. A familiar voice helps too"
+ },
+ "booth/quiet.chat.10": {
+  "hash": "81e462b484ca",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "You always said the start was your favorite part. That first run toward the corner, I loved it! All that waiting, and suddenly you're right in the middle of it"
+ },
+ "booth/quiet.chat.9": {
+  "hash": "d4f7568edd08",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "You were racing long before anybody was paying you to do it. Go-kart, eight years old, a grass track behind the church. Beat my cousin and I never got over it. Did your cousin? [laughs] Nope."
+ },
+ "booth/quiet.chat.11": {
+  "hash": "44e74d9891d9",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "You've been quiet for a minute. Should I be worried? Just watching. You learn more watching than talking. That'd be a first for this booth. [laughs] Well, don't get used to it"
+ },
+ "booth/quiet.chat.13": {
+  "hash": "8efdc87cd7d4",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Does the car feel different on a cool day? Oh, yeah. Some mornings the car would feel wonderful, and I'd still be asking those tires to wake up."
+ },
+ "booth/quiet.chat.12": {
+  "hash": "512f5d920b43",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "You've quoted that old advice plenty of times. Slow in, fast out. And I spent five years saying it before I actually did it."
+ },
+ "booth/quiet.chat.14": {
+  "hash": "390cf98192d3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Setup can make or break a weekend. You can be the best driver here, and if the car won't turn, you're just a passenger with opinions"
+ },
+ "booth/quiet.chat.17": {
+  "hash": "619ce52503b1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "You've always liked the drivers who make it look uneventful. A great lap gets your attention. Doing it again and again, even when the car's a handful, that's what impresses me."
+ },
+ "booth/quiet.chat.15": {
+  "hash": "586981328d8d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "It's tough to follow closely at these speeds. You're trying to get close without spoiling your own run. Sometimes a little space buys you a better chance at the next corner."
+ },
+ "booth/quiet.chat.16": {
+  "hash": "d8f1a9d2d3b2",
+  "ok": true,
+  "score": 0.97,
+  "extra": 1,
+  "heard": "You've told me that story about losing your radio mid-race. Happened twice. Second time, I didn't notice for 10 laps. Best race I ever ran. [laughs] That says something. About me or about the radio?"
+ },
+ "booth/quiet.chat.18": {
+  "hash": "eebd14a949e2",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "You always looked pretty calm before the big races. Looked calm? Sure. I used to make myself take a breath on the straights. Gave me one thing I could settle down."
+ },
+ "booth/quiet.chat.20": {
+  "hash": "c6f1c24cb0f1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "In the car, what are you actually looking at? Farther ahead than people think. If I caught myself staring at the problem, I'd remind myself to look where I wanted the car to go."
+ },
+ "booth/quiet.chat.19": {
+  "hash": "c76b6334a431",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Any rivals you still think about? One. Never mind who. We still don't sit at the same table. I'll make a note for the seating chart"
+ },
+ "booth/quiet.chat.21": {
+  "hash": "bcbb654b6f24",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "People always ask, are the drivers friends? Some of my best friends were the hardest people to pass. Didn't mean I was going to make it easy for 'em"
+ },
+ "booth/quiet.chat.23": {
+  "hash": "93f9e9a683ff",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "You never seemed in a hurry to show everything you had. Well, I wanted something left when it mattered. Didn't always manage it, but that was the idea."
+ },
+ "booth/quiet.chat.22": {
+  "hash": "1b1ca6441dc7",
+  "ok": true,
+  "score": 0.94,
+  "extra": 2,
+  "heard": "Do you miss it? Every single weekend. Sitting up here is the next best thing. Glad to have you."
+ },
+ "booth/quiet.chat.24": {
+  "hash": "1944044dccbf",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "The heat in those cars must be brutal. You'd climb out and realize how hot you'd been. In the car, there's always something else asking for your attention."
+ },
+ "booth/quiet.chat.25": {
+  "hash": "97d33c937a27",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Do drivers really watch the scoreboard? I'd sneak a look when I could. Sometimes you needed it. Sometimes you just wanted to see whether all that work was getting you anywhere."
+ },
+ "booth/quiet.chat.26": {
+  "hash": "c1843a2f1ab6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Your first win, what do you remember? Not much. The flag and then my mama crying. Everything in between's gone. That's a good memory to keep."
+ },
+ "booth/quiet.chat.27": {
+  "hash": "95e17060c915",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "You could always tell when a track was changing underneath you. You'd find a little grip in a place that wasn't there earlier. Makes you want to try it again, carefully."
+ },
+ "booth/quiet.chat.28": {
+  "hash": "894be836306d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Ever tried one of those racing simulators? Once. Crashed in the first corner, and the chair didn't even move. Didn't feel right. The chair was the problem? Obviously."
+ },
+ "booth/quiet.chat.29": {
+  "hash": "a1227f5071d3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "What would you change about racing, if you could? More places where you can actually pass. Give me a long straight and a tight hairpin, and I'll give you a show"
+ },
+ "booth/quiet.chat.31": {
+  "hash": "83c26e4a6173",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Which matters more, the car or the driver? I've won when the car wasn't the best and lost when it probably was. Helps when both are having a good day."
+ },
+ "booth/quiet.chat.32": {
+  "hash": "a27364301b95",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "The crews don't get enough credit They don't. You see the driver at the finish, but there's a whole group back there who helped make it happen"
+ },
+ "booth/quiet.chat.30": {
+  "hash": "079a8375288d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "You used to talk about finding a rhythm Same brake marker, same turn-in. Lap after lap. You stop feeling like you're chasing the car. Almost peaceful. [laughs] Till somebody shows up in your mirror"
+ },
+ "booth/quiet.chat.33": {
+  "hash": "1b77623b8897",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "You're smiling. [laughs] Can't help it. I still get butterflies watching from up here"
+ },
+ "booth/quiet.chat.35": {
+  "hash": "412ec63ce566",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Traffic can make or break a lap. You've got a good lap going, then you catch somebody at just the wrong place. Hard not to get impatient with that"
+ },
+ "booth/quiet.chat.34": {
+  "hash": "9d8082d5244c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Who taught you the most? An old guy who ran a dirt track back home. Told me the throttle works both ways. What did he mean? Sometimes going slower is how you go faster. Took me a while"
+ },
+ "booth/quiet.chat.36": {
+  "hash": "e8579262a5e3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Do you ever think about the risks? You respect them. In the car, I tried to stay with what I could do about it. Some days you'd think a little longer on the drive home."
+ },
+ "booth/quiet.chat.37": {
+  "hash": "d22e9f408765",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "What does a really good lap feel like? Quiet. Everything slows down. You're not driving it so much as letting it happen."
+ },
+ "booth/quiet.chat.39": {
+  "hash": "3e736d4d1e64",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Who finishes strongest today, do you think? Tires might have a say, but I wanna see who still looks comfortable when the car gets harder to drive"
+ },
+ "booth/quiet.chat.40": {
+  "hash": "291c65fce185",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "What goes through your head on the grid? The first corner, where I wanted to be, where I didn't. Then we got moving, and I had something useful to do with all those nerves."
+ },
+ "booth/quiet.chat.38": {
+  "hash": "fd9e515bc072",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "The cars have changed a lot since your day. [laughs] Since my day? You make it sound like they hauled mine out of a museum. [laughs] I was trying to be polite. Keep trying"
+ },
+ "booth/intro.standard.5": {
+  "hash": "e4ba4dff1ba1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Welcome in, everybody. We are just about ready to go racing. I've been ready since breakfast"
+ },
+ "booth/intro.standard.3": {
+  "hash": "b7441a68f741",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Welcome back, everybody. Glad you could join us. I've been looking forward to this one. You say that every week. [laughs] And I mean it every week"
+ },
+ "booth/intro.standard.4": {
+  "hash": "df85a8214608",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Good to be with you. Plenty of storylines heading into this one. That's what I like about race day. You finally get to see how those stories hold up"
+ },
+ "booth/intro.standard.7": {
+  "hash": "0cb58a4f1ba3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Welcome along. This one has all the makings of a good race. I don't make predictions anymore. Since when? Since the last one"
+ },
+ "booth/intro.standard.8": {
+  "hash": "12325e59df13",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Thanks for joining us. The cars are lined up and the drivers are strapped in. That waiting used to get me. Once the car started moving, I felt a whole lot better"
+ },
+ "booth/intro.standard.6": {
+  "hash": "90ea6f872ea6",
+  "ok": true,
+  "score": 0.96,
+  "extra": 1,
+  "heard": "Hello again everyone. A full field and a lot to play for. A little patience early and a little nerve when it counts. I always like that combination"
+ },
+ "booth/intro.standard.9": {
+  "hash": "ab8f40eb865b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Glad you're with us. Let's see what this field has in store today. There's always somebody worth keeping an eye on. That's half the fun"
+ },
+ "booth/intro.standard.11": {
+  "hash": "3b699ccc767f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Glad to have you with us. The cars are set, the crews are set. That's a lot of work just to get to this point. Now the drivers get to do their part."
+ },
+ "booth/intro.standard.10": {
+  "hash": "f22a44756fb3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Here we are again. Another race and another chance for somebody to make a name for themselves. A good afternoon can change a lot for a driver. You never forget the one that gets people talking"
+ },
+ "booth/intro.standard.12": {
+  "hash": "b7e4b1700ca6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Welcome everybody. Strap in Soon as I put this coffee down, I'm ready"
+ },
+ "booth/intro.standard.13": {
+  "hash": "8e01cc48c491",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Good to have you with us here in the booth. Best seat in the house. You used to say that about the driver's seat. I did. Some days I still do"
+ },
+ "booth/intro.standard.14": {
+  "hash": "3b47144bef34",
+  "ok": true,
+  "score": 0.95,
+  "extra": 1,
+  "heard": "It's race day everyone, and we're glad you're here. Never gets old. 30 years and I still feel it in my stomach"
+ },
+ "booth/intro.opener": {
+  "hash": "89460042fce6",
+  "ok": true,
+  "score": 0.95,
+  "extra": 1,
+  "heard": "Welcome to the first race of a brand new season. Fresh start for everybody. I always like that feeling"
+ },
+ "booth/intro.opener.2": {
+  "hash": "8a21b6ae2981",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "And here we go. A new season starts today. [laughs] All winter, everybody's been telling everybody how fast they are. Now we find out"
+ },
+ "booth/intro.championship.2": {
+  "hash": "b5a040249e35",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "The last race of the season. Everything still to play for. I still get a little tight in the stomach on a day like this. There's a lot riding on this afternoon"
+ },
+ "booth/intro.debut": {
+  "hash": "f2cb37065020",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "A first race is a big day for any driver. I remember mine. Checked the belts about five times just to give my hands something to do. Did it help? [laughs] Not much. Getting started did"
+ },
+ "booth/quiet.early.2": {
+  "hash": "6a4f48fe8e2b",
+  "ok": true,
+  "score": 0.95,
+  "extra": 1,
+  "heard": "Plenty of laps left in this one. Nobody wins it in the first 10 minutes. Plenty have lost it though"
+ },
+ "booth/quiet.early.3": {
+  "hash": "0bbd4b0a6ee0",
+  "ok": true,
+  "score": 0.95,
+  "extra": 1,
+  "heard": "Everybody's settling in now. First few laps, you're just feeling the car out, seeing what it'll let you get away with."
+ },
+ "booth/quiet.gap.2": {
+  "hash": "de8154af1962",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "The leader has some breathing room now. Breathing room's nice. Just don't get comfortable in it"
+ },
+ "booth/quiet.tires.2": {
+  "hash": "904acaa82cdd",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "The tires are starting to fade now. This is where all that patience early on pays you back"
+ },
+ "booth/quiet.pitwindow.2": {
+  "hash": "a3f8b9d2ad5b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "The pit window is open. Every crew's doing math right now. Somebody's math is wrong"
+ },
+ "booth/quiet.mirrors.2": {
+  "hash": "acbea01c0ec2",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Plenty of pressure on the car in front now. You can feel somebody back there without looking. Then you look anyway"
+ },
+ "booth/quiet.rain.2": {
+  "hash": "2a0e532399dc",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Some weather heading our way. I never liked that first bit of rain. You can't tell how much grip you've got till you don't"
+ },
+ "booth/incident.crash.relief.2": {
+  "hash": "389a23c93665",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Good news. The driver is out and walking. That's the best thing we'll see all day."
+ },
+ "booth/start.chaos.2": {
+  "hash": "c38de19cbf26",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "And they're three abreast into the first corner. [laughs] Three cars, room for two. Somebody's about to do some math"
+ },
+ "react/react.pass": {
+  "hash": "408577ae3525",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "That's the opening you wait for"
+ },
+ "react/react.pass.3": {
+  "hash": "8a1ed9247d2e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "That'll feel good from the driver's seat"
+ },
+ "react/react.pass.2": {
+  "hash": "17e2560ea7c0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Little bit of patience, then commit nicely done"
+ },
+ "react/react.pass.4": {
+  "hash": "6579495ce41c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Now the hard part's keeping that spot"
+ },
+ "react/react.bold": {
+  "hash": "30e272cc1503",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "There's a moment where you've just got to trust your hands"
+ },
+ "react/react.bold.2": {
+  "hash": "9d4650633362",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] I'd have tried it. I'm not saying I'd have made it"
+ },
+ "react/react.bold.3": {
+  "hash": "f0e48563559a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Boy, that took some nerve"
+ },
+ "react/react.spin": {
+  "hash": "727a0853e855",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "You feel that rear start to go and your hands get busy in a hurry"
+ },
+ "react/react.spin.2": {
+  "hash": "cbab3a038c98",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "Oh, that's a rough feeling from the driver's seat"
+ },
+ "react/react.spin.3": {
+  "hash": "cf24007aba61",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "It doesn't take much to lose that last bit of grip"
+ },
+ "react/react.save.2": {
+  "hash": "e227078041c0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Quick hands and no time to hesitate"
+ },
+ "react/react.save": {
+  "hash": "29df1d99e735",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "That was a lot of work in a very short time"
+ },
+ "react/react.save.3": {
+  "hash": "572663059e18",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] I'd need a breath after that one"
+ },
+ "react/react.crash": {
+  "hash": "5bdc73211716",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "That's a hard one let's hope we see the driver climb out"
+ },
+ "react/react.sbs": {
+  "hash": "56909ea2d655",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "You feel every little movement when you're that close"
+ },
+ "react/react.crash.2": {
+  "hash": "fcb3ff573fd5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "That's a heavy hit let's hope the driver's all right"
+ },
+ "react/react.sbs.2": {
+  "hash": "21f5f962d461",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Somebody's gonna have to blink"
+ },
+ "react/react.sbs.3": {
+  "hash": "a9eb3016682f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "I love a battle like this"
+ },
+ "react/react.contact": {
+  "hash": "fd9bc8834909",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "That'll get your attention in a hurry"
+ },
+ "react/react.contact.2": {
+  "hash": "35bb4fe385e5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "A little room would help both of 'em right now"
+ },
+ "react/react.pressure": {
+  "hash": "944f6bf3e82b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "That mirror starts feeling awfully big when somebody's that close."
+ },
+ "react/react.win": {
+  "hash": "4015da167b56",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "That's gonna feel real good for a long time"
+ },
+ "react/react.win.2": {
+  "hash": "b3e0e74dfed7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "There's a lot of work behind a moment like that"
+ },
+ "react/react.pressure.2": {
+  "hash": "dde6e8c9acd0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Hard to find your rhythm with somebody right there"
  }
 }

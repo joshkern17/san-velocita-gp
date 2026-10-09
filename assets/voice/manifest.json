@@ -499,8 +499,8 @@
   },
   "intro.standard.2": {
    "file": "booth/intro.standard.2.mp3",
-   "hash": "69f37314a516",
-   "text": "[relaxed, warm, conversational] Good to be back with you. Plenty to talk about today, and plenty of drivers with something to prove. | [easy drawl, knowing] Something to prove is the most dangerous thing you can bring to a racetrack. Makes you brave... and it makes you dumb, about the same amount. | [dryly amused, a small smile] Spoken like a man who brought it a few times. | [brief laugh] Every single week."
+   "hash": "d0dca686a1d1",
+   "text": "[relaxed, warm, conversational] Good to be back with you. Plenty to talk about today, and plenty of drivers with something to prove. | [easy drawl, knowing] Something to prove can make you try a little too hard. I brought plenty of that to the track. | [gently teasing, a small smile] You learned to leave some of it at home? | [small chuckle, self-deprecating] Eventually. Took a while."
   },
   "start.green": {
    "file": "booth/start.green.mp3",
@@ -636,6 +636,331 @@
    "file": "booth/moment.surprise.mp3",
    "hash": "f3b65edcbf50",
    "text": "[pleasantly surprised, genuinely impressed] Well, look who's joined the party! He's been quietly working his way forward. | [delighted, easy drawl] Nobody was watching him, and that's just how he likes it."
+  },
+  "quiet.chat.3": {
+   "file": "booth/quiet.chat.3.mp3",
+   "hash": "2066959e0940",
+   "text": "[observant, conversational] We talk about speed, but it still comes back to those tires. | [matter-of-fact, experienced] You can have all the power you want. If you can't put it on the road, it won't help you much."
+  },
+  "quiet.chat.2": {
+   "file": "booth/quiet.chat.2.mp3",
+   "hash": "85f0d3cec18b",
+   "text": "[curious] Did you have a superstition before a race? | [easy drawl] Left glove first. Every time. Forgot once and spun on the warm-up lap. | [dryly amused, a small smile] One race was all the evidence you needed? | [chuckling, easy drawl] Plenty for me."
+  },
+  "quiet.chat.1": {
+   "file": "booth/quiet.chat.1.mp3",
+   "hash": "fcff730b7b78",
+   "text": "[curious, relaxed] What's the hardest part of a long race, from the driver's seat? | [thoughtful, easy drawl] Keeping your mind where it belongs. You get into a rhythm, and then you start thinking about everything except the next corner. | [lightly amused, curious] And what did you tell yourself? | [small laugh, self-deprecating] Mostly, \"Pay attention. You've still got to drive this thing.\""
+  },
+  "quiet.chat.4": {
+   "file": "booth/quiet.chat.4.mp3",
+   "hash": "81a309c11abd",
+   "text": "[gently teasing, familiar] Patience didn't come naturally to you, did it? | [knowing, lightly self-deprecating] I was quick before I was patient. Took a few expensive afternoons to put the two together."
+  },
+  "quiet.chat.5": {
+   "file": "booth/quiet.chat.5.mp3",
+   "hash": "5469df3e9beb",
+   "text": "[curious] What do you actually listen for in the car? | [quietly experienced] Everything. The engine, the tires, the wind... you hear a new noise and your stomach drops before your brain catches up."
+  },
+  "quiet.chat.6": {
+   "file": "booth/quiet.chat.6.mp3",
+   "hash": "76e923fcf53c",
+   "text": "[amused] I'm told you once ran out of fuel on the last lap. | [sighs] Coasted across the line in second. My crew chief didn't talk to me for a week. | [dry] Just the one week? | [chuckling] He was a forgiving man."
+  },
+  "quiet.chat.7": {
+   "file": "booth/quiet.chat.7.mp3",
+   "hash": "d2c21136c99f",
+   "text": "[thoughtful, conversational] You put a lot of trust in the people on that radio. | [serious, plainspoken] You do. They're watching things you can't, and you need them to be clear. A familiar voice helps, too."
+  },
+  "quiet.chat.8": {
+   "file": "booth/quiet.chat.8.mp3",
+   "hash": "092a54e2d5e6",
+   "text": "[observant, engaged] Fast corners always look different from up here. | [knowing drawl, measured] Sure do. In the car, you want confidence in what it's going to do next. Bravery only gets you so far."
+  },
+  "quiet.chat.9": {
+   "file": "booth/quiet.chat.9.mp3",
+   "hash": "d4f7568edd08",
+   "text": "[warm, familiar] You were racing long before anybody was paying you to do it. | [nostalgic] Go-kart, eight years old, a grass track behind the church. Beat my cousin, and I never got over it. | [amused] Did your cousin? | [laughing] Nope."
+  },
+  "quiet.chat.10": {
+   "file": "booth/quiet.chat.10.mp3",
+   "hash": "81e462b484ca",
+   "text": "[relaxed] You always said the start was your favorite part. | [delighted, recalling the feeling] That first run toward the corner... I loved it. All that waiting, and suddenly you're right in the middle of it."
+  },
+  "quiet.chat.11": {
+   "file": "booth/quiet.chat.11.mp3",
+   "hash": "44e74d9891d9",
+   "text": "[dry, teasing] You've been quiet for a minute. Should I be worried? | [easy] Just watching. You learn more watching than talking. | [dry] That'd be a first for this booth. | [laughing] Well, don't get used to it."
+  },
+  "quiet.chat.13": {
+   "file": "booth/quiet.chat.13.mp3",
+   "hash": "8efdc87cd7d4",
+   "text": "[curious] Does the car feel different on a cool day? | [conversational, recalling the feeling] Oh, yeah. Some mornings the car would feel wonderful, and I'd still be asking those tires to wake up."
+  },
+  "quiet.chat.12": {
+   "file": "booth/quiet.chat.12.mp3",
+   "hash": "512f5d920b43",
+   "text": "[warm, lightly amused] You've quoted that old advice plenty of times: slow in, fast out. | [wry, easy drawl] And I spent five years saying it before I actually did it."
+  },
+  "quiet.chat.14": {
+   "file": "booth/quiet.chat.14.mp3",
+   "hash": "390cf98192d3",
+   "text": "[observant] Setup can make or break a weekend. | [wry drawl] You can be the best driver here, and if the car won't turn, you're just a passenger with opinions."
+  },
+  "quiet.chat.15": {
+   "file": "booth/quiet.chat.15.mp3",
+   "hash": "586981328d8d",
+   "text": "[observant] It's tough to follow closely at these speeds. | [thoughtful, experienced] You're trying to get close without spoiling your own run. Sometimes a little space buys you a better chance at the next corner."
+  },
+  "quiet.chat.17": {
+   "file": "booth/quiet.chat.17.mp3",
+   "hash": "619ce52503b1",
+   "text": "[thoughtful, conversational] You've always liked the drivers who make it look uneventful. | [plainspoken, admiring] A great lap gets your attention. Doing it again and again, even when the car's a handful... that's what impresses me."
+  },
+  "quiet.chat.16": {
+   "file": "booth/quiet.chat.16.mp3",
+   "hash": "d8f1a9d2d3b2",
+   "text": "[amused, familiar] You've told me that story about losing your radio mid-race. | [amused, easy drawl] Happened twice. Second time, I didn't notice for ten laps. Best race I ever ran. | [laughing] That says something. | [deadpan] About me, or about the radio?"
+  },
+  "quiet.chat.18": {
+   "file": "booth/quiet.chat.18.mp3",
+   "hash": "eebd14a949e2",
+   "text": "[warm, gently curious] You always looked pretty calm before the big races. | [honest, relaxed] Looked calm, sure. I used to make myself take a breath on the straights. Gave me one thing I could settle down."
+  },
+  "quiet.chat.19": {
+   "file": "booth/quiet.chat.19.mp3",
+   "hash": "c76b6334a431",
+   "text": "[teasing] Any rivals you still think about? | [wry, low] One. Never mind who. We still don't sit at the same table. | [dry] I'll make a note for the seating chart."
+  },
+  "quiet.chat.20": {
+   "file": "booth/quiet.chat.20.mp3",
+   "hash": "c6f1c24cb0f1",
+   "text": "[curious] In the car, what are you actually looking at? | [thoughtful, experienced] Farther ahead than people think. If I caught myself staring at the problem, I'd remind myself to look where I wanted the car to go."
+  },
+  "quiet.chat.21": {
+   "file": "booth/quiet.chat.21.mp3",
+   "hash": "bcbb654b6f24",
+   "text": "[relaxed] People always ask: are the drivers friends? | [warm, knowing] Some of my best friends were the hardest people to pass. Didn't mean I was going to make it easy for them."
+  },
+  "quiet.chat.22": {
+   "file": "booth/quiet.chat.22.mp3",
+   "hash": "1b1ca6441dc7",
+   "text": "[gentle] Do you miss it? | [quieter, sincere] Every single weekend. Sitting up here's the next best thing. | [warmly] Glad to have you."
+  },
+  "quiet.chat.23": {
+   "file": "booth/quiet.chat.23.mp3",
+   "hash": "93f9e9a683ff",
+   "text": "[relaxed, familiar] You never seemed in a hurry to show everything you had. | [knowing, self-deprecating] Well, I wanted something left when it mattered. Didn't always manage it, but that was the idea."
+  },
+  "quiet.chat.24": {
+   "file": "booth/quiet.chat.24.mp3",
+   "hash": "1944044dccbf",
+   "text": "[curious] The heat in those cars must be brutal. | [conversational, quietly experienced] You'd climb out and realize how hot you'd been. In the car, there's always something else asking for your attention."
+  },
+  "quiet.chat.25": {
+   "file": "booth/quiet.chat.25.mp3",
+   "hash": "97d33c937a27",
+   "text": "[curious] Do drivers really watch the scoreboard? | [knowing, conversational] I'd sneak a look when I could. Sometimes you needed it, sometimes you just wanted to see whether all that work was getting you anywhere."
+  },
+  "quiet.chat.26": {
+   "file": "booth/quiet.chat.26.mp3",
+   "hash": "c1843a2f1ab6",
+   "text": "[warm] Your first win... what do you remember? | [soft, nostalgic] Not much. The flag, and then my mama crying. Everything in between's gone. | [warmly] That's a good memory to keep."
+  },
+  "quiet.chat.27": {
+   "file": "booth/quiet.chat.27.mp3",
+   "hash": "95e17060c915",
+   "text": "[observant, familiar] You could always tell when a track was changing underneath you. | [thoughtful, experienced] You'd find a little grip in a place that wasn't there earlier. Makes you want to try it again... carefully."
+  },
+  "quiet.chat.28": {
+   "file": "booth/quiet.chat.28.mp3",
+   "hash": "894be836306d",
+   "text": "[curious] Ever tried one of those racing simulators? | [deadpan] Once. Crashed in the first corner, and the chair didn't even move. Didn't feel right. | [dry] The chair was the problem? | [deadpan] Obviously."
+  },
+  "quiet.chat.29": {
+   "file": "booth/quiet.chat.29.mp3",
+   "hash": "a1227f5071d3",
+   "text": "[curious] What would you change about racing, if you could? | [animated] More places where you can actually pass. Give me a long straight and a tight hairpin, and I'll give you a show."
+  },
+  "quiet.chat.31": {
+   "file": "booth/quiet.chat.31.mp3",
+   "hash": "83c26e4a6173",
+   "text": "[curious] Which matters more, the car or the driver? | [wry, experienced] I've won when the car wasn't the best, and lost when it probably was. Helps when both are having a good day."
+  },
+  "quiet.chat.30": {
+   "file": "booth/quiet.chat.30.mp3",
+   "hash": "079a8375288d",
+   "text": "[relaxed, familiar] You used to talk about finding a rhythm. | [easy, almost peaceful] Same brake marker, same turn-in, lap after lap. You stop feeling like you're chasing the car. | [smiling] Almost peaceful. | [laughing] Till somebody shows up in your mirror."
+  },
+  "quiet.chat.32": {
+   "file": "booth/quiet.chat.32.mp3",
+   "hash": "a27364301b95",
+   "text": "[observant] The crews don't get enough credit. | [sincere, appreciative] They don't. You see the driver at the finish, but there's a whole group back there who helped make it happen."
+  },
+  "quiet.chat.33": {
+   "file": "booth/quiet.chat.33.mp3",
+   "hash": "1b77623b8897",
+   "text": "[amused] You're smiling. | [sheepish laugh] Can't help it. I still get butterflies watching from up here."
+  },
+  "quiet.chat.35": {
+   "file": "booth/quiet.chat.35.mp3",
+   "hash": "412ec63ce566",
+   "text": "[observant] Traffic can make or break a lap. | [knowing, conversational] You've got a good lap going, then you catch somebody at just the wrong place. Hard not to get impatient with that."
+  },
+  "quiet.chat.34": {
+   "file": "booth/quiet.chat.34.mp3",
+   "hash": "9d8082d5244c",
+   "text": "[curious] Who taught you the most? | [nostalgic] An old guy who ran a dirt track back home. Told me the throttle works both ways. | [curious] What did he mean? | [thoughtful] Sometimes going slower is how you go faster. Took me a while."
+  },
+  "quiet.chat.36": {
+   "file": "booth/quiet.chat.36.mp3",
+   "hash": "e8579262a5e3",
+   "text": "[gentle] Do you ever think about the risks? | [plainspoken, quiet] You respect them. In the car, I tried to stay with what I could do about it. Some days you'd think a little longer on the drive home."
+  },
+  "quiet.chat.37": {
+   "file": "booth/quiet.chat.37.mp3",
+   "hash": "d22e9f408765",
+   "text": "[curious] What does a really good lap feel like? | [soft] Quiet. Everything slows down. You're not driving it so much as letting it happen."
+  },
+  "quiet.chat.39": {
+   "file": "booth/quiet.chat.39.mp3",
+   "hash": "3e736d4d1e64",
+   "text": "[curious] Who finishes strongest today, do you think? | [thoughtful, engaged] Tires might have a say, but I want to see who still looks comfortable when the car gets harder to drive."
+  },
+  "quiet.chat.38": {
+   "file": "booth/quiet.chat.38.mp3",
+   "hash": "fd9e515bc072",
+   "text": "[teasing] The cars have changed a lot since your day. | [chuckling, playfully offended] Since my day? You make it sound like they hauled mine out of a museum. | [dry, a small smile] I was trying to be polite. | [amused, easy drawl] Keep trying."
+  },
+  "quiet.chat.40": {
+   "file": "booth/quiet.chat.40.mp3",
+   "hash": "291c65fce185",
+   "text": "[curious] What goes through your head on the grid? | [honest, recalling the feeling] The first corner. Where I wanted to be, where I didn't. Then we got moving, and I had something useful to do with all those nerves."
+  },
+  "intro.standard.4": {
+   "file": "booth/intro.standard.4.mp3",
+   "hash": "df85a8214608",
+   "text": "[warm, professional] Good to be with you. Plenty of storylines heading into this one. | [engaged, easy drawl] That's what I like about race day. You finally get to see how those stories hold up."
+  },
+  "intro.standard.5": {
+   "file": "booth/intro.standard.5.mp3",
+   "hash": "e4ba4dff1ba1",
+   "text": "[bright, welcoming] Welcome in, everybody. We are just about ready to go racing. | [eager] I've been ready since breakfast."
+  },
+  "intro.standard.3": {
+   "file": "booth/intro.standard.3.mp3",
+   "hash": "b7441a68f741",
+   "text": "[warm, welcoming] Welcome back, everybody. Glad you could join us. | [easy drawl, warmly eager] I've been looking forward to this one. | [dryly amused] You say that every week. | [small chuckle, sincere] And I mean it every week."
+  },
+  "intro.standard.7": {
+   "file": "booth/intro.standard.7.mp3",
+   "hash": "0cb58a4f1ba3",
+   "text": "[warm] Welcome along. This one has all the makings of a good race. | [deadpan] I don't make predictions anymore. | [dry] Since when? | [deadpan] Since the last one."
+  },
+  "intro.standard.6": {
+   "file": "booth/intro.standard.6.mp3",
+   "hash": "90ea6f872ea6",
+   "text": "[warm, building] Hello again, everyone. A full field, and a lot to play for. | [knowing, warmly engaged] A little patience early, and a little nerve when it counts. I always liked that combination."
+  },
+  "intro.standard.8": {
+   "file": "booth/intro.standard.8.mp3",
+   "hash": "12325e59df13",
+   "text": "[measured, warm] Thanks for joining us. The cars are lined up, and the drivers are strapped in. | [sympathetic, knowing] That waiting used to get me. Once the car started moving, I felt a whole lot better."
+  },
+  "intro.standard.9": {
+   "file": "booth/intro.standard.9.mp3",
+   "hash": "ab8f40eb865b",
+   "text": "[warm, inviting] Glad you're with us. Let's see what this field has in store today. | [warm, enthusiastic] There's always somebody worth keeping an eye on. That's half the fun."
+  },
+  "intro.standard.11": {
+   "file": "booth/intro.standard.11.mp3",
+   "hash": "3b699ccc767f",
+   "text": "[professional, warm] Glad to have you with us. The cars are set, the crews are set. | [sincere, appreciative] That's a lot of work just to get to this point. Now the drivers get to do their part."
+  },
+  "intro.standard.10": {
+   "file": "booth/intro.standard.10.mp3",
+   "hash": "f22a44756fb3",
+   "text": "[warm, thoughtful] Here we are again. Another race, and another chance for somebody to make a name for themselves. | [thoughtful, warm] A good afternoon can change a lot for a driver. You never forget the one that gets people talking."
+  },
+  "intro.standard.12": {
+   "file": "booth/intro.standard.12.mp3",
+   "hash": "b7e4b1700ca6",
+   "text": "[bright, quick] Welcome, everybody. Strap in. | [playful, quietly eager] Soon as I put this coffee down, I'm ready."
+  },
+  "intro.standard.13": {
+   "file": "booth/intro.standard.13.mp3",
+   "hash": "8e01cc48c491",
+   "text": "[warm, welcoming] Good to have you with us here in the booth. | [delighted, warm] Best seat in the house. | [gently teasing] You used to say that about the driver's seat. | [warm, nostalgic] I did. Some days I still do."
+  },
+  "intro.standard.14": {
+   "file": "booth/intro.standard.14.mp3",
+   "hash": "3b47144bef34",
+   "text": "[warm, building] It's race day, everyone, and we're glad you're here. | [sincere] Never gets old. Thirty years, and I still feel it in my stomach."
+  },
+  "intro.opener": {
+   "file": "booth/intro.opener.mp3",
+   "hash": "89460042fce6",
+   "text": "[warm, building] Welcome to the first race of a brand new season. | [playful, hopeful] Fresh start for everybody. I always liked that feeling."
+  },
+  "intro.opener.2": {
+   "file": "booth/intro.opener.2.mp3",
+   "hash": "8a21b6ae2981",
+   "text": "[bright, anticipatory] And here we go. A new season starts today. | [chuckling] All winter, everybody's been telling everybody how fast they are. Now we find out."
+  },
+  "intro.championship.2": {
+   "file": "booth/intro.championship.2.mp3",
+   "hash": "b5a040249e35",
+   "text": "[authoritative, building] The last race of the season. Everything still to play for. | [quietly excited, sincere] I still get a little tight in the stomach on a day like this. There's a lot riding on this afternoon."
+  },
+  "intro.debut": {
+   "file": "booth/intro.debut.mp3",
+   "hash": "f2cb37065020",
+   "text": "[warm, welcoming] A first race is a big day for any driver. | [warm, nostalgic, easy drawl] I remember mine. Checked the belts about five times, just to give my hands something to do. | [amused, gentle] Did it help? | [small chuckle, warm] Not much. Getting started did."
+  },
+  "quiet.early.2": {
+   "file": "booth/quiet.early.2.mp3",
+   "hash": "6a4f48fe8e2b",
+   "text": "[relaxed] Plenty of laps left in this one. | [easy drawl] Nobody wins it in the first ten minutes. Plenty have lost it, though."
+  },
+  "quiet.early.3": {
+   "file": "booth/quiet.early.3.mp3",
+   "hash": "0bbd4b0a6ee0",
+   "text": "[relaxed, observant] Everybody settling in now. | [knowing] First few laps, you're just feeling the car out. Seeing what it'll let you get away with."
+  },
+  "quiet.gap.2": {
+   "file": "booth/quiet.gap.2.mp3",
+   "hash": "de8154af1962",
+   "text": "[observant] The leader has some breathing room now. | [wry] Breathing room's nice. Just don't get comfortable in it."
+  },
+  "quiet.tires.2": {
+   "file": "booth/quiet.tires.2.mp3",
+   "hash": "904acaa82cdd",
+   "text": "[observant] The tires are starting to fade now. | [explaining] This is where all that patience early on pays you back."
+  },
+  "quiet.pitwindow.2": {
+   "file": "booth/quiet.pitwindow.2.mp3",
+   "hash": "a3f8b9d2ad5b",
+   "text": "[interested] The pit window is open. | [knowing] Every crew's doing math right now. Somebody's math is wrong."
+  },
+  "quiet.mirrors.2": {
+   "file": "booth/quiet.mirrors.2.mp3",
+   "hash": "acbea01c0ec2",
+   "text": "[observant] Plenty of pressure on the car in front now. | [knowing] You can feel somebody back there without looking. Then you look anyway."
+  },
+  "quiet.rain.2": {
+   "file": "booth/quiet.rain.2.mp3",
+   "hash": "2a0e532399dc",
+   "text": "[observant, slightly concerned] Some weather heading our way. | [wary drawl] I never liked that first bit of rain. You can't tell how much grip you've got till you don't."
+  },
+  "incident.crash.relief.2": {
+   "file": "booth/incident.crash.relief.2.mp3",
+   "hash": "389a23c93665",
+   "text": "[relieved] Good news: the driver is out and walking. | [softened] That's the best thing we'll see all day."
+  },
+  "start.chaos.2": {
+   "file": "booth/start.chaos.2.mp3",
+   "hash": "c38de19cbf26",
+   "text": "[surprised, quick] And they're three abreast into the first corner! | [laughing] Three cars, room for two. Somebody's about to do some math!"
   }
  },
  "pbp": {
@@ -5857,6 +6182,128 @@
    "file": "pbpc/pbpc.close.mp3",
    "hash": "63ea90a03213",
    "text": "[sharp, then a relieved laugh] Man alive, that was close!"
+  }
+ },
+ "react": {
+  "react.pass": {
+   "file": "react/react.pass.mp3",
+   "hash": "408577ae3525",
+   "text": "[knowing, easy drawl] That's the opening you wait for."
+  },
+  "react.pass.2": {
+   "file": "react/react.pass.2.mp3",
+   "hash": "17e2560ea7c0",
+   "text": "[approving, conversational] Little bit of patience, then commit. Nicely done."
+  },
+  "react.pass.3": {
+   "file": "react/react.pass.3.mp3",
+   "hash": "8a1ed9247d2e",
+   "text": "[warm, appreciative] That'll feel good from the driver's seat."
+  },
+  "react.pass.4": {
+   "file": "react/react.pass.4.mp3",
+   "hash": "6579495ce41c",
+   "text": "[matter-of-fact, engaged] Now the hard part's keeping that spot."
+  },
+  "react.bold": {
+   "file": "react/react.bold.mp3",
+   "hash": "30e272cc1503",
+   "text": "[impressed, quietly experienced] There's a moment where you've just got to trust your hands."
+  },
+  "react.bold.2": {
+   "file": "react/react.bold.2.mp3",
+   "hash": "9d4650633362",
+   "text": "[playful, a small smile] I'd have tried it. I'm not saying I'd have made it."
+  },
+  "react.bold.3": {
+   "file": "react/react.bold.3.mp3",
+   "hash": "f0e48563559a",
+   "text": "[impressed, low] Boy, that took some nerve."
+  },
+  "react.spin": {
+   "file": "react/react.spin.mp3",
+   "hash": "727a0853e855",
+   "text": "[attentive, experienced] You feel that rear start to go, and your hands get busy in a hurry."
+  },
+  "react.spin.2": {
+   "file": "react/react.spin.2.mp3",
+   "hash": "cbab3a038c98",
+   "text": "[sympathetic, warm] Aw, that's a rough feeling from the driver's seat."
+  },
+  "react.spin.3": {
+   "file": "react/react.spin.3.mp3",
+   "hash": "cf24007aba61",
+   "text": "[knowing, measured] It doesn't take much to lose that last bit of grip."
+  },
+  "react.save.2": {
+   "file": "react/react.save.2.mp3",
+   "hash": "e227078041c0",
+   "text": "[admiring, quick emphasis] Quick hands... and no time to hesitate."
+  },
+  "react.save": {
+   "file": "react/react.save.mp3",
+   "hash": "29df1d99e735",
+   "text": "[astonished, admiring] That was a lot of work in a very short time."
+  },
+  "react.save.3": {
+   "file": "react/react.save.3.mp3",
+   "hash": "572663059e18",
+   "text": "[relieved, a small chuckle] I'd need a breath after that one."
+  },
+  "react.crash": {
+   "file": "react/react.crash.mp3",
+   "hash": "5bdc73211716",
+   "text": "[sober] That's a hard one. Let's hope we see the driver climb out."
+  },
+  "react.crash.2": {
+   "file": "react/react.crash.2.mp3",
+   "hash": "fcb3ff573fd5",
+   "text": "[quiet, concerned] That's a heavy hit. Let's hope the driver's all right."
+  },
+  "react.sbs": {
+   "file": "react/react.sbs.mp3",
+   "hash": "56909ea2d655",
+   "text": "[engaged, knowing drawl] You feel every little movement when you're that close."
+  },
+  "react.sbs.2": {
+   "file": "react/react.sbs.2.mp3",
+   "hash": "21f5f962d461",
+   "text": "[delighted, lightly animated] Somebody's gonna have to blink."
+  },
+  "react.sbs.3": {
+   "file": "react/react.sbs.3.mp3",
+   "hash": "a9eb3016682f",
+   "text": "[warm, genuinely delighted] I love a battle like this."
+  },
+  "react.contact": {
+   "file": "react/react.contact.mp3",
+   "hash": "fd9bc8834909",
+   "text": "[alert, matter-of-fact] That'll get your attention in a hurry."
+  },
+  "react.contact.2": {
+   "file": "react/react.contact.2.mp3",
+   "hash": "35bb4fe385e5",
+   "text": "[concerned, measured] A little room would help both of 'em right now."
+  },
+  "react.pressure": {
+   "file": "react/react.pressure.mp3",
+   "hash": "944f6bf3e82b",
+   "text": "[knowing, easy drawl] That mirror starts feeling awfully big when somebody's that close."
+  },
+  "react.pressure.2": {
+   "file": "react/react.pressure.2.mp3",
+   "hash": "dde6e8c9acd0",
+   "text": "[thoughtful, conversational] Hard to find your rhythm with somebody right there."
+  },
+  "react.win": {
+   "file": "react/react.win.mp3",
+   "hash": "4015da167b56",
+   "text": "[warm] That's gonna feel real good for a long time."
+  },
+  "react.win.2": {
+   "file": "react/react.win.2.mp3",
+   "hash": "b3e0e74dfed7",
+   "text": "[admiring, sincere] There's a lot of work behind a moment like that."
   }
  }
 }

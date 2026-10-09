@@ -278,9 +278,9 @@ C = [suddenly animated, rising in pitch] Aw, come on now, you know I'm right! Le
 
 # when: pre-race, a normal round (another take)
 M intro.standard.2 = [relaxed, warm, conversational] Good to be back with you. Plenty to talk about today, and plenty of drivers with something to prove.
-C intro.standard.2.color = [easy drawl, knowing] Something to prove is the most dangerous thing you can bring to a racetrack. Makes you brave... and it makes you dumb, about the same amount.
-M = [dryly amused, a small smile] Spoken like a man who brought it a few times.
-C = [brief laugh] Every single week.
+C intro.standard.2.color = [easy drawl, knowing] Something to prove can make you try a little too hard. I brought plenty of that to the track.
+M = [gently teasing, a small smile] You learned to leave some of it at home?
+C = [small chuckle, self-deprecating] Eventually. Took a while.
 
 # when: pre-race, the season finale with the title still open
 M intro.championship = [authoritative, restrained, gradually building] It all comes down to this. A whole season of racing... and one afternoon left to settle it.
@@ -598,38 +598,38 @@ pbpc.close = [sharp, then a relieved laugh] Man alive, that was close!
 [react]
 
 # after a pass
-react.pass = [knowing, easy drawl] That's the run you wait all lap for.
-react.pass.2 = [approving] Set that up a whole corner earlier. Patience.
-react.pass.3 = [admiring] Didn't even have to lean on anybody. Clean as you like.
-react.pass.4 = [matter-of-fact] Got the power down early, and that was that.
+react.pass = [knowing, easy drawl] That's the opening you wait for.
+react.pass.2 = [approving, conversational] Little bit of patience, then commit. Nicely done.
+react.pass.3 = [warm, appreciative] That'll feel good from the driver's seat.
+react.pass.4 = [matter-of-fact, engaged] Now the hard part's keeping that spot.
 # after a bold one
-react.bold = [laughing] You don't make that move unless you decided before you got there.
-react.bold.2 = [grinning] I'd have tried it. I'm not saying I'd have made it.
-react.bold.3 = [impressed, low] Gutsy. Real gutsy.
+react.bold = [impressed, quietly experienced] There's a moment where you've just got to trust your hands.
+react.bold.2 = [playful, a small smile] I'd have tried it. I'm not saying I'd have made it.
+react.bold.3 = [impressed, low] Boy, that took some nerve.
 # after a spin
-react.spin = [explaining] Got in there a little hot, and the rear just let go.
-react.spin.2 = [sympathetic] Once it steps out that far, you're a passenger.
-react.spin.3 = [knowing] Asked a little too much of the rear tires there.
+react.spin = [attentive, experienced] You feel that rear start to go, and your hands get busy in a hurry.
+react.spin.2 = [sympathetic, warm] Aw, that's a rough feeling from the driver's seat.
+react.spin.3 = [knowing, measured] It doesn't take much to lose that last bit of grip.
 # after a save
-react.save = [incredulous] I don't know how that stayed straight.
-react.save.2 = [admiring] That's all hands. Quick hands.
-react.save.3 = [laughing] Heart's still pounding in that car, I promise you.
+react.save = [astonished, admiring] That was a lot of work in a very short time.
+react.save.2 = [admiring, quick emphasis] Quick hands... and no time to hesitate.
+react.save.3 = [relieved, a small chuckle] I'd need a breath after that one.
 # after a crash (restraint)
 react.crash = [sober] That's a hard one. Let's hope we see the driver climb out.
-react.crash.2 = [quiet, concerned] Those hurt. Nothing to do now but wait.
+react.crash.2 = [quiet, concerned] That's a heavy hit. Let's hope the driver's all right.
 # after side by side
-react.sbs = [delighted] Both of 'em know exactly where the other one is. That's trust.
-react.sbs.2 = [laughing] Somebody's gonna have to blink.
-react.sbs.3 = [warm] I love this. Door to door.
+react.sbs = [engaged, knowing drawl] You feel every little movement when you're that close.
+react.sbs.2 = [delighted, lightly animated] Somebody's gonna have to blink.
+react.sbs.3 = [warm, genuinely delighted] I love a battle like this.
 # after contact
-react.contact = [wry] A little paint traded. That'll get your attention.
-react.contact.2 = [knowing] Close quarters. It happens.
+react.contact = [alert, matter-of-fact] That'll get your attention in a hurry.
+react.contact.2 = [concerned, measured] A little room would help both of 'em right now.
 # after pressure
-react.pressure = [knowing] Every lap like that, the one in front's looking in the mirror more than the road.
-react.pressure.2 = [easy drawl] Just sitting there, waiting on a mistake.
+react.pressure = [knowing, easy drawl] That mirror starts feeling awfully big when somebody's that close.
+react.pressure.2 = [thoughtful, conversational] Hard to find your rhythm with somebody right there.
 # after the win
 react.win = [warm] That's gonna feel real good for a long time.
-react.win.2 = [admiring] Never put a wheel wrong when it mattered.
+react.win.2 = [admiring, sincere] There's a lot of work behind a moment like that.
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -643,20 +643,20 @@ react.win.2 = [admiring] Never put a wheel wrong when it mattered.
 [booth]
 
 M quiet.chat.1 = [curious, relaxed] What's the hardest part of a long race, from the driver's seat?
-C quiet.chat.1.color = [thoughtful drawl] Your brain. The car's fine, your body's fine... it's the thinking. Lap thirty, you start talking to yourself.
-M = [dry] And what do you say?
-C = [laughing] Mostly, "Don't mess this up."
+C quiet.chat.1.color = [thoughtful, easy drawl] Keeping your mind where it belongs. You get into a rhythm, and then you start thinking about everything except the next corner.
+M = [lightly amused, curious] And what did you tell yourself?
+C = [small laugh, self-deprecating] Mostly, "Pay attention. You've still got to drive this thing."
 
 M quiet.chat.2 = [curious] Did you have a superstition before a race?
 C quiet.chat.2.color = [easy drawl] Left glove first. Every time. Forgot once and spun on the warm-up lap.
-M = [dry, a small smile] So it worked.
-C = [laughing] Worked every time I remembered.
+M = [dryly amused, a small smile] One race was all the evidence you needed?
+C = [chuckling, easy drawl] Plenty for me.
 
-M quiet.chat.3 = [observant] Tires are such a big part of the story these days.
-C quiet.chat.3.color = [explaining] Always were. Four patches of rubber about the size of your hand. Everything you do goes through them.
+M quiet.chat.3 = [observant, conversational] We talk about speed, but it still comes back to those tires.
+C quiet.chat.3.color = [matter-of-fact, experienced] You can have all the power you want. If you can't put it on the road, it won't help you much.
 
-M quiet.chat.4 = [relaxed] A lot of patience on display out there.
-C quiet.chat.4.color = [knowing] Patience is the hardest thing to learn. Fast, you can teach. Patient takes about ten years and a couple of wrecks.
+M quiet.chat.4 = [gently teasing, familiar] Patience didn't come naturally to you, did it?
+C quiet.chat.4.color = [knowing, lightly self-deprecating] I was quick before I was patient. Took a few expensive afternoons to put the two together.
 
 M quiet.chat.5 = [curious] What do you actually listen for in the car?
 C quiet.chat.5.color = [quietly experienced] Everything. The engine, the tires, the wind... you hear a new noise and your stomach drops before your brain catches up.
@@ -666,77 +666,77 @@ C quiet.chat.6.color = [sighs] Coasted across the line in second. My crew chief 
 M = [dry] Just the one week?
 C = [chuckling] He was a forgiving man.
 
-M quiet.chat.7 = [curious] How much do you trust the voice on the radio?
-C quiet.chat.7.color = [serious, plain] With your life. You can't see everything from in there. They can.
+M quiet.chat.7 = [thoughtful, conversational] You put a lot of trust in the people on that radio.
+C quiet.chat.7.color = [serious, plainspoken] You do. They're watching things you can't, and you need them to be clear. A familiar voice helps, too.
 
-M quiet.chat.8 = [observant] The fast corners really sort them out.
-C quiet.chat.8.color = [knowing drawl] That's where you find out who's brave and who's smart. Usually you can't be both on the same lap.
+M quiet.chat.8 = [observant, engaged] Fast corners always look different from up here.
+C quiet.chat.8.color = [knowing drawl, measured] Sure do. In the car, you want confidence in what it's going to do next. Bravery only gets you so far.
 
-M quiet.chat.9 = [warm, curious] When did you know you wanted to race?
+M quiet.chat.9 = [warm, familiar] You were racing long before anybody was paying you to do it.
 C quiet.chat.9.color = [nostalgic] Go-kart, eight years old, a grass track behind the church. Beat my cousin, and I never got over it.
 M = [amused] Did your cousin?
 C = [laughing] Nope.
 
 M quiet.chat.10 = [relaxed] You always said the start was your favorite part.
-C quiet.chat.10.color = [delighted] Everybody's equal for about three seconds. Then the brave ones get bunched up with the dumb ones, and you find out which you are.
+C quiet.chat.10.color = [delighted, recalling the feeling] That first run toward the corner... I loved it. All that waiting, and suddenly you're right in the middle of it.
 
 M quiet.chat.11 = [dry, teasing] You've been quiet for a minute. Should I be worried?
 C quiet.chat.11.color = [easy] Just watching. You learn more watching than talking.
 M = [dry] That'd be a first for this booth.
 C = [laughing] Well, don't get used to it.
 
-M quiet.chat.12 = [curious] Best advice you ever got?
-C quiet.chat.12.color = [wry] Slow in, fast out. Took me five years to actually do it.
+M quiet.chat.12 = [warm, lightly amused] You've quoted that old advice plenty of times: slow in, fast out.
+C quiet.chat.12.color = [wry, easy drawl] And I spent five years saying it before I actually did it.
 
 M quiet.chat.13 = [curious] Does the car feel different on a cool day?
-C quiet.chat.13.color = [explaining] Oh, yeah. Cool air, the engine makes more power, but the tires take longer to come in. Everything's a trade.
+C quiet.chat.13.color = [conversational, recalling the feeling] Oh, yeah. Some mornings the car would feel wonderful, and I'd still be asking those tires to wake up.
 
 M quiet.chat.14 = [observant] Setup can make or break a weekend.
 C quiet.chat.14.color = [wry drawl] You can be the best driver here, and if the car won't turn, you're just a passenger with opinions.
 
 M quiet.chat.15 = [observant] It's tough to follow closely at these speeds.
-C quiet.chat.15.color = [explaining] You lose the front end the second you get close. So you hang back, and wait for the corner where it matters less.
+C quiet.chat.15.color = [thoughtful, experienced] You're trying to get close without spoiling your own run. Sometimes a little space buys you a better chance at the next corner.
 
-M quiet.chat.16 = [curious] Ever have the radio go out mid-race?
-C quiet.chat.16.color = [amused] Twice. Second time, I didn't notice for ten laps. Best race I ever ran.
+M quiet.chat.16 = [amused, familiar] You've told me that story about losing your radio mid-race.
+C quiet.chat.16.color = [amused, easy drawl] Happened twice. Second time, I didn't notice for ten laps. Best race I ever ran.
 M = [laughing] That says something.
 C = [deadpan] About me, or about the radio?
 
-M quiet.chat.17 = [thoughtful] What separates the good ones from the great ones?
-C quiet.chat.17.color = [plain, sure] Great ones make the same lap twenty times in a row. Good ones make one great lap and nineteen okay ones.
+M quiet.chat.17 = [thoughtful, conversational] You've always liked the drivers who make it look uneventful.
+C quiet.chat.17.color = [plainspoken, admiring] A great lap gets your attention. Doing it again and again, even when the car's a handful... that's what impresses me.
 
-M quiet.chat.18 = [curious] How did you handle the pressure in a big race?
-C quiet.chat.18.color = [easy] Breathed on the straights. Sounds silly. You'd be surprised how many drivers forget to breathe.
+M quiet.chat.18 = [warm, gently curious] You always looked pretty calm before the big races.
+C quiet.chat.18.color = [honest, relaxed] Looked calm, sure. I used to make myself take a breath on the straights. Gave me one thing I could settle down.
 
 M quiet.chat.19 = [teasing] Any rivals you still think about?
 C quiet.chat.19.color = [wry, low] One. Never mind who. We still don't sit at the same table.
 M = [dry] I'll make a note for the seating chart.
 
 M quiet.chat.20 = [curious] In the car, what are you actually looking at?
-C quiet.chat.20.color = [explaining] Way down the road. Your hands go where your eyes go. Look at the wall, and you'll find the wall.
+C quiet.chat.20.color = [thoughtful, experienced] Farther ahead than people think. If I caught myself staring at the problem, I'd remind myself to look where I wanted the car to go.
 
 M quiet.chat.21 = [relaxed] People always ask: are the drivers friends?
-C quiet.chat.21.color = [chuckling] Off the track? Some. On it? Nobody's your friend for about two hours.
+C quiet.chat.21.color = [warm, knowing] Some of my best friends were the hardest people to pass. Didn't mean I was going to make it easy for them.
 
 M quiet.chat.22 = [gentle] Do you miss it?
 C quiet.chat.22.color = [quieter, sincere] Every single weekend. Sitting up here's the next best thing.
 M = [warmly] Glad to have you.
 
-M quiet.chat.23 = [observant] Steady pace out front at the moment.
-C quiet.chat.23.color = [knowing] Nobody's taking a risk they don't have to. That changes about ten laps from the end.
+M quiet.chat.23 = [relaxed, familiar] You never seemed in a hurry to show everything you had.
+C quiet.chat.23.color = [knowing, self-deprecating] Well, I wanted something left when it mattered. Didn't always manage it, but that was the idea.
 
 M quiet.chat.24 = [curious] The heat in those cars must be brutal.
-C quiet.chat.24.color = [laughing] You lose a few pounds every race. Then you go eat a cheeseburger and find 'em again.
+C quiet.chat.24.color = [conversational, quietly experienced] You'd climb out and realize how hot you'd been. In the car, there's always something else asking for your attention.
 
 M quiet.chat.25 = [curious] Do drivers really watch the scoreboard?
-C quiet.chat.25.color = [grinning] Some say they don't. They're lying. You count every car you pass.
+C quiet.chat.25.color = [knowing, conversational] I'd sneak a look when I could. Sometimes you needed it, sometimes you just wanted to see whether all that work was getting you anywhere.
 
 M quiet.chat.26 = [warm] Your first win... what do you remember?
 C quiet.chat.26.color = [soft, nostalgic] Not much. The flag, and then my mama crying. Everything in between's gone.
 M = [warmly] That's a good memory to keep.
 
-M quiet.chat.27 = [observant] You can see the racing line getting darker as it rubbers in.
-C quiet.chat.27.color = [explaining] Step off it, and it's like driving on marbles.
+M quiet.chat.27 = [observant, familiar] You could always tell when a track was changing underneath you.
+C quiet.chat.27.color = [thoughtful, experienced] You'd find a little grip in a place that wasn't there earlier. Makes you want to try it again... carefully.
 
 M quiet.chat.28 = [curious] Ever tried one of those racing simulators?
 C quiet.chat.28.color = [deadpan] Once. Crashed in the first corner, and the chair didn't even move. Didn't feel right.
@@ -746,16 +746,16 @@ C = [deadpan] Obviously.
 M quiet.chat.29 = [curious] What would you change about racing, if you could?
 C quiet.chat.29.color = [animated] More places where you can actually pass. Give me a long straight and a tight hairpin, and I'll give you a show.
 
-M quiet.chat.30 = [relaxed] A long stretch of green-flag running now.
-C quiet.chat.30.color = [easy, almost peaceful] This is where you find your rhythm. Same brake marker, same turn-in, lap after lap.
+M quiet.chat.30 = [relaxed, familiar] You used to talk about finding a rhythm.
+C quiet.chat.30.color = [easy, almost peaceful] Same brake marker, same turn-in, lap after lap. You stop feeling like you're chasing the car.
 M = [smiling] Almost peaceful.
 C = [laughing] Till somebody shows up in your mirror.
 
 M quiet.chat.31 = [curious] Which matters more, the car or the driver?
-C quiet.chat.31.color = [wry] Car gets you to the front. Driver keeps you there. Or doesn't.
+C quiet.chat.31.color = [wry, experienced] I've won when the car wasn't the best, and lost when it probably was. Helps when both are having a good day.
 
 M quiet.chat.32 = [observant] The crews don't get enough credit.
-C quiet.chat.32.color = [sincere] They don't. A bad stop costs you more than a bad lap, and they never get the trophy.
+C quiet.chat.32.color = [sincere, appreciative] They don't. You see the driver at the finish, but there's a whole group back there who helped make it happen.
 
 M quiet.chat.33 = [amused] You're smiling.
 C quiet.chat.33.color = [sheepish laugh] Can't help it. I still get butterflies watching from up here.
@@ -766,24 +766,24 @@ M = [curious] What did he mean?
 C = [thoughtful] Sometimes going slower is how you go faster. Took me a while.
 
 M quiet.chat.35 = [observant] Traffic can make or break a lap.
-C quiet.chat.35.color = [explaining] You can lose a whole second behind one car that doesn't know you're there.
+C quiet.chat.35.color = [knowing, conversational] You've got a good lap going, then you catch somebody at just the wrong place. Hard not to get impatient with that.
 
 M quiet.chat.36 = [gentle] Do you ever think about the risks?
-C quiet.chat.36.color = [plain, quiet] Not in the car. You can't. You think about it on the drive home.
+C quiet.chat.36.color = [plainspoken, quiet] You respect them. In the car, I tried to stay with what I could do about it. Some days you'd think a little longer on the drive home.
 
 M quiet.chat.37 = [curious] What does a really good lap feel like?
 C quiet.chat.37.color = [soft] Quiet. Everything slows down. You're not driving it so much as letting it happen.
 
 M quiet.chat.38 = [teasing] The cars have changed a lot since your day.
-C quiet.chat.38.color = [laughing] Since my day? You make it sound like I raced a horse.
-M = [dry] Did you?
-C = [deadpan] Once. Lost.
+C quiet.chat.38.color = [chuckling, playfully offended] Since my day? You make it sound like they hauled mine out of a museum.
+M = [dry, a small smile] I was trying to be polite.
+C = [amused, easy drawl] Keep trying.
 
 M quiet.chat.39 = [curious] Who finishes strongest today, do you think?
-C quiet.chat.39.color = [sure] Whoever saved their tires. Always is.
+C quiet.chat.39.color = [thoughtful, engaged] Tires might have a say, but I want to see who still looks comfortable when the car gets harder to drive.
 
 M quiet.chat.40 = [curious] What goes through your head on the grid?
-C quiet.chat.40.color = [honest] Turn one. Over and over. Then the lights go out, and you don't think at all.
+C quiet.chat.40.color = [honest, recalling the feeling] The first corner. Where I wanted to be, where I didn't. Then we got moving, and I had something useful to do with all those nerves.
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -795,18 +795,18 @@ C quiet.chat.40.color = [honest] Turn one. Over and over. Then the lights go out
 [booth]
 
 M intro.standard.3 = [warm, welcoming] Welcome back, everybody. Glad you could join us.
-C intro.standard.3.color = [easy drawl] Good cars today. I've got a feeling about this one.
-M = [dry] You always have a feeling.
-C = [laughing] And I'm right about half the time.
+C intro.standard.3.color = [easy drawl, warmly eager] I've been looking forward to this one.
+M = [dryly amused] You say that every week.
+C = [small chuckle, sincere] And I mean it every week.
 
 M intro.standard.4 = [warm, professional] Good to be with you. Plenty of storylines heading into this one.
-C intro.standard.4.color = [chuckling] And about half of 'em will be out the window by the first corner.
+C intro.standard.4.color = [engaged, easy drawl] That's what I like about race day. You finally get to see how those stories hold up.
 
 M intro.standard.5 = [bright, welcoming] Welcome in, everybody. We are just about ready to go racing.
 C intro.standard.5.color = [eager] I've been ready since breakfast.
 
 M intro.standard.6 = [warm, building] Hello again, everyone. A full field, and a lot to play for.
-C intro.standard.6.color = [knowing] When it's this tight, the little things win it. A good start, a clean stop, no silly mistakes.
+C intro.standard.6.color = [knowing, warmly engaged] A little patience early, and a little nerve when it counts. I always liked that combination.
 
 M intro.standard.7 = [warm] Welcome along. This one has all the makings of a good race.
 C intro.standard.7.color = [deadpan] I don't make predictions anymore.
@@ -814,44 +814,44 @@ M = [dry] Since when?
 C = [deadpan] Since the last one.
 
 M intro.standard.8 = [measured, warm] Thanks for joining us. The cars are lined up, and the drivers are strapped in.
-C intro.standard.8.color = [sympathetic] Worst part for 'em, this. Sitting. Waiting. You just want to go.
+C intro.standard.8.color = [sympathetic, knowing] That waiting used to get me. Once the car started moving, I felt a whole lot better.
 
-M intro.standard.9 = [warm, inviting] Welcome to the broadcast. If you like close racing, stick around.
-C intro.standard.9.color = [laughing] And if you don't, I don't know what you're doing here.
+M intro.standard.9 = [warm, inviting] Glad you're with us. Let's see what this field has in store today.
+C intro.standard.9.color = [warm, enthusiastic] There's always somebody worth keeping an eye on. That's half the fun.
 
 M intro.standard.10 = [warm, thoughtful] Here we are again. Another race, and another chance for somebody to make a name for themselves.
-C intro.standard.10.color = [wry] Somebody always does. Just never the one you think.
+C intro.standard.10.color = [thoughtful, warm] A good afternoon can change a lot for a driver. You never forget the one that gets people talking.
 
 M intro.standard.11 = [professional, warm] Glad to have you with us. The cars are set, the crews are set.
-C intro.standard.11.color = [grinning] And somewhere back there, somebody's already thinking about the first corner a little too hard.
+C intro.standard.11.color = [sincere, appreciative] That's a lot of work just to get to this point. Now the drivers get to do their part.
 
 M intro.standard.12 = [bright, quick] Welcome, everybody. Strap in.
-C intro.standard.12.color = [laughing] You strap in. I've got a coffee.
+C intro.standard.12.color = [playful, quietly eager] Soon as I put this coffee down, I'm ready.
 
-M intro.standard.13 = [warm] Welcome back to the booth, everybody.
-C intro.standard.13.color = [delighted] Best seat in the house.
-M = [dry] Second best.
-C = [laughing] Fair. They've got a better view down there.
+M intro.standard.13 = [warm, welcoming] Good to have you with us here in the booth.
+C intro.standard.13.color = [delighted, warm] Best seat in the house.
+M = [gently teasing] You used to say that about the driver's seat.
+C = [warm, nostalgic] I did. Some days I still do.
 
 M intro.standard.14 = [warm, building] It's race day, everyone, and we're glad you're here.
 C intro.standard.14.color = [sincere] Never gets old. Thirty years, and I still feel it in my stomach.
 
 # when: the first race of a season
 M intro.opener = [warm, building] Welcome to the first race of a brand new season.
-C intro.opener.color = [grinning] Everybody's undefeated today. Enjoy it while it lasts.
+C intro.opener.color = [playful, hopeful] Fresh start for everybody. I always liked that feeling.
 
 M intro.opener.2 = [bright, anticipatory] And here we go. A new season starts today.
 C intro.opener.2.color = [chuckling] All winter, everybody's been telling everybody how fast they are. Now we find out.
 
 # when: the season finale with the title still open
 M intro.championship.2 = [authoritative, building] The last race of the season. Everything still to play for.
-C intro.championship.2.color = [honest laugh] I couldn't sleep last night, and I'm not even driving.
+C intro.championship.2.color = [quietly excited, sincere] I still get a little tight in the stomach on a day like this. There's a lot riding on this afternoon.
 
 # when: your first race
-M intro.debut = [warm] A few new faces on the grid today.
-C intro.debut.color = [nostalgic, grinning] Remember your first race? I do. I threw up in my helmet.
-M = [dry] Thank you for sharing.
-C = [cheerful] Anytime.
+M intro.debut = [warm, welcoming] A first race is a big day for any driver.
+C intro.debut.color = [warm, nostalgic, easy drawl] I remember mine. Checked the belts about five times, just to give my hands something to do.
+M = [amused, gentle] Did it help?
+C = [small chuckle, warm] Not much. Getting started did.
 
 
 # ─────────────────────────────────────────────────────────────────────────────

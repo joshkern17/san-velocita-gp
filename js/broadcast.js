@@ -37,11 +37,11 @@ const M = {
   'incident.multicar': { w: 10, min: 0, gap: 0, cd: 60, cat: 'crash', force: true },
   'incident.crash.relief': { w: 5, min: 0, gap: 3, cd: 60, cat: 'relief', stale: 20 , anywhere: true },
   'finish.finallap': { w: 6, min: 0, gap: 0, cd: 1e9, cat: 'flow', stale: 15 , anywhere: true },
-  'finish.close': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true , anywhere: true },
-  'finish.win': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true , anywhere: true },
-  'finish.dominant': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true , anywhere: true },
-  'finish.upset': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true , anywhere: true },
-  'finish.reflect': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true , anywhere: true },
+  'finish.close': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true, stale: 15 , anywhere: true },
+  'finish.win': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true, stale: 15 , anywhere: true },
+  'finish.dominant': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true, stale: 15 , anywhere: true },
+  'finish.upset': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true, stale: 15 , anywhere: true },
+  'finish.reflect': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true, stale: 15 , anywhere: true },
   // small talk: only after a real silence
   'quiet.early': { w: 2, min: 0, gap: 14, cd: 1e9, cat: 'quiet' },
   'quiet.chat': { w: 1.5, min: 0, gap: 40, cd: 100, cat: 'quiet', stale: 999 }, // (the conversations: after a real silence)
@@ -134,6 +134,8 @@ export class Broadcast {
   decide() {
     const now = this.t;
     this.cand = this.cand.filter(c => now - c.t < (c.m.stale || STALE));
+    // (the race is won: whatever was waiting that isn't about the finish is old news)
+    if ((this.r.finishOrder || []).length) this.cand = this.cand.filter(c => c.m.cat === 'finish');
     if (!this.cand.length) return;
     this.cand.sort((a, b) => (b.m.force ? 1e3 : 0) + b.score - ((a.m.force ? 1e3 : 0) + a.score));
     for (const c of this.cand) {
@@ -146,6 +148,7 @@ export class Broadcast {
       }
       if (now - (this.saidT[c.id] ?? -1e9) < m.cd) continue;
       if (m.force && m.cat === 'crash' && now - (this.catT.crash ?? -1e9) < CAT_GAP.crash) continue; // (one wreck call at a time, even cutting in)
+      if (c.o.after && this.busy) continue; // (a story that follows a call: once the call's done)
       if (!m.force) {
         if (this.busy) continue;
         const quiet = now - Math.max(this.lastEnd, this.lastSay);
@@ -179,7 +182,7 @@ export class Broadcast {
     const f = FOLLOW[c.id], fol = f && Math.random() < f[1];
     if (fol) this.later.push({ t: now + 1.5, id: f[0], cars: c.cars, o: { booth: true, anywhere: true } });
     else if (REACT[c.id] && !c.o.story && this.react && Math.random() < REACT_P) this.reactQ = { type: REACT[c.id], until: now + 7 };
-    if (c.o.story) this.later.push({ t: now + 0.5, id: c.o.story, cars: c.cars, o: { booth: true } });
+    if (c.o.story) this.later.push({ t: now + 0.5, id: c.o.story, cars: c.cars, o: { booth: true, after: true } });
     return 'said';
   }
   // a take of base (base, base.2, ...) from a set, not heard in the last PIECE_CD seconds, else the least recent
@@ -446,7 +449,9 @@ export class Broadcast {
     const second = F[1];
     if (!second && this.t - this.finWait < 0.8) return; // (a moment for second place to cross)
     this.once.fin = true;
-    const n = r.cars.length, margin = second ? second.finishTime - w.finishTime : 99;
+    // (the margin: second's time across the line, or if they're not there yet, how far back they are at their speed)
+    const run = (r.order || []).find(c => c !== w && !c.gone);
+    const n = r.cars.length, margin = second ? second.finishTime - w.finishTime : run ? Math.max(0, (w.progress < 1e8 ? w.progress : w.raw ?? w.progress) - (run.raw ?? run.progress)) / Math.max(15, run.phys.speed) : 99;
     const led = (w.bcLed || 0) / Math.max(1, w.bcSeen || 1);
     // the call (the announcer: who won), then the story of it (the booth: an upset, a runaway, a comeback)
     const story = (w.startPos || 1) >= Math.max(6, Math.ceil(n / 2)) ? 'finish.upset'
