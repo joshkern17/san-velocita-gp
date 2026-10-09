@@ -3249,6 +3249,10 @@ function renderOptMenu() {
       desc: WEEKEND_DESC + ` From the next round.${w.coop ? ' <b>Co-op</b>: with your co-owner here the sessions are online, both of you on track at once against the same clock.' : ''}` },
     ...(w.opts.weekend === 'full' ? [{ label: 'Practice', values: PRAC_VALS, get: () => w.opts.pracLen, set: v => { w.opts.pracLen = v; saveWorld(); }, desc: PRAC_DESC }] : []),
     ...(w.opts.weekend !== 'race' ? [{ label: 'Qualifying', values: QUALI_VALS, get: () => w.opts.qualiLen, set: v => { w.opts.qualiLen = v; saveWorld(); }, desc: QUALI_DESC }] : []),
+    // the race length, from the next round (a career from before distances: its fixed laps, until it's changed)
+    (() => { const R = !w.over && w.series[w.player.series].cal[w.round];
+      return { label: 'Race Distance', values: [...(w.opts.dist ? [] : [[null, `${w.opts.laps} laps each`]]), ...DIST_VALS], get: () => w.opts.dist ?? null, set: v => { w.opts.dist = v; saveWorld(); renderHub(); renderOptMenu(); },
+        desc: `${DIST_DESC} From the next round${R ? `: ${R.name} is <b>${worldLaps(w, R)} laps</b>` : ''}.` }; })(),
     { label: 'Pit Wall Calls', values: [['on', 'On'], ['off', 'Off']], get: () => settings.pitWall || 'on', set: v => { settings.pitWall = v; saveSettings(); }, desc: 'Your engineer asks you on the radio when there\'s a call to make: undercut, cover, a cheap stop under the VSC, your teammate. Answer with <b>X / B</b> (or <b>1 / 2</b>); if you don\'t, their pick happens. Off: they make the pit calls and tell you.' },
     // circuits: before a season's first race (this season's calendars are drawn again), or at the end of one (next season's)
     ...(() => { const fresh = !w.over && w.round === 0 && !w.series[w.player.series].results.length, n = worldPool().length;
