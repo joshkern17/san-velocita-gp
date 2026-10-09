@@ -47,8 +47,13 @@ Career a test day's count for race weekend). **Mini-Sectors**: the lap in short 
 three sectors' splits among them), shown as pips under the sector cells; beat a stretch's target (the reference lap's
 time plus a margin by class and difficulty) on two laps and it lights for good, and 80% lit does the job. Your
 practice bests through each are kept for the weekend, and once the job's done qualifying shows every mini-sector
-green or yellow against them. The jobs can also be switched on from the pause menu in a time trial or on a test day
-(where the gates are out from the start).
+green or yellow against them. **Qualifying Sim**: out of the box on a new set of softs, an out-lap and one push lap;
+the lap is ranked against the field's hidden qualifying pace (each rival a little quicker or slower, many times over)
+for a predicted range ("P3–P5 pace"), with tire temperatures on also the corner the tires came in by. In qualifying,
+the out-lap shows that plan, and the engineer warns you if you start a lap on cold tires. The gates are two glowing
+posts with the speed over them; closing on one, its posts brighten when you're lined up and pulse when you're coming
+in too fast, and your speed against it shows under the lap time. The jobs can also be switched on from the pause
+menu in a time trial or on a test day (where the gates are out from the start).
 
 ## Rendering (post processing)
 The main menu's background race uses a generated setting (town, city, Japanese streets or industrial) at dusk or night,

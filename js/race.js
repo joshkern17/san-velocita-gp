@@ -25,7 +25,7 @@ import { DirtTrack } from './dirttrack.js';
 import { Rubber } from './rubber.js';
 import { activeSetup, applySetup, stanceOf } from './setup.js';
 import { TireFX, SMOKE, DUST, FX } from './tirefx.js';
-import { Acclimatization, MiniSectors, BrakeMarkers, ACCLIM_PASS, MSEC_PASS, planMinis } from './practice.js';
+import { Acclimatization, MiniSectors, QualiSim, BrakeMarkers, ACCLIM_PASS, MSEC_PASS, QSIM_NOISE, planMinis } from './practice.js';
 
 const STEP = 1 / 240;
 // pace = fraction of the learned per-track limit
@@ -1320,6 +1320,7 @@ export class Race {
     } else this.flyingStart(car);
     this.focus = car;
     if (car.isPlayer && this.prog) this.prog.restart();
+    if (car.isPlayer) this.qsimLeave(car);
   }
   // a point-to-point session run is over (finished, or given up from the pause menu): back to the garage at the top;
   // the last of your runs ends the session
@@ -3813,9 +3814,17 @@ export class Race {
     if (!this.player || !this.refV) return;
     if (id === 'acclim') this.prog = new Acclimatization(this);
     else if (id === 'msec' && this.mini) { this.prog = new MiniSectors(this); if (this.player.ms) this.player.ms = null; } // (lit from the next lap that starts at the line)
+    else if (id === 'qsim') {
+      this.prog = new QualiSim(this);
+      // (a test day or time trial has no garage: the run starts now, the push lap the next one begun at the line, on
+      // whatever set's on)
+      const pl = this.player;
+      if (this.mode === 'test') this.prog.run = { fresh: true, lap: pl.lapTimes.length + (pl.lap > 0 ? 1 : 0), warm: null, warmM: null, from: pl.idx };
+    }
   }
   updateProgramme(dt) {
     const pl = this.player; if (!pl) return;
+    this.qsimTick(pl);
     if (!this.prog) return;
     const live = this.state === 'racing' && dt > 0 && !pl.pitting && !pl.gone && !pl.finished;
     for (const p of this.prog.update(dt, pl, live)) {
@@ -3834,6 +3843,7 @@ export class Race {
   }
   // a lap done with the gates on: rated if you went through every one of them (from the line round to the line)
   programmeLap() {
+    if (this.prog.id === 'qsim') return this.qsimLap(this.player);
     if (this.prog.id !== 'acclim') return; // (Mini-Sectors: miniLap)
     const r = this.prog.lapDone(); if (r == null) return;
     const a = this.tdata.acclim ||= { best: 0, done: false, marks: [] }, first = !a.done && r >= ACCLIM_PASS;
@@ -3841,10 +3851,79 @@ export class Race {
     this.events.push({ type: 'progLap', id: 'acclim', rating: r, best: a.best, done: first, marks: a.marks.length }, { type: 'tdata' });
   }
   // the HUD's programme panel
+  // ---- the Qualifying Sim (practice.js) ----
+  // the quickest tyre for a lap here (soft; wet in the rain, dirt on dirt), and whether the set on is new
+  qsimFresh(car) { const t = car.phys.tyre; return t.c === this.condTyre('soft') && Math.min(t.wf, t.wr) >= 0.995; }
+  // are all four tyres up to temperature (tyre temperatures on)? null: they're off, so there's nothing to wait for
+  tyresIn(p) {
+    if (!p.tempMode) return null;
+    for (let i = 0; i < 4; i++) { const m = p.tempMode === 2 ? 0.65 * p.tS[i] + 0.35 * p.tC[i] : p.tS[i]; if ((m - p.tyreOpt) / (p.tempMode === 2 ? 25 : 35) / 1.6 < -0.25) return false; }
+    return true;
+  }
+  // the corner at (or next after) a sample: "T6"
+  turnAt(i) {
+    const L = this.corners.list; if (!L.length) return null;
+    const c = L.find(c => c.exit >= i) || L[0]; return 'T' + c.n;
+  }
+  // out of the box: with the job on, a run starts (it counts if the set's new); in qualifying the out-lap's watched
+  qsimLeave(car) {
+    if (this.prog && this.prog.id === 'qsim') this.prog.run = { fresh: this.qsimFresh(car), lap: car.lapTimes.length, warm: null, warmM: null, from: car.idx };
+    if (this.mode === 'quali') this.qOut = { started: false };
+  }
+  qsimTick(pl) {
+    const R = this.prog && this.prog.id === 'qsim' ? this.prog.run : null;
+    // the out-lap: where the tyres came in
+    if (R && R.warm == null && !pl.gone && this.state === 'racing' && this.tyresIn(pl.phys)) {
+      R.warm = this.turnAt(pl.idx); R.warmM = Math.round((((pl.idx - R.from) + this.T.N) % this.T.N) * this.T.ds);
+    }
+    // qualifying: across the line onto a timed lap on cold tyres, the engineer says so (once a run)
+    const O = this.qOut;
+    if (this.mode === 'quali' && O && !O.started && pl.lap > 0 && !pl.gone) {
+      O.started = true;
+      const Q = this.tdata.qsim;
+      if (this.tyresIn(pl.phys) === false) this.events.push({ type: 'radio', msg: `Tires aren't in yet${Q && Q.warm ? `. In practice they came in by ${Q.warm}` : ''}. Build it up through the first corners.` });
+    }
+  }
+  // the push lap's done: where would that put you? Ranked against the field's qualifying pace (each rival a little
+  // quicker or slower than their hidden number, many times over): the range you'd end up in
+  qsimLap(pl) {
+    const R = this.prog.run; if (!R || pl.lapTimes.length !== R.lap + 1) return; // (only the first timed lap of a run)
+    this.prog.run = null;
+    const t = pl.last, valid = !pl.lastInvalid;
+    if (!R.fresh || !valid) { this.events.push({ type: 'progLap', id: 'qsim', ok: false, why: !R.fresh ? 'tyres' : 'deleted' }); return; }
+    const pots = (this.quali ? this.quali.field : []).map(e => e.pot).filter(isFinite);
+    let lo = 1, hi = 1, pole = null;
+    if (pots.length) {
+      const ps = [];
+      for (let k = 0; k < 200; k++) { let p = 1; for (const x of pots) if (x * (1 + this.gauss() * QSIM_NOISE) < t) p++; ps.push(p); }
+      ps.sort((a, b) => a - b); lo = ps[Math.floor(ps.length * 0.1)]; hi = ps[Math.floor(ps.length * 0.9)]; pole = Math.min(...pots);
+    }
+    const prev = this.tdata.qsim, first = !prev || !prev.done;
+    // (a quicker run replaces the prediction; a slower one doesn't)
+    if (!prev || !prev.done || t < prev.lap) this.tdata.qsim = { done: true, best: 1, lap: t, lo, hi, gap: pole != null ? t - pole : null, warm: R.warm ?? prev?.warm ?? null, warmM: R.warmM ?? prev?.warmM ?? null, field: pots.length };
+    else if (R.warm && !prev.warm) { prev.warm = R.warm; prev.warmM = R.warmM; }
+    const Q = this.tdata.qsim;
+    this.events.push({ type: 'progLap', id: 'qsim', ok: true, done: first, lap: t, lo: Q.lo, hi: Q.hi, gap: Q.gap, warm: Q.warm, temps: !!pl.phys.tempMode, field: Q.field, better: t === Q.lap }, { type: 'tdata' });
+  }
+  gauss() { let u = 0; for (let k = 0; k < 6; k++) u += Math.random(); return (u - 3) / Math.sqrt(0.5); }
   // the HUD's programme panel: its title and rows ([label, value html])
   progHud() {
-    const P = this.prog; if (!P) return null;
-    const pc = (x) => Math.round(x * 100) + '%', of = (a, b) => `${a}<small> / ${b}</small>`;
+    const P = this.prog, pl = this.player, of = (a, b) => `${a}<small> / ${b}</small>`, Q = this.tdata.qsim;
+    const range = (q) => q.lo === q.hi ? `P${q.lo}` : `P${q.lo}\u2013${q.hi}`;
+    // qualifying, after a Qualifying Sim in practice: the plan, on the out-lap
+    if (!P && this.mode === 'quali' && Q && Q.done && pl && pl.lap === 0 && !pl.gone)
+      return { title: 'QUALIFYING PLAN', rows: [['TARGET', Q.field ? range(Q) : '\u2014'], ['POLE', Q.gap == null ? '\u2014' : Q.gap > 0 ? `${Q.gap.toFixed(1)}<small> QUICKER</small>` : '<span class="done">YOURS</span>'],
+        ...(pl.phys.tempMode ? [['TIRES IN BY', Q.warm ? `${Q.warm}${this.tyresIn(pl.phys) ? '<small> \u00b7 IN</small>' : ''}` : '\u2014']] : [])] };
+    if (!P) return null;
+    const pc = (x) => Math.round(x * 100) + '%';
+    if (P.id === 'qsim') {
+      const R = P.run, fresh = R ? R.fresh : this.qsimFresh(pl), temps = !!pl.phys.tempMode;
+      const tyre = this.condTyre('soft').toUpperCase() + 'S';
+      return { title: 'QUALIFYING SIM', rows: [['SET', fresh ? `<span class="done">NEW ${tyre}</span>` : `NEEDS NEW ${tyre}`],
+        ...(temps ? [['TIRES IN', R && R.warm ? R.warm : R ? (pl.lap === 0 ? 'WARMING' : '\u2014') : '\u2014']] : []),
+        ['RUN', !R ? (Q && Q.done ? `DONE<small> \u00b7 ${Q.field ? range(Q) : ''}</small>` : 'FROM THE BOX') : pl.lap === 0 ? 'OUT-LAP' : 'PUSH LAP'],
+        ...(Q && Q.done && Q.field ? [['PREDICTED', range(Q)]] : [])] };
+    }
     if (P.id === 'msec') {
       const D = this.tdata.msec || { hits: [] }, n = this.mini.n, lit = (D.hits || []).filter(h => h >= 2).length, M = this.player.ms;
       const beat = M ? M.cur.filter(c => c === 'g' || c === 'h').length : 0, need = Math.ceil(n * MSEC_PASS);
@@ -4213,6 +4292,7 @@ export class Race {
       rc: this.rc.hudFor(pl), lastInvalid: !!pl.lastInvalid, penServing: pl.penServing || 0,
       delta: this.quali || this.mode === 'test' ? this.shownDelta(pl) : null, // (against your best lap: sessions and time trial)
       prog: this.progHud(),
+      gateNear: this.prog && this.prog.nearInfo || null, // (the acclimatization gate you're closing on: your speed against it)
       sectors: this.secCut ? this.secHud(pl) : null,
       quali: this.quali ? {
         left: this.quali.left, flag: this.quali.flag, done: this.quali.done, rows: this.qualiRows(),

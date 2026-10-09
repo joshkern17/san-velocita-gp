@@ -1046,6 +1046,7 @@ function showQualiResults() {
     + row('Best lap', isFinite(me.best) ? fmtTime(me.best, 3) : '&mdash;')
     + row(practice ? 'Gap to fastest' : 'Gap to pole', p === 1 || !isFinite(me.best) ? '&mdash;' : '+' + me.gap.toFixed(3))
     + row('Ideal lap', me.sec && me.sec.every(isFinite) ? fmtTime(me.sec[0] + me.sec[1] + me.sec[2], 3) : '&mdash;')
+    + (practice && sim.tdata.qsim?.done && sim.tdata.qsim.field ? row('Qualifying sim', `P${sim.tdata.qsim.lo}${sim.tdata.qsim.hi !== sim.tdata.qsim.lo ? '&ndash;' + sim.tdata.qsim.hi : ''} pace`) : '')
     + row(practice ? 'Next' : 'Race', practice ? `Qualifying &middot; ${Math.round(weekend.len[1] / 60)} min` : `${weekend.race.laps} lap${weekend.race.laps === 1 ? '' : 's'} &middot; ${n} cars`);
   const toRace = () => {
     const w = weekend, g = sim.qualiGrid();
@@ -1260,6 +1261,7 @@ function renderGarageMenu() {
 // a job and it's on from your next lap (the menu goes back with Flying Lap / Start Run under the cursor)
 const progStatus = (id) => {
   const a = sim && sim.tdata && sim.tdata[id]; if (!a || !a.best) return 'Not done yet';
+  if (id === 'qsim') return a.field ? `Done &middot; P${a.lo}${a.hi !== a.lo ? '&ndash;' + a.hi : ''} pace` : 'Done';
   return `${a.done ? 'Done' : 'Best'} &middot; ${Math.round(a.best * 100)}%`;
 };
 function planSummary() {
@@ -1335,6 +1337,12 @@ function repairNow(keys = null) {
 const secFmt = (t) => t == null || !isFinite(t) ? '&mdash;' : t >= 60 ? fmtTime(t, 3) : t.toFixed(3);
 const secTops = (rows) => [0, 1, 2].map(k => Math.min(...rows.map(r => r.sec ? r.sec[k] : Infinity)));
 const secCells = (r, tops) => [0, 1, 2].map(k => { const t = r.sec ? r.sec[k] : null; return `<td class="t${t != null && isFinite(t) && t === tops[k] ? ' sbest' : ''}">${secFmt(t)}</td>`; }).join('');
+// the Qualifying Sim's prediction (practice.js), under the garage's numbers once it's run
+function qsimNote() {
+  const Q = sim.tdata && sim.tdata.qsim; if (!Q || !Q.done) return '';
+  const r = Q.field ? `P${Q.lo}${Q.hi !== Q.lo ? '&ndash;' + Q.hi : ''} pace` : fmtTime(Q.lap, 3);
+  return `<p class="pg-note pg-qsim">Qualifying sim: <b>${r}</b>${Q.gap > 0.05 ? `, pole ~${Q.gap.toFixed(1)}s quicker` : ''}${Q.warm ? ` &middot; tires in by ${Q.warm}` : ''}</p>`;
+}
 // your best sectors and the lap they add up to, under the garage's numbers
 function secLine(B) {
   B = B || [Infinity, Infinity, Infinity];
@@ -1346,7 +1354,7 @@ function renderGarageInfo() {
   const late = q.left < 60;
   $('pg-clock').textContent = fmtTime(Math.ceil(q.left), 0); $('pg-clock').classList.toggle('late', late);
   const cell = (k, v) => `<div><small>${k}</small><b>${v}</b></div>`;
-  $('pg-card').innerHTML = `<div class="ti-grid">${cell('Position', `${me.pos}<small>/${rows.length}</small>`)}${cell(sim.T.open ? 'Best run' : 'Best lap', isFinite(me.best) ? fmtTime(me.best, 3) : '&mdash;')}${cell(q.kind === 'practice' ? 'Gap to fastest' : 'Gap to pole', me.pos === 1 || !isFinite(me.best) ? '&mdash;' : '+' + me.gap.toFixed(3))}${sim.T.open ? cell('Runs', `${q.used || 0}<small>/${q.runs || 1}</small>`) : cell('Laps', sim.player.lapTimes.length)}</div>` + secLine(sim.player.secBest);
+  $('pg-card').innerHTML = `<div class="ti-grid">${cell('Position', `${me.pos}<small>/${rows.length}</small>`)}${cell(sim.T.open ? 'Best run' : 'Best lap', isFinite(me.best) ? fmtTime(me.best, 3) : '&mdash;')}${cell(q.kind === 'practice' ? 'Gap to fastest' : 'Gap to pole', me.pos === 1 || !isFinite(me.best) ? '&mdash;' : '+' + me.gap.toFixed(3))}${sim.T.open ? cell('Runs', `${q.used || 0}<small>/${q.runs || 1}</small>`) : cell('Laps', sim.player.lapTimes.length)}</div>` + secLine(sim.player.secBest) + qsimNote();
   if (pgTiming) { const tops = secTops(rows); $('pg-table').innerHTML = `<tr><th>POS</th><th>DRIVER</th><th class="r">BEST</th><th class="r">GAP</th><th class="r">S1</th><th class="r">S2</th><th class="r">S3</th></tr>` + rows.map(r =>
     `<tr class="${r.isPlayer ? 'me' : ''}"><td class="p">${posBadge(r.pos)}</td><td><span class="swatch" style="background:${hex(r.color)}"></span>${r.name}</td><td class="t">${isFinite(r.best) ? fmtTime(r.best, 3) : '&mdash;'}</td><td class="t">${r.pos === 1 || !isFinite(r.best) ? '' : '+' + r.gap.toFixed(3)}</td>${secCells(r, tops)}</tr>`).join(''); }
   pitGarage.setTiming(`${SESSION_NAME[q.kind].toUpperCase()} · ${fmtTime(Math.ceil(q.left), 0)}`, rows);
@@ -1375,7 +1383,9 @@ function renderGarageInfo() {
 function planRows() {
   const rows = PROGRAMMES.map(P => {
     const a = sim.tdata[P.id] || {}, b = a.best || 0, col = a.done ? 'var(--sv-good)' : 'var(--sv-cyan)';
-    return `<div class="pg-row pg-plan${sim.prog?.id === P.id ? ' on' : ''}"><span>${P.short}</span><i class="pg-bar"><b style="width:${Math.round(b * 100)}%;background:${col};color:${col}"></b><u style="left:${P.pass * 100}%"></u></i><em>${b ? Math.round(b * 100) + '%' : '&mdash;'}</em></div>`;
+    // (the Qualifying Sim: the predicted grid slots, not a bar)
+    const val = P.id === 'qsim' ? (a.done ? (a.field ? `P${a.lo}${a.hi !== a.lo ? '&ndash;' + a.hi : ''}` : 'Done') : '&mdash;') : b ? Math.round(b * 100) + '%' : '&mdash;';
+    return `<div class="pg-row pg-plan${sim.prog?.id === P.id ? ' on' : ''}"><span>${P.short}</span><i class="pg-bar"><b style="width:${Math.round(b * 100)}%;background:${col};color:${col}"></b>${P.pass < 1 ? `<u style="left:${P.pass * 100}%"></u>` : ''}</i><em>${val}</em></div>`;
   }).join('');
   const m = sim.tdata.acclim?.marks?.length || 0;
   return `<div class="panel-title pg-plan-title">RUN PLAN</div>${rows}${m ? `<p class="pg-note">${m} brake marker${m === 1 ? '' : 's'} out for the weekend</p>` : ''}`;
@@ -3351,7 +3361,8 @@ function testPlanRows() {
   return `<div class="row"><span>Acclimatization</span><span>${Math.round(a.best * 100)}%${a.done ? ' &middot; done' : ''}</span></div>`
     + (a.marks.length ? `<div class="row"><span>Brake markers</span><span>${a.marks.length} for the weekend</span></div>` : '') + testMiniRow();
 }
-const testMiniRow = () => { const m = sim && sim.tdata && sim.tdata.msec; return m && m.best ? `<div class="row"><span>Mini-sectors</span><span>${m.hits.filter(h => h >= 2).length} of ${sim.mini.n} lit${m.done ? ' &middot; done' : ''}</span></div>` : ''; };
+const testQsimRow = () => { const q = sim && sim.tdata && sim.tdata.qsim; return q && q.done ? `<div class="row"><span>Qualifying sim</span><span>${fmtTime(q.lap, 3)}${q.warm ? ` &middot; tires in by ${q.warm}` : ''}</span></div>` : ''; };
+const testMiniRow = () => testQsimRow() + (() => { const m = sim && sim.tdata && sim.tdata.msec; return m && m.best ? `<div class="row"><span>Mini-sectors</span><span>${m.hits.filter(h => h >= 2).length} of ${sim.mini.n} lit${m.done ? ' &middot; done' : ''}</span></div>` : ''; })();
 function testFinish() {
   const w = world; if (!w || !sim || !sim.player) return;
   const pl = sim.player, laps = pl.lapTimes.length, before = w.money.balance, best = laps ? Math.min(...pl.lapTimes) : null;
@@ -4563,6 +4574,13 @@ function handleRaceEvents() {
     }
     else if (ev.type === 'gate') hud.gate(ev);
     else if (ev.type === 'tdata') keepTrackData();
+    else if (ev.type === 'progLap' && ev.id === 'qsim') {
+      const range = ev.lo === ev.hi ? `P${ev.lo}` : `P${ev.lo} to P${ev.hi}`;
+      hud.radio('eng', !ev.ok ? (ev.why === 'tyres' ? `That run doesn't tell us much on used tires. Box, take a new set of ${sim.condTyre('soft')}s and go again.` : 'Lap deleted, so it doesn\'t count. Go again.')
+        : !ev.field ? `${fmtTime(ev.lap, 3)}. Good reference for qualifying.${ev.warm ? ` Tires came in by ${ev.warm}.` : ''}`
+        : `${fmtTime(ev.lap, 3)}. That's ${range} pace${ev.gap > 0.05 ? `, pole's about ${ev.gap.toFixed(1)} quicker` : ev.gap != null ? ', right there for pole' : ''}.${ev.temps && ev.warm ? ` Tires came in by ${ev.warm}.` : ''}`, { big: ev.ok && ev.done });
+      if (ev.ok && ev.done) sfx.best();
+    }
     else if (ev.type === 'progLap' && ev.id === 'msec') {
       const need = Math.max(0, Math.ceil(ev.n * MSEC_PASS) - ev.lit);
       hud.radio('eng', ev.done ? `That's the job done, ${ev.lit} of ${ev.n} lit. Your practice bests are on the board for qualifying.`

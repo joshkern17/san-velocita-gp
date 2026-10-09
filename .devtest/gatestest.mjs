@@ -14,6 +14,7 @@ try {
   const pg = await b.newPage(); await pg.setViewportSize({ width: 1280, height: 720 });
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   if (process.env.BACK) await pg.addInitScript((v) => { window.__back = v; }, process.env.BACK);
+  if (process.env.OVER) await pg.addInitScript((v) => { window.__over = v; }, process.env.OVER);
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
   await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1500);
@@ -45,8 +46,21 @@ try {
   }, { laps, pace });
   console.log(JSON.stringify(r, null, 1));
   if (shot) {
-    // a frame with the gates ahead: put the car before a braking zone and render
-    await pg.evaluate(() => { const sim = window.__svgp.sim, g = sim.prog.gates.find(g => g.kind === 'brake'); const i = (g.i - Math.round(+(window.__back || 60) / sim.T.ds) + sim.T.N) % sim.T.N; sim.player.idx = i; sim.resetCar(sim.player); const p = sim.player.phys; p.vx = 0; p.vz = 0; sim.prog.restart(); });
+    // a frame with a gate ahead: the bot drives on (at OVER x the gates' speeds) until it's 40 m (BACK) short of a red one
+    await pg.evaluate(() => { const sim = window.__svgp.sim, car = sim.player, p = car.phys, T = sim.T, RV = sim.referenceTelemetry(car.carId, sim.condTyre('soft')).ch.v, over = +(window.__over || 1.25), back = +(window.__back || 40);
+      for (let f = 0; f < 60 * 200; f++) {
+        const P = sim.prog, g = P.gates[P.next], ahead = ((g.i - car.idx + T.N) % T.N) * T.ds;
+        if (g.kind === 'brake' && ahead < back && ahead > back - 15 && f > 120) break;
+        const i = car.idx, la = (i + Math.round((8 + p.speed * 0.35) / T.ds)) % T.N, off = sim.line[la];
+        const tx = T.X[la] + T.RX[la] * off, tz = T.Z[la] + T.RZ[la] * off, dx = tx - p.x, dz = tz - p.z;
+        const left = dx * Math.cos(p.h) - dz * Math.sin(p.h), fwd = dx * Math.sin(p.h) + dz * Math.cos(p.h);
+        const sx = Math.max(-1, Math.min(1, -Math.atan2(left, fwd) * 2.5 + (p.beta || 0) * 1.2)), steer = Math.sign(sx) * Math.pow(Math.abs(sx), 1.6);
+        // (as fast as the gate wants, times over, until the gate; braking normally after)
+        const vt = (ahead < 200 && g.kind === 'brake' ? g.v * over : RV[i]), vt2 = RV[(i + Math.round(25 / T.ds)) % T.N];
+        sim.update(1 / 60, { steer, throttle: p.speed < vt ? 1 : 0, brake: p.speed > vt + 2 ? 1 : 0, handbrake: 0, analog: true, pad: true, lag: 0.05 }, {});
+        sim.events.length = 0;
+      }
+      sim.setPaused(true); });
     await pg.waitForTimeout(1500);
     console.log(await pg.evaluate(() => { const sim = window.__svgp.sim, P = sim.prog, c = sim.camera.position;
       return JSON.stringify({ grp: P.group.visible, inScene: !!P.group.parent, car: sim.player.idx, cam: [c.x, c.y, c.z].map(Math.round), vis: P.gates.filter(g => g.obj.visible).map(g => ({ i: g.i, op: g.mat.opacity.toFixed(2), p: g.obj.position.toArray().map(Math.round) })) }); }));

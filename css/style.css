@@ -306,6 +306,8 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .gate-msg { position: absolute; left: 0; right: 0; top: calc(var(--tc-top) + var(--tc-h) + 34px); text-align: center; font: 500 34px/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-hot); text-shadow: var(--sv-glow-hud); -webkit-text-fill-color: transparent; opacity: 0; transition: opacity .25s; }
 .gate-msg.on { opacity: 1; transition: none; }
 .gate-msg.perfect { color: var(--sv-good); } .gate-msg.good { color: var(--sv-amber); } .gate-msg.miss { color: var(--sv-bad); }
+/* closing on a gate: your speed against it, smaller than a verdict */
+.gate-msg.near { font-size: 28px; } .gate-msg.near.fast { color: var(--sv-bad); } .gate-msg.near.ok { color: var(--sv-good); } .gate-msg.near.slow { color: var(--sv-amber); }
 .gate-msg small { display: block; margin-top: 6px; font-size: 18px; color: var(--sv-red); letter-spacing: var(--track-caption); }
 .st-sub { margin: -3px 0 5px; font: 500 13px/1.2 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; text-align: right; color: var(--sv-red); text-shadow: var(--sv-glow-hud); -webkit-text-fill-color: transparent; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .st-sub:empty { display: none; }

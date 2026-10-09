@@ -25,7 +25,12 @@ export const PROGRAMMES = [
     pass: ACCLIM_PASS, desc: 'Gates on the racing line at the brake points, apexes and exits, each with the speed to carry through it. Red is braking, amber the apex, green back on the power. A lap rated 70% or better does the job, and every brake point you nail gets a marker board beside the track for the rest of the weekend.' },
   { id: 'msec', name: 'Mini-Sectors', short: 'Mini-Sectors', pass: MSEC_PASS,
     desc: 'No gates: the lap in short stretches, about one a corner, each with a target time. Beat a target on two laps and that mini-sector lights for good; light 80% of them to do the job. Then in qualifying every mini-sector shows green or yellow against your practice best, under the sector it\'s in, so you see which corner cost you.' },
+  { id: 'qsim', name: 'Qualifying Sim', short: 'Quali Sim', pass: 1,
+    desc: 'A qualifying run: out of the box on a new set of softs, an out-lap, then one push lap. Your lap against what the others will do in qualifying gives you a predicted grid slot to aim at; with tire temperatures on, you also learn which corner the tires come in by on the out-lap, and qualifying shows it as your target.' },
 ];
+// the Qualifying Sim's prediction: how far off each rival's qualifying pace might be (a fraction, one standard
+// deviation), so it's a range, not the answer
+export const QSIM_NOISE = 0.0035;
 // the margin on a mini-sector's target (a fraction of the reference lap's time through it), by class and difficulty
 const MSEC_TOL = { shitbox: 0.06, street: 0.05, fun: 0.05, gt: 0.04, gt1: 0.04, gt2: 0.04, f1: 0.035 };
 export const msecTol = (cls, diff) => (MSEC_TOL[cls] ?? 0.04) * (TOL_DIFF[diff] ?? 1.25);
@@ -117,18 +122,23 @@ export function planGates(T, V0, corners) {
   return kept;
 }
 
-// the label over a gate: the speed to carry, in the gate's color
+// the label over a gate: the speed to carry, in the gate's color, on a dark plate edged in it (so it reads against a
+// bright sky), the unit under it
 function speedLabel(v, units, kind) {
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128;
-  const c = cv.getContext('2d'), n = Math.round(units === 'mph' ? v * 2.23694 : v * 3.6), col = KIND_CSS[kind];
-  // (on a dark plate edged in its color, so it reads against a bright sky)
-  c.fillStyle = 'rgba(5,6,12,0.72)'; c.fillRect(20, 6, 216, 120); c.strokeStyle = col; c.lineWidth = 4; c.strokeRect(22, 8, 212, 116);
-  c.textAlign = 'center'; c.textBaseline = 'alphabetic';
-  c.shadowColor = col; c.shadowBlur = 6; c.fillStyle = col;
-  c.font = "700 92px 'SV Display', 'Helvetica Neue', Arial, sans-serif"; c.fillText(String(n), 128, 92);
-  c.font = "500 26px 'SV UI', 'Helvetica Neue', Arial, sans-serif"; c.fillText(units === 'mph' ? 'MPH' : 'KM/H', 128, 122);
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
-  return t;
+  const n = Math.round(units === 'mph' ? v * 2.23694 : v * 3.6), col = KIND_CSS[kind], unit = units === 'mph' ? 'MPH' : 'KM/H';
+  const draw = () => {
+    const c = cv.getContext('2d'); c.clearRect(0, 0, 256, 128);
+    c.shadowBlur = 0; c.fillStyle = 'rgba(5,6,12,0.72)'; c.fillRect(20, 6, 216, 120); c.strokeStyle = col; c.lineWidth = 4; c.strokeRect(22, 8, 212, 116);
+    c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+    c.shadowColor = col; c.shadowBlur = 6; c.fillStyle = col;
+    c.font = "700 92px 'SV Display', 'Helvetica Neue', Arial, sans-serif"; c.fillText(String(n), 128, 92);
+    c.font = "500 26px 'SV UI', 'Helvetica Neue', Arial, sans-serif"; c.fillText(unit, 128, 118);
+    t.needsUpdate = true;
+  };
+  draw();
+  return { tex: t, draw };
 }
 
 export class Acclimatization {
@@ -160,9 +170,10 @@ export class Acclimatization {
   }
   build() {
     const T = this.race.T, units = this.race.units;
-    // (big and bright: they're read at 150 m at PS2 resolution)
-    const post = new THREE.BoxGeometry(0.22, 2.6, 0.22), bar = new THREE.BoxGeometry(1, 0.22, 0.22), strip = new THREE.PlaneGeometry(1, 0.6).rotateX(-Math.PI / 2);
-    this.geo = [post, bar, strip];
+    // (two glowing posts, the speed floating over the gap between them: tall and bright, they're read at 150 m at PS2
+    // resolution)
+    const post = new THREE.BoxGeometry(0.2, 3.0, 0.2);
+    this.geo = [post];
     for (const g of this.gates) {
       const i = g.i, o = g.o, col = new THREE.Color(...KIND_COL[g.kind]).multiplyScalar(GLOW);
       // (no fog: a guide, it stays its color at any distance)
@@ -170,12 +181,11 @@ export class Acclimatization {
       const grp = new THREE.Group();
       grp.position.set(T.X[i] + T.RX[i] * o, surfaceY(T, i, 0, o) + this.race.A.LIFT[i], T.Z[i] + T.RZ[i] * o);
       grp.rotation.y = Math.atan2(-T.RZ[i], T.RX[i]); // (local x across the track)
-      for (const s of [-1, 1]) { const p = new THREE.Mesh(post, mat); p.position.set(s * this.half, 1.0, 0); grp.add(p); }
-      const top = new THREE.Mesh(bar, mat); top.scale.x = this.half * 2 + 0.22; top.position.y = 2.2; grp.add(top);
-      const floor = new THREE.Mesh(strip, mat); floor.scale.x = this.half * 2; floor.position.y = 0.14; floor.renderOrder = 3; grp.add(floor); // (the line to cross)
-      const tex = speedLabel(g.v, units, g.kind);
-      const lbl = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false, fog: false }));
-      lbl.scale.set(3.2, 1.6, 1); lbl.position.y = 3.3; grp.add(lbl);
+      for (const s of [-1, 1]) { const p = new THREE.Mesh(post, mat); p.position.set(s * this.half, 1.2, 0); grp.add(p); }
+      const label = speedLabel(g.v, units, g.kind);
+      const lbl = new THREE.Sprite(new THREE.SpriteMaterial({ map: label.tex, transparent: true, depthWrite: false, toneMapped: false, fog: false }));
+      lbl.scale.set(3.2, 1.6, 1); lbl.position.y = 3.6; grp.add(lbl);
+      g.draw = label.draw;
       grp.visible = false;
       this.group.add(grp);
       g.obj = grp; g.mat = mat; g.lbl = lbl; g.flash = 0; g.res = null;
@@ -213,6 +223,7 @@ export class Acclimatization {
       }
       this.lastIdx = car.idx;
     }
+    this.approach(car, live);
     // what you see: the next few gates ahead, the one you just went through flashing its verdict
     let shown = 0;
     for (let k = 0; k < this.gates.length; k++) {
@@ -225,9 +236,30 @@ export class Acclimatization {
       }
       const vis = ahead > 4 && ahead < 650 && shown < 6 && (!T.open || g.i > car.idx);
       g.obj.visible = vis;
-      if (vis) { shown++; const fade = Math.min(1, (650 - ahead) / 150); g.mat.opacity = 0.9 * fade; g.lbl.material.opacity = fade; }
+      if (vis) { shown++; const fade = Math.min(1, (650 - ahead) / 150); g.mat.opacity = (g === this.near ? this.nearOp : 0.9) * fade; g.lbl.material.opacity = fade; }
     }
     return passed;
+  }
+  // the gate you're closing on (inside 150 m): your speed against its target, for the HUD (pink too fast, blue on it,
+  // amber slow); its posts bright when you're lined up between them, dim when you're not; and inside 70 m, still well
+  // over its speed, they pulse: brake
+  approach(car, live) {
+    const T = this.race.T, N = T.N, g = live && this.gates.length ? this.gates[this.next] : null;
+    const ahead = g ? ((g.i - car.idx + N) % N) * T.ds : Infinity;
+    const near = g && ahead < 150 && ahead > 1 && !g.flash ? g : null;
+    if (this.near && this.near !== near) { const o = this.near; if (!o.flash) o.mat.color.setRGB(...KIND_COL[o.kind]).multiplyScalar(GLOW); o.lbl.scale.set(3.2, 1.6, 1); }
+    this.near = near; this.nearOp = 0.9; this.nearInfo = null;
+    if (!near) return;
+    const u = this.race.units === 'mph' ? 2.23694 : 3.6, v = Math.max(0, car.phys.u ?? car.phys.speed), dv = (v - near.v) / Math.max(1, near.v);
+    const [tp, tg] = this.tol, state = dv > tp ? 'fast' : dv < -tp * SLOW_K ? 'slow' : 'on';
+    // (the readout's on the HUD, under the lap time: race.hudState gateNear; a label's too small to read at speed)
+    const d = Math.round((v - near.v) * u);
+    this.nearInfo = { state, d, unit: this.race.units === 'mph' ? 'MPH' : 'KM/H', kind: near.kind };
+    // (its label grows a little as you close in)
+    const k = 1 + 0.35 * Math.max(0, Math.min(1, (150 - ahead) / 110)); near.lbl.scale.set(3.2 * k, 1.6 * k, 1);
+    const lined = Math.abs(car.s - near.o) <= this.half * 0.6;
+    near.mat.color.setRGB(...KIND_COL[near.kind]).multiplyScalar(GLOW * (lined ? 1.6 : 0.5));
+    if (state === 'fast' && dv > tg && ahead < 70) this.nearOp = 0.35 + 0.6 * Math.abs(Math.sin(performance.now() / 70));
   }
   // the verdict on a gate: where you were across it and how fast
   judge(g, car, skipped) {
@@ -263,6 +295,15 @@ export class MiniSectors {
     const ends = [...M.cut, null];
     this.target = ends.map((c, j) => (at(c) - (j ? at(M.cut[j - 1]) : 0)) * (1 + tol));
   }
+  update() { return []; }
+  restart() {}
+  lapDone() { return null; }
+  dispose() {}
+}
+
+// The Qualifying Sim job: nothing on track; the run and what it finds live in race.js (qsim*) and tdata.qsim
+export class QualiSim {
+  constructor(race) { this.race = race; this.id = 'qsim'; this.run = null; }
   update() { return []; }
   restart() {}
   lapDone() { return null; }
