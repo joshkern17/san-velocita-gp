@@ -360,6 +360,18 @@ async function recordMyName() {
   settings.commentaryName = 'auto'; saveSettings();
   toast(`Done: the announcers will call you ${name}.`);
 }
+// the booth's exchanges you've heard, id -> when (kept between races and sessions): the conversations and the race
+// openings come round least recently heard first (broadcast.js), so you don't get the same story twice for a long while
+const HEARD_KEY = 'svgp.boothHeard';
+const boothHeard = (() => { try { return JSON.parse(localStorage.getItem(HEARD_KEY) || '{}') || {}; } catch (e) { return {}; } })();
+const saveHeard = () => { try { localStorage.setItem(HEARD_KEY, JSON.stringify(boothHeard)); } catch (e) {} };
+// one of an exchange's takes (base, base.2, ...): the one heard longest ago (or never)
+function boothTake(base) {
+  const L = [...boothLines()].filter(k => k === base || (k.startsWith(base + '.') && /^\d+$/.test(k.slice(base.length + 1))));
+  if (!L.length) return base;
+  const h = (k) => boothHeard[k] || 0, min = Math.min(...L.map(h)), pool = L.filter(k => h(k) === min);
+  const id = pool[Math.floor(Math.random() * pool.length)]; boothHeard[id] = Date.now(); saveHeard(); return id;
+}
 function commentaryName() {
   const pick = settings.commentaryName || 'auto', calls = lineSet('call'), has = (slug) => calls.has('call.pass.' + slug);
   if (pick !== 'auto') { const n = NICKNAMES.find(x => slugName(x) === pick); return n && has(pick) ? { commentaryName: pick, commentaryLabel: n.toUpperCase() } : {}; }
@@ -4557,7 +4569,7 @@ function drawLoadArt(track, cv = $('load-canvas'), tm = track.env.time) {
 function handleRaceEvents() {
   if (!sim || sim.mode === 'attract') return;
   // the booth's director (broadcast.js) waits while anyone's talking; the pre-race broadcast hides the HUD
-  if (sim.bc) { sim.bc.busy = voBusy(); if (!sim.bc.lines) { sim.bc.lines = boothLines(); sim.bc.pbp = lineSet('pbp'); sim.bc.pbpc = lineSet('pbpc'); sim.bc.calls = lineSet('call'); } }
+  if (sim.bc) { sim.bc.busy = voBusy(); if (!sim.bc.lines) { sim.bc.lines = boothLines(); sim.bc.pbp = lineSet('pbp'); sim.bc.pbpc = lineSet('pbpc'); sim.bc.calls = lineSet('call'); sim.bc.react = lineSet('react'); sim.bc.heard = boothHeard; } }
   $('hud').classList.toggle('bcast', sim.state === 'broadcast');
   while (sim.events.length) {
     const ev = sim.events.shift();
@@ -4635,11 +4647,11 @@ function handleRaceEvents() {
     else if (ev.type === 'crashout') crashOut(ev);
     else if (ev.type === 'radio') { hud.radio(ev.who || 'eng', ev.msg, { big: ev.big, name: ev.name, color: ev.color }); if (ev.big) sfx.lap(); if (ev.vo) engSay(ev.vo, { urgent: ev.big }); }
     // the pit wall's calls (race.js wallUpdate): the question, then what was chosen
-    else if (ev.type === 'booth') { boothSay(ev.id, { force: ev.force, exact: true }); if (ev.cap) hud.cap(ev.cap); }
+    else if (ev.type === 'booth') { boothSay(ev.id, { force: ev.force, exact: true }); if (ev.cap) hud.cap(ev.cap); saveHeard(); }
     else if (ev.type === 'pbp') { pbpSay(ev.parts, { force: ev.force }); if (ev.cap) hud.cap(ev.cap); }
     else if (ev.type === 'booth-intro') {
       const s = sim; hud.help(`${hintKeys('ok')} Skip`, 9000);
-      boothSequence(ev.ids).then(() => { if (sim === s) s.bcIntroEnd = true; });
+      boothSequence(ev.ids.map(boothTake)).then(() => { if (sim === s) s.bcIntroEnd = true; });
     }
     else if (ev.type === 'booth-stop') stopBooth();
     else if (ev.type === 'call') { const c = ev.call; hud.radioCall(c.who, c.msg, c.a, c.b, c.rec); sfx.lap(); if (c.vo) engSay(c.vo, { urgent: true }); }

@@ -135,8 +135,8 @@ export async function boothSequence(ids, pause = 0.6) {
   const mine = seq;
   for (const id of ids) {
     if (seq !== mine) return false;
-    if (!hasLine('booth', id)) continue;
-    const ok = await start('booth', 'booth', id);
+    if (!takes('booth', id, true).length) continue;
+    const ok = await start('booth', 'booth', id, true);
     if (!ok || seq !== mine) return false;
     await new Promise(r => setTimeout(r, pause * 1000));
   }

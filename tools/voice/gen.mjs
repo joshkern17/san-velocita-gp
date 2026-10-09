@@ -25,6 +25,7 @@ const VOICES = {
   color: 'hQSbu3htRm8eJbMhfZcZ',     // SV announcer 004 (color commentator: a race car driver who happens to have a microphone)
   pbp: 'JDrV7ejkLZSvqwpOlu3t',       // the main commentator again, calling it live
   pbpc: 'hQSbu3htRm8eJbMhfZcZ',      // ...and the color commentator, now and then taking the call
+  react: 'hQSbu3htRm8eJbMhfZcZ',     // the color commentator's one line after a live call
 };
 // The calls with a name in them (assets/voice/calls.txt), recorded for every name in assets/voice/names.txt as whole
 // sentences (call.<type>.<name>): [main] lines in the main commentator's voice, [color] in the color commentator's.

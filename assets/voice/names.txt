@@ -29,7 +29,7 @@ Doyle
 Dubois
 Dudek
 Ek
-Eze
+Eze = Eh-zeh
 Ferraro
 Ferreira
 Fletcher
@@ -55,7 +55,7 @@ Kim
 Kobayashi
 Kowalski
 Krause
-Krol
+Krol = Krool
 Laurent
 Leroy
 Lima

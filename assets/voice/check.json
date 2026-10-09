@@ -1279,5 +1279,6914 @@
   "score": 1,
   "extra": 0,
   "heard": "[laughs] Man alive, that was close"
+ },
+ "call/call.save.shuttleworth": {
+  "hash": "818b80b7b6b4",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "Shuttleworth sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.spin.shuttleworth": {
+  "hash": "dd9e0dd82329",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Shuttleworth spins. Around it goes"
+ },
+ "call/call.crash.shuttleworth": {
+  "hash": "4c62ddb1997b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Shuttleworth hard into the wall"
+ },
+ "call/call.spin.adeyemi": {
+  "hash": "0d09ecafa364",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Adeyemi spins. Around it goes"
+ },
+ "call/call.pass.adeyemi": {
+  "hash": "1ca6b78f9829",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Adeyemi gets the run and makes it stick"
+ },
+ "call/call.lead.adeyemi": {
+  "hash": "ec207cd2b66e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Adeyemi takes the lead"
+ },
+ "call/call.win.adeyemi": {
+  "hash": "3b52e87079a9",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Adeyemi wins it"
+ },
+ "call/call.bold.adeyemi": {
+  "hash": "6c55fd6129e9",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "oh, buddy! adeyemi just threw it in there"
+ },
+ "call/call.crash.adeyemi": {
+  "hash": "f2a21b05ebaf",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Adeyemi, hard into the wall!"
+ },
+ "call/call.lead.afolabi": {
+  "hash": "b691cea1f83b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Afolabi takes the lead!"
+ },
+ "call/call.pass.afolabi": {
+  "hash": "6e3b10ff37ea",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Afolabi gets the run and makes it stick"
+ },
+ "call/call.save.adeyemi": {
+  "hash": "c1ae3f1fa32b",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Yemi sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.crash.afolabi": {
+  "hash": "be3e25ab23af",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Afolabi hard into the wall"
+ },
+ "call/call.spin.afolabi": {
+  "hash": "cdef77a43998",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Afolabi spins. Around it goes"
+ },
+ "call/call.win.afolabi": {
+  "hash": "e09af3d4ed47",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Afolabi wins it"
+ },
+ "call/call.bold.afolabi": {
+  "hash": "f6fb6f8a5b56",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Afolabi just threw it in there!"
+ },
+ "call/call.pass.almeida": {
+  "hash": "a616c1932887",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Almeida gets the run and makes it stick"
+ },
+ "call/call.lead.almeida": {
+  "hash": "2a3a2f8b2587",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "Palmeda takes the lead"
+ },
+ "call/call.save.afolabi": {
+  "hash": "212bd9e63781",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Flaherty sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.almeida": {
+  "hash": "805c433b10e8",
+  "ok": false,
+  "score": 0.8,
+  "extra": 3,
+  "heard": "I'll make it spins. Around it goes"
+ },
+ "call/call.crash.almeida": {
+  "hash": "2f92e657b09c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Almeida, hard into the wall!"
+ },
+ "call/call.bold.almeida": {
+  "hash": "dda0d3523dbe",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Almeida just threw it in there!"
+ },
+ "call/call.win.almeida": {
+  "hash": "22179910ed38",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Almeida wins it!"
+ },
+ "call/call.pass.balogun": {
+  "hash": "c2a299cca20b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Balogun gets the run and makes it stick!"
+ },
+ "call/call.lead.balogun": {
+  "hash": "98edfbcd3e95",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "Balagan takes the lead"
+ },
+ "call/call.save.almeida": {
+  "hash": "d78d7b38be1e",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "Almeida sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.spin.balogun": {
+  "hash": "c0560e91198a",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Balagan spins. Around it goes"
+ },
+ "call/call.crash.balogun": {
+  "hash": "a67497482fc3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Balogun, hard into the wall!"
+ },
+ "call/call.bold.balogun": {
+  "hash": "87ec2dbcdb8d",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Balagan just threw it in there!"
+ },
+ "call/call.pass.barbosa": {
+  "hash": "524a315821f0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Barbosa gets the run and makes it stick"
+ },
+ "call/call.win.balogun": {
+  "hash": "22b8d31f38b4",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Balogun wins it"
+ },
+ "call/call.lead.barbosa": {
+  "hash": "ea0e079f4418",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Barbosa takes the lead!"
+ },
+ "call/call.save.balogun": {
+  "hash": "923c722a1cd3",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Balagan sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.spin.barbosa": {
+  "hash": "bedde920cdeb",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Barbossa spins. Around it goes"
+ },
+ "call/call.win.barbosa": {
+  "hash": "6c8e1bbc9052",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Barbosa wins it"
+ },
+ "call/call.crash.barbosa": {
+  "hash": "178307e8c717",
+  "ok": false,
+  "score": 0.86,
+  "extra": 1,
+  "heard": "Oh, trouble! Barbossa hard into the wall"
+ },
+ "call/call.bold.barbosa": {
+  "hash": "aa7cfacb0e65",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Barbossa just threw it in there!"
+ },
+ "call/call.pass.becker": {
+  "hash": "86bba788e730",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Becker gets the run and makes it stick"
+ },
+ "call/call.save.barbosa": {
+  "hash": "fc0065a096fc",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Barbosa sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.lead.becker": {
+  "hash": "c290d2ad83fc",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Becker takes the lead"
+ },
+ "call/call.spin.becker": {
+  "hash": "018c1ceee35a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Becker spins. Around it goes"
+ },
+ "call/call.crash.becker": {
+  "hash": "5a52e9fd7d1c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Becker, hard into the wall"
+ },
+ "call/call.win.becker": {
+  "hash": "575b53f9b072",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Becker wins it"
+ },
+ "call/call.bold.becker": {
+  "hash": "0fab6737949d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Becker just threw it in there!"
+ },
+ "call/call.lead.bennett": {
+  "hash": "47b7b0faf608",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Bennett takes the lead"
+ },
+ "call/call.pass.bennett": {
+  "hash": "0649f139b315",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Bennett gets the run and makes it stick"
+ },
+ "call/call.spin.bennett": {
+  "hash": "30683832cc18",
+  "ok": false,
+  "score": 0.8,
+  "extra": 2,
+  "heard": "Then it spins. Around it goes"
+ },
+ "call/call.crash.bennett": {
+  "hash": "4738b10a2a34",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Bennett, hard into the wall"
+ },
+ "call/call.save.becker": {
+  "hash": "465d598ab68f",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Becker sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.win.bennett": {
+  "hash": "9922f13767df",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Bennett wins it"
+ },
+ "call/call.bold.bennett": {
+  "hash": "47eb73297aa0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Bennett just threw it in there!"
+ },
+ "call/call.pass.berg": {
+  "hash": "7870c8ee4b27",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Berg gets the run and makes it stick"
+ },
+ "call/call.save.bennett": {
+  "hash": "cf78d6e5a867",
+  "ok": false,
+  "score": 0.89,
+  "extra": 2,
+  "heard": "[laughs] Bent it sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.lead.berg": {
+  "hash": "649a18966a2d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Berg takes the lead!"
+ },
+ "call/call.crash.berg": {
+  "hash": "28eccc9e9a14",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Berg, hard into the wall"
+ },
+ "call/call.spin.berg": {
+  "hash": "fcd4c80acda1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Berg spins. Around it goes"
+ },
+ "call/call.win.berg": {
+  "hash": "6c2dc7ecb4f4",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Berg wins it!"
+ },
+ "call/call.save.berg": {
+  "hash": "1ac17b7ce480",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Burns sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.bold.berg": {
+  "hash": "86cffb7b31b0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy Berg just threw it in there"
+ },
+ "call/call.pass.bianchi": {
+  "hash": "a3f5949b8f69",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Bianchi gets the run and makes it stick"
+ },
+ "call/call.lead.bianchi": {
+  "hash": "119e085091b5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Bianchi takes the lead!"
+ },
+ "call/call.spin.bianchi": {
+  "hash": "26770e9d16f3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Bianchi spins! Around it goes!"
+ },
+ "call/call.win.bianchi": {
+  "hash": "2badc156bb2b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Bianchi wins it"
+ },
+ "call/call.bold.bianchi": {
+  "hash": "2460848484c4",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Bianchi just threw it in there!"
+ },
+ "call/call.pass.brandt": {
+  "hash": "e417b8c17b79",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Brant gets the run and makes it stick"
+ },
+ "call/call.crash.bianchi": {
+  "hash": "9eb1ea0200b8",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Bianchi hard into the wall"
+ },
+ "call/call.spin.brandt": {
+  "hash": "4542cc0741dc",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Brant spins. Around it goes"
+ },
+ "call/call.lead.brandt": {
+  "hash": "a3729fcf71ad",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "Brant takes the lead!"
+ },
+ "call/call.save.bianchi": {
+  "hash": "ed214bb3cf53",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Bianchi sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.win.brandt": {
+  "hash": "c60576ab15fd",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Brandt wins it"
+ },
+ "call/call.crash.brandt": {
+  "hash": "5f31fd3d8560",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Brandt, hard into the wall"
+ },
+ "call/call.bold.brandt": {
+  "hash": "963d725dd1f0",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Brett just threw it in there"
+ },
+ "call/call.lead.brooks": {
+  "hash": "0c26a9c92656",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Brooks takes the lead"
+ },
+ "call/call.pass.brooks": {
+  "hash": "9912e83015a1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Brooks gets the run and makes it stick"
+ },
+ "call/call.save.brandt": {
+  "hash": "a728d9327649",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Brandt sideways. Hang on and saves it. Man alive"
+ },
+ "call/call.crash.brooks": {
+  "hash": "c4b8528e6979",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Brooks hard into the wall"
+ },
+ "call/call.spin.brooks": {
+  "hash": "986a99fdd79f",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Brooke spins. Around it goes"
+ },
+ "call/call.win.brooks": {
+  "hash": "1a9c89ea4a73",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Brooks wins it"
+ },
+ "call/call.bold.brooks": {
+  "hash": "36f3fc1b8514",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy Brooks just threw it in there."
+ },
+ "call/call.lead.byrne": {
+  "hash": "22680794a7a5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Byrne takes the lead"
+ },
+ "call/call.save.brooks": {
+  "hash": "ecd908763f8b",
+  "ok": false,
+  "score": 0.89,
+  "extra": 2,
+  "heard": "[laughs] Brooks is sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.pass.byrne": {
+  "hash": "582ec10319d0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Byrne gets the run and makes it stick"
+ },
+ "call/call.spin.byrne": {
+  "hash": "1e735cd221f4",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Burn spins. Around it goes"
+ },
+ "call/call.win.byrne": {
+  "hash": "4823dcee2c6d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Byrne wins it!"
+ },
+ "call/call.crash.byrne": {
+  "hash": "54d577cc27ae",
+  "ok": false,
+  "score": 0.86,
+  "extra": 1,
+  "heard": "Oh, trouble! Burn hard into the wall"
+ },
+ "call/call.bold.byrne": {
+  "hash": "54dc1247e315",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Burn just threw it in there!"
+ },
+ "call/call.pass.carter": {
+  "hash": "de989ce91160",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Carter gets the run and makes it stick"
+ },
+ "call/call.save.byrne": {
+  "hash": "0da4ea14af70",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Burns sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.lead.carter": {
+  "hash": "fe2f54459305",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Carter takes the lead!"
+ },
+ "call/call.spin.carter": {
+  "hash": "ed3378de90d5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Carter spins. Around it goes"
+ },
+ "call/call.crash.carter": {
+  "hash": "7670722701df",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Carter, hard into the wall"
+ },
+ "call/call.win.carter": {
+  "hash": "7bc414618276",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Carter wins it!"
+ },
+ "call/call.bold.carter": {
+  "hash": "abd100751e16",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Carter just threw it in there!"
+ },
+ "call/call.pass.castillo": {
+  "hash": "c062d9874e55",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Castillo gets the run and makes it stick"
+ },
+ "call/call.lead.castillo": {
+  "hash": "fefebaabcae3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Castillo takes the lead"
+ },
+ "call/call.spin.castillo": {
+  "hash": "276b3a71390f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Castillo spins. Around it goes"
+ },
+ "call/call.save.carter": {
+  "hash": "9cafdfe950bd",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Carter sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.crash.castillo": {
+  "hash": "2bee0a58ec41",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Castillo hard into the wall"
+ },
+ "call/call.win.castillo": {
+  "hash": "8b6cdde7174a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Castillo wins it"
+ },
+ "call/call.bold.castillo": {
+  "hash": "b53ca1ae8009",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Castillo just threw it in there!"
+ },
+ "call/call.pass.choi": {
+  "hash": "ba89a069702b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Choi gets the run and makes it stick"
+ },
+ "call/call.lead.choi": {
+  "hash": "cc510b5f3940",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Choi takes the lead"
+ },
+ "call/call.save.castillo": {
+  "hash": "3bc7ca02f24e",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Castillo sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.spin.choi": {
+  "hash": "97b40d417a06",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Choice spins. Around it goes"
+ },
+ "call/call.win.choi": {
+  "hash": "22fa66418405",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Choi wins it!"
+ },
+ "call/call.crash.choi": {
+  "hash": "881f8d84b81b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Choi, hard into the wall"
+ },
+ "call/call.bold.choi": {
+  "hash": "6af2727bfc5b",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Troy just threw it in there!"
+ },
+ "call/call.pass.conti": {
+  "hash": "bd4d23b22359",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Conti gets the run and makes it stick"
+ },
+ "call/call.save.choi": {
+  "hash": "34423dad000e",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Choice sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.lead.conti": {
+  "hash": "2db473073271",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Conti takes the lead!"
+ },
+ "call/call.spin.conti": {
+  "hash": "bb8b18f2b187",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Conti spins. Around it goes"
+ },
+ "call/call.crash.conti": {
+  "hash": "626ed9c1a9d4",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Conti, hard into the wall"
+ },
+ "call/call.win.conti": {
+  "hash": "1bc68a61a923",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Conti wins it"
+ },
+ "call/call.bold.conti": {
+  "hash": "6b185fdb9eb3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Conti just threw it in there!"
+ },
+ "call/call.pass.costa": {
+  "hash": "89e3b6e7de05",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Costa gets the run and makes it stick"
+ },
+ "call/call.save.conti": {
+  "hash": "5a3456d8c2fa",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Conti sideways. Hang on and saves it! Man alive"
+ },
+ "call/call.lead.costa": {
+  "hash": "b93def019ed7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Costa takes the lead!"
+ },
+ "call/call.win.costa": {
+  "hash": "24551b244252",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Costa wins it"
+ },
+ "call/call.crash.costa": {
+  "hash": "8d3c476706de",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Costa hard into the wall"
+ },
+ "call/call.spin.costa": {
+  "hash": "9ffb39545513",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Costa spins. Around it goes"
+ },
+ "call/call.lead.cruz": {
+  "hash": "7e711151b045",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Cruz takes the lead"
+ },
+ "call/call.bold.costa": {
+  "hash": "1cde0f246d8f",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Kosta just threw it in there!"
+ },
+ "call/call.pass.cruz": {
+  "hash": "eb3dcf7d5ed6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Cruz gets the run and makes it stick"
+ },
+ "call/call.save.costa": {
+  "hash": "a916f087e3bf",
+  "ok": false,
+  "score": 0.89,
+  "extra": 2,
+  "heard": "[laughs] Cost us sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.cruz": {
+  "hash": "b4c17ec5e9ae",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Cruise spins. Around it goes"
+ },
+ "call/call.crash.cruz": {
+  "hash": "cc80995eee72",
+  "ok": false,
+  "score": 0.86,
+  "extra": 1,
+  "heard": "Oh, trouble! Crews hard into the wall"
+ },
+ "call/call.win.cruz": {
+  "hash": "294498c478a1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Cruz wins it"
+ },
+ "call/call.pass.dalton": {
+  "hash": "18e0196c2c51",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Dalton gets the run and makes it stick"
+ },
+ "call/call.bold.cruz": {
+  "hash": "72f5942c9216",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Cruz just threw it in there!"
+ },
+ "call/call.save.cruz": {
+  "hash": "44f835e361ad",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] cruises sideways hang on and saves it! Man alive!"
+ },
+ "call/call.lead.dalton": {
+  "hash": "7e9ca327935d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Dalton takes the lead!"
+ },
+ "call/call.spin.dalton": {
+  "hash": "e184a70e6185",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Dalton spins. Around it goes"
+ },
+ "call/call.win.dalton": {
+  "hash": "7f5cee1a2a11",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Dalton wins it"
+ },
+ "call/call.crash.dalton": {
+  "hash": "4d0f13aab278",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Dalton, hard into the wall"
+ },
+ "call/call.bold.dalton": {
+  "hash": "b8c6226f7a0f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy Dalton just threw it in there."
+ },
+ "call/call.lead.doyle": {
+  "hash": "fe3917d34fb1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Doyle takes the lead"
+ },
+ "call/call.pass.doyle": {
+  "hash": "1ae6298132a0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Doyle gets the run and makes it stick"
+ },
+ "call/call.save.dalton": {
+  "hash": "906f14ace962",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Dalton sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.crash.doyle": {
+  "hash": "74221175363a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Doyle, hard into the wall"
+ },
+ "call/call.spin.doyle": {
+  "hash": "011c5ed13a62",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Doyle spins. Around it goes"
+ },
+ "call/call.win.doyle": {
+  "hash": "f3a2e3811145",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Doyle wins it!"
+ },
+ "call/call.pass.dubois": {
+  "hash": "662b976a099d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "DuBois gets the run and makes it stick"
+ },
+ "call/call.bold.doyle": {
+  "hash": "d804d818806c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Doyle just threw it in there!"
+ },
+ "call/call.lead.dubois": {
+  "hash": "191894ef081a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "DuBois takes the lead"
+ },
+ "call/call.save.doyle": {
+  "hash": "ac685e977a7a",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Doyle sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.spin.dubois": {
+  "hash": "9b5fc2f7fd7f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "DuBois spins. Around it goes"
+ },
+ "call/call.crash.dubois": {
+  "hash": "6388d8203a03",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Dubois hard into the wall"
+ },
+ "call/call.win.dubois": {
+  "hash": "e7b7a490f6d7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Dubois wins it!"
+ },
+ "call/call.pass.dudek": {
+  "hash": "62a705de2e5f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Dudek gets the run and makes it stick"
+ },
+ "call/call.bold.dubois": {
+  "hash": "566c50c474a7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Dubois just threw it in there!"
+ },
+ "call/call.save.dubois": {
+  "hash": "93aa8ae9a02a",
+  "ok": false,
+  "score": 0.89,
+  "extra": 2,
+  "heard": "[laughs] DuBois is sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.spin.dudek": {
+  "hash": "7bee4fccb33a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Dudek spins! Around it goes"
+ },
+ "call/call.lead.dudek": {
+  "hash": "1ca383f40e6d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Dudek takes the lead!"
+ },
+ "call/call.crash.dudek": {
+  "hash": "cdfb1f3c3ad3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Dudek hard into the wall"
+ },
+ "call/call.bold.dudek": {
+  "hash": "bfebb5646022",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy Dudek just threw it in there"
+ },
+ "call/call.win.dudek": {
+  "hash": "cb179a9b1e50",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Dudek wins it!"
+ },
+ "call/call.pass.ek": {
+  "hash": "62cfe1e045cd",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Eck gets the run and makes it stick!"
+ },
+ "call/call.spin.ek": {
+  "hash": "2084521c87e3",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "X spins. Around it goes"
+ },
+ "call/call.lead.ek": {
+  "hash": "411457f5ac7e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Ek takes the lead!"
+ },
+ "call/call.save.dudek": {
+  "hash": "21f47c9ad214",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Dudek sideways. Hang on and saves it. Man alive!"
+ },
+ "call/call.win.ek": {
+  "hash": "f94be18f003e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Ek wins it!"
+ },
+ "call/call.bold.ek": {
+  "hash": "57116700fb03",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Eck just threw it in there!"
+ },
+ "call/call.crash.ek": {
+  "hash": "a24b15623973",
+  "ok": false,
+  "score": 0.86,
+  "extra": 1,
+  "heard": "Oh, trouble! Eck, hard into the wall"
+ },
+ "call/call.lead.eze": {
+  "hash": "e25c7c1ad6ce",
+  "ok": false,
+  "score": 0.6,
+  "extra": 1,
+  "heard": "Hesed takes the lead!"
+ },
+ "call/call.pass.eze": {
+  "hash": "c3156d911154",
+  "ok": false,
+  "score": 0.78,
+  "extra": 1,
+  "heard": "Eze gets the run and makes it stick"
+ },
+ "call/call.save.ek": {
+  "hash": "a67f1c51de17",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] X sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.eze": {
+  "hash": "bf7082e6d6c2",
+  "ok": false,
+  "score": 0.67,
+  "extra": 2,
+  "heard": "As it spins, around it goes"
+ },
+ "call/call.crash.eze": {
+  "hash": "a97818e39c15",
+  "ok": false,
+  "score": 0.75,
+  "extra": 2,
+  "heard": "Oh, trouble! Ez it! Hard into the wall!"
+ },
+ "call/call.win.eze": {
+  "hash": "72b5fc1b0dfe",
+  "ok": false,
+  "score": 0.71,
+  "extra": 1,
+  "heard": "Checkered flag and Eze wins it"
+ },
+ "call/call.bold.eze": {
+  "hash": "bba019dfc6d8",
+  "ok": false,
+  "score": 0.78,
+  "extra": 2,
+  "heard": "Oh, buddy! As I just threw it in there!"
+ },
+ "call/call.pass.ferraro": {
+  "hash": "98ee61732b16",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Ferraro gets the run and makes it stick"
+ },
+ "call/call.spin.ferraro": {
+  "hash": "c01a3452108f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Ferraro spins. Around it goes"
+ },
+ "call/call.lead.ferraro": {
+  "hash": "813c9a6d77f3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Ferraro takes the lead"
+ },
+ "call/call.save.eze": {
+  "hash": "a69816f8e645",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "[laughs] Says sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.win.ferraro": {
+  "hash": "eaa21de66f48",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Ferraro wins it!"
+ },
+ "call/call.crash.ferraro": {
+  "hash": "fc1603924e77",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Ferraro hard into the wall"
+ },
+ "call/call.bold.ferraro": {
+  "hash": "6db22cd09c54",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Ferraro just threw it in there!"
+ },
+ "call/call.pass.ferreira": {
+  "hash": "7e844d4ac877",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Ferrera gets the run and makes it stick"
+ },
+ "call/call.lead.ferreira": {
+  "hash": "7376ec10d468",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Ferreira takes the lead"
+ },
+ "call/call.save.ferraro": {
+  "hash": "2f4fba9501bd",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] Ferraro's sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.ferreira": {
+  "hash": "ddf8772efd8d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Ferreira spins. Around it goes"
+ },
+ "call/call.win.ferreira": {
+  "hash": "6a3a46cf40f1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Ferreira wins it"
+ },
+ "call/call.crash.ferreira": {
+  "hash": "3a2e68c19883",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Ferreira hard into the wall"
+ },
+ "call/call.pass.fletcher": {
+  "hash": "e74eb9ce48a5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Fletcher gets the run and makes it stick"
+ },
+ "call/call.bold.ferreira": {
+  "hash": "06bfe06e39b3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Ferreira just threw it in there!"
+ },
+ "call/call.lead.fletcher": {
+  "hash": "b52eac23ec44",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Fletcher takes the lead"
+ },
+ "call/call.spin.fletcher": {
+  "hash": "afb078d14234",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Fletcher spins. Around it goes"
+ },
+ "call/call.save.ferreira": {
+  "hash": "8d237d73267d",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Ferreira sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.crash.fletcher": {
+  "hash": "8442464e98c4",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Fletcher, hard into the wall"
+ },
+ "call/call.win.fletcher": {
+  "hash": "74490381f2e0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Fletcher wins it"
+ },
+ "call/call.bold.fletcher": {
+  "hash": "375d709c0110",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Fletcher just threw it in there"
+ },
+ "call/call.lead.fontaine": {
+  "hash": "e3df4ff039d8",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Fontaine takes the lead"
+ },
+ "call/call.pass.fontaine": {
+  "hash": "9af5c00d3880",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Fontaine gets the run and makes it stick"
+ },
+ "call/call.save.fletcher": {
+  "hash": "46302508c297",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Fletcher sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.spin.fontaine": {
+  "hash": "a3cb6bb976f6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Fontaine spins. Around it goes"
+ },
+ "call/call.crash.fontaine": {
+  "hash": "15c68f634291",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Fontaine hard into the wall"
+ },
+ "call/call.win.fontaine": {
+  "hash": "81c97ac2005d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Fontaine wins it!"
+ },
+ "call/call.pass.fujita": {
+  "hash": "907d2aceecad",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Fujita gets the run and makes it stick"
+ },
+ "call/call.bold.fontaine": {
+  "hash": "62022cf5402f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Fontaine just threw it in there!"
+ },
+ "call/call.lead.fujita": {
+  "hash": "da04a1f713c9",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Fujita takes the lead"
+ },
+ "call/call.spin.fujita": {
+  "hash": "55266c208943",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Fujita spins. Around it goes"
+ },
+ "call/call.crash.fujita": {
+  "hash": "dd8d6c7a45d6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Fujita hard into the wall"
+ },
+ "call/call.win.fujita": {
+  "hash": "22c875df3024",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Fujita wins it"
+ },
+ "call/call.bold.fujita": {
+  "hash": "cf4ebc2f8f2c",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy Fujina just threw it in there"
+ },
+ "call/call.pass.gibbs": {
+  "hash": "0826080236b7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Gibbs gets the run and makes it stick"
+ },
+ "call/call.lead.gibbs": {
+  "hash": "4c3d45c57e2d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Gibbs takes the lead"
+ },
+ "call/call.save.fujita": {
+  "hash": "0c826649220d",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Fujita sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.gibbs": {
+  "hash": "e33bb44aaab9",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Gibbs spins. Around it goes"
+ },
+ "call/call.crash.gibbs": {
+  "hash": "976359854835",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Gibbs, hard into the wall"
+ },
+ "call/call.win.gibbs": {
+  "hash": "070a938105e3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Gibbs wins it!"
+ },
+ "call/call.pass.girard": {
+  "hash": "47e3bb595855",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Girard gets the run and makes it stick"
+ },
+ "call/call.bold.gibbs": {
+  "hash": "8ad745fea39f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy gibbs just threw it in there"
+ },
+ "call/call.save.gibbs": {
+  "hash": "2a687b1eb642",
+  "ok": false,
+  "score": 0.89,
+  "extra": 2,
+  "heard": "[laughs] Gibbs is sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.lead.girard": {
+  "hash": "20628c0fa7ab",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "Gerard takes the lead"
+ },
+ "call/call.spin.girard": {
+  "hash": "c841647ec0a7",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Gerard spins. Around it goes"
+ },
+ "call/call.save.fontaine": {
+  "hash": "ce6c859bd3a7",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "Fontaine sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.crash.girard": {
+  "hash": "4349bde4afe4",
+  "ok": false,
+  "score": 0.86,
+  "extra": 1,
+  "heard": "Oh, trouble! Gerard, hard into the wall"
+ },
+ "call/call.win.girard": {
+  "hash": "5db207500531",
+  "ok": false,
+  "score": 0.83,
+  "extra": 1,
+  "heard": "Checkered flag, and Gerard wins it"
+ },
+ "call/call.pass.greco": {
+  "hash": "7691740cb4fa",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Greco gets the run and makes it stick"
+ },
+ "call/call.lead.greco": {
+  "hash": "aa81c2066f21",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Greco takes the lead!"
+ },
+ "call/call.bold.girard": {
+  "hash": "b865eb542c0d",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Gerard just threw it in there!"
+ },
+ "call/call.crash.greco": {
+  "hash": "237b820d4353",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Greco, hard into the wall!"
+ },
+ "call/call.spin.greco": {
+  "hash": "6cb49fd539c3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Greco spins! Around it goes!"
+ },
+ "call/call.save.girard": {
+  "hash": "4a0dbf210ed8",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Gerard sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.win.greco": {
+  "hash": "461dbffd1157",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Greco wins it"
+ },
+ "call/call.bold.greco": {
+  "hash": "6530129d7b82",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Greco just threw it in there!"
+ },
+ "call/call.pass.guerra": {
+  "hash": "a3d790b56b3b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Guerra gets the run and makes it stick"
+ },
+ "call/call.save.greco": {
+  "hash": "0c461aadb2f4",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Greco sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.lead.guerra": {
+  "hash": "997e5fa5b72e",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "Aguera takes the lead"
+ },
+ "call/call.spin.guerra": {
+  "hash": "bb08c1929f65",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Gera spins. Around it goes"
+ },
+ "call/call.crash.guerra": {
+  "hash": "1c8e3192265e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Guerra, hard into the wall!"
+ },
+ "call/call.win.guerra": {
+  "hash": "8b8f0155d573",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Guerra wins it"
+ },
+ "call/call.bold.guerra": {
+  "hash": "e70e086d4ab2",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Guerra just threw it in there!"
+ },
+ "call/call.pass.hale": {
+  "hash": "ac8da0d11202",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Hale gets the run and makes it stick"
+ },
+ "call/call.lead.hale": {
+  "hash": "8e88cc8522e5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Hale takes the lead"
+ },
+ "call/call.spin.hale": {
+  "hash": "df6e38fa8ae4",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Hail spins. Around it goes"
+ },
+ "call/call.save.guerra": {
+  "hash": "8791e9ffc3a5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] Guerra's sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.crash.hale": {
+  "hash": "1c8cd156a575",
+  "ok": false,
+  "score": 0.86,
+  "extra": 1,
+  "heard": "Oh, trouble! Hail hard into the wall"
+ },
+ "call/call.bold.hale": {
+  "hash": "7bab3dd6f6f9",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Hale just threw it in there"
+ },
+ "call/call.pass.han": {
+  "hash": "bd69c6fdfc63",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Han gets the run and makes it stick"
+ },
+ "call/call.win.hale": {
+  "hash": "146152a66090",
+  "ok": false,
+  "score": 0.83,
+  "extra": 1,
+  "heard": "Checkered flag, and Hail wins it!"
+ },
+ "call/call.spin.han": {
+  "hash": "90e3509510e6",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Hans spins. Around it goes"
+ },
+ "call/call.lead.han": {
+  "hash": "3c6eceba626d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Han takes the lead!"
+ },
+ "call/call.save.hale": {
+  "hash": "4451d01e1768",
+  "ok": false,
+  "score": 0.89,
+  "extra": 2,
+  "heard": "H-Hell sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.crash.han": {
+  "hash": "ecd5991eaf9d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Han, hard into the wall!"
+ },
+ "call/call.win.han": {
+  "hash": "6dd8b02a1c15",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Han wins it"
+ },
+ "call/call.bold.han": {
+  "hash": "305093c28e86",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Hand just threw it in there!"
+ },
+ "call/call.pass.hayes": {
+  "hash": "a58195aa4b30",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Hayes gets the run and makes it stick"
+ },
+ "call/call.lead.hayes": {
+  "hash": "424345a43ddd",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Hayes takes the lead!"
+ },
+ "call/call.save.han": {
+  "hash": "25d447c4c829",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] On sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.spin.hayes": {
+  "hash": "80e3838e391c",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Hey, spins! Around it goes"
+ },
+ "call/call.crash.hayes": {
+  "hash": "b48f77f82ecf",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Hayes, hard into the wall!"
+ },
+ "call/call.win.hayes": {
+  "hash": "09f20686d691",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Hayes wins it"
+ },
+ "call/call.bold.hayes": {
+  "hash": "33bc6d198aae",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Hayes just threw it in there!"
+ },
+ "call/call.pass.herrera": {
+  "hash": "4da91d12c54b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Herrera gets the run and makes it stick"
+ },
+ "call/call.lead.herrera": {
+  "hash": "8e49119ee135",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Herrera takes the lead"
+ },
+ "call/call.spin.herrera": {
+  "hash": "e66fb64e7eef",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Herrera spins. Around it goes"
+ },
+ "call/call.save.hayes": {
+  "hash": "e087a4d14e32",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Hazes sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.crash.herrera": {
+  "hash": "255dc52d31b5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Herrera hard into the wall"
+ },
+ "call/call.bold.herrera": {
+  "hash": "be789f4c6241",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Herrera just threw it in there!"
+ },
+ "call/call.win.herrera": {
+  "hash": "3794de6caaff",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Herrera wins it"
+ },
+ "call/call.pass.hoffmann": {
+  "hash": "1f4b49ede38a",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Hoffman gets the run and makes it stick"
+ },
+ "call/call.save.herrera": {
+  "hash": "3bfe537c2eab",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] Herrera's sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.hoffmann": {
+  "hash": "3a75b0c7c768",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Hoffman spins. Around it goes"
+ },
+ "call/call.lead.hoffmann": {
+  "hash": "adb027868818",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "Hoffman takes the lead"
+ },
+ "call/call.crash.hoffmann": {
+  "hash": "e57d7d79d8a8",
+  "ok": false,
+  "score": 0.86,
+  "extra": 1,
+  "heard": "Oh, trouble. Hoffman hard into the wall"
+ },
+ "call/call.bold.hoffmann": {
+  "hash": "b08d30c11bab",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Hoffman just threw it in there!"
+ },
+ "call/call.win.hoffmann": {
+  "hash": "414857020674",
+  "ok": false,
+  "score": 0.83,
+  "extra": 1,
+  "heard": "Checkered flag and Hoffman wins it!"
+ },
+ "call/call.pass.holm": {
+  "hash": "c5656202178c",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Home gets the run and makes it stick"
+ },
+ "call/call.spin.holm": {
+  "hash": "75f85718d112",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Home spins. Around it goes"
+ },
+ "call/call.lead.holm": {
+  "hash": "d80b93ea569b",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "Home takes the lead"
+ },
+ "call/call.save.hoffmann": {
+  "hash": "a1eeed26dbf9",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Hoffman sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.win.holm": {
+  "hash": "7717dc49a4fe",
+  "ok": false,
+  "score": 0.83,
+  "extra": 1,
+  "heard": "Checkered flag and home wins it"
+ },
+ "call/call.crash.holm": {
+  "hash": "a7f573d8f6e7",
+  "ok": false,
+  "score": 0.86,
+  "extra": 1,
+  "heard": "Oh, trouble! Home, hard into the wall"
+ },
+ "call/call.bold.holm": {
+  "hash": "0f2de5408490",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Holm just threw it in there!"
+ },
+ "call/call.lead.hughes": {
+  "hash": "a55140a34072",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Hughes takes the lead"
+ },
+ "call/call.pass.hughes": {
+  "hash": "bf1e2cb6a232",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Hughes gets the run and makes it stick"
+ },
+ "call/call.save.holm": {
+  "hash": "a5aae7424e5b",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Home sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.hughes": {
+  "hash": "94990f5e798b",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Huge spins. Around it goes"
+ },
+ "call/call.win.hughes": {
+  "hash": "99878a8ed40c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Hughes wins it!"
+ },
+ "call/call.crash.hughes": {
+  "hash": "c2971c8fc0a9",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Hughes hard into the wall"
+ },
+ "call/call.pass.ishida": {
+  "hash": "018812687952",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Ishida gets the run and makes it stick"
+ },
+ "call/call.bold.hughes": {
+  "hash": "789718809751",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Hughes just threw it in there"
+ },
+ "call/call.lead.ishida": {
+  "hash": "cef7edb88404",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Ishida takes the lead"
+ },
+ "call/call.save.hughes": {
+  "hash": "7e5afd9ad088",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "Uses sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.spin.ishida": {
+  "hash": "6835432bec09",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Ishida spins. Around it goes"
+ },
+ "call/call.crash.ishida": {
+  "hash": "9192aeac25d7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Ishida, hard into the wall"
+ },
+ "call/call.win.ishida": {
+  "hash": "b56acd36b9f1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Ishida wins it!"
+ },
+ "call/call.lead.jung": {
+  "hash": "d7b0076c6167",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Jung takes the lead"
+ },
+ "call/call.bold.ishida": {
+  "hash": "35c5737bc125",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Ishida just threw it in there!"
+ },
+ "call/call.pass.jung": {
+  "hash": "756c9a38d555",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Jung gets the run and makes it stick"
+ },
+ "call/call.save.ishida": {
+  "hash": "cfee1a04f96a",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Ishida sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.spin.jung": {
+  "hash": "f8de1bf11c96",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Yo spins! Around it goes"
+ },
+ "call/call.crash.jung": {
+  "hash": "912a09d2afbc",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Jung, hard into the wall!"
+ },
+ "call/call.win.jung": {
+  "hash": "fbfe536b46ef",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Jung wins it"
+ },
+ "call/call.bold.jung": {
+  "hash": "d3e9448e9cae",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Jung just threw it in there!"
+ },
+ "call/call.pass.kang": {
+  "hash": "c526dd63f8b0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Kang gets the run and makes it stick"
+ },
+ "call/call.lead.kang": {
+  "hash": "7c35a0f4f941",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Kang takes the lead"
+ },
+ "call/call.spin.kang": {
+  "hash": "0142ec7a80c8",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Kang spins. Around it goes"
+ },
+ "call/call.save.jung": {
+  "hash": "775356f1b2ad",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Jump sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.crash.kang": {
+  "hash": "13c5930d1356",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Kang, hard into the wall!"
+ },
+ "call/call.bold.kang": {
+  "hash": "aae7c159bad1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy Kang just threw it in there"
+ },
+ "call/call.pass.keller": {
+  "hash": "5933db5e2450",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Keller gets the run and makes it stick"
+ },
+ "call/call.win.kang": {
+  "hash": "2299bb61de4a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Kang wins it"
+ },
+ "call/call.spin.keller": {
+  "hash": "7146a8a573c0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Keller spins. Around it goes"
+ },
+ "call/call.lead.keller": {
+  "hash": "685cb855feed",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Keller takes the lead"
+ },
+ "call/call.save.kang": {
+  "hash": "3611c58f20c8",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Kang sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.win.keller": {
+  "hash": "848687db366a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Keller wins it!"
+ },
+ "call/call.bold.keller": {
+  "hash": "7924180eafca",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Keller just threw it in there!"
+ },
+ "call/call.crash.keller": {
+  "hash": "c9a2db8c5eff",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Keller, hard into the wall!"
+ },
+ "call/call.pass.kelly": {
+  "hash": "31d3ec0907ea",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Kelly gets the run and makes it stick"
+ },
+ "call/call.lead.kelly": {
+  "hash": "0797f80b99ef",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Kelly takes the lead"
+ },
+ "call/call.save.keller": {
+  "hash": "b2a7fd6f778c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] Keller's sideways. Hang on, and saves it! Man alive"
+ },
+ "call/call.spin.kelly": {
+  "hash": "14c9d284faa8",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Kelly spins. Around it goes"
+ },
+ "call/call.crash.kelly": {
+  "hash": "729628eb8756",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Kelly, hard into the wall"
+ },
+ "call/call.win.kelly": {
+  "hash": "46f5ec22b382",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Kelly wins it"
+ },
+ "call/call.bold.kelly": {
+  "hash": "87fc051a3a4f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Kelly just threw it in there!"
+ },
+ "call/call.pass.kim": {
+  "hash": "c515b57756f6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Kim gets the run and makes it stick"
+ },
+ "call/call.lead.kim": {
+  "hash": "b3ca29529e4c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Kim takes the lead"
+ },
+ "call/call.crash.kim": {
+  "hash": "8228151d1bd0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Kim, hard into the wall"
+ },
+ "call/call.save.kelly": {
+  "hash": "36fe5fb85237",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Kelly sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.kim": {
+  "hash": "bfc1a5b9ddee",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Kim spins. Around it goes"
+ },
+ "call/call.pass.kobayashi": {
+  "hash": "43f8818a6cf3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Kobayashi gets the run and makes it stick"
+ },
+ "call/call.win.kim": {
+  "hash": "dd838763ab7b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Kim wins it"
+ },
+ "call/call.bold.kim": {
+  "hash": "0b4ea4e1f7af",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Kim just threw it in there"
+ },
+ "call/call.lead.kobayashi": {
+  "hash": "5439985f3e32",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Kobayashi takes the lead"
+ },
+ "call/call.spin.kobayashi": {
+  "hash": "1e803efda32b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Kobayashi spins. Around it goes"
+ },
+ "call/call.save.kim": {
+  "hash": "e2aa9ca1edc2",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Kim sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.crash.kobayashi": {
+  "hash": "a8f240e0990a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Kobayashi, hard into the wall"
+ },
+ "call/call.bold.kobayashi": {
+  "hash": "15d5f1042c29",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Kobayashi just threw it in there!"
+ },
+ "call/call.win.kobayashi": {
+  "hash": "7c6cd97b3401",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Kobayashi wins it!"
+ },
+ "call/call.pass.kowalski": {
+  "hash": "b19abe79e327",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Kowalski gets the run and makes it stick"
+ },
+ "call/call.lead.kowalski": {
+  "hash": "9fb0bd06b56c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Kowalski takes the lead"
+ },
+ "call/call.save.kobayashi": {
+  "hash": "c45adae21794",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Kobayashi sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.kowalski": {
+  "hash": "d98288e4f42c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Kowalski spins. Around it goes"
+ },
+ "call/call.win.kowalski": {
+  "hash": "d7d383924e3a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Kowalski wins it"
+ },
+ "call/call.bold.kowalski": {
+  "hash": "a629469d1fc6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Kowalski just threw it in there!"
+ },
+ "call/call.crash.kowalski": {
+  "hash": "5414dc4c1ad0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Kowalski, hard into the wall!"
+ },
+ "call/call.save.kowalski": {
+  "hash": "1ac7400dbd55",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Kowalski sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.lead.krause": {
+  "hash": "c7e8e7c92893",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Krause takes the lead"
+ },
+ "call/call.pass.krause": {
+  "hash": "ec12c6e3e9c3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Krause gets the run and makes it stick"
+ },
+ "call/call.spin.krause": {
+  "hash": "051b1aae13b1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Krause spins! Around it goes"
+ },
+ "call/call.win.krause": {
+  "hash": "ecaf50a4b8dc",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Krause wins it"
+ },
+ "call/call.crash.krause": {
+  "hash": "7b8a419806d9",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Krause hard into the wall"
+ },
+ "call/call.bold.krause": {
+  "hash": "2305e8d0ae61",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Krause just threw it in there!"
+ },
+ "call/call.pass.krol": {
+  "hash": "fd81887cd2c2",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Krull gets the run and makes it stick"
+ },
+ "call/call.save.krause": {
+  "hash": "3cac4026d74f",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Crouches sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.lead.krol": {
+  "hash": "fadf01f1a4fc",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "Krul takes the lead!"
+ },
+ "call/call.crash.krol": {
+  "hash": "eecc0dcd89f7",
+  "ok": false,
+  "score": 0.86,
+  "extra": 1,
+  "heard": "Oh, trouble! Crawl hard into the wall"
+ },
+ "call/call.spin.krol": {
+  "hash": "a9bd5fd1f2cc",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Krull spins. Around it goes"
+ },
+ "call/call.win.krol": {
+  "hash": "dd9809ee52fe",
+  "ok": false,
+  "score": 0.83,
+  "extra": 1,
+  "heard": "Checkered flag, and Kroll wins it!"
+ },
+ "call/call.pass.laurent": {
+  "hash": "2af58b7ae8ac",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Leroux gets the run and makes it stick"
+ },
+ "call/call.lead.laurent": {
+  "hash": "84bf5ffa12d5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Laurent takes the lead!"
+ },
+ "call/call.bold.krol": {
+  "hash": "fe22c85a4332",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Crowle just threw it in there!"
+ },
+ "call/call.save.krol": {
+  "hash": "03380d20b3d8",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Crawls sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.laurent": {
+  "hash": "1db17ed64cd7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Laurent spins. Around it goes!"
+ },
+ "call/call.crash.laurent": {
+  "hash": "b2458832e989",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Laurent, hard into the wall"
+ },
+ "call/call.win.laurent": {
+  "hash": "6a41c8c5224a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Laurent wins it"
+ },
+ "call/call.pass.leroy": {
+  "hash": "a7e7b0a5ec1e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Leroy gets the run and makes it stick"
+ },
+ "call/call.bold.laurent": {
+  "hash": "ce1702f1741b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Laurent just threw it in there!"
+ },
+ "call/call.lead.leroy": {
+  "hash": "2194c9ebcc9a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Leroy takes the lead"
+ },
+ "call/call.save.laurent": {
+  "hash": "3fb306e2ebc8",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Lawrence sideways. Hang on and saves it. Man alive"
+ },
+ "call/call.spin.leroy": {
+  "hash": "2f6434432320",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Leroy spins. Around it goes"
+ },
+ "call/call.win.leroy": {
+  "hash": "a658765d049d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Leroy wins it"
+ },
+ "call/call.crash.leroy": {
+  "hash": "2da7d4f11d33",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Leroy, hard into the wall"
+ },
+ "call/call.pass.lima": {
+  "hash": "b7555aac44f7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Lima gets the run and makes it stick"
+ },
+ "call/call.bold.leroy": {
+  "hash": "a99ae3974083",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Leroy just threw it in there!"
+ },
+ "call/call.lead.lima": {
+  "hash": "356be1cc6a7d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Lima takes the lead"
+ },
+ "call/call.save.leroy": {
+  "hash": "6f4824cb8637",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] Leroy's sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.win.lima": {
+  "hash": "5ad0a22f23dd",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Lima wins it"
+ },
+ "call/call.spin.lima": {
+  "hash": "f7de3413fc2a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Lima spins. Around it goes"
+ },
+ "call/call.crash.lima": {
+  "hash": "273846d4609b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Lima, hard into the wall"
+ },
+ "call/call.bold.lima": {
+  "hash": "f9295901126d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Lima just threw it in there"
+ },
+ "call/call.pass.lindqvist": {
+  "hash": "0a0f392eaf28",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Lindqvist gets the run and makes it stick"
+ },
+ "call/call.save.lima": {
+  "hash": "84f6bb781682",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Lima sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.lead.lindqvist": {
+  "hash": "c79125061d9c",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "Lindquist takes the lead"
+ },
+ "call/call.spin.lindqvist": {
+  "hash": "7aace312404d",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Linquist spins. Around it goes"
+ },
+ "call/call.win.lindqvist": {
+  "hash": "8e34cabb6503",
+  "ok": false,
+  "score": 0.83,
+  "extra": 1,
+  "heard": "Checkered flag, and Lindquist wins it"
+ },
+ "call/call.crash.lindqvist": {
+  "hash": "5b0fbcdc998e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Lindqvist hard into the wall"
+ },
+ "call/call.bold.lindqvist": {
+  "hash": "d0078b136457",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Lindquist just threw it in there!"
+ },
+ "call/call.pass.lowe": {
+  "hash": "6eff4ca91aa5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Lowe gets the run and makes it stick"
+ },
+ "call/call.lead.lowe": {
+  "hash": "6e11afa5222e",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "Low takes the lead"
+ },
+ "call/call.spin.lowe": {
+  "hash": "d1d86452471c",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Low spins. Around it goes"
+ },
+ "call/call.crash.lowe": {
+  "hash": "c9ca8d6be48a",
+  "ok": false,
+  "score": 0.86,
+  "extra": 1,
+  "heard": "Oh, trouble! Low, hard into the wall"
+ },
+ "call/call.save.lindqvist": {
+  "hash": "6468fb897552",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Lindquist sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.win.lowe": {
+  "hash": "ef133a138154",
+  "ok": false,
+  "score": 0.83,
+  "extra": 1,
+  "heard": "Checkered flag, and Lo wins it"
+ },
+ "call/call.bold.lowe": {
+  "hash": "00c76b52c4cd",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy lo just threw it in there"
+ },
+ "call/call.lead.lozano": {
+  "hash": "4e88c47c1b8c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Lozano takes the lead"
+ },
+ "call/call.pass.lozano": {
+  "hash": "b575044eb579",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Lozano gets the run and makes it stick"
+ },
+ "call/call.crash.lozano": {
+  "hash": "880302c3c0a6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Lozano hard into the wall!"
+ },
+ "call/call.spin.lozano": {
+  "hash": "20a18e0821d1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Lozano spins. Around it goes"
+ },
+ "call/call.save.lowe": {
+  "hash": "921dafcb9b3d",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Lows sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.win.lozano": {
+  "hash": "945f840458ea",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Lozano wins it"
+ },
+ "call/call.pass.lund": {
+  "hash": "ae2eb241c38d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Lund gets the run and makes it stick"
+ },
+ "call/call.bold.lozano": {
+  "hash": "b51c692d71f3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Lozano just threw it in there!"
+ },
+ "call/call.lead.lund": {
+  "hash": "822ce31e49b8",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Lund takes the lead"
+ },
+ "call/call.save.lozano": {
+  "hash": "8020014b5c2b",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Lozano sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.lund": {
+  "hash": "c5791573de51",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Lunch spins. Around it goes"
+ },
+ "call/call.crash.lund": {
+  "hash": "0eda3b648870",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Lund hard into the wall"
+ },
+ "call/call.win.lund": {
+  "hash": "b3a4105368fd",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Lund wins it"
+ },
+ "call/call.bold.lund": {
+  "hash": "d0b19e73257b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Lund just threw it in there!"
+ },
+ "call/call.pass.marino": {
+  "hash": "f9cd6f57a963",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Marino gets the run and makes it stick"
+ },
+ "call/call.lead.marino": {
+  "hash": "dbf885b37faf",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Marino takes the lead"
+ },
+ "call/call.save.lund": {
+  "hash": "16bb4287548b",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Lund sideways. Hang on, and saves it! Man alive!"
+ },
+ "call/call.spin.marino": {
+  "hash": "d81410f1d829",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "\"Marino spins! Around it goes!\""
+ },
+ "call/call.crash.marino": {
+  "hash": "90748e9e78a0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Marino hard into the wall"
+ },
+ "call/call.win.marino": {
+  "hash": "bb01ea2ca9b2",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Marino wins it"
+ },
+ "call/call.bold.marino": {
+  "hash": "b6a46f9bbf8a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Marino just threw it in there!"
+ },
+ "call/call.pass.marsh": {
+  "hash": "c7157209eafb",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Marsh gets the run and makes it stick"
+ },
+ "call/call.lead.marsh": {
+  "hash": "f836fd6fd21e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Marsh takes the lead"
+ },
+ "call/call.crash.marsh": {
+  "hash": "fa1f9e49c597",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Marsh, hard into the wall"
+ },
+ "call/call.save.marino": {
+  "hash": "b11d68c6dbb5",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Merino sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.spin.marsh": {
+  "hash": "57de8617793b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Marsh spins. Around it goes"
+ },
+ "call/call.win.marsh": {
+  "hash": "63e271553f92",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Marsh wins it!"
+ },
+ "call/call.bold.marsh": {
+  "hash": "fc38b5aa94a5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Marsh just threw it in there!"
+ },
+ "call/call.lead.mazur": {
+  "hash": "6016e883e5fe",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "Maser takes the lead"
+ },
+ "call/call.pass.mazur": {
+  "hash": "b9560d71a16a",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Maser gets the run and makes it stick"
+ },
+ "call/call.spin.mazur": {
+  "hash": "fc42cfb0713d",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Mazzer spins. Around it goes"
+ },
+ "call/call.save.marsh": {
+  "hash": "d03d603f14cb",
+  "ok": false,
+  "score": 0.89,
+  "extra": 2,
+  "heard": "[laughs] Marsh is sideways. Hang on and saves it! Man alive!"
+ },
+ "call/call.win.mazur": {
+  "hash": "182e5713935a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Mazur wins it"
+ },
+ "call/call.crash.mazur": {
+  "hash": "91ee3ac6a18a",
+  "ok": false,
+  "score": 0.86,
+  "extra": 1,
+  "heard": "Oh, trouble! Mazer, hard into the wall"
+ },
+ "call/call.bold.mazur": {
+  "hash": "454178155a63",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Maser just threw it in there!"
+ },
+ "call/call.lead.mcrae": {
+  "hash": "7d12e71aba81",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "McRae takes the lead!"
+ },
+ "call/call.pass.mcrae": {
+  "hash": "06e3cd01275e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "McRae gets the run and makes it stick!"
+ },
+ "call/call.save.mazur": {
+  "hash": "e44e84cfd897",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Majors sideways. Hang on and saves it. Man alive"
+ },
+ "call/call.spin.mcrae": {
+  "hash": "df2337d8b0ef",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "McRae spins! Around it goes!"
+ },
+ "call/call.crash.mcrae": {
+  "hash": "026271766893",
+  "ok": false,
+  "score": 0.86,
+  "extra": 1,
+  "heard": "Oh, trouble! McCray hard into the wall"
+ },
+ "call/call.win.mcrae": {
+  "hash": "254ed69ecdfd",
+  "ok": false,
+  "score": 0.83,
+  "extra": 1,
+  "heard": "Checkered flag and McCray wins it"
+ },
+ "call/call.pass.mendoza": {
+  "hash": "e58e22c2d3ea",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Mendoza gets the run and makes it stick"
+ },
+ "call/call.bold.mcrae": {
+  "hash": "0839c83e697b",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! McCray just threw it in there!"
+ },
+ "call/call.save.mcrae": {
+  "hash": "e4dad5f92167",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] McCray sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.mendoza": {
+  "hash": "ea2467df0428",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Mendoza spins. Around it goes"
+ },
+ "call/call.lead.mendoza": {
+  "hash": "8e1a38f4caca",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Mendoza takes the lead!"
+ },
+ "call/call.crash.mendoza": {
+  "hash": "969de669a696",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Mendoza hard into the wall"
+ },
+ "call/call.bold.mendoza": {
+  "hash": "1c4cc377dfad",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Mendoza just threw it in there!"
+ },
+ "call/call.win.mendoza": {
+  "hash": "15d1feab38ee",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Mendoza wins it!"
+ },
+ "call/call.pass.mercier": {
+  "hash": "ffcebd60d7fa",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Mercier gets the run and makes it stick"
+ },
+ "call/call.save.mendoza": {
+  "hash": "9395b23683a5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] Mendoza's sideways. Hang on, and saves it! Man alive"
+ },
+ "call/call.lead.mercier": {
+  "hash": "5a2474eca32b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Mercier takes the lead!"
+ },
+ "call/call.spin.mercier": {
+  "hash": "76d40900795d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Mercier spins. Around it goes"
+ },
+ "call/call.crash.mercier": {
+  "hash": "139bd1a433c9",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Mercier hard into the wall"
+ },
+ "call/call.win.mercier": {
+  "hash": "c11911aba0ad",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Mercier wins it"
+ },
+ "call/call.bold.mercier": {
+  "hash": "09b36c05f168",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy mercier just threw it in there"
+ },
+ "call/call.pass.molina": {
+  "hash": "7f3942544335",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Molina gets the run and makes it stick"
+ },
+ "call/call.lead.molina": {
+  "hash": "01672c9114e1",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "Melina takes the lead"
+ },
+ "call/call.save.mercier": {
+  "hash": "c9928d109aea",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Mercier sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.molina": {
+  "hash": "a649637b9999",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Melina spins. Around it goes"
+ },
+ "call/call.win.molina": {
+  "hash": "0d509ec99ae6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Molina wins it!"
+ },
+ "call/call.crash.molina": {
+  "hash": "3ef7f749eb22",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Molina hard into the wall"
+ },
+ "call/call.bold.molina": {
+  "hash": "2c2d8ff280c8",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Melina just threw it in there!"
+ },
+ "call/call.pass.moreau": {
+  "hash": "dd940ce22fd1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Moreau gets the run and makes it stick"
+ },
+ "call/call.save.molina": {
+  "hash": "c98e41499183",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Molina sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.lead.moreau": {
+  "hash": "f3f700b3e17c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Moreau takes the lead!"
+ },
+ "call/call.spin.moreau": {
+  "hash": "04c1eb1157a0",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Monroe spins. Around it goes"
+ },
+ "call/call.crash.moreau": {
+  "hash": "73842964a72b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Moreau hard into the wall"
+ },
+ "call/call.win.moreau": {
+  "hash": "433952e1e5fc",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Moreau wins it"
+ },
+ "call/call.bold.moreau": {
+  "hash": "66108e2ae1e7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Moreau just threw it in there!"
+ },
+ "call/call.pass.moretti": {
+  "hash": "319ef26c1c17",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Moretti gets the run and makes it stick"
+ },
+ "call/call.lead.moretti": {
+  "hash": "5b7acbc9aaa7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Moretti takes the lead"
+ },
+ "call/call.save.moreau": {
+  "hash": "5a4aec53765e",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Morrow's sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.moretti": {
+  "hash": "86b830eaafea",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Moretti spins. Around it goes"
+ },
+ "call/call.win.moretti": {
+  "hash": "727e5e8a533e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Moretti wins it"
+ },
+ "call/call.crash.moretti": {
+  "hash": "682f060427e6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Moretti, hard into the wall!"
+ },
+ "call/call.bold.moretti": {
+  "hash": "61eae9455371",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "oh, buddy! moretti just threw it in there"
+ },
+ "call/call.pass.mori": {
+  "hash": "ce8fcbf7a556",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Morey gets the run and makes it stick"
+ },
+ "call/call.lead.mori": {
+  "hash": "29f45002e8b6",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "Maury takes the lead"
+ },
+ "call/call.save.moretti": {
+  "hash": "cd92401fb264",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Moretti sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.crash.mori": {
+  "hash": "cbae02e5b787",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Mori, hard into the wall"
+ },
+ "call/call.spin.mori": {
+  "hash": "32db1ce84c73",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Morey spins. Around it goes"
+ },
+ "call/call.bold.mori": {
+  "hash": "588b2d0dba02",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Maury just threw it in there!"
+ },
+ "call/call.win.mori": {
+  "hash": "8177b3065a85",
+  "ok": false,
+  "score": 0.83,
+  "extra": 1,
+  "heard": "Checkered flag and Maury wins it"
+ },
+ "call/call.lead.nakamura": {
+  "hash": "92e5de76019a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Nakamura takes the lead"
+ },
+ "call/call.pass.nakamura": {
+  "hash": "cc696d5777ee",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Nakamura gets the run and makes it stick"
+ },
+ "call/call.save.mori": {
+  "hash": "bbf57fb77f42",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Maury sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.spin.nakamura": {
+  "hash": "2fb5b79b35a9",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Nakamura spins. Around it goes"
+ },
+ "call/call.crash.nakamura": {
+  "hash": "932f7a3954f7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Nakamura hard into the wall"
+ },
+ "call/call.win.nakamura": {
+  "hash": "5d7942a0e740",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Nakamura wins it"
+ },
+ "call/call.pass.navarro": {
+  "hash": "1266afa46644",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Navarro gets the run and makes it stick"
+ },
+ "call/call.bold.nakamura": {
+  "hash": "e2ce0c80a00b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Nakamura just threw it in there"
+ },
+ "call/call.spin.navarro": {
+  "hash": "322697a1924b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Navarro spins. Around it goes"
+ },
+ "call/call.lead.navarro": {
+  "hash": "d7a135080c57",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Navarro takes the lead"
+ },
+ "call/call.save.nakamura": {
+  "hash": "990123bd79e4",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] Nakamura's sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.crash.navarro": {
+  "hash": "ee1ebca92d5a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Navarro hard into the wall"
+ },
+ "call/call.win.navarro": {
+  "hash": "93b6b1b0bcd9",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Navarro wins it!"
+ },
+ "call/call.bold.navarro": {
+  "hash": "2a362df403cd",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Navarro just threw it in there!"
+ },
+ "call/call.lead.nowak": {
+  "hash": "b4e1abf4c20f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Nowak takes the lead"
+ },
+ "call/call.pass.nowak": {
+  "hash": "996eb763897d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Nowak gets the run and makes it stick"
+ },
+ "call/call.save.navarro": {
+  "hash": "f33d4222cbd1",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Navarro sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.crash.nowak": {
+  "hash": "24502988d481",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Nowak hard into the wall"
+ },
+ "call/call.spin.nowak": {
+  "hash": "ffcdcb5a32a0",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Noack spins. Around it goes"
+ },
+ "call/call.win.nowak": {
+  "hash": "4744807dfbc1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Nowak wins it"
+ },
+ "call/call.bold.nowak": {
+  "hash": "6d58d6c28f04",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Nowak just threw it in there!"
+ },
+ "call/call.pass.nwosu": {
+  "hash": "63e7f97efa44",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Nwosu gets the run and makes it stick"
+ },
+ "call/call.lead.nwosu": {
+  "hash": "0cbb2514e301",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Nwosu takes the lead!"
+ },
+ "call/call.save.nowak": {
+  "hash": "3627e13e673c",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Nowak sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.nwosu": {
+  "hash": "40057267f76d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Nwosu spins! Around it goes!"
+ },
+ "call/call.win.nwosu": {
+  "hash": "f29cce3bd8c0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Nwosu wins it!"
+ },
+ "call/call.bold.nwosu": {
+  "hash": "e39550c0acee",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Nwosu just threw it in there!"
+ },
+ "call/call.crash.nwosu": {
+  "hash": "327c3c874ae3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Nwosu, hard into the wall!"
+ },
+ "call/call.pass.nyberg": {
+  "hash": "c225e6d1452a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Nyberg gets the run and makes it stick"
+ },
+ "call/call.lead.nyberg": {
+  "hash": "cbf529f08e30",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Nyberg takes the lead!"
+ },
+ "call/call.save.nwosu": {
+  "hash": "1125e9c22535",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Wosu sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.crash.nyberg": {
+  "hash": "912f63e576ef",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Nyberg hard into the wall"
+ },
+ "call/call.win.nyberg": {
+  "hash": "3bd326056474",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Nyberg wins it"
+ },
+ "call/call.spin.nyberg": {
+  "hash": "9ef6301612a6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Nyberg spins. Around it goes"
+ },
+ "call/call.pass.obi": {
+  "hash": "1489bceded05",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Obi gets the run and makes it stick"
+ },
+ "call/call.lead.obi": {
+  "hash": "f5d2e554a63e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Obi takes the lead"
+ },
+ "call/call.bold.nyberg": {
+  "hash": "c3dd10be74e6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy Nyberg just threw it in there"
+ },
+ "call/call.spin.obi": {
+  "hash": "9151a1bd1235",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Obi spins. Around it goes"
+ },
+ "call/call.save.nyberg": {
+  "hash": "2ee84b2741f5",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Nyberg sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.crash.obi": {
+  "hash": "919dac115b8d",
+  "ok": false,
+  "score": 0.86,
+  "extra": 1,
+  "heard": "Oh, trouble! Obie, hard into the wall!"
+ },
+ "call/call.bold.obi": {
+  "hash": "d150d63b0faa",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Obie just threw it in there"
+ },
+ "call/call.pass.okada": {
+  "hash": "6c7543c5cebc",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Okada gets the run and makes it stick"
+ },
+ "call/call.win.obi": {
+  "hash": "840ad03eb821",
+  "ok": false,
+  "score": 0.83,
+  "extra": 1,
+  "heard": "Checkered flag, and Obie wins it"
+ },
+ "call/call.lead.okada": {
+  "hash": "556cef7abc3a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Okada takes the lead"
+ },
+ "call/call.save.obi": {
+  "hash": "a8c860252384",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Hobie sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.crash.okada": {
+  "hash": "1ce0e9aec622",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Okada hard into the wall!"
+ },
+ "call/call.spin.okada": {
+  "hash": "28bd79fd9f19",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Okada spins. Around it goes"
+ },
+ "call/call.win.okada": {
+  "hash": "f0cdf149dc53",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Okada wins it!"
+ },
+ "call/call.pass.okafor": {
+  "hash": "0dba07c90210",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Okafor gets the run and makes it stick"
+ },
+ "call/call.bold.okada": {
+  "hash": "4f62e3c48820",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Okada just threw it in there!"
+ },
+ "call/call.lead.okafor": {
+  "hash": "16a4e7a0c6b4",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Okafor takes the lead"
+ },
+ "call/call.spin.okafor": {
+  "hash": "b2ef7e7e41bb",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Okafor spins. Around it goes"
+ },
+ "call/call.save.okada": {
+  "hash": "ac9f71884c13",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] Okada's sideways. Hang on and saves it. Man alive"
+ },
+ "call/call.crash.okafor": {
+  "hash": "fa2440c997d6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Okafor, hard into the wall"
+ },
+ "call/call.win.okafor": {
+  "hash": "561d38f56fdf",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Okafor wins it"
+ },
+ "call/call.bold.okafor": {
+  "hash": "86149d3a2e4b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Okafor just threw it in there!"
+ },
+ "call/call.pass.okonkwo": {
+  "hash": "64d1e50fb13b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Okonkwo gets the run and makes it stick"
+ },
+ "call/call.save.okafor": {
+  "hash": "1ab79ed3cf99",
+  "ok": false,
+  "score": 0.89,
+  "extra": 2,
+  "heard": "Hoka forced sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.spin.okonkwo": {
+  "hash": "6f75c0547b9e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Okonkwo spins. Around it goes!"
+ },
+ "call/call.crash.okonkwo": {
+  "hash": "251a28ae1ba1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Okonkwo, hard into the wall!"
+ },
+ "call/call.win.okonkwo": {
+  "hash": "58551f5c4369",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Okonkwo wins it!"
+ },
+ "call/call.bold.okonkwo": {
+  "hash": "36bca03c498a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Okonkwo just threw it in there!"
+ },
+ "call/call.pass.ortega": {
+  "hash": "2d4037a4ee95",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Ortega gets the run and makes it stick"
+ },
+ "call/call.lead.ortega": {
+  "hash": "7aeba7816f6b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Ortega takes the lead!"
+ },
+ "call/call.spin.ortega": {
+  "hash": "3dda810049ce",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Ortega spins. Around it goes"
+ },
+ "call/call.save.okonkwo": {
+  "hash": "f290fd8ad35c",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Okonkwo sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.win.ortega": {
+  "hash": "cfb8116e2972",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Ortega wins it"
+ },
+ "call/call.crash.ortega": {
+  "hash": "3a88d30ea5b6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Ortega hard into the wall"
+ },
+ "call/call.bold.ortega": {
+  "hash": "d42f00cc920d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "oh, buddy! ortega just threw it in there!"
+ },
+ "call/call.pass.park": {
+  "hash": "d4791308b60a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Park gets the run and makes it stick"
+ },
+ "call/call.lead.park": {
+  "hash": "4f985d9920aa",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Park takes the lead"
+ },
+ "call/call.save.ortega": {
+  "hash": "b8c7dba13221",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Ortega's sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.park": {
+  "hash": "f80e60cc4315",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Park spins. Around it goes"
+ },
+ "call/call.crash.park": {
+  "hash": "6c28f451be9e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Park, hard into the wall"
+ },
+ "call/call.win.park": {
+  "hash": "f613c7d317dc",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Park wins it"
+ },
+ "call/call.pass.parker": {
+  "hash": "daeaac019dc4",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Parker gets the run and makes it stick"
+ },
+ "call/call.bold.park": {
+  "hash": "217b639d89a2",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Park just threw it in there!"
+ },
+ "call/call.lead.parker": {
+  "hash": "9e048d6103bc",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Parker takes the lead"
+ },
+ "call/call.spin.parker": {
+  "hash": "c7a07f96aff0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Parker spins. Around it goes"
+ },
+ "call/call.crash.parker": {
+  "hash": "92bf977fe8cc",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Parker, hard into the wall"
+ },
+ "call/call.save.park": {
+  "hash": "32666987bc1b",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Parks sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.bold.parker": {
+  "hash": "2e5e95cdb1bf",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Parker just threw it in there"
+ },
+ "call/call.pass.pearce": {
+  "hash": "94957f339152",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Pierce gets the run and makes it stick"
+ },
+ "call/call.win.parker": {
+  "hash": "66664c288025",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Parker wins it"
+ },
+ "call/call.lead.pearce": {
+  "hash": "f6c18c2e5d5e",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "Pierce takes the lead!"
+ },
+ "call/call.spin.pearce": {
+  "hash": "8a536b5a6565",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Pierce spins. Around it goes"
+ },
+ "call/call.save.parker": {
+  "hash": "ba3fd089cf54",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "Parker sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.crash.pearce": {
+  "hash": "1566e9645b80",
+  "ok": false,
+  "score": 0.86,
+  "extra": 1,
+  "heard": "Oh, trouble! Pierce, hard into the wall"
+ },
+ "call/call.win.pearce": {
+  "hash": "5e15e29a7098",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Pearce wins it!"
+ },
+ "call/call.bold.pearce": {
+  "hash": "4e9dd3dd25f0",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Pierce just threw it in there!"
+ },
+ "call/call.pass.picard": {
+  "hash": "c9564e0a7f1a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Picard gets the run and makes it stick!"
+ },
+ "call/call.save.pearce": {
+  "hash": "002fceac727c",
+  "ok": false,
+  "score": 0.89,
+  "extra": 2,
+  "heard": "[laughs] Pierce is sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.lead.picard": {
+  "hash": "83a8f363df00",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Picard takes the lead!"
+ },
+ "call/call.spin.picard": {
+  "hash": "ad6b96a290ca",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Picard spins. Around it goes"
+ },
+ "call/call.win.picard": {
+  "hash": "251807330be6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Picard wins it"
+ },
+ "call/call.crash.picard": {
+  "hash": "95fba7f39215",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Picard, hard into the wall!"
+ },
+ "call/call.bold.picard": {
+  "hash": "8e4bf508d5a0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Picard just threw it in there!"
+ },
+ "call/call.lead.price": {
+  "hash": "a8c6aa40e0b2",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Price takes the lead"
+ },
+ "call/call.spin.price": {
+  "hash": "1b28047c1dd4",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Price spins. Around it goes"
+ },
+ "call/call.save.picard": {
+  "hash": "904fa1776015",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Picard sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.crash.price": {
+  "hash": "e8e2e0c09bc1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Price hard into the wall"
+ },
+ "call/call.bold.price": {
+  "hash": "b01000564acb",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Price just threw it in there"
+ },
+ "call/call.win.price": {
+  "hash": "e4d329fbbc01",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Price wins it!"
+ },
+ "call/call.pass.quinn": {
+  "hash": "09e67dbb3de9",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Quinn gets the run and makes it stick"
+ },
+ "call/call.save.price": {
+  "hash": "d314e770028c",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Prices sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.lead.quinn": {
+  "hash": "3cdb86cdafbc",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Quinn takes the lead"
+ },
+ "call/call.spin.quinn": {
+  "hash": "26e9c9c6f587",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Quinn spins. Around it goes"
+ },
+ "call/call.crash.quinn": {
+  "hash": "1b1055b3c3da",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Quinn, hard into the wall"
+ },
+ "call/call.win.quinn": {
+  "hash": "d1d0888d5a36",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Quinn wins it"
+ },
+ "call/call.bold.quinn": {
+  "hash": "945c22daa1bc",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Quinn just threw it in there!"
+ },
+ "call/call.lead.reed": {
+  "hash": "dee0dfc5a8d1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Reed takes the lead"
+ },
+ "call/call.pass.reed": {
+  "hash": "25c1d73c6f50",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Reid gets the run and makes it stick"
+ },
+ "call/call.pass.price": {
+  "hash": "cc4d343182ed",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Price gets the run and makes it stick"
+ },
+ "call/call.spin.reed": {
+  "hash": "26c57d4093b7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Reed spins. Around it goes!"
+ },
+ "call/call.save.quinn": {
+  "hash": "308b0beafc55",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Quinn sideways. Hang on and saves it. Man alive"
+ },
+ "call/call.win.reed": {
+  "hash": "580c7c410aa4",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Reed wins it"
+ },
+ "call/call.crash.reed": {
+  "hash": "bf9d2b280e74",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Reed, hard into the wall!"
+ },
+ "call/call.bold.reed": {
+  "hash": "a9f7ea37d297",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Reed just threw it in there!"
+ },
+ "call/call.lead.ribeiro": {
+  "hash": "fc5a0f7cf9fc",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Ribeiro takes the lead"
+ },
+ "call/call.pass.ribeiro": {
+  "hash": "1b5853c3e1c8",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Ribero gets the run and makes it stick"
+ },
+ "call/call.save.reed": {
+  "hash": "a91923650cff",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Reads sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.spin.ribeiro": {
+  "hash": "86aad3806936",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Ribero spins. Around it goes"
+ },
+ "call/call.win.ribeiro": {
+  "hash": "7edb2e00a485",
+  "ok": false,
+  "score": 0.83,
+  "extra": 1,
+  "heard": "Checkered flag, and Ribero wins it!"
+ },
+ "call/call.crash.ribeiro": {
+  "hash": "521fe76a39a1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Ribeiro hard into the wall"
+ },
+ "call/call.pass.rinaldi": {
+  "hash": "335209e5fb03",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rinaldi gets the run and makes it stick"
+ },
+ "call/call.bold.ribeiro": {
+  "hash": "8af89acf6f38",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Ribeiro just threw it in there!"
+ },
+ "call/call.lead.rinaldi": {
+  "hash": "6dbc3c5637a7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rinaldi takes the lead"
+ },
+ "call/call.crash.rinaldi": {
+  "hash": "eeeb59abbd1b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Rinaldi, hard into the wall!"
+ },
+ "call/call.spin.rinaldi": {
+  "hash": "1eb7e91eb515",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rinaldi spins! Around it goes!"
+ },
+ "call/call.save.ribeiro": {
+  "hash": "1c8d78c163f3",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Ribeiro sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.pass.rios": {
+  "hash": "b30fc15d7706",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rios gets the run and makes it stick"
+ },
+ "call/call.win.rinaldi": {
+  "hash": "7ac7617c39ee",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Rinaldi wins it!"
+ },
+ "call/call.bold.rinaldi": {
+  "hash": "7b822753ef32",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Rinaldi just threw it in there!"
+ },
+ "call/call.lead.rios": {
+  "hash": "92dca32a9859",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rios takes the lead"
+ },
+ "call/call.save.rinaldi": {
+  "hash": "4b44e099d988",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Rinaldi sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.rios": {
+  "hash": "e1f833039ee0",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Rio spins. Around it goes"
+ },
+ "call/call.crash.rios": {
+  "hash": "4035558c2fb8",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Rios hard into the wall"
+ },
+ "call/call.win.rios": {
+  "hash": "145fad5ee3fe",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Rios wins it"
+ },
+ "call/call.pass.romero": {
+  "hash": "7c608b5178a4",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Romero gets the run and makes it stick"
+ },
+ "call/call.bold.rios": {
+  "hash": "b31c8c71f900",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy Rios just threw it in there"
+ },
+ "call/call.save.rios": {
+  "hash": "d5bfc637ccc6",
+  "ok": false,
+  "score": 0.89,
+  "extra": 2,
+  "heard": "[laughs] Rios is sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.lead.romero": {
+  "hash": "93b367053bf7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Romero takes the lead"
+ },
+ "call/call.spin.romero": {
+  "hash": "87651433e6dc",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Romero spins. Around it goes"
+ },
+ "call/call.crash.romero": {
+  "hash": "cbd71d28feb6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Romero, hard into the wall"
+ },
+ "call/call.win.romero": {
+  "hash": "29d646a0ee34",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Romero wins it"
+ },
+ "call/call.bold.romero": {
+  "hash": "1e22aead784c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Romero just threw it in there!"
+ },
+ "call/call.pass.rossi": {
+  "hash": "2691592a56a7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rossi gets the run and makes it stick"
+ },
+ "call/call.lead.rossi": {
+  "hash": "fc531831d787",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rossi takes the lead!"
+ },
+ "call/call.save.romero": {
+  "hash": "814dabf633bd",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Romero sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.crash.rossi": {
+  "hash": "74d82dfdc00c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Rossi hard into the wall"
+ },
+ "call/call.spin.rossi": {
+  "hash": "401fdae7464a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rossi spins! Around it goes"
+ },
+ "call/call.win.rossi": {
+  "hash": "90070069698c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Rossi wins it"
+ },
+ "call/call.pass.rubio": {
+  "hash": "7b493b1d5fe4",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rubio gets the run and makes it stick"
+ },
+ "call/call.bold.rossi": {
+  "hash": "ae829e6e4cdf",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy Rossi just threw it in there"
+ },
+ "call/call.lead.rubio": {
+  "hash": "86a4b09f8b78",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rubio takes the lead!"
+ },
+ "call/call.spin.rubio": {
+  "hash": "69bf5856254a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rubio spins. Around it goes"
+ },
+ "call/call.save.rossi": {
+  "hash": "645c96269ec9",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Rossi sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.crash.rubio": {
+  "hash": "b87a4f187ff6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Rubio, hard into the wall"
+ },
+ "call/call.win.rubio": {
+  "hash": "b145d4c03a58",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Rubio wins it!"
+ },
+ "call/call.bold.rubio": {
+  "hash": "9dbdf5a29c9f",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Whoa, buddy! Rubio just threw it in there"
+ },
+ "call/call.pass.salazar": {
+  "hash": "2fe48dc78773",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Salazar gets the run and makes it stick"
+ },
+ "call/call.lead.salazar": {
+  "hash": "354c9707f67e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Salazar takes the lead!"
+ },
+ "call/call.save.rubio": {
+  "hash": "2a13179daf2f",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Rubio sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.salazar": {
+  "hash": "22a7e8340bdf",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Salazar spins. Around it goes"
+ },
+ "call/call.crash.salazar": {
+  "hash": "1be40df73709",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Salazar, hard into the wall"
+ },
+ "call/call.bold.salazar": {
+  "hash": "1652a37c96f1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Salazar just threw it in there!"
+ },
+ "call/call.win.salazar": {
+  "hash": "0a47fa6e4ce7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Salazar wins it!"
+ },
+ "call/call.save.salazar": {
+  "hash": "5be266f567aa",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Salazar sideways. Hang on and saves it! Man alive!"
+ },
+ "call/call.pass.sandberg": {
+  "hash": "c2a7f298f02e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Sandberg gets the run and makes it stick"
+ },
+ "call/call.lead.sandberg": {
+  "hash": "3aae9766b242",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Sandberg takes the lead!"
+ },
+ "call/call.spin.sandberg": {
+  "hash": "d71164f48104",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Sandberg spins. Around it goes"
+ },
+ "call/call.crash.sandberg": {
+  "hash": "13680de31403",
+  "ok": false,
+  "score": 0.86,
+  "extra": 1,
+  "heard": "Oh, trouble! Sandbird, hard into the wall"
+ },
+ "call/call.win.sandberg": {
+  "hash": "8b20b464babe",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Sandberg wins it!"
+ },
+ "call/call.bold.sandberg": {
+  "hash": "26546499e2b7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Sandberg just threw it in there!"
+ },
+ "call/call.pass.sato": {
+  "hash": "003bbf4f74a7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Sato gets the run and makes it stick"
+ },
+ "call/call.lead.sato": {
+  "hash": "5409a86f4143",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Sato takes the lead!"
+ },
+ "call/call.spin.sato": {
+  "hash": "3d68590607c3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Sato spins. Around it goes"
+ },
+ "call/call.save.sandberg": {
+  "hash": "134df1d05404",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Sandberg sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.crash.sato": {
+  "hash": "7b3ceb228c64",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Sato hard into the wall!"
+ },
+ "call/call.win.sato": {
+  "hash": "1fdd070dd124",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Sato wins it"
+ },
+ "call/call.bold.sato": {
+  "hash": "5e491ffb50de",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Sato just threw it in there!"
+ },
+ "call/call.save.sato": {
+  "hash": "579c3c668fb7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] Sato's sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.pass.sawyer": {
+  "hash": "0d4f2eafcd9b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Sawyer gets the run and makes it stick"
+ },
+ "call/call.spin.sawyer": {
+  "hash": "abafd3930e48",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Sawyer spins. Around it goes"
+ },
+ "call/call.crash.sawyer": {
+  "hash": "062075c2b497",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Sawyer, hard into the wall"
+ },
+ "call/call.lead.sawyer": {
+  "hash": "591a34c44416",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Sawyer takes the lead"
+ },
+ "call/call.bold.sawyer": {
+  "hash": "5534ebd46d0a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Sawyer just threw it in there!"
+ },
+ "call/call.win.sawyer": {
+  "hash": "20ffc5d5ec7a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Sawyer wins it"
+ },
+ "call/call.pass.schmidt": {
+  "hash": "be96acc86539",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Schmidt gets the run and makes it stick"
+ },
+ "call/call.lead.schmidt": {
+  "hash": "0944f43b8645",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Schmidt takes the lead"
+ },
+ "call/call.save.sawyer": {
+  "hash": "fe9084fe374b",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Sawyer sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.schmidt": {
+  "hash": "14843782809c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Schmidt spins. Around it goes"
+ },
+ "call/call.crash.schmidt": {
+  "hash": "7b0a512b4dbf",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Schmidt, hard into the wall!"
+ },
+ "call/call.bold.schmidt": {
+  "hash": "4b3426265f81",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Schmidt just threw it in there!"
+ },
+ "call/call.win.schmidt": {
+  "hash": "be2dd4c663c6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Schmidt wins it"
+ },
+ "call/call.pass.seo": {
+  "hash": "64963416b0a5",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "CEO gets the run and makes it stick"
+ },
+ "call/call.lead.seo": {
+  "hash": "d5263eadb3c2",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "CEO takes the lead"
+ },
+ "call/call.crash.seo": {
+  "hash": "4208a498c790",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Seo, hard into the wall"
+ },
+ "call/call.spin.seo": {
+  "hash": "639c26a6858d",
+  "ok": false,
+  "score": 0.8,
+  "extra": 2,
+  "heard": "See how spins. Around it goes"
+ },
+ "call/call.save.schmidt": {
+  "hash": "fc1b804960cc",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Schmitz sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.pass.serrano": {
+  "hash": "dc7652ebd888",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Serrano gets the run and makes it stick"
+ },
+ "call/call.bold.seo": {
+  "hash": "a2fde3960248",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Seo just threw it in there!"
+ },
+ "call/call.win.seo": {
+  "hash": "0e804f5e28b6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Seo wins it"
+ },
+ "call/call.spin.serrano": {
+  "hash": "1fc561009faf",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Serrano spins. Around it goes"
+ },
+ "call/call.save.seo": {
+  "hash": "ed9a64f27485",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Seejos sideways. Hang on and saves it. Man alive"
+ },
+ "call/call.lead.serrano": {
+  "hash": "8928e754596a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Serrano takes the lead"
+ },
+ "call/call.win.serrano": {
+  "hash": "2a20433c087d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Serrano wins it"
+ },
+ "call/call.crash.serrano": {
+  "hash": "7195ffc4d91b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Serrano hard into the wall"
+ },
+ "call/call.bold.serrano": {
+  "hash": "da3f15aab7c4",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Serrano just threw it in there!"
+ },
+ "call/call.pass.shaw": {
+  "hash": "2be2d4b8e948",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Shaw gets the run and makes it stick"
+ },
+ "call/call.lead.shaw": {
+  "hash": "f055cd911f57",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Shaw takes the lead"
+ },
+ "call/call.save.serrano": {
+  "hash": "a45839a0d96c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] Serrano's sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.shaw": {
+  "hash": "64f9a3a9b156",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Shaw spins. Around it goes"
+ },
+ "call/call.win.shaw": {
+  "hash": "2027ca295ff6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Shaw wins it!"
+ },
+ "call/call.bold.shaw": {
+  "hash": "324cb59daeb2",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Shaw just threw it in there!"
+ },
+ "call/call.crash.shaw": {
+  "hash": "426e5ce0042a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Shaw, hard into the wall"
+ },
+ "call/call.pass.souza": {
+  "hash": "bc059ffc8431",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Souza gets the run and makes it stick"
+ },
+ "call/call.spin.souza": {
+  "hash": "d17ec2580694",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Souza spins. Around it goes"
+ },
+ "call/call.save.shaw": {
+  "hash": "1f92ac3d0064",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] Shaw's sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.lead.souza": {
+  "hash": "bf708ff84c29",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "Suza takes the lead!"
+ },
+ "call/call.crash.souza": {
+  "hash": "96d35f553f79",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Souza hard into the wall"
+ },
+ "call/call.win.souza": {
+  "hash": "b4f68c554bb8",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Souza wins it"
+ },
+ "call/call.bold.souza": {
+  "hash": "0100c3966566",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Souza just threw it in there!"
+ },
+ "call/call.pass.strand": {
+  "hash": "36de1fe91fdc",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Strand gets the run and makes it stick"
+ },
+ "call/call.save.souza": {
+  "hash": "9982886c916d",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Souza sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.lead.strand": {
+  "hash": "fe75916cf867",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Strand takes the lead!"
+ },
+ "call/call.spin.strand": {
+  "hash": "89083fd3f078",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Strand spins. Around it goes"
+ },
+ "call/call.win.strand": {
+  "hash": "a8bdd691cfce",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Strand wins it"
+ },
+ "call/call.crash.strand": {
+  "hash": "0fb098529925",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Strand, hard into the wall"
+ },
+ "call/call.bold.strand": {
+  "hash": "36ca3242e5cf",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Strand just threw it in there!"
+ },
+ "call/call.pass.tanaka": {
+  "hash": "d6d6357bf921",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Tanaka gets the run and makes it stick"
+ },
+ "call/call.lead.tanaka": {
+  "hash": "508b76e69f2d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Tanaka takes the lead"
+ },
+ "call/call.spin.tanaka": {
+  "hash": "e61439d88171",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Tanaka spins. Around it goes"
+ },
+ "call/call.save.strand": {
+  "hash": "e18a4446e007",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Strand sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.crash.tanaka": {
+  "hash": "77c947bacd33",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Tanaka, hard into the wall"
+ },
+ "call/call.win.tanaka": {
+  "hash": "1d0f20147635",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Tanaka wins it"
+ },
+ "call/call.bold.tanaka": {
+  "hash": "24c8f6b6f457",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Tanaka just threw it in there!"
+ },
+ "call/call.pass.teixeira": {
+  "hash": "d43eeba51aa7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Teixeira gets the run and makes it stick"
+ },
+ "call/call.lead.teixeira": {
+  "hash": "20a875ee9e81",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "Teshara takes the lead"
+ },
+ "call/call.save.tanaka": {
+  "hash": "0a2601f7d42b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] Tanaka's sideways. Hang on, and saves it! Man alive"
+ },
+ "call/call.spin.teixeira": {
+  "hash": "6f81146d765b",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Tashara spins. Around it goes"
+ },
+ "call/call.win.teixeira": {
+  "hash": "f55ed2f7d519",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Teixeira wins it"
+ },
+ "call/call.bold.teixeira": {
+  "hash": "e93ef6d6346c",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Tashera just threw it in there!"
+ },
+ "call/call.crash.teixeira": {
+  "hash": "8957a1264ccb",
+  "ok": false,
+  "score": 0.86,
+  "extra": 1,
+  "heard": "Oh, trouble! Teshira, hard into the wall!"
+ },
+ "call/call.pass.tully": {
+  "hash": "fb622f2c27ff",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Tully gets the run and makes it stick"
+ },
+ "call/call.lead.tully": {
+  "hash": "b2bc09f83ca8",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Tully takes the lead"
+ },
+ "call/call.spin.tully": {
+  "hash": "92602cf9f346",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Tully spins. Around it goes"
+ },
+ "call/call.save.teixeira": {
+  "hash": "90f6f67bbaf9",
+  "ok": false,
+  "score": 0.89,
+  "extra": 3,
+  "heard": "[laughs] To share us sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.win.tully": {
+  "hash": "fd20ca05c72d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Tully wins it!"
+ },
+ "call/call.crash.tully": {
+  "hash": "107c1625f193",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Tully, hard into the wall"
+ },
+ "call/call.bold.tully": {
+  "hash": "f575c92dad02",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Tully just threw it in there!"
+ },
+ "call/call.pass.vargas": {
+  "hash": "844f3443fcca",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Vargas gets the run and makes it stick"
+ },
+ "call/call.lead.vargas": {
+  "hash": "58f928d555fb",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Vargas takes the lead"
+ },
+ "call/call.save.tully": {
+  "hash": "8fce3a16dffb",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Tully sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.vargas": {
+  "hash": "9955a5f3bb92",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Vargas spins. Around it goes"
+ },
+ "call/call.win.vargas": {
+  "hash": "923da5e5996d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Vargas wins it"
+ },
+ "call/call.crash.vargas": {
+  "hash": "d981668de6da",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Vargas hard into the wall"
+ },
+ "call/call.bold.vargas": {
+  "hash": "a313756c8ff3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Vargas just threw it in there!"
+ },
+ "call/call.pass.vogel": {
+  "hash": "56d3682782f1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Vogel gets the run and makes it stick"
+ },
+ "call/call.lead.vogel": {
+  "hash": "6fd352c9f10a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Vogel takes the lead"
+ },
+ "call/call.spin.vogel": {
+  "hash": "cd9a2bdc0386",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Vogel spins. Around it goes"
+ },
+ "call/call.save.vargas": {
+  "hash": "33b3de279ce9",
+  "ok": false,
+  "score": 0.89,
+  "extra": 2,
+  "heard": "[laughs] Vargas is sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.crash.vogel": {
+  "hash": "2d2b72f7960f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Vogel hard into the wall"
+ },
+ "call/call.win.vogel": {
+  "hash": "bd4ded2502f2",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Vogel wins it!"
+ },
+ "call/call.bold.vogel": {
+  "hash": "f243d392d88a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "oh buddy vogel just threw it in there"
+ },
+ "call/call.pass.wagner": {
+  "hash": "9ac8986db3ee",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Wagner gets the run and makes it stick"
+ },
+ "call/call.lead.wagner": {
+  "hash": "f9fd1d9a0e2a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Wagner takes the lead!"
+ },
+ "call/call.save.vogel": {
+  "hash": "86be9e9b0496",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Vogel sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.wagner": {
+  "hash": "f971dbb20cfc",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Wagner spins. Around it goes"
+ },
+ "call/call.win.wagner": {
+  "hash": "f1f842b4630c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Wagner wins it"
+ },
+ "call/call.crash.wagner": {
+  "hash": "418665d2dcc2",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Wagner, hard into the wall"
+ },
+ "call/call.bold.wagner": {
+  "hash": "1e73693f491b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Wagner just threw it in there!"
+ },
+ "call/call.lead.walker": {
+  "hash": "b8dfef54ec6e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Walker takes the lead"
+ },
+ "call/call.pass.walker": {
+  "hash": "f491fd8ad240",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Walker gets the run and makes it stick"
+ },
+ "call/call.spin.walker": {
+  "hash": "d993a3bc0e78",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Walker spins. Around it goes"
+ },
+ "call/call.save.wagner": {
+  "hash": "a4ac9b94b491",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Wagner sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.crash.walker": {
+  "hash": "bf6563de9cc0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Walker, hard into the wall!"
+ },
+ "call/call.win.walker": {
+  "hash": "76b82ab9a926",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Walker wins it"
+ },
+ "call/call.bold.walker": {
+  "hash": "830e9af49557",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Walker just threw it in there!"
+ },
+ "call/call.pass.wisniewski": {
+  "hash": "42766d3df1e5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Wisniewski gets the run and makes it stick"
+ },
+ "call/call.save.walker": {
+  "hash": "b3a15f9f68df",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Walker sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.lead.wisniewski": {
+  "hash": "46dfa18452f9",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "Wisnewski takes the lead"
+ },
+ "call/call.spin.wisniewski": {
+  "hash": "89c647546fee",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Wiznewski spins. Around it goes"
+ },
+ "call/call.crash.wisniewski": {
+  "hash": "4c60153c435a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Wisniewski hard into the wall"
+ },
+ "call/call.bold.wisniewski": {
+  "hash": "0da5dcb96102",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Wisnewski just threw it in there!"
+ },
+ "call/call.pass.wrobel": {
+  "hash": "509111082b2e",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Roble gets the run and makes it stick"
+ },
+ "call/call.win.wisniewski": {
+  "hash": "b7e4d658ad31",
+  "ok": false,
+  "score": 0.83,
+  "extra": 1,
+  "heard": "Checkered flag and Wisnewski wins it!"
+ },
+ "call/call.save.wisniewski": {
+  "hash": "b457fc2c0385",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "Wiznewski sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.lead.wrobel": {
+  "hash": "ded687149aba",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "Robo takes the lead!"
+ },
+ "call/call.spin.wrobel": {
+  "hash": "57765576ca42",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Robo spins. Around it goes!"
+ },
+ "call/call.crash.wrobel": {
+  "hash": "d4625b23a4e3",
+  "ok": false,
+  "score": 0.86,
+  "extra": 1,
+  "heard": "Oh, trouble. Roble hard into the wall"
+ },
+ "call/call.win.wrobel": {
+  "hash": "5836d155ba09",
+  "ok": false,
+  "score": 0.83,
+  "extra": 1,
+  "heard": "Checkered flag, and Robl wins it!"
+ },
+ "call/call.bold.wrobel": {
+  "hash": "b6fb300e579b",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Roble just threw it in there!"
+ },
+ "call/call.pass.yoon": {
+  "hash": "57baafd3d02d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Yoon gets the run and makes it stick"
+ },
+ "call/call.lead.yoon": {
+  "hash": "d4253e4437e0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Yoon takes the lead!"
+ },
+ "call/call.save.wrobel": {
+  "hash": "556a53cff4b8",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Robles sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.yoon": {
+  "hash": "747fdfe7dc78",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Yoon spins. Around it goes"
+ },
+ "call/call.win.yoon": {
+  "hash": "fc430a0d81ca",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Yoon wins it"
+ },
+ "call/call.crash.yoon": {
+  "hash": "3ffc96ebf64a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Yoon hard into the wall"
+ },
+ "call/call.bold.yoon": {
+  "hash": "0599d42fd336",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! You just threw it in there"
+ },
+ "call/call.pass.zielinski": {
+  "hash": "203e1b7db42b",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Zelinski gets the run and makes it stick!"
+ },
+ "call/call.lead.zielinski": {
+  "hash": "d0d7a0881441",
+  "ok": false,
+  "score": 0.75,
+  "extra": 1,
+  "heard": "Zelinski takes the lead!"
+ },
+ "call/call.save.yoon": {
+  "hash": "01ca0c388db6",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Yoon sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.crash.zielinski": {
+  "hash": "217468e872bd",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Zielinski hard into the wall"
+ },
+ "call/call.spin.zielinski": {
+  "hash": "5ae39693919d",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Zelinski spins. Around it goes"
+ },
+ "call/call.win.zielinski": {
+  "hash": "3866bc1946d7",
+  "ok": false,
+  "score": 0.83,
+  "extra": 1,
+  "heard": "Checkered flag and Zelinski wins it!"
+ },
+ "call/call.bold.zielinski": {
+  "hash": "268670fb3368",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Oh, buddy! Zelensky just threw it in there!"
+ },
+ "call/call.save.zielinski": {
+  "hash": "1e6d40b346fb",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Zelensky sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.lead.ace": {
+  "hash": "f67c8eade563",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Ace takes the lead"
+ },
+ "call/call.pass.ace": {
+  "hash": "d297c8d86fc1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Ace gets the run and makes it stick"
+ },
+ "call/call.spin.ace": {
+  "hash": "296ebe459199",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Ace spins. Around it goes"
+ },
+ "call/call.crash.ace": {
+  "hash": "b9e4f79a185c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Ace, hard into the wall"
+ },
+ "call/call.win.ace": {
+  "hash": "b5e4f123150b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Ace wins it"
+ },
+ "call/call.pass.rookie": {
+  "hash": "aaa00bda6716",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rookie gets the run and makes it stick"
+ },
+ "call/call.bold.ace": {
+  "hash": "f21bfee8463d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Ace just threw it in there!"
+ },
+ "call/call.save.ace": {
+  "hash": "ff69152bd7c9",
+  "ok": false,
+  "score": 0.89,
+  "extra": 2,
+  "heard": "[laughs] Ace is sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.rookie": {
+  "hash": "40ca505edaa8",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rookie spins. Around it goes"
+ },
+ "call/call.lead.rookie": {
+  "hash": "54bd1fee958f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rookie takes the lead"
+ },
+ "call/call.crash.rookie": {
+  "hash": "be2879fbbcf0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Rookie, hard into the wall"
+ },
+ "call/call.win.rookie": {
+  "hash": "aee981e88975",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and rookie wins it!"
+ },
+ "call/call.bold.rookie": {
+  "hash": "e396dcb91201",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Rookie just threw it in there"
+ },
+ "call/call.pass.thekid": {
+  "hash": "b01a05363fb2",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "The kid gets the run and makes it stick"
+ },
+ "call/call.lead.thekid": {
+  "hash": "5e7903602a37",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "The kid takes the lead"
+ },
+ "call/call.spin.thekid": {
+  "hash": "369a6c9c64f3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "The kid spins. Around it goes"
+ },
+ "call/call.save.rookie": {
+  "hash": "56be884eb7fd",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] Rookie's sideways. Hang on, and saves it! Man alive"
+ },
+ "call/call.crash.thekid": {
+  "hash": "9c91a4467624",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! The kid, hard into the wall"
+ },
+ "call/call.bold.thekid": {
+  "hash": "a048b56c30e1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! The kid just threw it in there"
+ },
+ "call/call.pass.hotrod": {
+  "hash": "90223c52f273",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Hot Rod gets the run and makes it stick"
+ },
+ "call/call.win.thekid": {
+  "hash": "86015b88b7bb",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and the kid wins it!"
+ },
+ "call/call.save.thekid": {
+  "hash": "fb537651ad07",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "[laughs] The kid's sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.lead.hotrod": {
+  "hash": "f85507342f40",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Hot Rod takes the lead"
+ },
+ "call/call.crash.hotrod": {
+  "hash": "f5f8b955900e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Hot rod, hard into the wall"
+ },
+ "call/call.win.hotrod": {
+  "hash": "3be30b3beb29",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Hot Rod wins it"
+ },
+ "call/call.bold.hotrod": {
+  "hash": "2f4569ae07d0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Hot Rod just threw it in there!"
+ },
+ "call/call.lead.lightning": {
+  "hash": "81d2264519db",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Lightning takes the lead"
+ },
+ "call/call.pass.lightning": {
+  "hash": "3e244b0bdd49",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Lightning gets the run and makes it stick"
+ },
+ "call/call.spin.lightning": {
+  "hash": "14907c8f33f8",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Lightning spins. Around it goes"
+ },
+ "call/call.crash.lightning": {
+  "hash": "ed8c66b36e2d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Lightning, hard into the wall"
+ },
+ "call/call.win.lightning": {
+  "hash": "5b0e53908c45",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Lightning wins it!"
+ },
+ "call/call.bold.lightning": {
+  "hash": "2377fa5deb15",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Lightning just threw it in there!"
+ },
+ "call/call.pass.maverick": {
+  "hash": "c62d6f153bcd",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Maverick gets the run and makes it stick"
+ },
+ "call/call.save.lightning": {
+  "hash": "14b57a18ba43",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Lightning sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.spin.maverick": {
+  "hash": "40b256ec95f3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Maverick spins. Around it goes"
+ },
+ "call/call.lead.maverick": {
+  "hash": "50c08b65c397",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Maverick takes the lead"
+ },
+ "call/call.crash.maverick": {
+  "hash": "fef31a762e2a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Maverick, hard into the wall"
+ },
+ "call/call.bold.maverick": {
+  "hash": "77cfa5b53cf5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Maverick just threw it in there!"
+ },
+ "call/call.win.maverick": {
+  "hash": "dd878c93a522",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Maverick wins it"
+ },
+ "call/call.pass.showtime": {
+  "hash": "db0201337740",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Showtime gets the run and makes it stick"
+ },
+ "call/call.lead.showtime": {
+  "hash": "d715ec63ec62",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Showtime takes the lead"
+ },
+ "call/call.save.maverick": {
+  "hash": "da9cc7c69426",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Maverick sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.showtime": {
+  "hash": "01809b96b827",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Showtime spins. Around it goes"
+ },
+ "call/call.crash.showtime": {
+  "hash": "3d169114b5b2",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Showtime, hard into the wall"
+ },
+ "call/call.win.showtime": {
+  "hash": "5aa6d3615f6e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Showtime wins it"
+ },
+ "call/call.bold.showtime": {
+  "hash": "0c78e80650d1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Showtime just threw it in there!"
+ },
+ "call/call.save.showtime": {
+  "hash": "42fafc726637",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Showtime sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.lead.smokey": {
+  "hash": "3f45da895596",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Smokey takes the lead"
+ },
+ "call/call.pass.smokey": {
+  "hash": "d4219052c5a3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Smokey gets the run and makes it stick"
+ },
+ "call/call.spin.smokey": {
+  "hash": "c7bc7c09a97e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Smokey spins. Around it goes"
+ },
+ "call/call.crash.smokey": {
+  "hash": "ad0e5a1e2329",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Smokey, hard into the wall"
+ },
+ "call/call.bold.smokey": {
+  "hash": "87c4441ced0f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Smokey just threw it in there"
+ },
+ "call/call.win.smokey": {
+  "hash": "7ae37729f2e8",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Smokey wins it"
+ },
+ "call/call.pass.bulldog": {
+  "hash": "a01873d92780",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Bulldog gets the run and makes it stick"
+ },
+ "call/call.save.smokey": {
+  "hash": "2d9c38d4d08f",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Smokey sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.lead.bulldog": {
+  "hash": "5785a388593d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Bulldog takes the lead"
+ },
+ "call/call.spin.bulldog": {
+  "hash": "bbd329b706ca",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Bulldog spins. Around it goes"
+ },
+ "call/call.win.bulldog": {
+  "hash": "3cfdd9bb0915",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Bulldog wins it"
+ },
+ "call/call.crash.bulldog": {
+  "hash": "3be4cc559d83",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Bulldog, hard into the wall"
+ },
+ "call/call.lead.iceman": {
+  "hash": "8f9c30166c18",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Iceman takes the lead"
+ },
+ "call/call.bold.bulldog": {
+  "hash": "6a28e1caf57b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Bulldog just threw it in there!"
+ },
+ "call/call.pass.iceman": {
+  "hash": "fa674a272ea5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Iceman gets the run and makes it stick"
+ },
+ "call/call.save.bulldog": {
+  "hash": "d49c60b64c14",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Bulldog sideways. Hang on. And saves it. Man alive"
+ },
+ "call/call.crash.iceman": {
+  "hash": "f5a6b48d22e3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble iceman hard into the wall"
+ },
+ "call/call.spin.iceman": {
+  "hash": "2dd63ecbc1ee",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Iceman spins. Around it goes"
+ },
+ "call/call.pass.tex": {
+  "hash": "9a8dec349cc4",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Tex gets the run and makes it stick"
+ },
+ "call/call.win.iceman": {
+  "hash": "45869b930e1b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Iceman wins it!"
+ },
+ "call/call.lead.tex": {
+  "hash": "9b5539046616",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Tex takes the lead"
+ },
+ "call/call.bold.iceman": {
+  "hash": "95f287e1f8f1",
+  "ok": false,
+  "score": 0.88,
+  "extra": 2,
+  "heard": "Oh, buddy! Ice Man just threw it in there!"
+ },
+ "call/call.save.iceman": {
+  "hash": "4257b3e041aa",
+  "ok": false,
+  "score": 0.89,
+  "extra": 2,
+  "heard": "Nice man sideways Hang on And saves it Man alive"
+ },
+ "call/call.spin.tex": {
+  "hash": "6a513d174533",
+  "ok": false,
+  "score": 0.8,
+  "extra": 1,
+  "heard": "Tech spins. Around it goes"
+ },
+ "call/call.crash.tex": {
+  "hash": "28ae5c848232",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Tex, hard into the wall"
+ },
+ "call/call.win.tex": {
+  "hash": "977db0d4983f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Tex wins it!"
+ },
+ "call/call.pass.doc": {
+  "hash": "6f2a6bfb8e32",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Doc gets the run and makes it stick"
+ },
+ "call/call.bold.tex": {
+  "hash": "84274e098939",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Tex just threw it in there!"
+ },
+ "call/call.save.tex": {
+  "hash": "c76213c2deb3",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Texas sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.lead.doc": {
+  "hash": "29e87fef73b7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Doc takes the lead"
+ },
+ "call/call.spin.doc": {
+  "hash": "9eff5614dddf",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Doc spins! Around it goes!"
+ },
+ "call/call.win.doc": {
+  "hash": "a5470e9318d0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Doc wins it"
+ },
+ "call/call.crash.doc": {
+  "hash": "308064b5ade1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Doc, hard into the wall"
+ },
+ "call/call.bold.doc": {
+  "hash": "5bb226a3d655",
+  "ok": false,
+  "score": 0.88,
+  "extra": 1,
+  "heard": "Whoa, buddy! Doc just threw it in there"
+ },
+ "call/call.pass.flash": {
+  "hash": "613597c4b6e6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Flash gets the run and makes it stick"
+ },
+ "call/call.lead.flash": {
+  "hash": "5fd609bc770b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Flash takes the lead"
+ },
+ "call/call.spin.flash": {
+  "hash": "6f4a6ad06b17",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Flash spins. Around it goes"
+ },
+ "call/call.save.doc": {
+  "hash": "3a38feca9e76",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Docks sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.crash.flash": {
+  "hash": "67b8917126a4",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Flash, hard into the wall"
+ },
+ "call/call.win.flash": {
+  "hash": "fa49165ca34a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Flash wins it!"
+ },
+ "call/call.bold.flash": {
+  "hash": "3ed4fc7b53ec",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Flash just threw it in there!"
+ },
+ "call/call.pass.rocket": {
+  "hash": "ef70dab3cc28",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rocket gets the run and makes it stick"
+ },
+ "call/call.save.flash": {
+  "hash": "b38be5ecf2bf",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "Flashes sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.lead.rocket": {
+  "hash": "ba13f28c1922",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rocket takes the lead"
+ },
+ "call/call.spin.rocket": {
+  "hash": "01e66c4a3a59",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rocket spins. Around it goes"
+ },
+ "call/call.bold.rocket": {
+  "hash": "789692b57264",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Rocket just threw it in there!"
+ },
+ "call/call.win.rocket": {
+  "hash": "28b2120e7576",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Rocket wins it!"
+ },
+ "call/call.crash.rocket": {
+  "hash": "8cdf445d741d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Rocket, hard into the wall"
+ },
+ "call/call.pass.bandit": {
+  "hash": "721fedcf85e4",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Bandit gets the run and makes it stick"
+ },
+ "call/call.lead.bandit": {
+  "hash": "f30e0bd0bd61",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Bandit takes the lead"
+ },
+ "call/call.save.rocket": {
+  "hash": "51f92a9cf1cc",
+  "ok": false,
+  "score": 0.89,
+  "extra": 2,
+  "heard": "[laughs] Rock it sideways. Hang on and saves it. Man alive"
+ },
+ "call/call.spin.bandit": {
+  "hash": "be8739f01a40",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Bandit spins. Around it goes"
+ },
+ "call/call.crash.bandit": {
+  "hash": "e54096818137",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Bandit, hard into the wall"
+ },
+ "call/call.win.bandit": {
+  "hash": "f72002e9caa2",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Bandit wins it"
+ },
+ "call/call.bold.bandit": {
+  "hash": "c0d2271fbe01",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Bandit just threw it in there!"
+ },
+ "call/call.pass.cowboy": {
+  "hash": "2acca5be120e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Cowboy gets the run and makes it stick"
+ },
+ "call/call.save.bandit": {
+  "hash": "98e231f0a03b",
+  "ok": false,
+  "score": 0.89,
+  "extra": 2,
+  "heard": "[laughs] Banned it sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.lead.cowboy": {
+  "hash": "fcd0ad6dead5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Cowboy takes the lead"
+ },
+ "call/call.spin.cowboy": {
+  "hash": "258e30db6fe0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Cowboy spins. Around it goes"
+ },
+ "call/call.crash.cowboy": {
+  "hash": "36e30c89ddfd",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Cowboy, hard into the wall"
+ },
+ "call/call.win.cowboy": {
+  "hash": "a3a8b1b13509",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and cowboy wins it"
+ },
+ "call/call.lead.gator": {
+  "hash": "4bfbdc43212b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Gator takes the lead"
+ },
+ "call/call.pass.gator": {
+  "hash": "518f627509ab",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Gator gets the run and makes it stick"
+ },
+ "call/call.bold.cowboy": {
+  "hash": "df8eb2d6e059",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy cowboy just threw it in there"
+ },
+ "call/call.spin.gator": {
+  "hash": "6ef4413c3da8",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Gator spins. Around it goes"
+ },
+ "call/call.save.cowboy": {
+  "hash": "976740896efb",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Cowboy sideways hang on and saves it. Man alive"
+ },
+ "call/call.crash.gator": {
+  "hash": "804b828f6d85",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Gator, hard into the wall"
+ },
+ "call/call.win.gator": {
+  "hash": "332099dd137f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Gator wins it"
+ },
+ "call/call.pass.hollywood": {
+  "hash": "1b168141a4a6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Hollywood gets the run and makes it stick"
+ },
+ "call/call.bold.gator": {
+  "hash": "8c6b827497a3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Gator just threw it in there"
+ },
+ "call/call.lead.hollywood": {
+  "hash": "2451e255a622",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Hollywood takes the lead"
+ },
+ "call/call.save.gator": {
+  "hash": "f7dd9b3c9502",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Gator sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.hollywood": {
+  "hash": "de7ce92844d6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Hollywood spins. Around it goes"
+ },
+ "call/call.crash.hollywood": {
+  "hash": "18d68b3c24d1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Hollywood hard into the wall"
+ },
+ "call/call.win.hollywood": {
+  "hash": "4b53b307043c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Hollywood wins it!"
+ },
+ "call/call.pass.junior": {
+  "hash": "2b3b97198f14",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Junior gets the run and makes it stick"
+ },
+ "call/call.bold.hollywood": {
+  "hash": "db965d5a213a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Hollywood just threw it in there!"
+ },
+ "call/call.lead.junior": {
+  "hash": "e109f6460f26",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Junior takes the lead"
+ },
+ "call/call.spin.junior": {
+  "hash": "9c5950bd4655",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Junior spins. Around it goes"
+ },
+ "call/call.save.hollywood": {
+  "hash": "0d0ee4778d88",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Hollywood sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.crash.junior": {
+  "hash": "19cad39948e6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Junior, hard into the wall"
+ },
+ "call/call.win.junior": {
+  "hash": "990bca72e66e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Junior wins it"
+ },
+ "call/call.bold.junior": {
+  "hash": "90133996a77a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Junior just threw it in there!"
+ },
+ "call/call.lead.lucky": {
+  "hash": "5da1a52c10ab",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Lucky takes the lead"
+ },
+ "call/call.save.junior": {
+  "hash": "eeb6372e82fe",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Junior sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.crash.lucky": {
+  "hash": "05a78e952d0b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble. Lucky, hard into the wall"
+ },
+ "call/call.spin.lucky": {
+  "hash": "c5109aefa841",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Lucky spins. Around it goes"
+ },
+ "call/call.bold.lucky": {
+  "hash": "ac43b3aeb4ad",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "oh, buddy! lucky just threw it in there"
+ },
+ "call/call.win.lucky": {
+  "hash": "8deea8ba5977",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Lucky wins it"
+ },
+ "call/call.pass.outlaw": {
+  "hash": "4ccf4b0dc4c9",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Outlaw gets the run and makes it stick"
+ },
+ "call/call.lead.outlaw": {
+  "hash": "d1448fc7e351",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Outlaw takes the lead!"
+ },
+ "call/call.save.lucky": {
+  "hash": "37975f948665",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Lucky sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.spin.outlaw": {
+  "hash": "96bd022e4362",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Outlaw spins. Around it goes"
+ },
+ "call/call.crash.outlaw": {
+  "hash": "71cc62c50d3f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Outlaw hard into the wall"
+ },
+ "call/call.win.outlaw": {
+  "hash": "ecb363b47e15",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Outlaw wins it"
+ },
+ "call/call.bold.outlaw": {
+  "hash": "0baad45b0157",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Outlaw just threw it in there."
+ },
+ "call/call.pass.pistol": {
+  "hash": "49cf6895259c",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Pistol gets the run and makes it stick"
+ },
+ "call/call.lead.pistol": {
+  "hash": "aa44324f5da5",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Pistol takes the lead"
+ },
+ "call/call.save.outlaw": {
+  "hash": "46dd34ebd2cd",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "Outlaws sideways. Hang on. And saves it. Man alive"
+ },
+ "call/call.crash.pistol": {
+  "hash": "bfa68c87bcae",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Pistol, hard into the wall!"
+ },
+ "call/call.spin.pistol": {
+  "hash": "6900a624d050",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Pistol spins. Around it goes"
+ },
+ "call/call.bold.pistol": {
+  "hash": "84b343fbff4f",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Pistol just threw it in there!"
+ },
+ "call/call.win.pistol": {
+  "hash": "abf31844168a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Pistol wins it"
+ },
+ "call/call.pass.lucky": {
+  "hash": "a9a6474ccd22",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Lucky gets the run and makes it stick"
+ },
+ "call/call.pass.rebel": {
+  "hash": "ee1e94b1ea55",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rebel gets the run and makes it stick"
+ },
+ "call/call.save.pistol": {
+  "hash": "c0828ba73f76",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Pistol sideways. Hang on and saves it. Man alive"
+ },
+ "call/call.lead.rebel": {
+  "hash": "3dccc05b08bf",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rebel takes the lead"
+ },
+ "call/call.crash.rebel": {
+  "hash": "6223a0fcb8b2",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Rebel, hard into the wall"
+ },
+ "call/call.spin.rebel": {
+  "hash": "b0747c82964d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Rebel spins. Around it goes"
+ },
+ "call/call.win.rebel": {
+  "hash": "062c51abbaf1",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Rebel wins it!"
+ },
+ "call/call.bold.rebel": {
+  "hash": "8ba176aafe4a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Rebel just threw it in there!"
+ },
+ "call/call.pass.slick": {
+  "hash": "1a7b9427a36d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Slick gets the run and makes it stick"
+ },
+ "call/call.lead.slick": {
+  "hash": "f0b55873a899",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Slick takes the lead"
+ },
+ "call/call.save.rebel": {
+  "hash": "4ea6c4b8e558",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Rebel sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.slick": {
+  "hash": "4ad6e99a7fd6",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Slick spins. Around it goes"
+ },
+ "call/call.win.slick": {
+  "hash": "373685b21ca7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Slick wins it"
+ },
+ "call/call.crash.slick": {
+  "hash": "f04aaf6a7bca",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Slick, hard into the wall"
+ },
+ "call/call.pass.thunder": {
+  "hash": "d9086ced441a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Thunder gets the run and makes it stick"
+ },
+ "call/call.bold.slick": {
+  "hash": "0a217677ee76",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Slick just threw it in there"
+ },
+ "call/call.lead.thunder": {
+  "hash": "3218d4bfe467",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Thunder takes the lead!"
+ },
+ "call/call.spin.thunder": {
+  "hash": "7082d96b1651",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Thunder spins. Around it goes"
+ },
+ "call/call.save.slick": {
+  "hash": "bd1053d2b232",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Slick sideways. Hang on. And saves it! Man alive!"
+ },
+ "call/call.crash.thunder": {
+  "hash": "c54fece02f40",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Thunder, hard into the wall"
+ },
+ "call/call.bold.thunder": {
+  "hash": "72250c773ad3",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy thunder just threw it in there"
+ },
+ "call/call.win.thunder": {
+  "hash": "f73b3e5df3f2",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Thunder wins it"
+ },
+ "call/call.pass.tiger": {
+  "hash": "2a37742a9498",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Tiger gets the run and makes it stick"
+ },
+ "call/call.lead.tiger": {
+  "hash": "efbb059407e4",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Tiger takes the lead"
+ },
+ "call/call.save.thunder": {
+  "hash": "e2b2c097eb8d",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Thunders sideways. Hang on and saves it! Man alive!"
+ },
+ "call/call.spin.tiger": {
+  "hash": "36359177d425",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Tiger spins. Around it goes"
+ },
+ "call/call.crash.tiger": {
+  "hash": "1b7dde99eb38",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Tiger, hard into the wall!"
+ },
+ "call/call.bold.tiger": {
+  "hash": "7271d9287902",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Tiger just threw it in there!"
+ },
+ "call/call.pass.wildcat": {
+  "hash": "2ac5901fb4e2",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Wildcat gets the run and makes it stick"
+ },
+ "call/call.win.tiger": {
+  "hash": "7d9240c29912",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Tiger wins it"
+ },
+ "call/call.save.tiger": {
+  "hash": "2e4b7a53e991",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Tiger sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.lead.wildcat": {
+  "hash": "10f0ce5fb7e2",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Wildcat takes the lead"
+ },
+ "call/call.spin.wildcat": {
+  "hash": "ce1015716dd9",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Wildcat spins. Around it goes"
+ },
+ "call/call.crash.wildcat": {
+  "hash": "b961fb0a8e7a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Wildcat hard into the wall!"
+ },
+ "call/call.bold.wildcat": {
+  "hash": "87922aa73b6e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Wildcat just threw it in there"
+ },
+ "call/call.win.wildcat": {
+  "hash": "0cb1c38d56d8",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Wildcat wins it"
+ },
+ "call/call.lead.turbo": {
+  "hash": "ff2ec19408ec",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Turbo takes the lead"
+ },
+ "call/call.pass.turbo": {
+  "hash": "f9f9963dd184",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Turbo gets the run and makes it stick"
+ },
+ "call/call.save.wildcat": {
+  "hash": "ea5470ce5842",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Wildcat sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.spin.turbo": {
+  "hash": "b1d37fd03ca0",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Turbo spins. Around it goes"
+ },
+ "call/call.win.turbo": {
+  "hash": "8a9110779cb8",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and Turbo wins it!"
+ },
+ "call/call.crash.turbo": {
+  "hash": "116581cb9137",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Turbo, hard into the wall"
+ },
+ "call/call.bold.turbo": {
+  "hash": "982da6b57888",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Turbo just threw it in there!"
+ },
+ "call/call.lead.hurricane": {
+  "hash": "2cae7a726604",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Hurricane takes the lead"
+ },
+ "call/call.pass.hurricane": {
+  "hash": "444b3b61d277",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Hurricane gets the run and makes it stick"
+ },
+ "call/call.save.turbo": {
+  "hash": "c82ad4562def",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Turbo sideways. Hang on. And saves it! Man alive"
+ },
+ "call/call.win.hurricane": {
+  "hash": "020e2c7281c7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag and Hurricane wins it"
+ },
+ "call/call.spin.hurricane": {
+  "hash": "3dc69f22ae37",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Hurricane spins. Around it goes"
+ },
+ "call/call.crash.hurricane": {
+  "hash": "44303bb9873b",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! Hurricane hard into the wall"
+ },
+ "call/call.bold.hurricane": {
+  "hash": "dec559282e64",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! Hurricane just threw it in there!"
+ },
+ "call/call.pass.theboss": {
+  "hash": "fb58909f80e2",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "The Boss gets the run and makes it stick"
+ },
+ "call/call.save.hurricane": {
+  "hash": "b0021341c62a",
+  "ok": false,
+  "score": 0.89,
+  "extra": 1,
+  "heard": "[laughs] Hurricane sideways. Hang on. And saves it. Man alive"
+ },
+ "call/call.lead.theboss": {
+  "hash": "6bf1ab08214a",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "The boss takes the lead"
+ },
+ "call/call.crash.theboss": {
+  "hash": "d9a64a40502d",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, trouble! The boss, hard into the wall"
+ },
+ "call/call.spin.theboss": {
+  "hash": "6ea32fa396f7",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "The boss spins. Around it goes"
+ },
+ "call/call.win.theboss": {
+  "hash": "c1a44a8105ae",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Checkered flag, and the Boss wins it!"
+ },
+ "call/call.bold.theboss": {
+  "hash": "fb6775daf54e",
+  "ok": true,
+  "score": 1,
+  "extra": 0,
+  "heard": "Oh, buddy! The boss just threw it in there."
+ },
+ "call/call.save.theboss": {
+  "hash": "9de7d4a35c6d",
+  "ok": true,
+  "score": 0.9,
+  "extra": 2,
+  "heard": "[laughs] The boss is sideways. Hang on. And saves it! Man alive!"
  }
 }

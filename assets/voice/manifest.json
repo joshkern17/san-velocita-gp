@@ -895,6 +895,4926 @@
    "file": "call/call.save.shuttleworth.mp3",
    "hash": "818b80b7b6b4",
    "text": "[tense, laughing] Shuttleworth's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.adeyemi": {
+   "file": "call/call.lead.adeyemi.mp3",
+   "hash": "ec207cd2b66e",
+   "text": "[thrilled] Adeyemi takes the lead!"
+  },
+  "call.spin.adeyemi": {
+   "file": "call/call.spin.adeyemi.mp3",
+   "hash": "0d09ecafa364",
+   "text": "[surprised] Adeyemi spins! Around it goes!"
+  },
+  "call.pass.adeyemi": {
+   "file": "call/call.pass.adeyemi.mp3",
+   "hash": "1ca6b78f9829",
+   "text": "[building] Adeyemi gets the run... and makes it stick!"
+  },
+  "call.crash.adeyemi": {
+   "file": "call/call.crash.adeyemi.mp3",
+   "hash": "f2a21b05ebaf",
+   "text": "[shocked] Oh, trouble! Adeyemi, hard into the wall!"
+  },
+  "call.win.adeyemi": {
+   "file": "call/call.win.adeyemi.mp3",
+   "hash": "3b52e87079a9",
+   "text": "[triumphant] Checkered flag... and Adeyemi wins it!"
+  },
+  "call.bold.adeyemi": {
+   "file": "call/call.bold.adeyemi.mp3",
+   "hash": "6c55fd6129e9",
+   "text": "[explosive] Oh, buddy! Adeyemi just threw it in there!"
+  },
+  "call.lead.afolabi": {
+   "file": "call/call.lead.afolabi.mp3",
+   "hash": "b691cea1f83b",
+   "text": "[thrilled] Afolabi takes the lead!"
+  },
+  "call.pass.afolabi": {
+   "file": "call/call.pass.afolabi.mp3",
+   "hash": "6e3b10ff37ea",
+   "text": "[building] Afolabi gets the run... and makes it stick!"
+  },
+  "call.save.adeyemi": {
+   "file": "call/call.save.adeyemi.mp3",
+   "hash": "c1ae3f1fa32b",
+   "text": "[tense, laughing] Adeyemi's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.afolabi": {
+   "file": "call/call.spin.afolabi.mp3",
+   "hash": "cdef77a43998",
+   "text": "[surprised] Afolabi spins! Around it goes!"
+  },
+  "call.crash.afolabi": {
+   "file": "call/call.crash.afolabi.mp3",
+   "hash": "be3e25ab23af",
+   "text": "[shocked] Oh, trouble! Afolabi, hard into the wall!"
+  },
+  "call.win.afolabi": {
+   "file": "call/call.win.afolabi.mp3",
+   "hash": "e09af3d4ed47",
+   "text": "[triumphant] Checkered flag... and Afolabi wins it!"
+  },
+  "call.bold.afolabi": {
+   "file": "call/call.bold.afolabi.mp3",
+   "hash": "f6fb6f8a5b56",
+   "text": "[explosive] Oh, buddy! Afolabi just threw it in there!"
+  },
+  "call.pass.almeida": {
+   "file": "call/call.pass.almeida.mp3",
+   "hash": "a616c1932887",
+   "text": "[building] Almeida gets the run... and makes it stick!"
+  },
+  "call.save.afolabi": {
+   "file": "call/call.save.afolabi.mp3",
+   "hash": "212bd9e63781",
+   "text": "[tense, laughing] Afolabi's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.almeida": {
+   "file": "call/call.lead.almeida.mp3",
+   "hash": "2a3a2f8b2587",
+   "text": "[thrilled] Almeida takes the lead!"
+  },
+  "call.spin.almeida": {
+   "file": "call/call.spin.almeida.mp3",
+   "hash": "805c433b10e8",
+   "text": "[surprised] Almeida spins! Around it goes!"
+  },
+  "call.crash.almeida": {
+   "file": "call/call.crash.almeida.mp3",
+   "hash": "2f92e657b09c",
+   "text": "[shocked] Oh, trouble! Almeida, hard into the wall!"
+  },
+  "call.win.almeida": {
+   "file": "call/call.win.almeida.mp3",
+   "hash": "22179910ed38",
+   "text": "[triumphant] Checkered flag... and Almeida wins it!"
+  },
+  "call.bold.almeida": {
+   "file": "call/call.bold.almeida.mp3",
+   "hash": "dda0d3523dbe",
+   "text": "[explosive] Oh, buddy! Almeida just threw it in there!"
+  },
+  "call.pass.balogun": {
+   "file": "call/call.pass.balogun.mp3",
+   "hash": "c2a299cca20b",
+   "text": "[building] Balogun gets the run... and makes it stick!"
+  },
+  "call.lead.balogun": {
+   "file": "call/call.lead.balogun.mp3",
+   "hash": "98edfbcd3e95",
+   "text": "[thrilled] Balogun takes the lead!"
+  },
+  "call.save.almeida": {
+   "file": "call/call.save.almeida.mp3",
+   "hash": "d78d7b38be1e",
+   "text": "[tense, laughing] Almeida's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.balogun": {
+   "file": "call/call.spin.balogun.mp3",
+   "hash": "c0560e91198a",
+   "text": "[surprised] Balogun spins! Around it goes!"
+  },
+  "call.crash.balogun": {
+   "file": "call/call.crash.balogun.mp3",
+   "hash": "a67497482fc3",
+   "text": "[shocked] Oh, trouble! Balogun, hard into the wall!"
+  },
+  "call.win.balogun": {
+   "file": "call/call.win.balogun.mp3",
+   "hash": "22b8d31f38b4",
+   "text": "[triumphant] Checkered flag... and Balogun wins it!"
+  },
+  "call.bold.balogun": {
+   "file": "call/call.bold.balogun.mp3",
+   "hash": "87ec2dbcdb8d",
+   "text": "[explosive] Oh, buddy! Balogun just threw it in there!"
+  },
+  "call.pass.barbosa": {
+   "file": "call/call.pass.barbosa.mp3",
+   "hash": "524a315821f0",
+   "text": "[building] Barbosa gets the run... and makes it stick!"
+  },
+  "call.save.balogun": {
+   "file": "call/call.save.balogun.mp3",
+   "hash": "923c722a1cd3",
+   "text": "[tense, laughing] Balogun's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.barbosa": {
+   "file": "call/call.lead.barbosa.mp3",
+   "hash": "ea0e079f4418",
+   "text": "[thrilled] Barbosa takes the lead!"
+  },
+  "call.spin.barbosa": {
+   "file": "call/call.spin.barbosa.mp3",
+   "hash": "bedde920cdeb",
+   "text": "[surprised] Barbosa spins! Around it goes!"
+  },
+  "call.crash.barbosa": {
+   "file": "call/call.crash.barbosa.mp3",
+   "hash": "178307e8c717",
+   "text": "[shocked] Oh, trouble! Barbosa, hard into the wall!"
+  },
+  "call.win.barbosa": {
+   "file": "call/call.win.barbosa.mp3",
+   "hash": "6c8e1bbc9052",
+   "text": "[triumphant] Checkered flag... and Barbosa wins it!"
+  },
+  "call.bold.barbosa": {
+   "file": "call/call.bold.barbosa.mp3",
+   "hash": "aa7cfacb0e65",
+   "text": "[explosive] Oh, buddy! Barbosa just threw it in there!"
+  },
+  "call.pass.becker": {
+   "file": "call/call.pass.becker.mp3",
+   "hash": "86bba788e730",
+   "text": "[building] Becker gets the run... and makes it stick!"
+  },
+  "call.save.barbosa": {
+   "file": "call/call.save.barbosa.mp3",
+   "hash": "fc0065a096fc",
+   "text": "[tense, laughing] Barbosa's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.becker": {
+   "file": "call/call.lead.becker.mp3",
+   "hash": "c290d2ad83fc",
+   "text": "[thrilled] Becker takes the lead!"
+  },
+  "call.spin.becker": {
+   "file": "call/call.spin.becker.mp3",
+   "hash": "018c1ceee35a",
+   "text": "[surprised] Becker spins! Around it goes!"
+  },
+  "call.crash.becker": {
+   "file": "call/call.crash.becker.mp3",
+   "hash": "5a52e9fd7d1c",
+   "text": "[shocked] Oh, trouble! Becker, hard into the wall!"
+  },
+  "call.win.becker": {
+   "file": "call/call.win.becker.mp3",
+   "hash": "575b53f9b072",
+   "text": "[triumphant] Checkered flag... and Becker wins it!"
+  },
+  "call.bold.becker": {
+   "file": "call/call.bold.becker.mp3",
+   "hash": "0fab6737949d",
+   "text": "[explosive] Oh, buddy! Becker just threw it in there!"
+  },
+  "call.lead.bennett": {
+   "file": "call/call.lead.bennett.mp3",
+   "hash": "47b7b0faf608",
+   "text": "[thrilled] Bennett takes the lead!"
+  },
+  "call.pass.bennett": {
+   "file": "call/call.pass.bennett.mp3",
+   "hash": "0649f139b315",
+   "text": "[building] Bennett gets the run... and makes it stick!"
+  },
+  "call.save.becker": {
+   "file": "call/call.save.becker.mp3",
+   "hash": "465d598ab68f",
+   "text": "[tense, laughing] Becker's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.bennett": {
+   "file": "call/call.spin.bennett.mp3",
+   "hash": "30683832cc18",
+   "text": "[surprised] Bennett spins! Around it goes!"
+  },
+  "call.crash.bennett": {
+   "file": "call/call.crash.bennett.mp3",
+   "hash": "4738b10a2a34",
+   "text": "[shocked] Oh, trouble! Bennett, hard into the wall!"
+  },
+  "call.win.bennett": {
+   "file": "call/call.win.bennett.mp3",
+   "hash": "9922f13767df",
+   "text": "[triumphant] Checkered flag... and Bennett wins it!"
+  },
+  "call.bold.bennett": {
+   "file": "call/call.bold.bennett.mp3",
+   "hash": "47eb73297aa0",
+   "text": "[explosive] Oh, buddy! Bennett just threw it in there!"
+  },
+  "call.pass.berg": {
+   "file": "call/call.pass.berg.mp3",
+   "hash": "7870c8ee4b27",
+   "text": "[building] Berg gets the run... and makes it stick!"
+  },
+  "call.save.bennett": {
+   "file": "call/call.save.bennett.mp3",
+   "hash": "cf78d6e5a867",
+   "text": "[tense, laughing] Bennett's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.berg": {
+   "file": "call/call.lead.berg.mp3",
+   "hash": "649a18966a2d",
+   "text": "[thrilled] Berg takes the lead!"
+  },
+  "call.spin.berg": {
+   "file": "call/call.spin.berg.mp3",
+   "hash": "fcd4c80acda1",
+   "text": "[surprised] Berg spins! Around it goes!"
+  },
+  "call.crash.berg": {
+   "file": "call/call.crash.berg.mp3",
+   "hash": "28eccc9e9a14",
+   "text": "[shocked] Oh, trouble! Berg, hard into the wall!"
+  },
+  "call.win.berg": {
+   "file": "call/call.win.berg.mp3",
+   "hash": "6c2dc7ecb4f4",
+   "text": "[triumphant] Checkered flag... and Berg wins it!"
+  },
+  "call.bold.berg": {
+   "file": "call/call.bold.berg.mp3",
+   "hash": "86cffb7b31b0",
+   "text": "[explosive] Oh, buddy! Berg just threw it in there!"
+  },
+  "call.save.berg": {
+   "file": "call/call.save.berg.mp3",
+   "hash": "1ac17b7ce480",
+   "text": "[tense, laughing] Berg's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.pass.bianchi": {
+   "file": "call/call.pass.bianchi.mp3",
+   "hash": "a3f5949b8f69",
+   "text": "[building] Bianchi gets the run... and makes it stick!"
+  },
+  "call.lead.bianchi": {
+   "file": "call/call.lead.bianchi.mp3",
+   "hash": "119e085091b5",
+   "text": "[thrilled] Bianchi takes the lead!"
+  },
+  "call.spin.bianchi": {
+   "file": "call/call.spin.bianchi.mp3",
+   "hash": "26770e9d16f3",
+   "text": "[surprised] Bianchi spins! Around it goes!"
+  },
+  "call.win.bianchi": {
+   "file": "call/call.win.bianchi.mp3",
+   "hash": "2badc156bb2b",
+   "text": "[triumphant] Checkered flag... and Bianchi wins it!"
+  },
+  "call.crash.bianchi": {
+   "file": "call/call.crash.bianchi.mp3",
+   "hash": "9eb1ea0200b8",
+   "text": "[shocked] Oh, trouble! Bianchi, hard into the wall!"
+  },
+  "call.bold.bianchi": {
+   "file": "call/call.bold.bianchi.mp3",
+   "hash": "2460848484c4",
+   "text": "[explosive] Oh, buddy! Bianchi just threw it in there!"
+  },
+  "call.pass.brandt": {
+   "file": "call/call.pass.brandt.mp3",
+   "hash": "e417b8c17b79",
+   "text": "[building] Brandt gets the run... and makes it stick!"
+  },
+  "call.save.bianchi": {
+   "file": "call/call.save.bianchi.mp3",
+   "hash": "ed214bb3cf53",
+   "text": "[tense, laughing] Bianchi's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.brandt": {
+   "file": "call/call.lead.brandt.mp3",
+   "hash": "a3729fcf71ad",
+   "text": "[thrilled] Brandt takes the lead!"
+  },
+  "call.spin.brandt": {
+   "file": "call/call.spin.brandt.mp3",
+   "hash": "4542cc0741dc",
+   "text": "[surprised] Brandt spins! Around it goes!"
+  },
+  "call.win.brandt": {
+   "file": "call/call.win.brandt.mp3",
+   "hash": "c60576ab15fd",
+   "text": "[triumphant] Checkered flag... and Brandt wins it!"
+  },
+  "call.crash.brandt": {
+   "file": "call/call.crash.brandt.mp3",
+   "hash": "5f31fd3d8560",
+   "text": "[shocked] Oh, trouble! Brandt, hard into the wall!"
+  },
+  "call.bold.brandt": {
+   "file": "call/call.bold.brandt.mp3",
+   "hash": "963d725dd1f0",
+   "text": "[explosive] Oh, buddy! Brandt just threw it in there!"
+  },
+  "call.pass.brooks": {
+   "file": "call/call.pass.brooks.mp3",
+   "hash": "9912e83015a1",
+   "text": "[building] Brooks gets the run... and makes it stick!"
+  },
+  "call.lead.brooks": {
+   "file": "call/call.lead.brooks.mp3",
+   "hash": "0c26a9c92656",
+   "text": "[thrilled] Brooks takes the lead!"
+  },
+  "call.save.brandt": {
+   "file": "call/call.save.brandt.mp3",
+   "hash": "a728d9327649",
+   "text": "[tense, laughing] Brandt's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.brooks": {
+   "file": "call/call.spin.brooks.mp3",
+   "hash": "986a99fdd79f",
+   "text": "[surprised] Brooks spins! Around it goes!"
+  },
+  "call.crash.brooks": {
+   "file": "call/call.crash.brooks.mp3",
+   "hash": "c4b8528e6979",
+   "text": "[shocked] Oh, trouble! Brooks, hard into the wall!"
+  },
+  "call.win.brooks": {
+   "file": "call/call.win.brooks.mp3",
+   "hash": "1a9c89ea4a73",
+   "text": "[triumphant] Checkered flag... and Brooks wins it!"
+  },
+  "call.bold.brooks": {
+   "file": "call/call.bold.brooks.mp3",
+   "hash": "36f3fc1b8514",
+   "text": "[explosive] Oh, buddy! Brooks just threw it in there!"
+  },
+  "call.pass.byrne": {
+   "file": "call/call.pass.byrne.mp3",
+   "hash": "582ec10319d0",
+   "text": "[building] Byrne gets the run... and makes it stick!"
+  },
+  "call.save.brooks": {
+   "file": "call/call.save.brooks.mp3",
+   "hash": "ecd908763f8b",
+   "text": "[tense, laughing] Brooks's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.byrne": {
+   "file": "call/call.lead.byrne.mp3",
+   "hash": "22680794a7a5",
+   "text": "[thrilled] Byrne takes the lead!"
+  },
+  "call.spin.byrne": {
+   "file": "call/call.spin.byrne.mp3",
+   "hash": "1e735cd221f4",
+   "text": "[surprised] Byrne spins! Around it goes!"
+  },
+  "call.win.byrne": {
+   "file": "call/call.win.byrne.mp3",
+   "hash": "4823dcee2c6d",
+   "text": "[triumphant] Checkered flag... and Byrne wins it!"
+  },
+  "call.crash.byrne": {
+   "file": "call/call.crash.byrne.mp3",
+   "hash": "54d577cc27ae",
+   "text": "[shocked] Oh, trouble! Byrne, hard into the wall!"
+  },
+  "call.bold.byrne": {
+   "file": "call/call.bold.byrne.mp3",
+   "hash": "54dc1247e315",
+   "text": "[explosive] Oh, buddy! Byrne just threw it in there!"
+  },
+  "call.pass.carter": {
+   "file": "call/call.pass.carter.mp3",
+   "hash": "de989ce91160",
+   "text": "[building] Carter gets the run... and makes it stick!"
+  },
+  "call.save.byrne": {
+   "file": "call/call.save.byrne.mp3",
+   "hash": "0da4ea14af70",
+   "text": "[tense, laughing] Byrne's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.carter": {
+   "file": "call/call.lead.carter.mp3",
+   "hash": "fe2f54459305",
+   "text": "[thrilled] Carter takes the lead!"
+  },
+  "call.spin.carter": {
+   "file": "call/call.spin.carter.mp3",
+   "hash": "ed3378de90d5",
+   "text": "[surprised] Carter spins! Around it goes!"
+  },
+  "call.crash.carter": {
+   "file": "call/call.crash.carter.mp3",
+   "hash": "7670722701df",
+   "text": "[shocked] Oh, trouble! Carter, hard into the wall!"
+  },
+  "call.win.carter": {
+   "file": "call/call.win.carter.mp3",
+   "hash": "7bc414618276",
+   "text": "[triumphant] Checkered flag... and Carter wins it!"
+  },
+  "call.bold.carter": {
+   "file": "call/call.bold.carter.mp3",
+   "hash": "abd100751e16",
+   "text": "[explosive] Oh, buddy! Carter just threw it in there!"
+  },
+  "call.pass.castillo": {
+   "file": "call/call.pass.castillo.mp3",
+   "hash": "c062d9874e55",
+   "text": "[building] Castillo gets the run... and makes it stick!"
+  },
+  "call.save.carter": {
+   "file": "call/call.save.carter.mp3",
+   "hash": "9cafdfe950bd",
+   "text": "[tense, laughing] Carter's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.castillo": {
+   "file": "call/call.lead.castillo.mp3",
+   "hash": "fefebaabcae3",
+   "text": "[thrilled] Castillo takes the lead!"
+  },
+  "call.spin.castillo": {
+   "file": "call/call.spin.castillo.mp3",
+   "hash": "276b3a71390f",
+   "text": "[surprised] Castillo spins! Around it goes!"
+  },
+  "call.crash.castillo": {
+   "file": "call/call.crash.castillo.mp3",
+   "hash": "2bee0a58ec41",
+   "text": "[shocked] Oh, trouble! Castillo, hard into the wall!"
+  },
+  "call.win.castillo": {
+   "file": "call/call.win.castillo.mp3",
+   "hash": "8b6cdde7174a",
+   "text": "[triumphant] Checkered flag... and Castillo wins it!"
+  },
+  "call.bold.castillo": {
+   "file": "call/call.bold.castillo.mp3",
+   "hash": "b53ca1ae8009",
+   "text": "[explosive] Oh, buddy! Castillo just threw it in there!"
+  },
+  "call.pass.choi": {
+   "file": "call/call.pass.choi.mp3",
+   "hash": "ba89a069702b",
+   "text": "[building] Choi gets the run... and makes it stick!"
+  },
+  "call.save.castillo": {
+   "file": "call/call.save.castillo.mp3",
+   "hash": "3bc7ca02f24e",
+   "text": "[tense, laughing] Castillo's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.choi": {
+   "file": "call/call.lead.choi.mp3",
+   "hash": "cc510b5f3940",
+   "text": "[thrilled] Choi takes the lead!"
+  },
+  "call.spin.choi": {
+   "file": "call/call.spin.choi.mp3",
+   "hash": "97b40d417a06",
+   "text": "[surprised] Choi spins! Around it goes!"
+  },
+  "call.win.choi": {
+   "file": "call/call.win.choi.mp3",
+   "hash": "22fa66418405",
+   "text": "[triumphant] Checkered flag... and Choi wins it!"
+  },
+  "call.crash.choi": {
+   "file": "call/call.crash.choi.mp3",
+   "hash": "881f8d84b81b",
+   "text": "[shocked] Oh, trouble! Choi, hard into the wall!"
+  },
+  "call.bold.choi": {
+   "file": "call/call.bold.choi.mp3",
+   "hash": "6af2727bfc5b",
+   "text": "[explosive] Oh, buddy! Choi just threw it in there!"
+  },
+  "call.pass.conti": {
+   "file": "call/call.pass.conti.mp3",
+   "hash": "bd4d23b22359",
+   "text": "[building] Conti gets the run... and makes it stick!"
+  },
+  "call.save.choi": {
+   "file": "call/call.save.choi.mp3",
+   "hash": "34423dad000e",
+   "text": "[tense, laughing] Choi's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.conti": {
+   "file": "call/call.lead.conti.mp3",
+   "hash": "2db473073271",
+   "text": "[thrilled] Conti takes the lead!"
+  },
+  "call.spin.conti": {
+   "file": "call/call.spin.conti.mp3",
+   "hash": "bb8b18f2b187",
+   "text": "[surprised] Conti spins! Around it goes!"
+  },
+  "call.crash.conti": {
+   "file": "call/call.crash.conti.mp3",
+   "hash": "626ed9c1a9d4",
+   "text": "[shocked] Oh, trouble! Conti, hard into the wall!"
+  },
+  "call.win.conti": {
+   "file": "call/call.win.conti.mp3",
+   "hash": "1bc68a61a923",
+   "text": "[triumphant] Checkered flag... and Conti wins it!"
+  },
+  "call.bold.conti": {
+   "file": "call/call.bold.conti.mp3",
+   "hash": "6b185fdb9eb3",
+   "text": "[explosive] Oh, buddy! Conti just threw it in there!"
+  },
+  "call.lead.costa": {
+   "file": "call/call.lead.costa.mp3",
+   "hash": "b93def019ed7",
+   "text": "[thrilled] Costa takes the lead!"
+  },
+  "call.pass.costa": {
+   "file": "call/call.pass.costa.mp3",
+   "hash": "89e3b6e7de05",
+   "text": "[building] Costa gets the run... and makes it stick!"
+  },
+  "call.save.conti": {
+   "file": "call/call.save.conti.mp3",
+   "hash": "5a3456d8c2fa",
+   "text": "[tense, laughing] Conti's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.costa": {
+   "file": "call/call.spin.costa.mp3",
+   "hash": "9ffb39545513",
+   "text": "[surprised] Costa spins! Around it goes!"
+  },
+  "call.crash.costa": {
+   "file": "call/call.crash.costa.mp3",
+   "hash": "8d3c476706de",
+   "text": "[shocked] Oh, trouble! Costa, hard into the wall!"
+  },
+  "call.win.costa": {
+   "file": "call/call.win.costa.mp3",
+   "hash": "24551b244252",
+   "text": "[triumphant] Checkered flag... and Costa wins it!"
+  },
+  "call.bold.costa": {
+   "file": "call/call.bold.costa.mp3",
+   "hash": "1cde0f246d8f",
+   "text": "[explosive] Oh, buddy! Costa just threw it in there!"
+  },
+  "call.lead.cruz": {
+   "file": "call/call.lead.cruz.mp3",
+   "hash": "7e711151b045",
+   "text": "[thrilled] Cruz takes the lead!"
+  },
+  "call.pass.cruz": {
+   "file": "call/call.pass.cruz.mp3",
+   "hash": "eb3dcf7d5ed6",
+   "text": "[building] Cruz gets the run... and makes it stick!"
+  },
+  "call.save.costa": {
+   "file": "call/call.save.costa.mp3",
+   "hash": "a916f087e3bf",
+   "text": "[tense, laughing] Costa's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.cruz": {
+   "file": "call/call.spin.cruz.mp3",
+   "hash": "b4c17ec5e9ae",
+   "text": "[surprised] Cruz spins! Around it goes!"
+  },
+  "call.crash.cruz": {
+   "file": "call/call.crash.cruz.mp3",
+   "hash": "cc80995eee72",
+   "text": "[shocked] Oh, trouble! Cruz, hard into the wall!"
+  },
+  "call.win.cruz": {
+   "file": "call/call.win.cruz.mp3",
+   "hash": "294498c478a1",
+   "text": "[triumphant] Checkered flag... and Cruz wins it!"
+  },
+  "call.bold.cruz": {
+   "file": "call/call.bold.cruz.mp3",
+   "hash": "72f5942c9216",
+   "text": "[explosive] Oh, buddy! Cruz just threw it in there!"
+  },
+  "call.pass.dalton": {
+   "file": "call/call.pass.dalton.mp3",
+   "hash": "18e0196c2c51",
+   "text": "[building] Dalton gets the run... and makes it stick!"
+  },
+  "call.save.cruz": {
+   "file": "call/call.save.cruz.mp3",
+   "hash": "44f835e361ad",
+   "text": "[tense, laughing] Cruz's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.dalton": {
+   "file": "call/call.lead.dalton.mp3",
+   "hash": "7e9ca327935d",
+   "text": "[thrilled] Dalton takes the lead!"
+  },
+  "call.spin.dalton": {
+   "file": "call/call.spin.dalton.mp3",
+   "hash": "e184a70e6185",
+   "text": "[surprised] Dalton spins! Around it goes!"
+  },
+  "call.crash.dalton": {
+   "file": "call/call.crash.dalton.mp3",
+   "hash": "4d0f13aab278",
+   "text": "[shocked] Oh, trouble! Dalton, hard into the wall!"
+  },
+  "call.win.dalton": {
+   "file": "call/call.win.dalton.mp3",
+   "hash": "7f5cee1a2a11",
+   "text": "[triumphant] Checkered flag... and Dalton wins it!"
+  },
+  "call.bold.dalton": {
+   "file": "call/call.bold.dalton.mp3",
+   "hash": "b8c6226f7a0f",
+   "text": "[explosive] Oh, buddy! Dalton just threw it in there!"
+  },
+  "call.pass.doyle": {
+   "file": "call/call.pass.doyle.mp3",
+   "hash": "1ae6298132a0",
+   "text": "[building] Doyle gets the run... and makes it stick!"
+  },
+  "call.lead.doyle": {
+   "file": "call/call.lead.doyle.mp3",
+   "hash": "fe3917d34fb1",
+   "text": "[thrilled] Doyle takes the lead!"
+  },
+  "call.save.dalton": {
+   "file": "call/call.save.dalton.mp3",
+   "hash": "906f14ace962",
+   "text": "[tense, laughing] Dalton's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.doyle": {
+   "file": "call/call.spin.doyle.mp3",
+   "hash": "011c5ed13a62",
+   "text": "[surprised] Doyle spins! Around it goes!"
+  },
+  "call.crash.doyle": {
+   "file": "call/call.crash.doyle.mp3",
+   "hash": "74221175363a",
+   "text": "[shocked] Oh, trouble! Doyle, hard into the wall!"
+  },
+  "call.win.doyle": {
+   "file": "call/call.win.doyle.mp3",
+   "hash": "f3a2e3811145",
+   "text": "[triumphant] Checkered flag... and Doyle wins it!"
+  },
+  "call.bold.doyle": {
+   "file": "call/call.bold.doyle.mp3",
+   "hash": "d804d818806c",
+   "text": "[explosive] Oh, buddy! Doyle just threw it in there!"
+  },
+  "call.pass.dubois": {
+   "file": "call/call.pass.dubois.mp3",
+   "hash": "662b976a099d",
+   "text": "[building] Dubois gets the run... and makes it stick!"
+  },
+  "call.lead.dubois": {
+   "file": "call/call.lead.dubois.mp3",
+   "hash": "191894ef081a",
+   "text": "[thrilled] Dubois takes the lead!"
+  },
+  "call.save.doyle": {
+   "file": "call/call.save.doyle.mp3",
+   "hash": "ac685e977a7a",
+   "text": "[tense, laughing] Doyle's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.dubois": {
+   "file": "call/call.spin.dubois.mp3",
+   "hash": "9b5fc2f7fd7f",
+   "text": "[surprised] Dubois spins! Around it goes!"
+  },
+  "call.crash.dubois": {
+   "file": "call/call.crash.dubois.mp3",
+   "hash": "6388d8203a03",
+   "text": "[shocked] Oh, trouble! Dubois, hard into the wall!"
+  },
+  "call.win.dubois": {
+   "file": "call/call.win.dubois.mp3",
+   "hash": "e7b7a490f6d7",
+   "text": "[triumphant] Checkered flag... and Dubois wins it!"
+  },
+  "call.bold.dubois": {
+   "file": "call/call.bold.dubois.mp3",
+   "hash": "566c50c474a7",
+   "text": "[explosive] Oh, buddy! Dubois just threw it in there!"
+  },
+  "call.pass.dudek": {
+   "file": "call/call.pass.dudek.mp3",
+   "hash": "62a705de2e5f",
+   "text": "[building] Dudek gets the run... and makes it stick!"
+  },
+  "call.save.dubois": {
+   "file": "call/call.save.dubois.mp3",
+   "hash": "93aa8ae9a02a",
+   "text": "[tense, laughing] Dubois's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.dudek": {
+   "file": "call/call.lead.dudek.mp3",
+   "hash": "1ca383f40e6d",
+   "text": "[thrilled] Dudek takes the lead!"
+  },
+  "call.spin.dudek": {
+   "file": "call/call.spin.dudek.mp3",
+   "hash": "7bee4fccb33a",
+   "text": "[surprised] Dudek spins! Around it goes!"
+  },
+  "call.crash.dudek": {
+   "file": "call/call.crash.dudek.mp3",
+   "hash": "cdfb1f3c3ad3",
+   "text": "[shocked] Oh, trouble! Dudek, hard into the wall!"
+  },
+  "call.win.dudek": {
+   "file": "call/call.win.dudek.mp3",
+   "hash": "cb179a9b1e50",
+   "text": "[triumphant] Checkered flag... and Dudek wins it!"
+  },
+  "call.bold.dudek": {
+   "file": "call/call.bold.dudek.mp3",
+   "hash": "bfebb5646022",
+   "text": "[explosive] Oh, buddy! Dudek just threw it in there!"
+  },
+  "call.pass.ek": {
+   "file": "call/call.pass.ek.mp3",
+   "hash": "62cfe1e045cd",
+   "text": "[building] Ek gets the run... and makes it stick!"
+  },
+  "call.lead.ek": {
+   "file": "call/call.lead.ek.mp3",
+   "hash": "411457f5ac7e",
+   "text": "[thrilled] Ek takes the lead!"
+  },
+  "call.save.dudek": {
+   "file": "call/call.save.dudek.mp3",
+   "hash": "21f47c9ad214",
+   "text": "[tense, laughing] Dudek's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.ek": {
+   "file": "call/call.spin.ek.mp3",
+   "hash": "2084521c87e3",
+   "text": "[surprised] Ek spins! Around it goes!"
+  },
+  "call.win.ek": {
+   "file": "call/call.win.ek.mp3",
+   "hash": "f94be18f003e",
+   "text": "[triumphant] Checkered flag... and Ek wins it!"
+  },
+  "call.crash.ek": {
+   "file": "call/call.crash.ek.mp3",
+   "hash": "a24b15623973",
+   "text": "[shocked] Oh, trouble! Ek, hard into the wall!"
+  },
+  "call.bold.ek": {
+   "file": "call/call.bold.ek.mp3",
+   "hash": "57116700fb03",
+   "text": "[explosive] Oh, buddy! Ek just threw it in there!"
+  },
+  "call.pass.eze": {
+   "file": "call/call.pass.eze.mp3",
+   "hash": "c3156d911154",
+   "text": "[building] Eh-zeh gets the run... and makes it stick!"
+  },
+  "call.lead.eze": {
+   "file": "call/call.lead.eze.mp3",
+   "hash": "e25c7c1ad6ce",
+   "text": "[thrilled] Eh-zeh takes the lead!"
+  },
+  "call.save.ek": {
+   "file": "call/call.save.ek.mp3",
+   "hash": "a67f1c51de17",
+   "text": "[tense, laughing] Ek's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.eze": {
+   "file": "call/call.spin.eze.mp3",
+   "hash": "bf7082e6d6c2",
+   "text": "[surprised] Eh-zeh spins! Around it goes!"
+  },
+  "call.crash.eze": {
+   "file": "call/call.crash.eze.mp3",
+   "hash": "a97818e39c15",
+   "text": "[shocked] Oh, trouble! Eh-zeh, hard into the wall!"
+  },
+  "call.win.eze": {
+   "file": "call/call.win.eze.mp3",
+   "hash": "72b5fc1b0dfe",
+   "text": "[triumphant] Checkered flag... and Eh-zeh wins it!"
+  },
+  "call.bold.eze": {
+   "file": "call/call.bold.eze.mp3",
+   "hash": "bba019dfc6d8",
+   "text": "[explosive] Oh, buddy! Eh-zeh just threw it in there!"
+  },
+  "call.pass.ferraro": {
+   "file": "call/call.pass.ferraro.mp3",
+   "hash": "98ee61732b16",
+   "text": "[building] Ferraro gets the run... and makes it stick!"
+  },
+  "call.lead.ferraro": {
+   "file": "call/call.lead.ferraro.mp3",
+   "hash": "813c9a6d77f3",
+   "text": "[thrilled] Ferraro takes the lead!"
+  },
+  "call.save.eze": {
+   "file": "call/call.save.eze.mp3",
+   "hash": "a69816f8e645",
+   "text": "[tense, laughing] Eh-zeh's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.ferraro": {
+   "file": "call/call.spin.ferraro.mp3",
+   "hash": "c01a3452108f",
+   "text": "[surprised] Ferraro spins! Around it goes!"
+  },
+  "call.crash.ferraro": {
+   "file": "call/call.crash.ferraro.mp3",
+   "hash": "fc1603924e77",
+   "text": "[shocked] Oh, trouble! Ferraro, hard into the wall!"
+  },
+  "call.win.ferraro": {
+   "file": "call/call.win.ferraro.mp3",
+   "hash": "eaa21de66f48",
+   "text": "[triumphant] Checkered flag... and Ferraro wins it!"
+  },
+  "call.bold.ferraro": {
+   "file": "call/call.bold.ferraro.mp3",
+   "hash": "6db22cd09c54",
+   "text": "[explosive] Oh, buddy! Ferraro just threw it in there!"
+  },
+  "call.pass.ferreira": {
+   "file": "call/call.pass.ferreira.mp3",
+   "hash": "7e844d4ac877",
+   "text": "[building] Ferreira gets the run... and makes it stick!"
+  },
+  "call.save.ferraro": {
+   "file": "call/call.save.ferraro.mp3",
+   "hash": "2f4fba9501bd",
+   "text": "[tense, laughing] Ferraro's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.ferreira": {
+   "file": "call/call.lead.ferreira.mp3",
+   "hash": "7376ec10d468",
+   "text": "[thrilled] Ferreira takes the lead!"
+  },
+  "call.spin.ferreira": {
+   "file": "call/call.spin.ferreira.mp3",
+   "hash": "ddf8772efd8d",
+   "text": "[surprised] Ferreira spins! Around it goes!"
+  },
+  "call.crash.ferreira": {
+   "file": "call/call.crash.ferreira.mp3",
+   "hash": "3a2e68c19883",
+   "text": "[shocked] Oh, trouble! Ferreira, hard into the wall!"
+  },
+  "call.win.ferreira": {
+   "file": "call/call.win.ferreira.mp3",
+   "hash": "6a3a46cf40f1",
+   "text": "[triumphant] Checkered flag... and Ferreira wins it!"
+  },
+  "call.bold.ferreira": {
+   "file": "call/call.bold.ferreira.mp3",
+   "hash": "06bfe06e39b3",
+   "text": "[explosive] Oh, buddy! Ferreira just threw it in there!"
+  },
+  "call.pass.fletcher": {
+   "file": "call/call.pass.fletcher.mp3",
+   "hash": "e74eb9ce48a5",
+   "text": "[building] Fletcher gets the run... and makes it stick!"
+  },
+  "call.save.ferreira": {
+   "file": "call/call.save.ferreira.mp3",
+   "hash": "8d237d73267d",
+   "text": "[tense, laughing] Ferreira's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.fletcher": {
+   "file": "call/call.lead.fletcher.mp3",
+   "hash": "b52eac23ec44",
+   "text": "[thrilled] Fletcher takes the lead!"
+  },
+  "call.spin.fletcher": {
+   "file": "call/call.spin.fletcher.mp3",
+   "hash": "afb078d14234",
+   "text": "[surprised] Fletcher spins! Around it goes!"
+  },
+  "call.crash.fletcher": {
+   "file": "call/call.crash.fletcher.mp3",
+   "hash": "8442464e98c4",
+   "text": "[shocked] Oh, trouble! Fletcher, hard into the wall!"
+  },
+  "call.win.fletcher": {
+   "file": "call/call.win.fletcher.mp3",
+   "hash": "74490381f2e0",
+   "text": "[triumphant] Checkered flag... and Fletcher wins it!"
+  },
+  "call.bold.fletcher": {
+   "file": "call/call.bold.fletcher.mp3",
+   "hash": "375d709c0110",
+   "text": "[explosive] Oh, buddy! Fletcher just threw it in there!"
+  },
+  "call.pass.fontaine": {
+   "file": "call/call.pass.fontaine.mp3",
+   "hash": "9af5c00d3880",
+   "text": "[building] Fontaine gets the run... and makes it stick!"
+  },
+  "call.lead.fontaine": {
+   "file": "call/call.lead.fontaine.mp3",
+   "hash": "e3df4ff039d8",
+   "text": "[thrilled] Fontaine takes the lead!"
+  },
+  "call.save.fletcher": {
+   "file": "call/call.save.fletcher.mp3",
+   "hash": "46302508c297",
+   "text": "[tense, laughing] Fletcher's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.fontaine": {
+   "file": "call/call.spin.fontaine.mp3",
+   "hash": "a3cb6bb976f6",
+   "text": "[surprised] Fontaine spins! Around it goes!"
+  },
+  "call.crash.fontaine": {
+   "file": "call/call.crash.fontaine.mp3",
+   "hash": "15c68f634291",
+   "text": "[shocked] Oh, trouble! Fontaine, hard into the wall!"
+  },
+  "call.win.fontaine": {
+   "file": "call/call.win.fontaine.mp3",
+   "hash": "81c97ac2005d",
+   "text": "[triumphant] Checkered flag... and Fontaine wins it!"
+  },
+  "call.bold.fontaine": {
+   "file": "call/call.bold.fontaine.mp3",
+   "hash": "62022cf5402f",
+   "text": "[explosive] Oh, buddy! Fontaine just threw it in there!"
+  },
+  "call.pass.fujita": {
+   "file": "call/call.pass.fujita.mp3",
+   "hash": "907d2aceecad",
+   "text": "[building] Fujita gets the run... and makes it stick!"
+  },
+  "call.save.fontaine": {
+   "file": "call/call.save.fontaine.mp3",
+   "hash": "ce6c859bd3a7",
+   "text": "[tense, laughing] Fontaine's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.fujita": {
+   "file": "call/call.lead.fujita.mp3",
+   "hash": "da04a1f713c9",
+   "text": "[thrilled] Fujita takes the lead!"
+  },
+  "call.spin.fujita": {
+   "file": "call/call.spin.fujita.mp3",
+   "hash": "55266c208943",
+   "text": "[surprised] Fujita spins! Around it goes!"
+  },
+  "call.crash.fujita": {
+   "file": "call/call.crash.fujita.mp3",
+   "hash": "dd8d6c7a45d6",
+   "text": "[shocked] Oh, trouble! Fujita, hard into the wall!"
+  },
+  "call.win.fujita": {
+   "file": "call/call.win.fujita.mp3",
+   "hash": "22c875df3024",
+   "text": "[triumphant] Checkered flag... and Fujita wins it!"
+  },
+  "call.bold.fujita": {
+   "file": "call/call.bold.fujita.mp3",
+   "hash": "cf4ebc2f8f2c",
+   "text": "[explosive] Oh, buddy! Fujita just threw it in there!"
+  },
+  "call.pass.gibbs": {
+   "file": "call/call.pass.gibbs.mp3",
+   "hash": "0826080236b7",
+   "text": "[building] Gibbs gets the run... and makes it stick!"
+  },
+  "call.lead.gibbs": {
+   "file": "call/call.lead.gibbs.mp3",
+   "hash": "4c3d45c57e2d",
+   "text": "[thrilled] Gibbs takes the lead!"
+  },
+  "call.save.fujita": {
+   "file": "call/call.save.fujita.mp3",
+   "hash": "0c826649220d",
+   "text": "[tense, laughing] Fujita's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.gibbs": {
+   "file": "call/call.spin.gibbs.mp3",
+   "hash": "e33bb44aaab9",
+   "text": "[surprised] Gibbs spins! Around it goes!"
+  },
+  "call.crash.gibbs": {
+   "file": "call/call.crash.gibbs.mp3",
+   "hash": "976359854835",
+   "text": "[shocked] Oh, trouble! Gibbs, hard into the wall!"
+  },
+  "call.win.gibbs": {
+   "file": "call/call.win.gibbs.mp3",
+   "hash": "070a938105e3",
+   "text": "[triumphant] Checkered flag... and Gibbs wins it!"
+  },
+  "call.bold.gibbs": {
+   "file": "call/call.bold.gibbs.mp3",
+   "hash": "8ad745fea39f",
+   "text": "[explosive] Oh, buddy! Gibbs just threw it in there!"
+  },
+  "call.pass.girard": {
+   "file": "call/call.pass.girard.mp3",
+   "hash": "47e3bb595855",
+   "text": "[building] Girard gets the run... and makes it stick!"
+  },
+  "call.save.gibbs": {
+   "file": "call/call.save.gibbs.mp3",
+   "hash": "2a687b1eb642",
+   "text": "[tense, laughing] Gibbs's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.girard": {
+   "file": "call/call.lead.girard.mp3",
+   "hash": "20628c0fa7ab",
+   "text": "[thrilled] Girard takes the lead!"
+  },
+  "call.spin.girard": {
+   "file": "call/call.spin.girard.mp3",
+   "hash": "c841647ec0a7",
+   "text": "[surprised] Girard spins! Around it goes!"
+  },
+  "call.crash.girard": {
+   "file": "call/call.crash.girard.mp3",
+   "hash": "4349bde4afe4",
+   "text": "[shocked] Oh, trouble! Girard, hard into the wall!"
+  },
+  "call.win.girard": {
+   "file": "call/call.win.girard.mp3",
+   "hash": "5db207500531",
+   "text": "[triumphant] Checkered flag... and Girard wins it!"
+  },
+  "call.bold.girard": {
+   "file": "call/call.bold.girard.mp3",
+   "hash": "b865eb542c0d",
+   "text": "[explosive] Oh, buddy! Girard just threw it in there!"
+  },
+  "call.pass.greco": {
+   "file": "call/call.pass.greco.mp3",
+   "hash": "7691740cb4fa",
+   "text": "[building] Greco gets the run... and makes it stick!"
+  },
+  "call.lead.greco": {
+   "file": "call/call.lead.greco.mp3",
+   "hash": "aa81c2066f21",
+   "text": "[thrilled] Greco takes the lead!"
+  },
+  "call.save.girard": {
+   "file": "call/call.save.girard.mp3",
+   "hash": "4a0dbf210ed8",
+   "text": "[tense, laughing] Girard's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.greco": {
+   "file": "call/call.spin.greco.mp3",
+   "hash": "6cb49fd539c3",
+   "text": "[surprised] Greco spins! Around it goes!"
+  },
+  "call.crash.greco": {
+   "file": "call/call.crash.greco.mp3",
+   "hash": "237b820d4353",
+   "text": "[shocked] Oh, trouble! Greco, hard into the wall!"
+  },
+  "call.win.greco": {
+   "file": "call/call.win.greco.mp3",
+   "hash": "461dbffd1157",
+   "text": "[triumphant] Checkered flag... and Greco wins it!"
+  },
+  "call.bold.greco": {
+   "file": "call/call.bold.greco.mp3",
+   "hash": "6530129d7b82",
+   "text": "[explosive] Oh, buddy! Greco just threw it in there!"
+  },
+  "call.pass.guerra": {
+   "file": "call/call.pass.guerra.mp3",
+   "hash": "a3d790b56b3b",
+   "text": "[building] Guerra gets the run... and makes it stick!"
+  },
+  "call.save.greco": {
+   "file": "call/call.save.greco.mp3",
+   "hash": "0c461aadb2f4",
+   "text": "[tense, laughing] Greco's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.guerra": {
+   "file": "call/call.lead.guerra.mp3",
+   "hash": "997e5fa5b72e",
+   "text": "[thrilled] Guerra takes the lead!"
+  },
+  "call.spin.guerra": {
+   "file": "call/call.spin.guerra.mp3",
+   "hash": "bb08c1929f65",
+   "text": "[surprised] Guerra spins! Around it goes!"
+  },
+  "call.crash.guerra": {
+   "file": "call/call.crash.guerra.mp3",
+   "hash": "1c8e3192265e",
+   "text": "[shocked] Oh, trouble! Guerra, hard into the wall!"
+  },
+  "call.win.guerra": {
+   "file": "call/call.win.guerra.mp3",
+   "hash": "8b8f0155d573",
+   "text": "[triumphant] Checkered flag... and Guerra wins it!"
+  },
+  "call.bold.guerra": {
+   "file": "call/call.bold.guerra.mp3",
+   "hash": "e70e086d4ab2",
+   "text": "[explosive] Oh, buddy! Guerra just threw it in there!"
+  },
+  "call.pass.hale": {
+   "file": "call/call.pass.hale.mp3",
+   "hash": "ac8da0d11202",
+   "text": "[building] Hale gets the run... and makes it stick!"
+  },
+  "call.lead.hale": {
+   "file": "call/call.lead.hale.mp3",
+   "hash": "8e88cc8522e5",
+   "text": "[thrilled] Hale takes the lead!"
+  },
+  "call.save.guerra": {
+   "file": "call/call.save.guerra.mp3",
+   "hash": "8791e9ffc3a5",
+   "text": "[tense, laughing] Guerra's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.hale": {
+   "file": "call/call.spin.hale.mp3",
+   "hash": "df6e38fa8ae4",
+   "text": "[surprised] Hale spins! Around it goes!"
+  },
+  "call.crash.hale": {
+   "file": "call/call.crash.hale.mp3",
+   "hash": "1c8cd156a575",
+   "text": "[shocked] Oh, trouble! Hale, hard into the wall!"
+  },
+  "call.win.hale": {
+   "file": "call/call.win.hale.mp3",
+   "hash": "146152a66090",
+   "text": "[triumphant] Checkered flag... and Hale wins it!"
+  },
+  "call.bold.hale": {
+   "file": "call/call.bold.hale.mp3",
+   "hash": "7bab3dd6f6f9",
+   "text": "[explosive] Oh, buddy! Hale just threw it in there!"
+  },
+  "call.pass.han": {
+   "file": "call/call.pass.han.mp3",
+   "hash": "bd69c6fdfc63",
+   "text": "[building] Han gets the run... and makes it stick!"
+  },
+  "call.lead.han": {
+   "file": "call/call.lead.han.mp3",
+   "hash": "3c6eceba626d",
+   "text": "[thrilled] Han takes the lead!"
+  },
+  "call.save.hale": {
+   "file": "call/call.save.hale.mp3",
+   "hash": "4451d01e1768",
+   "text": "[tense, laughing] Hale's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.han": {
+   "file": "call/call.spin.han.mp3",
+   "hash": "90e3509510e6",
+   "text": "[surprised] Han spins! Around it goes!"
+  },
+  "call.crash.han": {
+   "file": "call/call.crash.han.mp3",
+   "hash": "ecd5991eaf9d",
+   "text": "[shocked] Oh, trouble! Han, hard into the wall!"
+  },
+  "call.win.han": {
+   "file": "call/call.win.han.mp3",
+   "hash": "6dd8b02a1c15",
+   "text": "[triumphant] Checkered flag... and Han wins it!"
+  },
+  "call.bold.han": {
+   "file": "call/call.bold.han.mp3",
+   "hash": "305093c28e86",
+   "text": "[explosive] Oh, buddy! Han just threw it in there!"
+  },
+  "call.pass.hayes": {
+   "file": "call/call.pass.hayes.mp3",
+   "hash": "a58195aa4b30",
+   "text": "[building] Hayes gets the run... and makes it stick!"
+  },
+  "call.lead.hayes": {
+   "file": "call/call.lead.hayes.mp3",
+   "hash": "424345a43ddd",
+   "text": "[thrilled] Hayes takes the lead!"
+  },
+  "call.save.han": {
+   "file": "call/call.save.han.mp3",
+   "hash": "25d447c4c829",
+   "text": "[tense, laughing] Han's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.hayes": {
+   "file": "call/call.spin.hayes.mp3",
+   "hash": "80e3838e391c",
+   "text": "[surprised] Hayes spins! Around it goes!"
+  },
+  "call.crash.hayes": {
+   "file": "call/call.crash.hayes.mp3",
+   "hash": "b48f77f82ecf",
+   "text": "[shocked] Oh, trouble! Hayes, hard into the wall!"
+  },
+  "call.win.hayes": {
+   "file": "call/call.win.hayes.mp3",
+   "hash": "09f20686d691",
+   "text": "[triumphant] Checkered flag... and Hayes wins it!"
+  },
+  "call.bold.hayes": {
+   "file": "call/call.bold.hayes.mp3",
+   "hash": "33bc6d198aae",
+   "text": "[explosive] Oh, buddy! Hayes just threw it in there!"
+  },
+  "call.pass.herrera": {
+   "file": "call/call.pass.herrera.mp3",
+   "hash": "4da91d12c54b",
+   "text": "[building] Herrera gets the run... and makes it stick!"
+  },
+  "call.lead.herrera": {
+   "file": "call/call.lead.herrera.mp3",
+   "hash": "8e49119ee135",
+   "text": "[thrilled] Herrera takes the lead!"
+  },
+  "call.save.hayes": {
+   "file": "call/call.save.hayes.mp3",
+   "hash": "e087a4d14e32",
+   "text": "[tense, laughing] Hayes's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.herrera": {
+   "file": "call/call.spin.herrera.mp3",
+   "hash": "e66fb64e7eef",
+   "text": "[surprised] Herrera spins! Around it goes!"
+  },
+  "call.crash.herrera": {
+   "file": "call/call.crash.herrera.mp3",
+   "hash": "255dc52d31b5",
+   "text": "[shocked] Oh, trouble! Herrera, hard into the wall!"
+  },
+  "call.win.herrera": {
+   "file": "call/call.win.herrera.mp3",
+   "hash": "3794de6caaff",
+   "text": "[triumphant] Checkered flag... and Herrera wins it!"
+  },
+  "call.bold.herrera": {
+   "file": "call/call.bold.herrera.mp3",
+   "hash": "be789f4c6241",
+   "text": "[explosive] Oh, buddy! Herrera just threw it in there!"
+  },
+  "call.pass.hoffmann": {
+   "file": "call/call.pass.hoffmann.mp3",
+   "hash": "1f4b49ede38a",
+   "text": "[building] Hoffmann gets the run... and makes it stick!"
+  },
+  "call.save.herrera": {
+   "file": "call/call.save.herrera.mp3",
+   "hash": "3bfe537c2eab",
+   "text": "[tense, laughing] Herrera's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.hoffmann": {
+   "file": "call/call.lead.hoffmann.mp3",
+   "hash": "adb027868818",
+   "text": "[thrilled] Hoffmann takes the lead!"
+  },
+  "call.spin.hoffmann": {
+   "file": "call/call.spin.hoffmann.mp3",
+   "hash": "3a75b0c7c768",
+   "text": "[surprised] Hoffmann spins! Around it goes!"
+  },
+  "call.crash.hoffmann": {
+   "file": "call/call.crash.hoffmann.mp3",
+   "hash": "e57d7d79d8a8",
+   "text": "[shocked] Oh, trouble! Hoffmann, hard into the wall!"
+  },
+  "call.win.hoffmann": {
+   "file": "call/call.win.hoffmann.mp3",
+   "hash": "414857020674",
+   "text": "[triumphant] Checkered flag... and Hoffmann wins it!"
+  },
+  "call.bold.hoffmann": {
+   "file": "call/call.bold.hoffmann.mp3",
+   "hash": "b08d30c11bab",
+   "text": "[explosive] Oh, buddy! Hoffmann just threw it in there!"
+  },
+  "call.pass.holm": {
+   "file": "call/call.pass.holm.mp3",
+   "hash": "c5656202178c",
+   "text": "[building] Holm gets the run... and makes it stick!"
+  },
+  "call.lead.holm": {
+   "file": "call/call.lead.holm.mp3",
+   "hash": "d80b93ea569b",
+   "text": "[thrilled] Holm takes the lead!"
+  },
+  "call.save.hoffmann": {
+   "file": "call/call.save.hoffmann.mp3",
+   "hash": "a1eeed26dbf9",
+   "text": "[tense, laughing] Hoffmann's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.holm": {
+   "file": "call/call.spin.holm.mp3",
+   "hash": "75f85718d112",
+   "text": "[surprised] Holm spins! Around it goes!"
+  },
+  "call.win.holm": {
+   "file": "call/call.win.holm.mp3",
+   "hash": "7717dc49a4fe",
+   "text": "[triumphant] Checkered flag... and Holm wins it!"
+  },
+  "call.crash.holm": {
+   "file": "call/call.crash.holm.mp3",
+   "hash": "a7f573d8f6e7",
+   "text": "[shocked] Oh, trouble! Holm, hard into the wall!"
+  },
+  "call.bold.holm": {
+   "file": "call/call.bold.holm.mp3",
+   "hash": "0f2de5408490",
+   "text": "[explosive] Oh, buddy! Holm just threw it in there!"
+  },
+  "call.pass.hughes": {
+   "file": "call/call.pass.hughes.mp3",
+   "hash": "bf1e2cb6a232",
+   "text": "[building] Hughes gets the run... and makes it stick!"
+  },
+  "call.lead.hughes": {
+   "file": "call/call.lead.hughes.mp3",
+   "hash": "a55140a34072",
+   "text": "[thrilled] Hughes takes the lead!"
+  },
+  "call.save.holm": {
+   "file": "call/call.save.holm.mp3",
+   "hash": "a5aae7424e5b",
+   "text": "[tense, laughing] Holm's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.hughes": {
+   "file": "call/call.spin.hughes.mp3",
+   "hash": "94990f5e798b",
+   "text": "[surprised] Hughes spins! Around it goes!"
+  },
+  "call.win.hughes": {
+   "file": "call/call.win.hughes.mp3",
+   "hash": "99878a8ed40c",
+   "text": "[triumphant] Checkered flag... and Hughes wins it!"
+  },
+  "call.crash.hughes": {
+   "file": "call/call.crash.hughes.mp3",
+   "hash": "c2971c8fc0a9",
+   "text": "[shocked] Oh, trouble! Hughes, hard into the wall!"
+  },
+  "call.bold.hughes": {
+   "file": "call/call.bold.hughes.mp3",
+   "hash": "789718809751",
+   "text": "[explosive] Oh, buddy! Hughes just threw it in there!"
+  },
+  "call.pass.ishida": {
+   "file": "call/call.pass.ishida.mp3",
+   "hash": "018812687952",
+   "text": "[building] Ishida gets the run... and makes it stick!"
+  },
+  "call.lead.ishida": {
+   "file": "call/call.lead.ishida.mp3",
+   "hash": "cef7edb88404",
+   "text": "[thrilled] Ishida takes the lead!"
+  },
+  "call.save.hughes": {
+   "file": "call/call.save.hughes.mp3",
+   "hash": "7e5afd9ad088",
+   "text": "[tense, laughing] Hughes's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.ishida": {
+   "file": "call/call.spin.ishida.mp3",
+   "hash": "6835432bec09",
+   "text": "[surprised] Ishida spins! Around it goes!"
+  },
+  "call.crash.ishida": {
+   "file": "call/call.crash.ishida.mp3",
+   "hash": "9192aeac25d7",
+   "text": "[shocked] Oh, trouble! Ishida, hard into the wall!"
+  },
+  "call.win.ishida": {
+   "file": "call/call.win.ishida.mp3",
+   "hash": "b56acd36b9f1",
+   "text": "[triumphant] Checkered flag... and Ishida wins it!"
+  },
+  "call.bold.ishida": {
+   "file": "call/call.bold.ishida.mp3",
+   "hash": "35c5737bc125",
+   "text": "[explosive] Oh, buddy! Ishida just threw it in there!"
+  },
+  "call.lead.jung": {
+   "file": "call/call.lead.jung.mp3",
+   "hash": "d7b0076c6167",
+   "text": "[thrilled] Jung takes the lead!"
+  },
+  "call.pass.jung": {
+   "file": "call/call.pass.jung.mp3",
+   "hash": "756c9a38d555",
+   "text": "[building] Jung gets the run... and makes it stick!"
+  },
+  "call.save.ishida": {
+   "file": "call/call.save.ishida.mp3",
+   "hash": "cfee1a04f96a",
+   "text": "[tense, laughing] Ishida's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.jung": {
+   "file": "call/call.spin.jung.mp3",
+   "hash": "f8de1bf11c96",
+   "text": "[surprised] Jung spins! Around it goes!"
+  },
+  "call.crash.jung": {
+   "file": "call/call.crash.jung.mp3",
+   "hash": "912a09d2afbc",
+   "text": "[shocked] Oh, trouble! Jung, hard into the wall!"
+  },
+  "call.win.jung": {
+   "file": "call/call.win.jung.mp3",
+   "hash": "fbfe536b46ef",
+   "text": "[triumphant] Checkered flag... and Jung wins it!"
+  },
+  "call.bold.jung": {
+   "file": "call/call.bold.jung.mp3",
+   "hash": "d3e9448e9cae",
+   "text": "[explosive] Oh, buddy! Jung just threw it in there!"
+  },
+  "call.pass.kang": {
+   "file": "call/call.pass.kang.mp3",
+   "hash": "c526dd63f8b0",
+   "text": "[building] Kang gets the run... and makes it stick!"
+  },
+  "call.save.jung": {
+   "file": "call/call.save.jung.mp3",
+   "hash": "775356f1b2ad",
+   "text": "[tense, laughing] Jung's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.kang": {
+   "file": "call/call.lead.kang.mp3",
+   "hash": "7c35a0f4f941",
+   "text": "[thrilled] Kang takes the lead!"
+  },
+  "call.spin.kang": {
+   "file": "call/call.spin.kang.mp3",
+   "hash": "0142ec7a80c8",
+   "text": "[surprised] Kang spins! Around it goes!"
+  },
+  "call.crash.kang": {
+   "file": "call/call.crash.kang.mp3",
+   "hash": "13c5930d1356",
+   "text": "[shocked] Oh, trouble! Kang, hard into the wall!"
+  },
+  "call.win.kang": {
+   "file": "call/call.win.kang.mp3",
+   "hash": "2299bb61de4a",
+   "text": "[triumphant] Checkered flag... and Kang wins it!"
+  },
+  "call.bold.kang": {
+   "file": "call/call.bold.kang.mp3",
+   "hash": "aae7c159bad1",
+   "text": "[explosive] Oh, buddy! Kang just threw it in there!"
+  },
+  "call.pass.keller": {
+   "file": "call/call.pass.keller.mp3",
+   "hash": "5933db5e2450",
+   "text": "[building] Keller gets the run... and makes it stick!"
+  },
+  "call.save.kang": {
+   "file": "call/call.save.kang.mp3",
+   "hash": "3611c58f20c8",
+   "text": "[tense, laughing] Kang's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.keller": {
+   "file": "call/call.lead.keller.mp3",
+   "hash": "685cb855feed",
+   "text": "[thrilled] Keller takes the lead!"
+  },
+  "call.spin.keller": {
+   "file": "call/call.spin.keller.mp3",
+   "hash": "7146a8a573c0",
+   "text": "[surprised] Keller spins! Around it goes!"
+  },
+  "call.win.keller": {
+   "file": "call/call.win.keller.mp3",
+   "hash": "848687db366a",
+   "text": "[triumphant] Checkered flag... and Keller wins it!"
+  },
+  "call.crash.keller": {
+   "file": "call/call.crash.keller.mp3",
+   "hash": "c9a2db8c5eff",
+   "text": "[shocked] Oh, trouble! Keller, hard into the wall!"
+  },
+  "call.bold.keller": {
+   "file": "call/call.bold.keller.mp3",
+   "hash": "7924180eafca",
+   "text": "[explosive] Oh, buddy! Keller just threw it in there!"
+  },
+  "call.pass.kelly": {
+   "file": "call/call.pass.kelly.mp3",
+   "hash": "31d3ec0907ea",
+   "text": "[building] Kelly gets the run... and makes it stick!"
+  },
+  "call.lead.kelly": {
+   "file": "call/call.lead.kelly.mp3",
+   "hash": "0797f80b99ef",
+   "text": "[thrilled] Kelly takes the lead!"
+  },
+  "call.save.keller": {
+   "file": "call/call.save.keller.mp3",
+   "hash": "b2a7fd6f778c",
+   "text": "[tense, laughing] Keller's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.kelly": {
+   "file": "call/call.spin.kelly.mp3",
+   "hash": "14c9d284faa8",
+   "text": "[surprised] Kelly spins! Around it goes!"
+  },
+  "call.crash.kelly": {
+   "file": "call/call.crash.kelly.mp3",
+   "hash": "729628eb8756",
+   "text": "[shocked] Oh, trouble! Kelly, hard into the wall!"
+  },
+  "call.win.kelly": {
+   "file": "call/call.win.kelly.mp3",
+   "hash": "46f5ec22b382",
+   "text": "[triumphant] Checkered flag... and Kelly wins it!"
+  },
+  "call.bold.kelly": {
+   "file": "call/call.bold.kelly.mp3",
+   "hash": "87fc051a3a4f",
+   "text": "[explosive] Oh, buddy! Kelly just threw it in there!"
+  },
+  "call.pass.kim": {
+   "file": "call/call.pass.kim.mp3",
+   "hash": "c515b57756f6",
+   "text": "[building] Kim gets the run... and makes it stick!"
+  },
+  "call.lead.kim": {
+   "file": "call/call.lead.kim.mp3",
+   "hash": "b3ca29529e4c",
+   "text": "[thrilled] Kim takes the lead!"
+  },
+  "call.save.kelly": {
+   "file": "call/call.save.kelly.mp3",
+   "hash": "36fe5fb85237",
+   "text": "[tense, laughing] Kelly's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.kim": {
+   "file": "call/call.spin.kim.mp3",
+   "hash": "bfc1a5b9ddee",
+   "text": "[surprised] Kim spins! Around it goes!"
+  },
+  "call.crash.kim": {
+   "file": "call/call.crash.kim.mp3",
+   "hash": "8228151d1bd0",
+   "text": "[shocked] Oh, trouble! Kim, hard into the wall!"
+  },
+  "call.win.kim": {
+   "file": "call/call.win.kim.mp3",
+   "hash": "dd838763ab7b",
+   "text": "[triumphant] Checkered flag... and Kim wins it!"
+  },
+  "call.bold.kim": {
+   "file": "call/call.bold.kim.mp3",
+   "hash": "0b4ea4e1f7af",
+   "text": "[explosive] Oh, buddy! Kim just threw it in there!"
+  },
+  "call.pass.kobayashi": {
+   "file": "call/call.pass.kobayashi.mp3",
+   "hash": "43f8818a6cf3",
+   "text": "[building] Kobayashi gets the run... and makes it stick!"
+  },
+  "call.lead.kobayashi": {
+   "file": "call/call.lead.kobayashi.mp3",
+   "hash": "5439985f3e32",
+   "text": "[thrilled] Kobayashi takes the lead!"
+  },
+  "call.save.kim": {
+   "file": "call/call.save.kim.mp3",
+   "hash": "e2aa9ca1edc2",
+   "text": "[tense, laughing] Kim's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.kobayashi": {
+   "file": "call/call.spin.kobayashi.mp3",
+   "hash": "1e803efda32b",
+   "text": "[surprised] Kobayashi spins! Around it goes!"
+  },
+  "call.win.kobayashi": {
+   "file": "call/call.win.kobayashi.mp3",
+   "hash": "7c6cd97b3401",
+   "text": "[triumphant] Checkered flag... and Kobayashi wins it!"
+  },
+  "call.crash.kobayashi": {
+   "file": "call/call.crash.kobayashi.mp3",
+   "hash": "a8f240e0990a",
+   "text": "[shocked] Oh, trouble! Kobayashi, hard into the wall!"
+  },
+  "call.bold.kobayashi": {
+   "file": "call/call.bold.kobayashi.mp3",
+   "hash": "15d5f1042c29",
+   "text": "[explosive] Oh, buddy! Kobayashi just threw it in there!"
+  },
+  "call.pass.kowalski": {
+   "file": "call/call.pass.kowalski.mp3",
+   "hash": "b19abe79e327",
+   "text": "[building] Kowalski gets the run... and makes it stick!"
+  },
+  "call.lead.kowalski": {
+   "file": "call/call.lead.kowalski.mp3",
+   "hash": "9fb0bd06b56c",
+   "text": "[thrilled] Kowalski takes the lead!"
+  },
+  "call.save.kobayashi": {
+   "file": "call/call.save.kobayashi.mp3",
+   "hash": "c45adae21794",
+   "text": "[tense, laughing] Kobayashi's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.kowalski": {
+   "file": "call/call.spin.kowalski.mp3",
+   "hash": "d98288e4f42c",
+   "text": "[surprised] Kowalski spins! Around it goes!"
+  },
+  "call.crash.kowalski": {
+   "file": "call/call.crash.kowalski.mp3",
+   "hash": "5414dc4c1ad0",
+   "text": "[shocked] Oh, trouble! Kowalski, hard into the wall!"
+  },
+  "call.win.kowalski": {
+   "file": "call/call.win.kowalski.mp3",
+   "hash": "d7d383924e3a",
+   "text": "[triumphant] Checkered flag... and Kowalski wins it!"
+  },
+  "call.bold.kowalski": {
+   "file": "call/call.bold.kowalski.mp3",
+   "hash": "a629469d1fc6",
+   "text": "[explosive] Oh, buddy! Kowalski just threw it in there!"
+  },
+  "call.lead.krause": {
+   "file": "call/call.lead.krause.mp3",
+   "hash": "c7e8e7c92893",
+   "text": "[thrilled] Krause takes the lead!"
+  },
+  "call.save.kowalski": {
+   "file": "call/call.save.kowalski.mp3",
+   "hash": "1ac7400dbd55",
+   "text": "[tense, laughing] Kowalski's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.pass.krause": {
+   "file": "call/call.pass.krause.mp3",
+   "hash": "ec12c6e3e9c3",
+   "text": "[building] Krause gets the run... and makes it stick!"
+  },
+  "call.spin.krause": {
+   "file": "call/call.spin.krause.mp3",
+   "hash": "051b1aae13b1",
+   "text": "[surprised] Krause spins! Around it goes!"
+  },
+  "call.win.krause": {
+   "file": "call/call.win.krause.mp3",
+   "hash": "ecaf50a4b8dc",
+   "text": "[triumphant] Checkered flag... and Krause wins it!"
+  },
+  "call.crash.krause": {
+   "file": "call/call.crash.krause.mp3",
+   "hash": "7b8a419806d9",
+   "text": "[shocked] Oh, trouble! Krause, hard into the wall!"
+  },
+  "call.bold.krause": {
+   "file": "call/call.bold.krause.mp3",
+   "hash": "2305e8d0ae61",
+   "text": "[explosive] Oh, buddy! Krause just threw it in there!"
+  },
+  "call.pass.krol": {
+   "file": "call/call.pass.krol.mp3",
+   "hash": "fd81887cd2c2",
+   "text": "[building] Krool gets the run... and makes it stick!"
+  },
+  "call.save.krause": {
+   "file": "call/call.save.krause.mp3",
+   "hash": "3cac4026d74f",
+   "text": "[tense, laughing] Krause's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.krol": {
+   "file": "call/call.lead.krol.mp3",
+   "hash": "fadf01f1a4fc",
+   "text": "[thrilled] Krool takes the lead!"
+  },
+  "call.spin.krol": {
+   "file": "call/call.spin.krol.mp3",
+   "hash": "a9bd5fd1f2cc",
+   "text": "[surprised] Krool spins! Around it goes!"
+  },
+  "call.crash.krol": {
+   "file": "call/call.crash.krol.mp3",
+   "hash": "eecc0dcd89f7",
+   "text": "[shocked] Oh, trouble! Krool, hard into the wall!"
+  },
+  "call.win.krol": {
+   "file": "call/call.win.krol.mp3",
+   "hash": "dd9809ee52fe",
+   "text": "[triumphant] Checkered flag... and Krool wins it!"
+  },
+  "call.bold.krol": {
+   "file": "call/call.bold.krol.mp3",
+   "hash": "fe22c85a4332",
+   "text": "[explosive] Oh, buddy! Krool just threw it in there!"
+  },
+  "call.pass.laurent": {
+   "file": "call/call.pass.laurent.mp3",
+   "hash": "2af58b7ae8ac",
+   "text": "[building] Laurent gets the run... and makes it stick!"
+  },
+  "call.lead.laurent": {
+   "file": "call/call.lead.laurent.mp3",
+   "hash": "84bf5ffa12d5",
+   "text": "[thrilled] Laurent takes the lead!"
+  },
+  "call.save.krol": {
+   "file": "call/call.save.krol.mp3",
+   "hash": "03380d20b3d8",
+   "text": "[tense, laughing] Krool's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.laurent": {
+   "file": "call/call.spin.laurent.mp3",
+   "hash": "1db17ed64cd7",
+   "text": "[surprised] Laurent spins! Around it goes!"
+  },
+  "call.crash.laurent": {
+   "file": "call/call.crash.laurent.mp3",
+   "hash": "b2458832e989",
+   "text": "[shocked] Oh, trouble! Laurent, hard into the wall!"
+  },
+  "call.win.laurent": {
+   "file": "call/call.win.laurent.mp3",
+   "hash": "6a41c8c5224a",
+   "text": "[triumphant] Checkered flag... and Laurent wins it!"
+  },
+  "call.bold.laurent": {
+   "file": "call/call.bold.laurent.mp3",
+   "hash": "ce1702f1741b",
+   "text": "[explosive] Oh, buddy! Laurent just threw it in there!"
+  },
+  "call.pass.leroy": {
+   "file": "call/call.pass.leroy.mp3",
+   "hash": "a7e7b0a5ec1e",
+   "text": "[building] Leroy gets the run... and makes it stick!"
+  },
+  "call.save.laurent": {
+   "file": "call/call.save.laurent.mp3",
+   "hash": "3fb306e2ebc8",
+   "text": "[tense, laughing] Laurent's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.leroy": {
+   "file": "call/call.lead.leroy.mp3",
+   "hash": "2194c9ebcc9a",
+   "text": "[thrilled] Leroy takes the lead!"
+  },
+  "call.spin.leroy": {
+   "file": "call/call.spin.leroy.mp3",
+   "hash": "2f6434432320",
+   "text": "[surprised] Leroy spins! Around it goes!"
+  },
+  "call.crash.leroy": {
+   "file": "call/call.crash.leroy.mp3",
+   "hash": "2da7d4f11d33",
+   "text": "[shocked] Oh, trouble! Leroy, hard into the wall!"
+  },
+  "call.win.leroy": {
+   "file": "call/call.win.leroy.mp3",
+   "hash": "a658765d049d",
+   "text": "[triumphant] Checkered flag... and Leroy wins it!"
+  },
+  "call.bold.leroy": {
+   "file": "call/call.bold.leroy.mp3",
+   "hash": "a99ae3974083",
+   "text": "[explosive] Oh, buddy! Leroy just threw it in there!"
+  },
+  "call.pass.lima": {
+   "file": "call/call.pass.lima.mp3",
+   "hash": "b7555aac44f7",
+   "text": "[building] Lima gets the run... and makes it stick!"
+  },
+  "call.lead.lima": {
+   "file": "call/call.lead.lima.mp3",
+   "hash": "356be1cc6a7d",
+   "text": "[thrilled] Lima takes the lead!"
+  },
+  "call.save.leroy": {
+   "file": "call/call.save.leroy.mp3",
+   "hash": "6f4824cb8637",
+   "text": "[tense, laughing] Leroy's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.lima": {
+   "file": "call/call.spin.lima.mp3",
+   "hash": "f7de3413fc2a",
+   "text": "[surprised] Lima spins! Around it goes!"
+  },
+  "call.win.lima": {
+   "file": "call/call.win.lima.mp3",
+   "hash": "5ad0a22f23dd",
+   "text": "[triumphant] Checkered flag... and Lima wins it!"
+  },
+  "call.crash.lima": {
+   "file": "call/call.crash.lima.mp3",
+   "hash": "273846d4609b",
+   "text": "[shocked] Oh, trouble! Lima, hard into the wall!"
+  },
+  "call.bold.lima": {
+   "file": "call/call.bold.lima.mp3",
+   "hash": "f9295901126d",
+   "text": "[explosive] Oh, buddy! Lima just threw it in there!"
+  },
+  "call.pass.lindqvist": {
+   "file": "call/call.pass.lindqvist.mp3",
+   "hash": "0a0f392eaf28",
+   "text": "[building] Lindqvist gets the run... and makes it stick!"
+  },
+  "call.save.lima": {
+   "file": "call/call.save.lima.mp3",
+   "hash": "84f6bb781682",
+   "text": "[tense, laughing] Lima's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.lindqvist": {
+   "file": "call/call.lead.lindqvist.mp3",
+   "hash": "c79125061d9c",
+   "text": "[thrilled] Lindqvist takes the lead!"
+  },
+  "call.spin.lindqvist": {
+   "file": "call/call.spin.lindqvist.mp3",
+   "hash": "7aace312404d",
+   "text": "[surprised] Lindqvist spins! Around it goes!"
+  },
+  "call.crash.lindqvist": {
+   "file": "call/call.crash.lindqvist.mp3",
+   "hash": "5b0fbcdc998e",
+   "text": "[shocked] Oh, trouble! Lindqvist, hard into the wall!"
+  },
+  "call.win.lindqvist": {
+   "file": "call/call.win.lindqvist.mp3",
+   "hash": "8e34cabb6503",
+   "text": "[triumphant] Checkered flag... and Lindqvist wins it!"
+  },
+  "call.bold.lindqvist": {
+   "file": "call/call.bold.lindqvist.mp3",
+   "hash": "d0078b136457",
+   "text": "[explosive] Oh, buddy! Lindqvist just threw it in there!"
+  },
+  "call.pass.lowe": {
+   "file": "call/call.pass.lowe.mp3",
+   "hash": "6eff4ca91aa5",
+   "text": "[building] Lowe gets the run... and makes it stick!"
+  },
+  "call.lead.lowe": {
+   "file": "call/call.lead.lowe.mp3",
+   "hash": "6e11afa5222e",
+   "text": "[thrilled] Lowe takes the lead!"
+  },
+  "call.save.lindqvist": {
+   "file": "call/call.save.lindqvist.mp3",
+   "hash": "6468fb897552",
+   "text": "[tense, laughing] Lindqvist's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.lowe": {
+   "file": "call/call.spin.lowe.mp3",
+   "hash": "d1d86452471c",
+   "text": "[surprised] Lowe spins! Around it goes!"
+  },
+  "call.crash.lowe": {
+   "file": "call/call.crash.lowe.mp3",
+   "hash": "c9ca8d6be48a",
+   "text": "[shocked] Oh, trouble! Lowe, hard into the wall!"
+  },
+  "call.win.lowe": {
+   "file": "call/call.win.lowe.mp3",
+   "hash": "ef133a138154",
+   "text": "[triumphant] Checkered flag... and Lowe wins it!"
+  },
+  "call.bold.lowe": {
+   "file": "call/call.bold.lowe.mp3",
+   "hash": "00c76b52c4cd",
+   "text": "[explosive] Oh, buddy! Lowe just threw it in there!"
+  },
+  "call.pass.lozano": {
+   "file": "call/call.pass.lozano.mp3",
+   "hash": "b575044eb579",
+   "text": "[building] Lozano gets the run... and makes it stick!"
+  },
+  "call.lead.lozano": {
+   "file": "call/call.lead.lozano.mp3",
+   "hash": "4e88c47c1b8c",
+   "text": "[thrilled] Lozano takes the lead!"
+  },
+  "call.save.lowe": {
+   "file": "call/call.save.lowe.mp3",
+   "hash": "921dafcb9b3d",
+   "text": "[tense, laughing] Lowe's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.lozano": {
+   "file": "call/call.spin.lozano.mp3",
+   "hash": "20a18e0821d1",
+   "text": "[surprised] Lozano spins! Around it goes!"
+  },
+  "call.crash.lozano": {
+   "file": "call/call.crash.lozano.mp3",
+   "hash": "880302c3c0a6",
+   "text": "[shocked] Oh, trouble! Lozano, hard into the wall!"
+  },
+  "call.win.lozano": {
+   "file": "call/call.win.lozano.mp3",
+   "hash": "945f840458ea",
+   "text": "[triumphant] Checkered flag... and Lozano wins it!"
+  },
+  "call.bold.lozano": {
+   "file": "call/call.bold.lozano.mp3",
+   "hash": "b51c692d71f3",
+   "text": "[explosive] Oh, buddy! Lozano just threw it in there!"
+  },
+  "call.pass.lund": {
+   "file": "call/call.pass.lund.mp3",
+   "hash": "ae2eb241c38d",
+   "text": "[building] Lund gets the run... and makes it stick!"
+  },
+  "call.lead.lund": {
+   "file": "call/call.lead.lund.mp3",
+   "hash": "822ce31e49b8",
+   "text": "[thrilled] Lund takes the lead!"
+  },
+  "call.save.lozano": {
+   "file": "call/call.save.lozano.mp3",
+   "hash": "8020014b5c2b",
+   "text": "[tense, laughing] Lozano's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.lund": {
+   "file": "call/call.spin.lund.mp3",
+   "hash": "c5791573de51",
+   "text": "[surprised] Lund spins! Around it goes!"
+  },
+  "call.crash.lund": {
+   "file": "call/call.crash.lund.mp3",
+   "hash": "0eda3b648870",
+   "text": "[shocked] Oh, trouble! Lund, hard into the wall!"
+  },
+  "call.win.lund": {
+   "file": "call/call.win.lund.mp3",
+   "hash": "b3a4105368fd",
+   "text": "[triumphant] Checkered flag... and Lund wins it!"
+  },
+  "call.bold.lund": {
+   "file": "call/call.bold.lund.mp3",
+   "hash": "d0b19e73257b",
+   "text": "[explosive] Oh, buddy! Lund just threw it in there!"
+  },
+  "call.pass.marino": {
+   "file": "call/call.pass.marino.mp3",
+   "hash": "f9cd6f57a963",
+   "text": "[building] Marino gets the run... and makes it stick!"
+  },
+  "call.save.lund": {
+   "file": "call/call.save.lund.mp3",
+   "hash": "16bb4287548b",
+   "text": "[tense, laughing] Lund's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.marino": {
+   "file": "call/call.lead.marino.mp3",
+   "hash": "dbf885b37faf",
+   "text": "[thrilled] Marino takes the lead!"
+  },
+  "call.spin.marino": {
+   "file": "call/call.spin.marino.mp3",
+   "hash": "d81410f1d829",
+   "text": "[surprised] Marino spins! Around it goes!"
+  },
+  "call.crash.marino": {
+   "file": "call/call.crash.marino.mp3",
+   "hash": "90748e9e78a0",
+   "text": "[shocked] Oh, trouble! Marino, hard into the wall!"
+  },
+  "call.win.marino": {
+   "file": "call/call.win.marino.mp3",
+   "hash": "bb01ea2ca9b2",
+   "text": "[triumphant] Checkered flag... and Marino wins it!"
+  },
+  "call.bold.marino": {
+   "file": "call/call.bold.marino.mp3",
+   "hash": "b6a46f9bbf8a",
+   "text": "[explosive] Oh, buddy! Marino just threw it in there!"
+  },
+  "call.pass.marsh": {
+   "file": "call/call.pass.marsh.mp3",
+   "hash": "c7157209eafb",
+   "text": "[building] Marsh gets the run... and makes it stick!"
+  },
+  "call.lead.marsh": {
+   "file": "call/call.lead.marsh.mp3",
+   "hash": "f836fd6fd21e",
+   "text": "[thrilled] Marsh takes the lead!"
+  },
+  "call.save.marino": {
+   "file": "call/call.save.marino.mp3",
+   "hash": "b11d68c6dbb5",
+   "text": "[tense, laughing] Marino's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.marsh": {
+   "file": "call/call.spin.marsh.mp3",
+   "hash": "57de8617793b",
+   "text": "[surprised] Marsh spins! Around it goes!"
+  },
+  "call.crash.marsh": {
+   "file": "call/call.crash.marsh.mp3",
+   "hash": "fa1f9e49c597",
+   "text": "[shocked] Oh, trouble! Marsh, hard into the wall!"
+  },
+  "call.win.marsh": {
+   "file": "call/call.win.marsh.mp3",
+   "hash": "63e271553f92",
+   "text": "[triumphant] Checkered flag... and Marsh wins it!"
+  },
+  "call.bold.marsh": {
+   "file": "call/call.bold.marsh.mp3",
+   "hash": "fc38b5aa94a5",
+   "text": "[explosive] Oh, buddy! Marsh just threw it in there!"
+  },
+  "call.lead.mazur": {
+   "file": "call/call.lead.mazur.mp3",
+   "hash": "6016e883e5fe",
+   "text": "[thrilled] Mazur takes the lead!"
+  },
+  "call.pass.mazur": {
+   "file": "call/call.pass.mazur.mp3",
+   "hash": "b9560d71a16a",
+   "text": "[building] Mazur gets the run... and makes it stick!"
+  },
+  "call.save.marsh": {
+   "file": "call/call.save.marsh.mp3",
+   "hash": "d03d603f14cb",
+   "text": "[tense, laughing] Marsh's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.mazur": {
+   "file": "call/call.spin.mazur.mp3",
+   "hash": "fc42cfb0713d",
+   "text": "[surprised] Mazur spins! Around it goes!"
+  },
+  "call.crash.mazur": {
+   "file": "call/call.crash.mazur.mp3",
+   "hash": "91ee3ac6a18a",
+   "text": "[shocked] Oh, trouble! Mazur, hard into the wall!"
+  },
+  "call.win.mazur": {
+   "file": "call/call.win.mazur.mp3",
+   "hash": "182e5713935a",
+   "text": "[triumphant] Checkered flag... and Mazur wins it!"
+  },
+  "call.bold.mazur": {
+   "file": "call/call.bold.mazur.mp3",
+   "hash": "454178155a63",
+   "text": "[explosive] Oh, buddy! Mazur just threw it in there!"
+  },
+  "call.lead.mcrae": {
+   "file": "call/call.lead.mcrae.mp3",
+   "hash": "7d12e71aba81",
+   "text": "[thrilled] McRae takes the lead!"
+  },
+  "call.pass.mcrae": {
+   "file": "call/call.pass.mcrae.mp3",
+   "hash": "06e3cd01275e",
+   "text": "[building] McRae gets the run... and makes it stick!"
+  },
+  "call.save.mazur": {
+   "file": "call/call.save.mazur.mp3",
+   "hash": "e44e84cfd897",
+   "text": "[tense, laughing] Mazur's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.mcrae": {
+   "file": "call/call.spin.mcrae.mp3",
+   "hash": "df2337d8b0ef",
+   "text": "[surprised] McRae spins! Around it goes!"
+  },
+  "call.crash.mcrae": {
+   "file": "call/call.crash.mcrae.mp3",
+   "hash": "026271766893",
+   "text": "[shocked] Oh, trouble! McRae, hard into the wall!"
+  },
+  "call.win.mcrae": {
+   "file": "call/call.win.mcrae.mp3",
+   "hash": "254ed69ecdfd",
+   "text": "[triumphant] Checkered flag... and McRae wins it!"
+  },
+  "call.bold.mcrae": {
+   "file": "call/call.bold.mcrae.mp3",
+   "hash": "0839c83e697b",
+   "text": "[explosive] Oh, buddy! McRae just threw it in there!"
+  },
+  "call.pass.mendoza": {
+   "file": "call/call.pass.mendoza.mp3",
+   "hash": "e58e22c2d3ea",
+   "text": "[building] Mendoza gets the run... and makes it stick!"
+  },
+  "call.save.mcrae": {
+   "file": "call/call.save.mcrae.mp3",
+   "hash": "e4dad5f92167",
+   "text": "[tense, laughing] McRae's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.mendoza": {
+   "file": "call/call.lead.mendoza.mp3",
+   "hash": "8e1a38f4caca",
+   "text": "[thrilled] Mendoza takes the lead!"
+  },
+  "call.spin.mendoza": {
+   "file": "call/call.spin.mendoza.mp3",
+   "hash": "ea2467df0428",
+   "text": "[surprised] Mendoza spins! Around it goes!"
+  },
+  "call.crash.mendoza": {
+   "file": "call/call.crash.mendoza.mp3",
+   "hash": "969de669a696",
+   "text": "[shocked] Oh, trouble! Mendoza, hard into the wall!"
+  },
+  "call.win.mendoza": {
+   "file": "call/call.win.mendoza.mp3",
+   "hash": "15d1feab38ee",
+   "text": "[triumphant] Checkered flag... and Mendoza wins it!"
+  },
+  "call.bold.mendoza": {
+   "file": "call/call.bold.mendoza.mp3",
+   "hash": "1c4cc377dfad",
+   "text": "[explosive] Oh, buddy! Mendoza just threw it in there!"
+  },
+  "call.pass.mercier": {
+   "file": "call/call.pass.mercier.mp3",
+   "hash": "ffcebd60d7fa",
+   "text": "[building] Mercier gets the run... and makes it stick!"
+  },
+  "call.lead.mercier": {
+   "file": "call/call.lead.mercier.mp3",
+   "hash": "5a2474eca32b",
+   "text": "[thrilled] Mercier takes the lead!"
+  },
+  "call.save.mendoza": {
+   "file": "call/call.save.mendoza.mp3",
+   "hash": "9395b23683a5",
+   "text": "[tense, laughing] Mendoza's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.mercier": {
+   "file": "call/call.spin.mercier.mp3",
+   "hash": "76d40900795d",
+   "text": "[surprised] Mercier spins! Around it goes!"
+  },
+  "call.crash.mercier": {
+   "file": "call/call.crash.mercier.mp3",
+   "hash": "139bd1a433c9",
+   "text": "[shocked] Oh, trouble! Mercier, hard into the wall!"
+  },
+  "call.win.mercier": {
+   "file": "call/call.win.mercier.mp3",
+   "hash": "c11911aba0ad",
+   "text": "[triumphant] Checkered flag... and Mercier wins it!"
+  },
+  "call.bold.mercier": {
+   "file": "call/call.bold.mercier.mp3",
+   "hash": "09b36c05f168",
+   "text": "[explosive] Oh, buddy! Mercier just threw it in there!"
+  },
+  "call.pass.molina": {
+   "file": "call/call.pass.molina.mp3",
+   "hash": "7f3942544335",
+   "text": "[building] Molina gets the run... and makes it stick!"
+  },
+  "call.lead.molina": {
+   "file": "call/call.lead.molina.mp3",
+   "hash": "01672c9114e1",
+   "text": "[thrilled] Molina takes the lead!"
+  },
+  "call.save.mercier": {
+   "file": "call/call.save.mercier.mp3",
+   "hash": "c9928d109aea",
+   "text": "[tense, laughing] Mercier's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.molina": {
+   "file": "call/call.spin.molina.mp3",
+   "hash": "a649637b9999",
+   "text": "[surprised] Molina spins! Around it goes!"
+  },
+  "call.crash.molina": {
+   "file": "call/call.crash.molina.mp3",
+   "hash": "3ef7f749eb22",
+   "text": "[shocked] Oh, trouble! Molina, hard into the wall!"
+  },
+  "call.win.molina": {
+   "file": "call/call.win.molina.mp3",
+   "hash": "0d509ec99ae6",
+   "text": "[triumphant] Checkered flag... and Molina wins it!"
+  },
+  "call.bold.molina": {
+   "file": "call/call.bold.molina.mp3",
+   "hash": "2c2d8ff280c8",
+   "text": "[explosive] Oh, buddy! Molina just threw it in there!"
+  },
+  "call.lead.moreau": {
+   "file": "call/call.lead.moreau.mp3",
+   "hash": "f3f700b3e17c",
+   "text": "[thrilled] Moreau takes the lead!"
+  },
+  "call.pass.moreau": {
+   "file": "call/call.pass.moreau.mp3",
+   "hash": "dd940ce22fd1",
+   "text": "[building] Moreau gets the run... and makes it stick!"
+  },
+  "call.save.molina": {
+   "file": "call/call.save.molina.mp3",
+   "hash": "c98e41499183",
+   "text": "[tense, laughing] Molina's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.moreau": {
+   "file": "call/call.spin.moreau.mp3",
+   "hash": "04c1eb1157a0",
+   "text": "[surprised] Moreau spins! Around it goes!"
+  },
+  "call.crash.moreau": {
+   "file": "call/call.crash.moreau.mp3",
+   "hash": "73842964a72b",
+   "text": "[shocked] Oh, trouble! Moreau, hard into the wall!"
+  },
+  "call.win.moreau": {
+   "file": "call/call.win.moreau.mp3",
+   "hash": "433952e1e5fc",
+   "text": "[triumphant] Checkered flag... and Moreau wins it!"
+  },
+  "call.bold.moreau": {
+   "file": "call/call.bold.moreau.mp3",
+   "hash": "66108e2ae1e7",
+   "text": "[explosive] Oh, buddy! Moreau just threw it in there!"
+  },
+  "call.pass.moretti": {
+   "file": "call/call.pass.moretti.mp3",
+   "hash": "319ef26c1c17",
+   "text": "[building] Moretti gets the run... and makes it stick!"
+  },
+  "call.lead.moretti": {
+   "file": "call/call.lead.moretti.mp3",
+   "hash": "5b7acbc9aaa7",
+   "text": "[thrilled] Moretti takes the lead!"
+  },
+  "call.save.moreau": {
+   "file": "call/call.save.moreau.mp3",
+   "hash": "5a4aec53765e",
+   "text": "[tense, laughing] Moreau's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.moretti": {
+   "file": "call/call.spin.moretti.mp3",
+   "hash": "86b830eaafea",
+   "text": "[surprised] Moretti spins! Around it goes!"
+  },
+  "call.win.moretti": {
+   "file": "call/call.win.moretti.mp3",
+   "hash": "727e5e8a533e",
+   "text": "[triumphant] Checkered flag... and Moretti wins it!"
+  },
+  "call.crash.moretti": {
+   "file": "call/call.crash.moretti.mp3",
+   "hash": "682f060427e6",
+   "text": "[shocked] Oh, trouble! Moretti, hard into the wall!"
+  },
+  "call.bold.moretti": {
+   "file": "call/call.bold.moretti.mp3",
+   "hash": "61eae9455371",
+   "text": "[explosive] Oh, buddy! Moretti just threw it in there!"
+  },
+  "call.pass.mori": {
+   "file": "call/call.pass.mori.mp3",
+   "hash": "ce8fcbf7a556",
+   "text": "[building] Mori gets the run... and makes it stick!"
+  },
+  "call.lead.mori": {
+   "file": "call/call.lead.mori.mp3",
+   "hash": "29f45002e8b6",
+   "text": "[thrilled] Mori takes the lead!"
+  },
+  "call.save.moretti": {
+   "file": "call/call.save.moretti.mp3",
+   "hash": "cd92401fb264",
+   "text": "[tense, laughing] Moretti's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.mori": {
+   "file": "call/call.spin.mori.mp3",
+   "hash": "32db1ce84c73",
+   "text": "[surprised] Mori spins! Around it goes!"
+  },
+  "call.crash.mori": {
+   "file": "call/call.crash.mori.mp3",
+   "hash": "cbae02e5b787",
+   "text": "[shocked] Oh, trouble! Mori, hard into the wall!"
+  },
+  "call.win.mori": {
+   "file": "call/call.win.mori.mp3",
+   "hash": "8177b3065a85",
+   "text": "[triumphant] Checkered flag... and Mori wins it!"
+  },
+  "call.bold.mori": {
+   "file": "call/call.bold.mori.mp3",
+   "hash": "588b2d0dba02",
+   "text": "[explosive] Oh, buddy! Mori just threw it in there!"
+  },
+  "call.pass.nakamura": {
+   "file": "call/call.pass.nakamura.mp3",
+   "hash": "cc696d5777ee",
+   "text": "[building] Nakamura gets the run... and makes it stick!"
+  },
+  "call.lead.nakamura": {
+   "file": "call/call.lead.nakamura.mp3",
+   "hash": "92e5de76019a",
+   "text": "[thrilled] Nakamura takes the lead!"
+  },
+  "call.save.mori": {
+   "file": "call/call.save.mori.mp3",
+   "hash": "bbf57fb77f42",
+   "text": "[tense, laughing] Mori's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.nakamura": {
+   "file": "call/call.spin.nakamura.mp3",
+   "hash": "2fb5b79b35a9",
+   "text": "[surprised] Nakamura spins! Around it goes!"
+  },
+  "call.crash.nakamura": {
+   "file": "call/call.crash.nakamura.mp3",
+   "hash": "932f7a3954f7",
+   "text": "[shocked] Oh, trouble! Nakamura, hard into the wall!"
+  },
+  "call.win.nakamura": {
+   "file": "call/call.win.nakamura.mp3",
+   "hash": "5d7942a0e740",
+   "text": "[triumphant] Checkered flag... and Nakamura wins it!"
+  },
+  "call.bold.nakamura": {
+   "file": "call/call.bold.nakamura.mp3",
+   "hash": "e2ce0c80a00b",
+   "text": "[explosive] Oh, buddy! Nakamura just threw it in there!"
+  },
+  "call.pass.navarro": {
+   "file": "call/call.pass.navarro.mp3",
+   "hash": "1266afa46644",
+   "text": "[building] Navarro gets the run... and makes it stick!"
+  },
+  "call.lead.navarro": {
+   "file": "call/call.lead.navarro.mp3",
+   "hash": "d7a135080c57",
+   "text": "[thrilled] Navarro takes the lead!"
+  },
+  "call.save.nakamura": {
+   "file": "call/call.save.nakamura.mp3",
+   "hash": "990123bd79e4",
+   "text": "[tense, laughing] Nakamura's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.navarro": {
+   "file": "call/call.spin.navarro.mp3",
+   "hash": "322697a1924b",
+   "text": "[surprised] Navarro spins! Around it goes!"
+  },
+  "call.crash.navarro": {
+   "file": "call/call.crash.navarro.mp3",
+   "hash": "ee1ebca92d5a",
+   "text": "[shocked] Oh, trouble! Navarro, hard into the wall!"
+  },
+  "call.win.navarro": {
+   "file": "call/call.win.navarro.mp3",
+   "hash": "93b6b1b0bcd9",
+   "text": "[triumphant] Checkered flag... and Navarro wins it!"
+  },
+  "call.bold.navarro": {
+   "file": "call/call.bold.navarro.mp3",
+   "hash": "2a362df403cd",
+   "text": "[explosive] Oh, buddy! Navarro just threw it in there!"
+  },
+  "call.pass.nowak": {
+   "file": "call/call.pass.nowak.mp3",
+   "hash": "996eb763897d",
+   "text": "[building] Nowak gets the run... and makes it stick!"
+  },
+  "call.lead.nowak": {
+   "file": "call/call.lead.nowak.mp3",
+   "hash": "b4e1abf4c20f",
+   "text": "[thrilled] Nowak takes the lead!"
+  },
+  "call.save.navarro": {
+   "file": "call/call.save.navarro.mp3",
+   "hash": "f33d4222cbd1",
+   "text": "[tense, laughing] Navarro's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.nowak": {
+   "file": "call/call.spin.nowak.mp3",
+   "hash": "ffcdcb5a32a0",
+   "text": "[surprised] Nowak spins! Around it goes!"
+  },
+  "call.crash.nowak": {
+   "file": "call/call.crash.nowak.mp3",
+   "hash": "24502988d481",
+   "text": "[shocked] Oh, trouble! Nowak, hard into the wall!"
+  },
+  "call.win.nowak": {
+   "file": "call/call.win.nowak.mp3",
+   "hash": "4744807dfbc1",
+   "text": "[triumphant] Checkered flag... and Nowak wins it!"
+  },
+  "call.bold.nowak": {
+   "file": "call/call.bold.nowak.mp3",
+   "hash": "6d58d6c28f04",
+   "text": "[explosive] Oh, buddy! Nowak just threw it in there!"
+  },
+  "call.pass.nwosu": {
+   "file": "call/call.pass.nwosu.mp3",
+   "hash": "63e7f97efa44",
+   "text": "[building] Nwosu gets the run... and makes it stick!"
+  },
+  "call.lead.nwosu": {
+   "file": "call/call.lead.nwosu.mp3",
+   "hash": "0cbb2514e301",
+   "text": "[thrilled] Nwosu takes the lead!"
+  },
+  "call.save.nowak": {
+   "file": "call/call.save.nowak.mp3",
+   "hash": "3627e13e673c",
+   "text": "[tense, laughing] Nowak's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.nwosu": {
+   "file": "call/call.spin.nwosu.mp3",
+   "hash": "40057267f76d",
+   "text": "[surprised] Nwosu spins! Around it goes!"
+  },
+  "call.win.nwosu": {
+   "file": "call/call.win.nwosu.mp3",
+   "hash": "f29cce3bd8c0",
+   "text": "[triumphant] Checkered flag... and Nwosu wins it!"
+  },
+  "call.crash.nwosu": {
+   "file": "call/call.crash.nwosu.mp3",
+   "hash": "327c3c874ae3",
+   "text": "[shocked] Oh, trouble! Nwosu, hard into the wall!"
+  },
+  "call.bold.nwosu": {
+   "file": "call/call.bold.nwosu.mp3",
+   "hash": "e39550c0acee",
+   "text": "[explosive] Oh, buddy! Nwosu just threw it in there!"
+  },
+  "call.pass.nyberg": {
+   "file": "call/call.pass.nyberg.mp3",
+   "hash": "c225e6d1452a",
+   "text": "[building] Nyberg gets the run... and makes it stick!"
+  },
+  "call.lead.nyberg": {
+   "file": "call/call.lead.nyberg.mp3",
+   "hash": "cbf529f08e30",
+   "text": "[thrilled] Nyberg takes the lead!"
+  },
+  "call.save.nwosu": {
+   "file": "call/call.save.nwosu.mp3",
+   "hash": "1125e9c22535",
+   "text": "[tense, laughing] Nwosu's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.nyberg": {
+   "file": "call/call.spin.nyberg.mp3",
+   "hash": "9ef6301612a6",
+   "text": "[surprised] Nyberg spins! Around it goes!"
+  },
+  "call.crash.nyberg": {
+   "file": "call/call.crash.nyberg.mp3",
+   "hash": "912f63e576ef",
+   "text": "[shocked] Oh, trouble! Nyberg, hard into the wall!"
+  },
+  "call.win.nyberg": {
+   "file": "call/call.win.nyberg.mp3",
+   "hash": "3bd326056474",
+   "text": "[triumphant] Checkered flag... and Nyberg wins it!"
+  },
+  "call.bold.nyberg": {
+   "file": "call/call.bold.nyberg.mp3",
+   "hash": "c3dd10be74e6",
+   "text": "[explosive] Oh, buddy! Nyberg just threw it in there!"
+  },
+  "call.pass.obi": {
+   "file": "call/call.pass.obi.mp3",
+   "hash": "1489bceded05",
+   "text": "[building] Obi gets the run... and makes it stick!"
+  },
+  "call.lead.obi": {
+   "file": "call/call.lead.obi.mp3",
+   "hash": "f5d2e554a63e",
+   "text": "[thrilled] Obi takes the lead!"
+  },
+  "call.save.nyberg": {
+   "file": "call/call.save.nyberg.mp3",
+   "hash": "2ee84b2741f5",
+   "text": "[tense, laughing] Nyberg's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.obi": {
+   "file": "call/call.spin.obi.mp3",
+   "hash": "9151a1bd1235",
+   "text": "[surprised] Obi spins! Around it goes!"
+  },
+  "call.crash.obi": {
+   "file": "call/call.crash.obi.mp3",
+   "hash": "919dac115b8d",
+   "text": "[shocked] Oh, trouble! Obi, hard into the wall!"
+  },
+  "call.win.obi": {
+   "file": "call/call.win.obi.mp3",
+   "hash": "840ad03eb821",
+   "text": "[triumphant] Checkered flag... and Obi wins it!"
+  },
+  "call.bold.obi": {
+   "file": "call/call.bold.obi.mp3",
+   "hash": "d150d63b0faa",
+   "text": "[explosive] Oh, buddy! Obi just threw it in there!"
+  },
+  "call.pass.okada": {
+   "file": "call/call.pass.okada.mp3",
+   "hash": "6c7543c5cebc",
+   "text": "[building] Okada gets the run... and makes it stick!"
+  },
+  "call.save.obi": {
+   "file": "call/call.save.obi.mp3",
+   "hash": "a8c860252384",
+   "text": "[tense, laughing] Obi's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.okada": {
+   "file": "call/call.lead.okada.mp3",
+   "hash": "556cef7abc3a",
+   "text": "[thrilled] Okada takes the lead!"
+  },
+  "call.spin.okada": {
+   "file": "call/call.spin.okada.mp3",
+   "hash": "28bd79fd9f19",
+   "text": "[surprised] Okada spins! Around it goes!"
+  },
+  "call.crash.okada": {
+   "file": "call/call.crash.okada.mp3",
+   "hash": "1ce0e9aec622",
+   "text": "[shocked] Oh, trouble! Okada, hard into the wall!"
+  },
+  "call.win.okada": {
+   "file": "call/call.win.okada.mp3",
+   "hash": "f0cdf149dc53",
+   "text": "[triumphant] Checkered flag... and Okada wins it!"
+  },
+  "call.bold.okada": {
+   "file": "call/call.bold.okada.mp3",
+   "hash": "4f62e3c48820",
+   "text": "[explosive] Oh, buddy! Okada just threw it in there!"
+  },
+  "call.pass.okafor": {
+   "file": "call/call.pass.okafor.mp3",
+   "hash": "0dba07c90210",
+   "text": "[building] Okafor gets the run... and makes it stick!"
+  },
+  "call.lead.okafor": {
+   "file": "call/call.lead.okafor.mp3",
+   "hash": "16a4e7a0c6b4",
+   "text": "[thrilled] Okafor takes the lead!"
+  },
+  "call.save.okada": {
+   "file": "call/call.save.okada.mp3",
+   "hash": "ac9f71884c13",
+   "text": "[tense, laughing] Okada's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.okafor": {
+   "file": "call/call.spin.okafor.mp3",
+   "hash": "b2ef7e7e41bb",
+   "text": "[surprised] Okafor spins! Around it goes!"
+  },
+  "call.crash.okafor": {
+   "file": "call/call.crash.okafor.mp3",
+   "hash": "fa2440c997d6",
+   "text": "[shocked] Oh, trouble! Okafor, hard into the wall!"
+  },
+  "call.win.okafor": {
+   "file": "call/call.win.okafor.mp3",
+   "hash": "561d38f56fdf",
+   "text": "[triumphant] Checkered flag... and Okafor wins it!"
+  },
+  "call.bold.okafor": {
+   "file": "call/call.bold.okafor.mp3",
+   "hash": "86149d3a2e4b",
+   "text": "[explosive] Oh, buddy! Okafor just threw it in there!"
+  },
+  "call.pass.okonkwo": {
+   "file": "call/call.pass.okonkwo.mp3",
+   "hash": "64d1e50fb13b",
+   "text": "[building] Okonkwo gets the run... and makes it stick!"
+  },
+  "call.save.okafor": {
+   "file": "call/call.save.okafor.mp3",
+   "hash": "1ab79ed3cf99",
+   "text": "[tense, laughing] Okafor's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.okonkwo": {
+   "file": "call/call.spin.okonkwo.mp3",
+   "hash": "6f75c0547b9e",
+   "text": "[surprised] Okonkwo spins! Around it goes!"
+  },
+  "call.crash.okonkwo": {
+   "file": "call/call.crash.okonkwo.mp3",
+   "hash": "251a28ae1ba1",
+   "text": "[shocked] Oh, trouble! Okonkwo, hard into the wall!"
+  },
+  "call.win.okonkwo": {
+   "file": "call/call.win.okonkwo.mp3",
+   "hash": "58551f5c4369",
+   "text": "[triumphant] Checkered flag... and Okonkwo wins it!"
+  },
+  "call.bold.okonkwo": {
+   "file": "call/call.bold.okonkwo.mp3",
+   "hash": "36bca03c498a",
+   "text": "[explosive] Oh, buddy! Okonkwo just threw it in there!"
+  },
+  "call.pass.ortega": {
+   "file": "call/call.pass.ortega.mp3",
+   "hash": "2d4037a4ee95",
+   "text": "[building] Ortega gets the run... and makes it stick!"
+  },
+  "call.lead.ortega": {
+   "file": "call/call.lead.ortega.mp3",
+   "hash": "7aeba7816f6b",
+   "text": "[thrilled] Ortega takes the lead!"
+  },
+  "call.save.okonkwo": {
+   "file": "call/call.save.okonkwo.mp3",
+   "hash": "f290fd8ad35c",
+   "text": "[tense, laughing] Okonkwo's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.ortega": {
+   "file": "call/call.spin.ortega.mp3",
+   "hash": "3dda810049ce",
+   "text": "[surprised] Ortega spins! Around it goes!"
+  },
+  "call.crash.ortega": {
+   "file": "call/call.crash.ortega.mp3",
+   "hash": "3a88d30ea5b6",
+   "text": "[shocked] Oh, trouble! Ortega, hard into the wall!"
+  },
+  "call.win.ortega": {
+   "file": "call/call.win.ortega.mp3",
+   "hash": "cfb8116e2972",
+   "text": "[triumphant] Checkered flag... and Ortega wins it!"
+  },
+  "call.bold.ortega": {
+   "file": "call/call.bold.ortega.mp3",
+   "hash": "d42f00cc920d",
+   "text": "[explosive] Oh, buddy! Ortega just threw it in there!"
+  },
+  "call.pass.park": {
+   "file": "call/call.pass.park.mp3",
+   "hash": "d4791308b60a",
+   "text": "[building] Park gets the run... and makes it stick!"
+  },
+  "call.lead.park": {
+   "file": "call/call.lead.park.mp3",
+   "hash": "4f985d9920aa",
+   "text": "[thrilled] Park takes the lead!"
+  },
+  "call.save.ortega": {
+   "file": "call/call.save.ortega.mp3",
+   "hash": "b8c7dba13221",
+   "text": "[tense, laughing] Ortega's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.park": {
+   "file": "call/call.spin.park.mp3",
+   "hash": "f80e60cc4315",
+   "text": "[surprised] Park spins! Around it goes!"
+  },
+  "call.crash.park": {
+   "file": "call/call.crash.park.mp3",
+   "hash": "6c28f451be9e",
+   "text": "[shocked] Oh, trouble! Park, hard into the wall!"
+  },
+  "call.win.park": {
+   "file": "call/call.win.park.mp3",
+   "hash": "f613c7d317dc",
+   "text": "[triumphant] Checkered flag... and Park wins it!"
+  },
+  "call.bold.park": {
+   "file": "call/call.bold.park.mp3",
+   "hash": "217b639d89a2",
+   "text": "[explosive] Oh, buddy! Park just threw it in there!"
+  },
+  "call.pass.parker": {
+   "file": "call/call.pass.parker.mp3",
+   "hash": "daeaac019dc4",
+   "text": "[building] Parker gets the run... and makes it stick!"
+  },
+  "call.lead.parker": {
+   "file": "call/call.lead.parker.mp3",
+   "hash": "9e048d6103bc",
+   "text": "[thrilled] Parker takes the lead!"
+  },
+  "call.save.park": {
+   "file": "call/call.save.park.mp3",
+   "hash": "32666987bc1b",
+   "text": "[tense, laughing] Park's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.parker": {
+   "file": "call/call.spin.parker.mp3",
+   "hash": "c7a07f96aff0",
+   "text": "[surprised] Parker spins! Around it goes!"
+  },
+  "call.crash.parker": {
+   "file": "call/call.crash.parker.mp3",
+   "hash": "92bf977fe8cc",
+   "text": "[shocked] Oh, trouble! Parker, hard into the wall!"
+  },
+  "call.win.parker": {
+   "file": "call/call.win.parker.mp3",
+   "hash": "66664c288025",
+   "text": "[triumphant] Checkered flag... and Parker wins it!"
+  },
+  "call.bold.parker": {
+   "file": "call/call.bold.parker.mp3",
+   "hash": "2e5e95cdb1bf",
+   "text": "[explosive] Oh, buddy! Parker just threw it in there!"
+  },
+  "call.pass.pearce": {
+   "file": "call/call.pass.pearce.mp3",
+   "hash": "94957f339152",
+   "text": "[building] Pearce gets the run... and makes it stick!"
+  },
+  "call.save.parker": {
+   "file": "call/call.save.parker.mp3",
+   "hash": "ba3fd089cf54",
+   "text": "[tense, laughing] Parker's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.pearce": {
+   "file": "call/call.lead.pearce.mp3",
+   "hash": "f6c18c2e5d5e",
+   "text": "[thrilled] Pearce takes the lead!"
+  },
+  "call.spin.pearce": {
+   "file": "call/call.spin.pearce.mp3",
+   "hash": "8a536b5a6565",
+   "text": "[surprised] Pearce spins! Around it goes!"
+  },
+  "call.crash.pearce": {
+   "file": "call/call.crash.pearce.mp3",
+   "hash": "1566e9645b80",
+   "text": "[shocked] Oh, trouble! Pearce, hard into the wall!"
+  },
+  "call.win.pearce": {
+   "file": "call/call.win.pearce.mp3",
+   "hash": "5e15e29a7098",
+   "text": "[triumphant] Checkered flag... and Pearce wins it!"
+  },
+  "call.bold.pearce": {
+   "file": "call/call.bold.pearce.mp3",
+   "hash": "4e9dd3dd25f0",
+   "text": "[explosive] Oh, buddy! Pearce just threw it in there!"
+  },
+  "call.pass.picard": {
+   "file": "call/call.pass.picard.mp3",
+   "hash": "c9564e0a7f1a",
+   "text": "[building] Picard gets the run... and makes it stick!"
+  },
+  "call.save.pearce": {
+   "file": "call/call.save.pearce.mp3",
+   "hash": "002fceac727c",
+   "text": "[tense, laughing] Pearce's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.picard": {
+   "file": "call/call.lead.picard.mp3",
+   "hash": "83a8f363df00",
+   "text": "[thrilled] Picard takes the lead!"
+  },
+  "call.spin.picard": {
+   "file": "call/call.spin.picard.mp3",
+   "hash": "ad6b96a290ca",
+   "text": "[surprised] Picard spins! Around it goes!"
+  },
+  "call.win.picard": {
+   "file": "call/call.win.picard.mp3",
+   "hash": "251807330be6",
+   "text": "[triumphant] Checkered flag... and Picard wins it!"
+  },
+  "call.crash.picard": {
+   "file": "call/call.crash.picard.mp3",
+   "hash": "95fba7f39215",
+   "text": "[shocked] Oh, trouble! Picard, hard into the wall!"
+  },
+  "call.bold.picard": {
+   "file": "call/call.bold.picard.mp3",
+   "hash": "8e4bf508d5a0",
+   "text": "[explosive] Oh, buddy! Picard just threw it in there!"
+  },
+  "call.pass.price": {
+   "file": "call/call.pass.price.mp3",
+   "hash": "cc4d343182ed",
+   "text": "[building] Price gets the run... and makes it stick!"
+  },
+  "call.lead.price": {
+   "file": "call/call.lead.price.mp3",
+   "hash": "a8c6aa40e0b2",
+   "text": "[thrilled] Price takes the lead!"
+  },
+  "call.save.picard": {
+   "file": "call/call.save.picard.mp3",
+   "hash": "904fa1776015",
+   "text": "[tense, laughing] Picard's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.price": {
+   "file": "call/call.spin.price.mp3",
+   "hash": "1b28047c1dd4",
+   "text": "[surprised] Price spins! Around it goes!"
+  },
+  "call.crash.price": {
+   "file": "call/call.crash.price.mp3",
+   "hash": "e8e2e0c09bc1",
+   "text": "[shocked] Oh, trouble! Price, hard into the wall!"
+  },
+  "call.win.price": {
+   "file": "call/call.win.price.mp3",
+   "hash": "e4d329fbbc01",
+   "text": "[triumphant] Checkered flag... and Price wins it!"
+  },
+  "call.bold.price": {
+   "file": "call/call.bold.price.mp3",
+   "hash": "b01000564acb",
+   "text": "[explosive] Oh, buddy! Price just threw it in there!"
+  },
+  "call.pass.quinn": {
+   "file": "call/call.pass.quinn.mp3",
+   "hash": "09e67dbb3de9",
+   "text": "[building] Quinn gets the run... and makes it stick!"
+  },
+  "call.save.price": {
+   "file": "call/call.save.price.mp3",
+   "hash": "d314e770028c",
+   "text": "[tense, laughing] Price's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.quinn": {
+   "file": "call/call.lead.quinn.mp3",
+   "hash": "3cdb86cdafbc",
+   "text": "[thrilled] Quinn takes the lead!"
+  },
+  "call.spin.quinn": {
+   "file": "call/call.spin.quinn.mp3",
+   "hash": "26e9c9c6f587",
+   "text": "[surprised] Quinn spins! Around it goes!"
+  },
+  "call.crash.quinn": {
+   "file": "call/call.crash.quinn.mp3",
+   "hash": "1b1055b3c3da",
+   "text": "[shocked] Oh, trouble! Quinn, hard into the wall!"
+  },
+  "call.win.quinn": {
+   "file": "call/call.win.quinn.mp3",
+   "hash": "d1d0888d5a36",
+   "text": "[triumphant] Checkered flag... and Quinn wins it!"
+  },
+  "call.bold.quinn": {
+   "file": "call/call.bold.quinn.mp3",
+   "hash": "945c22daa1bc",
+   "text": "[explosive] Oh, buddy! Quinn just threw it in there!"
+  },
+  "call.pass.reed": {
+   "file": "call/call.pass.reed.mp3",
+   "hash": "25c1d73c6f50",
+   "text": "[building] Reed gets the run... and makes it stick!"
+  },
+  "call.lead.reed": {
+   "file": "call/call.lead.reed.mp3",
+   "hash": "dee0dfc5a8d1",
+   "text": "[thrilled] Reed takes the lead!"
+  },
+  "call.save.quinn": {
+   "file": "call/call.save.quinn.mp3",
+   "hash": "308b0beafc55",
+   "text": "[tense, laughing] Quinn's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.reed": {
+   "file": "call/call.spin.reed.mp3",
+   "hash": "26c57d4093b7",
+   "text": "[surprised] Reed spins! Around it goes!"
+  },
+  "call.crash.reed": {
+   "file": "call/call.crash.reed.mp3",
+   "hash": "bf9d2b280e74",
+   "text": "[shocked] Oh, trouble! Reed, hard into the wall!"
+  },
+  "call.win.reed": {
+   "file": "call/call.win.reed.mp3",
+   "hash": "580c7c410aa4",
+   "text": "[triumphant] Checkered flag... and Reed wins it!"
+  },
+  "call.bold.reed": {
+   "file": "call/call.bold.reed.mp3",
+   "hash": "a9f7ea37d297",
+   "text": "[explosive] Oh, buddy! Reed just threw it in there!"
+  },
+  "call.pass.ribeiro": {
+   "file": "call/call.pass.ribeiro.mp3",
+   "hash": "1b5853c3e1c8",
+   "text": "[building] Ribeiro gets the run... and makes it stick!"
+  },
+  "call.lead.ribeiro": {
+   "file": "call/call.lead.ribeiro.mp3",
+   "hash": "fc5a0f7cf9fc",
+   "text": "[thrilled] Ribeiro takes the lead!"
+  },
+  "call.save.reed": {
+   "file": "call/call.save.reed.mp3",
+   "hash": "a91923650cff",
+   "text": "[tense, laughing] Reed's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.ribeiro": {
+   "file": "call/call.spin.ribeiro.mp3",
+   "hash": "86aad3806936",
+   "text": "[surprised] Ribeiro spins! Around it goes!"
+  },
+  "call.win.ribeiro": {
+   "file": "call/call.win.ribeiro.mp3",
+   "hash": "7edb2e00a485",
+   "text": "[triumphant] Checkered flag... and Ribeiro wins it!"
+  },
+  "call.crash.ribeiro": {
+   "file": "call/call.crash.ribeiro.mp3",
+   "hash": "521fe76a39a1",
+   "text": "[shocked] Oh, trouble! Ribeiro, hard into the wall!"
+  },
+  "call.bold.ribeiro": {
+   "file": "call/call.bold.ribeiro.mp3",
+   "hash": "8af89acf6f38",
+   "text": "[explosive] Oh, buddy! Ribeiro just threw it in there!"
+  },
+  "call.pass.rinaldi": {
+   "file": "call/call.pass.rinaldi.mp3",
+   "hash": "335209e5fb03",
+   "text": "[building] Rinaldi gets the run... and makes it stick!"
+  },
+  "call.lead.rinaldi": {
+   "file": "call/call.lead.rinaldi.mp3",
+   "hash": "6dbc3c5637a7",
+   "text": "[thrilled] Rinaldi takes the lead!"
+  },
+  "call.save.ribeiro": {
+   "file": "call/call.save.ribeiro.mp3",
+   "hash": "1c8d78c163f3",
+   "text": "[tense, laughing] Ribeiro's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.rinaldi": {
+   "file": "call/call.spin.rinaldi.mp3",
+   "hash": "1eb7e91eb515",
+   "text": "[surprised] Rinaldi spins! Around it goes!"
+  },
+  "call.crash.rinaldi": {
+   "file": "call/call.crash.rinaldi.mp3",
+   "hash": "eeeb59abbd1b",
+   "text": "[shocked] Oh, trouble! Rinaldi, hard into the wall!"
+  },
+  "call.win.rinaldi": {
+   "file": "call/call.win.rinaldi.mp3",
+   "hash": "7ac7617c39ee",
+   "text": "[triumphant] Checkered flag... and Rinaldi wins it!"
+  },
+  "call.bold.rinaldi": {
+   "file": "call/call.bold.rinaldi.mp3",
+   "hash": "7b822753ef32",
+   "text": "[explosive] Oh, buddy! Rinaldi just threw it in there!"
+  },
+  "call.pass.rios": {
+   "file": "call/call.pass.rios.mp3",
+   "hash": "b30fc15d7706",
+   "text": "[building] Rios gets the run... and makes it stick!"
+  },
+  "call.save.rinaldi": {
+   "file": "call/call.save.rinaldi.mp3",
+   "hash": "4b44e099d988",
+   "text": "[tense, laughing] Rinaldi's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.rios": {
+   "file": "call/call.lead.rios.mp3",
+   "hash": "92dca32a9859",
+   "text": "[thrilled] Rios takes the lead!"
+  },
+  "call.spin.rios": {
+   "file": "call/call.spin.rios.mp3",
+   "hash": "e1f833039ee0",
+   "text": "[surprised] Rios spins! Around it goes!"
+  },
+  "call.crash.rios": {
+   "file": "call/call.crash.rios.mp3",
+   "hash": "4035558c2fb8",
+   "text": "[shocked] Oh, trouble! Rios, hard into the wall!"
+  },
+  "call.win.rios": {
+   "file": "call/call.win.rios.mp3",
+   "hash": "145fad5ee3fe",
+   "text": "[triumphant] Checkered flag... and Rios wins it!"
+  },
+  "call.bold.rios": {
+   "file": "call/call.bold.rios.mp3",
+   "hash": "b31c8c71f900",
+   "text": "[explosive] Oh, buddy! Rios just threw it in there!"
+  },
+  "call.pass.romero": {
+   "file": "call/call.pass.romero.mp3",
+   "hash": "7c608b5178a4",
+   "text": "[building] Romero gets the run... and makes it stick!"
+  },
+  "call.save.rios": {
+   "file": "call/call.save.rios.mp3",
+   "hash": "d5bfc637ccc6",
+   "text": "[tense, laughing] Rios's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.romero": {
+   "file": "call/call.lead.romero.mp3",
+   "hash": "93b367053bf7",
+   "text": "[thrilled] Romero takes the lead!"
+  },
+  "call.spin.romero": {
+   "file": "call/call.spin.romero.mp3",
+   "hash": "87651433e6dc",
+   "text": "[surprised] Romero spins! Around it goes!"
+  },
+  "call.crash.romero": {
+   "file": "call/call.crash.romero.mp3",
+   "hash": "cbd71d28feb6",
+   "text": "[shocked] Oh, trouble! Romero, hard into the wall!"
+  },
+  "call.win.romero": {
+   "file": "call/call.win.romero.mp3",
+   "hash": "29d646a0ee34",
+   "text": "[triumphant] Checkered flag... and Romero wins it!"
+  },
+  "call.bold.romero": {
+   "file": "call/call.bold.romero.mp3",
+   "hash": "1e22aead784c",
+   "text": "[explosive] Oh, buddy! Romero just threw it in there!"
+  },
+  "call.pass.rossi": {
+   "file": "call/call.pass.rossi.mp3",
+   "hash": "2691592a56a7",
+   "text": "[building] Rossi gets the run... and makes it stick!"
+  },
+  "call.lead.rossi": {
+   "file": "call/call.lead.rossi.mp3",
+   "hash": "fc531831d787",
+   "text": "[thrilled] Rossi takes the lead!"
+  },
+  "call.save.romero": {
+   "file": "call/call.save.romero.mp3",
+   "hash": "814dabf633bd",
+   "text": "[tense, laughing] Romero's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.rossi": {
+   "file": "call/call.spin.rossi.mp3",
+   "hash": "401fdae7464a",
+   "text": "[surprised] Rossi spins! Around it goes!"
+  },
+  "call.crash.rossi": {
+   "file": "call/call.crash.rossi.mp3",
+   "hash": "74d82dfdc00c",
+   "text": "[shocked] Oh, trouble! Rossi, hard into the wall!"
+  },
+  "call.win.rossi": {
+   "file": "call/call.win.rossi.mp3",
+   "hash": "90070069698c",
+   "text": "[triumphant] Checkered flag... and Rossi wins it!"
+  },
+  "call.bold.rossi": {
+   "file": "call/call.bold.rossi.mp3",
+   "hash": "ae829e6e4cdf",
+   "text": "[explosive] Oh, buddy! Rossi just threw it in there!"
+  },
+  "call.pass.rubio": {
+   "file": "call/call.pass.rubio.mp3",
+   "hash": "7b493b1d5fe4",
+   "text": "[building] Rubio gets the run... and makes it stick!"
+  },
+  "call.lead.rubio": {
+   "file": "call/call.lead.rubio.mp3",
+   "hash": "86a4b09f8b78",
+   "text": "[thrilled] Rubio takes the lead!"
+  },
+  "call.save.rossi": {
+   "file": "call/call.save.rossi.mp3",
+   "hash": "645c96269ec9",
+   "text": "[tense, laughing] Rossi's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.rubio": {
+   "file": "call/call.spin.rubio.mp3",
+   "hash": "69bf5856254a",
+   "text": "[surprised] Rubio spins! Around it goes!"
+  },
+  "call.crash.rubio": {
+   "file": "call/call.crash.rubio.mp3",
+   "hash": "b87a4f187ff6",
+   "text": "[shocked] Oh, trouble! Rubio, hard into the wall!"
+  },
+  "call.win.rubio": {
+   "file": "call/call.win.rubio.mp3",
+   "hash": "b145d4c03a58",
+   "text": "[triumphant] Checkered flag... and Rubio wins it!"
+  },
+  "call.bold.rubio": {
+   "file": "call/call.bold.rubio.mp3",
+   "hash": "9dbdf5a29c9f",
+   "text": "[explosive] Oh, buddy! Rubio just threw it in there!"
+  },
+  "call.pass.salazar": {
+   "file": "call/call.pass.salazar.mp3",
+   "hash": "2fe48dc78773",
+   "text": "[building] Salazar gets the run... and makes it stick!"
+  },
+  "call.lead.salazar": {
+   "file": "call/call.lead.salazar.mp3",
+   "hash": "354c9707f67e",
+   "text": "[thrilled] Salazar takes the lead!"
+  },
+  "call.save.rubio": {
+   "file": "call/call.save.rubio.mp3",
+   "hash": "2a13179daf2f",
+   "text": "[tense, laughing] Rubio's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.salazar": {
+   "file": "call/call.spin.salazar.mp3",
+   "hash": "22a7e8340bdf",
+   "text": "[surprised] Salazar spins! Around it goes!"
+  },
+  "call.crash.salazar": {
+   "file": "call/call.crash.salazar.mp3",
+   "hash": "1be40df73709",
+   "text": "[shocked] Oh, trouble! Salazar, hard into the wall!"
+  },
+  "call.win.salazar": {
+   "file": "call/call.win.salazar.mp3",
+   "hash": "0a47fa6e4ce7",
+   "text": "[triumphant] Checkered flag... and Salazar wins it!"
+  },
+  "call.bold.salazar": {
+   "file": "call/call.bold.salazar.mp3",
+   "hash": "1652a37c96f1",
+   "text": "[explosive] Oh, buddy! Salazar just threw it in there!"
+  },
+  "call.save.salazar": {
+   "file": "call/call.save.salazar.mp3",
+   "hash": "5be266f567aa",
+   "text": "[tense, laughing] Salazar's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.pass.sandberg": {
+   "file": "call/call.pass.sandberg.mp3",
+   "hash": "c2a7f298f02e",
+   "text": "[building] Sandberg gets the run... and makes it stick!"
+  },
+  "call.lead.sandberg": {
+   "file": "call/call.lead.sandberg.mp3",
+   "hash": "3aae9766b242",
+   "text": "[thrilled] Sandberg takes the lead!"
+  },
+  "call.spin.sandberg": {
+   "file": "call/call.spin.sandberg.mp3",
+   "hash": "d71164f48104",
+   "text": "[surprised] Sandberg spins! Around it goes!"
+  },
+  "call.crash.sandberg": {
+   "file": "call/call.crash.sandberg.mp3",
+   "hash": "13680de31403",
+   "text": "[shocked] Oh, trouble! Sandberg, hard into the wall!"
+  },
+  "call.win.sandberg": {
+   "file": "call/call.win.sandberg.mp3",
+   "hash": "8b20b464babe",
+   "text": "[triumphant] Checkered flag... and Sandberg wins it!"
+  },
+  "call.bold.sandberg": {
+   "file": "call/call.bold.sandberg.mp3",
+   "hash": "26546499e2b7",
+   "text": "[explosive] Oh, buddy! Sandberg just threw it in there!"
+  },
+  "call.pass.sato": {
+   "file": "call/call.pass.sato.mp3",
+   "hash": "003bbf4f74a7",
+   "text": "[building] Sato gets the run... and makes it stick!"
+  },
+  "call.save.sandberg": {
+   "file": "call/call.save.sandberg.mp3",
+   "hash": "134df1d05404",
+   "text": "[tense, laughing] Sandberg's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.sato": {
+   "file": "call/call.lead.sato.mp3",
+   "hash": "5409a86f4143",
+   "text": "[thrilled] Sato takes the lead!"
+  },
+  "call.spin.sato": {
+   "file": "call/call.spin.sato.mp3",
+   "hash": "3d68590607c3",
+   "text": "[surprised] Sato spins! Around it goes!"
+  },
+  "call.crash.sato": {
+   "file": "call/call.crash.sato.mp3",
+   "hash": "7b3ceb228c64",
+   "text": "[shocked] Oh, trouble! Sato, hard into the wall!"
+  },
+  "call.win.sato": {
+   "file": "call/call.win.sato.mp3",
+   "hash": "1fdd070dd124",
+   "text": "[triumphant] Checkered flag... and Sato wins it!"
+  },
+  "call.bold.sato": {
+   "file": "call/call.bold.sato.mp3",
+   "hash": "5e491ffb50de",
+   "text": "[explosive] Oh, buddy! Sato just threw it in there!"
+  },
+  "call.pass.sawyer": {
+   "file": "call/call.pass.sawyer.mp3",
+   "hash": "0d4f2eafcd9b",
+   "text": "[building] Sawyer gets the run... and makes it stick!"
+  },
+  "call.save.sato": {
+   "file": "call/call.save.sato.mp3",
+   "hash": "579c3c668fb7",
+   "text": "[tense, laughing] Sato's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.sawyer": {
+   "file": "call/call.lead.sawyer.mp3",
+   "hash": "591a34c44416",
+   "text": "[thrilled] Sawyer takes the lead!"
+  },
+  "call.spin.sawyer": {
+   "file": "call/call.spin.sawyer.mp3",
+   "hash": "abafd3930e48",
+   "text": "[surprised] Sawyer spins! Around it goes!"
+  },
+  "call.crash.sawyer": {
+   "file": "call/call.crash.sawyer.mp3",
+   "hash": "062075c2b497",
+   "text": "[shocked] Oh, trouble! Sawyer, hard into the wall!"
+  },
+  "call.win.sawyer": {
+   "file": "call/call.win.sawyer.mp3",
+   "hash": "20ffc5d5ec7a",
+   "text": "[triumphant] Checkered flag... and Sawyer wins it!"
+  },
+  "call.bold.sawyer": {
+   "file": "call/call.bold.sawyer.mp3",
+   "hash": "5534ebd46d0a",
+   "text": "[explosive] Oh, buddy! Sawyer just threw it in there!"
+  },
+  "call.pass.schmidt": {
+   "file": "call/call.pass.schmidt.mp3",
+   "hash": "be96acc86539",
+   "text": "[building] Schmidt gets the run... and makes it stick!"
+  },
+  "call.lead.schmidt": {
+   "file": "call/call.lead.schmidt.mp3",
+   "hash": "0944f43b8645",
+   "text": "[thrilled] Schmidt takes the lead!"
+  },
+  "call.save.sawyer": {
+   "file": "call/call.save.sawyer.mp3",
+   "hash": "fe9084fe374b",
+   "text": "[tense, laughing] Sawyer's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.schmidt": {
+   "file": "call/call.spin.schmidt.mp3",
+   "hash": "14843782809c",
+   "text": "[surprised] Schmidt spins! Around it goes!"
+  },
+  "call.win.schmidt": {
+   "file": "call/call.win.schmidt.mp3",
+   "hash": "be2dd4c663c6",
+   "text": "[triumphant] Checkered flag... and Schmidt wins it!"
+  },
+  "call.crash.schmidt": {
+   "file": "call/call.crash.schmidt.mp3",
+   "hash": "7b0a512b4dbf",
+   "text": "[shocked] Oh, trouble! Schmidt, hard into the wall!"
+  },
+  "call.bold.schmidt": {
+   "file": "call/call.bold.schmidt.mp3",
+   "hash": "4b3426265f81",
+   "text": "[explosive] Oh, buddy! Schmidt just threw it in there!"
+  },
+  "call.pass.seo": {
+   "file": "call/call.pass.seo.mp3",
+   "hash": "64963416b0a5",
+   "text": "[building] Seo gets the run... and makes it stick!"
+  },
+  "call.lead.seo": {
+   "file": "call/call.lead.seo.mp3",
+   "hash": "d5263eadb3c2",
+   "text": "[thrilled] Seo takes the lead!"
+  },
+  "call.save.schmidt": {
+   "file": "call/call.save.schmidt.mp3",
+   "hash": "fc1b804960cc",
+   "text": "[tense, laughing] Schmidt's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.seo": {
+   "file": "call/call.spin.seo.mp3",
+   "hash": "639c26a6858d",
+   "text": "[surprised] Seo spins! Around it goes!"
+  },
+  "call.crash.seo": {
+   "file": "call/call.crash.seo.mp3",
+   "hash": "4208a498c790",
+   "text": "[shocked] Oh, trouble! Seo, hard into the wall!"
+  },
+  "call.win.seo": {
+   "file": "call/call.win.seo.mp3",
+   "hash": "0e804f5e28b6",
+   "text": "[triumphant] Checkered flag... and Seo wins it!"
+  },
+  "call.bold.seo": {
+   "file": "call/call.bold.seo.mp3",
+   "hash": "a2fde3960248",
+   "text": "[explosive] Oh, buddy! Seo just threw it in there!"
+  },
+  "call.pass.serrano": {
+   "file": "call/call.pass.serrano.mp3",
+   "hash": "dc7652ebd888",
+   "text": "[building] Serrano gets the run... and makes it stick!"
+  },
+  "call.save.seo": {
+   "file": "call/call.save.seo.mp3",
+   "hash": "ed9a64f27485",
+   "text": "[tense, laughing] Seo's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.serrano": {
+   "file": "call/call.lead.serrano.mp3",
+   "hash": "8928e754596a",
+   "text": "[thrilled] Serrano takes the lead!"
+  },
+  "call.spin.serrano": {
+   "file": "call/call.spin.serrano.mp3",
+   "hash": "1fc561009faf",
+   "text": "[surprised] Serrano spins! Around it goes!"
+  },
+  "call.crash.serrano": {
+   "file": "call/call.crash.serrano.mp3",
+   "hash": "7195ffc4d91b",
+   "text": "[shocked] Oh, trouble! Serrano, hard into the wall!"
+  },
+  "call.win.serrano": {
+   "file": "call/call.win.serrano.mp3",
+   "hash": "2a20433c087d",
+   "text": "[triumphant] Checkered flag... and Serrano wins it!"
+  },
+  "call.bold.serrano": {
+   "file": "call/call.bold.serrano.mp3",
+   "hash": "da3f15aab7c4",
+   "text": "[explosive] Oh, buddy! Serrano just threw it in there!"
+  },
+  "call.pass.shaw": {
+   "file": "call/call.pass.shaw.mp3",
+   "hash": "2be2d4b8e948",
+   "text": "[building] Shaw gets the run... and makes it stick!"
+  },
+  "call.lead.shaw": {
+   "file": "call/call.lead.shaw.mp3",
+   "hash": "f055cd911f57",
+   "text": "[thrilled] Shaw takes the lead!"
+  },
+  "call.save.serrano": {
+   "file": "call/call.save.serrano.mp3",
+   "hash": "a45839a0d96c",
+   "text": "[tense, laughing] Serrano's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.shaw": {
+   "file": "call/call.spin.shaw.mp3",
+   "hash": "64f9a3a9b156",
+   "text": "[surprised] Shaw spins! Around it goes!"
+  },
+  "call.win.shaw": {
+   "file": "call/call.win.shaw.mp3",
+   "hash": "2027ca295ff6",
+   "text": "[triumphant] Checkered flag... and Shaw wins it!"
+  },
+  "call.crash.shaw": {
+   "file": "call/call.crash.shaw.mp3",
+   "hash": "426e5ce0042a",
+   "text": "[shocked] Oh, trouble! Shaw, hard into the wall!"
+  },
+  "call.bold.shaw": {
+   "file": "call/call.bold.shaw.mp3",
+   "hash": "324cb59daeb2",
+   "text": "[explosive] Oh, buddy! Shaw just threw it in there!"
+  },
+  "call.pass.souza": {
+   "file": "call/call.pass.souza.mp3",
+   "hash": "bc059ffc8431",
+   "text": "[building] Souza gets the run... and makes it stick!"
+  },
+  "call.lead.souza": {
+   "file": "call/call.lead.souza.mp3",
+   "hash": "bf708ff84c29",
+   "text": "[thrilled] Souza takes the lead!"
+  },
+  "call.save.shaw": {
+   "file": "call/call.save.shaw.mp3",
+   "hash": "1f92ac3d0064",
+   "text": "[tense, laughing] Shaw's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.souza": {
+   "file": "call/call.spin.souza.mp3",
+   "hash": "d17ec2580694",
+   "text": "[surprised] Souza spins! Around it goes!"
+  },
+  "call.crash.souza": {
+   "file": "call/call.crash.souza.mp3",
+   "hash": "96d35f553f79",
+   "text": "[shocked] Oh, trouble! Souza, hard into the wall!"
+  },
+  "call.win.souza": {
+   "file": "call/call.win.souza.mp3",
+   "hash": "b4f68c554bb8",
+   "text": "[triumphant] Checkered flag... and Souza wins it!"
+  },
+  "call.bold.souza": {
+   "file": "call/call.bold.souza.mp3",
+   "hash": "0100c3966566",
+   "text": "[explosive] Oh, buddy! Souza just threw it in there!"
+  },
+  "call.pass.strand": {
+   "file": "call/call.pass.strand.mp3",
+   "hash": "36de1fe91fdc",
+   "text": "[building] Strand gets the run... and makes it stick!"
+  },
+  "call.save.souza": {
+   "file": "call/call.save.souza.mp3",
+   "hash": "9982886c916d",
+   "text": "[tense, laughing] Souza's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.strand": {
+   "file": "call/call.lead.strand.mp3",
+   "hash": "fe75916cf867",
+   "text": "[thrilled] Strand takes the lead!"
+  },
+  "call.spin.strand": {
+   "file": "call/call.spin.strand.mp3",
+   "hash": "89083fd3f078",
+   "text": "[surprised] Strand spins! Around it goes!"
+  },
+  "call.win.strand": {
+   "file": "call/call.win.strand.mp3",
+   "hash": "a8bdd691cfce",
+   "text": "[triumphant] Checkered flag... and Strand wins it!"
+  },
+  "call.crash.strand": {
+   "file": "call/call.crash.strand.mp3",
+   "hash": "0fb098529925",
+   "text": "[shocked] Oh, trouble! Strand, hard into the wall!"
+  },
+  "call.bold.strand": {
+   "file": "call/call.bold.strand.mp3",
+   "hash": "36ca3242e5cf",
+   "text": "[explosive] Oh, buddy! Strand just threw it in there!"
+  },
+  "call.pass.tanaka": {
+   "file": "call/call.pass.tanaka.mp3",
+   "hash": "d6d6357bf921",
+   "text": "[building] Tanaka gets the run... and makes it stick!"
+  },
+  "call.lead.tanaka": {
+   "file": "call/call.lead.tanaka.mp3",
+   "hash": "508b76e69f2d",
+   "text": "[thrilled] Tanaka takes the lead!"
+  },
+  "call.save.strand": {
+   "file": "call/call.save.strand.mp3",
+   "hash": "e18a4446e007",
+   "text": "[tense, laughing] Strand's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.tanaka": {
+   "file": "call/call.spin.tanaka.mp3",
+   "hash": "e61439d88171",
+   "text": "[surprised] Tanaka spins! Around it goes!"
+  },
+  "call.crash.tanaka": {
+   "file": "call/call.crash.tanaka.mp3",
+   "hash": "77c947bacd33",
+   "text": "[shocked] Oh, trouble! Tanaka, hard into the wall!"
+  },
+  "call.win.tanaka": {
+   "file": "call/call.win.tanaka.mp3",
+   "hash": "1d0f20147635",
+   "text": "[triumphant] Checkered flag... and Tanaka wins it!"
+  },
+  "call.bold.tanaka": {
+   "file": "call/call.bold.tanaka.mp3",
+   "hash": "24c8f6b6f457",
+   "text": "[explosive] Oh, buddy! Tanaka just threw it in there!"
+  },
+  "call.save.tanaka": {
+   "file": "call/call.save.tanaka.mp3",
+   "hash": "0a2601f7d42b",
+   "text": "[tense, laughing] Tanaka's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.pass.teixeira": {
+   "file": "call/call.pass.teixeira.mp3",
+   "hash": "d43eeba51aa7",
+   "text": "[building] Teixeira gets the run... and makes it stick!"
+  },
+  "call.lead.teixeira": {
+   "file": "call/call.lead.teixeira.mp3",
+   "hash": "20a875ee9e81",
+   "text": "[thrilled] Teixeira takes the lead!"
+  },
+  "call.spin.teixeira": {
+   "file": "call/call.spin.teixeira.mp3",
+   "hash": "6f81146d765b",
+   "text": "[surprised] Teixeira spins! Around it goes!"
+  },
+  "call.crash.teixeira": {
+   "file": "call/call.crash.teixeira.mp3",
+   "hash": "8957a1264ccb",
+   "text": "[shocked] Oh, trouble! Teixeira, hard into the wall!"
+  },
+  "call.win.teixeira": {
+   "file": "call/call.win.teixeira.mp3",
+   "hash": "f55ed2f7d519",
+   "text": "[triumphant] Checkered flag... and Teixeira wins it!"
+  },
+  "call.bold.teixeira": {
+   "file": "call/call.bold.teixeira.mp3",
+   "hash": "e93ef6d6346c",
+   "text": "[explosive] Oh, buddy! Teixeira just threw it in there!"
+  },
+  "call.pass.tully": {
+   "file": "call/call.pass.tully.mp3",
+   "hash": "fb622f2c27ff",
+   "text": "[building] Tully gets the run... and makes it stick!"
+  },
+  "call.save.teixeira": {
+   "file": "call/call.save.teixeira.mp3",
+   "hash": "90f6f67bbaf9",
+   "text": "[tense, laughing] Teixeira's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.tully": {
+   "file": "call/call.lead.tully.mp3",
+   "hash": "b2bc09f83ca8",
+   "text": "[thrilled] Tully takes the lead!"
+  },
+  "call.spin.tully": {
+   "file": "call/call.spin.tully.mp3",
+   "hash": "92602cf9f346",
+   "text": "[surprised] Tully spins! Around it goes!"
+  },
+  "call.win.tully": {
+   "file": "call/call.win.tully.mp3",
+   "hash": "fd20ca05c72d",
+   "text": "[triumphant] Checkered flag... and Tully wins it!"
+  },
+  "call.crash.tully": {
+   "file": "call/call.crash.tully.mp3",
+   "hash": "107c1625f193",
+   "text": "[shocked] Oh, trouble! Tully, hard into the wall!"
+  },
+  "call.bold.tully": {
+   "file": "call/call.bold.tully.mp3",
+   "hash": "f575c92dad02",
+   "text": "[explosive] Oh, buddy! Tully just threw it in there!"
+  },
+  "call.pass.vargas": {
+   "file": "call/call.pass.vargas.mp3",
+   "hash": "844f3443fcca",
+   "text": "[building] Vargas gets the run... and makes it stick!"
+  },
+  "call.lead.vargas": {
+   "file": "call/call.lead.vargas.mp3",
+   "hash": "58f928d555fb",
+   "text": "[thrilled] Vargas takes the lead!"
+  },
+  "call.save.tully": {
+   "file": "call/call.save.tully.mp3",
+   "hash": "8fce3a16dffb",
+   "text": "[tense, laughing] Tully's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.vargas": {
+   "file": "call/call.spin.vargas.mp3",
+   "hash": "9955a5f3bb92",
+   "text": "[surprised] Vargas spins! Around it goes!"
+  },
+  "call.win.vargas": {
+   "file": "call/call.win.vargas.mp3",
+   "hash": "923da5e5996d",
+   "text": "[triumphant] Checkered flag... and Vargas wins it!"
+  },
+  "call.crash.vargas": {
+   "file": "call/call.crash.vargas.mp3",
+   "hash": "d981668de6da",
+   "text": "[shocked] Oh, trouble! Vargas, hard into the wall!"
+  },
+  "call.bold.vargas": {
+   "file": "call/call.bold.vargas.mp3",
+   "hash": "a313756c8ff3",
+   "text": "[explosive] Oh, buddy! Vargas just threw it in there!"
+  },
+  "call.pass.vogel": {
+   "file": "call/call.pass.vogel.mp3",
+   "hash": "56d3682782f1",
+   "text": "[building] Vogel gets the run... and makes it stick!"
+  },
+  "call.save.vargas": {
+   "file": "call/call.save.vargas.mp3",
+   "hash": "33b3de279ce9",
+   "text": "[tense, laughing] Vargas's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.vogel": {
+   "file": "call/call.lead.vogel.mp3",
+   "hash": "6fd352c9f10a",
+   "text": "[thrilled] Vogel takes the lead!"
+  },
+  "call.spin.vogel": {
+   "file": "call/call.spin.vogel.mp3",
+   "hash": "cd9a2bdc0386",
+   "text": "[surprised] Vogel spins! Around it goes!"
+  },
+  "call.win.vogel": {
+   "file": "call/call.win.vogel.mp3",
+   "hash": "bd4ded2502f2",
+   "text": "[triumphant] Checkered flag... and Vogel wins it!"
+  },
+  "call.crash.vogel": {
+   "file": "call/call.crash.vogel.mp3",
+   "hash": "2d2b72f7960f",
+   "text": "[shocked] Oh, trouble! Vogel, hard into the wall!"
+  },
+  "call.bold.vogel": {
+   "file": "call/call.bold.vogel.mp3",
+   "hash": "f243d392d88a",
+   "text": "[explosive] Oh, buddy! Vogel just threw it in there!"
+  },
+  "call.pass.wagner": {
+   "file": "call/call.pass.wagner.mp3",
+   "hash": "9ac8986db3ee",
+   "text": "[building] Wagner gets the run... and makes it stick!"
+  },
+  "call.lead.wagner": {
+   "file": "call/call.lead.wagner.mp3",
+   "hash": "f9fd1d9a0e2a",
+   "text": "[thrilled] Wagner takes the lead!"
+  },
+  "call.save.vogel": {
+   "file": "call/call.save.vogel.mp3",
+   "hash": "86be9e9b0496",
+   "text": "[tense, laughing] Vogel's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.wagner": {
+   "file": "call/call.spin.wagner.mp3",
+   "hash": "f971dbb20cfc",
+   "text": "[surprised] Wagner spins! Around it goes!"
+  },
+  "call.crash.wagner": {
+   "file": "call/call.crash.wagner.mp3",
+   "hash": "418665d2dcc2",
+   "text": "[shocked] Oh, trouble! Wagner, hard into the wall!"
+  },
+  "call.win.wagner": {
+   "file": "call/call.win.wagner.mp3",
+   "hash": "f1f842b4630c",
+   "text": "[triumphant] Checkered flag... and Wagner wins it!"
+  },
+  "call.bold.wagner": {
+   "file": "call/call.bold.wagner.mp3",
+   "hash": "1e73693f491b",
+   "text": "[explosive] Oh, buddy! Wagner just threw it in there!"
+  },
+  "call.pass.walker": {
+   "file": "call/call.pass.walker.mp3",
+   "hash": "f491fd8ad240",
+   "text": "[building] Walker gets the run... and makes it stick!"
+  },
+  "call.lead.walker": {
+   "file": "call/call.lead.walker.mp3",
+   "hash": "b8dfef54ec6e",
+   "text": "[thrilled] Walker takes the lead!"
+  },
+  "call.save.wagner": {
+   "file": "call/call.save.wagner.mp3",
+   "hash": "a4ac9b94b491",
+   "text": "[tense, laughing] Wagner's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.walker": {
+   "file": "call/call.spin.walker.mp3",
+   "hash": "d993a3bc0e78",
+   "text": "[surprised] Walker spins! Around it goes!"
+  },
+  "call.crash.walker": {
+   "file": "call/call.crash.walker.mp3",
+   "hash": "bf6563de9cc0",
+   "text": "[shocked] Oh, trouble! Walker, hard into the wall!"
+  },
+  "call.win.walker": {
+   "file": "call/call.win.walker.mp3",
+   "hash": "76b82ab9a926",
+   "text": "[triumphant] Checkered flag... and Walker wins it!"
+  },
+  "call.bold.walker": {
+   "file": "call/call.bold.walker.mp3",
+   "hash": "830e9af49557",
+   "text": "[explosive] Oh, buddy! Walker just threw it in there!"
+  },
+  "call.save.walker": {
+   "file": "call/call.save.walker.mp3",
+   "hash": "b3a15f9f68df",
+   "text": "[tense, laughing] Walker's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.pass.wisniewski": {
+   "file": "call/call.pass.wisniewski.mp3",
+   "hash": "42766d3df1e5",
+   "text": "[building] Wisniewski gets the run... and makes it stick!"
+  },
+  "call.lead.wisniewski": {
+   "file": "call/call.lead.wisniewski.mp3",
+   "hash": "46dfa18452f9",
+   "text": "[thrilled] Wisniewski takes the lead!"
+  },
+  "call.spin.wisniewski": {
+   "file": "call/call.spin.wisniewski.mp3",
+   "hash": "89c647546fee",
+   "text": "[surprised] Wisniewski spins! Around it goes!"
+  },
+  "call.crash.wisniewski": {
+   "file": "call/call.crash.wisniewski.mp3",
+   "hash": "4c60153c435a",
+   "text": "[shocked] Oh, trouble! Wisniewski, hard into the wall!"
+  },
+  "call.win.wisniewski": {
+   "file": "call/call.win.wisniewski.mp3",
+   "hash": "b7e4d658ad31",
+   "text": "[triumphant] Checkered flag... and Wisniewski wins it!"
+  },
+  "call.bold.wisniewski": {
+   "file": "call/call.bold.wisniewski.mp3",
+   "hash": "0da5dcb96102",
+   "text": "[explosive] Oh, buddy! Wisniewski just threw it in there!"
+  },
+  "call.pass.wrobel": {
+   "file": "call/call.pass.wrobel.mp3",
+   "hash": "509111082b2e",
+   "text": "[building] Wrobel gets the run... and makes it stick!"
+  },
+  "call.save.wisniewski": {
+   "file": "call/call.save.wisniewski.mp3",
+   "hash": "b457fc2c0385",
+   "text": "[tense, laughing] Wisniewski's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.wrobel": {
+   "file": "call/call.lead.wrobel.mp3",
+   "hash": "ded687149aba",
+   "text": "[thrilled] Wrobel takes the lead!"
+  },
+  "call.spin.wrobel": {
+   "file": "call/call.spin.wrobel.mp3",
+   "hash": "57765576ca42",
+   "text": "[surprised] Wrobel spins! Around it goes!"
+  },
+  "call.crash.wrobel": {
+   "file": "call/call.crash.wrobel.mp3",
+   "hash": "d4625b23a4e3",
+   "text": "[shocked] Oh, trouble! Wrobel, hard into the wall!"
+  },
+  "call.win.wrobel": {
+   "file": "call/call.win.wrobel.mp3",
+   "hash": "5836d155ba09",
+   "text": "[triumphant] Checkered flag... and Wrobel wins it!"
+  },
+  "call.bold.wrobel": {
+   "file": "call/call.bold.wrobel.mp3",
+   "hash": "b6fb300e579b",
+   "text": "[explosive] Oh, buddy! Wrobel just threw it in there!"
+  },
+  "call.pass.yoon": {
+   "file": "call/call.pass.yoon.mp3",
+   "hash": "57baafd3d02d",
+   "text": "[building] Yoon gets the run... and makes it stick!"
+  },
+  "call.lead.yoon": {
+   "file": "call/call.lead.yoon.mp3",
+   "hash": "d4253e4437e0",
+   "text": "[thrilled] Yoon takes the lead!"
+  },
+  "call.save.wrobel": {
+   "file": "call/call.save.wrobel.mp3",
+   "hash": "556a53cff4b8",
+   "text": "[tense, laughing] Wrobel's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.yoon": {
+   "file": "call/call.spin.yoon.mp3",
+   "hash": "747fdfe7dc78",
+   "text": "[surprised] Yoon spins! Around it goes!"
+  },
+  "call.crash.yoon": {
+   "file": "call/call.crash.yoon.mp3",
+   "hash": "3ffc96ebf64a",
+   "text": "[shocked] Oh, trouble! Yoon, hard into the wall!"
+  },
+  "call.win.yoon": {
+   "file": "call/call.win.yoon.mp3",
+   "hash": "fc430a0d81ca",
+   "text": "[triumphant] Checkered flag... and Yoon wins it!"
+  },
+  "call.bold.yoon": {
+   "file": "call/call.bold.yoon.mp3",
+   "hash": "0599d42fd336",
+   "text": "[explosive] Oh, buddy! Yoon just threw it in there!"
+  },
+  "call.pass.zielinski": {
+   "file": "call/call.pass.zielinski.mp3",
+   "hash": "203e1b7db42b",
+   "text": "[building] Zielinski gets the run... and makes it stick!"
+  },
+  "call.save.yoon": {
+   "file": "call/call.save.yoon.mp3",
+   "hash": "01ca0c388db6",
+   "text": "[tense, laughing] Yoon's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.zielinski": {
+   "file": "call/call.lead.zielinski.mp3",
+   "hash": "d0d7a0881441",
+   "text": "[thrilled] Zielinski takes the lead!"
+  },
+  "call.spin.zielinski": {
+   "file": "call/call.spin.zielinski.mp3",
+   "hash": "5ae39693919d",
+   "text": "[surprised] Zielinski spins! Around it goes!"
+  },
+  "call.crash.zielinski": {
+   "file": "call/call.crash.zielinski.mp3",
+   "hash": "217468e872bd",
+   "text": "[shocked] Oh, trouble! Zielinski, hard into the wall!"
+  },
+  "call.win.zielinski": {
+   "file": "call/call.win.zielinski.mp3",
+   "hash": "3866bc1946d7",
+   "text": "[triumphant] Checkered flag... and Zielinski wins it!"
+  },
+  "call.bold.zielinski": {
+   "file": "call/call.bold.zielinski.mp3",
+   "hash": "268670fb3368",
+   "text": "[explosive] Oh, buddy! Zielinski just threw it in there!"
+  },
+  "call.save.zielinski": {
+   "file": "call/call.save.zielinski.mp3",
+   "hash": "1e6d40b346fb",
+   "text": "[tense, laughing] Zielinski's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.pass.ace": {
+   "file": "call/call.pass.ace.mp3",
+   "hash": "d297c8d86fc1",
+   "text": "[building] Ace gets the run... and makes it stick!"
+  },
+  "call.lead.ace": {
+   "file": "call/call.lead.ace.mp3",
+   "hash": "f67c8eade563",
+   "text": "[thrilled] Ace takes the lead!"
+  },
+  "call.spin.ace": {
+   "file": "call/call.spin.ace.mp3",
+   "hash": "296ebe459199",
+   "text": "[surprised] Ace spins! Around it goes!"
+  },
+  "call.win.ace": {
+   "file": "call/call.win.ace.mp3",
+   "hash": "b5e4f123150b",
+   "text": "[triumphant] Checkered flag... and Ace wins it!"
+  },
+  "call.crash.ace": {
+   "file": "call/call.crash.ace.mp3",
+   "hash": "b9e4f79a185c",
+   "text": "[shocked] Oh, trouble! Ace, hard into the wall!"
+  },
+  "call.bold.ace": {
+   "file": "call/call.bold.ace.mp3",
+   "hash": "f21bfee8463d",
+   "text": "[explosive] Oh, buddy! Ace just threw it in there!"
+  },
+  "call.pass.rookie": {
+   "file": "call/call.pass.rookie.mp3",
+   "hash": "aaa00bda6716",
+   "text": "[building] Rookie gets the run... and makes it stick!"
+  },
+  "call.save.ace": {
+   "file": "call/call.save.ace.mp3",
+   "hash": "ff69152bd7c9",
+   "text": "[tense, laughing] Ace's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.rookie": {
+   "file": "call/call.lead.rookie.mp3",
+   "hash": "54bd1fee958f",
+   "text": "[thrilled] Rookie takes the lead!"
+  },
+  "call.spin.rookie": {
+   "file": "call/call.spin.rookie.mp3",
+   "hash": "40ca505edaa8",
+   "text": "[surprised] Rookie spins! Around it goes!"
+  },
+  "call.crash.rookie": {
+   "file": "call/call.crash.rookie.mp3",
+   "hash": "be2879fbbcf0",
+   "text": "[shocked] Oh, trouble! Rookie, hard into the wall!"
+  },
+  "call.win.rookie": {
+   "file": "call/call.win.rookie.mp3",
+   "hash": "aee981e88975",
+   "text": "[triumphant] Checkered flag... and Rookie wins it!"
+  },
+  "call.bold.rookie": {
+   "file": "call/call.bold.rookie.mp3",
+   "hash": "e396dcb91201",
+   "text": "[explosive] Oh, buddy! Rookie just threw it in there!"
+  },
+  "call.pass.thekid": {
+   "file": "call/call.pass.thekid.mp3",
+   "hash": "b01a05363fb2",
+   "text": "[building] The Kid gets the run... and makes it stick!"
+  },
+  "call.lead.thekid": {
+   "file": "call/call.lead.thekid.mp3",
+   "hash": "5e7903602a37",
+   "text": "[thrilled] The Kid takes the lead!"
+  },
+  "call.save.rookie": {
+   "file": "call/call.save.rookie.mp3",
+   "hash": "56be884eb7fd",
+   "text": "[tense, laughing] Rookie's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.thekid": {
+   "file": "call/call.spin.thekid.mp3",
+   "hash": "369a6c9c64f3",
+   "text": "[surprised] The Kid spins! Around it goes!"
+  },
+  "call.crash.thekid": {
+   "file": "call/call.crash.thekid.mp3",
+   "hash": "9c91a4467624",
+   "text": "[shocked] Oh, trouble! The Kid, hard into the wall!"
+  },
+  "call.win.thekid": {
+   "file": "call/call.win.thekid.mp3",
+   "hash": "86015b88b7bb",
+   "text": "[triumphant] Checkered flag... and The Kid wins it!"
+  },
+  "call.bold.thekid": {
+   "file": "call/call.bold.thekid.mp3",
+   "hash": "a048b56c30e1",
+   "text": "[explosive] Oh, buddy! The Kid just threw it in there!"
+  },
+  "call.pass.hotrod": {
+   "file": "call/call.pass.hotrod.mp3",
+   "hash": "90223c52f273",
+   "text": "[building] Hot Rod gets the run... and makes it stick!"
+  },
+  "call.save.thekid": {
+   "file": "call/call.save.thekid.mp3",
+   "hash": "fb537651ad07",
+   "text": "[tense, laughing] The Kid's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.hotrod": {
+   "file": "call/call.lead.hotrod.mp3",
+   "hash": "f85507342f40",
+   "text": "[thrilled] Hot Rod takes the lead!"
+  },
+  "call.crash.hotrod": {
+   "file": "call/call.crash.hotrod.mp3",
+   "hash": "f5f8b955900e",
+   "text": "[shocked] Oh, trouble! Hot Rod, hard into the wall!"
+  },
+  "call.win.hotrod": {
+   "file": "call/call.win.hotrod.mp3",
+   "hash": "3be30b3beb29",
+   "text": "[triumphant] Checkered flag... and Hot Rod wins it!"
+  },
+  "call.bold.hotrod": {
+   "file": "call/call.bold.hotrod.mp3",
+   "hash": "2f4569ae07d0",
+   "text": "[explosive] Oh, buddy! Hot Rod just threw it in there!"
+  },
+  "call.pass.lightning": {
+   "file": "call/call.pass.lightning.mp3",
+   "hash": "3e244b0bdd49",
+   "text": "[building] Lightning gets the run... and makes it stick!"
+  },
+  "call.lead.lightning": {
+   "file": "call/call.lead.lightning.mp3",
+   "hash": "81d2264519db",
+   "text": "[thrilled] Lightning takes the lead!"
+  },
+  "call.spin.lightning": {
+   "file": "call/call.spin.lightning.mp3",
+   "hash": "14907c8f33f8",
+   "text": "[surprised] Lightning spins! Around it goes!"
+  },
+  "call.crash.lightning": {
+   "file": "call/call.crash.lightning.mp3",
+   "hash": "ed8c66b36e2d",
+   "text": "[shocked] Oh, trouble! Lightning, hard into the wall!"
+  },
+  "call.win.lightning": {
+   "file": "call/call.win.lightning.mp3",
+   "hash": "5b0e53908c45",
+   "text": "[triumphant] Checkered flag... and Lightning wins it!"
+  },
+  "call.bold.lightning": {
+   "file": "call/call.bold.lightning.mp3",
+   "hash": "2377fa5deb15",
+   "text": "[explosive] Oh, buddy! Lightning just threw it in there!"
+  },
+  "call.pass.maverick": {
+   "file": "call/call.pass.maverick.mp3",
+   "hash": "c62d6f153bcd",
+   "text": "[building] Maverick gets the run... and makes it stick!"
+  },
+  "call.save.lightning": {
+   "file": "call/call.save.lightning.mp3",
+   "hash": "14b57a18ba43",
+   "text": "[tense, laughing] Lightning's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.maverick": {
+   "file": "call/call.lead.maverick.mp3",
+   "hash": "50c08b65c397",
+   "text": "[thrilled] Maverick takes the lead!"
+  },
+  "call.spin.maverick": {
+   "file": "call/call.spin.maverick.mp3",
+   "hash": "40b256ec95f3",
+   "text": "[surprised] Maverick spins! Around it goes!"
+  },
+  "call.crash.maverick": {
+   "file": "call/call.crash.maverick.mp3",
+   "hash": "fef31a762e2a",
+   "text": "[shocked] Oh, trouble! Maverick, hard into the wall!"
+  },
+  "call.win.maverick": {
+   "file": "call/call.win.maverick.mp3",
+   "hash": "dd878c93a522",
+   "text": "[triumphant] Checkered flag... and Maverick wins it!"
+  },
+  "call.bold.maverick": {
+   "file": "call/call.bold.maverick.mp3",
+   "hash": "77cfa5b53cf5",
+   "text": "[explosive] Oh, buddy! Maverick just threw it in there!"
+  },
+  "call.pass.showtime": {
+   "file": "call/call.pass.showtime.mp3",
+   "hash": "db0201337740",
+   "text": "[building] Showtime gets the run... and makes it stick!"
+  },
+  "call.save.maverick": {
+   "file": "call/call.save.maverick.mp3",
+   "hash": "da9cc7c69426",
+   "text": "[tense, laughing] Maverick's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.showtime": {
+   "file": "call/call.lead.showtime.mp3",
+   "hash": "d715ec63ec62",
+   "text": "[thrilled] Showtime takes the lead!"
+  },
+  "call.spin.showtime": {
+   "file": "call/call.spin.showtime.mp3",
+   "hash": "01809b96b827",
+   "text": "[surprised] Showtime spins! Around it goes!"
+  },
+  "call.crash.showtime": {
+   "file": "call/call.crash.showtime.mp3",
+   "hash": "3d169114b5b2",
+   "text": "[shocked] Oh, trouble! Showtime, hard into the wall!"
+  },
+  "call.win.showtime": {
+   "file": "call/call.win.showtime.mp3",
+   "hash": "5aa6d3615f6e",
+   "text": "[triumphant] Checkered flag... and Showtime wins it!"
+  },
+  "call.bold.showtime": {
+   "file": "call/call.bold.showtime.mp3",
+   "hash": "0c78e80650d1",
+   "text": "[explosive] Oh, buddy! Showtime just threw it in there!"
+  },
+  "call.save.showtime": {
+   "file": "call/call.save.showtime.mp3",
+   "hash": "42fafc726637",
+   "text": "[tense, laughing] Showtime's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.smokey": {
+   "file": "call/call.lead.smokey.mp3",
+   "hash": "3f45da895596",
+   "text": "[thrilled] Smokey takes the lead!"
+  },
+  "call.pass.smokey": {
+   "file": "call/call.pass.smokey.mp3",
+   "hash": "d4219052c5a3",
+   "text": "[building] Smokey gets the run... and makes it stick!"
+  },
+  "call.spin.smokey": {
+   "file": "call/call.spin.smokey.mp3",
+   "hash": "c7bc7c09a97e",
+   "text": "[surprised] Smokey spins! Around it goes!"
+  },
+  "call.crash.smokey": {
+   "file": "call/call.crash.smokey.mp3",
+   "hash": "ad0e5a1e2329",
+   "text": "[shocked] Oh, trouble! Smokey, hard into the wall!"
+  },
+  "call.win.smokey": {
+   "file": "call/call.win.smokey.mp3",
+   "hash": "7ae37729f2e8",
+   "text": "[triumphant] Checkered flag... and Smokey wins it!"
+  },
+  "call.bold.smokey": {
+   "file": "call/call.bold.smokey.mp3",
+   "hash": "87c4441ced0f",
+   "text": "[explosive] Oh, buddy! Smokey just threw it in there!"
+  },
+  "call.pass.bulldog": {
+   "file": "call/call.pass.bulldog.mp3",
+   "hash": "a01873d92780",
+   "text": "[building] Bulldog gets the run... and makes it stick!"
+  },
+  "call.save.smokey": {
+   "file": "call/call.save.smokey.mp3",
+   "hash": "2d9c38d4d08f",
+   "text": "[tense, laughing] Smokey's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.bulldog": {
+   "file": "call/call.lead.bulldog.mp3",
+   "hash": "5785a388593d",
+   "text": "[thrilled] Bulldog takes the lead!"
+  },
+  "call.spin.bulldog": {
+   "file": "call/call.spin.bulldog.mp3",
+   "hash": "bbd329b706ca",
+   "text": "[surprised] Bulldog spins! Around it goes!"
+  },
+  "call.win.bulldog": {
+   "file": "call/call.win.bulldog.mp3",
+   "hash": "3cfdd9bb0915",
+   "text": "[triumphant] Checkered flag... and Bulldog wins it!"
+  },
+  "call.crash.bulldog": {
+   "file": "call/call.crash.bulldog.mp3",
+   "hash": "3be4cc559d83",
+   "text": "[shocked] Oh, trouble! Bulldog, hard into the wall!"
+  },
+  "call.bold.bulldog": {
+   "file": "call/call.bold.bulldog.mp3",
+   "hash": "6a28e1caf57b",
+   "text": "[explosive] Oh, buddy! Bulldog just threw it in there!"
+  },
+  "call.pass.iceman": {
+   "file": "call/call.pass.iceman.mp3",
+   "hash": "fa674a272ea5",
+   "text": "[building] Iceman gets the run... and makes it stick!"
+  },
+  "call.lead.iceman": {
+   "file": "call/call.lead.iceman.mp3",
+   "hash": "8f9c30166c18",
+   "text": "[thrilled] Iceman takes the lead!"
+  },
+  "call.save.bulldog": {
+   "file": "call/call.save.bulldog.mp3",
+   "hash": "d49c60b64c14",
+   "text": "[tense, laughing] Bulldog's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.iceman": {
+   "file": "call/call.spin.iceman.mp3",
+   "hash": "2dd63ecbc1ee",
+   "text": "[surprised] Iceman spins! Around it goes!"
+  },
+  "call.crash.iceman": {
+   "file": "call/call.crash.iceman.mp3",
+   "hash": "f5a6b48d22e3",
+   "text": "[shocked] Oh, trouble! Iceman, hard into the wall!"
+  },
+  "call.win.iceman": {
+   "file": "call/call.win.iceman.mp3",
+   "hash": "45869b930e1b",
+   "text": "[triumphant] Checkered flag... and Iceman wins it!"
+  },
+  "call.bold.iceman": {
+   "file": "call/call.bold.iceman.mp3",
+   "hash": "95f287e1f8f1",
+   "text": "[explosive] Oh, buddy! Iceman just threw it in there!"
+  },
+  "call.pass.tex": {
+   "file": "call/call.pass.tex.mp3",
+   "hash": "9a8dec349cc4",
+   "text": "[building] Tex gets the run... and makes it stick!"
+  },
+  "call.lead.tex": {
+   "file": "call/call.lead.tex.mp3",
+   "hash": "9b5539046616",
+   "text": "[thrilled] Tex takes the lead!"
+  },
+  "call.save.iceman": {
+   "file": "call/call.save.iceman.mp3",
+   "hash": "4257b3e041aa",
+   "text": "[tense, laughing] Iceman's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.tex": {
+   "file": "call/call.spin.tex.mp3",
+   "hash": "6a513d174533",
+   "text": "[surprised] Tex spins! Around it goes!"
+  },
+  "call.crash.tex": {
+   "file": "call/call.crash.tex.mp3",
+   "hash": "28ae5c848232",
+   "text": "[shocked] Oh, trouble! Tex, hard into the wall!"
+  },
+  "call.win.tex": {
+   "file": "call/call.win.tex.mp3",
+   "hash": "977db0d4983f",
+   "text": "[triumphant] Checkered flag... and Tex wins it!"
+  },
+  "call.bold.tex": {
+   "file": "call/call.bold.tex.mp3",
+   "hash": "84274e098939",
+   "text": "[explosive] Oh, buddy! Tex just threw it in there!"
+  },
+  "call.pass.doc": {
+   "file": "call/call.pass.doc.mp3",
+   "hash": "6f2a6bfb8e32",
+   "text": "[building] Doc gets the run... and makes it stick!"
+  },
+  "call.save.tex": {
+   "file": "call/call.save.tex.mp3",
+   "hash": "c76213c2deb3",
+   "text": "[tense, laughing] Tex's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.doc": {
+   "file": "call/call.lead.doc.mp3",
+   "hash": "29e87fef73b7",
+   "text": "[thrilled] Doc takes the lead!"
+  },
+  "call.spin.doc": {
+   "file": "call/call.spin.doc.mp3",
+   "hash": "9eff5614dddf",
+   "text": "[surprised] Doc spins! Around it goes!"
+  },
+  "call.win.doc": {
+   "file": "call/call.win.doc.mp3",
+   "hash": "a5470e9318d0",
+   "text": "[triumphant] Checkered flag... and Doc wins it!"
+  },
+  "call.crash.doc": {
+   "file": "call/call.crash.doc.mp3",
+   "hash": "308064b5ade1",
+   "text": "[shocked] Oh, trouble! Doc, hard into the wall!"
+  },
+  "call.bold.doc": {
+   "file": "call/call.bold.doc.mp3",
+   "hash": "5bb226a3d655",
+   "text": "[explosive] Oh, buddy! Doc just threw it in there!"
+  },
+  "call.pass.flash": {
+   "file": "call/call.pass.flash.mp3",
+   "hash": "613597c4b6e6",
+   "text": "[building] Flash gets the run... and makes it stick!"
+  },
+  "call.lead.flash": {
+   "file": "call/call.lead.flash.mp3",
+   "hash": "5fd609bc770b",
+   "text": "[thrilled] Flash takes the lead!"
+  },
+  "call.save.doc": {
+   "file": "call/call.save.doc.mp3",
+   "hash": "3a38feca9e76",
+   "text": "[tense, laughing] Doc's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.flash": {
+   "file": "call/call.spin.flash.mp3",
+   "hash": "6f4a6ad06b17",
+   "text": "[surprised] Flash spins! Around it goes!"
+  },
+  "call.crash.flash": {
+   "file": "call/call.crash.flash.mp3",
+   "hash": "67b8917126a4",
+   "text": "[shocked] Oh, trouble! Flash, hard into the wall!"
+  },
+  "call.win.flash": {
+   "file": "call/call.win.flash.mp3",
+   "hash": "fa49165ca34a",
+   "text": "[triumphant] Checkered flag... and Flash wins it!"
+  },
+  "call.bold.flash": {
+   "file": "call/call.bold.flash.mp3",
+   "hash": "3ed4fc7b53ec",
+   "text": "[explosive] Oh, buddy! Flash just threw it in there!"
+  },
+  "call.pass.rocket": {
+   "file": "call/call.pass.rocket.mp3",
+   "hash": "ef70dab3cc28",
+   "text": "[building] Rocket gets the run... and makes it stick!"
+  },
+  "call.save.flash": {
+   "file": "call/call.save.flash.mp3",
+   "hash": "b38be5ecf2bf",
+   "text": "[tense, laughing] Flash's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.rocket": {
+   "file": "call/call.lead.rocket.mp3",
+   "hash": "ba13f28c1922",
+   "text": "[thrilled] Rocket takes the lead!"
+  },
+  "call.spin.rocket": {
+   "file": "call/call.spin.rocket.mp3",
+   "hash": "01e66c4a3a59",
+   "text": "[surprised] Rocket spins! Around it goes!"
+  },
+  "call.crash.rocket": {
+   "file": "call/call.crash.rocket.mp3",
+   "hash": "8cdf445d741d",
+   "text": "[shocked] Oh, trouble! Rocket, hard into the wall!"
+  },
+  "call.win.rocket": {
+   "file": "call/call.win.rocket.mp3",
+   "hash": "28b2120e7576",
+   "text": "[triumphant] Checkered flag... and Rocket wins it!"
+  },
+  "call.bold.rocket": {
+   "file": "call/call.bold.rocket.mp3",
+   "hash": "789692b57264",
+   "text": "[explosive] Oh, buddy! Rocket just threw it in there!"
+  },
+  "call.pass.bandit": {
+   "file": "call/call.pass.bandit.mp3",
+   "hash": "721fedcf85e4",
+   "text": "[building] Bandit gets the run... and makes it stick!"
+  },
+  "call.lead.bandit": {
+   "file": "call/call.lead.bandit.mp3",
+   "hash": "f30e0bd0bd61",
+   "text": "[thrilled] Bandit takes the lead!"
+  },
+  "call.save.rocket": {
+   "file": "call/call.save.rocket.mp3",
+   "hash": "51f92a9cf1cc",
+   "text": "[tense, laughing] Rocket's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.bandit": {
+   "file": "call/call.spin.bandit.mp3",
+   "hash": "be8739f01a40",
+   "text": "[surprised] Bandit spins! Around it goes!"
+  },
+  "call.crash.bandit": {
+   "file": "call/call.crash.bandit.mp3",
+   "hash": "e54096818137",
+   "text": "[shocked] Oh, trouble! Bandit, hard into the wall!"
+  },
+  "call.win.bandit": {
+   "file": "call/call.win.bandit.mp3",
+   "hash": "f72002e9caa2",
+   "text": "[triumphant] Checkered flag... and Bandit wins it!"
+  },
+  "call.bold.bandit": {
+   "file": "call/call.bold.bandit.mp3",
+   "hash": "c0d2271fbe01",
+   "text": "[explosive] Oh, buddy! Bandit just threw it in there!"
+  },
+  "call.pass.cowboy": {
+   "file": "call/call.pass.cowboy.mp3",
+   "hash": "2acca5be120e",
+   "text": "[building] Cowboy gets the run... and makes it stick!"
+  },
+  "call.save.bandit": {
+   "file": "call/call.save.bandit.mp3",
+   "hash": "98e231f0a03b",
+   "text": "[tense, laughing] Bandit's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.cowboy": {
+   "file": "call/call.lead.cowboy.mp3",
+   "hash": "fcd0ad6dead5",
+   "text": "[thrilled] Cowboy takes the lead!"
+  },
+  "call.spin.cowboy": {
+   "file": "call/call.spin.cowboy.mp3",
+   "hash": "258e30db6fe0",
+   "text": "[surprised] Cowboy spins! Around it goes!"
+  },
+  "call.crash.cowboy": {
+   "file": "call/call.crash.cowboy.mp3",
+   "hash": "36e30c89ddfd",
+   "text": "[shocked] Oh, trouble! Cowboy, hard into the wall!"
+  },
+  "call.win.cowboy": {
+   "file": "call/call.win.cowboy.mp3",
+   "hash": "a3a8b1b13509",
+   "text": "[triumphant] Checkered flag... and Cowboy wins it!"
+  },
+  "call.bold.cowboy": {
+   "file": "call/call.bold.cowboy.mp3",
+   "hash": "df8eb2d6e059",
+   "text": "[explosive] Oh, buddy! Cowboy just threw it in there!"
+  },
+  "call.pass.gator": {
+   "file": "call/call.pass.gator.mp3",
+   "hash": "518f627509ab",
+   "text": "[building] Gator gets the run... and makes it stick!"
+  },
+  "call.lead.gator": {
+   "file": "call/call.lead.gator.mp3",
+   "hash": "4bfbdc43212b",
+   "text": "[thrilled] Gator takes the lead!"
+  },
+  "call.save.cowboy": {
+   "file": "call/call.save.cowboy.mp3",
+   "hash": "976740896efb",
+   "text": "[tense, laughing] Cowboy's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.gator": {
+   "file": "call/call.spin.gator.mp3",
+   "hash": "6ef4413c3da8",
+   "text": "[surprised] Gator spins! Around it goes!"
+  },
+  "call.crash.gator": {
+   "file": "call/call.crash.gator.mp3",
+   "hash": "804b828f6d85",
+   "text": "[shocked] Oh, trouble! Gator, hard into the wall!"
+  },
+  "call.win.gator": {
+   "file": "call/call.win.gator.mp3",
+   "hash": "332099dd137f",
+   "text": "[triumphant] Checkered flag... and Gator wins it!"
+  },
+  "call.bold.gator": {
+   "file": "call/call.bold.gator.mp3",
+   "hash": "8c6b827497a3",
+   "text": "[explosive] Oh, buddy! Gator just threw it in there!"
+  },
+  "call.pass.hollywood": {
+   "file": "call/call.pass.hollywood.mp3",
+   "hash": "1b168141a4a6",
+   "text": "[building] Hollywood gets the run... and makes it stick!"
+  },
+  "call.lead.hollywood": {
+   "file": "call/call.lead.hollywood.mp3",
+   "hash": "2451e255a622",
+   "text": "[thrilled] Hollywood takes the lead!"
+  },
+  "call.save.gator": {
+   "file": "call/call.save.gator.mp3",
+   "hash": "f7dd9b3c9502",
+   "text": "[tense, laughing] Gator's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.hollywood": {
+   "file": "call/call.spin.hollywood.mp3",
+   "hash": "de7ce92844d6",
+   "text": "[surprised] Hollywood spins! Around it goes!"
+  },
+  "call.crash.hollywood": {
+   "file": "call/call.crash.hollywood.mp3",
+   "hash": "18d68b3c24d1",
+   "text": "[shocked] Oh, trouble! Hollywood, hard into the wall!"
+  },
+  "call.win.hollywood": {
+   "file": "call/call.win.hollywood.mp3",
+   "hash": "4b53b307043c",
+   "text": "[triumphant] Checkered flag... and Hollywood wins it!"
+  },
+  "call.bold.hollywood": {
+   "file": "call/call.bold.hollywood.mp3",
+   "hash": "db965d5a213a",
+   "text": "[explosive] Oh, buddy! Hollywood just threw it in there!"
+  },
+  "call.pass.junior": {
+   "file": "call/call.pass.junior.mp3",
+   "hash": "2b3b97198f14",
+   "text": "[building] Junior gets the run... and makes it stick!"
+  },
+  "call.save.hollywood": {
+   "file": "call/call.save.hollywood.mp3",
+   "hash": "0d0ee4778d88",
+   "text": "[tense, laughing] Hollywood's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.junior": {
+   "file": "call/call.lead.junior.mp3",
+   "hash": "e109f6460f26",
+   "text": "[thrilled] Junior takes the lead!"
+  },
+  "call.spin.junior": {
+   "file": "call/call.spin.junior.mp3",
+   "hash": "9c5950bd4655",
+   "text": "[surprised] Junior spins! Around it goes!"
+  },
+  "call.crash.junior": {
+   "file": "call/call.crash.junior.mp3",
+   "hash": "19cad39948e6",
+   "text": "[shocked] Oh, trouble! Junior, hard into the wall!"
+  },
+  "call.win.junior": {
+   "file": "call/call.win.junior.mp3",
+   "hash": "990bca72e66e",
+   "text": "[triumphant] Checkered flag... and Junior wins it!"
+  },
+  "call.bold.junior": {
+   "file": "call/call.bold.junior.mp3",
+   "hash": "90133996a77a",
+   "text": "[explosive] Oh, buddy! Junior just threw it in there!"
+  },
+  "call.pass.lucky": {
+   "file": "call/call.pass.lucky.mp3",
+   "hash": "a9a6474ccd22",
+   "text": "[building] Lucky gets the run... and makes it stick!"
+  },
+  "call.lead.lucky": {
+   "file": "call/call.lead.lucky.mp3",
+   "hash": "5da1a52c10ab",
+   "text": "[thrilled] Lucky takes the lead!"
+  },
+  "call.save.junior": {
+   "file": "call/call.save.junior.mp3",
+   "hash": "eeb6372e82fe",
+   "text": "[tense, laughing] Junior's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.lucky": {
+   "file": "call/call.spin.lucky.mp3",
+   "hash": "c5109aefa841",
+   "text": "[surprised] Lucky spins! Around it goes!"
+  },
+  "call.crash.lucky": {
+   "file": "call/call.crash.lucky.mp3",
+   "hash": "05a78e952d0b",
+   "text": "[shocked] Oh, trouble! Lucky, hard into the wall!"
+  },
+  "call.win.lucky": {
+   "file": "call/call.win.lucky.mp3",
+   "hash": "8deea8ba5977",
+   "text": "[triumphant] Checkered flag... and Lucky wins it!"
+  },
+  "call.bold.lucky": {
+   "file": "call/call.bold.lucky.mp3",
+   "hash": "ac43b3aeb4ad",
+   "text": "[explosive] Oh, buddy! Lucky just threw it in there!"
+  },
+  "call.pass.outlaw": {
+   "file": "call/call.pass.outlaw.mp3",
+   "hash": "4ccf4b0dc4c9",
+   "text": "[building] Outlaw gets the run... and makes it stick!"
+  },
+  "call.lead.outlaw": {
+   "file": "call/call.lead.outlaw.mp3",
+   "hash": "d1448fc7e351",
+   "text": "[thrilled] Outlaw takes the lead!"
+  },
+  "call.save.lucky": {
+   "file": "call/call.save.lucky.mp3",
+   "hash": "37975f948665",
+   "text": "[tense, laughing] Lucky's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.outlaw": {
+   "file": "call/call.spin.outlaw.mp3",
+   "hash": "96bd022e4362",
+   "text": "[surprised] Outlaw spins! Around it goes!"
+  },
+  "call.crash.outlaw": {
+   "file": "call/call.crash.outlaw.mp3",
+   "hash": "71cc62c50d3f",
+   "text": "[shocked] Oh, trouble! Outlaw, hard into the wall!"
+  },
+  "call.win.outlaw": {
+   "file": "call/call.win.outlaw.mp3",
+   "hash": "ecb363b47e15",
+   "text": "[triumphant] Checkered flag... and Outlaw wins it!"
+  },
+  "call.bold.outlaw": {
+   "file": "call/call.bold.outlaw.mp3",
+   "hash": "0baad45b0157",
+   "text": "[explosive] Oh, buddy! Outlaw just threw it in there!"
+  },
+  "call.pass.pistol": {
+   "file": "call/call.pass.pistol.mp3",
+   "hash": "49cf6895259c",
+   "text": "[building] Pistol gets the run... and makes it stick!"
+  },
+  "call.save.outlaw": {
+   "file": "call/call.save.outlaw.mp3",
+   "hash": "46dd34ebd2cd",
+   "text": "[tense, laughing] Outlaw's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.pistol": {
+   "file": "call/call.lead.pistol.mp3",
+   "hash": "aa44324f5da5",
+   "text": "[thrilled] Pistol takes the lead!"
+  },
+  "call.spin.pistol": {
+   "file": "call/call.spin.pistol.mp3",
+   "hash": "6900a624d050",
+   "text": "[surprised] Pistol spins! Around it goes!"
+  },
+  "call.crash.pistol": {
+   "file": "call/call.crash.pistol.mp3",
+   "hash": "bfa68c87bcae",
+   "text": "[shocked] Oh, trouble! Pistol, hard into the wall!"
+  },
+  "call.win.pistol": {
+   "file": "call/call.win.pistol.mp3",
+   "hash": "abf31844168a",
+   "text": "[triumphant] Checkered flag... and Pistol wins it!"
+  },
+  "call.bold.pistol": {
+   "file": "call/call.bold.pistol.mp3",
+   "hash": "84b343fbff4f",
+   "text": "[explosive] Oh, buddy! Pistol just threw it in there!"
+  },
+  "call.pass.rebel": {
+   "file": "call/call.pass.rebel.mp3",
+   "hash": "ee1e94b1ea55",
+   "text": "[building] Rebel gets the run... and makes it stick!"
+  },
+  "call.save.pistol": {
+   "file": "call/call.save.pistol.mp3",
+   "hash": "c0828ba73f76",
+   "text": "[tense, laughing] Pistol's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.rebel": {
+   "file": "call/call.lead.rebel.mp3",
+   "hash": "3dccc05b08bf",
+   "text": "[thrilled] Rebel takes the lead!"
+  },
+  "call.spin.rebel": {
+   "file": "call/call.spin.rebel.mp3",
+   "hash": "b0747c82964d",
+   "text": "[surprised] Rebel spins! Around it goes!"
+  },
+  "call.crash.rebel": {
+   "file": "call/call.crash.rebel.mp3",
+   "hash": "6223a0fcb8b2",
+   "text": "[shocked] Oh, trouble! Rebel, hard into the wall!"
+  },
+  "call.win.rebel": {
+   "file": "call/call.win.rebel.mp3",
+   "hash": "062c51abbaf1",
+   "text": "[triumphant] Checkered flag... and Rebel wins it!"
+  },
+  "call.bold.rebel": {
+   "file": "call/call.bold.rebel.mp3",
+   "hash": "8ba176aafe4a",
+   "text": "[explosive] Oh, buddy! Rebel just threw it in there!"
+  },
+  "call.pass.slick": {
+   "file": "call/call.pass.slick.mp3",
+   "hash": "1a7b9427a36d",
+   "text": "[building] Slick gets the run... and makes it stick!"
+  },
+  "call.lead.slick": {
+   "file": "call/call.lead.slick.mp3",
+   "hash": "f0b55873a899",
+   "text": "[thrilled] Slick takes the lead!"
+  },
+  "call.save.rebel": {
+   "file": "call/call.save.rebel.mp3",
+   "hash": "4ea6c4b8e558",
+   "text": "[tense, laughing] Rebel's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.slick": {
+   "file": "call/call.spin.slick.mp3",
+   "hash": "4ad6e99a7fd6",
+   "text": "[surprised] Slick spins! Around it goes!"
+  },
+  "call.win.slick": {
+   "file": "call/call.win.slick.mp3",
+   "hash": "373685b21ca7",
+   "text": "[triumphant] Checkered flag... and Slick wins it!"
+  },
+  "call.crash.slick": {
+   "file": "call/call.crash.slick.mp3",
+   "hash": "f04aaf6a7bca",
+   "text": "[shocked] Oh, trouble! Slick, hard into the wall!"
+  },
+  "call.bold.slick": {
+   "file": "call/call.bold.slick.mp3",
+   "hash": "0a217677ee76",
+   "text": "[explosive] Oh, buddy! Slick just threw it in there!"
+  },
+  "call.pass.thunder": {
+   "file": "call/call.pass.thunder.mp3",
+   "hash": "d9086ced441a",
+   "text": "[building] Thunder gets the run... and makes it stick!"
+  },
+  "call.lead.thunder": {
+   "file": "call/call.lead.thunder.mp3",
+   "hash": "3218d4bfe467",
+   "text": "[thrilled] Thunder takes the lead!"
+  },
+  "call.save.slick": {
+   "file": "call/call.save.slick.mp3",
+   "hash": "bd1053d2b232",
+   "text": "[tense, laughing] Slick's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.thunder": {
+   "file": "call/call.spin.thunder.mp3",
+   "hash": "7082d96b1651",
+   "text": "[surprised] Thunder spins! Around it goes!"
+  },
+  "call.crash.thunder": {
+   "file": "call/call.crash.thunder.mp3",
+   "hash": "c54fece02f40",
+   "text": "[shocked] Oh, trouble! Thunder, hard into the wall!"
+  },
+  "call.win.thunder": {
+   "file": "call/call.win.thunder.mp3",
+   "hash": "f73b3e5df3f2",
+   "text": "[triumphant] Checkered flag... and Thunder wins it!"
+  },
+  "call.bold.thunder": {
+   "file": "call/call.bold.thunder.mp3",
+   "hash": "72250c773ad3",
+   "text": "[explosive] Oh, buddy! Thunder just threw it in there!"
+  },
+  "call.pass.tiger": {
+   "file": "call/call.pass.tiger.mp3",
+   "hash": "2a37742a9498",
+   "text": "[building] Tiger gets the run... and makes it stick!"
+  },
+  "call.lead.tiger": {
+   "file": "call/call.lead.tiger.mp3",
+   "hash": "efbb059407e4",
+   "text": "[thrilled] Tiger takes the lead!"
+  },
+  "call.save.thunder": {
+   "file": "call/call.save.thunder.mp3",
+   "hash": "e2b2c097eb8d",
+   "text": "[tense, laughing] Thunder's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.tiger": {
+   "file": "call/call.spin.tiger.mp3",
+   "hash": "36359177d425",
+   "text": "[surprised] Tiger spins! Around it goes!"
+  },
+  "call.crash.tiger": {
+   "file": "call/call.crash.tiger.mp3",
+   "hash": "1b7dde99eb38",
+   "text": "[shocked] Oh, trouble! Tiger, hard into the wall!"
+  },
+  "call.win.tiger": {
+   "file": "call/call.win.tiger.mp3",
+   "hash": "7d9240c29912",
+   "text": "[triumphant] Checkered flag... and Tiger wins it!"
+  },
+  "call.bold.tiger": {
+   "file": "call/call.bold.tiger.mp3",
+   "hash": "7271d9287902",
+   "text": "[explosive] Oh, buddy! Tiger just threw it in there!"
+  },
+  "call.pass.wildcat": {
+   "file": "call/call.pass.wildcat.mp3",
+   "hash": "2ac5901fb4e2",
+   "text": "[building] Wildcat gets the run... and makes it stick!"
+  },
+  "call.save.tiger": {
+   "file": "call/call.save.tiger.mp3",
+   "hash": "2e4b7a53e991",
+   "text": "[tense, laughing] Tiger's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.wildcat": {
+   "file": "call/call.lead.wildcat.mp3",
+   "hash": "10f0ce5fb7e2",
+   "text": "[thrilled] Wildcat takes the lead!"
+  },
+  "call.spin.wildcat": {
+   "file": "call/call.spin.wildcat.mp3",
+   "hash": "ce1015716dd9",
+   "text": "[surprised] Wildcat spins! Around it goes!"
+  },
+  "call.crash.wildcat": {
+   "file": "call/call.crash.wildcat.mp3",
+   "hash": "b961fb0a8e7a",
+   "text": "[shocked] Oh, trouble! Wildcat, hard into the wall!"
+  },
+  "call.win.wildcat": {
+   "file": "call/call.win.wildcat.mp3",
+   "hash": "0cb1c38d56d8",
+   "text": "[triumphant] Checkered flag... and Wildcat wins it!"
+  },
+  "call.bold.wildcat": {
+   "file": "call/call.bold.wildcat.mp3",
+   "hash": "87922aa73b6e",
+   "text": "[explosive] Oh, buddy! Wildcat just threw it in there!"
+  },
+  "call.pass.turbo": {
+   "file": "call/call.pass.turbo.mp3",
+   "hash": "f9f9963dd184",
+   "text": "[building] Turbo gets the run... and makes it stick!"
+  },
+  "call.lead.turbo": {
+   "file": "call/call.lead.turbo.mp3",
+   "hash": "ff2ec19408ec",
+   "text": "[thrilled] Turbo takes the lead!"
+  },
+  "call.save.wildcat": {
+   "file": "call/call.save.wildcat.mp3",
+   "hash": "ea5470ce5842",
+   "text": "[tense, laughing] Wildcat's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.spin.turbo": {
+   "file": "call/call.spin.turbo.mp3",
+   "hash": "b1d37fd03ca0",
+   "text": "[surprised] Turbo spins! Around it goes!"
+  },
+  "call.crash.turbo": {
+   "file": "call/call.crash.turbo.mp3",
+   "hash": "116581cb9137",
+   "text": "[shocked] Oh, trouble! Turbo, hard into the wall!"
+  },
+  "call.win.turbo": {
+   "file": "call/call.win.turbo.mp3",
+   "hash": "8a9110779cb8",
+   "text": "[triumphant] Checkered flag... and Turbo wins it!"
+  },
+  "call.bold.turbo": {
+   "file": "call/call.bold.turbo.mp3",
+   "hash": "982da6b57888",
+   "text": "[explosive] Oh, buddy! Turbo just threw it in there!"
+  },
+  "call.pass.hurricane": {
+   "file": "call/call.pass.hurricane.mp3",
+   "hash": "444b3b61d277",
+   "text": "[building] Hurricane gets the run... and makes it stick!"
+  },
+  "call.save.turbo": {
+   "file": "call/call.save.turbo.mp3",
+   "hash": "c82ad4562def",
+   "text": "[tense, laughing] Turbo's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.hurricane": {
+   "file": "call/call.lead.hurricane.mp3",
+   "hash": "2cae7a726604",
+   "text": "[thrilled] Hurricane takes the lead!"
+  },
+  "call.spin.hurricane": {
+   "file": "call/call.spin.hurricane.mp3",
+   "hash": "3dc69f22ae37",
+   "text": "[surprised] Hurricane spins! Around it goes!"
+  },
+  "call.crash.hurricane": {
+   "file": "call/call.crash.hurricane.mp3",
+   "hash": "44303bb9873b",
+   "text": "[shocked] Oh, trouble! Hurricane, hard into the wall!"
+  },
+  "call.win.hurricane": {
+   "file": "call/call.win.hurricane.mp3",
+   "hash": "020e2c7281c7",
+   "text": "[triumphant] Checkered flag... and Hurricane wins it!"
+  },
+  "call.bold.hurricane": {
+   "file": "call/call.bold.hurricane.mp3",
+   "hash": "dec559282e64",
+   "text": "[explosive] Oh, buddy! Hurricane just threw it in there!"
+  },
+  "call.pass.theboss": {
+   "file": "call/call.pass.theboss.mp3",
+   "hash": "fb58909f80e2",
+   "text": "[building] The Boss gets the run... and makes it stick!"
+  },
+  "call.save.hurricane": {
+   "file": "call/call.save.hurricane.mp3",
+   "hash": "b0021341c62a",
+   "text": "[tense, laughing] Hurricane's sideways... hang on... and saves it! Man alive!"
+  },
+  "call.lead.theboss": {
+   "file": "call/call.lead.theboss.mp3",
+   "hash": "6bf1ab08214a",
+   "text": "[thrilled] The Boss takes the lead!"
+  },
+  "call.spin.theboss": {
+   "file": "call/call.spin.theboss.mp3",
+   "hash": "6ea32fa396f7",
+   "text": "[surprised] The Boss spins! Around it goes!"
+  },
+  "call.crash.theboss": {
+   "file": "call/call.crash.theboss.mp3",
+   "hash": "d9a64a40502d",
+   "text": "[shocked] Oh, trouble! The Boss, hard into the wall!"
+  },
+  "call.win.theboss": {
+   "file": "call/call.win.theboss.mp3",
+   "hash": "c1a44a8105ae",
+   "text": "[triumphant] Checkered flag... and The Boss wins it!"
+  },
+  "call.bold.theboss": {
+   "file": "call/call.bold.theboss.mp3",
+   "hash": "fb6775daf54e",
+   "text": "[explosive] Oh, buddy! The Boss just threw it in there!"
+  },
+  "call.save.theboss": {
+   "file": "call/call.save.theboss.mp3",
+   "hash": "9de7d4a35c6d",
+   "text": "[tense, laughing] The Boss's sideways... hang on... and saves it! Man alive!"
   }
  },
  "pbpc": {

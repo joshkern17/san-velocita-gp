@@ -27,7 +27,7 @@ try {
     const sim = window.__svgp.sim; sim.setPaused(true); sim.paused = false; window.__svgp.sim = null;
     const bc = sim.bc; if (!bc) return { err: 'no director (commentary off?)' };
     const m = await (await fetch('/assets/voice/manifest.json')).json();
-    bc.lines = new Set(Object.keys(m.booth));
+    bc.lines = new Set(Object.keys(m.booth)); bc.pbp = new Set(Object.keys(m.pbp || {})); bc.pbpc = new Set(Object.keys(m.pbpc || {})); bc.calls = new Set(Object.keys(m.call || {})); bc.react = new Set(Object.keys(m.react || {})); bc.heard = {};
     sim.state = 'racing'; sim.stateT = 0; sim.player.autoT = 1e9;
     const noticed = {}, said = [];
     const note = bc.note.bind(bc); bc.note = (id, cars, o) => { noticed[id] = (noticed[id] || 0) + 1; note(id, cars, o); };
@@ -35,7 +35,8 @@ try {
     while ((sim.state === 'racing' || (sim.state === 'finished' && sim.stateT < 4)) && f < 60 * 60 * 12) {
       bc.busy = sim.raceTime < talk;
       sim.update(1 / 60, { steer: 0, throttle: 0, brake: 0, handbrake: 0 }, {}); f++;
-      for (const e of sim.events) if (e.type === 'booth') { said.push(`${sim.raceTime.toFixed(0).padStart(4)}s lap ${sim.order[0].lap}  ${e.id}${e.force ? '  (cut in)' : ''}${e.cap ? `   [${e.cap.tag} ${e.cap.name} · ${e.cap.sub}]` : ''}`); talk = sim.raceTime + 10; }
+      for (const e of sim.events) if (e.type === 'pbp') { said.push(`${sim.raceTime.toFixed(0).padStart(4)}s lap ${sim.order[0].lap}  LIVE ${e.parts.join(' ')}${e.cap ? `   [${e.cap.tag} ${e.cap.name} · ${e.cap.sub}]` : ''}`); talk = sim.raceTime + 2.5; }
+      else if (e.type === 'booth') { said.push(`${sim.raceTime.toFixed(0).padStart(4)}s lap ${sim.order[0].lap}  ${e.id}${e.force ? '  (cut in)' : ''}${e.cap ? `   [${e.cap.tag} ${e.cap.name} · ${e.cap.sub}]` : ''}`); talk = sim.raceTime + 10; }
       sim.events.length = 0;
     }
     return { time: sim.raceTime.toFixed(0), said, noticed, winner: sim.finishOrder[0] && sim.finishOrder[0].name };

@@ -168,5 +168,27 @@ const live = (n = 8, at = 2, named = (k) => true) => { const r = race(n, at); r.
   expect(lv.slice(1).every((s, i) => s.parts[0] !== lv[i].parts[0]), 'never the same call twice in a row', lv.map(s => s.parts[0]).join(' '));
 }
 
+// 10. his reaction after a live call: sometimes, after the call, never on top of it
+{
+  let reacted = 0, overlap = 0;
+  for (let k = 0; k < 30; k++) {
+    const r = live(12, 4); r.bc.react = new Set(['react.pass', 'react.pass.2', 'react.bold']); run(r, 20);
+    const n0 = r.said.length; r.cars[2].progress = r.player.progress - 1; r.player.progress += 2; run(r, 10);
+    const got = r.said.slice(n0), call = got.find(s => s.parts && !s.parts[0].startsWith('react')), re = got.find(s => s.parts && s.parts[0].startsWith('react'));
+    if (re) { reacted++; if (call && re.t - call.t < 2.4) overlap++; }
+  }
+  expect(reacted >= 4 && reacted <= 18 && overlap === 0, `the color commentator's reaction after some calls (${reacted} of 30), only once the call's done`);
+}
+// 11. the conversations: after a real silence, heard ones last (across races)
+{
+  const CH = Array.from({ length: 5 }, (_, k) => `quiet.chat.${k + 1}`);
+  const heard = { 'quiet.chat.1': 5, 'quiet.chat.2': 4, 'quiet.chat.3': 3 }; // (3 heard in earlier races, 4 and 5 never)
+  const r = race(8, 4); r.bc.lines = new Set([...LINES, ...CH]); r.bc.heard = heard; run(r, 200);
+  const chats = r.said.filter(s => s.id.startsWith('quiet.chat'));
+  expect(chats.length >= 1 && ['quiet.chat.4', 'quiet.chat.5'].includes(chats[0].id), 'a quiet race gets a conversation, one you haven\'t heard yet', chats.map(s => s.id).join(','));
+  const before = r.said.filter(s => s.t < chats[0]?.t).pop();
+  expect(chats[0] && (!before || chats[0].t - before.t >= 40), 'only after a real silence (40 s and more)');
+}
+
 console.log(fails ? `${fails} failed` : 'all passed');
 process.exit(fails ? 1 : 0);

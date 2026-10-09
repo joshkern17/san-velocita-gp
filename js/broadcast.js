@@ -44,6 +44,7 @@ const M = {
   'finish.reflect': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true , anywhere: true },
   // small talk: only after a real silence
   'quiet.early': { w: 2, min: 0, gap: 14, cd: 1e9, cat: 'quiet' },
+  'quiet.chat': { w: 1.5, min: 0, gap: 40, cd: 100, cat: 'quiet', stale: 999 }, // (the conversations: after a real silence)
   'quiet.gap': { w: 2, min: 0, gap: 30, cd: 300, cat: 'quiet' , anywhere: true },
   'quiet.mirrors': { w: 2, min: 3, gap: 30, cd: 400, cat: 'quiet' },
   'quiet.pitwindow': { w: 2.5, min: 0, gap: 20, cd: 1e9, cat: 'quiet', stale: 30 },
@@ -59,13 +60,17 @@ const CAT_GAP = { pass: 25, battle: 40, incident: 10, quiet: 60, crash: 30, star
 // force. A moment with no live call, or whose names aren't recorded, goes to the booth as before.
 const LIVE = {
   'start.green': { force: true }, 'pass.clean': { cd: 6 }, 'pass.aggressive': { cd: 6 }, 'pass.failed': { cd: 20 },
-  'moment.ambitious': { cd: 20 }, 'moment.closecall': { cd: 40 }, 'battle.sidebyside': { cd: 25 }, 'battle.closing': { cd: 30 }, 'battle.pressure': { cd: 40 },
+  'moment.ambitious': { cd: 20 }, 'moment.closecall': { cd: 40 }, 'battle.sidebyside': { cd: 25, pair: 60 }, 'battle.closing': { cd: 30, pair: 150 }, 'battle.pressure': { cd: 40, pair: 150 },
   'incident.spin': { cd: 8 }, 'incident.save': { cd: 15 }, 'incident.offtrack': { cd: 15 }, 'incident.crash': { force: true, cd: 20 },
   'finish.finallap': { half: true }, 'finish.win': { force: true }, 'finish.close': { force: true },
 };
 // after a live call, sometimes the booth picks it up (the exchange, the chance)
 const FOLLOW = { 'pass.aggressive': ['moment.wouldve', 0.3], 'moment.ambitious': ['moment.ambitious', 0.6] };
 const LIVE_GAP = 3.5, PIECE_CD = 90;
+// the color commentator's one line after a live call ([react]), sometimes (the chance), once the call's done
+const REACT = { 'pass.clean': 'pass', 'pass.aggressive': 'bold', 'incident.spin': 'spin', 'incident.save': 'save', 'incident.crash': 'crash',
+  'battle.sidebyside': 'sbs', 'moment.ambitious': 'contact', 'battle.pressure': 'pressure', 'battle.closing': 'pressure', 'finish.win': 'win', 'finish.close': 'win' };
+const REACT_P = 0.35;
 const STALE = 2.5; // (seconds: a moment older than this isn't news any more; m.stale: incidents keep a little longer)
 const TAKE_CD = 300; // (seconds before the same recorded take again: a single-take moment waits that long, unless it's forced)
 
@@ -81,7 +86,9 @@ export class Broadcast {
     this.ps = new Map(); // per pair (a ahead of b): side by side, attempts, gaps
     this.passT = {}; this.once = {};
     this.prevOrder = null;
-    this.pbp = null; this.pbpc = null; this.calls = null; // (main.js: the recorded live calls: no name, the color's, named)
+    this.pbp = null; this.pbpc = null; this.calls = null; this.react = null; // (main.js: the recorded live calls: no name, the color's, named; his reactions)
+    this.heard = null; // (main.js: exchanges heard in earlier races, id -> when: the conversations come round in order of least recently heard)
+    this.reactQ = null;
     this.liveT = -99; this.liveSaid = {}; this.later = [];
   }
   rel(car) {
@@ -115,6 +122,8 @@ export class Broadcast {
     if (!ids.length) return null;
     const last = this.recent[this.recent.length - 1];
     let pool = ids.filter(k => k !== last && this.t - (this.takeT[k] ?? -1e9) >= TAKE_CD);
+    // (heard in earlier races: the ones heard longest ago, or never, first)
+    if (this.heard && pool.length > 1) { const h = (k) => this.heard[k] || 0, min = Math.min(...pool.map(h)); pool = pool.filter(k => h(k) === min); }
     if (!pool.length) { if (!m.force) return null; pool = [...ids].sort((a, b) => (this.takeT[a] ?? -1e9) - (this.takeT[b] ?? -1e9)).slice(0, 1); }
     const least = Math.min(...pool.map(k => this.used[k] || 0));
     const fresh = pool.filter(k => (this.used[k] || 0) === least);
@@ -160,14 +169,16 @@ export class Broadcast {
     if (!L.force) {
       if (this.busy || now - this.liveT < LIVE_GAP) return 'wait';
       if (now - (this.liveSaid[c.id] ?? -1e9) < (L.cd || 0)) return 'wait';
-      const key = c.id + ':' + c.cars.map(x => x && (x.pid || x.name)).join('|');
-      if (now - (this.liveSaid[key] ?? -1e9) < 25) return 'wait';
+      const key = (c.id === 'battle.closing' ? 'battle.pressure' : c.id) + ':' + c.cars.map(x => x && (x.pid || x.name)).join('|'); // (closing in and right on the back: one story)
+      if (now - (this.liveSaid[key] ?? -1e9) < (L.pair || 25)) return 'wait'; // (the same cars again: not so soon, and a long battle much later)
       this.liveSaid[key] = now;
     } else if (now - (this.liveSaid[c.id] ?? -1e9) < (L.cd || 0)) return 'wait';
     this.liveT = now; this.liveSaid[c.id] = now; this.lastSay = now; this.busy = true;
     for (const p of parts) this.takeT[p] = now;
     this.r.events.push({ type: 'pbp', parts, force: !!L.force, cap: caption(c.id, c.cars, c.o, this.r) });
-    const f = FOLLOW[c.id]; if (f && Math.random() < f[1]) this.later.push({ t: now + 1.5, id: f[0], cars: c.cars, o: { booth: true, anywhere: true } });
+    const f = FOLLOW[c.id], fol = f && Math.random() < f[1];
+    if (fol) this.later.push({ t: now + 1.5, id: f[0], cars: c.cars, o: { booth: true, anywhere: true } });
+    else if (REACT[c.id] && !c.o.story && this.react && Math.random() < REACT_P) this.reactQ = { type: REACT[c.id], until: now + 7 };
     if (c.o.story) this.later.push({ t: now + 0.5, id: c.o.story, cars: c.cars, o: { booth: true } });
     return 'said';
   }
@@ -176,7 +187,8 @@ export class Broadcast {
     if (!set) return null;
     const ids = [...set].filter(k => k === base || (k.startsWith(base + '.') && /^\d+$/.test(k.slice(base.length + 1))));
     if (!ids.length) return null;
-    const fresh = ids.filter(k => this.t - (this.takeT[k] ?? -1e9) >= PIECE_CD);
+    const fresh = ids.filter(k => this.t - (this.takeT[k] ?? -1e9) >= PIECE_CD * (ids.length === 1 ? 2 : 1));
+    if (!fresh.length && ids.length === 1) return null; // (a single take heard lately: leave it be)
     const pool = fresh.length ? fresh : [...ids].sort((a, b) => (this.takeT[a] ?? -1e9) - (this.takeT[b] ?? -1e9)).slice(0, 1);
     return pool[Math.floor(Math.random() * pool.length)];
   }
@@ -219,6 +231,7 @@ export class Broadcast {
     this.used[id] = (this.used[id] || 0) + 1; this.takeT[id] = this.t; this.recent.push(id); this.sayT.push(this.t);
     this.busy = true;
     this.r.events.push({ type: 'booth', id, force: !!m.force, cap: caption(moment, c.cars || [], c.o || {}, this.r) });
+    if (this.heard) this.heard[id] = Date.now();
   }
 
   // ---- hooks from race.js ----
@@ -251,6 +264,16 @@ export class Broadcast {
     // (racing: not a wreck, not parked, not in the pits; a car going past one of those isn't a pass or a battle)
     const live = order.filter(c => !c.wreck && !c.pitting && !(c.phys && c.phys.speed < 8 && this.t > 10));
     if (!this.once.green && r.state === 'racing') { this.once.green = true; this.note('start.green'); }
+    // (his reaction, once the call's finished: a moment after it, while nobody's talking)
+    if (this.reactQ) {
+      const Q = this.reactQ;
+      if (this.t > Q.until) this.reactQ = null;
+      else if (!this.busy && this.t - this.liveT > 0.6) {
+        this.reactQ = null;
+        const id = this.take('react.' + Q.type, this.react);
+        if (id) { this.takeT[id] = this.t; this.busy = true; this.lastSay = this.t; this.r.events.push({ type: 'pbp', parts: [id] }); }
+      }
+    }
     // (booth follow-ups due: they pick up a live call a moment later)
     if (this.later.length) { const due = this.later.filter(x => this.t >= x.t); this.later = this.later.filter(x => this.t < x.t); for (const x of due) this.note(x.id, x.cars, x.o); }
     if (r.state === 'racing') {
@@ -393,6 +416,7 @@ export class Broadcast {
     const r = this.r, lead = order[0], t = this.t;
     if (!lead) return;
     if (!this.saidT['quiet.early'] && lead.lap === 1 && t > 25 && t < 70) this.note('quiet.early');
+    if (t > 60 && !lead.finished) this.note('quiet.chat'); // (a conversation: it waits for a long silence)
     if (!this.once.pit && t > 30 && order.some(c => c.pitting && !c.isPlayer && c.lap >= 2)) { this.once.pit = true; this.note('quiet.pitwindow'); }
     if (!this.once.tires && lead.lap >= 3) {
       const ws = order.filter(c => c.phys && c.phys.tyre).map(c => Math.min(c.phys.tyre.wf ?? 1, c.phys.tyre.wr ?? 1));
