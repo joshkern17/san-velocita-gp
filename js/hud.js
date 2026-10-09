@@ -102,6 +102,7 @@ export class HUD {
   }
 
   reset(mode) {
+    this.cap(null);
     this.mode = mode;
     this.cache = {};
     Object.values(this.timers).forEach(clearTimeout);
@@ -578,6 +579,23 @@ export class HUD {
     e.innerHTML = html; e.classList.add('on'); e.classList.toggle('shift', shift || this.mode === 'race' || this.mode === 'quali'); // (clear of the timing tower)
     clearTimeout(this.timers.help);
     this.timers.help = setTimeout(() => e.classList.remove('on'), ms);
+  }
+  // the broadcast graphic (a 2005 TV lower-third): { tag, name, sub, alert, win } from broadcast.js caption; wipes in,
+  // holds while they talk about it, wipes out
+  cap(c, ms = 5500) {
+    const e = $('h-cap'); if (!e) return;
+    clearTimeout(this.timers.cap); clearTimeout(this.timers.capIn);
+    if (!c) { e.classList.remove('on'); return; }
+    const fill = () => {
+      e.querySelector('.bc-tag b').textContent = c.tag || '';
+      e.querySelector('.bc-name').textContent = c.name || '';
+      const sub = e.querySelector('.bc-sub'); sub.textContent = c.sub || ''; sub.style.display = c.sub ? '' : 'none';
+      e.classList.toggle('alert', !!c.alert); e.classList.toggle('win', !!c.win); e.classList.toggle('notag', !c.tag);
+      void e.offsetWidth; e.classList.add('on');
+      this.timers.cap = setTimeout(() => e.classList.remove('on'), ms);
+    };
+    // (one already up: it wipes out first)
+    if (e.classList.contains('on')) { e.classList.remove('on'); this.timers.capIn = setTimeout(fill, 320); } else fill();
   }
   center(html, cls = '', ms = 1800) {
     const e = this.el.center;

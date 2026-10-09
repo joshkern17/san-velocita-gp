@@ -13,7 +13,7 @@ const LINES = new Set(['start.green', 'start.green.2', 'pass.clean', 'pass.aggre
 // a straight track, cars with a progress (m along the race), a lateral s, a speed and a slip angle
 function race(n = 8, playerAt = 4) {
   const T = { N: 1000, ds: 5, L: 5000, K: new Float32Array(1000) };
-  const cars = Array.from({ length: n }, (_, k) => ({ pid: 'c' + k, name: 'c' + k, isPlayer: k === playerAt - 1, startPos: k + 1, lap: 1, s: 0, idx: 0,
+  const cars = Array.from({ length: n }, (_, k) => ({ pid: 'c' + k, name: 'X. C' + k, isPlayer: k === playerAt - 1, startPos: k + 1, lap: 1, s: 0, idx: 0,
     progress: 1000 - k * 40, onRoad: true, phys: { speed: 50, beta: 0, tyre: { wf: 1, wr: 1 } } }));
   const r = { mode: 'race', state: 'racing', raceTime: 0, T, cars, laps: 5, events: [], finishOrder: [], teamMate: () => null };
   r.player = cars[playerAt - 1];
@@ -27,7 +27,7 @@ function race(n = 8, playerAt = 4) {
     r.sort();
     bc.busy = r.talkUntil != null && r.raceTime < r.talkUntil;
     bc.update(dt);
-    for (const e of r.events) { r.said.push({ id: e.id, t: r.raceTime, force: e.force }); r.talkUntil = r.raceTime + talkS; }
+    for (const e of r.events) { r.said.push({ id: e.id, t: r.raceTime, force: e.force, cap: e.cap }); r.talkUntil = r.raceTime + talkS; }
     r.events.length = 0;
   };
   r.said = []; r.bc = bc;
@@ -42,12 +42,26 @@ const run = (r, sec, f) => { for (let t = 0; t < sec; t += 1 / 30) { f && f(r); 
 {
   const r = race(12, 4); run(r, 20);
   const n0 = r.said.length;
-  r.cars[2].progress = r.player.progress - 1; r.player.progress += 2; run(r, 1); // (the player gets by the car ahead)
+  r.cars[2].progress = r.player.progress - 1; r.player.progress += 2; run(r, 3); // (the player gets by the car ahead, and stays there)
   expect(r.said.slice(n0).some(s => s.id.startsWith('pass.')), 'your pass gets on air', r.said.slice(n0).map(s => s.id).join(','));
+  const cap = r.said.slice(n0).find(s => s.id.startsWith('pass.'))?.cap;
+  expect(cap && cap.name === 'C3' && /PASSES C2 FOR 3RD/.test(cap.sub), 'with its caption: who passed whom, for what', JSON.stringify(cap));
   run(r, 40);
   const n1 = r.said.length;
   r.cars[10].progress = r.cars[9].progress + 2; run(r, 1);
   expect(r.said.length === n1, 'a pass at the back, far from you, goes unsaid');
+}
+
+// 2b. two cars you can't see (off the camera): their battle goes unsaid; the same on screen gets on air
+{
+  const r = race(8, 6); run(r, 40);
+  r.onScreen = (c) => c.isPlayer || c.pos >= 5;
+  const a = r.cars[0], b = r.cars[1], n0 = r.said.length;
+  run(r, 15, () => { b.progress = a.progress - 1.5; a.s = -1.5; b.s = 1.6; });
+  expect(!r.said.slice(n0).some(s => s.id === 'battle.sidebyside'), 'side by side for the lead, off your screen: not called');
+  r.onScreen = () => true; const n1 = r.said.length;
+  run(r, 15, () => { b.progress = a.progress - 1.5; a.s = -1.5; b.s = 1.6; });
+  expect(r.said.slice(n1).some(s => s.id === 'battle.sidebyside'), 'the same battle in view: called');
 }
 
 // 3. pacing: the player passing and being passed every few seconds for four minutes

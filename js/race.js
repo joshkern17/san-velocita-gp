@@ -1744,6 +1744,14 @@ export class Race {
     this.scrape(car, r.vt, c.px, c.pz, !tyres);
   }
 
+  // in the camera's view and near enough to make out (the booth only calls what you can see: broadcast.js)
+  onScreen(car, range = 160) {
+    if (!car || car.gone || !car.phys) return false;
+    const cam = this.camera, F = this._scr || (this._scr = { m: new THREE.Matrix4(), f: new THREE.Frustum(), v: new THREE.Vector3(), t: null });
+    if (F.t !== this.raceTime) { F.t = this.raceTime; cam.updateMatrixWorld(); F.m.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse); F.f.setFromProjectionMatrix(F.m); }
+    F.v.set(car.phys.x, (car.y || 0) + 0.8, car.phys.z);
+    return cam.position.distanceTo(F.v) < range && F.f.containsPoint(F.v);
+  }
   // how loud something happening to this car is: 1 for the player, fading out 80 m from the camera
   nearCam(car) { return car.isPlayer ? 1 : Math.max(0, 1 - this.camera.position.distanceTo(car.model.group.position) / 80); }
 

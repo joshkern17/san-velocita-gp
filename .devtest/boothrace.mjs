@@ -35,7 +35,7 @@ try {
     while ((sim.state === 'racing' || (sim.state === 'finished' && sim.stateT < 4)) && f < 60 * 60 * 12) {
       bc.busy = sim.raceTime < talk;
       sim.update(1 / 60, { steer: 0, throttle: 0, brake: 0, handbrake: 0 }, {}); f++;
-      for (const e of sim.events) if (e.type === 'booth') { said.push(`${sim.raceTime.toFixed(0).padStart(4)}s lap ${sim.order[0].lap}  ${e.id}${e.force ? '  (cut in)' : ''}`); talk = sim.raceTime + 10; }
+      for (const e of sim.events) if (e.type === 'booth') { said.push(`${sim.raceTime.toFixed(0).padStart(4)}s lap ${sim.order[0].lap}  ${e.id}${e.force ? '  (cut in)' : ''}${e.cap ? `   [${e.cap.tag} ${e.cap.name} · ${e.cap.sub}]` : ''}`); talk = sim.raceTime + 10; }
       sim.events.length = 0;
     }
     return { time: sim.raceTime.toFixed(0), said, noticed, winner: sim.finishOrder[0] && sim.finishOrder[0].name };

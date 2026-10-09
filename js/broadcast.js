@@ -4,7 +4,10 @@
 // while it's fresh, and with room to breathe: a pause after every exchange that grows the more they've talked lately,
 // the same moment not again for a couple of minutes, the same kind of moment not back to back, every take of a moment
 // before any repeats, and small talk only after a real silence. The finish and a big crash can't wait: they go now.
-// Pure logic (no audio): it pushes { type: 'booth', id, force } into race.events; main.js plays it (vo.js) and tells it
+// It only calls what you can see: a moment with cars in it needs you, or one of them in the camera's view (race.onScreen),
+// except the few that matter wherever they are (a big crash, the finish, the leader), and each comes with a caption,
+// so the graphic says who they mean (hud.js cap: a 2005 TV lower-third).
+// Pure logic (no audio): it pushes { type: 'booth', id, force, cap } into race.events; main.js plays it (vo.js) and tells it
 // when the booth or the engineer is talking (busy). race.js calls update(dt) every frame of a race, and contact() /
 // hit() from its collisions.
 
@@ -28,24 +31,24 @@ const M = {
   'incident.spin': { w: 3.5, min: 3.5, p: 0.9, gap: 3, cd: 60, cat: 'incident', stale: 7 },
   'incident.save': { w: 3.5, min: 5, p: 0.9, gap: 3, cd: 90, cat: 'incident', stale: 6 },
   'incident.offtrack': { w: 2.5, min: 4.5, p: 0.7, gap: 5, cd: 90, cat: 'incident', stale: 6 },
-  'incident.crash': { w: 8, min: 0, gap: 0, cd: 25, cat: 'crash', force: true },
+  'incident.crash': { w: 8, min: 0, gap: 0, cd: 45, cat: 'crash', force: true },
   'incident.multicar': { w: 10, min: 0, gap: 0, cd: 60, cat: 'crash', force: true },
-  'incident.crash.relief': { w: 5, min: 0, gap: 3, cd: 60, cat: 'relief', stale: 20 },
-  'finish.finallap': { w: 6, min: 0, gap: 0, cd: 1e9, cat: 'flow', stale: 15 },
-  'finish.close': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true },
-  'finish.win': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true },
-  'finish.dominant': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true },
-  'finish.upset': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true },
-  'finish.reflect': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true },
+  'incident.crash.relief': { w: 5, min: 0, gap: 3, cd: 60, cat: 'relief', stale: 20 , anywhere: true },
+  'finish.finallap': { w: 6, min: 0, gap: 0, cd: 1e9, cat: 'flow', stale: 15 , anywhere: true },
+  'finish.close': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true , anywhere: true },
+  'finish.win': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true , anywhere: true },
+  'finish.dominant': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true , anywhere: true },
+  'finish.upset': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true , anywhere: true },
+  'finish.reflect': { w: 10, min: 0, gap: 0, cd: 1e9, cat: 'finish', force: true , anywhere: true },
   // small talk: only after a real silence
   'quiet.early': { w: 2, min: 0, gap: 14, cd: 1e9, cat: 'quiet' },
-  'quiet.gap': { w: 2, min: 0, gap: 30, cd: 300, cat: 'quiet' },
+  'quiet.gap': { w: 2, min: 0, gap: 30, cd: 300, cat: 'quiet' , anywhere: true },
   'quiet.mirrors': { w: 2, min: 3, gap: 30, cd: 400, cat: 'quiet' },
   'quiet.pitwindow': { w: 2.5, min: 0, gap: 20, cd: 1e9, cat: 'quiet', stale: 30 },
   'quiet.rain': { w: 2.5, min: 0, gap: 20, cd: 1e9, cat: 'quiet', stale: 30 },
   'quiet.tires': { w: 2, min: 0, gap: 30, cd: 1e9, cat: 'quiet', stale: 60 },
 };
-const CAT_GAP = { pass: 25, battle: 40, incident: 10, quiet: 60, crash: 8, start: 0, flow: 0, finish: 0, relief: 0 };
+const CAT_GAP = { pass: 25, battle: 40, incident: 10, quiet: 60, crash: 30, start: 0, flow: 0, finish: 0, relief: 0 };
 const STALE = 2.5; // (seconds: a moment older than this isn't news any more; m.stale: incidents keep a little longer)
 const TAKE_CD = 300; // (seconds before the same recorded take again: a single-take moment waits that long, unless it's forced)
 
@@ -74,12 +77,17 @@ export class Broadcast {
   // a moment happened: it goes in this frame's candidates (the best one, if any, gets on air)
   note(id, cars = [], o = {}) {
     const m = M[id]; if (!m) return;
+    if (cars.length && !m.anywhere && !o.anywhere && !cars.some(c => c && (c.isPlayer || this.seen(c)))) return; // (nothing on your screen to see)
+    // (the race is won: only the finish now)
+    if ((this.r.finishOrder || []).length && m.cat !== 'finish' && m.cat !== 'relief') return;
     const score = m.w * Math.max(1, ...cars.map(c => this.rel(c))) * (o.k || 1);
     if (score < m.min) return;
     const old = this.cand.find(c => c.id === id);
     if (old) { if (score > old.score) Object.assign(old, { score, cars }); return; } // (still happening: the first sighting stands)
-    this.cand.push({ id, score, t: this.t, m, cars });
+    this.cand.push({ id, score, t: this.t, m, cars, o });
   }
+  // in the camera's view right now (race.onScreen; a test race without one sees everything)
+  seen(c) { return this.r.onScreen ? this.r.onScreen(c) : true; }
   // the exchange to say for a moment: a take that hasn't been used (or the least used), never the last one again, and
   // none heard in the last TAKE_CD seconds (a forced moment takes the least recent if it has to)
   pick(id) {
@@ -103,6 +111,7 @@ export class Broadcast {
     for (const c of this.cand) {
       const m = c.m;
       if (now - (this.saidT[c.id] ?? -1e9) < m.cd) continue;
+      if (m.force && m.cat === 'crash' && now - (this.catT.crash ?? -1e9) < CAT_GAP.crash) continue; // (one wreck call at a time, even cutting in)
       if (!m.force) {
         if (this.busy) continue;
         const quiet = now - Math.max(this.lastEnd, this.lastSay);
@@ -112,16 +121,16 @@ export class Broadcast {
         if (!c.cars.some(x => x && x.isPlayer) && Math.random() > (m.p ?? 1)) { this.saidT[c.id] = now - m.cd * 0.7; continue; }
       }
       const id = this.pick(c.id); if (!id) continue;
-      this.say(c.id, id, m);
+      this.say(c.id, id, m, c);
       this.cand = this.cand.filter(x => x.m.cat !== m.cat && !x.m.force); // (said: the rest of its kind is old news)
       break;
     }
   }
-  say(moment, id, m) {
+  say(moment, id, m, c = {}) {
     this.saidT[moment] = this.t; this.catT[m.cat] = this.t; this.lastSay = this.t;
     this.used[id] = (this.used[id] || 0) + 1; this.takeT[id] = this.t; this.recent.push(id); this.sayT.push(this.t);
     this.busy = true;
-    this.r.events.push({ type: 'booth', id, force: !!m.force });
+    this.r.events.push({ type: 'booth', id, force: !!m.force, cap: caption(moment, c.cars || [], c.o || {}, this.r) });
   }
 
   // ---- hooks from race.js ----
@@ -136,8 +145,8 @@ export class Broadcast {
     (this.bigs ||= []).push({ car, t });
     this.bigs = this.bigs.filter(x => t - x.t < 3);
     const near = this.bigs.filter(x => x.car !== car && Math.abs(x.car.progress - car.progress) < 80);
-    if (near.length >= 2 && !this.multiT) { this.multiT = t; this.note('incident.multicar', [car, ...near.map(x => x.car)]); return; }
-    this.note('incident.crash', [car]);
+    if (near.length >= 2 && !this.multiT) { this.multiT = t; this.note('incident.multicar', [car, ...near.map(x => x.car)], { anywhere: near.some(x => x.car.pos <= 3) || car.pos <= 3 }); return; }
+    this.note('incident.crash', [car], { anywhere: car.pos <= 3 });
     if (!this.relief) this.relief = { car, t };
   }
 
@@ -151,11 +160,13 @@ export class Broadcast {
     this.t = r.raceTime;
     if (this.busy) this.wasBusy = true; else if (this.wasBusy) { this.wasBusy = false; this.lastEnd = this.t; }
     const order = (r.order || []).filter(c => !c.gone);
+    // (racing: not a wreck, not parked, not in the pits; a car going past one of those isn't a pass or a battle)
+    const live = order.filter(c => !c.wreck && !c.pitting && !(c.phys && c.phys.speed < 8 && this.t > 10));
     if (!this.once.green && r.state === 'racing') { this.once.green = true; this.note('start.green'); }
     if (r.state === 'racing') {
       this.start(order);
-      this.passes(order);
-      this.pairs(order, dt);
+      this.passes(live);
+      this.pairs(live, dt);
       for (const c of order) this.perCar(c, dt);
       this.flow(order);
     }
@@ -187,9 +198,16 @@ export class Broadcast {
       this.passT[key] = this.t;
       const T = this.r.T, corner = T.K ? Math.abs(T.K[a.idx]) > 1 / 150 : false;
       const sa = this.car(a), touched = this.t - (sa.touchT ?? -99) < 2 && sa.touchWith === b;
-      this.note(corner || touched ? 'pass.aggressive' : 'pass.clean', [a, b]);
-      const ps = this.pair(b, a); ps.att = 0; ps.close = 0; ps.attempt = null; // (the old pair's story is over)
+      // (it has to stick: still ahead a second and a half later, or it was a swap that swapped straight back)
+      (this.pend ||= []).push({ a, b, t: this.t, id: corner || touched ? 'pass.aggressive' : 'pass.clean' });
     }
+    for (const P of (this.pend || []).filter(P => this.t - P.t >= 1.5)) {
+      if (!P.a.gone && !P.b.gone && P.a.progress > P.b.progress && !P.a.pitting && !P.b.pitting) {
+        this.note(P.id, [P.a, P.b]);
+        const ps = this.pair(P.b, P.a); ps.att = 0; ps.close = 0; ps.attempt = null; // (the old pair's story is over)
+      }
+    }
+    if (this.pend) this.pend = this.pend.filter(P => this.t - P.t < 1.5);
     // a car from well back now on the podium places
     for (const c of order) {
       if (c.pos <= 3 && (c.startPos || 0) - c.pos >= 5 && !this.once['surp' + (c.pid || c.name)] && c.lap >= 2) {
@@ -314,5 +332,42 @@ export class Broadcast {
       : (w.bcWorst || 1) >= 5 ? 'finish.reflect'
       : 'finish.win';
     this.note(id, [w]);
+  }
+}
+
+// ---- the captions (what the graphic says, with the call) ----
+const last = (c) => c ? (c.isPlayer && (!c.name || c.name === 'YOU') ? 'YOU' : String(c.name || '').split(' ').pop().toUpperCase()) : '';
+const ord = (n) => n + (n % 100 >= 11 && n % 100 <= 13 ? 'TH' : ['TH', 'ST', 'ND', 'RD'][n % 10] || 'TH');
+const P = (c) => c && c.pos ? 'P' + c.pos : '';
+// { tag (the block on the left: a position, or a short word), name (the big line), sub (the line under it) }; null: none
+export function caption(id, cars, o, race) {
+  const [a, b] = cars, gap = (x, y) => x && y ? Math.abs((x.progress - y.progress) / Math.max(15, (y.phys && y.phys.speed) || 15)).toFixed(1) : null;
+  const F = race && race.finishOrder || [];
+  switch (id) {
+    case 'pass.clean': case 'pass.aggressive': return { tag: P(a), name: last(a), sub: `PASSES ${last(b)} FOR ${ord(a.pos)}` };
+    case 'pass.failed': return { tag: P(a), name: last(a), sub: `HAS A LOOK AT ${last(b)}` };
+    case 'moment.ambitious': return { tag: P(a), name: last(a), sub: `CONTACT WITH ${last(b)}` };
+    case 'battle.sidebyside': return { tag: P(a), name: `${last(a)} · ${last(b)}`, sub: `SIDE BY SIDE FOR ${ord(a.pos)}` };
+    case 'battle.defense': case 'battle.stuck': return { tag: P(a), name: last(a), sub: `HOLDING OFF ${last(b)} · ${gap(a, b)}S` };
+    case 'battle.closing': return { tag: P(a), name: last(a), sub: `CLOSING ON ${last(b)} · ${gap(b, a)}S` };
+    case 'moment.closecall': return { tag: P(a), name: `${last(a)} · ${last(b)}`, sub: 'TOO CLOSE FOR COMFORT' };
+    case 'moment.surprise': return { tag: P(a), name: last(a), sub: `UP TO ${ord(a.pos)} FROM ${ord(a.startPos || a.pos)} ON THE GRID` };
+    case 'incident.spin': return { tag: P(a), name: last(a), sub: 'SPINS' };
+    case 'incident.save': return { tag: P(a), name: last(a), sub: 'BIG MOMENT' };
+    case 'incident.offtrack': return { tag: P(a), name: last(a), sub: `OFF TRACK · DOWN TO ${ord(a.pos)}` };
+    case 'incident.crash': return { tag: '!', name: last(a), sub: 'HEAVY IMPACT', alert: true };
+    case 'incident.multicar': return { tag: '!', name: 'MULTI-CAR INCIDENT', sub: cars.slice(0, 3).map(last).join(' · '), alert: true };
+    case 'incident.crash.relief': return { tag: '+', name: last(a), sub: 'OUT OF THE CAR' };
+    case 'finish.finallap': return { tag: 'LAP', name: 'FINAL LAP', sub: `${last(a)} LEADS` };
+    case 'finish.close': case 'finish.win': case 'finish.dominant': case 'finish.upset': case 'finish.reflect': {
+      const m = F[1] && F[0] && F[0] === a ? (F[1].finishTime - F[0].finishTime).toFixed(3) : null;
+      return { tag: 'P1', name: last(a), sub: id === 'finish.upset' ? `WINS FROM ${ord(a.startPos || 1)} ON THE GRID` : m ? `WINS BY ${m}S` : 'WINS', win: true };
+    }
+    case 'quiet.gap': return { tag: 'P1', name: last(a), sub: `LEADS BY ${gap(a, (race.order || [])[1])}S` };
+    case 'quiet.mirrors': return { tag: P(a), name: last(a), sub: `${last(b)} ${gap(a, b)}S BEHIND` };
+    case 'quiet.pitwindow': return { tag: 'PIT', name: 'PIT WINDOW OPEN', sub: '' };
+    case 'quiet.rain': return { tag: 'WX', name: 'RAIN ON THE WAY', sub: '' };
+    case 'start.chaos': return { tag: 'T1', name: 'THREE WIDE', sub: cars.slice(0, 3).map(last).join(' · ') };
+    default: return null;
   }
 }

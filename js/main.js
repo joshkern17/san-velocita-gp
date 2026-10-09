@@ -4606,7 +4606,7 @@ function handleRaceEvents() {
     else if (ev.type === 'crashout') crashOut(ev);
     else if (ev.type === 'radio') { hud.radio(ev.who || 'eng', ev.msg, { big: ev.big, name: ev.name, color: ev.color }); if (ev.big) sfx.lap(); if (ev.vo) engSay(ev.vo, { urgent: ev.big }); }
     // the pit wall's calls (race.js wallUpdate): the question, then what was chosen
-    else if (ev.type === 'booth') boothSay(ev.id, { force: ev.force, exact: true });
+    else if (ev.type === 'booth') { boothSay(ev.id, { force: ev.force, exact: true }); if (ev.cap) hud.cap(ev.cap); }
     else if (ev.type === 'booth-intro') {
       const s = sim; hud.help(`${hintKeys('ok')} Skip`, 9000);
       boothSequence(ev.ids).then(() => { if (sim === s) s.bcIntroEnd = true; });

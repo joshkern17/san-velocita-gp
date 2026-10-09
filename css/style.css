@@ -2753,3 +2753,36 @@ span.tsw-face { width: 64px; height: 64px; }
 
 /* the pre-race broadcast (race.js flyCamera): just the pictures, and the skip hint */
 #hud.bcast > :not(#h-help):not(:has(#h-help)) { opacity: 0; transition: opacity .4s; }
+
+/* ---- the broadcast graphic (hud.js cap): a mid-2000s TV lower-third, FOX / ESPN era ----
+   glossy navy bar with a chrome bevel, a red glass position block, heavy condensed italic caps, a gold second line;
+   it wipes in from the left with a chrome glint across it. Bottom centre; it steps up while the engineer's on the radio. */
+.bc-cap { position: absolute; left: 50%; bottom: 4.5%; display: flex; align-items: stretch; height: 66px; transform: translateX(-50%);
+  clip-path: inset(-20px 100% -20px 0); transition: clip-path .3s cubic-bezier(.25, .8, .25, 1), bottom .35s ease;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .65)); -webkit-text-fill-color: initial; text-shadow: none; pointer-events: none; }
+.bc-cap.on { clip-path: inset(-20px -20px -20px 0); }
+#hud:has(#h-radio > .on) .bc-cap { bottom: calc(4.5% + 130px); }
+.bc-tag, .bc-main { transform: skewX(-14deg); border-style: solid; border-width: 2px 0; }
+.bc-tag { min-width: 76px; padding: 0 12px; display: grid; place-items: center; margin-right: -1px; position: relative; overflow: hidden;
+  background: linear-gradient(180deg, #ff6a4a 0%, #e82a0c 46%, #b51200 54%, #d41c04 100%);
+  border-color: #ffd7cc #000 #6e0a00; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .55), inset 2px 0 0 rgba(255, 255, 255, .25); }
+.bc-tag b { transform: skewX(14deg); font: italic 800 36px/1 'SV Display', sans-serif; color: #fff; letter-spacing: .01em;
+  text-shadow: 0 2px 0 rgba(90, 0, 0, .8), 0 0 8px rgba(0, 0, 0, .35); }
+.bc-main { padding: 7px 34px 8px 20px; display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden;
+  background: linear-gradient(180deg, #3a4a68 0%, #1b2742 47%, #0a1124 53%, #142040 100%);
+  border-color: #eef2f7 #000 #7d8798; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -10px 18px rgba(0, 0, 0, .35); }
+/* the gloss line through the middle, and the chrome tip on the right */
+.bc-main::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 50%; background: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, .04)); }
+.bc-main::after { content: ''; position: absolute; top: 0; bottom: 0; width: 70px; left: -90px; transform: skewX(-20deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent); }
+.bc-cap.on .bc-main::after { animation: bc-glint .9s .28s ease-out both; }
+@keyframes bc-glint { to { left: calc(100% + 40px); } }
+.bc-name, .bc-sub { transform: skewX(14deg); position: relative; white-space: nowrap; }
+.bc-name { font: italic 800 31px/1 'SV Display', sans-serif; color: #fff; letter-spacing: .015em; text-shadow: 0 2px 0 rgba(0, 0, 0, .7); }
+.bc-sub { margin-top: 5px; font: italic 700 15px/1 'SV UI', sans-serif; color: #ffcc3a; letter-spacing: .09em; text-shadow: 0 1px 0 rgba(0, 0, 0, .8); }
+.bc-cap.notag .bc-tag { display: none; }
+/* a crash: the bar goes red; the win: gold */
+.bc-cap.alert .bc-main { background: linear-gradient(180deg, #7a1a12 0%, #4d0b06 47%, #2a0402 53%, #460a05 100%); border-color: #ffd7cc #000 #7a2a22; }
+.bc-cap.alert .bc-sub { color: #fff; }
+.bc-cap.win .bc-tag { background: linear-gradient(180deg, #fff3b0 0%, #f2c230 46%, #c48a00 54%, #e0a810 100%); border-color: #fffbe0 #000 #7a5200; }
+.bc-cap.win .bc-tag b { color: #2a1a00; text-shadow: 0 1px 0 rgba(255, 255, 255, .6); }
