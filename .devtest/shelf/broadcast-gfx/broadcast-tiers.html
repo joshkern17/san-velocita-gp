@@ -1,0 +1,365 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Broadcast tiers</title>
+<link rel="stylesheet" href="../css/fonts.css"><link rel="stylesheet" href="../css/sv.css"><link rel="stylesheet" href="../css/style.css">
+<style>
+html, body { overflow: auto !important; height: auto !important; position: static !important; }
+
+body { margin: 0; background: #111; }
+.frame { position: relative; width: 1280px; height: 720px; overflow: hidden; background: #333 url(tmp/bg.png) center/cover; margin: 0 0 24px; }
+.frame > .lbl { position: absolute; right: 12px; bottom: 8px; color: #fff8; font: 12px sans-serif; z-index: 20; }
+/* ===== the graphics layer: blurred a touch, colour fringed, like a 2005 broadcast on a tube TV ===== */
+.gfx { position: absolute; inset: 0; filter: blur(.55px) saturate(1.2) contrast(1.06) drop-shadow(1.6px 0 0 rgba(255,40,40,.42)) drop-shadow(-1.6px 0 0 rgba(40,170,255,.42)); }
+/* ===== the CRT over everything ===== */
+.crt { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
+.crt::before { content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 1px, transparent 1px 3px),
+              repeating-linear-gradient(90deg, rgba(255,0,0,.07) 0 1px, rgba(0,255,80,.06) 1px 2px, rgba(40,80,255,.07) 2px 3px);
+  mix-blend-mode: multiply; animation: crt-flick .12s steps(2) infinite; }
+.crt::after { content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%),
+              url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 .5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  opacity: .5; mix-blend-mode: overlay; }
+@keyframes crt-flick { 50% { opacity: .92; } }
+
+/* ===== materials, turned up ===== */
+.tv, .tv * { font-style: italic; color: #fff; }
+.frame-chrome { padding: 4px; background: linear-gradient(180deg, #ffffff 0%, #b9c1cb 22%, #ffffff 46%, #5e6875 54%, #c7ced6 78%, #ffffff 100%);
+  box-shadow: 0 0 0 1px #0a0d14, 0 0 22px rgba(90,170,255,.55), 0 14px 26px rgba(0,0,0,.75); }
+.navy { position: relative; overflow: hidden;
+  background: repeating-linear-gradient(135deg, rgba(255,255,255,.045) 0 2px, transparent 2px 7px),
+              linear-gradient(180deg, #4a5f8c 0%, #1f2f58 46%, #0a1330 52%, #17285a 100%);
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.45), inset 0 -14px 24px rgba(0,0,0,.45), inset 0 0 30px rgba(60,140,255,.25); }
+/* the glossy dome over the top half */
+.navy::before { content: ''; position: absolute; left: -10%; right: -10%; top: -60%; height: 105%; border-radius: 50%;
+  background: linear-gradient(180deg, rgba(255,255,255,.32), rgba(255,255,255,.05)); pointer-events: none; }
+.red { position: relative; overflow: hidden; background: linear-gradient(180deg, #ffb07a 0%, #ff5a1e 30%, #e01a00 50%, #9e0c00 52%, #d81f00 85%, #ff6a2a 100%);
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.7), inset 0 -6px 10px rgba(80,0,0,.4), 0 0 16px rgba(255,80,20,.55); }
+.red::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 48%; background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.08)); }
+.gold { position: relative; overflow: hidden; background: linear-gradient(180deg, #fffbe0 0%, #ffe066 30%, #e8a800 50%, #a86c00 52%, #e0a810 85%, #fff0a0 100%);
+  box-shadow: inset 0 2px 0 #fff, 0 0 20px rgba(255,200,40,.7); }
+.chromebar { background: linear-gradient(180deg, #ffffff 0%, #dfe4ea 40%, #9ba4af 52%, #c9cfd6 70%, #f4f6f8 100%); box-shadow: inset 0 1px 0 #fff, inset 0 -2px 0 rgba(0,0,0,.25); }
+.chrome-text { padding: 0 .14em 0 .04em; margin: 0 -.14em 0 -.04em; background: linear-gradient(180deg, #ffffff 0%, #e8eef5 38%, #8f9aa8 50%, #cfd6df 62%, #ffffff 80%, #b7c0cb 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 0 #0a1124) drop-shadow(0 4px 0 #050914) drop-shadow(0 0 14px rgba(120,190,255,.55)); }
+.gold-text { color: #ffd23a !important; text-shadow: 0 2px 0 #4a2a00, 0 0 10px rgba(255,190,40,.55); }
+.checker { background: repeating-conic-gradient(#fff 0 25%, #111 0 50%) 0 0 / 12px 12px; }
+/* a lens flare sweeping across, and sparkle glints */
+.flare { position: absolute; top: 0; bottom: 0; width: 180px; left: -220px; pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.75) 50%, transparent 70%); mix-blend-mode: screen; animation: sweep 3.2s ease-in-out infinite; }
+@keyframes sweep { 0% { left: -220px; } 45%, 100% { left: 110%; } }
+.glint { position: absolute; width: 26px; height: 26px; pointer-events: none; animation: twinkle 2.4s ease-in-out infinite; }
+.glint::before, .glint::after { content: ''; position: absolute; left: 50%; top: 50%; background: #fff; box-shadow: 0 0 8px #fff, 0 0 16px #9cf; border-radius: 2px; }
+.glint::before { width: 26px; height: 3px; transform: translate(-50%, -50%); }
+.glint::after { width: 3px; height: 26px; transform: translate(-50%, -50%); }
+@keyframes twinkle { 0%, 100% { opacity: .25; transform: scale(.6) rotate(0); } 50% { opacity: 1; transform: scale(1.1) rotate(45deg); } }
+
+/* ---- 1. intro card ---- */
+.ic { position: absolute; left: 96px; top: 96px; width: 800px; transform: skewX(-12deg); }
+.ic .us { transform: skewX(12deg); display: inline-block; }
+.ic-top { display: flex; height: 46px; }
+.ic-top .series { flex: 1; display: flex; align-items: center; padding: 0 24px; font: italic 800 24px/1 'SV Display'; letter-spacing: .07em; text-shadow: 0 2px 0 #6a0a00; }
+.ic-top .round { display: flex; align-items: center; padding: 0 20px; font: italic 800 18px/1 'SV UI'; letter-spacing: .08em; }
+.ic-top .round .us { color: #10141c !important; }
+.ic-check { height: 8px; }
+.ic-body { height: 286px; }
+.ic-name { position: absolute; left: 60px; top: 26px; }
+.ic-name .country { font: italic 800 17px/1 'SV UI'; letter-spacing: .18em; }
+.ic-name .track { margin-top: 6px; font: italic 900 var(--tn-size, 66px)/0.92 'SV Display'; letter-spacing: .01em; }
+/* (sized to fit its longest line: the game sets --tn-size) */
+.ic-name .rule { margin-top: 14px; width: 420px; height: 5px; background: linear-gradient(90deg, #fff6c0, #ffcc3a 30%, #c88a00 80%, transparent); box-shadow: 0 0 10px rgba(255,200,40,.8); }
+.ic-name .corner { margin-top: 14px; font: italic 700 16px/1.3 'SV UI'; letter-spacing: .07em; color: #cfe0ff !important; text-shadow: 0 0 8px rgba(120,180,255,.6); }
+.ic-map { position: absolute; right: 40px; top: 22px; width: 150px; height: 240px; }
+.ic-map path.glow { fill: none; stroke: rgba(110,190,255,.55); stroke-width: 18; stroke-linejoin: round; filter: blur(3px); }
+.ic-map path.edge { fill: none; stroke: #0a1124; stroke-width: 10; stroke-linejoin: round; }
+.ic-map path.line { fill: none; stroke: url(#chr); stroke-width: 6; stroke-linejoin: round; }
+.ic-map circle { fill: #ff3b1a; stroke: #fff; stroke-width: 3; filter: drop-shadow(0 0 6px #ff5a2a); }
+.ic-stats { display: flex; }
+.ic-stats .cell { flex: 1; padding: 10px 18px 12px; border-right: 2px solid #5e6875; }
+.ic-stats .k { font: italic 800 12px/1 'SV UI'; letter-spacing: .14em; color: #2a3550 !important; }
+.ic-stats .v { margin-top: 4px; font: italic 900 27px/1 'SV Display'; color: #0a1124 !important; text-shadow: 0 1px 0 #fff; }
+/* ---- 2. ticker ---- */
+.tk { position: absolute; left: 0; right: 0; top: 8px; height: 44px; display: flex; }
+.tk .lap { display: flex; align-items: center; gap: 8px; padding: 0 20px 0 26px; font: italic 900 24px/1 'SV Display'; text-shadow: 0 2px 0 #6a0a00; }
+.tk .lap small { font: italic 800 13px/1 'SV UI'; letter-spacing: .1em; }
+.tk .flag { width: 18px; background: linear-gradient(180deg, #b6ffc6, #2bff63 40%, #00a82c 60%, #3dff70); box-shadow: 0 0 14px #2bff63; }
+.tk .run { flex: 1; display: flex; align-items: center; overflow: hidden; white-space: nowrap; background: linear-gradient(180deg, #4a4f5a 0%, #1a1c22 46%, #050507 52%, #15171c 100%); box-shadow: inset 0 2px 0 rgba(255,255,255,.35); position: relative; }
+.tk .p { display: flex; align-items: center; gap: 8px; padding: 0 16px; font: italic 900 20px/1 'SV Display'; height: 100%; border-right: 1px solid rgba(255,255,255,.14); text-shadow: 0 2px 0 #000; }
+.tk .p .n { display: grid; place-items: center; width: 27px; height: 27px; font: italic 900 16px/1 'SV Display'; color: #10141c !important; text-shadow: none; }
+.tk .p .g { font: italic 800 15px/1 'SV UI'; }
+.tk .p.you { background: linear-gradient(180deg, rgba(255,150,90,.8), rgba(220,30,0,.8) 50%, rgba(130,10,0,.85) 52%, rgba(200,30,0,.8)); box-shadow: inset 0 0 14px rgba(255,120,60,.8); }
+.tk .logo { display: flex; align-items: center; padding: 0 18px; font: italic 900 18px/1 'SV Display'; letter-spacing: .08em; }
+.tk .logo .us { color: #10141c !important; }
+/* ---- 3. battle box ---- */
+.bt { position: absolute; left: 50%; bottom: 5%; width: 520px; transform: translateX(-50%) skewX(-14deg); }
+.bt .us { transform: skewX(14deg); display: inline-block; }
+.bt-head { height: 34px; display: flex; align-items: center; justify-content: center; font: italic 900 19px/1 'SV Display'; letter-spacing: .14em; text-shadow: 0 2px 0 #6a0a00; }
+.bt-row { position: relative; display: flex; align-items: center; height: 46px; border-top: 1px solid rgba(255,255,255,.12); }
+.bt-row .pos { width: 64px; text-align: center; font: italic 900 30px/1 'SV Display'; }
+.bt-row .car { width: 16px; height: 30px; margin-right: 16px; box-shadow: inset 0 2px 0 rgba(255,255,255,.5), 0 0 10px currentColor; }
+.bt-row .nm { flex: 1; font: italic 900 30px/1 'SV Display'; }
+.bt-row .iv { width: 110px; text-align: right; padding-right: 26px; font: italic 800 22px/1 'SV UI'; }
+.bt-row .iv small { font-size: 13px; letter-spacing: .12em; }
+.bt-vs { position: absolute; left: -26px; top: 50%; transform: translateY(-50%) skewX(14deg); width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font: italic 900 18px/1 'SV Display'; z-index: 2; }
+/* ---- 4. winner card ---- */
+.wn { position: absolute; left: 50%; top: 47%; width: 720px; transform: translate(-50%, -50%) skewX(-12deg); text-align: center; }
+.wn .us { transform: skewX(12deg); display: inline-block; }
+.wn-top { height: 52px; display: grid; place-items: center; font: italic 900 28px/1 'SV Display'; letter-spacing: .4em; }
+.wn-top .us { color: #2a1600 !important; text-shadow: 0 1px 0 #fff8c0; }
+.wn-check { height: 10px; }
+.wn-body { padding: 22px 40px 24px; }
+.wn-name { font: italic 900 var(--wn-size, 100px)/0.9 'SV Display'; }
+/* (a long name shrinks to fit: the game sets --wn-size from the name's length) */
+.wn-team { margin-top: 12px; font: italic 800 19px/1 'SV UI'; letter-spacing: .16em; }
+.wn-stats { display: flex; justify-content: center; margin-top: 18px; }
+.wn-stats > div { padding: 0 26px; border-left: 1px solid rgba(255,255,255,.25); font: italic 800 13px/1.4 'SV UI'; letter-spacing: .12em; color: #cfe0ff !important; }
+.wn-stats > div:first-child { border: 0; }
+.wn-stats b { display: block; font: italic 900 30px/1.1 'SV Display'; letter-spacing: 0; }
+.burst { position: absolute; left: 50%; top: 47%; width: 1100px; height: 1100px; transform: translate(-50%, -50%); pointer-events: none;
+  background: repeating-conic-gradient(rgba(255,220,80,.18) 0 6deg, transparent 6deg 18deg); mask: radial-gradient(circle, #000 15%, transparent 60%); -webkit-mask: radial-gradient(circle, #000 15%, transparent 60%); animation: spin 30s linear infinite; }
+@keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+body { font-family: sans-serif; }
+h2 { color: #fff; font: 700 22px/1 'SV Display', sans-serif; letter-spacing: .04em; margin: 34px 0 6px 4px; }
+h2 small { display: block; margin-top: 6px; font: 500 14px/1.3 'SV Body', sans-serif; color: #aab; letter-spacing: 0; }
+/* more blur for the top tier, as asked */
+.ch .gfx { filter: blur(.9px) saturate(1.2) contrast(1.06) drop-shadow(1.8px 0 0 rgba(255,40,40,.45)) drop-shadow(-1.8px 0 0 rgba(40,170,255,.45)); }
+
+/* =================== TIER 1: LOCAL CABLE ACCESS, ON VHS =================== */
+.lc .gfx { position: absolute; inset: 0; filter: blur(1.4px) saturate(1.35) contrast(1.1) drop-shadow(3px 0 0 rgba(255,0,60,.5)) drop-shadow(-3px 0 0 rgba(0,200,255,.45)); animation: wob 3.1s steps(1) infinite; }
+@keyframes wob { 0%,100% { transform: translateX(0); } 31% { transform: translateX(2px); } 33% { transform: translateX(-1px); } 70% { transform: translateX(1px) skewX(.3deg); } 72% { transform: translateX(0); } }
+.vhs { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
+.vhs::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 1px, transparent 1px 3px), linear-gradient(180deg, rgba(255,160,90,.10), rgba(90,40,160,.10)); mix-blend-mode: multiply; }
+.vhs .band { position: absolute; left: 0; right: 0; height: 26px; top: -40px; background: repeating-linear-gradient(90deg, rgba(255,255,255,.55) 0 2px, rgba(0,0,0,.25) 2px 5px, rgba(255,255,255,.2) 5px 9px); filter: blur(1px); opacity: .55; animation: band 5.5s linear infinite; mix-blend-mode: screen; }
+@keyframes band { 0% { top: 110%; } 100% { top: -40px; } }
+.vhs .noise { position: absolute; inset: 0; opacity: .32; mix-blend-mode: overlay; background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 .7 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+.vhs .osd { position: absolute; font: 30px/1 'VT323', monospace; color: #fff; text-shadow: 2px 2px 0 #000, 0 0 6px rgba(255,255,255,.6); letter-spacing: .04em; }
+.vhs .osd.play { left: 46px; top: 36px; }
+.vhs .osd.date { left: 46px; bottom: 34px; }
+.vhs .osd.sp { right: 46px; top: 36px; }
+.frame.lc { filter: saturate(.75) sepia(.12); }
+.lcf { font-family: 'Arimo', Arial, sans-serif; }
+/* the station bug: a little crooked */
+.lc-bug { position: absolute; right: 54px; bottom: 70px; transform: rotate(-4deg); padding: 6px 12px 7px; background: linear-gradient(180deg, #6a3cff, #2a0a9a); border: 3px solid #ffe14a; font: 700 18px/1 'Arimo'; color: #ffe14a; box-shadow: 4px 4px 0 rgba(0,0,0,.6); }
+.lc-bug small { display: block; font: 700 10px/1.2 'Arimo'; color: #fff; letter-spacing: .1em; }
+/* WordArt: thick outline, gradient fill, hard shadow */
+.wordart { font: 700 72px/0.95 'Arimo', Arial, sans-serif; letter-spacing: -.01em; background: linear-gradient(180deg, #fff35a 0%, #ffb21a 50%, #ff4a1a 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; -webkit-text-stroke: 3px #3a0a6a; filter: drop-shadow(5px 5px 0 #1a0033); }
+.lc-ic { position: absolute; left: 80px; top: 90px; width: 760px; padding: 22px 28px 26px; background: linear-gradient(135deg, #00a6a6 0%, #1a6aff 50%, #8a2bd8 100%); border: 4px outset #9be7ff; box-shadow: 8px 8px 0 rgba(0,0,0,.55); }
+.lc-ic .series { font: 700 20px/1 'Arimo'; color: #fff; text-shadow: 2px 2px 0 #000; }
+.lc-ic .series span { color: #ffe14a; }
+.lc-ic .wordart { margin-top: 16px; transform: skewY(-3deg); }
+.lc-ic .facts { margin-top: 26px; display: grid; grid-template-columns: auto auto; gap: 6px 26px; font: 700 21px/1.15 'Arimo'; color: #fff; text-shadow: 2px 2px 0 #000; }
+.lc-ic .facts b { color: #ffe14a; }
+.lc-ic .clipart { position: absolute; right: -150px; top: 30px; width: 200px; height: 230px; background: #fff; border: 3px solid #000; box-shadow: 5px 5px 0 rgba(0,0,0,.5); transform: rotate(3deg); }
+.lc-ic .clipart svg { width: 100%; height: 100%; }
+.lc-ic .clipart path { fill: none; stroke: #e01010; stroke-width: 9; stroke-linejoin: round; }
+.lc-ic .clipart .cap { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; font: 700 12px/1 'Arimo'; color: #000; }
+.lc-star { position: absolute; left: 836px; top: 70px; width: 128px; height: 128px; display: grid; place-items: center; background: #ffe14a; clip-path: polygon(50% 0,61% 32%,95% 20%,72% 47%,100% 70%,64% 69%,58% 100%,45% 72%,12% 92%,28% 62%,0 40%,35% 34%,25% 3%); font: 700 22px/1 'Arimo'; color: #e01010; transform: rotate(12deg); }
+.lc-tk { position: absolute; left: 0; right: 0; bottom: 0; height: 40px; background: linear-gradient(180deg, #2244cc, #0a1a77); border-top: 3px solid #ffe14a; display: flex; align-items: center; overflow: hidden; white-space: nowrap; font: 700 22px/1 'Arimo'; color: #ffe14a; }
+.lc-tk .lab { padding: 0 16px; height: 100%; display: flex; align-items: center; background: #e01010; color: #fff; }
+.lc-tk .scroll { padding-left: 24px; word-spacing: 4px; }
+.lc-tk .scroll i { color: #fff; font-style: normal; }
+.lc-bt { position: absolute; left: 70px; top: 120px; width: 460px; background: #fff; border: 4px solid #000; box-shadow: 8px 8px 0 rgba(0,0,0,.55); transform: rotate(-2deg); }
+.lc-bt .h { padding: 8px 14px; background: #e01010; font: 700 26px/1 'Arimo'; color: #fff; text-shadow: 2px 2px 0 #000; }
+.lc-bt .r { padding: 10px 16px; font: 700 34px/1.1 'Arimo'; color: #000; border-top: 2px dashed #999; }
+.lc-bt .r small { display: block; font-size: 18px; color: #1a6aff; margin-top: 2px; }
+.lc-sp { position: absolute; left: 70px; top: 330px; padding: 8px 14px; background: #ffe14a; border: 3px solid #000; font: 700 18px/1.2 'Arimo'; color: #000; transform: rotate(-2deg); box-shadow: 5px 5px 0 rgba(0,0,0,.5); }
+.lc-win { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); text-align: center; }
+.lc-win .wordart { font-size: 120px; background: linear-gradient(180deg, #ff4a4a, #ffe14a 30%, #4aff6a 55%, #4ab8ff 78%, #b04aff); -webkit-background-clip: text; background-clip: text; animation: hue 2.2s linear infinite; }
+@keyframes hue { to { filter: drop-shadow(5px 5px 0 #1a0033) hue-rotate(360deg); } }
+.lc-win .who { margin-top: 18px; display: inline-block; padding: 10px 26px; background: #fff; border: 4px solid #000; font: 700 54px/1 'Arimo'; color: #000; box-shadow: 8px 8px 0 rgba(0,0,0,.55); transform: rotate(1.5deg); }
+.lc-win .sub { margin-top: 16px; font: 700 24px/1.2 'Arimo'; color: #fff; text-shadow: 3px 3px 0 #000; }
+
+/* =================== TIER 2a: BLACK & ORANGE BLADE (cable sports) =================== */
+.bo .gfx { position: absolute; inset: 0; filter: blur(.6px) contrast(1.08) drop-shadow(1px 0 0 rgba(255,60,0,.35)) drop-shadow(-1px 0 0 rgba(0,160,255,.3)); }
+.crt-light { position: absolute; inset: 0; pointer-events: none; z-index: 10; background: repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 1px, transparent 1px 3px), radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,.4) 100%); }
+.blk { background: linear-gradient(180deg, #2e2e33 0%, #121214 45%, #000 55%, #0d0d0f 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.25); }
+.org { background: linear-gradient(180deg, #ffd0a0 0%, #ff8a1a 35%, #ff5a00 50%, #c43a00 52%, #ff6a00 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 0 18px rgba(255,110,0,.55); }
+.bof { font-family: 'SV Display', sans-serif; color: #fff; }
+.bo-ic { position: absolute; left: 70px; top: 110px; width: 820px; height: 330px; }
+.bo-ic .blade1 { position: absolute; left: 0; top: 0; width: 820px; height: 270px; clip-path: polygon(0 0, 92% 0, 100% 100%, 6% 100%); }
+.bo-ic .blade2 { position: absolute; left: 40px; top: -18px; width: 420px; height: 48px; clip-path: polygon(0 0, 100% 0, 94% 100%, 4% 100%); display: flex; align-items: center; padding-left: 32px; font: 800 22px/1 'SV Display'; letter-spacing: .14em; color: #1a0a00; }
+.bo-ic .blade3 { position: absolute; left: 96px; top: 252px; width: 700px; height: 70px; clip-path: polygon(0 0, 100% 0, 97% 100%, 3% 100%); display: flex; }
+.bo-ic .name { position: absolute; left: 64px; top: 56px; font: 800 70px/0.9 'SV Display'; letter-spacing: -.005em; text-transform: uppercase; }
+.bo-ic .name em { font-style: normal; color: #ff7a00; }
+.bo-ic .kicker { position: absolute; left: 66px; top: 196px; font: 700 18px/1 'SV UI'; letter-spacing: .2em; color: #ff8a1a; }
+.bo-ic .map { position: absolute; right: 76px; top: 24px; width: 130px; height: 205px; }
+.bo-ic .map path { fill: none; stroke: #ff7a00; stroke-width: 6; stroke-linejoin: round; filter: drop-shadow(0 0 6px #ff6a00); }
+.bo-ic .map path.b { stroke: #fff; stroke-width: 2.5; filter: none; }
+.bo-ic .cell { flex: 1; display: flex; flex-direction: column; justify-content: center; padding-left: 34px; border-right: 2px solid rgba(255,138,26,.4); }
+.bo-ic .cell b { font: 800 26px/1 'SV Display'; color: #fff; }
+.bo-ic .cell span { font: 700 12px/1 'SV UI'; letter-spacing: .18em; color: #ff8a1a; margin-bottom: 4px; }
+.bo-tk { position: absolute; left: 0; right: 0; top: 10px; height: 42px; display: flex; }
+.bo-tk .lap { width: 150px; display: flex; align-items: center; justify-content: center; clip-path: polygon(0 0, 100% 0, 88% 100%, 0 100%); font: 800 22px/1 'SV Display'; color: #1a0a00; }
+.bo-tk .run { flex: 1; display: flex; align-items: center; margin-left: -14px; clip-path: polygon(3% 0, 100% 0, 100% 100%, 0 100%); padding-left: 30px; overflow: hidden; white-space: nowrap; }
+.bo-tk .p { display: flex; align-items: center; gap: 8px; padding: 0 14px; height: 100%; font: 800 19px/1 'SV Display'; color: #fff; }
+.bo-tk .p .n { width: 26px; height: 26px; display: grid; place-items: center; clip-path: polygon(15% 0, 100% 0, 85% 100%, 0 100%); font: 800 16px/1 'SV Display'; color: #1a0a00; }
+.bo-tk .p .g { font: 700 15px/1 'SV UI'; color: #ff8a1a; }
+.bo-tk .p.you .n { background: #fff; }
+.bo-tk .p.you { color: #ff8a1a; }
+.bo-bt { position: absolute; left: 50%; bottom: 6%; width: 560px; height: 120px; transform: translateX(-50%); }
+.bo-bt .h { position: absolute; left: 30px; top: 0; height: 34px; padding: 0 40px 0 26px; display: flex; align-items: center; clip-path: polygon(0 0, 100% 0, 92% 100%, 3% 100%); font: 800 18px/1 'SV Display'; letter-spacing: .16em; color: #1a0a00; }
+.bo-bt .b { position: absolute; left: 0; top: 30px; width: 560px; height: 90px; clip-path: polygon(0 0, 100% 0, 96% 100%, 4% 100%); }
+.bo-bt .r { position: absolute; left: 44px; right: 54px; height: 44px; display: flex; align-items: center; font: 800 28px/1 'SV Display'; color: #fff; }
+.bo-bt .r .pos { width: 44px; color: #ff8a1a; }
+.bo-bt .r .iv { margin-left: auto; font: 700 20px/1 'SV UI'; color: #ff8a1a; }
+.bo-win { position: absolute; left: 50%; top: 45%; width: 820px; height: 250px; transform: translate(-50%, -50%); }
+.bo-win .b { position: absolute; inset: 40px 0 0 0; clip-path: polygon(0 0, 100% 0, 95% 100%, 5% 100%); }
+.bo-win .h { position: absolute; left: 60px; top: 0; height: 56px; padding: 0 60px 0 34px; display: flex; align-items: center; clip-path: polygon(0 0, 100% 0, 93% 100%, 2% 100%); font: 800 30px/1 'SV Display'; letter-spacing: .3em; color: #1a0a00; }
+.bo-win .name { position: absolute; left: 0; right: 0; top: 74px; text-align: center; font: 800 96px/1 'SV Display'; color: #fff; }
+.bo-win .sub { position: absolute; left: 0; right: 0; top: 184px; text-align: center; font: 700 20px/1 'SV UI'; letter-spacing: .2em; color: #ff8a1a; }
+.slash { position: absolute; height: 6px; background: #ff7a00; box-shadow: 0 0 14px #ff6a00; transform: skewX(-40deg); }
+
+/* =================== TIER 2b: ELECTRIC BLUE TECH (cable sports) =================== */
+.eb .gfx { position: absolute; inset: 0; filter: blur(.6px) contrast(1.06) drop-shadow(1px 0 0 rgba(255,0,80,.3)) drop-shadow(-1px 0 0 rgba(0,220,255,.35)); }
+.carbon { background: linear-gradient(180deg, rgba(10,20,40,.92), rgba(4,8,18,.94)), repeating-linear-gradient(45deg, #1a1d24 0 4px, #0c0e12 4px 8px), repeating-linear-gradient(-45deg, #1a1d24 0 4px, #0c0e12 4px 8px); background-blend-mode: normal, overlay, normal; border: 1px solid #1ec8ff; box-shadow: 0 0 0 1px rgba(30,200,255,.25), 0 0 22px rgba(30,200,255,.35), inset 0 0 30px rgba(30,200,255,.15); }
+.grid { position: relative; }
+.grid::after { content: ''; position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(rgba(30,200,255,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(30,200,255,.12) 1px, transparent 1px); background-size: 22px 22px; }
+.ebf { font-family: 'SV Display', sans-serif; color: #fff; }
+.lcd { font-family: 'VT323', monospace; color: #ffe100; text-shadow: 0 0 8px rgba(255,225,0,.7); }
+.brk { position: absolute; width: 22px; height: 22px; border: 3px solid #1ec8ff; filter: drop-shadow(0 0 6px #1ec8ff); }
+.brk.tl { left: -8px; top: -8px; border-right: 0; border-bottom: 0; } .brk.tr { right: -8px; top: -8px; border-left: 0; border-bottom: 0; }
+.brk.bl { left: -8px; bottom: -8px; border-right: 0; border-top: 0; } .brk.br { right: -8px; bottom: -8px; border-left: 0; border-top: 0; }
+.eb-ic { position: absolute !important; left: 80px; top: 100px; width: 820px; height: 330px; }
+.eb-ic .tag { position: absolute; left: 30px; top: 26px; font: 700 15px/1 'SV UI'; letter-spacing: .28em; color: #1ec8ff; }
+.eb-ic .name { position: absolute; left: 28px; top: 54px; font: 800 64px/0.92 'SV Display'; letter-spacing: .01em; }
+.eb-ic .bar { position: absolute; left: 30px; top: 194px; width: 330px; height: 4px; background: linear-gradient(90deg, #ffe100, #1ec8ff); box-shadow: 0 0 10px #1ec8ff; }
+.eb-ic .stats { position: absolute; left: 30px; top: 222px; display: grid; grid-template-columns: repeat(4, auto); gap: 0 34px; }
+.eb-ic .stats span { display: block; font: 700 12px/1 'SV UI'; letter-spacing: .2em; color: #1ec8ff; }
+.eb-ic .stats b { display: block; margin-top: 4px; font-size: 42px; line-height: .9; }
+.eb-ic .map { position: absolute; right: 44px; top: 28px; width: 170px; height: 264px; }
+.eb-ic .map path { fill: none; stroke: #1ec8ff; stroke-width: 5; stroke-linejoin: round; filter: drop-shadow(0 0 7px #1ec8ff); stroke-dasharray: 14 6; }
+.eb-ic .map circle { fill: #ffe100; filter: drop-shadow(0 0 6px #ffe100); }
+.eb-ic .scan { position: absolute; left: 0; right: 0; height: 2px; background: #1ec8ff; box-shadow: 0 0 12px #1ec8ff; opacity: .7; animation: scanv 2.6s linear infinite; }
+@keyframes scanv { from { top: 0; } to { top: 100%; } }
+.eb-tk { position: absolute; left: 20px; right: 20px; top: 12px; height: 40px; display: flex; gap: 4px; }
+.eb-tk > div { display: flex; align-items: center; padding: 0 12px; }
+.eb-tk .lap { font-size: 30px; }
+.eb-tk .p { gap: 8px; font: 800 18px/1 'SV Display'; color: #fff; }
+.eb-tk .p .n { font: 30px/1 'VT323'; color: #1ec8ff; text-shadow: 0 0 8px #1ec8ff; }
+.eb-tk .p .g { font: 24px/1 'VT323'; color: #ffe100; }
+.eb-tk .p.you { border-color: #ffe100; box-shadow: 0 0 16px rgba(255,225,0,.5); }
+.eb-bt { position: absolute; left: 50%; bottom: 6%; width: 520px; transform: translateX(-50%); padding: 12px 22px 14px; }
+.eb-bt .h { font: 700 14px/1 'SV UI'; letter-spacing: .3em; color: #1ec8ff; margin-bottom: 8px; }
+.eb-bt .r { display: flex; align-items: center; height: 40px; font: 800 28px/1 'SV Display'; color: #fff; }
+.eb-bt .r .pos { width: 46px; font: 38px/1 'VT323'; color: #1ec8ff; text-shadow: 0 0 8px #1ec8ff; }
+.eb-bt .r .iv { margin-left: auto; font-size: 30px; }
+.eb-bt .meter { width: calc(100% - 46px); margin: 6px 0 2px 46px; height: 8px; background: rgba(30,200,255,.15); border: 1px solid rgba(30,200,255,.5); }
+.eb-bt .meter i { display: block; height: 100%; width: 82%; background: linear-gradient(90deg, #1ec8ff, #ffe100); box-shadow: 0 0 10px #1ec8ff; }
+.eb-win { position: absolute !important; left: 50%; top: 45%; width: 760px; transform: translate(-50%, -50%); padding: 26px 0 30px; text-align: center; }
+.eb-win .h { font: 700 18px/1 'SV UI'; letter-spacing: .5em; color: #1ec8ff; }
+.eb-win .name { margin-top: 12px; font: 800 92px/0.95 'SV Display'; color: #fff; text-shadow: 0 0 22px rgba(30,200,255,.6); }
+.eb-win .stats { margin-top: 16px; display: flex; justify-content: center; gap: 46px; }
+.eb-win .stats span { display: block; font: 700 12px/1 'SV UI'; letter-spacing: .2em; color: #1ec8ff; }
+.eb-win .stats b { font-size: 46px; }
+</style></head><body>
+<svg width="0" height="0" style="position:absolute"><defs><linearGradient id="chr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset=".45" stop-color="#dfe6ee"/><stop offset=".5" stop-color="#8d97a3"/><stop offset=".7" stop-color="#fff"/></linearGradient></defs></svg>
+
+<h2>SHITBOX LEAGUE · LOCAL CABLE ACCESS, ON A WORN VHS<small>Production value: one guy and a camcorder. WordArt, clip art, a crooked station bug, a sponsor who paid in tires. Tape tracking noise, colour bleed, VCR clock.</small></h2>
+<div class="frame lc" id="t1a"><div class="gfx lcf">
+  <div class="lc-ic"><div class="series">SVC-7 PRESENTS: <span>THE SHITBOX LEAGUE</span> &nbsp;·&nbsp; RACE 3!!</div>
+    <div class="wordart">Spa-<br>Francorchamps</div>
+    <div class="facts"><div>LENGTH: <b>4.35 MILES</b></div><div>TURNS: <b>LOTS (19)</b></div><div>LAPS: <b>12</b></div><div>WEATHER: <b>NICE</b></div></div>
+    <div class="clipart"><svg viewBox="0 0 206 320"><path d="M66.4 42.9 L63.1 37.0 L59.7 31.1 L56.2 25.0 L52.8 19.1 L49.4 13.1 L49.1 11.4 L49.5 10.5 L51.0 10.0 L55.4 11.7 L59.6 13.6 L65.9 16.7 L70.1 19.1 L74.1 21.2 L79.2 24.3 L83.2 27.2 L88.1 31.3 L91.3 34.2 L95.1 38.3 L100.6 44.7 L106.2 51.2 L111.5 57.3 L116.9 63.7 L122.0 69.6 L124.7 71.7 L128.9 74.3 L131.3 76.0 L132.8 77.3 L134.3 79.2 L136.0 82.3 L137.4 85.8 L137.9 88.4 L139.0 95.5 L140.2 98.5 L142.4 102.2 L146.1 107.9 L149.4 113.1 L152.8 118.4 L156.2 123.6 L158.8 127.6 L161.1 131.0 L163.8 136.0 L165.5 140.3 L167.3 147.0 L169.3 153.9 L171.5 161.8 L173.8 169.7 L176.1 177.6 L178.3 185.3 L180.5 193.1 L182.7 200.6 L184.8 208.1 L187.0 215.6 L189.1 223.1 L191.2 230.3 L193.4 237.9 L195.6 245.4 L196.1 247.5 L196.1 248.8 L195.7 250.8 L194.7 252.6 L193.4 253.8 L190.6 255.5 L189.3 256.6 L188.0 258.3 L187.3 260.2 L187.2 261.7 L187.4 263.6 L188.9 269.3 L190.2 274.8 L190.7 277.7 L190.7 278.8 L190.3 280.5 L189.1 282.7 L188.1 283.8 L185.9 285.4 L180.5 289.1 L175.1 292.9 L169.4 296.8 L163.9 300.6 L158.5 304.3 L153.0 308.1 L151.3 309.2 L150.0 309.7 L148.2 310.0 L146.1 309.8 L144.2 308.9 L142.7 307.8 L141.6 306.1 L140.9 304.3 L140.8 302.2 L141.3 300.1 L142.5 298.2 L144.0 296.7 L149.0 293.6 L153.7 290.7 L158.6 287.7 L160.5 286.3 L161.6 285.0 L162.3 283.6 L162.7 281.9 L162.7 280.1 L160.7 273.9 L158.6 267.6 L156.5 261.0 L154.4 253.6 L153.0 246.0 L151.6 238.7 L150.2 231.1 L149.1 224.8 L148.0 218.4 L147.0 214.3 L145.6 211.3 L144.5 209.9 L143.4 208.8 L140.7 206.7 L139.2 205.9 L137.5 205.3 L135.3 204.9 L130.9 204.5 L126.8 204.2 L124.5 204.2 L122.5 204.5 L119.4 205.2 L117.2 206.0 L114.2 207.6 L111.9 209.2 L109.8 211.3 L108.2 213.3 L106.1 217.1 L103.3 223.8 L100.6 230.4 L97.6 237.6 L94.7 244.8 L91.9 251.7 L89.0 258.8 L87.9 261.0 L86.7 262.6 L85.0 264.1 L83.3 265.1 L81.2 265.8 L78.7 266.2 L76.5 266.0 L74.4 265.4 L72.6 264.5 L69.0 262.2 L67.4 261.5 L66.1 261.1 L64.0 261.0 L62.3 261.1 L60.4 261.5 L58.4 262.4 L56.8 263.6 L55.4 265.0 L51.4 271.0 L47.5 277.1 L43.7 283.0 L39.8 289.2 L38.5 290.5 L37.0 291.6 L35.1 292.3 L33.0 292.4 L31.0 292.0 L29.3 291.0 L24.4 287.6 L19.3 283.9 L14.7 280.4 L13.3 278.9 L12.2 277.4 L11.2 275.5 L10.6 274.0 L10.1 271.9 L10.0 269.3 L10.3 266.6 L11.1 264.0 L12.6 260.2 L14.0 256.6 L15.8 252.5 L17.4 249.8 L19.9 246.1 L22.4 242.8 L25.2 239.6 L28.2 236.5 L31.1 233.6 L36.4 228.7 L39.7 226.0 L43.4 223.6 L45.9 222.1 L52.2 218.9 L58.4 215.7 L64.6 212.4 L71.0 208.9 L75.3 206.0 L79.3 202.4 L81.5 200.1 L83.0 198.2 L85.1 195.1 L86.4 192.9 L88.4 188.8 L90.9 183.2 L93.3 177.9 L95.8 172.2 L96.8 169.8 L97.5 167.6 L97.9 165.4 L98.0 163.0 L97.8 160.4 L97.4 158.4 L95.2 152.4 L92.8 146.1 L90.5 140.1 L88.1 133.9 L85.9 127.9 L83.9 120.5 L83.2 116.1 L82.6 111.6 L82.0 104.3 L81.5 97.3 L80.8 89.8 L80.8 87.5 L81.4 86.4 L82.4 85.9 L87.1 86.0 L88.6 85.7 L89.5 84.6 L89.6 83.1 L89.2 82.0 L87.2 79.0 L83.6 72.7 L80.1 66.7 L76.5 60.5 L73.1 54.5 L69.8 48.8 Z"/></svg><div class="cap">THE TRACK (NOT TO SCALE)</div></div></div>
+  <div class="lc-star">LIVE!</div>
+  <div class="lc-bug">SVC-7<small>CABLE ACCESS</small></div>
+</div><div class="vhs"><div class="noise"></div><div class="band"></div><div class="osd play">PLAY ▶</div><div class="osd sp">SP</div><div class="osd date">OCT 08 2006  3:42 PM</div></div><div class="lbl">tier 1 · intro card</div></div>
+
+<div class="frame lc" id="t1b"><div class="gfx lcf">
+  <div class="lc-bt"><div class="h">WHO'S AHEAD?!</div><div class="r">#5 VALDEZ</div><div class="r">#6 SHUTTLEWORTH <small>(0.3 SEC BEHIND!!)</small></div></div>
+  <div class="lc-sp">THIS BATTLE BROUGHT TO YOU BY<br><b>KEV'S TIRE SHACK</b> · WE TAKE CASH</div>
+  <div class="lc-tk"><div class="lab">LAP 7 OF 12</div><div class="scroll">1. TANAKA &nbsp;<i>★</i>&nbsp; 2. ROSSI &nbsp;<i>★</i>&nbsp; 3. OKONKWO &nbsp;<i>★</i>&nbsp; 4. MOREAU &nbsp;<i>★</i>&nbsp; 5. VALDEZ &nbsp;<i>★</i>&nbsp; 6. SHUTTLEWORTH &nbsp;<i>★</i>&nbsp; BINGO TONIGHT AT THE VFW 7PM</div></div>
+  <div class="lc-bug">SVC-7<small>CABLE ACCESS</small></div>
+</div><div class="vhs"><div class="noise"></div><div class="band" style="animation-delay:-2s"></div><div class="osd play">PLAY ▶</div><div class="osd sp">SP</div></div><div class="lbl">tier 1 · battle + ticker</div></div>
+
+<div class="frame lc" id="t1c"><div class="gfx lcf">
+  <div class="lc-win"><div class="wordart">WINNER!!!</div><div class="who">SHUTTLEWORTH</div><div class="sub">WON BY 0.214 SECONDS. CONGRATULATIONS FROM ALL OF US AT SVC-7</div></div>
+  <div class="lc-bug">SVC-7<small>CABLE ACCESS</small></div>
+</div><div class="vhs"><div class="noise"></div><div class="band" style="animation-delay:-4s"></div><div class="osd play">PLAY ▶</div><div class="osd date">OCT 08 2006  4:19 PM</div></div><div class="lbl">tier 1 · winner</div></div>
+
+<h2>STREET &amp; CLUB SERIES · OPTION A: BLACK &amp; ORANGE BLADE<small>A cable sports channel, late 2000s. Black glass, hot orange, sharp angled blades that slice in. Light CRT.</small></h2>
+<div class="frame bo" id="t2a"><div class="gfx bof">
+  <div class="bo-ic"><div class="blade1 blk"></div><div class="blade2 org">STREET CUP · ROUND 3</div>
+    <div class="name">SPA-<br><em>FRANCORCHAMPS</em></div><div class="kicker">BELGIUM · EAU ROUGE · RAIDILLON</div><svg class="map" viewBox="0 0 206 320"><path d="M66.4 42.9 L63.1 37.0 L59.7 31.1 L56.2 25.0 L52.8 19.1 L49.4 13.1 L49.1 11.4 L49.5 10.5 L51.0 10.0 L55.4 11.7 L59.6 13.6 L65.9 16.7 L70.1 19.1 L74.1 21.2 L79.2 24.3 L83.2 27.2 L88.1 31.3 L91.3 34.2 L95.1 38.3 L100.6 44.7 L106.2 51.2 L111.5 57.3 L116.9 63.7 L122.0 69.6 L124.7 71.7 L128.9 74.3 L131.3 76.0 L132.8 77.3 L134.3 79.2 L136.0 82.3 L137.4 85.8 L137.9 88.4 L139.0 95.5 L140.2 98.5 L142.4 102.2 L146.1 107.9 L149.4 113.1 L152.8 118.4 L156.2 123.6 L158.8 127.6 L161.1 131.0 L163.8 136.0 L165.5 140.3 L167.3 147.0 L169.3 153.9 L171.5 161.8 L173.8 169.7 L176.1 177.6 L178.3 185.3 L180.5 193.1 L182.7 200.6 L184.8 208.1 L187.0 215.6 L189.1 223.1 L191.2 230.3 L193.4 237.9 L195.6 245.4 L196.1 247.5 L196.1 248.8 L195.7 250.8 L194.7 252.6 L193.4 253.8 L190.6 255.5 L189.3 256.6 L188.0 258.3 L187.3 260.2 L187.2 261.7 L187.4 263.6 L188.9 269.3 L190.2 274.8 L190.7 277.7 L190.7 278.8 L190.3 280.5 L189.1 282.7 L188.1 283.8 L185.9 285.4 L180.5 289.1 L175.1 292.9 L169.4 296.8 L163.9 300.6 L158.5 304.3 L153.0 308.1 L151.3 309.2 L150.0 309.7 L148.2 310.0 L146.1 309.8 L144.2 308.9 L142.7 307.8 L141.6 306.1 L140.9 304.3 L140.8 302.2 L141.3 300.1 L142.5 298.2 L144.0 296.7 L149.0 293.6 L153.7 290.7 L158.6 287.7 L160.5 286.3 L161.6 285.0 L162.3 283.6 L162.7 281.9 L162.7 280.1 L160.7 273.9 L158.6 267.6 L156.5 261.0 L154.4 253.6 L153.0 246.0 L151.6 238.7 L150.2 231.1 L149.1 224.8 L148.0 218.4 L147.0 214.3 L145.6 211.3 L144.5 209.9 L143.4 208.8 L140.7 206.7 L139.2 205.9 L137.5 205.3 L135.3 204.9 L130.9 204.5 L126.8 204.2 L124.5 204.2 L122.5 204.5 L119.4 205.2 L117.2 206.0 L114.2 207.6 L111.9 209.2 L109.8 211.3 L108.2 213.3 L106.1 217.1 L103.3 223.8 L100.6 230.4 L97.6 237.6 L94.7 244.8 L91.9 251.7 L89.0 258.8 L87.9 261.0 L86.7 262.6 L85.0 264.1 L83.3 265.1 L81.2 265.8 L78.7 266.2 L76.5 266.0 L74.4 265.4 L72.6 264.5 L69.0 262.2 L67.4 261.5 L66.1 261.1 L64.0 261.0 L62.3 261.1 L60.4 261.5 L58.4 262.4 L56.8 263.6 L55.4 265.0 L51.4 271.0 L47.5 277.1 L43.7 283.0 L39.8 289.2 L38.5 290.5 L37.0 291.6 L35.1 292.3 L33.0 292.4 L31.0 292.0 L29.3 291.0 L24.4 287.6 L19.3 283.9 L14.7 280.4 L13.3 278.9 L12.2 277.4 L11.2 275.5 L10.6 274.0 L10.1 271.9 L10.0 269.3 L10.3 266.6 L11.1 264.0 L12.6 260.2 L14.0 256.6 L15.8 252.5 L17.4 249.8 L19.9 246.1 L22.4 242.8 L25.2 239.6 L28.2 236.5 L31.1 233.6 L36.4 228.7 L39.7 226.0 L43.4 223.6 L45.9 222.1 L52.2 218.9 L58.4 215.7 L64.6 212.4 L71.0 208.9 L75.3 206.0 L79.3 202.4 L81.5 200.1 L83.0 198.2 L85.1 195.1 L86.4 192.9 L88.4 188.8 L90.9 183.2 L93.3 177.9 L95.8 172.2 L96.8 169.8 L97.5 167.6 L97.9 165.4 L98.0 163.0 L97.8 160.4 L97.4 158.4 L95.2 152.4 L92.8 146.1 L90.5 140.1 L88.1 133.9 L85.9 127.9 L83.9 120.5 L83.2 116.1 L82.6 111.6 L82.0 104.3 L81.5 97.3 L80.8 89.8 L80.8 87.5 L81.4 86.4 L82.4 85.9 L87.1 86.0 L88.6 85.7 L89.5 84.6 L89.6 83.1 L89.2 82.0 L87.2 79.0 L83.6 72.7 L80.1 66.7 L76.5 60.5 L73.1 54.5 L69.8 48.8 Z"/><path class="b" d="M66.4 42.9 L63.1 37.0 L59.7 31.1 L56.2 25.0 L52.8 19.1 L49.4 13.1 L49.1 11.4 L49.5 10.5 L51.0 10.0 L55.4 11.7 L59.6 13.6 L65.9 16.7 L70.1 19.1 L74.1 21.2 L79.2 24.3 L83.2 27.2 L88.1 31.3 L91.3 34.2 L95.1 38.3 L100.6 44.7 L106.2 51.2 L111.5 57.3 L116.9 63.7 L122.0 69.6 L124.7 71.7 L128.9 74.3 L131.3 76.0 L132.8 77.3 L134.3 79.2 L136.0 82.3 L137.4 85.8 L137.9 88.4 L139.0 95.5 L140.2 98.5 L142.4 102.2 L146.1 107.9 L149.4 113.1 L152.8 118.4 L156.2 123.6 L158.8 127.6 L161.1 131.0 L163.8 136.0 L165.5 140.3 L167.3 147.0 L169.3 153.9 L171.5 161.8 L173.8 169.7 L176.1 177.6 L178.3 185.3 L180.5 193.1 L182.7 200.6 L184.8 208.1 L187.0 215.6 L189.1 223.1 L191.2 230.3 L193.4 237.9 L195.6 245.4 L196.1 247.5 L196.1 248.8 L195.7 250.8 L194.7 252.6 L193.4 253.8 L190.6 255.5 L189.3 256.6 L188.0 258.3 L187.3 260.2 L187.2 261.7 L187.4 263.6 L188.9 269.3 L190.2 274.8 L190.7 277.7 L190.7 278.8 L190.3 280.5 L189.1 282.7 L188.1 283.8 L185.9 285.4 L180.5 289.1 L175.1 292.9 L169.4 296.8 L163.9 300.6 L158.5 304.3 L153.0 308.1 L151.3 309.2 L150.0 309.7 L148.2 310.0 L146.1 309.8 L144.2 308.9 L142.7 307.8 L141.6 306.1 L140.9 304.3 L140.8 302.2 L141.3 300.1 L142.5 298.2 L144.0 296.7 L149.0 293.6 L153.7 290.7 L158.6 287.7 L160.5 286.3 L161.6 285.0 L162.3 283.6 L162.7 281.9 L162.7 280.1 L160.7 273.9 L158.6 267.6 L156.5 261.0 L154.4 253.6 L153.0 246.0 L151.6 238.7 L150.2 231.1 L149.1 224.8 L148.0 218.4 L147.0 214.3 L145.6 211.3 L144.5 209.9 L143.4 208.8 L140.7 206.7 L139.2 205.9 L137.5 205.3 L135.3 204.9 L130.9 204.5 L126.8 204.2 L124.5 204.2 L122.5 204.5 L119.4 205.2 L117.2 206.0 L114.2 207.6 L111.9 209.2 L109.8 211.3 L108.2 213.3 L106.1 217.1 L103.3 223.8 L100.6 230.4 L97.6 237.6 L94.7 244.8 L91.9 251.7 L89.0 258.8 L87.9 261.0 L86.7 262.6 L85.0 264.1 L83.3 265.1 L81.2 265.8 L78.7 266.2 L76.5 266.0 L74.4 265.4 L72.6 264.5 L69.0 262.2 L67.4 261.5 L66.1 261.1 L64.0 261.0 L62.3 261.1 L60.4 261.5 L58.4 262.4 L56.8 263.6 L55.4 265.0 L51.4 271.0 L47.5 277.1 L43.7 283.0 L39.8 289.2 L38.5 290.5 L37.0 291.6 L35.1 292.3 L33.0 292.4 L31.0 292.0 L29.3 291.0 L24.4 287.6 L19.3 283.9 L14.7 280.4 L13.3 278.9 L12.2 277.4 L11.2 275.5 L10.6 274.0 L10.1 271.9 L10.0 269.3 L10.3 266.6 L11.1 264.0 L12.6 260.2 L14.0 256.6 L15.8 252.5 L17.4 249.8 L19.9 246.1 L22.4 242.8 L25.2 239.6 L28.2 236.5 L31.1 233.6 L36.4 228.7 L39.7 226.0 L43.4 223.6 L45.9 222.1 L52.2 218.9 L58.4 215.7 L64.6 212.4 L71.0 208.9 L75.3 206.0 L79.3 202.4 L81.5 200.1 L83.0 198.2 L85.1 195.1 L86.4 192.9 L88.4 188.8 L90.9 183.2 L93.3 177.9 L95.8 172.2 L96.8 169.8 L97.5 167.6 L97.9 165.4 L98.0 163.0 L97.8 160.4 L97.4 158.4 L95.2 152.4 L92.8 146.1 L90.5 140.1 L88.1 133.9 L85.9 127.9 L83.9 120.5 L83.2 116.1 L82.6 111.6 L82.0 104.3 L81.5 97.3 L80.8 89.8 L80.8 87.5 L81.4 86.4 L82.4 85.9 L87.1 86.0 L88.6 85.7 L89.5 84.6 L89.6 83.1 L89.2 82.0 L87.2 79.0 L83.6 72.7 L80.1 66.7 L76.5 60.5 L73.1 54.5 L69.8 48.8 Z"/></svg>
+    <div class="blade3 blk"><div class="cell"><span>LENGTH</span><b>4.35 MI</b></div><div class="cell"><span>TURNS</span><b>19</b></div><div class="cell"><span>LAPS</span><b>12</b></div><div class="cell" style="border:0"><span>CONDITIONS</span><b>SUNNY 68°</b></div></div>
+    <div class="slash" style="left:680px;top:334px;width:120px"></div><div class="slash" style="left:712px;top:346px;width:70px"></div></div>
+</div><div class="crt-light"></div><div class="lbl">tier 2A · intro card</div></div>
+
+<div class="frame bo" id="t2b"><div class="gfx bof">
+  <div class="bo-tk"><div class="lap org">LAP 7/12</div><div class="run blk">
+    <div class="p"><span class="n org">1</span>TANAKA</div><div class="p"><span class="n org">2</span>ROSSI <span class="g">+1.24</span></div><div class="p"><span class="n org">3</span>OKONKWO <span class="g">+3.80</span></div><div class="p"><span class="n org">4</span>MOREAU <span class="g">+5.12</span></div><div class="p"><span class="n org">5</span>VALDEZ <span class="g">+6.43</span></div><div class="p you"><span class="n">6</span>SHUTTLEWORTH <span class="g">+6.71</span></div><div class="p"><span class="n org">7</span>SCHMIDT <span class="g">+9.0</span></div></div></div>
+  <div class="bo-bt"><div class="b blk"></div><div class="h org">BATTLE FOR 5TH</div>
+    <div class="r" style="top:36px"><span class="pos">5</span>VALDEZ<span class="iv">LEADER</span></div><div class="r" style="top:76px"><span class="pos">6</span>SHUTTLEWORTH<span class="iv">+0.28</span></div></div>
+</div><div class="crt-light"></div><div class="lbl">tier 2A · ticker + battle</div></div>
+
+<div class="frame bo" id="t2c"><div class="gfx bof">
+  <div class="bo-win"><div class="b blk"></div><div class="h org">WINNER</div><div class="name">SHUTTLEWORTH</div><div class="sub">VOLTA RACING · +0.214 · FROM 6TH</div>
+    <div class="slash" style="left:30px;top:250px;width:200px"></div><div class="slash" style="left:600px;top:250px;width:200px"></div></div>
+</div><div class="crt-light"></div><div class="lbl">tier 2A · winner</div></div>
+
+<h2>STREET &amp; CLUB SERIES · OPTION B: ELECTRIC BLUE TECH<small>A motorsport cable channel, early 2000s. Carbon fibre, electric blue and yellow, grid lines, LCD numbers, corner brackets, a scan line. Light CRT.</small></h2>
+<div class="frame eb" id="t3a"><div class="gfx ebf">
+  <div class="eb-ic carbon grid"><div class="brk tl"></div><div class="brk tr"></div><div class="brk bl"></div><div class="brk br"></div>
+    <div class="tag">CLUB SERIES // ROUND 03</div><div class="name">SPA-<br>FRANCORCHAMPS</div><div class="bar"></div>
+    <div class="stats"><div><span>LENGTH</span><b class="lcd">4.35MI</b></div><div><span>TURNS</span><b class="lcd">19</b></div><div><span>LAPS</span><b class="lcd">12</b></div><div><span>TEMP</span><b class="lcd">68°F</b></div></div><svg class="map" viewBox="0 0 206 320"><path d="M66.4 42.9 L63.1 37.0 L59.7 31.1 L56.2 25.0 L52.8 19.1 L49.4 13.1 L49.1 11.4 L49.5 10.5 L51.0 10.0 L55.4 11.7 L59.6 13.6 L65.9 16.7 L70.1 19.1 L74.1 21.2 L79.2 24.3 L83.2 27.2 L88.1 31.3 L91.3 34.2 L95.1 38.3 L100.6 44.7 L106.2 51.2 L111.5 57.3 L116.9 63.7 L122.0 69.6 L124.7 71.7 L128.9 74.3 L131.3 76.0 L132.8 77.3 L134.3 79.2 L136.0 82.3 L137.4 85.8 L137.9 88.4 L139.0 95.5 L140.2 98.5 L142.4 102.2 L146.1 107.9 L149.4 113.1 L152.8 118.4 L156.2 123.6 L158.8 127.6 L161.1 131.0 L163.8 136.0 L165.5 140.3 L167.3 147.0 L169.3 153.9 L171.5 161.8 L173.8 169.7 L176.1 177.6 L178.3 185.3 L180.5 193.1 L182.7 200.6 L184.8 208.1 L187.0 215.6 L189.1 223.1 L191.2 230.3 L193.4 237.9 L195.6 245.4 L196.1 247.5 L196.1 248.8 L195.7 250.8 L194.7 252.6 L193.4 253.8 L190.6 255.5 L189.3 256.6 L188.0 258.3 L187.3 260.2 L187.2 261.7 L187.4 263.6 L188.9 269.3 L190.2 274.8 L190.7 277.7 L190.7 278.8 L190.3 280.5 L189.1 282.7 L188.1 283.8 L185.9 285.4 L180.5 289.1 L175.1 292.9 L169.4 296.8 L163.9 300.6 L158.5 304.3 L153.0 308.1 L151.3 309.2 L150.0 309.7 L148.2 310.0 L146.1 309.8 L144.2 308.9 L142.7 307.8 L141.6 306.1 L140.9 304.3 L140.8 302.2 L141.3 300.1 L142.5 298.2 L144.0 296.7 L149.0 293.6 L153.7 290.7 L158.6 287.7 L160.5 286.3 L161.6 285.0 L162.3 283.6 L162.7 281.9 L162.7 280.1 L160.7 273.9 L158.6 267.6 L156.5 261.0 L154.4 253.6 L153.0 246.0 L151.6 238.7 L150.2 231.1 L149.1 224.8 L148.0 218.4 L147.0 214.3 L145.6 211.3 L144.5 209.9 L143.4 208.8 L140.7 206.7 L139.2 205.9 L137.5 205.3 L135.3 204.9 L130.9 204.5 L126.8 204.2 L124.5 204.2 L122.5 204.5 L119.4 205.2 L117.2 206.0 L114.2 207.6 L111.9 209.2 L109.8 211.3 L108.2 213.3 L106.1 217.1 L103.3 223.8 L100.6 230.4 L97.6 237.6 L94.7 244.8 L91.9 251.7 L89.0 258.8 L87.9 261.0 L86.7 262.6 L85.0 264.1 L83.3 265.1 L81.2 265.8 L78.7 266.2 L76.5 266.0 L74.4 265.4 L72.6 264.5 L69.0 262.2 L67.4 261.5 L66.1 261.1 L64.0 261.0 L62.3 261.1 L60.4 261.5 L58.4 262.4 L56.8 263.6 L55.4 265.0 L51.4 271.0 L47.5 277.1 L43.7 283.0 L39.8 289.2 L38.5 290.5 L37.0 291.6 L35.1 292.3 L33.0 292.4 L31.0 292.0 L29.3 291.0 L24.4 287.6 L19.3 283.9 L14.7 280.4 L13.3 278.9 L12.2 277.4 L11.2 275.5 L10.6 274.0 L10.1 271.9 L10.0 269.3 L10.3 266.6 L11.1 264.0 L12.6 260.2 L14.0 256.6 L15.8 252.5 L17.4 249.8 L19.9 246.1 L22.4 242.8 L25.2 239.6 L28.2 236.5 L31.1 233.6 L36.4 228.7 L39.7 226.0 L43.4 223.6 L45.9 222.1 L52.2 218.9 L58.4 215.7 L64.6 212.4 L71.0 208.9 L75.3 206.0 L79.3 202.4 L81.5 200.1 L83.0 198.2 L85.1 195.1 L86.4 192.9 L88.4 188.8 L90.9 183.2 L93.3 177.9 L95.8 172.2 L96.8 169.8 L97.5 167.6 L97.9 165.4 L98.0 163.0 L97.8 160.4 L97.4 158.4 L95.2 152.4 L92.8 146.1 L90.5 140.1 L88.1 133.9 L85.9 127.9 L83.9 120.5 L83.2 116.1 L82.6 111.6 L82.0 104.3 L81.5 97.3 L80.8 89.8 L80.8 87.5 L81.4 86.4 L82.4 85.9 L87.1 86.0 L88.6 85.7 L89.5 84.6 L89.6 83.1 L89.2 82.0 L87.2 79.0 L83.6 72.7 L80.1 66.7 L76.5 60.5 L73.1 54.5 L69.8 48.8 Z"/><circle cx="66.4" cy="42.9" r="7"/></svg><div class="scan"></div></div>
+</div><div class="crt-light"></div><div class="lbl">tier 2B · intro card</div></div>
+
+<div class="frame eb" id="t3b"><div class="gfx ebf">
+  <div class="eb-tk"><div class="carbon lap lcd">LAP 07/12</div>
+    <div class="carbon p"><span class="n">1</span>TANAKA</div><div class="carbon p"><span class="n">2</span>ROSSI <span class="g">+1.24</span></div><div class="carbon p"><span class="n">3</span>OKONKWO <span class="g">+3.80</span></div><div class="carbon p"><span class="n">4</span>MOREAU <span class="g">+5.12</span></div><div class="carbon p"><span class="n">5</span>VALDEZ <span class="g">+6.43</span></div><div class="carbon p you"><span class="n">6</span>SHUTTLEWORTH <span class="g">+6.71</span></div></div>
+  <div class="eb-bt carbon"><div class="brk tl"></div><div class="brk br"></div><div class="h">// BATTLE FOR P5</div>
+    <div class="r"><span class="pos">05</span>VALDEZ<span class="iv lcd">LEAD</span></div><div class="r"><span class="pos">06</span>SHUTTLEWORTH<span class="iv lcd">+0.28</span></div><div class="meter"><i></i></div></div>
+</div><div class="crt-light"></div><div class="lbl">tier 2B · ticker + battle</div></div>
+
+<div class="frame eb" id="t3c"><div class="gfx ebf">
+  <div class="eb-win carbon grid"><div class="brk tl"></div><div class="brk tr"></div><div class="brk bl"></div><div class="brk br"></div>
+    <div class="h">// RACE WINNER</div><div class="name">SHUTTLEWORTH</div>
+    <div class="stats"><div><span>MARGIN</span><b class="lcd">+0.214</b></div><div><span>FASTEST LAP</span><b class="lcd">2:04.881</b></div><div><span>LAPS LED</span><b class="lcd">03</b></div></div><div class="scan"></div></div>
+</div><div class="crt-light"></div><div class="lbl">tier 2B · winner</div></div>
+<h2>GT &amp; THE TOP TIERS · CHROME &amp; GLORY<small>Full network coverage, mid-2000s. Chrome, glass, glow, flares, sparkle. Tube-TV CRT, a touch more blur.</small></h2>
+<div class="frame ch" id="t4a"><div class="gfx tv">
+  <div class="ic"><div class="frame-chrome">
+    <div class="ic-top"><div class="series red"><span class="us">SAN VELOCITA GT CHAMPIONSHIP</span></div><div class="round chromebar"><span class="us">ROUND 3 OF 10</span></div></div>
+    <div class="ic-check checker"></div>
+    <div class="ic-body navy">
+      <div class="ic-name us"><div class="country gold-text">BELGIUM</div><div class="track chrome-text" style="--tn-size:58px">SPA-<br>FRANCORCHAMPS</div><div class="rule"></div><div class="corner">EAU ROUGE · RAIDILLON · KEMMEL · BLANCHIMONT</div></div>
+      <svg class="ic-map us" viewBox="0 0 206 320"><path class="glow" d="M66.4 42.9 L63.1 37.0 L59.7 31.1 L56.2 25.0 L52.8 19.1 L49.4 13.1 L49.1 11.4 L49.5 10.5 L51.0 10.0 L55.4 11.7 L59.6 13.6 L65.9 16.7 L70.1 19.1 L74.1 21.2 L79.2 24.3 L83.2 27.2 L88.1 31.3 L91.3 34.2 L95.1 38.3 L100.6 44.7 L106.2 51.2 L111.5 57.3 L116.9 63.7 L122.0 69.6 L124.7 71.7 L128.9 74.3 L131.3 76.0 L132.8 77.3 L134.3 79.2 L136.0 82.3 L137.4 85.8 L137.9 88.4 L139.0 95.5 L140.2 98.5 L142.4 102.2 L146.1 107.9 L149.4 113.1 L152.8 118.4 L156.2 123.6 L158.8 127.6 L161.1 131.0 L163.8 136.0 L165.5 140.3 L167.3 147.0 L169.3 153.9 L171.5 161.8 L173.8 169.7 L176.1 177.6 L178.3 185.3 L180.5 193.1 L182.7 200.6 L184.8 208.1 L187.0 215.6 L189.1 223.1 L191.2 230.3 L193.4 237.9 L195.6 245.4 L196.1 247.5 L196.1 248.8 L195.7 250.8 L194.7 252.6 L193.4 253.8 L190.6 255.5 L189.3 256.6 L188.0 258.3 L187.3 260.2 L187.2 261.7 L187.4 263.6 L188.9 269.3 L190.2 274.8 L190.7 277.7 L190.7 278.8 L190.3 280.5 L189.1 282.7 L188.1 283.8 L185.9 285.4 L180.5 289.1 L175.1 292.9 L169.4 296.8 L163.9 300.6 L158.5 304.3 L153.0 308.1 L151.3 309.2 L150.0 309.7 L148.2 310.0 L146.1 309.8 L144.2 308.9 L142.7 307.8 L141.6 306.1 L140.9 304.3 L140.8 302.2 L141.3 300.1 L142.5 298.2 L144.0 296.7 L149.0 293.6 L153.7 290.7 L158.6 287.7 L160.5 286.3 L161.6 285.0 L162.3 283.6 L162.7 281.9 L162.7 280.1 L160.7 273.9 L158.6 267.6 L156.5 261.0 L154.4 253.6 L153.0 246.0 L151.6 238.7 L150.2 231.1 L149.1 224.8 L148.0 218.4 L147.0 214.3 L145.6 211.3 L144.5 209.9 L143.4 208.8 L140.7 206.7 L139.2 205.9 L137.5 205.3 L135.3 204.9 L130.9 204.5 L126.8 204.2 L124.5 204.2 L122.5 204.5 L119.4 205.2 L117.2 206.0 L114.2 207.6 L111.9 209.2 L109.8 211.3 L108.2 213.3 L106.1 217.1 L103.3 223.8 L100.6 230.4 L97.6 237.6 L94.7 244.8 L91.9 251.7 L89.0 258.8 L87.9 261.0 L86.7 262.6 L85.0 264.1 L83.3 265.1 L81.2 265.8 L78.7 266.2 L76.5 266.0 L74.4 265.4 L72.6 264.5 L69.0 262.2 L67.4 261.5 L66.1 261.1 L64.0 261.0 L62.3 261.1 L60.4 261.5 L58.4 262.4 L56.8 263.6 L55.4 265.0 L51.4 271.0 L47.5 277.1 L43.7 283.0 L39.8 289.2 L38.5 290.5 L37.0 291.6 L35.1 292.3 L33.0 292.4 L31.0 292.0 L29.3 291.0 L24.4 287.6 L19.3 283.9 L14.7 280.4 L13.3 278.9 L12.2 277.4 L11.2 275.5 L10.6 274.0 L10.1 271.9 L10.0 269.3 L10.3 266.6 L11.1 264.0 L12.6 260.2 L14.0 256.6 L15.8 252.5 L17.4 249.8 L19.9 246.1 L22.4 242.8 L25.2 239.6 L28.2 236.5 L31.1 233.6 L36.4 228.7 L39.7 226.0 L43.4 223.6 L45.9 222.1 L52.2 218.9 L58.4 215.7 L64.6 212.4 L71.0 208.9 L75.3 206.0 L79.3 202.4 L81.5 200.1 L83.0 198.2 L85.1 195.1 L86.4 192.9 L88.4 188.8 L90.9 183.2 L93.3 177.9 L95.8 172.2 L96.8 169.8 L97.5 167.6 L97.9 165.4 L98.0 163.0 L97.8 160.4 L97.4 158.4 L95.2 152.4 L92.8 146.1 L90.5 140.1 L88.1 133.9 L85.9 127.9 L83.9 120.5 L83.2 116.1 L82.6 111.6 L82.0 104.3 L81.5 97.3 L80.8 89.8 L80.8 87.5 L81.4 86.4 L82.4 85.9 L87.1 86.0 L88.6 85.7 L89.5 84.6 L89.6 83.1 L89.2 82.0 L87.2 79.0 L83.6 72.7 L80.1 66.7 L76.5 60.5 L73.1 54.5 L69.8 48.8 Z"/><path class="edge" d="M66.4 42.9 L63.1 37.0 L59.7 31.1 L56.2 25.0 L52.8 19.1 L49.4 13.1 L49.1 11.4 L49.5 10.5 L51.0 10.0 L55.4 11.7 L59.6 13.6 L65.9 16.7 L70.1 19.1 L74.1 21.2 L79.2 24.3 L83.2 27.2 L88.1 31.3 L91.3 34.2 L95.1 38.3 L100.6 44.7 L106.2 51.2 L111.5 57.3 L116.9 63.7 L122.0 69.6 L124.7 71.7 L128.9 74.3 L131.3 76.0 L132.8 77.3 L134.3 79.2 L136.0 82.3 L137.4 85.8 L137.9 88.4 L139.0 95.5 L140.2 98.5 L142.4 102.2 L146.1 107.9 L149.4 113.1 L152.8 118.4 L156.2 123.6 L158.8 127.6 L161.1 131.0 L163.8 136.0 L165.5 140.3 L167.3 147.0 L169.3 153.9 L171.5 161.8 L173.8 169.7 L176.1 177.6 L178.3 185.3 L180.5 193.1 L182.7 200.6 L184.8 208.1 L187.0 215.6 L189.1 223.1 L191.2 230.3 L193.4 237.9 L195.6 245.4 L196.1 247.5 L196.1 248.8 L195.7 250.8 L194.7 252.6 L193.4 253.8 L190.6 255.5 L189.3 256.6 L188.0 258.3 L187.3 260.2 L187.2 261.7 L187.4 263.6 L188.9 269.3 L190.2 274.8 L190.7 277.7 L190.7 278.8 L190.3 280.5 L189.1 282.7 L188.1 283.8 L185.9 285.4 L180.5 289.1 L175.1 292.9 L169.4 296.8 L163.9 300.6 L158.5 304.3 L153.0 308.1 L151.3 309.2 L150.0 309.7 L148.2 310.0 L146.1 309.8 L144.2 308.9 L142.7 307.8 L141.6 306.1 L140.9 304.3 L140.8 302.2 L141.3 300.1 L142.5 298.2 L144.0 296.7 L149.0 293.6 L153.7 290.7 L158.6 287.7 L160.5 286.3 L161.6 285.0 L162.3 283.6 L162.7 281.9 L162.7 280.1 L160.7 273.9 L158.6 267.6 L156.5 261.0 L154.4 253.6 L153.0 246.0 L151.6 238.7 L150.2 231.1 L149.1 224.8 L148.0 218.4 L147.0 214.3 L145.6 211.3 L144.5 209.9 L143.4 208.8 L140.7 206.7 L139.2 205.9 L137.5 205.3 L135.3 204.9 L130.9 204.5 L126.8 204.2 L124.5 204.2 L122.5 204.5 L119.4 205.2 L117.2 206.0 L114.2 207.6 L111.9 209.2 L109.8 211.3 L108.2 213.3 L106.1 217.1 L103.3 223.8 L100.6 230.4 L97.6 237.6 L94.7 244.8 L91.9 251.7 L89.0 258.8 L87.9 261.0 L86.7 262.6 L85.0 264.1 L83.3 265.1 L81.2 265.8 L78.7 266.2 L76.5 266.0 L74.4 265.4 L72.6 264.5 L69.0 262.2 L67.4 261.5 L66.1 261.1 L64.0 261.0 L62.3 261.1 L60.4 261.5 L58.4 262.4 L56.8 263.6 L55.4 265.0 L51.4 271.0 L47.5 277.1 L43.7 283.0 L39.8 289.2 L38.5 290.5 L37.0 291.6 L35.1 292.3 L33.0 292.4 L31.0 292.0 L29.3 291.0 L24.4 287.6 L19.3 283.9 L14.7 280.4 L13.3 278.9 L12.2 277.4 L11.2 275.5 L10.6 274.0 L10.1 271.9 L10.0 269.3 L10.3 266.6 L11.1 264.0 L12.6 260.2 L14.0 256.6 L15.8 252.5 L17.4 249.8 L19.9 246.1 L22.4 242.8 L25.2 239.6 L28.2 236.5 L31.1 233.6 L36.4 228.7 L39.7 226.0 L43.4 223.6 L45.9 222.1 L52.2 218.9 L58.4 215.7 L64.6 212.4 L71.0 208.9 L75.3 206.0 L79.3 202.4 L81.5 200.1 L83.0 198.2 L85.1 195.1 L86.4 192.9 L88.4 188.8 L90.9 183.2 L93.3 177.9 L95.8 172.2 L96.8 169.8 L97.5 167.6 L97.9 165.4 L98.0 163.0 L97.8 160.4 L97.4 158.4 L95.2 152.4 L92.8 146.1 L90.5 140.1 L88.1 133.9 L85.9 127.9 L83.9 120.5 L83.2 116.1 L82.6 111.6 L82.0 104.3 L81.5 97.3 L80.8 89.8 L80.8 87.5 L81.4 86.4 L82.4 85.9 L87.1 86.0 L88.6 85.7 L89.5 84.6 L89.6 83.1 L89.2 82.0 L87.2 79.0 L83.6 72.7 L80.1 66.7 L76.5 60.5 L73.1 54.5 L69.8 48.8 Z"/><path class="line" d="M66.4 42.9 L63.1 37.0 L59.7 31.1 L56.2 25.0 L52.8 19.1 L49.4 13.1 L49.1 11.4 L49.5 10.5 L51.0 10.0 L55.4 11.7 L59.6 13.6 L65.9 16.7 L70.1 19.1 L74.1 21.2 L79.2 24.3 L83.2 27.2 L88.1 31.3 L91.3 34.2 L95.1 38.3 L100.6 44.7 L106.2 51.2 L111.5 57.3 L116.9 63.7 L122.0 69.6 L124.7 71.7 L128.9 74.3 L131.3 76.0 L132.8 77.3 L134.3 79.2 L136.0 82.3 L137.4 85.8 L137.9 88.4 L139.0 95.5 L140.2 98.5 L142.4 102.2 L146.1 107.9 L149.4 113.1 L152.8 118.4 L156.2 123.6 L158.8 127.6 L161.1 131.0 L163.8 136.0 L165.5 140.3 L167.3 147.0 L169.3 153.9 L171.5 161.8 L173.8 169.7 L176.1 177.6 L178.3 185.3 L180.5 193.1 L182.7 200.6 L184.8 208.1 L187.0 215.6 L189.1 223.1 L191.2 230.3 L193.4 237.9 L195.6 245.4 L196.1 247.5 L196.1 248.8 L195.7 250.8 L194.7 252.6 L193.4 253.8 L190.6 255.5 L189.3 256.6 L188.0 258.3 L187.3 260.2 L187.2 261.7 L187.4 263.6 L188.9 269.3 L190.2 274.8 L190.7 277.7 L190.7 278.8 L190.3 280.5 L189.1 282.7 L188.1 283.8 L185.9 285.4 L180.5 289.1 L175.1 292.9 L169.4 296.8 L163.9 300.6 L158.5 304.3 L153.0 308.1 L151.3 309.2 L150.0 309.7 L148.2 310.0 L146.1 309.8 L144.2 308.9 L142.7 307.8 L141.6 306.1 L140.9 304.3 L140.8 302.2 L141.3 300.1 L142.5 298.2 L144.0 296.7 L149.0 293.6 L153.7 290.7 L158.6 287.7 L160.5 286.3 L161.6 285.0 L162.3 283.6 L162.7 281.9 L162.7 280.1 L160.7 273.9 L158.6 267.6 L156.5 261.0 L154.4 253.6 L153.0 246.0 L151.6 238.7 L150.2 231.1 L149.1 224.8 L148.0 218.4 L147.0 214.3 L145.6 211.3 L144.5 209.9 L143.4 208.8 L140.7 206.7 L139.2 205.9 L137.5 205.3 L135.3 204.9 L130.9 204.5 L126.8 204.2 L124.5 204.2 L122.5 204.5 L119.4 205.2 L117.2 206.0 L114.2 207.6 L111.9 209.2 L109.8 211.3 L108.2 213.3 L106.1 217.1 L103.3 223.8 L100.6 230.4 L97.6 237.6 L94.7 244.8 L91.9 251.7 L89.0 258.8 L87.9 261.0 L86.7 262.6 L85.0 264.1 L83.3 265.1 L81.2 265.8 L78.7 266.2 L76.5 266.0 L74.4 265.4 L72.6 264.5 L69.0 262.2 L67.4 261.5 L66.1 261.1 L64.0 261.0 L62.3 261.1 L60.4 261.5 L58.4 262.4 L56.8 263.6 L55.4 265.0 L51.4 271.0 L47.5 277.1 L43.7 283.0 L39.8 289.2 L38.5 290.5 L37.0 291.6 L35.1 292.3 L33.0 292.4 L31.0 292.0 L29.3 291.0 L24.4 287.6 L19.3 283.9 L14.7 280.4 L13.3 278.9 L12.2 277.4 L11.2 275.5 L10.6 274.0 L10.1 271.9 L10.0 269.3 L10.3 266.6 L11.1 264.0 L12.6 260.2 L14.0 256.6 L15.8 252.5 L17.4 249.8 L19.9 246.1 L22.4 242.8 L25.2 239.6 L28.2 236.5 L31.1 233.6 L36.4 228.7 L39.7 226.0 L43.4 223.6 L45.9 222.1 L52.2 218.9 L58.4 215.7 L64.6 212.4 L71.0 208.9 L75.3 206.0 L79.3 202.4 L81.5 200.1 L83.0 198.2 L85.1 195.1 L86.4 192.9 L88.4 188.8 L90.9 183.2 L93.3 177.9 L95.8 172.2 L96.8 169.8 L97.5 167.6 L97.9 165.4 L98.0 163.0 L97.8 160.4 L97.4 158.4 L95.2 152.4 L92.8 146.1 L90.5 140.1 L88.1 133.9 L85.9 127.9 L83.9 120.5 L83.2 116.1 L82.6 111.6 L82.0 104.3 L81.5 97.3 L80.8 89.8 L80.8 87.5 L81.4 86.4 L82.4 85.9 L87.1 86.0 L88.6 85.7 L89.5 84.6 L89.6 83.1 L89.2 82.0 L87.2 79.0 L83.6 72.7 L80.1 66.7 L76.5 60.5 L73.1 54.5 L69.8 48.8 Z"/><circle cx="66.4" cy="42.9" r="8"/></svg>
+      <div class="flare"></div>
+    </div>
+    <div class="ic-stats chromebar"><div class="cell"><div class="us"><div class="k">LENGTH</div><div class="v">4.35 MI</div></div></div><div class="cell"><div class="us"><div class="k">TURNS</div><div class="v">19</div></div></div><div class="cell"><div class="us"><div class="k">LAPS</div><div class="v">12</div></div></div><div class="cell" style="border:0"><div class="us"><div class="k">CONDITIONS</div><div class="v">SUNNY · 68°F</div></div></div></div>
+  </div>
+  <div class="glint" style="left:-12px;top:-12px"></div><div class="glint" style="right:30px;top:52px;animation-delay:1.1s"></div><div class="glint" style="left:380px;bottom:-10px;animation-delay:.6s"></div></div>
+</div><div class="crt"></div><div class="lbl">B1 · intro card, over the top + CRT</div></div>
+
+<div class="frame ch" id="t4b"><div class="gfx tv">
+  <div class="tk"><div class="lap red"><small>LAP</small>7<small>/ 12</small></div><div class="flag"></div>
+    <div class="run">
+      <div class="p"><span class="n chromebar">1</span>TANAKA</div>
+      <div class="p"><span class="n chromebar">2</span>ROSSI <span class="g gold-text">+1.24</span></div>
+      <div class="p"><span class="n chromebar">3</span>OKONKWO <span class="g gold-text">+3.80</span></div>
+      <div class="p"><span class="n chromebar">4</span>MOREAU <span class="g gold-text">+5.12</span></div>
+      <div class="p"><span class="n chromebar">5</span>VALDEZ <span class="g gold-text">+6.43</span></div>
+      <div class="p you"><span class="n chromebar">6</span>SHUTTLEWORTH <span class="g gold-text">+6.71</span></div>
+      <div class="p"><span class="n chromebar">7</span>SCHMIDT <span class="g gold-text">+9.0</span></div>
+      <div class="flare" style="animation-duration:4s"></div>
+    </div><div class="logo chromebar"><span class="us">SVGP</span></div></div>
+  <div class="bt"><div class="frame-chrome">
+    <div class="bt-head red"><span class="us">BATTLE FOR 5TH</span></div>
+    <div class="navy">
+      <div class="bt-row"><span class="pos us gold-text">5</span><span class="car" style="background:#1d4fb8;color:#3a7aff"></span><span class="nm us">VALDEZ</span><span class="iv us"><small class="gold-text">LEADER</small></span></div>
+      <div class="bt-row"><span class="pos us gold-text">6</span><span class="car" style="background:#c8141c;color:#ff3a3a"></span><span class="nm us">SHUTTLEWORTH</span><span class="iv us">+0.28</span></div>
+      <div class="flare" style="animation-delay:.8s"></div>
+    </div></div>
+    <div class="bt-vs red"><span class="us">VS</span></div>
+  </div>
+</div><div class="crt"></div><div class="lbl">B2 · ticker + battle box, over the top + CRT</div></div>
+
+<div class="frame ch" id="t4c"><div class="gfx tv">
+  <div class="burst"></div>
+  <div class="wn"><div class="frame-chrome">
+    <div class="wn-top gold"><span class="us">WINNER</span></div>
+    <div class="wn-check checker"></div>
+    <div class="wn-body navy"><div class="us"><div class="wn-name chrome-text" style="--wn-size:84px">SHUTTLEWORTH</div><div class="wn-team gold-text">VOLTA RACING · FROM 6TH ON THE GRID</div>
+      <div class="wn-stats"><div>MARGIN<b>+0.214</b></div><div>FASTEST LAP<b>2:04.881</b></div><div>LAPS LED<b>3</b></div></div></div><div class="flare"></div></div>
+  </div></div>
+  <div class="glint" style="left:300px;top:200px"></div><div class="glint" style="right:290px;top:236px;animation-delay:.9s"></div><div class="glint" style="left:350px;bottom:210px;animation-delay:1.6s"></div>
+</div><div class="crt"></div><div class="lbl">B3 · winner card, over the top + CRT</div></div>
+</body></html>

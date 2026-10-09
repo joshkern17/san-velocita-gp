@@ -1,0 +1,335 @@
+/* ============================================================================================================
+   THE BROADCAST PACKAGE (js/tvgfx.js): mid-2000s TV graphics over the race, in four looks that climb with the
+   career: tv-local (cable access, on a worn VHS: the shitbox class), tv-blade (black and orange cable sports: the
+   street series), tv-tech (electric blue cable motorsport: a club series), tv-chrome (network chrome: GT, Formula).
+   Components: the intro card (over the flyover), the scoring ticker (top), the battle box, the lower third, the
+   winner card. Each flies in and out in its look's own over-the-top way; then a CRT (or VHS) over all of it.
+   ============================================================================================================ */
+#tv { position: absolute; inset: 0; pointer-events: none; z-index: 6; overflow: hidden; -webkit-text-fill-color: initial; text-shadow: none; letter-spacing: 0; }
+#tv .gfx { position: absolute; inset: 0; }
+#tv .el { position: absolute; }
+/* (the ticker takes the top of the screen: the mirror, the timing column and the lap block move down out of its way,
+   and the game's own tower goes: the ticker is the tower now) */
+#hud.tvon { --tv-top: 56px; }
+#hud.tvon .hud-mirror { top: calc(3.2% + var(--tv-top)); }
+#hud.tvon { --tc-top: calc(4.5% + var(--mirror-h) + var(--tv-top)); }
+#hud.tvon.mirror { --tc-top: calc(3.2% + 104px + 12px + var(--tv-top)); }
+#hud.tvon .hud-rcol, #hud.tvon .hud-lcol { top: calc(4.5% + var(--tv-top)); }
+#hud.tvon #h-tower { display: none; }
+#hud.tvon #h-cap { display: none; }
+
+/* ---------- the CRT, by strength (Options: Off / Light / Full) ---------- */
+#tv .crt { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
+#tv.crt-off .crt { display: none; }
+#tv .crt::before { content: ''; position: absolute; inset: 0; mix-blend-mode: multiply;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,.26) 0 1px, transparent 1px 3px),
+              repeating-linear-gradient(90deg, rgba(255,0,0,.06) 0 1px, rgba(0,255,80,.05) 1px 2px, rgba(40,80,255,.06) 2px 3px); animation: tv-flick .12s steps(2) infinite; }
+#tv .crt::after { content: ''; position: absolute; inset: 0; opacity: .45; mix-blend-mode: overlay;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%),
+              url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 .5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+#tv.crt-light .crt::before { opacity: .6; }
+#tv.crt-light .crt::after { opacity: .25; }
+@keyframes tv-flick { 50% { opacity: .9; } }
+/* the graphics: softened and colour fringed, more so the cheaper the channel */
+#tv.tv-chrome .gfx { filter: blur(.9px) saturate(1.2) contrast(1.06) drop-shadow(1.8px 0 0 rgba(255,40,40,.45)) drop-shadow(-1.8px 0 0 rgba(40,170,255,.45)); }
+#tv.tv-blade .gfx { filter: blur(.6px) contrast(1.08) drop-shadow(1px 0 0 rgba(255,60,0,.35)) drop-shadow(-1px 0 0 rgba(0,160,255,.3)); }
+#tv.tv-tech .gfx { filter: blur(.6px) contrast(1.06) drop-shadow(1px 0 0 rgba(255,0,80,.3)) drop-shadow(-1px 0 0 rgba(0,220,255,.35)); }
+#tv.tv-local .gfx { filter: blur(1.4px) saturate(1.35) contrast(1.1) drop-shadow(3px 0 0 rgba(255,0,60,.5)) drop-shadow(-3px 0 0 rgba(0,200,255,.45)); animation: tv-wob 3.1s steps(1) infinite; }
+#tv.crt-off .gfx { filter: none; animation: none; }
+#tv.crt-light.tv-chrome .gfx, #tv.crt-light.tv-local .gfx { filter: blur(.5px) saturate(1.15) drop-shadow(1px 0 0 rgba(255,40,40,.35)) drop-shadow(-1px 0 0 rgba(40,170,255,.35)); }
+@keyframes tv-wob { 0%,100% { transform: translateX(0); } 31% { transform: translateX(2px); } 33% { transform: translateX(-1px); } 70% { transform: translateX(1px) skewX(.3deg); } 72% { transform: translateX(0); } }
+/* the VHS (the local channel): tracking band, tape noise, the VCR's on-screen display */
+#tv .vhs-band { position: absolute; left: 0; right: 0; height: 26px; top: -40px; opacity: .5; mix-blend-mode: screen; filter: blur(1px);
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.55) 0 2px, rgba(0,0,0,.25) 2px 5px, rgba(255,255,255,.2) 5px 9px); animation: tv-band 5.5s linear infinite; }
+@keyframes tv-band { 0% { top: 110%; } 100% { top: -40px; } }
+#tv .vhs-osd { position: absolute; font: 30px/1 'VT323', monospace; color: #fff; text-shadow: 2px 2px 0 #000, 0 0 6px rgba(255,255,255,.6); letter-spacing: .04em; }
+#tv .vhs-osd.play { left: 46px; top: 36px; } #tv .vhs-osd.sp { right: 46px; top: 36px; } #tv .vhs-osd.date { left: 46px; bottom: 34px; }
+#tv.tv-local .crt::after { opacity: .6; background: linear-gradient(180deg, rgba(255,160,90,.12), rgba(90,40,160,.12)), url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 .7 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+
+/* ============================== the shared moves (classes the script toggles) ============================== */
+/* a white flash where a card lands, and sparkle glints */
+#tv .flash { position: absolute; inset: -30%; pointer-events: none; background: radial-gradient(circle, rgba(255,255,255,.95), rgba(160,210,255,.4) 30%, transparent 60%); mix-blend-mode: screen; animation: tv-flash .55s ease-out both; }
+@keyframes tv-flash { 0% { opacity: 0; transform: scale(.3); } 25% { opacity: 1; } 100% { opacity: 0; transform: scale(1.4); } }
+#tv .glint { position: absolute; width: 26px; height: 26px; animation: tv-twinkle 2.4s ease-in-out infinite; }
+#tv .glint::before, #tv .glint::after { content: ''; position: absolute; left: 50%; top: 50%; background: #fff; box-shadow: 0 0 8px #fff, 0 0 16px #9cf; border-radius: 2px; }
+#tv .glint::before { width: 26px; height: 3px; transform: translate(-50%, -50%); }
+#tv .glint::after { width: 3px; height: 26px; transform: translate(-50%, -50%); }
+@keyframes tv-twinkle { 0%, 100% { opacity: .25; transform: scale(.6) rotate(0); } 50% { opacity: 1; transform: scale(1.15) rotate(45deg); } }
+#tv .flare { position: absolute; top: 0; bottom: 0; width: 180px; left: -220px; pointer-events: none; mix-blend-mode: screen;
+  background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.75) 50%, transparent 70%); animation: tv-sweep 3.2s ease-in-out infinite; }
+@keyframes tv-sweep { 0% { left: -220px; } 45%, 100% { left: 110%; } }
+
+/* =================================== CHROME & GLORY (network) =================================== */
+.tv-chrome .tv-i, .tv-chrome .tv-i * { font-style: italic; color: #fff; }
+.tv-chrome .fc { padding: 4px; background: linear-gradient(180deg, #fff 0%, #b9c1cb 22%, #fff 46%, #5e6875 54%, #c7ced6 78%, #fff 100%);
+  box-shadow: 0 0 0 1px #0a0d14, 0 0 22px rgba(90,170,255,.55), 0 14px 26px rgba(0,0,0,.75); }
+.tv-chrome .navy { position: relative; overflow: hidden;
+  background: repeating-linear-gradient(135deg, rgba(255,255,255,.045) 0 2px, transparent 2px 7px), linear-gradient(180deg, #4a5f8c 0%, #1f2f58 46%, #0a1330 52%, #17285a 100%);
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.45), inset 0 -14px 24px rgba(0,0,0,.45), inset 0 0 30px rgba(60,140,255,.25); }
+.tv-chrome .navy::before { content: ''; position: absolute; left: -10%; right: -10%; top: -60%; height: 105%; border-radius: 50%; background: linear-gradient(180deg, rgba(255,255,255,.32), rgba(255,255,255,.05)); pointer-events: none; }
+.tv-chrome .red { position: relative; overflow: hidden; background: linear-gradient(180deg, #ffb07a 0%, #ff5a1e 30%, #e01a00 50%, #9e0c00 52%, #d81f00 85%, #ff6a2a 100%); box-shadow: inset 0 2px 0 rgba(255,255,255,.7), inset 0 -6px 10px rgba(80,0,0,.4), 0 0 16px rgba(255,80,20,.55); }
+.tv-chrome .red::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 48%; background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.08)); }
+.tv-chrome .goldbar { position: relative; overflow: hidden; background: linear-gradient(180deg, #fffbe0 0%, #ffe066 30%, #e8a800 50%, #a86c00 52%, #e0a810 85%, #fff0a0 100%); box-shadow: inset 0 2px 0 #fff, 0 0 20px rgba(255,200,40,.7); }
+.tv-chrome .cbar { background: linear-gradient(180deg, #fff 0%, #dfe4ea 40%, #9ba4af 52%, #c9cfd6 70%, #f4f6f8 100%); box-shadow: inset 0 1px 0 #fff, inset 0 -2px 0 rgba(0,0,0,.25); }
+.tv-chrome .ctext { padding: 0 .14em 0 .04em; margin: 0 -.14em 0 -.04em; background: linear-gradient(180deg, #fff 0%, #e8eef5 38%, #8f9aa8 50%, #cfd6df 62%, #fff 80%, #b7c0cb 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 2px 0 #0a1124) drop-shadow(0 4px 0 #050914) drop-shadow(0 0 14px rgba(120,190,255,.55)); }
+.tv-chrome .gtext { color: #ffd23a !important; text-shadow: 0 2px 0 #4a2a00, 0 0 10px rgba(255,190,40,.55); }
+.tv-chrome .chk { background: repeating-conic-gradient(#fff 0 25%, #111 0 50%) 0 0 / 12px 12px; }
+.tv-chrome .us { transform: skewX(12deg); display: inline-block; }
+/* intro card */
+.tv-chrome .ic { left: 96px; top: 96px; width: 800px; transform: skewX(-12deg); }
+.tv-chrome .ic .top { display: flex; height: 46px; }
+.tv-chrome .ic .series { flex: 1; display: flex; align-items: center; padding: 0 24px; font: italic 800 24px/1 'SV Display'; letter-spacing: .07em; text-shadow: 0 2px 0 #6a0a00; }
+.tv-chrome .ic .round { display: flex; align-items: center; padding: 0 20px; font: italic 800 18px/1 'SV UI'; letter-spacing: .08em; }
+.tv-chrome .ic .round .us { color: #10141c !important; }
+.tv-chrome .ic .chk { height: 8px; }
+.tv-chrome .ic .body { height: 286px; }
+.tv-chrome .ic .name { position: absolute; left: 60px; top: 26px; }
+.tv-chrome .ic .country { font: italic 800 17px/1 'SV UI'; letter-spacing: .18em; }
+.tv-chrome .ic .track { margin-top: 6px; font: italic 900 var(--tn, 66px)/0.92 'SV Display'; letter-spacing: .01em; }
+.tv-chrome .ic .rule { margin-top: 14px; width: 420px; height: 5px; background: linear-gradient(90deg, #fff6c0, #ffcc3a 30%, #c88a00 80%, transparent); box-shadow: 0 0 10px rgba(255,200,40,.8); }
+.tv-chrome .ic .corners { margin-top: 14px; font: italic 700 16px/1.3 'SV UI'; letter-spacing: .07em; color: #cfe0ff !important; text-shadow: 0 0 8px rgba(120,180,255,.6); }
+.tv-chrome .ic .map { position: absolute; right: 40px; top: 22px; width: 150px; height: 240px; }
+.tv-chrome .ic .map .glow { fill: none; stroke: rgba(110,190,255,.55); stroke-width: 18; stroke-linejoin: round; filter: blur(3px); }
+.tv-chrome .ic .map .edge { fill: none; stroke: #0a1124; stroke-width: 10; stroke-linejoin: round; }
+.tv-chrome .ic .map .line { fill: none; stroke: #fff; stroke-width: 6; stroke-linejoin: round; }
+.tv-chrome .ic .map circle { fill: #ff3b1a; stroke: #fff; stroke-width: 3; }
+.tv-chrome .ic .stats { display: flex; }
+.tv-chrome .ic .cell { flex: 1; padding: 10px 18px 12px; border-right: 2px solid #5e6875; }
+.tv-chrome .ic .cell:last-child { border: 0; }
+.tv-chrome .ic .k { font: italic 800 12px/1 'SV UI'; letter-spacing: .14em; color: #2a3550 !important; }
+.tv-chrome .ic .v { margin-top: 4px; font: italic 900 27px/1 'SV Display'; color: #0a1124 !important; text-shadow: 0 1px 0 #fff; }
+/* ticker */
+.tv-chrome .tk { left: 0; right: 0; top: 8px; height: 44px; display: flex; }
+.tv-chrome .tk .lap { display: flex; align-items: center; gap: 8px; padding: 0 20px 0 26px; font: italic 900 24px/1 'SV Display'; text-shadow: 0 2px 0 #6a0a00; flex: none; }
+.tv-chrome .tk .lap small { font: italic 800 13px/1 'SV UI'; letter-spacing: .1em; }
+.tv-chrome .tk .flag { width: 18px; flex: none; background: linear-gradient(180deg, #b6ffc6, #2bff63 40%, #00a82c 60%, #3dff70); box-shadow: 0 0 14px #2bff63; }
+.tv-chrome .tk .flag.y { background: linear-gradient(180deg, #fff6b0, #ffe12b 40%, #c8a000 60%, #ffe84a); box-shadow: 0 0 14px #ffe12b; }
+.tv-chrome .tk .run { flex: 1; overflow: hidden; position: relative; background: linear-gradient(180deg, #4a4f5a 0%, #1a1c22 46%, #050507 52%, #15171c 100%); box-shadow: inset 0 2px 0 rgba(255,255,255,.35); }
+.tv-chrome .tk .p { gap: 8px; padding: 0 16px; font: italic 900 20px/1 'SV Display'; border-right: 1px solid rgba(255,255,255,.14); text-shadow: 0 2px 0 #000; }
+.tv-chrome .tk .p .n { width: 27px; height: 27px; font: italic 900 16px/1 'SV Display'; color: #10141c !important; text-shadow: none; }
+.tv-chrome .tk .p .g { font: italic 800 15px/1 'SV UI'; }
+.tv-chrome .tk .p.you { background: linear-gradient(180deg, rgba(255,150,90,.8), rgba(220,30,0,.8) 50%, rgba(130,10,0,.85) 52%, rgba(200,30,0,.8)); box-shadow: inset 0 0 14px rgba(255,120,60,.8); }
+.tv-chrome .tk .logo { display: flex; align-items: center; padding: 0 18px; font: italic 900 18px/1 'SV Display'; letter-spacing: .08em; flex: none; }
+.tv-chrome .tk .logo .us { color: #10141c !important; }
+/* battle box */
+.tv-chrome .bt { left: 50%; bottom: 5%; width: 520px; margin-left: -260px; transform: skewX(-14deg); }
+.tv-chrome .bt .us { transform: skewX(14deg); }
+.tv-chrome .bt .h { height: 34px; display: flex; align-items: center; justify-content: center; font: italic 900 19px/1 'SV Display'; letter-spacing: .14em; text-shadow: 0 2px 0 #6a0a00; }
+.tv-chrome .bt .r { position: relative; display: flex; align-items: center; height: 46px; border-top: 1px solid rgba(255,255,255,.12); }
+.tv-chrome .bt .pos { width: 64px; text-align: center; font: italic 900 30px/1 'SV Display'; }
+.tv-chrome .bt .car { width: 16px; height: 30px; margin-right: 16px; flex: none; box-shadow: inset 0 2px 0 rgba(255,255,255,.5); }
+.tv-chrome .bt .nm { flex: 1; font: italic 900 30px/1 'SV Display'; }
+.tv-chrome .bt .iv { width: 120px; text-align: right; padding-right: 26px; font: italic 800 22px/1 'SV UI'; }
+.tv-chrome .bt .iv small { font-size: 13px; letter-spacing: .12em; }
+.tv-chrome .bt .vs { position: absolute; left: -26px; top: 50%; margin-top: -23px; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font: italic 900 18px/1 'SV Display'; z-index: 2; animation: tv-vs .9s .15s cubic-bezier(.2,1.6,.4,1) both; }
+@keyframes tv-vs { from { transform: skewX(14deg) rotate(-720deg) scale(0); } to { transform: skewX(14deg) rotate(0) scale(1); } }
+/* lower third */
+.tv-chrome .lt { left: 50%; bottom: 4.5%; display: flex; height: 66px; transform: translateX(-50%) skewX(-14deg); }
+.tv-chrome .lt .tag { min-width: 76px; padding: 0 14px; display: grid; place-items: center; font: italic 900 36px/1 'SV Display'; }
+.tv-chrome .lt .main { padding: 7px 34px 8px 20px; display: flex; flex-direction: column; justify-content: center; }
+.tv-chrome .lt .nm { font: italic 900 31px/1 'SV Display'; }
+.tv-chrome .lt .sub { margin-top: 5px; font: italic 800 15px/1 'SV UI'; letter-spacing: .09em; }
+.tv-chrome .lt.alert .main { background: linear-gradient(180deg, #7a1a12 0%, #4d0b06 47%, #2a0402 53%, #460a05 100%); }
+.tv-chrome .lt .us { transform: skewX(14deg); }
+/* winner */
+.tv-chrome .wn { left: 50%; top: 47%; width: 720px; margin-left: -360px; transform: translateY(-50%) skewX(-12deg); text-align: center; }
+.tv-chrome .wn .top { height: 52px; display: grid; place-items: center; font: italic 900 28px/1 'SV Display'; letter-spacing: .4em; }
+.tv-chrome .wn .top .us { color: #2a1600 !important; text-shadow: 0 1px 0 #fff8c0; }
+.tv-chrome .wn .chk { height: 10px; }
+.tv-chrome .wn .body { padding: 22px 40px 24px; }
+.tv-chrome .wn .who { font: italic 900 var(--wn, 100px)/0.9 'SV Display'; }
+.tv-chrome .wn .team { margin-top: 12px; font: italic 800 19px/1 'SV UI'; letter-spacing: .16em; }
+.tv-chrome .wn .stats { display: flex; justify-content: center; margin-top: 18px; }
+.tv-chrome .wn .stats > div { padding: 0 26px; border-left: 1px solid rgba(255,255,255,.25); font: italic 800 13px/1.4 'SV UI'; letter-spacing: .12em; color: #cfe0ff !important; }
+.tv-chrome .wn .stats > div:first-child { border: 0; }
+.tv-chrome .wn .stats b { display: block; font: italic 900 30px/1.1 'SV Display'; letter-spacing: 0; }
+.tv-chrome .burst { left: 50%; top: 47%; width: 1100px; height: 1100px; margin: -550px 0 0 -550px; pointer-events: none;
+  background: repeating-conic-gradient(rgba(255,220,80,.2) 0 6deg, transparent 6deg 18deg); -webkit-mask: radial-gradient(circle, #000 15%, transparent 60%); mask: radial-gradient(circle, #000 15%, transparent 60%); animation: tv-spin 30s linear infinite, tv-burstin .8s ease-out both; }
+@keyframes tv-spin { to { rotate: 360deg; } }
+@keyframes tv-burstin { from { opacity: 0; scale: .2; } }
+/* CHROME MOVES: in: from huge, spun and blown out, slams down with a flash; out: whips off left */
+.tv-chrome .in { animation: tvc-in .75s cubic-bezier(.18,1.25,.35,1) both; }
+@keyframes tvc-in { 0% { opacity: 0; scale: 2.6; rotate: -9deg; filter: blur(10px) brightness(3); } 55% { opacity: 1; filter: blur(0) brightness(1.6); } 75% { scale: .96; rotate: .6deg; } 100% { scale: 1; rotate: 0deg; filter: none; } }
+.tv-chrome .out { animation: tvc-out .5s cubic-bezier(.6,0,.9,.5) both; }
+@keyframes tvc-out { 0% { translate: 0 0; } 20% { translate: 30px 0; } 100% { translate: -1600px 0; scale: 1.25 .9; opacity: .2; filter: blur(6px); } }
+.tv-chrome .tk.in { animation: tvc-drop .6s cubic-bezier(.2,1.5,.4,1) both; }
+@keyframes tvc-drop { from { translate: 0 -90px; rotate: 0 1 0 90deg; } to { translate: 0 0; } }
+.tv-chrome .tk.out { animation: tvc-up .4s ease-in both; }
+@keyframes tvc-up { to { translate: 0 -90px; } }
+
+/* =================================== BLACK & ORANGE BLADE (cable sports) =================================== */
+.tv-blade .tv-i, .tv-blade .tv-i * { color: #fff; }
+.tv-blade .blk { background: linear-gradient(180deg, #2e2e33 0%, #121214 45%, #000 55%, #0d0d0f 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.25); }
+.tv-blade .org { background: linear-gradient(180deg, #ffd0a0 0%, #ff8a1a 35%, #ff5a00 50%, #c43a00 52%, #ff6a00 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 0 18px rgba(255,110,0,.55); }
+.tv-blade .org, .tv-blade .org * { color: #1a0a00 !important; }
+.tv-blade .otext { color: #ff8a1a !important; }
+.tv-blade .slash { position: absolute; height: 6px; background: #ff7a00; box-shadow: 0 0 14px #ff6a00; transform: skewX(-40deg); }
+.tv-blade .ic { left: 70px; top: 110px; width: 820px; height: 330px; }
+.tv-blade .ic .b1 { position: absolute; left: 0; top: 0; width: 820px; height: 270px; clip-path: polygon(0 0, 92% 0, 100% 100%, 6% 100%); }
+.tv-blade .ic .b2 { position: absolute; left: 40px; top: -18px; height: 48px; padding: 0 60px 0 32px; clip-path: polygon(0 0, 100% 0, 94% 100%, 4% 100%); display: flex; align-items: center; font: 800 22px/1 'SV Display'; letter-spacing: .14em; }
+.tv-blade .ic .b3 { position: absolute; left: 96px; top: 252px; width: 700px; height: 70px; clip-path: polygon(0 0, 100% 0, 97% 100%, 3% 100%); display: flex; }
+.tv-blade .ic .name { position: absolute; left: 64px; top: 56px; font: 800 var(--tn, 70px)/0.9 'SV Display'; text-transform: uppercase; }
+.tv-blade .ic .name em { font-style: normal; color: #ff7a00 !important; }
+.tv-blade .ic .kicker { position: absolute; left: 66px; top: 196px; font: 700 18px/1 'SV UI'; letter-spacing: .2em; }
+.tv-blade .ic .map { position: absolute; right: 76px; top: 24px; width: 130px; height: 205px; }
+.tv-blade .ic .map .line { fill: none; stroke: #ff7a00; stroke-width: 6; stroke-linejoin: round; filter: drop-shadow(0 0 6px #ff6a00); }
+.tv-blade .ic .map .edge { fill: none; stroke: #fff; stroke-width: 2.5; }
+.tv-blade .ic .map circle { fill: #fff; }
+.tv-blade .ic .cell { flex: 1; display: flex; flex-direction: column; justify-content: center; padding-left: 34px; border-right: 2px solid rgba(255,138,26,.4); }
+.tv-blade .ic .cell:last-child { border: 0; }
+.tv-blade .ic .cell b { font: 800 26px/1 'SV Display'; }
+.tv-blade .ic .cell span { font: 700 12px/1 'SV UI'; letter-spacing: .18em; color: #ff8a1a !important; margin-bottom: 4px; }
+.tv-blade .tk { left: 0; right: 0; top: 10px; height: 42px; display: flex; }
+.tv-blade .tk .lap { width: 150px; flex: none; display: flex; align-items: center; justify-content: center; clip-path: polygon(0 0, 100% 0, 88% 100%, 0 100%); font: 800 22px/1 'SV Display'; }
+.tv-blade .tk .run { flex: 1; margin-left: -14px; clip-path: polygon(2% 0, 100% 0, 100% 100%, 0 100%); overflow: hidden; position: relative; }
+.tv-blade .tk .p { gap: 8px; padding: 0 14px; font: 800 19px/1 'SV Display'; }
+.tv-blade .tk .p .n { width: 26px; height: 26px; clip-path: polygon(15% 0, 100% 0, 85% 100%, 0 100%); font: 800 16px/1 'SV Display'; }
+.tv-blade .tk .p .g { font: 700 15px/1 'SV UI'; color: #ff8a1a !important; }
+.tv-blade .tk .p.you, .tv-blade .tk .p.you * { color: #ff8a1a !important; }
+.tv-blade .tk .p.you .n { background: #fff; color: #1a0a00 !important; }
+.tv-blade .tk .flag { display: none; }
+.tv-blade .tk .logo { display: none; }
+.tv-blade .bt { left: 50%; bottom: 6%; width: 560px; height: 120px; margin-left: -280px; }
+.tv-blade .bt .h { position: absolute; left: 30px; top: 0; height: 34px; padding: 0 40px 0 26px; display: flex; align-items: center; clip-path: polygon(0 0, 100% 0, 92% 100%, 3% 100%); font: 800 18px/1 'SV Display'; letter-spacing: .16em; z-index: 1; }
+.tv-blade .bt .b { position: absolute; left: 0; top: 30px; width: 560px; height: 90px; clip-path: polygon(0 0, 100% 0, 96% 100%, 4% 100%); }
+.tv-blade .bt .r { position: absolute; left: 44px; right: 54px; height: 44px; display: flex; align-items: center; font: 800 28px/1 'SV Display'; }
+.tv-blade .bt .r:nth-of-type(1) { top: 36px; } .tv-blade .bt .r:nth-of-type(2) { top: 76px; }
+.tv-blade .bt .pos { width: 44px; color: #ff8a1a !important; }
+.tv-blade .bt .car { width: 8px; height: 26px; margin-right: 14px; }
+.tv-blade .bt .iv { margin-left: auto; font: 700 20px/1 'SV UI'; color: #ff8a1a !important; }
+.tv-blade .bt .vs { display: none; }
+.tv-blade .lt { left: 50%; bottom: 5%; width: 560px; height: 84px; margin-left: -280px; }
+.tv-blade .lt .b { position: absolute; inset: 22px 0 0 0; clip-path: polygon(0 0, 100% 0, 96% 100%, 4% 100%); }
+.tv-blade .lt .tag { position: absolute; left: 30px; top: 0; height: 30px; padding: 0 30px 0 22px; display: flex; align-items: center; clip-path: polygon(0 0, 100% 0, 90% 100%, 4% 100%); font: 800 18px/1 'SV Display'; z-index: 1; }
+.tv-blade .lt .nm { position: absolute; left: 48px; top: 34px; font: 800 28px/1 'SV Display'; }
+.tv-blade .lt .sub { position: absolute; left: 50px; top: 64px; font: 700 14px/1 'SV UI'; letter-spacing: .14em; color: #ff8a1a !important; }
+.tv-blade .wn { left: 50%; top: 45%; width: 820px; height: 250px; margin: -125px 0 0 -410px; }
+.tv-blade .wn .b { position: absolute; inset: 40px 0 0 0; clip-path: polygon(0 0, 100% 0, 95% 100%, 5% 100%); }
+.tv-blade .wn .h { position: absolute; left: 60px; top: 0; height: 56px; padding: 0 60px 0 34px; display: flex; align-items: center; clip-path: polygon(0 0, 100% 0, 93% 100%, 2% 100%); font: 800 30px/1 'SV Display'; letter-spacing: .3em; z-index: 1; }
+.tv-blade .wn .who { position: absolute; left: 0; right: 0; top: 74px; text-align: center; font: 800 var(--wn, 96px)/1 'SV Display'; }
+.tv-blade .wn .team { position: absolute; left: 0; right: 0; top: 184px; text-align: center; font: 700 20px/1 'SV UI'; letter-spacing: .2em; color: #ff8a1a !important; }
+/* BLADE MOVES: in: slices across from the left, motion-blurred, slash streaks after it; out: slices off right */
+.tv-blade .in { animation: tvb-in .5s cubic-bezier(.12,.9,.25,1) both; }
+@keyframes tvb-in { 0% { transform: translateX(-1400px) skewX(-30deg); filter: blur(14px); opacity: .4; } 70% { transform: translateX(30px) skewX(-6deg); filter: blur(0); opacity: 1; } 100% { transform: none; } }
+.tv-blade .in::after { content: ''; position: absolute; left: -300px; right: 100%; top: 40%; height: 5px; background: #ff7a00; box-shadow: 0 0 16px #ff6a00; animation: tvb-streak .6s .1s ease-out both; }
+@keyframes tvb-streak { from { right: 100%; opacity: 1; } to { right: -200px; left: 120%; opacity: 0; } }
+.tv-blade .out { animation: tvb-out .35s cubic-bezier(.6,0,1,.6) both; }
+@keyframes tvb-out { to { transform: translateX(1600px) skewX(-30deg); filter: blur(12px); opacity: .2; } }
+.tv-blade .tk.in { animation: tvb-in .5s cubic-bezier(.12,.9,.25,1) both; }
+
+/* =================================== ELECTRIC BLUE TECH (cable motorsport) =================================== */
+.tv-tech .tv-i, .tv-tech .tv-i * { color: #fff; }
+.tv-tech .carbon { position: relative; background: linear-gradient(180deg, rgba(10,20,40,.92), rgba(4,8,18,.94)), repeating-linear-gradient(45deg, #1a1d24 0 4px, #0c0e12 4px 8px);
+  border: 1px solid #1ec8ff; box-shadow: 0 0 0 1px rgba(30,200,255,.25), 0 0 22px rgba(30,200,255,.35), inset 0 0 30px rgba(30,200,255,.15); }
+.tv-tech .grid::after { content: ''; position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(rgba(30,200,255,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(30,200,255,.12) 1px, transparent 1px); background-size: 22px 22px; }
+.tv-tech .lcd { font-family: 'VT323', monospace !important; color: #ffe100 !important; text-shadow: 0 0 8px rgba(255,225,0,.7); }
+.tv-tech .blue { color: #1ec8ff !important; }
+.tv-tech .brk { position: absolute; width: 22px; height: 22px; border: 3px solid #1ec8ff; filter: drop-shadow(0 0 6px #1ec8ff); }
+.tv-tech .brk.tl { left: -8px; top: -8px; border-right: 0; border-bottom: 0; } .tv-tech .brk.tr { right: -8px; top: -8px; border-left: 0; border-bottom: 0; }
+.tv-tech .brk.bl { left: -8px; bottom: -8px; border-right: 0; border-top: 0; } .tv-tech .brk.br { right: -8px; bottom: -8px; border-left: 0; border-top: 0; }
+.tv-tech .scan { position: absolute; left: 0; right: 0; height: 2px; background: #1ec8ff; box-shadow: 0 0 12px #1ec8ff; opacity: .7; animation: tvt-scan 2.6s linear infinite; }
+@keyframes tvt-scan { from { top: 0; } to { top: 100%; } }
+.tv-tech .ic { left: 80px; top: 100px; width: 820px; height: 330px; }
+.tv-tech .ic .tag { position: absolute; left: 30px; top: 26px; font: 700 15px/1 'SV UI'; letter-spacing: .28em; }
+.tv-tech .ic .name { position: absolute; left: 28px; top: 54px; font: 800 var(--tn, 64px)/0.92 'SV Display'; }
+.tv-tech .ic .bar { position: absolute; left: 30px; top: 194px; width: 330px; height: 4px; background: linear-gradient(90deg, #ffe100, #1ec8ff); box-shadow: 0 0 10px #1ec8ff; }
+.tv-tech .ic .stats { position: absolute; left: 30px; top: 222px; display: grid; grid-template-columns: repeat(4, auto); gap: 0 34px; }
+.tv-tech .ic .stats span { display: block; font: 700 12px/1 'SV UI'; letter-spacing: .2em; color: #1ec8ff !important; }
+.tv-tech .ic .stats b { display: block; margin-top: 4px; font-size: 42px; line-height: .9; }
+.tv-tech .ic .map { position: absolute; right: 44px; top: 28px; width: 170px; height: 264px; }
+.tv-tech .ic .map .line { fill: none; stroke: #1ec8ff; stroke-width: 5; stroke-linejoin: round; filter: drop-shadow(0 0 7px #1ec8ff); stroke-dasharray: 14 6; }
+.tv-tech .ic .map .edge { display: none; }
+.tv-tech .ic .map circle { fill: #ffe100; }
+.tv-tech .tk { left: 20px; right: 20px; top: 12px; height: 40px; display: flex; gap: 4px; }
+.tv-tech .tk .lap { flex: none; display: flex; align-items: center; padding: 0 12px; font-size: 30px; }
+.tv-tech .tk .run { flex: 1; overflow: hidden; position: relative; }
+.tv-tech .tk .p { gap: 8px; padding: 0 12px; margin-right: 4px; font: 800 18px/1 'SV Display'; }
+.tv-tech .tk .p .n { font: 30px/1 'VT323' !important; color: #1ec8ff !important; text-shadow: 0 0 8px #1ec8ff; }
+.tv-tech .tk .p .g { font: 24px/1 'VT323'; color: #ffe100 !important; }
+.tv-tech .tk .p.you { border-color: #ffe100; box-shadow: 0 0 16px rgba(255,225,0,.5); }
+.tv-tech .tk .flag, .tv-tech .tk .logo { display: none; }
+.tv-tech .bt { left: 50%; bottom: 6%; width: 520px; margin-left: -260px; padding: 12px 22px 14px; }
+.tv-tech .bt .h { font: 700 14px/1 'SV UI'; letter-spacing: .3em; color: #1ec8ff !important; margin-bottom: 8px; }
+.tv-tech .bt .r { display: flex; align-items: center; height: 40px; font: 800 28px/1 'SV Display'; }
+.tv-tech .bt .pos { width: 46px; font: 38px/1 'VT323' !important; color: #1ec8ff !important; text-shadow: 0 0 8px #1ec8ff; }
+.tv-tech .bt .car { width: 6px; height: 24px; margin-right: 12px; }
+.tv-tech .bt .iv { margin-left: auto; font-size: 30px; }
+.tv-tech .bt .meter { width: calc(100% - 46px); margin: 6px 0 2px 46px; height: 8px; background: rgba(30,200,255,.15); border: 1px solid rgba(30,200,255,.5); }
+.tv-tech .bt .meter i { display: block; height: 100%; background: linear-gradient(90deg, #1ec8ff, #ffe100); box-shadow: 0 0 10px #1ec8ff; transition: width .3s; }
+.tv-tech .bt .vs { display: none; }
+.tv-tech .lt { left: 50%; bottom: 5%; width: 540px; margin-left: -270px; padding: 10px 22px 12px; }
+.tv-tech .lt .tag { font: 700 14px/1 'SV UI'; letter-spacing: .3em; color: #1ec8ff !important; }
+.tv-tech .lt .nm { margin-top: 6px; font: 800 28px/1 'SV Display'; }
+.tv-tech .lt .sub { margin-top: 6px; font: 22px/1 'VT323' !important; color: #ffe100 !important; letter-spacing: .06em; }
+.tv-tech .wn { left: 50%; top: 45%; width: 760px; margin-left: -380px; transform: translateY(-50%); padding: 26px 0 30px; text-align: center; }
+.tv-tech .wn .h { font: 700 18px/1 'SV UI'; letter-spacing: .5em; color: #1ec8ff !important; }
+.tv-tech .wn .who { margin-top: 12px; font: 800 var(--wn, 92px)/0.95 'SV Display'; text-shadow: 0 0 22px rgba(30,200,255,.6); }
+.tv-tech .wn .stats { margin-top: 16px; display: flex; justify-content: center; gap: 46px; }
+.tv-tech .wn .stats span { display: block; font: 700 12px/1 'SV UI'; letter-spacing: .2em; color: #1ec8ff !important; }
+.tv-tech .wn .stats b { font-size: 46px; }
+/* TECH MOVES: in: boots up: a scan wipe opens it top to bottom, flickering, split into colour; out: collapses to a line */
+.tv-tech .in { animation: tvt-in .7s steps(14) both; }
+@keyframes tvt-in { 0% { clip-path: inset(0 0 100% 0); opacity: 0; } 10% { opacity: 1; } 20% { opacity: .2; translate: 8px 0; } 30% { opacity: 1; translate: -4px 0; } 50% { filter: drop-shadow(6px 0 0 rgba(255,0,80,.8)) drop-shadow(-6px 0 0 rgba(0,220,255,.8)); } 70% { translate: 2px 0; opacity: .6; } 100% { clip-path: inset(0 0 0 0); opacity: 1; translate: 0 0; filter: none; } }
+.tv-tech .out { animation: tvt-out .35s ease-in both; }
+@keyframes tvt-out { 60% { scale: 1 .04; filter: brightness(3); } 100% { scale: 0 .04; opacity: 0; } }
+
+/* =================================== LOCAL CABLE ACCESS (on VHS) =================================== */
+.tv-local .tv-i, .tv-local .tv-i * { font-family: 'Arimo', Arial, sans-serif; }
+.tv-local .wordart { font: 700 72px/0.95 'Arimo', Arial, sans-serif; background: linear-gradient(180deg, #fff35a 0%, #ffb21a 50%, #ff4a1a 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; -webkit-text-stroke: 3px #3a0a6a; filter: drop-shadow(5px 5px 0 #1a0033); }
+.tv-local .bug { right: 54px; bottom: 70px; transform: rotate(-4deg); padding: 6px 12px 7px; background: linear-gradient(180deg, #6a3cff, #2a0a9a); border: 3px solid #ffe14a; font: 700 18px/1 'Arimo'; color: #ffe14a; box-shadow: 4px 4px 0 rgba(0,0,0,.6); }
+.tv-local .bug small { display: block; font: 700 10px/1.2 'Arimo'; color: #fff; letter-spacing: .1em; }
+.tv-local .ic { left: 80px; top: 90px; width: 760px; padding: 22px 28px 26px; background: linear-gradient(135deg, #00a6a6 0%, #1a6aff 50%, #8a2bd8 100%); border: 4px outset #9be7ff; box-shadow: 8px 8px 0 rgba(0,0,0,.55); }
+.tv-local .ic .series { font: 700 20px/1 'Arimo'; color: #fff; text-shadow: 2px 2px 0 #000; }
+.tv-local .ic .series span { color: #ffe14a; }
+.tv-local .ic .wordart { margin-top: 16px; font-size: var(--tn, 72px); transform: skewY(-3deg); }
+.tv-local .ic .facts { margin-top: 26px; display: grid; grid-template-columns: auto auto; gap: 6px 26px; font: 700 21px/1.15 'Arimo'; color: #fff; text-shadow: 2px 2px 0 #000; }
+.tv-local .ic .facts b { color: #ffe14a; }
+.tv-local .ic .clip { position: absolute; right: -150px; top: 30px; width: 200px; height: 230px; background: #fff; border: 3px solid #000; box-shadow: 5px 5px 0 rgba(0,0,0,.5); transform: rotate(3deg); }
+.tv-local .ic .clip svg { width: 100%; height: 100%; }
+.tv-local .ic .clip .line { fill: none; stroke: #e01010; stroke-width: 9; stroke-linejoin: round; }
+.tv-local .ic .clip .edge, .tv-local .ic .clip circle { display: none; }
+.tv-local .ic .clip .cap { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; font: 700 12px/1 'Arimo'; color: #000; }
+.tv-local .star { left: 836px; top: 66px; width: 128px; height: 128px; display: grid; place-items: center; background: #ffe14a; clip-path: polygon(50% 0,61% 32%,95% 20%,72% 47%,100% 70%,64% 69%,58% 100%,45% 72%,12% 92%,28% 62%,0 40%,35% 34%,25% 3%); font: 700 22px/1 'Arimo'; color: #e01010; transform: rotate(12deg); animation: tvl-pulse 1.6s 1s ease-in-out infinite; }
+@keyframes tvl-pulse { 0%, 100% { transform: rotate(12deg) scale(1); } 50% { transform: rotate(12deg) scale(1.14); } }
+.tv-local .tk { left: 0; right: 0; bottom: 0; height: 40px; background: linear-gradient(180deg, #2244cc, #0a1a77); border-top: 3px solid #ffe14a; display: flex; align-items: center; font: 700 22px/1 'Arimo'; color: #ffe14a; }
+.tv-local .tk .lap { flex: none; padding: 0 16px; height: 100%; display: flex; align-items: center; background: #e01010; color: #fff; }
+.tv-local .tk .lap small { font: inherit; }
+.tv-local .tk .run { flex: 1; overflow: hidden; position: relative; height: 100%; }
+.tv-local .tk .p { padding: 0 12px; gap: 6px; color: #ffe14a; }
+.tv-local .tk .p .n { color: #fff; } .tv-local .tk .p .n::after { content: '.'; }
+.tv-local .tk .p .g { display: none; }
+.tv-local .tk .p::after { content: '★'; margin-left: 14px; color: #fff; }
+.tv-local .tk .p.you { color: #fff; }
+.tv-local .tk .p.msg { color: #fff; }
+.tv-local .tk .p.msg::after { content: ''; margin: 0; }
+.tv-local .tk .flag, .tv-local .tk .logo { display: none; }
+#hud.tvon:has(#tv.tv-local) { --tv-top: 0px; } /* (the local channel's ticker is at the bottom) */
+.tv-local .bt { left: 70px; top: 120px; width: 460px; background: #fff; border: 4px solid #000; box-shadow: 8px 8px 0 rgba(0,0,0,.55); transform: rotate(-2deg); }
+.tv-local .bt .h { padding: 8px 14px; background: #e01010; font: 700 26px/1 'Arimo'; color: #fff; text-shadow: 2px 2px 0 #000; }
+.tv-local .bt .r { padding: 10px 16px; font: 700 32px/1.1 'Arimo'; color: #000; border-top: 2px dashed #999; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.tv-local .bt .pos::before { content: '#'; } .tv-local .bt .car { display: none; }
+.tv-local .bt .iv { flex-basis: 100%; font-size: 18px; color: #1a6aff; }
+.tv-local .bt .vs { display: none; }
+.tv-local .sponsor { left: 70px; top: 330px; padding: 8px 14px; background: #ffe14a; border: 3px solid #000; font: 700 18px/1.2 'Arimo'; color: #000; transform: rotate(-2deg); box-shadow: 5px 5px 0 rgba(0,0,0,.5); }
+.tv-local .lt { left: 60px; bottom: 70px; max-width: 640px; padding: 10px 18px 12px; background: #fff; border: 4px solid #000; box-shadow: 8px 8px 0 rgba(0,0,0,.55); transform: rotate(-1.5deg); }
+.tv-local .lt .tag { display: inline-block; padding: 3px 8px; background: #e01010; color: #fff; font: 700 16px/1 'Arimo'; }
+.tv-local .lt .nm { margin-top: 6px; font: 700 34px/1 'Arimo'; color: #000; }
+.tv-local .lt .sub { margin-top: 4px; font: 700 18px/1.2 'Arimo'; color: #1a6aff; }
+.tv-local .wn { left: 50%; top: 44%; width: 900px; margin-left: -450px; transform: translateY(-50%); text-align: center; }
+.tv-local .wn .wordart { font-size: 120px; background: linear-gradient(180deg, #ff4a4a, #ffe14a 30%, #4aff6a 55%, #4ab8ff 78%, #b04aff); -webkit-background-clip: text; background-clip: text; animation: tvl-hue 2.2s linear infinite; }
+@keyframes tvl-hue { to { filter: drop-shadow(5px 5px 0 #1a0033) hue-rotate(360deg); } }
+.tv-local .wn .who { margin-top: 18px; display: inline-block; padding: 10px 26px; background: #fff; border: 4px solid #000; font: 700 54px/1 'Arimo'; color: #000; box-shadow: 8px 8px 0 rgba(0,0,0,.55); transform: rotate(1.5deg); }
+.tv-local .wn .team { margin-top: 16px; font: 700 24px/1.2 'Arimo'; color: #fff; text-shadow: 3px 3px 0 #000; }
+/* LOCAL MOVES: in: tumbles in, spinning, overshoots and wobbles (somebody found the 3D button); out: spirals away */
+.tv-local .in { animation: tvl-in .9s cubic-bezier(.3,1.7,.5,1) both; }
+@keyframes tvl-in { from { scale: 0; rotate: -540deg; opacity: 0; } 70% { opacity: 1; } to { scale: 1; rotate: 0deg; } }
+.tv-local .out { animation: tvl-out .6s ease-in both; }
+@keyframes tvl-out { to { scale: 0; rotate: 720deg; opacity: 0; } }
+.tv-local .tk.in { animation: tvl-tick .5s ease-out both; }
+@keyframes tvl-tick { from { translate: 0 60px; } }
+
+/* (the ticker's row: a strip of entries the script scrolls) */
+#tv .tk .strip { position: absolute; left: 0; top: 0; bottom: 0; display: flex; align-items: center; white-space: nowrap; will-change: transform; }
+#tv .tk .p { display: flex; align-items: center; height: 100%; }
+#tv .tk .p .n { display: grid; place-items: center; }

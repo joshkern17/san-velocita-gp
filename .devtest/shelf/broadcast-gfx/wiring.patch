@@ -1,0 +1,229 @@
+diff --git a/css/style.css b/css/style.css
+index 5b1b566..c24b5e6 100644
+--- a/css/style.css
++++ b/css/style.css
+@@ -2752,7 +2752,7 @@ span.tsw-face { width: 64px; height: 64px; }
+ .tn-desc p b { display: inline-block; width: 64px; font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red-dim); }
+ 
+ /* the pre-race broadcast (race.js flyCamera): just the pictures, and the skip hint */
+-#hud.bcast > :not(#h-help):not(:has(#h-help)) { opacity: 0; transition: opacity .4s; }
++#hud.bcast > :not(#h-help):not(:has(#h-help)):not(#tv) { opacity: 0; transition: opacity .4s; }
+ 
+ /* ---- the broadcast graphic (hud.js cap): a mid-2000s TV lower-third, FOX / ESPN era ----
+    glossy navy bar with a chrome bevel, a red glass position block, heavy condensed italic caps, a gold second line;
+diff --git a/index.html b/index.html
+index d677673..5121b9b 100644
+--- a/index.html
++++ b/index.html
+@@ -8,6 +8,7 @@
+ <link rel="stylesheet" href="css/fonts.css">
+ <link rel="stylesheet" href="css/sv.css">
+ <link rel="stylesheet" href="css/style.css">
++<link rel="stylesheet" href="css/tv.css">
+ <script src="vendor/peerjs.min.js"></script>
+ <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js", "postprocessing": "./vendor/postprocessing/index.js" } }</script>
+ </head>
+diff --git a/js/broadcast.js b/js/broadcast.js
+index 6e4c394..fe1e118 100644
+--- a/js/broadcast.js
++++ b/js/broadcast.js
+@@ -178,7 +178,7 @@ export class Broadcast {
+     } else if (now - (this.liveSaid[c.id] ?? -1e9) < (L.cd || 0)) return 'wait';
+     this.liveT = now; this.liveSaid[c.id] = now; this.lastSay = now; this.busy = true;
+     for (const p of parts) this.takeT[p] = now;
+-    this.r.events.push({ type: 'pbp', parts, force: !!L.force, cap: caption(c.id, c.cars, c.o, this.r) });
++    this.r.events.push({ type: 'pbp', parts, force: !!L.force, cap: caption(c.id, c.cars, c.o, this.r), bat: battleOf(c.id, c.cars) });
+     const f = FOLLOW[c.id], fol = f && Math.random() < f[1];
+     if (fol) this.later.push({ t: now + 1.5, id: f[0], cars: c.cars, o: { booth: true, anywhere: true } });
+     else if (REACT[c.id] && !c.o.story && this.react && Math.random() < REACT_P) this.reactQ = { type: REACT[c.id], until: now + 7 };
+@@ -233,7 +233,7 @@ export class Broadcast {
+     this.saidT[moment] = this.t; this.catT[m.cat] = this.t; this.lastSay = this.t;
+     this.used[id] = (this.used[id] || 0) + 1; this.takeT[id] = this.t; this.recent.push(id); this.sayT.push(this.t);
+     this.busy = true;
+-    this.r.events.push({ type: 'booth', id, force: !!m.force, cap: caption(moment, c.cars || [], c.o || {}, this.r) });
++    this.r.events.push({ type: 'booth', id, force: !!m.force, cap: caption(moment, c.cars || [], c.o || {}, this.r), bat: battleOf(moment, c.cars || []) });
+     if (this.heard) this.heard[id] = Date.now();
+   }
+ 
+@@ -510,3 +510,13 @@ export const NICKNAMES = ['Ace', 'Rookie', 'The Kid', 'Hot Rod', 'Lightning', 'M
+   'Turbo', 'Hurricane', 'The Boss'];
+ // a name's id in the recordings (tools/voice/gen.mjs uses the same): "O'Brien" -> obrien, "Hot Rod" -> hotrod
+ export const slugName = (n) => String(n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
++
++// a battle moment's two cars, for the broadcast graphic's battle box (tvgfx.js): the one ahead and the one behind,
++// whatever order the moment names them in. null: not a battle. (a / b keep the cars: main.js updates the gap live)
++const BATTLES = new Set(['battle.sidebyside', 'battle.pressure', 'battle.closing', 'battle.stuck', 'battle.defense', 'pass.failed', 'moment.ambitious']);
++export function battleOf(id, cars) {
++  const [x, y] = cars; if (!BATTLES.has(id) || !x || !y) return null;
++  const [a, b] = x.progress >= y.progress ? [x, y] : [y, x];
++  const who = (c) => ({ name: last(c), color: c.team ? c.team.main : 0xffffff, pos: c.pos });
++  return { pos: a.pos, a: who(a), b: who(b), gap: Math.abs((a.progress - b.progress) / Math.max(15, (b.phys && b.phys.speed) || 15)).toFixed(2), cars: [a, b] };
++}
+diff --git a/js/main.js b/js/main.js
+index 0fbe7e7..dc9ac92 100644
+--- a/js/main.js
++++ b/js/main.js
+@@ -6,6 +6,7 @@ import { PROGRAMMES, progById, ACCLIM_PASS, MSEC_PASS } from './practice.js';
+ import { FX } from './tirefx.js';
+ import { realTracks, needsHydrate, hydrateReal, nameCorners } from './realtracks.js';
+ import { HUD, fmtTime, RADAR_ZOOMS, readThemeColours, condCol } from './hud.js';
++import { TVGfx } from './tvgfx.js';
+ import { Editor } from './editor.js';
+ import { initInput, pressed, isDown, clearEdges, pollGamepad, driveControls, gp, device, onDevice, rumble, rightStick, padFeel, STEER_CURVES, DEADZONES, STEER_LAGS, wheel, looksLikeWheel } from './input.js';
+ import { WheelSetup } from './wheelsetup.js';
+@@ -141,6 +142,7 @@ function toggleFullscreen() {
+ }
+ 
+ const hud = new HUD();
++const tv = new TVGfx(document.getElementById('hud')); // (the broadcast package: tvgfx.js)
+ hud.padGlyphs = device.kind === 'pad'; onDevice((k) => { hud.padGlyphs = k === 'pad'; });
+ const driftHud = new DriftHUD(document.getElementById('hud'));
+ initInput();
+@@ -376,13 +378,74 @@ function boothTake(base) {
+ const RACED_KEY = 'svgp.raced';
+ const raceBefore = () => { try { return !!localStorage.getItem(RACED_KEY); } catch (e) { return true; } };
+ const markRaced = () => { try { localStorage.setItem(RACED_KEY, '1'); } catch (e) {} };
++// ---------- the broadcast package (tvgfx.js) ----------
++let tvRace = { bat: null, winT: 0, won: false };
++// the channel: Options' choice, else the series' (World Career), else the class of your car: the shitbox class on
++// local cable access, street cars on the orange cable sports channel, the rest on the network
++function tvTheme(cfg, r) {
++  if (settings.tvLook && settings.tvLook !== 'auto') return settings.tvLook;
++  if (cfg.extra && cfg.extra.tvTheme) return cfg.extra.tvTheme;
++  const cls = r.player && CARS[r.player.carId] ? CARS[r.player.carId].cls : null;
++  return cls === 'shitbox' ? 'local' : cls === 'street' ? 'blade' : 'chrome';
++}
++// the intro card's facts: the track, its map, how long, how many turns, the laps, the conditions, the series
++function tvCard(s) {
++  const t = s.track, real = t.real || {}, env = t.env || {}, name = String(t.name || 'Circuit').toUpperCase();
++  const lines = name.includes('-') ? name.replace('-', '-\n').split('\n') : name.length > 14 && name.includes(' ') ? [name.slice(0, name.lastIndexOf(' ')), name.slice(name.lastIndexOf(' ') + 1)] : [name];
++  const famous = (real.names || []).map(n => n.name).filter(n => !/^(turn|chicane|t\d)/i.test(n)).slice(0, 4).join(' · ').toUpperCase();
++  // (the outline, scaled into a box of about 300, the start/finish where the points begin)
++  const P = (t.points || []).map(p => Array.isArray(p) ? [p[0], p[1]] : [p.x, p.z]);
++  let map = null;
++  if (P.length > 3) {
++    const xs = P.map(p => p[0]), zs = P.map(p => p[1]), x0 = Math.min(...xs), z0 = Math.min(...zs), w = Math.max(...xs) - x0, h = Math.max(...zs) - z0, k = 300 / Math.max(w, h, 1);
++    const pts = P.map(([x, z]) => [(x - x0) * k + 10, (z - z0) * k + 10]), sf = pts[(t.start || 0) % pts.length] || pts[0];
++    map = { path: 'M' + pts.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L') + ' Z', sf, w: Math.round(w * k + 20), h: Math.round(h * k + 20) };
++  }
++  const rain = env.weather === 'rain' || s.wet > 0.3, cond = rain ? 'rain' : env.time === 'night' ? 'night' : env.time === 'dusk' ? 'dusk' : env.weather === 'overcast' ? 'overcast' : 'clear';
++  const L = s.T.L, length = settings.units === 'mph' ? (L / 1609.34).toFixed(2) + ' MI' : (L / 1000).toFixed(2) + ' KM';
++  const turns = s.corners && s.corners.list ? s.corners.list.length : 0, laps = isFinite(s.laps) ? s.laps : '';
++  const x = s.opts.tvSeries ? s.opts : null;
++  return { lines, longest: lines.reduce((a, b) => b.length > a.length ? b : a, ''), country: String(real.country || '').toUpperCase(), corners: famous, map, cond, length, turns, laps,
++    series: x ? x.tvSeries : 'SAN VELOCITA GRAND PRIX', round: x ? x.tvRound : 'EXHIBITION RACE',
++    stats: [['LENGTH', length], ['TURNS', turns], ['LAPS', laps], ['CONDITIONS', { clear: 'SUNNY', overcast: 'OVERCAST', rain: 'RAIN', night: 'UNDER THE LIGHTS', dusk: 'DUSK' }[cond]]] };
++}
++// a call's graphic: a battle box for a battle, a lower third otherwise; the HUD's own when the package is off
++function tvCaption(ev) {
++  if (!tv.gfx) { if (ev.cap) hud.cap(ev.cap); return; }
++  if (ev.bat) { tvRace.bat = ev.bat; tv.battle(ev.bat); } else if (ev.cap) tv.cap(ev.cap);
++}
++// every frame: the intro card off once the flyover's done, the ticker kept up, the battle's gap, the winner card
++function tvFrame() {
++  if (!tv.gfx || !sim) return;
++  const now = performance.now(), dt = Math.min(0.1, (now - (tvFrame.t || now)) / 1000); tvFrame.t = now;
++  if (sim.state !== 'broadcast' && tv.on.ic) tv.introOut();
++  if (sim.state !== 'countdown' && sim.state !== 'racing' && sim.state !== 'finished') return;
++  if (!tvFrame.k || now - tvFrame.k > 250 || now < tvFrame.k) {
++    tvFrame.k = now;
++    const hs = sim.hudState(), you = commentaryName().commentaryLabel || 'YOU', lead = sim.order && sim.order[0];
++    if (hs && hs.standings) tv.ticker({ lap: lead ? Math.min(lead.lap, sim.laps) : 1, laps: sim.laps, yellow: !!(sim.sc || (sim.rc && sim.rc.vscOn && sim.rc.vscOn())),
++      rows: hs.standings.map(r => ({ pos: r.pos, name: r.isPlayer ? you : String(r.name).split(' ').pop().toUpperCase(), gap: r.pos === 1 ? '' : r.gap, you: r.isPlayer })) });
++    const B = tvRace.bat; if (B && tv.on.bt && B.cars) { const [a, b] = B.cars; tv.battleGap(Math.abs((a.progress - b.progress) / Math.max(15, b.phys.speed)).toFixed(2)); }
++  }
++  tv.tick(dt);
++  // the winner card, a moment after the winner crosses the line (once the second car's in, or a few seconds)
++  const F = sim.finishOrder || [];
++  if (F.length && !tvRace.winT) tvRace.winT = now;
++  if (tvRace.winT && !tvRace.won && now - tvRace.winT > (F.length > 1 ? 1800 : 4000)) {
++    tvRace.won = true;
++    const w = F[0], m = F[1] ? '+' + (F[1].finishTime - w.finishTime).toFixed(3) : '—';
++    tv.winner({ name: w.isPlayer ? (commentaryName().commentaryLabel || String(settings.driverName || 'YOU').split(' ').pop().toUpperCase()) : String(w.name).split(' ').pop().toUpperCase(),
++      team: `${String(w.team && w.team.name || '').toUpperCase()}${w.startPos ? ` · FROM ${w.startPos}${['TH', 'ST', 'ND', 'RD'][w.startPos % 10 > 3 || [11, 12, 13].includes(w.startPos % 100) ? 0 : w.startPos % 10]} ON THE GRID` : ''}`,
++      margin: m.replace('+', ''), stats: [['MARGIN', m], ['FASTEST LAP', isFinite(w.best) ? fmtTime(w.best, 3) : '—'], ['LAPS LED', String(w.led || 0)]] });
++  }
++}
+ function commentaryName() {
+   const pick = settings.commentaryName || 'auto', calls = lineSet('call'), has = (slug) => calls.has('call.pass.' + slug);
+   if (pick !== 'auto') { const n = NICKNAMES.find(x => slugName(x) === pick); return n && has(pick) ? { commentaryName: pick, commentaryLabel: n.toUpperCase() } : {}; }
+   const sur = String(settings.driverName || '').trim().split(' ').pop(), slug = slugName(sur);
+   return slug && has(slug) ? { commentaryName: slug, commentaryLabel: sur.toUpperCase() } : {};
+ }
+-function disposeSim() { driftHud.hide(); voStopAll(); if (sim) { sim.dispose(); sim = null; } }
++function disposeSim() { driftHud.hide(); voStopAll(); tv.stop(); if (sim) { sim.dispose(); sim = null; } }
+ 
+ // ---------------- boot ----------------
+ let booted = false;
+@@ -656,6 +719,10 @@ const OPTION_TABS = [
+     { label: 'Volume', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'MUTE']), get: () => settings.volume, set: v => { settings.volume = v; applyVideo(); saveSettings(); }, desc: 'Master volume for engines, effects and menus.' },
+     { label: 'Music', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'OFF']), get: () => settings.music, set: v => { settings.music = v; applyVideo(); saveSettings(); }, desc: 'Soundtrack volume. The eight tracks play in order and loop: fuller in the menus, quietly in the background on track.' },
+     { label: 'Commentary', values: [['full', 'Full'], ['intro', 'Track Intros'], ['off', 'Off']], get: () => settings.commentary || 'full', set: v => { settings.commentary = v; setVoiceOn('booth', v !== 'off'); saveSettings(); }, desc: 'The broadcast booth. <b>Full</b>: a flyover of the circuit before each race while they introduce it, then they call the race: passes, battles, crashes, the finish. <b>Track Intros</b>: just the flyover. Changes apply from the next race.' },
++    { label: 'Broadcast Look', values: [['auto', 'Your Series'], ['chrome', 'Network Chrome'], ['tech', 'Electric Blue'], ['blade', 'Orange Blade'], ['local', 'Local Cable (VHS)']], get: () => settings.tvLook || 'auto', set: v => { settings.tvLook = v; saveSettings(); },
++      desc: 'The TV graphics over a race with commentary on. <b>Your Series</b>: the channel your series is on: local cable access on a worn VHS at the bottom, cable sports in the middle, network chrome at the top. Changes apply from the next race.' },
++    { label: 'Broadcast CRT', values: [['full', 'Full'], ['light', 'Light'], ['off', 'Off']], get: () => settings.tvCrt || 'full', set: v => { settings.tvCrt = v; saveSettings(); },
++      desc: 'An old TV over the broadcast graphics: scanlines, a soft picture, colour fringes (and on local cable, the tape). Changes apply from the next race.' },
+     { label: 'Commentary Name', values: [['auto', 'Your Surname'], ...NICKNAMES.map(n => [slugName(n), n])], get: () => settings.commentaryName || 'auto', set: v => { settings.commentaryName = v; saveSettings(); },
+       get desc() { const c = commentaryName(); return `What the announcer calls you. <b>Your Surname</b>: your driver's last name (${(settings.driverName || 'not set yet').split(' ').pop()}), if it's one he can say${c.commentaryName ? '' : ': it isn\'t, so pick a nickname'}. Or a nickname.`; } },
+     { label: 'Record Your Name', action: () => recordMyName(),
+@@ -2906,7 +2973,7 @@ function startWorldRound() {
+   const stand = WC.seriesStandings(w, sid), last = w.round === w.opts.len - 1;
+   const introKind = w.round === 0 ? 'opener' : last && stand[1] && stand[0].pts - stand[1].pts <= WC.POINTS[0] ? 'finale' : null;
+   const race = { mode: 'race', laps: worldLaps(w, r), opponents: 11, brief, pick: !owned, onlyClass: cls,
+-    extra: { car, mods, failure, introKind, bop: WC.bopTable(w, carsOfClass(cls).map(chassisKey)), difficulty: w.opts.difficulty, grid: 'back', team: 'garage', engineer: WC.staffOf(w, 'engineer')?.skill ?? 0, wx, roster: ent.roster, entries: ent.entries, teamPace: ent.teamPace, gridOrder, aiChassis: 'class', playerName: w.player.name.split(' ').pop().toUpperCase(),
++    extra: { car, mods, failure, introKind, tvSeries: seriesName(sid).toUpperCase(), tvRound: `ROUND ${w.round + 1} OF ${w.opts.len}`, tvTheme: { street: 'blade' }[sid] || (cls === 'shitbox' ? 'local' : 'chrome'), bop: WC.bopTable(w, carsOfClass(cls).map(chassisKey)), difficulty: w.opts.difficulty, grid: 'back', team: 'garage', engineer: WC.staffOf(w, 'engineer')?.skill ?? 0, wx, roster: ent.roster, entries: ent.entries, teamPace: ent.teamPace, gridOrder, aiChassis: 'class', playerName: w.player.name.split(' ').pop().toUpperCase(),
+       trackData: WC.weekOf(w).trackData || null } };
+   phone.hide();
+   if (coopLive()) return w.opts.weekend === 'race' ? coopStartRace(track, race, ent) : coopStartSession(w.opts.weekend === 'full' ? 'practice' : 'quali', { track, race, ent }); // (co-op: the weekend online)
+@@ -4494,6 +4561,9 @@ function startRace(track, cfg, ret, quick = false) {
+       if (screen !== 's-loading') { r.dispose?.(); return; } // (left while it was building)
+       sim = r;
+       voPreload('eng'); // (the engineer's clips decoded now, so the first call isn't late)
++      // the broadcast package (tvgfx.js): races with commentary on, in the look of the channel your series is on
++      tvRace = { bat: null, winT: 0, won: false };
++      if (cfg.mode === 'race' && (settings.commentary || 'full') !== 'off') tv.start(tvTheme(cfg, r), settings.tvCrt || 'full'); else tv.stop();
+       loadStep(0.92, 'Warming up');
+       sim.aidBonus = bonusNow(); // (the lowest you race with counts: see noteAidBonus)
+       // warm-up render so shaders compile behind the loading screen (all of them, not just what the start camera sees)
+@@ -4580,6 +4650,7 @@ function handleRaceEvents() {
+   // the booth's director (broadcast.js) waits while anyone's talking; the pre-race broadcast hides the HUD
+   if (sim.bc) { sim.bc.busy = voBusy(); if (!sim.bc.lines) { sim.bc.lines = boothLines(); sim.bc.pbp = lineSet('pbp'); sim.bc.pbpc = lineSet('pbpc'); sim.bc.calls = lineSet('call'); sim.bc.react = lineSet('react'); sim.bc.heard = boothHeard; } }
+   $('hud').classList.toggle('bcast', sim.state === 'broadcast');
++  tvFrame();
+   while (sim.events.length) {
+     const ev = sim.events.shift();
+     if (ev.type === 'countdown') hud.lights(0, true);
+@@ -4656,10 +4727,11 @@ function handleRaceEvents() {
+     else if (ev.type === 'crashout') crashOut(ev);
+     else if (ev.type === 'radio') { hud.radio(ev.who || 'eng', ev.msg, { big: ev.big, name: ev.name, color: ev.color }); if (ev.big) sfx.lap(); if (ev.vo) engSay(ev.vo, { urgent: ev.big }); }
+     // the pit wall's calls (race.js wallUpdate): the question, then what was chosen
+-    else if (ev.type === 'booth') { boothSay(ev.id, { force: ev.force, exact: true }); if (ev.cap) hud.cap(ev.cap); saveHeard(); }
+-    else if (ev.type === 'pbp') { pbpSay(ev.parts, { force: ev.force }); if (ev.cap) hud.cap(ev.cap); }
++    else if (ev.type === 'booth') { boothSay(ev.id, { force: ev.force, exact: true }); tvCaption(ev); saveHeard(); }
++    else if (ev.type === 'pbp') { pbpSay(ev.parts, { force: ev.force }); tvCaption(ev); }
+     else if (ev.type === 'booth-intro') {
+       markRaced();
++      tv.intro(tvCard(sim));
+       const s = sim; hud.help(`${hintKeys('ok')} Skip`, 9000);
+       boothSequence(ev.ids.map(boothTake)).then(() => { if (sim === s) s.bcIntroEnd = true; });
+     }
+@@ -5376,6 +5448,6 @@ if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) setInterval(() => fetc
+ requestAnimationFrame(frame);
+ 
+ // debug handle
+-window.__svgp = { get world() { return world; }, get photo() { return photo; }, get hud() { return hud; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, handleRaceEvents, openEditor, show, get screen() { return screen; },
++window.__svgp = { get world() { return world; }, get photo() { return photo; }, get hud() { return hud; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, handleRaceEvents, tvFrame, tvTest: tvCaption, tv, openEditor, show, get screen() { return screen; },
+   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
+   dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); } } };
+diff --git a/tools/build.mjs b/tools/build.mjs
+index b44f684..83b851e 100644
+--- a/tools/build.mjs
++++ b/tools/build.mjs
+@@ -24,6 +24,7 @@ const swap = (from, to) => { if (!html.includes(from)) throw new Error('build: n
+ swap('<link rel="stylesheet" href="css/fonts.css">', `<style>${read('css/fonts.css')}</style>`);
+ swap('<link rel="stylesheet" href="css/sv.css">', `<style>${read('css/sv.css')}</style>`);
+ swap('<link rel="stylesheet" href="css/style.css">', `<style>${read('css/style.css')}</style>`);
++swap('<link rel="stylesheet" href="css/tv.css">', `<style>${read('css/tv.css')}</style>`);
+ swap('<script src="vendor/peerjs.min.js"></script>', inlineScript(read('vendor/peerjs.min.js')));
+ html = html.replace(/<script type="importmap">[\s\S]*?<\/script>\n?/, '');
+ // the imported car model travels inside the file too (the game reads it from window.__SVGP_CAR_GLB)

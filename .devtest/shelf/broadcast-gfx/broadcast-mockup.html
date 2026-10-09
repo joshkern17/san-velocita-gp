@@ -1,0 +1,115 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Broadcast package mockup</title>
+<link rel="stylesheet" href="../css/fonts.css"><link rel="stylesheet" href="../css/sv.css"><link rel="stylesheet" href="../css/style.css">
+<style>
+html, body { overflow: auto !important; height: auto !important; position: static !important; }
+body { margin: 0; background: #111; font-family: 'SV UI', sans-serif; }
+.frame { position: relative; width: 1280px; height: 720px; overflow: hidden; background: #333 url(tmp/bg.png) center/cover; margin: 0 0 24px; }
+.frame > .lbl { position: absolute; right: 12px; bottom: 8px; color: #fff8; font: 12px sans-serif; }
+/* shared 2005 TV materials */
+.tv { font-style: italic; color: #fff; }
+.glass-navy { background: linear-gradient(180deg, #3a4a68 0%, #1b2742 47%, #0a1124 53%, #142040 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.35), inset 0 -10px 18px rgba(0,0,0,.35); border: 2px solid; border-color: #eef2f7 #4d5668 #7d8798; }
+.glass-red { background: linear-gradient(180deg, #ff6a4a 0%, #e82a0c 46%, #b51200 54%, #d41c04 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.55); border: 2px solid; border-color: #ffd7cc #7a1000 #6e0a00; }
+.glass-black { background: linear-gradient(180deg, #3b3b3f 0%, #17171a 48%, #050506 52%, #121214 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.3); border: 2px solid; border-color: #d9dde3 #333 #555; }
+.chrome { background: linear-gradient(180deg, #ffffff 0%, #c9ced6 45%, #8e959f 55%, #dfe3e8 100%); }
+.gold { color: #ffcc3a; }
+/* ---- 1. the intro card ---- */
+.ic { position: absolute; left: 90px; top: 110px; width: 760px; filter: drop-shadow(0 10px 18px rgba(0,0,0,.7)); transform: skewX(-12deg); }
+.ic .us { transform: skewX(12deg); }
+.ic-top { display: flex; height: 40px; }
+.ic-top .series { flex: 1; display: flex; align-items: center; padding: 0 20px; font: italic 800 20px/1 'SV Display'; letter-spacing: .06em; }
+.ic-top .series span { transform: skewX(12deg); display: inline-block; }
+.ic-top .round { display: flex; align-items: center; padding: 0 18px; font: italic 700 16px/1 'SV UI'; letter-spacing: .08em; color: #1a1d22; }
+.ic-top .round span { transform: skewX(12deg); display: inline-block; }
+.ic-body { position: relative; margin-top: -2px; height: 272px; }
+.ic-body > * { transform: skewX(12deg); }
+.ic-name { position: absolute; left: 56px; top: 24px; }
+.ic-name .country { font: italic 700 15px/1 'SV UI'; letter-spacing: .14em; color: #ffcc3a; }
+.ic-name .track { margin-top: 8px; font: italic 800 64px/0.92 'SV Display'; letter-spacing: .005em; text-shadow: 0 3px 0 rgba(0,0,0,.6); }
+.ic-name .rule { margin-top: 12px; width: 360px; height: 4px; background: linear-gradient(90deg, #ffcc3a, #ffcc3a 70%, transparent); }
+.ic-name .corner { margin-top: 12px; font: italic 600 15px/1.35 'SV UI'; letter-spacing: .06em; color: #c9d4ea; }
+.ic-map { position: absolute; right: 44px; top: 22px; width: 150px; height: 228px; }
+.ic-map path.glow { fill: none; stroke: rgba(120,180,255,.35); stroke-width: 14; stroke-linejoin: round; }
+.ic-map path.line { fill: none; stroke: #fff; stroke-width: 5; stroke-linejoin: round; }
+.ic-map circle { fill: #ff3b1a; stroke: #fff; stroke-width: 3; }
+.ic-stats { display: flex; margin-top: -2px; }
+.ic-stats .cell { flex: 1; padding: 9px 16px 10px; border-right: 2px solid #0a1124; }
+.ic-stats .cell > div { transform: skewX(12deg); }
+.ic-stats .k { font: italic 700 12px/1 'SV UI'; letter-spacing: .12em; color: #1b2742; }
+.ic-stats .v { margin-top: 4px; font: italic 800 24px/1 'SV Display'; color: #0a1124; }
+/* ---- 2. the scoring ticker (top) ---- */
+.tk { position: absolute; left: 0; right: 0; top: 0; height: 38px; display: flex; filter: drop-shadow(0 4px 8px rgba(0,0,0,.6)); }
+.tk .lap { display: flex; align-items: center; gap: 8px; padding: 0 18px 0 22px; font: italic 800 20px/1 'SV Display'; }
+.tk .lap small { font: italic 700 13px/1 'SV UI'; letter-spacing: .1em; opacity: .9; }
+.tk .flag { width: 14px; align-self: stretch; background: linear-gradient(180deg, #4dff7a, #11b83a); border-left: 2px solid #000; }
+.tk .run { flex: 1; display: flex; align-items: center; overflow: hidden; white-space: nowrap; }
+.tk .p { display: flex; align-items: center; gap: 7px; padding: 0 16px; font: italic 800 18px/1 'SV Display'; border-right: 1px solid rgba(255,255,255,.12); height: 100%; }
+.tk .p .n { display: grid; place-items: center; width: 24px; height: 24px; font: italic 800 15px/1 'SV Display'; color: #111; }
+.tk .p .g { font: italic 700 14px/1 'SV UI'; color: #ffcc3a; letter-spacing: .04em; }
+.tk .p.you { background: linear-gradient(180deg, rgba(255,90,60,.55), rgba(160,20,0,.55)); }
+.tk .logo { display: flex; align-items: center; padding: 0 16px; font: italic 800 16px/1 'SV Display'; letter-spacing: .08em; color: #1a1d22; }
+/* ---- 3. the battle box ---- */
+.bt { position: absolute; left: 50%; bottom: 4.5%; transform: translateX(-50%) skewX(-14deg); width: 470px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.65)); }
+.bt-head { height: 30px; display: flex; align-items: center; justify-content: center; font: italic 800 17px/1 'SV Display'; letter-spacing: .1em; }
+.bt-head span { transform: skewX(14deg); }
+.bt-rows { margin-top: -2px; }
+.bt-row { display: flex; align-items: center; height: 40px; border-bottom: 1px solid rgba(255,255,255,.1); }
+.bt-row > * { transform: skewX(14deg); }
+.bt-row .pos { width: 58px; text-align: center; font: italic 800 24px/1 'SV Display'; color: #ffcc3a; }
+.bt-row .nm { flex: 1; font: italic 800 26px/1 'SV Display'; letter-spacing: .02em; }
+.bt-row .car { width: 14px; height: 26px; margin-right: 14px; }
+.bt-row .iv { width: 96px; text-align: right; padding-right: 22px; font: italic 700 19px/1 'SV UI'; color: #fff; }
+.bt-row .iv small { color: #ffcc3a; font-size: 12px; letter-spacing: .1em; }
+/* ---- 4. the winner card ---- */
+.wn { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%) skewX(-12deg); width: 640px; filter: drop-shadow(0 12px 22px rgba(0,0,0,.75)); text-align: center; }
+.wn-top { height: 44px; display: grid; place-items: center; font: italic 800 22px/1 'SV Display'; letter-spacing: .3em; color: #2a1a00; background: linear-gradient(180deg, #fff3b0 0%, #f2c230 46%, #c48a00 54%, #e0a810 100%); border: 2px solid; border-color: #fffbe0 #7a5200 #7a5200; }
+.wn-top span { transform: skewX(12deg); }
+.wn-body { margin-top: -2px; padding: 18px 0 20px; }
+.wn-body > * { transform: skewX(12deg); }
+.wn-name { font: italic 800 84px/0.9 'SV Display'; text-shadow: 0 4px 0 rgba(0,0,0,.6); }
+.wn-team { margin-top: 10px; font: italic 700 17px/1 'SV UI'; letter-spacing: .14em; color: #ffcc3a; }
+.wn-stats { display: flex; justify-content: center; gap: 0; margin-top: 16px; }
+.wn-stats div { padding: 0 22px; border-left: 1px solid rgba(255,255,255,.2); font: italic 700 13px/1.4 'SV UI'; letter-spacing: .1em; color: #c9d4ea; }
+.wn-stats div:first-child { border: 0; }
+.wn-stats b { display: block; font: italic 800 26px/1.1 'SV Display'; color: #fff; letter-spacing: 0; }
+</style></head><body>
+
+<div class="frame tv" id="f1">
+  <div class="ic">
+    <div class="ic-top"><div class="series glass-red"><span>SAN VELOCITA GT CHAMPIONSHIP</span></div><div class="round chrome"><span>ROUND 3 OF 10</span></div></div>
+    <div class="ic-body glass-navy">
+      <div class="ic-name"><div class="country">BELGIUM</div><div class="track">SPA-<br>FRANCORCHAMPS</div><div class="rule"></div><div class="corner">EAU ROUGE · RAIDILLON · KEMMEL · BLANCHIMONT</div></div>
+      <svg class="ic-map" viewBox="0 0 206 320"><path class="glow" d="M66.4 42.9 L63.1 37.0 L59.7 31.1 L56.2 25.0 L52.8 19.1 L49.4 13.1 L49.1 11.4 L49.5 10.5 L51.0 10.0 L55.4 11.7 L59.6 13.6 L65.9 16.7 L70.1 19.1 L74.1 21.2 L79.2 24.3 L83.2 27.2 L88.1 31.3 L91.3 34.2 L95.1 38.3 L100.6 44.7 L106.2 51.2 L111.5 57.3 L116.9 63.7 L122.0 69.6 L124.7 71.7 L128.9 74.3 L131.3 76.0 L132.8 77.3 L134.3 79.2 L136.0 82.3 L137.4 85.8 L137.9 88.4 L139.0 95.5 L140.2 98.5 L142.4 102.2 L146.1 107.9 L149.4 113.1 L152.8 118.4 L156.2 123.6 L158.8 127.6 L161.1 131.0 L163.8 136.0 L165.5 140.3 L167.3 147.0 L169.3 153.9 L171.5 161.8 L173.8 169.7 L176.1 177.6 L178.3 185.3 L180.5 193.1 L182.7 200.6 L184.8 208.1 L187.0 215.6 L189.1 223.1 L191.2 230.3 L193.4 237.9 L195.6 245.4 L196.1 247.5 L196.1 248.8 L195.7 250.8 L194.7 252.6 L193.4 253.8 L190.6 255.5 L189.3 256.6 L188.0 258.3 L187.3 260.2 L187.2 261.7 L187.4 263.6 L188.9 269.3 L190.2 274.8 L190.7 277.7 L190.7 278.8 L190.3 280.5 L189.1 282.7 L188.1 283.8 L185.9 285.4 L180.5 289.1 L175.1 292.9 L169.4 296.8 L163.9 300.6 L158.5 304.3 L153.0 308.1 L151.3 309.2 L150.0 309.7 L148.2 310.0 L146.1 309.8 L144.2 308.9 L142.7 307.8 L141.6 306.1 L140.9 304.3 L140.8 302.2 L141.3 300.1 L142.5 298.2 L144.0 296.7 L149.0 293.6 L153.7 290.7 L158.6 287.7 L160.5 286.3 L161.6 285.0 L162.3 283.6 L162.7 281.9 L162.7 280.1 L160.7 273.9 L158.6 267.6 L156.5 261.0 L154.4 253.6 L153.0 246.0 L151.6 238.7 L150.2 231.1 L149.1 224.8 L148.0 218.4 L147.0 214.3 L145.6 211.3 L144.5 209.9 L143.4 208.8 L140.7 206.7 L139.2 205.9 L137.5 205.3 L135.3 204.9 L130.9 204.5 L126.8 204.2 L124.5 204.2 L122.5 204.5 L119.4 205.2 L117.2 206.0 L114.2 207.6 L111.9 209.2 L109.8 211.3 L108.2 213.3 L106.1 217.1 L103.3 223.8 L100.6 230.4 L97.6 237.6 L94.7 244.8 L91.9 251.7 L89.0 258.8 L87.9 261.0 L86.7 262.6 L85.0 264.1 L83.3 265.1 L81.2 265.8 L78.7 266.2 L76.5 266.0 L74.4 265.4 L72.6 264.5 L69.0 262.2 L67.4 261.5 L66.1 261.1 L64.0 261.0 L62.3 261.1 L60.4 261.5 L58.4 262.4 L56.8 263.6 L55.4 265.0 L51.4 271.0 L47.5 277.1 L43.7 283.0 L39.8 289.2 L38.5 290.5 L37.0 291.6 L35.1 292.3 L33.0 292.4 L31.0 292.0 L29.3 291.0 L24.4 287.6 L19.3 283.9 L14.7 280.4 L13.3 278.9 L12.2 277.4 L11.2 275.5 L10.6 274.0 L10.1 271.9 L10.0 269.3 L10.3 266.6 L11.1 264.0 L12.6 260.2 L14.0 256.6 L15.8 252.5 L17.4 249.8 L19.9 246.1 L22.4 242.8 L25.2 239.6 L28.2 236.5 L31.1 233.6 L36.4 228.7 L39.7 226.0 L43.4 223.6 L45.9 222.1 L52.2 218.9 L58.4 215.7 L64.6 212.4 L71.0 208.9 L75.3 206.0 L79.3 202.4 L81.5 200.1 L83.0 198.2 L85.1 195.1 L86.4 192.9 L88.4 188.8 L90.9 183.2 L93.3 177.9 L95.8 172.2 L96.8 169.8 L97.5 167.6 L97.9 165.4 L98.0 163.0 L97.8 160.4 L97.4 158.4 L95.2 152.4 L92.8 146.1 L90.5 140.1 L88.1 133.9 L85.9 127.9 L83.9 120.5 L83.2 116.1 L82.6 111.6 L82.0 104.3 L81.5 97.3 L80.8 89.8 L80.8 87.5 L81.4 86.4 L82.4 85.9 L87.1 86.0 L88.6 85.7 L89.5 84.6 L89.6 83.1 L89.2 82.0 L87.2 79.0 L83.6 72.7 L80.1 66.7 L76.5 60.5 L73.1 54.5 L69.8 48.8 Z"/><path class="line" d="M66.4 42.9 L63.1 37.0 L59.7 31.1 L56.2 25.0 L52.8 19.1 L49.4 13.1 L49.1 11.4 L49.5 10.5 L51.0 10.0 L55.4 11.7 L59.6 13.6 L65.9 16.7 L70.1 19.1 L74.1 21.2 L79.2 24.3 L83.2 27.2 L88.1 31.3 L91.3 34.2 L95.1 38.3 L100.6 44.7 L106.2 51.2 L111.5 57.3 L116.9 63.7 L122.0 69.6 L124.7 71.7 L128.9 74.3 L131.3 76.0 L132.8 77.3 L134.3 79.2 L136.0 82.3 L137.4 85.8 L137.9 88.4 L139.0 95.5 L140.2 98.5 L142.4 102.2 L146.1 107.9 L149.4 113.1 L152.8 118.4 L156.2 123.6 L158.8 127.6 L161.1 131.0 L163.8 136.0 L165.5 140.3 L167.3 147.0 L169.3 153.9 L171.5 161.8 L173.8 169.7 L176.1 177.6 L178.3 185.3 L180.5 193.1 L182.7 200.6 L184.8 208.1 L187.0 215.6 L189.1 223.1 L191.2 230.3 L193.4 237.9 L195.6 245.4 L196.1 247.5 L196.1 248.8 L195.7 250.8 L194.7 252.6 L193.4 253.8 L190.6 255.5 L189.3 256.6 L188.0 258.3 L187.3 260.2 L187.2 261.7 L187.4 263.6 L188.9 269.3 L190.2 274.8 L190.7 277.7 L190.7 278.8 L190.3 280.5 L189.1 282.7 L188.1 283.8 L185.9 285.4 L180.5 289.1 L175.1 292.9 L169.4 296.8 L163.9 300.6 L158.5 304.3 L153.0 308.1 L151.3 309.2 L150.0 309.7 L148.2 310.0 L146.1 309.8 L144.2 308.9 L142.7 307.8 L141.6 306.1 L140.9 304.3 L140.8 302.2 L141.3 300.1 L142.5 298.2 L144.0 296.7 L149.0 293.6 L153.7 290.7 L158.6 287.7 L160.5 286.3 L161.6 285.0 L162.3 283.6 L162.7 281.9 L162.7 280.1 L160.7 273.9 L158.6 267.6 L156.5 261.0 L154.4 253.6 L153.0 246.0 L151.6 238.7 L150.2 231.1 L149.1 224.8 L148.0 218.4 L147.0 214.3 L145.6 211.3 L144.5 209.9 L143.4 208.8 L140.7 206.7 L139.2 205.9 L137.5 205.3 L135.3 204.9 L130.9 204.5 L126.8 204.2 L124.5 204.2 L122.5 204.5 L119.4 205.2 L117.2 206.0 L114.2 207.6 L111.9 209.2 L109.8 211.3 L108.2 213.3 L106.1 217.1 L103.3 223.8 L100.6 230.4 L97.6 237.6 L94.7 244.8 L91.9 251.7 L89.0 258.8 L87.9 261.0 L86.7 262.6 L85.0 264.1 L83.3 265.1 L81.2 265.8 L78.7 266.2 L76.5 266.0 L74.4 265.4 L72.6 264.5 L69.0 262.2 L67.4 261.5 L66.1 261.1 L64.0 261.0 L62.3 261.1 L60.4 261.5 L58.4 262.4 L56.8 263.6 L55.4 265.0 L51.4 271.0 L47.5 277.1 L43.7 283.0 L39.8 289.2 L38.5 290.5 L37.0 291.6 L35.1 292.3 L33.0 292.4 L31.0 292.0 L29.3 291.0 L24.4 287.6 L19.3 283.9 L14.7 280.4 L13.3 278.9 L12.2 277.4 L11.2 275.5 L10.6 274.0 L10.1 271.9 L10.0 269.3 L10.3 266.6 L11.1 264.0 L12.6 260.2 L14.0 256.6 L15.8 252.5 L17.4 249.8 L19.9 246.1 L22.4 242.8 L25.2 239.6 L28.2 236.5 L31.1 233.6 L36.4 228.7 L39.7 226.0 L43.4 223.6 L45.9 222.1 L52.2 218.9 L58.4 215.7 L64.6 212.4 L71.0 208.9 L75.3 206.0 L79.3 202.4 L81.5 200.1 L83.0 198.2 L85.1 195.1 L86.4 192.9 L88.4 188.8 L90.9 183.2 L93.3 177.9 L95.8 172.2 L96.8 169.8 L97.5 167.6 L97.9 165.4 L98.0 163.0 L97.8 160.4 L97.4 158.4 L95.2 152.4 L92.8 146.1 L90.5 140.1 L88.1 133.9 L85.9 127.9 L83.9 120.5 L83.2 116.1 L82.6 111.6 L82.0 104.3 L81.5 97.3 L80.8 89.8 L80.8 87.5 L81.4 86.4 L82.4 85.9 L87.1 86.0 L88.6 85.7 L89.5 84.6 L89.6 83.1 L89.2 82.0 L87.2 79.0 L83.6 72.7 L80.1 66.7 L76.5 60.5 L73.1 54.5 L69.8 48.8 Z"/><circle class="sf" cx="66.4" cy="42.9" r="7"/></svg>
+    </div>
+    <div class="ic-stats chrome"><div class="cell"><div class="k">LENGTH</div><div class="v">4.35 MI</div></div><div class="cell"><div class="k">TURNS</div><div class="v">19</div></div><div class="cell"><div class="k">LAPS</div><div class="v">12</div></div><div class="cell"><div class="k">CONDITIONS</div><div class="v">SUNNY · 68°F</div></div></div>
+  </div>
+  <div class="lbl">1 · pre-race intro card (over the flyover)</div>
+</div>
+
+<div class="frame tv" id="f2">
+  <div class="tk"><div class="lap glass-red"><small>LAP</small>7<small>/ 12</small></div><div class="flag"></div>
+    <div class="run glass-black">
+      <div class="p"><span class="n chrome">1</span>TANAKA</div>
+      <div class="p"><span class="n chrome">2</span>ROSSI <span class="g">+1.24</span></div>
+      <div class="p"><span class="n chrome">3</span>OKONKWO <span class="g">+3.80</span></div>
+      <div class="p"><span class="n chrome">4</span>MOREAU <span class="g">+5.12</span></div>
+      <div class="p"><span class="n chrome">5</span>VALDEZ <span class="g">+6.43</span></div>
+      <div class="p you"><span class="n chrome">6</span>SHUTTLEWORTH <span class="g">+6.71</span></div>
+      <div class="p"><span class="n chrome">7</span>SCHMIDT <span class="g">+9.0</span></div>
+    </div><div class="logo chrome">SVGP</div></div>
+  <div class="bt">
+    <div class="bt-head glass-red"><span>BATTLE FOR 5TH</span></div>
+    <div class="bt-rows glass-navy">
+      <div class="bt-row"><span class="pos">5</span><span class="car" style="background:#1d4fb8"></span><span class="nm">VALDEZ</span><span class="iv"><small>LEADER</small></span></div>
+      <div class="bt-row"><span class="pos">6</span><span class="car" style="background:#c8141c"></span><span class="nm">SHUTTLEWORTH</span><span class="iv">+0.28</span></div>
+    </div>
+  </div>
+  <div class="lbl">2 · scoring ticker (top) + battle box</div>
+</div>
+
+<div class="frame tv" id="f3">
+  <div class="wn"><div class="wn-top"><span>WINNER</span></div>
+    <div class="wn-body glass-navy"><div class="wn-name">SHUTTLEWORTH</div><div class="wn-team">VOLTA RACING · FROM 6TH ON THE GRID</div>
+      <div class="wn-stats"><div>MARGIN<b>+0.214</b></div><div>FASTEST LAP<b>2:04.881</b></div><div>LAPS LED<b>3</b></div></div></div></div>
+  <div class="lbl">3 · winner card</div>
+</div>
+</body></html>

@@ -110,6 +110,9 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const post = new PS2Post(renderer);
+// (2026-10-08: the commentary is shelved for now: off by default, and switched off once for anyone who had it on;
+// Options can still turn it back on)
+if (!settings.commentaryShelved) { settings.commentary = 'off'; settings.commentaryShelved = true; saveSettings(); }
 function applyVideo() {
   setVoiceOn('eng', settings.engVoice !== 'off'); setVoiceOn('booth', settings.commentary !== 'off');
   post.configure({ crt: settings.crt, mode: settings.res, filter: settings.filter, scanlines: settings.scan, trails: settings.trails, retro: settings.retro, palette: settings.palette, grain: settings.grain, rays: settings.rays, fringe: settings.fringe, bypass: settings.look === 'off' });
@@ -655,7 +658,7 @@ const OPTION_TABS = [
   ['Game', [
     { label: 'Volume', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'MUTE']), get: () => settings.volume, set: v => { settings.volume = v; applyVideo(); saveSettings(); }, desc: 'Master volume for engines, effects and menus.' },
     { label: 'Music', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'OFF']), get: () => settings.music, set: v => { settings.music = v; applyVideo(); saveSettings(); }, desc: 'Soundtrack volume. The eight tracks play in order and loop: fuller in the menus, quietly in the background on track.' },
-    { label: 'Commentary', values: [['full', 'Full'], ['intro', 'Track Intros'], ['off', 'Off']], get: () => settings.commentary || 'full', set: v => { settings.commentary = v; setVoiceOn('booth', v !== 'off'); saveSettings(); }, desc: 'The broadcast booth. <b>Full</b>: a flyover of the circuit before each race while they introduce it, then they call the race: passes, battles, crashes, the finish. <b>Track Intros</b>: just the flyover. Changes apply from the next race.' },
+    { label: 'Commentary', values: [['full', 'Full'], ['intro', 'Track Intros'], ['off', 'Off']], get: () => settings.commentary || 'off', set: v => { settings.commentary = v; setVoiceOn('booth', v !== 'off'); saveSettings(); }, desc: 'The broadcast booth. <b>Full</b>: a flyover of the circuit before each race while they introduce it, then they call the race: passes, battles, crashes, the finish. <b>Track Intros</b>: just the flyover. Changes apply from the next race.' },
     { label: 'Commentary Name', values: [['auto', 'Your Surname'], ...NICKNAMES.map(n => [slugName(n), n])], get: () => settings.commentaryName || 'auto', set: v => { settings.commentaryName = v; saveSettings(); },
       get desc() { const c = commentaryName(); return `What the announcer calls you. <b>Your Surname</b>: your driver's last name (${(settings.driverName || 'not set yet').split(' ').pop()}), if it's one he can say${c.commentaryName ? '' : ': it isn\'t, so pick a nickname'}. Or a nickname.`; } },
     { label: 'Record Your Name', action: () => recordMyName(),
@@ -4486,7 +4489,7 @@ function startRace(track, cfg, ret, quick = false) {
         difficulty: settings.difficulty, grid: settings.grid, team: settings.team, gearbox: settings.gearbox, aids: aidsNow(), ghost: settings.ghost,
         units: settings.units, camera: settings.camera, racingLine: settings.racingLine, lineStyle: settings.lineStyle, car: settings.car,
         wear: settings.wear, temps: settings.temps, damage: settings.damage, rules: settings.rules, safetyCar: settings.safetyCar !== 'off', aiMistakes: settings.aiMistakes, startTyre: settings.startTyre, aiChassis: settings.aiChassis, drift: raceReturn === 'setup' ? settings.drift : 'off',
-        pickCar: !!cfg.pick && !quick, pitWall: settings.pitWall !== 'off', commentary: settings.commentary || 'full', ...commentaryName(),
+        pickCar: !!cfg.pick && !quick, pitWall: settings.pitWall !== 'off', commentary: settings.commentary || 'off', ...commentaryName(),
         ...(cfg.mode === 'race' && !raceBefore() ? { introKind: 'debut' } : {}), // (your first race ever: the broadcast says so; cfg.extra's own wins below)
         ...(cfg.extra || {}), defer: true,
       }, renderer);
