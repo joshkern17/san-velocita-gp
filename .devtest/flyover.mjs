@@ -27,7 +27,8 @@ try {
   const step = (n, skip = false) => pg.evaluate(([n, skip]) => { const s = window.__svgp.sim; for (let k = 0; k < n; k++) { s.update(1 / 30, { steer: 0, throttle: 0, brake: 0 }, { skip: skip && k === 0 }); window.__svgp.handleRaceEvents(); } }, [n, skip]);
   const ids = await pg.evaluate(() => { const s = window.__svgp.sim; if (s.state === 'strategy') s.confirmStrategy(null); const ev = []; const push = s.events.push.bind(s.events); s.events.push = (e) => { ev.push(e); return push(e); }; s.update(1 / 30, { steer: 0, throttle: 0, brake: 0 }, {}); const got = ev.find(e => e.type === 'booth-intro'); window.__svgp.handleRaceEvents(); return { state: s.state, ids: got && got.ids }; });
   expect(ids.state === 'broadcast', 'the race opens on the broadcast', ids.state);
-  expect(ids.ids && ids.ids.includes('cond.rain') && ids.ids.includes('intro.standard'), 'the opening and the rain exchange (a track without its own welcome)', JSON.stringify(ids.ids));
+  expect(ids.ids && ids.ids.includes('cond.rain') && ids.ids[0] === 'intro.debut', 'your first race: its own opening, then the rain exchange (a track without its own welcome)', JSON.stringify(ids.ids));
+  expect(await pg.evaluate(() => !!localStorage.getItem('svgp.raced')), 'and the game remembers you\'ve raced (the next one opens normally)');
   await pg.waitForTimeout(800);
   expect((await pg.evaluate(async () => (await import('/js/vo.js')).voState())).booth, 'the booth is talking');
   expect(await pg.evaluate(() => document.getElementById('hud').classList.contains('bcast')), 'the HUD is hidden');

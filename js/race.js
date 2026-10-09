@@ -4172,7 +4172,10 @@ export class Race {
   introIds() {
     const env = this.track.env || {}, real = this.track.real && this.track.real.id;
     const cond = env.weather === 'rain' || this.wet > 0.3 ? 'rain' : env.time === 'night' ? 'night' : env.time === 'dusk' ? 'dusk' : env.weather === 'overcast' ? 'overcast' : 'day.clear';
-    return [!real || Math.random() < 0.5 ? 'intro.standard' : null, real ? `track.${real}.welcome` : null, `cond.${cond}`].filter(Boolean);
+    // (the opening: the occasion's own (opts.introKind: the season opener, a title finale, your first race), always;
+    // otherwise a general one, every time at a track without its own welcome and half the time at one with)
+    const occ = { opener: 'intro.opener', finale: 'intro.championship', debut: 'intro.debut' }[this.opts.introKind];
+    return [occ || (!real || Math.random() < 0.5 ? 'intro.standard' : null), real ? `track.${real}.welcome` : null, `cond.${cond}`].filter(Boolean);
   }
   // the flyover: helicopter shots of the circuit, a cut every few seconds, each drifting along its stretch of track
   // (alternately high and wide, and low on the outside), the last ones over the start. Each shot checks it can see

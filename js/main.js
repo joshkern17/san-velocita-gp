@@ -372,6 +372,10 @@ function boothTake(base) {
   const h = (k) => boothHeard[k] || 0, min = Math.min(...L.map(h)), pool = L.filter(k => h(k) === min);
   const id = pool[Math.floor(Math.random() * pool.length)]; boothHeard[id] = Date.now(); saveHeard(); return id;
 }
+// have you raced before (any mode, any race): the broadcast's opening for your first is only for your first
+const RACED_KEY = 'svgp.raced';
+const raceBefore = () => { try { return !!localStorage.getItem(RACED_KEY); } catch (e) { return true; } };
+const markRaced = () => { try { localStorage.setItem(RACED_KEY, '1'); } catch (e) {} };
 function commentaryName() {
   const pick = settings.commentaryName || 'auto', calls = lineSet('call'), has = (slug) => calls.has('call.pass.' + slug);
   if (pick !== 'auto') { const n = NICKNAMES.find(x => slugName(x) === pick); return n && has(pick) ? { commentaryName: pick, commentaryLabel: n.toUpperCase() } : {}; }
@@ -2897,8 +2901,12 @@ function startWorldRound() {
   const tgs = WC.dealsOf(w).map(d => `${WC.sponsorName(d.sid)}: ${WC.objText(w, WC.dealObjective(w, d)).toLowerCase()}`);
   if (w.coop && w.people[w.coop.pid]) tgs.unshift(`Targets: you top ${WC.driverTarget(w, 'P')}, ${w.people[w.coop.pid].first} top ${WC.driverTarget(w, w.coop.pid)} (${WC.money$(WC.targetBonus(w))} each)`);
   const brief = `<b>${seriesName(sid).toUpperCase()} &middot; ROUND ${w.round + 1} OF ${w.opts.len}</b>${tgs.length ? '<br>' + tgs.join('<br>') : ''}`;
+  // (the broadcast's opening: the season's first round, or the last with the title still open (the leader within a
+  // win's points of second))
+  const stand = WC.seriesStandings(w, sid), last = w.round === w.opts.len - 1;
+  const introKind = w.round === 0 ? 'opener' : last && stand[1] && stand[0].pts - stand[1].pts <= WC.POINTS[0] ? 'finale' : null;
   const race = { mode: 'race', laps: worldLaps(w, r), opponents: 11, brief, pick: !owned, onlyClass: cls,
-    extra: { car, mods, failure, bop: WC.bopTable(w, carsOfClass(cls).map(chassisKey)), difficulty: w.opts.difficulty, grid: 'back', team: 'garage', engineer: WC.staffOf(w, 'engineer')?.skill ?? 0, wx, roster: ent.roster, entries: ent.entries, teamPace: ent.teamPace, gridOrder, aiChassis: 'class', playerName: w.player.name.split(' ').pop().toUpperCase(),
+    extra: { car, mods, failure, introKind, bop: WC.bopTable(w, carsOfClass(cls).map(chassisKey)), difficulty: w.opts.difficulty, grid: 'back', team: 'garage', engineer: WC.staffOf(w, 'engineer')?.skill ?? 0, wx, roster: ent.roster, entries: ent.entries, teamPace: ent.teamPace, gridOrder, aiChassis: 'class', playerName: w.player.name.split(' ').pop().toUpperCase(),
       trackData: WC.weekOf(w).trackData || null } };
   phone.hide();
   if (coopLive()) return w.opts.weekend === 'race' ? coopStartRace(track, race, ent) : coopStartSession(w.opts.weekend === 'full' ? 'practice' : 'quali', { track, race, ent }); // (co-op: the weekend online)
@@ -4479,6 +4487,7 @@ function startRace(track, cfg, ret, quick = false) {
         units: settings.units, camera: settings.camera, racingLine: settings.racingLine, lineStyle: settings.lineStyle, car: settings.car,
         wear: settings.wear, temps: settings.temps, damage: settings.damage, rules: settings.rules, safetyCar: settings.safetyCar !== 'off', aiMistakes: settings.aiMistakes, startTyre: settings.startTyre, aiChassis: settings.aiChassis, drift: raceReturn === 'setup' ? settings.drift : 'off',
         pickCar: !!cfg.pick && !quick, pitWall: settings.pitWall !== 'off', commentary: settings.commentary || 'full', ...commentaryName(),
+        ...(cfg.mode === 'race' && !raceBefore() ? { introKind: 'debut' } : {}), // (your first race ever: the broadcast says so; cfg.extra's own wins below)
         ...(cfg.extra || {}), defer: true,
       }, renderer);
       await r.prepare((f, label) => loadStep(0.08 + f * 0.82, label));
@@ -4650,6 +4659,7 @@ function handleRaceEvents() {
     else if (ev.type === 'booth') { boothSay(ev.id, { force: ev.force, exact: true }); if (ev.cap) hud.cap(ev.cap); saveHeard(); }
     else if (ev.type === 'pbp') { pbpSay(ev.parts, { force: ev.force }); if (ev.cap) hud.cap(ev.cap); }
     else if (ev.type === 'booth-intro') {
+      markRaced();
       const s = sim; hud.help(`${hintKeys('ok')} Skip`, 9000);
       boothSequence(ev.ids.map(boothTake)).then(() => { if (sim === s) s.bcIntroEnd = true; });
     }
