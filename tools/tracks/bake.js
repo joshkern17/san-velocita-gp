@@ -56,13 +56,13 @@ export async function bake(inp, log = () => {}) {
   log(`ground: removed buildings / trees narrower than ~${2 * r * g.step} m from the elevation data`);
   if (inp.profile) {
     // the road from the laser-scanned ground model (build.mjs roadProfile), and the land beside it pulled into line
-    const P = inp.profile.map(([lat, lon, h]) => { const [x, z] = toLocal(geo, lat, lon); return { x, z, h }; });
+    const P = inp.profile.map(([lat, lon, h, b]) => { const [x, z] = toLocal(geo, lat, lon); return { x, z, h, b: b ?? 0 }; });
     const F = sampleFlags(T, D), asl = matchProfile(T, P);
     const fixed = fitGround(g, T, asl, F);
     log(`ground: road from the ${inp.dem || 'LiDAR'} model; land within 90 m moved by up to ${fixed.toFixed(1)} m to meet it`);
     track.terrain = packTerrain(g);
     if (inp.exag) track.terrain.exag = inp.exag;
-    projectProfile(track, P);
+    projectProfile(track, P, inp.profile.some(r => r.length > 3));
   } else {
     track.terrain = packTerrain(g);
     if (inp.exag) track.terrain.exag = inp.exag;
@@ -430,7 +430,7 @@ function opening(h, nx, nz, r) {
 
 // each track sample -> the height of the matching profile point (walking round the lap, so a crossover picks the
 // right road), lightly smoothed
-function matchProfile(T, P) {
+function matchProfile(T, P, key = 'h') {
   const cell = 20, m = new Map();
   P.forEach((p, i) => { const k = Math.floor(p.x / cell) + ',' + Math.floor(p.z / cell); let a = m.get(k); if (!a) m.set(k, a = []); a.push(i); });
   const raw = new Float32Array(T.N);
@@ -444,11 +444,11 @@ function matchProfile(T, P) {
       if (d < bd) { bd = d; best = j; }
     }
     if (best >= 0) last = best;
-    raw[i] = best >= 0 ? P[best].h : (i ? raw[i - 1] : P[0].h);
+    raw[i] = best >= 0 ? P[best][key] : (i ? raw[i - 1] : P[0][key]);
   }
   // point-to-point: the run-off past the finish stays at the finish's height, the grid lead-in behind the start
-  // (stored after the run-off) at the start's
-  if (T.open) for (let i = T.finish + 1; i < T.N; i++) raw[i] = i <= T.cut ? P[P.length - 1].h : P[0].h;
+  // (stored after the run-off) at the start's; both level across
+  if (T.open) for (let i = T.finish + 1; i < T.N; i++) raw[i] = key !== 'h' ? 0 : i <= T.cut ? P[P.length - 1].h : P[0].h;
   const r = Math.max(1, Math.round(6 / T.ds)), out = new Float32Array(T.N);
   for (let i = 0; i < T.N; i++) { let s = 0, c = 0; for (let k = -r; k <= r; k++) { let j = i + k; if (T.open) { if (j < 0 || j >= T.N) continue; } else j = (j + T.N) % T.N; s += raw[j]; c++; } out[i] = s / c; }
   return out;
@@ -475,8 +475,9 @@ function fitGround(g, T, asl, F) {
   return most;
 }
 
-// like terrain.js projectOntoTrack, but the heights come from the road's own profile (and fit tighter: it's real)
-function projectProfile(track, P) {
+// like terrain.js projectOntoTrack, but the heights come from the road's own profile (and fit tighter: it's real);
+// with the measured camber (build.mjs roadCamber) each node's banking too, nodes added where either is off
+function projectProfile(track, P, camber = false) {
   const terr = track.terrain;
   for (let pass = 0; pass < 5; pass++) {
     const T = sampleTrack(track), N = T.N, Pn = track.points, n = Pn.length;
@@ -485,14 +486,16 @@ function projectProfile(track, P) {
     terr.base = lo;
     const at = new Int32Array(n).fill(-1);
     for (let i = 0; i < N; i++) { const nd = Math.round(T.NODE[i]) % n; if (at[nd] < 0 || Math.abs(T.NODE[i] - Math.round(T.NODE[i])) < Math.abs(T.NODE[at[nd]] - Math.round(T.NODE[at[nd]]))) at[nd] = i; }
-    for (let k = 0; k < n; k++) if (at[k] >= 0) Pn[k].e = r1((asl[at[k]] - terr.lo - lo) * terr.exag);
+    const bk = camber ? matchProfile(T, P, 'b') : null;
+    for (let k = 0; k < n; k++) if (at[k] >= 0) { Pn[k].e = r1((asl[at[k]] - terr.lo - lo) * terr.exag); if (bk) Pn[k].b = r1(bk[at[k]]); }
     if (pass === 4) break;
-    const T2 = sampleTrack(track), asl2 = matchProfile(T2, P), ins = [];
+    const T2 = sampleTrack(track), asl2 = matchProfile(T2, P), bk2 = camber ? matchProfile(T2, P, 'b') : null, ins = [];
     for (let k = 0; k < (T2.open ? n - 1 : n); k++) {
       let worst = 0, wi = -1, len = 0;
       for (let i = 0; i < T2.N; i++) if (Math.floor(T2.NODE[i]) === k && (!T2.open || i < T2.finish)) {
         len += T2.ds;
-        const dev = Math.abs(T2.Y[i] - (asl2[i] - terr.lo - lo) * terr.exag);
+        // (a degree of camber counts as half a metre of height)
+        const dev = Math.max(Math.abs(T2.Y[i] - (asl2[i] - terr.lo - lo) * terr.exag), bk2 ? Math.abs(T2.B[i] * 180 / Math.PI - bk2[i]) * 0.5 : 0);
         if (dev > worst) { worst = dev; wi = i; }
       }
       if (worst > 0.5 && len > 14 && wi >= 0) ins.push({ k, i: wi, T: T2 });

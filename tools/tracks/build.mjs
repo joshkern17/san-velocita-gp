@@ -87,10 +87,11 @@ async function roadProfile(c, line) {
   const pts = [], n = line.length, segs = c.open ? n - 1 : n;
   for (let i = 0; i < segs; i++) {
     const a = line[i], b = line[(i + 1) % n], k = Math.max(1, Math.round(dist(a, b) / 8));
-    for (let j = 0; j < k; j++) pts.push({ lat: +(a.lat + (b.lat - a.lat) * j / k).toFixed(7), lon: +(a.lon + (b.lon - a.lon) * j / k).toFixed(7), air: !!(b.f.tun || b.f.layer) });
+    for (let j = 0; j < k; j++) pts.push({ lat: +(a.lat + (b.lat - a.lat) * j / k).toFixed(7), lon: +(a.lon + (b.lon - a.lon) * j / k).toFixed(7), air: !!(b.f.tun || b.f.layer), f: b.f });
   }
-  if (c.open) pts.push({ ...line[n - 1], air: false });
+  if (c.open) pts.push({ ...line[n - 1], air: false, f: line[n - 1].f });
   const h = await groundHeights(c.dem, pts, console.log);
+  const bank = await roadCamber(c, pts, h);
   // the ground model is the ground: over a tunnel it's the hill above, under a bridge it's the road below. Across those
   // (and any gaps in the data) the road runs straight from one end to the other.
   const bad = pts.map((p, i) => p.air || h[i] == null);
@@ -104,7 +105,43 @@ async function roadProfile(c, line) {
   }
   const lo = Math.min(...h), hi = Math.max(...h);
   console.log(`  ground (${c.dem}): ${N} points, ${(hi - lo).toFixed(1)} m from lowest to highest`);
-  return pts.map((p, i) => [p.lat, p.lon, +h[i].toFixed(2)]);
+  return pts.map((p, i) => bank ? [p.lat, p.lon, +h[i].toFixed(2), bank[i]] : [p.lat, p.lon, +h[i].toFixed(2)]);
+}
+
+// The road's camber, from the same laser-scanned ground model: heights 1.5 m in from each edge either side of every
+// profile point, as a tilt in degrees (positive = right edge higher, in the direction of travel: track.js banking).
+// The scan can't see where the road ends, so a cross-section only counts when its left, middle and right lie on a
+// line (an edge that lands on a wall, a kerb drop or a bank beside the road doesn't), and runs of good ones are
+// median-filtered then averaged over ~40 m. Where nothing counts (bridges, tunnels, walls both sides) it's level.
+// GSI's 5 m model is coarser than a road is wide, so it gives no camber (catalog camber: true forces it).
+async function roadCamber(c, pts, h) {
+  if (c.camber === false || (c.dem === 'gsi' && c.camber !== true)) { console.log(`  camber: not measured (${c.dem === 'gsi' ? 'the 5 m model is coarser than the road' : 'off'})`); return null; }
+  const N = pts.length, M_LAT = 110574, mLon = 111320 * Math.cos(pts[0].lat * Math.PI / 180);
+  const width = (f) => (f && f.w) || (c.widths && f && f.n && c.widths[f.n]) || c.width || 13;
+  const side = [], half = [];
+  for (let i = 0; i < N; i++) {
+    const a = pts[c.open ? Math.max(0, i - 1) : (i - 1 + N) % N], b = pts[c.open ? Math.min(N - 1, i + 1) : (i + 1) % N];
+    let fx = (b.lon - a.lon) * mLon, fz = -(b.lat - a.lat) * M_LAT; const l = Math.hypot(fx, fz) || 1; fx /= l; fz /= l;
+    const s = Math.max(2, width(pts[i].f) / 2 - 1.5), rx = -fz * s, rz = fx * s; half.push(s);
+    for (const k of [-1, 1]) side.push({ lat: +(pts[i].lat - k * rz / M_LAT).toFixed(7), lon: +(pts[i].lon + k * rx / mLon).toFixed(7) });
+  }
+  const e = await groundHeights(c.dem, side, console.log);
+  const raw = new Array(N).fill(null);
+  let good = 0;
+  for (let i = 0; i < N; i++) {
+    const L = e[2 * i], R = e[2 * i + 1], C = h[i];
+    if (pts[i].air || L == null || R == null || C == null) continue;
+    if (Math.abs((L + R) / 2 - C) > 0.12) continue; // not a straight cross-section: an edge is off the road
+    const b = Math.asin(Math.max(-1, Math.min(1, (R - L) / (2 * half[i])))) * 180 / Math.PI;
+    if (Math.abs(b) > 12) continue;
+    raw[i] = b; good++;
+  }
+  const at = (i) => c.open ? (i < 0 || i >= N ? null : i) : (i + N) % N;
+  const med = raw.map((v, i) => { const w = []; for (let k = -2; k <= 2; k++) { const j = at(i + k); if (j != null && raw[j] != null) w.push(raw[j]); } w.sort((x, y) => x - y); return w.length >= 3 ? w[w.length >> 1] : null; });
+  const out = med.map((v, i) => { let sm = 0, n = 0; for (let k = -2; k <= 2; k++) { const j = at(i + k); if (j != null && med[j] != null) { sm += med[j]; n++; } } return n >= 3 ? +(sm / n).toFixed(1) : 0; });
+  let lo = 0, hi = 0; for (const v of out) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  console.log(`  camber (${c.dem}): ${good} of ${N} cross-sections on the road, ${lo.toFixed(1)}° to +${hi.toFixed(1)}°`);
+  return out;
 }
 
 // ---------- 2. the surroundings from OSM ----------

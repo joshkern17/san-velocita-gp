@@ -8,6 +8,7 @@
 //   startBefore: { name, m } start line m metres before the section with that name
 //   sea:      coastal: the sea is drawn at sea level
 //   dem:      where the road's real (laser-scanned) ground heights come from: wallonia | ign | gsi | usgs (dem.mjs)
+//   camber:   false to keep the road level across; true to measure it from gsi's 5 m model anyway (build.mjs roadCamber)
 //   env:      track env (time, weather, laps, setting...) merged over the defaults
 //   maxGrade: the steepest the real road gets (default 0.18): the elevation data is coarse and smears hillsides
 //             into the road profile, so it's fitted smooth and never steeper than this (js/terrain.js roadProfile)

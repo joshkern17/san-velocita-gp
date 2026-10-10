@@ -53,8 +53,10 @@ const SOURCES = {
   },
   async usgs(pts) {
     const out = new Array(pts.length).fill(null);
-    await pool(pts, 6, async (p, k) => {
-      const j = await getJSON(`https://epqs.nationalmap.gov/v1/json?x=${p.lon}&y=${p.lat}&units=Meters&wkid=4326`);
+    // (the service has off moments under load: a point that keeps failing comes back undefined, not cached, and a
+    // rerun fetches it again)
+    await pool(pts, 4, async (p, k) => {
+      let j; try { j = await getJSON(`https://epqs.nationalmap.gov/v1/json?x=${p.lon}&y=${p.lat}&units=Meters&wkid=4326`); } catch (e) { out[k] = undefined; return; }
       const v = parseFloat(j.value); out[k] = isFinite(v) && v > -1000 ? v : null;
     });
     return out;
@@ -100,10 +102,12 @@ export async function groundHeights(src, pts, log = () => {}) {
   if (need.length) {
     log(`  ground heights: ${need.length} points from ${src}…`);
     const got = await SOURCES[src](need);
-    need.forEach((p, k) => { cache[key(p)] = got[k]; });
+    let miss = 0;
+    need.forEach((p, k) => { if (got[k] === undefined) miss++; else cache[key(p)] = got[k]; });
     saveCache(src, cache);
+    if (miss) log(`  ground heights: ${miss} points failed to load (rerun to fetch them)`);
   }
-  return pts.map(p => cache[key(p)]);
+  return pts.map(p => cache[key(p)] ?? null);
 }
 
 // minimal PNG decoder (8-bit RGB / RGBA, non-interlaced: what tile servers send)
