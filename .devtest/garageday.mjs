@@ -48,6 +48,7 @@ try {
   await pg.keyboard.press('KeyF'); await pg.waitForTimeout(1500); console.log('car, F', JSON.stringify(await st())); await pg.screenshot({ path: join(out, 'day-3b-carday.png') }); if (await pg.evaluate(() => window.__svgp.dbg.dayPlan.isOpen)) { await pg.keyboard.press('Escape'); await pg.waitForTimeout(1500); }
   console.log('to the sim', await go('sim')); await pg.waitForTimeout(500); await pg.keyboard.press('Enter'); await pg.waitForTimeout(1500); console.log('sim, Enter', JSON.stringify(await st())); await pg.screenshot({ path: join(out, 'day-4-sim.png') }); if (await pg.evaluate(() => window.__svgp.dbg.dayPlan.isOpen)) { await pg.keyboard.press('Escape'); await pg.waitForTimeout(1500); }
   console.log('to the calendar', await go('calendar')); await pg.waitForTimeout(500); await pg.keyboard.press('Enter'); await pg.waitForTimeout(600); console.log('calendar, Enter', JSON.stringify(await st())); await pg.screenshot({ path: join(out, 'day-5-calendar.png') });
+  if (await pg.evaluate(() => window.__svgp.dbg.dayPlan.isOpen)) { await pg.keyboard.press('Escape'); await pg.waitForTimeout(1500); }
   await pg.keyboard.press('Escape'); await pg.waitForTimeout(700); console.log('Esc', JSON.stringify(await st())); await pg.screenshot({ path: join(out, 'day-6-pause.png') });
   await pg.keyboard.press('Escape'); await pg.waitForTimeout(700); console.log('Esc again', JSON.stringify(await st()));
 } finally { await b.close(); server.kill(); }

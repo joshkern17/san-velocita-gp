@@ -2318,20 +2318,20 @@ function useSpot(s) {
   }
   // the sim rig: a session on it takes the day
   if (s.key === 'sim') { if (!openDayPlan(true, 'sim')) { sfx.error(); toast(myWeek(world).left <= 0 ? 'No days left this week.' : 'No sim session today: one a week, and not after a test day.', 2000); } return; }
-  // the calendar: the week opens out (the round, the circuit, the targets); again to fold it
-  if (s.key === 'calendar') { sfx.select(); $('hub-week').classList.toggle('full'); return; }
+  // the calendar: plan the day (every choice, wherever it's done)
+  if (s.key === 'calendar') { if (!openDayPlan(true)) { sfx.error(); toast('No days left this week.', 1600); } return; }
   const it = WALK_DOES[s.key] && hubItem(WALK_DOES[s.key]);
   if (!it) { sfx.error(); toast(s.key === 'car2' ? 'Car two: on the computer (Team).' : 'Nothing to do here right now.', 1800); return; }
   holdWalk(); it.action();
 }
 // in your career you're on your feet in the garage: walking starts by itself once the garage is quiet (after the setup;
 // not while the computer, the list, the car, the planner or the ending has you), and picks up where you were after
-// anything you went off to do. You come in through the door from a race or a gig, and get up from the desk when the
-// career's loaded. Stop Walking (the pause menu) keeps you off your feet till Walk Around
-let walkOff = false, walkStarting = false, walkHeld = false, walkIdle = 0, walkEntry = 'desk';
+// anything you went off to do. You come in through the door from a race or a gig, and start in front of the cars
+// (SPAWN) when the career's loaded. Stop Walking (the pause menu) keeps you off your feet till Walk Around
+let walkOff = false, walkStarting = false, walkHeld = false, walkIdle = 0, walkEntry = null;
 function holdWalk() {   // (off to the car, the list: you stand where you are, the camera's theirs)
   if (!walk.active || walk.act || screen !== 's-hub') return;
-  walk.park(); walkHeld = true; walkPaused = false; drawWalkTags(null); $('s-hub').classList.remove('walking'); $('hub-week').classList.remove('full');
+  walk.park(); walkHeld = true; walkPaused = false; drawWalkTags(null); $('s-hub').classList.remove('walking');
 }
 function walkTick(dt) {
   const w = world;
@@ -2391,7 +2391,7 @@ function startWalk(from = null, quiet = false) {
 }
 function stopWalk(quiet = false) {
   if (!walk.active || walk.act) return; // (not halfway into the chair)
-  walkPaused = false; $('hub-week').classList.remove('full');
+  walkPaused = false;
   walk.stop(); drawWalkTags(null);
   document.querySelectorAll('.screen.walking').forEach(e => e.classList.remove('walking'));
   pitGarage.toRoom(); if (!quiet) sfx.back(); renderHints();
@@ -5623,7 +5623,7 @@ function frameBody(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   const pad = pollGamepad();
   if (walkSat && (screen !== 's-hub' || !pcSeat)) dropWalk(); // (gone somewhere else from the computer: nobody left in the chair)
-  if (screen !== hubWas) { if (hubWas === 's-hub' && screen !== 's-hub' && world) walkEntry = /^s-(main|career|worlds?|boot)$/.test(screen) ? 'desk' : 'door'; hubWas = screen; }
+  if (screen !== hubWas) { if (hubWas === 's-hub' && screen !== 's-hub' && world) walkEntry = /^s-(main|career|worlds?|boot)$/.test(screen) ? null : 'door'; hubWas = screen; }
   if (walkHeld && screen !== 's-hub') { walkHeld = false; walk.stop(); }
   if (walk.active && screen !== 's-hub' && screen !== 's-homeview') { walk.stop(); walkPaused = false; drawWalkTags(null); document.querySelectorAll('.screen.walking').forEach(e => e.classList.remove('walking')); } // (out the door: a race, a gig)
   if (screen === 'hud' && sim && !sim.paused) {

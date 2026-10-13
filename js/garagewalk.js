@@ -52,7 +52,7 @@ export class GarageWalk {
     const at = this.entry(from, p.clone());
     this.me.object.position.copy(this.pos); this.me.object.rotation.y = this.heading;
     // (the camera comes round to you from wherever it was: the room's shot, not a cut)
-    this.camFrom = { pos: pg.camera.position.clone(), quat: pg.camera.quaternion.clone(), fov: pg.camera.fov, k: 0 };
+    this.camFrom = { pos: pg.camera.position.clone(), quat: pg.camera.quaternion.clone(), fov: pg.camera.fov, shift: pg.shiftNow ?? 0, k: 0 };
     this.active = true; pg.walker = this;
     if (at === 'desk') this.resume();
     return true;
@@ -85,7 +85,7 @@ export class GarageWalk {
   unpark() {
     const pg = this.pg; if (!this.me) return false;
     pg.parked = null; this.me.object.visible = true;
-    this.camFrom = { pos: pg.camera.position.clone(), quat: pg.camera.quaternion.clone(), fov: pg.camera.fov, k: 0 };
+    this.camFrom = { pos: pg.camera.position.clone(), quat: pg.camera.quaternion.clone(), fov: pg.camera.fov, shift: pg.shiftNow ?? 0, k: 0 };
     this.input = {}; this.speed = 0; this.active = true; pg.walker = this;
     return true;
   }
@@ -189,9 +189,11 @@ export class GarageWalk {
     const lift = Math.min(0.5, Math.max(0, CAM_DIST - this.camDist) * 0.25);
     const cam = pg.camera; cam.position.copy(head).addScaledVector(back, this.camDist); cam.position.y += lift; cam.lookAt(head.x, head.y - 0.15 - lift * 0.3, head.z); cam.fov = 58;
     // (back from the computer: out of the screen to here, not a cut)
+    this.shift = 0;
     if (this.camFrom) {
       const f = this.camFrom, k = (f.k = Math.min(1, f.k + dt / 0.9)), e = k * k * (3 - 2 * k);
       cam.position.lerpVectors(f.pos, cam.position, e); cam.quaternion.slerpQuaternions(f.quat, cam.quaternion, e); cam.fov = f.fov + (58 - f.fov) * e;
+      this.shift = (f.shift || 0) * (1 - e);   // (the room's shot sits off to one side of the screen, for the menu: eased to the middle, not a jump)
       if (k >= 1) this.camFrom = null;
     }
     // the spot you're at: the nearest you're facing, within reach
@@ -268,7 +270,7 @@ export class GarageWalk {
   resume() {
     const pg = this.pg, me = this.me; if (!me || !this.act) return Promise.resolve(false);
     pg.parked = null; me.object.visible = true;
-    this.camFrom = { pos: pg.camera.position.clone(), quat: pg.camera.quaternion.clone(), fov: pg.camera.fov, k: 0 };
+    this.camFrom = { pos: pg.camera.position.clone(), quat: pg.camera.quaternion.clone(), fov: pg.camera.fov, shift: pg.shiftNow ?? 0, k: 0 };
     this.camYaw = this.act.face; this.camPitch = 0.3;
     this.active = true; pg.walker = this;
     return new Promise(done => { Object.assign(this.act, { kind: 'stand', step: 'out', left: undefined, done }); });
