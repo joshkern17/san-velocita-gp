@@ -163,6 +163,7 @@ function show(id) {
   renderHints();
   requestAnimationFrame(() => document.querySelectorAll(`#${id} .scroll-fade, #${id} .credits-scroll, #${id} .help-page:not([hidden])`).forEach(markScroll)); // (sized now it's on screen)
 }
+const fading = () => $('fade').classList.contains('on');
 function fadeTo(fn, ms = 320) {
   const f = $('fade'); f.classList.add('on');
   setTimeout(() => { fn(); requestAnimationFrame(() => f.classList.remove('on')); }, ms);
@@ -2321,7 +2322,25 @@ function useSpot(s) {
   if (s.key === 'calendar') { sfx.select(); $('hub-week').classList.toggle('full'); return; }
   const it = WALK_DOES[s.key] && hubItem(WALK_DOES[s.key]);
   if (!it) { sfx.error(); toast(s.key === 'car2' ? 'Car two: on the computer (Team).' : 'Nothing to do here right now.', 1800); return; }
-  stopWalk(true); it.action();
+  holdWalk(); it.action();
+}
+// in your career you're on your feet in the garage: walking starts by itself once the garage is quiet (after the setup;
+// not while the computer, the list, the car, the planner or the ending has you), and picks up where you were after
+// anything you went off to do. You come in through the door from a race or a gig, and get up from the desk when the
+// career's loaded. Stop Walking (the pause menu) keeps you off your feet till Walk Around
+let walkOff = false, walkStarting = false, walkHeld = false, walkIdle = 0, walkEntry = 'desk';
+function holdWalk() {   // (off to the car, the list: you stand where you are, the camera's theirs)
+  if (!walk.active || walk.act || screen !== 's-hub') return;
+  walk.park(); walkHeld = true; walkPaused = false; drawWalkTags(null); $('s-hub').classList.remove('walking'); $('hub-week').classList.remove('full');
+}
+function walkTick(dt) {
+  const w = world;
+  const quiet = screen === 's-hub' && w && founded(w) && WC.setupDone(w) && !w.ended && !w.over && !coopGuest() && hubMode === 'room' && !optSub
+    && !pcSeat && !walkSat && !tsw.isOpen && !dayPlan.isOpen && !ending.isOpen && !walk.active && !walkStarting && pitGarage.kit && !fading();
+  walkIdle = quiet ? walkIdle + dt : 0;
+  if (!quiet) return;
+  if (walkHeld) { walkHeld = false; walk.unpark(); $('s-hub').classList.add('walking'); renderHints(); return; }
+  if (!walkOff && walkIdle > 1.2) { const from = walkEntry; walkEntry = null; startWalk(from, true); }
 }
 // a spot's second action (X / F): the car's day of work
 function useAlt(s) {
@@ -2352,18 +2371,20 @@ function pauseWalk(on) {
 function renderPauseMenu() {
   menus['s-hub'][0].setItems([
     { label: 'Keep Walking', cls: 'action primary', action: () => pauseWalk(false), desc: 'Back to the garage.' },
-    { label: 'Stop Walking', action: () => { walkPaused = false; stopWalk(); renderHubMenu(); }, desc: 'The garage menu.' },
+    { label: 'Stop Walking', action: () => { walkPaused = false; walkOff = true; stopWalk(); renderHubMenu(); }, desc: 'The garage menu (Walk Around to get going again).' },
     { label: `Career Options<small>${(DIFF_LABEL[world.opts.difficulty] || '').toUpperCase()}</small>`, action: () => { optSub = true; sfx.select(); renderHubMenu(); }, desc: 'Difficulty, driver aids, circuits.' },
     { label: 'Save & Quit', action: () => { walkPaused = false; walk.stop(); saveWorld(); pitGarage.close(); quitToMenu(); }, desc: 'Your career is saved. Continue it from the main menu.' },
   ], true);
 }
 // sat at the computer after walking up to it (walk.park): leaving it, you get back up and walk on
 let walkSat = false;
-function dropWalk() { if (walkSat) { walkSat = false; walk.stop(); } }
-function startWalk() {
+function dropWalk() { if (walkSat) { walkSat = false; walk.stop(); } if (walkHeld) { walkHeld = false; walk.stop(); } }
+function startWalk(from = null, quiet = false) {
   const own = screen === 's-homeview' ? settings.car : hubCar();
-  sfx.select();
-  walk.start({ livery: own, face: own.face, spots: walkSpots() }).then(ok => {
+  if (!quiet) sfx.select();
+  walkOff = false; walkStarting = true;
+  walk.start({ livery: own, face: own.face, spots: walkSpots(), from }).then(ok => {
+    walkStarting = false;
     if (!ok) { toast('The people aren\'t loaded.'); return; }
     $(screen).classList.add('walking'); renderHints();
   });
@@ -2386,7 +2407,8 @@ function walkInput() {
   walkMouse = [0, 0];
   if (pressed('Escape') || pressed('GP1') || pressed('Backspace')) { if (screen === 's-hub' && !walk.act) pauseWalk(true); else if (screen !== 's-hub') stopWalk(); return; }
   if ((pressed('Enter') || pressed('Space') || pressed('GP0')) && walk.spot && !walk.act) useSpot(walk.spot);
-  if ((pressed('KeyF') || pressed('GP2')) && walk.spot && walk.spot.alt && !walk.act) useAlt(walk.spot);
+  else if ((pressed('KeyF') || pressed('GP2')) && walk.spot && walk.spot.alt && !walk.act) useAlt(walk.spot);
+  if (!walk.active || walkPaused || dayPlan.isOpen) return; // (off to what you used: its tags aren't wanted)
   drawWalkTags(walk.act ? null : walk.tags(1 / 60));
 }
 // the tags over what you can use while walking: a small red triangle over each; the one you're at (close, facing it)
@@ -2664,7 +2686,8 @@ function enterHub() {
   if (world.livery) { t.main = world.livery.main; t.accent = world.livery.accent; }
   pitGarage.openHome(hubCar(), { main: t.main, accent: t.accent, name: t.name }, homeKit(world)); pitGarage.showCar(!!world.car);
   pitGarage.setPeople(mateInRoom(world));
-  dropWalk(); pcSeat = false; pc.close(); if (tsw.isOpen) tsw.close(); if (dayPlan.isOpen) dayPlan.close(); $('s-hub').classList.remove('seated', 'at-car', 'wizard', 'planning', 'at-list');
+  dropWalk(); if (walk.active || walkHeld) { walk.stop(); walkHeld = false; } walkPaused = false; walkOff = false; walkIdle = 0; drawWalkTags(null);
+  pcSeat = false; pc.close(); if (tsw.isOpen) tsw.close(); if (dayPlan.isOpen) dayPlan.close(); $('s-hub').classList.remove('seated', 'at-car', 'wizard', 'planning', 'at-list');
   hubMode = 'room'; carSub = null; carPart = null; optSub = false; calSub = null; listStep = null; listPrev = null;
   drawList(); renderHub(); show('s-hub'); hubEnter();
   if (world.ended) startEnding(!!world.endSeen); else if (!coopGuest()) maybeList();
@@ -2937,6 +2960,7 @@ const carNeedsWork = (w) => { const P = w.car && WC.carParts(w); return !!P && W
 // (part: straight to that part's work; otherwise the parts list, on the one in the worst state)
 function goToCar(part = null) {
   if (!world || !world.car) return;
+  holdWalk();
   const P = WC.carParts(world), worst = WC.PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)[0];
   hubMode = 'car'; carSub = part; carPart = part || worst;
   $('s-hub').classList.add('at-car');
@@ -3053,6 +3077,7 @@ function listPlay(keys, done) {
 }
 function goToList() {
   if (!world || hubMode === 'list' || !founded(world)) return;
+  holdWalk();
   if (hubMode === 'car') { hubMode = 'room'; carSub = null; carPart = null; $('s-hub').classList.remove('at-car'); }
   optSub = false; hubMode = 'list'; listStep = null; listPrev = null;
   $('s-hub').classList.add('at-list'); pitGarage.setView('list'); sfx.select();
@@ -5592,10 +5617,13 @@ function frame(now) {
   }
   requestAnimationFrame(frame);
 }
+let hubWas = null;
 function frameBody(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   const pad = pollGamepad();
   if (walkSat && (screen !== 's-hub' || !pcSeat)) dropWalk(); // (gone somewhere else from the computer: nobody left in the chair)
+  if (screen !== hubWas) { if (hubWas === 's-hub' && screen !== 's-hub' && world) walkEntry = /^s-(main|career|worlds?|boot)$/.test(screen) ? 'desk' : 'door'; hubWas = screen; }
+  if (walkHeld && screen !== 's-hub') { walkHeld = false; walk.stop(); }
   if (walk.active && screen !== 's-hub' && screen !== 's-homeview') { walk.stop(); walkPaused = false; drawWalkTags(null); document.querySelectorAll('.screen.walking').forEach(e => e.classList.remove('walking')); } // (out the door: a race, a gig)
   if (screen === 'hud' && sim && !sim.paused) {
     const ctl = window.__autopilot && sim.player ? sim.aiControlsFor(sim.player, dt) : driveControls(pad);
@@ -5722,6 +5750,7 @@ function frameBody(now) {
     pitGarage.update(dt);
   } else if (PHONE_SCREENS.includes(screen)) {
     // World Career, your garage: the computer has the controls while you're sat at it, the phone while it's up (P / Y)
+    walkTick(dt);
     if (walk.active && !walkPaused && !dayPlan.isOpen && !phone.isOpen) { if (!phoneInput()) walkInput(); else { walk.input = {}; drawWalkTags(null); renderHints(); } }
     else if (!endInput() && !tswInput() && !dayInput() && !pcInput() && !phoneInput()) menuInput();
     hubTick(dt);

@@ -26,7 +26,7 @@ try {
     WC.claimLottery(w, 'lump'); WC.setupPick(w, 'entry', 'takeover'); WC.setupPick(w, 'sponsor', 0); WC.setupPick(w, 'mate', w.setup.drivers[0]); WC.setupApply(w);
     w.livery = { ...S.car }; w.liveryDone = true; WC.setWhy(w, 'prove'); WC.setAmbition(w, WC.ambitionChoices(w)[1].t);
     const t = w.teams[w.player.team]; t.fac = { ...(t.fac || { base: 0 }), tools: 1, sim: 1 }; w.money.balance = Math.max(w.money.balance, 50000);
-    if (w.car && w.car.parts) for (const k of Object.keys(w.car.parts).slice(0, 1)) w.car.parts[k] = Math.min(w.car.parts[k], 0.4);   // (a worn part: a day's rebuild on offer)
+    if (w.car && w.car.parts) for (const k of Object.keys(w.car.parts).slice(0, 1)) { const P = w.car.parts[k]; if (P && typeof P === "object") P.cond = Math.min(P.cond ?? 1, 0.4); }   // (a worn part: a day's rebuild on offer)
     d.openHub(); });
   await pg.waitForFunction(() => /^home:.*sim/.test(String(window.__svgp.dbg.pitGarage.custom)), null, { timeout: 20000 }); await pg.waitForTimeout(2500);
   await pg.evaluate(() => { const d = window.__svgp.dbg; if (window.__svgp.dbg.pitGarage.shot === 'seat') d.standUp(); }); await pg.waitForTimeout(1200);

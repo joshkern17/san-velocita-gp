@@ -30,7 +30,9 @@ const SWIVEL = 2.2; // rad/s, round on the chair
 export class GarageWalk {
   constructor(pg) { this.pg = pg; this.active = false; this.me = null; this.input = {}; this.spot = null; this.spots = []; }
 
-  async start({ livery, face, spots = [] }) {
+  // from: where you come in. null: SPAWN; 'door': in through the roll-up door (back from a race, a gig); 'desk': getting
+  // up from the desk chair (the career loaded); 'last': where you were when walking last stopped
+  async start({ livery, face, spots = [], from = null }) {
     const pg = this.pg;
     this.spots = spots; this.spot = null; this.input = {}; this.speed = 0; this.act = null; this.ghost = false; this.camFrom = null; this.focus = null; this._hips = null;
     if (!(await loadCharacters())) return false;
@@ -47,11 +49,48 @@ export class GarageWalk {
     const f = new THREE.Vector3(0, 0, 1).applyQuaternion(q); this.heading = Math.atan2(f.x, f.z); // (Blender's -Y)
     if (!(k && k.spawn)) this.heading = Math.PI;
     this.camYaw = this.heading; this.camPitch = 0.3; this.camDist = CAM_DIST;
+    const at = this.entry(from, p.clone());
     this.me.object.position.copy(this.pos); this.me.object.rotation.y = this.heading;
+    // (the camera comes round to you from wherever it was: the room's shot, not a cut)
+    this.camFrom = { pos: pg.camera.position.clone(), quat: pg.camera.quaternion.clone(), fov: pg.camera.fov, k: 0 };
     this.active = true; pg.walker = this;
+    if (at === 'desk') this.resume();
+    return true;
+  }
+  // where you come in (start's from); returns what it set up
+  entry(from, spawn) {
+    if (from === 'last' && this.last) { this.pos.copy(this.last.pos); this.heading = this.last.heading; this.camYaw = this.last.camYaw; return 'last'; }
+    const door = this.spots.find(s => s.key === 'door');
+    if (from === 'door' && door) {   // (just inside the door, walking in to SPAWN)
+      const d = new THREE.Vector3(spawn.x - door.at.x, 0, spawn.z - door.at.z); if (d.lengthSq() < 0.01) return null;
+      this.pos.set(door.at.x, 0, door.at.z); this.heading = Math.atan2(d.x, d.z); this.camYaw = this.heading;
+      this.act = { kind: 'enter', step: 'walk', stand: spawn.clone().setY(0), done: () => {} };
+      return 'door';
+    }
+    if (from === 'desk') {           // (sat at the desk, turned to the screen: you get up out of it)
+      const s = this.deskSeat(); if (!s || !s.chair) return null;
+      const wrap = (x) => Math.atan2(Math.sin(x), Math.cos(x)), out = Math.cos(s.chair.face - s.face) < -0.17 ? s.chair.face : s.face + Math.PI;
+      this.spin(s.chair.o, s.chair.pivot, wrap(s.face - s.chair.face));
+      const fx = Math.sin(s.face), fz = Math.cos(s.face);
+      this.pos.copy(s.seat).add(new THREE.Vector3(fx, 0, fz).multiplyScalar(SIT_BACK)).add(new THREE.Vector3(fz, 0, -fx).multiplyScalar(-SIT_SIDE));
+      this.heading = s.face; this.camYaw = s.face + Math.PI;   // (the camera out in the room, looking at you at the desk)
+      this.me.play(alignedClip('sit_desk', 'sit_down'), { fade: 0 });
+      this.act = { kind: 'sit', step: 'sat', seat: s.seat, face: s.face, out, chair: { ...s.chair, left: 0 }, k: 1, done: () => {} };
+      return 'desk';
+    }
+    return null;
+  }
+  // off doing something (the car, the list, the computer): you stay where you are, the camera's theirs. unpark() picks
+  // walking up again from there
+  unpark() {
+    const pg = this.pg; if (!this.me) return false;
+    pg.parked = null; this.me.object.visible = true;
+    this.camFrom = { pos: pg.camera.position.clone(), quat: pg.camera.quaternion.clone(), fov: pg.camera.fov, k: 0 };
+    this.input = {}; this.speed = 0; this.active = true; pg.walker = this;
     return true;
   }
   stop() {
+    if (this.pos) this.last = { pos: this.pos.clone(), heading: this.heading, camYaw: this.camYaw };
     this.active = false; if (this.pg.walker === this) this.pg.walker = null; this.pg.parked = null; this.act = null;
     if (this.me) { this.me.dispose(); this.me.object.removeFromParent(); this.me = null; }
     this.spot = null;
@@ -244,6 +283,13 @@ export class GarageWalk {
     const a = this.act, me = this.me;
     const down = (h) => { a.focus = h; a.k = Math.max(0, Math.min(1, (0.99 - h.y) / (0.99 - 0.61))); };
     const turn = (left) => { const d = Math.sign(left) * Math.min(Math.abs(left), dt * SWIVEL * Math.min(1, 0.25 + Math.abs(left))); return d; }; // (eases in at the end)
+    if (a.kind === 'enter') {          // (in through the door: a few steps in to SPAWN, then it's yours)
+      const vx = a.stand.x - this.pos.x, vz = a.stand.z - this.pos.z, d = Math.hypot(vx, vz);
+      if (d < 0.05) { this.act = null; me.play('idle', { fade: 0.3 }); return false; }
+      this.heading += wrap(Math.atan2(vx, vz) - this.heading) * Math.min(1, dt * 10); const v = Math.min(WALK, d / dt);
+      this.pos.x += vx / d * v * dt; this.pos.z += vz / d * v * dt; me.move(WALK); this.camYaw += wrap(this.heading - this.camYaw) * Math.min(1, dt * 2);
+      return true;
+    }
     if (a.kind === 'sit') {
       // (a chair facing the desk: turned out to the room as you come up to it)
       if (a.chair && a.chair.left && a.step !== 'swivel') { const c = a.chair, d = turn(c.left); this.spin(c.o, c.pivot, d); c.left -= d; if (Math.abs(c.left) < 1e-4) c.left = 0; }
