@@ -160,9 +160,11 @@ export class GarageWalk {
     for (const s of this.act ? [] : this.spots) {
       const px = s.box ? Math.max(s.box.min.x, Math.min(s.box.max.x, this.pos.x)) : s.at.x, pz = s.box ? Math.max(s.box.min.z, Math.min(s.box.max.z, this.pos.z)) : s.at.z;
       const vx = px - this.pos.x, vz = pz - this.pos.z, d = Math.hypot(vx, vz) - (s.box ? R : 0);
-      if (d > (s.reach || REACH) || d >= bd) continue;
-      if (d > 0.4 && (vx * fx + vz * fz) / Math.hypot(vx, vz) < 0.35) continue;  // (not facing it)
-      best = s; bd = d;
+      if (d > (s.reach || REACH)) continue;
+      const dot = d > 0.4 ? (vx * fx + vz * fz) / Math.hypot(vx, vz) : 1;
+      if (dot < 0.35) continue;                                                // (not facing it)
+      const score = Math.max(d, 0.1) * (1.5 - dot);                            // (nearer, and more what you're facing: the calendar on the wall over the desk, not the chair in front of it)
+      if (score < bd) { best = s; bd = score; }
     }
     this.spot = best;
   }

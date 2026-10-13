@@ -1608,6 +1608,9 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 /* walking round the garage: a red triangle over each thing you can use; the one you're at unfolds into its prompt
    (the stem grows up out of the triangle, then the box opens out from the middle). Each hangs from a fixed point */
 #walk-tags { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
+.walk-tag b.alt { margin-left: 10px; }
+/* walking round your garage: the week stays up, just the days (the calendar opens it out: the round, the circuit, the targets) */
+#s-hub.walking .hub-week:not(.full) .wk-targets { display: none; }
 .walk-tag { position: fixed; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; transition: opacity .25s; }
 .walk-tag.gone { opacity: 0; }
 .walk-tag span { display: flex; align-items: baseline; gap: 8px; padding: 5px 10px 4px; border: 1px solid var(--sv-red); box-shadow: var(--sv-glow-line); background: rgba(4,3,8,.55); white-space: nowrap;

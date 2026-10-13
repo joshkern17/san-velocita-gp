@@ -170,9 +170,9 @@ function fadeTo(fn, ms = 320) {
 
 // ---------------- button prompts (keyboard keys or pad buttons, whichever you used last) ----------------
 const GLYPHS = {
-  kb: { tune: '<kbd>T</kbd>', nav: '<kbd>&#8593;</kbd><kbd>&#8595;</kbd>', lr: '<kbd>&#8592;</kbd><kbd>&#8594;</kbd>', ok: '<kbd>Enter</kbd>', back: '<kbd>Esc</kbd>', tab: '<kbd>Q</kbd><kbd>E</kbd>', skip: '<kbd>Enter</kbd>', view: '<kbd>V</kbd>', scrub: '<kbd>Z</kbd><kbd>X</kbd>', cls: '<kbd>&#8593;</kbd><kbd>&#8595;</kbd>', phone: '<kbd>P</kbd>',
+  kb: { tune: '<kbd>T</kbd>', nav: '<kbd>&#8593;</kbd><kbd>&#8595;</kbd>', lr: '<kbd>&#8592;</kbd><kbd>&#8594;</kbd>', ok: '<kbd>Enter</kbd>', back: '<kbd>Esc</kbd>', tab: '<kbd>Q</kbd><kbd>E</kbd>', skip: '<kbd>Enter</kbd>', view: '<kbd>V</kbd>', scrub: '<kbd>Z</kbd><kbd>X</kbd>', cls: '<kbd>&#8593;</kbd><kbd>&#8595;</kbd>', phone: '<kbd>P</kbd>', alt: '<kbd>F</kbd>',
     cam: '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', look: '<kbd>I</kbd><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd>', dolly: '<kbd>Q</kbd><kbd>E</kbd>', zoom: '<kbd>Z</kbd><kbd>X</kbd>', shoot: '<kbd>Space</kbd>', hide: '<kbd>H</kbd>' },
-  pad: { tune: '<kbd class="pb y">Y</kbd>', nav: '<kbd class="dpad"></kbd>', lr: '<kbd class="dpad h"></kbd>', ok: '<kbd class="pb a">A</kbd>', back: '<kbd class="pb b">B</kbd>', tab: '<kbd class="pl">LB</kbd><kbd class="pl">RB</kbd>', skip: '<kbd>Enter</kbd>', view: '<kbd class="pb y">Y</kbd>', scrub: '<kbd class="pl">LT</kbd><kbd class="pl">RT</kbd>', cls: '<kbd class="pl">LB</kbd><kbd class="pl">RB</kbd>', phone: '<kbd class="pb y">Y</kbd>',
+  pad: { tune: '<kbd class="pb y">Y</kbd>', nav: '<kbd class="dpad"></kbd>', lr: '<kbd class="dpad h"></kbd>', ok: '<kbd class="pb a">A</kbd>', back: '<kbd class="pb b">B</kbd>', tab: '<kbd class="pl">LB</kbd><kbd class="pl">RB</kbd>', skip: '<kbd>Enter</kbd>', view: '<kbd class="pb y">Y</kbd>', scrub: '<kbd class="pl">LT</kbd><kbd class="pl">RT</kbd>', cls: '<kbd class="pl">LB</kbd><kbd class="pl">RB</kbd>', phone: '<kbd class="pb y">Y</kbd>', alt: '<kbd class="pb x">X</kbd>',
     cam: '<kbd class="pl">LS</kbd>', look: '<kbd class="pl">RS</kbd>', dolly: '<kbd class="pl">LB</kbd><kbd class="pl">RB</kbd>', zoom: '<kbd class="pl">LT</kbd><kbd class="pl">RT</kbd>', shoot: '<kbd class="pb a">A</kbd>', hide: '<kbd class="pb y">Y</kbd>' },
 };
 // per screen: [glyph, label] pairs; a function for screens whose prompts change
@@ -1862,7 +1862,8 @@ function phoneInput() {
 }
 const phoneHints = [['nav', 'Scroll'], ['ok', 'Select'], ['back', 'Back'], ['phone', 'Put away']];
 const WALK_HINTS = [['cam', 'Walk'], ['look', 'Look'], ['ok', 'Use'], ['back', 'Stop walking']];
-HINTS['s-hub'] = () => walk.active ? WALK_HINTS : ending.isOpen ? { scene: [['back', 'Skip']], wire: [['ok', 'Continue']], record: [['nav', 'Choose'], ['ok', 'Select']] }[ending.stage] || [] : dayPlan.isOpen ? [['nav', 'Choose'], ...(dayPlan.onSubs ? [['lr', 'Ideas']] : []), ['ok', 'Do it'], ['back', 'Garage']] : tsw.isOpen ? [['lr', 'Choose'], ['ok', tsw.step === 'ready' ? 'Start the season' : 'Next'], ['back', tsw.at ? 'Back' : 'Garage']] : pcSeat ? [['nav', 'Move'], ['ok', 'Select'], ...(pc.hasTabs ? [['tab', 'Sections']] : []), ['back', pc.app ? 'Back' : 'Stand up']]
+const WALK_HINTS_HUB = [['cam', 'Walk'], ['look', 'Look'], ['ok', 'Use'], ['phone', 'Phone'], ['back', 'Pause']];
+HINTS['s-hub'] = () => walk.active && !walkPaused && !dayPlan.isOpen && !phone.isOpen ? WALK_HINTS_HUB : walk.active && walkPaused ? [['nav', 'Navigate'], ['ok', 'Select'], ['back', 'Keep walking']] : ending.isOpen ? { scene: [['back', 'Skip']], wire: [['ok', 'Continue']], record: [['nav', 'Choose'], ['ok', 'Select']] }[ending.stage] || [] : dayPlan.isOpen ? [['nav', 'Choose'], ...(dayPlan.onSubs ? [['lr', 'Ideas']] : []), ['ok', 'Do it'], ['back', 'Garage']] : tsw.isOpen ? [['lr', 'Choose'], ['ok', tsw.step === 'ready' ? 'Start the season' : 'Next'], ['back', tsw.at ? 'Back' : 'Garage']] : pcSeat ? [['nav', 'Move'], ['ok', 'Select'], ...(pc.hasTabs ? [['tab', 'Sections']] : []), ['back', pc.app ? 'Back' : 'Stand up']]
   : phone.isOpen ? phoneHints : hubMode === 'car' ? [['nav', 'Part'], ['ok', 'Select'], ['back', 'Back']]
   : hubMode === 'list' ? (listStep ? [['nav', 'Choose'], ['ok', 'Write it'], ['back', 'Garage']] : [['ok', 'Select'], ['back', 'Garage']]) : [['nav', 'Navigate'], ['ok', 'Select'], ['phone', 'Phone']];
 
@@ -2021,6 +2022,12 @@ const adPhotos = new Map(); // (the classifieds' photos: rendered once a session
 let pcSeat = false; // sat at the computer (the camera on its way in, or there)
 function sitDown(app, arg) {
   if (pcSeat) return;
+  // on your feet in the garage: walk round to the chair and sit down first (walk.park hands the camera back)
+  if (walk.active && !walk.act && screen === 's-hub' && walk.deskSeat()) {
+    if (walkPaused) pauseWalk(false);
+    walk.sit().then(() => { if (!walk.active || screen !== 's-hub') return; walk.park(); drawWalkTags(null); walkSat = true; $('s-hub').classList.remove('walking'); sitDown(app, arg); renderHints(); });
+    return;
+  }
   pcSeat = true; phone.close(); phone.hide(); pcWant = [app, arg];
   pitGarage.setZoom(true); $('s-hub').classList.add('seated'); sfx.select(); renderHints();
 }
@@ -2277,14 +2284,17 @@ function walkSpots() {
   // (each tag hangs right over its thing: the monitor, the list's top edge, a kit INTERACT_ where it is)
   if (f) out.push({ key: 'computer', label: 'Use the computer', at: ds && ds.chair ? ds.seat.clone().setY(1.0) : f.c.clone().addScaledVector(new V(f.n.x, 0, f.n.z).normalize(), 0.55).setY(f.c.y), reach: ds && ds.chair ? 1.3 : undefined,
     mark: f.c.clone().addScaledVector(f.up, f.h / 2 + 0.16) });
-  const lf = P.listMesh && P.listMesh.visible ? P.listFrame() : null; if (lf) out.push({ key: 'list', label: 'The List', at: lf.c.clone().addScaledVector(lf.n, 0.5), reach: 1.3, mark: lf.c.clone().addScaledVector(lf.up, lf.h / 2 + 0.08) });
+  const lf = P.listMesh && P.listMesh.visible ? P.listFrame() : null; if (lf) out.push({ key: 'list', label: 'The List', at: lf.c.clone().addScaledVector(lf.n, 0.5), reach: 1.6, mark: lf.c.clone().addScaledVector(lf.up, lf.h / 2 + 0.08) });
   const carBox = (c) => { const b = new THREE.Box3(); c.group.traverse(o => { if (o.isMesh && o !== c.shadow && !(c.shadow && c.shadow.children.includes(o))) b.expandByObject(o); }); return b; };
   if (P.car && P.car.group.visible) out.push({ key: 'car', label: 'Work on the car', box: carBox(P.car) });
   if (P.car2 && P.car2.group.parent && P.car2.group.visible) out.push({ key: 'car2', label: 'Car two', box: carBox(P.car2) });
   if (k) for (const it of k.interacts) {
     const key = it.name.slice(9).replace(/[._]\d+$/, ''), at = it.getWorldPosition(new V());
-    out.push({ key, label: it.userData.label || key, mark: at.clone().setY(Math.max(at.y + 0.15, 1.3)), at: at.setY(Math.min(at.y, 1.2)), reach: 1.2 });
+    out.push({ key, label: it.userData.label || key, mark: at.clone().setY(Math.max(at.y + 0.15, 1.3)), reach: at.y > 1.6 ? 1.8 : 1.2, at: at.setY(Math.min(at.y, 1.2)) }); // (up on a wall, often behind a desk: from further)
   }
+  // (in a career: the door's tag says what's on out there; the car's offers its day of work)
+  const door = out.find(s => s.key === 'door'); if (door) Object.defineProperty(door, 'label', { get: doorLabel });
+  const car = out.find(s => s.key === 'car'); if (car) Object.defineProperty(car, 'alt', { get: () => dayAt('car').length ? 'Spend the day' : null });
   return out;
 }
 // what a spot does: in a career, the hub menu's own item; in the preview, nothing (it says what it'd be)
@@ -2294,14 +2304,58 @@ function useSpot(s) {
   if (s.key === 'computer' && walk.deskSeat()) {
     if (screen === 's-homeview') { sfx.select(); walk.sit().then(() => { toast(`In a career: <b>${s.label}</b>.`, 1800); setTimeout(() => { if (walk.active) walk.resume(); }, 1600); }); return; }
     const it = hubItem(WALK_DOES.computer); if (!it) { sfx.error(); return; }
-    sfx.select();
-    walk.sit().then(() => { if (!walk.active || screen !== 's-hub') return; walk.park(); drawWalkTags(null); walkSat = true; $('s-hub').classList.remove('walking'); it.action(); renderHints(); });
+    sfx.select(); it.action(); // (sitDown: walks you round to the chair first)
     return;
   }
   if (screen === 's-homeview') { sfx.select(); toast(`In a career: <b>${s.label}</b>.`, 1800); return; }
+  // the door: out for the day (the planner, with what's away from the garage); no days left, what's next (race day)
+  if (s.key === 'door') {
+    const next = hubItem(/^(Round \d+: Race|Start \d+ Season|Drive: )/);
+    if (next && myWeek(world).left <= 0) { stopWalk(true); next.action(); return; }
+    if (!openDayPlan(true, 'door')) { sfx.error(); toast(next ? 'Not yet.' : 'Nothing out there today.', 1600); }
+    return;
+  }
+  // the sim rig: a session on it takes the day
+  if (s.key === 'sim') { if (!openDayPlan(true, 'sim')) { sfx.error(); toast(myWeek(world).left <= 0 ? 'No days left this week.' : 'No sim session today: one a week, and not after a test day.', 2000); } return; }
+  // the calendar: the week opens out (the round, the circuit, the targets); again to fold it
+  if (s.key === 'calendar') { sfx.select(); $('hub-week').classList.toggle('full'); return; }
   const it = WALK_DOES[s.key] && hubItem(WALK_DOES[s.key]);
   if (!it) { sfx.error(); toast(s.key === 'car2' ? 'Car two: on the computer (Team).' : 'Nothing to do here right now.', 1800); return; }
   stopWalk(true); it.action();
+}
+// a spot's second action (X / F): the car's day of work
+function useAlt(s) {
+  if (screen !== 's-hub') { sfx.select(); toast(`In a career: <b>${s.alt}</b>.`, 1800); return; }
+  if (s.key === 'car' && !openDayPlan(true, 'car')) sfx.error();
+}
+// the day's choices done at one place (cached a moment: tags ask every frame)
+let dayAtC = { t: 0, by: {} };
+function dayAt(where) {
+  if (!world || screen !== 's-hub') return [];
+  const now = performance.now(); if (now - dayAtC.t > 500) dayAtC = { t: now, by: {} };
+  return dayAtC.by[where] ||= myWeek(world).left > 0 ? (coopGuest() ? coopDayChoices(world) : dayChoices(world, true)).filter(o => DAY_AT(o.key) === where) : [];
+}
+// what the door's tag says: what's on out there
+function doorLabel() {
+  if (!world || screen !== 's-hub') return 'Head out';
+  const w = world, wk = myWeek(w);
+  if (wk.left <= 0) return hubItem(/^Round \d+: Race/) ? `Race day: round ${w.round + 1}` : 'Head out';
+  const ch = dayAt('door'), ev = ch.find(o => /^ev|^din/.test(o.key) && o.tag === 'Today'), bk = ch.filter(o => /^bk|^pl/.test(o.key)).length;
+  return ev ? `Head out: ${ev.short} today` : bk ? `Head out: ${bk} booked` : 'Head out for the day';
+}
+// paused while walking (Esc / B in your garage): a short menu over the room
+let walkPaused = false;
+function pauseWalk(on) {
+  walkPaused = on; walk.input = {}; $('s-hub').classList.toggle('walking', !on); if (on) drawWalkTags(null);
+  optSub = false; renderHubMenu(); renderHints(); if (on) sfx.select(); else sfx.back();
+}
+function renderPauseMenu() {
+  menus['s-hub'][0].setItems([
+    { label: 'Keep Walking', cls: 'action primary', action: () => pauseWalk(false), desc: 'Back to the garage.' },
+    { label: 'Stop Walking', action: () => { walkPaused = false; stopWalk(); renderHubMenu(); }, desc: 'The garage menu.' },
+    { label: `Career Options<small>${(DIFF_LABEL[world.opts.difficulty] || '').toUpperCase()}</small>`, action: () => { optSub = true; sfx.select(); renderHubMenu(); }, desc: 'Difficulty, driver aids, circuits.' },
+    { label: 'Save & Quit', action: () => { walkPaused = false; walk.stop(); saveWorld(); pitGarage.close(); quitToMenu(); }, desc: 'Your career is saved. Continue it from the main menu.' },
+  ], true);
 }
 // sat at the computer after walking up to it (walk.park): leaving it, you get back up and walk on
 let walkSat = false;
@@ -2316,6 +2370,7 @@ function startWalk() {
 }
 function stopWalk(quiet = false) {
   if (!walk.active || walk.act) return; // (not halfway into the chair)
+  walkPaused = false; $('hub-week').classList.remove('full');
   walk.stop(); drawWalkTags(null);
   document.querySelectorAll('.screen.walking').forEach(e => e.classList.remove('walking'));
   pitGarage.toRoom(); if (!quiet) sfx.back(); renderHints();
@@ -2329,8 +2384,9 @@ function walkInput() {
   walk.input = { mx: Math.max(-1, Math.min(1, mx)), my: Math.max(-1, Math.min(1, my)), run: isDown('ShiftLeft') || isDown('ShiftRight') ? 1 : p && p.buttons[7] ? Math.max(0, Math.min(1, (p.buttons[7].value - 0.08) / 0.84)) : 0,
     lx: rx * 2.6 * dt + (k('KeyL') - k('KeyJ')) * 2 * dt + walkMouse[0] * 0.005, ly: ry * 1.4 * dt + (k('KeyK') - k('KeyI')) * 1.2 * dt + walkMouse[1] * 0.003 };
   walkMouse = [0, 0];
-  if (pressed('Escape') || pressed('GP1') || pressed('Backspace')) { stopWalk(); return; }
+  if (pressed('Escape') || pressed('GP1') || pressed('Backspace')) { if (screen === 's-hub' && !walk.act) pauseWalk(true); else if (screen !== 's-hub') stopWalk(); return; }
   if ((pressed('Enter') || pressed('Space') || pressed('GP0')) && walk.spot && !walk.act) useSpot(walk.spot);
+  if ((pressed('KeyF') || pressed('GP2')) && walk.spot && walk.spot.alt && !walk.act) useAlt(walk.spot);
   drawWalkTags(walk.act ? null : walk.tags(1 / 60));
 }
 // the tags over what you can use while walking: a small red triangle over each; the one you're at (close, facing it)
@@ -2339,13 +2395,14 @@ function drawWalkTags(tags) {
   const box = $('walk-tags'), g = GLYPHS[device.kind === 'pad' ? 'pad' : 'kb'].ok;
   if (!tags) { box.hidden = true; return; }
   box.hidden = false;
-  while (box.children.length < tags.length) box.insertAdjacentHTML('beforeend', '<div class="walk-tag"><span><b></b><small></small></span><i></i><em></em></div>');
+  const ga = GLYPHS[device.kind === 'pad' ? 'pad' : 'kb'].alt;
+  while (box.children.length < tags.length) box.insertAdjacentHTML('beforeend', '<div class="walk-tag"><span></span><i></i><em></em></div>');
   [...box.children].forEach((el, i) => {
     const t = tags[i]; el.hidden = !t; if (!t) return;
     el.classList.toggle('gone', !t.show); el.classList.toggle('open', t.open);
     if (t.show) { el.style.left = t.x + 'px'; el.style.top = t.y + 'px'; }
-    const b = el.firstChild.firstChild, sm = b.nextSibling, lbl = t.s.label.toUpperCase();
-    if (b.innerHTML !== g) b.innerHTML = g; if (sm.textContent !== lbl) sm.textContent = lbl;
+    const alt = t.s.alt, html = `<b>${g}</b><small>${t.s.label.toUpperCase()}</small>${alt ? `<b class="alt">${ga}</b><small>${alt.toUpperCase()}</small>` : ''}`;
+    if (el.dataset.h !== html) { el.dataset.h = html; el.firstChild.innerHTML = html; }
   });
 }
 // (on the window, not the canvas: the screen's section lies over the canvas while you walk, so the canvas never heard it)
@@ -2804,6 +2861,7 @@ function renderHubMenu() {
     return;
   }
   if (optSub) return renderOptMenu();
+  if (walk.active && walkPaused) return renderPauseMenu();
   const w = world, sid = w.player.series, n = WC.unread(w), nm = WC.unreadMail(w);
   const items = [];
   const off = w.player.offer, offerMail = off && !off.answer && (w.mail || []).find(m => m.offer && !m.answer);
@@ -2856,6 +2914,7 @@ function renderHubMenu() {
 menus['s-hub'] = [new Menu($('m-hub'), [], { desc: 'd-hub', onMove: (it) => { if (it && it.part && hubMode === 'car') { carPart = it.part; pitGarage.setView('car', it.part); } if (hubMode === 'car') showCarPerf(it); if (hubMode === 'list') listPreview(it); } })];
 backs['s-hub'] = () => {
   if (ending.isOpen) { ending.input({ back: true }); return; }
+  if (walk.active && walkPaused && !optSub) { pauseWalk(false); return; }
   if (tsw.isOpen) { tsw.back(); renderHints(); return; }
   if (dayPlan.isOpen) return;
   if (hubMode === 'list') { if (!listPaper.busy) leaveList(); return; }
@@ -3404,19 +3463,28 @@ const myWeek = (w) => coopGuest() ? WC.coopWeek(w) : { used: WC.weekOf(w).used, 
 const dayPlan = new DayPlan($('dayplan'), {
   world: () => world,
   week: (w) => coopGuest() ? WC.coopWeek(w) : null,
-  choices: () => coopGuest() ? coopDayChoices(world) : dayChoices(world, dayRace),
+  choices: () => (coopGuest() ? coopDayChoices(world) : dayChoices(world, dayRace)).filter(o => !dayWhere || DAY_AT(o.key) === dayWhere),
   pick: (k) => { dayPick = k; renderHints(); },
   sfx: (k) => sfx[k] && sfx[k](),
   save: () => saveWorld(),
   map: (cv) => { const R = world.series[world.player.series].cal[world.round], tr = findCalTrack(R.name); if (tr) drawTrackMap(hubTrackT(tr), cv); },
-  closed: () => { wkStamp = myWeek(world).used - 1; $('s-hub').classList.remove('planning'); renderHub(); renderHints(); hubEnter(); },
-  leave: (o) => { dayPick = o.key; $('s-hub').classList.remove('planning'); renderHub(); renderHints(); setTimeout(() => o.run(), 120); },
+  closed: () => { dayWhere = null; wkStamp = myWeek(world).used - 1; $('s-hub').classList.remove('planning'); renderHub(); renderHints(); hubEnter(); },
+  leave: (o) => { dayWhere = null; dayPick = o.key; $('s-hub').classList.remove('planning'); renderHub(); renderHints(); setTimeout(() => o.run(), 120); },
 });
-function openDayPlan(canRace) {
-  if (!world || dayPlan.isOpen || myWeek(world).left <= 0) return;
-  dayRace = canRace; phone.close(); phone.hide(); $('s-hub').classList.add('planning'); sfx.select();
+// where: walking round, the planner opened at one place shows only what's done there ('door': away from the garage;
+// 'car'; 'sim'). False when there's nothing to do there
+function openDayPlan(canRace, where = null) {
+  if (!world || dayPlan.isOpen || myWeek(world).left <= 0) return false;
+  dayRace = canRace; dayWhere = where;
+  if (where && !dayPlan.src.choices().length) { dayWhere = null; return false; }
+  walk.input = {}; drawWalkTags(null); phone.close(); phone.hide(); $('s-hub').classList.add('planning'); sfx.select();
   dayPlan.open(dayPick); renderHints();
+  return true;
 }
+// where each of the day's choices is done, walking round: the car's work at the car, a sim session at the sim rig,
+// everything else out the door
+const DAY_AT = (k) => k === 'fix' || k === 'proj' || k === 'projs' ? 'car' : k === 'sim' ? 'sim' : 'door';
+let dayWhere = null;
 function dayInput() {
   if (!dayPlan.isOpen) return false;
   const up = pressed('ArrowUp') | pressed('KeyW') | pressed('GP12') | pressed('GPSU'), down = pressed('ArrowDown') | pressed('KeyS') | pressed('GP13') | pressed('GPSD');
@@ -5528,6 +5596,7 @@ function frameBody(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   const pad = pollGamepad();
   if (walkSat && (screen !== 's-hub' || !pcSeat)) dropWalk(); // (gone somewhere else from the computer: nobody left in the chair)
+  if (walk.active && screen !== 's-hub' && screen !== 's-homeview') { walk.stop(); walkPaused = false; drawWalkTags(null); document.querySelectorAll('.screen.walking').forEach(e => e.classList.remove('walking')); } // (out the door: a race, a gig)
   if (screen === 'hud' && sim && !sim.paused) {
     const ctl = window.__autopilot && sim.player ? sim.aiControlsFor(sim.player, dt) : driveControls(pad);
     const press = {
@@ -5653,7 +5722,7 @@ function frameBody(now) {
     pitGarage.update(dt);
   } else if (PHONE_SCREENS.includes(screen)) {
     // World Career, your garage: the computer has the controls while you're sat at it, the phone while it's up (P / Y)
-    if (walk.active) walkInput();
+    if (walk.active && !walkPaused && !dayPlan.isOpen && !phone.isOpen) { if (!phoneInput()) walkInput(); else { walk.input = {}; drawWalkTags(null); renderHints(); } }
     else if (!endInput() && !tswInput() && !dayInput() && !pcInput() && !phoneInput()) menuInput();
     hubTick(dt);
   } else if (screen !== 's-editor') {

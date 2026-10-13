@@ -210,6 +210,7 @@ empty('BAY_1', hooks, BAY1, kind='SINGLE_ARROW', size=1.0, label='Car one')
 empty('BAY_2', hooks, BAY2, kind='SINGLE_ARROW', size=1.0, label='Car two')
 empty('SPAWN', hooks, (0.65, -4.4, 0), rotz=math.pi, kind='SINGLE_ARROW', size=0.6)   # (you, walking in from the door)
 empty('INTERACT_calendar', hooks, (-4.0, 3.42, 2.1), kind='SPHERE', size=0.25, label='The calendar')
+empty('INTERACT_door', hooks, (DOOR_X, Y0 + 0.7, 1.6), kind='SPHERE', size=0.25, label='Head out')   # (the roll-up door: out for the day)
 nav = box('NAV_floor', hooks, (7.3, 12.2, 0.0), (0.4, -0.15, 0.0)); nav.display_type = 'WIRE'; nav.hide_render = True
 
 # ---------------- stations: built beside the room, shown at their slots ----------------

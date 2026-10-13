@@ -26,6 +26,12 @@ no shell at all it falls back to `models/garage.glb`. A station bought for a she
 Main Menu > **Home Garage** opens the room without a career: pick the premises, each facility's level and car two, and
 **Look At** the room, car two or any station, or **Walk Around** it. Nothing is saved.
 
+In World Career your days happen where you'd do them: the roll-up door (`INTERACT_door`) is going out for the day (the
+day job, gigs, sponsor events, test days, days with your teammate, race day: the planner with just those), the car's
+tag has a second action, X / F "Spend the day" (rebuilding a part, a project), and the sim rig is a sim session. The
+calendar opens out the week, which stays up along the top while you walk. Esc / B pauses (Keep Walking, Career
+Options, Save & Quit).
+
 **Walk Around** (here and on the World Career hub menu): left stick / WASD to walk, squeeze RT to jog (the walk eases
 into the jog as you squeeze; Shift on a keyboard), right stick /
 mouse drag / IJKL to look, A / Enter to use what you're facing (its prompt shows), B / Esc to stop. In a career each
