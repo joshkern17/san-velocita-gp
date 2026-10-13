@@ -2286,9 +2286,12 @@ function walkSpots() {
   if (f) out.push({ key: 'computer', label: 'Use the computer', at: ds && ds.chair ? ds.seat.clone().setY(1.0) : f.c.clone().addScaledVector(new V(f.n.x, 0, f.n.z).normalize(), 0.55).setY(f.c.y), reach: ds && ds.chair ? 1.3 : undefined,
     mark: f.c.clone().addScaledVector(f.up, f.h / 2 + 0.16) });
   const lf = P.listMesh && P.listMesh.visible ? P.listFrame() : null; if (lf) out.push({ key: 'list', label: 'The List', at: lf.c.clone().addScaledVector(lf.n, 0.5), reach: 1.6, mark: lf.c.clone().addScaledVector(lf.up, lf.h / 2 + 0.08) });
-  const carBox = (c) => { const b = new THREE.Box3(); c.group.traverse(o => { if (o.isMesh && o !== c.shadow && !(c.shadow && c.shadow.children.includes(o))) b.expandByObject(o); }); return b; };
-  if (P.car && P.car.group.visible) out.push({ key: 'car', label: 'Work on the car', box: carBox(P.car) });
-  if (P.car2 && P.car2.group.parent && P.car2.group.visible) out.push({ key: 'car2', label: 'Car two', box: carBox(P.car2) });
+  // (a car's box where it stands now: one just built or placed behind the fade hasn't had its world matrix worked out,
+  // and would measure at the room's origin, by the door; measured again if the car's rebuilt)
+  const carBox = (c) => { const b = new THREE.Box3(); c.group.updateWorldMatrix(true, true); c.group.traverse(o => { if (o.isMesh && o !== c.shadow && !(c.shadow && c.shadow.children.includes(o))) b.expandByObject(o); }); return b; };
+  const carSpot = (key, label, get) => { let g = null, b = null; return { key, label, get box() { const c = get(); if (c && c.group !== g) { g = c.group; b = carBox(c); } return b; } }; };
+  if (P.car && P.car.group.visible) out.push(carSpot('car', 'Work on the car', () => P.car));
+  if (P.car2 && P.car2.group.parent && P.car2.group.visible) out.push(carSpot('car2', 'Car two', () => P.car2));
   if (k) for (const it of k.interacts) {
     const key = it.name.slice(9).replace(/[._]\d+$/, ''), at = it.getWorldPosition(new V());
     out.push({ key, label: it.userData.label || key, mark: at.clone().setY(Math.max(at.y + 0.15, 1.3)), reach: at.y > 1.6 ? 1.8 : 1.2, at: at.setY(Math.min(at.y, 1.2)) }); // (up on a wall, often behind a desk: from further)
