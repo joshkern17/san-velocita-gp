@@ -1608,6 +1608,41 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 /* walking round the garage: a red triangle over each thing you can use; the one you're at unfolds into its prompt
    (the stem grows up out of the triangle, then the box opens out from the middle). Each hangs from a fixed point */
 #walk-tags { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
+/* a tag that wants you: amber (pink when it's urgent), pulsing, and its prompt says why */
+.walk-tag small.w { color: var(--sv-amber); }
+.walk-tag.bad small.w { color: var(--sv-bad); }
+.walk-tag.want em { border-top-color: var(--sv-amber); filter: drop-shadow(0 0 2px var(--sv-amber)) drop-shadow(0 0 6px var(--sv-amber)); animation: wt-pulse 1.3s ease-in-out infinite; }
+.walk-tag.bad em { border-top-color: var(--sv-bad); filter: drop-shadow(0 0 2px var(--sv-bad)) drop-shadow(0 0 6px var(--sv-bad)); animation: wt-pulse .9s ease-in-out infinite; }
+.walk-tag.want.open em, .walk-tag.bad.open em { animation: none; }
+@keyframes wt-pulse { 50% { opacity: .45; } }
+
+/* walking round your garage: the team in one line, top left (the team's championship first: you own it), the money
+   and how long it lasts; the one thing that moves the career on, bottom middle. Stand still and the rest fades in */
+.walk-hud, .walk-next { display: none; }
+#s-hub.walking .walk-hud { display: block; position: absolute; left: var(--edge); top: 4%; max-width: 560px; }
+.wh-team { font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: .28em; text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+.wh-row { display: flex; align-items: stretch; gap: var(--s5); margin-top: var(--s3); height: 56px; }
+.wh-cell { display: flex; flex-direction: column; justify-content: flex-end; gap: 5px; flex: none; padding-left: var(--s3); border-left: 1px solid color-mix(in srgb, var(--sv-red) 55%, transparent); }
+.wh-cell small, .wh-cell em { font: 500 var(--t-small)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red-dim); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; font-style: normal; white-space: nowrap; }
+.wh-cell b { font: 500 22px/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; white-space: nowrap; }
+.wh-cell b small { font-size: 13px; color: var(--sv-red-dim); padding: 0; }
+.wh-cell.main b { font: 700 34px/.9 var(--f-display); color: var(--sv-hot); }
+.wh-cell.main b small { font: 500 14px/1 var(--f-ui); }
+.wh-cell.warn b, .wh-cell.warn em { color: var(--sv-amber); }
+.wh-cell.bad b, .wh-cell.bad em { color: var(--sv-bad); }
+.wh-hint { margin: var(--s3) 0 0; max-width: 460px; font: 500 var(--t-caption)/1.4 var(--f-body); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; opacity: 0; transition: opacity .4s; }
+#s-hub.walking.still .wh-hint { opacity: 1; }
+#s-hub.walking .walk-next { display: block; position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); white-space: nowrap; font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+.walk-next b { font-weight: 500; color: var(--sv-amber); margin-right: var(--s2); }
+/* the week: walking, the days and the round in a line; stood still, the circuit and the targets (the same place) */
+.wk-more { display: grid; }
+.wk-more > * { grid-area: 1 / 1; transition: opacity .4s; }
+.wk-line { display: none; margin-top: var(--s2); font: 500 var(--t-small)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-cyan); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wk-line b { font-weight: 500; color: var(--sv-red); }
+#s-hub.walking .wk-line { display: block; }
+#s-hub.walking .wk-targets { opacity: 0; pointer-events: none; }
+#s-hub.walking.still .wk-targets { opacity: 1; }
+#s-hub.walking.still .wk-line { opacity: 0; }
 .walk-tag b.alt { margin-left: 10px; }
 .walk-tag { position: fixed; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; transition: opacity .25s; }
 .walk-tag.gone { opacity: 0; }

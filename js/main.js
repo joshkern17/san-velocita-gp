@@ -2296,6 +2296,7 @@ function walkSpots() {
   // (in a career: the door's tag says what's on out there; the car's offers its day of work)
   const door = out.find(s => s.key === 'door'); if (door) Object.defineProperty(door, 'label', { get: doorLabel });
   const car = out.find(s => s.key === 'car'); if (car) Object.defineProperty(car, 'alt', { get: () => dayAt('car').length ? 'Spend the day' : null });
+  for (const s of out) if (['computer', 'car', 'list', 'door'].includes(s.key)) Object.defineProperty(s, 'want', { get: () => wantOf(s.key) });
   return out;
 }
 // what a spot does: in a career, the hub menu's own item; in the preview, nothing (it says what it'd be)
@@ -2410,7 +2411,10 @@ function walkInput() {
   else if ((pressed('KeyF') || pressed('GP2')) && walk.spot && walk.spot.alt && !walk.act) useAlt(walk.spot);
   if (!walk.active || walkPaused || dayPlan.isOpen) return; // (off to what you used: its tags aren't wanted)
   drawWalkTags(walk.act ? null : walk.tags(1 / 60));
+  const now = performance.now(); if (walk.speed > 0.05 || walk.act || !walkStill) walkStill = now;
+  $(screen).classList.toggle('still', now - walkStill > 1400);   // (stood still a moment: the rest fades in)
 }
+let walkStill = 0;
 // the tags over what you can use while walking: a small red triangle over each; the one you're at (close, facing it)
 // unfolds into its prompt (the button and what it does). null clears them
 function drawWalkTags(tags) {
@@ -2418,12 +2422,16 @@ function drawWalkTags(tags) {
   if (!tags) { box.hidden = true; return; }
   box.hidden = false;
   const ga = GLYPHS[device.kind === 'pad' ? 'pad' : 'kb'].alt;
+  // (a tag that would sit behind the week or the status line, up in the corners: hidden, not half under them)
+  const under = ['hub-week', 'walk-hud'].map(id => { const e = $(id); return e && e.offsetParent ? e.getBoundingClientRect() : null; }).filter(Boolean);
+  const behind = (x, y) => under.some(r => x > r.left - 90 && x < r.right + 90 && y > r.top && y < r.bottom + 40);
   while (box.children.length < tags.length) box.insertAdjacentHTML('beforeend', '<div class="walk-tag"><span></span><i></i><em></em></div>');
   [...box.children].forEach((el, i) => {
     const t = tags[i]; el.hidden = !t; if (!t) return;
-    el.classList.toggle('gone', !t.show); el.classList.toggle('open', t.open);
+    el.classList.toggle('gone', !t.show || behind(t.x, t.y)); el.classList.toggle('open', t.open);
     if (t.show) { el.style.left = t.x + 'px'; el.style.top = t.y + 'px'; }
-    const alt = t.s.alt, html = `<b>${g}</b><small>${t.s.label.toUpperCase()}</small>${alt ? `<b class="alt">${ga}</b><small>${alt.toUpperCase()}</small>` : ''}`;
+    const alt = t.s.alt, want = t.s.want, html = `<b>${g}</b><small>${t.s.label.toUpperCase()}</small>${want ? `<small class="w">${escP(want.text).toUpperCase()}</small>` : ''}${alt ? `<b class="alt">${ga}</b><small>${alt.toUpperCase()}</small>` : ''}`;
+    el.classList.toggle('want', !!want && !want.bad); el.classList.toggle('bad', !!want && want.bad);
     if (el.dataset.h !== html) { el.dataset.h = html; el.firstChild.innerHTML = html; }
   });
 }
@@ -2866,11 +2874,54 @@ function renderWeekStrip() {
   const tr = findCalTrack(R.name), T = tr ? hubTrackT(tr) : null, km = T ? (trackStats(T).length / 1000).toFixed(1) : null;
   el.innerHTML = `<div class="wk-head"><span>The week before round ${w.round + 1} of ${w.opts.len}</span><b>${left ? `${left} day${left === 1 ? '' : 's'} left${wk.booked ? `, ${wk.booked} booked` : ''}` : 'Race day next'}</b></div>
     <div class="wk-days">${days}<div class="wk-day race"><small>Sat</small><b>Race</b><em>Round ${w.round + 1}</em></div></div>
+    <div class="wk-more"><div class="wk-line"><b>${R.gp ? WC.GP_NAME : R.name}</b>${tr ? ` &middot; ${THEMES[tr.env.theme].label}` : ''}${km ? ` &middot; ${km} km` : ''} &middot; ${R.time}, ${R.weather}</div>
     <div class="wk-targets"><canvas class="wk-map" width="180" height="132"></canvas><div class="wk-tg">
       <div class="wk-track">${R.gp ? WC.GP_NAME : R.name}</div><div class="wk-cond">${R.gp ? `${R.name} &middot; ` : ''}${tr ? THEMES[tr.env.theme].label : ''}${km ? ` &middot; ${km} km, ${T.open ? 'point to point' : `${WC.raceLaps(w, T.L / 1000, false)} laps`}` : ''} &middot; ${R.time}, ${R.weather}</div>
-      ${tg || '<div class="br-none">No targets set. Race well.</div>'}</div></div>`;
+      ${tg || '<div class="br-none">No targets set. Race well.</div>'}</div></div></div>`;
   if (T) drawTrackMap(T, el.querySelector('.wk-map'));
   wkStamp = -1;
+  renderWalkHud();
+}
+// walking round your garage: the team at a glance in one line (the team's championship first: you own it; your own
+// standing beside it), the money and how long it lasts, and the one thing that moves the career on. Stand still a
+// moment and the rest fades in (the week's round and targets, the hint)
+function renderWalkHud() {
+  const w = world, hud = $('walk-hud'), nx = $('walk-next');
+  if (!w || !founded(w) || w.over || w.ended || !w.money) { hud.innerHTML = nx.innerHTML = ''; return; }
+  const sid = w.player.series, S = w.series[sid], raced = S.results.length;
+  const ts = WC.teamStandings(w, sid), ti = ts.findIndex(e => e.tid === w.player.team), ds = WC.seriesStandings(w, sid), di = ds.findIndex(e => e.pid === 'P');
+  const B = WC.briefing(w), rep = B.goals[1], fz = WC.finances(w), runs = fz && fz.net < 0 ? Math.floor(fz.runway) : null;
+  const bal = w.money.balance, mc = bal < 0 || (runs !== null && runs < 2) ? 'bad' : runs !== null && runs < 4 ? 'warn' : '';
+  const pos = (i, list) => raced && i >= 0 ? `${ord(i + 1)}<small> ${list[i].pts} PTS</small>` : '&mdash;';
+  hud.innerHTML = `<div class="wh-team">${escP(w.teams[w.player.team].name)}</div>
+    <div class="wh-row"><div class="wh-cell main"><small>Team</small><b>${pos(ti, ts)}</b></div><div class="wh-cell"><small>You</small><b>${pos(di, ds)}</b></div>
+    <div class="wh-cell"><small>${rep ? rep.label : 'Reputation'}</small><b>${rep ? rep.value : ''}</b></div>
+    <div class="wh-cell ${mc}"><small>Bank</small><b>${WC.money$(bal)}</b>${runs !== null && runs < 6 ? `<em>${Math.max(0, runs)} round${runs === 1 ? '' : 's'} left</em>` : ''}</div></div>
+    <p class="wh-hint">${B.hint || ''}</p>`;
+  const wk = myWeek(w), R = S.cal[w.round], n = w.round + 1;
+  nx.innerHTML = wk.left <= 0 ? `<b>Race day</b> Round ${n} at ${escP(R.gp ? WC.GP_NAME : R.name)}: head out the door`
+    : `<b>Next</b> Round ${n} at ${escP(R.gp ? WC.GP_NAME : R.name)}, Saturday &middot; ${wk.left} day${wk.left === 1 ? '' : 's'} to spend`;
+}
+// what a spot wants of you (its marker goes amber, pink when it's urgent, and its tag says why): { text, bad } or null
+let wantC = { t: 0, by: {} };
+function wantOf(key) {
+  const w = world; if (!w || screen !== 's-hub' || !founded(w)) return null;
+  const now = performance.now(); if (now - wantC.t > 500) wantC = { t: now, by: {} };
+  if (key in wantC.by) return wantC.by[key];
+  let r = null;
+  if (key === 'computer') {
+    const nm = WC.unreadMail(w), owed = (w.staff || []).some(x => x.owed > 0);
+    r = WC.payrollShort(w) ? { text: 'Payroll short', bad: true } : owed ? { text: 'Wages owed', bad: true } : nm ? { text: `${nm} new`, bad: false } : w.car && tyreShort(w) ? { text: 'Order tyres', bad: false } : null;
+  } else if (key === 'car' && w.car) {
+    const P = WC.carParts(w), k = WC.PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)[0];
+    if (P[k].cond < 0.5) r = { text: `${WC.PARTS[k].name} ${Math.round(P[k].cond * 100)}%`, bad: P[k].cond < 0.3 };
+  } else if (key === 'list') {
+    r = WC.listWants(w) ? { text: 'To write', bad: false } : WC.listFresh(w).length ? { text: 'New', bad: false } : null;
+  } else if (key === 'door') {
+    const ch = dayAt('door'), ev = ch.find(o => /^ev|^din/.test(o.key) && o.tag === 'Today');
+    r = ev ? { text: 'Today', bad: false } : myWeek(w).left <= 0 ? { text: 'Race day', bad: false } : null;
+  }
+  return (wantC.by[key] = r);
 }
 function renderHubMenu() {
   if (!world) return;
