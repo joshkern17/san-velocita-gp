@@ -1,6 +1,7 @@
 # Your pit garage model
 
-During practice and qualifying you sit in your team's pit garage (`js/pitgarage.js`). The game has a plain
+During practice and qualifying you sit in your team's pit garage (`js/pitgarage.js`). (Your World Career home garage
+is built from a kit of pieces instead: see [GARAGE-KIT.md](GARAGE-KIT.md). Without the kit, home uses this model too.) The game has a plain
 placeholder room. Put your own model at **`models/garage.glb`** and it's used instead (the first time the garage
 opens). For the Windows / single-file version, rebuild it (`cd tools && node build.mjs`); the model is packed inside.
 

@@ -681,6 +681,7 @@ export function analyzeTrack(T, env, paint = null, osm = null, dress = null) {
     for (let i = 0; i < N; i++) if (BR2[i]) KERB[i] = 0;
     kerbs = autoKerbs(T, KERB);
   }
+  kerbs = kerbs || []; // (kerbs off, or a dirt track: none)
   // per side and sample: which stretch (KI: its index + 1) and how wide it is there (KW, tapered at its ends)
   const KI = [new Int16Array(N), new Int16Array(N)], KW = [new Float32Array(N), new Float32Array(N)];
   kerbs.forEach((k, n) => {

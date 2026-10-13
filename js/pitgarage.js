@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { buildF1 } from './carmodel.js';
 import { loadCharacters, makeCharacter } from './characters.js';
+import { loadKit } from './garagekit.js';
 
 const hex = (c) => '#' + (c >>> 0).toString(16).padStart(6, '0');
 const TYRE_CSS = { soft: '#e0302a', medium: '#f2d22a', hard: '#f0f0f0', wet: '#3a8af0', dirt: '#b8824a' };
@@ -47,6 +48,7 @@ export class PitGarage {
     const back = new THREE.PointLight(0xffe2b0, 0.6, 14); back.position.set(0, 3.6, -8);
     this.lights = [hemi, key, door, back]; this.scene.add(...this.lights);
     this.buildRoom();
+    this.defRoom = { kids: [...this.room.children], tyreBands: this.tyreBands, screen: this.screen, screenHit: this.screenHit }; // (see useDefault)
   }
 
   // ---------- the default room ----------
@@ -127,20 +129,27 @@ export class PitGarage {
   // swap the default room for your model (and its lights, if it has any), hooking up its named parts:
   //   GUIDE_GameView (camera) the shot, other GUIDE* (objects) left out, TV_Screen* (object) the live timing, TeamBand* (object) the team banner,
   //   materials TeamMain* / TeamAccent* the team's colours, TyreBand* the compound you'll go out on
-  useRoom(m) {
-    // the game's camera: GUIDE_GameView, wherever you put it in Blender (export with Cameras on)
+  useRoom(m, key = 'pit') {
     m.position.z = CAR_Z; // (the car's spot is the model's origin)
     m.updateMatrixWorld(true);
-    let cam = null;
-    m.traverse(o => { if (!cam && o.isCamera && /^(GUIDE_GameView|GameView)/.test(o.name || (o.parent && o.parent.name) || '')) cam = o; });
-    this.view = cam ? this.viewFrom(cam) : null;
-    const drop = []; let lit = false;
-    m.traverse(o => { if (o.isCamera || (o.name || '').startsWith('GUIDE')) drop.push(o); else if (o.isLight) lit = true; });
-    for (const o of drop) o.removeFromParent(); // (GUIDE_ objects are modelling aids)
+    const U = m.userData;
+    if (!U.prepped) { // (once per model: it can come back, between the pit box and home)
+      // the game's camera: GUIDE_GameView, wherever you put it in Blender (export with Cameras on)
+      let cam = null;
+      m.traverse(o => { if (!cam && o.isCamera && /^(GUIDE_GameView|GameView)/.test(o.name || (o.parent && o.parent.name) || '')) cam = o; });
+      U.view = cam ? this.viewFrom(cam) : null;
+      const drop = [];
+      m.traverse(o => { if (o.isCamera || (o.name || '').startsWith('GUIDE')) drop.push(o); else if (o.isLight) U.lit = true; });
+      for (const o of drop) o.removeFromParent(); // (GUIDE_ objects are modelling aids)
+      // (Blender's exporter writes bulbs in physical units, ~54 per watt; the game's lights are tuned far lower)
+      m.traverse(o => { if (o.isPointLight || o.isSpotLight) o.intensity *= BULB_SCALE; });
+      U.prepped = true;
+    }
+    this.view = U.view;
     // a model with its own lights is lit by them alone (plus a faint fill so the shadows aren't pitch black)
-    // (Blender's exporter writes bulbs in physical units, ~54 per watt; the game's lights are tuned far lower)
-    m.traverse(o => { if (o.isPointLight || o.isSpotLight) o.intensity *= BULB_SCALE; });
-    if (lit) { for (const l of this.lights) l.visible = false; this.scene.add(new THREE.HemisphereLight(0xc8d0ff, 0x202024, 0.12)); }
+    for (const l of this.lights) l.visible = !U.lit;
+    if (this.fill) { this.fill.removeFromParent(); this.fill = null; }
+    if (U.lit) { this.fill = new THREE.HemisphereLight(0xc8d0ff, 0x202024, 0.12); this.scene.add(this.fill); }
     this.room.clear(); this.tyreBands = []; this.teamMats = []; this.screen = null; this.listHook = null; this.dropList();
     // glTF uvs are flipped vs canvas textures
     this.tvTex.flipY = false; this.tvTex.needsUpdate = true;
@@ -163,7 +172,8 @@ export class PitGarage {
     });
     // no PC_Screen: a CRT from the asset pack gets a screen laid over its glass
     if (!this.screen && crts.length) this.attachScreen(crts[0], 0.391, 0.34, new THREE.Vector3(-0.0015, 0.30, 0.2245), 0);
-    this.room.add(m); this.custom = true;
+    this.room.add(m); this.custom = key;
+    this.placeCar2();
     if (this.memLast) { this.memKey = null; this.setMemories(this.memLast); } // (placed against this room)
     if (this.team) this.setTeam(this.team);
     if (this.tyre) this.setTyre(this.tyre);
@@ -176,6 +186,36 @@ export class PitGarage {
     const s = h > 1e-4 ? Math.max(0.5, -(pos.x * f.x + (pos.z - CAR_Z) * f.z) / h) : 5; // nearest the car's spot
     return { pos, quat, pivot: pos.clone().addScaledVector(f, s), fov: cam.fov };
   }
+
+  // back to the plain room (the garage you're going to has no model)
+  useDefault() {
+    if (!this.custom) return;
+    const d = this.defRoom;
+    this.room.clear(); this.room.add(...d.kids);
+    this.tyreBands = d.tyreBands; this.teamMats = []; this.screen = d.screen; this.screenHit = d.screenHit; this.listHook = null; this.dropList();
+    this.tvTex.flipY = true; this.tvTex.needsUpdate = true; this.bandTex.flipY = true; this.bandTex.needsUpdate = true;
+    for (const l of this.lights) l.visible = true;
+    if (this.fill) { this.fill.removeFromParent(); this.fill = null; }
+    this.view = null; this.kit = null; this.custom = false; this.placeCar2();
+    if (this.memLast) { this.memKey = null; this.setMemories(this.memLast); }
+    if (this.team) this.setTeam(this.team);
+    if (this.tyre) this.setTyre(this.tyre);
+  }
+  // the room for where you are: a race weekend's pit box (your models/garage.glb), or home in World Career (the kit for
+  // your premises and what you've bought: js/garagekit.js; no kit, the pit box's model). home: { premises, stations }
+  pickRoom(home) {
+    const key = home ? `home:${home.premises}|${(home.stations || []).join(',')}` : 'pit';
+    if (key === this.roomWant) return; this.roomWant = key;
+    const get = home ? loadKit(home.premises, home.stations || []).then(k => k ? { m: k.group, kit: k } : loadRoom().then(m => ({ m, kit: null })))
+      : loadRoom().then(m => ({ m, kit: null }));
+    this.roomLoading = get.then(({ m, kit }) => {
+      if (this.roomWant !== key) return;
+      this.kit = kit;
+      if (m) this.useRoom(m, key); else this.useDefault();
+    });
+  }
+  // when the room you're going to is in (its shots are placed from what's in it)
+  roomReady() { return this.roomLoading ? this.roomLoading.then(() => {}, () => {}) : Promise.resolve(); }
 
   // ---------- the computer's screen ----------
   // the canvas the computer draws its idle desktop on (js/computer.js); glTF meshes want it unflipped
@@ -445,8 +485,6 @@ export class PitGarage {
     const C = this.carCentre(), d = this.doorDir(), side = new THREE.Vector3(-d.z, 0, d.x);
     return { pos: C.clone().addScaledVector(d, 3.4).addScaledVector(side, 2.3).setY(1.35), at: C.clone().setY(0.45), fov: 52, roll: -0.035 };
   }
-  // when your garage model (if there is one) is in the room: the shots are placed from what's in it
-  roomReady() { return loadRoom().then(m => m && !this.custom ? new Promise(r => { const t0 = performance.now(), chk = () => this.custom || performance.now() - t0 > 3000 ? r() : setTimeout(chk, 50); chk(); }) : null); }
   // cine(pose, secs): move the camera to { pos, at, fov, shift } over secs (0: a cut)
   cine(pose, secs = 0) {
     this.from = { pos: this.camera.position.clone(), quat: this.camera.quaternion.clone(), fov: this.camera.fov, shift: this.shiftNow ?? 0.2 };
@@ -483,8 +521,9 @@ export class PitGarage {
   // ---------- your base (World Career) ----------
   // Three shots, blended between (about three quarters of a second): 'room' (the garage: your car, the desk behind
   // it), 'seat' (sat at the computer: the screen fills the view) and 'car' (at the car, looking at one part).
-  openHome(cfg, team) {
-    this.open(cfg, team, 'medium', null); this.mode = 'home';
+  // home: { premises, stations, car2 } (World Career: what's yours, js/garagekit.js; car2 the second car's config, or null)
+  openHome(cfg, team, home = {}) {
+    this.open(cfg, team, 'medium', null, home); this.mode = 'home'; this.setCar2(home.car2 || null);
     this.shot = 'room'; this.shotPart = null; this.blendK = 1; this.from = null;
   }
   setView(shot, part = null) {
@@ -629,10 +668,10 @@ export class PitGarage {
 
   // bent / missing wings show on the car in the bay until the crew fixes them
   setDamage(d) { if (this.car && this.car.setDamage && d) this.car.setDamage(d); }
-  open(cfg, team, tyre, dmg) {
+  open(cfg, team, tyre, dmg, home = null) {
     this.active = true; this.t = 0; this.mode = 'pit'; this.shot = 'room'; this.prevShot = null; this.blendK = 1; this.from = null;
-    // (your own garage model, the first time the garage opens)
-    if (!this.custom) loadRoom().then(m => { if (m && !this.custom) this.useRoom(m); });
+    this.pickRoom(home); // (your own garage model, or home's kit)
+    if (!home) this.setCar2(null);
     this.setCar(cfg);
     this.car.group.position.set(0, 0, CAR_Z);
     this.car.group.add(this.car.shadow); this.car.shadow.position.y = 0.01;
@@ -647,7 +686,25 @@ export class PitGarage {
     if (this.active && this.mode === 'home') { this.car.group.position.set(0, 0, CAR_Z); this.car.group.add(this.car.shadow); this.car.shadow.position.y = 0.01; this.bay.add(this.car.group); }
   }
   // an empty bay (World Career: the car's been sold, or burned)
-  showCar(on) { this.carOff = !on; if (this.car) this.car.group.visible = on; }
+  showCar(on) { this.carOff = !on; if (this.car) this.car.group.visible = on; if (this.car2) this.car2.group.visible = on; }
+  // car two, in the kit's second bay (BAY_2) at home; null: none (a room without a second bay doesn't show it)
+  setCar2(cfg) {
+    const key = cfg ? JSON.stringify(cfg) : null;
+    if (key !== this.car2Key) {
+      this.car2Key = key;
+      if (this.car2) { this.car2.group.removeFromParent(); this.car2.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+      this.car2 = cfg ? buildF1(cfg, { texSize: 1024 }) : null;
+      if (this.car2) { this.car2.group.add(this.car2.shadow); this.car2.shadow.position.y = 0.01; }
+    }
+    this.placeCar2();
+  }
+  placeCar2() {
+    const c = this.car2, bay = this.kit && this.custom && this.kit.bays[1]; if (!c) return;
+    if (!bay) { c.group.removeFromParent(); return; }
+    this.room.updateMatrixWorld(true);
+    bay.getWorldPosition(c.group.position).setY(0); bay.getWorldQuaternion(c.group.quaternion);
+    c.group.visible = !this.carOff; this.bay.add(c.group);
+  }
   // people in the room (your teammate): [{ key, livery, face, clip }] (js/drivers.js dresses them). They stand behind
   // the car's right side, turned to the camera, helmets off; the same list again changes nothing
   setPeople(list = []) {
@@ -696,6 +753,7 @@ export class PitGarage {
       this.camera.fov = a.fov + (b.fov - a.fov) * k;
       this.shiftNow = a.shift + (b.shift - a.shift) * k;
       if (this.car) this.car.animate({ steer: 0, spin: 0, heave: Math.sin(this.t * 1.6) * 0.003, pitch: 0, roll: 0 });
+      if (this.car2 && this.car2.group.parent) this.car2.animate({ steer: 0, spin: 0, heave: Math.sin(this.t * 1.6 + 2) * 0.003, pitch: 0, roll: 0 });
       return;
     }
     // a race weekend at the desk (World Career): the computer's screen to the right of the menu, the Race Weekend app on it

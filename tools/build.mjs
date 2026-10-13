@@ -55,6 +55,10 @@ const carsDir = path.join(root, 'models/cars');
 const carGlbs = {};
 if (fs.existsSync(carsDir)) for (const f of fs.readdirSync(carsDir)) if (f.endsWith('.glb')) carGlbs[f.slice(0, -4)] = 'data:model/gltf-binary;base64,' + fs.readFileSync(path.join(carsDir, f)).toString('base64');
 const carsTag = inlineScript(`window.__SVGP_CARS = ${JSON.stringify(carGlbs)};`);
+// the home garage kit (models/garage/shell_*.glb, station_*.glb), read from window.__SVGP_KIT (js/garagekit.js)
+const kitDir = path.join(root, 'models/garage'), kitGlbs = {};
+if (fs.existsSync(kitDir)) for (const f of fs.readdirSync(kitDir)) if (/^(shell|station)_.*\.glb$/.test(f)) kitGlbs[f.slice(0, -4)] = 'data:model/gltf-binary;base64,' + fs.readFileSync(path.join(kitDir, f)).toString('base64');
+const kitTag = inlineScript(`window.__SVGP_KIT = ${JSON.stringify(kitGlbs)};`);
 // the real-world circuits (tracks/real: index + one file each), read from window.__SVGP_REAL (js/realtracks.js)
 const realDir = path.join(root, 'tracks/real');
 let realTag = '';
@@ -87,7 +91,7 @@ if (fs.existsSync(path.join(voiceDir, 'manifest.json'))) {
 }
 // the soundtrack is too big to inline: it goes in a music/ folder beside the HTML (js/audio.js reads __SVGP_MUSIC_DIR)
 const musicTag = inlineScript(`window.__SVGP_MUSIC_DIR = 'music/';`);
-swap('<script type="module" src="js/main.js"></script>', glbTag + garageTag + phoneTag + charsTag + blTag + envTag + carsTag + realTag + texTag + voiceTag + musicTag + inlineScript(js, 'module'));
+swap('<script type="module" src="js/main.js"></script>', glbTag + garageTag + phoneTag + charsTag + blTag + envTag + carsTag + kitTag + realTag + texTag + voiceTag + musicTag + inlineScript(js, 'module'));
 
 fs.mkdirSync(dist, { recursive: true });
 const name = 'San Velocita GP.html';

@@ -21,6 +21,7 @@ import { presetTracks, sampleTrack, trackStats, THEMES, cloneTrack } from './tra
 import { TEAMS } from './car.js';
 import { Garage } from './garage.js';
 import { PitGarage } from './pitgarage.js';
+import { PREMISES } from './garagekit.js';
 import { Opening, trailerModel } from './opening.js';
 import { driveHomeTrack, PARK } from './drivehome.js';
 import { Computer } from './computer.js';
@@ -2435,11 +2436,20 @@ function hubCar() {
   const cls = WC.seriesById(world.player.series).cls, car = worldCar();
   return CARS[carId(car)]?.cls === cls ? car : { ...car, chassis: chassisKey(carsOfClass(cls)[0]) };
 }
+// what's in the garage at home (js/garagekit.js): your premises, the facilities you've bought (each one a station in the
+// room) and car two in the second bay
+function homeKit(w) {
+  const t = w.teams[w.player.team], c2 = w.car && WC.car2Of(w), car = hubCar();
+  return { premises: PREMISES[WC.facLevel(t, 'base')] || PREMISES[0], stations: WC.FAC_KEYS.filter(k => k !== 'base' && WC.facLevel(t, k) > 0),
+    car2: c2 ? { ...car, number: (car.number || 7) % 99 + 1 } : null };
+}
+// (something bought or sold since: the room catches up)
+function syncHome() { if (world && pitGarage.active && pitGarage.mode === 'home') { const h = homeKit(world); pitGarage.pickRoom(h); pitGarage.setCar2(h.car2); } }
 function enterHub() {
   disposeSim(); updateLogoShown();
   const t = world.teams[world.player.team];
   if (world.livery) { t.main = world.livery.main; t.accent = world.livery.accent; }
-  pitGarage.openHome(hubCar(), { main: t.main, accent: t.accent, name: t.name }); pitGarage.showCar(!!world.car);
+  pitGarage.openHome(hubCar(), { main: t.main, accent: t.accent, name: t.name }, homeKit(world)); pitGarage.showCar(!!world.car);
   pitGarage.setPeople(mateInRoom(world));
   pcSeat = false; pc.close(); if (tsw.isOpen) tsw.close(); if (dayPlan.isOpen) dayPlan.close(); $('s-hub').classList.remove('seated', 'at-car', 'wizard', 'planning', 'at-list');
   hubMode = 'room'; carSub = null; carPart = null; optSub = false; calSub = null; listStep = null; listPrev = null;
@@ -2627,6 +2637,7 @@ function renderWeekStrip() {
 }
 function renderHubMenu() {
   if (!world) return;
+  syncHome();
   if (hubMode === 'car') return renderCarMenu();
   if (hubMode === 'list') return renderListMenu();
   if (coopGuest()) return renderGuestMenu();
