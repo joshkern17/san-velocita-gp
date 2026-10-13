@@ -54,6 +54,10 @@ export const CLIP_INFO = {
   lean: { loop: true }, lean_2: { loop: true }, stand_pose: { loop: true },
   // down on one knee (the right); kneel_down goes from standing to that, once
   kneel: { loop: true }, kneel_down: { loop: false }, kneel_point: { loop: true },
+  // standing to sat (Mixamo "Sitting"): sits back 0.46 m and down onto a seat about 0.48 m up, by 0.65 of the way
+  sit_down: { loop: false, seat: 0.48 },
+  // sat (a seat about 0.62 m up) to standing (Mixamo "Stand Up"), about 0.43 m forward
+  stand_up: { loop: false },
 };
 export const CLIPS = Object.keys(CLIP_INFO);
 
@@ -191,6 +195,7 @@ export class Character {
     aw.weight = 1 - k; aj.weight = k;
     return this;
   }
+  clipDuration(name) { const c = TPL.clips[name]; return c ? c.duration : 1; }
   setLook(look) {
     if (!TPL.looks[look] || look === this.look) return this;
     const clip = this.clip, t = this.action ? this.action.time : 0;

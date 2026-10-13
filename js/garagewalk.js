@@ -9,6 +9,9 @@
 //                                         // jog), lx/ly look (rad this frame)
 //   pitGarage.update(dt)                  // (moves you and the camera while walk.active)
 //   walk.spot                             // the spot you'd use, or null
+//   await walk.sit();                     // at the desk: walk to the chair, turn to the screen, sit down (resolves seated)
+//   walk.park();                          // hand the camera over (the computer): you stay sat in the chair
+//   await walk.resume();                  // stand back up out of it and walk on
 //   walk.stop();
 import * as THREE from 'three';
 import { loadCharacters, makeCharacter, CLIP_INFO } from './characters.js';
@@ -17,13 +20,18 @@ const R = 0.28;            // your radius (m): how close you get to things
 const WALK = CLIP_INFO.walk.speed, RUN = 2.3; // m/s (walking pace; the trigger all the way in: a jog, a bit quicker than the clip's stride)
 const ACCEL = 4.5, DECEL = 7;                 // m/s² (speeding up and slowing down: the walk eases into the jog)
 const CAM_DIST = 2.7, CAM_HEAD = 1.45, REACH = 1.1;
+// sit_down (Mixamo "Sitting", stand to sat): it stands about till 0.25 of the way, is down by 0.65, and sits back
+// SIT_BACK m (and SIT_SIDE m to its left) on the way
+const SIT_FROM = 0.25, SIT_TO = 0.68, SIT_SPEED = 1.15, SIT_BACK = 0.46, SIT_SIDE = 0.05;
+// stand_up (Mixamo "Stand Up", sat to stood): still till 0.2, up by 0.45, steady by 0.6, about 0.43 m forward
+const STAND_FROM = 0.15, STAND_TO = 0.6;
 
 export class GarageWalk {
   constructor(pg) { this.pg = pg; this.active = false; this.me = null; this.input = {}; this.spot = null; this.spots = []; }
 
   async start({ livery, face, spots = [] }) {
     const pg = this.pg;
-    this.spots = spots; this.spot = null; this.input = {}; this.speed = 0;
+    this.spots = spots; this.spot = null; this.input = {}; this.speed = 0; this.act = null; this.ghost = false; this.camFrom = null; this.focus = null; this._hips = null;
     if (!(await loadCharacters())) return false;
     if (this.me) this.me.dispose();
     this.me = makeCharacter({ look: 'racer', clip: 'idle', livery, face, helmet: false, seed: 11 });
@@ -43,7 +51,7 @@ export class GarageWalk {
     return true;
   }
   stop() {
-    this.active = false; if (this.pg.walker === this) this.pg.walker = null;
+    this.active = false; if (this.pg.walker === this) this.pg.walker = null; this.pg.parked = null; this.act = null;
     if (this.me) { this.me.dispose(); this.me.object.removeFromParent(); this.me = null; }
     this.spot = null;
   }
@@ -71,11 +79,19 @@ export class GarageWalk {
     const nav = pg.kit && pg.kit.nav[0];
     this.bounds = nav ? new THREE.Box3().setFromObject(nav) : new THREE.Box3(new THREE.Vector3(-5.6, 0, -13.6), new THREE.Vector3(5.6, 0, -0.4));
     this.camHits = []; pg.room.traverse(o => { if (o.isMesh && o.visible) this.camHits.push(o); });
+    // (the camera goes through the desk chair: sat in it, its back would push the camera right in over your head)
+    const ds = this.deskSeat(); this.noCam = new Set(); if (ds && ds.chair) ds.chair.o.traverse(m => { if (m.isMesh) this.noCam.add(m); });
   }
   // out of anything you've walked into (a circle against boxes), and inside the floor
   push() {
     const p = this.pos;
+    // (just stood up from the chair, tucked in at the desk: what you're stood in, the chair and the desk, doesn't push
+    // you till you're out of it; everything else does)
+    const inside = (b) => p.x > b.min.x - R && p.x < b.max.x + R && p.z > b.min.z - R && p.z < b.max.z + R;
+    if (this.ghost === true) this.ghost = new Set((this.boxes || []).filter(inside));
+    if (this.ghost) { for (const b of this.ghost) if (!inside(b)) this.ghost.delete(b); if (!this.ghost.size) this.ghost = null; }
     for (let it = 0; it < 3; it++) for (const b of this.boxes || []) {
+      if (this.ghost && this.ghost.has(b)) continue;
       const cx = Math.max(b.min.x, Math.min(b.max.x, p.x)), cz = Math.max(b.min.z, Math.min(b.max.z, p.z));
       let dx = p.x - cx, dz = p.z - cz, d = Math.hypot(dx, dz);
       if (d >= R) continue;
@@ -94,7 +110,8 @@ export class GarageWalk {
     // the camera turns (right stick / mouse: lx + turns it right)
     this.camYaw -= I.lx || 0; this.camPitch = Math.max(0.05, Math.min(0.9, this.camPitch + (I.ly || 0)));
     // walking, relative to where the camera looks (forward = (sin yaw, cos yaw); right = (-cos yaw, sin yaw))
-    const mx = I.mx || 0, my = I.my || 0, mag = Math.min(1, Math.hypot(mx, my));
+    const busy = this.act && this.acting(dt, wrap); // (sitting down or getting up: the sticks wait)
+    const mx = busy ? 0 : I.mx || 0, my = busy ? 0 : I.my || 0, mag = Math.min(1, Math.hypot(mx, my));
     // how fast: the stick's push, at walking pace; the right trigger (or Shift) takes it up to a jog. Eased, so the
     // walk blends into the jog and back (Character.move)
     const run = Math.max(0, Math.min(1, +I.run || 0)), want = mag > 0.15 ? WALK * Math.max(0.45, Math.min(1, mag / 0.9)) * (1 - run) + RUN * run : 0;
@@ -105,7 +122,8 @@ export class GarageWalk {
       // (the camera swings round behind you as you go, unless you're turning it yourself)
       if (!I.lx && my > 0.3) this.camYaw += wrap(this.heading - this.camYaw) * Math.min(1, dt * 0.9 * my); // (only walking forward: strafing doesn't spin it)
     }
-    if (want > 0 || this.speed > 0.05) { // (pushing the stick: moving, however slowly it's got going this frame. At 120 fps
+    if (busy) this.speed = 0;
+    else if (want > 0 || this.speed > 0.05) { // (pushing the stick: moving, however slowly it's got going this frame. At 120 fps
                                          // one frame's speeding up is under 0.05: zeroing it there, you never got going)
       const x0 = this.pos.x, z0 = this.pos.z;
       this.pos.x += Math.sin(this.heading) * this.speed * dt; this.pos.z += Math.cos(this.heading) * this.speed * dt;
@@ -116,19 +134,29 @@ export class GarageWalk {
       me.move(this.speed);
     } else { this.speed = 0; me.play('idle'); }
     me.object.position.copy(this.pos); me.object.rotation.y = this.heading; me.update(dt);
-    // the camera: behind and above, pulled in front of any wall between it and you
-    const head = this.pos.clone().setY(CAM_HEAD);
+    // the camera: behind and above, pulled in front of any wall between it and you (sat down: your head, lower and back
+    // over the seat)
+    // (sitting down or getting up: following your hips, lower as you sit; eased, so it doesn't jump when that starts)
+    const A = this.act, aim = A && A.focus ? new THREE.Vector3(A.focus.x, CAM_HEAD - 0.3 * A.k, A.focus.z) : this.pos.clone().setY(CAM_HEAD);
+    this.easeT = A ? 0.6 : (this.easeT || 0) - dt; // (walking: right on you; sitting, getting up and just after: eased)
+    if (!this.focus) this.focus = aim.clone(); this.focus.lerp(aim, this.easeT > 0 ? Math.min(1, dt * 8) : 1); const head = this.focus.clone();
     const back = new THREE.Vector3(-Math.sin(this.camYaw) * Math.cos(this.camPitch), Math.sin(this.camPitch), -Math.cos(this.camYaw) * Math.cos(this.camPitch));
     let dist = CAM_DIST;
-    const hit = new THREE.Raycaster(head, back, 0, CAM_DIST + 0.3).intersectObjects(this.camHits, false)[0];
+    const hit = new THREE.Raycaster(head, back, 0, CAM_DIST + 0.3).intersectObjects(this.camHits, false).find(h => !this.noCam || !this.noCam.has(h.object));
     if (hit) dist = Math.max(0.5, hit.distance - 0.3);
     this.camDist += (dist - this.camDist) * Math.min(1, dt * (dist < this.camDist ? 25 : 4));
     // (pulled in close by a wall behind: up over your shoulder instead, looking down)
     const lift = Math.min(0.5, Math.max(0, CAM_DIST - this.camDist) * 0.25);
     const cam = pg.camera; cam.position.copy(head).addScaledVector(back, this.camDist); cam.position.y += lift; cam.lookAt(head.x, head.y - 0.15 - lift * 0.3, head.z); cam.fov = 58;
+    // (back from the computer: out of the screen to here, not a cut)
+    if (this.camFrom) {
+      const f = this.camFrom, k = (f.k = Math.min(1, f.k + dt / 0.9)), e = k * k * (3 - 2 * k);
+      cam.position.lerpVectors(f.pos, cam.position, e); cam.quaternion.slerpQuaternions(f.quat, cam.quaternion, e); cam.fov = f.fov + (58 - f.fov) * e;
+      if (k >= 1) this.camFrom = null;
+    }
     // the spot you're at: the nearest you're facing, within reach
     const fx = Math.sin(this.heading), fz = Math.cos(this.heading); let best = null, bd = Infinity;
-    for (const s of this.spots) {
+    for (const s of this.act ? [] : this.spots) {
       const px = s.box ? Math.max(s.box.min.x, Math.min(s.box.max.x, this.pos.x)) : s.at.x, pz = s.box ? Math.max(s.box.min.z, Math.min(s.box.max.z, this.pos.z)) : s.at.z;
       const vx = px - this.pos.x, vz = pz - this.pos.z, d = Math.hypot(vx, vz) - (s.box ? R : 0);
       if (d > (s.reach || REACH) || d >= bd) continue;
@@ -136,6 +164,108 @@ export class GarageWalk {
       best = s; bd = d;
     }
     this.spot = best;
+  }
+  // the desk chair: the chair nearest the computer's screen (its middle is the seat), and which way it faces (away
+  // from its backrest: the tall part). Without one, a spot in front of the screen. { seat: Vector3 (on the floor),
+  // face: heading to the screen (rad), chair: { o, face } | null }
+  deskSeat() {
+    const pg = this.pg, f = pg.screenFrame(); if (!f) return null;
+    let best = null, bd = 1.8;
+    pg.room.traverse(o => {
+      if (!/chair/i.test(o.name) || /chair/i.test(o.parent && o.parent.name || '') || /^GUIDE/.test(o.name) || !o.visible) return;
+      const b = new THREE.Box3().setFromObject(o); if (b.isEmpty()) return;
+      const c = b.getCenter(new THREE.Vector3()), d = Math.hypot(c.x - f.c.x, c.z - f.c.z);
+      if (d < bd) { bd = d; best = { o, b, c }; }
+    });
+    const n = new THREE.Vector3(f.n.x, 0, f.n.z).normalize();
+    const seat = best ? best.c.clone().setY(0) : f.c.clone().addScaledVector(n, 0.85).setY(0);
+    let chair = null;
+    if (best) { // (the backrest: what's in the top quarter of it, off to one side of the middle)
+      const top = best.b.max.y - (best.b.max.y - best.b.min.y) * 0.25, v = new THREE.Vector3(), sum = new THREE.Vector3(); let k = 0;
+      best.o.updateMatrixWorld(true);
+      best.o.traverse(m => { const P = m.isMesh && m.geometry.attributes.position; if (!P) return;
+        for (let i = 0; i < P.count; i += 1) { v.fromBufferAttribute(P, i).applyMatrix4(m.matrixWorld); if (v.y >= top) { sum.add(v); k++; } } });
+      if (k) { sum.multiplyScalar(1 / k); const bx = sum.x - best.c.x, bz = sum.z - best.c.z; if (Math.hypot(bx, bz) > 0.05) chair = { o: best.o, face: Math.atan2(-bx, -bz), pivot: seat.clone() }; }
+    }
+    return { seat, face: Math.atan2(f.c.x - seat.x, f.c.z - seat.z), chair };
+  }
+  // turn something round the upright through `p` (world) by `ang` (rad)
+  spin(o, p, ang) {
+    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), ang);
+    o.updateMatrixWorld(true); o.parent.updateMatrixWorld(true);
+    const wp = o.getWorldPosition(new THREE.Vector3()).sub(p).applyQuaternion(q).add(p);
+    const wq = o.getWorldQuaternion(new THREE.Quaternion()).premultiply(q);
+    o.position.copy(wp.applyMatrix4(o.parent.matrixWorld.clone().invert()));
+    o.quaternion.copy(o.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(wq));
+  }
+  // sit down at the desk: walk to the spot in front of the chair (the clip sits back SIT_BACK into it), turn to the
+  // screen, sit. Resolves once you're down
+  sit() {
+    const s = this.deskSeat(); if (!s || !this.me) return Promise.resolve(false);
+    const fx = Math.sin(s.face), fz = Math.cos(s.face);
+    const stand = s.seat.clone().add(new THREE.Vector3(fx, 0, fz).multiplyScalar(SIT_BACK)).add(new THREE.Vector3(fz, 0, -fx).multiplyScalar(-SIT_SIDE));
+    const wrap = (x) => Math.atan2(Math.sin(x), Math.cos(x));
+    const chair = s.chair && Math.abs(wrap(s.face - s.chair.face)) > 0.05 ? { ...s.chair, left: wrap(s.face - s.chair.face) } : null;
+    return new Promise(done => { this.act = { kind: 'sit', step: 'walk', stand, seat: s.seat, face: s.face, chair, k: 0, done }; });
+  }
+  // sat at the computer: the camera's the computer's now; you stay in the chair (hidden once the camera's halfway in)
+  park() {
+    this.active = false; if (this.pg.walker === this) this.pg.walker = null;
+    this.pg.parked = this.me ? { object: this.me.object } : null;
+  }
+  // back from the computer: stand up out of the chair (the sit, backwards), the camera out of the screen behind you
+  resume() {
+    const pg = this.pg, me = this.me; if (!me || !this.act) return Promise.resolve(false);
+    pg.parked = null; me.object.visible = true;
+    this.camFrom = { pos: pg.camera.position.clone(), quat: pg.camera.quaternion.clone(), fov: pg.camera.fov, k: 0 };
+    this.camYaw = this.act.face; this.camPitch = 0.3;
+    this.active = true; pg.walker = this;
+    return new Promise(done => { Object.assign(this.act, { kind: 'stand', step: 'up', done }); });
+  }
+  // where your hips are (world), and how far down into the chair they are (0 standing, 1 sat)
+  hips() {
+    const me = this.me; me.object.position.copy(this.pos); me.object.rotation.y = this.heading; me.object.updateMatrixWorld(true);
+    this._hips = this._hips || me.bone('Hips'); return this._hips.getWorldPosition(new THREE.Vector3());
+  }
+  // a frame of sitting down / getting up; true while it's got the controls
+  acting(dt, wrap) {
+    const a = this.act, me = this.me;
+    const down = (h) => { a.focus = h; a.k = Math.max(0, Math.min(1, (0.99 - h.y) / (0.99 - 0.61))); };
+    if (a.kind === 'sit') {
+      // (you pull the chair round to face the desk as you get to it)
+      if (a.chair && a.chair.left) { const c = a.chair, d = Math.sign(c.left) * Math.min(Math.abs(c.left), dt * 2.6); this.spin(c.o, c.pivot, d); c.left -= d; if (Math.abs(c.left) < 1e-4) c.left = 0; }
+      if (a.step === 'walk') {          // (to the spot in front of the chair, straight there)
+        const vx = a.stand.x - this.pos.x, vz = a.stand.z - this.pos.z, d = Math.hypot(vx, vz);
+        if (d < 0.03) { this.pos.x = a.stand.x; this.pos.z = a.stand.z; a.step = 'turn'; me.play('idle', { fade: 0.25 }); }
+        else { this.heading += wrap(Math.atan2(vx, vz) - this.heading) * Math.min(1, dt * 10); const v = Math.min(WALK, d / dt); this.pos.x += vx / d * v * dt; this.pos.z += vz / d * v * dt; me.move(WALK); }
+      }
+      if (a.step === 'turn') {          // (round to face the screen)
+        const e = wrap(a.face - this.heading); this.heading += Math.sign(e) * Math.min(Math.abs(e), dt * 5);
+        if (Math.abs(e) < 0.02 && !(a.chair && a.chair.left)) { this.heading = a.face; a.step = 'down'; me.play('sit_down', { once: true, fade: 0.2, offset: SIT_FROM, speed: SIT_SPEED }); }
+      }
+      if (a.step === 'down' || a.step === 'sat') {
+        down(this.hips()); this.camYaw += wrap(a.face - this.camYaw) * Math.min(1, dt * 2);
+        if (a.step === 'down' && me.action.time / me.clipDuration('sit_down') >= SIT_TO) { a.step = 'sat'; a.done(true); }
+      }
+      return true;
+    }
+    // getting up (stand_up): it starts sat a little higher and further back than sit_down ends, so the body's held where
+    // it was and eased onto the clip as you rise. You end up where it stood you (its hips)
+    const D = me.clipDuration('stand_up');
+    if (a.step === 'up') {
+      const H0 = this.hips();
+      this.pos.x = a.seat.x; this.pos.z = a.seat.z;
+      me.play('stand_up', { once: true, fade: 0, offset: STAND_FROM, speed: SIT_SPEED }); me.body.position.set(0, 0, 0); me.mixer.update(0);
+      a.off = H0.sub(this.hips()).applyAxisAngle(new THREE.Vector3(0, 1, 0), -this.heading); a.step = 'rise';
+    }
+    const t = me.action.time / D, e = Math.max(0, Math.min(1, (t - 0.2) / (0.45 - 0.2)));
+    me.body.position.copy(a.off).multiplyScalar(1 - e * e * (3 - 2 * e));
+    down(this.hips());
+    if (t >= STAND_TO) {
+      const h = this.hips(); this.pos.x = h.x; this.pos.z = h.z; me.body.position.set(0, 0, 0);
+      me.play('idle', { fade: 0 }); this.act = null; this.ghost = true; a.done(true); return false;
+    }
+    return true;
   }
   // where to put the prompt: above the spot (screen px), or null
   promptAt() {

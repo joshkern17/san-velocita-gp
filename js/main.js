@@ -2083,6 +2083,10 @@ function tswInput() {
 }
 function standUp() {
   if (!pcSeat) return;
+  if (walkSat) { // (walked up and sat down: get up out of the chair, back to walking)
+    walkSat = false; pc.close(); pitGarage.refreshScreen(); pcSeat = false; $('s-hub').classList.remove('seated'); sfx.back();
+    walk.resume(); pitGarage.setView('room'); $('s-hub').classList.add('walking'); renderHub(); renderHints(); return; // (walking has the camera; the garage's own shot is the room again)
+  }
   pc.close(); pitGarage.refreshScreen(); pitGarage.setView(hubMode === 'car' ? 'car' : 'room', hubMode === 'car' ? carPart : null);
   pcSeat = false; $('s-hub').classList.remove('seated'); sfx.back(); renderHub(); renderHints();
 }
@@ -2282,11 +2286,22 @@ function walkSpots() {
 // what a spot does: in a career, the hub menu's own item; in the preview, nothing (it says what it'd be)
 const WALK_DOES = { computer: /^Computer/, list: /^The List/, car: /^(Work On The Car|Look At The Car)/, car2: /^(Work On The Car|Look At The Car)/, tools: /^(Work On The Car|Look At The Car)/, calendar: /\bday\b/, sim: /\bday\b/ };
 function useSpot(s) {
+  // the computer: walk round to the chair and sit down first (the preview: sit a moment, then get back up)
+  if (s.key === 'computer' && walk.deskSeat()) {
+    if (screen === 's-homeview') { sfx.select(); walk.sit().then(() => { toast(`In a career: <b>${s.label}</b>.`, 1800); setTimeout(() => { if (walk.active) walk.resume(); }, 1600); }); return; }
+    const it = hubItem(WALK_DOES.computer); if (!it) { sfx.error(); return; }
+    sfx.select(); $('walk-prompt').hidden = true;
+    walk.sit().then(() => { if (!walk.active || screen !== 's-hub') return; walk.park(); walkSat = true; $('s-hub').classList.remove('walking'); it.action(); renderHints(); });
+    return;
+  }
   if (screen === 's-homeview') { sfx.select(); toast(`In a career: <b>${s.label}</b>.`, 1800); return; }
   const it = WALK_DOES[s.key] && hubItem(WALK_DOES[s.key]);
   if (!it) { sfx.error(); toast(s.key === 'car2' ? 'Car two: on the computer (Team).' : 'Nothing to do here right now.', 1800); return; }
   stopWalk(true); it.action();
 }
+// sat at the computer after walking up to it (walk.park): leaving it, you get back up and walk on
+let walkSat = false;
+function dropWalk() { if (walkSat) { walkSat = false; walk.stop(); } }
 function startWalk() {
   const own = screen === 's-homeview' ? settings.car : hubCar();
   sfx.select();
@@ -2296,7 +2311,7 @@ function startWalk() {
   });
 }
 function stopWalk(quiet = false) {
-  if (!walk.active) return;
+  if (!walk.active || walk.act) return; // (not halfway into the chair)
   walk.stop(); $('walk-prompt').hidden = true;
   document.querySelectorAll('.screen.walking').forEach(e => e.classList.remove('walking'));
   pitGarage.toRoom(); if (!quiet) sfx.back(); renderHints();
@@ -2311,7 +2326,7 @@ function walkInput() {
     lx: rx * 2.6 * dt + (k('KeyL') - k('KeyJ')) * 2 * dt + walkMouse[0] * 0.005, ly: ry * 1.4 * dt + (k('KeyK') - k('KeyI')) * 1.2 * dt + walkMouse[1] * 0.003 };
   walkMouse = [0, 0];
   if (pressed('Escape') || pressed('GP1') || pressed('Backspace')) { stopWalk(); return; }
-  if ((pressed('Enter') || pressed('Space') || pressed('GP0')) && walk.spot) useSpot(walk.spot);
+  if ((pressed('Enter') || pressed('Space') || pressed('GP0')) && walk.spot && !walk.act) useSpot(walk.spot);
   const el = $('walk-prompt'), s = walk.spot, at = s && walk.promptAt();
   el.hidden = !at;
   if (at) { el.style.left = at.x + 'px'; el.style.top = at.y + 'px'; const g = GLYPHS[device.kind === 'pad' ? 'pad' : 'kb'].ok; if ($('walk-key').innerHTML !== g) $('walk-key').innerHTML = g; if ($('walk-label').textContent !== s.label.toUpperCase()) $('walk-label').textContent = s.label.toUpperCase(); }
@@ -2574,7 +2589,7 @@ function enterHub() {
   if (world.livery) { t.main = world.livery.main; t.accent = world.livery.accent; }
   pitGarage.openHome(hubCar(), { main: t.main, accent: t.accent, name: t.name }, homeKit(world)); pitGarage.showCar(!!world.car);
   pitGarage.setPeople(mateInRoom(world));
-  pcSeat = false; pc.close(); if (tsw.isOpen) tsw.close(); if (dayPlan.isOpen) dayPlan.close(); $('s-hub').classList.remove('seated', 'at-car', 'wizard', 'planning', 'at-list');
+  dropWalk(); pcSeat = false; pc.close(); if (tsw.isOpen) tsw.close(); if (dayPlan.isOpen) dayPlan.close(); $('s-hub').classList.remove('seated', 'at-car', 'wizard', 'planning', 'at-list');
   hubMode = 'room'; carSub = null; carPart = null; optSub = false; calSub = null; listStep = null; listPrev = null;
   drawList(); renderHub(); show('s-hub'); hubEnter();
   if (world.ended) startEnding(!!world.endSeen); else if (!coopGuest()) maybeList();
@@ -4238,7 +4253,7 @@ function beginCoopRace(m, hostRace = null) {
   extra.net = { host, myId: coop.net.id, grid: m.grid, t0: m.t0, goDelay: m.goDelay, pick: 0, strat: m.strat || 0, clock: () => coop.net.now() };
   extra.trackData = coopTrackData(m.track);
   weekend = null;
-  if (!host) { if (pcSeat) { pcSeat = false; pc.close(); $('s-hub').classList.remove('seated'); } phone.close(); phone.hide(); if (fp) fitPickClose(); }
+  if (!host) { if (pcSeat) { dropWalk(); pcSeat = false; pc.close(); $('s-hub').classList.remove('seated'); } phone.close(); phone.hide(); if (fp) fitPickClose(); }
   const R = w && w.series[w.player.series].cal[w.round];
   const brief = host ? hostRace.brief : `<b>${seriesName(w.player.series).toUpperCase()} &middot; ROUND ${w.round + 1} OF ${w.opts.len}</b><br>${w.teams[w.player.team].name}, car two${R ? ` &middot; ${R.name}` : ''}<br>Targets: you top ${WC.driverTarget(w, w.coop.pid)}, ${w.player.name.split(' ')[0]} top ${WC.driverTarget(w, 'P')} (${WC.money$(WC.targetBonus(w))} each)`;
   startRace(m.track, { mode: 'race', laps: m.laps, opponents: 11, brief, pick: false, onlyClass: m.cls, extra }, host ? 'world' : 'coop');
@@ -4267,7 +4282,7 @@ function beginCoopSession(m, hostRace = null) {
   extra.net = { host, myId: coop.net.id, grid: m.grid, pick: 0, strat: 0, goDelay: 0, qualiTeams: m.qualiTeams, clock: () => coop.net.now() };
   extra.trackData = coopTrackData(m.track);
   weekend = null;
-  if (!host) { if (pcSeat) { pcSeat = false; pc.close(); $('s-hub').classList.remove('seated'); } phone.close(); phone.hide(); if (fp) fitPickClose(); }
+  if (!host) { if (pcSeat) { dropWalk(); pcSeat = false; pc.close(); $('s-hub').classList.remove('seated'); } phone.close(); phone.hide(); if (fp) fitPickClose(); }
   const brief = `<b>${SESSION_NAME[m.kind].toUpperCase()} &middot; ONLINE</b><br>${Math.round(m.time / 60)} minutes, both of you on track. The clock starts when you've both loaded.`;
   startRace(m.track, { mode: m.kind, laps: m.laps, opponents: 11, practiceTime: m.time, qualiTime: m.time, brief, pick: false, onlyClass: m.cls, extra }, host ? 'world' : 'coop');
 }
@@ -5494,6 +5509,7 @@ function frame(now) {
 function frameBody(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   const pad = pollGamepad();
+  if (walkSat && (screen !== 's-hub' || !pcSeat)) dropWalk(); // (gone somewhere else from the computer: nobody left in the chair)
   if (screen === 'hud' && sim && !sim.paused) {
     const ctl = window.__autopilot && sim.player ? sim.aiControlsFor(sim.player, dt) : driveControls(pad);
     const press = {

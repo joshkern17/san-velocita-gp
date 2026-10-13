@@ -12,6 +12,7 @@ CLIPS = {
   'Standing Idle': 'idle', 'Look Around': 'idle_look', 'Arm Stretching': 'idle_stretch', 'Waving': 'wave', 'Victory': 'victory',
   'Pointing': 'point', 'Angry Point': 'point_angry', 'Shaking Hands 2': 'handshake',
   'Walking': 'walk', 'Walking(1)': 'walk_2', 'Jog Forward': 'jog',
+  'Sitting Down': 'sit_down', 'Stand Up': 'stand_up',
   'Sitting': 'sit', 'Sitting Idle': 'sit_idle', 'Sitting Clap': 'sit_clap', 'Sitting Clap(1)': 'sit_clap_2',
   'Sitting Yell': 'sit_yell', 'Sitting Yell(1)': 'sit_yell_2', 'Sitting Rubbing Arm': 'sit_rub_arm',
   'Leaning': 'lean', 'Leaning(1)': 'lean_2', 'Male Standing Pose(1)': 'stand_pose',
@@ -113,6 +114,23 @@ def fix_rest(arm, act, base):
                     kp.co[1] = v[i]; kp.handle_left[1] += d; kp.handle_right[1] += d
             for fc in fcs: fc.update()
 
+# A walk or jog downloaded without "In Place" ticked carries the hips forward (a jog: 2 m a cycle); the game moves the
+# character itself, so take out the hips' steady drift (first key to last), keeping the bob and sway.
+IN_PLACE = {'walk', 'walk_2', 'jog'}
+def in_place(arm, act, base):
+    bag = anim_utils.action_get_channelbag_for_slot(act, arm.animation_data.action_slot)
+    fcs = [bag.fcurves.find(f'pose.bones["{M}Hips"].location', index=i) for i in range(3)]
+    if not all(fcs): return
+    s = arm.scale[0] * arm.data.bones[M + 'Hips'].matrix_local.to_scale()[0]
+    drift = [fc.keyframe_points[-1].co[1] - fc.keyframe_points[0].co[1] for fc in fcs]
+    if sum(d * d for d in drift) ** 0.5 * s < 0.1: return
+    print('IN PLACE', base, 'took out', round(sum(d * d for d in drift) ** 0.5 * s, 2), 'm of travel')
+    for fc, d in zip(fcs, drift):
+        k0, k1 = fc.keyframe_points[0].co[0], fc.keyframe_points[-1].co[0]
+        for kp in fc.keyframe_points:
+            o = d * (kp.co[0] - k0) / (k1 - k0); kp.co[1] -= o; kp.handle_left[1] -= o; kp.handle_right[1] -= o
+        fc.update()
+
 # clips: each import brings its own armature + action; keep the action, drop the armature
 for f in sorted(glob.glob(os.path.join(SRC, '*.fbx'))):
     base = os.path.splitext(os.path.basename(f))[0]
@@ -122,6 +140,7 @@ for f in sorted(glob.glob(os.path.join(SRC, '*.fbx'))):
     arm, new = import_fbx(f)
     act = arm.animation_data.action
     fix_rest(arm, act, base)
+    if CLIPS[base] in IN_PLACE: in_place(arm, act, base)
     act.name = CLIPS[base]; act.use_fake_user = True
     slot = arm.animation_data.action_slot
     for o in new: bpy.data.objects.remove(o, do_unlink=True)

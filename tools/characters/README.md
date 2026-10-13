@@ -54,7 +54,10 @@ listed is skipped (and printed as SKIP).
 
 - Standing: hips about 1.0 m up, toes on y = 0. Faces +Z.
 - walk: 1.07 s cycle, about 1.35 m/s. walk_2: 1.5 s cycle, about 0.95 m/s.
-- jog (Mixamo *Jog Forward*, In Place): 0.83 s cycle, about 1.9 m/s. It puts the left foot down at the same point of
+- jog (Mixamo *Jog Forward*; downloaded without In Place ticked, `mixamo.py` takes the hips' travel out): 0.83 s cycle, about 1.9 m/s. It puts the left foot down at the same point of
   its cycle as walk, so `Character.move()` plays the two in step and blends them by speed.
+- sit_down (*Sitting*, stand to sat): sat by 0.65 of the way, 0.46 m back, the hips 0.61 m up (a seat about 0.48 m).
+  stand_up (*Stand Up*): starts sat higher (hips 0.76 m), stands 0.43 m forward by 0.5. `js/garagewalk.js` eases
+  between the two.
 - Sitting: hips 0.60 m up, straight above the origin, so the seat is about 0.48 m. sit_rub_arm: hips 0.69 m, so
   the seat is about 0.57 m.

@@ -30,7 +30,10 @@ Main Menu > **Home Garage** opens the room without a career: pick the premises, 
 into the jog as you squeeze; Shift on a keyboard), right stick /
 mouse drag / IJKL to look, A / Enter to use what you're facing (its prompt shows), B / Esc to stop. In a career each
 prompt does what its hub menu item does (the computer, Work On The Car, The List, the day plan). You start at `SPAWN`;
-you can't walk through anything standing on the floor (its bounding box, or a `COL_` mesh) or off `NAV_floor`. After exporting from Blender, reload the page and open
+you can't walk through anything standing on the floor (its bounding box, or a `COL_` mesh) or off `NAV_floor`.
+At the computer you sit down first: you walk round to the desk chair (any object named `...chair...` near the screen),
+swing it round to face the desk and sit in it; the camera goes on into the screen. Leaving the computer, you stand up
+and walk on. Without a chair in the room you sit on nothing, in front of the screen. After exporting from Blender, reload the page and open
 it again.
 
 ## Editing in Blender
