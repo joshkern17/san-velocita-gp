@@ -439,8 +439,9 @@ export class PitGarage {
         e.position.copy(bp).add(new THREE.Vector3(((i * 29) % 7 - 3) * 0.008, 0.003 + i * 0.004, ((i * 17) % 5 - 2) * 0.008)); G.add(e);
       }
     }
-    // the mattress: on the floor, somewhere clear (a few spots tried; none clear, no mattress)
-    if (m.mattress) {
+    // the mattress: on the floor, somewhere clear (a few spots tried; none clear, no mattress). Off: it lay in the way of
+    // walking round the garage, and it's out of the room (Mum still hears you're sleeping there)
+    if (m.mattress && SHOW_MATTRESS) {
       const C = this.carCentre(), d = this.doorDir(), sd = new THREE.Vector3(-d.z, 0, d.x);
       for (const [a, b] of [[-2, 1.2], [-1.6, 1.2], [1.6, -2.4], [-3.5, -3]]) { // (beside the car, in view of the hub camera first) // (in view of the hub camera first)
         const p = C.clone().addScaledVector(sd, a).addScaledVector(d, b); p.y = 1.2;
@@ -870,4 +871,5 @@ export class PitGarage {
     this.post.render(this.scene, this.camera, { trails: 0, grade: [1.02, 1, 0.98] });
   }
 }
+const SHOW_MATTRESS = false;
 function fmt(t) { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(3); }
