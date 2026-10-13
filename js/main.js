@@ -5776,7 +5776,7 @@ function frameBody(now) {
   setMusicScene(musicScene()); updateMusic(dt);
   if (PHONE_SCREENS.includes(screen) && world && !pcSeat && !tsw.isOpen && !dayPlan.isOpen && !ending.isOpen && !world.ended) phone.show(); else phone.hide();
   // sat at the garage computer: the 3D view at full resolution, so the screen in the scene is readable
-  post.setSharp((screen === 's-hub' && (pcSeat || pitGarage.nearScreen)) || (screen === 's-photo' && photo.sharp));
+  post.setSharp((screen === 's-hub' && (pcSeat || pitGarage.nearScreen || (walk.active && walk.nearScreen))) || (screen === 's-photo' && photo.sharp));
   phone.update(dt);
   netTick(dt);
   coopTick(dt);

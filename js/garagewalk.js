@@ -191,11 +191,16 @@ export class GarageWalk {
     // (back from the computer: out of the screen to here, not a cut)
     this.shift = 0;
     if (this.camFrom) {
-      const f = this.camFrom, k = (f.k = Math.min(1, f.k + dt / 0.9)), e = k * k * (3 - 2 * k);
-      cam.position.lerpVectors(f.pos, cam.position, e); cam.quaternion.slerpQuaternions(f.quat, cam.quaternion, e); cam.fov = f.fov + (58 - f.fov) * e;
+      const f = this.camFrom, k = (f.k = Math.min(1, f.k + dt / (f.secs || 0.9))), e = k * k * (3 - 2 * k);
+      if (f.seat && this.me) this.me.object.visible = k >= 0.5;
+      // (the walk's own pose, just set, is where it's going: a copy, since slerpQuaternions copies its from into the
+      // camera first, which would wipe it: the blend held the old angle all the way, then turned 20 degrees at once)
+      const to = cam.quaternion.clone();
+      cam.position.lerpVectors(f.pos, cam.position, e); cam.quaternion.slerpQuaternions(f.quat, to, e); cam.fov = f.fov + (58 - f.fov) * e;
       this.shift = (f.shift || 0) * (1 - e);   // (the room's shot sits off to one side of the screen, for the menu: eased to the middle, not a jump)
       if (k >= 1) this.camFrom = null;
     }
+    this.nearScreen = !!(this.camFrom && this.camFrom.seat && this.camFrom.k < 0.5); // (main.js: the computer's sharp view holds till then)
     // the spot you're at: the nearest you're facing, within reach
     const fx = Math.sin(this.heading), fz = Math.cos(this.heading); let best = null, bd = Infinity;
     for (const s of this.act ? [] : this.spots) {
@@ -269,8 +274,11 @@ export class GarageWalk {
   // back from the computer: stand up out of the chair (the sit, backwards), the camera out of the screen behind you
   resume() {
     const pg = this.pg, me = this.me; if (!me || !this.act) return Promise.resolve(false);
-    pg.parked = null; me.object.visible = true;
-    this.camFrom = { pos: pg.camera.position.clone(), quat: pg.camera.quaternion.clone(), fov: pg.camera.fov, shift: pg.shiftNow ?? 0, k: 0 };
+    // (out of the computer's screen: the way in, backwards. You're still hidden till the camera's halfway out, as you
+    // went going in, and it takes its time: from pressed to the monitor to behind you in the room)
+    const fromSeat = pg.zoomK > 0.5 || pg.shot === 'seat';
+    pg.parked = null; me.object.visible = !fromSeat;
+    this.camFrom = { pos: pg.camera.position.clone(), quat: pg.camera.quaternion.clone(), fov: pg.camera.fov, shift: pg.shiftNow ?? 0, k: 0, seat: fromSeat, secs: fromSeat ? 1.4 : 0.9 };
     this.camYaw = this.act.face; this.camPitch = 0.3;
     this.active = true; pg.walker = this;
     return new Promise(done => { Object.assign(this.act, { kind: 'stand', step: 'out', left: undefined, done }); });
