@@ -424,6 +424,7 @@ const MAIN_ITEMS = [
   { label: 'Garage', action: () => openGarage(), desc: 'Choose your car, build your F1 car and design its livery, helmet and suit.' },
   { label: 'The Opening', action: () => openOpening(), desc: 'Preview: how a World Career begins. The trailer, the pile on the side table, the lottery draw, the claim office. Look around with the mouse or a stick.' },
   { label: 'The Ending', action: () => openEndingPreview(), desc: 'Preview: how a World Career ends when the money runs out. The garage at night, the car going, the list off the wall, the Wire, the record. A made-up career: nothing is saved.' },
+  { label: 'Home Garage', action: () => openHomeView(), desc: 'Preview: the World Career garage. Pick the premises, the facilities and car two, and see the room change. Nothing is saved.' },
   { label: 'Track Editor', action: () => openEditor(), desc: 'Draw your own circuit, even on a real map of your town, then race it.' },
   { label: 'Options', action: () => openOptions('s-main'), desc: 'Screen look, retro effects, driving aids, units and sound.', cls: 'gap' },
   { label: 'How To Play', action: () => fadeTo(() => { openHelp(0); }, 200), desc: 'Controls for keyboard and controller, and racing tips.' },
@@ -2255,6 +2256,65 @@ function openEndingPreview() {
   world = w; WC.setCarCatalog(w, carCatalog());
   fadeTo(() => enterHub(), 200);
 }
+// ---- the home garage, previewed (main menu): the World Career garage built from its kit (js/garagekit.js) with the
+// premises, facilities and second car you pick; your Garage car in bay one. Nothing is saved ----
+const hv = { premises: 'lockup', fac: {}, car2: true, look: 'room' };
+const hvCar = () => ({ ...settings.car });
+function hvHome() {
+  return { premises: hv.premises, stations: WC.FAC_KEYS.filter(k => k !== 'base' && hv.fac[k] > 0),
+    car2: hv.car2 ? { ...hvCar(), number: (settings.car.number || 7) % 99 + 1 } : null };
+}
+function openHomeView() {
+  fadeTo(() => {
+    const c = hvCar();
+    pitGarage.openHome(c, { main: c.main, accent: c.accent, name: c.teamName || 'Your Team' }, hvHome());
+    pitGarage.showCar(true); pitGarage.setPeople([]); pitGarage.setNotice(false); pitGarage.setMemories(null);
+    hv.look = 'room'; show('s-homeview'); hvApply();
+  }, 200);
+}
+// (something changed: the room catches up, then the menu says what's in it)
+function hvApply() {
+  const h = hvHome(); pitGarage.pickRoom(h); pitGarage.setCar2(h.car2);
+  renderHomeView();
+  pitGarage.roomReady().then(() => { if (screen !== 's-homeview') return; if (!hvLooks().some(([k]) => k === hv.look)) hv.look = 'room'; hvLook(); renderHomeView(); });
+}
+// where you can look: the room, car two, each station that's in it
+function hvLooks() {
+  const k = pitGarage.kit, out = [['room', 'The Room']];
+  if (k && pitGarage.car2 && pitGarage.car2.group.parent) out.push(['car2', 'Car Two']);
+  if (k) for (const f of Object.keys(k.stations)) out.push([f, WC.FACILITIES[f].name]);
+  return out;
+}
+function hvLook() {
+  const k = pitGarage.kit, P = pitGarage;
+  if (hv.look === 'room' || !k) { P.setView('room'); return; }
+  const o = hv.look === 'car2' ? P.car2 && P.car2.group : k.stations[hv.look]; if (!o) { P.setView('room'); return; }
+  // (from in front of it, a little to one side, looking at its middle)
+  const at = o.getWorldPosition(new THREE.Vector3()), q = o.getWorldQuaternion(new THREE.Quaternion());
+  const front = new THREE.Vector3(0, 0, 1).applyQuaternion(q).setY(0).normalize(), side = new THREE.Vector3(-front.z, 0, front.x);
+  // (high enough to see over a car parked in front of it)
+  const far = hv.look === 'car2' ? 4.6 : 2.9;
+  P.cine({ pos: at.clone().addScaledVector(front, far).addScaledVector(side, far * 0.3).setY(hv.look === 'car2' ? 2.0 : 2.6), at: at.clone().addScaledVector(front, 0.4).setY(0.7), fov: 52, shift: 0.12 }, 0.8);
+}
+function renderHomeView() {
+  const k = pitGarage.kit, F = WC.FACILITIES, lv = F.base.levels;
+  const shellNote = k && k.shell !== hv.premises ? ` <b>No model for it yet</b>: you're seeing the ${lv[PREMISES.indexOf(k.shell)][0].toLowerCase()}.` : '';
+  const items = [
+    { label: 'Premises', values: lv.map((L, i) => [PREMISES[i], L[0]]), get: () => hv.premises, set: v => { hv.premises = v; hvApply(); },
+      desc: `${F.base.what}${shellNote} (models/garage/shell_${hv.premises}.glb)` },
+    ...WC.FAC_KEYS.filter(f => f !== 'base').map(f => ({ label: F[f].name, values: [[0, 'None'], ...F[f].levels.map((L, i) => [i + 1, L[0]])], get: () => hv.fac[f] || 0,
+      set: v => { hv.fac[f] = v; hvApply(); },
+      desc: `${F[f].what}${hv.fac[f] > 0 && k && !k.stations[f] ? ` <b>Not in this room</b>: ${pitGarage.custom && /^home:/.test(pitGarage.custom) ? `no station_${f}.glb yet, or no SLOT_${f} in the shell` : 'loading'}.` : ''}` })),
+    { label: 'Car Two', values: [[true, 'In The Bay'], [false, 'None']], get: () => hv.car2, set: v => { hv.car2 = v; hvApply(); },
+      desc: `The second car, in BAY_2.${hv.car2 && k && !k.bays[1] ? ' <b>This shell has no second bay.</b>' : ''}` },
+    { label: 'Look At', values: hvLooks(), get: () => hv.look, set: v => { hv.look = v; hvLook(); }, desc: 'Move the camera to the room, car two or a station.', cls: 'gap' },
+    { label: 'Back', action: () => backs['s-homeview'](), desc: 'Back to the main menu.' },
+  ];
+  menus['s-homeview'][0].setItems(items, true);
+}
+menus['s-homeview'] = [new Menu($('m-homeview'), [], { desc: 'd-homeview' })];
+HINTS['s-homeview'] = [['nav', 'Navigate'], ['lr', 'Change'], ['back', 'Back']];
+backs['s-homeview'] = () => { sfx.back(); fadeTo(() => { pitGarage.close(); show('s-main'); }, 200); };
 // (the preview's over: back to whatever career was loaded before)
 const endPreviewDone = () => { if (world && world.preview) { world = endPreviewWas; endPreviewWas = null; } };
 
@@ -5489,6 +5549,9 @@ function frameBody(now) {
     if (sim && sim.mode === 'attract') sim.update(dt, {}, {});
   } else if (screen === 's-photo' && sim) {
     photoInput(dt, pad);
+  } else if (screen === 's-homeview') {
+    menuInput();
+    pitGarage.update(dt);
   } else if (PHONE_SCREENS.includes(screen)) {
     // World Career, your garage: the computer has the controls while you're sat at it, the phone while it's up (P / Y)
     if (!endInput() && !tswInput() && !dayInput() && !pcInput() && !phoneInput()) menuInput();
@@ -5520,7 +5583,7 @@ function frameBody(now) {
   coopTick(dt);
   if (screen === 's-garage' || screen === 's-livery' || (screen === 's-tuning' && tuningFrom === 's-garage')) garage.render();
   else if (screen === 's-opening') opening.render();
-  else if (screen === 's-pitgarage' || screen === 's-hub' || (screen === 's-review' && reviewFrom === 's-pitgarage') || (screen === 's-tuning' && tuningFrom === 's-pitgarage')) pitGarage.render();
+  else if (screen === 's-pitgarage' || screen === 's-hub' || screen === 's-homeview' || (screen === 's-review' && reviewFrom === 's-pitgarage') || (screen === 's-tuning' && tuningFrom === 's-pitgarage')) pitGarage.render();
   else if (screen === 's-editor' && editor.v3d) editor.render3d(dt, post, renderer);
   else if (sim && screen !== 's-editor' && screen !== 's-loading') { sim.render(post, settings); if (photoShot && screen === 's-photo') { photoShot = false; photoCapture(); } }
   else if (screen !== 's-editor') { renderer.setRenderTarget(null); renderer.setClearColor(0x000000); renderer.clear(); }
@@ -5540,4 +5603,4 @@ requestAnimationFrame(frame);
 // debug handle
 window.__svgp = { get world() { return world; }, get photo() { return photo; }, get hud() { return hud; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, handleRaceEvents, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); } } };
+  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); }, openHomeView: () => openHomeView(), homeView: (o) => { Object.assign(hv, o); hvApply(); }, get hv() { return hv; } } };

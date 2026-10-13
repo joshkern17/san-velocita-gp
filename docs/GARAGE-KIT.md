@@ -21,6 +21,12 @@ models/garage/
 If a piece isn't there, the game leaves it out. With no shell for your premises it uses the next smaller one, and with
 no shell at all it falls back to `models/garage.glb`. A station bought for a shell with no slot for it doesn't show.
 
+## Seeing it in the game
+
+Main Menu > **Home Garage** opens the room without a career: pick the premises, each facility's level and car two, and
+**Look At** the room, car two or any station. Nothing is saved. After exporting from Blender, reload the page and open
+it again.
+
 ## Editing in Blender
 
 Open `models/garage/kit-start.blend` and **Save As** your own copy in the same folder. Running the template script again

@@ -11,6 +11,7 @@
 //   kit.stands     STAND_<role> (userData.clip: what they're doing there, userData.role)
 //   kit.interacts  INTERACT_<what> (userData.label)
 //   kit.stations   { tools: Object3D, ... } the stations set down, by facility
+//   kit.shell      the premises whose shell it is (a smaller one than asked for, when yours isn't made yet)
 //
 // The single-file build carries the pieces in window.__SVGP_KIT ({ shell_lockup: 'data:...', ... }).
 import * as THREE from 'three';
@@ -42,8 +43,8 @@ function cloneLit(src) {
 
 export async function loadKit(premises, stations = []) {
   // the shell: yours, or the next one down that exists
-  let shell = null;
-  for (let i = Math.max(0, PREMISES.indexOf(premises)); i >= 0 && !shell; i--) shell = await piece('shell_' + PREMISES[i]);
+  let shell = null, used = null;
+  for (let i = Math.max(0, PREMISES.indexOf(premises)); i >= 0 && !shell; i--) { shell = await piece('shell_' + PREMISES[i]); used = PREMISES[i]; }
   if (!shell) return null;
   const group = new THREE.Group(), room = cloneLit(shell); group.add(room);
   room.updateMatrixWorld(true);
@@ -66,5 +67,5 @@ export async function loadKit(premises, stations = []) {
   const nav = named('NAV_'); for (const n of nav) n.visible = false;
   for (const c of named('COL_')) c.visible = false;
   group.updateMatrixWorld(true);
-  return { group, bays, spawn: named('SPAWN')[0] || null, nav, stands: named('STAND_'), interacts: named('INTERACT_'), stations: set };
+  return { group, shell: used, bays, spawn: named('SPAWN')[0] || null, nav, stands: named('STAND_'), interacts: named('INTERACT_'), stations: set };
 }
