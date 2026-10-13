@@ -6,6 +6,7 @@
 //   scene.add(guy.object);                 // stands on y = 0, faces +Z
 //   guy.play('wave');                      // cross-fades from whatever was playing
 //   guy.play('victory', { once: true, then: 'idle' });
+//   guy.move(v);                           // on foot at v m/s: walk blending into jog, feet in step (play() to stop)
 //   updateCharacters(dt);                  // once per frame: ticks every live character (or guy.update(dt))
 //   guy.dispose();
 //   const driver = makeCharacter({ look: 'racer', livery: teamLivery });   // suit + helmet painted from a livery
@@ -44,7 +45,7 @@ export const LOOK_GROUPS = {
 export const CLIP_INFO = {
   idle: { loop: true }, idle_look: { loop: true }, idle_stretch: { loop: true },
   wave: { loop: true }, victory: { loop: true }, point: { loop: true }, point_angry: { loop: true }, handshake: { loop: true },
-  walk: { loop: true, speed: 1.35 }, walk_2: { loop: true, speed: 0.95 },
+  walk: { loop: true, speed: 1.35 }, walk_2: { loop: true, speed: 0.95 }, jog: { loop: true, speed: 1.9 },
   sit: { loop: true, seat: 0.48 }, sit_idle: { loop: true, seat: 0.48 }, sit_clap: { loop: true, seat: 0.48 },
   sit_clap_2: { loop: true, seat: 0.48 }, sit_yell: { loop: true, seat: 0.48 }, sit_yell_2: { loop: true, seat: 0.48 },
   sit_rub_arm: { loop: true, seat: 0.57 },
@@ -156,8 +157,9 @@ export class Character {
     const clip = TPL.clips[name];
     if (!clip) { console.warn('characters: no clip', name); return this; }
     if (this.clip === name && !once) { this.action.timeScale = speed; return this; }
+    if (this._pair) { if (fade > 0) this._pair.fadeOut(fade); else this._pair.stop(); this._pair = null; } // (off the move: the jog half fades too)
     const a = this.mixer.clipAction(clip);
-    a.reset(); a.timeScale = speed;
+    a.reset(); a.timeScale = speed; a.weight = 1;
     a.setLoop(once || CLIP_INFO[name]?.loop === false ? THREE.LoopOnce : THREE.LoopRepeat, Infinity);
     a.clampWhenFinished = true;
     if (offset) a.time = offset * clip.duration;
@@ -165,6 +167,28 @@ export class Character {
     if (this.action && this.action !== a && fade > 0) this.action.crossFadeTo(a, fade, false);
     else if (this.action && this.action !== a) this.action.stop();
     this.action = a; this.clip = name; this._then = once ? then : null;
+    return this;
+  }
+  // on foot at v m/s: the walk and the jog both playing, weighted by v (all walk at CLIP_INFO.walk.speed and under, all
+  // jog from CLIP_INFO.jog.speed), at a pace that keeps the feet from sliding. Both clips put the left foot down at the
+  // same point of their cycle, so they run in step (the same fraction of the way through) and the blend never scissors.
+  // Called every frame while moving; fades in from whatever was playing, play() fades out of it
+  move(v, { fade = 0.25 } = {}) {
+    const W = TPL.clips.walk, J = TPL.clips.jog;
+    if (!J) return this.play('walk', { speed: Math.max(0.45, v / CLIP_INFO.walk.speed) });
+    const sw = CLIP_INFO.walk.speed, sj = CLIP_INFO.jog.speed;
+    const w = Math.max(0, Math.min(1, (v - sw) / (sj - sw))), k = w * w * (3 - 2 * w), m = this.mixer; // (eased)
+    const aw = m.clipAction(W), aj = m.clipAction(J);
+    if (this.clip !== 'move') {
+      const from = this.action, t = from === aw ? aw.time / W.duration : from === aj ? aj.time / J.duration : 0;
+      for (const [a, c] of [[aw, W], [aj, J]]) if (a !== from) { a.reset(); a.time = t * c.duration; a.setLoop(THREE.LoopRepeat, Infinity); a.play(); if (fade > 0) a.fadeIn(fade); }
+      if (from && from !== aw && from !== aj) { if (fade > 0) from.fadeOut(fade); else from.stop(); }
+      this.action = aw; this._pair = aj; this.clip = 'move'; this._then = null;
+    }
+    // cycles a second: the walk's at v (a slow walk slows it, down to 0.45 of its pace), the jog's at v; blended
+    const rate = Math.max(0.45 * sw, Math.min(v, sw)) / sw / W.duration * (1 - k) + Math.max(v, 0.6 * sj) / sj / J.duration * k;
+    aw.timeScale = rate * W.duration; aj.timeScale = rate * J.duration;
+    aw.weight = 1 - k; aj.weight = k;
     return this;
   }
   setLook(look) {
@@ -182,7 +206,7 @@ export class Character {
   _mixer() {
     this.mixer = new THREE.AnimationMixer(this.body);
     this.mixer.timeScale = this.timeScale;
-    this.action = null; this.clip = null; this._then = null;
+    this.action = null; this.clip = null; this._then = null; this._pair = null;
     this.mixer.addEventListener('finished', () => { if (this._then) { const n = this._then; this._then = null; this.play(n); } });
   }
   // post(character): runs after the clip each frame, to bend bones on top of it (a crouch, a lean). bone(name) finds one

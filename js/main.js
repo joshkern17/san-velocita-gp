@@ -2307,7 +2307,7 @@ function walkInput() {
   const k = (c) => isDown(c) ? 1 : 0;
   const mx = lx + k('KeyD') + k('ArrowRight') - k('KeyA') - k('ArrowLeft'), my = -ly + k('KeyW') + k('ArrowUp') - k('KeyS') - k('ArrowDown');
   const dt = 1 / 60;
-  walk.input = { mx: Math.max(-1, Math.min(1, mx)), my: Math.max(-1, Math.min(1, my)), run: isDown('ShiftLeft') || isDown('ShiftRight') || !!(p && p.buttons[7] && p.buttons[7].value > 0.4),
+  walk.input = { mx: Math.max(-1, Math.min(1, mx)), my: Math.max(-1, Math.min(1, my)), run: isDown('ShiftLeft') || isDown('ShiftRight') ? 1 : p && p.buttons[7] ? Math.max(0, Math.min(1, (p.buttons[7].value - 0.08) / 0.84)) : 0,
     lx: rx * 2.6 * dt + (k('KeyL') - k('KeyJ')) * 2 * dt + walkMouse[0] * 0.005, ly: ry * 1.4 * dt + (k('KeyK') - k('KeyI')) * 1.2 * dt + walkMouse[1] * 0.003 };
   walkMouse = [0, 0];
   if (pressed('Escape') || pressed('GP1') || pressed('Backspace')) { stopWalk(); return; }

@@ -26,7 +26,8 @@ no shell at all it falls back to `models/garage.glb`. A station bought for a she
 Main Menu > **Home Garage** opens the room without a career: pick the premises, each facility's level and car two, and
 **Look At** the room, car two or any station, or **Walk Around** it. Nothing is saved.
 
-**Walk Around** (here and on the World Career hub menu): left stick / WASD to walk, RT / Shift to hurry, right stick /
+**Walk Around** (here and on the World Career hub menu): left stick / WASD to walk, squeeze RT to jog (the walk eases
+into the jog as you squeeze; Shift on a keyboard), right stick /
 mouse drag / IJKL to look, A / Enter to use what you're facing (its prompt shows), B / Esc to stop. In a career each
 prompt does what its hub menu item does (the computer, Work On The Car, The List, the day plan). You start at `SPAWN`;
 you can't walk through anything standing on the floor (its bounding box, or a `COL_` mesh) or off `NAV_floor`. After exporting from Blender, reload the page and open

@@ -5,7 +5,8 @@
 //
 //   const walk = new GarageWalk(pitGarage);
 //   await walk.start({ livery, face, spots: [{ key, label, at: Vector3 } | { key, label, box: Box3 }] });
-//   walk.input = { mx, my, lx, ly };     // mx/my walk (-1..1, my +1 forward), lx/ly look (rad this frame)
+//   walk.input = { mx, my, run, lx, ly }; // mx/my walk (-1..1, my +1 forward), run 0..1 (the right trigger: walk to
+//                                         // jog), lx/ly look (rad this frame)
 //   pitGarage.update(dt)                  // (moves you and the camera while walk.active)
 //   walk.spot                             // the spot you'd use, or null
 //   walk.stop();
@@ -13,7 +14,8 @@ import * as THREE from 'three';
 import { loadCharacters, makeCharacter, CLIP_INFO } from './characters.js';
 
 const R = 0.28;            // your radius (m): how close you get to things
-const WALK = CLIP_INFO.walk.speed, RUN = 2.6; // m/s (the clip's stride at walking pace; sped up to a jog)
+const WALK = CLIP_INFO.walk.speed, RUN = 2.3; // m/s (walking pace; the trigger all the way in: a jog, a bit quicker than the clip's stride)
+const ACCEL = 4.5, DECEL = 7;                 // m/s² (speeding up and slowing down: the walk eases into the jog)
 const CAM_DIST = 2.7, CAM_HEAD = 1.45, REACH = 1.1;
 
 export class GarageWalk {
@@ -21,7 +23,7 @@ export class GarageWalk {
 
   async start({ livery, face, spots = [] }) {
     const pg = this.pg;
-    this.spots = spots; this.spot = null; this.input = {};
+    this.spots = spots; this.spot = null; this.input = {}; this.speed = 0;
     if (!(await loadCharacters())) return false;
     if (this.me) this.me.dispose();
     this.me = makeCharacter({ look: 'racer', clip: 'idle', livery, face, helmet: false, seed: 11 });
@@ -93,16 +95,25 @@ export class GarageWalk {
     this.camYaw -= I.lx || 0; this.camPitch = Math.max(0.05, Math.min(0.9, this.camPitch + (I.ly || 0)));
     // walking, relative to where the camera looks (forward = (sin yaw, cos yaw); right = (-cos yaw, sin yaw))
     const mx = I.mx || 0, my = I.my || 0, mag = Math.min(1, Math.hypot(mx, my));
+    // how fast: the stick's push, at walking pace; the right trigger (or Shift) takes it up to a jog. Eased, so the
+    // walk blends into the jog and back (Character.move)
+    const run = Math.max(0, Math.min(1, +I.run || 0)), want = mag > 0.15 ? WALK * Math.max(0.45, Math.min(1, mag / 0.9)) * (1 - run) + RUN * run : 0;
+    this.speed += Math.max(-DECEL * dt, Math.min(ACCEL * dt, want - this.speed));
     if (mag > 0.15) {
       const c = this.camYaw, vx = Math.sin(c) * my - Math.cos(c) * mx, vz = Math.cos(c) * my + Math.sin(c) * mx;
       this.heading += wrap(Math.atan2(vx, vz) - this.heading) * Math.min(1, dt * 12);
-      const sp = I.run ? RUN : WALK * Math.max(0.45, mag);
-      this.pos.x += Math.sin(this.heading) * sp * dt * Math.min(1, mag / 0.9); this.pos.z += Math.cos(this.heading) * sp * dt * Math.min(1, mag / 0.9);
-      this.push();
-      me.play('walk', { speed: sp / WALK });
       // (the camera swings round behind you as you go, unless you're turning it yourself)
       if (!I.lx && my > 0.3) this.camYaw += wrap(this.heading - this.camYaw) * Math.min(1, dt * 0.9 * my); // (only walking forward: strafing doesn't spin it)
-    } else me.play('idle');
+    }
+    if (this.speed > 0.05) {
+      const x0 = this.pos.x, z0 = this.pos.z;
+      this.pos.x += Math.sin(this.heading) * this.speed * dt; this.pos.z += Math.cos(this.heading) * this.speed * dt;
+      this.push();
+      // (walked into something: only as fast as you actually got anywhere)
+      const got = Math.hypot(this.pos.x - x0, this.pos.z - z0) / Math.max(1e-4, dt);
+      if (got < this.speed * 0.5) this.speed = Math.max(got, Math.min(this.speed, WALK * 0.5));
+      me.move(this.speed);
+    } else { this.speed = 0; me.play('idle'); }
     me.object.position.copy(this.pos); me.object.rotation.y = this.heading; me.update(dt);
     // the camera: behind and above, pulled in front of any wall between it and you
     const head = this.pos.clone().setY(CAM_HEAD);
