@@ -2333,7 +2333,8 @@ function walkInput() {
   el.hidden = !at;
   if (at) { el.style.left = at.x + 'px'; el.style.top = at.y + 'px'; const g = GLYPHS[device.kind === 'pad' ? 'pad' : 'kb'].ok; if ($('walk-key').innerHTML !== g) $('walk-key').innerHTML = g; if ($('walk-label').textContent !== s.label.toUpperCase()) $('walk-label').textContent = s.label.toUpperCase(); }
 }
-canvas.addEventListener('mousemove', (e) => { if (walk.active && (e.buttons & 1)) { walkMouse[0] += e.movementX; walkMouse[1] += e.movementY; } });
+// (on the window, not the canvas: the screen's section lies over the canvas while you walk, so the canvas never heard it)
+addEventListener('mousemove', (e) => { if (walk.active && (e.buttons & 1)) { walkMouse[0] += e.movementX; walkMouse[1] += e.movementY; } });
 
 // ---- the home garage, previewed (main menu): the World Career garage built from its kit (js/garagekit.js) with the
 // premises, facilities and second car you pick; your Garage car in bay one. Nothing is saved ----
