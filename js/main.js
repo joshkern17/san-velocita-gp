@@ -1816,7 +1816,7 @@ const phone = new Phone({
   choose: (m, key) => {
     if (m.offer) {
       WC.answerOffer(world, key, m.offer);
-      WC.text(world, m.from, key === 'move' ? 'Great. We will send the paperwork over. See you on the grid.' : 'Understood. The offer stands for next year if you change your mind.');
+      WC.text(world, m.from, String(key).startsWith('move') ? 'Great. We will send the paperwork over. See you on the grid.' : 'Understood. We will keep an eye on your results.');
       phone.buzz();
     }
     saveWorld(); renderHub();
@@ -1934,7 +1934,7 @@ const pc = new Computer({
     if (m.offer) {
       WC.answerOffer(world, key, m.offer);
       const mate = world.people[world.teams[world.player.team].drivers.find(d => d !== 'P')];
-      if (key === 'move' && mate) { WC.text(world, mate.first, pick([`Heard we're moving up! About time.`, `We're going up a series? Brilliant. I'll start packing.`])); phone.buzz(); }
+      if (String(key).startsWith('move') && mate) { WC.text(world, mate.first, pick([`Heard we're moving up! About time.`, `We're going up a series? Brilliant. I'll start packing.`])); phone.buzz(); }
     }
     saveWorld(); renderHubMenu(); sfx.select();
   },

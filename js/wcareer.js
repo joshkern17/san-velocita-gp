@@ -615,6 +615,12 @@ function logLedger(w, e) {
     if (e.type === 'contact' && e.blame && e.a === 'P') h.grudge = (h.grudge || 0) + 0.6;
   }
 }
+// one text a round from anyone (your teammate, a driver you tangled with): the first thing they'd say is the one
+// they send. true: pid hasn't texted this round, and now has
+function roundOnce(w, pid) {
+  const k = `${w.year}:${w.round}`; if (!w._once || w._once.k !== k) w._once = { k, ids: [] };
+  if (w._once.ids.includes(pid)) return false; w._once.ids.push(pid); return true;
+}
 // after your race: the people you wronged say something (one text a round, the worst)
 function grudgeTexts(w, log) {
   const mine = log.filter(e => DIRTY[e.type] && e.a === 'P' && w.people[e.b]);
@@ -625,7 +631,7 @@ function grudgeTexts(w, log) {
     bumprun: [`You punted me out of the way at ${track}. That's how you pass now?`, `Lift off next time. I was there first.`],
     braketest: [`Brake testing me? Really? Grow up.`, `You stood on the brakes in front of me on a straight. Try that again.`],
   }[e.type];
-  text(w, p.first, h.grudge >= 3 ? `${pickLine(w, lines)} And it's not the first time.` : pickLine(w, lines));
+  if (roundOnce(w, e.b)) text(w, p.first, h.grudge >= 3 ? `${pickLine(w, lines)} And it's not the first time.` : pickLine(w, lines));
   if (h.grudge >= 4 && !h.went) { h.went = true; news(w, `${p.last.toUpperCase()} HITS OUT AT ${w.player.name.split(' ').pop().toUpperCase()}`, `${nameOf(p)} says ${w.player.name} "races dirty and gets away with it".`); w.drep = clamp(drepOf(w) - 4, 0, 100); }
 }
 // your teammate, after a race: the team's calls on the radio (who stopped first, who let who by), and hitting them,
@@ -640,10 +646,10 @@ function mateRace(w, log, use = null) {
   trustOf(w);
   const bad = hit || (use && use.teamTrust <= -4);
   if (bad) { m.owe = `${w.year}:${w.round}`; m.oweWhy = hit ? 'hit' : 'orders'; }
-  if (hit) { m.trust = clamp(m.trust - 12, 0, 100); if (!DIRTY[hit.type]) text(w, p.first, pickLine(w, [`You hit me. Your own car. Both of them, technically.`, `Team meeting? Or do I just tell the Wire.`, `I'll fix the dent myself. Don't worry about it.`])); }
+  if (hit) { m.trust = clamp(m.trust - 12, 0, 100); if (!DIRTY[hit.type] && roundOnce(w, m.pid)) text(w, p.first, pickLine(w, [`You hit me. Your own car. Both of them, technically.`, `Team meeting? Or do I just tell the Wire.`, `I'll fix the dent myself. Don't worry about it.`])); }
   else if (touch) m.trust = clamp(m.trust - 3, 0, 100);
   const t = m.trust, next = w.series[w.player.series].cal[w.round + 1];
-  if (t >= 70 && next && rng(w) < 0.3) { m.tipFor = `${w.year}:${w.round + 1}`; text(w, p.first, pickLine(w, [`Found something for ${next.name}. Softer rear bar. Trust me.`, `Looked at my data from ${next.name}. Try a click more rear wing. You're welcome.`, `${next.name}: brake earlier than you think into the last corner, carry more out. Worked for me.`])); }
+  if (t >= 70 && next && rng(w) < 0.3 && roundOnce(w, m.pid)) { m.tipFor = `${w.year}:${w.round + 1}`; text(w, p.first, pickLine(w, [`Found something for ${next.name}. Softer rear bar. Trust me.`, `Looked at my data from ${next.name}. Try a click more rear wing. You're welcome.`, `${next.name}: brake earlier than you think into the last corner, carry more out. Worked for me.`])); }
   if (t < 25 && m.leaked !== w.year && rng(w) < 0.5) { m.leaked = w.year; w.drep = clamp(drepOf(w) - 2, 0, 100);
     news(w, `${p.last.toUpperCase()}: "I DRIVE THE OTHER CAR"`, `${nameOf(p)} has spoken out about life as ${w.player.name}'s teammate. "The new parts go on one car. Guess which," ${p.last} told the Wire. "I'm not saying I'm number two. The car is."`); }
 }
@@ -763,41 +769,35 @@ function seasonEnd(w) {
     });
   }
   w.seasons.push(summary);
-  // the series' prize fund, by championship position
-  const fund = fundOf(w, w.player.series), me = summary.you;
-  if (w.money && me && fund[me.pos - 1]) {
-    pay(w, fund[me.pos - 1], `${seriesById(w.player.series).name} prize fund: P${me.pos} in the championship`);
-    { const I = investorIn(w); if (I) pay(w, -Math.round(fund[me.pos - 1] * I.share / 10) * 10, `${I.name.join(' ')}: ${Math.round(I.share * 100)}% of the prize fund`); }
-    mail(w, `${seriesById(w.player.series).name} Office`, addrOf(seriesById(w.player.series), 'office'), `${w.year} prize fund`, [`Congratulations on finishing P${me.pos} in the ${w.year} championship. Your share of the prize fund, ${money$(fund[me.pos - 1])}, has been paid into your account.`, `${seriesById(w.player.series).name} Office`]);
-  }
-  // the teams' championship: its own prize fund, by position
+  // the prize funds, the drivers' and the teams', by championship position: one email from the series office
+  const S0 = seriesById(w.player.series), fund = fundOf(w, w.player.series), me = summary.you;
   const tpos = teamStandings(w, w.player.series).findIndex(e => e.tid === w.player.team) + 1, tfund = teamFundOf(w, w.player.series);
-  if (w.money && tpos > 0 && tfund[tpos - 1]) {
-    pay(w, tfund[tpos - 1], `${seriesById(w.player.series).name} teams' prize fund: P${tpos}`);
-    mail(w, `${seriesById(w.player.series).name} Office`, addrOf(seriesById(w.player.series), 'office'), `${w.year} teams' championship`, [`${w.teams[w.player.team].name} finished P${tpos} in the ${w.year} teams' championship. The team's share of the teams' prize fund, ${money$(tfund[tpos - 1])}, has been paid into your account.`, `${seriesById(w.player.series).name} Office`]);
+  const dPay = w.money && me ? fund[me.pos - 1] || 0 : 0, tPay = w.money && tpos > 0 ? tfund[tpos - 1] || 0 : 0;
+  if (dPay) {
+    pay(w, dPay, `${S0.name} prize fund: P${me.pos} in the championship`);
+    { const I = investorIn(w); if (I) pay(w, -Math.round(dPay * I.share / 10) * 10, `${I.name.join(' ')}: ${Math.round(I.share * 100)}% of the prize fund`); }
   }
+  if (tPay) pay(w, tPay, `${S0.name} teams' prize fund: P${tpos}`);
+  if (dPay || tPay) mail(w, `${S0.name} Office`, addrOf(S0, 'office'), `${w.year} prize funds`,
+    [...(dPay ? [`Drivers' championship: P${me.pos}. Your share of the prize fund, ${money$(dPay)}.`] : []), ...(tPay ? [`Teams' championship: ${w.teams[w.player.team].name}, P${tpos}. The team's share, ${money$(tPay)}.`] : []),
+     `${dPay && tPay ? 'Both have' : 'This has'} been paid into your account.`, `${S0.name} Office`]);
   // your options: move up if you finished in the top three, or your team in the top two (and there's a series above):
-  // an entry offered by every series of the rung above, and you pick one (or stay)
-  const ups0 = seriesUp(w.player.series), ups = ups0.filter(u => w.pre || licOk(w, u.id));
+  // every series of the rung above, in one email from the SVMA: an entry from each you have the license for (you pick
+  // one, or stay), and what's missing for the others
+  const ups0 = seriesUp(w.player.series), ups = ups0.filter(u => w.pre || licOk(w, u.id)), shut = w.pre ? [] : ups0.filter(u => !licOk(w, u.id));
   const you = summary.you, earned = you && (you.pos <= 3 || (tpos > 0 && tpos <= 2));
-  // (the results, but not the license: the series says so, and what's missing)
-  if (earned && !w.pre) for (const up of ups0.filter(u => !licOk(w, u.id)))
-    mail(w, `${up.name} Entries`, addrOf(up, 'entries'), `Your ${w.year + 1} entry`,
-      [`Dear ${w.player.name.split(' ')[0]},`, `Your results this season would normally earn an entry in the ${up.name}. Entrants must, however, hold a ${licName(licNeed(up.id))} competition license. Our records show yours is ${licName(licOf(w).g)}.`,
-       `Licenses are upgraded by the SVMA on the strength of clean races. We look forward to hearing from you once that has happened. We are not able to hold the entry.`, `Entries Office, ${up.name}`]);
-  if (ups.length && earned) {
-    w.player.offer = { to: nextUp(w.player.series).id, opts: ups.map(u => u.id), answer: null };
-    for (const up of ups) {
-      const b = seasonBudget(w, up);
-      mail(w, `${up.name} Entries`, addrOf(up, 'entries'), `An entry for ${w.year + 1}`,
-        [`Dear ${w.player.name.split(' ')[0]},`, `Congratulations on ${you.pos <= 3 ? `finishing P${you.pos}` : `${w.teams[w.player.team].name}'s P${tpos} in the teams' championship`} in the ${seriesById(w.player.series).name} this year. We have an entry available in the ${up.name} for ${w.year + 1}, and we would like it to go to ${w.teams[w.player.team].name}.`,
-         `For your planning, here is what our teams tell us a season costs: about ${money$(b.run)} to run a car (entry, travel, crew, tyres, fuel), plus the car${!b.lease ? '.' : `: ${up.car === 'spec' ? `the series chassis is leased from us, from ${money$(b.lease)} a season` : `leased from the makers' customer programmes from ${money$(b.lease)} a season, or from ${money$(b.buy)} to buy`}.`}`,
-         up.gents ? `Most teams run a gentleman driver in the second car, who pays for the seat. Prize money for a mid-field season comes to about ${money$(b.prize)}.` : `Prize money for a mid-field season comes to about ${money$(b.prize)}.`,
-         ...(SERIES_NEEDS[up.id] ? [`Entrants must have ${Object.entries(SERIES_NEEDS[up.id]).map(([k, n]) => needName(k, n)).join(' and ')} before the season starts.`] : []),
-         ...(ups.length > 1 ? [`We understand other series may be in touch. An entry can only be held by one series.`] : []),
-         `We mention this because several teams have asked us afterwards.`, `Please let us know before the new season.`, `Entries Office, ${up.name}`],
-        { offer: up.id, choices: [['move', `Accept: move up to the ${up.name}`], ['stay', `Decline: stay in the ${seriesById(w.player.series).name}`]] });
-    }
+  if (ups.length && earned) w.player.offer = { to: nextUp(w.player.series).id, opts: ups.map(u => u.id), answer: null };
+  if (earned && (ups.length || shut.length) && !w.pre) {
+    const why = you.pos <= 3 ? `P${you.pos} in the drivers' championship` : `P${tpos} in the teams' championship`;
+    const offerLine = (up) => { const b = seasonBudget(w, up), need = SERIES_NEEDS[up.id];
+      return `${up.name}: an entry is yours if you want it. A season costs about ${money$(b.run)} to run a car, plus the car${!b.lease ? '' : up.car === 'spec' ? ` (the series chassis, leased, from ${money$(b.lease)})` : ` (leased from ${money$(b.lease)}, or from ${money$(b.buy)} to buy)`}.${up.gents ? ' Most teams sell the second seat to a gentleman driver.' : ''} Mid-field prize money: about ${money$(b.prize)}.${need ? ` Entrants need ${Object.entries(need).map(([k, n]) => needName(k, n)).join(' and ')} before the season starts.` : ''}`; };
+    mail(w, 'SVMA Competitions', 'competitions@svma.sv', ups.length ? `Your options for ${w.year + 1}` : `Your ${w.year + 1} entry`,
+      [`Dear ${w.player.name.split(' ')[0]},`, `Your ${why} qualifies ${w.teams[w.player.team].name} for the next rung.`,
+       ...ups.map(offerLine),
+       ...shut.map(up => `${up.name}: entrants must hold a ${licName(licNeed(up.id))} license. Yours is ${licName(licOf(w).g)}, so we can't offer this one yet. Licenses are upgraded on the strength of clean races.`),
+       ups.length ? (ups.length > 1 ? `An entry can only be held in one series. Please choose before the new season.` : `Please let us know before the new season.`) : `We look forward to hearing from you once your license has caught up with your results.`,
+       `SVMA Competitions`],
+      ups.length ? { offer: 'multi', choices: [...ups.map(u => [`move:${u.id}`, `Move up to the ${u.name}`]), ['stay', `Stay in the ${S0.name}`]] } : {});
   }
   // this year's ambition, the investor's target, and the list
   if (!w.pre && w.money) { ambitionEnd(w, summary); investorSeason(w, summary); worksSeason(w, summary); }
@@ -809,6 +809,8 @@ function seasonEnd(w) {
 // offer); 'stay' turns it down, and you stay once every series on offer has had its answer (or you took another)
 export function answerOffer(w, ans, to) {
   const off = w.player.offer; if (!off) return;
+  if (String(ans).startsWith('move:')) { to = ans.slice(5); ans = 'move'; } // (the one email with every series: 'move:<id>')
+  if (ans === 'stay' && to === 'multi') { off.answer = 'stay'; off.no = [...(off.opts || [off.to])]; return; }
   const id = typeof to === 'string' ? to : off.to, opts = off.opts || [off.to];
   if (ans === 'move') { off.to = id; off.answer = 'move'; off.no = []; return; }
   if (off.answer === 'move' && off.to !== id) return;
@@ -821,7 +823,9 @@ export function nextSeason(w, trackPool) {
   const moves = [];
   // last season's team standings, before anyone changes seats (a driver's results stay with the team they drove for)
   const prevTeams = {}; for (const sr of SERIES) prevTeams[sr.id] = teamStandings(w, sr.id).map(e => e.tid).filter(t => w.teams[t]?.series === sr.id);
+  const upTo = w.player.offer?.answer === 'move' ? seriesById(w.player.offer.to) : null, wizardTitle = !!(upTo && upTo.seats);
   for (const d of dealsOf(w).slice()) {
+    if (wizardTitle && d.slot === 'title') continue; // (the season setup picks the title sponsor for the new series)
     const sp = sponsorById(d.sid), good = d.met >= d.misses && !(w.excluded && w.excluded[w.year]);
     if (good) mail(w, sp.name, sponsorAddr(sp.name), `${w.year + 1} season`, [`Thank you for a good season. We'd like to continue in ${w.year + 1} on the same terms.`, sp.name], { sponsorOffer: { sid: d.sid, slot: d.slot, fee: d.fee, bonus: d.bonus }, choices: [['yes', 'Renew'], ['no', 'Decline']] });
   }
@@ -1559,7 +1563,7 @@ function bopSeason(w, S) {
   const revised = !!(w.bop && w.bop.y === w.year && w.bop.sid === S.id); // (this season's, from an older version of the rules)
   const base = BOP_BASE[S.id] || {}, mid = !w.pre && w.round > 0; // (mid: a save from before it, partway through a season)
   w.bop = { y: w.year, sid: S.id, v: BOP_V, k: Object.fromEntries(Object.entries(base).map(([k, [p, g]]) => [k, [+(p * clamp(1 + gauss(w) * 0.006, 0.985, 1.015)).toFixed(4), g]])) };
-  if (w.pre || !w.money) return;
+  if (w.pre || !w.money || w.player.series !== S.id || (w.player.offer?.answer === 'move' && w.player.offer.to !== S.id)) return; // (the bulletin goes to the series' own teams: not to one leaving it)
   const names = Object.fromEntries((w.streetCars || []).map(c => [c.key, c.name]));
   mail(w, `${S.name} Technical`, addrOf(S, 'technical'), `Technical Bulletin ${w.year}-${mid ? String(w.round + 1).padStart(2, '0') : '01'}: balance of performance`,
     [`To all competitors,`, revised ? `Following further complaints, and an independent review that found the previous figures had been worked out at the wrong circuits, the balance of performance is revised from round ${w.round + 1}:` : mid ? `Following a number of complaints, some of them from the same competitor, the ${S.name} will balance the performance of its cars from round ${w.round + 1}:` : `Following analysis of last season's data, the balance of performance for ${w.year} is as follows:`,
@@ -1726,9 +1730,9 @@ function seasonApply(w) {
   const o = carPickOf(w); if (o && !acquireCar(w, o.how, o.id)) return { ok: false, why: 'That car has gone.' };
   if (S.sponsors.length) { S.sponsored = null; const x = S.sponsors[P.sponsor]; dealsOf(w).push({ sid: x.sid, slot: 'title', fee: x.fee, bonus: x.bonus, met: 0, misses: 0, since: w.year, obj: null, patience: x.patience, hosp: x.hosp || undefined }); if (x.signing) pay(w, x.signing, `${sponsorById(x.sid).name}: signing bonus`); }
   if (w.coop) { S.done = true; return { ok: true }; } // (the second car is the co-owner's)
-  signSeat(w, S.seats[P.seat]);
+  const was = teammateOf(w); signSeat(w, S.seats[P.seat]);
   passedOn(w, S.seats.filter((d, i) => i !== P.seat && d.kind !== 'gent' && d.kind !== 'share').flatMap(d => d.pids), 'second seat');
-  S.done = true;
+  S.done = true; mateHello(w, [], teammateOf(w) !== was); // (new in the seat, or another year together)
   const t = myTeam(w), d = S.seats[P.seat], q = w.people[d.pids[0]];
   news(w, `${t.name.toUpperCase()}: ${q.first.toUpperCase()} ${q.last.toUpperCase()} IN THE SECOND CAR`, d.kind === 'gent' ? `${nameOf(q)}, who ${q.biz}, joins ${t.name} for the ${w.year} ${seriesById(w.player.series).name}.` : d.kind === 'share' ? `${nameOf(q)} and ${nameOf(w.people[d.pids[1]])} will share ${t.name}'s second car.` : d.kind === 'junior' ? `${d.maker} places its junior ${nameOf(q)} with ${t.name}.` : `${t.name} signs ${nameOf(q)}.`);
   return { ok: true };
@@ -2127,10 +2131,8 @@ export function settleRound(w, use, me) {
   overdraftFee(w, items);
   const net = w.money.balance - before;
   bankCheck(w);
-  mail(w, BANK, BANK_ADDR, `Account activity: ${trackName}`,
-    [`Here is the activity on your business account for round ${w.round + 1}, ${trackName}.`,
-     w.money.balance < 0 ? `Your account is overdrawn by ${money$(-w.money.balance)}. Overdrawn balances are charged 1.5% a round plus a $250 fee. Please call your branch.` : `Your balance is ${money$(w.money.balance)}.`],
-    { bill: { items, net, bal: w.money.balance } });
+  // (the weekend's money goes in the round's report, with the result: roundNews. A round with no report: the bank's own)
+  w._bill = { track: trackName, items, net, bal: w.money.balance };
   return { items, net };
 }
 // ---------------- the bank's limit: how a career ends ----------------
@@ -3516,7 +3518,7 @@ const LIST_TEXTS = {
 };
 function listTexts(w, key) {
   const L = w.list, who = WHYS[L.why].who, lines = LIST_TEXTS[who][key];
-  if (lines) texts(w, who, lines);
+  if (lines) { texts(w, who, lines); if (who === 'Mom') w._momTexted = nowIdx(w); } // (Mom's said it: her Sunday text about the paper waits)
   const ex = w.backstory?.ex;
   if (L.why === 'prove' && ex && (key === 'cup' || key === 'gp')) texts(w, ex, key === 'gp' ? ['Saw the news.', 'Congratulations. I mean that.'] : ['Saw you won something.', 'Good for you, I guess.']);
 }
@@ -4395,11 +4397,7 @@ function seasonOpenNews(w, moves = [], founding = false) {
   const prev = w.prev && !w.player.starts && w.teams[w.prev] ? `Your entry was previously held by ${w.teams[w.prev].name}. Their pit garage has been reassigned to you, along with any items left in it.` : '';
   mail(w, `${s.name} Office`, addrOf(s, 'office'), `Welcome to the ${w.year} season`,
     [`Welcome to the ${w.year} ${s.name}.`, `${w.opts.len} rounds, ${S.teams.length * 2} drivers, ${S.teams.length} teams. The full calendar is on our website.`, ...(prev ? [prev] : []), `Round 1: ${S.cal[0].name}, ${S.cal[0].time}${S.cal[0].weather === 'clear' ? '' : ', ' + S.cal[0].weather}.`, `Good luck,`, `${s.name} Office`]);
-  if (mate) {
-    const fresh = founding || !w.seasons.length || moves.some(m => m.pid === mate.id);
-    text(w, mate.first, fresh ? pickLine(w, [`${mate.first} here. Looks like we're sharing a garage this year. Don't put me in the wall.`, `Hey, it's ${mate.first}. New season, new teammate. Let's make the others look slow.`, `${mate.first} ${mate.last}. I hear you're quick. We'll see.`])
-      : pickLine(w, [`Another year in the same garage. I've been training all winter. Watch out.`, `Back at it. This is our year, I can feel it.`]));
-  }
+  if (mate && !(w.setup && !w.setup.done && setupKind(w) === 'season')) mateHello(w, moves, founding); // (a season setup picks the seat: its hello comes after, seasonApply)
   let told = 0;
   for (const m of moves) {
     const p = w.people[m.pid];
@@ -4412,6 +4410,15 @@ function seasonOpenNews(w, moves = [], founding = false) {
     else if (m.kind === 'you-up') news(w, `${w.teams[w.player.team].name.toUpperCase()} MOVES UP`, `${w.player.name}'s team joins the ${seriesById(m.to).name} for ${w.year}.`);
   }
   news(w, `${w.year} SEASON PREVIEW`, `${s.name}: ${S.teams.map(t => w.teams[t].name).slice(0, 3).join(', ')} and more. Round 1 at ${S.cal[0].name}.`);
+}
+// your teammate's first text of the season (new to the team, or another year together)
+function mateHello(w, moves = [], founding = false) {
+  const mate = w.people[teammateOf(w)]; if (!mate) return;
+  {
+    const fresh = founding || !w.seasons.length || moves.some(m => m.pid === mate.id);
+    text(w, mate.first, fresh ? pickLine(w, [`${mate.first} here. Looks like we're sharing a garage this year. Don't put me in the wall.`, `Hey, it's ${mate.first}. New season, new teammate. Let's make the others look slow.`, `${mate.first} ${mate.last}. I hear you're quick. We'll see.`])
+      : pickLine(w, [`Another year in the same garage. I've been training all winter. Watch out.`, `Back at it. This is our year, I can feel it.`]));
+  }
 }
 
 // the Paddock Wire's articles (js/wpress.js) get these to work with
@@ -4624,7 +4631,7 @@ function trackRemember(w, me) { const res = w.series[w.player.series].results.at
 // the bills pile up on it when the money's gone; and until the first season's done (or when you're broke again), the
 // mattress in the corner. js/pitgarage.js puts them in the room (setMemories).
 export const hometownPaper = (w) => `${(TOWNS[w.home] || TOWNS.pinewood).name} Gazette`;
-const MUM_NOTES = { license: ['A real racing license!', 'Is it like a driving license? Love, Mom'], pod: ['Front page of sport!', 'I bought three copies'], win: ['WINNER!!', 'Showed the whole street'], title: ['CHAMPION! Love Mum', 'Framed the other one'], up: ['Big leagues!', 'Mrs Patel asked for your autograph'], story: ['Is this good? Mum x', 'Saw this. Love Mum'] };
+const MUM_NOTES = { license: ['A real racing license!', 'Is it like a driving license? Love, Mom'], pod: ['Front page of sport!', 'I bought three copies'], win: ['WINNER!!', 'Showed the whole street'], title: ['CHAMPION! Love, Mom', 'Framed the other one'], up: ['Big leagues!', 'Mrs Patel asked for your autograph'], story: ['Is this good? Mum x', 'Saw this. Love, Mom'] };
 function keepClip(w, kind, head) {
   if (w.pre) return;
   const res = w.series[w.player.series].results.at(-1), K = (w.keeps ??= []);
@@ -4636,9 +4643,9 @@ function keepClip(w, kind, head) {
 // Mum, the Sunday after a race: when she's cut something out, or when it looked bad on the news (and early on, worried)
 function mumSunday(w, me) {
   const k = w._mumClip; w._mumClip = null;
-  if (k) { text(w, 'Mum', pickLine(w, { pod: [`You were in the Gazette! I cut it out for you.`, `Mrs Patel showed me the Gazette. You're famous. I cut it out.`], win: [`You WON! It's in the Gazette. I've cut it out, it's going on your wall.`, `I told everyone at church. Then I cut you out of the Gazette.`], title: [`Champion! The Gazette did a whole piece. I've cut it out and I'm not giving it back. Fine, you can have it.`], up: [`The Gazette says you're moving up! Does that mean more money or less? I cut it out anyway.`], story: [`You're in the Gazette again. I don't understand it but I cut it out.`] }[k] || [`I cut you out of the Gazette.`])); return; }
-  if (me && me.dnf && rng(w) < 0.4) { text(w, 'Mum', pickLine(w, [`I saw the race on the news. Are you hurt? Call me.`, `Was that your car upside down? Don't tell me. Just call.`, `They said someone crashed. Was it you? Call your mother.`])); return; }
-  if (memoriesOf(w).mattress && rng(w) < 0.15) text(w, 'Mum', pickLine(w, [`Danny says you're sleeping at the garage. Are you eating?`, `There's a spare room here, you know. With a real bed.`]));
+  if (k && w._momTexted !== nowIdx(w)) { text(w, 'Mom', pickLine(w, { pod: [`You were in the Gazette! I cut it out for you.`, `Mrs Patel showed me the Gazette. You're famous. I cut it out.`], win: [`You WON! It's in the Gazette. I've cut it out, it's going on your wall.`, `I told everyone at church. Then I cut you out of the Gazette.`], title: [`Champion! The Gazette did a whole piece. I've cut it out and I'm not giving it back. Fine, you can have it.`], up: [`The Gazette says you're moving up! Does that mean more money or less? I cut it out anyway.`], story: [`You're in the Gazette again. I don't understand it but I cut it out.`] }[k] || [`I cut you out of the Gazette.`])); return; }
+  if (me && me.dnf && rng(w) < 0.4) { text(w, 'Mom', pickLine(w, [`I saw the race on the news. Are you hurt? Call me.`, `Was that your car upside down? Don't tell me. Just call.`, `They said someone crashed. Was it you? Call your mother.`])); return; }
+  if (memoriesOf(w).mattress && rng(w) < 0.15) text(w, 'Mom', pickLine(w, [`Danny says you're sleeping at the garage. Are you eating?`, `There's a spare room here, you know. With a real bed.`]));
 }
 // what's in the room: clippings, trophies, the bills, the mattress
 export function memoriesOf(w) {
@@ -4663,11 +4670,18 @@ export function epithetOf(w) {
   return 'lottery winner';
 }
 
+// the bank's statement for a round, when no round report carries it (a round you sat out)
+function billMail(w) {
+  const B = w._bill; if (!B) return; w._bill = null;
+  mail(w, BANK, BANK_ADDR, `Account activity: ${B.track}`,
+    [`Here is the activity on your business account for ${B.track}.`, overdrawnLine(B.bal)], { bill: { items: B.items, net: B.net, bal: B.bal } });
+}
+const overdrawnLine = (bal) => bal < 0 ? `Your account is overdrawn by ${money$(-bal)}. Overdrawn balances are charged 1.5% a round plus a $250 fee. Please call your branch.` : `Your balance is ${money$(bal)}.`;
 function roundNews(w, me) {
   const sid = w.player.series;
   if (!(w.pre && w.year < START_YEAR - 2)) roundPress(w, PRESS_KIT);
   // texts about your race
-  if (!me) return;
+  if (!me) { billMail(w); return; }
   w._texted = null; trackRemember(w, me);
   if (!me.dnf && me.pos <= 3 && (w.player.pods || 0) === 1) keepClip(w, 'pod', `${w.player.name.split(' ').pop()} on the podium at ${w.series[sid].results.at(-1).track}`);
   if (!me.dnf && me.pos === 1) { const n = w.player.wins || 0; if (n <= 3) keepClip(w, 'win', n === 1 ? `Local driver wins at ${w.series[sid].results.at(-1).track}` : `${w.player.name.split(' ').pop()} wins again`); }
@@ -4676,24 +4690,25 @@ function roundNews(w, me) {
   const mr = res.rows.find(r => r.pid === mateId);
   if (me.pos === 1 && !me.dnf && w.player.wins === 1) mail(w, 'Press Office', addrOf(seriesById(sid), 'press'), 'Interview requests',
     [`${w.player.name.split(' ')[0]},`, `Your first win! The phones haven't stopped. We've had eleven interview requests since the flag, and counting.`, `Enjoy tonight. We'll sort the rest out tomorrow.`, `Press Office, ${seriesById(sid).name}`]);
-  // the series office sends every team the classification
-  { const s = seriesById(sid), st = standings(w, sid), cp = st.findIndex(e => e.pid === 'P') + 1, lead = st[0];
-    mail(w, `${s.name} Office`, addrOf(s, 'results'), `Round ${res.round + 1} classification: ${res.track}`,
-      [`Official classification for round ${res.round + 1} of the ${w.year} ${s.name} at ${res.track}.`,
-       me.dnf ? `${w.player.name}: did not finish.` : `${w.player.name}: P${me.pos}, ${me.pts || 0} point${me.pts === 1 ? '' : 's'}.`,
+  // the round's report: the classification from the series office, and the weekend's money (one email, not the
+  // office's and the bank's)
+  { const s = seriesById(sid), st = standings(w, sid), cp = st.findIndex(e => e.pid === 'P') + 1, lead = st[0], B = w._bill; w._bill = null;
+    mail(w, `${s.name} Office`, addrOf(s, 'results'), `Round ${res.round + 1}: ${res.track}`,
+      [me.dnf ? `${w.player.name}: did not finish.` : `${w.player.name}: P${me.pos}, ${me.pts || 0} point${me.pts === 1 ? '' : 's'}.`,
        cp ? (cp === 1 ? `You lead the championship on ${lead.pts} points.` : `You are ${ord(cp)} in the championship on ${st[cp - 1].pts} points, ${lead.pts - st[cp - 1].pts} behind the leader.`) : '',
-       w.round + 1 < w.opts.len ? `Next: round ${w.round + 2}, ${w.series[sid].cal[w.round + 1].name}.` : `That was the final round.`].filter(Boolean),
-      { report: { s: sid, round: res.round } }); }
-  if (mate && mr && w._texted !== mateId) {
+       w.round + 1 < w.opts.len ? `Next: round ${w.round + 2}, ${w.series[sid].cal[w.round + 1].name}.` : `That was the final round.`,
+       ...(B ? [`The weekend's money is below. ${overdrawnLine(B.bal)}`] : [])].filter(Boolean),
+      { report: { s: sid, round: res.round }, ...(B ? { bill: { items: B.items, net: B.net, bal: B.bal } } : {}) }); }
+  if (mate && mr && w._texted !== mateId && rng(w) < 0.6 && roundOnce(w, mateId)) {
     const beat = !me.dnf && (mr.dnf || me.pos < mr.pos);
-    if (rng(w) < 0.6) text(w, mate.first, beat ? pickLine(w, [`Fair play. P${me.pos}. I'll have you next time.`, `Good race. Don't get used to finishing ahead of me.`, `Nice one today. The team's happy.`])
+    text(w, mate.first, beat ? pickLine(w, [`Fair play. P${me.pos}. I'll have you next time.`, `Good race. Don't get used to finishing ahead of me.`, `Nice one today. The team's happy.`])
       : me.dnf ? pickLine(w, [`Rough day. Shake it off, next round's a fresh start.`, `Saw your car in the barrier. You OK?`])
       : pickLine(w, [`P${mr.pos} for me today. Drinks are on you.`, `Good points for the team. Even if they were mostly mine.`, `Tough one for you. Next time.`]));
   }
   // anyone who hit you (or whom you hit) gets in touch
   const hits = w.ledger.filter(e => e.y === w.year && e.r === w.round && e.type === 'contact' && e.blame && (e.a === 'P' || e.b === 'P'));
   for (const e of hits.slice(0, 2)) {
-    const other = e.a === 'P' ? e.b : e.a, p = w.people[other]; if (!p) continue;
+    const other = e.a === 'P' ? e.b : e.a, p = w.people[other]; if (!p || !roundOnce(w, other)) continue;
     const h = h2hOf(w, other);
     if (e.a === 'P') text(w, p.first, h.youHit > 1 ? `That's twice now. I won't forget it.` : p.aggr > 60 ? `Watch your mirrors next time. I won't forget that.` : `What happened back there? You ruined my race.`);
     else text(w, p.first, p.aggr > 60 ? `You left the door open. Not my fault.` : `Sorry about that one. Wasn't trying to take you out.`);
@@ -4703,7 +4718,7 @@ function roundNews(w, me) {
 function seasonEndNews(w, sum) {
   for (const s of SERIES) {
     const pid = sum.champs[s.id]; if (!pid) continue;
-    if (pid === 'P') { keepClip(w, 'title', `${w.player.name.split(' ').pop()}: ${s.name} champion`); if (!w.pre) text(w, 'Mum', pickLine(w, [`CHAMPION! The Gazette did a whole page. I've cut it out.`, `My child, the champion. I cut it out of the Gazette.`])); w._mumClip = null; }
+    if (pid === 'P') { keepClip(w, 'title', `${w.player.name.split(' ').pop()}: ${s.name} champion`); if (!w.pre) text(w, 'Mom', pickLine(w, [`CHAMPION! The Gazette did a whole page. I've cut it out.`, `My child, the champion. I cut it out of the Gazette.`])); w._mumClip = null; }
     if (pid === 'P') news(w, `${w.player.name.split(' ').pop().toUpperCase()} IS ${s.name.toUpperCase()} CHAMPION`, `${w.player.name} takes the ${w.year} title.`);
     else { const p = w.people[pid]; news(w, `${p.last.toUpperCase()} CLINCHES ${s.name.toUpperCase()} TITLE`, `${nameOf(p)} (${w.teams[p.team].name}) is the ${w.year} champion${p.titles > 1 ? ` again: title number ${p.titles}` : ''}.`); }
   }
@@ -4795,6 +4810,7 @@ export function loadWorld(id) {
   try {
     const w = JSON.parse(localStorage.getItem(slot(id))); if (!w || w.v !== 1) return null;
     w.mail = w.mail || [];
+    for (const m of w.msgs || []) if (m.from === 'Mum') m.from = 'Mom'; // (one Mom: her two threads, together)
     if (!w.money) startMoney(w);
     if (!w.founding) w.founding = { reg: true, car: true, legacy: true }; // (careers from before the founding: carry on as you were)
     if (!w.series[gpSeries().id].cal.some(c => c.gp)) gpRound(w, null); // (careers from before the Grand Prix)
