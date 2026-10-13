@@ -766,6 +766,7 @@ export class PitGarage {
     // walking round (js/garagewalk.js): you and the camera behind you
     if (this.walker && this.walker.active) {
       this.walker.update(dt); this.shiftNow = 0;
+      this.blendK = 1; this.prevShot = this.shot; // (the walk has the camera: no blend in progress, not on the way back from the computer, whose sharp full-res view would stay on)
       for (const c of [this.car, this.car2]) if (c && c.group.parent) c.animate({ steer: 0, spin: 0, heave: 0, pitch: 0, roll: 0 });
       return;
     }
