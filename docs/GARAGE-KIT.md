@@ -31,9 +31,12 @@ into the jog as you squeeze; Shift on a keyboard), right stick /
 mouse drag / IJKL to look, A / Enter to use what you're facing (its prompt shows), B / Esc to stop. In a career each
 prompt does what its hub menu item does (the computer, Work On The Car, The List, the day plan). You start at `SPAWN`;
 you can't walk through anything standing on the floor (its bounding box, or a `COL_` mesh) or off `NAV_floor`.
-At the computer you sit down first: you walk round to the desk chair (any object named `...chair...` near the screen),
-swing it round to face the desk and sit in it; the camera goes on into the screen. Leaving the computer, you stand up
-and walk on. Without a chair in the room you sit on nothing, in front of the screen. After exporting from Blender, reload the page and open
+At the computer you sit down first, the way you would on a swivel chair. You walk up to the desk chair (the object
+named `...chair...` nearest the screen) from the room, turn your back to it, sit, and swivel round to the desk with it;
+the camera goes on into the screen. Leaving the computer, you swivel back out and stand up. So leave the chair facing
+out into the room, a little way from the desk: one facing the desk is turned out first. Its seat wants to be about
+0.48 m up (the sit-down clip sits you that high). The computer's prompt shows at the chair. Without a chair you sit on
+nothing, in front of the screen. After exporting from Blender, reload the page and open
 it again.
 
 ## Editing in Blender
@@ -45,8 +48,9 @@ overwrites `kit-start.blend`.
   the bays, the slots and the rest.
 - **STATIONS**: each station sits in a row beside the room (to the right, in front). Edit it there. The room shows a
   live copy at its `SLOT_` empty, so you can see it in place.
-- **GUIDES**: car-sized red boxes on the bays (the small box is the nose) and a 1.8 m person at `SPAWN`. The game
-  leaves out anything named `GUIDE...`.
+- **GUIDES**: car-sized red boxes on the bays (the small box is the nose), and the racer from the game, for size:
+  standing at `SPAWN` (`GUIDE_Racer`, facing the way you walk in) and sat at the desk (`GUIDE_Racer_Seated`, as he sits
+  there after swiveling round). The game leaves out anything named `GUIDE...`.
 
 To **export**, open the Text Editor, pick `export_kit` and press Run Script. It writes `models/garage/<collection>.glb`
 for every `shell_...` and `station_...` collection, next to the `.blend`. Reload the game to see it. Hidden objects (the
@@ -93,6 +97,8 @@ Custom properties are set in Object Properties > Custom Properties, and they com
 - shows the right wall again (you had it hidden for the old fixed camera) and adds a front wall with a roll-up door and
   a corrugated roof, so the room is closed in for walking round
 - drops the asset-pack samples parked outside the walls, and the dartboard's two darts (they came in about 37 x 52 m)
+- shrinks the desk and everything on it 0.75x against the wall (it came in 1.33x: a 1.0 m desktop) and sizes the chair
+  so its seat is 0.48 m up, half a metre out from the desk, turned out to the room
 
 Rebuild the template (this overwrites `kit-start.blend` and the `.glb`s):
 

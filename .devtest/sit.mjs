@@ -22,8 +22,8 @@ try {
   await pg.waitForFunction(() => window.__svgp.dbg.walk.active, null, { timeout: 20000 }); await pg.waitForTimeout(500);
   const st = () => pg.evaluate(() => { const w = window.__svgp.dbg.walk, a = w.act; const h = w.me && w.me.bone('Hips').getWorldPosition(w.pos.clone());
     return { act: a && a.kind + ':' + a.step, k: a && +(a.k || 0).toFixed(2), clip: w.me && w.me.clip, pos: w.pos.toArray().map(v => +v.toFixed(2)), hips: h && h.toArray().map(v => +v.toFixed(2)), spot: w.spot && w.spot.key, seat: (s => s && s.seat.toArray().map(v => +v.toFixed(2)))(w.deskSeat()) }; });
-  // stand a step from the desk chair, facing it
-  await pg.evaluate(() => { const w = window.__svgp.dbg.walk, s = w.deskSeat(); w.pos.set(s.seat.x + 1.1 * Math.sin(s.face) + 0.6, 0, s.seat.z + 1.1 * Math.cos(s.face) + 0.4); w.heading = Math.atan2(s.seat.x - w.pos.x, s.seat.z - w.pos.z); w.camYaw = w.heading; });
+  // out in the room, a metre from the desk chair, facing it
+  await pg.evaluate(() => { const w = window.__svgp.dbg.walk, s = w.deskSeat(); w.pos.set(s.seat.x - 0.9 * Math.sin(s.face), 0, s.seat.z - 0.9 * Math.cos(s.face) - 0.3); w.heading = Math.atan2(s.seat.x - w.pos.x, s.seat.z - w.pos.z); w.camYaw = w.heading; });
   await pg.waitForTimeout(400); console.log('at the desk', JSON.stringify(await st())); await pg.screenshot({ path: join(out, 'sit-0.png') });
   await pg.keyboard.press('Enter');
   for (let i = 1; i <= 14; i++) { await pg.waitForTimeout(400); const s = await st(); console.log((i * 0.4).toFixed(1) + 's', JSON.stringify(s)); if ([2, 4, 6, 8, 10, 12, 14].includes(i)) await pg.screenshot({ path: join(out, `sit-${i}.png`) }); }
@@ -36,7 +36,7 @@ try {
   await pg.evaluate(() => window.__svgp.dbg.standUp()); await pg.waitForTimeout(1200);
   await pg.evaluate(() => window.__svgp.dbg.startWalk());
   await pg.waitForFunction(() => window.__svgp.dbg.walk.active, null, { timeout: 20000 }); await pg.waitForTimeout(500);
-  await pg.evaluate(() => { const w = window.__svgp.dbg.walk, s = w.deskSeat(); w.pos.set(s.seat.x + 1.1 * Math.sin(s.face) + 0.6, 0, s.seat.z + 1.1 * Math.cos(s.face) + 0.4); w.heading = Math.atan2(s.seat.x - w.pos.x, s.seat.z - w.pos.z); w.camYaw = w.heading; });
+  await pg.evaluate(() => { const w = window.__svgp.dbg.walk, s = w.deskSeat(); w.pos.set(s.seat.x - 0.9 * Math.sin(s.face), 0, s.seat.z - 0.9 * Math.cos(s.face) - 0.3); w.heading = Math.atan2(s.seat.x - w.pos.x, s.seat.z - w.pos.z); w.camYaw = w.heading; });
   await pg.waitForTimeout(400);
   const cs = () => pg.evaluate(() => { const d = window.__svgp.dbg, w = d.walk, P = d.pitGarage; return { walking: w.active, act: w.act && w.act.kind + ':' + w.act.step, shot: P.shot, parked: !!P.parked, body: !!(w.me && w.me.object.parent), shown: !!(w.me && w.me.object.visible), pc: !!(d.pc && d.pc.isOpen), cls: document.getElementById('s-hub').className }; });
   await pg.screenshot({ path: join(out, 'career-0.png') });

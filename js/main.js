@@ -2272,7 +2272,9 @@ const WALK_ITEM = () => ({ label: 'Walk Around', action: () => startWalk(), desc
 const hubItem = (re) => (menus['s-hub'][0].items || []).find(it => !it.disabled && !it.head && (re.test(String(it.label).replace(/<[^>]+>.*$/, '')) || re.test(it.cls || '')));
 function walkSpots() {
   const P = pitGarage, k = P.kit, out = [], V = THREE.Vector3;
-  const f = P.screenFrame(); if (f) out.push({ key: 'computer', label: 'Use the computer', at: f.c.clone().addScaledVector(new V(f.n.x, 0, f.n.z).normalize(), 0.55).setY(f.c.y) });
+  // (the computer: at its chair when it has one, since that's where you go to use it; else just in front of the screen)
+  const f = P.screenFrame(), ds = f && walk.deskSeat();
+  if (f) out.push({ key: 'computer', label: 'Use the computer', at: ds && ds.chair ? ds.seat.clone().setY(1.0) : f.c.clone().addScaledVector(new V(f.n.x, 0, f.n.z).normalize(), 0.55).setY(f.c.y), reach: ds && ds.chair ? 1.3 : undefined });
   const lf = P.listMesh && P.listMesh.visible ? P.listFrame() : null; if (lf) out.push({ key: 'list', label: 'The List', at: lf.c.clone().addScaledVector(lf.n, 0.5), reach: 1.3 });
   const carBox = (c) => { const b = new THREE.Box3(); c.group.traverse(o => { if (o.isMesh && o !== c.shadow && !(c.shadow && c.shadow.children.includes(o))) b.expandByObject(o); }); return b; };
   if (P.car && P.car.group.visible) out.push({ key: 'car', label: 'Work on the car', box: carBox(P.car) });

@@ -273,6 +273,38 @@ empty('STAND_driver', sim, o + Vector((0, -1.55, 0)), rotz=math.pi, kind='SINGLE
 bulb('Light_CRT', sim, o + Vector((0, -0.7, 1.1)), 70, (0.6, 0.75, 1.0))      # (the screen's glow)
 empty('INTERACT_sim', sim, o + Vector((0, -1.6, 1.0)), kind='SPHERE', size=0.25, label='The sim rig')
 
+# the desk at a real size: it came in 1.33x (a 1.0 m high desktop) and the CRT, speakers and chair bigger still. Desk and
+# everything on it shrink 0.75x against the wall (a 0.75 m desktop, 0.75 x 1.5 m); the chair is sized so its seat is
+# 0.48 m up (the game's sit-down clip sits you that high), set in the desk's knee hole half a metre out, and turned out
+# into the room: you walk up to it from the room, sit, and swivel round to the desk (js/garagewalk.js)
+DESK_S, SEAT_H = 0.75, 0.48
+desk = bpy.data.objects.get('Desk')
+if desk:
+    lo, hi = world_box(desk); pivot = Vector((lo.x, (lo.y + hi.y) / 2, 0))
+    S = Matrix.Translation(pivot) @ Matrix.Scale(DESK_S, 4) @ Matrix.Translation(-pivot)
+    for n in ('Desk', 'CrtMonitor', 'Speaker', 'Speaker.001', 'Lamp Desk', 'Sketchfab_model.005', 'Keyboard', 'Mouse', 'disk', 'disk.001', 'Computer'):
+        o = bpy.data.objects.get(n)
+        if o: o.matrix_world = S @ o.matrix_world
+        else: print('  (no', n + ')')
+    bpy.context.view_layer.update()
+    lo, hi = world_box(desk)
+    ch = bpy.data.objects.get('office_chair_blue_alt')
+    if ch:
+        # (its seat: the biggest area of up-facing faces between a third and three quarters of its height)
+        me, mw = ch.data, ch.matrix_world; zs = [(mw @ v.co).z for v in me.vertices]; z0, z1 = min(zs), max(zs); areas = {}
+        for f in me.polygons:
+            if (mw.to_3x3() @ f.normal).normalized().z > 0.9:
+                z = (mw @ f.center).z
+                if z0 + 0.33 * (z1 - z0) < z < z0 + 0.75 * (z1 - z0): areas[round(z, 2)] = areas.get(round(z, 2), 0) + f.area
+        seat = max(areas, key=areas.get) - z0 if areas else 0.69
+        k = SEAT_H / seat; ch.rotation_mode = 'XYZ'; ch.rotation_euler = (0, 0, 0); ch.scale = ch.scale * k
+        turn_to(ch, 'chair', (1.0, -0.45))                                      # (facing out into the room, a little towards the door)
+        bpy.context.view_layer.update()
+        mon = bpy.data.objects.get('CrtMonitor'); my = (world_box(mon)[0].y + world_box(mon)[1].y) / 2 if mon else (lo.y + hi.y) / 2
+        clo, chi = world_box(ch); ch.location += Vector((hi.x + 0.5 - (clo.x + chi.x) / 2, my - (clo.y + chi.y) / 2, -clo.z))
+        bpy.context.view_layer.update()
+        print('  desk', [round(v, 2) for v in lo], [round(v, 2) for v in hi], 'chair seat was', round(seat, 2), 'x', round(k, 2), 'now', [round(v, 2) for v in world_box(ch)[1]])
+
 # the slots in the lock-up: the stations' backs to the right wall, facing into the room
 slots = {'tools': ((4.15, 4.05, 0), -D90), 'sim': ((-3.0, -6.39, 0), math.pi)}   # (the sim: in the front corner by the door, facing in)
 for k, (loc, rz) in slots.items():
@@ -285,7 +317,39 @@ gm = material('GUIDE', (0.9, 0.1, 0.1), 0.9); pm = material('GUIDE_person', (0.1
 for i, b in ((1, BAY1), (2, BAY2)):
     g = box(f'GUIDE_Car{i}', guides, (2.0, 5.6, 1.0), (0, 0, 0.5), gm); g.parent = bpy.data.objects[f'BAY_{i}']; g.display_type = 'WIRE'
     n = box(f'GUIDE_Car{i}Nose', guides, (0.7, 0.8, 0.7), (0, -3.2, 0.5), gm); n.parent = bpy.data.objects[f'BAY_{i}']; n.display_type = 'WIRE'
-p = box('GUIDE_Person', guides, (0.5, 0.3, 1.8), (0, 0, 0.9), pm); p.parent = bpy.data.objects['SPAWN']; p.display_type = 'WIRE'
+# you, for size: the racer from the game's own models/characters.glb, posed and frozen into plain meshes. One stands at
+# SPAWN (facing the way you'll walk in), one sits in the desk chair facing the screen (the sit-down's last pose)
+def racer_guide(name, clip, frac):
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=os.path.join(ROOT, 'models', 'characters.glb'))
+    new = [o for o in bpy.data.objects if o not in before]
+    arm = next(o for o in new if o.type == 'ARMATURE'); act = bpy.data.actions.get(clip)
+    ad = arm.animation_data or arm.animation_data_create()
+    for t in list(ad.nla_tracks): ad.nla_tracks.remove(t)
+    ad.action = act
+    if act.slots: ad.action_slot = act.slots[0]
+    f0, f1 = act.frame_range; bpy.context.scene.frame_set(int(f0 + (f1 - f0) * frac)); bpy.context.view_layer.update()
+    dg = bpy.context.evaluated_depsgraph_get(); parts = []
+    for o in new:
+        if o.type == 'MESH' and o.name.startswith('racer'):
+            m = bpy.data.meshes.new_from_object(o.evaluated_get(dg)); g = bpy.data.objects.new(name + '_' + o.name, m)
+            g.matrix_world = o.matrix_world.copy(); guides.objects.link(g); parts.append(g)
+    hips = arm.matrix_world @ arm.pose.bones[next(b.name for b in arm.pose.bones if b.name.endswith('Hips'))].head
+    for o in new: bpy.data.objects.remove(o, do_unlink=True)
+    root = bpy.data.objects.new(name, None); root.empty_display_size = 0.2; guides.objects.link(root)
+    for g in parts: g.parent = root
+    return root, hips
+bpy.context.scene.frame_set(1)
+g, _ = racer_guide('GUIDE_Racer', 'idle', 0.0); g.parent = bpy.data.objects['SPAWN']           # (faces down SPAWN's -Y, as you do)
+ch = bpy.data.objects.get('office_chair_blue_alt')
+if ch:
+    lo, hi = world_box(ch); g, h = racer_guide('GUIDE_Racer_Seated', 'sit_down', 0.99)
+    mon = bpy.data.objects.get('CrtMonitor'); mc = (world_box(mon)[0] + world_box(mon)[1]) / 2 if mon else Vector((-4, 3.8, 1))
+    seat = Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, 0)); d = (mc - seat).to_2d().normalized()
+    g.rotation_euler.z = math.atan2(d.y, d.x) + math.pi / 2                  # (the racer faces -Y: turned to the screen)
+    bpy.context.view_layer.update(); h = g.matrix_world @ h
+    g.location += Vector((seat.x - h.x, seat.y - h.y, 0))                    # (the hips over the middle of the seat)
+bpy.context.scene.frame_set(1)
 for c in (guides,):
     for ob in c.objects: ob.hide_render = True
 

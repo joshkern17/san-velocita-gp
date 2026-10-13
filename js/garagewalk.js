@@ -25,6 +25,7 @@ const CAM_DIST = 2.7, CAM_HEAD = 1.45, REACH = 1.1;
 const SIT_FROM = 0.25, SIT_TO = 0.68, SIT_SPEED = 1.15, SIT_BACK = 0.46, SIT_SIDE = 0.05;
 // stand_up (Mixamo "Stand Up", sat to stood): still till 0.2, up by 0.45, steady by 0.6, about 0.43 m forward
 const STAND_FROM = 0.15, STAND_TO = 0.6;
+const SWIVEL = 2.2; // rad/s, round on the chair
 
 export class GarageWalk {
   constructor(pg) { this.pg = pg; this.active = false; this.me = null; this.input = {}; this.spot = null; this.spots = []; }
@@ -198,15 +199,24 @@ export class GarageWalk {
     o.position.copy(wp.applyMatrix4(o.parent.matrixWorld.clone().invert()));
     o.quaternion.copy(o.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(wq));
   }
-  // sit down at the desk: walk to the spot in front of the chair (the clip sits back SIT_BACK into it), turn to the
-  // screen, sit. Resolves once you're down
+  // sit down at the desk, the way you would on a swivel chair: walk up to the chair from the room, turn your back to it,
+  // sit (the clip sits back SIT_BACK into it), then swivel round to the screen with it. A chair already facing the
+  // desk is turned out first, so you never walk in between it and the desk. Resolves once you're round
   sit() {
     const s = this.deskSeat(); if (!s || !this.me) return Promise.resolve(false);
-    const fx = Math.sin(s.face), fz = Math.cos(s.face);
-    const stand = s.seat.clone().add(new THREE.Vector3(fx, 0, fz).multiplyScalar(SIT_BACK)).add(new THREE.Vector3(fz, 0, -fx).multiplyScalar(-SIT_SIDE));
     const wrap = (x) => Math.atan2(Math.sin(x), Math.cos(x));
-    const chair = s.chair && Math.abs(wrap(s.face - s.chair.face)) > 0.05 ? { ...s.chair, left: wrap(s.face - s.chair.face) } : null;
-    return new Promise(done => { this.act = { kind: 'sit', step: 'walk', stand, seat: s.seat, face: s.face, chair, k: 0, done }; });
+    const away = s.face + Math.PI, c = s.chair;
+    const out = c && Math.cos(c.face - s.face) < -0.17 ? c.face : away;      // (the chair's way, when it faces the room; else straight out)
+    const fx = Math.sin(out), fz = Math.cos(out);
+    const stand = s.seat.clone().add(new THREE.Vector3(fx, 0, fz).multiplyScalar(SIT_BACK)).add(new THREE.Vector3(fz, 0, -fx).multiplyScalar(-SIT_SIDE));
+    const chair = c ? { ...c, left: wrap(out - c.face) } : null;              // (turned out first, if it has to be)
+    return new Promise(done => { this.act = { kind: 'sit', step: 'walk', stand, seat: s.seat, face: s.face, out, chair, k: 0, done }; });
+  }
+  // round on the chair (you and it, about the seat) by `d` rad
+  swivel(a, d) {
+    const p = this.pos, v = { x: p.x - a.seat.x, z: p.z - a.seat.z }, c = Math.cos(d), sn = Math.sin(d);
+    p.x = a.seat.x + v.x * c + v.z * sn; p.z = a.seat.z - v.x * sn + v.z * c; this.heading += d;
+    if (a.chair) this.spin(a.chair.o, a.chair.pivot, d);
   }
   // sat at the computer: the camera's the computer's now; you stay in the chair (hidden once the camera's halfway in)
   park() {
@@ -220,7 +230,7 @@ export class GarageWalk {
     this.camFrom = { pos: pg.camera.position.clone(), quat: pg.camera.quaternion.clone(), fov: pg.camera.fov, k: 0 };
     this.camYaw = this.act.face; this.camPitch = 0.3;
     this.active = true; pg.walker = this;
-    return new Promise(done => { Object.assign(this.act, { kind: 'stand', step: 'up', done }); });
+    return new Promise(done => { Object.assign(this.act, { kind: 'stand', step: 'out', left: undefined, done }); });
   }
   // where your hips are (world), and how far down into the chair they are (0 standing, 1 sat)
   hips() {
@@ -231,26 +241,38 @@ export class GarageWalk {
   acting(dt, wrap) {
     const a = this.act, me = this.me;
     const down = (h) => { a.focus = h; a.k = Math.max(0, Math.min(1, (0.99 - h.y) / (0.99 - 0.61))); };
+    const turn = (left) => { const d = Math.sign(left) * Math.min(Math.abs(left), dt * SWIVEL * Math.min(1, 0.25 + Math.abs(left))); return d; }; // (eases in at the end)
     if (a.kind === 'sit') {
-      // (you pull the chair round to face the desk as you get to it)
-      if (a.chair && a.chair.left) { const c = a.chair, d = Math.sign(c.left) * Math.min(Math.abs(c.left), dt * 2.6); this.spin(c.o, c.pivot, d); c.left -= d; if (Math.abs(c.left) < 1e-4) c.left = 0; }
+      // (a chair facing the desk: turned out to the room as you come up to it)
+      if (a.chair && a.chair.left && a.step !== 'swivel') { const c = a.chair, d = turn(c.left); this.spin(c.o, c.pivot, d); c.left -= d; if (Math.abs(c.left) < 1e-4) c.left = 0; }
       if (a.step === 'walk') {          // (to the spot in front of the chair, straight there)
         const vx = a.stand.x - this.pos.x, vz = a.stand.z - this.pos.z, d = Math.hypot(vx, vz);
         if (d < 0.03) { this.pos.x = a.stand.x; this.pos.z = a.stand.z; a.step = 'turn'; me.play('idle', { fade: 0.25 }); }
         else { this.heading += wrap(Math.atan2(vx, vz) - this.heading) * Math.min(1, dt * 10); const v = Math.min(WALK, d / dt); this.pos.x += vx / d * v * dt; this.pos.z += vz / d * v * dt; me.move(WALK); }
       }
-      if (a.step === 'turn') {          // (round to face the screen)
-        const e = wrap(a.face - this.heading); this.heading += Math.sign(e) * Math.min(Math.abs(e), dt * 5);
-        if (Math.abs(e) < 0.02 && !(a.chair && a.chair.left)) { this.heading = a.face; a.step = 'down'; me.play('sit_down', { once: true, fade: 0.2, offset: SIT_FROM, speed: SIT_SPEED }); }
+      if (a.step === 'turn') {          // (your back to the chair)
+        const e = wrap(a.out - this.heading); this.heading += Math.sign(e) * Math.min(Math.abs(e), dt * 5);
+        if (Math.abs(e) < 0.02 && !(a.chair && a.chair.left)) { this.heading = a.out; a.step = 'down'; me.play('sit_down', { once: true, fade: 0.2, offset: SIT_FROM, speed: SIT_SPEED }); }
       }
-      if (a.step === 'down' || a.step === 'sat') {
-        down(this.hips()); this.camYaw += wrap(a.face - this.camYaw) * Math.min(1, dt * 2);
-        if (a.step === 'down' && me.action.time / me.clipDuration('sit_down') >= SIT_TO) { a.step = 'sat'; a.done(true); }
+      if (a.step === 'down' && me.action.time / me.clipDuration('sit_down') >= SIT_TO) { a.step = 'swivel'; a.left = wrap(a.face - a.out); }
+      if (a.step === 'swivel') {        // (round to the screen, chair and all)
+        const d = turn(a.left); this.swivel(a, d); a.left -= d;
+        if (Math.abs(a.left) < 1e-4) { a.step = 'sat'; a.done(true); }
       }
+      // (the camera stays out in the room, looking at the desk: you sit down facing it, then swivel round away from it)
+      if (a.step !== 'walk') this.camYaw += wrap(a.face - this.camYaw) * Math.min(1, dt * 2);
+      if (a.step !== 'walk' && a.step !== 'turn') down(this.hips());
       return true;
     }
-    // getting up (stand_up): it starts sat a little higher and further back than sit_down ends, so the body's held where
-    // it was and eased onto the clip as you rise. You end up where it stood you (its hips)
+    // getting up: swivel back out to the room, then stand up (stand_up). That clip starts sat a little higher and further
+    // back than sit_down ends, so the body's held where it was and eased onto the clip as you rise. You end up where it
+    // stood you (its hips)
+    if (a.step === 'out') {
+      if (a.left === undefined) a.left = wrap(a.out - this.heading);
+      const d = turn(a.left); this.swivel(a, d); a.left -= d; down(this.hips());
+      if (Math.abs(a.left) < 1e-4) a.step = 'up';
+      return true;
+    }
     const D = me.clipDuration('stand_up');
     if (a.step === 'up') {
       const H0 = this.hips();
