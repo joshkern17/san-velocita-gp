@@ -86,6 +86,12 @@ export function wheelAngle(p, c) {
 }
 const wheelPrev = {};
 
+// the left stick (x, y), deadzoned; zeros with no pad
+export function leftStick(dz = 0.18) {
+  const p = pad(); if (!p) return [0, 0];
+  const f = (v) => Math.abs(v) < dz ? 0 : (v - Math.sign(v) * dz) / (1 - dz);
+  return [f(p.axes[0] || 0), f(p.axes[1] || 0)];
+}
 // the right stick (x, y), deadzoned; zeros with no pad
 export function rightStick(dz = 0.18) {
   const p = pad(); if (!p) return [0, 0];

@@ -13,7 +13,7 @@ models/garage/
   shell_workshop.glb       Race workshop         (level 2)   not made yet
   shell_factory.glb        Factory               (level 3)   not made yet
   station_tools.glb        Proper tools (a workbench, a locker)
-  station_sim.glb          Sim rig (an office chair, a wheel clamped to a desk, a CRT)
+  station_sim.glb          Sim rig (a CRT on a stand, a wheel on a post with pedals, an office chair)
   station_<facility>.glb   one per facility: tools, dyno, fab, sim, data, truck, tunnel
   src/                     the asset-pack files the template is built from
 ```
@@ -24,7 +24,12 @@ no shell at all it falls back to `models/garage.glb`. A station bought for a she
 ## Seeing it in the game
 
 Main Menu > **Home Garage** opens the room without a career: pick the premises, each facility's level and car two, and
-**Look At** the room, car two or any station. Nothing is saved. After exporting from Blender, reload the page and open
+**Look At** the room, car two or any station, or **Walk Around** it. Nothing is saved.
+
+**Walk Around** (here and on the World Career hub menu): left stick / WASD to walk, RT / Shift to hurry, right stick /
+mouse drag / IJKL to look, A / Enter to use what you're facing (its prompt shows), B / Esc to stop. In a career each
+prompt does what its hub menu item does (the computer, Work On The Car, The List, the day plan). You start at `SPAWN`;
+you can't walk through anything standing on the floor (its bounding box, or a `COL_` mesh) or off `NAV_floor`. After exporting from Blender, reload the page and open
 it again.
 
 ## Editing in Blender
@@ -78,7 +83,7 @@ Custom properties are set in Object Properties > Custom Properties, and they com
 
 `tools/garage-kit.py` copies `models/garage-attempt_001.blend` (your file isn't touched) and:
 
-- moves car one 0.85 m left and adds car two's bay 3 m to its right, with bay lines round both
+- moves car one 0.85 m left and adds car two's bay 3 m to its right, and takes out the bay lines
 - moves the work light that stood in front of car one's nose 1 m left (same aim) and the boxes where car two goes into
   the back corner
 - shows the right wall again (you had it hidden for the old fixed camera) and adds a front wall with a roll-up door and

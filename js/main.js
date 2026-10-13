@@ -7,7 +7,7 @@ import { FX } from './tirefx.js';
 import { realTracks, needsHydrate, hydrateReal, nameCorners } from './realtracks.js';
 import { HUD, fmtTime, RADAR_ZOOMS, readThemeColours, condCol } from './hud.js';
 import { Editor } from './editor.js';
-import { initInput, pressed, isDown, clearEdges, pollGamepad, driveControls, gp, device, onDevice, rumble, rightStick, padFeel, STEER_CURVES, DEADZONES, STEER_LAGS, wheel, looksLikeWheel } from './input.js';
+import { initInput, pressed, isDown, clearEdges, pollGamepad, driveControls, gp, device, onDevice, rumble, rightStick, leftStick, padFeel, STEER_CURVES, DEADZONES, STEER_LAGS, wheel, looksLikeWheel } from './input.js';
 import { WheelSetup } from './wheelsetup.js';
 import { ffb, ffbSend } from './ffb.js';
 import { lapKey, lapsFor, loadPB, referenceLap, analyze } from './telemetry.js';
@@ -22,6 +22,7 @@ import { TEAMS } from './car.js';
 import { Garage } from './garage.js';
 import { PitGarage } from './pitgarage.js';
 import { PREMISES } from './garagekit.js';
+import { GarageWalk } from './garagewalk.js';
 import { Opening, trailerModel } from './opening.js';
 import { driveHomeTrack, PARK } from './drivehome.js';
 import { Computer } from './computer.js';
@@ -1859,7 +1860,8 @@ function phoneInput() {
   return true;
 }
 const phoneHints = [['nav', 'Scroll'], ['ok', 'Select'], ['back', 'Back'], ['phone', 'Put away']];
-HINTS['s-hub'] = () => ending.isOpen ? { scene: [['back', 'Skip']], wire: [['ok', 'Continue']], record: [['nav', 'Choose'], ['ok', 'Select']] }[ending.stage] || [] : dayPlan.isOpen ? [['nav', 'Choose'], ...(dayPlan.onSubs ? [['lr', 'Ideas']] : []), ['ok', 'Do it'], ['back', 'Garage']] : tsw.isOpen ? [['lr', 'Choose'], ['ok', tsw.step === 'ready' ? 'Start the season' : 'Next'], ['back', tsw.at ? 'Back' : 'Garage']] : pcSeat ? [['nav', 'Move'], ['ok', 'Select'], ...(pc.hasTabs ? [['tab', 'Sections']] : []), ['back', pc.app ? 'Back' : 'Stand up']]
+const WALK_HINTS = [['cam', 'Walk'], ['look', 'Look'], ['ok', 'Use'], ['back', 'Stop walking']];
+HINTS['s-hub'] = () => walk.active ? WALK_HINTS : ending.isOpen ? { scene: [['back', 'Skip']], wire: [['ok', 'Continue']], record: [['nav', 'Choose'], ['ok', 'Select']] }[ending.stage] || [] : dayPlan.isOpen ? [['nav', 'Choose'], ...(dayPlan.onSubs ? [['lr', 'Ideas']] : []), ['ok', 'Do it'], ['back', 'Garage']] : tsw.isOpen ? [['lr', 'Choose'], ['ok', tsw.step === 'ready' ? 'Start the season' : 'Next'], ['back', tsw.at ? 'Back' : 'Garage']] : pcSeat ? [['nav', 'Move'], ['ok', 'Select'], ...(pc.hasTabs ? [['tab', 'Sections']] : []), ['back', pc.app ? 'Back' : 'Stand up']]
   : phone.isOpen ? phoneHints : hubMode === 'car' ? [['nav', 'Part'], ['ok', 'Select'], ['back', 'Back']]
   : hubMode === 'list' ? (listStep ? [['nav', 'Choose'], ['ok', 'Write it'], ['back', 'Garage']] : [['ok', 'Select'], ['back', 'Garage']]) : [['nav', 'Navigate'], ['ok', 'Select'], ['phone', 'Phone']];
 
@@ -2108,7 +2110,7 @@ function hubTick(dt) {
   // the neon tag over the monitor: there whenever you're standing in the room; lit up when the Computer item is
   // highlighted or the mouse is on the monitor; pulsing while there's unread mail
   carTags();
-  const tag = $('pc-tag'), at = !pcSeat && hubMode === 'room' && pitGarage.atRoom && !phone.isOpen ? pitGarage.screenAnchor() : null;
+  const tag = $('pc-tag'), at = !pcSeat && hubMode === 'room' && pitGarage.atRoom && !phone.isOpen && !walk.active ? pitGarage.screenAnchor() : null;
   tag.hidden = !at;
   if (at) {
     const z = hubZoom(); tag.style.left = at.x / z + 'px'; tag.style.top = at.y / z + 'px';
@@ -2141,9 +2143,9 @@ $('s-hub').addEventListener('mousemove', (e) => {
 });
 $('pc-tag').addEventListener('click', () => { if (screen === 's-hub' && !pcSeat) sitDown(); });
 // a click on the monitor sits you down (the hub's layer is over the 3D view, so it listens there, past its panels)
-const onRoom = (e) => screen === 's-hub' && world && !pcSeat && !phone.isOpen && !tsw.isOpen && !dayPlan.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitScreen(e.clientX, e.clientY);
+const onRoom = (e) => screen === 's-hub' && !walk.active && world && !pcSeat && !phone.isOpen && !tsw.isOpen && !dayPlan.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitScreen(e.clientX, e.clientY);
 // the list on the wall: a click on it walks you over
-const onList = (e) => screen === 's-hub' && world && founded(world) && hubMode === 'room' && !pcSeat && !phone.isOpen && !tsw.isOpen && !dayPlan.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitList(e.clientX, e.clientY);
+const onList = (e) => screen === 's-hub' && !walk.active && world && founded(world) && hubMode === 'room' && !pcSeat && !phone.isOpen && !tsw.isOpen && !dayPlan.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitList(e.clientX, e.clientY);
 $('list-tag').addEventListener('click', () => { if (screen === 's-hub' && !pcSeat) goToList(); });
 // the final notice: a click on it (or its tag) opens it at the computer
 const readNotice = () => { const b = world && WC.bankNote(world); if (b && b.notice) sitDown('mail', b.notice); };
@@ -2152,7 +2154,7 @@ $('s-hub').addEventListener('click', (e) => {
   if (screen === 's-hub' && world && hubMode === 'room' && !pcSeat && !phone.isOpen && !tsw.isOpen && !dayPlan.isOpen && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitNotice(e.clientX, e.clientY)) { readNotice(); return; }
   if (onList(e)) { goToList(); return; }
   if (onRoom(e)) { sitDown(); return; }
-  if (screen === 's-hub' && world && world.car && !pcSeat && !phone.isOpen && !tsw.isOpen && !dayPlan.isOpen && hubMode === 'room' && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitCar(e.clientX, e.clientY)) goToCar();
+  if (screen === 's-hub' && !walk.active && world && world.car && !pcSeat && !phone.isOpen && !tsw.isOpen && !dayPlan.isOpen && hubMode === 'room' && !e.target.closest('.panel, .footer-hints, .desc-bar, .scr-head, .pc-tag') && pitGarage.hitCar(e.clientX, e.clientY)) goToCar();
 });
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -2256,6 +2258,65 @@ function openEndingPreview() {
   world = w; WC.setCarCatalog(w, carCatalog());
   fadeTo(() => enterHub(), 200);
 }
+// ---- walking round the garage (js/garagewalk.js): World Career's hub and the Home Garage preview. The things you can
+// use show a prompt (A / Enter); each one does what its hub menu item does (so it's there when the menu has it) ----
+const walk = new GarageWalk(pitGarage);
+let walkMouse = [0, 0];
+const WALK_ITEM = () => ({ label: 'Walk Around', action: () => startWalk(), desc: 'Get up and walk round the garage. Left stick or WASD to walk (RT or Shift to hurry), right stick or drag the mouse to look. Walk up to something and press A or Enter to use it.' });
+// a hub menu item by its label (or class), if the menu has it right now
+const hubItem = (re) => (menus['s-hub'][0].items || []).find(it => !it.disabled && !it.head && (re.test(String(it.label).replace(/<[^>]+>.*$/, '')) || re.test(it.cls || '')));
+function walkSpots() {
+  const P = pitGarage, k = P.kit, out = [], V = THREE.Vector3;
+  const f = P.screenFrame(); if (f) out.push({ key: 'computer', label: 'Use the computer', at: f.c.clone().addScaledVector(new V(f.n.x, 0, f.n.z).normalize(), 0.55).setY(f.c.y) });
+  const lf = P.listMesh && P.listMesh.visible ? P.listFrame() : null; if (lf) out.push({ key: 'list', label: 'The List', at: lf.c.clone().addScaledVector(lf.n, 0.5), reach: 1.3 });
+  const carBox = (c) => { const b = new THREE.Box3(); c.group.traverse(o => { if (o.isMesh && o !== c.shadow && !(c.shadow && c.shadow.children.includes(o))) b.expandByObject(o); }); return b; };
+  if (P.car && P.car.group.visible) out.push({ key: 'car', label: 'Work on the car', box: carBox(P.car) });
+  if (P.car2 && P.car2.group.parent && P.car2.group.visible) out.push({ key: 'car2', label: 'Car two', box: carBox(P.car2) });
+  if (k) for (const it of k.interacts) {
+    const key = it.name.slice(9).replace(/[._]\d+$/, ''), at = it.getWorldPosition(new V());
+    out.push({ key, label: it.userData.label || key, at: at.setY(Math.min(at.y, 1.2)), reach: 1.2 });
+  }
+  return out;
+}
+// what a spot does: in a career, the hub menu's own item; in the preview, nothing (it says what it'd be)
+const WALK_DOES = { computer: /^Computer/, list: /^The List/, car: /^(Work On The Car|Look At The Car)/, car2: /^(Work On The Car|Look At The Car)/, tools: /^(Work On The Car|Look At The Car)/, calendar: /\bday\b/, sim: /\bday\b/ };
+function useSpot(s) {
+  if (screen === 's-homeview') { sfx.select(); toast(`In a career: <b>${s.label}</b>.`, 1800); return; }
+  const it = WALK_DOES[s.key] && hubItem(WALK_DOES[s.key]);
+  if (!it) { sfx.error(); toast(s.key === 'car2' ? 'Car two: on the computer (Team).' : 'Nothing to do here right now.', 1800); return; }
+  stopWalk(true); it.action();
+}
+function startWalk() {
+  const own = screen === 's-homeview' ? settings.car : hubCar();
+  sfx.select();
+  walk.start({ livery: own, face: own.face, spots: walkSpots() }).then(ok => {
+    if (!ok) { toast('The people aren\'t loaded.'); return; }
+    $(screen).classList.add('walking'); renderHints();
+  });
+}
+function stopWalk(quiet = false) {
+  if (!walk.active) return;
+  walk.stop(); $('walk-prompt').hidden = true;
+  document.querySelectorAll('.screen.walking').forEach(e => e.classList.remove('walking'));
+  pitGarage.toRoom(); if (!quiet) sfx.back(); renderHints();
+}
+// every frame while walking: the sticks / keys in, the prompt over what you're at
+function walkInput() {
+  const [lx, ly] = leftStick(), [rx, ry] = rightStick(), p = navigator.getGamepads ? [...navigator.getGamepads()].find(q => q && q.connected) : null;
+  const k = (c) => isDown(c) ? 1 : 0;
+  const mx = lx + k('KeyD') + k('ArrowRight') - k('KeyA') - k('ArrowLeft'), my = -ly + k('KeyW') + k('ArrowUp') - k('KeyS') - k('ArrowDown');
+  const dt = 1 / 60;
+  walk.input = { mx: Math.max(-1, Math.min(1, mx)), my: Math.max(-1, Math.min(1, my)), run: isDown('ShiftLeft') || isDown('ShiftRight') || !!(p && p.buttons[7] && p.buttons[7].value > 0.4),
+    lx: rx * 2.6 * dt + (k('KeyL') - k('KeyJ')) * 2 * dt + walkMouse[0] * 0.005, ly: ry * 1.4 * dt + (k('KeyK') - k('KeyI')) * 1.2 * dt + walkMouse[1] * 0.003 };
+  walkMouse = [0, 0];
+  if (pressed('Escape') || pressed('GP1') || pressed('Backspace')) { stopWalk(); return; }
+  if ((pressed('Enter') || pressed('Space') || pressed('GP0')) && walk.spot) useSpot(walk.spot);
+  const el = $('walk-prompt'), s = walk.spot, at = s && walk.promptAt();
+  el.hidden = !at;
+  if (at) { el.style.left = at.x + 'px'; el.style.top = at.y + 'px'; const g = GLYPHS[device.kind === 'pad' ? 'pad' : 'kb'].ok; if ($('walk-key').innerHTML !== g) $('walk-key').innerHTML = g; if ($('walk-label').textContent !== s.label.toUpperCase()) $('walk-label').textContent = s.label.toUpperCase(); }
+}
+canvas.addEventListener('mousemove', (e) => { if (walk.active && (e.buttons & 1)) { walkMouse[0] += e.movementX; walkMouse[1] += e.movementY; } });
+
 // ---- the home garage, previewed (main menu): the World Career garage built from its kit (js/garagekit.js) with the
 // premises, facilities and second car you pick; your Garage car in bay one. Nothing is saved ----
 const hv = { premises: 'lockup', fac: {}, car2: true, look: 'room' };
@@ -2307,14 +2368,15 @@ function renderHomeView() {
       desc: `${F[f].what}${hv.fac[f] > 0 && k && !k.stations[f] ? ` <b>Not in this room</b>: ${pitGarage.custom && /^home:/.test(pitGarage.custom) ? `no station_${f}.glb yet, or no SLOT_${f} in the shell` : 'loading'}.` : ''}` })),
     { label: 'Car Two', values: [[true, 'In The Bay'], [false, 'None']], get: () => hv.car2, set: v => { hv.car2 = v; hvApply(); },
       desc: `The second car, in BAY_2.${hv.car2 && k && !k.bays[1] ? ' <b>This shell has no second bay.</b>' : ''}` },
+    WALK_ITEM(),
     { label: 'Look At', values: hvLooks(), get: () => hv.look, set: v => { hv.look = v; hvLook(); }, desc: 'Move the camera to the room, car two or a station.', cls: 'gap' },
     { label: 'Back', action: () => backs['s-homeview'](), desc: 'Back to the main menu.' },
   ];
   menus['s-homeview'][0].setItems(items, true);
 }
 menus['s-homeview'] = [new Menu($('m-homeview'), [], { desc: 'd-homeview' })];
-HINTS['s-homeview'] = [['nav', 'Navigate'], ['lr', 'Change'], ['back', 'Back']];
-backs['s-homeview'] = () => { sfx.back(); fadeTo(() => { pitGarage.close(); show('s-main'); }, 200); };
+HINTS['s-homeview'] = () => walk.active ? WALK_HINTS : [['nav', 'Navigate'], ['lr', 'Change'], ['back', 'Back']];
+backs['s-homeview'] = () => { sfx.back(); fadeTo(() => { stopWalk(true); pitGarage.close(); show('s-main'); }, 200); };
 // (the preview's over: back to whatever career was loaded before)
 const endPreviewDone = () => { if (world && world.preview) { world = endPreviewWas; endPreviewWas = null; } };
 
@@ -2743,6 +2805,7 @@ function renderHubMenu() {
     }
   }
   items.push(
+    WALK_ITEM(),
     { label: `Computer${nm ? `<small>${nm} NEW</small>` : ''}`, action: () => sitDown(offerMail ? 'mail' : null, offerMail ? offerMail.id : null), desc: 'Sit down at the desk: Mail, Team (the car, tyres, staff, data) and the Internet. You can also click the monitor.' },
     { label: `Phone${n ? `<small>${n} NEW</small>` : ''}`, action: () => { phone.open(); renderHints(); }, desc: 'Texts from your teammate, rivals and friends.' },
     ...(founded(w) && !w.over && tyreShort(w) ? [{ label: 'Order Tyres<small>LOW</small>', action: () => sitDown('tyres'), desc: `In stock: ${WC.COMPOUNDS.filter(c => c !== 'dirt' || WC.stockOf(w).dirt || WC.tyreNeeds(w).dirt).map(c => `${WC.stockOf(w)[c]} ${c}`).join(', ')}. Order before the weekend (on the computer): trackside sets cost ${Math.round((WC.TRACKSIDE - 1) * 100)}% more. A team manager would order for you.` }] : []),
@@ -3421,6 +3484,7 @@ function renderGuestMenu() {
     R ? { label: `Round ${w.round + 1}: Race Day`, cls: wk.left > 0 ? '' : 'action primary', values: [[true, 'READY'], [false, 'NOT READY']], get: () => !!coop.ready, set: v => { coop.ready = v; net.send({ t: 'ready', ready: v }); renderHub(); },
       desc: `${R.name}, ${R.time}, ${R.weather}. ${host} starts race day from their garage and you're on the grid when they do: straight to the race. Tell them you're ready.` }
       : { label: `${w.year} Season Complete`, disabled: true, desc: `${host} starts next season.` },
+    WALK_ITEM(),
     { label: `Computer${nm ? `<small>${nm} NEW</small>` : ''}`, action: () => sitDown(), desc: `The team's computer: Mail, Team (the cars, tyres, staff, data) and the Internet. The cars' parts, upgrades, repairs and tyres, development and your jobs are yours to sort out; staff, facilities, money, sponsors and the season are ${host}'s.` },
     { label: `Phone${n ? `<small>${n} NEW</small>` : ''}`, action: () => { phone.open(); renderHints(); }, desc: 'The team\'s texts.' },
     ...(w.car ? [{ label: 'Look At The Car', action: () => goToCar(), desc: 'The race car\'s parts and their condition: rebuild them (a shop, or yourself with a day of your week) or buy new.' }] : []),
@@ -5550,11 +5614,12 @@ function frameBody(now) {
   } else if (screen === 's-photo' && sim) {
     photoInput(dt, pad);
   } else if (screen === 's-homeview') {
-    menuInput();
+    if (walk.active) walkInput(); else menuInput();
     pitGarage.update(dt);
   } else if (PHONE_SCREENS.includes(screen)) {
     // World Career, your garage: the computer has the controls while you're sat at it, the phone while it's up (P / Y)
-    if (!endInput() && !tswInput() && !dayInput() && !pcInput() && !phoneInput()) menuInput();
+    if (walk.active) walkInput();
+    else if (!endInput() && !tswInput() && !dayInput() && !pcInput() && !phoneInput()) menuInput();
     hubTick(dt);
   } else if (screen !== 's-editor') {
     menuInput();
@@ -5603,4 +5668,4 @@ requestAnimationFrame(frame);
 // debug handle
 window.__svgp = { get world() { return world; }, get photo() { return photo; }, get hud() { return hud; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, handleRaceEvents, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); }, openHomeView: () => openHomeView(), homeView: (o) => { Object.assign(hv, o); hvApply(); }, get hv() { return hv; } } };
+  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); }, openHomeView: () => openHomeView(), startWalk: () => startWalk(), get walk() { return walk; }, homeView: (o) => { Object.assign(hv, o); hvApply(); }, get hv() { return hv; } } };

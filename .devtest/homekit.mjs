@@ -41,6 +41,13 @@ try {
   await pg.waitForTimeout(1500);
   console.log('bought:  ', JSON.stringify(await pg.evaluate(state)));
   await pg.screenshot({ path: join(out, 'kit-2-stations.png') });
+  // hub walk: Walk Around from the hub menu, a step, then back to the menu
+  await pg.evaluate(() => { const el = [...document.querySelectorAll('#s-hub .item')].find(e => /Walk Around/.test(e.textContent)); el.click(); });
+  await pg.waitForFunction(() => window.__svgp.dbg.walk.active, null, { timeout: 15000 });
+  await pg.keyboard.down('KeyW'); await pg.waitForTimeout(1200); await pg.keyboard.up('KeyW'); await pg.waitForTimeout(300);
+  console.log('hub walk:', JSON.stringify(await pg.evaluate(() => { const w = window.__svgp.dbg.walk; return { pos: w.pos.toArray().map(v => +v.toFixed(2)), spot: w.spot && w.spot.key, menuHidden: document.getElementById('s-hub').classList.contains('walking') }; })));
+  await pg.screenshot({ path: join(out, 'kit-2b-hubwalk.png') });
+  await pg.keyboard.press('Escape'); await pg.waitForTimeout(900);
   // a look at the stations: the camera put by hand (dev only)
   await pg.evaluate(() => { const P = window.__svgp.dbg.pitGarage, k = P.kit; const at = (n) => k.stations[n].getWorldPosition(new P.camera.position.constructor());
     const a = at('tools'), s = at('sim'); P.cine({ pos: a.clone().add({ x: -3.1, y: 1.6, z: 1.1 }), at: a.clone().add({ x: 0, y: 0.6, z: 0 }), fov: 50, shift: 0 }, 0); });

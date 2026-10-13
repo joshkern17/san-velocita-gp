@@ -174,19 +174,15 @@ shift('Industrial_Light', -1.0, 0)                        # (in front of car one
 shift('Cardboard_box_01_Storage_Shelves_0.002', -0.75, 2.85)   # (the boxes where car two goes: into the back corner)
 shift('Cardboard_box_01_Storage_Shelves_0.003', -0.75, 2.85)
 shift('Cardboard_box_04_Storage_Shelves_0.001', 1.75, 3.25)
-# bay lines round both cars (yours were round the old spot: moved to bay one, copied to bay two, hidden as you had them)
-for n in ('BayLine_Back', 'BayLine_Front', 'BayLine_L'):
-    o = bpy.data.objects.get(n)
-    if not o: continue
-    shift(n, BAY1.x, 0)
-    c = o.copy(); c.name = n.replace('BayLine', 'BayLine2'); lock.objects.link(c); c.matrix_world = Matrix.Translation((BAY2.x - BAY1.x, 0, 0)) @ o.matrix_world
-    c.hide_set(o.hide_get())
+# no bay lines (they were painted in the team colour: a square round the car)
+for n in ('BayLine_Back', 'BayLine_Front', 'BayLine_L', 'BayLine_R'):
+    if bpy.data.objects.get(n): bpy.data.objects.remove(bpy.data.objects[n], do_unlink=True)
 
 hooks = collection('shell_lockup hooks', lock)
 # (the car's nose points down -Y, at the door, as in the garage template)
 empty('BAY_1', hooks, BAY1, kind='SINGLE_ARROW', size=1.0, label='Car one')
 empty('BAY_2', hooks, BAY2, kind='SINGLE_ARROW', size=1.0, label='Car two')
-empty('SPAWN', hooks, (0.65, -5.4, 0), rotz=math.pi, kind='SINGLE_ARROW', size=0.6)   # (you, walking in from the door)
+empty('SPAWN', hooks, (0.65, -4.4, 0), rotz=math.pi, kind='SINGLE_ARROW', size=0.6)   # (you, walking in from the door)
 empty('INTERACT_calendar', hooks, (-4.0, 3.42, 2.1), kind='SPHERE', size=0.25, label='The calendar')
 nav = box('NAV_floor', hooks, (7.3, 12.2, 0.0), (0.4, -0.15, 0.0)); nav.display_type = 'WIRE'; nav.hide_render = True
 
@@ -211,22 +207,48 @@ empty('STAND_mechanic', tools, o + Vector((0, -1.45, 0)), rotz=0.0, kind='SINGLE
 bulb('Light_Bench', tools, o + Vector((0, -0.7, 2.3)), 220, (1.0, 0.85, 0.65))   # (a work lamp over the bench)
 empty('INTERACT_tools', tools, o + Vector((0, -1.1, 1.1)), kind='SPHERE', size=0.25, label='The workbench')
 
-# Sim rig: a wheel clamped to a desk against the wall, a CRT on it, an office chair (a lottery winner's first sim)
+# Sim rig (a lottery winner's first one): a CRT on a stand against the wall, a wheel on a post with the pedals under
+# it, an office chair facing them. Which way the chair and the CRT face is measured from their shapes, not guessed.
+def facing(o, kind):
+    # the way a model faces, in its own XY: a chair away from its backrest (its top), a CRT out of its wide end
+    vs = [v.co for v in o.data.vertices]; c = sum(vs, Vector()) / len(vs); zs = [v.z for v in vs]; h = max(zs) - min(zs)
+    if kind == 'chair':
+        top = [v for v in vs if v.z > min(zs) + 0.8 * h]; t = sum(top, Vector()) / len(top)
+        return Vector((c.x - t.x, c.y - t.y)).normalized()
+    best = None
+    for ax in (0, 1):
+        lo, hi = min(v[ax] for v in vs), max(v[ax] for v in vs); span = hi - lo
+        w = lambda sel: (lambda xs: max(xs) - min(xs))([v[1 - ax] for v in vs if sel(v[ax])] or [0])
+        a, b = w(lambda x: x < lo + 0.15 * span), w(lambda x: x > hi - 0.15 * span)
+        if best is None or abs(a - b) > best[0]: best = (abs(a - b), Vector((-1, 0) if ax == 0 else (0, -1)) if a > b else Vector((1, 0) if ax == 0 else (0, 1)))
+    return best[1]
+
+
+def turn_to(o, kind, want):
+    f = facing(o, kind); o.rotation_euler.z = math.atan2(want[1], want[0]) - math.atan2(f.y, f.x)
+
+
 sim, o = station('station_sim', 13.0)
-take(os.path.join(SRC, 'ps1_tsyle_low-poly_average_student_table.glb'), '', sim, o + Vector((0, -0.35, 0)), height=0.74, name='SimDesk')
-d = bpy.data.objects['SimDesk']; w = d.dimensions
-if w.x < w.y: d.rotation_euler.z = D90                         # (long side along the wall)
-take(os.path.join(ROOT, 'models', 'office', 'CrtMonitor.glb'), '', sim, o + Vector((0, -0.3, 0.74)), rotz=0.0, height=0.45, name='SimCRT')
-wheel = bpy.data.meshes.new('SimWheel'); bpy.ops.mesh.primitive_torus_add(major_radius=0.16, minor_radius=0.02, major_segments=12, minor_segments=4)
-wo = bpy.context.active_object; wo.name = 'SimWheel'; wo.location = o + Vector((0, -0.62, 0.9)); wo.rotation_euler = (math.radians(70), 0, 0)
-wo.data.materials.append(material('Wheel', (0.05, 0.05, 0.06), 0.5)); move_to(wo, sim)
-take(os.path.join(ROOT, 'models', 'office', 'office_chair_grey_alt.glb'), '', sim, o + Vector((0, -1.15, 0)), rotz=D90, name='SimChair')  # (the model faces +X: turned to the desk)
-empty('STAND_driver', sim, o + Vector((0, -1.15, 0)), rotz=0.0, kind='SINGLE_ARROW', size=0.5, clip='sit_idle', role='driver')
-bulb('Light_CRT', sim, o + Vector((0, -0.75, 1.15)), 70, (0.6, 0.75, 1.0))     # (the screen's glow)
+dark = material('SimFrame', (0.06, 0.06, 0.07), 0.6)
+box('SimStand', sim, (0.8, 0.45, 0.62), o + Vector((0, -0.25, 0.31)), material('SimStand', (0.22, 0.2, 0.19), 0.8))
+take(os.path.join(ROOT, 'models', 'office', 'CrtMonitor.glb'), '', sim, o + Vector((0, -0.27, 0.62)), height=0.45, name='SimCRT')
+turn_to(bpy.data.objects['SimCRT'], 'crt', (0, -1))                       # (the screen at the driver)
+box('SimPost', sim, (0.06, 0.06, 0.72), o + Vector((0, -0.82, 0.36)), dark)       # (the wheel's post, its foot, the pedal tray)
+box('SimFoot', sim, (0.5, 0.5, 0.04), o + Vector((0, -0.95, 0.02)), dark)
+box('SimPedalL', sim, (0.07, 0.03, 0.18), o + Vector((-0.08, -1.08, 0.12)), material('Pedal', (0.55, 0.55, 0.58), 0.4)).rotation_euler.x = math.radians(-25)
+box('SimPedalR', sim, (0.07, 0.03, 0.18), o + Vector((0.08, -1.08, 0.12)), bpy.data.materials['Pedal']).rotation_euler.x = math.radians(-25)
+box('SimWheelBase', sim, (0.2, 0.16, 0.1), o + Vector((0, -0.84, 0.75)), dark)
+bpy.ops.mesh.primitive_torus_add(major_radius=0.15, minor_radius=0.018, major_segments=12, minor_segments=4)
+wo = bpy.context.active_object; wo.name = 'SimWheel'; wo.location = o + Vector((0, -0.95, 0.86)); wo.rotation_euler = (math.radians(75), 0, 0)  # (rim towards the driver, leaned back)
+wo.data.materials.append(dark); move_to(wo, sim)
+take(os.path.join(ROOT, 'models', 'office', 'office_chair_grey_alt.glb'), '', sim, o + Vector((0, -1.55, 0)), name='SimChair')
+turn_to(bpy.data.objects['SimChair'], 'chair', (0, 1))                    # (facing the wheel)
+empty('STAND_driver', sim, o + Vector((0, -1.55, 0)), rotz=math.pi, kind='SINGLE_ARROW', size=0.5, clip='sit_idle', role='driver')
+bulb('Light_CRT', sim, o + Vector((0, -0.7, 1.1)), 70, (0.6, 0.75, 1.0))      # (the screen's glow)
 empty('INTERACT_sim', sim, o + Vector((0, -1.6, 1.0)), kind='SPHERE', size=0.25, label='The sim rig')
 
 # the slots in the lock-up: the stations' backs to the right wall, facing into the room
-slots = {'tools': ((4.15, 4.05, 0), -D90), 'sim': ((4.15, -4.9, 0), -D90)}
+slots = {'tools': ((4.15, 4.05, 0), -D90), 'sim': ((-3.0, -6.39, 0), math.pi)}   # (the sim: in the front corner by the door, facing in)
 for k, (loc, rz) in slots.items():
     e = empty('SLOT_' + k, hooks, loc, rotz=rz, kind='ARROWS', size=0.5)
     e.instance_type = 'COLLECTION'; e.instance_collection = bpy.data.collections['station_' + k]

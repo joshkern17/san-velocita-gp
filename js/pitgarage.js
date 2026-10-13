@@ -532,6 +532,8 @@ export class PitGarage {
     this.prevShot = this.shot; this.shot = shot; this.shotPart = part; this.blendK = 0;
   }
   setZoom(on) { this.setView(on ? 'seat' : 'room'); }
+  // back to the room's shot from wherever the camera is now (after walking round)
+  toRoom() { this.from = { pos: this.camera.position.clone(), quat: this.camera.quaternion.clone(), fov: this.camera.fov, shift: this.shiftNow ?? 0 }; this.prevShot = this.shot; this.shot = 'room'; this.shotPart = null; this.blendK = 0; }
   get settled() { return this.blendK >= 1; }
   get seated() { return this.shot === 'seat' && this.settled; }
   get atRoom() { return this.shot === 'room' && this.settled; }
@@ -739,6 +741,12 @@ export class PitGarage {
         const c = this.camera.position, o = ch.object.position; ch.object.rotation.y = Math.atan2(c.x - o.x, c.z - o.z) - 0.35; ch.faced = true;
       }
       ch.update(dt);
+    }
+    // walking round (js/garagewalk.js): you and the camera behind you
+    if (this.walker && this.walker.active) {
+      this.walker.update(dt); this.shiftNow = 0;
+      for (const c of [this.car, this.car2]) if (c && c.group.parent) c.animate({ steer: 0, spin: 0, heave: 0, pitch: 0, roll: 0 });
+      return;
     }
     if (this.mode === 'home') {
       // the shot we're going to, blended in from wherever the camera was

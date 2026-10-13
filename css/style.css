@@ -1605,6 +1605,10 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .pc-tag b { font: 500 13px/1 var(--f-ui); letter-spacing: var(--track-caption); color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
 .pc-tag small { font: 500 13px/1 var(--f-ui); letter-spacing: var(--track); color: var(--sv-amber); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
 .pc-tag small:empty { display: none; }
+.walk-prompt { opacity: 1; pointer-events: none; }
+.walk-prompt b kbd { margin-right: 2px; }
+/* walking round the garage: the menu out of the way */
+.screen.walking .scr-head, .screen.walking .hub-left, .screen.walking .pg-left, .screen.walking .desc-bar, .screen.walking .menu-shade, .screen.walking .car-tags { opacity: 0; pointer-events: none; }
 .pc-tag i { width: 1px; height: 26px; background: var(--sv-red); box-shadow: var(--sv-glow-line); }
 .pc-tag i::after { content: ''; display: block; width: 5px; height: 5px; margin: 24px 0 0 -2px; background: var(--sv-red); box-shadow: var(--sv-glow-line); transform: rotate(45deg); }
 .pc-tag.hot { opacity: 1; }
