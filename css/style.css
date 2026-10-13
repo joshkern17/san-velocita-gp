@@ -1607,7 +1607,7 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .pc-tag small:empty { display: none; }
 /* walking round the garage: a red triangle over each thing you can use; the one you're at unfolds into its prompt
    (the stem grows up out of the triangle, then the box opens out from the middle). Each hangs from a fixed point */
-#walk-tags { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
+#walk-tags { position: fixed; inset: 0; z-index: 20; pointer-events: none; } /* (over the corner panels: a marker never goes missing behind them) */
 /* a tag that wants you: amber (pink when it's urgent), pulsing, and its prompt says why */
 .walk-tag small.w { color: var(--sv-amber); }
 .walk-tag.bad small.w { color: var(--sv-bad); }
@@ -1636,7 +1636,7 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .walk-next b { font-weight: 500; color: var(--sv-amber); margin-right: var(--s2); }
 /* the week: walking, the days and the round in a line; stood still, the circuit and the targets (the same place) */
 .wk-more { display: grid; }
-.wk-more > * { grid-area: 1 / 1; transition: opacity .4s; }
+.wk-more > * { grid-area: 1 / 1; align-self: start; transition: opacity .4s; }
 .wk-line { display: none; margin-top: var(--s2); font: 500 var(--t-small)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-cyan); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wk-line b { font-weight: 500; color: var(--sv-red); }
 #s-hub.walking .wk-line { display: block; }

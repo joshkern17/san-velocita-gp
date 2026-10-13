@@ -2422,13 +2422,10 @@ function drawWalkTags(tags) {
   if (!tags) { box.hidden = true; return; }
   box.hidden = false;
   const ga = GLYPHS[device.kind === 'pad' ? 'pad' : 'kb'].alt;
-  // (a tag that would sit behind the week or the status line, up in the corners: hidden, not half under them)
-  const under = ['hub-week', 'walk-hud'].map(id => { const e = $(id); return e && e.offsetParent ? e.getBoundingClientRect() : null; }).filter(Boolean);
-  const behind = (x, y) => under.some(r => x > r.left - 90 && x < r.right + 90 && y > r.top && y < r.bottom + 40);
   while (box.children.length < tags.length) box.insertAdjacentHTML('beforeend', '<div class="walk-tag"><span></span><i></i><em></em></div>');
   [...box.children].forEach((el, i) => {
     const t = tags[i]; el.hidden = !t; if (!t) return;
-    el.classList.toggle('gone', !t.show || behind(t.x, t.y)); el.classList.toggle('open', t.open);
+    el.classList.toggle('gone', !t.show); el.classList.toggle('open', t.open);
     if (t.show) { el.style.left = t.x + 'px'; el.style.top = t.y + 'px'; }
     const alt = t.s.alt, want = t.s.want, html = `<b>${g}</b><small>${t.s.label.toUpperCase()}</small>${want ? `<small class="w">${escP(want.text).toUpperCase()}</small>` : ''}${alt ? `<b class="alt">${ga}</b><small>${alt.toUpperCase()}</small>` : ''}`;
     el.classList.toggle('want', !!want && !want.bad); el.classList.toggle('bad', !!want && want.bad);
