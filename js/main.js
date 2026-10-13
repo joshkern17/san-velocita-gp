@@ -1866,6 +1866,7 @@ const WALK_HINTS = [['cam', 'Walk'], ['look', 'Look'], ['ok', 'Use'], ['back', '
 const WALK_HINTS_HUB = [['cam', 'Walk'], ['look', 'Look'], ['ok', 'Use'], ['phone', 'Phone'], ['back', 'Pause']];
 HINTS['s-hub'] = () => walk.active && !walkPaused && !dayPlan.isOpen && !phone.isOpen ? WALK_HINTS_HUB : walk.active && walkPaused ? [['nav', 'Navigate'], ['ok', 'Select'], ['back', 'Keep walking']] : ending.isOpen ? { scene: [['back', 'Skip']], wire: [['ok', 'Continue']], record: [['nav', 'Choose'], ['ok', 'Select']] }[ending.stage] || [] : dayPlan.isOpen ? [['nav', 'Choose'], ...(dayPlan.onSubs ? [['lr', 'Ideas']] : []), ['ok', 'Do it'], ['back', 'Garage']] : tsw.isOpen ? [['lr', 'Choose'], ['ok', tsw.step === 'ready' ? 'Start the season' : 'Next'], ['back', tsw.at ? 'Back' : 'Garage']] : pcSeat ? [['nav', 'Move'], ['ok', 'Select'], ...(pc.hasTabs ? [['tab', 'Sections']] : []), ['back', pc.app ? 'Back' : 'Stand up']]
   : phone.isOpen ? phoneHints : hubMode === 'car' ? [['nav', 'Part'], ['ok', 'Select'], ['back', 'Back']]
+  : hubMode === 'poster' ? [['ok', 'Back'], ['back', 'Garage']]
   : hubMode === 'list' ? (listStep ? [['nav', 'Choose'], ['ok', 'Write it'], ['back', 'Garage']] : [['ok', 'Select'], ['back', 'Garage']]) : [['nav', 'Navigate'], ['ok', 'Select'], ['phone', 'Phone']];
 
 // the computer on the desk: Mail, the news, the series' websites, the driver database (js/computer.js)
@@ -2287,6 +2288,7 @@ function walkSpots() {
   if (f) out.push({ key: 'computer', label: 'Use the computer', at: ds && ds.chair ? ds.seat.clone().setY(1.0) : f.c.clone().addScaledVector(new V(f.n.x, 0, f.n.z).normalize(), 0.55).setY(f.c.y), reach: ds && ds.chair ? 1.3 : undefined,
     mark: f.c.clone().addScaledVector(f.up, f.h / 2 + 0.16) });
   const lf = P.listMesh && P.listMesh.visible ? P.listFrame() : null; if (lf) out.push({ key: 'list', label: 'The List', at: lf.c.clone().addScaledVector(lf.n, 0.5), reach: 1.6, mark: lf.c.clone().addScaledVector(lf.up, lf.h / 2 + 0.08) });
+  const pf = P.posterFrame; if (pf && P.posterMesh?.parent?.visible) out.push({ key: 'poster', label: 'SVMA Pathway', at: pf.c.clone().addScaledVector(pf.n, 0.6).setY(1.2), reach: 1.8, mark: pf.c.clone().addScaledVector(pf.up, pf.h / 2 + 0.1) });
   // (a car's box where it stands now: one just built or placed behind the fade hasn't had its world matrix worked out,
   // and would measure at the room's origin, by the door; measured again if the car's rebuilt)
   const carBox = (c) => { const b = new THREE.Box3(); c.group.updateWorldMatrix(true, true); c.group.traverse(o => { if (o.isMesh && o !== c.shadow && !(c.shadow && c.shadow.children.includes(o))) b.expandByObject(o); }); return b; };
@@ -2300,7 +2302,7 @@ function walkSpots() {
   // (in a career: the door's tag says what's on out there; the car's offers its day of work)
   const door = out.find(s => s.key === 'door'); if (door) Object.defineProperty(door, 'label', { get: doorLabel });
   const car = out.find(s => s.key === 'car'); if (car) Object.defineProperty(car, 'alt', { get: () => dayAt('car').length ? 'Spend the day' : null });
-  for (const s of out) if (['computer', 'car', 'list', 'door'].includes(s.key)) Object.defineProperty(s, 'want', { get: () => wantOf(s.key) });
+  for (const s of out) if (['computer', 'car', 'list', 'door', 'poster'].includes(s.key)) Object.defineProperty(s, 'want', { get: () => wantOf(s.key) });
   return out;
 }
 // what a spot does: in a career, the hub menu's own item; in the preview, nothing (it says what it'd be)
@@ -2321,6 +2323,8 @@ function useSpot(s) {
     if (!openDayPlan(true, 'door')) { sfx.error(); toast(next ? 'Not yet.' : 'Nothing out there today.', 1600); }
     return;
   }
+  // the SVMA's poster: over to it, and what the next rung takes
+  if (s.key === 'poster') { goToPoster(); return; }
   // the sim rig: a session on it takes the day
   if (s.key === 'sim') { if (!openDayPlan(true, 'sim')) { sfx.error(); toast(myWeek(world).left <= 0 ? 'No days left this week.' : 'No sim session today: one a week, and not after a test day.', 2000); } return; }
   // the calendar: plan the day (every choice, wherever it's done)
@@ -2758,8 +2762,8 @@ function endRecord(w) {
   };
 }
 // the cars of each class, for the customer racing programmes (World Career: moving up)
-function carCatalog() {
-  const of = (cls) => carsOfClass(cls).filter(id => cls !== 'f1' || id === 'f1').map(id => { const st = carStats(id); return { key: chassisKey(id), name: id === 'f1' ? 'SV-F spec chassis' : CARS[id].name, hp: Math.round(st.power), kg: Math.round(st.weight) }; });
+function carCatalog() { // (from the specs, not the loaded models: a new career's is made before they've loaded)
+  const of = (cls) => (cls === 'f1' ? carsOfClass(cls) : carsInClass(cls)).filter(id => cls !== 'f1' || id === 'f1').map(id => { const st = carStats(id); return { key: chassisKey(id), name: id === 'f1' ? 'SV-F spec chassis' : CARS[id].name, hp: Math.round(st.power), kg: Math.round(st.weight) }; });
   return { club: of('club'), gt1: of('gt1'), f1: of('f1') };
 }
 function openHub(first = false) {
@@ -2797,13 +2801,18 @@ function renderHub() {
   const bank = w.money && w.money.choice ? cellW('Bank', `<span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span>`) : cellW('Bank', '&mdash;');
   const F = w.founding || {};
   pitGarage.setNotice(WC.bankNote(w)?.stage >= 2);
-  pitGarage.setMemories(WC.memoriesOf(w)); // (the clippings, trophies, bills and the mattress)
+  pitGarage.setMemories(WC.memoriesOf(w)); // (the clippings, trophies, bills, the license and the SVMA poster)
+  if (walk.active && !!pitGarage.posterFrame !== walk.spots.some(x => x.key === 'poster')) walk.spots = walkSpots(); // (the poster's gone up, or moved, while you're on your feet)
   if (w.ended) {
     const E = w.ended, bank = E.why === 'bank';
     $('hub-card').innerHTML = `<div class="panel-title">${E.y} &middot; ${bank ? 'Account closed' : 'Entry withdrawn'}</div><div class="ti-grid three">${cellW('Seasons', w.seasons.filter(x => x.you).length + (w.over ? 0 : 1))}${cellW('Wins', w.player.wins)}${cellW(E.bal < 0 ? 'Owed' : 'Bank', `<span class="${E.bal < 0 ? 'bad' : ''}">${WC.money$(Math.abs(E.bal))}</span>`)}</div>
       <p class="br-hint">${bank ? 'First Velocita has closed the account.' : `The ${escP(E.series || '')} has withdrawn your entry.`} ${escP(E.team)} is finished.</p>`;
   } else if (hubMode === 'list') {
     $('hub-card').innerHTML = listCard(w);
+  } else if (hubMode === 'poster') {
+    const [a, b] = WC.ladderNext(w), L = WC.licOf(w);
+    $('hub-card').innerHTML = `<div class="panel-title">SVMA PATHWAY</div><div class="ti-name">${escP(WC.seriesById(w.player.series).name)}</div>
+      <p class="hub-note">${escP(a)}</p><p class="hub-note">${escP(b)}</p><p class="hub-note">Your license: <b>${WC.licName(L.g)}</b>. It's on the wall by the list.</p>`;
   } else if (hubMode === 'car' && w.car) {
     const risk = WC.failRisk(w), m = WC.staffOf(w, 'mechanic');
     $('hub-card').innerHTML = `<div class="panel-title">THE CAR</div><div class="ti-name">${w.car.year} ${w.car.name}</div>
@@ -2937,6 +2946,8 @@ function wantOf(key) {
     if (P[k].cond < 0.5) r = { text: `${WC.PARTS[k].name} ${Math.round(P[k].cond * 100)}%`, bad: P[k].cond < 0.3 };
   } else if (key === 'list') {
     r = WC.listWants(w) ? { text: 'To write', bad: false } : WC.listFresh(w).length ? { text: 'New', bad: false } : null;
+  } else if (key === 'poster') {
+    r = w.ladderSeen !== WC.ladderKey(w) ? { text: w.player.offer && !w.player.offer.answer ? 'Offer' : 'New', bad: false } : null;
   } else if (key === 'door') {
     const ch = dayAt('door'), ev = ch.find(o => /^ev|^din/.test(o.key) && o.tag === 'Today');
     r = ev ? { text: 'Today', bad: false } : myWeek(w).left <= 0 ? { text: 'Race day', bad: false } : null;
@@ -2948,6 +2959,7 @@ function renderHubMenu() {
   syncHome();
   if (hubMode === 'car') return renderCarMenu();
   if (hubMode === 'list') return renderListMenu();
+  if (hubMode === 'poster') { const m = menus['s-hub'][0]; m.setItems([{ label: 'Back to the garage', cls: 'action', action: () => leavePoster(), desc: 'The ladder, and where you are on it.' }]); return; }
   if (coopGuest()) return renderGuestMenu();
   if (world.ended) { // (the team's finished: what's left is reading about it)
     const m = menus['s-hub'][0];
@@ -3013,6 +3025,7 @@ backs['s-hub'] = () => {
   if (tsw.isOpen) { tsw.back(); renderHints(); return; }
   if (dayPlan.isOpen) return;
   if (hubMode === 'list') { if (!listPaper.busy) leaveList(); return; }
+  if (hubMode === 'poster') { leavePoster(); return; }
   if (pcSeat && pc.isOpen) { if (pc.app) { pc.back(); renderHints(); } else standUp(); return; }
   if (hubMode === 'car') { if (carSub) { carSub = null; sfx.back(); renderHubMenu(); } else leaveCar(); }
   else if (optSub && calSub !== null) { calSub = calSub === 'list' ? null : 'list'; sfx.back(); renderOptMenu(); }
@@ -3170,6 +3183,17 @@ function listNextStep() {
   const w = world; if (hubMode !== 'list') return;
   listStep = !WC.listOf(w).why ? 'why' : WC.ambitionDue(w) ? 'amb' : null; listPrev = null;
   drawList(); renderHub(); renderHints();
+}
+// the SVMA pathway poster: the camera on it, the hub card says what the next rung takes (and it's been seen)
+function goToPoster() {
+  if (!world || hubMode === 'poster' || !founded(world)) return;
+  holdWalk();
+  if (hubMode === 'car') { hubMode = 'room'; carSub = null; carPart = null; $('s-hub').classList.remove('at-car'); }
+  hubMode = 'poster'; world.ladderSeen = WC.ladderKey(world); wantC.t = 0;
+  $('s-hub').classList.add('at-list'); pitGarage.setView('poster'); sfx.select(); renderHub(); renderHints();
+}
+function leavePoster() {
+  hubMode = 'room'; $('s-hub').classList.remove('at-list'); pitGarage.setView('room'); sfx.back(); saveWorld(); renderHub(); renderHints();
 }
 function leaveList() {
   hubMode = 'room'; listStep = null; listPrev = null; listHide.clear();
@@ -5875,4 +5899,4 @@ requestAnimationFrame(frame);
 // debug handle
 window.__svgp = { get world() { return world; }, get photo() { return photo; }, get hud() { return hud; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, handleRaceEvents, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); }, openHomeView: () => openHomeView(), startWalk: () => startWalk(), get walk() { return walk; }, homeView: (o) => { Object.assign(hv, o); hvApply(); }, get hv() { return hv; } } };
+  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), goToPoster: () => goToPoster(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); }, openHomeView: () => openHomeView(), startWalk: () => startWalk(), get walk() { return walk; }, homeView: (o) => { Object.assign(hv, o); hvApply(); }, get hv() { return hv; } } };

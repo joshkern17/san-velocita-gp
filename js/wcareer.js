@@ -673,6 +673,8 @@ export const licName = (g) => LICENSES[clamp(g, 0, LICENSES.length - 1)].name;
 // the grade a series asks for, and whether you have it
 export const licNeed = (sid) => seriesById(sid)?.lic || 0;
 export const licOk = (w, sid) => licOf(w).g >= licNeed(sid);
+// clean races still to go to a grade (this grade's stamps left, and every grade's between)
+export function licLeft(w, g) { const L = licOf(w); let n = 0; for (let k = L.g; k < g; k++) n += LICENSES[k].need - (k === L.g ? L.c : 0); return n; }
 // after your race: the incidents that were yours (at-fault contact, the dirty stuff, a disqualification)
 function licRace(w, log, me) {
   if (w.pre || !me) return;
@@ -690,6 +692,34 @@ function licRace(w, log, me) {
      `Your new card will arrive in 6 to 8 weeks. In the meantime please print the temporary license attached to this email. We are unable to attach it to this email.`, `SVMA Licensing`]);
   if (L.g === top) keepClip(w, 'license', `${w.player.name.split(' ').pop()} earns National license`);
 }
+
+// ---------------- the SVMA pathway: the ladder, as a poster on your garage wall ----------------
+// Every rung of the sports car path from the bottom, the Formula branch beside the top, what each asks (license,
+// premises) and roughly what a season costs; where you are (a pin), where you've been (your finish there) and what's
+// not running yet. pitgarage.js hangPoster draws it; the walk spot ('SVMA Pathway') zooms in, with ladderNext's lines.
+const PLANNED = [{ id: 'shitbox', name: 'Shitbox League', tier: 0, path: 'sportscar' }, { id: 'gt2', name: 'GT2 Championship', tier: 3, path: 'sportscar' }];
+export function ladderOf(w) {
+  const L = licOf(w), here = w.player.series, hist = w.player.hist || [];
+  const rung = (S, soon) => {
+    const been = hist.filter(h => h.s === S.id).map(h => ({ y: h.y, pos: h.pos })), need = SERIES_NEEDS[S.id] || null;
+    const cost = soon || !COSTS[S.id] ? 0 : Math.round(seasonBudget(w, S).run / 1000) * 1000;
+    return { id: S.id, name: S.name, tier: S.tier, path: S.path, soon: !!soon, lic: soon ? null : licNeed(S.id), licName: soon ? null : licName(licNeed(S.id)), licCol: soon ? null : LICENSES[licNeed(S.id)].col,
+      needs: need ? Object.entries(need).map(([k, n]) => needName(k, n)) : [], cost, you: S.id === here, been, licOk: soon ? false : licOk(w, S.id) };
+  };
+  const rungs = [...SERIES.map(S => rung(S, false)), ...PLANNED.filter(x => !seriesById(x.id)).map(x => rung(x, true))].sort((a, b) => a.tier - b.tier || (a.path === 'sportscar' ? -1 : 1));
+  return { rungs, lic: { g: L.g, name: licName(L.g), col: LICENSES[L.g].col }, rule: 'Finish top 3, or your team top 2, with the license the series asks for: every series on the next rung offers you an entry.' };
+}
+// what the poster's walk spot says, in two lines: the next rung up and what it takes from here
+export function ladderNext(w) {
+  const sid = w.player.series, up = nextUp(sid), L = licOf(w);
+  if (!up) return [`You're at the top of the ladder.`, `Stay there.`];
+  const left = licLeft(w, licNeed(up.id));
+  const lic = licOk(w, up.id) ? `Your ${licName(L.g)} license is enough.` : `It needs a ${licName(licNeed(up.id))} license (yours is ${licName(L.g)}): ${left} more clean race${left === 1 ? '' : 's'}.`;
+  const miss = seriesMissing(myTeam(w), up.id).map(([k, n]) => needName(k, n));
+  return [`Next rung: ${upNames(sid)}. Finish top 3, or your team top 2.`, `${lic}${miss.length ? ` Entrants need ${miss.join(' and ')}.` : ''}`];
+}
+// has the ladder changed since you last looked (a rung opened, the license went up, an offer's waiting): its key
+export const ladderKey = (w) => `${licOf(w).g}|${w.player.series}|${w.player.offer && !w.player.offer.answer ? 1 : 0}`;
 
 // ---------------- a round: your race, then everyone else's ----------------
 // res: race.js results() rows (with pid: 'P' for you), log: race.js incident log ([{ type, a, b, blame }] by pid)
@@ -3385,7 +3415,7 @@ export function briefing(w) {
     const gap = raced && pos > amb.t ? st[amb.t - 1].pts - st[pos - 1].pts : 0;
     hints.push(!raced ? `This year: ${amb.label.toLowerCase()}.${up ? ` Top 3 earns a ${upName.replace(/ Championship\b/g, '')} offer.` : ''}` : pos <= amb.t ? `This year: ${amb.label.toLowerCase()}. You're P${pos}: on course.` : `This year: ${amb.label.toLowerCase()}. You're P${pos}, ${gap} point${gap === 1 ? '' : 's'} off.`);
   }
-  else if (up && !licOk(w, up.id)) { const L = licOf(w), left = LICENSES[L.g].need - L.c; hints.push(`The ${up.name} needs a ${licName(licNeed(up.id))} license. ${left} more clean race${left === 1 ? '' : 's'} to ${licName(L.g + 1)}.`); }
+  else if (up && !licOk(w, up.id)) { const left = licLeft(w, licNeed(up.id)); hints.push(`The ${up.name} needs a ${licName(licNeed(up.id))} license: ${left} more clean race${left === 1 ? '' : 's'}.`); }
   else if (up) hints.push(raced && pos <= 3 ? `Stay in the top 3 for a ${upName} offer.` : `Top 3 at the end (or your team top 2) earns a ${upName} offer${raced && fund[pos - 1] ? ` (P${pos} pays ${money$(fund[pos - 1])})` : ''}.`);
   // (and whoever owns a share of the team: their target, in the same line, in place of the promotion rule)
   { const I = investorIn(w); if (I && !w.over && hints.length) hints[0] = hints[0].replace(/ Top 3 earns .*$/, '') + ` ${I.name[1]} (${Math.round(I.share * 100)}%) wants the top ${I.target}${I.misses ? ', or wants out' : ''}.`; }
@@ -4656,7 +4686,7 @@ export function memoriesOf(w) {
   // (the license on its lanyard: grade, stamps toward the next, whose it is)
   const L = licOf(w), G = LICENSES[L.g];
   const lic = { g: L.g, name: G.name, col: G.col, c: L.c, need: G.need, next: LICENSES[L.g + 1]?.name || null, no: L.no, since: L.up || L.since, holder: p.name };
-  return { clips: (w.keeps || []).slice(-8), trophies, bills, mattress: !(p.hist || []).length || bal < 0, lic };
+  return { clips: (w.keeps || []).slice(-8), trophies, bills, mattress: !(p.hist || []).length || bal < 0, lic, ladder: setupDone(w) ? ladderOf(w) : null };
 }
 
 // what the Wire calls you: the lottery winner, until you've earned something else

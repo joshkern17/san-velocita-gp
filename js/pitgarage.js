@@ -425,6 +425,9 @@ export class PitGarage {
     }
     // your racing license, on its lanyard: on the list's wall, the other side from the clippings
     if (lf && m.lic) this.hangLicense(G, m.lic, lf, m.clips.length ? -(this.clipSide || -1) : 1, solid);
+    // the SVMA's pathway poster: the ladder, on a wall of its own
+    this.posterFrame = null; this.posterMesh = null;
+    if (m.ladder) this.hangPoster(G, m.ladder, lf, solid);
     if (f) {
       const n = new THREE.Vector3(f.n.x, 0, f.n.z).normalize(), side = new THREE.Vector3().crossVectors(n, new THREE.Vector3(0, 1, 0)).normalize(), deskY = f.c.y - f.h / 2;
       const onDesk = (p) => { const s0 = p.clone(); s0.y += 0.5; const h = new THREE.Raycaster(s0, new THREE.Vector3(0, -1, 0), 0, 1.2).intersectObject(this.room, true).find(solid); return h && h.point.y > deskY - 0.35 && h.point.y < deskY + 0.2 ? h.point : null; };
@@ -483,6 +486,62 @@ export class PitGarage {
       this.licenseMesh = card;
       return;
     }
+  }
+  // the poster: on a clear stretch of wall away from the list (the walls round the car, tried in turn; along each a few
+  // spots, every corner of the sheet on the wall). posterFrame (like listFrame) is what the camera and the walk spot use
+  hangPoster(G, L, lf, solid) {
+    const W = 0.62, H = 0.88, C = this.carCentre(), d = this.doorDir(), sd = new THREE.Vector3(-d.z, 0, d.x), Y = 1.48;
+    const wallAt = (from, dir, len = 9) => new THREE.Raycaster(from, dir, 0, len).intersectObject(this.room, true).find(solid);
+    for (const dir of [sd, sd.clone().negate(), d.clone().negate(), d]) {
+      const o = C.clone(); o.y = Y; const h = wallAt(o, dir); if (!h || !h.face) continue;
+      const n = h.face.normal.clone().transformDirection(h.object.matrixWorld); n.y = 0; if (n.lengthSq() < 0.5) continue; n.normalize(); if (n.dot(dir) > 0) n.negate();
+      const t = new THREE.Vector3().crossVectors(n, new THREE.Vector3(0, 1, 0)).normalize();
+      for (const off of [0, 0.7, -0.7, 1.4, -1.4, 2.1, -2.1]) {
+        const c = h.point.clone().addScaledVector(t, off);
+        if (lf && c.distanceTo(lf.c) < 1.3) continue; // (clear of the list, its clippings and the license)
+        const ok = [[0, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]].every(([a, b]) => {
+          const p = c.clone().addScaledVector(t, a * W * 0.48).add(new THREE.Vector3(0, b * H * 0.48, 0)).addScaledVector(n, 0.3);
+          const x = wallAt(p, n.clone().negate(), 0.45); return x && Math.abs(x.distance - 0.3) < 0.03;
+        });
+        if (!ok) continue;
+        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({ map: this.posterTex(L), color: 0xd6d0c2, polygonOffset: true, polygonOffsetFactor: -2 }));
+        mesh.position.copy(c).addScaledVector(n, 0.01); mesh.lookAt(mesh.position.clone().add(n)); G.add(mesh);
+        // (four pins, one a little crooked)
+        for (const [a, b] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) { const pin = new THREE.Mesh(new THREE.SphereGeometry(0.007, 8, 6), new THREE.MeshStandardMaterial({ color: a + b === 0 ? 0x1d3f9a : 0xc8141c, roughness: 0.4 })); pin.position.copy(mesh.position).addScaledVector(t, a * (W / 2 - 0.02)).add(new THREE.Vector3(0, b * (H / 2 - 0.02), 0)).addScaledVector(n, 0.004); G.add(pin); }
+        this.posterMesh = mesh; this.posterFrame = { c: mesh.position.clone(), n: n.clone(), up: new THREE.Vector3(0, 1, 0), side: t.clone().negate(), w: W, h: H };
+        return;
+      }
+    }
+  }
+  // the SVMA's poster: the rungs bottom to top, each with the license it asks (the license card's colours), what
+  // else it needs and a season's cost; your team's pin on yours, your finishes on the ones you've raced
+  posterTex(L) {
+    const cv = document.createElement('canvas'); cv.width = 1240; cv.height = 1760; const g = cv.getContext('2d'); g.scale(2, 2); // (drawn at 620 x 880; twice the pixels, for reading up close)
+    const ink = '#1d1d22', F = (w, px) => `${w} ${px}px Arial, Helvetica, sans-serif`;
+    g.fillStyle = '#efece3'; g.fillRect(0, 0, 620, 880);
+    g.fillStyle = '#1a2a55'; g.fillRect(0, 0, 620, 128);
+    g.fillStyle = '#fff'; g.font = F('bold', 54); g.fillText('SVMA', 30, 70); g.font = F('bold', 26); g.fillText('THE PATHWAY', 214, 62);
+    g.font = F('', 16); g.fillStyle = '#c9d2ea'; g.fillText('San Velocita Motorsport Association: the sports car ladder', 30, 106);
+    const rungs = L.rungs.slice().reverse(), top = 150, bottom = 742, rh = (bottom - top) / rungs.length;
+    rungs.forEach((r, i) => {
+      const y = top + i * rh, h = rh - 10, branch = r.path !== 'sportscar';
+      g.fillStyle = r.you ? '#fff7d6' : r.soon ? '#e2dfd6' : '#f8f6f0'; g.fillRect(30, y, 560, h);
+      g.strokeStyle = r.you ? '#c8141c' : '#b9b4a8'; g.lineWidth = r.you ? 4 : 1.5; g.strokeRect(30, y, 560, h);
+      g.fillStyle = r.soon ? '#9a958a' : ink; g.font = F('bold', 15); g.fillText(`TIER ${r.tier}${branch ? ' \u00b7 FORMULA PATH' : ''}`, 44, y + 24);
+      g.font = F('bold', 25); g.fillText(r.name.toUpperCase(), 44, y + 54);
+      g.fillStyle = '#55524b';
+      { const t = r.soon ? 'Not running yet.' : [r.cost ? `About $${Math.round(r.cost / 1000)}k a season to run a car` : '', r.needs.length ? `Needs ${r.needs.join(', ')}` : ''].filter(Boolean).join('  \u00b7  ');
+        let px = 14; g.font = F('', px); while (g.measureText(t).width > 530 && px > 9) g.font = F('', --px); g.fillText(t, 44, y + 78); } // (a long line: smaller, never off the edge)
+      if (r.licName) { g.fillStyle = r.licCol; g.fillRect(456, y + 10, 120, 30); g.fillStyle = r.lic === 0 ? ink : '#fff'; g.font = F('bold', 15); g.textAlign = 'center'; g.fillText(r.licName.toUpperCase(), 516, y + 31); g.textAlign = 'left'; }
+      if (r.been.length) { const b = r.been.slice(-3).map(x => `${x.y} P${x.pos}`).join(', '); g.fillStyle = '#1d3f9a'; g.font = F('bold', 14); g.textAlign = 'right'; g.fillText(b, 576, y + h - 12); g.textAlign = 'left'; }
+      if (r.you) { g.fillStyle = '#c8141c'; g.beginPath(); g.arc(18, y + h / 2, 11, 0, Math.PI * 2); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(18, y + h / 2, 4, 0, Math.PI * 2); g.fill();
+        g.save(); g.translate(440, y + 30); g.rotate(-0.05); g.fillStyle = '#c8141c'; g.font = '600 18px "Bradley Hand", "Segoe Print", cursive'; g.textAlign = 'right'; g.fillText('you are here', 0, 0); g.restore(); g.textAlign = 'left'; }
+    });
+    g.fillStyle = ink; g.font = F('bold', 15); g.fillText('HOW TO MOVE UP', 30, 772);
+    g.font = F('', 14); const words = L.rule.split(' '); let line = '', y = 794;
+    for (const wd of words) { if (g.measureText(line + wd).width > 560) { g.fillText(line, 30, y); y += 19; line = ''; } line += wd + ' '; } g.fillText(line, 30, y);
+    g.fillStyle = '#8a867c'; g.font = F('', 11); g.fillText('The SVMA reserves the right to add rungs, remove rungs, and redefine the word "ladder".', 30, 862);
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
   }
   strapTex() {
     const cv = document.createElement('canvas'); cv.width = 32; cv.height = 256; const g = cv.getContext('2d');
@@ -885,7 +944,7 @@ export class PitGarage {
       // the shot we're going to, blended in from wherever the camera was
       const f = this.screenFrame(), el = this.r.domElement;
       const lf = this.listCanvas ? this.listFrame() : null;
-      const b = this.shot === 'cine' && this.cinePose ? this.cinePose : this.shot === 'seat' && f ? this.seatPose(f, el.width / el.height) : this.shot === 'list' && lf ? this.listPose(lf, el.width / el.height) : this.shot === 'car' ? this.carPose(this.shotPart) : this.roomPose(f, this.t);
+      const b = this.shot === 'cine' && this.cinePose ? this.cinePose : this.shot === 'seat' && f ? this.seatPose(f, el.width / el.height) : this.shot === 'list' && lf ? this.listPose(lf, el.width / el.height) : this.shot === 'poster' && this.posterFrame ? this.listPose(this.posterFrame, el.width / el.height) : this.shot === 'car' ? this.carPose(this.shotPart) : this.roomPose(f, this.t);
       const look = (p) => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(p.pos, p.at, new THREE.Vector3(0, 1, 0)));
       this.blendK = Math.min(1, this.blendK + dt / (this.shot === 'cine' ? this.cineT || 1e-6 : 0.75));
       const k = this.blendK * this.blendK * (3 - 2 * this.blendK), a = this.from || { pos: b.pos, quat: look(b), fov: b.fov, shift: b.shift };
