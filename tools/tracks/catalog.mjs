@@ -58,6 +58,16 @@ export const CATALOG = [
     scatter: { mix: 'mixed', r: 160, d: 0.08 },
   },
   {
+    // the classic layout (no chicanes): the Spec Miata Club's home circuit
+    id: 'limerock', name: 'Lime Rock Park', country: 'USA', category: 'classic',
+    dem: 'usgs',
+    desc: 'Classic · a mile and a half in the Connecticut woods: Big Bend, the Uphill, West Bend and the blind Diving Turn onto the straight',
+    guide: { points: [[41.92968, -73.38440], [41.92683, -73.37803], [41.92625, -73.38152], [41.92530, -73.38420], [41.92600, -73.38720], [41.92820, -73.38845], [41.92975, -73.38620]] },
+    roads: RACEWAY, skip: /pit|chicane|autocross|skidpad|kart|paddock/i, width: 10,
+    env: { theme: 'grass', time: 'day', weather: 'clear', laps: 5, opponents: 11, setting: { kind: 'none', flora: 'mixed', seed: 1957 } },
+    scatter: { mix: 'mixed', r: 70, d: 0.3 },
+  },
+  {
     id: 'zandvoort', name: 'Zandvoort', country: 'Netherlands', category: 'gp',
     dem: 'ahn',
     desc: 'Grand Prix · in the dunes by the North Sea: Tarzan, the Hugenholtz banking and the steep banked Arie Luyendyk',

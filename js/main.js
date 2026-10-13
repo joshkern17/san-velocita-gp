@@ -1484,6 +1484,8 @@ const distItem = (o, key, tracks, extra = {}) => ({ label: 'Race Distance', valu
 const money = (k) => '$' + (k >= 1000 ? (k / 1000).toFixed(2) + 'M' : k + 'k');
 function trackPool(which) {
   const mine = savedTracks();
+  // (a World Career: the presets and the real circuits, laps not point-to-point runs; the series pick theirs from it)
+  if (which === 'career') return [...presetTracks(), ...realTracks().filter(t => !t.open)];
   if (which === 'mine') return mine.length ? mine : presetTracks();
   if (which === 'all') return [...presetTracks(), ...mine];
   return presetTracks();
@@ -1784,7 +1786,7 @@ let world = null;
 let optSub = false;  // ... or Career Options
 let calSub = null;   // ... and in them the Season Calendar: 'list', or the round (index) picked on it
 let gig = null;      // a gig being driven: { g, t, ref, comfort, dmg, lat, lon; rides: fun (0..100), sick (0..100), tIn/tLo/tHi (s), lapRides }
-const worldOpts = { len: 6, difficulty: 'medium', dist: 15, weekend: 'quali', prac: 1200, quali: 600, pool: 'presets', tracks: null, name: '' };
+const worldOpts = { len: 6, difficulty: 'medium', dist: 15, weekend: 'quali', prac: 1200, quali: 600, pool: 'career', tracks: null, name: '' };
 // every circuit a career can use: the presets, yours, and the real ones
 const allTracks = () => { const seen = new Set(); return [...presetTracks(), ...savedTracks(), ...realTracks()].filter(t => t && t.name && !seen.has(t.name) && seen.add(t.name)); };
 // a career's circuits: the ones picked on the Circuits screen (opts.tracks), else the old preset/mine setting

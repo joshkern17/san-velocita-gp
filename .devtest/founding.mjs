@@ -25,7 +25,9 @@ try {
     WC.registerTeam(w, { name: 'Test Driver', team: 'Driver Racing', colors: [S.car.main, S.car.accent], home: Object.keys(WC.TOWNS)[0], background: Object.keys(WC.BACKGROUNDS)[0], ex: 'Jo', years: 7 });
     WC.claimLottery(w, 'lump');
     return { series: w.player.series, cat, ads: (w.ads || []).length, tip: (w.ads || []).filter(x => x.tip).length, earlyBuy: WC.buyCar(w, w.ads[0].id), mail: w.mail.map(m => m.subj), texts: (w.msgs || []).length }; });
-  check(a.series === 'club', `starts in the club (${a.series})`); check(a.cat, 'car catalogue set before registering'); check(a.ads >= 3 && a.tip === 1, `classifieds: ${a.ads} listings, Danny's pick on one`);
+  check(a.series === 'club', `starts in the club (${a.series})`);
+  const cal = await pg.evaluate(() => window.__svgp.world.series.club.cal.map(c => c.name));
+  check(cal.includes('Lime Rock Park'), `the club's calendar has its home circuit (${cal.join(', ')})`); check(a.cat, 'car catalogue set before registering'); check(a.ads >= 3 && a.tip === 1, `classifieds: ${a.ads} listings, Danny's pick on one`);
   check(!a.earlyBuy, 'no buying off SVList before the setup'); check(!a.mail.some(s => /found you a car/.test(s)) && a.texts === 0, `before setup: ${a.mail.length} emails (${a.mail.join(' | ')}), ${a.texts} texts`);
   const s = await pg.evaluate(async () => { const d = window.__svgp.dbg, w = window.__svgp.world, WC = await import('/js/wcareer.js'); if (d.tsw && d.tsw.isOpen) d.tsw.close();
     WC.setupPick(w, 'entry', 'fresh'); WC.setupPick(w, 'car', w.ads.find(x => x.tip).id); WC.setupPick(w, 'sponsor', 0); const mate = w.setup.drivers[1]; WC.setupPick(w, 'mate', mate);
