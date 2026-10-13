@@ -166,6 +166,29 @@ export function askOf(w, p) {
   if (t.includes('digger')) wage *= 1.3; if (t.includes('loyal')) wage *= 0.8; if (p.titles) wage *= 1 + 0.15 * p.titles;
   return { wage: Math.round(wage / 50) * 50, fee: 0 };
 }
+// a career saved before a series existed (the Spec Miata Club, 2026-10-13): the series joins the world as a new world
+// would have it, six teams of two with this season's calendar (made from the circuits the other series race at, its own
+// first); no history, it simply wasn't reported on
+function addMissingSeries(w) {
+  for (const s of SERIES) {
+    if (w.series[s.id]) continue;
+    const used = new Set(Object.values(w.teams).map(t => t.name)), free = TEAM_POOL.filter(([n]) => !used.has(n));
+    let n = Math.max(0, ...Object.keys(w.teams).map(id => +id.slice(1) || 0));
+    const ids = [];
+    for (let t = 0; t < TEAMS_PER; t++) {
+      const [name, main, accent] = free[t] || [`${s.name} Team ${t + 1}`, 0x777777, 0xffffff], id = 'T' + (++n);
+      w.teams[id] = { id, name, main, accent, series: s.id, car: clamp(s.base + gauss(w) * 5, 20, 98), drivers: [] };
+      for (let seat = 0; seat < SEATS; seat++) { const [a0, as] = s.ages || [21, 13]; const p = makePerson(w, { age: r0(a0 + rng(w) * as), series: s.id, lvl: s.base + gauss(w) * s.spread * 0.4 }); p.team = id; w.teams[id].drivers.push(p.id); }
+      aiInit(w, w.teams[id]); ids.push(id);
+    }
+    // (the calendar: the rounds the others have, the circuits this series prefers first)
+    const seen = new Map(); for (const S of Object.values(w.series)) for (const c of S.cal || []) if (!seen.has(c.name)) seen.set(c.name, c);
+    const all = [...seen.values()], own = all.filter(c => (s.tracks || []).includes(c.name)), rest = all.filter(c => !own.includes(c));
+    const order = [...own, ...rest], cal = [];
+    for (let r = 0; r < w.opts.len && order.length; r++) { const c = order[r % order.length]; cal.push({ name: c.name, time: c.time, weather: c.weather, theme: c.theme, surface: c.surface }); }
+    w.series[s.id] = { teams: ids, cal, results: [] };
+  }
+}
 // the people without a seat: kept at about ten (juniors after a first seat, drivers who lost theirs, the odd veteran)
 function topUpFreeAgents(w) {
   const free = Object.values(w.people).filter(p => !p.retired && !p.team && ageOf(w, p) < 37);
@@ -2800,7 +2823,7 @@ export function gigDone(w, id, r, who = 'P') {
       w.licence = (w.licence || 0) + 3;
       add('Fine: street racing', -1500);
       head += ', and the police came'; line = `Three points on your licence (${w.licence} now).`;
-      if (w.licence >= 6) { news(w, `${w.teams[w.player.team].name.toUpperCase()} OWNER CAUGHT STREET RACING`, `A Street Cup team owner was among those stopped by police at an industrial estate on Friday night.`); w.rep = clamp(repOf(w) - 6, 0, 100); }
+      if (w.licence >= 6) { news(w, `${w.teams[w.player.team].name.toUpperCase()} OWNER CAUGHT STREET RACING`, `A ${seriesById(w.player.series).name} team owner was among those stopped by police at an industrial estate on Friday night.`); w.rep = clamp(repOf(w) - 6, 0, 100); }
     }
   }
   // your race car paid for it too
@@ -2983,7 +3006,7 @@ const TEMPTS = {
     offer(w) {
       const stake = 1500 * KS(w);
       mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'lenny',
-        [`Yo my guy Lenny takes bets on the Street Cup. He's got you at long odds which is kinda disrespectful`, `Top 5 this weekend pays 3 to 1. Or, and I'm only saying this cause Lenny said it, finishing outside the top 8 pays 2 to 1`, `${money$(stake)} stake. Cash`],
+        [`Yo my guy Lenny takes bets on the ${seriesById(w.player.series).name}. He's got you at long odds which is kinda disrespectful`, `Top 5 this weekend pays 3 to 1. Or, and I'm only saying this cause Lenny said it, finishing outside the top 8 pays 2 to 1`, `${money$(stake)} stake. Cash`],
         { tempt: 'bet', stake, choices: [['for', 'Bet on yourself: top 5'], ['against', 'Bet against yourself: outside the top 8'], ['no', 'No']] });
     } },
   insure: { danny: true, base: 0.08, min: 0.6, ok: (w) => w.car && !w.car.lease && !w.fraud && !w.flags?.fraudCaught,
@@ -3022,7 +3045,7 @@ function answerTempt(w, m, key) {
       const o = sponsorById(d.sid); w.deals = dealsOf(w).filter(x => x !== d);
       mail(w, o.name, sponsorAddr(o.name), 'Our partnership', [`We've seen the new name on your car. We don't think ${sp.name} is a good fit alongside ${o.name}, so we're ending our sponsorship, effective immediately.`, o.name]);
     }
-    news(w, `${sp.name.toUpperCase()} JOINS ${w.teams[w.player.team].name.toUpperCase()}`, `The Street Cup team has a new ${slot === 'title' ? 'title ' : ''}partner.`);
+    news(w, `${sp.name.toUpperCase()} JOINS ${w.teams[w.player.team].name.toUpperCase()}`, `The ${seriesById(w.player.series).name} team has a new ${slot === 'title' ? 'title ' : ''}partner.`);
     return { msg: `${sp.name} is on board. Their logo needs to be on the car.` };
   }
   if (m.tempt === 'shark') { react(w, 'danny', `The player took a loan from Sal, Danny's cousin: ${money$(m.amt)} now, ${money$(m.back)} back in four rounds.`); pay(w, m.amt, 'Loan (Sal)'); (w.loans ??= []).push({ shark: true, owe: m.back, due: nowIdx(w) + 4, missed: 0, paid: false }); flag(w, 'shark'); return { msg: `${money$(m.amt)} from Sal. ${money$(m.back)} back in four rounds.` }; }
@@ -3094,7 +3117,7 @@ function loanRound(w) {
 function consequences(w) {
   if (w.lies && rng(w) < 0.006 * Math.min(4, w.lies) * (pressOf(w) < 0 ? 2 : 1)) {
     const lied = dealsOf(w).filter(d => d.lied);
-    news(w, `${w.teams[w.player.team].name.toUpperCase()}'S AUDIENCE FIGURES "DON'T ADD UP"`, `The Paddock Wire has seen sponsorship reports claiming TV audiences larger than the Street Cup's actual broadcast reach.`);
+    news(w, `${w.teams[w.player.team].name.toUpperCase()}'S AUDIENCE FIGURES "DON'T ADD UP"`, `The Paddock Wire has seen sponsorship reports claiming TV audiences larger than the ${seriesById(w.player.series).name}'s actual broadcast reach.`);
     for (const d of lied) { const sp = sponsorById(d.sid); mail(w, sp.name, sponsorAddr(sp.name), 'Our partnership', [`We've read the article. We're ending our sponsorship, effective immediately, and our lawyers will be in touch about the figures.`, sp.name]); }
     w.deals = dealsOf(w).filter(d => !d.lied); w.rep = clamp(repOf(w) - 8, 0, 100); w.lies = 0; flag(w, 'liesCaught');
     stain(w, 'inflated audience figures', 6);
@@ -3221,7 +3244,7 @@ const ARCS = {
       if (a.step === 1) {
         a.step = 2; a.climax = w.year * 100 + w.round;
         w.dir.goal = { text: `Beat both ${t.name} cars`, tid: w.rival.tid, key: a.climax, arc: a.id };
-        news(w, `${w.rival.name[1].toUpperCase()}: NEWCOMERS "GOOD FOR THE SPORT, IN MODERATION"`, `The ${t.name} owner says the Street Cup has "room for everyone, for a while".`);
+        news(w, `${w.rival.name[1].toUpperCase()}: NEWCOMERS "GOOD FOR THE SPORT, IN MODERATION"`, `The ${t.name} owner says the ${seriesById(w.player.series).name} has "room for everyone, for a while".`);
         return;
       }
     },
@@ -3245,7 +3268,7 @@ const ARCS = {
     start(w, a) {
       const scandal = w.scandal && nowIdx(w) - w.scandal <= 1;
       a.wait = mailId(w, JOURNO[0], JOURNO[1], scandal ? 'Your side of the story?' : 'Interview request',
-        [scandal ? `I'm writing about this week's news and I'd like to give you the chance to respond.` : `I'm writing a piece on the new teams in the Street Cup and I'd like to spend a day with yours.`, `It would mean a day of your week. I'd be fair.`, JOURNO[0], 'The Paddock Wire'],
+        [scandal ? `I'm writing about this week's news and I'd like to give you the chance to respond.` : `I'm writing a piece on the new teams in the ${seriesById(w.player.series).name} and I'd like to spend a day with yours.`, `It would mean a day of your week. I'd be fair.`, JOURNO[0], 'The Paddock Wire'],
         { arc: a.id, choices: [['yes', 'Yes (a day)'], ...(w.rival ? [['tip', `Off the record: tell her about ${w.rival.name[1]}`]] : []), ['no', 'Decline']] });
     },
     step() {},
@@ -3259,7 +3282,7 @@ const ARCS = {
       }
       if (key === 'tip') {
         w.press = pressOf(w) + 1;
-        news(w, `${w.rival.name[1].toUpperCase()}'S TEAM "RUNS ON INHERITANCE", SAYS PADDOCK SOURCE`, `A source close to the Street Cup says ${w.teams[w.rival.tid].name} has never turned a profit.`);
+        news(w, `${w.rival.name[1].toUpperCase()}'S TEAM "RUNS ON INHERITANCE", SAYS PADDOCK SOURCE`, `A source close to the ${seriesById(w.player.series).name} says ${w.teams[w.rival.tid].name} has never turned a profit.`);
         if (rng(w) < 0.4) mail(w, rivalName(w), rivalAddr(w), 'Sources', [`I read the Paddock Wire this morning. I know who the "paddock source" is.`, `I'll remember it.`, w.rival.name[0]]);
         flag(w, 'tip'); return { msg: 'The story runs this week, without your name on it.' };
       }
@@ -3409,17 +3432,23 @@ export function briefing(w) {
   if (sv) goals.push({ label: 'Saving for', value: sv.name, pct: clamp(w.money.balance / sv.cost, 0, 1) });
   // the hint: what each one is for, in a line
   const hints = [];
-  // this year's ambition first: how far off it you are
-  // (one short line with the ambition: the promotion rule tucked in after it)
+  // one line: this year's ambition (how far off it you are) and anyone else's target, then the gate to the next rung,
+  // always (the license it needs, or the promotion rule), so what you're chasing is never off the card
+  let aim = '';
   if (amb && !w.over) {
     const gap = raced && pos > amb.t ? st[amb.t - 1].pts - st[pos - 1].pts : 0;
-    hints.push(!raced ? `This year: ${amb.label.toLowerCase()}.${up ? ` Top 3 earns a ${upName.replace(/ Championship\b/g, '')} offer.` : ''}` : pos <= amb.t ? `This year: ${amb.label.toLowerCase()}. You're P${pos}: on course.` : `This year: ${amb.label.toLowerCase()}. You're P${pos}, ${gap} point${gap === 1 ? '' : 's'} off.`);
+    aim = !raced ? `This year: ${amb.label.toLowerCase()}.` : pos <= amb.t ? `This year: ${amb.label.toLowerCase()}. You're P${pos}: on course.` : `This year: ${amb.label.toLowerCase()}. You're P${pos}, ${gap} point${gap === 1 ? '' : 's'} off.`;
   }
-  else if (up && !licOk(w, up.id)) { const left = licLeft(w, licNeed(up.id)); hints.push(`The ${up.name} needs a ${licName(licNeed(up.id))} license: ${left} more clean race${left === 1 ? '' : 's'}.`); }
-  else if (up) hints.push(raced && pos <= 3 ? `Stay in the top 3 for a ${upName} offer.` : `Top 3 at the end (or your team top 2) earns a ${upName} offer${raced && fund[pos - 1] ? ` (P${pos} pays ${money$(fund[pos - 1])})` : ''}.`);
-  // (and whoever owns a share of the team: their target, in the same line, in place of the promotion rule)
-  { const I = investorIn(w); if (I && !w.over && hints.length) hints[0] = hints[0].replace(/ Top 3 earns .*$/, '') + ` ${I.name[1]} (${Math.round(I.share * 100)}%) wants the top ${I.target}${I.misses ? ', or wants out' : ''}.`; }
-  { const W = worksOf(w); if (W && !w.over && hints.length) hints[0] = hints[0].replace(/ Top 3 earns .*$/, '') + ` ${W.maker} wants the top ${W.target}.`; }
+  { const I = investorIn(w); if (I && !w.over) aim += ` ${I.name[1]} (${Math.round(I.share * 100)}%) wants the top ${I.target}${I.misses ? ', or wants out' : ''}.`; }
+  { const W = worksOf(w); if (W && !w.over) aim += ` ${W.maker} wants the top ${W.target}.`; }
+  let gate = '';
+  if (up && !w.over) {
+    const short = upName.replace(/ Championship\b/g, '');
+    if (!licOk(w, up.id)) { const left = licLeft(w, licNeed(up.id)); gate = `${up.name}: a ${licName(licNeed(up.id))} license, ${left} more clean race${left === 1 ? '' : 's'}.`; }
+    else gate = raced && pos <= 3 ? `Top 3: on for a ${short} offer.` : `Top 3 or team top 2: a ${short} offer${raced && fund[pos - 1] && !aim ? ` (P${pos} pays ${money$(fund[pos - 1])})` : ''}.`;
+  }
+  const first = [aim.trim(), gate].filter(Boolean).join(' ');
+  if (first) hints.push(first);
   // (money first when it's running out, else what reputation unlocks)
   if (r < 6) hints.unshift(`Money lasts about ${Math.max(0, Math.floor(r))} round${Math.floor(r) === 1 ? '' : 's'}: work the week, keep your sponsors.`);
   else if (sv && sv.why) hints.push(sv.why);
@@ -3471,6 +3500,9 @@ export const RUNGS = {
   name: { at: 6, why: 'prove', text: () => 'Stop being "the lottery winner"', any: (w) => repOf(w) >= 45 },
   home: { at: 6, why: 'always', text: () => 'Win at home', round: (w, x) => won(x) && isHome(w, x.R) },
   paid: { at: 6, why: 'nothing', text: () => 'Pay everyone on time, all season', season: (w) => (w.staff || []).length > 0 && !listOf(w).late[w.year] },
+  // (a career that started in the club: the license and the Street Cup first)
+  license: { at: 6.5, start: 'club', text: () => 'Earn a National license', any: (w) => licOf(w).g >= 2 },
+  street: { at: 6.8, start: 'club', text: () => 'Make the Street Cup', round: (w, x) => !!x.me && x.sid === 'street' },
   cup: { at: 7, text: () => 'Win the Street Cup', season: (w, s) => !!s.you && s.you.pos === 1 && s.you.s === 'street' },
   gt: { at: 8, text: () => 'Race in GT', round: (w, x) => !!x.me && x.sid === 'gt' },
   gtwin: { at: 9, text: () => 'Win a GT race', round: (w, x) => won(x) && x.sid === 'gt' },
@@ -3496,7 +3528,7 @@ export function listOf(w) {
 // the lines on your list, in order: [{ key, text, done }]
 export function listRungs(w) {
   const L = listOf(w);
-  return Object.entries(RUNGS).filter(([, r]) => !r.why || r.why === L.why).sort((a, b) => a[1].at - b[1].at)
+  return Object.entries(RUNGS).filter(([, r]) => (!r.why || r.why === L.why) && (!r.start || r.start === startOf(w))).sort((a, b) => a[1].at - b[1].at)
     .map(([key, r]) => ({ key, text: r.text(w), done: L.done[key] || null }));
 }
 export const listNext = (w) => listRungs(w).find(r => !r.done) || null;
@@ -3507,7 +3539,7 @@ function listCheck(w, ctx) {
   if (w.pre || !w.founding?.reg) return;
   const L = listOf(w);
   for (const [key, r] of Object.entries(RUNGS)) {
-    if (L.done[key] || (r.why && r.why !== L.why)) continue;
+    if (L.done[key] || (r.why && r.why !== L.why) || (r.start && r.start !== startOf(w))) continue;
     const hit = ctx && ctx.season ? r.season && r.season(w, ctx.season) : ctx ? r.round && r.round(w, ctx) : r.any && r.any(w);
     if (!hit && !(r.any && r.any(w))) continue;
     L.done[key] = { y: w.year, r: w.round, track: ctx && ctx.R ? ctx.R.name : null };
@@ -3526,6 +3558,8 @@ const LIST_TEXTS = {
     name: ['Wire used your actual name today', 'Not lottery winner. Just you', 'Big'],
     season: ['Made it to the end of a season', 'Honestly didn\'t think you would', 'In a good way'],
     paid: ['Everyone got paid on time all season', 'Including me', 'Mostly me'],
+    license: ['National license huh', 'Still not letting you drive my van'],
+    street: ['Street Cup now', 'Real cars dude. Ones with doors that close'],
     cup: ['Street Cup champion', 'Gonna need you to sign my van'],
     gt: ['GT now huh', 'Don\'t forget the little people'],
     gtwin: ['You\'re winning in GT', 'This is insane man'],
@@ -3539,6 +3573,8 @@ const LIST_TEXTS = {
     podium: ['A podium! I cut it out of the paper.', 'Love, Mom'],
     win: ['You won!! I told everyone at the store.', 'Even the people who weren\'t asking. Love, Mom'],
     home: ['You won at home. Half the street was there.', 'Mrs. Patel says she always knew. She did not. Love, Mom'],
+    license: ['Your racing license came. I mean, you showed me a picture of it.', 'Love, Mom'],
+    street: ['The Street Cup! Linda says that\'s the one with the real cars.', 'Love, Mom'],
     cup: ['Champion. The picture is going on the fridge.', 'Love, Mom'],
     gt: ['The GT Championship. Is that the one on television?', 'Love, Mom'],
     gtwin: ['Another win. I\'ve had to buy a second scrapbook.', 'Love, Mom'],
@@ -4200,7 +4236,7 @@ export function runPayroll(w) {
     if (!x.danny && x.morale < 25 && x.owed > 0 && rng(w) < 0.45) {
       mail(w, `${x.first} ${x.last}`, `${x.first.toLowerCase()}.${x.last.toLowerCase()}@coolmail.sv`, 'Resignation',
         [`I'm resigning, effective immediately.`, `I am owed ${money$(x.owed)}. I've been advised to take it up with the labour board, and I have.`, `${x.first}`]);
-      if (x.owed >= wage * 2) news(w, `${w.teams[w.player.team].name.toUpperCase()} STAFF UNPAID, SOURCES SAY`, `A former ${ROLES[x.role].name.toLowerCase()} at the Street Cup newcomers says wages have gone unpaid for weeks.`);
+      if (x.owed >= wage * 2) news(w, `${w.teams[w.player.team].name.toUpperCase()} STAFF UNPAID, SOURCES SAY`, `A former ${ROLES[x.role].name.toLowerCase()} at the ${seriesById(w.player.series).name} newcomers says wages have gone unpaid for weeks.`);
       fireStaff(w, x.id);
     } else if (x.danny && x.unpaidRounds === 2) texts(w, 'Danny', [`Hey so the payroll thing`, `No rush`, `My landlord's just asking`]);
   }
@@ -4308,7 +4344,7 @@ function sponsorRound(w, use, me) {
     if (d.shady) {
       if (d.owed) items.push([`${sp.name} (last round's invoice)`, d.owed]);
       d.owed = d.fee; d.obj = null;
-      if (rng(w) < 0.1) { w.deals = dealsOf(w).filter(x => x !== d); news(w, `${sp.name.toUpperCase()} COLLAPSES`, `${sp.name} has gone into administration owing money to suppliers, including a Street Cup team.`); items.push([`${sp.name}: in administration (this round's ${money$(d.owed)} unpaid)`, 0]); flag(w, 'shadyCollapse'); }
+      if (rng(w) < 0.1) { w.deals = dealsOf(w).filter(x => x !== d); news(w, `${sp.name.toUpperCase()} COLLAPSES`, `${sp.name} has gone into administration owing money to suppliers, including a ${seriesById(w.player.series).name} team.`); items.push([`${sp.name}: in administration (this round's ${money$(d.owed)} unpaid)`, 0]); flag(w, 'shadyCollapse'); }
       continue;
     }
     const af = ambFee(w); // (more for a bold season target, a little less for a timid one)
@@ -4841,6 +4877,7 @@ export function loadWorld(id) {
     const w = JSON.parse(localStorage.getItem(slot(id))); if (!w || w.v !== 1) return null;
     w.mail = w.mail || [];
     for (const m of w.msgs || []) if (m.from === 'Mum') m.from = 'Mom'; // (one Mom: her two threads, together)
+    addMissingSeries(w); // (a series added to the ladder since the save: its teams, drivers and calendar)
     if (!w.money) startMoney(w);
     if (!w.founding) w.founding = { reg: true, car: true, legacy: true }; // (careers from before the founding: carry on as you were)
     if (!w.series[gpSeries().id].cal.some(c => c.gp)) gpRound(w, null); // (careers from before the Grand Prix)

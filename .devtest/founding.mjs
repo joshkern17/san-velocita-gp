@@ -49,5 +49,20 @@ try {
   await pg.keyboard.press('Escape'); await pg.waitForTimeout(1500);
   const after = await pg.evaluate(() => { const sp = window.__svgp.dbg.walk.spots.find(x => x.key === 'poster'); return sp && sp.want ? sp.want.text : null; });
   check(after === null, `seen: the tag's gone (${after})`);
+  // the series website: how to get in, under its name
+  await pg.evaluate(() => window.__svgp.dbg.sitDown('series')); await pg.waitForFunction(() => document.querySelector('.ss-entry'), null, { timeout: 20000 }).catch(() => {}); await pg.waitForTimeout(1500); // (walked round to the chair first)
+  const site = await pg.evaluate(() => document.querySelector('.ss-entry')?.textContent || null);
+  check(site && /Tier 1/.test(site) && /Novice/.test(site), `series site: ${site}`);
+  await pg.screenshot({ path: join(out, 'f-3-site.png') });
+  await pg.evaluate(() => window.__svgp.dbg.standUp()); await pg.waitForTimeout(1200);
+  // the season's end with an offer: answered from the garage's menu
+  const m = await pg.evaluate(async () => { const w = window.__svgp.world, WC = await import('/js/wcareer.js');
+    w.over = true; w.lic.g = 2; w.player.offer = { to: 'street', opts: ['street'], answer: null };
+    w.mail.unshift({ id: 'eX', y: w.year, r: w.round, from: 'SVMA Competitions', subj: 'Your options for 2027', body: ['Dear T,', 'Street Cup: an entry is yours if you want it. A season costs about $82,000 to run a car, plus the car.', 'SVMA Competitions'], read: false, offer: 'multi', choices: [['move:street', 'Move up to the Street Cup'], ['stay', 'Stay in the Spec Miata Club']] });
+    window.__svgp.dbg.renderHub(); await new Promise(r => setTimeout(r, 400));
+    const items = [...document.querySelectorAll('#m-hub .item')].map(e => e.textContent.replace(/\s+/g, ' ').trim());
+    const el = [...document.querySelectorAll('#m-hub .item')].find(e => /Move Up/i.test(e.textContent)); if (el) el.click(); await new Promise(r => setTimeout(r, 400));
+    return { items, answer: w.player.offer.answer, to: w.player.offer.to }; });
+  check(m.items.some(x => /Move Up: Street Cup/i.test(x)) && m.answer === 'move' && m.to === 'street', `season end: menu ${m.items.slice(0, 3).join(' | ')} -> ${m.answer} ${m.to}`);
 } finally { await b.close(); server.kill(); }
 console.log(fails ? `${fails} FAILED` : 'ALL OK'); process.exit(fails ? 1 : 0);

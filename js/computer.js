@@ -1008,10 +1008,16 @@ export class Computer {
   }
 
   // a series' website: standings, teams, calendar, champions; links to the other series
+  // how to get in, under the series' name: its rung, the license, the premises, a season's cost (and whether you're there)
+  seriesEntry(s) {
+    const r = WC.ladderOf(this.w).rungs.find(x => x.id === s.id); if (!r) return '';
+    const bits = [`Tier ${r.tier}`, `<b style="color:${r.licCol}">${esc(r.licName)}</b> license`, ...(r.needs.length ? [`needs ${esc(r.needs.join(', '))}`] : []), ...(r.cost ? [`about ${WC.money$(r.cost)} a season to run a car`] : [])];
+    return `<div class="ss-entry">${r.you ? '<span class="you">Your series</span> ' : ''}${bits.join(' &middot; ')}</div>`;
+  }
   seriesSite() {
     const w = this.w, s = WC.seriesById(this.page.s), S = w.series[s.id], tab = this.page.tab;
     const nav = SITE_TABS.map(t => `<span class="ss-tab${t === tab ? ' on' : ''}" data-nav data-act="tab" data-arg="${t}" data-key="tab-${t}"${t === tab ? ' data-first' : ''}>${SITE_TAB_NAME[t]}</span>`).join('');
-    const others = WC.SERIES.filter(x => x.id !== s.id).map(x => `<span class="ss-link" data-nav data-act="site" data-arg="${x.id}" data-key="site-${x.id}">${esc(x.name)} &rarr;</span>`).join('');
+    const others = WC.SERIES.filter(x => x.id !== s.id).sort((a, b) => a.tier - b.tier).map(x => `<span class="ss-link" data-nav data-act="site" data-arg="${x.id}" data-key="site-${x.id}">${esc(x.name)} &rarr;</span>`).join('');
     let body = '';
     if (tab === 'standings') {
       const st = WC.seriesStandings(w, s.id);
@@ -1036,7 +1042,7 @@ export class Computer {
       const rows = w.seasons.slice().reverse().map(sum => { const pid = sum.champs[s.id], tid = sum.teamChamps[s.id]; return `<tr class="${pid === 'P' ? 'me' : ''}"><td>${sum.year}</td><td>${pid ? esc(WC.displayName(w, pid)) : ''}</td><td>${tid ? esc(w.teams[tid].name) : ''}</td></tr>`; }).join('');
       body = rows ? `<table class="pc-tbl"><tr><th>YEAR</th><th>CHAMPION</th><th>TEAMS' CHAMPION</th></tr>${rows}</table>` : '<p class="pc-empty">No champions yet: the first title is decided this year.</p>';
     }
-    return `<div class="ss" style="--ss:${SERIES_COL[s.id] || '#777'}"><div class="ss-head"><b>${esc(s.name.toUpperCase())}</b><small>Official website &middot; ${w.year} season</small></div><div class="ss-nav">${nav}</div><div class="ss-body">${body}</div><div class="ss-foot">Other series: ${others}</div></div>`;
+    return `<div class="ss" style="--ss:${SERIES_COL[s.id] || '#777'}"><div class="ss-head"><b>${esc(s.name.toUpperCase())}</b><small>Official website &middot; ${w.year} season</small></div>${this.seriesEntry(s)}<div class="ss-nav">${nav}</div><div class="ss-body">${body}</div><div class="ss-foot">Other series: ${others}</div></div>`;
   }
 
   // the driver database: everyone, by series (and the retired), and a page per driver
@@ -1184,6 +1190,6 @@ export class Computer {
 const SITE_TABS = ['standings', 'teams', 'calendar', 'champions'];
 const SITE_TAB_NAME = { standings: 'Standings', teams: 'Teams', calendar: 'Calendar', champions: 'Champions' };
 const DB_TABS = [...WC.SERIES.slice().sort((a, b) => a.tier - b.tier).map(s => s.id), 'retired'];
-const SERIES_COL = { street: '#e0642a', gt: '#2a8f5a', formula: '#2a4fa0' };
+const SERIES_COL = { club: '#2fa59a', street: '#e0642a', gt: '#2a8f5a', formula: '#2a4fa0' };
 // headlines are stored in capitals (for the phone); the news site writes them in title case
 function cap(s) { return String(s).toLowerCase().replace(/(^|[\s'-])([a-z])/g, (m, a, b, i, str) => a === "'" && /^(s|t|d|m|ll|re|ve)\b/.test(str.slice(i + 1)) ? m : a + b.toUpperCase()).replace(/\b(At|To|For|Of|The|In|Up)\b(?!$)/g, (m, x, i) => i ? m.toLowerCase() : m).replace(/\b(Sv|Gt|Gp|F1|Tv|Ai)\b/g, (m) => m.toUpperCase()); } // (series and initials stay capitals; O'Brien, but who's and don't)

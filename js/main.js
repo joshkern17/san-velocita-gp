@@ -2197,7 +2197,7 @@ function worldItems(saves) {
     { label: 'Practice', values: PRAC_VALS, get: () => worldOpts.prac, set: v => worldOpts.prac = v, desc: PRAC_DESC, get disabled() { return worldOpts.weekend !== 'full'; } },
     { label: 'Qualifying', values: QUALI_VALS, get: () => worldOpts.quali, set: v => worldOpts.quali = v, desc: QUALI_DESC, get disabled() { return worldOpts.weekend === 'race'; } },
     { label: `Circuits<small>${n} CHOSEN</small>`, action: () => openTrackPick(worldOpts, 's-career', () => openCareer(true)), desc: `The circuits your calendars are drawn from: ${n} chosen. You can change them again before each season.` },
-    { label: 'Start Career', cls: 'action primary', action: () => startWorld(), desc: 'Your name, your team and your first car are set up on the computer in your garage.' },
+    { label: 'Start Career', cls: 'action primary', action: () => startWorld(), desc: 'Win the lottery, register a team, pick a car off the classifieds. You start in the Spec Miata Club, in a rented lock-up.' },
   );
   return items;
 }
@@ -2214,7 +2214,7 @@ function worldInfo() {
   const el = $('career-info');
   const feat = (ico, t, d) => `<div class="feat"><i>${ico}</i><div><b>${t}</b><span>${d}</span></div></div>`;
   el.innerHTML = `<h3>WORLD CAREER</h3><p class="lead">You won the lottery, got divorced, and decided to start a racing team. Run it from your garage for as long as the money lasts, and then some.</p>
-    ${feat('&#9873;', 'Three series', 'Street Cup, GT Championship and Formula SV. Finish in the top three to be offered a step up, if you can afford it.')}
+    ${feat('&#9873;', 'A ladder to climb', 'Spec Miata Club, Street Cup, the GT Championship, Formula SV. Finish top three (or your team top two), hold the racing license the series asks for, and every series on the next rung offers you an entry. If you can afford it.')}
     ${feat('&#36;', 'Every lap costs', 'Entry, travel, the crew, tyres, fuel and repairs. Prize money comes back. The bank is watching.')}
     ${feat('&#9636;', 'The computer', 'Email, the news, the classifieds, the bank. Most of the story happens on a screen in your garage.')}`;
 }
@@ -2836,7 +2836,7 @@ function renderHub() {
     const sum = w.seasons.at(-1), you = sum && sum.you, off = w.player.offer;
     $('hub-card').innerHTML = `<div class="panel-title">${w.year} &middot; SEASON COMPLETE</div><div class="season-pips">${pips}</div>
       <div class="ti-grid three">${cellW('Finished', you ? ord(you.pos) : '&mdash;')}${cellW('Wins', you ? you.wins : 0)}${bank}</div>
-      ${off ? `<p class="hub-note">${off.answer === 'move' ? `You're moving up to the <b>${seriesName(off.to)}</b>.` : off.answer === 'stay' ? `You're staying in the ${seriesName(sid)}.` : (off.opts || [off.to]).length > 1 ? `The ${(off.opts).map(id => `<b>${seriesName(id)}</b>`).join(' and the ')} have emailed you offers.` : `The <b>${seriesName(off.to)}</b> has emailed you an offer.`}</p>` : ''}`;
+      ${off ? `<p class="hub-note">${off.answer === 'move' ? `You're moving up to the <b>${seriesName(off.to)}</b>.` : off.answer === 'stay' ? `You're staying in the ${seriesName(sid)}.` : `The SVMA offers you ${(off.opts || [off.to]).map(id => `<b>${seriesName(id)}</b>`).join(' or ')}. Choose below.`}</p>` : ''}`;
   }
   renderWeekStrip();
   renderHubMenu();
@@ -2995,8 +2995,14 @@ function renderHubMenu() {
     else items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), desc: raceDesc(w) }, sitOutItem(w, false));
     if (noCar) items.push(getCarItem(w));
   } else {
-    items.push({ label: `Start ${w.year + 1} Season`, cls: 'action primary', action: () => beginNextSeason(),
-      desc: offerMail ? `First answer the ${seriesName(off.to)}'s email.` : 'Everyone a year older. Retirements, promotions and rookies, then a new calendar.' });
+    // (the SVMA's offer: answered right here, the same as from the email: each series' line from it as the reason)
+    if (offerMail && offerMail.choices) for (const [key, label] of offerMail.choices) {
+      const id = String(key).startsWith('move:') ? key.slice(5) : null, line = id && (offerMail.body || []).find(b => b.startsWith(seriesName(id) + ':'));
+      items.push({ label: id ? `Move Up: ${seriesName(id)}` : label, cls: id ? 'action primary' : 'action', action: () => { pc.src.answer(offerMail, key); renderHub(); },
+        desc: line ? line.slice(seriesName(id).length + 2) : `Another year in the ${seriesName(sid)}. The offer won't wait for you.` });
+    }
+    items.push({ label: `Start ${w.year + 1} Season`, cls: offerMail ? 'action' : 'action primary', action: () => beginNextSeason(),
+      desc: offerMail ? `First choose: move up, or stay.` : 'Everyone a year older. Retirements, promotions and rookies, then a new calendar.' });
     if (off && off.answer === 'move') {
       const miss = WC.seriesMissing(WC.myTeam(w), off.to);
       if (miss.length) items.push({ label: `${seriesName(off.to)} Requirements<small>MISSING</small>`, action: () => sitDown('facilities'), desc: `The ${seriesName(off.to)} won't take your entry without ${miss.map(([k, n]) => WC.needName(k, n)).join(' and ')}. Build them before you start the season (Team, Facilities), or the entry is withdrawn.` });

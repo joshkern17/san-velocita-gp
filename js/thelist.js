@@ -46,12 +46,13 @@ export class ListPaper {
     g.font = `700 40px ${HAND}`; g.fillStyle = PEN; g.fillText('The list', X0, y);
     this.line(X0, y + 10, X0 + g.measureText('The list').width + 8, 77, 1, 2.5);
     y += LINE;
+    const step = state.rungs.length > 12 ? 52 : LINE; // (a long list: a little closer, so this year's line keeps its room)
     for (const r of state.rungs) {
       const strikeK = reveal && reveal.key === r.key ? reveal.k : r.done ? 1 : 0, fresh = state.fresh && state.fresh.includes(r.key);
       const writeK = reveal && reveal.key === 'w:' + r.key ? reveal.k : r.hidden ? 0 : 1;
       g.font = `700 35px ${HAND}`;
       const tw = g.measureText(r.text).width;
-      if (writeK < 1 || r.pencil) { this.write(r.text, X0, y, 35, r.pencil ? PENCIL : PEN, writeK, 700); y += LINE; continue; } // (being written in, or pencilled)
+      if (writeK < 1 || r.pencil) { this.write(r.text, X0, y, 35, r.pencil ? PENCIL : PEN, writeK, 700); y += step; continue; } // (being written in, or pencilled)
       // (a crossed-off line goes a little grey: the next one is the one that matters)
       g.fillStyle = strikeK >= 1 && !fresh ? 'rgba(29,43,110,.6)' : PEN; g.fillText(r.text, X0, y);
       if (strikeK > 0 && !(fresh && !reveal)) {
@@ -60,7 +61,7 @@ export class ListPaper {
       }
       // the next one: an arrow in the margin
       if (r.key === state.next) this.arrow(X0 - 76, y - 11);
-      y += LINE;
+      y += step;
     }
     if (state.allDone) { g.font = `600 31px ${HAND}`; g.fillStyle = PEN; g.fillText('What now?', X0 + 40, y); y += LINE; }
     // this year
