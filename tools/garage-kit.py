@@ -174,6 +174,16 @@ shift('Industrial_Light', -1.0, 0)                        # (in front of car one
 shift('Cardboard_box_01_Storage_Shelves_0.002', -0.75, 2.85)   # (the boxes where car two goes: into the back corner)
 shift('Cardboard_box_01_Storage_Shelves_0.003', -0.75, 2.85)
 shift('Cardboard_box_04_Storage_Shelves_0.001', 1.75, 3.25)
+# the floor: concrete from the PSX Industrial Textures pack, a tile every 1.5 m (UVs from where each corner is)
+fl = bpy.data.objects.get('Floor')
+if fl:
+    fl.data = fl.data.copy(); fl.data.materials.clear(); fl.data.materials.append(material('Floor_Concrete', (1, 1, 1), 0.85, os.path.join(SRC, 'industrial_concrete_floor.png')))
+    uv = fl.data.uv_layers.new(name='Concrete'); fl.data.uv_layers.active = uv
+    for li, lp in enumerate(fl.data.loops):
+        w = fl.matrix_world @ fl.data.vertices[lp.vertex_index].co; uv.data[li].uv = (w.x / 1.5, w.y / 1.5)
+    for i in range(len(fl.data.uv_layers) - 1, -1, -1):
+        if fl.data.uv_layers[i].name != 'Concrete': fl.data.uv_layers.remove(fl.data.uv_layers[i])
+
 # no bay lines (they were painted in the team colour: a square round the car)
 for n in ('BayLine_Back', 'BayLine_Front', 'BayLine_L', 'BayLine_R'):
     if bpy.data.objects.get(n): bpy.data.objects.remove(bpy.data.objects[n], do_unlink=True)
