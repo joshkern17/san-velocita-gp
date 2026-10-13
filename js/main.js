@@ -2759,7 +2759,7 @@ function endRecord(w) {
 // the cars of each class, for the customer racing programmes (World Career: moving up)
 function carCatalog() {
   const of = (cls) => carsOfClass(cls).filter(id => cls !== 'f1' || id === 'f1').map(id => { const st = carStats(id); return { key: chassisKey(id), name: id === 'f1' ? 'SV-F spec chassis' : CARS[id].name, hp: Math.round(st.power), kg: Math.round(st.weight) }; });
-  return { gt1: of('gt1'), f1: of('f1') };
+  return { club: of('club'), gt1: of('gt1'), f1: of('f1') };
 }
 function openHub(first = false) {
   if (world) WC.setCarCatalog(world, carCatalog());

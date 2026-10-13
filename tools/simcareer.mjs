@@ -35,7 +35,7 @@ const STREET = [['testarossa', 'Testa Rossa', 290000], ['jsport', 'Kaze Sports C
   .map(([key, name, p]) => ({ key, name, value: Math.round(12000 + p * 0.11) }));
 // the GT cars (js/cars.js), for the customer programmes
 const CAT = { gt1: [['aventus', 'Emery Aventus ’92', 470000, 1120], ['bx300', 'Horai BX300 ’96', 430000, 1040], ['rmx', 'Kineto RM-X ’94', 500000, 1180], ['m1procar', 'Bavaria M1 ProCar ’79', 400000, 1020], ['porsche935', 'Porsche 935', 480000, 1030]]
-  .map(([key, name, w, kg]) => ({ key, name, hp: Math.round(w / 745.7), kg })), f1: [{ key: 'custom', name: 'SV-F spec chassis', hp: 900, kg: 600 }] };
+  .map(([key, name, w, kg]) => ({ key, name, hp: Math.round(w / 745.7), kg })), f1: [{ key: 'custom', name: 'SV-F spec chassis', hp: 900, kg: 600 }], club: [{ key: 'miata', name: 'Mazda MX-5 Miata NA', hp: 114, kg: 1040 }] };
 
 // a seeded random for the policies (the world has its own)
 let seed = 1; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
@@ -182,7 +182,7 @@ function seasonSetup(w) {
 }
 function career(P, s) {
   seed = s * 7919 + 13;
-  const w = WC.newWorld({ name: 'Sim Driver', len: LEN, seed: s * 104729 + 1, streetCars: STREET }, POOL);
+  const w = WC.newWorld({ name: 'Sim Driver', len: LEN, seed: s * 104729 + 1, streetCars: STREET, start: opt('start', 'street') }, POOL); // (--start=club: a new career's start)
   WC.setCarCatalog(w, CAT);
   WC.registerTeam(w, { name: 'Sim Driver', team: 'Sim Racing', colors: [0xc8141c, 0xf2f2f2], home: pick(['pinewood', 'gulch', 'city', 'azure']), background: pick(Object.keys(WC.BACKGROUNDS)), ex: 'Sam', years: 4 });
   WC.claimLottery(w, P.annuity ? 'annuity' : 'lump');

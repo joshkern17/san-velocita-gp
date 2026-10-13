@@ -398,7 +398,7 @@ export class PitGarage {
     this.memLast = m;
     const key = JSON.stringify(m || null); if (key === this.memKey && this.memRoom === this.custom && this.memGroup && this.memGroup.parent) return;
     this.memKey = key; this.memRoom = this.custom;
-    if (this.memGroup) { this.memGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); this.memGroup.removeFromParent(); }
+    if (this.memGroup) { this.memGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); for (const mt of [o.material].flat().filter(Boolean)) { if (mt.map) mt.map.dispose(); mt.dispose(); } }); this.memGroup.removeFromParent(); }
     const G = this.memGroup = new THREE.Group(); this.scene.add(G); G.visible = this.mode === 'home';
     if (!m) return;
     this.room.updateMatrixWorld(true);
@@ -415,7 +415,7 @@ export class PitGarage {
         return hit && Math.abs(hit.distance - 0.3) <= 0.03 && /wall/i.test(hit.object.name || '') ? { hit, W, H } : hit && Math.abs(hit.distance - 0.3) <= 0.03 ? { hit, W, H, other: true } : null;
       };
       const score = (sgn) => m.clips.reduce((a, c, i) => { const s = spot(c, i, sgn); return a + (s ? (s.other ? 1 : 2) : 0); }, 0);
-      const sgn = score(-1) >= score(1) ? -1 : 1;
+      const sgn = score(-1) >= score(1) ? -1 : 1; this.clipSide = sgn;
       m.clips.forEach((c, i) => {
         const s = spot(c, i, sgn); if (!s) return;
         const mesh = new THREE.Mesh(new THREE.PlaneGeometry(s.W, s.H), new THREE.MeshBasicMaterial({ map: this.clipTex(c), color: 0xc9c3b6, polygonOffset: true, polygonOffsetFactor: -2 }));
@@ -423,6 +423,8 @@ export class PitGarage {
         G.add(mesh);
       });
     }
+    // your racing license, on its lanyard: on the list's wall, the other side from the clippings
+    if (lf && m.lic) this.hangLicense(G, m.lic, lf, m.clips.length ? -(this.clipSide || -1) : 1, solid);
     if (f) {
       const n = new THREE.Vector3(f.n.x, 0, f.n.z).normalize(), side = new THREE.Vector3().crossVectors(n, new THREE.Vector3(0, 1, 0)).normalize(), deskY = f.c.y - f.h / 2;
       const onDesk = (p) => { const s0 = p.clone(); s0.y += 0.5; const h = new THREE.Raycaster(s0, new THREE.Vector3(0, -1, 0), 0, 1.2).intersectObject(this.room, true).find(solid); return h && h.point.y > deskY - 0.35 && h.point.y < deskY + 0.2 ? h.point : null; };
@@ -453,6 +455,69 @@ export class PitGarage {
         G.add(this.mattress(fl.point, Math.atan2(-d.z, d.x))); break; // (lengthways, alongside the car)
       }
     }
+  }
+  // the license: a pin in the wall beside the list, the lanyard hanging from it, the card at the bottom (tilted a touch).
+  // sgn: which side of the list (falls back to the other if there's no wall there)
+  hangLicense(G, L, lf, sgn, solid) {
+    const W = 0.105, H = 0.15, drop = 0.11;
+    for (const s of [sgn, -sgn]) {
+      const pin = lf.c.clone().addScaledVector(lf.side, s * (lf.w / 2 + 0.03 + W / 2)).addScaledVector(lf.up, lf.h / 2 - 0.02);
+      const hit = new THREE.Raycaster(pin.clone().addScaledVector(lf.n, 0.3), lf.n.clone().negate(), 0, 0.45).intersectObject(this.room, true).find(solid);
+      if (!hit || Math.abs(hit.distance - 0.3) > 0.03) continue;
+      // (the card's spot must be wall too: a shelf below the pin would cut through it)
+      const low = new THREE.Raycaster(pin.clone().addScaledVector(lf.up, -drop - H).addScaledVector(lf.n, 0.3), lf.n.clone().negate(), 0, 0.45).intersectObject(this.room, true).find(solid);
+      if (!low || Math.abs(low.distance - 0.3) > 0.03) continue;
+      const P = hit.point.clone().addScaledVector(lf.n, 0.004), g = new THREE.Group(); g.position.copy(P); g.lookAt(P.clone().add(lf.n)); G.add(g);
+      const tilt = 0.05 * s;
+      const pinM = new THREE.Mesh(new THREE.SphereGeometry(0.008, 10, 8), new THREE.MeshStandardMaterial({ color: 0xc8141c, roughness: 0.4 })); g.add(pinM);
+      // the lanyard: two straps from the pin to the card's top corners (the SVMA's navy, printed)
+      const strap = new THREE.MeshBasicMaterial({ map: this.strapTex(), side: THREE.DoubleSide });
+      for (const sx of [-1, 1]) {
+        const a = new THREE.Vector3(0, 0, 0.003), b = new THREE.Vector3(sx * W * 0.32 + Math.sin(tilt) * drop, -drop, 0.006), d = b.clone().sub(a);
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(0.014, d.length()), strap); m.position.copy(a).add(b).multiplyScalar(0.5); m.rotation.z = Math.atan2(d.y, d.x) + Math.PI / 2; g.add(m);
+      }
+      // the card: laminated (a little gloss), a clip at the top
+      const card = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.002), [0, 0, 0, 0, new THREE.MeshStandardMaterial({ map: this.licenseTex(L), roughness: 0.35, metalness: 0 }), new THREE.MeshStandardMaterial({ color: 0xe8e4da, roughness: 0.6 })].map(x => x || new THREE.MeshStandardMaterial({ color: 0xdedad0 })));
+      card.position.set(Math.sin(tilt) * drop, -drop - H / 2 + 0.004, 0.008); card.rotation.z = tilt; g.add(card);
+      const clip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.012, 0.006), new THREE.MeshStandardMaterial({ color: 0x9aa0a8, metalness: 0.7, roughness: 0.35 })); clip.position.set(card.position.x - Math.sin(tilt) * H / 2, -drop + 0.002, 0.009); clip.rotation.z = tilt; g.add(clip);
+      this.licenseMesh = card;
+      return;
+    }
+  }
+  strapTex() {
+    const cv = document.createElement('canvas'); cv.width = 32; cv.height = 256; const g = cv.getContext('2d');
+    g.fillStyle = '#1a2a55'; g.fillRect(0, 0, 32, 256); g.fillStyle = '#e8e8e8'; g.font = 'bold 15px Arial'; g.save(); g.translate(21, 0); g.rotate(Math.PI / 2);
+    for (let y = 10; y < 256; y += 60) g.fillText('SVMA', y, 0); g.restore();
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+  }
+  // the card: the SVMA's header in the grade's colour, a photo, your name and number, the grade in big letters, and
+  // the stamps toward the next grade (filled for each clean race). The small print is the Association's
+  licenseTex(L) {
+    const cv = document.createElement('canvas'); cv.width = 420; cv.height = 600; const g = cv.getContext('2d');
+    const ink = '#1d1d22', col = L.col, F = (w, px, fam = 'Arial, Helvetica, sans-serif') => `${w} ${px}px ${fam}`;
+    g.fillStyle = '#f4f2ec'; g.fillRect(0, 0, 420, 600);
+    g.fillStyle = col; g.fillRect(0, 0, 420, 112); g.fillRect(0, 586, 420, 14);
+    g.fillStyle = L.g === 0 ? ink : '#fff'; g.font = F('bold', 15); g.fillText('SAN VELOCITA MOTORSPORT ASSOCIATION', 22, 62); // (below the clip)
+    g.font = F('bold', 31); g.fillText('COMPETITION LICENSE', 22, 98);
+    g.fillStyle = '#ccc8be'; g.fillRect(22, 136, 132, 164); // (the photo: you, in a helmet, like everyone)
+    g.fillStyle = '#7d7a72'; g.beginPath(); g.arc(88, 210, 44, Math.PI, 0); g.lineTo(132, 252); g.lineTo(44, 252); g.closePath(); g.fill();
+    g.fillStyle = '#3a3a40'; g.fillRect(52, 204, 72, 18); g.fillStyle = '#7d7a72'; g.fillRect(36, 262, 104, 38);
+    g.fillStyle = ink; g.font = F('', 15); g.fillText('NAME', 174, 152); g.fillText('LICENSE NO.', 174, 214); g.fillText('ISSUED', 174, 270);
+    const nm = String(L.holder || '').toUpperCase(); let px = 23; g.font = F('bold', px); while (g.measureText(nm).width > 228 && px > 12) g.font = F('bold', --px); g.fillText(nm, 174, 178); // (a long name: smaller, never cut)
+    g.font = F('bold', 23); g.fillText(`SV-${L.no}`, 174, 240); g.fillText(String(L.since || ''), 174, 296);
+    g.fillStyle = col; g.fillRect(22, 324, 376, 82); g.fillStyle = L.g === 0 ? ink : '#fff'; g.font = F('bold', 56); g.textAlign = 'center'; g.fillText(L.name.toUpperCase(), 210, 386); g.textAlign = 'left';
+    if (L.next) {
+      g.fillStyle = ink; g.font = F('bold', 15); g.fillText(`CLEAN RACES TO ${L.next.toUpperCase()}`, 22, 438);
+      const n = L.need, bw = Math.min(70, (376 - (n - 1) * 10) / n);
+      for (let i = 0; i < n; i++) {
+        const x = 22 + i * (bw + 10); g.strokeStyle = ink; g.lineWidth = 2; g.strokeRect(x, 452, bw, 52);
+        if (i < L.c) { g.save(); g.translate(x + bw / 2, 478); g.rotate(-0.25 + (i % 3) * 0.17); g.strokeStyle = '#1d3f9a'; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 21, 0, Math.PI * 2); g.stroke();
+          g.fillStyle = '#1d3f9a'; g.font = F('bold', 13); g.textAlign = 'center'; g.fillText('CLEAN', 0, 5); g.restore(); }
+      }
+    } else { g.fillStyle = ink; g.font = F('bold', 15); g.fillText('VALID FOR ALL SVMA NATIONAL EVENTS', 22, 448); g.fillStyle = '#b89a3a'; g.fillRect(330, 462, 68, 42); }
+    g.fillStyle = '#6a675f'; g.font = F('', 12);
+    g.fillText('Holder agrees to race in a sporting manner. The stewards decide', 22, 540); g.fillText('what that means, on the day. Not valid as photo ID. Do not bend.', 22, 556);
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
   }
   // a clipping from the hometown paper (Mum's note on it)
   clipTex(c) {

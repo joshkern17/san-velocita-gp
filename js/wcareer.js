@@ -21,19 +21,23 @@ export const POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 // built yet), path the career path it's on ('sportscar', 'formula'...). Several series can share a tier: finishing high
 // enough earns an offer from each series of the next rung up (seriesUp), and you pick. tracks: the circuits it races
 // at, first choice (from the career's pool; the rest of the pool fills a short list). ages: a new driver's age [from,
-// spread]. inv: how big an investor's money is here (GT = 1). pro: a professional series (corporate gigs, investors
+// spread]. lic: the racing licence grade an entrant needs (LICENSES). inv: how big an investor's money is here (GT = 1). pro: a professional series (corporate gigs, investors
 // take notice). local: home-town sponsors still sign. gp: ends the year with the San Velocita Grand Prix.
 // A new series is a line here, plus its costs (COSTS, SEASON_FUND, TEAM_FUND) and its cars: the rest builds itself.
 export const SERIES = [
-  { id: 'street', name: 'Street Cup', cls: 'street', tier: 2, path: 'sportscar', base: 50, spread: 14, car: 'classifieds', bop: true, ages: [18, 9], inv: 0.6, local: true,
+  { id: 'club', name: 'Spec Miata Club', cls: 'club', tier: 1, path: 'sportscar', base: 44, spread: 14, car: 'classifieds', price: [14000, 14000], ages: [17, 12], inv: 0.4, local: true,
+    tracks: ['Lime Rock Park', 'Laguna Seca', 'Pine Hollow Park', 'Pinewood Sprint', 'Maple Ridge GP', 'Palm Bay Circuit'] },
+  { id: 'street', name: 'Street Cup', cls: 'street', tier: 2, path: 'sportscar', base: 50, spread: 14, car: 'classifieds', bop: true, ages: [18, 9], inv: 0.6, local: true, lic: 2,
     tracks: ['Laguna Seca', 'Zandvoort', 'Indianapolis', 'Palm Bay Circuit', 'Harborview Streets', 'Road Atlanta', 'Watkins Glen'] },
-  { id: 'gt', name: 'GT Championship', cls: 'gt1', tier: 4, path: 'sportscar', base: 63, spread: 12, car: 'customer', price: [240000, 330000], ballast: true, gents: true, seats: ['gent', 'pro', 'share', 'junior'], works: true, hosp: true, ages: [21, 13], inv: 1, pro: true, local: true,
+  { id: 'gt', name: 'GT Championship', cls: 'gt1', tier: 4, path: 'sportscar', base: 63, spread: 12, car: 'customer', price: [240000, 330000], ballast: true, gents: true, seats: ['gent', 'pro', 'share', 'junior'], works: true, hosp: true, ages: [21, 13], inv: 1, pro: true, local: true, lic: 2,
     tracks: ['Spa-Francorchamps', 'Suzuka', 'Road America', 'Sebring', 'Watkins Glen', 'Laguna Seca', 'Indianapolis'] },
-  { id: 'formula', name: 'Formula SV', cls: 'f1', tier: 5, path: 'formula', base: 76, spread: 10, car: 'spec', price: [900000, 900000], gents: true, seats: ['gent', 'pro', 'share', 'junior'], hosp: true, ages: [22, 14], inv: 3, pro: true, gp: true },
+  { id: 'formula', name: 'Formula SV', cls: 'f1', tier: 5, path: 'formula', base: 76, spread: 10, car: 'spec', price: [900000, 900000], gents: true, seats: ['gent', 'pro', 'share', 'junior'], hosp: true, ages: [22, 14], inv: 3, pro: true, gp: true, lic: 2 },
 ];
 export const seriesById = (id) => SERIES.find(s => s.id === id);
-// where every career starts (the entry you buy)
-export const START_SERIES = 'street';
+// where a new career starts (the entry you buy); a career keeps its own (w.start: careers from before the club
+// started in the Street Cup)
+export const START_SERIES = 'club';
+export const startOf = (w) => w.start || 'street';
 // the rungs either side: every series of the nearest tier above (below) that has one
 const rung = (sid, dir) => {
   const t = seriesById(sid)?.tier ?? -1, near = SERIES.filter(s => dir > 0 ? s.tier > t : s.tier < t);
@@ -61,6 +65,8 @@ const TEAM_POOL = [
   ['Kanjo Works', 0x0a0a0a, 0xff2b6a], ['Palm Bay Autosport', 0x14a39a, 0xff5a8a], ['Redline Garage', 0xb0101a, 0x101010],
   ['Northwind', 0xdfe8f2, 0x1a2a6a], ['Coastline Racing', 0x2a7fd0, 0xf2f2f2], ['Maple Motorsport', 0x8a1c1c, 0xf2c45a],
   ['Volt Arc', 0x22252c, 0x7dff3a], ['Copperhead', 0xb5652a, 0x1a1a1a],
+  ['Dave\'s Transmission', 0x2b4a8a, 0xf2f2f2], ['Two Guys Racing', 0xe8e0c8, 0xc8321e], ['Weekend Warriors', 0x3a5a2a, 0xf2d24a],
+  ['Lugnut Brothers', 0x5a5a60, 0xff8a1a], ['Budget Box Motorsport', 0xf2f2f2, 0x7a1ab0], ['Cul-de-Sac Racing', 0x9ad0ff, 0x1a1a2a],
 ];
 const NATS = {
   ITA: { f: ['Luca', 'Marco', 'Giulia', 'Matteo', 'Sofia', 'Andrea', 'Elena'], l: ['Rossi', 'Bianchi', 'Moretti', 'Ferraro', 'Conti', 'Greco', 'Marino', 'Rinaldi'] },
@@ -216,7 +222,7 @@ export function setMatePay(w, mode) { const m = mateOf(w); if (m) m.pay = mode; 
 // w.coop: { pid: 'C', token (their copy of the game), kind (how they bought in), stake (%), boss (a boss sponsor's
 // company), since }. The friend is a person in your second car, co-owner of the team: no wage, no contract, no Trust,
 // never retires. When they're not online their car is raced for them, as they'd drive it.
-const COOP_K = { street: 1, gt: 4, formula: 9 };
+const COOP_K = { club: 0.6, street: 1, gt: 4, formula: 9 };
 export const BUYINS = {
   car:    { name: 'Sell Your Car', short: 'Sell Your Car', cash: 16000, stake: 15, blurb: 'Your car goes on SVList and the money goes in the team account. You take the bus to work now.' },
   house:  { name: 'Remortgage The House', short: 'Remortgage', cash: 42000, stake: 30, blurb: 'The bank lends against your house and the money goes in the team account. The repayments are yours.' },
@@ -293,9 +299,10 @@ export function newWorld(opts, trackPool) {
   const w = { v: 1, kind: 'world', rs: (opts.seed || Date.now()) % 2147483646 + 1, nextId: 1, year: START_YEAR - PRE_YEARS, round: 0, over: false,
     opts: { len: opts.len || 6, difficulty: opts.difficulty || 'medium', laps: opts.laps || 5, dist: opts.dist || null, weekend: opts.weekend || 'quali', pracLen: opts.pracLen || 1200, qualiLen: opts.qualiLen || 600, pool: opts.pool || 'presets' },
     people: {}, teams: {}, series: {}, news: [], msgs: [], mail: [], ledger: [], h2h: {}, seasons: [], streetPay: true,
-    player: { name: (opts.name || 'Driver').trim(), number: opts.number || 7, series: 'street', team: 'T0', starts: 0, wins: 0, pods: 0, titles: 0, hist: [], offer: null } };
+    player: { name: (opts.name || 'Driver').trim(), number: opts.number || 7, series: opts.start || START_SERIES, team: 'T0', starts: 0, wins: 0, pods: 0, titles: 0, hist: [], offer: null } };
+  w.start = w.player.series;
   w.streetCars = opts.streetCars || []; // (the street-class cars, for the classifieds: [{ key, name, value }])
-  // teams: yours in the Street Cup, 17 more across the ladder
+  // teams: yours in the series you start in, the rest across the ladder (six a series)
   const pool = TEAM_POOL.slice(); for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rng(w) * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
   let k = 0;
   for (const s of SERIES) {
@@ -352,15 +359,15 @@ function prehistory(w, trackPool) {
   }
   topUpFreeAgents(w);
   // the old team folds: one of its drivers stays on (the seat comes with the entry), the other goes looking
-  const S = w.series.street, old = w.teams[S.teams[S.teams.length - 1]], mine = w.teams.T0;
+  const S = w.series[startOf(w)], old = w.teams[S.teams[S.teams.length - 1]], mine = w.teams.T0;
   const tst = w.seasons.at(-1)?.teamChamps;
-  S.teams = S.teams.map(t => t === old.id ? 'T0' : t); mine.series = 'street';
+  S.teams = S.teams.map(t => t === old.id ? 'T0' : t); mine.series = startOf(w);
   const [stay, go] = old.drivers.slice().sort((a, b) => ageOf(w, w.people[a]) - ageOf(w, w.people[b])); // (the younger one stays)
   if (go && w.people[go]) w.people[go].team = null;
   if (stay && w.people[stay]) { w.people[stay].team = 'T0'; mine.drivers.push(stay); }
   old.drivers = []; old.series = null; old.folded = w.year - 1;
   w.pre = false; w.prev = old.id; // (whose entry you bought)
-  news(w, `${old.name.toUpperCase()} CLOSES ITS DOORS`, `After ${PRE_YEARS}${tst ? '' : ''} seasons in the Street Cup, ${old.name} has stopped racing. The team's entry has been sold to a new owner.`);
+  news(w, `${old.name.toUpperCase()} CLOSES ITS DOORS`, `After ${PRE_YEARS}${tst ? '' : ''} seasons in the ${seriesById(startOf(w)).name}, ${old.name} has stopped racing. The team's entry has been sold to a new owner.`);
 }
 
 // race distance, F1's rule: the fewest laps that cover it (two at least). km: a lap's length
@@ -445,7 +452,7 @@ function mateMentored(w, pid) {
 // (It used aiskill's ratingGap, a pace multiplier read off a curve that flattens near the top: it squeezed a whole
 // field, driving and car, into under 1%, which the car models' differences then swamped)
 export const RATING_K = 0.11;
-const SERIES_GAP = { street: 1.5, gt: 1.1, formula: 0.7 };
+const SERIES_GAP = { club: 1.7, street: 1.5, gt: 1.1, formula: 0.7 };
 function seriesMedian(w, sid) {
   const rs = w.series[sid].teams.flatMap(t => w.teams[t].drivers).filter(d => d !== 'P' && w.people[d]).map(d => rating(w, d)).sort((a, b) => a - b);
   return rs.length ? rs[Math.floor(rs.length / 2)] : seriesById(sid).base;
@@ -645,6 +652,40 @@ function mateRace(w, log, use = null) {
 export function mateAsk(w) { const m = mateOf(w); if (!m) return null; const t = trustOf(w), a = askOf(w, w.people[m.pid]).wage; return t < 15 ? null : Math.round(a * (t < 35 ? 1.25 : t >= 70 ? 0.9 : 1) / 50) * 50; }
 export function h2hOf(w, pid) { return w.h2h[pid] || (w.h2h[pid] = { races: 0, ahead: 0, behind: 0, contacts: 0, youHit: 0, hitYou: 0, youPassed: 0, passedYou: 0 }); }
 
+// ---------------- your racing license ----------------
+// The San Velocita Motorsport Association's competition license: Novice, Regional, National. Clean races move you up
+// (a race with no incidents of yours: a stamp on the card; a messy one takes a stamp back). A series asks for a grade
+// (SERIES[].lic): the Street Cup and up want National. It's a card you can see: it hangs beside the list, in the
+// grade's colour, the stamps toward the next grade printed on it (pitgarage.js licenseCard). Careers that started in
+// the Street Cup came with a National license.
+export const LICENSES = [{ name: 'Novice', col: '#f2c21b', need: 3 }, { name: 'Regional', col: '#2a7fd0', need: 4 }, { name: 'National', col: '#c8141c', need: 0 }];
+const LIC_INC = { contact: 4, forcedoff: 4, bumprun: 4, braketest: 4 }; // (incident points for what you did; being hit costs you nothing)
+export function licOf(w) {
+  if (!w.lic) w.lic = { g: startOf(w) === 'club' ? 0 : 2, c: 0, no: 40000 + hashOf(w.player.name + w.rs) % 59999, since: Math.max(w.year, START_YEAR) }; // (no draw from the world's dice)
+  return w.lic;
+}
+export const licName = (g) => LICENSES[clamp(g, 0, LICENSES.length - 1)].name;
+// the grade a series asks for, and whether you have it
+export const licNeed = (sid) => seriesById(sid)?.lic || 0;
+export const licOk = (w, sid) => licOf(w).g >= licNeed(sid);
+// after your race: the incidents that were yours (at-fault contact, the dirty stuff, a disqualification)
+function licRace(w, log, me) {
+  if (w.pre || !me) return;
+  const L = licOf(w), top = LICENSES.length - 1;
+  const inc = log.reduce((a, e) => a + (e.a === 'P' && (e.type !== 'contact' || e.blame) ? LIC_INC[e.type] || 0 : 0), 0) + (me.dsq ? 8 : 0);
+  L.last = inc;
+  if (L.g >= top) return;
+  if (inc === 0) L.c++; else if (inc > 4) L.c = Math.max(0, L.c - 1);
+  if (L.c < LICENSES[L.g].need) return;
+  L.g++; L.c = 0; L.up = w.year;
+  const G = licName(L.g), next = SERIES.filter(x => x.lic === L.g).sort((a, b) => a.tier - b.tier)[0];
+  mail(w, 'SVMA Licensing', 'licensing@svma.sv', `License upgrade: ${G}`,
+    [`Dear ${w.player.name.split(' ')[0]},`, `Following a review of your recent race reports, the stewards have approved an upgrade of your competition license to ${G}.`,
+     next ? `A ${G} license meets the entry requirements of the ${next.name}.` : `Congratulations.`,
+     `Your new card will arrive in 6 to 8 weeks. In the meantime please print the temporary license attached to this email. We are unable to attach it to this email.`, `SVMA Licensing`]);
+  if (L.g === top) keepClip(w, 'license', `${w.player.name.split(' ').pop()} earns National license`);
+}
+
 // ---------------- a round: your race, then everyone else's ----------------
 // res: race.js results() rows (with pid: 'P' for you), log: race.js incident log ([{ type, a, b, blame }] by pid)
 // use: what your weekend used (tyre sets, laps, damage), for the bill
@@ -660,6 +701,7 @@ export function recordPlayerRound(w, res, log = [], use = null) {
   grudgeTexts(w, log);
   mateRace(w, log, use);
   const me = known.find(r => r.pid === 'P');
+  licRace(w, log, me);
   for (const r of known) if (r.pid !== 'P' && me) { const h = h2hOf(w, r.pid); h.races++; if (r.dnf && !me.dnf || (!me.dnf && me.pos < r.pos)) h.ahead++; else h.behind++; }
   const u = use || simUse(w), bill = w.money ? settleRound(w, u, me) : null;
   afterParts(w, u);
@@ -737,9 +779,14 @@ function seasonEnd(w) {
   }
   // your options: move up if you finished in the top three, or your team in the top two (and there's a series above):
   // an entry offered by every series of the rung above, and you pick one (or stay)
-  const ups = seriesUp(w.player.series);
-  const you = summary.you;
-  if (ups.length && you && (you.pos <= 3 || (tpos > 0 && tpos <= 2))) {
+  const ups0 = seriesUp(w.player.series), ups = ups0.filter(u => w.pre || licOk(w, u.id));
+  const you = summary.you, earned = you && (you.pos <= 3 || (tpos > 0 && tpos <= 2));
+  // (the results, but not the license: the series says so, and what's missing)
+  if (earned && !w.pre) for (const up of ups0.filter(u => !licOk(w, u.id)))
+    mail(w, `${up.name} Entries`, addrOf(up, 'entries'), `Your ${w.year + 1} entry`,
+      [`Dear ${w.player.name.split(' ')[0]},`, `Your results this season would normally earn an entry in the ${up.name}. Entrants must, however, hold a ${licName(licNeed(up.id))} competition license. Our records show yours is ${licName(licOf(w).g)}.`,
+       `Licenses are upgraded by the SVMA on the strength of clean races. We look forward to hearing from you once that has happened. We are not able to hold the entry.`, `Entries Office, ${up.name}`]);
+  if (ups.length && earned) {
     w.player.offer = { to: nextUp(w.player.series).id, opts: ups.map(u => u.id), answer: null };
     for (const up of ups) {
       const b = seasonBudget(w, up);
@@ -893,7 +940,11 @@ export function nextSeason(w, trackPool) {
     seasonBop(w);
     // (a series with seats: the season setup, at the start of every season there; otherwise the car's by email)
     if (seriesById(w.player.series).seats && w.founding?.reg) w.setup = newSeasonSetup(w, moved);
-    else { if (moved && needsCar(w)) carsMail(w); gentOffers(w); }
+    else {
+      if (moved && needsCar(w) && seriesById(w.player.series).car === 'classifieds') { w.ads = makeAds(w); adsMail(w); }
+      else if (moved && needsCar(w)) carsMail(w);
+      gentOffers(w);
+    }
   }
   if (!w.pre) { topUpFreeAgents(w); paddockSeason(w); }
   seasonOpenNews(w, moves);
@@ -913,13 +964,14 @@ export function nextSeason(w, trackPool) {
 // stat changed at a time on the preset circuits, 2026-10-06. Power's worth a third of what was once assumed on these
 // circuits, brakes next to nothing (they already out-stop the tires), and a Formula car's downforce a great deal)
 export const LAP_KS = {
+  club:    { power: 0.1, grip: 0.5,  downforce: 0.01, brake: 0.005, drag: -0.04 }, // (as the street cars: measure when the club has a grid of its own)
   street:  { power: 0.1, grip: 0.5,  downforce: 0.01, brake: 0.005, drag: -0.04 },
   gt:      { power: 0.1, grip: 0.32, downforce: 0.07, brake: 0.02,  drag: -0.04 },
   formula: { power: 0.2, grip: 0.65, downforce: 0.25, brake: 0.005, drag: -0.06 },
 };
 export const lapKOf = (sid) => LAP_KS[tierOf(sid)] || LAP_KS.street;
 const CAR_PTS = 1 / 0.000275; // (a team's car rating point: 0.0275% of a lap)
-const DEV_REF = { street: 0.0053, gt: 0.0009, formula: 0.0062 }; // (the development a typical team carries: a car rating of the series' base)
+const DEV_REF = { club: 0.002, street: 0.0053, gt: 0.0009, formula: 0.0062 }; // (the development a typical team carries: a car rating of the series' base)
 const DEV_FADE = 0.8;
 const COND_TYP = -0.0065; // (what parts at about 80% cost a car in lap time: the condition a car is usually raced in. Was 1.2% when power was thought worth three times as much: LAP_KS)
 // how much quicker a typical team's car is than an undeveloped one in fair condition (lap time): where a new arrival in
@@ -933,7 +985,7 @@ const tierOf = (sid) => (seriesById(sid) || seriesById(START_SERIES)).id;
 // how far each kind of development can go in a series (the rules, and physics): gains shrink as you approach it
 // (power: three times what it was in Street and GT, half as much again in Formula, since a percent of power was found
 // to be worth that much less lap time: LAP_KS. The engine parts and projects were scaled with it)
-const DEV_CAP = { street: { power: 0.09, grip: 0.015, downforce: 0.08, brake: 0.05, rel: 0.5 }, gt: { power: 0.06, grip: 0.015, downforce: 0.06, brake: 0.04, rel: 0.5 }, formula: { power: 0.045, grip: 0.02, downforce: 0.12, brake: 0.05, rel: 0.5 } };
+const DEV_CAP = { club: { power: 0.03, grip: 0.01, downforce: 0.02, brake: 0.03, rel: 0.5 }, street: { power: 0.09, grip: 0.015, downforce: 0.08, brake: 0.05, rel: 0.5 }, gt: { power: 0.06, grip: 0.015, downforce: 0.06, brake: 0.04, rel: 0.5 }, formula: { power: 0.045, grip: 0.02, downforce: 0.12, brake: 0.05, rel: 0.5 } };
 // [key, area, name, stat, gain, days, cost, needs { facility: level }, joker (GT: homologated, two a season)]
 export const devCapOf = (w) => DEV_CAP[tierOf(w.player.series)] || DEV_CAP.street;
 export const PROJECTS = {
@@ -1127,8 +1179,8 @@ function devSeason(w) { if (w.car) for (const D of [w.car.dev, w.car.dev2]) if (
 // ---- the AI teams: a business each ----
 // t.bank (money), t.owner (what the owner puts in each season, by wealth), t.style ('build': facilities first,
 // 'develop': projects, 'balanced'), t.crew { mech, eng } (1-5)
-const AI_SPONSOR = { street: 5000, gt: 30000, formula: 100000 }; // (a round, for a mid-table team)
-const AI_OWNER = { street: 100000, gt: 180000, formula: 450000 };  // (a season, for an owner of average wealth)
+const AI_SPONSOR = { club: 1500, street: 5000, gt: 30000, formula: 100000 }; // (a round, for a mid-table team)
+const AI_OWNER = { club: 45000, street: 100000, gt: 180000, formula: 450000 };  // (a season, for an owner of average wealth)
 const STYLES = ['build', 'develop', 'balanced'];
 function aiInit(w, t) {
   if (t.bank != null) return;
@@ -1184,7 +1236,7 @@ function aiSeason(w) {
     for (const k of order) {
       const nx = facNext(t, k); if (!nx || facLevel(t, 'base') < nx.needsBase) continue;
       if (k === 'tunnel' && !SERIES_NEEDS[t.series]?.tunnel) continue;
-      if (k === 'base' && facLevel(t, 'base') >= ({ street: 2 }[t.series] ?? 3)) continue; // (no factories in the Street Cup)
+      if (k === 'base' && facLevel(t, 'base') >= ({ club: 1, street: 2 }[t.series] ?? 3)) continue; // (no factories in the Street Cup)
       const run = COSTS[t.series].entry + COSTS[t.series].crew;
       if (t.bank > nx.cost + run * keep * w.opts.len / 2) { t.bank -= nx.cost; facOf(t)[k] = facLevel(t, k) + 1; if (!w.pre && t.series === w.player.series) news(w, `${t.name.toUpperCase()} INVESTS`, `${t.name} has added ${nx.name.toLowerCase().replace(/^(an?|the) /, '')} to its base.`); break; }
     }
@@ -1249,8 +1301,8 @@ function newSetup(w) {
   const T = w.teams[w.player.team], inherited = T.drivers.find(d => d !== 'P'), free = Object.values(w.people).filter(p => !p.retired && !p.team && ageOf(w, p) < 36 && !traitsOf(w, p).includes('gentleman'));
   const quick = free.filter(p => !traitsOf(w, p).includes('paydriver')).sort((a, b) => b.pace - a.pace)[0];
   let kid = free.filter(p => ageOf(w, p) <= 19 && p !== quick).sort((a, b) => b.pot - a.pot)[0];
-  if (!kid) kid = makePerson(w, { age: 17, series: null, lvl: seriesById(START_SERIES).base - 8 });
-  const payer = makePerson(w, { age: r0(19 + rng(w) * 6), series: null, lvl: seriesById(START_SERIES).base - 9 });
+  if (!kid) kid = makePerson(w, { age: 17, series: null, lvl: seriesById(startOf(w)).base - 8 });
+  const payer = makePerson(w, { age: r0(19 + rng(w) * 6), series: null, lvl: seriesById(startOf(w)).base - 9 });
   payer.traits = ['paydriver']; payer.purse = Math.round((15000 + rng(w) * 8000) / 500) * 500; payer.biz = pickLine(w, ['Carpets & Flooring', 'Discount Mattresses', 'Lawn Ornaments', 'Premium Gutters', 'Self Storage']);
   const drivers = [inherited, quick && quick.id, payer.id, kid.id].filter(Boolean);
   // what your scouting says they could become: a range around the truth
@@ -1309,10 +1361,10 @@ export function setupEntry(w, key) {
   if (e.cost) pay(w, -e.cost, `${e.name}`);
   if (key !== 'fresh') {
     t.fac = { base: 1, tools: key === 'running' ? 2 : 1, ...(key === 'running' ? { sim: 1 } : {}) };
-    const cars = w.streetCars || [], c = cars[Math.floor(rng(w) * cars.length)];
+    const cars = adCars(w), c = cars[Math.floor(rng(w) * cars.length)], cls = seriesById(w.player.series).cls;
     // (taking back your own old team: your old car, as the liquidators left it)
     if (key === 'takeover' && w.again && w.prevCar) { w.car = { ...w.prevCar, cond: 0.6, parts: null }; w.prevCar = null; w.founding.car = true; carParts(w); }
-    else if (c) { w.car = { chassis: c.key, name: c.name, cond: key === 'running' ? 0.92 : 0.6, paid: Math.round(c.value * (key === 'running' ? 0.9 : 0.5)), year: 1990 + Math.floor(rng(w) * 10) }; w.founding.car = true; carParts(w);
+    else if (c) { w.car = { chassis: c.key, name: c.name, cls, cond: key === 'running' ? 0.92 : 0.6, paid: Math.round(c.value * (key === 'running' ? 0.9 : 0.5)), year: adYear(w, c.key) }; w.founding.car = true; carParts(w);
       if (key === 'running') w.car.dev = { power: 0.003, grip: 0.002, downforce: 0.01, brake: 0.006, rel: 0.1 }; }
     if (key === 'running') { const m = staffPerson(w, 'mechanic', 3); m.cv = 'Came with the team. Knows where everything is.'; w.staff.push(m); }
   }
@@ -1330,8 +1382,8 @@ export function setupSponsor(w, i) {
 export function setupMate(w, pid) {
   const S = w.setup; if (!S || S.mateDone || !S.drivers.includes(pid)) return { ok: false, why: 'Already chosen.' };
   const T = w.teams[w.player.team], p = w.people[pid];
-  for (const d of T.drivers.filter(d => d !== 'P' && d !== pid)) { const q = w.people[d]; T.drivers = T.drivers.filter(x => x !== d); if (q) { q.team = null; q.series = 'street'; } }
-  if (!T.drivers.includes(pid)) { if (p.team) { const from = w.teams[p.team]; from.drivers = from.drivers.filter(x => x !== pid); } p.team = T.id; p.series = 'street'; T.drivers.push(pid); }
+  for (const d of T.drivers.filter(d => d !== 'P' && d !== pid)) { const q = w.people[d]; T.drivers = T.drivers.filter(x => x !== d); if (q) { q.team = null; q.series = T.series; } }
+  if (!T.drivers.includes(pid)) { if (p.team) { const from = w.teams[p.team]; from.drivers = from.drivers.filter(x => x !== pid); } p.team = T.id; p.series = T.series; T.drivers.push(pid); }
   const a = askOf(w, p), kept = S.entry === 'takeover' && pid === S.inherited; // (the old team's driver, on the contract they had)
   w.mate = { pid, wage: kept ? Math.round(a.wage * 0.8 / 50) * 50 : a.wage, fee: a.fee, until: w.year, pay: 'full', owed: 0, morale: kept ? 60 : 70 };
   if (a.fee) {
@@ -1349,7 +1401,7 @@ export function setupFinish(w) {
   const S = w.setup; if (!S || S.done) return;
   S.done = true; S.step = 5;
   const t = myTeam(w), mate = mateOf(w), sp = dealsOf(w).find(d => d.slot === 'title');
-  news(w, `NEW TEAM: ${t.name.toUpperCase()}`, `${t.name}, owned and driven by lottery winner ${w.player.name}, enters the Street Cup${sp ? ` with backing from ${sponsorById(sp.sid).name}` : ''}${mate ? `. ${nameOf(w.people[mate.pid])} drives the second car` : ''}.`);
+  news(w, `NEW TEAM: ${t.name.toUpperCase()}`, `${t.name}, owned and driven by lottery winner ${w.player.name}, enters the ${seriesById(w.player.series).name}${sp ? ` with backing from ${sponsorById(sp.sid).name}` : ''}${mate ? `. ${nameOf(w.people[mate.pid])} drives the second car` : ''}.`);
 }
 
 // ---------------- moving up: each series' way in ----------------
@@ -1437,6 +1489,13 @@ export function seasonBudget(w, S) {
   return { run, lease, buy, prize: L * (c.prize[5] || 0) + (fundOf(w, S.id)[5] || 0) };
 }
 
+// you've moved up into a series that buys its cars second-hand: Danny's been looking
+function adsMail(w) {
+  const S = seriesById(w.player.series), cheap = Math.min(...(w.ads || []).map(a => a.price));
+  mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'cars for the new series',
+    [`Yo the ${S.name} is a big deal dude`, `Your ${w.car ? w.car.name : 'car'} won't cut it there. I looked on the classifieds, cheapest one's ${money$(cheap)}`, `Sell the old one when you buy, the dealer gives you something for it. Not much`],
+    { link: ['classifieds', 'Open the classifieds'] });
+}
 // you've moved up: where the cars are
 function carsMail(w) {
   const S = seriesById(w.player.series), b = seasonBudget(w, S);
@@ -1943,6 +2002,7 @@ export function takeDayJob(w, m) {
 // week's work (day job, gigs) is what keeps you going. Every step up needs more than you have (sponsors).
 export const LOTTERY = { jackpot: 400000, lump: 132000, annuity: 10000, years: 30, saleRate: 0.25 }; // (selling the annuity: a quarter of what it's worth)
 export const COSTS = {
+  club:    { entry: 1500,  travel: 1100,  crew: 1500,  tyre: 450,  fuelLap: 15,  repair: 9000,   prize: [5000, 3500, 2500, 2000, 1600, 1300, 1000, 800, 600, 500] }, // (club racing: cheap, and nobody's paid much)
   street:  { entry: 4000,  travel: 2400,  crew: 3500,  tyre: 900,  fuelLap: 35,  repair: 24000,  prize: [12000, 8250, 6000, 4500, 3750, 3000, 2250, 1800, 1500, 1200] }, // (a round, a car: both of yours are paid)
   gt:      { entry: 15000, travel: 6000,  crew: 22000, tyre: 3200, fuelLap: 120, repair: 110000, prize: [50000, 34000, 24000, 19000, 15000, 12000, 9500, 7000, 5000, 3500] },
   formula: { entry: 28000, travel: 15000, crew: 55000, tyre: 6000, fuelLap: 300, repair: 450000, prize: [120000, 85000, 60000, 48000, 39000, 30000, 24000, 18000, 12000, 9000] },
@@ -1950,10 +2010,11 @@ export const COSTS = {
 // the annuity is a year's money; seasons of other lengths get it in proportion (a 12-round year pays twice a 6)
 const annuityPay = (w) => Math.round(LOTTERY.annuity * (w.money?.loophole || 1) * w.opts.len / 6 / 100) * 100;
 // the teams' championship pays too (both cars' points)
-const TEAM_FUND = { street: [10000, 6000, 4000, 2500, 1500, 1000], gt: [50000, 30000, 20000, 12000, 8000, 5000], formula: [120000, 80000, 50000, 32000, 20000, 12000] };
+const TEAM_FUND = { club: [4000, 2500, 1500, 1000, 600, 400], street: [10000, 6000, 4000, 2500, 1500, 1000], gt: [50000, 30000, 20000, 12000, 8000, 5000], formula: [120000, 80000, 50000, 32000, 20000, 12000] };
 // the end of the season: the series pays its prize fund by championship position
 // (steep at the top: a title pays for most of the next season, the middle of the table gets its costs back and little more)
 const SEASON_FUND = {
+  club:    [25000, 16000, 10000, 7000, 4500, 3000, 1800, 1200, 800, 500],
   street:  [60000, 40000, 26000, 17000, 11000, 7000, 4000, 2500, 1500, 1000],
   gt:      [100000, 64000, 44000, 32000, 24000, 18000, 14000, 10000, 6000, 4000],
   formula: [250000, 160000, 110000, 80000, 60000, 45000, 35000, 25000, 15000, 10000],
@@ -2181,20 +2242,21 @@ export function restartWorld(w, trackPool) {
   const mate = mateOf(w), mp = mate && w.people[mate.pid], fair = mp && !(mate.owed > 0) && !((h2hOf(w, mp.id).grudge || 0) >= 2);
   for (const pid of T.drivers.filter(d => d !== 'P')) { const p = w.people[pid]; if (p && !(fair && pid === mp.id)) { p.team = null; } }
   T.drivers = ['P', ...(fair ? [mp.id] : [])];
-  w.prevCar = w.car && !w.car.lease && carClsOf(w) === 'street' ? { chassis: w.car.chassis, name: w.car.name, year: w.car.year, paid: w.car.paid, cls: 'street' } : null;
+  const st = startOf(w), stCls = seriesById(st).cls;
+  w.prevCar = w.car && !w.car.lease && carClsOf(w) === stCls ? { chassis: w.car.chassis, name: w.car.name, year: w.car.year, paid: w.car.paid, cls: stCls } : null;
   // the rest of the season, without you (nobody's founded anything yet: the list and the rest don't count it)
   w.founding = { reg: false, car: false };
   w.ended = null; w.mate = null; w.staff = []; w.deals = []; w.grey = null; w.bet = null; w.sat = null; w.bankNote = null; w.loans = [];
   while (!w.over) { const sid = w.player.series; scoreRound(w, sid, simRace(w, sid, false).filter(r => teamOfPid(w, r.pid) !== T.id).map((r, k) => ({ ...r, pos: k + 1 }))); afterRound(w, null); }
   w.player.offer = null;
   nextSeason(w, trackPool);
-  // back to the Street Cup: your entry takes the place of its strongest team, which moves up into the one you had
-  if (T.series !== 'street') {
-    const from = T.series, B = w.series.street.teams.map(id => w.teams[id]).filter(t => !t.mine).sort((a, b) => carValue(w, b) - carValue(w, a))[0];
-    w.series[from].teams = w.series[from].teams.map(t => t === T.id ? B.id : t); w.series.street.teams = w.series.street.teams.map(t => t === B.id ? T.id : t);
+  // back to where you started: your entry takes the place of its strongest team, which moves up into the one you had
+  if (T.series !== st) {
+    const from = T.series, B = w.series[st].teams.map(id => w.teams[id]).filter(t => !t.mine).sort((a, b) => carValue(w, b) - carValue(w, a))[0];
+    w.series[from].teams = w.series[from].teams.map(t => t === T.id ? B.id : t); w.series[st].teams = w.series[st].teams.map(t => t === B.id ? T.id : t);
     B.series = from; for (const pid of B.drivers) if (w.people[pid]) w.people[pid].series = from;
-    T.series = 'street'; for (const pid of T.drivers) if (w.people[pid]) w.people[pid].series = 'street';
-    w.player.series = 'street';
+    T.series = st; for (const pid of T.drivers) if (w.people[pid]) w.people[pid].series = st;
+    w.player.series = st;
   }
   // the business: gone. You: the same, with a past
   T.fac = { base: 0 }; devReset(T); T.dev = null;
@@ -2520,7 +2582,7 @@ const themeOf = (w) => TOWNS[w.home]?.theme || 'city';
 function threeRiders(w) { const out = []; for (let i = 0; i < 20 && out.length < 3; i++) { const r = pickLine(w, RIDERS); if (!out.some(x => x.split(',')[0] === r.split(',')[0])) out.push(r); } while (out.length < 3) out.push(pickLine(w, RIDERS)); return out; }
 function newGig(w, kind, o = {}) { return { id: 'g' + (w.nextId++), kind, laps: 1, theme: themeOf(w), ...o }; }
 function planWeek(w) {
-  const wk = w.week, r = gigRating(w), K = { street: 1, gt: 2.5, formula: 6 }[w.player.series] || 1, broke = w.money.balance < 25000;
+  const wk = w.week, r = gigRating(w), K = { club: 0.8, street: 1, gt: 2.5, formula: 6 }[w.player.series] || 1, broke = w.money.balance < 25000;
   // GigGo: two or three offers (one, under review)
   const n = r < 4.2 ? 1 : r >= 4.8 ? 4 : 3;
   for (let i = 0; i < n; i++) {
@@ -2743,7 +2805,7 @@ export function rebuildSelf(w, k, who = 'P') {
 }
 // a test day at the next round's circuit: track hire, then a practice session (main.js); enough laps and the setup
 // is found for that round
-export const testCost = (w) => ({ street: 1200, gt: 6000, formula: 25000 }[w.player.series] || 1200);
+export const testCost = (w) => ({ club: 600, street: 1200, gt: 6000, formula: 25000 }[w.player.series] || 1200);
 export function bookTest(w) {
   if (daysLeft(w) <= 0) return false;
   const R = w.series[w.player.series].cal[w.round];
@@ -2766,7 +2828,7 @@ export function testDone(w, laps) {
 // in front of you. How desperate you are decides how often temptations come and how good they look. Everything
 // arrives as mail (choices) or texts; answers come back through answerStory. Nothing here needs the race engine, so
 // seasons can be simulated (tools/simcareer.mjs).
-const KS = (w) => ({ street: 1, gt: 3, formula: 9 }[w.player.series] || 1);
+const KS = (w) => ({ club: 0.7, street: 1, gt: 3, formula: 9 }[w.player.series] || 1);
 const nowIdx = (w) => w.weekN || 0;
 // what an average round costs you, after what comes in (sponsors, a mid-field prize), at today's prices
 export function roundBurn(w) {
@@ -3313,6 +3375,7 @@ export function briefing(w) {
     const gap = raced && pos > amb.t ? st[amb.t - 1].pts - st[pos - 1].pts : 0;
     hints.push(!raced ? `This year: ${amb.label.toLowerCase()}.${up ? ` Top 3 earns a ${upName.replace(/ Championship\b/g, '')} offer.` : ''}` : pos <= amb.t ? `This year: ${amb.label.toLowerCase()}. You're P${pos}: on course.` : `This year: ${amb.label.toLowerCase()}. You're P${pos}, ${gap} point${gap === 1 ? '' : 's'} off.`);
   }
+  else if (up && !licOk(w, up.id)) { const L = licOf(w), left = LICENSES[L.g].need - L.c; hints.push(`The ${up.name} needs a ${licName(licNeed(up.id))} license. ${left} more clean race${left === 1 ? '' : 's'} to ${licName(L.g + 1)}.`); }
   else if (up) hints.push(raced && pos <= 3 ? `Stay in the top 3 for a ${upName} offer.` : `Top 3 at the end (or your team top 2) earns a ${upName} offer${raced && fund[pos - 1] ? ` (P${pos} pays ${money$(fund[pos - 1])})` : ''}.`);
   // (and whoever owns a share of the team: their target, in the same line, in place of the promotion rule)
   { const I = investorIn(w); if (I && !w.over && hints.length) hints[0] = hints[0].replace(/ Top 3 earns .*$/, '') + ` ${I.name[1]} (${Math.round(I.share * 100)}%) wants the top ${I.target}${I.misses ? ', or wants out' : ''}.`; }
@@ -3604,7 +3667,8 @@ export function registerTeam(w, f) {
   if (w.money?.pick && !w.money.choice) claimLottery(w, w.money.pick); // (chosen at the claim office: paid now)
   mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'found you a car',
     [`Yo. Saw the lottery thing on the news. Congrats dude, for real`, `Also saw the divorce thing on the news. Less congrats`,
-     `Anyway if you're doing the racing team thing you need a car. There's some good ones on the classifieds rn. The cheap one's probably fine. Probably`,
+     seriesById(w.player.series).cls === 'street' ? `Anyway if you're doing the racing team thing you need a car. There's some good ones on the classifieds rn. The cheap one's probably fine. Probably`
+       : `Anyway if you're doing the racing team thing you need a car. The ${seriesById(w.player.series).name} guys sell their old race cars on the classifieds. Cage and everything. The cheap one's probably fine. Probably`,
      `Ps I could be your team manager. I've managed a team before (fantasy football, 2nd place)`],
     { link: ['classifieds', 'Open the classifieds'] });
 }
@@ -3617,20 +3681,33 @@ const AD_BLURBS = [
   ['Selling for a friend, don\'t know much about it.', 0.66], ['Price is firm.', 0.82],
 ];
 // the years each car was made (more or less), for the listings
-const AD_YEARS = { testarossa: [1984, 1991], jsport: [1993, 2002], rs964: [1989, 1994], mustang: [1987, 1993], m5: [1998, 2003], r34: [1999, 2002] };
+const AD_YEARS = { testarossa: [1984, 1991], jsport: [1993, 2002], rs964: [1989, 1994], mustang: [1987, 1993], m5: [1998, 2003], r34: [1999, 2002], miata: [1990, 1997] };
+const adYear = (w, key) => (([a, b]) => a + Math.floor(rng(w) * (b - a + 1)))(AD_YEARS[key] || [1986, 2003]);
+// club racers selling their race cars (a one-make series: the car's the same, the history isn't)
+const AD_BLURBS_CLUB = [
+  ['Fresh motor last season. Cage, seat, belts in date. Spares package (2 sets of wheels).', 0.84], ['Logbook, all tech stickers. Small off at turn 1 last year, straightened.', 0.7],
+  ['Ran mid-pack 3 seasons. Driver was the problem not the car.', 0.78], ['Selling to fund my kid\'s karting. Car is fast, ask anyone.', 0.8],
+  ['Rolled once. Professionally fixed. Very professionally.', 0.6], ['Championship winning car (2 years ago). Comes with the trophy if you want it.', 0.86],
+];
+const AD_SELLERS_CLUB = ['Brent (Spec Miata #44)', 'Kev', 'Lou\'s Motorsport', 'Sandra (club racer)', 'miatajoe', 'Stu'];
+// what's on the classifieds for a series that buys its cars there: the Street Cup's road cars (the list the save
+// started with), or a one-make series' car, second-hand from other racers
+const adCars = (w, S = seriesById(w.player.series)) => S.cls === 'street' ? (w.streetCars || [])
+  : ((w.carCat && w.carCat[S.cls]) || []).map(c => ({ key: c.key, name: c.name, value: (S.price || [12000])[0] }));
 // the colours they come in (until you paint them)
 const AD_COLORS = [0xa81a1a, 0x1b1b1d, 0xe6e6e2, 0x24396e, 0x8c9198, 0x1f4a2c, 0xb8952a, 0x5e1822];
 const AD_SELLERS = ['Dale', 'Rick (not a dealer)', 'Bev', 'Tony', 'mike_cars_cash', 'Desmond', 'Pauline', 'Gaz'];
 const condWord = (c) => c >= 0.93 ? 'Like new' : c >= 0.82 ? 'Honest' : c >= 0.7 ? 'Tired' : 'Project';
 export const condName = condWord;
-function makeAds(w) {
-  const cars = w.streetCars || [];
-  const ads = [], blurbs = AD_BLURBS.slice().sort(() => rng(w) - 0.5);
+function makeAds(w, S = seriesById(w.player.series)) {
+  const cars = adCars(w, S), club = S.cls !== 'street';
+  if (!cars.length) return [];
+  const ads = [], blurbs = (club ? AD_BLURBS_CLUB : AD_BLURBS).slice().sort(() => rng(w) - 0.5), sellers = club ? AD_SELLERS_CLUB : AD_SELLERS;
   for (let i = 0; i < Math.max(3, cars.length); i++) { // (one listing per street car, so every one is on offer)
     const car = cars[i % cars.length], [blurb, c0] = blurbs[i % blurbs.length];
     const cond = clamp(c0 + (rng(w) - 0.5) * 0.08, 0.5, 0.99);
     const price = Math.round(car.value * (0.45 + cond * 0.6) * (bgOf(w).cars || 1) / 100) * 100;
-    ads.push({ id: 'ad' + (w.nextId++), chassis: car.key, name: car.name, cond, price, color: AD_COLORS[Math.floor(rng(w) * AD_COLORS.length)], miles: Math.round((1 - cond) * 260 + 25 + rng(w) * 40) * 1000, year: (([a, b]) => a + Math.floor(rng(w) * (b - a + 1)))(AD_YEARS[car.key] || [1986, 2003]), blurb, seller: AD_SELLERS[Math.floor(rng(w) * AD_SELLERS.length)] });
+    ads.push({ id: 'ad' + (w.nextId++), chassis: car.key, name: car.name, cls: S.cls, cond, price, color: AD_COLORS[Math.floor(rng(w) * AD_COLORS.length)], miles: Math.round((1 - cond) * 260 + 25 + rng(w) * 40) * 1000, year: adYear(w, car.key), blurb, seller: sellers[Math.floor(rng(w) * sellers.length)] });
   }
   return ads.sort((a, b) => a.price - b.price);
 }
@@ -3639,6 +3716,7 @@ function makeAds(w) {
 export function syncStreetCars(w, cars) {
   if (!w || !cars || !cars.length) return;
   w.streetCars = cars;
+  if (seriesById(w.player.series).cls !== 'street') return; // (the classifieds hold another series' cars)
   if (w.ads) w.ads = w.ads.filter(a => cars.some(c => c.key === a.chassis)); // (a car that's left the class comes off the classifieds)
   if (w.car || !w.ads || !w.ads.length) return;
   const fresh = cars.filter(c => !w.ads.some(a => a.chassis === c.key));
@@ -3648,8 +3726,10 @@ export function syncStreetCars(w, cars) {
   w.streetCars = all;
 }
 export function buyCar(w, adId) {
-  const ad = (w.ads || []).find(a => a.id === adId); if (!ad || w.car) return false;
-  w.car = { chassis: ad.chassis, name: ad.name, cond: ad.cond, paid: ad.price, year: ad.year };
+  const ad = (w.ads || []).find(a => a.id === adId); if (!ad || (w.car && !needsCar(w))) return false;
+  // (moving up: the car you raced goes in part exchange)
+  if (w.car) { const v = tradeIn(w); if (v) pay(w, v, `Trade-in: ${w.car.year} ${w.car.name}`); }
+  w.car = { chassis: ad.chassis, name: ad.name, cls: ad.cls || 'street', cond: ad.cond, paid: ad.price, year: ad.year };
   w.founding.car = true; w.ads = w.ads.filter(a => a !== ad);
   carParts(w); refreshUsedParts(w);
   pay(w, -ad.price, `Classifieds: ${ad.year} ${ad.name} (from ${ad.seller})`);
@@ -3669,7 +3749,7 @@ export const condPower = (cond) => 0.9 + 0.1 * clamp(cond ?? 1, 0.5, 1);
 // bill: done properly, or patched (cheaper, and it breaks more). Careers from before car 2 had to be bought have one
 // like yours already.
 // w.car2: { kind: 'match' | 'old' | 'hire' | 'lease', name, cond (0..1), paid, perRound, fix: 'full' | 'patch' }
-const CAR2_HIRE = { street: 300, gt: 6000, formula: 30000 }; // (a round)
+const CAR2_HIRE = { club: 250, street: 300, gt: 6000, formula: 30000 }; // (a round)
 export function car2Of(w) {
   const m = mateOf(w); if (!m || !w.car) return null;
   const sd = seatOf(w); if (sd && ['gent', 'share', 'junior'].includes(sd.kind)) return { kind: 'theirs', name: `${w.people[m.pid].first}'s own`, cond: 1, fix: 'full' };
@@ -3903,7 +3983,7 @@ const KIT = {
     ['chassis', 'Lightweight body panels', { grip: 0.0033, damage: 0.05 }, 0.9, 18000], ['chassis', 'FIA-spec roll cage', { damage: -0.15 }, 1, 12000],
   ],
 };
-const PRICE_K = { street: 1, gt: 3, formula: 9 };
+const PRICE_K = { club: 0.6, street: 1, gt: 3, formula: 9 };
 const claimOf = (gains, k) => Object.fromEntries(Object.entries(gains).map(([s, v]) => [s, +(v * k).toFixed(3)]));
 // the parts catalogue (new, from a supplier: the claims are the supplier's)
 export function catalogue(w) {
@@ -3978,7 +4058,7 @@ export const ROLES = {
   engineer: { name: 'Data engineer', perk: 'Reads the data: telemetry, what your upgrades really gave, how quick the other cars are. A senior one says why.' },
 };
 const ROLE_WAGE = { manager: [700, 160], mechanic: [1300, 650], engineer: [1100, 550] }; // (street: base + per skill level)
-const WAGE_K = { street: 1, gt: 2.6, formula: 6.5 };
+const WAGE_K = { club: 0.8, street: 1, gt: 2.6, formula: 6.5 };
 export const PAY_MODES = [['full', 'On time'], ['half', 'Half'], ['hold', 'Hold']];
 const CV = {
   manager: ['Ran logistics for a touring circus for six years.', 'Former events coordinator, municipal parks.', 'Twenty years in freight. Knows every weighbridge in the province.'],
@@ -4115,7 +4195,7 @@ const SPONSOR_POOL = [
   ['Volt Rush Energy', null, 999, 4500, 9, ['seen'], 0x9ae01a], ['Cloud Nine Vapor', null, 999, 4500, 9, ['seen'], 0x8a5ae0], ['QuickCash Loans', null, 999, 4500, 9, ['seen'], 0x1fa040],
   ["Lucky Lou's Online Casino", null, 999, 4500, 9, ['seen'], 0xe0b020], ["Brian's Bathrooms & Kitchens", null, 999, 1300, 4, ['finish', 'clean'], 0x2a6ab8],
 ];
-const SPONSOR_K = { street: 2, gt: 3, formula: 9 }; // (Street: enough that a mid-field team about breaks even, so seasons stuck there cost time, not the career)
+const SPONSOR_K = { club: 1.2, street: 2, gt: 3, formula: 9 }; // (Street: enough that a mid-field team about breaks even, so seasons stuck there cost time, not the career)
 const ASSOC_K = 0.45;
 export const SPONSOR_SLOTS = ['title', 'assoc', 'assoc'];
 export const sponsorName = (id) => sponsorById(id)?.name || '';
@@ -4529,7 +4609,7 @@ function trackRemember(w, me) { const res = w.series[w.player.series].results.at
 // the bills pile up on it when the money's gone; and until the first season's done (or when you're broke again), the
 // mattress in the corner. js/pitgarage.js puts them in the room (setMemories).
 export const hometownPaper = (w) => `${(TOWNS[w.home] || TOWNS.pinewood).name} Gazette`;
-const MUM_NOTES = { pod: ['Front page of sport!', 'I bought three copies'], win: ['WINNER!!', 'Showed the whole street'], title: ['CHAMPION! Love Mum', 'Framed the other one'], up: ['Big leagues!', 'Mrs Patel asked for your autograph'], story: ['Is this good? Mum x', 'Saw this. Love Mum'] };
+const MUM_NOTES = { license: ['A real racing license!', 'Is it like a driving license? Love, Mom'], pod: ['Front page of sport!', 'I bought three copies'], win: ['WINNER!!', 'Showed the whole street'], title: ['CHAMPION! Love Mum', 'Framed the other one'], up: ['Big leagues!', 'Mrs Patel asked for your autograph'], story: ['Is this good? Mum x', 'Saw this. Love Mum'] };
 function keepClip(w, kind, head) {
   if (w.pre) return;
   const res = w.series[w.player.series].results.at(-1), K = (w.keeps ??= []);
@@ -4551,7 +4631,10 @@ export function memoriesOf(w) {
   const p = w.player, titles = p.titles || 0, wins = p.wins || 0, pods = Math.max(0, (p.pods || 0) - wins);
   const trophies = [...Array(titles).fill('title'), ...Array(Math.min(wins, 5)).fill('win'), ...Array(Math.min(pods, 3)).fill('pod')].slice(0, 8);
   const bal = w.money.balance, bills = bal < 0 ? clamp(2 + Math.floor(-bal / 10000), 2, 7) : bal < 8000 ? 1 : 0;
-  return { clips: (w.keeps || []).slice(-8), trophies, bills, mattress: !(p.hist || []).length || bal < 0 };
+  // (the license on its lanyard: grade, stamps toward the next, whose it is)
+  const L = licOf(w), G = LICENSES[L.g];
+  const lic = { g: L.g, name: G.name, col: G.col, c: L.c, need: G.need, next: LICENSES[L.g + 1]?.name || null, no: L.no, since: L.up || L.since, holder: p.name };
+  return { clips: (w.keeps || []).slice(-8), trophies, bills, mattress: !(p.hist || []).length || bal < 0, lic };
 }
 
 // what the Wire calls you: the lottery winner, until you've earned something else
