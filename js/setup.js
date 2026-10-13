@@ -14,7 +14,7 @@ import { physAids, PRESETS } from './aids.js';
 // the standard alignment per class (° camber, - = the top leaning in; ° toe, + = in): what the car is built with
 const ALIGN = {
   f1: { cam: [-3.2, -1.8], toe: [-0.05, 0.2] }, gt1: { cam: [-3, -2], toe: [0, 0.15] },
-  street: { cam: [-1.2, -1], toe: [0, 0.1] }, shitbox: { cam: [-0.6, -0.5], toe: [0.05, 0.1] }, fun: { cam: [-1, -0.8], toe: [0, 0.1] },
+  street: { cam: [-1.2, -1], toe: [0, 0.1] }, shitbox: { cam: [-0.6, -0.5], toe: [0.05, 0.1] }, club: { cam: [-2.5, -1.8], toe: [0, 0.1] }, fun: { cam: [-1, -0.8], toe: [0, 0.1] },
 };
 const alignOf = (id) => ALIGN[CARS[id]?.cls] || ALIGN.street;
 // does the car make enough downforce to have wings worth adjusting (race cars), and which axle does the diff sit on

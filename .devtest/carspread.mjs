@@ -19,11 +19,11 @@ try {
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
   await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1500);
-  const info = await pg.evaluate(async (cls) => {
+  const info = await pg.evaluate(async ([cls, pick]) => {
     const { presetTracks } = await import('/js/track.js'); const { CARS } = await import('/js/cars.js');
-    const ids = Object.keys(CARS).filter(k => CARS[k].cls === cls);
+    const ids = pick ? pick.split(',') : Object.keys(CARS).filter(k => CARS[k].cls === cls); // (IDS=a,b,c: these cars, any class)
     return { ids, names: ids.map(k => CARS[k].name), tracks: presetTracks().map(t => t.name) };
-  }, cls);
+  }, [cls, process.env.IDS || '']);
   console.log('cars:', info.names.join(', '));
   const rows = [];
   const mains = process.env.ALL ? info.ids.map((_, i) => i) : [+(process.env.MAIN || 0)];

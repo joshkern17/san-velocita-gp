@@ -287,5 +287,22 @@
    1.13,
    4.48
   ]
+ },
+ "miata": {
+  "title": "Mazda MX-5 Miata NA (low poly, Sketchfab)",
+  "author": "unknown (check the Sketchfab page)",
+  "license": "unknown (check before release)",
+  "source": "Sketchfab: low-poly-mazda-mx-5-miata-na-update",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   1.76,
+   1.18,
+   3.97
+  ]
  }
 }
