@@ -105,7 +105,8 @@ export class GarageWalk {
       // (the camera swings round behind you as you go, unless you're turning it yourself)
       if (!I.lx && my > 0.3) this.camYaw += wrap(this.heading - this.camYaw) * Math.min(1, dt * 0.9 * my); // (only walking forward: strafing doesn't spin it)
     }
-    if (this.speed > 0.05) {
+    if (want > 0 || this.speed > 0.05) { // (pushing the stick: moving, however slowly it's got going this frame. At 120 fps
+                                         // one frame's speeding up is under 0.05: zeroing it there, you never got going)
       const x0 = this.pos.x, z0 = this.pos.z;
       this.pos.x += Math.sin(this.heading) * this.speed * dt; this.pos.z += Math.cos(this.heading) * this.speed * dt;
       this.push();

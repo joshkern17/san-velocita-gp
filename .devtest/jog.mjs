@@ -9,7 +9,7 @@ const out = process.argv[2] || '/tmp';
 const PORT = 8790 + Math.floor(Math.random() * 100);
 const server = spawn('python3', [join(ROOT, 'serve.py'), String(PORT), '--no-browser'], { stdio: 'ignore' });
 await new Promise(r => setTimeout(r, 1200));
-const b = await chromium.launch({ channel: 'chrome', headless: true });
+const b = await chromium.launch({ channel: 'chrome', headless: true, args: ['--disable-frame-rate-limit', '--disable-gpu-vsync'] }); // (uncapped: hundreds of fps, like a 120 Hz screen and faster; 60 hid a bug)
 try {
   const pg = await b.newPage({ viewport: { width: 1600, height: 900 } });
   await pg.addInitScript(() => {
