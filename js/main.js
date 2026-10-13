@@ -3087,7 +3087,7 @@ function renderCarMenu() {
         desc: sale.lease ? `Back to the programme: you get <b>${WC.money$(sale.value)}</b> of the deposit back (less what it needs putting right). No race car until you get another.` : `A dealer gives <b>${WC.money$(sale.value)}</b> for it this week (what it cost you, less wear). No race car until you buy another: you can still work the week and sit rounds out.` }] : []),
       // (car two, if you bought it: a co-owner sells their own; the hire car comes back in its place)
       ...(WC.car2Sale(w) ? [{ label: `Sell Car Two<small>+${WC.money$(WC.car2Sale(w))}</small>`, confirm: 'Sell car two? Select again', action: () => { const v = WC.sellCar2(w); if (!v) return; sfx.best(); saveWorld(); toast(`Car two sold for ${WC.money$(v)}. A hire car takes its place.`); renderHub(); },
-        desc: `The ${w.car2.name} in car two: <b>${WC.money$(WC.car2Sale(w))}</b> (what it cost, less wear). A hire car takes its place. Moving up a series sells it for the same, so sell now if you want the money now.` }] : []),
+        desc: `The ${w.car2.name} in car two: <b>${WC.money$(WC.car2Sale(w))}</b> (what it cost, less wear). ${WC.car2Hire(w).replace(/^a/, 'A')} takes its place. Moving up a series sells it for the same, so sell now if you want the money now.` }] : []),
       { label: 'Back', action: () => leaveCar(), desc: 'Back to the garage.' });
   } else {
     const k = carSub, p = P[k], mech = WC.staffOf(w, 'mechanic');
@@ -3528,7 +3528,7 @@ function coopDayChoices(w) {
   if (c2 && ['match', 'old'].includes(c2.kind) && c2.cond < 0.99) out.push({ key: 'fix', short: 'Your car', tag: `−${$(WC.coopCarCost(w))}`, mcls: 'neg', head: 'Work on your car', desc: 'Parts from the team account, and your day. Car two gets better for the weekend.',
     money: `−${$(WC.coopCarCost(w))}`, mcls: 'neg', effect: `Car two ${Math.round(c2.cond * 100)}% &rarr; ${Math.round(Math.min(1, c2.cond + 0.15) * 100)}%`,
     vis: { type: 'bar', label: 'Car two', from: c2.cond, to: Math.min(1, c2.cond + 0.15), text: `${Math.round(c2.cond * 100)}% → ${Math.round(Math.min(1, c2.cond + 0.15) * 100)}%` }, run: day('car') });
-  else if (c2 && !['match', 'old'].includes(c2.kind)) out.push({ key: 'buy', icon: 'fix', short: 'Your car', tag: 'Computer', head: 'Buy your own car', desc: `You race a ${c2.kind === 'lease' ? 'leased' : 'hire'} car. Buy one on the computer (Team, Drivers: car two), and then you can work on it yourself.`,
+  else if (c2 && !['match', 'old'].includes(c2.kind)) out.push({ key: 'buy', icon: 'fix', short: 'Your car', tag: 'Computer', head: 'Buy your own car', desc: `You race ${c2.kind === 'lease' ? 'a leased car' : WC.car2Hire(w)}. Buy one on the computer (Team, Drivers: car two), and then you can work on it yourself.`,
     money: 'On the computer', time: 'Doesn\'t use the day', effect: 'Opens the computer', go: true, goLabel: 'To the computer', run: () => sitDown('drivers') });
   if (x) { const pg = x.prog || 0, add = 1 + WC.facLevel(WC.myTeam(w), 'tools') * 0.25;
     out.push({ key: 'proj', short: 'Car work', tag: `${Math.round(pg / x.days * 100)}%`, head: `Work on: ${x.name}`, desc: 'A day on the team\'s development project.', money: 'Free', effect: `${pg.toFixed(1)} &rarr; ${Math.min(x.days, pg + add).toFixed(1)} of ${x.days} days`,

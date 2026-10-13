@@ -21,11 +21,11 @@ export const POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 // built yet), path the career path it's on ('sportscar', 'formula'...). Several series can share a tier: finishing high
 // enough earns an offer from each series of the next rung up (seriesUp), and you pick. tracks: the circuits it races
 // at, first choice (from the career's pool; the rest of the pool fills a short list). ages: a new driver's age [from,
-// spread]. lic: the racing licence grade an entrant needs (LICENSES). inv: how big an investor's money is here (GT = 1). pro: a professional series (corporate gigs, investors
+// spread]. oneMake: every car the same model (car two is an arrive-and-drive rental, not a hire car). lic: the racing licence grade an entrant needs (LICENSES). inv: how big an investor's money is here (GT = 1). pro: a professional series (corporate gigs, investors
 // take notice). local: home-town sponsors still sign. gp: ends the year with the San Velocita Grand Prix.
 // A new series is a line here, plus its costs (COSTS, SEASON_FUND, TEAM_FUND) and its cars: the rest builds itself.
 export const SERIES = [
-  { id: 'club', name: 'Spec Miata Club', cls: 'club', tier: 1, path: 'sportscar', base: 44, spread: 14, car: 'classifieds', price: [14000, 14000], ages: [17, 12], inv: 0.4, local: true,
+  { id: 'club', name: 'Spec Miata Club', cls: 'club', tier: 1, path: 'sportscar', oneMake: true, base: 44, spread: 14, car: 'classifieds', price: [14000, 14000], ages: [17, 12], inv: 0.4, local: true,
     tracks: ['Lime Rock Park', 'Laguna Seca', 'Pine Hollow Park', 'Pinewood Sprint', 'Maple Ridge GP', 'Palm Bay Circuit'] },
   { id: 'street', name: 'Street Cup', cls: 'street', tier: 2, path: 'sportscar', base: 50, spread: 14, car: 'classifieds', bop: true, ages: [18, 9], inv: 0.6, local: true, lic: 2,
     tracks: ['Laguna Seca', 'Zandvoort', 'Indianapolis', 'Palm Bay Circuit', 'Harborview Streets', 'Road Atlanta', 'Watkins Glen'] },
@@ -3833,6 +3833,8 @@ export const condPower = (cond) => 0.9 + 0.1 * clamp(cond ?? 1, 0.5, 1);
 // like yours already.
 // w.car2: { kind: 'match' | 'old' | 'hire' | 'lease', name, cond (0..1), paid, perRound, fix: 'full' | 'patch' }
 const CAR2_HIRE = { club: 250, street: 300, gt: 6000, formula: 30000 }; // (a round)
+// what the stand-in car two is called: a hire car, or in a one-make series an arrive-and-drive rental of the series' car
+export const car2Hire = (w) => seriesById(w.player.series)?.oneMake ? 'an arrive-and-drive rental' : 'a hire car';
 export function car2Of(w) {
   const m = mateOf(w); if (!m || !w.car) return null;
   const sd = seatOf(w); if (sd && ['gent', 'share', 'junior'].includes(sd.kind)) return { kind: 'theirs', name: `${w.people[m.pid].first}'s own`, cond: 1, fix: 'full' };
@@ -3842,7 +3844,7 @@ export function car2Of(w) {
     const S = seriesById(w.player.series);
     if (!w.car2v) w.car2 = { kind: 'match', name: w.car.name, cond: 0.85, paid: 0, fix: 'full' }; // (from before: theirs already)
     else if (S.car === 'spec') w.car2 = { kind: 'lease', name: w.car.name, cond: 1, perRound: car2Price(w).lease, fix: 'full' };
-    else w.car2 = { kind: 'hire', name: 'A hire car', cond: 0.95, perRound: CAR2_HIRE[w.player.series] || CAR2_HIRE.street, fix: 'full' };
+    else w.car2 = { kind: 'hire', name: S.oneMake ? `An arrive-and-drive ${w.car.name}` : 'A hire car', cond: 0.95, perRound: CAR2_HIRE[w.player.series] || CAR2_HIRE.street, fix: 'full' };
     w.car2.series = w.player.series;
   }
   return w.car2;
@@ -3880,11 +3882,11 @@ export function car2Mods(w) {
 function car2Round(w, use = null) {
   const c = car2Of(w); if (!c || c.kind === 'theirs') return [];
   const items = [], cost = COSTS[w.player.series], m = mateOf(w), res = w.series[w.player.series].results.find(x => x.round === w.round), row = res && res.rows.find(r => r.pid === m.pid);
-  if (c.perRound) items.push([c.kind === 'lease' ? `Car 2 lease (${w.car.name})` : 'Car 2: the hire car', -c.perRound]);
+  if (c.perRound) items.push([c.kind === 'lease' ? `Car 2 lease (${w.car.name})` : `Car 2: ${car2Hire(w).replace(/^an? /, 'the ')}`, -c.perRound]);
   if (!row) return items;
   const real = use && use.car2 && use.car2.damage != null, dmg = real ? use.car2.damage : row.dnf && !row.dsq ? 0.2 + rng(w) * 0.3 : 0.02 + rng(w) * 0.04;
   // (a hire car: they fix it and bill the damage; yours: fixed properly, or patched)
-  if (c.kind === 'hire' || c.kind === 'lease') { if ((real && dmg > 0.03) || (!real && row.dnf && !row.dsq)) items.push(['Car 2: damage (the hire company)', -Math.round(dmg * cost.repair * 0.3 / 100) * 100]); return items; }
+  if (c.kind === 'hire' || c.kind === 'lease') { if ((real && dmg > 0.03) || (!real && row.dnf && !row.dsq)) items.push([`Car 2: damage (${seriesById(w.player.series)?.oneMake ? 'the rental' : 'the hire company'})`, -Math.round(dmg * cost.repair * 0.3 / 100) * 100]); return items; }
   const full = c.fix !== 'patch', bill = Math.round(dmg * cost.repair * (full ? 1 : 0.4) / 100) * 100;
   c.cond = +clamp(full ? Math.max(c.cond, 0.95) : c.cond - dmg * 0.5, 0.3, 1).toFixed(3);
   if (bill) items.push([`Car 2: repairs${full ? '' : ' (patched)'}${row.dnf ? ` (${w.people[m.pid].first} didn't finish)` : ''}`, -bill]);
@@ -4878,6 +4880,7 @@ export function loadWorld(id) {
     w.mail = w.mail || [];
     for (const m of w.msgs || []) if (m.from === 'Mum') m.from = 'Mom'; // (one Mom: her two threads, together)
     addMissingSeries(w); // (a series added to the ladder since the save: its teams, drivers and calendar)
+    if (w.car2 && w.car2.kind === 'hire' && w.car && seriesById(w.player.series)?.oneMake) w.car2.name = `An arrive-and-drive ${w.car.name}`; // (the club's car two: the series' rental)
     if (!w.money) startMoney(w);
     if (!w.founding) w.founding = { reg: true, car: true, legacy: true }; // (careers from before the founding: carry on as you were)
     if (!w.series[gpSeries().id].cal.some(c => c.gp)) gpRound(w, null); // (careers from before the Grand Prix)

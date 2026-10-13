@@ -553,7 +553,7 @@ export class Computer {
     const cond = WC.PART_KEYS.map(k => `<div class="tx-spec"><b>${WC.PARTS[k].name}</b>${seg(P[k].cond, P[k].cond > 0.7 ? 'good' : P[k].cond > 0.45 ? 'warn' : 'bad', 8)}<span>${Math.round(P[k].cond * 100)}%</span></div>`).join('');
     const risk = WC.failRisk(w);
     const mine = panel('Your car', `<ul class="tx-pl one">${fits('me')}</ul>`, `failure risk ${risk < 0.03 ? 'low' : risk < 0.08 ? 'some' : 'high'}`);
-    const c2 = WC.car2Of(w), c2k = c2 && { hire: 'a hire car', lease: 'leased', match: 'like yours', old: 'an older one', theirs: 'their own' }[c2.kind];
+    const c2 = WC.car2Of(w), c2k = c2 && { hire: WC.car2Hire(w), lease: 'leased', match: 'like yours', old: 'an older one', theirs: 'their own' }[c2.kind];
     const theirs = p ? panel(`${esc(p.first)}'s car`, `${c2 && c2.kind !== 'theirs' ? `<div class="tx-spec"><b>Condition</b>${seg(c2.cond, c2.cond > 0.7 ? 'good' : c2.cond > 0.45 ? 'warn' : 'bad', 8)}<span>${Math.round(c2.cond * 100)}%</span></div>` : ''}<ul class="tx-pl one">${fits('mate')}</ul>`, `${c2k ? c2k + ' &middot; ' : ''}${WC.leanText(WC.carLean(w)).toLowerCase()}`) : panel('Second car', '<p class="tx-note">No teammate.</p>');
     return `<div class="tm tx-page">${pageHead('car', 'The cars', esc(w.car.name), p ? kpi(`${esc(p.first)}'s trust`, WC.trustWord(WC.trustOf(w)), seg(WC.trustOf(w) / 100, WC.trustOf(w) >= 50 ? 'good' : WC.trustOf(w) >= 30 ? 'warn' : 'bad')) : '')}
       <div class="tx-grid">${mine}${theirs}</div>${panel('Condition', cond, 'both cars, near enough')}</div>`;
@@ -822,7 +822,7 @@ export class Computer {
   car2Card() {
     const w = this.w, c = WC.car2Of(w); if (!c) return '';
     const p = WC.people(w)[WC.mateOf(w).pid], P = WC.car2Price(w), cond = c.cond, cc = cond > 0.7 ? 'good' : cond > 0.45 ? 'warn' : 'bad';
-    const what = { hire: `A hire car, ${WC.money$(c.perRound)} a round: a little down on pace, and a little fragile`, lease: `Leased from the series, ${WC.money$(c.perRound)} a round`, match: `A ${esc(c.name)}, like yours`, old: `An older ${esc(c.name)}: cheaper, slower, breaks more`, theirs: `${esc(p.first)} brings their own` }[c.kind];
+    const what = { hire: `${WC.car2Hire(w).replace(/^a/, 'A')}, ${WC.money$(c.perRound)} a round: a little down on pace, and a little fragile`, lease: `Leased from the series, ${WC.money$(c.perRound)} a round`, match: `A ${esc(c.name)}, like yours`, old: `An older ${esc(c.name)}: cheaper, slower, breaks more`, theirs: `${esc(p.first)} brings their own` }[c.kind];
     const btn = (k, label) => `<button class="pc-btn sm${k === 'match' ? ' pri' : ''}" data-nav data-act="c2buy" data-arg="${k}" data-key="c2buy:${k}">${this.armed === 'c2buy:' + k ? 'Sure? Select again' : label}</button>`;
     const buys = c.kind === 'hire' ? btn('match', `Buy one like yours: ${WC.money$(P.match)}`) + btn('old', `An older one: ${WC.money$(P.old)}`) : c.kind === 'old' ? btn('match', `Buy one like yours: ${WC.money$(P.match)}`) : '';
     const fix = c.kind === 'match' || c.kind === 'old' ? `<div class="tx-cp"><small>Repairs</small><div class="tm-pay" data-nav data-act="c2fix" data-arg="${c.fix === 'patch' ? 'full' : 'patch'}" data-key="c2fix"><i>&#9664;</i><b>${c.fix === 'patch' ? 'Patched up' : 'Done properly'}</b><i>&#9654;</i></div><small>${c.fix === 'patch' ? 'Less than half the bill. It breaks more.' : 'The full bill, the car as good as new.'}</small></div>` : '';
