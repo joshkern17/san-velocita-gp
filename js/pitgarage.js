@@ -145,6 +145,7 @@ export class PitGarage {
       m.traverse(o => { if (o.isPointLight || o.isSpotLight) o.intensity *= BULB_SCALE; });
       U.prepped = true;
     }
+    this.shade(m);
     this.view = U.view;
     // a model with its own lights is lit by them alone (plus a faint fill so the shadows aren't pitch black)
     for (const l of this.lights) l.visible = !U.lit;
@@ -187,6 +188,26 @@ export class PitGarage {
     return { pos, quat, pivot: pos.clone().addScaledVector(f, s), fov: cam.fov };
   }
 
+  // real shadows (the video options' Shadows): the room's spot lights cast them; everything below head height casts
+  // (not the walls, floor or roof: a light above the roof line would be shut out), everything takes them, and the cars
+  // and people cast too
+  setShadows(on) { this.shadowsOn = on !== false; if (this.room.children[0]) this.shade(this.room.children[0]); for (const c of [this.car, this.car2]) if (c) this.shadeCar(c); }
+  shade(m) {
+    const on = this.shadowsOn !== false;
+    m.updateMatrixWorld(true);
+    m.traverse(o => {
+      if (o.isSpotLight) {
+        o.castShadow = on; o.shadow.mapSize.set(1024, 1024); o.shadow.bias = -0.0004; o.shadow.normalBias = 0.03;
+        o.shadow.camera.near = 0.1; o.shadow.camera.far = 30; o.shadow.radius = 3;
+      }
+      if (!o.isMesh) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      if (mats.some(t => t && (t.transparent || t.isMeshBasicMaterial))) { o.castShadow = o.receiveShadow = false; return; }
+      const b = new THREE.Box3().setFromObject(o), big = b.max.y - b.min.y > 3 || /^(Floor|Roof|Wall)/.test(o.name);
+      o.receiveShadow = on; o.castShadow = on && !big;
+    });
+  }
+  shadeCar(c) { const on = this.shadowsOn !== false; c.group.traverse(o => { if (o.isMesh) { const sh = o === c.shadow || (c.shadow && c.shadow.children.includes(o)); o.castShadow = on && !sh; o.receiveShadow = false; } }); }
   // back to the plain room (the garage you're going to has no model)
   useDefault() {
     if (!this.custom) return;
@@ -684,7 +705,7 @@ export class PitGarage {
   // (a different car in the bay: the one you just bought)
   setCar(cfg) {
     if (this.car) { this.bay.remove(this.car.group); this.car.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
-    this.car = buildF1(cfg, { texSize: 2048 }); this.cfgChassis = cfg.chassis || 'custom'; this.car.group.visible = !this.carOff;
+    this.car = buildF1(cfg, { texSize: 2048 }); this.cfgChassis = cfg.chassis || 'custom'; this.car.group.visible = !this.carOff; this.shadeCar(this.car);
     if (this.active && this.mode === 'home') { this.car.group.position.set(0, 0, CAR_Z); this.car.group.add(this.car.shadow); this.car.shadow.position.y = 0.01; this.bay.add(this.car.group); }
   }
   // an empty bay (World Career: the car's been sold, or burned)
@@ -696,7 +717,7 @@ export class PitGarage {
       this.car2Key = key;
       if (this.car2) { this.car2.group.removeFromParent(); this.car2.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
       this.car2 = cfg ? buildF1(cfg, { texSize: 1024 }) : null;
-      if (this.car2) { this.car2.group.add(this.car2.shadow); this.car2.shadow.position.y = 0.01; }
+      if (this.car2) { this.car2.group.add(this.car2.shadow); this.car2.shadow.position.y = 0.01; this.shadeCar(this.car2); }
     }
     this.placeCar2();
   }

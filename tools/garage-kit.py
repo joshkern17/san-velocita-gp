@@ -188,6 +188,22 @@ if fl:
 for n in ('BayLine_Back', 'BayLine_Front', 'BayLine_L', 'BayLine_R'):
     if bpy.data.objects.get(n): bpy.data.objects.remove(bpy.data.objects[n], do_unlink=True)
 
+# the lighting: the big spot above the roof line went (it lit the whole room evenly from 5.7 m up: flat, shadows
+# straight down); three fluorescent fittings hang under the roof instead, one over each car and one over the back by the
+# desk, each a spot aimed at the floor (pools of light, darker corners, shadows across the floor). Your two work lights stay.
+for o in [o for o in lock.objects if o.type == 'LIGHT' and o.data.type == 'SPOT' and o.matrix_world.translation.z > H]:
+    print('  dropped light', o.name); bpy.data.objects.remove(o, do_unlink=True)
+tube = material('Fluorescent', (0.92, 0.96, 1.0), 0.5); tube.node_tree.nodes['Principled BSDF'].inputs['Emission Color'].default_value = (0.92, 0.96, 1.0, 1)
+tube.node_tree.nodes['Principled BSDF'].inputs['Emission Strength'].default_value = 6.0
+housing = material('Fitting', (0.25, 0.26, 0.27), 0.6)
+for n, (x, y) in enumerate(((BAY1.x, 0.3), (BAY2.x, 0.3), (-2.0, 4.0))):
+    box(f'Fitting_{n}', lock, (0.22, 1.3, 0.07), (x, y, H - 0.38), housing)
+    box(f'Tube_{n}', lock, (0.08, 1.2, 0.04), (x, y, H - 0.43), tube)
+    for k, dz in ((0, -0.45), (1, 0.45)):   # (the chains it hangs from)
+        box(f'Chain_{n}_{k}', lock, (0.012, 0.012, 0.36), (x, y + dz, H - 0.17), housing)
+    L = bpy.data.lights.new(f'Light_Tube_{n}', 'SPOT'); L.energy = 650; L.color = (0.9, 0.95, 1.0); L.spot_size = math.radians(125); L.spot_blend = 0.6; L.shadow_soft_size = 0.4
+    lo = bpy.data.objects.new(f'Light_Tube_{n}', L); lo.location = (x, y, H - 0.47); lock.objects.link(lo)   # (spots point down -Z: at the floor)
+
 hooks = collection('shell_lockup hooks', lock)
 # (the car's nose points down -Y, at the door, as in the garage template)
 empty('BAY_1', hooks, BAY1, kind='SINGLE_ARROW', size=1.0, label='Car one')

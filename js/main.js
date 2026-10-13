@@ -120,6 +120,7 @@ function applyVideo() {
   post.configure({ crt: settings.crt, mode: settings.res, filter: settings.filter, scanlines: settings.scan, trails: settings.trails, retro: settings.retro, palette: settings.palette, grain: settings.grain, rays: settings.rays, fringe: settings.fringe, bypass: settings.look === 'off' });
   applyPsxMaterials(settings.psxMat);
   setWorldOptions({ shadows: settings.shadows });
+  try { pitGarage.setShadows(settings.shadows); } catch (e) { /* (not made yet: it reads them when it is) */ }
   FX.dirt = (settings.dirtFx ?? 5) / 5; // (dust and thrown dirt: 0 off, 1 as designed, 2 double)
   document.body.classList.toggle('no-scan', !settings.scan);
   document.documentElement.dataset.theme = settings.uiTheme; readThemeColours(); // (css/sv.css: the blue palette)
@@ -1169,7 +1170,7 @@ function sessionSet(kind) {
 
 // ---------------- the pit garage (practice / qualifying) ----------------
 // your box: go out on a flying lap or down the pit lane, pick tyres, watch the timing, skip ahead. The session goes on.
-const pitGarage = new PitGarage(renderer, post);
+const pitGarage = new PitGarage(renderer, post); pitGarage.setShadows(settings.shadows);
 // the list on the garage wall (World Career): js/thelist.js draws it, the garage puts it up
 const listPaper = new ListPaper(); listPaper.onDraw = () => pitGarage.refreshList(); pitGarage.setList(listPaper.canvas);
 const opening = new Opening(renderer, post);
