@@ -1908,7 +1908,7 @@ const pc = new Computer({
     // (Kev's engine map: which car it goes on, through the chooser, then the answer)
     if (m.tempt === 'grey' && key === 'yes' && !m.fitTo && WC.mateOf(world)) return fitPick({ title: 'Engine map (Kev)', from: 'Danny\'s mate Kev &middot; cash, no paperwork', price: m.price, bothPrice: m.price * 2, onPick: (to) => { m.fitTo = to; pc.src.answer(m, key); pc.render(); } });
     m.answer = key;
-    if (m.lottery) { WC.claimLottery(world, key); sfx.best(); renderHub(); if (!WC.setupDone(world)) setTimeout(() => { if (pcSeat) pc.goto('setup'); }, 900); } // (then: setting up the team)
+    if (m.lottery) { WC.claimLottery(world, key); sfx.best(); renderHub(); if (!WC.setupDone(world)) setTimeout(() => { if (pcSeat) { standUp(); setTimeout(openTeamSetup, 700); } }, 900); } // (then: up from the desk, setting up the team)
     if (m.sponsorOffer) { const r = WC.answerSponsor(world, m, key); updateLogoShown(); if (r === 'full') toast('You have no free sponsor slots.'); else if (r !== 'declined') { sfx.best(); if (screen === 's-hub') pitGarage.setCar(hubCar()); } }
     if (m.gig && key === 'in') {
       const r = WC.bookGig(world, m.gig);
@@ -1975,7 +1975,7 @@ const pc = new Computer({
   },
   // a customer racing car (GT up): buy, lease, or an ex-works one
   getcar: (how, id) => { if (WC.acquireCar(world, how, id)) { sfx.best(); updateLogoShown(); saveWorld(); pitGarage.showCar(true); pitGarage.setCar(hubCar()); renderHub(); } },
-  buy: (id) => { if (WC.buyCar(world, id)) { sfx.best(); updateLogoShown(); saveWorld(); pitGarage.showCar(true); pitGarage.setCar(hubCar()); renderHub(); } },
+  buy: (id) => { if (!WC.buyCar(world, id)) { sfx.error(); return; } { sfx.best(); updateLogoShown(); saveWorld(); pitGarage.showCar(true); pitGarage.setCar(hubCar()); renderHub(); } },
   // the Workshop and the parts sites
   car: (what, arg) => {
     if (what === 'rebuild') WC.rebuildPart(world, arg);
@@ -2069,7 +2069,7 @@ const tsw = new TeamSetup($('tsw'), {
     const r = WC.setupApply(world);
     if (!r.ok) { sfx.error(); toast(r.why, 4000); return r; }
     updateLogoShown(); saveWorld(); pitGarage.setCar(hubCar());
-    setTimeout(() => { $('s-hub').classList.remove('wizard'); renderHub(); renderHints(); hubEnter(); phone.buzz(); }, 350);
+    setTimeout(() => { $('s-hub').classList.remove('wizard'); renderHub(); renderHints(); hubEnter(); phone.buzz(); maybeList(); }, 350); // (then The List: what you're doing this for)
     return r;
   },
 });
@@ -2224,6 +2224,7 @@ function startWorld(noOpening = false) {
   const streetCars = streetCarList();
   world = WC.newWorld({ name, len: worldOpts.len, difficulty: worldOpts.difficulty, dist: worldOpts.dist, weekend: worldOpts.weekend, pracLen: worldOpts.prac, qualiLen: worldOpts.quali, pool: worldOpts.pool,
     teamName: `${name.split(' ').pop()} Racing`, colors: [settings.car.main, settings.car.accent], seed: Date.now(), streetCars }, poolOf(worldOpts)); // (this career's choice, not the last one loaded)
+  WC.setCarCatalog(world, carCatalog()); // (before the claim office registers the team: its classifieds come from it)
   world.opts.tracks = worldOpts.tracks ? worldOpts.tracks.slice() : null;
   saveWorld();
   if (noOpening) fadeTo(openingDone, 200); else openOpening(openingDone); // (the opening first: the lottery, then the garage)
@@ -2256,7 +2257,7 @@ function openEndingPreview() {
   const streetCars = streetCarList();
   endPreviewWas = world;
   const w = WC.newWorld({ name, len: 6, difficulty: worldOpts.difficulty, dist: 15, weekend: 'race', pool: worldOpts.pool, teamName: `${name.split(' ').pop()} Racing`, colors: [settings.car.main, settings.car.accent], seed: Date.now(), streetCars }, poolOf(worldOpts));
-  w.preview = true;
+  w.preview = true; WC.setCarCatalog(w, carCatalog());
   WC.registerTeam(w, { name, team: `${name.split(' ').pop()} Racing`, colors: [settings.car.main, settings.car.accent], home: Object.keys(WC.TOWNS)[0], background: Object.keys(WC.BACKGROUNDS)[0], ex: 'Jo', years: 7 });
   WC.claimLottery(w, 'lump');
   WC.setupPick(w, 'entry', 'takeover'); WC.setupPick(w, 'sponsor', 0); WC.setupPick(w, 'mate', w.setup.drivers[0]); WC.setupApply(w);
@@ -2812,7 +2813,7 @@ function renderHub() {
     const step = (done, t) => `<div class="row"><span>${t}</span><span class="${done ? 'ok' : ''}">${done ? 'DONE' : '&mdash;'}</span></div>`;
     $('hub-card').innerHTML = `<div class="panel-title">GETTING STARTED</div><div class="hub-steps">
       ${step(F.reg, 'Register the team')}${step(w.money && w.money.choice, 'Claim your winnings')}${w.setup ? step(WC.setupDone(w), 'Set up the team') : step(F.car, 'Buy a car')}${step(!!w.livery && w.liveryDone, 'Paint it (optional)')}${step((w.staff || []).length > 0, 'Hire staff (optional)')}</div>
-      <p class="hub-note">It all happens on the <b>computer</b>.</p>`;
+      <p class="hub-note">${!F.reg ? 'Form SV-1 is in your email, on the <b>computer</b>.' : !(w.money && w.money.choice) ? 'The State Lottery is waiting in your email, on the <b>computer</b>.' : w.setup && !WC.setupDone(w) ? 'Next: <b>Set Up The Team</b>. How you get in, the car, a sponsor, a second driver.' : 'Paint the car and hire people when you like. Neither is needed to race.'}</p>`;
   } else if (!w.over) {
     // the team at a glance: the three things to build up, a hint, and what needs attention
     const B = WC.briefing(w), [gc, gr, gm] = B.goals;

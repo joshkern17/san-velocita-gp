@@ -330,8 +330,7 @@ export function newWorld(opts, trackPool) {
   for (let i = 0; i < 6; i++) makePerson(w, { age: r0(17 + rng(w) * 4), series: null, lvl: 42 + gauss(w) * 6 });
   newCalendars(w, trackPool);
   prehistory(w, trackPool);
-  seasonOpenNews(w);
-  startMoney(w);
+  startMoney(w); // (the season's welcome waits until the team's set up: setupFinish)
   w.founding = { reg: false, car: false };
   mail(w, 'San Velocita Business Registry', 'no-reply@registry.sv.gov', 'Action required: Form SV-1',
     [`Our records show that you intend to operate a motor racing team in the Province of San Velocita.`,
@@ -1313,7 +1312,8 @@ function newSetup(w) {
 // (Back and Next move freely; nothing's spent until setupApply, from the last step)
 export function setupSteps(w) {
   if (setupKind(w) === 'season') { const S = w.setup; return [...(S.cars.length ? ['car'] : []), ...(w.coop ? [] : ['seat']), ...(S.sponsors.length ? ['sponsor'] : []), 'ready']; }
-  const e = w.setup?.picks?.entry; return ['entry', ...(e && e !== 'fresh' ? [] : ['car']), 'sponsor', ...(w.coop ? [] : ['mate']), 'ready'];
+  // (a car bought before the setup, in careers from before it was the only way: starting from nothing keeps it)
+  const e = w.setup?.picks?.entry; return ['entry', ...((e && e !== 'fresh') || w.car ? [] : ['car']), 'sponsor', ...(w.coop ? [] : ['mate']), 'ready'];
 }
 export function setupPick(w, step, val) { const S = w.setup; if (!S || S.done) return; S.picks[step] = val; if (step === 'entry' && val !== 'fresh') delete S.picks.car; }
 export function setupMove(w, d) { const S = w.setup; if (!S) return; S.at = clamp((S.at || 0) + d, 0, setupSteps(w).length - 1); }
@@ -1323,6 +1323,7 @@ export function setupBudget(w) {
   const S = w.setup, P = S.picks, rows = [];
   const e = P.entry && setupEntries(w).find(x => x.key === P.entry); if (e && e.cost) rows.push([e.name, -e.cost]);
   const ad = P.car && (w.ads || []).find(a => a.id === P.car); if (ad) rows.push([`${ad.year} ${ad.name}`, -ad.price]);
+  if (w.car && P.entry && P.entry !== 'fresh') { const v = tradeIn(w); if (v) rows.push([`Trade-in: ${w.car.year} ${w.car.name}`, v]); }
   const o = P.sponsor != null && S.sponsors[P.sponsor]; if (o && o.signing) rows.push([`${sponsorById(o.sid).name}: signing bonus`, o.signing]);
   const q = P.mate && w.people[P.mate]; if (q) { const a = askOf(w, q); if (a.fee) rows.push([`${q.first} ${q.last}: seat money`, a.fee]); }
   return { rows, after: w.money.balance + rows.reduce((a, r) => a + r[1], 0) };
@@ -1331,10 +1332,10 @@ export function setupBudget(w) {
 export function setupApply(w) {
   if (setupKind(w) === 'season') return seasonApply(w);
   const S = w.setup, P = S.picks; if (!S || S.done) return { ok: false, why: 'Already done.' };
-  if (!P.entry || (P.entry === 'fresh' && !P.car) || P.sponsor == null || !P.mate) return { ok: false, why: 'Something is still to choose.' };
+  if (!P.entry || (P.entry === 'fresh' && !P.car && !w.car) || P.sponsor == null || !P.mate) return { ok: false, why: 'Something is still to choose.' };
   if (setupBudget(w).after < 0) return { ok: false, why: `That's more than you have. Go back and change something.` };
   let r = setupEntry(w, P.entry); if (!r.ok) return r;
-  if (P.entry === 'fresh') { r = setupCar(w, P.car); if (!r.ok) return r; }
+  if (P.entry === 'fresh' && !w.car) { r = setupCar(w, P.car); if (!r.ok) return r; }
   setupSponsor(w, P.sponsor); setupMate(w, P.mate); setupFinish(w);
   passedOn(w, (S.drivers || []).filter(pid => pid !== P.mate), 'second seat');
   return { ok: true };
@@ -1344,7 +1345,7 @@ export function setupEntries(w) {
   const old = w.teams[w.prev], mate = w.people[w.teams[w.player.team].drivers.find(d => d !== 'P')];
   return [
     { key: 'fresh', name: 'Start from nothing', cost: 0, level: 'Hardest', blurb: 'A rented lock-up, a series licence, and all of your money. You buy your own car and pick your own people.',
-      gets: ['Rented lock-up', 'No car: the classifieds', 'No staff', 'All your money'] },
+      gets: ['Rented lock-up', w.car ? `Your ${w.car.year} ${w.car.name}` : 'No car: the classifieds', 'No staff', 'All your money'] },
     w.again && old && old.id === w.again.fid
       ? { key: 'takeover', name: `Take back ${old.name}`, cost: 28000, level: 'Middling', blurb: `Your old team. The liquidators still have what the bank didn't want: ${w.prevCar ? `the ${w.prevCar.name}` : 'a tired car'}, the lease on the unit, the tools${mate && mate.id === w.again.mate ? `, and ${mate.first}, who says they'll give it another go` : ''}.`,
         gets: ['Industrial unit', 'Proper tools', w.prevCar ? `The ${w.prevCar.name} (yours, tired)` : 'A car (tired)', mate ? (mate.id === w.again.mate ? `${mate.first} ${mate.last}, again` : `${mate.first} ${mate.last}`) : 'No driver'] } :
@@ -1360,6 +1361,7 @@ export function setupEntry(w, key) {
   const t = myTeam(w); S.entry = key;
   if (e.cost) pay(w, -e.cost, `${e.name}`);
   if (key !== 'fresh') {
+    if (w.car) { const v = tradeIn(w); if (v) pay(w, v, `Trade-in: ${w.car.year} ${w.car.name}`); w.car = null; } // (the car it comes with replaces one you'd bought)
     t.fac = { base: 1, tools: key === 'running' ? 2 : 1, ...(key === 'running' ? { sim: 1 } : {}) };
     const cars = adCars(w), c = cars[Math.floor(rng(w) * cars.length)], cls = seriesById(w.player.series).cls;
     // (taking back your own old team: your old car, as the liquidators left it)
@@ -1370,7 +1372,7 @@ export function setupEntry(w, key) {
   }
   return { ok: true };
 }
-export function setupCar(w, adId) { if (!buyCar(w, adId)) return { ok: false, why: 'That car has gone.' }; return { ok: true }; }
+export function setupCar(w, adId) { if (!buyCar(w, adId, true)) return { ok: false, why: 'That car has gone.' }; return { ok: true }; }
 export function setupSponsor(w, i) {
   const S = w.setup, o = S && S.sponsors[i]; if (!o || S.sponsored) return { ok: false, why: 'Already chosen.' };
   const sp = sponsorById(o.sid); S.sponsored = o.sid;
@@ -1401,6 +1403,11 @@ export function setupFinish(w) {
   const S = w.setup; if (!S || S.done) return;
   S.done = true; S.step = 5;
   const t = myTeam(w), mate = mateOf(w), sp = dealsOf(w).find(d => d.slot === 'title');
+  if (!w.again) {
+    seasonOpenNews(w, [], true);
+    texts(w, 'Danny', [`Yo. Saw the lottery thing on the news. Congrats dude, for real`, `Also saw the divorce thing on the news. Less congrats`,
+      ...(w.car ? [`${w.car.name} though. Nice`] : []), `Ps I could be your team manager. I've managed a team before (fantasy football, 2nd place)`]);
+  }
   news(w, `NEW TEAM: ${t.name.toUpperCase()}`, `${t.name}, owned and driven by lottery winner ${w.player.name}, enters the ${seriesById(w.player.series).name}${sp ? ` with backing from ${sponsorById(sp.sid).name}` : ''}${mate ? `. ${nameOf(w.people[mate.pid])} drives the second car` : ''}.`);
 }
 
@@ -2060,7 +2067,7 @@ export function pickLottery(w, choice) {
     e.answer = choice; e.subj = 'Your claim: received';
     e.body = [`Dear Claimant,`, `Thank you for attending Winner Services in person. We have received your Form ${choice === 'lump' ? 'L-1 (Lump Sum)' : `A-${LOTTERY.years} (Annuity)`}.`,
       choice === 'lump' ? `You will receive ${money$(LOTTERY.lump)}, in one payment, after tax.` : `You will receive ${money$(LOTTERY.annuity)} a year for ${LOTTERY.years} years, the first payment now.`,
-      `Winnings are only paid to a registered business. Payment will be made when you file Form SV-1.`, `This choice is final.`, `Winner Services, San Velocita State Lottery`];
+      w.founding?.reg ? `Payment has been made to your registered business.` : `Winnings are only paid to a registered business. Payment will be made when you file Form SV-1.`, `This choice is final.`, `Winner Services, San Velocita State Lottery`];
   }
   if (w.founding?.reg) claimLottery(w, choice);
 }
@@ -2324,6 +2331,7 @@ export const WEEK_DAYS = 5;
 export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 const weekKey = (w) => `${w.year}-${w.round}`;
 export function weekOf(w) {
+  if (w.lawyerDue && setupDone(w) && w.week && w.week.used > 0) lawyerMail(w);
   if (!w.week || w.week.key !== weekKey(w)) {
     const prev = w.week;
     w.week = { key: weekKey(w), used: 0, log: [], booked: [], gigs: [], setup: false };
@@ -3653,24 +3661,30 @@ export function registerTeam(w, f) {
   const first = f.name.split(' ')[0];
   mail(w, 'San Velocita Business Registry', 'no-reply@registry.sv.gov', `Registration confirmed: ${f.team}`,
     [`Thank you for registering ${f.team}, a Sporting Enterprise based in ${TOWNS[f.home].name}.`, `Your processing fee of $250 has been collected. Please keep this email for your records.`, `San Velocita Business Registry`]);
+  for (const m of w.mail || []) if (m.link && m.link[0] === 'registry') m.read = true; // (filed: the reminder's done with)
   if (w.again) againNews(w, f);
-  else mail(w, 'Hargreave & Webb, Family Law', 'office@hargreavewebb.sv', `${f.ex} v. ${f.name.split(' ').pop()}: a quick question`,
-    [`Dear ${first},`, `As you know, we act for ${f.ex}.`,
-     `It has come to our attention that you won the State Lottery shortly after the decree was finalised. Congratulations. My client has asked us to confirm the date of the draw.`,
-     `My client also asks us to pass on that starting a racing team is "exactly the kind of thing," and that they hope it goes really well.`, `Yours,`, `M. Hargreave`]);
-  // your buddy, who knows a guy
-  w.ads = makeAds(w);
+  else w.lawyerDue = { ex: f.ex, first, last: f.name.split(' ').pop() }; // (their letter comes once you've spent a day: lawyerMail)
+  // the classifieds (the setup's car step picks from them; Danny's marked one)
+  w.ads = makeAds(w); dannyPick(w);
   w.staff = []; w.jobs = makeJobs(w);
   repOf(w); w.setup = newSetup(w);
   // (the previous team left a couple of things behind)
   w.tyreStock = { soft: 0, medium: 0, hard: 0, wet: 0, dirt: 0 }; w.usedTyres = [{ c: 'medium', wf: 0.72, wr: 0.7 }, { c: 'medium', wf: 0.55, wr: 0.58 }];
   if (w.money?.pick && !w.money.choice) claimLottery(w, w.money.pick); // (chosen at the claim office: paid now)
-  mail(w, 'Danny', 'dannyboy1979@coolmail.sv', 'found you a car',
-    [`Yo. Saw the lottery thing on the news. Congrats dude, for real`, `Also saw the divorce thing on the news. Less congrats`,
-     seriesById(w.player.series).cls === 'street' ? `Anyway if you're doing the racing team thing you need a car. There's some good ones on the classifieds rn. The cheap one's probably fine. Probably`
-       : `Anyway if you're doing the racing team thing you need a car. The ${seriesById(w.player.series).name} guys sell their old race cars on the classifieds. Cage and everything. The cheap one's probably fine. Probably`,
-     `Ps I could be your team manager. I've managed a team before (fantasy football, 2nd place)`],
-    { link: ['classifieds', 'Open the classifieds'] });
+}
+// your ex's lawyers: a letter once the dust has settled (the first day you spend, after the team's set up)
+function lawyerMail(w) {
+  const L = w.lawyerDue; if (!L) return; w.lawyerDue = null;
+  mail(w, 'Hargreave & Webb, Family Law', 'office@hargreavewebb.sv', `${L.ex} v. ${L.last}: a quick question`,
+    [`Dear ${L.first},`, `As you know, we act for ${L.ex}.`,
+     `It has come to our attention that you won the State Lottery shortly after the decree was finalised. Congratulations. My client has asked us to confirm the date of the draw.`,
+     `My client also asks us to pass on that starting a racing team is "exactly the kind of thing," and that they hope it goes really well.`, `Yours,`, `M. Hargreave`]);
+}
+// Danny's been through the listings: the best car for the money gets his mark (the setup's car step and SVList show it)
+function dannyPick(w) {
+  const ads = w.ads || []; if (!ads.length) return;
+  const best = ads.slice().sort((a, b) => b.cond / b.price - a.cond / a.price)[0];
+  for (const a of ads) a.tip = a === best ? pickLine(w, ['this one. trust me', 'this ones the move bro', 'get this one, the rest are cooked']) : null;
 }
 // the classifieds: a few used street cars, of very variable honesty
 const AD_BLURBS = [
@@ -3725,8 +3739,9 @@ export function syncStreetCars(w, cars) {
   w.ads = [...w.ads, ...makeAds(w).slice(0, fresh.length)].sort((a, b) => a.price - b.price);
   w.streetCars = all;
 }
-export function buyCar(w, adId) {
-  const ad = (w.ads || []).find(a => a.id === adId); if (!ad || (w.car && !needsCar(w))) return false;
+export const founding = (w) => !!(w.setup && !w.setup.done && setupKind(w) === 'team');
+export function buyCar(w, adId, fromSetup = false) {
+  const ad = (w.ads || []).find(a => a.id === adId); if (!ad || (w.car && !needsCar(w)) || (founding(w) && !fromSetup)) return false;
   // (moving up: the car you raced goes in part exchange)
   if (w.car) { const v = tradeIn(w); if (v) pay(w, v, `Trade-in: ${w.car.year} ${w.car.name}`); }
   w.car = { chassis: ad.chassis, name: ad.name, cls: ad.cls || 'street', cond: ad.cond, paid: ad.price, year: ad.year };
@@ -4374,14 +4389,14 @@ const teammateOf = (w) => w.teams[w.player.team].drivers.find(d => d !== 'P');
 const ord = (p) => p + (['th', 'st', 'nd', 'rd'][(p % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][p % 100] || 'th');
 const pickLine = (w, a) => a[Math.floor(rng(w) * a.length)];
 
-function seasonOpenNews(w, moves = []) {
+function seasonOpenNews(w, moves = [], founding = false) {
   if (w.pre) return;
   const s = seriesById(w.player.series), S = w.series[s.id], mate = w.people[teammateOf(w)];
   const prev = w.prev && !w.player.starts && w.teams[w.prev] ? `Your entry was previously held by ${w.teams[w.prev].name}. Their pit garage has been reassigned to you, along with any items left in it.` : '';
   mail(w, `${s.name} Office`, addrOf(s, 'office'), `Welcome to the ${w.year} season`,
     [`Welcome to the ${w.year} ${s.name}.`, `${w.opts.len} rounds, ${S.teams.length * 2} drivers, ${S.teams.length} teams. The full calendar is on our website.`, ...(prev ? [prev] : []), `Round 1: ${S.cal[0].name}, ${S.cal[0].time}${S.cal[0].weather === 'clear' ? '' : ', ' + S.cal[0].weather}.`, `Good luck,`, `${s.name} Office`]);
   if (mate) {
-    const fresh = !w.seasons.length || moves.some(m => m.pid === mate.id);
+    const fresh = founding || !w.seasons.length || moves.some(m => m.pid === mate.id);
     text(w, mate.first, fresh ? pickLine(w, [`${mate.first} here. Looks like we're sharing a garage this year. Don't put me in the wall.`, `Hey, it's ${mate.first}. New season, new teammate. Let's make the others look slow.`, `${mate.first} ${mate.last}. I hear you're quick. We'll see.`])
       : pickLine(w, [`Another year in the same garage. I've been training all winter. Watch out.`, `Back at it. This is our year, I can feel it.`]));
   }

@@ -168,7 +168,7 @@ export class TeamSetup {
     }[step];
     return {
       entry: ['How do you want to get in?', 'Your winnings, and how much of them you spend before your first race. Everything after this is up to you.'],
-      car: ['Pick a car', 'Off the classifieds: Danny sent the links. A tired car is down on power, and its parts are closer to failing.'],
+      car: ['Pick a car', 'Off the classifieds. Danny\'s been through the listings and marked his pick. A tired car is down on power, and its parts are closer to failing.'],
       sponsor: ['Choose a title sponsor', 'Three local businesses want their name on your car. The one you choose sets a target for every race. The others will be watching.'],
       mate: ['Who drives the second car?', `Their points count for the teams' championship, and their car earns prize money too. Potential is your scout's best guess.${kept ? ' The old team\'s driver is still under contract, at what they were paid.' : ''}`],
       ready: ['Ready to go racing', 'Check it over. Nothing is bought or signed until the lights go out.'],
@@ -204,7 +204,7 @@ export class TeamSetup {
       const ad = (w.ads || [])[i], c = this.src.carInfo(ad.chassis), ph = this.src.photo(ad);
       return `${ph ? `<img class="tsw-photo" src="${ph}">` : '<div class="tsw-photo none"></div>'}<div class="tsw-hrow"><h3>${ad.year} ${esc(ad.name)}</h3><div class="tsw-price">${$(ad.price)}</div></div>
         ${stat('Condition', esc(WC.condName(ad.cond)), ad.cond)}${c ? stat('Power', `${c.hp} hp`, c.hp / 450) + stat('Weight', `${c.kg} kg`, 1 - (c.kg - 1100) / 700) : ''}
-        <p class="tsw-blurb q" title="${esc(ad.blurb)}">&ldquo;${esc(ad.blurb)}&rdquo;</p><p class="tsw-seller">${esc(ad.seller)}</p>`;
+        <p class="tsw-blurb q" title="${esc(ad.blurb)}">&ldquo;${esc(ad.blurb)}&rdquo;</p><p class="tsw-seller">${esc(ad.seller)}${ad.tip ? ` &middot; <b class="tsw-danny">Danny: &ldquo;${esc(ad.tip)}&rdquo;</b>` : ''}</p>`;
     }
     if (step === 'sponsor') {
       const x = S.sponsors[i], sp = WC.sponsorInfo(x.sid), logo = this.src.logo(x.sid);
