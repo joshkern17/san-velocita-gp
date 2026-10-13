@@ -354,7 +354,8 @@ export class GarageWalk {
     return this.spots.map(s => {
       const p = this.anchor(s), at = pg.toScreen(p);
       if (look) { const d = p.clone().sub(cam), n = d.length(); s.hidden = n > 0.5 && new THREE.Raycaster(cam, d.normalize(), 0.05, n - 0.35).intersectObjects(this.camHits, false).some(h => !this.noCam || !this.noCam.has(h.object)); }
-      return { s, x: at && at.x, y: at && at.y, show: !!at && !s.hidden, open: s === this.spot };
+      const near = p.distanceTo(cam) < 1.2;   // (right by the camera, e.g. the door just as you've come in: it'd float over you)
+      return { s, x: at && at.x, y: at && at.y, show: !!at && !s.hidden && !near, open: s === this.spot };
     });
   }
 }

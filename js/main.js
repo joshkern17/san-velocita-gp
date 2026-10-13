@@ -2685,6 +2685,7 @@ function enterHub() {
   const t = world.teams[world.player.team];
   if (world.livery) { t.main = world.livery.main; t.accent = world.livery.accent; }
   pitGarage.openHome(hubCar(), { main: t.main, accent: t.accent, name: t.name }, homeKit(world)); pitGarage.showCar(!!world.car);
+  pitGarage.roomReady().then(() => { if (screen === 's-hub') pitGarage.flickerOn((k, v) => sfx[k] && sfx[k](v)); }); // (the lights come on as you come in)
   pitGarage.setPeople(mateInRoom(world));
   dropWalk(); if (walk.active || walkHeld) { walk.stop(); walkHeld = false; } walkPaused = false; walkOff = false; walkIdle = 0; drawWalkTags(null);
   pcSeat = false; pc.close(); if (tsw.isOpen) tsw.close(); if (dayPlan.isOpen) dayPlan.close(); $('s-hub').classList.remove('seated', 'at-car', 'wizard', 'planning', 'at-list');

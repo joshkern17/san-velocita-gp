@@ -143,10 +143,16 @@ export class PitGarage {
       for (const o of drop) o.removeFromParent(); // (GUIDE_ objects are modelling aids)
       // (Blender's exporter writes bulbs in physical units, ~54 per watt; the game's lights are tuned far lower)
       m.traverse(o => { if (o.isPointLight || o.isSpotLight) o.intensity *= BULB_SCALE; });
+      // (for flickerOn: the lights and the fluorescent tubes' glowing meshes, each tube its own material to blink)
+      U.bulbs = []; U.tubes = [];
+      m.traverse(o => {
+        if (o.isLight && !o.isAmbientLight && !o.isHemisphereLight) { const n = o.name || (o.parent && o.parent.name) || '', t = /Tube_(\d+)/.exec(n); U.bulbs.push({ l: o, base: o.intensity, tube: t ? +t[1] : null }); }
+        else if (o.isMesh && /^Tube_\d+/.test(o.name) && o.material && o.material.emissive) { o.material = o.material.clone(); U.tubes.push({ m: o.material, base: o.material.emissiveIntensity, tube: +/^Tube_(\d+)/.exec(o.name)[1] }); }
+      });
       U.prepped = true;
     }
     this.shade(m);
-    this.view = U.view;
+    this.view = U.view; this.bulbs = U.bulbs || []; this.tubes = U.tubes || []; this.flick = null;
     // a model with its own lights is lit by them alone (plus a faint fill so the shadows aren't pitch black)
     for (const l of this.lights) l.visible = !U.lit;
     if (this.fill) { this.fill.removeFromParent(); this.fill = null; }
@@ -552,6 +558,35 @@ export class PitGarage {
     this.from = { pos: this.camera.position.clone(), quat: this.camera.quaternion.clone(), fov: this.camera.fov, shift: this.shiftNow ?? 0.2 };
     this.prevShot = this.shot; this.shot = shot; this.shotPart = part; this.blendK = 0;
   }
+  // the lights come on as you come in: everything's off, then the switch (the lamps and work lights) and the
+  // fluorescent tubes striking one by one, each with a few uneven blinks before it holds. sfx(kind) plays the clicks
+  flickerOn(sfx = null) {
+    if (!this.bulbs || !this.bulbs.length) return;
+    let seed = 1 + Math.floor(Math.random() * 2147483000); const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const tubes = [...new Set(this.bulbs.filter(b => b.tube !== null).map(b => b.tube))].sort((a, b) => a - b);
+    const sw = 0.45, plan = {};    // (tube -> [[time, level], ...]: the level from that time on)
+    tubes.forEach((k, i) => {
+      let t = sw + 0.15 + i * 0.42 + r() * 0.25; const ev = [];
+      const n = 2 + Math.floor(r() * 3);
+      for (let j = 0; j < n; j++) { ev.push([t, 0.5 + r() * 0.5]); t += 0.03 + r() * 0.07; ev.push([t, 0]); t += 0.05 + r() * (j === n - 1 ? 0.35 : 0.15); }
+      ev.push([t, 1]); plan[k] = ev;
+    });
+    this.flick = { t: 0, sw, plan, end: Math.max(sw, ...Object.values(plan).map(e => e[e.length - 1][0])) + 0.1, sfx, heard: new Set() };
+    this.flickTick(0);
+  }
+  flickTick(dt) {
+    const f = this.flick; if (!f) return;
+    f.t += dt;
+    const at = (k) => { if (k === null) return f.t >= f.sw ? 1 : 0; let v = 0; for (const [t, l] of f.plan[k] || []) if (f.t >= t) v = l; return v; };
+    for (const b of this.bulbs) b.l.intensity = b.base * at(b.tube);
+    for (const m of this.tubes) m.m.emissiveIntensity = m.base * at(m.tube);
+    // (the sounds: the switch, then each blink of each tube)
+    if (f.sfx) {
+      if (f.t >= f.sw && !f.heard.has('sw')) { f.heard.add('sw'); f.sfx('switch'); }
+      for (const [k, ev] of Object.entries(f.plan)) ev.forEach(([t, l], i) => { const id = k + ':' + i; if (l > 0 && f.t >= t && !f.heard.has(id)) { f.heard.add(id); if (f.t - t < 0.1) f.sfx('tube', l); } });
+    }
+    if (f.t >= f.end) { for (const b of this.bulbs) b.l.intensity = b.base; for (const m of this.tubes) m.m.emissiveIntensity = m.base; this.flick = null; }
+  }
   setZoom(on) { this.setView(on ? 'seat' : 'room'); }
   // back to the room's shot from wherever the camera is now (after walking round)
   toRoom() { this.from = { pos: this.camera.position.clone(), quat: this.camera.quaternion.clone(), fov: this.camera.fov, shift: this.shiftNow ?? 0 }; this.prevShot = this.shot; this.shot = 'room'; this.shotPart = null; this.blendK = 0; }
@@ -763,6 +798,7 @@ export class PitGarage {
       }
       ch.update(dt);
     }
+    this.flickTick(dt);
     // walking round (js/garagewalk.js): you and the camera behind you
     if (this.walker && this.walker.active) {
       this.walker.update(dt); this.shiftNow = 0;
