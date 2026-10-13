@@ -559,6 +559,8 @@ export class PitGarage {
     this.from = { pos: this.camera.position.clone(), quat: this.camera.quaternion.clone(), fov: this.camera.fov, shift: this.shiftNow ?? 0.2 };
     this.prevShot = this.shot; this.shot = shot; this.shotPart = part; this.blendK = 0;
   }
+  // build every shader the room needs now (its lights, shadows, you), not on the frames as things first show
+  compile() { try { this.scene.updateMatrixWorld(true); this.r.compile(this.scene, this.camera); } catch (e) { console.warn('garage compile', e); } }
   // the lights come on as you come in: everything's off, then the switch (the lamps and work lights) and the
   // fluorescent tubes striking one by one, each with a few uneven blinks before it holds. sfx(kind) plays the clicks
   flickerOn(sfx = null) {

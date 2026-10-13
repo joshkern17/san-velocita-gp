@@ -2868,3 +2868,4 @@ span.tsw-face { width: 64px; height: 64px; }
 .bc-cap.alert .bc-sub { color: #fff; }
 .bc-cap.win .bc-tag { background: linear-gradient(180deg, #fff3b0 0%, #f2c230 46%, #c48a00 54%, #e0a810 100%); border-color: #fffbe0 #000 #7a5200; }
 .bc-cap.win .bc-tag b { color: #2a1a00; text-shadow: 0 1px 0 rgba(255, 255, 255, .6); }
+#s-hub.no-anim, #s-hub.no-anim * { transition: none !important; }

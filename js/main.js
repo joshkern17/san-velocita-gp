@@ -166,7 +166,7 @@ function show(id) {
 const fading = () => $('fade').classList.contains('on');
 function fadeTo(fn, ms = 320) {
   const f = $('fade'); f.classList.add('on');
-  setTimeout(() => { fn(); requestAnimationFrame(() => f.classList.remove('on')); }, ms);
+  setTimeout(() => { Promise.resolve(fn()).catch(e => console.warn(e)).then(() => requestAnimationFrame(() => f.classList.remove('on'))); }, ms); // (fn can be async: it stays dark till it's done)
 }
 
 // ---------------- button prompts (keyboard keys or pad buttons, whichever you used last) ----------------
@@ -2334,14 +2334,17 @@ function holdWalk() {   // (off to the car, the list: you stand where you are, t
   if (!walk.active || walk.act || screen !== 's-hub') return;
   walk.park(); walkHeld = true; walkPaused = false; drawWalkTags(null); $('s-hub').classList.remove('walking');
 }
-function walkTick(dt) {
+function walkWanted() {   // (the garage's quiet and yours: nothing else has you)
   const w = world;
-  const quiet = screen === 's-hub' && w && founded(w) && WC.setupDone(w) && !w.ended && !w.over && !coopGuest() && hubMode === 'room' && !optSub
-    && !pcSeat && !walkSat && !tsw.isOpen && !dayPlan.isOpen && !ending.isOpen && !walk.active && !walkStarting && pitGarage.kit && !fading();
+  return screen === 's-hub' && w && founded(w) && WC.setupDone(w) && !w.ended && !w.over && !coopGuest() && hubMode === 'room' && !optSub
+    && !pcSeat && !walkSat && !tsw.isOpen && !dayPlan.isOpen && !ending.isOpen && !walk.active && !walkStarting && pitGarage.kit;
+}
+function walkTick(dt) {
+  const quiet = walkWanted() && !fading() && !listPending;
   walkIdle = quiet ? walkIdle + dt : 0;
   if (!quiet) return;
   if (walkHeld) { walkHeld = false; walk.unpark(); $('s-hub').classList.add('walking'); renderHints(); return; }
-  if (!walkOff && walkIdle > 1.2) { const from = walkEntry; walkEntry = null; startWalk(from, true); }
+  if (!walkOff && walkIdle > 0.05) { const from = walkEntry; walkEntry = null; startWalk(from, true); }
 }
 // a spot's second action (X / F): the car's day of work
 function useAlt(s) {
@@ -2384,10 +2387,12 @@ function startWalk(from = null, quiet = false) {
   const own = screen === 's-homeview' ? settings.car : hubCar();
   if (!quiet) sfx.select();
   walkOff = false; walkStarting = true;
-  walk.start({ livery: own, face: own.face, spots: walkSpots(), from }).then(ok => {
+  // (the menus go now, not once you've loaded; behind the fade, at once: not still fading out when the garage shows)
+  const el = $(screen); if (fading()) { el.classList.add('no-anim'); requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('no-anim'))); } el.classList.add('walking');
+  return walk.start({ livery: own, face: own.face, spots: walkSpots(), from }).then(ok => {
     walkStarting = false;
-    if (!ok) { toast('The people aren\'t loaded.'); return; }
-    $(screen).classList.add('walking'); renderHints();
+    if (!ok) { $(screen).classList.remove('walking'); toast('The people aren\'t loaded.'); return; }
+    renderHints();
   });
 }
 function stopWalk(quiet = false) {
@@ -2690,7 +2695,6 @@ function enterHub() {
   const t = world.teams[world.player.team];
   if (world.livery) { t.main = world.livery.main; t.accent = world.livery.accent; }
   pitGarage.openHome(hubCar(), { main: t.main, accent: t.accent, name: t.name }, homeKit(world)); pitGarage.showCar(!!world.car);
-  pitGarage.roomReady().then(() => { if (screen === 's-hub') pitGarage.flickerOn((k, v) => sfx[k] && sfx[k](v)); }); // (the lights come on as you come in)
   pitGarage.setPeople(mateInRoom(world));
   dropWalk(); if (walk.active || walkHeld) { walk.stop(); walkHeld = false; } walkPaused = false; walkOff = false; walkIdle = 0; drawWalkTags(null);
   pcSeat = false; pc.close(); if (tsw.isOpen) tsw.close(); if (dayPlan.isOpen) dayPlan.close(); $('s-hub').classList.remove('seated', 'at-car', 'wizard', 'planning', 'at-list');
@@ -2756,10 +2760,25 @@ function carCatalog() {
 }
 function openHub(first = false) {
   if (world) WC.setCarCatalog(world, carCatalog());
-  fadeTo(() => {
+  fadeTo(async () => {
     enterHub();
+    await settleHub();
     if (WC.unread(world)) setTimeout(() => { if (screen === 's-hub') phone.buzz(); }, first ? 900 : 500);
   }, 200);
+}
+// coming into your garage: it stays dark until it's ready, so what you see first is the garage as it is: its own model
+// loaded (not the fallback room for a moment), you on your feet (not the menu), the scene's shaders built (not
+// stutters as each light and you appear). Then the lights flicker on as it fades in. (2.5 s at most)
+async function settleHub() {
+  const ready = (async () => {
+    await pitGarage.roomReady();
+    if (screen !== 's-hub') return;
+    if (walkWanted() && !listPending && !walkOff) { const from = walkEntry; walkEntry = null; await startWalk(from, true); }
+    pitGarage.update(1 / 60); pitGarage.compile(); pitGarage.render(); // (and one frame drawn: the shadow maps and the post passes built too, unseen)
+    if (walk.active) { drawWalkTags(walk.tags(1)); renderWalkHud(); } // (the markers' first look round: every mesh's bounds worked out now)
+  })();
+  await Promise.race([ready, new Promise(r => setTimeout(r, 2500))]);
+  if (screen === 's-hub') pitGarage.flickerOn((k, v) => sfx[k] && sfx[k](v));
 }
 function renderHub() {
   if (world && !world.carCat) WC.setCarCatalog(world, carCatalog());
@@ -3156,8 +3175,10 @@ function leaveList() {
 // coming into the garage with something on the list to write or to cross off: straight over to it
 function maybeList() {
   const w = world; if (!w || !founded(w) || tsw.isOpen || !WC.setupDone(w) || (!WC.listWants(w) && !WC.listFresh(w).length)) return;
-  setTimeout(() => { if (screen === 's-hub' && world === w && hubMode === 'room' && !pcSeat && !tsw.isOpen && !dayPlan.isOpen && !phone.isOpen) goToList(); }, 900);
+  listPending = true;
+  setTimeout(() => { listPending = false; if (screen === 's-hub' && world === w && hubMode === 'room' && !pcSeat && !tsw.isOpen && !dayPlan.isOpen && !phone.isOpen) goToList(); }, 900);
 }
+let listPending = false; // (The List is about to open by itself: walking waits for it)
 function writeWhy(k) {
   const w = world; WC.setWhy(w, k); saveWorld();
   const added = Object.entries(WC.RUNGS).filter(([, r]) => r.why === k).map(([key]) => key);
