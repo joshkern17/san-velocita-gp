@@ -14,7 +14,7 @@
 //   await walk.resume();                  // stand back up out of it and walk on
 //   walk.stop();
 import * as THREE from 'three';
-import { loadCharacters, makeCharacter, CLIP_INFO } from './characters.js';
+import { loadCharacters, makeCharacter, alignedClip, CLIP_INFO } from './characters.js';
 
 const R = 0.28;            // your radius (m): how close you get to things
 const WALK = CLIP_INFO.walk.speed, RUN = 2.3; // m/s (walking pace; the trigger all the way in: a jog, a bit quicker than the clip's stride)
@@ -221,7 +221,7 @@ export class GarageWalk {
   // sat at the computer: the camera's the computer's now; you stay in the chair (hidden once the camera's halfway in)
   park() {
     this.active = false; if (this.pg.walker === this) this.pg.walker = null;
-    this.pg.parked = this.me ? { object: this.me.object } : null;
+    this.pg.parked = this.me ? { object: this.me.object, me: this.me } : null;
   }
   // back from the computer: stand up out of the chair (the sit, backwards), the camera out of the screen behind you
   resume() {
@@ -254,7 +254,10 @@ export class GarageWalk {
         const e = wrap(a.out - this.heading); this.heading += Math.sign(e) * Math.min(Math.abs(e), dt * 5);
         if (Math.abs(e) < 0.02 && !(a.chair && a.chair.left)) { this.heading = a.out; a.step = 'down'; me.play('sit_down', { once: true, fade: 0.2, offset: SIT_FROM, speed: SIT_SPEED }); }
       }
-      if (a.step === 'down' && me.action.time / me.clipDuration('sit_down') >= SIT_TO) { a.step = 'swivel'; a.left = wrap(a.face - a.out); }
+      if (a.step === 'down' && me.action.time / me.clipDuration('sit_down') >= SIT_TO) {
+        a.step = 'swivel'; a.left = wrap(a.face - a.out);
+        me.play(alignedClip('sit_desk', 'sit_down'), { fade: 0.6 });     // (settling in at the desk: its idle, lined up with where sitting down left you)
+      }
       if (a.step === 'swivel') {        // (round to the screen, chair and all)
         const d = turn(a.left); this.swivel(a, d); a.left -= d;
         if (Math.abs(a.left) < 1e-4) { a.step = 'sat'; a.done(true); }

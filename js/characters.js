@@ -58,8 +58,25 @@ export const CLIP_INFO = {
   sit_down: { loop: false, seat: 0.48 },
   // sat (a seat about 0.62 m up) to standing (Mixamo "Stand Up"), about 0.43 m forward
   stand_up: { loop: false },
+  // sat at a desk, idling (Mixamo "Sitting Idle", a different one from sit_idle): hips 0.56 m up
+  sit_desk: { loop: true, seat: 0.44 },
 };
 export const CLIPS = Object.keys(CLIP_INFO);
+
+// a copy of clip `name` with its hips moved to where clip `to` leaves them at its end, so one blends into the other
+// without sliding (clips carry where the hips are: sit_down ends 0.46 m back of where it started, sit_desk sits right
+// over its origin). Named 'name@to'; play() it like any clip
+export function alignedClip(name, to) {
+  const key = name + '@' + to; if (!TPL || TPL.clips[key]) return key;
+  const src = TPL.clips[name], end = TPL.clips[to]; if (!src || !end) return name;
+  const hp = (c) => c.tracks.find(t => /Hips\.position$/.test(t.name));
+  const a = hp(src), b = hp(end); if (!a || !b) return name;
+  const c = src.clone(); c.name = key; const t = hp(c), n = b.values.length;
+  const d = [0, 1, 2].map(i => b.values[n - 3 + i] - a.values[i]);
+  for (let i = 0; i < t.values.length; i++) t.values[i] += d[i % 3];
+  TPL.clips[key] = c; CLIP_INFO[key] = CLIP_INFO[name];
+  return key;
+}
 
 let TPL = null, loading = null, loadError = null;
 const live = new Set();

@@ -782,7 +782,7 @@ export class PitGarage {
       this.camera.fov = a.fov + (b.fov - a.fov) * k;
       this.shiftNow = a.shift + (b.shift - a.shift) * k;
       // (you, sat at the computer after walking up to it: gone halfway in, as the camera comes over your head)
-      if (this.parked) this.parked.object.visible = this.zoomK < 0.5;
+      if (this.parked) { this.parked.object.visible = this.zoomK < 0.5; if (this.parked.object.visible && this.parked.me) this.parked.me.update(dt); } // (still idling in the chair)
       if (this.car) this.car.animate({ steer: 0, spin: 0, heave: Math.sin(this.t * 1.6) * 0.003, pitch: 0, roll: 0 });
       if (this.car2 && this.car2.group.parent) this.car2.animate({ steer: 0, spin: 0, heave: Math.sin(this.t * 1.6 + 2) * 0.003, pitch: 0, roll: 0 });
       return;
