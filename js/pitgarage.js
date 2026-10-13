@@ -643,7 +643,7 @@ export class PitGarage {
   // (a different car in the bay: the one you just bought)
   setCar(cfg) {
     if (this.car) { this.bay.remove(this.car.group); this.car.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
-    this.car = buildF1(cfg, { texSize: 1024 }); this.cfgChassis = cfg.chassis || 'custom'; this.car.group.visible = !this.carOff;
+    this.car = buildF1(cfg, { texSize: 2048 }); this.cfgChassis = cfg.chassis || 'custom'; this.car.group.visible = !this.carOff;
     if (this.active && this.mode === 'home') { this.car.group.position.set(0, 0, CAR_Z); this.car.group.add(this.car.shadow); this.car.shadow.position.y = 0.01; this.bay.add(this.car.group); }
   }
   // an empty bay (World Career: the car's been sold, or burned)

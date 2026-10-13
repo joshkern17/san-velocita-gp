@@ -1,6 +1,7 @@
 // Real-world circuits: the things that make a place recognisable, built from the map data baked into the track
 // (tools/tracks): the sea at sea level, lakes / harbours / rivers, covered tunnel sections, Ferris wheels.
 import * as THREE from 'three';
+import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 
 let waterTex = null;
 function waterMap() {
@@ -77,6 +78,7 @@ export function addRealWorld(root, track, T, { groundHeight, night = false } = {
   }
 
   root.add(out);
+  if (track.refModel) loadRefModel(root, track.refModel);
   // ripples drift; wheels turn
   return {
     update(t) {
@@ -86,6 +88,42 @@ export function addRealWorld(root, track, T, { groundHeight, night = false } = {
       }
     },
   };
+}
+
+// (dev) a reference model of the circuit (tools/tracks/build.mjs --ref) in place of the game's own scenery: placed
+// by its alignment (game x, z = R (x, z) + t; y = (y + dy) * exag), and once it's in, everything else the world drew
+// is hidden but the sky (the physics, the cars and the lights carry on as they are). Never in a release: the models
+// are reference only.
+function loadRefModel(root, M) {
+  new GLTFLoader().loadAsync(M.url).then((g) => {
+    const [[a, b], [c, d]] = M.R, e = M.exag || 1;
+    const wrap = new THREE.Group(); wrap.name = 'refModel'; wrap.matrixAutoUpdate = false;
+    wrap.matrix.set(a, 0, b, M.t[0], 0, e, 0, M.dy * e, c, 0, d, M.t[1], 0, 0, 0, 1);
+    wrap.add(g.scene);
+    root.traverse((o) => {
+      if (!(o.isMesh || o.isPoints || o.isLine || o.isSprite)) return;
+      if (o.renderOrder === -10 || (o.material && o.material.side === THREE.BackSide && o.material.isShaderMaterial)) return; // (the sky)
+      o.visible = false;
+    });
+    // (see-through pieces: trees, bushes and fences as cut-outs, so they write depth like anything solid and are
+    // drawn in order (blended, the sky showed through them); the rubber laid on the road stays blended, a hair above
+    // the tarmac; glass stays glass)
+    g.scene.traverse((o) => {
+      if (!o.isMesh) return;
+      o.receiveShadow = true; o.castShadow = false;
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+        const name = m.name || '';
+        // (matte: gravel, tarmac and the like came glossy, and caught the sky like wet glass; metal and glass as they are)
+        if (!/glass|metal|grail|beam|LED/i.test(name) && m.roughness !== undefined) { m.roughness = Math.max(m.roughness, 0.85); m.metalness = 0; }
+        if (!m.transparent && !(m.alphaTest > 0)) continue;
+        if (/glass/i.test(name)) continue;
+        if (/groove|patch_joint/i.test(name)) { m.depthWrite = false; m.polygonOffset = true; m.polygonOffsetFactor = -1; m.polygonOffsetUnits = -2; continue; }
+        m.transparent = false; m.alphaTest = 0.5; m.depthWrite = true; m.needsUpdate = true;
+      }
+    });
+    root.add(wrap); wrap.updateMatrixWorld(true);
+    console.log('reference model in:', M.url);
+  }).catch((err) => console.warn('reference model not loaded:', M.url, err && err.message));
 }
 
 function buildTunnel(group, T, tun, night) {

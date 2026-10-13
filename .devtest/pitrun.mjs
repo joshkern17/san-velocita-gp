@@ -1,5 +1,5 @@
 // dev: an AI car pits (entry ramp, stop, exit) on a preset or real track: its path against the lane's, wall contact
-//   node .devtest/pitrun.mjs [preset name | real id]
+//   node .devtest/pitrun.mjs [preset name | real id]   (OWNOUT=m: a hand-placed lane, m further out)
 import { spawn } from 'child_process';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -14,9 +14,13 @@ try {
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
   await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(800);
-  await pg.evaluate(async (name) => { const { presetTracks, archivedTracks, cloneTrack } = await import('/js/track.js'); let t = [...presetTracks(), ...archivedTracks()].find(t => t.name === name);
+  await pg.evaluate(async ([name, OWNOUT]) => { const { presetTracks, archivedTracks, cloneTrack } = await import('/js/track.js'); let t = [...presetTracks(), ...archivedTracks()].find(t => t.name === name);
     if (!t) { const R = await import('/js/realtracks.js'); t = await R.hydrateReal(cloneTrack(R.realTracks().find(p => p.real.id === name))); }
-    t.env.weather = 'clear'; window.__svgp.startRace(t, { mode: 'race', laps: 10, opponents: 3, strategy: false, car: window.__svgp.settings.car }, 'menu'); }, process.argv[2] || 'Maple Ridge GP');
+    // (OWNOUT=m: its pit lane placed by hand instead, as the Circuit Designer's PIT LANE tool keeps it, its middle moved m further out)
+    if (OWNOUT) { const M = await import('/js/track.js'), R2 = await import('/js/runoff.js'), T = M.sampleTrack(t), A = M.analyzeTrack(T, t.env, t.paint, t.osm, t.dress);
+      const p = M.buildPitLane(T, A, t.env, t.osm && t.osm.pitLane, R2.surfaceGrid(t.osm && t.osm.surface), t.dress && t.dress.pit), own = M.pitToOwn(T, p);
+      own.pts = own.pts.map((q, k) => (k === 0 || k === own.pts.length - 1 ? q : [q[0], q[1] + OWNOUT])); t.dress = { ...(t.dress || {}), pit: own }; }
+    t.env.weather = 'clear'; window.__svgp.startRace(t, { mode: 'race', laps: 10, opponents: 3, strategy: false, car: window.__svgp.settings.car }, 'menu'); }, [process.argv[2] || 'Maple Ridge GP', +(process.env.OWNOUT || 0)]);
   await pg.waitForFunction(() => window.__svgp.sim && window.__svgp.sim.lineV, null, { timeout: 120000 });
   const r = await pg.evaluate(() => {
     const sim = window.__svgp.sim, T = sim.T, N = T.N, P = sim.pit; sim.state = 'racing'; sim.stateT = 0; sim.player.autoT = 1e9;

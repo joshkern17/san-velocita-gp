@@ -183,8 +183,10 @@ add up over the races you do together, and with **Drift Points** on, so does eve
 - Online races don't pause. Your car brakes to a stop while the menu is open. **Retire** or **Leave** any time.
 - The host scores the race once everyone has finished, or 60 s after the winner, or via **End Race For Everyone**.
 - If joining times out with the right code, one of the networks is blocking peer-to-peer (strict NAT, some
-  work or school networks). Try another network or a phone hotspot, or put both computers on a free
-  [Tailscale](https://tailscale.com) network.
+  work or school networks, phone hotspots). Fix: put a free [Metered](https://www.metered.ca) TURN relay's
+  details at the top of `js/net.js` (`METERED_APP` + `METERED_KEY`, or paste its `TURN` list), rebuild and resend.
+  Connections still go direct when they can; the relay only carries the game when they can't. Add `?relay=1`
+  to the game's address to force the relay and test it on one network.
 
 ## Garage
 **Chassis:** *Your F1 Car* is the model built in Blender (`models/car.glb`). Its wheels spin and steer, the 12

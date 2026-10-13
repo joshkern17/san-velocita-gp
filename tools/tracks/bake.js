@@ -57,6 +57,15 @@ export async function bake(inp, log = () => {}) {
   if (inp.profile) {
     // the road from the laser-scanned ground model (build.mjs roadProfile), and the land beside it pulled into line
     const P = inp.profile.map(([lat, lon, h, b]) => { const [x, z] = toLocal(geo, lat, lon); return { x, z, h, b: b ?? 0 }; });
+    // (a reference model's road heights with no laser scan to set them: lifted to sea level by how far the elevation
+    // tiles sit above them along the road, the median; the shift goes back to the importer to place the model by)
+    if (inp.profileRel) {
+      const a0 = matchProfile(T, P), d = [];
+      for (let i = 0; i < T.N; i += 4) d.push(gridAt(g, T.X[i], T.Z[i]) - a0[i]);
+      d.sort((u, v) => u - v); const shift = d[d.length >> 1];
+      for (const p of P) p.h += shift;
+      track._profileShift = shift; log(`ground: reference road heights lifted ${shift.toFixed(1)} m to the elevation tiles`);
+    }
     const F = sampleFlags(T, D), asl = matchProfile(T, P);
     const fixed = fitGround(g, T, asl, F);
     log(`ground: road from the ${inp.dem || 'LiDAR'} model; land within 90 m moved by up to ${fixed.toFixed(1)} m to meet it`);
@@ -84,6 +93,7 @@ export async function bake(inp, log = () => {}) {
   // ---- bridges: the upper road (higher OSM layer / bridge=yes) lifted clear of the one below ----
   const lifted = liftBridges(track, D);
   if (lifted) log(`bridge: upper road lifted ${lifted.toFixed(1)} m`);
+  smoothAcross(track, log);
   T = sampleTrack(track);
 
   // ---- corner / section names along the lap (from the OSM way names) ----
@@ -283,6 +293,32 @@ function smoothNodeHeights(track, passes) {
 }
 
 // Where the lap crosses itself, lift the section on the higher OSM layer so it clears the one below.
+// Banking and width, smoothed along the lap: measured node by node they jitter (Zandvoort's Hugenholtz went 6° 10° 6°
+// and 18 m 14 m 15 m every 8 m), and with the road tilted about its middle that throws the edges up and down by most
+// of a metre in a few metres: bumps you feel on the kerbs and see on the edges. A road's camber and width change
+// over tens of metres, so each node takes a weighted average of its neighbours (banking ±15 m, width ±25 m).
+const SMOOTH_B = 15, SMOOTH_W = 25;
+function smoothAcross(track, log) {
+  const P = track.points, n = P.length, open = !!track.open;
+  if (n < 4) return;
+  const s = new Float64Array(n + 1);
+  for (let k = 1; k <= n; k++) { const a = P[k - 1], b = P[k % n]; s[k] = s[k - 1] + Math.hypot(b.x - a.x, b.z - a.z); }
+  const L = s[n];
+  const avg = (key, sig) => P.map((p, k) => {
+    let sw = 0, sv = 0;
+    for (let j = 0; j < n; j++) {
+      let d = Math.abs(s[j] - s[k]); if (!open) d = Math.min(d, L - d);
+      if (d > sig * 2.5) continue;
+      const w = Math.exp(-0.5 * (d / sig) ** 2); sw += w; sv += w * P[j][key];
+    }
+    return sv / sw;
+  });
+  const b = avg('b', SMOOTH_B), w = avg('w', SMOOTH_W);
+  let db = 0, dw = 0;
+  P.forEach((p, k) => { db = Math.max(db, Math.abs(p.b - b[k])); dw = Math.max(dw, Math.abs(p.w - w[k])); p.b = r1(b[k]); p.w = r1(w[k]); });
+  log(`road: banking and width smoothed along the lap (changed by up to ${db.toFixed(1)}° and ${dw.toFixed(1)} m)`);
+}
+
 function liftBridges(track, D) {
   let T = sampleTrack(track);
   const F = sampleFlags(T, D), N = T.N, H = hashT(T, 25);
@@ -455,12 +491,14 @@ function matchProfile(T, P, key = 'h') {
 }
 
 // move the coarse ground grid near the road so it meets the road's true height (not over tunnels or under bridges)
+// the elevation grid's height at a spot (bilinear, clamped to the grid)
+function gridAt(g, x, z) {
+  const fx = Math.max(0, Math.min(g.nx - 1.001, (x - g.x0) / g.step)), fz = Math.max(0, Math.min(g.nz - 1.001, (z - g.z0) / g.step));
+  const k = Math.floor(fx), j = Math.floor(fz), u = fx - k, v = fz - j, h = g.h, nx = g.nx;
+  return (h[j * nx + k] * (1 - u) + h[j * nx + k + 1] * u) * (1 - v) + (h[(j + 1) * nx + k] * (1 - u) + h[(j + 1) * nx + k + 1] * u) * v;
+}
 function fitGround(g, T, asl, F) {
-  const at = (x, z) => {
-    const fx = Math.max(0, Math.min(g.nx - 1.001, (x - g.x0) / g.step)), fz = Math.max(0, Math.min(g.nz - 1.001, (z - g.z0) / g.step));
-    const k = Math.floor(fx), j = Math.floor(fz), u = fx - k, v = fz - j, h = g.h, nx = g.nx;
-    return (h[j * nx + k] * (1 - u) + h[j * nx + k + 1] * u) * (1 - v) + (h[(j + 1) * nx + k] * (1 - u) + h[(j + 1) * nx + k + 1] * u) * v;
-  };
+  const at = (x, z) => gridAt(g, x, z);
   const delta = new Float32Array(T.N), ok = new Uint8Array(T.N);
   for (let i = 0; i < T.N; i++) { ok[i] = !(F[i].tun || F[i].layer) && !(T.open && i > T.finish); delta[i] = asl[i] - at(T.X[i], T.Z[i]); }
   const R = 90, H = hashT(T, 30), add = new Float32Array(g.h.length);
@@ -494,8 +532,8 @@ function projectProfile(track, P, camber = false) {
       let worst = 0, wi = -1, len = 0;
       for (let i = 0; i < T2.N; i++) if (Math.floor(T2.NODE[i]) === k && (!T2.open || i < T2.finish)) {
         len += T2.ds;
-        // (a degree of camber counts as half a metre of height)
-        const dev = Math.max(Math.abs(T2.Y[i] - (asl2[i] - terr.lo - lo) * terr.exag), bk2 ? Math.abs(T2.B[i] * 180 / Math.PI - bk2[i]) * 0.5 : 0);
+        // (a degree of camber counts as a quarter metre of height: 2° off is worth a node, 1° of noise isn't)
+        const dev = Math.max(Math.abs(T2.Y[i] - (asl2[i] - terr.lo - lo) * terr.exag), bk2 ? Math.abs(T2.B[i] * 180 / Math.PI - bk2[i]) * 0.25 : 0);
         if (dev > worst) { worst = dev; wi = i; }
       }
       if (worst > 0.5 && len > 14 && wi >= 0) ins.push({ k, i: wi, T: T2 });

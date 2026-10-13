@@ -1,11 +1,11 @@
 // Top-down circuit designer
-import { sampleTrack, analyzeTrack, buildPitLane, computeRacingLine, computeSpeedProfile, trackStats, cloneTrack, newTrack, presetTracks, archivedTracks, THEMES, PROP_TYPES, PAINTS, defaultEnv, trackReady, minNodes, fenceHeight } from './track.js';
+import { sampleTrack, analyzeTrack, buildPitLane, computeRacingLine, computeSpeedProfile, trackStats, cloneTrack, newTrack, presetTracks, archivedTracks, THEMES, PROP_TYPES, PAINTS, defaultEnv, trackReady, minNodes, fenceHeight, kerbOn, wallTypeAt, nodeHandles } from './track.js';
 import { CARSPEC } from './car.js';
 import { sfx } from './audio.js';
 import { fmtTime } from './hud.js';
 import { ZONE_TYPES, STYLE_COLORS, newZone, collectScenery, BUSINESSES, BUSINESS_KEYS, pointInPoly, centroid, buildingClear } from './zones.js';
 import { ROAD_TYPES, MEET, newRoad, roadLayout, applyRoadsToCircuit, raiseTrackOverRoads } from './roads.js';
-import { runoffLayout, runoffStyle, runoffCell, RUNOFF_STYLES, RUN_RES } from './runoff.js';
+import { runoffLayout, runoffStyle, runoffCell, surfaceGrid, RUNOFF_STYLES, RUN_RES } from './runoff.js';
 import { trackPropFamilies, trackPropFamily, isTrackProp, LOGOS, logoSheetImage, drawLogo, LIGHT_FAMILIES } from './trackprops.js';
 import { thumb } from './propthumbs.js';
 import { SETTINGS, SETTING_KEYS, settingOf, FLORA, FLORA_KEYS, BUILDING_KINDS, randomBuilding, houseAssets, modelFootprint, styleOf, frontTarget, eraseHits, PROP_FLORA, natureModel } from './scenery.js';
@@ -14,6 +14,11 @@ import { SCULPT_MODES, SCULPT_MAX, sculptPreview } from './sculpt.js';
 import { TileLayer, MAP_STYLES, searchPlace, myLocation, importOSM } from './geo.js';
 import { realTracks, hydrateReal } from './realtracks.js';
 import { fetchElevation, packTerrain, projectOntoTrack, rawHeight, inGrid, EXAG_MAX, TERRAIN_ATTR } from './terrain.js';
+import { installKerbTool } from './edkerbs.js';
+import { installBarrierTool } from './edbarriers.js';
+import { installView3d } from './ed3d.js';
+import { installPitTool } from './edpit.js';
+import { installPaintShapes } from './edpaint.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -53,6 +58,7 @@ export class Editor {
     this.hoverSample = -1;
     this.tiles = new TileLayer(() => { this.dirty = true; });
     this.selZone = -1;
+    this.kerbSel = -1; this.barSel = -1; this.barNode = -1; this.pitNode = -1; this.paintSel = -1; this.paintNode = -1; this.paintMode = 'brush'; this.shapeDraw = null;
     this.zoneDef = newZone('houses', []);
     this.scen = null;
     this.bindUI();
@@ -64,7 +70,7 @@ export class Editor {
     this.track = cloneTrack(track || this.loadWork() || presetTracks()[0]);
     this.normalize(this.track);
     this.history = []; this.future = [];
-    this.sel.clear(); this.selProp = -1;
+    this.sel.clear(); this.selProp = -1; this.kerbSel = -1; this.barSel = -1; this.barNode = -1; this.pitNode = -1; this.paintSel = -1; this.paintNode = -1; this.shapeDraw = null;
     $('ed-name').value = this.track.name;
     this.setTool(this.tool);
     this.recompute(true);
@@ -72,7 +78,7 @@ export class Editor {
     requestAnimationFrame(() => { this.resize(); if (this.W > 50 && this.H > 50) { this.needFit = false; this.fit(); } this.renderPanels(); });
     this.loop();
   }
-  close() { this.active = false; this.saveWork(); }
+  close() { if (this.v3d) this.close3d(); this.active = false; this.saveWork(); }
 
   normalize(t) {
     t.env = { ...defaultEnv(t.env?.theme || 'grass'), ...(t.env || {}) };
@@ -83,7 +89,7 @@ export class Editor {
     t.roads = t.roads || []; t.hidden = t.hidden || []; t.buildings = t.buildings || []; t.sculpt = t.sculpt || [];
     t.map = { style: 'satellite', opacity: 0.8, ...(t.map || {}) };
     t.start = t.start || 0;
-    t.points = t.points.map(p => ({ x: +p.x, z: +p.z, w: +(p.w ?? 13), e: +(p.e ?? 0), b: +(p.b ?? 0) }));
+    t.points = t.points.map(p => ({ x: +p.x, z: +p.z, w: +(p.w ?? 13), e: +(p.e ?? 0), b: +(p.b ?? 0), ...(p.hi ? { hi: [+p.hi[0], +p.hi[1]] } : {}), ...(p.ho ? { ho: [+p.ho[0], +p.ho[1]] } : {}) }));
   }
 
   loop() {
@@ -120,6 +126,11 @@ export class Editor {
     if (this.selProp >= this.track.props.length) this.selProp = -1;
     if (this.selLine && !this.lineById(this.selLine)) this.selLine = null;
     if (this.selZone >= this.track.zones.length) this.selZone = -1;
+    // (curbs / barriers stay picked through undo and redo while they're still there)
+    if (!(this.kerbSel >= 0 && this.kerbSel < ((this.track.dress && this.track.dress.kerbs) || []).length)) this.kerbSel = -1;
+    const bl = (this.track.dress && this.track.dress.barriers) || []; if (!(this.barSel >= 0 && this.barSel < bl.length)) { this.barSel = -1; this.barNode = -1; } else if (!(this.barNode < bl[this.barSel].pts.length)) this.barNode = -1;
+    const pl = this.track.dress && this.track.dress.pit; if (!pl || !(this.pitNode < pl.pts.length)) this.pitNode = -1;
+    if (!(this.paintSel >= 0 && this.paintSel < this.track.paint.length)) { this.paintSel = -1; this.paintNode = -1; } this.shapeDraw = null;
     $('ed-name').value = this.track.name;
     this.changed(true);
     this.setTool(this.tool);
@@ -147,8 +158,8 @@ export class Editor {
     try {
       this.T = sampleTrack(t);
       raiseTrackOverRoads(t, this.T);
-      this.A = analyzeTrack(this.T, t.env, t.paint);
-      this.pit = buildPitLane(this.T, this.A, t.env);
+      this.A = analyzeTrack(this.T, t.env, t.paint, t.osm, t.dress);
+      this.pit = buildPitLane(this.T, this.A, t.env, t.osm && t.osm.pitLane, surfaceGrid(t.osm && t.osm.surface), t.dress && t.dress.pit);
       this.A.pit = this.pit;
       applyRoadsToCircuit(t, this.T, this.A);
       this.A.run = runoffLayout(this.T, this.A, t);
@@ -266,22 +277,30 @@ export class Editor {
   }
 
   setTool(t) {
+    // (RUNOFF: PAINT drawing shapes with the pen)
+    if (t === 'runoff') { if (this.tool !== 'paint' || this.paintMode !== 'shape') { this.paintSel = -1; this.paintNode = -1; } this.paintMode = 'shape'; if (!['grass', 'paved', 'gravel'].includes(this.paintKind)) this.paintKind = 'gravel'; t = 'paint'; }
+    else if (t === 'paint' && this.tool !== 'paint') this.paintMode = 'brush';
+    if (t !== this.tool) this.shapeDraw = null;
     this.tool = t;
     this.placing = false;
-    document.querySelectorAll('#s-editor [data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
+    this.toolButtons();
     const nb = document.querySelector('.ed-tabs [data-tab="node"]');
-    if (nb) nb.textContent = t === 'zones' ? 'ZONE' : t === 'paint' ? 'PAINT' : t === 'roads' ? 'ROAD' : t === 'props' ? 'PROPS' : t === 'sculpt' ? 'SCULPT' : 'NODE';
-    if (t === 'zones' || t === 'paint' || t === 'roads' || t === 'props' || t === 'sculpt') { this.showTab('node'); }
+    if (nb) nb.textContent = t === 'zones' ? 'ZONE' : t === 'paint' ? 'PAINT' : t === 'roads' ? 'ROAD' : t === 'props' ? 'PROPS' : t === 'sculpt' ? 'SCULPT' : t === 'kerbs' ? 'CURBS' : t === 'bars' ? 'BARRIERS' : t === 'pit' ? 'PIT LANE' : 'NODE';
+    if (t === 'zones' || t === 'paint' || t === 'roads' || t === 'props' || t === 'sculpt' || t === 'kerbs' || t === 'bars' || t === 'pit') { this.showTab('node'); }
     if (this.track) this.renderNodeTab();
     this.updatePalette();
     const hints = {
       draw: '<b>DRAW</b> &mdash; hold the left mouse button and sketch a loop. Release to turn it into a circuit. The end joins back to the start automatically.',
-      edit: '<b>EDIT</b> &mdash; drag nodes to reshape. <b>Double-click</b> the road to add a node, <b>DEL</b> removes. <b>Shift</b>+click or drag a box to multi-select, then tune width / elevation / banking on the right.',
+      edit: '<b>EDIT</b> &mdash; drag nodes to reshape. Click a node for its round curve <b>handles</b>: drag one to bend the corner (<b>Shift</b>: one alone), so a turn takes fewer nodes. <b>Double-click</b> the road to add a node, <b>DEL</b> removes. <b>Shift</b>+click or drag a box to multi-select, then tune width / elevation / banking on the right.',
       props: '<b>PROPS</b> &mdash; pick something on the right and click the map to place it (houses and buildings turn to face the nearest road), or <b>drag</b> to draw a line of props, as far apart as you set. Click any <b>building</b> or prop to select it: drag to move, <b>Q/E</b> rotate, <b>DEL</b> or right-click removes. Selected houses can be <b>painted</b> on the right.',
       sculpt: '<b>SCULPT</b> &mdash; drag to raise, lower, smooth or flatten the land. Each stroke adds the strength once; go over it again for more. The track and its runoff never move: hills blend into the embankments. <b>[ ]</b> brush size.',
       pan: '<b>PAN</b> &mdash; drag to move the map. Scroll to zoom. (Right-drag pans in every tool.)',
       roads: '<b>ROADS</b> &mdash; drag to draw a street. Click a road to select it: drag its <b>nodes</b> to reshape it, <b>double-click</b> the road to add a node, <b>DEL</b> removes the picked node (or the road). Drag the road itself to move it.',
-      paint: '<b>PAINT</b> &mdash; drag to paint <b>grass</b>, <b>paved</b> runoff or <b>gravel</b> (past the barrier, it moves back), <b>Nature</b> (trees and plants), a street of <b>Houses</b> or a <b>Crowd</b> of spectators. <b>Erase</b> removes anything under it: grass, every tree and plant (painted or from the World tab) and buildings. <b>[ ]</b> brush size.',
+      runoff: '<b>RUNOFF</b> &mdash; draw grass, paved or gravel runoff with a pen: <b>click</b> for a sharp corner, <b>click and drag</b> for a smooth curve, round the area; click the first node, double-click or press <b>Enter</b> to finish. <b>Click</b> a shape to pick it: drag its nodes, the round <b>handles</b> to bend it (<b>Shift</b>: one alone), or the shape to move it. Press <b>T</b> to see the map through the track.',
+      paint: '<b>PAINT</b> &mdash; <b>Shape</b> (on the right): click round an area, point by point, for grass, paved or gravel exactly there; click one later to reshape or repaint it. <b>Brush</b>: drag to paint <b>grass</b>, <b>paved</b> runoff or <b>gravel</b> (past the barrier, it moves back), <b>Nature</b> (trees and plants), a street of <b>Houses</b> or a <b>Crowd</b> of spectators. <b>Erase</b> removes anything under it: grass, every tree and plant (painted or from the World tab) and buildings. <b>[ ]</b> brush size.',
+      kerbs: '<b>CURBS</b> &mdash; <b>drag</b> along a track edge to lay a curb with the settings on the right. <b>Click</b> a curb to change its colors, type, width and tapered ends; drag its <b>end squares</b> to stretch it, or the curb itself to slide it along. <b>DEL</b> removes it.',
+      bars: '<b>BARRIERS</b> &mdash; <b>click</b> a barrier to pick it, then drag its <b>nodes</b>: the barrier either side of a node you move runs <b>straight</b> to the next one; drag the round <b>handles</b> to bend it (<b>Shift</b>: one handle alone). Drag the barrier itself to move it all in or out. <b>Double-click</b> it for another node; <b>DEL</b> removes the picked node. <b>Drag</b> beside the track to put up a new barrier.',
+      pit: '<b>PIT LANE</b> &mdash; drag the lane\'s <b>nodes</b> to put it exactly where you want it, or the lane itself to move it in or out. Drag the blue <b>diamonds</b> to set where the garages and pit wall start and end. <b>Double-click</b> the lane for another node, <b>DEL</b> removes the picked one. No pit lane? <b>Drag</b> beside the track to lay one.',
       zones: '<b>ZONES</b> &mdash; draw a line and buildings spawn along it. Pick the type, height, spacing and side on the right. Click a zone line to select it, drag to move it, <b>DEL</b> removes.',
     };
     if (this.track && this.track.open) {
@@ -290,14 +309,14 @@ export class Editor {
     }
     this.hints = hints;
     this.setHint();
-    this.canvas.style.cursor = t === 'pan' ? 'grab' : t === 'draw' || t === 'paint' || t === 'roads' || t === 'sculpt' ? 'crosshair' : 'default';
+    this.canvas.style.cursor = t === 'pan' ? 'grab' : t === 'draw' || t === 'paint' || t === 'roads' || t === 'sculpt' || t === 'kerbs' || t === 'bars' || t === 'pit' ? 'crosshair' : 'default';
     this.dirty = true;
   }
   setHint() {
     const t = this.track, h = { ...this.hints };
     if (t && !trackReady(t)) h.edit = `<b>EDIT</b> &mdash; no track yet. <b>Click</b> the map to place nodes (${minNodes(t)} or more), or use <b>DRAW</b> to sketch one.`;
     else if (this.placing) h.edit = `<b>EDIT</b> &mdash; placing nodes: <b>click</b> to add the next one${t.open ? ' (the last one is the finish)' : ''}. Press <b>Enter</b> or <b>Esc</b> when you're done.`;
-    $('ed-hint').innerHTML = h[this.tool];
+    $('ed-hint').innerHTML = h[this.tool === 'paint' && this.paintMode === 'shape' ? 'runoff' : this.tool];
   }
   updatePalette() {
     document.querySelectorAll('#pr-grid [data-prop]').forEach(b => b.classList.toggle('on', b.dataset.prop === this.propType));
@@ -316,6 +335,8 @@ export class Editor {
   action(a) {
     const t = this.track;
     sfx.select();
+    if (a === 'view3d') return this.toggle3d();
+    if (this.v3d) this.close3d();
     switch (a) {
       case 'new': this.push(); { const n = newTrack('New Circuit'); n.env = { ...t.env }; if (t.open) { n.open = true; n.points = []; } this.track = n; } $('ed-name').value = this.track.name; this.sel.clear(); this.selProp = -1; this.changed(true); this.fit(); this.setTool('draw'); this.toast(this.track.open ? 'NEW TRACK — DRAW IT FROM START TO FINISH' : 'NEW CIRCUIT — DRAW A LOOP'); break;
       case 'presets': this.modalList('Presets', [
@@ -334,10 +355,17 @@ export class Editor {
       case 'exit': this.saveWork(); this.cb.onExit(); break;
       case 'smooth': if (!this.needTrack()) break; this.push(); this.smooth(); break;
       case 'simplify': if (!this.needTrack()) break; this.push(); this.simplify(); break;
-      case 'reverse': this.push(); t.points.reverse(); t.points.forEach(p => p.b = -p.b); t.start = t.open ? 0 : (t.points.length - 1 - t.start); this.sel.clear(); this.changed(true); this.toast(t.open ? 'DIRECTION REVERSED · START AND FINISH SWAPPED' : 'DIRECTION REVERSED'); break;
+      case 'reverse': this.push(); t.points.reverse(); t.points.forEach(p => { p.b = -p.b; const hi = p.hi; if (p.ho) p.hi = p.ho; else delete p.hi; if (hi) p.ho = hi; else delete p.ho; }); t.start = t.open ? 0 : (t.points.length - 1 - t.start); this.sel.clear(); this.changed(true); this.toast(t.open ? 'DIRECTION REVERSED · START AND FINISH SWAPPED' : 'DIRECTION REVERSED'); break;
       case 'autobank': if (!this.needTrack()) break; this.push(); this.autoBank(); break;
       case 'flatten': this.push(); t.points.forEach(p => { p.e = 0; p.b = 0; }); this.changed(true); this.toast('ELEVATION RESET'); break;
       case 'fit': this.fit(); break;
+      case 'seethru': { // the track drawn see-through over the map (100% / 50% / 25%), remembered between sessions
+        const steps = [1, 0.5, 0.25], k = steps.indexOf(this.trackAlpha);
+        this.trackAlpha = steps[(k + 1) % steps.length];
+        try { localStorage.setItem('svgp.edTrackAlpha', String(this.trackAlpha)); } catch (e) {}
+        $('ed-seethru').classList.toggle('on', this.trackAlpha < 1);
+        this.toast(this.trackAlpha < 1 ? `TRACK ${Math.round(this.trackAlpha * 100)}% · SEE THE MAP THROUGH IT` : 'TRACK SOLID'); this.dirty = true; break;
+      }
       case 'grid': this.snap = !this.snap; $('ed-grid').classList.toggle('on', this.snap); this.toast(this.snap ? 'GRID SNAP ON (10M)' : 'GRID SNAP OFF'); break;
     }
   }
@@ -475,6 +503,18 @@ export class Editor {
     }
     return best;
   }
+  // the one picked node's curve handles (EDIT): { k, end: 'hi' | 'ho' }
+  trackHandles() {
+    if (this.tool !== 'edit' || this.sel.size !== 1 || !this.T) return [];
+    const k = [...this.sel][0], p = this.track.points[k]; if (!p) return [];
+    const H = nodeHandles(this.track, k), out = [];
+    for (const end of ['hi', 'ho']) if (H[end]) out.push({ k, end, x: p.x + H[end][0], z: p.z + H[end][1], own: !!p[end] });
+    return out;
+  }
+  hitTrackHandle(sx, sy) {
+    for (const h of this.trackHandles()) { const [x, y] = this.w2s(h.x, h.z); if (Math.hypot(x - sx, y - sy) < 8) return h; }
+    return null;
+  }
   hitProp(wx, wz) {
     const P = this.track.props;
     let best = -1, bd = Infinity;
@@ -513,11 +553,16 @@ export class Editor {
       this.canvas.style.cursor = 'grabbing';
       return;
     }
+    if (this.tool === 'kerbs') { if (this.T) this.kerbDown(wx, wz, sx, sy); return; }
+    if (this.tool === 'bars') { if (this.T) this.barDown(wx, wz, sx, sy); return; }
+    if (this.tool === 'pit') { if (this.T) this.pitDown(wx, wz, sx, sy); return; }
     if (this.tool === 'draw') {
       this.drag = { type: 'draw', pts: [[wx, wz]] };
       return;
     }
     if (this.tool === 'edit') {
+      const th = this.hitTrackHandle(sx, sy);
+      if (th) { this.drag = { type: 'thandle', k: th.k, end: th.end, moved: false }; sfx.move(); return; }
       const h = this.hitNode(sx, sy);
       if (h < 0 && (this.placing || !trackReady(this.track)) && !e.shiftKey) { // no track yet: build one node by node
         this.push();
@@ -559,6 +604,7 @@ export class Editor {
       this.dirty = true;
       return;
     }
+    if (this.tool === 'paint' && this.paintMode === 'shape') { this.shapeDown(wx, wz, sx, sy); return; }
     if (this.tool === 'paint') {
       const kind = this.paintKind || 'grass', stroke = { kind, r: this.brush || 12, pts: [[+wx.toFixed(1), +wz.toFixed(1)]] };
       if (kind === 'flora') Object.assign(stroke, { mix: this.floraMix || 'blossom', d: this.floraDens ?? 0.6, seed: 1 + Math.floor(Math.random() * 1e6) });
@@ -615,6 +661,7 @@ export class Editor {
   }
 
   onMove(e) {
+    this.shiftDown = e.shiftKey;
     if (!this.active) return;
     const r = this.canvas.getBoundingClientRect();
     const sx = e.clientX - r.left, sy = e.clientY - r.top;
@@ -628,6 +675,14 @@ export class Editor {
     if (d.type === 'pan') {
       this.view.cx = d.cx - (sx - d.sx) / this.view.scale;
       this.view.cz = d.cz - (sy - d.sy) / this.view.scale;
+    } else if (d.type === 'kerb') {
+      this.kerbMove(wx, wz);
+    } else if (d.type === 'bar') {
+      this.barMove(wx, wz);
+    } else if (d.type === 'pit') {
+      this.pitMove(wx, wz);
+    } else if (d.type === 'shape') {
+      this.shapeMove(wx, wz);
     } else if (d.type === 'rdraw') {
       const last = d.pts[d.pts.length - 1];
       if (Math.hypot(wx - last[0], wz - last[1]) > 2) d.pts.push([wx, wz]);
@@ -670,6 +725,14 @@ export class Editor {
     } else if (d.type === 'draw') {
       const last = d.pts[d.pts.length - 1];
       if (Math.hypot(wx - last[0], wz - last[1]) > 2.5) d.pts.push([wx, wz]);
+    } else if (d.type === 'thandle') {
+      // a curve handle: the other one turns to match (straight through the node), keeping its length; Shift: this one alone
+      if (!d.moved) { this.push(); d.moved = true; }
+      const p = this.track.points[d.k], cur = nodeHandles(this.track, d.k), h = [+(wx - p.x).toFixed(2), +(wz - p.z).toFixed(2)];
+      const other = d.end === 'ho' ? 'hi' : 'ho';
+      p[d.end] = h;
+      if (cur[other] && !e.shiftKey) { const lh = Math.hypot(...h) || 1, lo = Math.hypot(...cur[other]); p[other] = [+(-h[0] * lo / lh).toFixed(2), +(-h[1] * lo / lh).toFixed(2)]; }
+      this.recompute();
     } else if (d.type === 'nodes') {
       if (!d.moved) { this.push(); d.moved = true; }
       let dx = wx - d.wx, dz = wz - d.wz;
@@ -697,7 +760,11 @@ export class Editor {
     if (this.profileDrag) { this.profileDrag = null; this.changed(true); return; }
     if (!d) return;
     this.canvas.style.cursor = this.tool === 'pan' ? 'grab' : ['draw', 'paint', 'roads', 'sculpt'].includes(this.tool) ? 'crosshair' : 'default';
-    if (d.type === 'rdraw') this.finishRoad(d.pts);
+    if (d.type === 'kerb') this.kerbUp(d);
+    else if (d.type === 'bar') this.barUp(d);
+    else if (d.type === 'pit') this.pitUp(d);
+    else if (d.type === 'shape') this.shapeUp(d);
+    else if (d.type === 'rdraw') this.finishRoad(d.pts);
     else if ((d.type === 'rmove' || d.type === 'rnode') && d.moved) { this.changed(); this.scheduleScenery(0); }
     else if (d.type === 'bld' && d.moved) { this.changed(); this.scheduleScenery(0); }
     if (d.type === 'paint' && d.stroke.kind === 'houses') this.paintHouses(d.stroke);
@@ -706,7 +773,7 @@ export class Editor {
     else if (d.type === 'draw') this.finishDraw(d.pts);
     else if (d.type === 'zdraw') this.finishZone(d.pts);
     else if (d.type === 'zmove' && d.moved) this.changed();
-    else if (d.type === 'nodes' && d.moved) this.changed(true);
+    else if ((d.type === 'nodes' || d.type === 'thandle') && d.moved) { this.changed(true); if (d.type === 'thandle') this.renderPanels(); }
     else if (d.type === 'prop' && d.moved) this.changed();
     else if (d.type === 'pline') this.finishPropLine(d);
     else if ((d.type === 'lmove' || d.type === 'lnode') && d.moved) { this.changed(); this.renderItemTab(); }
@@ -724,6 +791,9 @@ export class Editor {
 
   onDbl(e) {
     if (this.tool === 'roads') return this.insertRoadNode(...this.s2w(e.offsetX, e.offsetY));
+    if (this.tool === 'bars') return this.T && this.barDbl(...this.s2w(e.offsetX, e.offsetY));
+    if (this.tool === 'pit') return this.T && this.pitDbl();
+    if (this.tool === 'paint' && this.paintMode === 'shape') return this.shapeDbl(...this.s2w(e.offsetX, e.offsetY));
     if (this.tool === 'props') return this.insertLineNode(...this.s2w(e.offsetX, e.offsetY));
     if (this.tool !== 'edit') return;
     const [wx, wz] = this.s2w(e.offsetX, e.offsetY);
@@ -826,6 +896,9 @@ export class Editor {
     if (!this.active) return;
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
     if (!$('ed-modal').hidden) { if (e.code === 'Escape') this.closeModal(); return; }
+    if (this.v3d) { if (this.key3d(e)) e.preventDefault(); return; }
+    if (this.tool === 'paint' && this.paintMode === 'shape' && !(e.ctrlKey || e.metaKey) && this.shapeKey(e)) { e.preventDefault(); return; }
+    if (e.code === 'KeyV' && !(e.ctrlKey || e.metaKey)) { this.open3d(); return; }
     const ctrl = e.ctrlKey || e.metaKey;
     if (ctrl && e.code === 'KeyZ') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); return; }
     if (ctrl && e.code === 'KeyY') { e.preventDefault(); this.redo(); return; }
@@ -839,10 +912,15 @@ export class Editor {
     if (e.code === 'Digit6') this.setTool('paint');
     if (e.code === 'Digit7') this.setTool('roads');
     if (e.code === 'Digit8') this.setTool('sculpt');
-    if (this.tool === 'paint' && (e.code === 'BracketLeft' || e.code === 'BracketRight')) { this.brush = Math.max(2, Math.min(80, (this.brush || 12) * (e.code === 'BracketRight' ? 1.25 : 0.8))); this.renderNodeTab(); this.dirty = true; }
+    if (e.code === 'Digit9') this.setTool('kerbs');
+    if (e.code === 'Digit0') this.setTool('bars');
+    if (e.code === 'KeyP' && !(e.ctrlKey || e.metaKey)) this.setTool('pit');
+    if (e.code === 'KeyR' && !(e.ctrlKey || e.metaKey)) this.setTool('runoff');
+    if (this.tool === 'paint' && (e.code === 'BracketLeft' || e.code === 'BracketRight')) { this.brush = Math.max(0.5, Math.min(80, (this.brush || 12) * (e.code === 'BracketRight' ? 1.25 : 0.8))); this.renderNodeTab(); this.dirty = true; }
     if (this.tool === 'sculpt' && (e.code === 'BracketLeft' || e.code === 'BracketRight')) { this.sculptR = Math.max(8, Math.min(150, this.sculptR * (e.code === 'BracketRight' ? 1.25 : 0.8))); this.renderNodeTab(); this.dirty = true; }
     if (e.code === 'KeyF') this.fit();
     if (e.code === 'KeyG') this.action('grid');
+    if (e.code === 'KeyT') this.action('seethru');
     if ((e.code === 'Escape' || e.code === 'Enter') && this.placing) { this.placing = false; this.setHint(); if (e.code === 'Enter') return; }
     if (e.code === 'Escape') { this.sel.clear(); this.selProp = -1; this.selBld = null; this.selRoad = -1; this.selLine = null; this.renderPanels(); this.dirty = true; }
     if (e.code === 'Delete' || e.code === 'Backspace') {
@@ -853,6 +931,9 @@ export class Editor {
       else if (this.tool === 'roads' && this.selRoad >= 0 && this.selRoadNode >= 0) this.deleteRoadNode();
       else if (this.tool === 'roads' && this.selRoad >= 0) this.deleteRoad();
       else if (this.tool === 'zones' && this.selZone >= 0) this.deleteZone();
+      else if (this.tool === 'kerbs') this.kerbDelete();
+      else if (this.tool === 'bars') this.barDelete();
+      else if (this.tool === 'pit') this.pitDelete();
       else if (this.sel.size) this.deleteNodes();
     }
     if ((e.code === 'KeyQ' || e.code === 'KeyE') && this.tool === 'props') {
@@ -1310,8 +1391,10 @@ export class Editor {
 
   // ---------------- main draw ----------------
   draw() {
-    const c = this.ctx, T = this.T, A = this.A, t = this.track;
+    let c = this.ctx;
+    const T = this.T, A = this.A, t = this.track;
     if (!this.W) return;
+    if (this.trackAlpha === undefined) { let a = 1; try { a = +localStorage.getItem('svgp.edTrackAlpha') || 1; } catch (e) {} this.trackAlpha = [1, 0.5, 0.25].includes(a) ? a : 1; const b = $('ed-seethru'); if (b) b.classList.toggle('on', this.trackAlpha < 1); }
     c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     const sc = this.view.scale;
     c.fillStyle = THEME_BG[t.env.theme] || '#101820';
@@ -1333,6 +1416,19 @@ export class Editor {
     if (sc > 0.3) drawGrid(10 * (sc > 2 ? 1 : 5), 'rgba(255,255,255,0.035)');
     drawGrid(100, 'rgba(255,255,255,0.06)');
     drawGrid(500, 'rgba(255,255,255,0.11)');
+    // (SEE-THROUGH: the land, paint, scenery and track go on a layer of their own, put over the map faded; what you
+    // edit with (nodes, handles) stays solid on top)
+    const seeThru = this.trackAlpha < 1;
+    if (seeThru) {
+      const L = this.layer ||= document.createElement('canvas'), cv = this.ctx.canvas;
+      if (L.width !== cv.width || L.height !== cv.height) { L.width = cv.width; L.height = cv.height; }
+      c = L.getContext('2d'); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, L.width, L.height); c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    }
+    const unLayer = () => {
+      if (!seeThru || c === this.ctx) return;
+      const L = c.canvas; c = this.ctx;
+      c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = this.trackAlpha; c.drawImage(L, 0, 0); c.restore();
+    };
     this.drawSculpt(c);
     this.drawPaint(c);
     this.drawScenery(c);
@@ -1352,19 +1448,21 @@ export class Editor {
     this.drawRunoff(c);
     this.drawRoads(c); // (over the runoff: roads run up to the track edge)
     c.lineJoin = 'round'; c.lineCap = 'round';
-    // barriers
+    // barriers (each in its type's color: tire walls dark, concrete grey, armco steel, a fence yellow)
+    const BAR_COL = { tires: '#1a1a1a', concrete: '#b8b4a8', armco: '#c8ccd4', fence: '#d8c25a' };
     const drawBarriers = (chs) => {
       c.lineWidth = Math.max(1.5, 1 * sc);
-      c.strokeStyle = t.env.barrier === 'tires' ? '#1a1a1a' : t.env.barrier === 'concrete' ? '#b8b4a8' : '#c8ccd4';
       for (const ch of chs) for (const side of [-1, 1]) {
         const has = side < 0 ? A.HAS_L : A.HAS_R, off = side < 0 ? A.BL : A.BR;
-        c.beginPath(); let on = false;
+        let on = false, col = null;
         for (const i of ch.idx) {
-          if (!has[i]) { on = false; continue; }
+          if (!has[i]) { if (on) c.stroke(); on = false; continue; }
+          const k = BAR_COL[wallTypeAt(A, i, side, t.env)] || '#c8ccd4';
           const s = off[i] * side, [sx, sy] = this.w2s(T.X[i] + T.RX[i] * s, T.Z[i] + T.RZ[i] * s);
-          on ? c.lineTo(sx, sy) : c.moveTo(sx, sy); on = true;
+          if (on && k !== col) { c.lineTo(sx, sy); c.stroke(); on = false; }
+          if (!on) { c.strokeStyle = col = k; c.beginPath(); c.moveTo(sx, sy); on = true; } else c.lineTo(sx, sy);
         }
-        c.stroke();
+        if (on) c.stroke();
       }
     };
     drawBarriers(ground);
@@ -1376,14 +1474,8 @@ export class Editor {
       }
       const dirt = this.track.env.surface === 'dirt';
       for (const ch of chs) { c.strokeStyle = dirt ? (deck ? '#8a6a4a' : '#76583a') : deck ? '#565a64' : '#43464e'; c.lineWidth = ch.w * sc; path(ch.idx); c.stroke(); }
-      // kerbs
-      if (sc > 0.25) for (const ch of chs) for (const side of [-1, 1]) {
-        const idx = ch.idx.filter(i => A.KERB[i]);
-        if (idx.length < 2) continue;
-        c.lineWidth = Math.max(1.5, 1.3 * sc);
-        c.setLineDash([]); c.strokeStyle = '#c3221f'; path(idx, side * (T.W[idx[0]] / 2 + 0.65)); c.stroke();
-        c.setLineDash([2 * sc, 2 * sc]); c.strokeStyle = '#eee'; c.stroke(); c.setLineDash([]);
-      }
+      // kerbs (each as it is: edkerbs.js)
+      this.drawKerbs(c);
       // centre line coloured by elevation
       for (const ch of chs) {
         const y = ch.y / Math.max(1, this.maxY);
@@ -1394,6 +1486,10 @@ export class Editor {
     };
     drawRoad(ground, false);
     if (bridges.length) drawRoad(bridges, true);
+    unLayer();
+    this.drawBarrierEdit(c); // (BARRIERS: the picked one's nodes: edbarriers.js)
+    this.drawPitEdit(c); // (PIT LANE: its nodes and garages: edpit.js)
+    this.drawShapeEdit(c); // (PAINT › Shape: the picked one, the one being drawn: edpaint.js)
 
     // direction arrows
     c.fillStyle = 'rgba(255,255,255,0.75)';
@@ -1446,6 +1542,7 @@ export class Editor {
       } else label(0, 'START / FINISH');
     }
     }
+    unLayer(); // (no track yet: the land and paint)
 
     this.drawZoneLines(c);
     // props
@@ -1500,6 +1597,12 @@ export class Editor {
         if (sc > 1.1 || s) { c.font = '14px VT323'; c.fillStyle = '#fff'; c.fillText(String(i), x + 8, y - 6); }
         if ((s || h) && (p.e || p.b)) { c.font = '14px VT323'; c.fillStyle = '#ffd66b'; c.fillText(`${p.e.toFixed(1)}m ${p.b ? p.b.toFixed(0) + '°' : ''}`, x + 8, y + 12); }
       });
+      // the picked node's curve handles (round: filled once they're its own)
+      for (const hd of this.trackHandles()) {
+        const p = P[hd.k], [nx, ny] = this.w2s(p.x, p.z), [hx, hy] = this.w2s(hd.x, hd.z);
+        c.strokeStyle = '#ffd66b'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(nx, ny); c.lineTo(hx, hy); c.stroke();
+        c.beginPath(); c.arc(hx, hy, 5, 0, Math.PI * 2); c.fillStyle = hd.own ? '#ffd66b' : '#1a1a1a'; c.fill(); c.strokeStyle = hd.own ? '#000' : '#ffd66b'; c.stroke();
+      }
     }
     // profile hover marker
     if (T && this.hoverSample >= 0 && this.hoverSample < T.N) {
@@ -1828,8 +1931,12 @@ export class Editor {
     const el = $('tab-node'), t = this.track, kind = this.paintKind || 'grass', r = this.brush || 12;
     const area = t.paint.filter(s => PAINTS[s.kind]).length, nat = t.paint.filter(s => s.kind === 'flora').length, er = t.paint.filter(s => s.kind === 'erase').length, cr = t.paint.filter(s => s.kind === 'crowd').length;
     const mix = this.floraMix || 'blossom', dens = this.floraDens ?? 0.6, what = this.eraseWhat || 'gnb';
+    // (Brush: strokes as before; Shape: runoff drawn point by point and picked to change later: edpaint.js)
+    const modeHtml = `<div class="fld"><label>Paint With</label><div class="seg" id="p-mode"><button data-v="brush" class="${this.paintMode !== 'shape' ? 'on' : ''}">Brush</button><button data-v="shape" class="${this.paintMode === 'shape' ? 'on' : ''}">Shape</button></div></div>`;
+    if (this.paintMode === 'shape') return this.renderShapePanel(modeHtml);
     el.innerHTML = `
       <h4>PAINT</h4>
+      ${modeHtml}
       <div class="fld"><label>Brush</label><div class="seg" id="p-kind">${[...Object.entries(PAINTS).map(([k, v]) => [k, v.label]), ['flora', 'Nature'], ['houses', 'Houses'], ['crowd', 'Crowd'], ['erase', 'Erase']].map(([k, l]) => `<button data-v="${k}" class="${kind === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
       ${kind === 'flora' ? `
       <div class="fld"><label>Mix</label><div class="seg" id="p-mix">${FLORA_KEYS.filter(k => k !== 'auto').map(k => `<button data-v="${k}" class="${mix === k ? 'on' : ''}"><i style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;background:${FLORA[k].color}"></i>${FLORA[k].label}</button>`).join('')}</div></div>
@@ -1841,7 +1948,7 @@ export class Editor {
       ${PAINTS[kind] && PAINTS[kind].runoff ? `<p class="muted">Lays ${kind === 'paved' ? 'paved runoff' : 'a gravel trap'} beside the track. Paint out past the barrier and the barrier moves back to take it in, up to 80 m from the track. Grass paints over it; Erase &rsaquo; Ground puts the circuit's own runoff back.</p>` : ''}
       ${kind === 'erase' ? `<div class="fld"><label>Erase</label><div class="seg" id="p-what">${[['g', 'Ground'], ['n', 'Trees &amp; plants'], ['b', 'Buildings']].map(([k, l]) => `<button data-v="${k}" class="${what.includes(k) ? 'on' : ''}">${l}</button>`).join('')}</div></div>
       <p class="muted">Removes everything you pick under the brush: painted grass, paved and gravel, every tree and plant (painted, from the World tab setting, zone tree lines, the map or placed with PROPS) and buildings of any kind.</p>` : ''}
-      ${fld('Brush size', 'p-r', 2, 80, 1, Math.round(r), 'm')}
+      ${fld('Brush size', 'p-r', 0.5, 80, 0.5, r, 'm')}
       <p class="muted">${area} ground, ${nat} nature, ${cr} crowd and ${er} eraser stroke${er === 1 ? '' : 's'}. Painted ground grips (and slows you) like the real thing when you run wide.${envReady() ? '' : ' (Scenery models are still loading.)'}</p>
       <div class="seg"><button id="p-undo">Undo Last Stroke</button><button id="p-clear">Clear All Paint</button></div>`;
     document.querySelectorAll('#p-kind button').forEach(b => b.addEventListener('click', () => { this.paintKind = b.dataset.v; sfx.move(); this.renderPaintTab(); this.dirty = true; }));
@@ -1853,9 +1960,22 @@ export class Editor {
     const pd = $('p-d'); if (pd) pd.addEventListener('input', () => { this.floraDens = +pd.value; $('p-d-v').textContent = (+pd.value).toFixed(2); });
     const pcd = $('p-cd'); if (pcd) pcd.addEventListener('input', () => { this.crowdDens = +pcd.value; $('p-cd-v').textContent = (+pcd.value).toFixed(2); });
     const pg = $('p-gap'); if (pg) pg.addEventListener('input', () => { this.houseGap = +pg.value; $('p-gap-v').textContent = pg.value + 'm'; });
+    this.bindPaintMode();
     const pr = $('p-r'); pr.addEventListener('input', () => { this.brush = +pr.value; $('p-r-v').textContent = pr.value + 'm'; this.dirty = true; });
     $('p-undo').addEventListener('click', () => { if (!t.paint.length) return; this.push(); t.paint.pop(); sfx.del(); this.changed(); this.renderPaintTab(); this.scheduleScenery(0); });
     $('p-clear').addEventListener('click', () => { if (!t.paint.length) return; this.push(); t.paint = []; sfx.del(); this.changed(); this.renderPaintTab(); this.scheduleScenery(0); this.toast('PAINT CLEARED'); });
+  }
+  // the tool buttons lit (PAINT drawing shapes lights RUNOFF)
+  toolButtons() {
+    const lit = this.tool === 'paint' && this.paintMode === 'shape' ? 'runoff' : this.tool;
+    document.querySelectorAll('#s-editor [data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === lit));
+  }
+  bindPaintMode() {
+    document.querySelectorAll('#p-mode button').forEach(b => b.addEventListener('click', () => {
+      this.paintMode = b.dataset.v; this.shapeDraw = null; this.paintSel = -1; this.paintNode = -1;
+      if (this.paintMode === 'shape' && !['grass', 'paved', 'gravel'].includes(this.paintKind)) this.paintKind = 'gravel';
+      sfx.move(); this.renderPaintTab(); this.toolButtons(); this.setHint && this.setHint(); this.dirty = true;
+    }));
   }
   renderSculptTab() {
     const el = $('tab-node'), t = this.track, m = this.sculptMode, height = m === 'up' || m === 'down';
@@ -2544,6 +2664,12 @@ export class Editor {
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     g.lineCap = g.lineJoin = 'round';
     for (const s of list) {
+      if (s.area) { // (a shape: filled inside its outline)
+        if (s.pts.length < 3) continue;
+        g.globalCompositeOperation = 'source-over'; g.fillStyle = (PAINTS[s.kind] || PAINTS.grass).color.replace(/[\d.]+\)$/, '1)');
+        g.beginPath(); s.pts.forEach((p, k) => { const [x, y] = this.w2s(p[0], p[1]); k ? g.lineTo(x, y) : g.moveTo(x, y); }); g.closePath(); g.fill();
+        continue;
+      }
       g.globalCompositeOperation = s.kind === 'erase' ? 'destination-out' : 'source-over';
       g.strokeStyle = s.kind === 'erase' ? '#000' : s.kind === 'houses' ? '#e0a060' : s.kind === 'crowd' ? '#e8789a' : s.kind === 'flora' ? (FLORA[s.mix] || FLORA.mixed).color : (PAINTS[s.kind] || PAINTS.grass).color.replace(/[\d.]+\)$/, '1)');
       g.lineWidth = Math.max(1, s.r * 2 * this.view.scale);
@@ -2555,7 +2681,7 @@ export class Editor {
     g.globalCompositeOperation = 'source-over';
     c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 0.62; c.drawImage(L, 0, 0); c.restore();
     // brush outline under the mouse
-    if (this.tool === 'paint' && this.mouse.inside) {
+    if (this.tool === 'paint' && this.paintMode !== 'shape' && this.mouse.inside) {
       const [x, y] = this.w2s(this.mouse.wx, this.mouse.wz);
       c.strokeStyle = (this.paintKind || 'grass') === 'erase' ? '#ff8a5a' : this.paintKind === 'houses' ? '#e0a060' : this.paintKind === 'crowd' ? '#ff9ab8' : this.paintKind === 'flora' ? (FLORA[this.floraMix || 'blossom'] || FLORA.mixed).color : this.paintKind === 'paved' ? '#d4d6dc' : this.paintKind === 'gravel' ? '#f0d49a' : '#bfff9a'; c.lineWidth = 1.5; c.setLineDash([4, 3]);
       c.beginPath(); c.arc(x, y, (this.brush || 12) * this.view.scale, 0, Math.PI * 2); c.stroke(); c.setLineDash([]);
@@ -2564,6 +2690,9 @@ export class Editor {
 
   renderNodeTab() {
     if (this.tool === 'zones') return this.renderZoneTab();
+    if (this.tool === 'kerbs') return this.renderKerbTab();
+    if (this.tool === 'bars') return this.renderBarrierTab();
+    if (this.tool === 'pit') return this.renderPitTab();
     if (this.tool === 'paint') return this.renderPaintTab();
     if (this.tool === 'sculpt') return this.renderSculptTab();
     if (this.tool === 'roads') return this.renderRoadTab();
@@ -2585,6 +2714,7 @@ export class Editor {
       <div class="seg" style="margin-top:10px">
         ${sel.length === 1 && !this.track.open ? '<button id="n-start">Start Here</button>' : ''}
         <button id="n-flat">Level</button>
+        ${sel.some(i => P[i].hi || P[i].ho) ? '<button id="n-curve">Reset Curve</button>' : ''}
         <button id="n-del">Delete</button>
       </div>
       ${sel.length > 1 ? '<div class="seg" style="margin-top:6px"><button id="n-ramp">Ramp Elevation</button><button id="n-smooth">Smooth</button></div>' : ''}`;
@@ -2603,6 +2733,7 @@ export class Editor {
     $('n-start') && $('n-start').addEventListener('click', () => { this.push(); this.track.start = sel[0]; sfx.select(); this.changed(true); this.toast('START/FINISH MOVED'); });
     $('n-flat').addEventListener('click', () => { this.push(); sel.forEach(i => { P[i].b = 0; }); if (sel.length > 1) { const avg = sel.reduce((a, i) => a + P[i].e, 0) / sel.length; sel.forEach(i => P[i].e = Math.round(avg * 2) / 2); } this.changed(true); });
     $('n-del').addEventListener('click', () => this.deleteNodes());
+    if ($('n-curve')) $('n-curve').addEventListener('click', () => { this.push(); sel.forEach(i => { delete P[i].hi; delete P[i].ho; }); sfx.move(); this.changed(true); this.renderPanels(); });
     $('n-ramp') && $('n-ramp').addEventListener('click', () => {
       this.push();
       const s = [...sel].sort((a, b) => a - b), a = P[s[0]].e, b = P[s[s.length - 1]].e;
@@ -2783,6 +2914,11 @@ export class Editor {
       ${warns.map(w => `<div class="warn">! ${w}</div>`).join('')}`;
   }
 }
+installKerbTool(Editor);
+installBarrierTool(Editor);
+installView3d(Editor);
+installPitTool(Editor);
+installPaintShapes(Editor);
 
 function fld(label, id, min, max, step, val, unit) {
   return `<div class="fld"><label>${label}<span id="${id}-v">${val}${unit}</span></label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"></div>`;

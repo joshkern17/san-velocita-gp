@@ -14,7 +14,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { CHASSIS, tiltWheels, driverKit, carLights, blobShadow, carbonTex, RIMCOL } from './carmodel.js';
-import { paintCar, fillLivery, projectDecals } from './livery.js';
+import { paintCar, fillLivery, projectDecals, samplePanel, stickerMesh, wrapDecals } from './livery.js';
 
 let TPL = null, loading = null, loadError = null;
 const modelUrl = () => (typeof window !== 'undefined' && window.__SVGP_CAR_GLB) || 'models/car.glb';
@@ -154,12 +154,15 @@ function texelMap(T, R) {
   if (T.maps[R]) return T.maps[R];
   const panel = new Uint8Array(R * R), X = new Float32Array(R * R), Y = new Float32Array(R * R);
   const P3 = new Float32Array(R * R * 3), N3 = new Int8Array(R * R * 3), AR = new Float32Array(R * R); // (position, smooth normal, surface area: for projected decals)
+  const TRI = new Int32Array(R * R).fill(-1), B1 = new Float32Array(R * R), B2 = new Float32Array(R * R); // (which triangle + where on it: for stickers, numbered as liveryTris)
+  let ti = -1;
   const idxOf = Object.fromEntries(T.panelNames.map((n, k) => [n, k + 1]));
   const offs = { body: new THREE.Vector3(), fwing: T.fwingCtr, rwing: T.rwingCtr };
   for (const p of T.livery) {
     const g = p.geo, P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv, I = g.index;
     const n = I ? I.count : P.count, o = offs[p.group];
     for (let t = 0; t < n; t += 3) {
+      ti++;
       const ids = [0, 1, 2].map(k => I ? I.getX(t + k) : t + k);
       const us = ids.map(i => U.getX(i) * R), vs = ids.map(i => (1 - U.getY(i)) * R);
       const minX = Math.max(0, Math.floor(Math.min(...us))), maxX = Math.min(R - 1, Math.ceil(Math.max(...us)));
@@ -180,6 +183,7 @@ function texelMap(T, R) {
         const [sx, sy] = pn.proj(x, y, z), id = py * R + px;
         panel[id] = idxOf[name]; X[id] = Math.min(pn.W, Math.max(0, sx)); Y[id] = Math.min(pn.H, Math.max(0, sy));
         P3[id * 3] = x; P3[id * 3 + 1] = y; P3[id * 3 + 2] = z; N3[id * 3] = nx / nl * 127; N3[id * 3 + 1] = ny / nl * 127; N3[id * 3 + 2] = nz / nl * 127; AR[id] = st;
+        const sb = Math.max(0, a) + Math.max(0, b) + Math.max(0, c) || 1; TRI[id] = ti; B1[id] = Math.max(0, b) / sb; B2[id] = Math.max(0, c) / sb;
       }
     }
   }
@@ -190,7 +194,7 @@ function texelMap(T, R) {
       const id = py * R + px; if (src[id]) continue;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const qx = px + dx, qy = py + dy; if (qx < 0 || qy < 0 || qx >= R || qy >= R) continue;
-        const q = qy * R + qx; if (src[q]) { panel[id] = src[q]; X[id] = X[q]; Y[id] = Y[q]; P3.copyWithin(id * 3, q * 3, q * 3 + 3); N3.copyWithin(id * 3, q * 3, q * 3 + 3); break; }
+        const q = qy * R + qx; if (src[q]) { panel[id] = src[q]; X[id] = X[q]; Y[id] = Y[q]; P3.copyWithin(id * 3, q * 3, q * 3 + 3); N3.copyWithin(id * 3, q * 3, q * 3 + 3); TRI[id] = TRI[q]; B1[id] = B1[q]; B2[id] = B2[q]; break; }
       }
     }
   }
@@ -198,16 +202,34 @@ function texelMap(T, R) {
   const list = []; for (let i = 0; i < R * R; i++) if (panel[i]) list.push(i);
   const lpos = new Float32Array(list.length * 3), lnrm = new Int8Array(list.length * 3);
   list.forEach((i, k) => { lpos.set(P3.subarray(i * 3, i * 3 + 3), k * 3); lnrm.set(N3.subarray(i * 3, i * 3 + 3), k * 3); });
-  return (T.maps[R] = { panel, X, Y, list: Uint32Array.from(list), lp: Uint8Array.from(list, i => panel[i]), lx: Float32Array.from(list, i => X[i]), ly: Float32Array.from(list, i => Y[i]), pos: lpos, nrm: lnrm, ar: Float32Array.from(list, i => AR[i]) });
+  return (T.maps[R] = { panel, X, Y, list: Uint32Array.from(list), lp: Uint8Array.from(list, i => panel[i]), lx: Float32Array.from(list, i => X[i]), ly: Float32Array.from(list, i => Y[i]), pos: lpos, nrm: lnrm, ar: Float32Array.from(list, i => AR[i]),
+    tri: Int32Array.from(list, i => TRI[i]), b1: Float32Array.from(list, i => B1[i]), b2: Float32Array.from(list, i => B2[i]) });
+}
+// the stickers' mesh (livery.js stickerMesh): the livery triangles in body coordinates, in texelMap's order, then the
+// rest of the bodywork (not painted, but part of the outer surface a sticker drapes over)
+function liveryTris(T) {
+  const out = [], offs = { body: new THREE.Vector3(), fwing: T.fwingCtr, rwing: T.rwingCtr };
+  const rest = [...T.body.map(p => ['body', p]), ...T.fwing.map(p => ['fwing', p]), ...T.rwing.map(p => ['rwing', p])].filter(([, p]) => !T.livery.includes(p));
+  const nrm = [];
+  for (const p of [...T.livery, ...rest.map(([g, p]) => ({ geo: p.geo, group: g }))]) {
+    const P = p.geo.attributes.position, N = p.geo.attributes.normal, I = p.geo.index, n = I ? I.count : P.count, o = offs[p.group];
+    for (let t = 0; t < n; t++) { const i = I ? I.getX(t) : t; out.push(P.getX(i) + o.x, P.getY(i) + o.y, P.getZ(i) + o.z); nrm.push(N ? N.getX(i) : 0, N ? N.getY(i) : 0, N ? N.getZ(i) : 0); }
+  }
+  return [Float32Array.from(out), Float32Array.from(nrm)];
 }
 
 function makeDef(T) {
+  const mesh = () => T.mesh || (T.mesh = stickerMesh(...liveryTris(T)));
   const def = {
+    mesh,
     id: 'custom-glb', aspect: 1, projected: true, panels: T.panels,
     labels: { topNumber: [0.8, 0.5], sideNumber: [0.7, 0.55] },
     projectDecals: true,
     paintProjected(canvas, L, drawPanel, decalLayers) {
-      const R = canvas.width, map = texelMap(T, R), ppm = Math.max(40, R / 8);
+      const R = canvas.width, map = texelMap(T, R), ppm = Math.max(80, R / 4); // (panels + decals drawn ~2x finer than the texels, then read bilinear)
+      // (the base paint, everything but the decals, is kept: editing a decal only lays the decals again)
+      const key = JSON.stringify({ ...L, decals: null });
+      if (map.base && map.base.key === key) return this.finish(canvas, L, map, map.base.col.slice(), decalLayers, ppm);
       const datas = [null];
       for (const name of T.panelNames) {
         const p = T.panels[name], pc = document.createElement('canvas');
@@ -217,18 +239,22 @@ function makeDef(T) {
         drawPanel(g, name, p);
         datas.push({ d: g.getImageData(0, 0, pc.width, pc.height).data, w: pc.width, h: pc.height });
       }
-      const ctx = canvas.getContext('2d'), out = ctx.createImageData(R, R), o = out.data;
+      const { lp, lx, ly } = map, cnt = map.list.length, col = new Float32Array(cnt * 3);
+      for (let n = 0; n < cnt; n++) samplePanel(datas[lp[n]], lx[n], ly[n], ppm, col, n * 3);
+      map.base = { key, col: col.slice() };
+      this.finish(canvas, L, map, col, decalLayers, ppm);
+    },
+    // the decals laid over the base paint, then the texels written out
+    finish(canvas, L, map, col, decalLayers, ppm) {
+      const R = canvas.width, ctx = canvas.getContext('2d'), out = ctx.createImageData(R, R), o = out.data, { list } = map, cnt = list.length;
       const mc = (L.main ?? 0) >>> 0, sr = (mc >> 16) & 255, sg = (mc >> 8) & 255, sb = mc & 255; // unmapped texels: main colour
       for (let j = 0; j < o.length; j += 4) { o[j] = sr; o[j + 1] = sg; o[j + 2] = sb; o[j + 3] = 255; }
-      const { list, lp, lx, ly } = map, cnt = list.length, col = new Float32Array(cnt * 3);
-      for (let n = 0; n < cnt; n++) {
-        const D = datas[lp[n]], q = (Math.min(D.h - 1, (ly[n] * ppm) | 0) * D.w + Math.min(D.w - 1, (lx[n] * ppm) | 0)) * 4;
-        col[n * 3] = D.d[q]; col[n * 3 + 1] = D.d[q + 1]; col[n * 3 + 2] = D.d[q + 2];
-      }
-      if (decalLayers) projectDecals(T.panels, T.panelNames, decalLayers(ppm), map, col);
+      if (decalLayers) wrapDecals(T.panels, T.panelNames, decalLayers(ppm), map, col, mesh());
       for (let n = 0; n < cnt; n++) { const j = list[n] * 4; o[j] = col[n * 3]; o[j + 1] = col[n * 3 + 1]; o[j + 2] = col[n * 3 + 2]; }
       ctx.putImageData(out, 0, 0);
     },
+    // where every painted texel sits on the car (the shape editor reads the body's surface from it)
+    texels: () => texelMap(T, 1024),
     // designer click-to-place: livery uv -> panel + metres
     uvToPanel(u, v) {
       const R = 1024, map = texelMap(T, R);
@@ -257,7 +283,7 @@ const shared = {};
 const phong = (key, opts) => shared[key] || (shared[key] = new THREE.MeshPhongMaterial(opts));
 function buildCar(cfg, opts = {}) {
   cfg = fillLivery({ ...cfg });
-  const T = TPL, low = !!opts.low, R = opts.texSize >= 1024 ? 1024 : 512;
+  const T = TPL, low = !!opts.low, R = opts.texSize >= 2048 ? 2048 : opts.texSize >= 1024 ? 1024 : 512; // (2048: your own car, up close)
   const group = new THREE.Group(), body = new THREE.Group(); group.add(body);
   const livCanvas = document.createElement('canvas'); livCanvas.width = livCanvas.height = R;
   const livTex = new THREE.CanvasTexture(livCanvas); livTex.colorSpace = THREE.SRGBColorSpace; livTex.anisotropy = 4;

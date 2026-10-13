@@ -112,7 +112,9 @@ export function fastLine(T, O0, car, opts) {
 }
 // the same, a stage at a time (a generator: yields between stages of the search, returns the result), so a page can
 // stay responsive while it fits a line
-export function* fastLineSteps(T, O0, car, { margin = 1.6, spacing = SPACING, maxEvals = 90000 } = {}) {
+// margins: per sample, in place of margin (race.js: less at the corners' kerbs, so the line can put two wheels on them)
+export function* fastLineSteps(T, O0, car, { margin = 1.6, margins = null, spacing = SPACING, maxEvals = 90000 } = {}) {
+  const mAt = margins ? (i) => margins[i] : () => margin;
   const N = T.N, S = scratch(T), now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()), t0 = now();
   const open = (T.cut ?? -1) >= 0;
   const M = Math.max(12, Math.round(N * T.ds / spacing));
@@ -120,7 +122,7 @@ export function* fastLineSteps(T, O0, car, { margin = 1.6, spacing = SPACING, ma
   const idx = new Int32Array(M), lo = new Float64Array(M), hi = new Float64Array(M), a = new Float64Array(M);
   for (let j = 0; j < M; j++) {
     const i = open ? (T.cut + 1 + Math.round(j * (N - 1) / (M - 1))) % N : Math.round(j * N / M) % N; idx[j] = i;
-    const lim = Math.max(0, T.W[i] / 2 - margin); lo[j] = -lim; hi[j] = lim;
+    const lim = Math.max(0, T.W[i] / 2 - mAt(i)); lo[j] = -lim; hi[j] = lim;
     a[j] = Math.max(lo[j], Math.min(hi[j], O0[i]));
   }
   const O = new Float64Array(N);
@@ -134,12 +136,12 @@ export function* fastLineSteps(T, O0, car, { margin = 1.6, spacing = SPACING, ma
       for (let i = i0; i < i1; i++) {
         const t = (i - i0) / (i1 - i0), t2 = t * t, t3 = t2 * t;
         const v = 0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
-        const ii = i % N, lim = Math.max(0, T.W[ii] / 2 - margin);
+        const ii = i % N, lim = Math.max(0, T.W[ii] / 2 - mAt(ii));
         O[ii] = Math.max(-lim, Math.min(lim, v));
       }
     }
   };
-  const O0c = Float64Array.from(O0, (o, i) => Math.max(-(T.W[i] / 2 - margin), Math.min(T.W[i] / 2 - margin, o)));
+  const O0c = Float64Array.from(O0, (o, i) => Math.max(-(T.W[i] / 2 - mAt(i)), Math.min(T.W[i] / 2 - mAt(i), o)));
   const start = lapTime(T, O0c, car, S); // (the line it was given, sample by sample: never return anything slower)
   if (open) { for (let i = 0; i < N; i++) O[i] = O0[i]; }
   fill(0, M - 1);

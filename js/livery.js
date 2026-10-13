@@ -174,6 +174,12 @@ export function drawDecal(g, d, x, y, onReady) {
     if (d.bar != null) { const tw = g.measureText(d.text).width; g.fillStyle = hex(d.bar); g.fillRect(-tw / 2 - h * 0.4, -h * 0.7, tw + h * 0.8, h * 1.4); }
     if (d.outline) { g.lineJoin = 'round'; g.lineWidth = h * 0.16; g.strokeStyle = hex(d.outline); g.strokeText(d.text, 0, 0); }
     g.fillStyle = hex(d.color ?? 0xffffff); g.fillText(d.text, 0, 0);
+  } else if (d.path) {
+    // a vector shape (the designer's shape editor, js/vectoredit.js): size = its width; strokes keep their width
+    const k = w / (d.path.w || w), p2 = shapePath(d.path);
+    g.scale(k, k);
+    if (d.fill != null) { g.fillStyle = hex(d.fill); g.fill(p2); }
+    if (d.stroke != null && d.sw > 0) { g.lineJoin = 'round'; g.lineCap = 'round'; g.lineWidth = d.sw / k; g.strokeStyle = hex(d.stroke); g.stroke(p2); }
   } else {
     const im = decalImage(d.asset, onReady);
     if (im) { const h = w * (im.naturalHeight / im.naturalWidth); g.drawImage(im, -w / 2, -h / 2, w, h); }
@@ -181,13 +187,53 @@ export function drawDecal(g, d, x, y, onReady) {
   g.restore();
 }
 
+// Vector shapes: d.path = { w, closed, n: [[x, y, ix, iy, ox, oy, smooth], ...] }, in metres round the decal's point
+// at size = w; ix/iy and ox/oy are each node's in / out Bézier handles relative to it (0, 0: a straight line).
+// Fill and stroke are colours or null, sw the stroke width (m). A mirror copy of a shape is mirrored, not just moved.
+export function shapePath(P, close = P.closed) {
+  const p = new Path2D(), n = P.n;
+  if (!n || !n.length) return p;
+  const seg = (a, b) => (a[4] || a[5] || b[2] || b[3]) ? p.bezierCurveTo(a[0] + a[4], a[1] + a[5], b[0] + b[2], b[1] + b[3], b[0], b[1]) : p.lineTo(b[0], b[1]);
+  p.moveTo(n[0][0], n[0][1]);
+  for (let i = 1; i < n.length; i++) seg(n[i - 1], n[i]);
+  if (close && n.length > 1) { seg(n[n.length - 1], n[0]); p.closePath(); }
+  return p;
+}
+// its bounds [x0, y0, x1, y1] (curves sampled)
+export function shapeBounds(P) {
+  const n = P.n, b = [Infinity, Infinity, -Infinity, -Infinity];
+  const add = (x, y) => { if (x < b[0]) b[0] = x; if (y < b[1]) b[1] = y; if (x > b[2]) b[2] = x; if (y > b[3]) b[3] = y; };
+  const seg = (a, c) => {
+    if (!(a[4] || a[5] || c[2] || c[3])) return add(c[0], c[1]);
+    for (let s = 1; s <= 16; s++) { const t = s / 16, u = 1 - t, A = u * u * u, B = 3 * u * u * t, C = 3 * u * t * t, D = t * t * t;
+      add(A * a[0] + B * (a[0] + a[4]) + C * (c[0] + c[2]) + D * c[0], A * a[1] + B * (a[1] + a[5]) + C * (c[1] + c[3]) + D * c[1]); }
+  };
+  if (!n || !n.length) return [0, 0, 0, 0];
+  add(n[0][0], n[0][1]);
+  for (let i = 1; i < n.length; i++) seg(n[i - 1], n[i]);
+  if (P.closed && n.length > 1) seg(n[n.length - 1], n[0]);
+  return b;
+}
+// the SVG path data (thumbnails, export)
+export function pathD(P) {
+  const n = P.n, f = (v) => +v.toFixed(4);
+  if (!n || !n.length) return '';
+  let s = `M${f(n[0][0])} ${f(n[0][1])}`;
+  const seg = (a, b) => { s += (a[4] || a[5] || b[2] || b[3]) ? `C${f(a[0] + a[4])} ${f(a[1] + a[5])} ${f(b[0] + b[2])} ${f(b[1] + b[3])} ${f(b[0])} ${f(b[1])}` : `L${f(b[0])} ${f(b[1])}`; };
+  for (let i = 1; i < n.length; i++) seg(n[i - 1], n[i]);
+  if (P.closed && n.length > 1) { seg(n[n.length - 1], n[0]); s += 'Z'; }
+  return s;
+}
+// a shape's mirror copy: flipped and turned the other way (so a swoosh points at the nose on both sides)
+const mirrored = (d) => d.path ? { ...d, flip: !d.flip, rot: -(d.rot || 0) } : d;
+
 // Everything drawn on ONE panel, in the panel's own metres (x right, y down, as seen from outside).
 // The caller has already set the transform + clip. Shared by atlas-mapped and projected models.
 export function panelArt(g, name, p, cfg, model, onReady, decals = true) {
   const L = cfg.decals && cfg.helmetDesign ? cfg : fillLivery(cfg);
   const main = hex(L.main), acc = hex(L.accent), third = hex(L.third), pat = L.pattern;
   const PW = p.W, PH = p.H, P = alongCross(p);
-  if (p.role === 'wing') { g.fillStyle = acc; g.fillRect(0, 0, PW, PH); g.fillStyle = third; g.fillRect(0, PH * 0.9, PW, PH * 0.1); }
+  if (p.role === 'wing') { g.fillStyle = L.wingColor != null ? hex(L.wingColor) : acc; g.fillRect(0, 0, PW, PH); g.fillStyle = third; g.fillRect(0, PH * 0.9, PW, PH * 0.1); }
   else if (p.role === 'plate') { g.fillStyle = acc; g.fillRect(0, 0, PW, PH * 0.22); g.fillStyle = third; g.fillRect(0, PH * 0.22, PW, PH * 0.04); }
   else {
     g.fillStyle = acc;
@@ -245,8 +291,8 @@ export function panelArt(g, name, p, cfg, model, onReady, decals = true) {
     if (d.bind && !d.text) continue;
     if (d.panel === name) {
       drawDecal(g, d, d.x, d.y, onReady);
-      if (d.mirror && !(src.pair && model.panels[src.pair])) drawDecal(g, d, PW - d.x, d.y, onReady);
-    } else if (d.mirror && src.pair === name) drawDecal(g, d, (1 - d.x / src.W) * PW, (d.y / src.H) * PH, onReady);
+      if (d.mirror && !(src.pair && model.panels[src.pair])) drawDecal(g, mirrored(d), PW - d.x, d.y, onReady);
+    } else if (d.mirror && src.pair === name) drawDecal(g, mirrored(d), (1 - d.x / src.W) * PW, (d.y / src.H) * PH, onReady);
   }
 }
 
@@ -260,13 +306,17 @@ export function decalLayers(cfg, model, ppm, onReady) {
     if (d.text != null) { // (measured at 100x: canvas fonts this small in px don't measure reliably)
       g0.font = `${FONT_W[d.font] || ''}${w * 100}px ${FONT_CSS[d.font] || FONT_CSS.impact}`;
       hw = g0.measureText(d.text).width / 200 + w * (d.bar != null ? 0.4 : 0.1); hh = w * 0.7;
+    } else if (d.path) {
+      if (!d.path.n || d.path.n.length < 2) return;
+      const b = shapeBounds(d.path), k = w / (d.path.w || w), pad = d.stroke != null ? (d.sw || 0) / 2 : 0;
+      hw = Math.max(-b[0], b[2]) * k + pad; hh = Math.max(-b[1], b[3]) * k + pad;
     } else {
       const im = decalImage(d.asset, onReady); if (!im) return;
       hh = hw * im.naturalHeight / im.naturalWidth;
     }
     // (its rotated rectangle's bounds, half-widths across / down)
     const t = ((d.rot || 0) * Math.PI) / 180, cs = Math.abs(Math.cos(t)), sn = Math.abs(Math.sin(t));
-    const rx = cs * hw + sn * hh + 0.01, ry = sn * hw + cs * hh + 0.01, k = Math.min(ppm, 2048 / (2 * Math.max(rx, ry)));
+    const rx = cs * hw + sn * hh + 0.01, ry = sn * hw + cs * hh + 0.01, k = Math.min(ppm, 4096 / (2 * Math.max(rx, ry)));
     const c = document.createElement('canvas'); c.width = Math.max(2, Math.ceil(2 * rx * k)); c.height = Math.max(2, Math.ceil(2 * ry * k));
     const g = c.getContext('2d', { willReadFrequently: true });
     g.setTransform(k, 0, 0, k, (rx - x) * k, (ry - y) * k);
@@ -280,10 +330,232 @@ export function decalLayers(cfg, model, ppm, onReady) {
     add(d, d.panel, d.x, d.y);
     if (!d.mirror) continue;
     const pr = src.pair && model.panels[src.pair];
-    if (pr) add(d, src.pair, (1 - d.x / src.W) * pr.W, (d.y / src.H) * pr.H);
-    else add(d, d.panel, src.W - d.x, d.y);
+    if (pr) add(mirrored(d), src.pair, (1 - d.x / src.W) * pr.W, (d.y / src.H) * pr.H);
+    else add(mirrored(d), d.panel, src.W - d.x, d.y);
   }
   return out;
+}
+
+// ---------------- stickers: decals draped over the body, Forza-style ----------------
+// A decal is projected onto the body from its panel's side, as before, but measured along the surface instead of flat
+// across it: a sticker 40 cm wide stays 40 cm wide where the bonnet rolls down into the nose or a flank curves under,
+// rather than being squeezed into the 40 cm the panel sees there. Its map from the body to sticker metres is one
+// smooth function of where you are on the panel (no route over the body to depend on), so it can't tear or twist round
+// a grille, a lamp or a wheel arch, and a shape's edges run where you'd expect between its nodes.
+// The mesh: the livery triangles in body coordinates (the order the texel map numbers them in) then the other body
+// parts (lamps, glass), with each face's outward normal (fn, by the model's own normals; winding isn't consistent).
+export function stickerMesh(tp, tn) {
+  const nt = tp.length / 9, fn = new Float32Array(nt * 3);
+  for (let t = 0; t < nt; t++) {
+    const o = t * 9, ax = tp[o + 3] - tp[o], ay = tp[o + 4] - tp[o + 1], az = tp[o + 5] - tp[o + 2], bx = tp[o + 6] - tp[o], by = tp[o + 7] - tp[o + 1], bz = tp[o + 8] - tp[o + 2];
+    let nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx; const l = Math.hypot(nx, ny, nz) || 1;
+    if (tn && nx * (tn[o] + tn[o + 3] + tn[o + 6]) + ny * (tn[o + 1] + tn[o + 4] + tn[o + 7]) + nz * (tn[o + 2] + tn[o + 5] + tn[o + 8]) < 0) { nx = -nx; ny = -ny; nz = -nz; }
+    fn[t * 3] = nx / l; fn[t * 3 + 1] = ny / l; fn[t * 3 + 2] = nz / l;
+  }
+  return { nt, tp, fn };
+}
+// the nearest triangle a ray (body coordinates) hits: { t, tri, b1, b2 } (Möller–Trumbore) or null. front: only faces
+// looking back at the ray (by the model's own normals), so a click doesn't land on the inside of an open part
+export function rayMesh(M, o, d, front = false) {
+  const tp = M.tp; let best = null;
+  for (let t = 0; t < M.nt; t++) {
+    if (front && M.fn[t * 3] * d[0] + M.fn[t * 3 + 1] * d[1] + M.fn[t * 3 + 2] * d[2] > 0) continue;
+    const q = t * 9, e1x = tp[q + 3] - tp[q], e1y = tp[q + 4] - tp[q + 1], e1z = tp[q + 5] - tp[q + 2], e2x = tp[q + 6] - tp[q], e2y = tp[q + 7] - tp[q + 1], e2z = tp[q + 8] - tp[q + 2];
+    const px = d[1] * e2z - d[2] * e2y, py = d[2] * e2x - d[0] * e2z, pz = d[0] * e2y - d[1] * e2x, det = e1x * px + e1y * py + e1z * pz;
+    if (Math.abs(det) < 1e-12) continue;
+    const inv = 1 / det, sx = o[0] - tp[q], sy = o[1] - tp[q + 1], sz = o[2] - tp[q + 2], u = (sx * px + sy * py + sz * pz) * inv; if (u < 0 || u > 1) continue;
+    const qx = sy * e1z - sz * e1y, qy = sz * e1x - sx * e1z, qz = sx * e1y - sy * e1x, v = (d[0] * qx + d[1] * qy + d[2] * qz) * inv; if (v < 0 || u + v > 1) continue;
+    const dist = (e2x * qx + e2y * qy + e2z * qz) * inv;
+    if (dist > 1e-6 && (!best || dist < best.t)) best = { t: dist, tri: t, b1: u, b2: v };
+  }
+  return best;
+}
+// a panel's projector as vectors: panel metres = (right . p + o[0], down . p + o[1]), looking in along -dir
+function panelAxes(pn) {
+  const o = pn.proj(0, 0, 0), ex = pn.proj(1, 0, 0), ey = pn.proj(0, 1, 0), ez = pn.proj(0, 0, 1);
+  return { o, right: [ex[0] - o[0], ey[0] - o[0], ez[0] - o[0]], down: [ex[1] - o[1], ey[1] - o[1], ez[1] - o[1]], dir: pn.dir };
+}
+// (how far past a sticker's box its sheet is worked out: the same for painting and the designer, so both agree)
+export const STICK_MARGIN = 0.3;
+const DC = 0.015, STEEP = 4, SKIN = 0.12;
+// how much surface one step across the panel covers, for a rise of dz over it: the true length, up to slopes of 4 to 1
+// (76°); steeper than that it's a step between parts (a wing above the deck, a bumper's lip) rather than a surface
+// the sticker lies on, so it eases back to flat by 8 to 1 and a stripe isn't pushed along by every step it crosses
+const along = (dz) => { const s = Math.abs(dz) / DC; return DC * (s <= STEEP ? Math.sqrt(1 + s * s) : s >= 2 * STEEP ? 1 : Math.sqrt(1 + STEEP * STEEP) + (1 - Math.sqrt(1 + STEEP * STEEP)) * (s - STEEP) / STEEP); };
+// Drape a sticker centred at (cx, cy) on panel pn, half-sizes rx, ry (+ margin), over mesh M: a 1.5 cm grid over the
+// panel round it of the outer surface's depth (openings and the space past the body's edge bridged from round them),
+// and from that the sticker metres at each grid point: along the surface from the centre, across each row for x and
+// down each column for y. Returns S for stickerPoint / stickerCoords / stickerRay / wrapDecals, or null where there's
+// no body facing this way anywhere round it.
+export function drapeSticker(M, pn, cx, cy, rx, ry, margin = STICK_MARGIN) {
+  const A = panelAxes(pn), { right: R0, down: D0, dir } = A, tp = M.tp;
+  const ci = Math.ceil((rx + margin) / DC), cj = Math.ceil((ry + margin) / DC), gw = ci * 2 + 1, gh = cj * 2 + 1, u0 = cx - ci * DC, v0 = cy - cj * DC;
+  const H = new Float32Array(gw * gh).fill(-Infinity), tris = [];
+  for (let t = 0; t < M.nt; t++) {
+    if (M.fn[t * 3] * dir[0] + M.fn[t * 3 + 1] * dir[1] + M.fn[t * 3 + 2] * dir[2] <= 0.05) continue; // (edge-on, or facing away)
+    const U = [0, 0, 0], V = [0, 0, 0], Z = [0, 0, 0];
+    for (let k = 0; k < 3; k++) { const q = t * 9 + k * 3, x = tp[q], y = tp[q + 1], z = tp[q + 2]; U[k] = (x * R0[0] + y * R0[1] + z * R0[2] + A.o[0] - u0) / DC; V[k] = (x * D0[0] + y * D0[1] + z * D0[2] + A.o[1] - v0) / DC; Z[k] = x * dir[0] + y * dir[1] + z * dir[2]; }
+    const i0 = Math.max(0, Math.ceil(Math.min(U[0], U[1], U[2]) - 0.5)), i1 = Math.min(gw - 1, Math.floor(Math.max(U[0], U[1], U[2]) + 0.5));
+    const j0 = Math.max(0, Math.ceil(Math.min(V[0], V[1], V[2]) - 0.5)), j1 = Math.min(gh - 1, Math.floor(Math.max(V[0], V[1], V[2]) + 0.5));
+    if (i0 > i1 || j0 > j1) continue;
+    tris.push(t);
+    const den = (V[1] - V[2]) * (U[0] - U[2]) + (U[2] - U[1]) * (V[0] - V[2]); if (Math.abs(den) < 1e-9) continue;
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      // (a little past its edges, so slivers between grid points still leave their mark)
+      const a = ((V[1] - V[2]) * (i - U[2]) + (U[2] - U[1]) * (j - V[2])) / den, b = ((V[2] - V[0]) * (i - U[2]) + (U[0] - U[2]) * (j - V[2])) / den, c = 1 - a - b, e = -0.5 / Math.max(1, Math.abs(den) ** 0.5);
+      if (a < e || b < e || c < e) continue;
+      const z = Z[0] * a + Z[1] * b + Z[2] * c; if (z > H[j * gw + i]) H[j * gw + i] = z;
+    }
+  }
+  if (!tris.length) return null;
+  // bridge the gaps (a grille, a lamp, a wheel arch, the air past the body's edge): straight across each row and down
+  // each column between the surface either side, the nearer side counting for more; with surface on one side only,
+  // carry it on flat. (Only nearby surface matters, so the sheet doesn't change with how far out it's worked out.)
+  const F = H.slice(), has = (k) => H[k] > -Infinity;
+  const gap = (n, at) => { // per line: for each empty spot, [value, weight] from that line's surface
+    const out = new Array(n); let last = -1;
+    for (let k = 0; k < n; k++) {
+      if (has(at(k))) { last = k; continue; }
+      let next = k; while (next < n && !has(at(next))) next++;
+      for (let q = k; q < next; q++) {
+        const a = last >= 0 ? H[at(last)] : null, b = next < n ? H[at(next)] : null;
+        if (a != null && b != null) { const f = (q - last) / (next - last); out[q] = [a + (b - a) * f, 1 / (next - last)]; }
+        else if (a != null || b != null) out[q] = [a ?? b, 0.25 / Math.abs(q - (a != null ? last : next))];
+      }
+      k = next - 1;
+    }
+    return out;
+  };
+  const rows = [], cols = [];
+  for (let j = 0; j < gh; j++) rows.push(gap(gw, (i) => j * gw + i));
+  for (let i = 0; i < gw; i++) cols.push(gap(gh, (j) => j * gw + i));
+  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) {
+    const k = j * gw + i; if (has(k)) continue;
+    const r = rows[j][i], c = cols[i][j]; let w = 0, s = 0;
+    if (r) { s += r[0] * r[1]; w += r[1]; } if (c) { s += c[0] * c[1]; w += c[1]; }
+    F[k] = w ? s / w : -Infinity;
+  }
+  { let any = 0; for (let k = 0; k < F.length; k++) if (F[k] > -Infinity) { any = F[k]; break; } for (let k = 0; k < F.length; k++) if (F[k] === -Infinity) F[k] = any; }
+  // sticker metres at each grid point: along the surface from the centre's column (x) and row (y)
+  const X = new Float32Array(gw * gh), Y = new Float32Array(gw * gh);
+  for (let j = 0; j < gh; j++) {
+    const o = j * gw;
+    for (let i = ci + 1; i < gw; i++) X[o + i] = X[o + i - 1] + along(F[o + i] - F[o + i - 1]);
+    for (let i = ci - 1; i >= 0; i--) X[o + i] = X[o + i + 1] - along(F[o + i] - F[o + i + 1]);
+  }
+  for (let i = 0; i < gw; i++) {
+    for (let j = cj + 1; j < gh; j++) Y[j * gw + i] = Y[(j - 1) * gw + i] + along(F[j * gw + i] - F[(j - 1) * gw + i]);
+    for (let j = cj - 1; j >= 0; j--) Y[j * gw + i] = Y[(j + 1) * gw + i] - along(F[j * gw + i] - F[(j + 1) * gw + i]);
+  }
+  // (bilinear between grid points; past the grid's edge, flat: depth held, sticker metres carrying on 1:1)
+  const lerp = (G, u, v) => {
+    const fx = Math.max(0, Math.min(gw - 1.000001, (u - u0) / DC)), fy = Math.max(0, Math.min(gh - 1.000001, (v - v0) / DC)), i = fx | 0, j = fy | 0, tx = fx - i, ty = fy - j, k = j * gw + i;
+    return (G[k] * (1 - tx) + G[k + 1] * tx) * (1 - ty) + (G[k + gw] * (1 - tx) + G[k + gw + 1] * tx) * ty;
+  };
+  const uMax = u0 + (gw - 1) * DC, vMax = v0 + (gh - 1) * DC;
+  const S = {
+    M, tris, A, cx, cy, u0, v0, uMax, vMax, gw, gh, F, X, Y,
+    depth: (u, v) => lerp(F, u, v),
+    // panel metres -> sticker metres
+    at: (u, v) => [lerp(X, u, v) + (u < u0 ? u - u0 : u > uMax ? u - uMax : 0), lerp(Y, u, v) + (v < v0 ? v - v0 : v > vMax ? v - vMax : 0)],
+    // and back (a few Newton steps: each axis is steady and rising, so it settles fast)
+    from: (x, y) => {
+      let u = cx + x, v = cy + y;
+      for (let n = 0; n < 12; n++) {
+        const [px, py] = S.at(u, v), [qx] = S.at(u + DC, v), [, qy] = S.at(u, v + DC);
+        const du = (x - px) / Math.max(0.2, (qx - px) / DC), dv = (y - py) / Math.max(0.2, (qy - py) / DC);
+        u += du; v += dv; if (Math.abs(du) + Math.abs(dv) < 1e-5) break;
+      }
+      return [u, v];
+    },
+    // panel metres (+ depth) -> body coordinates
+    body: (u, v, z) => { const a = u - A.o[0], b = v - A.o[1]; return [0, 1, 2].map(i => R0[i] * a + D0[i] * b + dir[i] * z); },
+    // body coordinates -> [u, v, depth]
+    panel: (p) => [p[0] * R0[0] + p[1] * R0[1] + p[2] * R0[2] + A.o[0], p[0] * D0[0] + p[1] * D0[1] + p[2] * D0[2] + A.o[1], p[0] * dir[0] + p[1] * dir[1] + p[2] * dir[2]],
+  };
+  return S;
+}
+// a point of a sticker (sticker metres) -> body coordinates, on the outer surface (over an opening or past the body's
+// edge, on the sheet bridged across it, so outlines and nodes there run on smoothly)
+export function stickerPoint(S, x, y) {
+  const [u, v] = S.from(x, y); return S.body(u, v, S.depth(u, v));
+}
+// a ray (body coordinates) -> sticker metres: where it first meets the sheet (the outer surface, bridged across gaps),
+// or failing that the flat at the sticker's centre
+export function stickerRay(S, o, dir) {
+  const [ou, ov, oz] = S.panel(o), du = S.panel([dir[0], dir[1], dir[2]]), d = [du[0] - S.A.o[0], du[1] - S.A.o[1], du[2]];
+  const under = (t) => oz + d[2] * t <= S.depth(ou + d[0] * t, ov + d[1] * t);
+  if (!under(0)) for (let t = 0.01; t < 40; t += 0.01) if (under(t)) {
+    let lo = t - 0.01, hi = t;
+    for (let k = 0; k < 12; k++) { const mid = (lo + hi) / 2; if (under(mid)) hi = mid; else lo = mid; }
+    return S.at(ou + d[0] * hi, ov + d[1] * hi);
+  }
+  if (Math.abs(d[2]) < 1e-6) return null;
+  const t = (S.depth(S.cx, S.cy) - oz) / d[2]; if (t <= 0) return null;
+  return S.at(ou + d[0] * t, ov + d[1] * t);
+}
+// a spot on triangle tri (barycentrics of its 2nd / 3rd corners) -> sticker metres, or null if it's past the sheet
+// worked out so far
+export function stickerCoords(S, tri, b1, b2) {
+  const tp = S.M.tp, q = tri * 9, b0 = 1 - b1 - b2, [u, v] = S.panel([0, 1, 2].map(i => tp[q + i] * b0 + tp[q + 3 + i] * b1 + tp[q + 6 + i] * b2));
+  if (u < S.u0 || u > S.uMax || v < S.v0 || v > S.vMax) return null;
+  return S.at(u, v);
+}
+// Lay decal layers (decalLayers) on the texels as draped stickers. m: the texel map (positions, normals, and each
+// texel's triangle in tri); col: their paint colours, changed in place. Each lands on the outer surface facing its
+// panel's way (fading out as the surface turns edge-on), not on parts hidden under it. A layer with no body round it
+// is projected the old way (projectDecals).
+export function wrapDecals(panels, names, layers, m, col, M) {
+  if (!m.tt) { // (texels by triangle, once per texel map)
+    const cnt = new Uint32Array(M.nt + 1); for (let n = 0; n < m.tri.length; n++) if (m.tri[n] >= 0) cnt[m.tri[n] + 1]++;
+    for (let t = 0; t < M.nt; t++) cnt[t + 1] += cnt[t];
+    const fill = cnt.slice(0, -1), idx = new Uint32Array(cnt[M.nt]); for (let n = 0; n < m.tri.length; n++) if (m.tri[n] >= 0) idx[fill[m.tri[n]]++] = n;
+    m.tt = cnt; m.ti = idx;
+  }
+  const { pos, nrm } = m;
+  for (const L of layers) {
+    const pn = panels[L.panel]; if (!pn || !pn.proj) { projectDecals(panels, names, [L], m, col); continue; }
+    const { x0, y0, rx, ry, k: kp, w: lw, h: lh, data } = L, S = drapeSticker(M, pn, x0 + rx, y0 + ry, rx, ry, 0.1);
+    if (!S) { projectDecals(panels, names, [L], m, col); continue; }
+    const dir = pn.dir, { right: R0, down: D0, o: O } = S.A, { u0, v0, gw, gh, F, X: GX, Y: GY } = S;
+    const tp = M.tp, cx = x0 + rx, cy = y0 + ry;
+    for (const t of S.tris) {
+      // (a sticker is never shorter on the body than on the panel, so a triangle the panel sees outside its box is too)
+      let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
+      for (let c = 0; c < 3; c++) { const q = t * 9 + c * 3, u = tp[q] * R0[0] + tp[q + 1] * R0[1] + tp[q + 2] * R0[2] + O[0], v = tp[q] * D0[0] + tp[q + 1] * D0[1] + tp[q + 2] * D0[2] + O[1]; if (u < a0) a0 = u; if (u > a1) a1 = u; if (v < b0) b0 = v; if (v > b1) b1 = v; }
+      if (a1 <= cx - rx || a0 >= cx + rx || b1 <= cy - ry || b0 >= cy + ry) continue;
+      for (let j = m.tt[t]; j < m.tt[t + 1]; j++) {
+        const n = m.ti[j], fa = (nrm[n * 3] * dir[0] + nrm[n * 3 + 1] * dir[1] + nrm[n * 3 + 2] * dir[2]) / 127; if (fa <= FACE0) continue;
+        const px = pos[n * 3], py = pos[n * 3 + 1], pz = pos[n * 3 + 2];
+        const fx = (px * R0[0] + py * R0[1] + pz * R0[2] + O[0] - u0) / DC, fy = (px * D0[0] + py * D0[1] + pz * D0[2] + O[1] - v0) / DC;
+        if (fx < 0 || fy < 0 || fx >= gw - 1 || fy >= gh - 1) continue;
+        // (the sheet there, bilinear: its depth, to leave parts under another alone, and the sticker metres)
+        const i = fx | 0, k = (fy | 0) * gw + i, ex = fx - i, ey = fy - (fy | 0), w00 = (1 - ex) * (1 - ey), w10 = ex * (1 - ey), w01 = (1 - ex) * ey, w11 = ex * ey;
+        if (px * dir[0] + py * dir[1] + pz * dir[2] < F[k] * w00 + F[k + 1] * w10 + F[k + gw] * w01 + F[k + gw + 1] * w11 - SKIN) continue;
+        const X = GX[k] * w00 + GX[k + 1] * w10 + GX[k + gw] * w01 + GX[k + gw + 1] * w11, Y = GY[k] * w00 + GY[k + 1] * w10 + GY[k + gw] * w01 + GY[k + gw + 1] * w11;
+        if (X <= -rx || X >= rx || Y <= -ry || Y >= ry) continue;
+        // (bilinear, premultiplied: smooth edges without fringes)
+        const sx = Math.max(0, Math.min(lw - 1.001, (X + rx) * kp - 0.5)), sy = Math.max(0, Math.min(lh - 1.001, (Y + ry) * kp - 0.5));
+        const ix = sx | 0, iy = sy | 0, tx = sx - ix, ty = sy - iy, xa = Math.min(lw - 1, ix + 1), ya = Math.min(lh - 1, iy + 1);
+        const q0 = (iy * lw + ix) * 4, q1 = (iy * lw + xa) * 4, q2 = (ya * lw + ix) * 4, q3 = (ya * lw + xa) * 4;
+        const a0_ = (1 - tx) * (1 - ty) * data[q0 + 3], a1_ = tx * (1 - ty) * data[q1 + 3], a2_ = (1 - tx) * ty * data[q2 + 3], a3_ = tx * ty * data[q3 + 3], a = a0_ + a1_ + a2_ + a3_;
+        if (!a) continue;
+        const R = a0_ * data[q0] + a1_ * data[q1] + a2_ * data[q2] + a3_ * data[q3], G = a0_ * data[q0 + 1] + a1_ * data[q1 + 1] + a2_ * data[q2 + 1] + a3_ * data[q3 + 1], B = a0_ * data[q0 + 2] + a1_ * data[q1 + 2] + a2_ * data[q2 + 2] + a3_ * data[q3 + 2];
+        const al = a / 255 * Math.min(1, (fa - FACE0) / (FACE1 - FACE0));
+        col[n * 3] += (R / a - col[n * 3]) * al; col[n * 3 + 1] += (G / a - col[n * 3 + 1]) * al; col[n * 3 + 2] += (B / a - col[n * 3 + 2]) * al;
+      }
+    }
+  }
+}
+
+// A panel canvas ({ d: RGBA, w, h }, ppm px per metre) read at (x, y) metres, bilinear, into col[o..o+2]. Panels are
+// drawn finer than the car's texels (projected models: 4 px per texel row of the livery canvas, R / 4 per metre), so
+// stripes and pattern edges come out smooth rather than stepped.
+export function samplePanel(D, x, y, ppm, col, o) {
+  const sx = Math.max(0, Math.min(D.w - 1.001, x * ppm - 0.5)), sy = Math.max(0, Math.min(D.h - 1.001, y * ppm - 0.5));
+  const ix = sx | 0, iy = sy | 0, tx = sx - ix, ty = sy - iy, x1 = Math.min(D.w - 1, ix + 1), y1 = Math.min(D.h - 1, iy + 1), d = D.d;
+  const a = (iy * D.w + ix) * 4, b = (iy * D.w + x1) * 4, c = (y1 * D.w + ix) * 4, e = (y1 * D.w + x1) * 4;
+  for (let k = 0; k < 3; k++) col[o + k] = (d[a + k] * (1 - tx) + d[b + k] * tx) * (1 - ty) + (d[c + k] * (1 - tx) + d[e + k] * tx) * ty;
 }
 
 // Lays decal layers over a projected model's texels, like a projector aimed at the car. Each decal sits on the outer
@@ -294,7 +566,9 @@ export function decalLayers(cfg, model, ppm, onReady) {
 // turns away, and lands only on the outermost surface at each spot (a stripe from above: bonnet, roof, then boot).
 // m: per texel pos (x, y, z), nrm (smooth normal, x127), ar (3D area); col: their paint colours (r, g, b), changed in
 // place.
-const FACE0 = 0.2, FACE1 = 0.45, DEPTH = 0.12; // facing (cos) where a decal starts / is full; how far under the outer surface (m)
+// facing (cos) where a decal starts / is full: it stays solid over curves (stretching, like Forza's vinyls) and only
+// fades out on surfaces nearly edge-on to it; how far under the outer surface it still lands (m)
+const FACE0 = 0.07, FACE1 = 0.17, DEPTH = 0.12;
 export function projectDecals(panels, names, layers, m, col) {
   const { pos, nrm, ar } = m, G = texelGrid(m);
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -353,9 +627,17 @@ export function projectDecals(panels, names, layers, m, col) {
     }
     G.each(lo, hi, (n) => {
       if (!at(n, f) || (!globalThis.NOOCC && f[2] < gd[cell()] - DEPTH)) return; // (hidden under the outer surface)
-      const q = (Math.min(lh - 1, (f[1] + ry) * kp | 0) * lw + Math.min(lw - 1, (f[0] + rx) * kp | 0)) * 4;
-      const a = data[q + 3] / 255 * Math.min(1, (f[3] - FACE0) / (FACE1 - FACE0)); if (!a) return;
-      col[n * 3] += (data[q] - col[n * 3]) * a; col[n * 3 + 1] += (data[q + 1] - col[n * 3 + 1]) * a; col[n * 3 + 2] += (data[q + 2] - col[n * 3 + 2]) * a;
+      // (bilinear, premultiplied: the layer is drawn finer than the texels, so edges come out smooth, without fringes)
+      const sx = Math.max(0, Math.min(lw - 1.001, (f[0] + rx) * kp - 0.5)), sy = Math.max(0, Math.min(lh - 1.001, (f[1] + ry) * kp - 0.5));
+      const ix = sx | 0, iy = sy | 0, tx = sx - ix, ty = sy - iy, x1 = Math.min(lw - 1, ix + 1), y1 = Math.min(lh - 1, iy + 1);
+      let A = 0, R = 0, Gc = 0, B = 0;
+      for (const [qx, qy, w] of [[ix, iy, (1 - tx) * (1 - ty)], [x1, iy, tx * (1 - ty)], [ix, y1, (1 - tx) * ty], [x1, y1, tx * ty]]) {
+        const q = (qy * lw + qx) * 4, wa = w * data[q + 3]; if (!wa) continue;
+        A += wa; R += wa * data[q]; Gc += wa * data[q + 1]; B += wa * data[q + 2];
+      }
+      if (!A) return;
+      const a = A / 255 * Math.min(1, (f[3] - FACE0) / (FACE1 - FACE0));
+      col[n * 3] += (R / A - col[n * 3]) * a; col[n * 3 + 1] += (Gc / A - col[n * 3 + 1]) * a; col[n * 3 + 2] += (B / A - col[n * 3 + 2]) * a;
     });
   }
 }

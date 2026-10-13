@@ -8,6 +8,7 @@
 // editor can select, move, rotate and delete them like any other building.
 import { envAssets, envAsset, envReady } from './envlib.js';
 import { buildingClear, pointClear, orientedRect, centroid, polyArea } from './zones.js';
+import { kerbW } from './track.js';
 
 // weights per class; rows: extra rows of buildings behind the frontage; props: expected count per 100 m of frontage
 export const SETTINGS = {
@@ -586,7 +587,7 @@ export function generateSetting(track, T, A, roads, taken) {
     const onPit = (i, side) => pit && pit.REG[i] >= 0 && pit.side === side;
     for (const side of [-1, 1]) for (let d = rng() * step; d < T.L; d += step) {
       const i = Math.floor(d / T.ds) % N; if (onPit(i, side) || A.BRIDGE[i]) continue;
-      const half = T.W[i] / 2, bar = side < 0 ? A.BL[i] : A.BR[i], kerb = A.KERB[i] ? 1.3 : 0;
+      const half = T.W[i] / 2, bar = side < 0 ? A.BL[i] : A.BR[i], kerb = kerbW(A, i, side);
       const at = (off) => [T.X[i] + T.RX[i] * off * side + T.FX[i] * (rng() - 0.5) * 2, T.Z[i] + T.RZ[i] * off * side + T.FZ[i] * (rng() - 0.5) * 2];
       const r = rng(), k = litter;
       let off = -1, list = null, sc = 1;

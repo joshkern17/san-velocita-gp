@@ -132,9 +132,10 @@ F1 dirty air / DRS / ERS, tyre temperatures, learning the AI plans in a Web Work
 
 - **Dirty air (2026-10-06, `PROTO` 26).** `phys.wake` 0..1 (race.js `slipstream`, next to the tow): a car ahead
   within 40 m, strongest right behind, the wake ~1.3 m + 3% of the gap wide, fading 1 m past that. `aero` takes
-  `wake [front, rear]` × it off each axle's downforce (F1 [0.4, 0.18], GT [0.3, 0.12], default `WAKE` [0.25, 0.1]):
-  right behind, an F1 at 200 km/h loses ~14% of its grip (corner speed -7%), mostly at the front (push); a GT car
-  ~4%; road cars nothing. The AI slows by the worst-hit axle's grip loss (`aiControls`; by the average instead, F1
+  `wake [front, rear]` × it off each axle's downforce (F1 [0.15, 0.06], GT [0.3, 0.12], default `WAKE` [0.25, 0.1]):
+  right behind, an F1 at 200 km/h loses ~5% of its grip, mostly at the front (push); a GT car ~4%; road cars nothing.
+  (F1 was [0.4, 0.18], ~14%, until 2026-10-09: true to modern F1, but a follower dropped out of reach and could never
+  set up a pass: in two-car duels from every corner at Auburn, 0.15 kept the follower within reach in 54 of 55.) The AI slows by the worst-hit axle's grip loss (`aiControls`; by the average instead, F1
   wall hits per 2-lap race went 22 -> 41; with it 27, inside the usual 22-35). `opts.wake false` turns it off.
   Part of the sim-depth plan: next track rubbering in, tyre temperatures, a tuning menu with saved setups.
 - **Track rubbering in (2026-10-06, `PROTO` 27, `js/rubber.js`).** 24 lanes across x every sample. The session starts

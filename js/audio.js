@@ -100,6 +100,24 @@ function engineBuffer(id, mode) {
   }
   return engineBufs[key];
 }
+// Engine Sound (Options): 'classic' (default) or 'crisp'. Classic drives the saturator hard, which flattens the firing
+// pulses (crest ~15 -> ~7.5 dB on the flat-plane V8), boosts the lows +8 / +4.5 dB and cuts the top twice (-7 dB shelf
+// at 3 kHz, lowpass at 3/4 of the profile's). Crisp is the same tone with the punch back: the model trimmed 6 dB before
+// the saturator and mixed half and half with the clean signal (the attack survives), the lows +5 / +3 dB, a -4 dB shelf,
+// the lowpass at 0.9, and the level matched to Classic's (within ~1 dB; peaks stay 9 dB+ under full scale). (A harder
+// version, with saturator harmonics above 900 Hz added as rasp and the top end opened right up, measured crisper but
+// sounded harsh: the edge path is kept, off.)
+let engineSound = 'classic';
+export function setEngineSound(m) { engineSound = m === 'crisp' ? 'crisp' : 'classic'; }
+// the physical model's chain for engine `id` at load L (0..1) and rev fraction x (0..1): gains, EQ, lowpass Hz, level
+export function physChain(id, L, x) {
+  const P = physOptions(id), E = ENGINES[id] || ENGINES.f1v6;
+  const lpOld = E.lp[0] + (E.lp[1] - E.lp[0]) * (0.2 * x + 0.8 * L * (0.35 + 0.65 * x));
+  if (engineSound === 'classic') return { pre: 1, wet: 1, dry: 0, edge: 0, push: 0.9 + 0.8 * L, body: P.body ?? 8, throat: P.throat ?? 4.5,
+    tame: ['highshelf', 3000, P.bright ?? -7, 0.7], lp: 0.75 * lpOld, level: 0.4 * (0.34 + 0.22 * L + 0.2 * x) };
+  return { pre: 0.5, wet: 0.6, dry: 0.6, edge: 0, push: 0.9 + 0.8 * L, body: 5, throat: 3, tame: ['highshelf', 3000, -4, 0.7],
+    lp: 0.9 * lpOld, level: 0.88 * (0.34 + 0.22 * L + 0.2 * x) };
+}
 function shapeCurve(amount) {
   const n = 1024, c = new Float32Array(n);
   for (let i = 0; i < n; i++) { const x = (i / n) * 2 - 1; c[i] = ((1 + amount) * x) / (1 + amount * Math.abs(x)); }
@@ -168,15 +186,19 @@ export class EngineVoice {
       else if (!this.coreWait) this.coreWait = workletReady.then(ok => {
         if (!ok || !this.out) { this.model = 'loop'; this.profile = null; return this.setProfile(id); }
         this.core = new AudioWorkletNode(ctx, 'svgp-engine', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [1], processorOptions: physOptions(this.profile) });
-        // body: saturation pushed harder on throttle (thickness, grit), a low-shelf boost (depth), a low-mid "throat"
-        // bump (growl), a high-shelf cut (less tin), then the load lowpass
-        this.push = ctx.createGain();
+        // body: a trim, then saturation pushed harder on throttle (grit) mixed with the clean signal (the firing pulses
+        // keep their attack) plus its harmonics alone as an edge (rasp), a low-shelf boost (depth), a low-mid "throat" bump (growl), a top-end tamer, then the
+        // load lowpass. The amounts are physChain's, per Engine Sound mode.
+        this.pre = ctx.createGain(); this.push = ctx.createGain(); this.wet = ctx.createGain(); this.dry = ctx.createGain();
         this.thick = ctx.createWaveShaper(); this.thick.curve = shapeCurve(2.6);
         this.body = ctx.createBiquadFilter(); this.body.type = 'lowshelf'; this.body.frequency.value = 170;
         this.throat = ctx.createBiquadFilter(); this.throat.type = 'peaking'; this.throat.frequency.value = 320; this.throat.Q.value = 0.9;
-        this.tame = ctx.createBiquadFilter(); this.tame.type = 'highshelf'; this.tame.frequency.value = 3000;
-        this.core.connect(this.push); this.push.connect(this.thick); this.thick.connect(this.body); this.body.connect(this.throat);
-        this.throat.connect(this.tame); this.tame.connect(this.lp);
+        this.tame = ctx.createBiquadFilter();
+        this.core.connect(this.pre); this.pre.connect(this.push); this.push.connect(this.thick); this.thick.connect(this.wet); this.wet.connect(this.body);
+        this.pre.connect(this.dry); this.dry.connect(this.body);
+        this.edgeHp = ctx.createBiquadFilter(); this.edgeHp.type = 'highpass'; this.edgeHp.frequency.value = 900; this.edgeHp.Q.value = 0.7;
+        this.edge = ctx.createGain(); this.thick.connect(this.edgeHp); this.edgeHp.connect(this.edge); this.edge.connect(this.body);
+        this.body.connect(this.throat); this.throat.connect(this.tame); this.tame.connect(this.lp);
         this.physEq();
       });
       return;
@@ -188,8 +210,10 @@ export class EngineVoice {
     this.forms.forEach((f, k) => { const F = E.formants[k]; f.frequency.value = F ? F[0] : 1000; f.gain.value = F ? F[1] : 0; f.Q.value = F ? F[2] : 1; });
   }
   physEq() {
-    const P = physOptions(this.profile);
-    this.body.gain.value = P.body ?? 8; this.tame.gain.value = P.bright ?? -7; this.throat.gain.value = P.throat ?? 4.5;
+    const C = physChain(this.profile, 0, 0); this.sound = engineSound;
+    this.pre.gain.value = C.pre; this.wet.gain.value = C.wet; this.dry.gain.value = C.dry; this.edge.gain.value = C.edge;
+    this.body.gain.value = C.body; this.throat.gain.value = C.throat;
+    this.tame.type = C.tame[0]; this.tame.frequency.value = C.tame[1]; this.tame.gain.value = C.tame[2]; this.tame.Q.value = C.tame[3];
   }
   update(p) {
     if (!ctx || !this.out) return;
@@ -203,7 +227,10 @@ export class EngineVoice {
       if (this.core) {
         this.core.parameters.get('rpm').setTargetAtTime(p.rpm * (p.doppler || 1), t, 0.02);
         this.core.parameters.get('throttle').setTargetAtTime(L, t, 0.03);
-        if (this.push) this.push.gain.setTargetAtTime(0.9 + 0.8 * L, t, 0.04); // (on throttle the saturation bites harder)
+        if (this.push) {
+          if (this.sound !== engineSound) this.physEq();
+          this.push.gain.setTargetAtTime(physChain(this.profile, L, x).push, t, 0.04); // (on throttle the saturation bites harder)
+        }
       }
     } else {
       const rate = Math.max(0.05, (p.rpm / REF_RPM) * (p.doppler || 1));
@@ -211,9 +238,11 @@ export class EngineVoice {
       this.onG.gain.setTargetAtTime(0.3 + 0.7 * L, t, 0.03);
       this.offG.gain.setTargetAtTime((1 - L) * 0.9, t, 0.03);
     }
-    const lpK = this.model === 'phys' ? 0.75 : 1; // (the physical model: a darker top end)
-    this.lp.frequency.setTargetAtTime(lpK * (E.lp[0] + (E.lp[1] - E.lp[0]) * (0.2 * x + 0.8 * L * (0.35 + 0.65 * x))), t, 0.04);
-    this.eng.gain.setTargetAtTime((this.model === 'phys' ? 0.4 : E.gain) * (0.34 + 0.22 * L + 0.2 * x), t, 0.04);
+    if (this.model === 'phys') { const C = physChain(this.profile, L, x); this.lp.frequency.setTargetAtTime(C.lp, t, 0.04); this.eng.gain.setTargetAtTime(C.level, t, 0.04); }
+    else {
+      this.lp.frequency.setTargetAtTime(E.lp[0] + (E.lp[1] - E.lp[0]) * (0.2 * x + 0.8 * L * (0.35 + 0.65 * x)), t, 0.04);
+      this.eng.gain.setTargetAtTime(E.gain * (0.34 + 0.22 * L + 0.2 * x), t, 0.04);
+    }
     this.out.gain.setTargetAtTime(lvl * 0.55, t, 0.05);
     this.indBp.frequency.setTargetAtTime(350 + x * 2600, t, 0.05);
     this.indG.gain.setTargetAtTime(L * (0.015 + 0.05 * x) * (E.turbo ? 0.6 : 1), t, 0.05);

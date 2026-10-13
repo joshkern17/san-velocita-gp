@@ -23,6 +23,7 @@ export const RUNOFF_STYLES = {
   paved:  { label: 'Paved',  hint: 'Paved all the way to the barrier, all the way round, with a strip of gravel at the back of the big corners.' },
   gravel: { label: 'Gravel', hint: 'The classic: grass to the white line, gravel traps on the outside of every corner.' },
   grass:  { label: 'Grass',  hint: 'Grass to the white line and nothing else, like an old club circuit.' },
+  real:   { label: 'Real',   hint: 'As the real circuit: paved, gravel and grass where they really are (aerial photos + the map).', real: true },
 };
 // full: paved out to the barrier everywhere (less the gravel at the back of the corners: entry, a share of the
 // runoff, is where it starts); shoulder: paved strip along the straights (m); apron: paved behind the kerb on a corner's inside; entry: paved
@@ -36,6 +37,7 @@ const STYLE = {
   grass:  { shoulder: 0, apron: 0, entry: 0, exit: 0, perD: 0, gravel: 0, gravelExit: 0, widen: 0.6 },
   none:   { shoulder: 0, apron: 0, entry: 0, exit: 0, perD: 0, gravel: 0, gravelExit: 0, widen: 0 },
 };
+STYLE.real = STYLE.mixed; // (the barriers still stand back as the mix has them; without the map it's the mix)
 export function runoffStyle(env) {
   const s = env.runoffStyle || 'auto';
   if (s !== 'auto' && STYLE[s]) return s;
@@ -43,6 +45,180 @@ export function runoffStyle(env) {
 }
 // painted runoff (editor PAINT tool): these brushes put their surface on the runoff and push the wall back
 export const isRunoffPaint = (st) => st.kind === 'paved' || st.kind === 'gravel';
+
+// ---- a real circuit's barriers (tools/tracks/build.mjs: OSM walls, fences, guard rails as [{ k, p: [[x, z]...] }]) ----
+// Where each side's barrier really stands: from the track edge straight out, the first real wall / fence / rail
+// (within reach, and not past another part of the circuit). Short gaps (a gate, a marshals' opening, a missing bit
+// of map) are bridged, odd ones out dropped (a median along the track); where there's nothing it's NaN (the usual
+// layout stands). Returns [left, right] offsets from the centre line (m), or null. nearWall: how close to the track
+// edge a mapped wall still counts (m): on a circuit, walls traced along the edge are the map marking the track's
+// limits (the real barrier is the fence or rail further out); on a street circuit, the walls really are there.
+const WALL_REACH = 90;
+// surf (surfaceGrid): the barrier stands past the paved and gravel runoff the photos see from the track edge out (a
+// wall or fence the map draws through a gravel trap or across painted runoff is the map's, or another road's).
+export function realWallOffsets(T, walls, hash, sep, nearWall = 4, surf = null) {
+  if (!walls || !walls.length) return null;
+  const N = T.N, CELL = 20, grid = new Map();
+  const segs = [];
+  for (const w of walls) for (let k = 0; k + 1 < w.p.length; k++) {
+    const [ax, az] = w.p[k], [bx, bz] = w.p[k + 1], id = segs.length; segs.push([ax, az, bx, bz, w.k === 'wall' ? nearWall : 1]);
+    const L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.ceil(L / (CELL / 2)));
+    for (let j = 0; j <= n; j++) {
+      const key = Math.floor((ax + (bx - ax) * j / n) / CELL) + ',' + Math.floor((az + (bz - az) * j / n) / CELL);
+      let a = grid.get(key); if (!a) grid.set(key, a = new Set()); a.add(id);
+    }
+  }
+  let maxW = 0; for (let i = 0; i < N; i++) maxW = Math.max(maxW, T.W[i]);
+  const circ = (a, b) => { const d = Math.abs(a - b); return Math.min(d, N - d); };
+  const out = [new Float32Array(N).fill(NaN), new Float32Array(N).fill(NaN)];
+  for (let s = 0; s < 2; s++) {
+    const side = s ? 1 : -1, raw = new Float32Array(N).fill(NaN);
+    for (let i = 0; i < N; i++) {
+      const half = T.W[i] / 2, dx = T.RX[i] * side, dz = T.RZ[i] * side, x0 = T.X[i], z0 = T.Z[i];
+      // (another part of the circuit across the way: the ray stops short of its road)
+      let free = half + WALL_REACH;
+      hash.query(x0, z0, half + WALL_REACH + maxW / 2, (j) => {
+        if (circ(i, j) < sep) return;
+        const ex = T.X[j] - x0, ez = T.Z[j] - z0, r = T.W[j] / 2 + 1;
+        const lat = ex * dx + ez * dz, along = ex * T.FX[i] + ez * T.FZ[i];
+        if (Math.abs(along) >= r || lat <= 0) return;
+        free = Math.min(free, lat - Math.sqrt(r * r - along * along));
+      });
+      // the first wall the ray meets past the track edge (+1 m: a wall on the white line is the map's slop)
+      const ids = new Set();
+      for (let t = 0; t <= free + CELL; t += CELL / 2) {
+        const a = grid.get(Math.floor((x0 + dx * t) / CELL) + ',' + Math.floor((z0 + dz * t) / CELL)); if (a) for (const id of a) ids.add(id);
+      }
+      // (the runoff the photos see: paved or gravel from the edge out, through gaps of grass or nothing up to 4 m)
+      let run = half;
+      if (surf) for (let t = half + 0.5, miss = 0; t < half + 60; t += 1) {
+        const k = surf.at(x0 + dx * t, z0 + dz * t);
+        if (k === 1 || k === 2) { run = t; miss = 0; } else if (++miss > 4) break;
+      }
+      let best = Infinity;
+      for (const id of ids) {
+        const [ax, az, bx, bz, near] = segs[id], ex = bx - ax, ez = bz - az, den = dx * ez - dz * ex;
+        if (Math.abs(den) < 1e-9) continue;
+        const t = ((ax - x0) * ez - (az - z0) * ex) / den, u = ((ax - x0) * dz - (az - z0) * dx) / den;
+        if (u >= 0 && u <= 1 && t > Math.max(half + near, run) && t < best) best = t;
+      }
+      if (best <= free) raw[i] = best;
+    }
+    // odd ones out: a median of the hits around (needs most of them to agree), then gaps under 25 m bridged
+    const w = Math.max(2, Math.round(10 / T.ds)), med = new Float32Array(N).fill(NaN), buf = [];
+    for (let i = 0; i < N; i++) {
+      buf.length = 0; for (let k = -w; k <= w; k++) { const v = raw[(i + k + N) % N]; if (v === v) buf.push(v); }
+      if (buf.length > w && raw[i] === raw[i]) { buf.sort((a, b) => a - b); med[i] = buf[buf.length >> 1]; }
+    }
+    const gap = Math.round(25 / T.ds);
+    for (let i = 0; i < N; i++) {
+      if (med[i] === med[i] || med[(i - 1 + N) % N] !== med[(i - 1 + N) % N]) continue;
+      let n = 0; while (n < gap && med[(i + n) % N] !== med[(i + n) % N]) n++;
+      if (n >= gap) continue;
+      const a = med[(i - 1 + N) % N], b = med[(i + n) % N];
+      for (let k = 0; k < n; k++) out[s][(i + k) % N] = a + (b - a) * (k + 1) / (n + 1);
+    }
+    for (let i = 0; i < N; i++) if (med[i] === med[i]) out[s][i] = med[i];
+  }
+  return out;
+}
+
+// ---- (dev) a reference model's ground (tools/tracks/build.mjs --ref): heights on a grid, the model's own in cm ----
+// { res, x0, z0, w, h, cm: base64 Int16 (-32768: none) }; M: the track's refModel (game y = (y + dy) * exag).
+// at(x, z): the game height there (blended between cells), or NaN where the model has no ground
+const heights = new WeakMap();
+export function groundGrid(G, M) {
+  if (!G || !G.cm || !M) return null;
+  let g = heights.get(G);
+  if (!g) {
+    const bin = atob(G.cm), u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    const cm = new Int16Array(u8.buffer), e = M.exag || 1, dy = M.dy || 0;
+    const H = (cx, cz) => { if (cx < 0 || cz < 0 || cx >= G.w || cz >= G.h) return NaN; const v = cm[cz * G.w + cx]; return v === -32768 ? NaN : (v / 100 + dy) * e; };
+    g = { at(x, z) {
+      const fx = (x - G.x0) / G.res - 0.5, fz = (z - G.z0) / G.res - 0.5, cx = Math.floor(fx), cz = Math.floor(fz), u = fx - cx, v = fz - cz;
+      const a = H(cx, cz), b = H(cx + 1, cz), c = H(cx, cz + 1), d = H(cx + 1, cz + 1);
+      if (a === a && b === b && c === c && d === d) return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v;
+      return u < 0.5 ? (v < 0.5 ? a : c) : (v < 0.5 ? b : d); // (at the model's edge: the nearest cell, if it has one)
+    } };
+    heights.set(G, g);
+  }
+  return g;
+}
+
+// The ground beside the road as the wheels ride it, from a reference model's ground (groundGrid): for each sample and
+// side, every RUN_RES out from the edge to PROF_REACH, its height above the road's edge there (m). Built so nothing in
+// it can kick the suspension, however the model's ground is: gaps filled from beside them, averaged over ~12 m along
+// the track (a drain, a kerb's end, a seam between two meshes), starting level with the road's edge and never rising
+// faster than PROF_UP or falling faster than PROF_DOWN per metre out (a bank is still a bank). edgeY(i, s): the road's
+// height at sample i's edge on side s (-1 / 1). Returns { C, N, rel: Float32Array(N * 2 * C) } or null.
+const PROF_REACH = 40, PROF_UP = 0.4, PROF_DOWN = 0.6;
+// otherY(x, z, i): the height of another part of the circuit's road at (x, z) (not the stretch round sample i), or
+// NaN: where a row runs into one (across a chicane, inside a hairpin) the profile eases onto its height over the last
+// 3 m before it, so a car crossing over meets that road where it is.
+export function groundProfile(T, grid, edgeY, otherY = null) {
+  if (!grid) return null;
+  const N = T.N, C = Math.ceil(PROF_REACH / RUN_RES) + 1, raw = new Float32Array(N * 2 * C).fill(NaN);
+  for (let i = 0; i < N; i++) for (let s = 0; s < 2; s++) {
+    const side = s ? 1 : -1, half = T.W[i] / 2, ey = edgeY(i, side), o = (i * 2 + s) * C;
+    for (let c = 0; c < C; c++) {
+      const t = half + c * RUN_RES, g = grid.at(T.X[i] + T.RX[i] * side * t, T.Z[i] + T.RZ[i] * side * t);
+      if (g === g) raw[o + c] = g - ey;
+    }
+    // (gaps across: carried on from the nearest cell inside, or level with the road where there's none yet)
+    let last = 0; for (let c = 0; c < C; c++) { if (raw[o + c] === raw[o + c]) last = raw[o + c]; else raw[o + c] = last; }
+  }
+  // along the track: averaged over +-6 m
+  const w = Math.max(1, Math.round(6 / T.ds)), rel = new Float32Array(N * 2 * C), open = T.cut >= 0;
+  for (let i = 0; i < N; i++) for (let s = 0; s < 2; s++) for (let c = 0; c < C; c++) {
+    let sum = 0, n = 0;
+    for (let k = -w; k <= w; k++) { let j = i + k; if (open) { if (j < 0 || j >= N) continue; } else j = (j + N) % N; sum += raw[(j * 2 + s) * C + c]; n++; }
+    rel[(i * 2 + s) * C + c] = sum / n;
+  }
+  // another part of the circuit's road across the way: the row eases onto it over the 3 m before it and holds it
+  if (otherY) for (let i = 0; i < N; i++) for (let s = 0; s < 2; s++) {
+    const side = s ? 1 : -1, half = T.W[i] / 2, ey = edgeY(i, side), o = (i * 2 + s) * C;
+    for (let c = 2; c < C; c += 2) {
+      const t = half + c * RUN_RES, y = otherY(T.X[i] + T.RX[i] * side * t, T.Z[i] + T.RZ[i] * side * t, i);
+      if (y !== y) continue;
+      const target = y - ey, ease = Math.round(3 / RUN_RES);
+      for (let q = Math.max(1, c - ease); q < C; q++) { const u = q >= c ? 1 : (q - (c - ease)) / ease, e = u * u * (3 - 2 * u); rel[o + q] = rel[o + q] * (1 - e) + target * e; }
+      break;
+    }
+  }
+  // across: from the edge, level, then no steeper than the limits
+  for (let i = 0; i < N; i++) for (let s = 0; s < 2; s++) {
+    const o = (i * 2 + s) * C; let prev = 0;
+    for (let c = 0; c < C; c++) { const v = Math.max(prev - PROF_DOWN * RUN_RES, Math.min(prev + PROF_UP * RUN_RES, c ? rel[o + c] : 0)); rel[o + c] = v; prev = v; }
+  }
+  return { C, N, rel };
+}
+// the profile's height at row (fractional sample), side 0 / 1, t m out from the edge: blended between rows and cells
+export function profileAt(P, row, s, t) {
+  const C = P.C, N = P.N, x = Math.max(0, Math.min(C - 1.001, t / RUN_RES)), c = Math.floor(x), u = x - c;
+  const r = Math.floor(row), v = row - r, r0 = ((r % N) + N) % N, r1 = (r0 + 1) % N;
+  const a = (r0 * 2 + s) * C + c, b = (r1 * 2 + s) * C + c, R = P.rel;
+  return (R[a] * (1 - u) + R[a + 1] * u) * (1 - v) + (R[b] * (1 - u) + R[b + 1] * u) * v;
+}
+
+// ---- a real circuit's surface map (tools/tracks/surface.mjs): classes on a grid in track metres ----
+// { res, x0, z0, w, h, rle: base64 of [class, run (varint)]... row-major }; classes 0 none, 1 paved, 2 gravel, 3 grass
+const grids = new WeakMap();
+export function surfaceGrid(S) {
+  if (!S || !S.rle) return null;
+  let g = grids.get(S);
+  if (!g) {
+    const bin = atob(S.rle), cls = new Uint8Array(S.w * S.h);
+    for (let i = 0, o = 0; i < bin.length && o < cls.length;) {
+      const v = bin.charCodeAt(i++); let m = 0, sh = 0, b;
+      do { b = bin.charCodeAt(i++); m |= (b & 127) << sh; sh += 7; } while (b & 128);
+      cls.fill(v, o, o + m); o += m;
+    }
+    g = { ...S, cls, at(x, z) { const cx = Math.floor((x - S.x0) / S.res), cz = Math.floor((z - S.z0) / S.res); return cx < 0 || cz < 0 || cx >= S.w || cz >= S.h ? 0 : cls[cz * S.w + cx]; } };
+    grids.set(S, g);
+  }
+  return g;
+}
 
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
@@ -100,8 +276,20 @@ export function cornerZones(T, V) {
 }
 
 // distance from (x, z) to a stroke's path (pts [[x, z], ...])
-function strokeDist(st, x, z) {
+// how far (x, z) is from a painted stroke's line (its brush reaches st.r from it); an area (st.area: a closed outline,
+// the PAINT tool's Shape) the same way round: from its edge, negative inside it (so r - this is how far in)
+export function strokeDist(st, x, z) {
   const p = st.pts; let best = Infinity;
+  if (st.area && p.length > 2) {
+    let inside = false;
+    for (let k = 0, j = p.length - 1; k < p.length; j = k++) {
+      const [ax, az] = p[k], [bx, bz] = p[j];
+      if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) inside = !inside;
+      const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1e-9, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2));
+      best = Math.min(best, Math.hypot(x - ax - dx * t, z - az - dz * t));
+    }
+    return inside ? -best : best;
+  }
   if (p.length === 1) return Math.hypot(x - p[0][0], z - p[0][1]);
   for (let k = 0; k + 1 < p.length; k++) {
     const ax = p[k][0], az = p[k][1], dx = p[k + 1][0] - ax, dz = p[k + 1][1] - az, L2 = dx * dx + dz * dz || 1e-9;
@@ -111,7 +299,7 @@ function strokeDist(st, x, z) {
   }
   return best;
 }
-const strokeBox = (st) => {
+export const strokeBox = (st) => {
   let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
   for (const [x, z] of st.pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
   const r = st.r || 8; return [x0 - r, z0 - r, x1 + r, z1 + r];
@@ -192,6 +380,7 @@ export function runoffReach(T, env, paint, V, hash, sep, BR2, off) {
 // { C, N, cells: Uint8Array(N * 2 * C * 4) (paved, gravel, grass distances, 255 per cell), reach: [Float32Array x2] }
 export function runoffLayout(T, A, track) {
   const N = T.N, env = track.env, base = env.runoff || 0, styleId = runoffStyle(env), S = STYLE[styleId];
+  const grid = styleId === 'real' ? surfaceGrid(track.osm && track.osm.surface) : null;
   const Z = A.RZ, pit = A.pit;
   const reach = [new Float32Array(N), new Float32Array(N)];
   let maxR = 0;
@@ -210,7 +399,8 @@ export function runoffLayout(T, A, track) {
   const at = (i, s, c) => ((i * 2 + s) * C + c) * 4;
   // (no runoff on a bridge deck; on the pit lane's ramps it runs up to the lane's tarmac)
   const skip = (i, s) => A.BRIDGE[i];
-  for (let s = 0; s < 2; s++) for (let i = 0; i < N; i++) {
+  if (grid) realLayout(T, grid, reach, C, cells, skip);
+  else for (let s = 0; s < 2; s++) for (let i = 0; i < N; i++) {
     if (skip(i, s)) continue;
     const R = reach[s][i], E = Z ? Z.E[s][i] : 0, X = Z ? Z.X[s][i] : 0, I = Z ? Z.I[s][i] : 0, D = Z ? Math.max(Z.D[s][i], 0) : 0;
     const entry = S.entry < 1 ? S.entry * R : S.entry, exit = Math.min(R, S.exit + S.perD * D);
@@ -255,6 +445,34 @@ export function runoffLayout(T, A, track) {
     }
   }
   return { C, N, cells, reach, style: styleId, open: T.cut >= 0 };
+}
+
+// the real circuit's surfaces, read off its map across each row: for paved, gravel and grass, each cell's signed
+// distance (m) to that surface's edge along the row (the rows blend into each other, so an edge across the track
+// comes out as smooth as one along it). Out past the barrier, and where the map has nothing (trees, buildings),
+// it's the ground.
+function realLayout(T, grid, reach, C, cells, skip) {
+  const N = T.N, kind = new Uint8Array(C);
+  for (let s = 0; s < 2; s++) {
+    const side = s ? 1 : -1;
+    for (let i = 0; i < N; i++) {
+      if (skip(i, s)) continue;
+      const half = T.W[i] / 2, dx = T.RX[i] * side, dz = T.RZ[i] * side, R = reach[s][i];
+      const x0 = T.X[i] + dx * half, z0 = T.Z[i] + dz * half;
+      for (let c = 0; c < C; c++) { const t = (c + 0.5) * RUN_RES; kind[c] = t > R + RUN_RES ? 0 : grid.at(x0 + dx * t, z0 + dz * t); }
+      for (let q = 0; q < 3; q++) {
+        const want = q + 1;
+        for (let c = 0; c < C; c++) {
+          const inside = kind[c] === want;
+          let k = 1; const lim = Math.ceil(RUN_SD / RUN_RES);
+          while (k <= lim && (c - k < 0 || (kind[c - k] === want) === inside) && (c + k >= C || (kind[c + k] === want) === inside)) k++;
+          // (off the row's inner end it carries on as the first cell: no edge there)
+          const d = Math.min(RUN_SD, (k - 0.5) * RUN_RES);
+          cells[((i * 2 + s) * C + c) * 4 + q] = enc(inside ? d : -d);
+        }
+      }
+    }
+  }
 }
 
 const enc = (d) => Math.max(0, Math.min(255, Math.round(128 + d * 127 / RUN_SD)));

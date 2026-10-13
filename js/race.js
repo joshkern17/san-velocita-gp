@@ -1,9 +1,9 @@
 // Race session: world + cars + AI + rules + cameras
 import * as THREE from 'three';
-import { sampleTrack, analyzeTrack, computeRacingLine, computeSpeedProfile, surfaceY, gridSlot, circDist, buildPitLane, OPEN_END_WALL, PIT } from './track.js';
+import { sampleTrack, analyzeTrack, computeRacingLine, computeSpeedProfile, surfaceY, gridSlot, circDist, buildPitLane, OPEN_END_WALL, PIT, kerbOn, kerbW, kerbOf, wallTypeAt, SAUSAGE_H } from './track.js';
 import { buildWorld, walkEdge, walkWidth, KERB_H, WALK_H, WALK_RAMP } from './world.js';
 import { applyRoadsToCircuit, raiseTrackOverRoads } from './roads.js';
-import { runoffKind, RUN_PAVED, RUN_GRAVEL, RUN_GRASS } from './runoff.js';
+import { runoffKind, groundGrid, groundProfile, profileAt, surfaceGrid, RUN_PAVED, RUN_GRAVEL, RUN_GRASS } from './runoff.js';
 import { Spray } from './weatherfx.js';
 import { driverHelmet, teamSuit } from './drivers.js';
 import { CarPhysics, CARSPEC, TEAMS, TYRES, wearGrip, tyreGrip, tyreGripAt, wearMul, LOCK_K, PHYS_VERSION, WAKE } from './car.js';
@@ -17,6 +17,7 @@ import { RaceControl, findCorners, VSC_PACE } from './racecontrol.js';
 import { AI_AIDS, physAids } from './aids.js';
 import { fastLine, fastLineSteps, lineCar } from './raceline.js';
 import { technique, curveCost, curvePace } from './aiskill.js';
+import { passPlan, claimOn } from './racecraft.js';
 import { PitLife } from './pitlife.js';
 import { RaceDrivers } from './racedrivers.js';
 import { LapRecorder, addLap, lapKey, bestLap, loadPB, lapPoseAt } from './telemetry.js';
@@ -82,7 +83,7 @@ function savePlan(key, hit) {
 }
 // fitted racing lines (raceline.js), like the plans: kept for the session, the most recent 30 saved in the browser.
 // LINE_VERSION: bump when the line fitting changes (old lines, and the AI plans learned on them, are then redone)
-const LINES_CACHE = new Map(), LINES_KEY = 'svgp.aiLines', LINE_VERSION = 1;
+const LINES_CACHE = new Map(), LINES_KEY = 'svgp.aiLines', LINE_VERSION = 2; // (2: lines use the kerbs, lineMargins)
 function loadLine(key, N) {
   try { const e = JSON.parse(localStorage.getItem(LINES_KEY) || '{}')[key]; return e && e.o.length === N ? Float32Array.from(e.o, x => x / 100) : null; } catch (err) { return null; }
 }
@@ -120,6 +121,17 @@ function saveBalance(key, b) {
   } catch (err) {}
 }
 export const TYRE_FIT = 20;
+// a curb's height over the road edge (m), u m out from it, over its width w there; d: distance along (its stripes'
+// rumble). track.js KERB_TYPES: raised ramps up to KERB_H, sawtooth too with deep ridges every metre, flat is paint,
+// a sausage is a round hump. kerbTop: its height at its outer edge (where the runoff picks up)
+export function kerbZ(k, w, u, d) {
+  const type = (k && k.type) || 'raised', f = Math.min(1, Math.max(0, u / Math.max(0.05, w)));
+  if (type === 'flat') return 0.003 * Math.abs(Math.sin(d * Math.PI / 2));
+  if (type === 'sausage') return SAUSAGE_H * Math.sin(Math.PI * f);
+  if (type === 'saw') return KERB_H * f + 0.022 * Math.abs(Math.sin(d * Math.PI));
+  return KERB_H * f + 0.008 * Math.abs(Math.sin(d * Math.PI / 2));
+}
+export const kerbTop = (k) => { const type = (k && k.type) || 'raised'; return type === 'flat' ? 0.003 : type === 'sausage' ? 0 : KERB_H; };
 // World Career part failures (wcareer.js): the engineer's spoken warning for each written one (vo.js)
 const FAIL_VO = { 'Oil pressure is dropping. Nurse it.': 'fail.oil', 'Engine temps are climbing.': 'fail.engine.temps',
   'The gearbox is making a noise.': 'fail.gearbox.noise', 'Shifts are getting slow.': 'fail.gearbox.slow',
@@ -135,8 +147,8 @@ const lerpAngle = (a, b, t) => { let d = ((b - a + Math.PI) % (Math.PI * 2)); if
 export function buildScenery(track) {
   const T = sampleTrack(track);
   raiseTrackOverRoads(track, T);
-  const A = analyzeTrack(T, track.env, track.paint);
-  A.pit = buildPitLane(T, A, track.env);
+  const A = analyzeTrack(T, track.env, track.paint, track.osm, track.dress);
+  A.pit = buildPitLane(T, A, track.env, track.osm && track.osm.pitLane, surfaceGrid(track.osm && track.osm.surface), track.dress && track.dress.pit);
   applyRoadsToCircuit(track, T, A);
   const world = buildWorld(track, T, A);
   const scene = new THREE.Scene();
@@ -226,8 +238,8 @@ export class Race {
     this.track = track;
     const T = this.T = sampleTrack(track);
     raiseTrackOverRoads(track, T); // the track bridges roads set to "under"
-    const A = this.A = analyzeTrack(T, track.env, track.paint);
-    this.pit = buildPitLane(T, A, track.env);
+    const A = this.A = analyzeTrack(T, track.env, track.paint, track.osm, track.dress);
+    this.pit = buildPitLane(T, A, track.env, track.osm && track.osm.pitLane, surfaceGrid(track.osm && track.osm.surface), track.dress && track.dress.pit);
     A.pit = this.pit;
     applyRoadsToCircuit(track, T, A); // barrier gaps, gates, the track bridging roads that tunnel under it
     this.world = buildWorld(track, T, A);
@@ -473,7 +485,7 @@ export class Race {
     this.markers = this.player ? new BrakeMarkers(this) : null;
     if (this.markers) this.markers.set(this.tdata.acclim?.marks);
     if (opts.programme) this.setProgramme(opts.programme); // (a test day: the gates out from the start)
-    this.pitLife = this.pit ? new PitLife(this) : null; // (the teams' signs and crews)
+    this.pitLife = this.pit && !this.track.refModel ? new PitLife(this) : null; // (the teams' signs and crews; a reference model has its own garages)
     this.drivers = new RaceDrivers(this); // (the drivers on the grid, and on the podium)
     if (this.quali && this.state === 'racing') this.qualiStart();
     this.snapCamera();
@@ -505,20 +517,40 @@ export class Race {
   lineFor(id) {
     if (!CARS[id]) id = 'f1';
     if (id === 'svgp') id = 'f1';
-    const base = computeRacingLine(this.T);
-    if (this.opts.lineKind === 'old') return base;
+    if (this.opts.lineKind === 'old') { this.edgeM = null; return computeRacingLine(this.T); }
+    const mg = this.lineMargins(id); // (also how close the AI may steer to the edges: this.edgeM, saved line or not)
+    // (the smoothest line, the fit's start, held 1.6 m in: starting it on the kerbs too was no quicker, Auburn and
+    // Mount Panorama 2026-10-09; opts.kerbBase: try it)
+    const base = computeRacingLine(this.T, this.opts.kerbBase ? mg.margins || mg.margin : 1.6);
     const key = this.lineKey(id);
     let O = LINES_CACHE.get(key) || loadLine(key, this.T.N);
     if (!O && this.mode === 'attract') return base; // (the menu's backdrop race doesn't wait for a fit)
     if (!O) {
       const lc = lineCar(CARS[id].spec); if (this.opts.lineComb) lc.comb = this.opts.lineComb;
-      const margin = this.opts.lineMargin ?? (CARS[id].cls === 'street' || CARS[id].cls === 'shitbox' || CARS[id].cls === 'fun' ? 2 : 1.6);
-      O = fastLine(this.T, base, lc, { margin }).O;
+      O = fastLine(this.T, base, lc, mg).O;
       if (this.opts.lineCheck !== false) O = this.checkLine(id, base, O);
       saveLine(key, O);
     }
     LINES_CACHE.set(key, O);
     return O;
+  }
+  // How close to the edges the fitted line may go: the car's centre this far in (street and fun cars, heavier and
+  // looser, 2 m; the racing classes 1.6), and at the corners' kerbs much closer (kerbMargin: 0.9 / 0.6 m, two wheels on
+  // the kerb, as a driver uses them to straighten a chicane or an S; eased in over ~15 m either side so the line doesn't
+  // kink where they start). opts.kerbMargin false: the plain margin everywhere, as before. Also sets this.edgeM, how
+  // close the AI may steer to each edge (1.3 m in, or the kerb's margin less 0.1).
+  lineMargins(id) {
+    const T = this.T, N = T.N, KB = this.A.KERB, street = ['street', 'shitbox', 'fun'].includes(CARS[id]?.cls);
+    const m0 = this.opts.lineMargin ?? (street ? 2 : 1.6), mkO = this.opts.kerbMargin;
+    if (mkO === false || !KB) { this.edgeM = null; return { margin: m0 }; }
+    const mk = Math.min(m0, mkO ?? (street ? 0.9 : 0.6)), r = Math.max(1, Math.round(15 / T.ds));
+    const M = new Float32Array(N), E = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      let k = 0; for (let d = -r; d <= r && k < 1; d++) if (KB[(i + d + N) % N]) k = Math.max(k, 1 - Math.abs(d) / (r + 1));
+      M[i] = m0 - (m0 - mk) * k; E[i] = Math.min(1.3, M[i] - 0.1);
+    }
+    this.edgeM = E;
+    return { margins: M };
   }
   // The model behind the fitted line is simple: on a few circuits (Monaco's walls and hairpins) the real car is slower
   // on it. So the first time, the AI learns both lines in the real physics and does a clean lap on each: the quicker
@@ -550,11 +582,11 @@ export class Race {
     if (id === 'svgp') id = 'f1';
     const set = () => { this.line = this.lineFor(id); this.lineOwner = id; this.lineK = null; };
     if (this.opts.lineKind === 'old' || this.mode === 'attract') return [['Building the circuit', set]];
+    const mg = this.lineMargins(id);
     const key = this.lineKey(id);
     if (LINES_CACHE.get(key) || loadLine(key, this.T.N)) return [['Building the circuit', set]];
-    const base = computeRacingLine(this.T), lc = lineCar(CARS[id].spec); if (this.opts.lineComb) lc.comb = this.opts.lineComb;
-    const margin = this.opts.lineMargin ?? (CARS[id].cls === 'street' || CARS[id].cls === 'shitbox' || CARS[id].cls === 'fun' ? 2 : 1.6);
-    const gen = fastLineSteps(this.T, base, lc, { margin }), job = { fit: null, tries: [] };
+    const base = computeRacingLine(this.T, this.opts.kerbBase ? mg.margins || mg.margin : 1.6), lc = lineCar(CARS[id].spec); if (this.opts.lineComb) lc.comb = this.opts.lineComb;
+    const gen = fastLineSteps(this.T, base, lc, mg), job = { fit: null, tries: [] };
     const steps = [];
     for (let k = 0; k < 6; k++) steps.push(['Fitting the racing line to your car', () => { for (let n = 0; n < 4 && !job.fit; n++) { const r = gen.next(); if (r.done) job.fit = r.value.O; } }]);
     steps.push(['Fitting the racing line to your car', () => { while (!job.fit) { const r = gen.next(); if (r.done) job.fit = r.value.O; } }]);
@@ -572,7 +604,7 @@ export class Race {
   lineKey(id) {
     const T = this.T; let h = 0;
     for (let i = 0; i < T.N; i += 7) h = (h * 31 + Math.round(T.X[i] * 10) * 7 + Math.round(T.Z[i] * 10) + Math.round(T.W[i] * 10)) | 0;
-    return `${this.track.name}|${T.N}|${h}|${id}|${LINE_VERSION}${this.opts.lineMargin ? `|m${this.opts.lineMargin}` : ""}${this.opts.lineComb ? `|c${this.opts.lineComb}` : ""}`;
+    return `${this.track.name}|${T.N}|${h}|${id}|${LINE_VERSION}${this.opts.lineMargin ? `|m${this.opts.lineMargin}` : ""}${this.opts.lineComb ? `|c${this.opts.lineComb}` : ""}${this.opts.kerbMargin === false ? '|nokerb' : this.opts.kerbMargin != null ? `|k${this.opts.kerbMargin}` : ''}${this.opts.kerbBase ? '|kb1' : ''}`;
   }
   // grip: the AI's grip edge from the difficulty (DIFF.grip): learned with it, so the plan uses it
   limitsFor(id, grip = 1) {
@@ -603,7 +635,7 @@ export class Race {
     // (the plan is learned on a line fitted to the race's main car: whose line it is is part of the key)
     // (a car whose spec was reworked carries a rev: what was learned for it before is no use now)
     const rv = (k) => CARS[k]?.rev ? `${k}r${CARS[k].rev}` : k;
-    return `${this.track.name}|${T.N}|${h}|${this.rain ? 1 : 0}${this.dirt ? 'd' : ''}|${rv(id)}${this.opts.lineKind === 'old' ? '' : `|l${LINE_VERSION}|on${rv(owner)}`}`;
+    return `${this.track.name}|${T.N}|${h}|${this.rain ? 1 : 0}${this.dirt ? 'd' : ''}|${rv(id)}${this.opts.lineKind === 'old' ? '' : `|l${LINE_VERSION}${this.opts.kerbMargin === false ? 'nk' : this.opts.kerbMargin != null ? 'k' + this.opts.kerbMargin : ''}|on${rv(owner)}`}`;
   }
   learnLimits(spec = CARSPEC, gripEdge = 1) {
     const T = this.T, N = T.N, grip = (this.rain ? 0.97 : 1) * (this.dirt ? SURFACES.dirt[0] : 1);
@@ -851,7 +883,7 @@ export class Race {
     // tyre temperatures (physics.js tyreHeat): race classes fit their tyres out of warmers, road cars cold
     phys.tempMode = this.tempMode; phys.ambT = this.ambT; phys.blankets = BLANKETS.has(CARS[id].cls);
     phys.bentOn = phys.engOn = this.damageK >= 1.5; // (Realistic damage: the suspension corner by corner, the radiator and the engine's heat)
-    const model = buildF1(cfg, { texSize: isPlayer ? 1024 : 512, low: !isPlayer && !extra.human && this.cars.length > 5 });
+    const model = buildF1(cfg, { texSize: isPlayer ? 2048 : 512, low: !isPlayer && !extra.human && this.cars.length > 5 });
     if (setup) setStance(model, stanceOf(setup, id)); // (its ride height and camber, on the model)
     if (phys.bentOn) setBend(model, phys); // (a bent corner's wheel sits crooked)
     if (extra.tag) model.group.add(nameTag(extra.name, cfg.main));
@@ -971,7 +1003,9 @@ export class Race {
       this.A.hash.query(p.x, p.z, 80, test);
       if (bd >= prevBd * 0.6) { best = prevBest; bd = prevBd; }
     }
-    const prev = car.idx;
+    const prev = car.idx, jump = !global && car.i != null && circDist(prev, best, N) > 3;
+    // (the ground under the car as the last stretch has it, relative to its road: see below)
+    const g0 = jump && p.body ? this.groundZ(this.surfaceKind(prev, car.s, p.x, p.z), prev, car.s, T.D[car.i] + car.f * T.ds, p.x, p.z) : 0;
     car.idx = best;
     // segment projection
     let i = best;
@@ -980,6 +1014,19 @@ export class Race {
     car.i = i; car.f = Math.max(0, Math.min(1, along / T.ds));
     car.s = (p.x - T.X[best]) * T.RX[best] + (p.z - T.Z[best]) * T.RZ[best];
     car.dist = Math.sqrt(bd);
+    // Handed over to another part of the circuit (across a chicane's runoff, inside a hairpin): the car's body and
+    // wheels are kept relative to the road under it, so they move by however much the ground under the car, measured
+    // from the new stretch's road, differs from the old one's: the car keeps its height over the ground. Where both
+    // describe the same ground (a reference model's) that holds it where it is (left alone, it was teleported against
+    // its own springs and launched); where each has its own (the plain ground: the road's edge carried out) it's left
+    // with the new one's, as it always was.
+    if (jump && p.body) {
+      const g1 = this.groundZ(this.surfaceKind(best, car.s, p.x, p.z), best, car.s, T.D[car.i] + car.f * T.ds, p.x, p.z), d = g1 - g0;
+      if (Math.abs(d) > 1e-3 && Math.abs(d) < 3) {
+        p.body.z += d;
+        for (const a of [p.wz, p.we, p.wr]) if (a) for (let k = 0; k < a.length; k++) a[k] += d;
+      }
+    }
     if (!global && prev !== best) this.onIndex(car, prev, best);
   }
 
@@ -1578,7 +1625,7 @@ export class Race {
     const pit = this.pit;
     // (the pit lane: its tarmac, tapering out of the track edge on the ramps; along the garages, behind the wall)
     if (pit && pit.REG[idx] >= 0 && s * pit.side > half && (!isNaN(pit.WALL[idx]) ? as > pit.WALL[idx] - 0.25 : as <= pit.OUT[idx] + 0.2)) return 'road';
-    if (A.KERB[idx] && as < half + 1.3) return 'kerb';
+    const kw = kerbW(A, idx, side); if (kw > 0.05 && as < half + kw) return 'kerb';
     if (A.BRIDGE[idx]) return 'road';
     if (this.world.roadAt(x, z)) return 'public';
     // the runoff's paved, gravel and painted grass (runoff.js: just as the world draws it)
@@ -1601,18 +1648,49 @@ export class Race {
     if (kind === 'road') return 0;
     if (kind === 'public') return this.world.streetStep?.(x, z) ?? 0;
     const T = this.T, A = this.A, half = T.W[idx] / 2, as = Math.abs(s);
-    if (kind === 'kerb') return KERB_H * Math.min(1, Math.max(0, (as - half) / 1.3)) + 0.008 * Math.abs(Math.sin(d * Math.PI / 2));
+    if (kind === 'kerb') { const sd = s < 0 ? -1 : 1; return kerbZ(kerbOf(A, idx, sd), kerbW(A, idx, sd), as - half, d); }
     if (kind === 'walk') { // (a ramp from the kerb's top, or the road, up to the sidewalk: one smooth climb)
-      const we = walkEdge(T, A, this.track.env, idx, s < 0 ? -1 : 1), base = A.KERB[idx] ? KERB_H : 0;
+      const we = walkEdge(T, A, this.track.env, idx, s < 0 ? -1 : 1), base = kerbOn(A, idx, s) ? kerbTop(kerbOf(A, idx, s)) : 0;
       return base + (WALK_H - base) * Math.min(1, Math.max(0, (as - we) / WALK_RAMP));
     }
-    const kerb = A.KERB[idx], edge = half + (kerb ? 1.3 : 0);
-    if (kind === 'runoff') { const u = Math.min(1, Math.max(0, (as - edge) / 0.6)); return (kerb ? KERB_H : 0) * (1 - u) - 0.02 * u; }
+    const kw = kerbW(A, idx, s), kerb = kw > 0.05, edge = half + (kerb ? kw : 0), ktop = kerb ? kerbTop(kerbOf(A, idx, s)) : 0;
+    // a wheel over another part of the circuit's road (cutting across a chicane, inside a hairpin, a section running
+    // alongside): that road's own height, so when the tracker hands the car over to it the ground under it stays put
+    // (measured from this section's edge, it can be a quarter of a metre out, and the switch kicked the car up)
+    if (as > half + 1 && this.track.refModel) { // (with a model's ground: its profile eases onto the other road, runoff.js)
+      const o = this.otherRoadY(idx, x, z);
+      if (o === o) return o - surfaceY(T, idx, Math.max(0, Math.min(1, ((x - T.X[idx]) * T.FX[idx] + (z - T.Z[idx]) * T.FZ[idx]) / T.ds)), s);
+    }
+    // (dev: a reference model's own ground: its gravel trap, its bank, at its height, the gravel a little deeper than
+    // its top; read off the ground profile beside the road, made once (runoff.js groundProfile: continuous, smoothed,
+    // never a step), and eased from the kerb's top (or the road's edge) onto it over 1.5 m)
+    const prof = this.track.refModel ? (this._refProf ??= groundProfile(T, groundGrid(this.track.osm && this.track.osm.refGround, this.track.refModel), (i, side) => surfaceY(T, i, 0, side * T.W[i] / 2), (x2, z2, i) => this.otherRoadY(i, x2, z2))) : null;
+    if (prof) {
+      const row = idx + Math.max(0, Math.min(1, ((x - T.X[idx]) * T.FX[idx] + (z - T.Z[idx]) * T.FZ[idx]) / T.ds));
+      const rel = profileAt(prof, row, s < 0 ? 0 : 1, as - half);
+      const u = Math.min(1, Math.max(0, (as - edge) / 1.5)), e = u * u * (3 - 2 * u), top = ktop;
+      return top + (rel - top) * e - (kind === 'gravel' ? 0.05 : 0) * e + (kind === 'gravel' ? 0.012 : kind === 'runoff' ? 0 : 0.006) * e * (Math.sin(1.57 * d + 1.3 * s) + Math.sin(0.9 * d - 0.7 * s));
+    }
+    if (kind === 'runoff') { const u = Math.min(1, Math.max(0, (as - edge) / 0.6)); return ktop * (1 - u) - 0.02 * u; }
     const t = Math.min(1, Math.max(0, (as - edge) / 1.2)), gravel = kind === 'gravel';
     const rough = kind === 'city' ? 0 : (gravel ? 0.016 : 0.01) * t * (Math.sin(1.57 * d + 1.3 * s) + Math.sin(0.9 * d - 0.7 * s)); // (undulations ~4 and ~7 m long)
-    return (kerb ? KERB_H : 0) * (1 - t) - (gravel ? 0.1 : 0.08) * t + rough;
+    return ktop * (1 - t) - (gravel ? 0.1 : 0.08) * t + rough;
   }
 
+  // the height of another part of the circuit's road at (x, z) (not the stretch round idx: more than ~40 m of track
+  // away), or NaN if (x, z) isn't on one
+  otherRoadY(idx, x, z) {
+    const T = this.T, A = this.A, N = T.N, sep = Math.ceil(40 / T.ds); let y = NaN;
+    if (!A.hash) return y;
+    A.hash.query(x, z, 14, (j) => {
+      if (y === y || circDist(idx, j, N) < sep) return;
+      const dx = x - T.X[j], dz = z - T.Z[j], along = dx * T.FX[j] + dz * T.FZ[j];
+      if (along < -0.05 * T.ds || along > 1.05 * T.ds) return;
+      const lat = dx * T.RX[j] + dz * T.RZ[j];
+      if (Math.abs(lat) <= T.W[j] / 2 && !A.BRIDGE[j] && !A.BRIDGE[idx]) y = surfaceY(T, j, Math.max(0, Math.min(1, along / T.ds)), lat);
+    });
+    return y;
+  }
   // the tyre for the conditions: dirt tyres on a dirt track (wet or dry), wets in the rain, else a tarmac compound
   condTyre(dry = 'medium') { return this.dirt ? 'dirt' : this.rain ? 'wet' : dry; }
   // grip + drag of a surface kind (on a dirt track the road is dirt, the paved pit lane and runoff aside)
@@ -1723,7 +1801,7 @@ export class Race {
   }
 
   wallHit(car, c) {
-    const p = car.phys, tyres = this.track.env.barrier === 'tires';
+    const p = car.phys, tyres = wallTypeAt(this.A, car.idx, car.s, this.track.env) === 'tires';
     if (this.track.env.barrier === 'none') { impulse(p, null, c, { mu: 0.1, e0: 0.05 }); return; } // (no wall: the world's edge, soft and silent)
     // (a tyre wall gives a little and grabs; concrete and armco are hard and the car slides along them)
     const r = impulse(p, null, c, tyres ? { mu: 0.6, e0: 0.35 } : { mu: 0.3, e0: 0.25 });
@@ -2611,14 +2689,15 @@ export class Race {
     for (const c of cars) {
       if (c.remote) continue;
       let best = 0, wake = 0;
+      const reach = this.opts.towReach ?? 45; c.phys.towCut = this.opts.towCut ?? 0.3;
       if (!c.pitting && c.phys.speed > 25) for (const o of cars) {
         if (o === c || o.pitting || o.gone || o.wreck) continue;
         const gap = o.progress - c.progress, ds = Math.abs(o.s - c.s);
-        if (gap <= 3 || gap > 45) continue;
+        if (gap <= 3 || gap > reach) continue;
         // (opts.wake false: no dirty air, for benches)
         if (gap < 40 && o.phys.speed > 20 && this.opts.wake !== false) { const w = 1.3 + gap * 0.03; if (ds < w + 1) wake = Math.max(wake, (1 - (gap - 3) / 37) * Math.min(1, w + 1 - ds) * Math.min(1, (o.phys.speed - 20) / 15)); }
         if (ds > 2.6) continue;
-        best = Math.max(best, 1 - (gap - 3) / 42);
+        best = Math.max(best, 1 - (gap - 3) / (reach - 3));
       }
       const target = Math.min(1, best * (c.slipK || 1));
       c.phys.slip += (target - c.phys.slip) * Math.min(1, dt * 3);
@@ -2805,6 +2884,10 @@ export class Race {
       ai.over += (want - ai.over) * Math.min(1, dt * 1.5);
     }
     const oops = this.aiMistake(car, dt);
+    const gkF = Math.min(1.1, p.gripNow() / (this.refGrip || 1)); // (the tyres' grip now against the plan's: worn, cold, wet)
+    // a plan to pass the car ahead (racecraft.js): set up early and held; yo = the car we're dropping back behind
+    const passOn = this.opts.pass !== 'old' && this.mode === 'race';
+    const pp = passOn ? passPlan(this, car, dt, yellow) : null, yo = pp && pp.stage === 'yield' ? pp.o : null;
     for (const o of this.cars) {
       if (o === car || o.gone || o.pitting) continue;
       let gap = o.progress - car.progress;
@@ -2815,30 +2898,43 @@ export class Race {
       // takes to slow for it, steered round early and given a wider berth. Seen from 45 m like a car racing, an F1
       // at 170 km/h found it with no room left to stop and ploughed in, and the next ones into it: 8 wrecks in 2 laps)
       const crawl = !o.wreck && this.opts.seeSlow !== false && o.phys.speed < 15 && u > o.phys.speed + 10;
+      // (one rejoining: at the edge or off it, slow, holding there for us to go by: go by, yellow or not; queued behind
+      // it under a yellow, both sat there nudging each other)
+      const edgeWait = this.opts.mirror !== false && Math.abs(o.s) > T.W[o.idx] / 2 - 1.5 && o.phys.speed < 45 && o.phys.speed < u + 2;
       const wk = !!o.wreck || crawl;
       if (gap < -30 || gap > (o.wreck ? 160 : crawl ? Math.max(45, (u * u - o.phys.speed ** 2) / 24 + 25) : 45)) continue;
       // (the lengths below were set for 4.6 m of car between the two centres, nose to gearbox: as the bodies are now)
       const bA = bodyBox(car.phys.p), bO = bodyBox(o.phys.p), len = (gap >= 0 ? bA.f + bO.r : bO.f + bA.r) - 4.6, near = 5.5 + len;
       // under yellow (a VSC, the safety car): no passing in any lane: the car just ahead sets the pace (not one that's
       // stopped or crawling, pulling off for the pits or just out of them, owing us the place, or being lapped)
-      if (yellow && gap > 0 && gap < 30 && !o.pitting && o.phys.speed > 8 && this.raceTime - (o.pitOutT ?? -99) > 10 && !(o.giveBack && o.giveBack.car === car) && !(o.rc && o.rc.hold > 0) && !o.blue) slowTo = Math.min(slowTo, Math.max(0, o.phys.u - 0.3) + Math.max(0, gap - 8) * 0.4);
+      if (yellow && gap > 0 && gap < 30 && !o.pitting && o.phys.speed > 8 && !edgeWait && this.raceTime - (o.pitOutT ?? -99) > 10 && !(o.giveBack && o.giveBack.car === car) && !(o.rc && o.rc.hold > 0) && !o.blue) slowTo = Math.min(slowTo, Math.max(0, o.phys.u - 0.3) + Math.max(0, gap - 8) * 0.4);
+      // a car that's claimed the corner off us (alongside at the braking point: racecraft.js): leave it a car's width
+      // to the exit, wherever it is
+      const cl = passOn && claimOn(car, o);
+      if (cl && gap > -12 && gap < 10) {
+        if (cl.side > 0) maxOff = Math.min(maxOff, o.s - 2.7); else minOff = Math.max(minOff, o.s + 2.7);
+        if (gap > 0.5) alongAhead = true;
+        continue;
+      }
       // alongside (overlapping): never steer into them, leave a car's width
       if (gap > -near && gap < near && Math.abs(ds) > 1.8 && Math.abs(ds) < 4.2) {
         if (ds > 0) maxOff = Math.min(maxOff, o.s - 2.6); else minOff = Math.max(minOff, o.s + 2.6);
         if (gap > 0.5) alongAhead = true;
-        continue;
+        if (o !== yo) continue; // (one we're dropping back behind: follow it, below)
       }
       // a car close behind and quicker: defend
       if (gap < -near && gap > -25 && o.phys.u > u - 2.5) { if (!threat || gap > threat.gap) threat = { o, gap }; continue; }
       if (gap <= 0) continue;
       // a car ahead in our lane: brake in time to not hit it, or go around it
-      if (Math.abs(ds) < (wk ? 3.4 : 2.4)) {
+      if (Math.abs(ds) < (wk ? 3.4 : 2.4) || o === yo) {
         // (a teammate told to hold station doesn't go round you)
         const held = ai.hold && ai.hold.car === o && this.raceTime < ai.hold.until;
         // (the launch: the car in front of you on the grid is getting away as fast as you are, so stay in its wheel
         // tracks, don't swing out into the next lane after it; only one that's much slower, or still sat there 2 s in, is gone round)
         const launch = ai.lane && this.raceTime < 6 && o.phys.u > u - 2 && (o.phys.speed > 4 || this.raceTime < 2);
-        if (!launch && u > o.phys.u - 0.5 && gap < (wk ? 30 + u : 28) && (!yellow && !held || (o.rc && o.rc.hold > 0) || o.phys.speed < 10 || o.pitting || this.raceTime - (o.pitOutT ?? -99) < 10 || (o.giveBack && o.giveBack.car === car))) { // (a car pulling off for the pits, or just out and getting going, isn't a place: go round it, yellow or not)
+        // (with the racecraft plan, a car racing us is its business; this is for the slow, stopped, crawling or pitting)
+        const racingCar = passOn && !wk && !edgeWait && o.phys.speed > 10 && o.phys.u > u - 3 && !o.pitting && this.raceTime - (o.pitOutT ?? -99) >= 10 && !o.blue && !(o.giveBack && o.giveBack.car === car);
+        if (!launch && !racingCar && u > o.phys.u - 0.5 && gap < (wk ? 30 + u : 28) && (!yellow && !held || edgeWait || (o.rc && o.rc.hold > 0) || o.phys.speed < 10 || o.pitting || this.raceTime - (o.pitOutT ?? -99) < 10 || (o.giveBack && o.giveBack.car === car))) { // (a car pulling off for the pits, or just out and getting going, isn't a place: go round it, yellow or not)
           const room = T.W[car.idx] / 2 - 2;
           const dir = o.s > this.line[car.idx] ? -1 : 1;
           const want = Math.max(-room, Math.min(room, o.s + dir * (wk ? 4.2 : 3.2))) - this.line[car.idx];
@@ -2851,8 +2947,20 @@ export class Race {
         const OV = o.lineV || this.lineV, vNow = o.phys.u + (ai.lane && this.raceTime < 6 ? Math.max(0, o.acc || 0) * 0.5 : 0);
         // (one off its line, defending the inside or alongside someone, slows for the corner more than its plan says: offK)
         const vLead = Math.min(vNow, OV[(o.idx + Math.round((8 + o.phys.u * 0.5) / T.ds)) % N] * (o.ai ? o.ai.pace * (this.opts.defend === 'old' ? 1 : o.ai.offK ?? 1) : 1));
-        const room = Math.max(0, gap - 6 - len - u * (ai.lane && this.raceTime < 6 ? 0.08 : this.opts.followH ?? 0.2));
-        slowTo = Math.min(slowTo, Math.sqrt(vLead * vLead + 2 * (this.opts.followA ?? 13) * room) - (gap < 8 + len ? 2 : 0));
+        // (in a plan's tow: closer, as close as the driver's aggression has them)
+        // (only on the way down the straight: into the braking zone and through the corner, the usual gap)
+        const tow = pp && pp.o === o && pp.stage === 'tow' && pp.tb > 0.6;
+        // (and with the braking point over a second away, right up to its gearbox: the slingshot needs the speed the tow gives)
+        // (pulling out of it: past its gearbox, not braking to drop back to a following gap and losing the run)
+        const sling = tow && pp.tb > 1.2 || pp && pp.o === o && pp.stage === 'out' && Math.abs(ds) > 1.2;
+        const room = Math.max(0, gap - (sling ? 1.5 : tow ? 4 : 6) - len - u * (ai.lane && this.raceTime < 6 ? 0.08 : sling ? 0.01 : tow ? pp.hw : this.opts.followH ?? 0.2));
+        // (braking no harder than this car really can, 85% of its grip and downforce, not a flat 13 m/s², which a street
+        // car can't do and a GT1 car beats; and if the car ahead is braking harder than that right now, braking earlier
+        // for it: a player braking before the AI's own plan would was being driven into from behind. Capped at 13, GT1
+        // followers dropped back whenever the car ahead braked properly and stopped racing. opts.followA: the old flat figure)
+        let aF = this.opts.followA ?? 13, kL = 1;
+        if (this.opts.followA == null) { const cap = 9.81 * (p.p.mu || 1.3) * (1 + (p.p.kd || 0) * u * u / (p.p.mass * 9.81)) * gkF; aF = 0.85 * cap; kL = Math.min(1, 0.95 * cap / Math.max(1, -(o.acc || 0))); } // (kL: only a car out-braking what we can do at all; the same car braking as hard as it can isn't one)
+        slowTo = Math.min(slowTo, Math.sqrt(vLead * vLead * kL + 2 * aF * room) - (gap < 8 + len ? 2 : 0));
       }
     }
     const Ld = 5 + u * 0.26;
@@ -2861,7 +2969,7 @@ export class Race {
     const vsYou = threat && threat.o.isPlayer && ai.trust != null, fights = yieldTo || by ? false : vsYou ? ai.trust < 30 || (ai.trust < 55 && ai.aggr > 0.45) : threat && (ai.aggr > 0.45 || threat.o.isPlayer && car.story && car.story.hard); // (and one with a score to settle with you always does)
     if (this.opts.defend === 'old') this.defendOld(car, dt, threat, fights);
     else this.defend(car, dt, threat, fights, j);
-    const lim = T.W[j] / 2 - 1.3;
+    const lim = T.W[j] / 2 - (this.edgeM ? this.edgeM[j] : 1.3); // (at a kerb, two wheels on it: lineMargins)
     // a driver's technique (car.ai.skill: aiskill.js, techFor; none = the clean, quick AI):
     // wander: a less precise driver's line drifts by up to this many metres, a new error every 120-240 m
     const sk = ai.skill;
@@ -2869,17 +2977,47 @@ export class Race {
       if (!(car.progress < ai.wNext) || car.progress < ai.wNext - 400) { ai.wTgt = (Math.random() * 2 - 1) * sk.wander; ai.wNext = car.progress + 120 + Math.random() * 120; }
       ai.wOff = (ai.wOff || 0) + (ai.wTgt - (ai.wOff || 0)) * Math.min(1, dt * 0.6);
     }
-    let off = Math.max(-lim, Math.min(lim, this.line[j] + ai.bias + ai.over + ai.def + (ai.wOff || 0)));
+    // the pass's spot across the road (held by racecraft.js), reached at no more than ~2.2 m/s sideways, and let go of gently
+    const base = this.line[j] + ai.bias + ai.over + ai.def + (ai.wOff || 0), pw = pp && pp.at != null ? pp.at - base : 0, po = ai.pOff || 0;
+    const pv = pp && pp.stage === 'out' ? 3.5 : 2.2; // (pulling out of a tow: a quick, decided move)
+    ai.pOff = po + Math.max(-pv * dt, Math.min(pv * dt, (pw - po) * (pp && pp.at != null ? 5 : 1.6) * dt));
+    let off = Math.max(-lim, Math.min(lim, base + ai.pOff));
     // squeezed between cars: take the middle, and ease off only if one of them is ahead (else it's theirs to give)
     if (minOff > maxOff) { off = (minOff + maxOff) / 2; if (alongAhead || !fix) slowTo = Math.min(slowTo, Math.max(12, u - (ai.lane ? 0.3 : 1))); } // (the launch: just off the throttle, no brakes)
     else off = Math.max(minOff, Math.min(maxOff, off));
     off = Math.max(-lim - 0.6, Math.min(lim + 0.6, off));
+    // a look in the mirror before moving across (back to the line after a move, a defence or a run wide): never across
+    // the nose of a car close behind on that side; hold a car's width clear of it until it's dropped back or come by.
+    // (Alongside was covered above; a car half a length back wasn't, and got chopped. opts.mirror false: as before)
+    // Measured from the racing line, both cars: following the line's own sweep into a corner isn't a move across (held
+    // to where it was, a car with another tucked inside it couldn't turn in and went straight off)
+    if (this.opts.mirror !== false && this.opts.mirrorHold !== false && this.mode === 'race') for (const o of this.cars) {
+      if (o === car || o.gone || o.pitting || o.wreck) continue;
+      const gap = o.progress - car.progress, now = car.s - this.line[car.idx], oRel = o.s - this.line[o.idx], ds = oRel - now, want = off - this.line[j];
+      if (gap > 0 || gap < -9 || Math.abs(ds) < 1.8 || Math.sign(want - now) !== Math.sign(ds) || Math.abs(want - now) < 0.3) continue;
+      const edge = oRel - Math.sign(ds) * 2.6;
+      off = this.line[j] + (ds > 0 ? Math.min(want, Math.max(now, edge)) : Math.max(want, Math.min(now, edge)));
+      // (but never held off the road: back to its edge, whoever's there; held out wide, cars drove the sidewalk 3x as long)
+      const rim = T.W[j] / 2 - 1.1;
+      if (Math.abs(off) > rim) off = Math.sign(off) * rim;
+    }
     // mistake: running wide out of the corner, over the kerb and onto the run-off
     if (oops && oops.type === 'wide' && oops.phase === 1) off = -oops.dir * (lim + oops.far);
-    // rejoining (out at the edge or off the road, slow, after a moment): hold this line until whoever's coming up fast
-    // behind has gone by, rather than driving back across the racing line in front of them
-    if (this.opts.seeSlow !== false && this.state === 'racing' && p.speed < 25 && Math.abs(car.s) > T.W[car.idx] / 2 - 1.5
-      && this.cars.some(o => o !== car && !o.gone && !o.pitting && o.phys.speed > p.speed + 8 && car.progress - o.progress > 0 && car.progress - o.progress < 90)) off = car.s;
+    // rejoining (out at the edge or off the road, off its line, after a moment or a run wide): back on smoothly, about
+    // 2.5 m/s sideways (the steering point's that far across at this speed), never a swerve across; held where it is only
+    // while a car's right there behind in the lane it would move into. (Before: held at the edge while anyone quicker
+    // was within 70 m, so cars drove the sidewalk for long stretches; before that, they cut straight back across.
+    // opts.mirror false: the oldest way, held below 90 km/h for cars 30 km/h quicker within 90 m)
+    if (this.opts.mirror === false) {
+      if (this.opts.seeSlow !== false && this.state === 'racing' && p.speed < 25 && Math.abs(car.s) > T.W[car.idx] / 2 - 1.5
+        && this.cars.some(o => o !== car && !o.gone && !o.pitting && o.phys.speed > p.speed + 8 && car.progress - o.progress > 0 && car.progress - o.progress < 90)) off = car.s;
+    } else if (this.state === 'racing' && Math.abs(car.s) > T.W[car.idx] / 2 - 1.5 && Math.abs(car.s - this.line[car.idx]) > 2.5 && !(oops && oops.type === 'wide')) {
+      const into = Math.sign(off - car.s);
+      const blocked = this.cars.some(o => o !== car && !o.gone && !o.pitting && !o.wreck && car.progress - o.progress > -2
+        && car.progress - o.progress < 12 + Math.max(0, o.phys.speed - p.speed) * 1.2 && Math.abs(o.s - (car.s + into * 2.6)) < 2.4);
+      const step = blocked ? 0 : 2.5 * Ld / Math.max(u, 5);
+      off = car.s + Math.max(-step, Math.min(step, off - car.s));
+    }
     const tx = T.X[j] + T.RX[j] * off, tz = T.Z[j] + T.RZ[j] * off;
     const dx = tx - p.x, dz = tz - p.z;
     const sn = Math.sin(p.h), cs = Math.cos(p.h);
@@ -2901,7 +3039,9 @@ export class Race {
     }
     // speed target
     const la = (car.idx + Math.round((6 + u * 0.3) / T.ds)) % N;
-    // (and in a car's dirty air, like a driver feeling the front go light: what it's costing the car right now)
+    // (and in a car's dirty air, like a driver feeling the front go light: what it's costing the car right now. With the
+    // per-axle reckoning below this counts it twice, on paper; taken out, seeded F1 races went from 0-2 contacts and 2
+    // wall hits to 12-20 and 13-17: the axle reckoning alone under-reads it, so both stay)
     const gk = Math.sqrt(p.gripNow() / (this.refGrip || 1) * (1 - 0.4 * Math.max(p.dmg.fw, p.dmg.rw)) * (1 - 0.1 * p.dmg.ch) * (this.opts.aiWake === false ? 1 : 1 - (p.wakeLoss || 0))
       * (this.dirtTrack ? this.dirtTrack.mu(la, car.s) / this.dirtTrack.mu0 : 1) // (dirt: the groove slicking off, the cushion)
       * (this.rubber && car.rub ? this.rubber.grip(la, car.s) : 1) // (the rubber laid since the session began; slick in the wet)
@@ -2922,6 +3062,10 @@ export class Race {
       if (ai.bz) vt *= 1 + ai.bErr;
     }
     if (oops && oops.type === 'late' && oops.phase === 0) vt *= oops.over; // braked too late: carries too much speed in
+    if (pp && pp.push) vt *= 1 + pp.push; // (a claimed corner: braking a little later than the plan, to keep it)
+    // (hunting the car ahead: pushing, out of the corners: where the plan's speed is rising, not into the braking zones,
+    // where pushing only braked late into the back of them)
+    else if (pp && (pp.stage === 'tow' || pp.stage === 'cut') && LV[la] >= LV[car.idx]) vt *= 1 + pp.att;
     // VSC: under the reference pace where the car is now (and where it's heading), slower still if the delta gets tight
     if (yellow === 'vsc') vt = Math.min(vt, Math.min(LV[car.idx], LV[la]) * VSC_PACE * ((car.vscDelta || 0) < 0.4 ? 0.86 : 0.95));
     else if (yellow && yellow !== 'sc') vt *= yellow === 'dy' ? 0.86 : 0.95;
@@ -2945,7 +3089,8 @@ export class Race {
       if (dev > at) {
         const LK = this.lineK || this.lineCurv();
         let kmax = 0; for (let k = 0, n = Math.round((10 + u * 1.2) / T.ds); k <= n; k += 2) { const kk = LK[(car.idx + k) % N]; if (kk > kmax) kmax = kk; }
-        vt *= ai.offK = Math.sqrt(Math.max(0.6, 1 - (dev - at) * kmax * (this.opts.offSlowK ?? 2)));
+        ai.offK = Math.sqrt(Math.max(0.6, 1 - (dev - at) * kmax * (this.opts.offSlowK ?? 2)));
+        vt *= pp && (pp.stage === 'dive' || pp.stage === 'out') ? Math.sqrt(ai.offK) : ai.offK; // (out of the tow and diving down the inside: committed to it)
       } else ai.offK = 1;
     }
     if (!car.onRoad) vt = Math.min(vt, 25);
@@ -2966,7 +3111,7 @@ export class Race {
     // up outside its line, near the edge (pushing wide on the power, which a locked diff makes worse), ease off (all the way, if need be: lifting puts weight on the
     // fronts) so they can turn it
     const kNow = p.r / Math.max(Math.abs(p.u), 5), push = kap * kNow > 0 && Math.abs(kap) > 0.004 ? 1 - Math.abs(kNow / kap) : 0;
-    const out = Math.sign(p.delta), wide = (car.s - (this.line[car.idx] + ai.bias + ai.over + (ai.def || 0))) * out; // (m outside its line)
+    const out = Math.sign(p.delta), wide = (car.s - (this.line[car.idx] + ai.bias + ai.over + (ai.def || 0) + (ai.pOff || 0))) * out; // (m outside its line)
     const room = T.W[car.idx] / 2 - car.s * out; // (m to the outside edge)
     if (p.gripF > 0.9 && push > 0.1 && wide > 0.5 && room < 2) throttle *= Math.max(0, 1 - (push - 0.1) * 4 * Math.min(1, wide - 0.5));
     // impatience (0-1): on the power before the car is ready, ignoring that much of what the car is saying (a sliding

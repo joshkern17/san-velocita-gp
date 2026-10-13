@@ -118,7 +118,7 @@ export class Garage {
   }
   setCar(cfg) {
     if (this.car) { this.table.remove(this.car.group); this.car.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
-    this.car = buildF1(cfg, { texSize: 1024 });
+    this.car = buildF1(cfg, { texSize: 2048 });
     this.car.group.position.y = 0.08;
     this.car.group.add(this.car.shadow); this.car.shadow.position.y = 0.01;
     this.table.add(this.car.group);
@@ -151,8 +151,9 @@ export class Garage {
     if (this.racer) this.racer.update(dt);
     if (this.crewGuy && this.crewOn) this.crewGuy.update(dt);
     this.aim.lerp(this.target, 1 - Math.exp(-dt * 6));
-    // gentle suspension "breathing" so you can see it work
-    if (this.car) this.car.animate({ steer: Math.sin(this.t * 0.7) * 0.25, spin: dt * 1.2, heave: Math.sin(this.t * 2.2) * 0.012, pitch: Math.sin(this.t * 1.3) * 0.006, roll: Math.sin(this.t * 0.9) * 0.008 });
+    // gentle suspension "breathing" so you can see it work (held still while the livery's being designed: still)
+    if (this.car && this.still) this.car.animate({ steer: 0, spin: 0, heave: 0, pitch: 0, roll: 0 });
+    else if (this.car) this.car.animate({ steer: Math.sin(this.t * 0.7) * 0.25, spin: dt * 1.2, heave: Math.sin(this.t * 2.2) * 0.012, pitch: Math.sin(this.t * 1.3) * 0.006, roll: Math.sin(this.t * 0.9) * 0.008 });
     const c = this.camera;
     const a = this.aim;
     c.position.set(a.x + Math.sin(this.yaw) * Math.cos(this.pitch) * this.dist, a.y + Math.sin(this.pitch) * this.dist, a.z + Math.cos(this.yaw) * Math.cos(this.pitch) * this.dist);
@@ -165,6 +166,7 @@ export class Garage {
     this.camera.setViewOffset(el.width, el.height, -el.width * this.shift, 0, el.width, el.height);
     this.camera.updateProjectionMatrix();
     this.post.render(this.scene, this.camera, { trails: 0, grade: [1.03, 1, 0.97] });
+    if (this.afterRender) this.afterRender(); // (the livery shape editor's nodes, drawn over the car)
   }
 }
 

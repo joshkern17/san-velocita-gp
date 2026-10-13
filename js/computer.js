@@ -691,11 +691,14 @@ export class Computer {
     if (!w.car || WC.needsCar(w)) return `<div class="tm tx-page">${pageHead('dev', 'Development', 'No car to work on.')}</div>`;
     const d = WC.devOf(w), lvl = WC.dataLevel(w), m = WC.staffOf(w, 'mechanic'), dyno = WC.facLevel(t, 'dyno'), ser = WC.seriesById(w.player.series), CAP = WC.devCapOf(w);
     const word = (v, cap) => v <= 0.0005 ? 'standard' : v < cap * 0.25 ? 'some work' : v < cap * 0.55 ? 'developed' : 'near the limit';
-    const spec = [['power', 'Engine', dyno || lvl], ['grip', 'Chassis', lvl], ['downforce', 'Aero', lvl], ['brake', 'Brakes', lvl], ['rel', 'Reliability', lvl]].map(([k, n, exact]) =>
+    const specOf = (d) => [['power', 'Engine', dyno || lvl], ['grip', 'Chassis', lvl], ['downforce', 'Aero', lvl], ['brake', 'Brakes', lvl], ['rel', 'Reliability', lvl]].map(([k, n, exact]) =>
       `<div class="tx-spec"><b>${n}</b>${seg((d[k] || 0) / CAP[k], 'blue', 8)}<span>${exact ? (k === 'rel' ? `${Math.round((d[k] || 0) * 100)}% fewer faults` : `+${((d[k] || 0) * 100).toFixed(1)}%`) : word(d[k] || 0, CAP[k])}</span></div>`).join('');
+    const mf = WC.mateOf(w) ? WC.people(w)[WC.mateOf(w).pid].first : '';
+    // (with a teammate, their car's development too: work done for their car lives on it, not yours)
+    const spec = mf ? `<div class="tx-specsub">Your car</div>${specOf(d)}<div class="tx-specsub">${esc(mf)}'s car</div>${specOf(WC.dev2Of(w))}` : specOf(d);
     const rate = WC.mechRate(w), max = WC.maxProjects(w);
     const live = (w.projects || []).filter(x => !x.done), mine = live.filter(x => !x.shop), shop = live.filter(x => x.shop);
-    const mf = WC.mateOf(w) ? WC.people(w)[WC.mateOf(w).pid].first : '', forWho = (x) => x.to === 'both' ? 'both cars' : x.to === 'mate' ? `${esc(mf)}'s car` : '';
+    const forWho = (x) => x.to === 'both' ? 'both cars' : x.to === 'mate' ? `${esc(mf)}'s car` : '';
     const card = (x) => { const left = x.days - (x.prog || 0), days = rate ? Math.ceil(left / (rate / WC.WEEK_DAYS)) : 0;
       return `<div class="tx-bench${!x.shop && !rate ? ' idle' : ''}"><b>${esc(x.name)}</b>${seg((x.prog || 0) / x.days, 'good')}<small>${forWho(x) ? `<em class="tx-for">For ${forWho(x)}</em> &middot; ` : ''}${x.shop ? 'At Precision Race Prep &middot; back after the next race' : `${(x.prog || 0).toFixed(1)} of ${x.days} days of work done`}</small>
         ${x.shop ? '' : rate ? `<small>${esc(m.first)}: ${(rate / WC.WEEK_DAYS).toFixed(1)} a day, done in about ${days} day${days === 1 ? '' : 's'}. A Car work day of yours adds ${(1 + WC.facLevel(t, 'tools') * 0.25).toFixed(2)}.</small>` : `<small class="neg">Nobody's working on it. Pick Car work in the day picker (a day of yours is ${(1 + WC.facLevel(t, 'tools') * 0.25).toFixed(2)} days of work), hire a chief mechanic, or send it to a shop.</small>`}</div>`; };
@@ -711,7 +714,7 @@ export class Computer {
         <div class="tm-acts">${P.locked === 'Under way' ? chip('Under way', 'good') : P.locked ? `<span class="tx-lock">${esc(P.locked)}</span>` : `${btn('team', P, `Do it &middot; ${cost(P.cost)}`, 'pri')}${btn('shop', P, `Shop &middot; ${cost(P.shopCost)}`)}`}</div></div>`; }).join('');
     const right = chip(`${mine.length} of ${max} bench${max === 1 ? '' : 'es'} in use`, mine.length >= max ? 'warn' : '') + (ser.ballast ? chip(`${WC.jokersLeft(w)} of ${WC.JOKERS} jokers left`, WC.jokersLeft(w) ? '' : 'bad') : '');
     return `<div class="tm tx-page">${pageHead('dev', 'Development', esc(w.car.name), right)}
-      <div class="tx-grid">${panel('The car', spec, dyno || lvl ? 'measured' : 'how it feels')}${panel('On the bench', bench, m ? `${esc(m.first)}: ${rate.toFixed(1)} days of work a week` : 'no mechanic: only your days')}</div>
+      <div class="tx-grid">${panel(mf ? 'The cars' : 'The car', spec, dyno || lvl ? 'measured' : 'how it feels')}${panel('On the bench', bench, m ? `${esc(m.first)}: ${rate.toFixed(1)} days of work a week` : 'no mechanic: only your days')}</div>
       ${panel('Projects', `<div class="tx-sts">${tabs}</div>${projs}`, 'a shop costs more, but it\'s done by the next round')}
       <p class="tx-note">Development fades over the winter: the rest of the field doesn't stand still. A dyno tells you exactly what engine work gained; a data engineer, everything.</p></div>`;
   }

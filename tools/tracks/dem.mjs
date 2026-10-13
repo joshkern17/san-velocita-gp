@@ -6,6 +6,7 @@
 //   ign:      IGN RGE ALTI, 1 m (France + Monaco)
 //   gsi:      Geospatial Information Authority of Japan, 5 m laser DEM (dem5a), 10 m fallback
 //   usgs:     USGS 3DEP via the Elevation Point Query Service, 1-10 m (USA)
+//   ahn:      Actueel Hoogtebestand Nederland, AHN4 0.5 m ground model (DTM), via the AHN viewer's image service (Netherlands)
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -18,6 +19,7 @@ export const DEM_CREDITS = {
   ign: 'Relief: IGN RGE ALTI',
   gsi: 'Relief: 国土地理院 (GSI Japan)',
   usgs: 'Relief: USGS 3D Elevation Program',
+  ahn: 'Relief: AHN (Actueel Hoogtebestand Nederland)',
 };
 
 const key = (p) => p.lat.toFixed(6) + ',' + p.lon.toFixed(6);
@@ -48,6 +50,15 @@ const SOURCES = {
       const u = `https://geoservices.wallonie.be/arcgis/rest/services/RELIEF/WALLONIE_MNT_2021_2022/MapServer/identify?geometry=${p.lon},${p.lat}&geometryType=esriGeometryPoint&sr=4326&layers=all&tolerance=1&mapExtent=${p.lon - 0.01},${p.lat - 0.01},${p.lon + 0.01},${p.lat + 0.01}&imageDisplay=800,800,96&returnGeometry=false&f=json`;
       const j = await getJSON(u); const v = j.results && j.results[0] && parseFloat(j.results[0].attributes['Stretch.Pixel Value']);
       out[k] = isFinite(v) ? v : null;
+    });
+    return out;
+  },
+  async ahn(pts) {
+    const out = new Array(pts.length).fill(null);
+    await pool(pts, 6, async (p, k) => {
+      const g = encodeURIComponent(JSON.stringify({ x: p.lon, y: p.lat, spatialReference: { wkid: 4326 } }));
+      let j; try { j = await getJSON(`https://ahn.arcgisonline.nl/arcgis/rest/services/AHNviewer/AHN4_DTM_50cm/ImageServer/identify?geometry=${g}&geometryType=esriGeometryPoint&returnGeometry=false&returnCatalogItems=false&f=json`); } catch (e) { out[k] = undefined; return; }
+      const v = parseFloat(j.value); out[k] = isFinite(v) && v > -100 ? v : null; // ('NoData' under buildings / water)
     });
     return out;
   },

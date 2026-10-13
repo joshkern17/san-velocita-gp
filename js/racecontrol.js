@@ -4,6 +4,7 @@
 // for the AI) and a car's penalty seconds travel with its state.
 import * as THREE from 'three';
 import { placeName } from './realtracks.js';
+import { kerbW } from './track.js';
 
 // 'off': no flags, no penalties. 'arcade': flags + lenient limits (all four wheels past the kerb). 'realistic': the white line.
 // kerbOk: the kerbs are part of the track. wideRoom: extra metres allowed past that on the OUTSIDE of a bend (running
@@ -22,7 +23,6 @@ const DT_LAPS = 3;      // laps to serve a drive-through
 const DT_LATE = 20;     // seconds added for a drive-through never served
 export const VSC_PACE = 0.6;   // VSC reference speed: this share of the racing speed plan
 const CAR_HALF = 0.95;  // half a car's width: all four wheels are out once the centre is this far past the edge
-const KERB_W = 1.3;     // (track.js / race.js surfaceEnv)
 const SEV = { y: 1, dy: 2 };
 
 // corners, numbered from the start line the same way trackStats counts them (the "Corners" figure on the setup screen)
@@ -205,7 +205,7 @@ export class RaceControl {
     const pit = race.pit, inPit = pit && pit.REG[i] >= 0 && car.s * pit.side > half - 0.5;
     // running wide (the outside of a bend, or off a straight) gets more room than cutting the inside
     const wide = this.BEND[i] === 0 || Math.sign(car.s) !== this.BEND[i];
-    const legal = half + (this.R.kerbOk && race.A.KERB[i] ? KERB_W + 0.4 : 0) + (wide ? this.R.wideRoom : 0);
+    const legal = half + (this.R.kerbOk && kerbW(race.A, i, car.s) > 0.05 ? kerbW(race.A, i, car.s) + 0.4 : 0) + (wide ? this.R.wideRoom : 0);
     const out = !inPit && Math.abs(car.s) - CAR_HALF > legal;
     if (out) {
       if (!tl.out) { tl.out = true; tl.t = 0; tl.v0 = p.speed; tl.vmin = p.speed; tl.spun = false; tl.idx = i; tl.wide = wide; }

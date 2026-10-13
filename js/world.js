@@ -1,13 +1,13 @@
 // Builds the 3D environment for a track
 import * as THREE from 'three';
 import { getTextures, getGroundTextures } from './textures.js';
-import { circDist, computeSpeedProfile, OPEN_END_WALL, stepIdx, fenceHeight } from './track.js';
+import { circDist, computeSpeedProfile, OPEN_END_WALL, stepIdx, fenceHeight, kerbOn, kerbW, kerbOf, kerbColors, wallTypeAt, KERB_STYLES, SAUSAGE_H } from './track.js';
 import { gameHeight } from './terrain.js';
 import { applySculpt } from './sculpt.js';
 import { footSamples, rectFoot, makePlots } from './pads.js';
 import { makeVerge } from './verge.js';
 import { placeTrackProps, buildStartGantry, beamCone, beamMaterial, buildCatchFence } from './trackprops.js';
-import { runoffLayout, isRunoffPaint, RUN_RES, RUN_SD } from './runoff.js';
+import { runoffLayout, isRunoffPaint, strokeDist, strokeBox, RUN_RES, RUN_SD } from './runoff.js';
 import { buildCourthouse, buildBusiness } from './landmarks.js';
 import { addRealWorld } from './realworld.js';
 import { BUSINESSES } from './zones.js';
@@ -465,6 +465,18 @@ export function buildWorld(track, T, A, opts = {}) {
       if (st.kind === 'crowd') continue; // (people stand on whatever ground is there)
       if (st.kind === 'erase' && st.what && !st.what.includes('g')) continue; // (an eraser set to leave the grass alone)
       const r = st.r || 8, pts = st.pts || [], erase = st.kind === 'erase';
+      if (st.area) { // (a shape: everything inside its outline, the edge softened over a grid step)
+        if (pts.length < 3) continue;
+        const [x0, z0, x1, z1] = strokeBox(st);
+        const k0 = Math.max(0, Math.floor((x0 - 2 - gx0) / step)), k1 = Math.min(nx - 1, Math.ceil((x1 + 2 - gx0) / step));
+        const j0 = Math.max(0, Math.floor((z0 - 2 - gz0) / step)), j1 = Math.min(nz - 1, Math.ceil((z1 + 2 - gz0) / step));
+        for (let j = j0; j <= j1; j++) for (let k = k0; k <= k1; k++) {
+          const cover = 1 - smoothstep(r - Math.min(3, step) / 2, r + Math.min(3, step) / 2, strokeDist(st, gx0 + k * step, gz0 + j * step));
+          if (cover <= 0) continue;
+          const id = j * nx + k; PM[id] = Math.max(PM[id], cover);
+        }
+        continue;
+      }
       for (let s = 0; s < pts.length; s++) {
         const a = pts[s], b = pts[Math.min(pts.length - 1, s + 1)];
         const x0 = Math.min(a[0], b[0]) - r - 2, x1 = Math.max(a[0], b[0]) + r + 2, z0 = Math.min(a[1], b[1]) - r - 2, z1 = Math.max(a[1], b[1]) + r + 2;
@@ -863,30 +875,42 @@ export function buildWorld(track, T, A, opts = {}) {
     root.add(new THREE.Mesh(sg, new THREE.MeshLambertMaterial({ map: tx.concrete, color: 0x9a968e, side: THREE.DoubleSide })));
   }
 
-  // kerbs
+  // kerbs: each stretch in its own colors, width (tapered at its ends: A.KW) and profile (track.js KERB_TYPES): raised
+  // and sawtooth slope up to KERB_H at the outer edge, flat lies on the road, a sausage is a round hump
   {
-    const kp = [], ku = [];
-    const kw = 1.3;
+    const bufs = {};
     for (let i = 0; i < N; i++) {
       if (i === T.cut) continue;
       const j = (i + 1) % N;
-      if (!A.KERB[i] || !A.KERB[j]) continue;
+      if (!A.KERB[i] && !A.KERB[j]) continue;
       for (const side of [-1, 1]) {
+        // (a curb's first and last 2 m close off to nothing; where two meet, the first runs square up to the next)
+        const ki = kerbOf(A, i, side), kj = kerbOf(A, j, side), k = ki || kj;
+        if (!k) continue;
+        const wi = ki === k ? kerbW(A, i, side) : 0, wj = kj === k ? kerbW(A, j, side) : kj ? wi : 0;
+        if (wi < 0.02 && wj < 0.02) continue;
         if (A.pit && A.pit.side === side && (A.pit.REG[i] >= 0 || A.pit.REG[j] >= 0)) continue;
-        const p = (k, s, lift) => [T.X[k] + T.RX[k] * s, surfY(k, side * T.W[k] / 2) + lift, T.Z[k] + T.RZ[k] * s];
-        const si = side * T.W[i] / 2, sj = side * T.W[j] / 2;
-        const a = p(i, si, 0.012), b = p(j, sj, 0.012), c = p(i, si + side * kw, KERB_H + 0.012), d = p(j, sj + side * kw, KERB_H + 0.012);
-        const vi = T.D[i] / 8, vj = (j === 0 ? T.L : T.D[j]) / 8;
-        if (side > 0) { kp.push(...a, ...c, ...b, ...b, ...c, ...d); ku.push(0, vi, 1, vi, 0, vj, 0, vj, 1, vi, 1, vj); }
-        else { kp.push(...a, ...b, ...c, ...b, ...d, ...c); ku.push(0, vi, 0, vj, 1, vi, 0, vj, 1, vj, 1, vi); }
+        const cols = kerbColors(k), type = k.type || 'raised', key = cols.join('|');
+        const buf = bufs[key] ??= { p: [], u: [], cols }, kp = buf.p, ku = buf.u;
+        const p = (q, s, lift) => [T.X[q] + T.RX[q] * s, surfY(q, side * T.W[q] / 2) + lift, T.Z[q] + T.RZ[q] * s];
+        const si = side * T.W[i] / 2, sj = side * T.W[j] / 2, vi = T.D[i] / 8, vj = (j === 0 ? T.L : T.D[j]) / 8;
+        // across it: [fraction of its width, height] (raised / saw: up to the top; flat; sausage: up and back down)
+        const prof = type === 'flat' ? [[0, 0], [1, 0]] : type === 'sausage' ? [[0, 0], [0.25, SAUSAGE_H * 0.7], [0.5, SAUSAGE_H], [0.75, SAUSAGE_H * 0.7], [1, 0]] : [[0, 0], [1, KERB_H]];
+        for (let q = 0; q + 1 < prof.length; q++) {
+          const [f0, h0] = prof[q], [f1, h1] = prof[q + 1];
+          const a = p(i, si + side * wi * f0, h0 + 0.012), b = p(j, sj + side * wj * f0, h0 + 0.012), c = p(i, si + side * wi * f1, h1 + 0.012), d = p(j, sj + side * wj * f1, h1 + 0.012);
+          if (side > 0) { kp.push(...a, ...c, ...b, ...b, ...c, ...d); ku.push(f0, vi, f1, vi, f0, vj, f0, vj, f1, vi, f1, vj); }
+          else { kp.push(...a, ...b, ...c, ...b, ...d, ...c); ku.push(f0, vi, f0, vj, f1, vi, f0, vj, f1, vj, f1, vi); }
+        }
       }
     }
-    if (kp.length) {
+    for (const { p: kp, u: ku, cols } of Object.values(bufs)) {
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.Float32BufferAttribute(kp, 3));
       g.setAttribute('uv', new THREE.Float32BufferAttribute(ku, 2));
       g.computeVertexNormals();
-      root.add(new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: tx.kerb, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 })));
+      const std = cols[0] === KERB_STYLES.rw.c[0] && cols[1] === KERB_STYLES.rw.c[1];
+      root.add(new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: std ? tx.kerb : kerbTexture(cols), polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 })));
     }
   }
 
@@ -1279,7 +1303,7 @@ export function buildWorld(track, T, A, opts = {}) {
     const top = surfY(bj, Math.max(-T.W[bj] / 2, Math.min(T.W[bj] / 2, lat))) + 0.02;
     const we = walkEdge(T, A, env, bj, side); // on the circuit's raised sidewalk?
     if (we >= 0 && al >= we && al <= we + walkWidth(T, A, env, bj, side) + 0.2) return top + WALK_H;
-    if (A.KERB[bj] && al > T.W[bj] / 2 && al < T.W[bj] / 2 + 1.3) return top + KERB_H + 0.01;
+    if (kerbOn(A, bj, side) && al > T.W[bj] / 2 && al < T.W[bj] / 2 + kerbW(A, bj, side)) return top + KERB_H + 0.01;
     return al < T.W[bj] / 2 + 1.5 ? Math.max(g, top) : g;
   };
   const movers = [];
@@ -1638,10 +1662,10 @@ function buildPitLane(root, T, pit, surfY, tx, night, env) {
   // and running out to the nose of the pit wall (keep to the lane side of it); the lane's outer edge, from where the
   // lane is wide enough to have one; along the garages, the line between the fast lane and the boxes
   if (pit.OUT && main.length) {
-    const w0 = pit.WALL[main[0]], w1 = pit.WALL[main[main.length - 1]], nR = pit.nRamp, cnt = pit.count;
+    const w0 = pit.WALL[main[0]], w1 = pit.WALL[main[main.length - 1]], nR = pit.nRamp, nRo = pit.nRampOut ?? nR, cnt = pit.count;
     const entryS = (i) => {
       const pos = pit.REG[i], half = T.W[i] / 2;
-      const f = pos < nR ? pos / nR : pos > cnt - nR ? (cnt - pos) / nR : 1, e = f * f * (3 - 2 * f);
+      const f = pos < nR ? pos / nR : pos > cnt - nRo ? (cnt - pos) / nRo : 1, e = f * f * (3 - 2 * f);
       return half + 0.12 + ((pos < nR ? w0 : w1) - 0.3 - half - 0.12) * e;
     };
     for (let k = 0; k < idx.length - 1; k++) {
@@ -1780,7 +1804,7 @@ function buildCornerBoards(root, T, A, env, surfY, groundHeight, roadL, night) {
   });
   const T0 = boardTextures(), items = { 150: [], 100: [], 50: [] }, frames = [], brackets = [], poles = [];
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
-  const topH = { tires: 1.1, armco: 0.95, concrete: 1.2 }[env.barrier] ?? 1.1, BW = 1.6, BH = 1.1;
+  const topOf = (i, sd) => ({ tires: 1.1, armco: 0.95, concrete: 1.2, fence: 0 }[wallTypeAt(A, i, sd, env)] ?? 1.1), BW = 1.6, BH = 1.1;
   const usedAt = [], placed = []; // placed: { i (track sample), dist (150 / 100 / 50), entry (turn-in sample), min (slowest point) }
   for (const c of corners) {
     const side = T.K[c.min] > 0 ? -1 : 1; // the outside of the corner
@@ -1800,14 +1824,14 @@ function buildCornerBoards(root, T, A, env, surfY, groundHeight, roadL, night) {
         const off = (sd < 0 ? A.BL : A.BR)[i];
         const x0 = T.X[i] + rx * off, z0 = T.Z[i] + rz * off;
         const foot = A.BRIDGE[i] ? surfY(i, sd * T.W[i] / 2) : Math.min(surfY(i, sd * T.W[i] / 2), groundHeight(x0, z0) + 0.05) - 0.1;
-        by = foot + topH + 0.3 + BH / 2; mount = 'wall';
+        by = foot + topOf(i, sd) + 0.3 + BH / 2; mount = 'wall';
         // cantilevered off the top of the wall, leaning in over the runoff towards the track (buildings often stand
         // right behind the wall), but never out over the racing surface
         const inner = Math.max(T.W[i] / 2 + 0.8, off - BW - 0.15), cOff = inner + BW / 2;
         bx = T.X[i] + rx * cOff; bz = T.Z[i] + rz * cOff;
-        brackets.push([x0, foot + topH, z0, 0.3]);                                                          // post on the wall
+        brackets.push([x0, foot + topOf(i, sd), z0, 0.3]);                                                          // post on the wall
         const toward = cOff < off ? -1 : 1; // arm runs from the wall post towards the board's middle
-        brackets.push([x0, foot + topH + 0.3, z0, 0.08, Math.abs(cOff - off) + 0.1, Math.atan2(-rz * toward, rx * toward)]); // arm
+        brackets.push([x0, foot + topOf(i, sd) + 0.3, z0, 0.08, Math.abs(cOff - off) + 0.1, Math.atan2(-rz * toward, rx * toward)]); // arm
       } else {
         const off = T.W[i] / 2 + Math.max(2.5, (env.runoff || 6) * 0.6);
         bx = T.X[i] + rx * (off + BW / 2); bz = T.Z[i] + rz * (off + BW / 2);
@@ -1851,8 +1875,9 @@ function buildCornerBoards(root, T, A, env, surfY, groundHeight, roadL, night) {
 
 function buildBarriers(root, T, A, env, surfY, groundHeight, tx, night, verge) {
   const N = T.N;
-  const type = env.barrier;
-  const main = { p: [], u: [] }, top = { p: [], u: [] }, fence = [];
+  // (the track's barrier, or stretch by stretch what a real circuit's dressing has: track.js WALL_TYPES)
+  const mains = {}, tops = {}, fence = [];
+  const bufOf = (o, k) => (o[k] ??= { p: [], u: [] });
   const push = (buf, a, b, c, d, u0, u1, v0, v1) => {
     buf.p.push(...a, ...b, ...c, ...b, ...d, ...c);
     buf.u.push(u0, v0, u1, v0, u0, v1, u1, v0, u1, v1, u0, v1);
@@ -1916,6 +1941,7 @@ function buildBarriers(root, T, A, env, surfY, groundHeight, tx, night, verge) {
       const order = (buf, lo, hi, a1, b1, u0, u1) => side > 0
         ? push(buf, up(a1, lo), up(b1, lo), up(a1, hi), up(b1, hi), -u0, -u1, 0, 1)
         : push(buf, up(b1, lo), up(a1, lo), up(b1, hi), up(a1, hi), u1, u0, 0, 1);
+      const type = wallTypeAt(A, i, side, env), main = bufOf(mains, type), top = bufOf(tops, type);
       if (isGate) { // a closed gate where a road meets the circuit: see-through fence + rails
         order(gate, 0, 2.3, a, b, ua / 3, ub / 3);
         if (!gateArr[(i - 1 + N) % N] || !gateArr[(j + 1) % N]) gatePosts.push(up(gateArr[(i - 1 + N) % N] ? b : a, 0));
@@ -1929,6 +1955,9 @@ function buildBarriers(root, T, A, env, surfY, groundHeight, tx, night, verge) {
         order(main, 0.35, 0.95, a, b, ua / 4, ub / 4);
         if (i % 2 === 0) posts.push(up(a, 0));
         fenceAt(i, j, P(i, 0.6), P(j, 0.6), 0.95);
+      } else if (type === 'fence') { // a catch fence on its own, from the ground
+        if (i % 3 === 0) posts.push(up(a, 0));
+        fenceAt(i, j, a, b, 0);
       } else {
         order(main, 0, 1.2, a, b, ua / 16, ub / 16);
         const a2 = P(i, 0.5), b2 = P(j, 0.5);
@@ -1945,15 +1974,17 @@ function buildBarriers(root, T, A, env, surfY, groundHeight, tx, night, verge) {
     g.computeVertexNormals();
     root.add(new THREE.Mesh(g, mat));
   };
-  const mainTex = type === 'tires' ? tx.tires : type === 'armco' ? tx.armco : tx.wall;
-  mk(main, new THREE.MeshLambertMaterial({ map: mainTex, side: THREE.DoubleSide }));
-  mk(top, new THREE.MeshLambertMaterial({ color: type === 'tires' ? 0x1a1a1a : 0xa8a49c, side: THREE.DoubleSide }));
+  for (const [type, main] of Object.entries(mains)) {
+    const mainTex = type === 'tires' ? tx.tires : type === 'armco' ? tx.armco : tx.wall;
+    mk(main, new THREE.MeshLambertMaterial({ map: mainTex, side: THREE.DoubleSide }));
+    mk(tops[type], new THREE.MeshLambertMaterial({ color: type === 'tires' ? 0x1a1a1a : 0xa8a49c, side: THREE.DoubleSide }));
+  }
   mk(retain, new THREE.MeshLambertMaterial({ map: tx.concrete, color: 0xb8b4aa, side: THREE.DoubleSide }));
   if (gate.p.length) {
     mk(gate, new THREE.MeshLambertMaterial({ map: gateTexture(), transparent: true, alphaTest: 0.3, side: THREE.DoubleSide }));
     for (const p of gatePosts) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.6, 0.22), new THREE.MeshLambertMaterial({ color: 0xd8d4c8 })); m.position.set(p[0], p[1] + 1.3, p[2]); root.add(m); }
   }
-  if (type !== 'tires') buildCatchFence(root, fence, fenceHeight(env), fenceMaterial());
+  if (fence.length) buildCatchFence(root, fence, fenceHeight(env), fenceMaterial());
   if (posts.length) {
     const im = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12, 1, 0.12), new THREE.MeshLambertMaterial({ color: 0x6a6e76 }), posts.length);
     const m = new THREE.Matrix4();
@@ -2511,6 +2542,20 @@ function gateTexture() {
   _gate = new THREE.CanvasTexture(c); _gate.colorSpace = THREE.SRGBColorSpace; _gate.wrapS = THREE.RepeatWrapping;
   return _gate;
 }
+// a curb's stripes in its two colors (track.js KERB_STYLES, or its own), drawn as the red / white one is (textures.js)
+const _kerbTex = {};
+function kerbTexture(cols) {
+  const key = cols.join('|');
+  if (_kerbTex[key]) return _kerbTex[key];
+  const [c1, c2] = cols;
+  const c = document.createElement('canvas'); c.width = 16; c.height = 64;
+  const g = c.getContext('2d');
+  for (let i = 0; i < 4; i++) { g.fillStyle = i % 2 ? c2 : c1; g.fillRect(0, i * 16, 16, 16); }
+  let h = 7; const rnd = () => ((h = (h * 16807) % 2147483647) / 2147483647);
+  for (let y = 0; y < 64; y++) for (let x = 0; x < 16; x++) { const v = (rnd() - 0.5) * 0.1; g.fillStyle = v > 0 ? `rgba(255,255,255,${v})` : `rgba(0,0,0,${-v})`; g.fillRect(x, y, 1, 1); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 2;
+  return (_kerbTex[key] = t);
+}
 let _marks = {};
 function markingsTexture(kind) {
   if (_marks[kind]) return _marks[kind];
@@ -2696,12 +2741,12 @@ export function walkEdge(T, A, env, i, side) {
   if (!env.walks || (A.BRIDGE[i])) return -1;
   if (side < 0 ? A.NOWALK_L && A.NOWALK_L[i] : A.NOWALK_R && A.NOWALK_R[i]) return -1; // a road's junction apron
   if (A.pit && A.pit.side === side && A.pit.REG[i] >= 0) return -1;
-  const inner = T.W[i] / 2 + (A.KERB[i] ? 1.3 : 0), bar = side < 0 ? A.BL[i] : A.BR[i];
+  const inner = T.W[i] / 2 + kerbW(A, i, side), bar = side < 0 ? A.BL[i] : A.BR[i];
   return bar - inner < 1.2 ? -1 : inner;
 }
 export const walkWidth = (T, A, env, i, side) => {
   if (A.OVERPASS && A.OVERPASS[i]) return 2.4;
-  const bar = side < 0 ? A.BL[i] : A.BR[i], inner = T.W[i] / 2 + (A.KERB[i] ? 1.3 : 0);
+  const bar = side < 0 ? A.BL[i] : A.BR[i], inner = T.W[i] / 2 + kerbW(A, i, side);
   return Math.max(0, Math.min(env.walkW || 2.5, bar - inner - 0.4));
 };
 
@@ -2725,7 +2770,7 @@ function buildWalkways(root, T, A, env, surfY, groundHeight, tx) {
     const vi0 = T.D[i] / 2, vj0 = (j === 0 ? T.L : T.D[j]) / 2;
     qu(top, a0, b0, a1, b1, vi0, vj0, R / 2, (wi + wj) / 4);
     // (the ramp starts from the kerb's top where there's a kerb, so the two make one smooth climb)
-    const k0 = P(i, s * ei, A.KERB[i] ? KERB_H + 0.012 : 0.012), k1 = P(j, s * ej, A.KERB[j] ? KERB_H + 0.012 : 0.012), vi = T.D[i] / 8, vj = (j === 0 ? T.L : T.D[j]) / 8;
+    const k0 = P(i, s * ei, kerbOn(A, i, s) ? KERB_H + 0.012 : 0.012), k1 = P(j, s * ej, kerbOn(A, j, s) ? KERB_H + 0.012 : 0.012), vi = T.D[i] / 8, vj = (j === 0 ? T.L : T.D[j]) / 8;
     qu(ramp, k0, k1, a0, b0, 0, 0, vi, vj);
     ramp.u.splice(ramp.u.length - 12, 12, 0, vi, 0, vj, 1, vi, 0, vj, 1, vj, 1, vi);
     const over = A.OVERPASS && A.OVERPASS[i] && A.OVERPASS[j];

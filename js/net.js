@@ -9,6 +9,37 @@ const ICE = [
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:global.stun.twilio.com:3478' },
 ];
+// TURN relay: the fallback when the two networks can't connect directly (phone hotspots / carrier NAT,
+// strict work or school networks). Fill in ONE of these from a free metered.ca account (TURN Server):
+//  - METERED_APP + METERED_KEY (dashboard -> Developers): fresh credentials are fetched at connect time, or
+//  - TURN: paste the iceServers list the dashboard shows (the turn: / turns: entries with username + credential).
+// Empty = direct connections only. Add ?relay=1 to the game's address to force the relay (to test it).
+const METERED_APP = 'san-velocita'; // san-velocita.metered.live
+const METERED_KEY = '';
+const TURN = [ // metered.ca workspace san-velocita, credential 'san-velocita'
+  { urls: 'turn:global.relay.metered.ca:80', username: '4f1c9a2df9da0620c3d7ab10', credential: 'jiiKuv19vs8rrzAV' },
+  { urls: 'turn:global.relay.metered.ca:80?transport=tcp', username: '4f1c9a2df9da0620c3d7ab10', credential: 'jiiKuv19vs8rrzAV' },
+  { urls: 'turn:global.relay.metered.ca:443', username: '4f1c9a2df9da0620c3d7ab10', credential: 'jiiKuv19vs8rrzAV' },
+  { urls: 'turns:global.relay.metered.ca:443?transport=tcp', username: '4f1c9a2df9da0620c3d7ab10', credential: 'jiiKuv19vs8rrzAV' },
+];
+let iceCache = null;
+async function iceConfig() {
+  if (!iceCache) {
+    let turn = TURN;
+    if (METERED_APP && METERED_KEY) {
+      try {
+        const ctl = new AbortController(); setTimeout(() => ctl.abort(), 5000);
+        const r = await fetch(`https://${METERED_APP}.metered.live/api/v1/turn/credentials?apiKey=${METERED_KEY}`, { signal: ctl.signal });
+        if (r.ok) turn = (await r.json()).filter(s => String(s.urls).startsWith('turn'));
+      } catch (e) { console.warn('TURN credentials fetch failed, direct connections only', e); }
+    }
+    iceCache = { iceServers: [...ICE, ...turn], turn: turn.length > 0 };
+  }
+  const relayOnly = typeof location !== 'undefined' && /[?&]relay=1/.test(location.search);
+  const cfg = { iceServers: iceCache.iceServers };
+  if (relayOnly && iceCache.turn) cfg.iceTransportPolicy = 'relay';
+  return { cfg, turn: iceCache.turn };
+}
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const makeCode = () => Array.from({ length: 5 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
 
@@ -29,11 +60,11 @@ export class Net {
   // ---------------- host ----------------
   host() {
     this.isHost = true;
-    return new Promise((resolve, reject) => {
+    return iceConfig().then(({ cfg }) => new Promise((resolve, reject) => {
       let tries = 0;
       const attempt = () => {
         this.code = makeCode();
-        const peer = new window.Peer(PREFIX + this.code, { config: { iceServers: ICE }, debug: 0 });
+        const peer = new window.Peer(PREFIX + this.code, { config: cfg, debug: 0 });
         this.peer = peer;
         let opened = false;
         const to = setTimeout(() => { if (!opened) { peer.destroy(); reject(new Error('Could not reach the matchmaking server. Check your internet connection.')); } }, 15000);
@@ -46,7 +77,7 @@ export class Net {
         peer.on('connection', (c) => this.hostAccept(c));
       };
       attempt();
-    });
+    }));
   }
   hostAccept(c) {
     const pid = c.peer;
@@ -79,13 +110,15 @@ export class Net {
     this.isHost = false;
     code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     this.code = code;
-    return new Promise((resolve, reject) => {
-      if (code.length < 4) return reject(new Error('Enter the 5-letter room code.'));
-      const peer = new window.Peer({ config: { iceServers: ICE }, debug: 0 });
+    if (code.length < 4) return Promise.reject(new Error('Enter the 5-letter room code.'));
+    return iceConfig().then(({ cfg, turn }) => new Promise((resolve, reject) => {
+      const peer = new window.Peer({ config: cfg, debug: 0 });
       this.peer = peer;
       let done = false;
       const fail = (msg) => { if (done) return; done = true; clearTimeout(to); try { peer.destroy(); } catch (e) {} reject(new Error(msg)); };
-      const to = setTimeout(() => fail('Could not connect to the host. Check the code — if it is right, your networks may be blocking peer-to-peer (see README).'), 20000);
+      const to = setTimeout(() => fail(turn
+        ? 'Could not connect to the host, even through the relay. Check the code, and that you both run the same version.'
+        : 'Could not connect to the host. Check the code — if it is right, your networks may be blocking peer-to-peer (see README).'), 20000);
       peer.on('error', (e) => { if (!done) fail(errText(e)); else this.emit('error', errText(e)); });
       peer.on('disconnected', () => { if (!this.closed) try { peer.reconnect(); } catch (e) {} });
       peer.on('open', (id) => {
@@ -107,7 +140,7 @@ export class Net {
         const lost = () => { if (this.closed) return; this.closed = true; clearInterval(this.pingIv); this.emit('hostLost'); };
         rel.on('close', lost); rel.on('error', lost);
       });
-    });
+    }));
   }
   startPings() {
     const ping = () => { if (this.rel && this.rel.open) this.rel.send({ t: 'ping', c: performance.now(), rtt: Math.round(this.rtt) }); };

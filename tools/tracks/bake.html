@@ -4,6 +4,7 @@
 <script type="importmap">{ "imports": { "three": "/vendor/three.module.min.js", "postprocessing": "/vendor/postprocessing/index.js" } }</script>
 <script type="module">
   import { bake } from './bake.js';
-  window.bake = bake;
+  import { photoFit } from './photofit.js';
+  window.bake = bake; window.photoFit = photoFit;
   window.bakeReady = true;
 </script>

@@ -1,6 +1,6 @@
 // Track data model, spline sampling and analysis (shared by editor + race)
 import { BUSINESSES } from './zones.js';
-import { runoffReach } from './runoff.js';
+import { runoffReach, realWallOffsets, surfaceGrid } from './runoff.js';
 
 export const SPACING = 2; // metres between track samples
 
@@ -44,6 +44,194 @@ export const PAINTS = {
 };
 // (the Nature brush, kind 'flora', paints a tree mix from scenery.js FLORA; its ground counts as grass)
 
+// A real circuit's dressing (track.dress, laid out in the Track Studio: studio.html): its curbs and barriers stretch by
+// stretch, as the real one has them. a..b: metres along the lap (b < a: across the line); side -1 left, 1 right.
+//   kerbs: [{ a, b, side, style, c?, type?, w?, tin?, tout? }]  style: a KERB_STYLES key (its two colors; c: [c1, c2]
+//          your own instead), type: a KERB_TYPES key (default raised), w: width (m, default 1.3), tin / tout: the
+//          tapered wedge it starts / ends with (m along the track: its width grows from nothing over that).
+//          With any, only these have curbs (no automatic ones). Edited in the Circuit Designer (CURBS) and Track Studio
+//   walls: [{ a, b, side, type, off? }]  type: a WALL_TYPES key ('none': no barrier there); off: metres out from the
+//          track edge (else where the barrier already stands). (Track Studio's; barriers, below, replace them)
+//   barriers: [{ side, type, pts: [[d, off], ...] }]  every barrier the track has (with this, there are no others):
+//          nodes in lap order, d m along the lap (it may run across the line), off m out from the track edge; straight
+//          between them. Edited in the Circuit Designer (BARRIERS); a track's automatic ones turned into these: autoBarriers
+export const KERB_STYLES = {
+  rw: { label: 'Red / White', c: ['#c3221f', '#e9e6df'] },
+  bw: { label: 'Blue / White', c: ['#1f48a8', '#e9e6df'] },
+  gw: { label: 'Green / White', c: ['#1f7a34', '#e9e6df'] },
+  yb: { label: 'Yellow / Black', c: ['#e2bb1a', '#1c1c1c'] },
+  rg: { label: 'Red / Green', c: ['#c3221f', '#2a7a30'] },
+  w: { label: 'White', c: ['#e9e6df', '#cfccc4'] },
+};
+export const WALL_TYPES = {
+  concrete: { label: 'Concrete' }, armco: { label: 'Armco' }, tires: { label: 'Tire Wall' },
+  fence: { label: 'Fence Only' }, none: { label: 'None' },
+};
+// how it rises from the road edge: raised (up to KERB_H at its outer edge, rumble strips), flat (painted, no rise),
+// sawtooth (raised, with deep ridges you feel), sausage (a tall round hump: it kicks the car if you cut over it)
+export const KERB_TYPES = {
+  raised: { label: 'Raised' }, flat: { label: 'Flat' }, saw: { label: 'Sawtooth' }, sausage: { label: 'Sausage' },
+};
+export const KERB_W = 1.3, SAUSAGE_H = 0.13;
+const WALL_KEYS = Object.keys(WALL_TYPES);
+export const wallTypeAt = (A, i, side, env) => (A.WT && WALL_KEYS[A.WT[side < 0 ? 0 : 1][i] - 1]) || env.barrier;
+// the curb on this side at sample i (its stretch: A.kerbs), or null; its width there (tapered ends: less); its colors
+export const kerbOf = (A, i, side) => { const k = A.KI && A.KI[side < 0 ? 0 : 1][i]; return k ? A.kerbs[k - 1] : null; };
+export const kerbW = (A, i, side) => (A.KW ? A.KW[side < 0 ? 0 : 1][i] : 0);
+export const kerbOn = (A, i, side) => kerbW(A, i, side) > 0.05;
+export const kerbColors = (k) => (k.c && k.c.length === 2 ? k.c : (KERB_STYLES[k.style] || KERB_STYLES.rw).c);
+export const kerbStyleAt = (A, i, side) => { const k = kerbOf(A, i, side); return k ? k.style || 'rw' : null; };
+// the automatic curbs (KERB: a sample has them both sides) as stretches, to edit
+export function autoKerbs(T, KERB) {
+  const N = T.N, out = [];
+  const start = KERB.findIndex((v, i) => v && !KERB[(i - 1 + N) % N]);
+  if (start < 0) return KERB[0] ? [-1, 1].map(side => ({ a: 0, b: +(T.L - 0.1).toFixed(1), side, style: 'rw' })) : out;
+  for (let k = 0; k < N; k++) {
+    const i = (start + k) % N; if (!KERB[i] || KERB[(i - 1 + N) % N]) continue;
+    let j = i; while (KERB[(j + 1) % N] && (j + 1) % N !== i) j = (j + 1) % N;
+    for (const side of [-1, 1]) out.push({ a: +T.D[i].toFixed(1), b: +T.D[j].toFixed(1), side, style: 'rw' });
+  }
+  return out;
+}
+// a dressing's stretches with [a, b] on this side taken out (the ones it overlaps cut short or split); L: lap length
+export function cutStretches(list, a, b, side, L) {
+  const parts = (p, q) => (p <= q ? [[p, q]] : [[p, L], [0, q]]), out = [];
+  for (const s of list) {
+    if (s.side !== side) { out.push(s); continue; }
+    let pieces = parts(s.a, s.b);
+    for (const [ca, cb] of parts(a, b)) pieces = pieces.flatMap(([pa, pb]) => {
+      if (cb <= pa || ca >= pb) return [[pa, pb]];
+      const r = []; if (ca > pa) r.push([pa, ca]); if (cb < pb) r.push([cb, pb]); return r;
+    });
+    // (one across the line comes back in two: join them)
+    const e = pieces.findIndex(p => p[1] >= L - 1e-6), z = pieces.findIndex(p => p[0] <= 1e-6);
+    if (e >= 0 && z >= 0 && e !== z) { pieces[e] = [pieces[e][0], pieces[z][1]]; pieces.splice(z, 1); }
+    const cut0 = pieces.length !== 1 || pieces[0][0] !== s.a, cut1 = pieces.length !== 1 || pieces[0][1] !== s.b;
+    for (const [pa, pb] of pieces) if ((((pb - pa) % L) + L) % L > 1) {
+      const n = { ...s, a: +pa.toFixed(1), b: +pb.toFixed(1) };
+      if (cut0 && pa !== s.a) delete n.tin; if (cut1 && pb !== s.b) delete n.tout; // (a cut end is square)
+      out.push(n);
+    }
+  }
+  return out;
+}
+// How far along a line of nodes ([[d, off], ...], d m along the lap, in lap order) each node is from its first, node to
+// node: a barrier or pit lane all the way round ends on (or a hair past) where it starts, and the last node's d less
+// the first's would make it no length at all (a track reshaped a little shorter: 4220.1 m on a 4220.09 m lap).
+export function nodeU(P, L) {
+  const U = [0];
+  for (let k = 1; k < P.length; k++) U.push(Math.min(L, U[k - 1] + ((((P[k][0] - P[k - 1][0]) % L) + L) % L)));
+  return U;
+}
+
+// The track's frame d m along the lap (between samples): centre, forward, right, width.
+export function trackFrame(T, d) {
+  const u = ((d % T.L) + T.L) % T.L / T.ds, i = Math.floor(u) % T.N, j = (i + 1) % T.N, f = u - Math.floor(u), l = (a, b) => a + (b - a) * f;
+  let fx = l(T.FX[i], T.FX[j]), fz = l(T.FZ[i], T.FZ[j]); const n = Math.hypot(fx, fz) || 1; fx /= n; fz /= n;
+  return { x: l(T.X[i], T.X[j]), z: l(T.Z[i], T.Z[j]), fx, fz, rx: -fz, rz: fx, w: l(T.W[i], T.W[j]) };
+}
+// A point beside the track as [d m along the lap, m out from the edge on that side], looked for between d = a and b
+// (m along the lap, a little either side): where the track's cross-section through it is.
+export function trackProject(T, x, z, side, a, b) {
+  const L = T.L, n = Math.ceil((((b - a) % L) + L) % L / T.ds) + 1, i0 = Math.floor(a / T.ds);
+  // (between two neighbouring cross-sections: on the outside of a tight corner they fan out wider than a sample apart;
+  // the nearest such pair, as one far round the lap can line up too)
+  let bi = -1, bv = Infinity;
+  const AL = (i) => (x - T.X[i]) * T.FX[i] + (z - T.Z[i]) * T.FZ[i];
+  for (let k = -6; k <= n + 6; k++) {
+    const i = (((i0 + k) % T.N) + T.N) % T.N, j = (i + 1) % T.N, ai = AL(i), aj = AL(j);
+    if (ai < -1e-6 || aj > 1e-6) continue;
+    const ac = (x - T.X[i]) * T.RX[i] + (z - T.Z[i]) * T.RZ[i];
+    if (ac * side < 0) continue;
+    if (Math.abs(ac) < bv) { bv = Math.abs(ac); bi = ai / Math.max(1e-6, ai - aj) < 0.5 ? i : j; }
+  }
+  if (bi < 0) return null;
+  // (then onto the track's frame between samples, as trackFrame puts a node back: the same spot both ways)
+  let d = T.D[bi], F;
+  for (let it = 0; it < 8; it++) { F = trackFrame(T, d); const al = (x - F.x) * F.fx + (z - F.z) * F.fz; d += Math.max(-T.ds, Math.min(T.ds, al * 0.7)); if (Math.abs(al) < 0.02) break; }
+  F = trackFrame(T, d);
+  return [(((d % L) + L) % L), ((x - F.x) * F.rx + (z - F.z) * F.rz) * side - F.w / 2];
+}
+// A barrier's line as [d, off] points close enough together to join straight (track.dress.barriers). A node is
+// [d, off] or [d, off, { f, ho, hi }]: f, the stretch from it to the next runs free across the ground (straight, or
+// bent by the handles), not along the track; ho / hi, its handles out to the next node / in from the one before, as
+// [m along the track, m further out] from the node, so they turn with the track when it's reshaped. Without f, a
+// stretch keeps the same distance from the edge as it goes (changing evenly from one node's to the next's).
+export function barrierLine(w, T) {
+  const P = w.pts, L = T.L, U = nodeU(P, L), d0 = P[0][0], side = w.side, out = [[P[0][0], P[0][1]]];
+  if (!P.some(p => p[2] && (p[2].f || p[2].ho || p[2].hi))) return P;
+  const at = (d, off) => { const F = trackFrame(T, d), s = side * (F.w / 2 + off); return { x: F.x + F.rx * s, z: F.z + F.rz * s, F }; };
+  for (let k = 0; k + 1 < P.length; k++) {
+    const a = P[k], b = P[k + 1], o = a[2] || {};
+    if (o.f) {
+      const A = at(a[0], a[1]), B = at(b[0], b[1]), oi = b[2] || {};
+      const hand = (Q, h) => ({ x: Q.x + Q.F.fx * h[0] + Q.F.rx * side * h[1], z: Q.z + Q.F.fz * h[0] + Q.F.rz * side * h[1] });
+      const c1 = o.ho ? hand(A, o.ho) : { x: A.x + (B.x - A.x) / 3, z: A.z + (B.z - A.z) / 3 };
+      const c2 = oi.hi ? hand(B, oi.hi) : { x: B.x + (A.x - B.x) / 3, z: B.z + (A.z - B.z) / 3 };
+      const len = Math.hypot(c1.x - A.x, c1.z - A.z) + Math.hypot(c2.x - c1.x, c2.z - c1.z) + Math.hypot(B.x - c2.x, B.z - c2.z);
+      // points along it, ~1.5 m apart, and closer wherever a little of it covers a lot of the track (well out past
+      // the apex of a tight corner, the track's cross-sections all but meet): no more than 2.5 m round the lap apart
+      const n = Math.max(2, Math.ceil(len / 1.5));
+      const pt = (t) => { const m = 1 - t, x = m * m * m * A.x + 3 * m * m * t * c1.x + 3 * m * t * t * c2.x + t * t * t * B.x, z = m * m * m * A.z + 3 * m * m * t * c1.z + 3 * m * t * t * c2.z + t * t * t * B.z;
+        const pr = trackProject(T, x, z, side, d0 + U[k] - 10, d0 + U[k + 1] + 10); return pr ? { u: (((pr[0] - d0) % L) + L) % L, pr } : null; };
+      const pts = [];
+      const fill = (t0, p0, t1, p1, depth) => {
+        if (depth > 10 || !p0 || !p1 || Math.abs(p1.u - p0.u) <= 2.5) return;
+        const tm = (t0 + t1) / 2, pm = pt(tm);
+        fill(t0, p0, tm, pm, depth + 1); if (pm) pts.push(pm); fill(tm, pm, t1, p1, depth + 1);
+      };
+      let tp = 0, pp = { u: U[k], pr: [a[0], a[1]] };
+      for (let q = 1; q <= n; q++) {
+        const t = q / n, p = q === n ? { u: U[k + 1], pr: [b[0], b[1]] } : pt(t);
+        if (!p) continue;
+        fill(tp, pp, t, p, 0); if (q < n) pts.push(p); tp = t; pp = p;
+      }
+      let last = U[k];
+      for (const { u, pr } of pts) {
+        if (u <= last + 0.05 || u >= U[k + 1] - 0.05) continue; // (never backwards: the inside of a hairpin)
+        last = u; out.push([pr[0], Math.max(0.3, pr[1])]);
+      }
+    }
+    out.push([b[0], b[1]]);
+  }
+  return out;
+}
+
+// A track's barriers as they stand (A: analyzeTrack's) as editable ones (dress.barriers): each unbroken run of one
+// type on one side, its nodes as few as follow it to 0.6 m (and one every 80 m at most). Bridge decks are left out.
+export function autoBarriers(T, A, env) {
+  const N = T.N, out = [];
+  for (const side of [-1, 1]) {
+    const has = side < 0 ? A.HAS_L : A.HAS_R, off = side < 0 ? A.BL : A.BR;
+    const on = (i) => has[i] && !A.BRIDGE[i] && !(A.OVERPASS && A.OVERPASS[i]) && i !== T.cut;
+    const type = (i) => wallTypeAt(A, i, side, env);
+    // (start somewhere a run doesn't carry on through)
+    let s0 = 0; while (s0 < N && on(s0) && on((s0 - 1 + N) % N) && type(s0) === type((s0 - 1 + N) % N)) s0++;
+    if (s0 >= N) s0 = 0;
+    for (let k = 0; k < N; k++) {
+      const i = (s0 + k) % N; if (!on(i)) continue;
+      const p = (i - 1 + N) % N; if (k > 0 && on(p) && type(p) === type(i)) continue;
+      const run = [i]; let j = i;
+      while (run.length < N && on((j + 1) % N) && type((j + 1) % N) === type(i) && (j + 1) % N !== s0) { j = (j + 1) % N; run.push(j); }
+      if (run.length < 2) continue;
+      const pts = run.map(q => [T.D[q], off[q] - T.W[q] / 2]);
+      // (fewest nodes: Douglas-Peucker on [m along, m out], along measured from the run's start)
+      const u = run.map((q, n) => n * T.ds), keep = new Uint8Array(run.length); keep[0] = keep[run.length - 1] = 1;
+      const rdp = (a, b) => { let bi = -1, bd = 0.6; for (let n = a + 1; n < b; n++) { const f = (u[n] - u[a]) / (u[b] - u[a]), e = Math.abs(pts[n][1] - (pts[a][1] + (pts[b][1] - pts[a][1]) * f)); if (e > bd) { bd = e; bi = n; } } if (bi < 0 && u[b] - u[a] > 80) bi = (a + b) >> 1; if (bi >= 0) { keep[bi] = 1; rdp(a, bi); rdp(bi, b); } };
+      rdp(0, run.length - 1);
+      out.push({ side, type: type(i), pts: pts.filter((_, n) => keep[n]).map(([d, o]) => [+d.toFixed(1), +o.toFixed(2)]) });
+    }
+  }
+  return out;
+}
+// the samples a dressing stretch covers
+export function stretchIdx(T, a, b) {
+  const out = [], L = T.L;
+  a = ((a % L) + L) % L; b = ((b % L) + L) % L;
+  for (let i = 0; i < T.N; i++) { const d = T.D[i]; if (a <= b ? d >= a && d <= b : d >= a || d <= b) out.push(i); }
+  return out;
+}
+
 // env.barrier: 'tires' | 'armco' | 'concrete', or 'none': no walls to see or hit, just a soft invisible border where
 // the runoff ends (the world's edge: a road through open country, a street race between buildings). env.dress false:
 // no circuit dressing (gantries, corner boards).
@@ -86,6 +274,38 @@ function crPoint(p0, p1, p2, p3, u) {
 }
 
 const smooth = (a, b, u) => a + (b - a) * (u * u * (3 - 2 * u));
+
+// Curve handles (the Circuit Designer's EDIT tool): a node may carry ho / hi, its handles out to the next node and in
+// from the one before, as [dx, dz] from it. A stretch with a handle at either end is a cubic Bezier through them; the
+// end without one takes the handle the automatic curve (centripetal Catmull-Rom) would have, so a node no one has
+// touched keeps the curve it always had.
+const CR_EPS = 1e-3;
+function autoOut(p0, p1, p2, p3) { const q = crPoint(p0, p1, p2, p3, CR_EPS); return [(q.x - p1.x) / CR_EPS / 3, (q.z - p1.z) / CR_EPS / 3]; }
+function autoIn(p0, p1, p2, p3) { const q = crPoint(p0, p1, p2, p3, 1 - CR_EPS); return [(q.x - p2.x) / CR_EPS / 3, (q.z - p2.z) / CR_EPS / 3]; }
+function segCtrl(p0, p1, p2, p3) {
+  if (!p1.ho && !p2.hi) return null;
+  const o = p1.ho || autoOut(p0, p1, p2, p3), i = p2.hi || autoIn(p0, p1, p2, p3);
+  return { c1: { x: p1.x + o[0], z: p1.z + o[1] }, c2: { x: p2.x + i[0], z: p2.z + i[1] } };
+}
+function segPoint(p0, p1, p2, p3, u, cc) {
+  if (!cc) return crPoint(p0, p1, p2, p3, u);
+  const m = 1 - u, a = m * m * m, b = 3 * m * m * u, c = 3 * m * u * u, d = u * u * u;
+  return { x: a * p1.x + b * cc.c1.x + c * cc.c2.x + d * p2.x, z: a * p1.z + b * cc.c1.z + c * cc.c2.z + d * p2.z };
+}
+const segLength = (p1, p2, cc) => cc ? Math.hypot(cc.c1.x - p1.x, cc.c1.z - p1.z) + Math.hypot(cc.c2.x - cc.c1.x, cc.c2.z - cc.c1.z) + Math.hypot(p2.x - cc.c2.x, p2.z - cc.c2.z) : Math.hypot(p2.x - p1.x, p2.z - p1.z);
+// a node's handles as they stand (its own, else the automatic curve's), [dx, dz] from it; null where there's no stretch
+export function nodeHandles(track, k) {
+  const P = track.points, n = P.length;
+  if (n < 2) return { hi: null, ho: null };
+  const ghost = (a, b) => ({ x: 2 * a.x - b.x, z: 2 * a.z - b.z });
+  const at = (j) => track.open ? (j < 0 ? ghost(P[0], P[1]) : j >= n ? ghost(P[n - 1], P[n - 2]) : P[j]) : P[((j % n) + n) % n];
+  const hasOut = !track.open || k < n - 1, hasIn = !track.open || k > 0;
+  const p = P[k];
+  return {
+    ho: hasOut ? (p.ho || autoOut(at(k - 1), p, at(k + 1), at(k + 2))) : null,
+    hi: hasIn ? (p.hi || autoIn(at(k - 2), at(k - 1), p, at(k + 1))) : null,
+  };
+}
 // Elevation between nodes: Catmull-Rom with the slopes measured per metre (each node's slope from its neighbours'
 // heights over the real distance between them), so the grade runs on smoothly through a node even when the
 // nodes either side are 5 m and 100 m away (plain Catmull-Rom assumes even spacing and kinks there). With evenly
@@ -122,10 +342,10 @@ function sampleOpen(track) {
   for (let i = 0; i < n - 1; i++) {
     const p1 = pts[i], p2 = pts[i + 1];
     const p0 = i > 0 ? pts[i - 1] : ghost(p1, p2), p3 = i + 2 < n ? pts[i + 2] : ghost(p2, p1);
-    const segLen = Math.hypot(p2.x - p1.x, p2.z - p1.z);
+    const cc = segCtrl(p0, p1, p2, p3), segLen = segLength(p1, p2, cc);
     const steps = Math.max(8, Math.ceil(segLen / 0.75));
     for (let k = 0; k < steps; k++) {
-      const u = k / steps, p = crPoint(p0, p1, p2, p3, u);
+      const u = k / steps, p = segPoint(p0, p1, p2, p3, u, cc);
       fine.push({ x: p.x, z: p.z, e: crElev(p0, p1, p2, p3, u), w: smooth(p1.w, p2.w, u), b: smooth(p1.b, p2.b, u), node: i + u });
     }
   }
@@ -206,11 +426,11 @@ export function sampleTrack(track) {
   const fine = [];
   for (let i = 0; i < n; i++) {
     const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
-    const segLen = Math.hypot(p2.x - p1.x, p2.z - p1.z);
+    const cc = segCtrl(p0, p1, p2, p3), segLen = segLength(p1, p2, cc);
     const steps = Math.max(8, Math.ceil(segLen / 0.75));
     for (let k = 0; k < steps; k++) {
       const u = k / steps;
-      const p = crPoint(p0, p1, p2, p3, u);
+      const p = segPoint(p0, p1, p2, p3, u, cc);
       fine.push({
         x: p.x, z: p.z,
         e: crElev(p0, p1, p2, p3, u),
@@ -296,8 +516,10 @@ export function buildHash(T, cell = 24) {
 export const circDist = (a, b, N) => { const d = Math.abs(a - b) % N; return Math.min(d, N - d); };
 
 // ---------- analysis: bridges, barriers ----------
-// paint: the track's painted strokes (runoff painted past the barrier moves it back)
-export function analyzeTrack(T, env, paint = null) {
+// paint: the track's painted strokes (runoff painted past the barrier moves it back); osm: a real circuit's map data
+// (track.osm): where it has barriers (walls), the barrier stands where they do, past the runoff its photos see (surface);
+// dress: a real circuit's curbs and barriers stretch by stretch (track.dress, above)
+export function analyzeTrack(T, env, paint = null, osm = null, dress = null) {
   const N = T.N;
   const hash = buildHash(T);
   const sep = Math.ceil(40 / T.ds);
@@ -357,6 +579,45 @@ export function analyzeTrack(T, env, paint = null) {
   const BL = smoothArr(offL), BRt = smoothArr(offR);
   // wider on the outside of fast corners and braking zones, and wherever the runoff's been painted out (runoff.js)
   const RZ = runoffReach(T, env, paint, computeSpeedProfile(T, new Float32Array(N), { mu: 2.3, kdm: 0.0035, vmax: 88, brake: 1.0 }).V, hash, sep, BR2, [BL, BRt]);
+  // a real circuit: where the map has a barrier, that's where it stands (nearer or further than the layout's)
+  // (eased into the layout's over ~15 m where the mapped barrier starts or ends)
+  // On the inside of a tight bend the mapped barrier can lie past the bend's centre (behind a chicane's other leg, round
+  // a hairpin): further out than a wall square to the track can stand there without folding back on itself. There's
+  // no wall near the road there at all: none (a gap, NOWALL), and the offset held inside the fold so the unfolding
+  // below never drags the wall in on the stretches either side.
+  const RW = osm && realWallOffsets(T, osm.walls, hash, sep, env.theme === 'city' ? 1 : 4, surfaceGrid(osm.surface));
+  const NOWALL = [new Uint8Array(N), new Uint8Array(N)];
+  if (RW) for (const [s, O] of [[0, BL], [1, BRt]]) {
+    const cap = wallCaps(T, s ? 1 : -1);
+    for (let i = 0; i < N; i++) {
+      const lim = Math.max(T.W[i] / 2 + 0.3, cap[i] - 0.5);
+      if (RW[s][i] === RW[s][i] && RW[s][i] > lim) { RW[s][i] = lim; NOWALL[s][i] = 1; }
+      if (O[i] > lim) { O[i] = lim; if (RW[s][i] !== RW[s][i]) NOWALL[s][i] = 1; } // (nothing mapped there either)
+    }
+  }
+  if (RW) for (const [s, O] of [[0, BL], [1, BRt]]) {
+    const R = RW[s], has = new Float32Array(N), e = Math.max(1, Math.round(15 / T.ds));
+    for (let i = 0; i < N; i++) has[i] = R[i] === R[i] ? 1 : 0;
+    if (!has.some(Boolean)) continue;
+    // (the nearest mapped value along the track, for the eased ends)
+    const near = new Float32Array(N).fill(NaN), dist = new Float32Array(N).fill(Infinity);
+    for (const dir of [1, -1]) {
+      let v = NaN, d = Infinity;
+      for (let n = 0; n < 2 * N; n++) {
+        const i = ((dir > 0 ? n : -n) % N + N) % N;
+        if (has[i]) { v = R[i]; d = 0; } else d++;
+        if (n >= N && d < dist[i]) { dist[i] = d; near[i] = v; }
+      }
+    }
+    for (let i = 0; i < N; i++) {
+      if (BR2[i]) continue;
+      let wsum = 0; for (let k = -e; k <= e; k++) wsum += has[(i + k + N) % N];
+      const wt = has[i] ? 1 : Math.min(1, wsum / e) * 0.999;
+      if (!(wt > 0)) continue;
+      const v = has[i] ? R[i] : near[i];
+      if (v === v) O[i] = O[i] * (1 - wt) + v * wt;
+    }
+  }
   const BMAX = [unfold(T, BL, -1), unfold(T, BRt, 1)];
   // barrier gaps where the barrier would sit on another section's road/runoff
   const HAS_L = new Uint8Array(N).fill(1), HAS_R = new Uint8Array(N).fill(1);
@@ -375,16 +636,64 @@ export function analyzeTrack(T, env, paint = null) {
       if (gap) (side < 0 ? HAS_L : HAS_R)[i] = 0;
     }
   }
-  // kerbs on corners
+  for (let i = 0; i < N; i++) { if (NOWALL[0][i]) HAS_L[i] = 0; if (NOWALL[1][i]) HAS_R[i] = 0; }
+  // the dressing's barriers: what stands where, stretch by stretch (WT: WALL_TYPES index + 1, 0 = the track's own)
+  let WT = null;
+  if (dress && dress.walls && dress.walls.length) {
+    WT = [new Uint8Array(N), new Uint8Array(N)];
+    for (const w of dress.walls) {
+      const si = w.side < 0 ? 0 : 1, has = si ? HAS_R : HAS_L, off = si ? BRt : BL, t = WALL_KEYS.indexOf(w.type) + 1;
+      if (!t) continue;
+      for (const i of stretchIdx(T, w.a, w.b)) {
+        if (BR2[i]) continue; // (a bridge deck keeps its parapet)
+        if (w.type === 'none') { has[i] = 0; continue; }
+        has[i] = 1; WT[si][i] = t;
+        if (w.off != null) off[i] = T.W[i] / 2 + Math.max(0.5, w.off);
+      }
+    }
+  }
+  // the dressing's own barriers: they're all there is (bridge decks keep their parapets)
+  if (dress && Array.isArray(dress.barriers)) {
+    WT = WT || [new Uint8Array(N), new Uint8Array(N)];
+    for (let i = 0; i < N; i++) if (!BR2[i]) { HAS_L[i] = 0; HAS_R[i] = 0; WT[0][i] = WT[1][i] = 0; }
+    for (const w of dress.barriers) {
+      const P = w.pts && w.pts.length >= 2 ? barrierLine(w, T) : w.pts, si = w.side < 0 ? 0 : 1, has = si ? HAS_R : HAS_L, off = si ? BRt : BL, t = WALL_KEYS.indexOf(w.type) + 1;
+      if (!P || P.length < 2 || !t || w.type === 'none') continue;
+      const L = T.L, d0 = P[0][0], U = nodeU(P, L);
+      const len = U[U.length - 1];
+      for (let i = 0; i < N; i++) {
+        if (BR2[i]) continue;
+        const u = ((T.D[i] - d0) % L + L) % L; if (u > len) continue;
+        let k = 0; while (k < U.length - 2 && U[k + 1] < u) k++;
+        const f = U[k + 1] > U[k] ? Math.min(1, (u - U[k]) / (U[k + 1] - U[k])) : 0;
+        has[i] = 1; WT[si][i] = t; off[i] = T.W[i] / 2 + Math.max(0.3, P[k][1] + (P[k + 1][1] - P[k][1]) * f);
+      }
+    }
+  }
+  // kerbs: the dressing's own, else on the corners (both sides, 10 m either side of anything tighter than 140 m)
   const KERB = new Uint8Array(N);
-  if (env.kerbs !== false && env.surface !== 'dirt') { // (dirt tracks have none)
+  let kerbs = dress && dress.kerbs && dress.kerbs.length ? dress.kerbs : null;
+  if (!kerbs && env.kerbs !== false && env.surface !== 'dirt') { // (dirt tracks have none)
     const tmp = new Uint8Array(N);
     for (let i = 0; i < N; i++) if (Math.abs(T.K[i]) > 1 / 140) tmp[i] = 1;
     const kd = Math.ceil(10 / T.ds);
     for (let i = 0; i < N; i++) if (tmp[i]) for (let k = -kd; k <= kd; k++) KERB[(i + k + N) % N] = 1;
     for (let i = 0; i < N; i++) if (BR2[i]) KERB[i] = 0;
+    kerbs = autoKerbs(T, KERB);
   }
-  return { hash, BRIDGE: BR2, LIFT, BL, BR: BRt, HAS_L, HAS_R, KERB, RZ, BMAX };
+  // per side and sample: which stretch (KI: its index + 1) and how wide it is there (KW, tapered at its ends)
+  const KI = [new Int16Array(N), new Int16Array(N)], KW = [new Float32Array(N), new Float32Array(N)];
+  kerbs.forEach((k, n) => {
+    const si = k.side < 0 ? 0 : 1, w = k.w ?? KERB_W, L = T.L, a = ((k.a % L) + L) % L, len = (((k.b - a) % L) + L) % L;
+    for (const i of stretchIdx(T, k.a, k.b)) {
+      if (BR2[i]) continue;
+      const u = (((T.D[i] - a) % L) + L) % L, v = len - u; // (m from its start, to its end)
+      const f = Math.min(1, k.tin > 0 ? u / k.tin : 1, k.tout > 0 ? v / k.tout : 1);
+      KI[si][i] = n + 1; KW[si][i] = w * Math.max(0, f);
+    }
+  });
+  for (let i = 0; i < N; i++) KERB[i] = KW[0][i] > 0.05 || KW[1][i] > 0.05 ? 1 : 0;
+  return { hash, BRIDGE: BR2, LIFT, BL, BR: BRt, HAS_L, HAS_R, KERB, KI, KW, kerbs, WT, RZ, BMAX, realWalls: !!RW };
 }
 
 // No loops in the wall. On a corner's inside, a line standing off the centre line further than the corner is tight
@@ -394,7 +703,8 @@ export function analyzeTrack(T, env, paint = null) {
 // caps off[i]). Where the wall is past its cap, it's eased in (the dent spread out along the track, never less than
 // needed, the bigger the further), never onto the track. Returns the caps (the furthest out anything along the wall may stand: its top, the
 // ground it holds back).
-function unfold(T, off, side) {
+// the furthest out a wall on that side may stand at each sample before it folds back on itself
+function wallCaps(T, side) {
   const N = T.N, M = 0.25 * T.ds, cap = new Float32Array(N).fill(1e9);
   for (let i = 0; i < N; i++) {
     if (i === T.cut) continue;
@@ -404,6 +714,10 @@ function unfold(T, off, side) {
     const b = side * (T.RX[i] * T.FX[j] + T.RZ[i] * T.FZ[j]);
     if (b > 1e-4) cap[i] = Math.min(cap[i], (dx * T.FX[j] + dz * T.FZ[j] - M) / b);
   }
+  return cap;
+}
+function unfold(T, off, side) {
+  const N = T.N, cap = wallCaps(T, side);
   const dent = new Float32Array(N);
   let any = false;
   for (let i = 0; i < N; i++) if (off[i] > cap[i]) { dent[i] = off[i] - cap[i]; any = true; }
@@ -458,7 +772,9 @@ export function shortestLine(T, margin = 1.6, iters = 260) {
   return O;
 }
 
+// margin: m from each edge, or a per-sample array of them (race.js lineMargins: less at the kerbs)
 export function minCurvatureLine(T, margin = 1.6, spacing = 8) {
+  const mAt = typeof margin === 'number' ? () => margin : (i) => margin[i];
   // Quadratic program: minimise sum |second difference of the line|^2 over the lateral offsets,
   // with the track edges as box limits. Solved exactly (dense Cholesky + active set) on nodes
   // every ~8 m, then interpolated smoothly back to every sample.
@@ -470,7 +786,7 @@ export function minCurvatureLine(T, margin = 1.6, spacing = 8) {
     // (point-to-point: nodes run from the back of the grid to the end of the run-off, both ends included)
     const i = open ? (T.cut + 1 + Math.round((j * (N - 1)) / (M - 1))) % N : Math.min(N - 1, Math.round((j * N) / M)); idx[j] = i;
     cx[j] = T.X[i]; cz[j] = T.Z[i]; nx[j] = T.RX[i]; nz[j] = T.RZ[i];
-    const lim = Math.max(0, T.W[i] / 2 - margin); lo[j] = -lim; hi[j] = lim;
+    const lim = Math.max(0, T.W[i] / 2 - mAt(i)); lo[j] = -lim; hi[j] = lim;
   }
   const w = (j) => ((j % M) + M) % M;
   // D2'D2: the sum of (second difference)^2 over every run of three nodes (a loop wraps; an open road doesn't)
@@ -534,7 +850,7 @@ export function minCurvatureLine(T, margin = 1.6, spacing = 8) {
     for (let i = i0; i < i1; i++) {
       const t = (i - i0) / (i1 - i0), t2 = t * t, t3 = t2 * t;
       const v = 0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
-      const ii = i % N, lim = Math.max(0, T.W[ii] / 2 - margin);
+      const ii = i % N, lim = Math.max(0, T.W[ii] / 2 - mAt(ii));
       O[ii] = Math.max(-lim, Math.min(lim, v));
     }
   }
@@ -664,8 +980,14 @@ export const PIT = { width: 9, wallGap: 1.4, maxGap: 45, strip: 2.0, speed: 22.2
 // the catch fence's height (Circuit tab: env.fenceH metres over the barrier, 0 for none); else as the barrier comes
 export const fenceHeight = (env, dflt) => env.fenceH ?? dflt ?? (env.barrier === 'armco' ? 1.65 : 2.8);
 
-export function buildPitLane(T, A, env) {
+// line: a real circuit's mapped pit lane ([[x, z]...], track.osm.pitLane): the lane runs where it really does.
+// surf: what the ground beside the road is (runoff.js surfaceGrid: a reference model's, or aerial photos'): a lane
+// made up here only goes where that ground is paved (not through a grandstand or a dune), or there's none.
+// own: the track's own pit lane, placed by hand (track.dress.pit: ownPitLane), else line: a real circuit's mapped one
+export function buildPitLane(T, A, env, line = null, surf = null, own = null) {
   if (env.pits === false || T.open) return null; // (a point-to-point run has no pit lane)
+  if (own && own.pts && own.pts.length > 1) return ownPitLane(T, A, own);
+  if (line && line.length > 1) { const real = realPitLane(T, A, line); if (real) return real; }
   const N = T.N, ds = T.ds;
   let nRamp;
   const idxAt = (k) => ((k % N) + N) % N;
@@ -702,6 +1024,8 @@ export function buildPitLane(T, A, env) {
       for (let d = -w; d <= w; d++) { const r = Math.max(nRamp, Math.min(k1 - k0 - nRamp, q + d)); v += raw[r]; n++; }
       G[q] = Math.max(raw[q], v / n); // (never nearer the track than the barrier would be)
     }
+    // (a real circuit's mapped barriers step in and out: the pit wall runs straight, at their usual distance)
+    if (A.realWalls) { const m = [...G.subarray(nRamp, k1 - k0 - nRamp + 1)].sort((a, b) => a - b), v = m[m.length >> 1]; if (v === v) G.fill(v, nRamp, k1 - k0 - nRamp + 1); }
     let ok = true;
     for (let k = k0; k <= k1 && ok; k++) {
       const i = idxAt(k);
@@ -720,6 +1044,12 @@ export function buildPitLane(T, A, env) {
           if (Math.hypot(x - T.X[j], z - T.Z[j]) < T.W[j] / 2 + 6) ok = false;
         });
       }
+    }
+    // (on the measured ground: the lane's middle on paved ground along most of the garages' stretch)
+    if (ok && surf) {
+      let paved = 0, n = 0;
+      for (let k = k0 + nRamp; k <= k1 - nRamp; k += 2) { const i = idxAt(k), o = laneC(i) * sd; n++; if (surf.at(T.X[i] + T.RX[i] * o, T.Z[i] + T.RZ[i] * o) === 1) paved++; }
+      if (paved < n * 0.7) ok = false;
     }
     if (ok) { side = sd; break; }
   }
@@ -759,6 +1089,130 @@ export function buildPitLane(T, A, env) {
   // pit lane length and time lost vs. racing past (rough)
   return { side, REG, CEN, WALL, OUT, HIDE, boxes, reach: gapAt(idxAt(k0 + nRamp)) + 0.6 + PIT.strip + PIT.width, gap: gapAt(idxAt(k0 + nRamp)), gapOut: gapAt(idxAt(k1 - nRamp)), strip: PIT.strip, start, end, count, nRamp, commitAt: nRamp, limitIn, limitOut, mainStart: idxAt(k0 + nRamp), mainEnd: idxAt(k1 - nRamp), length: count * ds, width: PIT.width, speed: PIT.speed };
   }
+}
+
+// A real circuit's pit lane, from its mapped centre line: for each sample of the circuit, how far out the lane runs
+// (the nearest point of it square to the track, on the side it's on). From where it leaves the track to where it
+// joins it again; gaps (where it cuts inside a hairpin, past the ends of the normals) are bridged. The ramps are its
+// ends (nRamp in, nRampOut out), the garages along the straight part in between. Same shape as buildPitLane's.
+function realPitLane(T, A, line) {
+  const N = T.N, ds = T.ds, idxAt = (k) => ((k % N) + N) % N;
+  const Q = [];
+  for (let k = 0; k + 1 < line.length; k++) {
+    const [ax, az] = line[k], [bx, bz] = line[k + 1], n = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az) / 1));
+    for (let j = 0; j < n; j++) Q.push([ax + (bx - ax) * j / n, az + (bz - az) * j / n]);
+  }
+  Q.push(line[line.length - 1]);
+  const CELL = 20, grid = new Map();
+  Q.forEach((q, k) => { const key = Math.floor(q[0] / CELL) + ',' + Math.floor(q[1] / CELL); let a = grid.get(key); if (!a) grid.set(key, a = []); a.push(k); });
+  const lat = new Float32Array(N).fill(NaN);
+  for (let i = 0; i < N; i++) {
+    let best = Infinity;
+    for (let cx = Math.floor((T.X[i] - 60) / CELL); cx <= Math.floor((T.X[i] + 60) / CELL); cx++) for (let cz = Math.floor((T.Z[i] - 60) / CELL); cz <= Math.floor((T.Z[i] + 60) / CELL); cz++) {
+      const a = grid.get(cx + ',' + cz); if (!a) continue;
+      for (const k of a) {
+        const dx = Q[k][0] - T.X[i], dz = Q[k][1] - T.Z[i], along = dx * T.FX[i] + dz * T.FZ[i], l = dx * T.RX[i] + dz * T.RZ[i];
+        if (Math.abs(along) < 1.5 && Math.abs(l) < 60 && Math.abs(l) < Math.abs(best)) best = l;
+      }
+    }
+    if (best !== Infinity) lat[i] = best;
+  }
+  // the side: where most of it is; the run: the longest stretch on that side (gaps under 200 m bridged)
+  let sum = 0; for (let i = 0; i < N; i++) if (lat[i] === lat[i]) sum += Math.sign(lat[i]);
+  const side = sum >= 0 ? 1 : -1, on = (i) => lat[i] === lat[i] && lat[i] * side > 0;
+  const gapMax = Math.round(200 / ds);
+  let start = -1;
+  for (let i = 0; i < N; i++) if (!on(i) && on(idxAt(i + 1))) { // (a run's start: walk it, bridging gaps, measure it)
+    let k = 1, last = 1, miss = 0;
+    while (k < N) { if (on(idxAt(i + k))) { last = k; miss = 0; } else if (++miss > gapMax) break; k++; }
+    if (start < 0 || last > start[1]) start = [i + 1, last];
+  }
+  if (!Array.isArray(start) || start[1] * ds < 150) return null;
+  const k0 = start[0], count = start[1] - 1;
+  // the lane's offset along the run (absolute, on its side), gaps interpolated, eased over ~10 m
+  const raw = new Float32Array(count + 1); let prev = -1;
+  for (let pos = 0; pos <= count; pos++) {
+    const i = idxAt(k0 + pos);
+    if (on(i)) {
+      raw[pos] = Math.abs(lat[i]);
+      if (prev >= 0 && pos - prev > 1) for (let q = prev + 1; q < pos; q++) raw[q] = raw[prev] + (raw[pos] - raw[prev]) * (q - prev) / (pos - prev);
+      prev = pos;
+    }
+  }
+  const w = Math.max(1, Math.round(10 / ds)), cen = new Float32Array(count + 1);
+  for (let pos = 0; pos <= count; pos++) { let v = 0, n = 0; for (let d = -w; d <= w; d++) { const q = pos + d; if (q < 0 || q > count) continue; v += raw[q]; n++; } cen[pos] = v / n; }
+  return pitAlong(T, A, side, k0, count, cen, null, { real: true });
+}
+
+// a pit lane as it is (buildPitLane's) as one to edit by hand (track.dress.pit): its centre line's nodes (as few as
+// follow it to 0.3 m) and its garages' stretch
+export function pitToOwn(T, pit) {
+  const idx = []; for (let i = 0; i < T.N; i++) if (pit.REG[i] >= 0) idx.push(i);
+  idx.sort((a, b) => pit.REG[a] - pit.REG[b]);
+  const pts = idx.map(i => [T.D[i], pit.CEN[i] - T.W[i] / 2]), u = idx.map((_, n) => n * T.ds), keep = new Uint8Array(pts.length);
+  keep[0] = keep[pts.length - 1] = 1;
+  const rdp = (a, b) => { let bi = -1, bd = 0.3; for (let n = a + 1; n < b; n++) { const f = (u[n] - u[a]) / (u[b] - u[a]), e = Math.abs(pts[n][1] - (pts[a][1] + (pts[b][1] - pts[a][1]) * f)); if (e > bd) { bd = e; bi = n; } } if (bi >= 0) { keep[bi] = 1; rdp(a, bi); rdp(bi, b); } };
+  rdp(0, pts.length - 1);
+  return { side: pit.side, pts: pts.filter((_, n) => keep[n]).map(([d, o]) => [+d.toFixed(1), +o.toFixed(2)]), main: [+T.D[pit.mainStart].toFixed(1), +T.D[pit.mainEnd].toFixed(1)] };
+}
+// A pit lane placed by hand (track.dress.pit, the Circuit Designer's PIT LANE tool): { side, pts: [[d, off], ...],
+// main?: [d0, d1] }. pts: its centre line, nodes in lap order, d m along the lap, off m out from the track edge (its
+// first and last a little inside it: where it leaves and rejoins the track); main: the garages and pit wall, m along
+// the lap (else the longest straight stretch clear of the track).
+export function ownPitLane(T, A, own) {
+  const ds = T.ds, L = T.L, P = own.pts, d0 = P[0][0], norm = (d) => ((d % L) + L) % L;
+  const U = nodeU(P, L);
+  const len = U[U.length - 1], count = Math.round(len / ds), k0 = Math.round(d0 / ds);
+  if (count * ds < 40) return null;
+  const cen = new Float32Array(count + 1);
+  for (let pos = 0, k = 0; pos <= count; pos++) {
+    const u = pos * ds; while (k < U.length - 2 && U[k + 1] < u) k++;
+    const f = U[k + 1] > U[k] ? Math.max(0, Math.min(1, (u - U[k]) / (U[k + 1] - U[k]))) : 0;
+    cen[pos] = T.W[((k0 + pos) % T.N + T.N) % T.N] / 2 + P[k][1] + (P[k + 1][1] - P[k][1]) * f;
+  }
+  const main = own.main && own.main.length === 2 ? [Math.round(norm(own.main[0] - d0) / ds), Math.round(norm(own.main[1] - d0) / ds)] : null;
+  return pitAlong(T, A, own.side < 0 ? -1 : 1, k0, count, cen, main && main[0] < main[1] && main[1] <= count ? main : null, { own: true });
+}
+
+// the pit lane's shape (buildPitLane's) from its centre line: cen[pos] m out (on its side) for the samples k0..k0+count;
+// main: [first, last] pos of the garages' stretch, else the longest one clear of the track and straight or gently
+// curved (radius over 250 m: never round a hairpin, where the lane cuts inside it); before it the way in, after it the
+// way out (each as long as it really is)
+function pitAlong(T, A, side, k0, count, cen, main, extra) {
+  const N = T.N, ds = T.ds, idxAt = (k) => ((k % N) + N) % N, k1 = k0 + count;
+  const CEN = new Float32Array(N).fill(NaN), REG = new Int16Array(N).fill(-1), WALL = new Float32Array(N).fill(NaN), OUT = new Float32Array(N).fill(NaN), HIDE = new Uint8Array(N);
+  // the garages and the pit wall: the longest stretch where the lane is clear of the track and the track runs straight
+  // or gently curved (radius over 250 m: never round a hairpin, where the lane cuts inside it); before it the way in,
+  // after it the way out (each as long as it really is)
+  const clear = (pos) => cen[pos] - PIT.width / 2 >= T.W[idxAt(k0 + pos)] / 2 + 1.5; // (the lane's edge clear of the track's)
+  const cw = Math.max(2, Math.round(5 / ds)); // (the bend averaged over ~10 m: a mapped centre line wobbles)
+  const calm = (pos) => { let k = 0; for (let d = -cw; d <= cw; d++) k += T.K[idxAt(k0 + pos + d)]; return Math.abs(k / (2 * cw + 1)) < 1 / 250; };
+  let mA = main ? Math.max(1, main[0]) : -1, mB = main ? Math.min(count - 1, main[1]) : -1;
+  if (!main) for (let pos = 0, run = -1; pos <= count + 1; pos++) {
+    const ok = pos <= count && clear(pos) && calm(pos);
+    if (ok && run < 0) run = pos;
+    if (!ok && run >= 0) { if (pos - 1 - run > mB - mA) { mA = run; mB = pos - 1; } run = -1; }
+  }
+  if (mA < 0 || (mB - mA) * ds < (main ? 20 : 120)) return null;
+  const nRamp = mA, nRampOut = count - mB;
+  const off = side < 0 ? A.BL : A.BR;
+  for (let pos = 0; pos <= count; pos++) {
+    const i = idxAt(k0 + pos), half = T.W[i] / 2;
+    REG[i] = pos; CEN[i] = Math.max(half - 2.2, cen[pos]);
+    OUT[i] = Math.max(half, CEN[i] + PIT.width / 2);
+    if (pos >= mA && pos <= mB) {
+      WALL[i] = Math.max(half + 0.8, CEN[i] - PIT.width / 2 - PIT.strip - 0.6); // (where the stands' strip doesn't fit, it's squeezed)
+      off[i] = CEN[i] + PIT.width / 2 + 0.6; HIDE[i] = 1;
+    } else off[i] = Math.max(off[i], CEN[i] + PIT.width / 2 + 0.6);
+  }
+  const mainLen = (mB - mA) * ds;
+  const lead = Math.max(30, Math.min(110, mainLen - 11 * 15 - 25));
+  const boxes = [], b0 = k0 + mA + Math.round(lead / ds), step = Math.round(15 / ds);
+  for (let n = 0; n < 12; n++) { const k = b0 + n * step; if (k < k0 + mB - 4) boxes.push(idxAt(k)); }
+  const limitIn = mA + Math.round(Math.min(40, lead * 0.4) / ds), limitOut = mB - Math.round(20 / ds);
+  const gapAt = (i) => WALL[i] - T.W[i] / 2;
+  const mS = idxAt(k0 + mA), mE = idxAt(k0 + mB);
+  return { side, REG, CEN, WALL, OUT, HIDE, boxes, reach: gapAt(mS) + 0.6 + PIT.strip + PIT.width, gap: gapAt(mS), gapOut: gapAt(mE), strip: PIT.strip, start: idxAt(k0), end: idxAt(k1), count, nRamp, nRampOut, commitAt: nRamp, limitIn, limitOut, mainStart: mS, mainEnd: mE, length: count * ds, width: PIT.width, speed: PIT.speed, ...extra };
 }
 
 export function trackStats(T) {

@@ -346,7 +346,7 @@ export function applyRoadsToCircuit(track, T, A) {
   for (const jn of L.junctions) {
     jn.circuitWalk = !!(track.env && track.env.walks);
     // no kerbs or circuit sidewalk across the junction's mouth (its own sidewalks wrap round onto the edge)
-    for (let k = -3; k <= jn.n + 3; k++) A.KERB[idx(Math.floor(jn.f0) + k)] = 0;
+    for (let k = -3; k <= jn.n + 3; k++) { const q = idx(Math.floor(jn.f0) + k); A.KERB[q] = 0; if (A.KW) A.KW[0][q] = A.KW[1][q] = 0; }
     // the circuit sidewalk stops only across the mouth itself, so it meets the corner sidewalks with no gap
     for (let j = Math.ceil(jn.f0); j <= Math.floor(jn.f0 + jn.span); j++) (jn.side < 0 ? A.NOWALK_L : A.NOWALK_R)[idx(j)] = 1;
     if (jn.closed) continue; // the barrier stays across the junction
@@ -366,7 +366,7 @@ export function applyRoadsToCircuit(track, T, A) {
   if (T.SPAN) {
     const touched = new Uint8Array(N);
     A.OVERPASS = new Uint8Array(N);
-    for (let i = 0; i < N; i++) if (T.SPAN[i]) { A.BRIDGE[i] = 1; A.OVERPASS[i] = 1; A.KERB[i] = 0; const e = T.W[i] / 2 + OVERPASS_WALK + 0.45; A.BL[i] = Math.min(A.BL[i], e); A.BR[i] = Math.min(A.BR[i], e); for (let k = -10; k <= 10; k++) touched[(i + k + N) % N] = 1; }
+    for (let i = 0; i < N; i++) if (T.SPAN[i]) { A.BRIDGE[i] = 1; A.OVERPASS[i] = 1; A.KERB[i] = 0; if (A.KW) A.KW[0][i] = A.KW[1][i] = 0; const e = T.W[i] / 2 + OVERPASS_WALK + 0.45; A.BL[i] = Math.min(A.BL[i], e); A.BR[i] = Math.min(A.BR[i], e); for (let k = -10; k <= 10; k++) touched[(i + k + N) % N] = 1; }
     for (const arr of [A.BL, A.BR]) { // same smoothing analyzeTrack uses: windowed min, then average
       const src = Float32Array.from(arr), mn = Float32Array.from(arr), w = 6;
       for (let i = 0; i < N; i++) if (touched[i]) { let v = 1e9; for (let k = -w; k <= w; k++) v = Math.min(v, src[(i + k + N) % N]); mn[i] = v; }

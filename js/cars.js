@@ -89,12 +89,6 @@ export const CARS = {
   f1:     { name: 'Your F1 Car', cls: 'f1', sound: 'f1v6', chassis: 'custom', spec: CARSPEC, paint: true },
   svgp:   { name: 'SVGP Classic', cls: 'f1', sound: 'v10', chassis: 'svgp', spec: CARSPEC, paint: true },
 
-  aventus: { name: 'Emery Aventus ’92', cls: 'gt1', sound: 'v8flat', glb: true, paint: true,
-    spec: gt({ body: [2.4, 2.42, 0.98], mass: 1120, power: 470000, kd: 0.8, drag: 0.44, torque: V8, a: 1.45, b: 1.3 }) },
-  bx300:   { name: 'Horai BX300 ’96', cls: 'gt1', sound: 'v6na', glb: true, paint: true,
-    spec: gt({ body: [2.25, 2.27, 0.95], mass: 1040, power: 430000, kd: 0.95, drag: 0.47, mu: 1.61, redline: 9200, torque: NA, a: 1.36, b: 1.3 }) },
-  rmx:     { name: 'Kineto RM-X ’94', cls: 'gt1', sound: 'i6turbo', glb: true, paint: false, bodyWheels: 'drop',
-    spec: gt({ body: [2.2, 2.22, 1.0], mass: 1180, power: 500000, kd: 0.7, drag: 0.43, torque: TURBO, drive: 0.2, redline: 8000, a: 1.4, b: 1.32, rearGrip: 1.02 }) },
   m1procar: { name: 'Bavaria M1 ProCar ’79', cls: 'gt1', sound: 'i6', glb: true, paint: true, livery: true, // your Blender model: white photo, wears your full livery (see roadcar.js) + Light_* lamps
     liveryLabels: { topNumber: [0.78, 0.5], sideNumber: [0.55, 0.5], sideSponsor: [0.55, 0.8] },
     spec: gt({ body: [2.21, 2.16, 0.89], gears: [0, 28, 43, 57, 71, 88], box: 'manual', shift: 0.14, mass: 1020, power: 400000, kd: 0.75, drag: 0.45, torque: NA, redline: 9000, a: 1.3, b: 1.13, rearGrip: 1.07, brakeF: 0.62 }) },
@@ -112,6 +106,22 @@ export const CARS = {
   m3gtr: { name: 'BMW M3 GTR', cls: 'gt1', sound: 'v8cross', glb: true, paint: true, livery: true, rev: 2,
     liveryLabels: { topNumber: [0.42, 0.5], sideNumber: [0.5, 0.55], sideSponsor: [0.5, 0.8] },
     spec: gt({ body: [2.21, 2.37, 0.93], mass: 1100, power: 460000, kd: 0.85, drag: 0.46, torque: NA, a: 1.37, b: 1.37 }) },
+
+  // your Blender model (Zakspeed Ford Capri Turbo, Group 5, white photo, full livery): built from a high-poly model with
+  // the low-poly pipeline (output/hd-lowpoly). A short, light front-engined car with a tiny turbo four that's all
+  // or nothing: the lightest of the GT1 cars, a late, violent boost and a short wheelbase that turns in hard but
+  // wants a gentle right foot out of slow corners
+  capri: { name: 'Ford Capri Turbo', cls: 'gt1', sound: 'i4turbo', glb: true, paint: true, livery: true,
+    liveryLabels: { topNumber: [0.7, 0.5], sideNumber: [0.5, 0.5], sideSponsor: [0.5, 0.8] },
+    spec: gt({ body: [2.38, 2.47, 1.04], gears: [0, 30, 45, 59, 72, 85], box: 'manual', shift: 0.16, mass: 960, power: 440000, kd: 0.9, drag: 0.46, torque: BIGTURBO, redline: 9000, a: 1.2, b: 1.38, rearGrip: 1.06, brakeF: 0.6 }) },
+  // your Blender model (Ferrari F40 LM, the racing F40, with the LB-Works kit, modelled by hand over the white reference
+  // sheet, full livery): the twin-turbo flat-plane V8 behind the driver, a five-speed manual and turbos that arrive all
+  // at once. The real LM made up to ~530 kW on full boost; here it's held to 470 kW, as BPR GT1 restrictors held the
+  // F40 GTE, so it's mid-field. Weight over the rear (42/58) puts the power down well but lets it rotate on a lift; the
+  // long rear overhang and big wing keep it steady at speed
+  f40: { name: 'Ferrari F40 LM', cls: 'gt1', sound: 'v8flat', glb: true, paint: true, livery: true,
+    liveryLabels: { topNumber: [0.8, 0.5], sideNumber: [0.52, 0.57], sideSponsor: [0.52, 0.82] },
+    spec: gt({ body: [2.57, 1.91, 1.05], gears: [0, 31, 48, 64, 79, 93], box: 'manual', shift: 0.15, mass: 1060, power: 470000, kd: 0.9, drag: 0.44, torque: TURBO, redline: 7800, a: 1.43, b: 1.03, brakeF: 0.58 }) },
 
   testarossa: { name: 'Testa Rossa', cls: 'street', sound: 'flat12', glb: true, paint: true,
     spec: street({ body: [2.24, 2.27, 1.0], lsd: [50, 0.4, 0.2], mass: 1510, power: 290000, cgh: 0.44, a: 1.4, b: 1.15, mu: 1.35, kd: 0.18, redline: 7400, gears: [0, 20, 34, 48, 63, 80], torque: NA }) },
@@ -147,8 +157,18 @@ export const CARS = {
   hearse:  { name: 'Caprice Hearse', cls: 'fun', sound: 'v8truck', glb: true, paint: false,
     spec: street({ body: [2.8, 2.83, 1.0], lsd: [0, 0, 0], mass: 2250, power: 150000, torque: V8, cgh: 0.62, rideHz: [1.2, 1.4], travel: [0.15, 0.14], solidR: true, damp: 0.45, rollGrad: 5.5, unsprung: 50, rcH: 0.12, antiDive: 0.15, antiSquat: 0.15, mu: 1.16, kd: 0, drag: 0.5, a: 1.6, b: 1.75, redline: 5200, idle: 700, gears: [0, 15, 27, 40, 55], box: 'automatic', shift: 0.3 }) },
 };
+// archived (2026-10-12): the GT1 cars that aren't our own models. Out of every menu, grid and career; their specs and
+// models/cars/*.glb are kept so they can come back (move an entry back into CARS and out of RETIRED)
+export const ARCHIVED = {
+  aventus: { name: 'Emery Aventus ’92', cls: 'gt1', sound: 'v8flat', glb: true, paint: true,
+    spec: gt({ body: [2.4, 2.42, 0.98], mass: 1120, power: 470000, kd: 0.8, drag: 0.44, torque: V8, a: 1.45, b: 1.3 }) },
+  bx300:   { name: 'Horai BX300 ’96', cls: 'gt1', sound: 'v6na', glb: true, paint: true,
+    spec: gt({ body: [2.25, 2.27, 0.95], mass: 1040, power: 430000, kd: 0.95, drag: 0.47, mu: 1.61, redline: 9200, torque: NA, a: 1.36, b: 1.3 }) },
+  rmx:     { name: 'Kineto RM-X ’94', cls: 'gt1', sound: 'i6turbo', glb: true, paint: false, bodyWheels: 'drop',
+    spec: gt({ body: [2.2, 2.22, 1.0], mass: 1180, power: 500000, kd: 0.7, drag: 0.43, torque: TURBO, drive: 0.2, redline: 8000, a: 1.4, b: 1.32, rearGrip: 1.02 }) },
+};
 // every spec gets its wheelbase + yaw inertia filled in
-for (const c of Object.values(CARS)) {
+for (const c of [...Object.values(CARS), ...Object.values(ARCHIVED)]) {
   const s = c.spec;
   s.L = s.a + s.b;
   // yaw inertia: radius of gyration ~1.25 m for a road car (lower made them twitchy)
@@ -157,7 +177,9 @@ for (const c of Object.values(CARS)) {
 
 // the car id a garage config drives ('custom' / 'svgp' = the F1 chassis)
 // cars taken out of the game -> the car that replaced them (saved settings and careers that still name them)
-export const RETIRED = { gtr: 'm3gtr' };
+// (the archived GT1 cars go to the custom car nearest in character: the Aventus' V8 to the F40, the light revvy BX300
+// to the M1, the turbo RM-X to the 935)
+export const RETIRED = { gtr: 'm3gtr', aventus: 'f40', bx300: 'm1procar', rmx: 'porsche935' };
 export const carId = (cfg) => { const c = (cfg && cfg.chassis) || 'custom', k = RETIRED[c] || c; return k === 'custom' ? 'f1' : CARS[k] ? k : 'f1'; };
 export const carOf = (cfg) => CARS[carId(cfg)];
 export const classOf = (cfg) => carOf(cfg).cls;

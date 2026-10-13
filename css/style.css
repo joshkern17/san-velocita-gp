@@ -624,6 +624,12 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 /* ---------- EDITOR ---------- */
 #s-editor { background: var(--sv-ink); color: var(--sv-red); }
 #s-editor.active { display: grid; grid-template-columns: 96px 1fr 320px; grid-template-rows: 52px 1fr 150px; }
+/* 3D View (js/ed3d.js): the game's canvas shows through; only the strip along the top stays */
+#s-editor.v3d { background: transparent; }
+#s-editor.v3d > :not(.ed-v3d) { visibility: hidden; }
+.ed-v3d { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 18px; padding: 10px 14px; background: color-mix(in srgb, var(--sv-ink) 80%, transparent); border-bottom: 1.5px solid var(--sv-red); z-index: 5; }
+.ed-v3d[hidden] { display: none; }
+.ed-v3d span { font: 500 13px/1.2 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); }
 .ed-top { grid-column: 1 / 4; display: flex; align-items: center; gap: 14px; padding: 0 12px; background: var(--sv-ink); border-bottom: 1.5px solid var(--sv-red); box-shadow: 0 1px 4px color-mix(in srgb, var(--sv-red) 50%, transparent); z-index: 1; }
 .ed-brand { font: 700 32px/.9 var(--f-display); letter-spacing: var(--track); text-transform: uppercase; white-space: nowrap; color: var(--sv-hot); background: linear-gradient(180deg, var(--sv-hot-top) 0%, var(--sv-hot) 45%, var(--sv-hot-deep) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: var(--sv-glow-title); padding-top: .04em; text-shadow: none; }
 .ed-name { background: transparent; border: 1.5px solid var(--sv-red); border-radius: 3px; box-shadow: 0 0 2px var(--sv-red), 0 0 4px var(--sv-red); color: var(--sv-hot); font: 500 20px/1 var(--f-ui); letter-spacing: var(--track); padding: 5px 10px 3px; width: 280px; outline: none; }
@@ -988,6 +994,27 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .lv-side .muted { color: var(--sv-red-dim); font: 500 12px/1.5 var(--f-body); }
 .lv-side button.wide { width: 100%; margin-top: 6px; }
 .lv-side .chk { display: flex; gap: 8px; align-items: center; font: 500 var(--t-small)/1 var(--f-ui); letter-spacing: var(--track); color: var(--sv-red); margin-bottom: 10px; text-transform: uppercase; cursor: pointer; }
+/* the shape editor (js/vectoredit.js): a flat view of the car over the turntable, tools down the left */
+.lv-vec { position: absolute; left: 0; top: 52px; right: 400px; bottom: 0; display: none; pointer-events: auto; }
+#s-livery.vec-flat .lv-vec { background: var(--sv-ink); }
+#s-livery.vec-on .lv-vec { display: block; }
+.lv-vec canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.lv-vtools { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; width: 72px; padding: 8px 6px; background: rgba(5,3,8,.86); }
+.lv-vtools::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--sv-red); box-shadow: var(--sv-glow-line); }
+#s-livery .lv-vtools button { flex-direction: column; gap: 4px; font-size: 13px; padding: 9px 2px 7px; }
+.lv-vtools button b { font: 400 13px/1 var(--f-num); opacity: .6; }
+.lv-vbar { display: none; align-items: center; gap: 6px; flex: 1; }
+#s-livery.vec-on .lv-vbar { display: flex; }
+#s-livery.vec-flat .lv-views { display: none; }
+.lv-vflatonly { display: none; align-items: center; gap: 6px; }
+#s-livery.vec-flat .lv-vflatonly { display: flex; }
+.lv-vbar label { font: 500 var(--t-small)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); margin-right: 2px; }
+.lv-vbar select { background: var(--sv-ink); color: var(--sv-hot); border: 1.5px solid var(--sv-red); border-radius: 3px; padding: 5px 6px; font: 500 14px var(--f-body); outline: none; margin-right: 10px; }
+#s-livery .lv-vbar button { font-size: 13px; padding: 5px 10px 4px; }
+#s-livery.vec-on .lv-hint { left: 100px; }
+.lv-checks { align-items: center; }
+.lv-checks .chk { margin-bottom: 0; }
+.lv-item .th svg { display: block; overflow: visible; }
 .lv-teams { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
 
 /* credits */
@@ -2055,6 +2082,7 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 /* development */
 .tx-spec { display: grid; grid-template-columns: 82px auto 1fr; align-items: center; gap: 10px; padding: 3px 0; }
 .tx-spec span { font-size: 12px; color: #333; }
+.tx-specsub { font-size: 11px; color: #666; padding: 6px 0 2px; } .tx-specsub:first-child { padding-top: 0; }
 .tx-bench { padding: 6px 8px; margin-bottom: 6px; background: #f6f5f1; border: 1px solid #d3d0c6; }
 .tx-bench:last-child { margin-bottom: 0; }
 .tx-bench b { display: block; margin-bottom: 3px; }

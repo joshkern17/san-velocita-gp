@@ -253,5 +253,39 @@
    1.32,
    4.57
   ]
+ },
+ "capri": {
+  "title": "Ford Capri Turbo Group 5 (custom, made in Blender)",
+  "author": "you",
+  "license": "own work",
+  "source": "",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   2.08,
+   1.21,
+   4.84
+  ]
+ },
+ "f40": {
+  "title": "Ferrari F40 LM, LB-Works kit (custom, made in Blender)",
+  "author": "you",
+  "license": "own work",
+  "source": "",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   2.09,
+   1.13,
+   4.48
+  ]
  }
 }

@@ -269,7 +269,18 @@
     <div class="lv-views" id="lv-views">
       <button data-v="three">3/4</button><button data-v="left">Left</button><button data-v="right">Right</button><button data-v="top">Top</button><button data-v="rear">Rear</button><button data-v="front">Front</button><button data-v="helmet">Helmet</button><button data-v="driver">Driver</button>
     </div>
+    <div class="lv-vbar" id="lv-vbar">
+      <span class="lv-vflatonly"><label>Drawing on</label><select id="lv-vpanel"></select><button id="lv-vfit" title="Fit to the panel (F)">Fit</button></span>
+      <button id="lv-vundo" title="Undo (Ctrl / Cmd Z)">Undo</button><button id="lv-vredo" title="Redo (Shift Ctrl / Cmd Z)">Redo</button><button id="lv-vmode">Flat View</button><button id="lv-vexit">Exit Shapes</button>
+    </div>
     <div class="lv-btns"><button id="lv-done" class="hot">Done</button></div>
+  </div>
+  <!-- the shape editor (js/vectoredit.js): a flat view of the car to draw on -->
+  <div class="lv-vec" id="lv-vec">
+    <canvas id="lv-vcan"></canvas>
+    <div class="lv-vtools" id="lv-vtools">
+      <button data-t="move">Move<b>V</b></button><button data-t="node">Nodes<b>A</b></button><button data-t="pen">Pen<b>P</b></button><button data-t="rect">Rect<b>R</b></button><button data-t="ellipse">Ellipse<b>O</b></button>
+    </div>
   </div>
   <div class="lv-hint" id="lv-hint">Pick a decal, then <b>click the car</b> to place it. Drag on the car to slide it. Drag anywhere else to spin the car, scroll to zoom.</div>
   <div class="lv-side">
@@ -662,6 +673,7 @@
       <button data-act="undo" title="Ctrl+Z">Undo</button>
       <button data-act="redo" title="Ctrl+Y">Redo</button>
       <span class="sep"></span>
+      <button data-act="view3d" title="See it in 3D (V)">3D View</button>
       <button data-act="test" class="hot">Test Drive</button>
       <button data-act="race" class="hot">Race It</button>
       <button data-act="exit">Exit</button>
@@ -673,8 +685,12 @@
     <button data-tool="props" title="Props (3)"><b>3</b>PROPS</button>
     <button data-tool="zones" title="Building zones (4)"><b>4</b>ZONES</button>
     <button data-tool="paint" title="Paint grass, trees, houses, erase (6)"><b>6</b>PAINT</button>
+    <button data-tool="runoff" title="Draw runoff shapes with a pen: grass, paved, gravel (R)"><b>R</b>RUNOFF</button>
     <button data-tool="roads" title="Roads (7)"><b>7</b>ROADS</button>
     <button data-tool="sculpt" title="Sculpt the land (8)"><b>8</b>SCULPT</button>
+    <button data-tool="kerbs" title="Curbs (9)"><b>9</b>CURBS</button>
+    <button data-tool="bars" title="Barriers (0)"><b>0</b>BARRIERS</button>
+    <button data-tool="pit" title="Pit lane (P)"><b>P</b>PIT LANE</button>
     <button data-tool="pan" title="Pan (5)"><b>5</b>PAN</button>
     <div class="ed-tool-sep"></div>
     <button data-act="smooth" title="Smooth all nodes">SMOOTH</button>
@@ -684,6 +700,7 @@
     <button data-act="flatten" title="Reset all elevation">FLATTEN</button>
     <button data-act="fit" title="Frame track (F)">FRAME</button>
     <button data-act="grid" title="Grid snap (G)" id="ed-grid">SNAP</button>
+    <button data-act="seethru" title="See the map through the track: 100% / 50% / 25% (T)" id="ed-seethru">SEE-THROUGH</button>
   </div>
   <div class="ed-canvas-wrap" id="ed-wrap">
     <canvas id="ed-canvas"></canvas>

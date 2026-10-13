@@ -7,7 +7,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { CHASSIS, tiltWheels, driverKit, carLights, blobShadow } from './carmodel.js';
-import { fillLivery, paintCar, projectDecals } from './livery.js';
+import { fillLivery, paintCar, projectDecals, samplePanel, stickerMesh, wrapDecals } from './livery.js';
 import { CARS } from './cars.js';
 
 const TPL = {}, loading = {};
@@ -187,9 +187,22 @@ function liveryTemplate(id, T, map) {
   const L = { id, T, map, panels, names: Object.keys(panels), parts: T.body.filter(p => p.map === map), maps: {} };
   L.def = {
     id: 'road-' + id, aspect: 1, projected: true, panels, startPanel: 'sideL',
+    // the stickers' mesh (livery.js stickerMesh): the livery triangles in body coordinates, in texelMap's order, then
+    // the rest of the body (glass, grille, lamps: not painted, but part of the outer surface a sticker drapes over)
+    mesh: () => {
+      if (L.mesh) return L.mesh;
+      const pos = [], nrm = [];
+      for (const p of [...L.parts, ...T.body.filter(p => !L.parts.includes(p)), ...(T.head || []), ...(T.tail || [])]) {
+        const P = p.geo.attributes.position, N = p.geo.attributes.normal, I = p.geo.index, n = I ? I.count : P.count;
+        for (let t = 0; t < n; t++) { const i = I ? I.getX(t) : t; pos.push(P.getX(i), P.getY(i), P.getZ(i)); nrm.push(N ? N.getX(i) : 0, N ? N.getY(i) : 0, N ? N.getZ(i) : 0); }
+      }
+      return (L.mesh = stickerMesh(Float32Array.from(pos), Float32Array.from(nrm)));
+    },
     labels: CARS[id].liveryLabels || {},
     projectDecals: true,
     paintProjected: (canvas, cfg, drawPanel, decalLayers) => paintProjected(L, canvas, cfg, drawPanel, decalLayers),
+    // where every painted texel sits on the car (the shape editor reads the body's surface from it)
+    texels: () => texelMap(L, PICK_RES),
     // designer click-to-place: body uv -> panel + metres
     uvToPanel(u, v) {
       const R = PICK_RES, m = texelMap(L, R), px = Math.min(R - 1, Math.max(0, (u * R) | 0)), py = Math.min(R - 1, Math.max(0, (vRow(L, v) * R) | 0));
@@ -226,6 +239,8 @@ function texelMap(L, R) {
   const n = R * R, panel = new Uint8Array(n), X = new Float32Array(n), Y = new Float32Array(n);
   // where each texel sits on the car and which way it faces (smooth normal), for decals projected across panels
   const P3 = new Float32Array(n * 3), N3 = new Int8Array(n * 3);
+  const TRI = new Int32Array(n).fill(-1), B1 = new Float32Array(n), B2 = new Float32Array(n); // (which triangle + where on it: for stickers, numbered as liveryTris)
+  let ti = -1;
   const idxOf = Object.fromEntries(L.names.map((nm, k) => [nm, k + 1])), SOLID = L.names.length + 1;
   // faces sharing texels (e.g. a nose face unwrapped onto the bonnet's tip in the top photo): the one the photo sees
   // most squarely keeps them, i.e. the least stretched (3D area per texel)
@@ -235,6 +250,7 @@ function texelMap(L, R) {
     const g = p.geo, P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv, I = g.index;
     const cnt = I ? I.count : P.count;
     for (let t = 0; t < cnt; t += 3) {
+      ti++;
       const ids = [0, 1, 2].map(k => I ? I.getX(t + k) : t + k);
       const us = ids.map(i => U.getX(i) * R), vs = ids.map(i => vRow(L, U.getY(i)) * R);
       const [x0, x1, x2] = us, [y0, y1, y2] = vs;
@@ -274,6 +290,7 @@ function texelMap(L, R) {
         const A = Math.max(0, a), B = Math.max(0, b), Cc = Math.max(0, c), sum = A + B + Cc || 1, wa = A / sum, wb = B / sum, wc = Cc / sum;
         const vx = N.getX(i0) * wa + N.getX(i1) * wb + N.getX(i2) * wc, vy = N.getY(i0) * wa + N.getY(i1) * wb + N.getY(i2) * wc, vz = N.getZ(i0) * wa + N.getZ(i1) * wb + N.getZ(i2) * wc, vl = 127 / (Math.hypot(vx, vy, vz) || 1);
         P3[id * 3] = P.getX(i0) * wa + P.getX(i1) * wb + P.getX(i2) * wc; P3[id * 3 + 1] = P.getY(i0) * wa + P.getY(i1) * wb + P.getY(i2) * wc; P3[id * 3 + 2] = P.getZ(i0) * wa + P.getZ(i1) * wb + P.getZ(i2) * wc; N3[id * 3] = vx * vl; N3[id * 3 + 1] = vy * vl; N3[id * 3 + 2] = vz * vl;
+        TRI[id] = ti; B1[id] = wb; B2[id] = wc;
       }
     }
   }
@@ -290,7 +307,7 @@ function texelMap(L, R) {
       const id = py * R + px; if (src[id]) continue;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const qx = px + dx, qy = py + dy; if (qx < 0 || qy < 0 || qx >= R || qy >= R) continue;
-        const q = qy * R + qx; if (src[q]) { panel[id] = src[q]; X[id] = X[q]; Y[id] = Y[q]; P3.copyWithin(id * 3, q * 3, q * 3 + 3); N3.copyWithin(id * 3, q * 3, q * 3 + 3); break; }
+        const q = qy * R + qx; if (src[q]) { panel[id] = src[q]; X[id] = X[q]; Y[id] = Y[q]; P3.copyWithin(id * 3, q * 3, q * 3 + 3); N3.copyWithin(id * 3, q * 3, q * 3 + 3); TRI[id] = TRI[q]; B1[id] = B1[q]; B2[id] = B2[q]; break; }
       }
     }
   }
@@ -309,7 +326,8 @@ function texelMap(L, R) {
   // kept per paintable texel only (the full-size tables only at the designer's pick resolution)
   const m = { photo, list: Uint32Array.from(list), k: Float32Array.from(kl), sh: Float32Array.from(sl),
     lp: Uint8Array.from(list, i => panel[i]), lx: Float32Array.from(list, i => X[i]), ly: Float32Array.from(list, i => Y[i]),
-    pos: new Float32Array(list.length * 3), nrm: new Int8Array(list.length * 3), ar: Float32Array.from(list, i => isFinite(stretch[i]) ? stretch[i] : 0) }; // (ar: 3D area per texel)
+    pos: new Float32Array(list.length * 3), nrm: new Int8Array(list.length * 3), ar: Float32Array.from(list, i => isFinite(stretch[i]) ? stretch[i] : 0), // (ar: 3D area per texel)
+    tri: Int32Array.from(list, i => TRI[i]), b1: Float32Array.from(list, i => B1[i]), b2: Float32Array.from(list, i => B2[i]) };
   list.forEach((i, k) => { m.pos.set(P3.subarray(i * 3, i * 3 + 3), k * 3); m.nrm.set(N3.subarray(i * 3, i * 3 + 3), k * 3); });
   if (mask) Object.assign(m, { panel, X, Y, mask });
   return (L.maps[R] = m);
@@ -320,7 +338,12 @@ function texelMap(L, R) {
 // way, whichever panel it belongs to, so a decal carries on over a seam (door onto a fender's curve, bonnet onto the
 // bumper's top) and fades where the surface turns away. A depth window keeps it off surfaces far behind it.
 function paintProjected(L, canvas, cfg, drawPanel, decalLayers) {
-  const R = canvas.width, m = texelMap(L, R), ppm = Math.max(40, R / 8);
+  const R = canvas.width, m = texelMap(L, R), ppm = Math.max(80, R / 4); // (panels + decals drawn ~2x finer than the texels, then read bilinear)
+  // (the base paint, everything but the decals, is kept: editing a decal only lays the decals again)
+  const key = JSON.stringify({ ...cfg, decals: null }), { photo, list, k, sh, lp, lx, ly } = m, cnt = list.length;
+  let col;
+  if (m.base && m.base.key === key) col = m.base.col.slice();
+  else {
   // each panel drawn on its own canvas (in metres), then looked up per texel
   const datas = [null];
   for (const name of L.names) {
@@ -331,16 +354,16 @@ function paintProjected(L, canvas, cfg, drawPanel, decalLayers) {
     drawPanel(g, name, p);
     datas.push({ d: g.getImageData(0, 0, pc.width, pc.height).data, w: pc.width, h: pc.height });
   }
-  const mc = (cfg.main ?? 0) >>> 0;
+  // (texelMap's SOLID texels: parts mapped to one paint texel, i.e. the rear wing: the livery's wing colour if it has
+  // one, else the main colour)
+  const mc = (cfg.wingColor ?? cfg.main ?? 0) >>> 0;
   datas.push({ d: [(mc >> 16) & 255, (mc >> 8) & 255, mc & 255, 255], w: 1, h: 1 }); // texelMap's SOLID
-  const { photo, list, k, sh, lp, lx, ly } = m, cnt = list.length;
   // the paint colour of every paintable texel
-  const col = new Float32Array(cnt * 3);
-  for (let n = 0; n < cnt; n++) {
-    const D = datas[lp[n]], q = (Math.min(D.h - 1, (ly[n] * ppm) | 0) * D.w + Math.min(D.w - 1, (lx[n] * ppm) | 0)) * 4;
-    col[n * 3] = D.d[q]; col[n * 3 + 1] = D.d[q + 1]; col[n * 3 + 2] = D.d[q + 2];
+  col = new Float32Array(cnt * 3);
+  for (let n = 0; n < cnt; n++) samplePanel(datas[lp[n]], lx[n], ly[n], ppm, col, n * 3);
+  m.base = { key, col: col.slice() };
   }
-  if (decalLayers) projectDecals(L.panels, L.names, decalLayers(ppm), m, col);
+  if (decalLayers) wrapDecals(L.panels, L.names, decalLayers(ppm), m, col, L.def.mesh());
   const ctx = canvas.getContext('2d'), out = ctx.createImageData(R, R), o = out.data;
   o.set(photo); // everything that isn't paint stays as photographed
   for (let n = 0; n < cnt; n++) {

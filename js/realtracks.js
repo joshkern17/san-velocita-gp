@@ -10,6 +10,8 @@ const loaded = (async () => {
     const E = embedded();
     list = E ? E.index : await fetch('tracks/real/index.json').then(r => (r.ok ? r.json() : []));
   } catch (e) { list = []; }
+  // (dev, parked: reference builds made locally from a reference model, tools/tracks/build.mjs --ref; only with ?ref in the URL, never in a release)
+  if (!embedded() && /[?&]ref\b/.test(location.search)) try { const dev = await fetch('tools/tracks/cache/ref/list.json').then(r => (r.ok ? r.json() : [])); list = [...list, ...dev]; } catch (e) {}
   return list;
 })();
 
@@ -26,7 +28,8 @@ const cache = new Map();
 function full(file) {
   if (!cache.has(file)) {
     const E = embedded();
-    cache.set(file, E ? Promise.resolve(E.files[file]) : fetch('tracks/real/' + file).then(r => { if (!r.ok) throw new Error('Missing circuit data: ' + file); return r.json(); }));
+    const dev = list.find(x => x.file === file && x.path);
+    cache.set(file, E ? Promise.resolve(E.files[file]) : fetch(dev ? dev.path : 'tracks/real/' + file).then(r => { if (!r.ok) throw new Error('Missing circuit data: ' + file); return r.json(); }));
   }
   return cache.get(file);
 }
@@ -37,6 +40,8 @@ export async function hydrateReal(t) {
   if (!f) return t;
   t.terrain = f.terrain || null;
   t.osm = f.osm || null;
+  if (f.refModel) t.refModel = f.refModel;
+  if (f.dress) t.dress = f.dress; // (its curbs and barriers as the real one has them: the Track Studio's)
   return t;
 }
 

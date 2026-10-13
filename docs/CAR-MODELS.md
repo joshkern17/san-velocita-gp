@@ -27,11 +27,15 @@ Liveries are model-independent: decals are stored on named **panels** in metres 
   spot on the car. The panels are then projected onto the surface: left/right sides from the side, top from
   above, wings from behind, sidepods and engine cover as windows of the side views. Any livery, including ones
   made for the classic car, lands in the same places. Garage → Livery Designer → Files → UV template shows which
-  panel covers which part of your model's texture. Decals aren't kept inside their panel: each one sits on the outer
-  surface under its centre (found along its panel's view, `dir` on the panel) and is projected along the way that
-  surface faces on average under it, so it carries on over seams and wraps over an edge (a sticker slid onto the
-  bonnet's edge covers both the side and the bonnet, a little stretched), fading out where the surface turns away. The
-  photo-textured road cars (`js/roadcar.js`) work the same way.
+  panel covers which part of your model's texture. Decals aren't kept inside their panel: each one is draped
+  over the body from its panel's side (`drapeSticker` / `wrapDecals` in `js/livery.js`). A grid over the panel
+  round the decal records how far out the outer surface is (openings like a grille or a wheel arch, and the space
+  past the body's edge, bridged from round them), and the decal is measured along that surface, so it keeps its
+  true size where the bonnet rolls into the nose or a flank curves under, and fades out where the surface turns
+  edge-on to its side. It's one smooth map of the panel, so a decal can't tear or twist round a hole, and the
+  designer's nodes and outlines sit on the same surface the paint does. The mesh is the livery triangles plus the
+  rest of the body (glass, grille, lamps: not painted, but part of the outer surface), so give the model sensible
+  normals (they say which way a face looks). The photo-textured road cars (`js/roadcar.js`) work the same way.
 - **Classic car (atlas):** each panel is a rectangle of a hand-made UV layout, described by `MODEL` in
   `js/carmodel.js`.
 

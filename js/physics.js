@@ -19,7 +19,7 @@ export const CARSPEC = {
   engineI: 0.05, // (a Formula car's small, light engine: little inertia to spin up through the gearbox)
   lsd: [100, 0.5, 0.3], // (a race diff: locks well on power for traction, less off it so the car still turns in)
   aeroH: [0.04, 0.02], aeroYaw: 4, // (wings + floor close to the road: ride height matters a lot; stalls when sideways)
-  wake: [0.4, 0.18], // (a car length behind another: ~40% of the front wing's downforce gone, under half that at the rear)
+  wake: [0.15, 0.06], // (a car length behind another: 15% of the front wing's downforce gone, 6% at the rear. Was 0.4 / 0.18: true to modern F1, but a follower couldn't stay close enough to race, 2026-10-09)
   floorH: 0.085, // (the floor's height off the road standing still, m: Realistic damage's floorCheck)
   tyreT: 20, // (°C over the compound's usual best: a Formula tyre's stiffer build works hotter, ~105-125: tyreHeat)
   // suspension: stiff, on a stiff chassis (aero needs the ride height held): ~4.5-5 Hz, half a degree of roll per g
@@ -778,7 +778,7 @@ export class CarPhysics {
     // plus a share through the caster that stays. Per unit of the fronts' load: about -1..1 hard in a corner.
     const syFa = Math.min(1.3, (Math.abs(WSY[0]) + Math.abs(WSY[1])) / 2);
     this.ffb = Math.max(-1.5, Math.min(1.5, Fyf / Math.max(1, WN[0] + WN[1]) * (0.3 + 0.7 * Math.max(0, 1 - 0.85 * syFa))));
-    const dragK = P.drag * (1 - 0.12 * dm.rw) * this.dragMul * (1 - 0.3 * this.slip);
+    const dragK = P.drag * (1 - 0.12 * dm.rw) * this.dragMul * (1 - (this.towCut ?? 0.3) * this.slip); // (towCut: the race's slipstream strength)
     let Fx = FXB - dragK * u * Math.abs(u) - P.roll * u;
     // grass / gravel drag: on each wheel when the track says what's under each (a pair of wheels in the gravel drags
     // that side back, and turns the car toward it), else on the car as a whole

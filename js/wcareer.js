@@ -4633,8 +4633,8 @@ function streetBackPay(w) {
      ...(w.player.series === 'street' && dealsOf(w).some(d => !d.shady) ? [`Your current sponsors will pay the new rates from your next round.`] : []),
      `We appreciate your patience, and your letters.`, `${S.name} Office`]);
 }
-// (cars taken out of the game: the car you own, the classifieds, the cars on offer and the ballast table move to the
-// car that replaced them; the messages and the history keep the old name)
+// (cars taken out of the game: the car you own, the classifieds, the cars on offer, the ballast table and the AI teams'
+// cars move to the car that replaced them; the messages and the history keep the old name)
 function retireCars(w) {
   const swap = (o) => {
     if (!o || typeof o !== 'object') return;
@@ -4643,10 +4643,11 @@ function retireCars(w) {
       const id = RETIRED[o[f]]; o[f] = id; if (typeof o.name === 'string') o.name = CARS[id].name;
       if (f === 'key' && typeof o.value === 'number') o.value = Math.round(12000 + CARS[id].spec.power * 0.11); // (the classifieds' price guide: main.js streetCarList)
     }
-    for (const k of Object.keys(o)) if (RETIRED[k] && o[k] != null && typeof o[k] !== 'object') { o[RETIRED[k]] = o[k]; delete o[k]; }
+    for (const k of Object.keys(o)) if (RETIRED[k] && o[k] != null && typeof o[k] !== 'object') { if (!(RETIRED[k] in o)) o[RETIRED[k]] = o[k]; delete o[k]; }
     for (const v of Object.values(o)) if (v && typeof v === 'object') swap(v);
   };
   for (const k of ['car', 'prevCar', 'ads', 'streetCars', 'carCat', 'bop']) swap(w[k]);
+  for (const t of Object.values(w.teams || {})) if (t && RETIRED[t.chassis]) t.chassis = RETIRED[t.chassis]; // (an AI team's model: teamChassis)
 }
 export function loadWorld(id) {
   migrate();
