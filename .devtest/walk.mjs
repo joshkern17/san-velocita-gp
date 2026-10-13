@@ -21,7 +21,8 @@ try {
   await pg.evaluate(() => window.__svgp.dbg.homeView({ fac: { tools: 1, sim: 1 } })); await pg.waitForTimeout(2500);
   await pg.evaluate(() => window.__svgp.dbg.startWalk());
   await pg.waitForFunction(() => window.__svgp.dbg.walk.active, null, { timeout: 20000 }); await pg.waitForTimeout(800);
-  const st = () => pg.evaluate(() => { const w = window.__svgp.dbg.walk; return { pos: w.pos.toArray().map(v => +v.toFixed(2)), heading: +w.heading.toFixed(2), spot: w.spot && w.spot.key, prompt: !document.getElementById('walk-prompt').hidden && (r => [Math.round(r.x), Math.round(r.y), Math.round(r.width)])(document.getElementById('walk-prompt').getBoundingClientRect()),
+  const st = () => pg.evaluate(() => { const w = window.__svgp.dbg.walk; return { pos: w.pos.toArray().map(v => +v.toFixed(2)), heading: +w.heading.toFixed(2), spot: w.spot && w.spot.key, prompt: (e => e && (r => [Math.round(r.x), Math.round(r.y), Math.round(r.width)])(e.getBoundingClientRect()))(document.querySelector('#walk-tags:not([hidden]) .walk-tag.open:not(.gone)')),
+    marks: document.querySelectorAll('#walk-tags:not([hidden]) .walk-tag:not(.gone):not([hidden])').length,
     spots: w.spots.map(s => s.key).join(','), boxes: w.boxes.length, walking: document.getElementById('s-homeview').classList.contains('walking') }; });
   console.log('start:', JSON.stringify(await st()));
   await pg.screenshot({ path: join(out, 'walk-1-start.png') });

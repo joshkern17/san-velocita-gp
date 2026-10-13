@@ -2274,14 +2274,16 @@ function walkSpots() {
   const P = pitGarage, k = P.kit, out = [], V = THREE.Vector3;
   // (the computer: at its chair when it has one, since that's where you go to use it; else just in front of the screen)
   const f = P.screenFrame(), ds = f && walk.deskSeat();
-  if (f) out.push({ key: 'computer', label: 'Use the computer', at: ds && ds.chair ? ds.seat.clone().setY(1.0) : f.c.clone().addScaledVector(new V(f.n.x, 0, f.n.z).normalize(), 0.55).setY(f.c.y), reach: ds && ds.chair ? 1.3 : undefined });
-  const lf = P.listMesh && P.listMesh.visible ? P.listFrame() : null; if (lf) out.push({ key: 'list', label: 'The List', at: lf.c.clone().addScaledVector(lf.n, 0.5), reach: 1.3 });
+  // (each tag hangs right over its thing: the monitor, the list's top edge, a kit INTERACT_ where it is)
+  if (f) out.push({ key: 'computer', label: 'Use the computer', at: ds && ds.chair ? ds.seat.clone().setY(1.0) : f.c.clone().addScaledVector(new V(f.n.x, 0, f.n.z).normalize(), 0.55).setY(f.c.y), reach: ds && ds.chair ? 1.3 : undefined,
+    mark: f.c.clone().addScaledVector(f.up, f.h / 2 + 0.16) });
+  const lf = P.listMesh && P.listMesh.visible ? P.listFrame() : null; if (lf) out.push({ key: 'list', label: 'The List', at: lf.c.clone().addScaledVector(lf.n, 0.5), reach: 1.3, mark: lf.c.clone().addScaledVector(lf.up, lf.h / 2 + 0.08) });
   const carBox = (c) => { const b = new THREE.Box3(); c.group.traverse(o => { if (o.isMesh && o !== c.shadow && !(c.shadow && c.shadow.children.includes(o))) b.expandByObject(o); }); return b; };
   if (P.car && P.car.group.visible) out.push({ key: 'car', label: 'Work on the car', box: carBox(P.car) });
   if (P.car2 && P.car2.group.parent && P.car2.group.visible) out.push({ key: 'car2', label: 'Car two', box: carBox(P.car2) });
   if (k) for (const it of k.interacts) {
     const key = it.name.slice(9).replace(/[._]\d+$/, ''), at = it.getWorldPosition(new V());
-    out.push({ key, label: it.userData.label || key, at: at.setY(Math.min(at.y, 1.2)), reach: 1.2 });
+    out.push({ key, label: it.userData.label || key, mark: at.clone().setY(Math.max(at.y + 0.15, 1.3)), at: at.setY(Math.min(at.y, 1.2)), reach: 1.2 });
   }
   return out;
 }
@@ -2292,8 +2294,8 @@ function useSpot(s) {
   if (s.key === 'computer' && walk.deskSeat()) {
     if (screen === 's-homeview') { sfx.select(); walk.sit().then(() => { toast(`In a career: <b>${s.label}</b>.`, 1800); setTimeout(() => { if (walk.active) walk.resume(); }, 1600); }); return; }
     const it = hubItem(WALK_DOES.computer); if (!it) { sfx.error(); return; }
-    sfx.select(); $('walk-prompt').hidden = true;
-    walk.sit().then(() => { if (!walk.active || screen !== 's-hub') return; walk.park(); walkSat = true; $('s-hub').classList.remove('walking'); it.action(); renderHints(); });
+    sfx.select();
+    walk.sit().then(() => { if (!walk.active || screen !== 's-hub') return; walk.park(); drawWalkTags(null); walkSat = true; $('s-hub').classList.remove('walking'); it.action(); renderHints(); });
     return;
   }
   if (screen === 's-homeview') { sfx.select(); toast(`In a career: <b>${s.label}</b>.`, 1800); return; }
@@ -2314,7 +2316,7 @@ function startWalk() {
 }
 function stopWalk(quiet = false) {
   if (!walk.active || walk.act) return; // (not halfway into the chair)
-  walk.stop(); $('walk-prompt').hidden = true;
+  walk.stop(); drawWalkTags(null);
   document.querySelectorAll('.screen.walking').forEach(e => e.classList.remove('walking'));
   pitGarage.toRoom(); if (!quiet) sfx.back(); renderHints();
 }
@@ -2329,9 +2331,22 @@ function walkInput() {
   walkMouse = [0, 0];
   if (pressed('Escape') || pressed('GP1') || pressed('Backspace')) { stopWalk(); return; }
   if ((pressed('Enter') || pressed('Space') || pressed('GP0')) && walk.spot && !walk.act) useSpot(walk.spot);
-  const el = $('walk-prompt'), s = walk.spot, at = s && walk.promptAt();
-  el.hidden = !at;
-  if (at) { el.style.left = at.x + 'px'; el.style.top = at.y + 'px'; const g = GLYPHS[device.kind === 'pad' ? 'pad' : 'kb'].ok; if ($('walk-key').innerHTML !== g) $('walk-key').innerHTML = g; if ($('walk-label').textContent !== s.label.toUpperCase()) $('walk-label').textContent = s.label.toUpperCase(); }
+  drawWalkTags(walk.act ? null : walk.tags(1 / 60));
+}
+// the tags over what you can use while walking: a small red triangle over each; the one you're at (close, facing it)
+// unfolds into its prompt (the button and what it does). null clears them
+function drawWalkTags(tags) {
+  const box = $('walk-tags'), g = GLYPHS[device.kind === 'pad' ? 'pad' : 'kb'].ok;
+  if (!tags) { box.hidden = true; return; }
+  box.hidden = false;
+  while (box.children.length < tags.length) box.insertAdjacentHTML('beforeend', '<div class="walk-tag"><span><b></b><small></small></span><i></i><em></em></div>');
+  [...box.children].forEach((el, i) => {
+    const t = tags[i]; el.hidden = !t; if (!t) return;
+    el.classList.toggle('gone', !t.show); el.classList.toggle('open', t.open);
+    if (t.show) { el.style.left = t.x + 'px'; el.style.top = t.y + 'px'; }
+    const b = el.firstChild.firstChild, sm = b.nextSibling, lbl = t.s.label.toUpperCase();
+    if (b.innerHTML !== g) b.innerHTML = g; if (sm.textContent !== lbl) sm.textContent = lbl;
+  });
 }
 // (on the window, not the canvas: the screen's section lies over the canvas while you walk, so the canvas never heard it)
 addEventListener('mousemove', (e) => { if (walk.active && (e.buttons & 1)) { walkMouse[0] += e.movementX; walkMouse[1] += e.movementY; } });

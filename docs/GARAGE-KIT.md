@@ -82,7 +82,7 @@ Names only have to start with these (`SLOT_sim.001` is fine).
 | `NAV_floor` | shell (mesh) | The floor you can walk on. Hidden in the game |
 | `COL_...` | any (mesh) | Invisible blockers. Hidden in the game |
 | `STAND_<role>` | station or shell (empty) | Where a staff member stands. Custom properties: `clip` (what they're doing: `lean`, `kneel`, `sit_idle`...), `role` |
-| `INTERACT_<what>` | any (empty) | Where the A prompt will show. Custom property `label` |
+| `INTERACT_<what>` | any (empty) | Something you can use. Its red marker (and the A prompt, when you walk up to it) hangs here; you use it from within about a metre. Custom property `label` |
 | `PC_Screen`, `TV_Screen`, `TeamMain`... | any | As in GARAGE-MODEL.md |
 
 Custom properties are set in Object Properties > Custom Properties, and they come through to the game.

@@ -292,11 +292,21 @@ export class GarageWalk {
     }
     return true;
   }
-  // where to put the prompt: above the spot (screen px), or null
-  promptAt() {
-    const s = this.spot; if (!s) return null;
-    // (a car: over the side nearest you; anything else: just above it)
-    const p = s.box ? new THREE.Vector3(Math.max(s.box.min.x, Math.min(s.box.max.x, this.pos.x)), s.box.max.y + 0.35, Math.max(s.box.min.z, Math.min(s.box.max.z, this.pos.z))) : s.at.clone().setY(Math.max(1.3, s.at.y + 0.3));
-    return this.pg.toScreen(p);
+  // where a spot's tag hangs: right over the thing, and it stays there as you walk round (a car: over its middle; a
+  // spot with its own mark: there; anything else: just above where it is)
+  anchor(s) {
+    if (s.mark) return s.mark;
+    if (s.box) { const c = s.box.getCenter(new THREE.Vector3()); return c.setY(s.box.max.y + 0.2); }
+    return s.at.clone().setY(Math.max(1.3, s.at.y + 0.3));
+  }
+  // every spot's tag this frame: { s, x, y (screen px) | null when off screen or behind a wall, open: the one you'd use }
+  // (behind a wall: a ray from the camera hits the room first; checked ten times a second)
+  tags(dt) {
+    const pg = this.pg, cam = pg.camera.position; this.tagT = (this.tagT || 0) - dt; const look = this.tagT <= 0; if (look) this.tagT = 0.1;
+    return this.spots.map(s => {
+      const p = this.anchor(s), at = pg.toScreen(p);
+      if (look) { const d = p.clone().sub(cam), n = d.length(); s.hidden = n > 0.5 && new THREE.Raycaster(cam, d.normalize(), 0.05, n - 0.35).intersectObjects(this.camHits, false).some(h => !this.noCam || !this.noCam.has(h.object)); }
+      return { s, x: at && at.x, y: at && at.y, show: !!at && !s.hidden, open: s === this.spot };
+    });
   }
 }
