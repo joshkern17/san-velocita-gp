@@ -561,32 +561,39 @@ export class PitGarage {
   }
   // build every shader the room needs now (its lights, shadows, you), not on the frames as things first show
   compile() { try { this.scene.updateMatrixWorld(true); this.r.compile(this.scene, this.camera); } catch (e) { console.warn('garage compile', e); } }
-  // the lights come on as you come in: everything's off, then the switch (the lamps and work lights) and the
-  // fluorescent tubes striking one by one, each with a few uneven blinks before it holds. sfx(kind) plays the clicks
+  // the lights come on as you come in: the room dim (the light from outside), then the switch (the lamps and work
+  // lights) and the fluorescent tubes catching in a quick run down the room, each with a tick or two before it eases
+  // on. Kept brisk and never quite dark: a workshop opening up, not a horror film. sfx(kind) plays the clicks
   flickerOn(sfx = null) {
     if (!this.bulbs || !this.bulbs.length) return;
     let seed = 1 + Math.floor(Math.random() * 2147483000); const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
     const tubes = [...new Set(this.bulbs.filter(b => b.tube !== null).map(b => b.tube))].sort((a, b) => a - b);
-    const sw = 0.45, plan = {};    // (tube -> [[time, level], ...]: the level from that time on)
+    const sw = 0.25, plan = {};    // (tube -> [[time, level, ease s], ...]: the level from that time on)
     tubes.forEach((k, i) => {
-      let t = sw + 0.15 + i * 0.42 + r() * 0.25; const ev = [];
-      const n = 2 + Math.floor(r() * 3);
-      for (let j = 0; j < n; j++) { ev.push([t, 0.5 + r() * 0.5]); t += 0.03 + r() * 0.07; ev.push([t, 0]); t += 0.05 + r() * (j === n - 1 ? 0.35 : 0.15); }
-      ev.push([t, 1]); plan[k] = ev;
+      let t = sw + 0.1 + i * 0.13 + r() * 0.08; const ev = [];
+      const n = 1 + Math.floor(r() * 2);
+      for (let j = 0; j < n; j++) { ev.push([t, 0.6 + r() * 0.3, 0]); t += 0.04 + r() * 0.04; ev.push([t, 0.15, 0]); t += 0.06 + r() * 0.08; }
+      ev.push([t, 1, 0.18]); plan[k] = ev;
     });
-    this.flick = { t: 0, sw, plan, end: Math.max(sw, ...Object.values(plan).map(e => e[e.length - 1][0])) + 0.1, sfx, heard: new Set() };
+    this.flick = { t: 0, sw, plan, end: Math.max(sw, ...Object.values(plan).map(e => e[e.length - 1][0] + 0.2)) + 0.05, sfx, heard: new Set() };
     this.flickTick(0);
   }
   flickTick(dt) {
     const f = this.flick; if (!f) return;
     f.t += dt;
-    const at = (k) => { if (k === null) return f.t >= f.sw ? 1 : 0; let v = 0; for (const [t, l] of f.plan[k] || []) if (f.t >= t) v = l; return v; };
-    for (const b of this.bulbs) b.l.intensity = b.base * at(b.tube);
+    const DIM = 0.3;   // (the room before the lights: dim, not black)
+    const at = (k) => {
+      if (k === null) return f.t >= f.sw ? 1 : 0;
+      let v = 0, prev = 0;
+      for (const [t, l, e] of f.plan[k] || []) { if (f.t < t) break; v = e ? prev + (l - prev) * Math.min(1, (f.t - t) / e) : l; prev = l; }
+      return v;
+    };
+    for (const b of this.bulbs) b.l.intensity = b.base * (DIM + (1 - DIM) * at(b.tube));
     for (const m of this.tubes) m.m.emissiveIntensity = m.base * at(m.tube);
-    // (the sounds: the switch, then each blink of each tube)
+    // (the sounds: the switch, then each tube's ticks)
     if (f.sfx) {
       if (f.t >= f.sw && !f.heard.has('sw')) { f.heard.add('sw'); f.sfx('switch'); }
-      for (const [k, ev] of Object.entries(f.plan)) ev.forEach(([t, l], i) => { const id = k + ':' + i; if (l > 0 && f.t >= t && !f.heard.has(id)) { f.heard.add(id); if (f.t - t < 0.1) f.sfx('tube', l); } });
+      for (const [k, ev] of Object.entries(f.plan)) ev.forEach(([t, l], i) => { const id = k + ':' + i; if (l > 0.5 && f.t >= t && !f.heard.has(id)) { f.heard.add(id); if (f.t - t < 0.1) f.sfx('tube', l); } });
     }
     if (f.t >= f.end) { for (const b of this.bulbs) b.l.intensity = b.base; for (const m of this.tubes) m.m.emissiveIntensity = m.base; this.flick = null; }
   }

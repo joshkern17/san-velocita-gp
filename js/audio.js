@@ -401,8 +401,8 @@ export const sfx = {
   shutter: () => { burst(0.025, 6000, 0.14); burst(0.04, 3200, 0.1, 0.075); },
   error: () => { tone(200, 0.15, 'square', 0.08); tone(160, 0.2, 'square', 0.08, 0, 0.15); },
   // the career phone: a vibrate (low buzz pulses) and the old two-note message tone
-  // a fluorescent tube striking: the starter's tick and a short hum
-  tube: (v = 1) => { burst(0.018, 5200, 0.05 * v); tone(100, 0.09, 'sawtooth', 0.016 * v, 0, 0.01); },
+  // a fluorescent tube striking: the starter's tick (no hum: a low buzz under the dark made it eerie)
+  tube: (v = 1) => { burst(0.014, 5200, 0.04 * v); },
   // the light switch by the door
   switch: () => { burst(0.012, 2400, 0.09); burst(0.02, 900, 0.05, 0.015); },
   buzz: () => { for (let i = 0; i < 3; i++) tone(92, 0.16, 'sawtooth', 0.045, 0, i * 0.24); tone(1318, 0.07, 'square', 0.035, 0, 0.8); tone(1760, 0.1, 'square', 0.035, 0, 0.9); },
