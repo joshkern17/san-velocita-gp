@@ -45,7 +45,8 @@ file: its UVs come from `helmet_paint.py` (a world-map wrap matching `paintHelme
 
 ## Adding a clip
 
-Download it from Mixamo (settings above), put it in the pack folder, add `'File Name': 'clip_name'` to `CLIPS` in
+Download it from Mixamo (settings above; a clip downloaded *With Skin* works too: it rests in the character's A-pose
+instead of the T-pose, and `mixamo.py` turns its keys onto the T-pose and prints `REST fixed`), put it in the pack folder, add `'File Name': 'clip_name'` to `CLIPS` in
 `mixamo.py` and `clip_name: { loop: true }` to `CLIP_INFO` in `js/characters.js`, then rebuild. A file that isn't
 listed is skipped (and printed as SKIP).
 

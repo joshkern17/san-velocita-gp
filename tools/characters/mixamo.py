@@ -83,6 +83,36 @@ for o in meshes:
     o.modifiers.new('Armature', 'ARMATURE').object = rig
 bpy.data.objects.remove(old, do_unlink=True)
 
+# A clip downloaded "With Skin" rests in the character's own A-pose, not the T-pose (the arms ~35° down), and each
+# bone's keys are rotations from that rest: played on the T-pose skeleton the arms come out that much too high. Each
+# bone wants the same pose in the armature (M = M_parent · R · B, R = its rest relative to its parent), so its keys
+# become B' = (R'⁻¹ · R) · B: one fixed turn per bone, left-multiplied (Hips' position keys turned the same way).
+from mathutils import Quaternion, Vector
+from bpy_extras import anim_utils
+def rel_rest(arm, name):
+    b = arm.data.bones[name]
+    return (b.parent.matrix_local.inverted() @ b.matrix_local if b.parent else b.matrix_local).to_quaternion()
+def fix_rest(arm, act, base):
+    turns = {}
+    for b in arm.data.bones:
+        if b.name not in rig.data.bones: continue
+        c = rel_rest(rig, b.name).inverted() @ rel_rest(arm, b.name)
+        if c.angle > 0.01: turns[b.name] = c
+    if not turns: return
+    print('REST fixed', base, len(turns), 'bones, most', round(max(c.angle for c in turns.values()) * 57.3), 'deg')
+    bag = anim_utils.action_get_channelbag_for_slot(act, arm.animation_data.action_slot)
+    for name, c in turns.items():
+        for prop, n in (('rotation_quaternion', 4), ('location', 3)):
+            fcs = [bag.fcurves.find(f'pose.bones["{name}"].{prop}', index=i) for i in range(n)]
+            if not all(fcs): continue
+            for k in range(len(fcs[0].keyframe_points)):
+                v = [fc.keyframe_points[k].co[1] for fc in fcs]
+                v = c @ Quaternion(v) if n == 4 else c @ Vector(v)
+                for i, fc in enumerate(fcs):
+                    kp = fc.keyframe_points[k]; d = v[i] - kp.co[1]
+                    kp.co[1] = v[i]; kp.handle_left[1] += d; kp.handle_right[1] += d
+            for fc in fcs: fc.update()
+
 # clips: each import brings its own armature + action; keep the action, drop the armature
 for f in sorted(glob.glob(os.path.join(SRC, '*.fbx'))):
     base = os.path.splitext(os.path.basename(f))[0]
@@ -91,6 +121,7 @@ for f in sorted(glob.glob(os.path.join(SRC, '*.fbx'))):
         continue
     arm, new = import_fbx(f)
     act = arm.animation_data.action
+    fix_rest(arm, act, base)
     act.name = CLIPS[base]; act.use_fake_user = True
     slot = arm.animation_data.action_slot
     for o in new: bpy.data.objects.remove(o, do_unlink=True)
