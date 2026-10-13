@@ -1815,7 +1815,7 @@ const phone = new Phone({
   read: () => { saveWorld(); renderHubMenu(); },
   choose: (m, key) => {
     if (m.offer) {
-      WC.answerOffer(world, key);
+      WC.answerOffer(world, key, m.offer);
       WC.text(world, m.from, key === 'move' ? 'Great. We will send the paperwork over. See you on the grid.' : 'Understood. The offer stands for next year if you change your mind.');
       phone.buzz();
     }
@@ -1932,7 +1932,7 @@ const pc = new Computer({
       updateLogoShown(); if (screen === 's-hub') pitGarage.setCar(hubCar());
     }
     if (m.offer) {
-      WC.answerOffer(world, key);
+      WC.answerOffer(world, key, m.offer);
       const mate = world.people[world.teams[world.player.team].drivers.find(d => d !== 'P')];
       if (key === 'move' && mate) { WC.text(world, mate.first, pick([`Heard we're moving up! About time.`, `We're going up a series? Brilliant. I'll start packing.`])); phone.buzz(); }
     }
@@ -2826,7 +2826,7 @@ function renderHub() {
     const sum = w.seasons.at(-1), you = sum && sum.you, off = w.player.offer;
     $('hub-card').innerHTML = `<div class="panel-title">${w.year} &middot; SEASON COMPLETE</div><div class="season-pips">${pips}</div>
       <div class="ti-grid three">${cellW('Finished', you ? ord(you.pos) : '&mdash;')}${cellW('Wins', you ? you.wins : 0)}${bank}</div>
-      ${off ? `<p class="hub-note">${off.answer === 'move' ? `You're moving up to the <b>${seriesName(off.to)}</b>.` : off.answer === 'stay' ? `You're staying in the ${seriesName(sid)}.` : `The <b>${seriesName(off.to)}</b> has emailed you an offer.`}</p>` : ''}`;
+      ${off ? `<p class="hub-note">${off.answer === 'move' ? `You're moving up to the <b>${seriesName(off.to)}</b>.` : off.answer === 'stay' ? `You're staying in the ${seriesName(sid)}.` : (off.opts || [off.to]).length > 1 ? `The ${(off.opts).map(id => `<b>${seriesName(id)}</b>`).join(' and the ')} have emailed you offers.` : `The <b>${seriesName(off.to)}</b> has emailed you an offer.`}</p>` : ''}`;
   }
   renderWeekStrip();
   renderHubMenu();

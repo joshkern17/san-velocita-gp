@@ -720,7 +720,7 @@ export class Computer {
   }
   // ---------- Facilities: the premises (a ladder), what's in them (cards), what the series above asks for ----------
   facTab() {
-    const w = this.w, t = WC.myTeam(w), up = WC.SERIES[WC.seriesById(w.player.series).tier + 1], off = w.player.offer;
+    const w = this.w, t = WC.myTeam(w), up = WC.nextUp(w.player.series), off = w.player.offer;
     if (!w.founding?.reg) return `<div class="tm tx-page">${pageHead('facilities', 'Facilities', 'Register the team first.')}</div>`;
     const target = off && off.answer === 'move' ? WC.seriesById(off.to) : up, need = target ? WC.SERIES_NEEDS[target.id] || {} : {}, miss = target ? WC.seriesMissing(t, target.id).map(m => m[0]) : [];
     const bb = (k, label, cls = '') => { const key = 'build:' + k; return `<button class="pc-btn sm ${cls}" data-nav data-act="build" data-arg="${k}" data-key="${key}">${this.armed === key ? 'Sure? Select again' : label}</button>`; };
@@ -729,7 +729,7 @@ export class Computer {
     const n = WC.facLevel(t, 'base'), L = WC.FACILITIES.base.levels, nxB = WC.facNext(t, 'base');
     const ladder = L.map((l, i) => `<div class="tx-step${i < n ? ' done' : i === n ? ' on' : ''}${need.base === i && miss.includes('base') ? ' need' : ''}"><i>${i + 1}</i><b>${esc(l[0])}</b><small>${1 + Math.min(2, i)} bench${i ? 'es' : ''} &middot; ${WC.money$(l[2])} a round</small>${i > n ? `<small class="tx-cost">${WC.money$(l[1])} to move</small>` : ''}${i === n + 1 ? `<div>${bb('base', 'Move', 'pri')}</div>` : ''}${i === n && sb('base') ? `<div>${sb('base')}</div>` : ''}</div>`).join('<span class="tx-arrow"></span>');
     const reqs = target && Object.keys(need).length ? panel(`${esc(target.name)} requirements`, Object.entries(need).map(([k, lv]) => { const ok = WC.facLevel(t, k) >= lv; return `<div class="tx-req ${ok ? 'ok' : 'no'}"><i>${ok ? '&#10004;' : '&#10008;'}</i><b>${esc(WC.needName(k, lv).replace(/^an? /, '').replace(/^./, c => c.toUpperCase()))}</b><span>${ok ? 'Done' : 'Missing'}</span></div>`; }).join(''), off && off.answer === 'move' ? 'before the season starts, or the entry is withdrawn' : 'to take an entry', miss.length ? 'need' : '') : '';
-    const keys = WC.FAC_KEYS.filter(k => k !== 'base' && (k !== 'tunnel' || w.player.series === 'formula' || need.tunnel));
+    const keys = WC.FAC_KEYS.filter(k => k !== 'base' && (k !== 'tunnel' || WC.SERIES_NEEDS[w.player.series]?.tunnel || need.tunnel));
     const cards = keys.map(k => {
       const F = WC.FACILITIES[k], lv = WC.facLevel(t, k), nx = WC.facNext(t, k), req = need[k] && miss.includes(k);
       const short = nx && n < nx.needsBase ? `Needs ${WC.FACILITIES.base.levels[nx.needsBase][0].toLowerCase()} premises` : '';
@@ -1036,7 +1036,7 @@ export class Computer {
       const rows = w.seasons.slice().reverse().map(sum => { const pid = sum.champs[s.id], tid = sum.teamChamps[s.id]; return `<tr class="${pid === 'P' ? 'me' : ''}"><td>${sum.year}</td><td>${pid ? esc(WC.displayName(w, pid)) : ''}</td><td>${tid ? esc(w.teams[tid].name) : ''}</td></tr>`; }).join('');
       body = rows ? `<table class="pc-tbl"><tr><th>YEAR</th><th>CHAMPION</th><th>TEAMS' CHAMPION</th></tr>${rows}</table>` : '<p class="pc-empty">No champions yet: the first title is decided this year.</p>';
     }
-    return `<div class="ss" style="--ss:${SERIES_COL[s.id]}"><div class="ss-head"><b>${esc(s.name.toUpperCase())}</b><small>Official website &middot; ${w.year} season</small></div><div class="ss-nav">${nav}</div><div class="ss-body">${body}</div><div class="ss-foot">Other series: ${others}</div></div>`;
+    return `<div class="ss" style="--ss:${SERIES_COL[s.id] || '#777'}"><div class="ss-head"><b>${esc(s.name.toUpperCase())}</b><small>Official website &middot; ${w.year} season</small></div><div class="ss-nav">${nav}</div><div class="ss-body">${body}</div><div class="ss-foot">Other series: ${others}</div></div>`;
   }
 
   // the driver database: everyone, by series (and the retired), and a page per driver
@@ -1183,7 +1183,7 @@ export class Computer {
 }
 const SITE_TABS = ['standings', 'teams', 'calendar', 'champions'];
 const SITE_TAB_NAME = { standings: 'Standings', teams: 'Teams', calendar: 'Calendar', champions: 'Champions' };
-const DB_TABS = ['street', 'gt', 'formula', 'retired'];
+const DB_TABS = [...WC.SERIES.slice().sort((a, b) => a.tier - b.tier).map(s => s.id), 'retired'];
 const SERIES_COL = { street: '#e0642a', gt: '#2a8f5a', formula: '#2a4fa0' };
 // headlines are stored in capitals (for the phone); the news site writes them in title case
 function cap(s) { return String(s).toLowerCase().replace(/(^|[\s'-])([a-z])/g, (m, a, b, i, str) => a === "'" && /^(s|t|d|m|ll|re|ve)\b/.test(str.slice(i + 1)) ? m : a + b.toUpperCase()).replace(/\b(At|To|For|Of|The|In|Up)\b(?!$)/g, (m, x, i) => i ? m.toLowerCase() : m).replace(/\b(Sv|Gt|Gp|F1|Tv|Ai)\b/g, (m) => m.toUpperCase()); } // (series and initials stay capitals; O'Brien, but who's and don't)

@@ -17,13 +17,40 @@ export const POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 // one chassis, leased from the series). price: what a new car costs, cheapest to dearest. ballast: success ballast and
 // balance of performance. gents: gentleman drivers pay for the second seat. seats: the second-seat deals its teams do
 // (SEAT_KINDS), offered in the season setup at the start of each season there (none: sign whoever, on the computer).
+// The ladder: tier is the rung (0 the shitbox league, 1 club racing, 2 Street Cup, 3 GT2, 4 GT1; gaps are rungs not
+// built yet), path the career path it's on ('sportscar', 'formula'...). Several series can share a tier: finishing high
+// enough earns an offer from each series of the next rung up (seriesUp), and you pick. tracks: the circuits it races
+// at, first choice (from the career's pool; the rest of the pool fills a short list). ages: a new driver's age [from,
+// spread]. inv: how big an investor's money is here (GT = 1). pro: a professional series (corporate gigs, investors
+// take notice). local: home-town sponsors still sign. gp: ends the year with the San Velocita Grand Prix.
 // A new series is a line here, plus its costs (COSTS, SEASON_FUND, TEAM_FUND) and its cars: the rest builds itself.
 export const SERIES = [
-  { id: 'street', name: 'Street Cup', cls: 'street', tier: 0, base: 50, spread: 14, car: 'classifieds', bop: true },
-  { id: 'gt', name: 'GT Championship', cls: 'gt1', tier: 1, base: 63, spread: 12, car: 'customer', price: [240000, 330000], ballast: true, gents: true, seats: ['gent', 'pro', 'share', 'junior'], works: true, hosp: true },
-  { id: 'formula', name: 'Formula SV', cls: 'f1', tier: 2, base: 76, spread: 10, car: 'spec', price: [900000, 900000], gents: true, seats: ['gent', 'pro', 'share', 'junior'], hosp: true },
+  { id: 'street', name: 'Street Cup', cls: 'street', tier: 2, path: 'sportscar', base: 50, spread: 14, car: 'classifieds', bop: true, ages: [18, 9], inv: 0.6, local: true,
+    tracks: ['Laguna Seca', 'Zandvoort', 'Indianapolis', 'Palm Bay Circuit', 'Harborview Streets', 'Road Atlanta', 'Watkins Glen'] },
+  { id: 'gt', name: 'GT Championship', cls: 'gt1', tier: 4, path: 'sportscar', base: 63, spread: 12, car: 'customer', price: [240000, 330000], ballast: true, gents: true, seats: ['gent', 'pro', 'share', 'junior'], works: true, hosp: true, ages: [21, 13], inv: 1, pro: true, local: true,
+    tracks: ['Spa-Francorchamps', 'Suzuka', 'Road America', 'Sebring', 'Watkins Glen', 'Laguna Seca', 'Indianapolis'] },
+  { id: 'formula', name: 'Formula SV', cls: 'f1', tier: 5, path: 'formula', base: 76, spread: 10, car: 'spec', price: [900000, 900000], gents: true, seats: ['gent', 'pro', 'share', 'junior'], hosp: true, ages: [22, 14], inv: 3, pro: true, gp: true },
 ];
 export const seriesById = (id) => SERIES.find(s => s.id === id);
+// where every career starts (the entry you buy)
+export const START_SERIES = 'street';
+// the rungs either side: every series of the nearest tier above (below) that has one
+const rung = (sid, dir) => {
+  const t = seriesById(sid)?.tier ?? -1, near = SERIES.filter(s => dir > 0 ? s.tier > t : s.tier < t);
+  if (!near.length) return [];
+  const n = dir > 0 ? Math.min(...near.map(s => s.tier)) : Math.max(...near.map(s => s.tier));
+  return near.filter(s => s.tier === n);
+};
+export const seriesUp = (sid) => rung(sid, 1);
+export const seriesDown = (sid) => rung(sid, -1);
+// the one series up (down) to talk about: on the same path if there is one
+const onPath = (list, sid) => list.find(s => s.path === seriesById(sid)?.path) || list[0] || null;
+export const nextUp = (sid) => onPath(seriesUp(sid), sid);
+export const nextDown = (sid) => onPath(seriesDown(sid), sid);
+// 'the GT Championship or the Formula SV'
+export const upNames = (sid) => seriesUp(sid).map(s => s.name).join(' or ');
+// the series that ends the year with the Grand Prix
+const gpSeries = () => SERIES.find(s => s.gp) || SERIES.reduce((a, s) => s.tier > a.tier ? s : a);
 const TEAMS_PER = 6, SEATS = 2;
 
 const TEAM_POOL = [
@@ -137,7 +164,7 @@ export function askOf(w, p) {
 function topUpFreeAgents(w) {
   const free = Object.values(w.people).filter(p => !p.retired && !p.team && ageOf(w, p) < 37);
   for (let i = free.length; i < 10; i++) {
-    const x = rng(w), s = rng(w) < 0.7 ? SERIES[0] : SERIES[1];
+    const x = rng(w), s0 = seriesById(START_SERIES), s = rng(w) < 0.7 ? s0 : nextUp(s0.id) || s0;
     const age = x < 0.5 ? r0(17 + rng(w) * 3) : x < 0.85 ? r0(22 + rng(w) * 7) : r0(30 + rng(w) * 5);
     const p = makePerson(w, { age, series: null, lvl: s.base - 4 + gauss(w) * 6 + (age > 21 ? 3 : 0) });
     // (a career before you met them, for the older ones)
@@ -148,7 +175,7 @@ export function driverMarket(w) {
   const S = seriesById(w.player.series), mateId = mateOf(w)?.pid;
   const ok = (sid) => sid && seriesById(sid) && seriesById(sid).tier <= S.tier;
   // (without a seat, a driver from the series above will drop down for a drive)
-  const okFree = (sid) => !sid || (seriesById(sid) && seriesById(sid).tier <= S.tier + 1);
+  const upTier = nextUp(S.id)?.tier ?? S.tier, okFree = (sid) => !sid || (seriesById(sid) && seriesById(sid).tier <= upTier);
   return Object.values(w.people).filter(p => !p.retired && p.id !== mateId && ageOf(w, p) < 40 && (
     (!p.team && okFree(p.series)) || (w.over && p.team && p.team !== w.player.team && ok(w.teams[p.team]?.series))))
     .sort((a, b) => b.pace - a.pace).slice(0, 14);
@@ -282,12 +309,12 @@ export function newWorld(opts, trackPool) {
     w.series[s.id] = { teams: ids, cal: [], results: [] };
   }
   // your team: not in any series yet (it's founded once the history has run)
-  w.teams.T0 = { id: 'T0', name: opts.teamName || 'Your Team', main: opts.colors?.[0] ?? 0xc8141c, accent: opts.colors?.[1] ?? 0xf2f2f2, series: null, car: SERIES[0].base - 4, mine: true, drivers: ['P'] };
+  w.teams.T0 = { id: 'T0', name: opts.teamName || 'Your Team', main: opts.colors?.[0] ?? 0xc8141c, accent: opts.colors?.[1] ?? 0xf2f2f2, series: null, car: seriesById(START_SERIES).base - 4, mine: true, drivers: ['P'] };
   // drivers: two per team
   for (const s of SERIES) for (const tid of w.series[s.id].teams) {
     const t = w.teams[tid];
     for (let seat = 0; seat < SEATS; seat++) {
-      const age = s.tier === 0 ? r0(18 + rng(w) * 9) : s.tier === 1 ? r0(21 + rng(w) * 13) : r0(22 + rng(w) * 14);
+      const [a0, as] = s.ages || [21, 13], age = r0(a0 + rng(w) * as);
       const p = makePerson(w, { age, series: s.id, lvl: s.base + gauss(w) * s.spread * 0.4 });
       p.team = tid; t.drivers.push(p.id);
     }
@@ -369,8 +396,11 @@ export function raceWx(w, R) {
 export function newCalendars(w, trackPool) {
   const names = trackPool.map(t => t.name);
   w.lapKm = Object.fromEntries(trackPool.filter(t => t.points).map(t => [t.name, lapKmOf(t)]));
+  const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng(w) * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   for (const s of SERIES) {
-    const order = names.slice(); for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rng(w) * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+    // (its own circuits, those the career has; the rest of the pool fills a short list; then the season's order)
+    const own = s.tracks ? names.filter(n => s.tracks.includes(n)) : names;
+    const order = shuffle([...shuffle(own.slice()), ...shuffle(names.filter(n => !own.includes(n)))].slice(0, Math.max(own.length, w.opts.len)));
     const cal = [];
     for (let r = 0; r < w.opts.len; r++) {
       const name = order[r % order.length], tr = trackPool.find(t => t.name === name);
@@ -385,7 +415,7 @@ export function newCalendars(w, trackPool) {
 }
 // the top series ends every year with the San Velocita Grand Prix, always on the same circuit (picked once)
 function gpRound(w, names) {
-  const cal = w.series[SERIES[SERIES.length - 1].id].cal; if (!cal.length) return;
+  const cal = w.series[gpSeries().id].cal; if (!cal.length) return;
   if (!w.gpTrack || (names && !names.includes(w.gpTrack))) w.gpTrack = cal[cal.length - 1].name;
   const last = cal[cal.length - 1], dup = cal.findIndex((c, i) => i < cal.length - 1 && c.name === w.gpTrack);
   if (dup >= 0) cal[dup].name = last.name; // (it's only raced once a year)
@@ -476,7 +506,7 @@ export function teamChassis(w, tid, keys) {
   if (t.mine) return w.car && keys.includes(w.car.chassis) ? w.car.chassis : keys[0];
   if (t.chassis && keys.includes(t.chassis)) return t.chassis;
   aiInit(w, t);
-  const S = seriesById(t.series) || SERIES[0];
+  const S = seriesById(t.series) || seriesById(START_SERIES);
   const price = (k) => S.car === 'classifieds' ? (w.streetCars || []).find(c => c.key === k)?.value ?? 0 : customerCars(w, S).find(c => c.key === k)?.price ?? 0;
   const ranked = keys.slice().sort((a, b) => price(a) - price(b));
   const f = clamp((t.wealth - 0.4) / 1.3 + gauss(w) * 0.15, 0, 0.999);
@@ -705,19 +735,23 @@ function seasonEnd(w) {
     pay(w, tfund[tpos - 1], `${seriesById(w.player.series).name} teams' prize fund: P${tpos}`);
     mail(w, `${seriesById(w.player.series).name} Office`, addrOf(seriesById(w.player.series), 'office'), `${w.year} teams' championship`, [`${w.teams[w.player.team].name} finished P${tpos} in the ${w.year} teams' championship. The team's share of the teams' prize fund, ${money$(tfund[tpos - 1])}, has been paid into your account.`, `${seriesById(w.player.series).name} Office`]);
   }
-  // your options: move up if you finished in the top three, or your team in the top two (and there's a series above)
-  const tier = seriesById(w.player.series).tier, up = SERIES[tier + 1];
+  // your options: move up if you finished in the top three, or your team in the top two (and there's a series above):
+  // an entry offered by every series of the rung above, and you pick one (or stay)
+  const ups = seriesUp(w.player.series);
   const you = summary.you;
-  if (up && you && (you.pos <= 3 || (tpos > 0 && tpos <= 2))) {
-    w.player.offer = { to: up.id, answer: null };
-    const b = seasonBudget(w, up);
-    mail(w, `${up.name} Entries`, addrOf(up, 'entries'), `An entry for ${w.year + 1}`,
-      [`Dear ${w.player.name.split(' ')[0]},`, `Congratulations on ${you.pos <= 3 ? `finishing P${you.pos}` : `${w.teams[w.player.team].name}'s P${tpos} in the teams' championship`} in the ${seriesById(w.player.series).name} this year. We have an entry available in the ${up.name} for ${w.year + 1}, and we would like it to go to ${w.teams[w.player.team].name}.`,
-       `For your planning, here is what our teams tell us a season costs: about ${money$(b.run)} to run a car (entry, travel, crew, tyres, fuel), plus the car${!b.lease ? '.' : `: ${up.car === 'spec' ? `the series chassis is leased from us, from ${money$(b.lease)} a season` : `leased from the makers' customer programmes from ${money$(b.lease)} a season, or from ${money$(b.buy)} to buy`}.`}`,
-       up.gents ? `Most teams run a gentleman driver in the second car, who pays for the seat. Prize money for a mid-field season comes to about ${money$(b.prize)}.` : `Prize money for a mid-field season comes to about ${money$(b.prize)}.`,
-       ...(SERIES_NEEDS[up.id] ? [`Entrants must have ${Object.entries(SERIES_NEEDS[up.id]).map(([k, n]) => needName(k, n)).join(' and ')} before the season starts.`] : []),
-       `We mention this because several teams have asked us afterwards.`, `Please let us know before the new season.`, `Entries Office, ${up.name}`],
-      { offer: true, choices: [['move', `Accept: move up to the ${up.name}`], ['stay', `Decline: stay in the ${seriesById(w.player.series).name}`]] });
+  if (ups.length && you && (you.pos <= 3 || (tpos > 0 && tpos <= 2))) {
+    w.player.offer = { to: nextUp(w.player.series).id, opts: ups.map(u => u.id), answer: null };
+    for (const up of ups) {
+      const b = seasonBudget(w, up);
+      mail(w, `${up.name} Entries`, addrOf(up, 'entries'), `An entry for ${w.year + 1}`,
+        [`Dear ${w.player.name.split(' ')[0]},`, `Congratulations on ${you.pos <= 3 ? `finishing P${you.pos}` : `${w.teams[w.player.team].name}'s P${tpos} in the teams' championship`} in the ${seriesById(w.player.series).name} this year. We have an entry available in the ${up.name} for ${w.year + 1}, and we would like it to go to ${w.teams[w.player.team].name}.`,
+         `For your planning, here is what our teams tell us a season costs: about ${money$(b.run)} to run a car (entry, travel, crew, tyres, fuel), plus the car${!b.lease ? '.' : `: ${up.car === 'spec' ? `the series chassis is leased from us, from ${money$(b.lease)} a season` : `leased from the makers' customer programmes from ${money$(b.lease)} a season, or from ${money$(b.buy)} to buy`}.`}`,
+         up.gents ? `Most teams run a gentleman driver in the second car, who pays for the seat. Prize money for a mid-field season comes to about ${money$(b.prize)}.` : `Prize money for a mid-field season comes to about ${money$(b.prize)}.`,
+         ...(SERIES_NEEDS[up.id] ? [`Entrants must have ${Object.entries(SERIES_NEEDS[up.id]).map(([k, n]) => needName(k, n)).join(' and ')} before the season starts.`] : []),
+         ...(ups.length > 1 ? [`We understand other series may be in touch. An entry can only be held by one series.`] : []),
+         `We mention this because several teams have asked us afterwards.`, `Please let us know before the new season.`, `Entries Office, ${up.name}`],
+        { offer: up.id, choices: [['move', `Accept: move up to the ${up.name}`], ['stay', `Decline: stay in the ${seriesById(w.player.series).name}`]] });
+    }
   }
   // this year's ambition, the investor's target, and the list
   if (!w.pre && w.money) { ambitionEnd(w, summary); investorSeason(w, summary); worksSeason(w, summary); }
@@ -725,8 +759,16 @@ function seasonEnd(w) {
   seasonEndNews(w, summary);
 }
 
-// answer a phone choice (the promotion offer)
-export function answerOffer(w, ans) { if (w.player.offer) w.player.offer.answer = ans; }
+// answer a promotion offer: 'move' takes that series' entry (to: its id; careers from before several offers: the one
+// offer); 'stay' turns it down, and you stay once every series on offer has had its answer (or you took another)
+export function answerOffer(w, ans, to) {
+  const off = w.player.offer; if (!off) return;
+  const id = typeof to === 'string' ? to : off.to, opts = off.opts || [off.to];
+  if (ans === 'move') { off.to = id; off.answer = 'move'; off.no = []; return; }
+  if (off.answer === 'move' && off.to !== id) return;
+  off.no = [...new Set([...(off.no || []), id])];
+  off.answer = opts.every(o => off.no.includes(o)) ? 'stay' : null;
+}
 
 // roll on to the next season: age everyone, retire, promote, sign rookies, new cars, new calendars
 export function nextSeason(w, trackPool) {
@@ -777,8 +819,9 @@ export function nextSeason(w, trackPool) {
   }
   // driver market, top series first: the best of the series below take the seats; the slowest step down
   const prevStand = {}; for (const s of SERIES) prevStand[s.id] = standings(w, s.id).map(e => e.pid);
-  for (let tier = SERIES.length - 1; tier >= 0; tier--) {
-    const s = SERIES[tier], below = SERIES[tier - 1], above = SERIES[tier + 1];
+  for (const s of SERIES.slice().sort((a, b) => b.tier - a.tier)) {
+    // (the rung below: the series on this path drops its slowest there; the best of every series on it can step up)
+    const below = nextDown(s.id), belows = seriesDown(s.id).map(x => x.id);
     // drop the bottom two of this series (to the series below, if they're young enough to care)
     if (below) {
       const bottom = prevStand[s.id].filter(pid => pid !== 'P' && w.people[pid] && !w.people[pid].retired && w.people[pid].team && w.people[pid].team !== w.player.team && w.teams[w.people[pid].team].series === s.id).slice(-2);
@@ -790,8 +833,8 @@ export function nextSeason(w, trackPool) {
     const order = w.series[s.id].teams.map(tid => w.teams[tid]).sort((x, y) => (x.mine - y.mine) || attr(y) - attr(x));
     const avail = (t) => {
       const later = order.slice(order.indexOf(t) + 1).filter(o => !o.mine).map(o => o.id);
-      const fromBelow = below ? prevStand[below.id].filter(pid => pid !== 'P' && w.people[pid] && !w.people[pid].retired && w.people[pid].team && w.teams[w.people[pid].team]?.series === below.id && !w.teams[w.people[pid].team].mine).slice(0, 6) : [];
-      const free = Object.values(w.people).filter(p => !p.retired && !p.team && ageOf(w, p) < 40 && (p.series === s.id || p.series === null || (below && p.series === below.id))).map(p => p.id);
+      const fromBelow = belows.flatMap(b => prevStand[b].filter(pid => pid !== 'P' && w.people[pid] && !w.people[pid].retired && w.people[pid].team && w.teams[w.people[pid].team]?.series === b && !w.teams[w.people[pid].team].mine).slice(0, 6));
+      const free = Object.values(w.people).filter(p => !p.retired && !p.team && ageOf(w, p) < 40 && (p.series === s.id || p.series === null || belows.includes(p.series))).map(p => p.id);
       const poach = later.flatMap(tid => w.teams[tid].drivers);
       return [...new Set([...fromBelow, ...free, ...poach])].map(pid => w.people[pid]).filter(p => p && !p.retired && !traitsOf(w, p).includes('gentleman'));
     };
@@ -800,7 +843,7 @@ export function nextSeason(w, trackPool) {
       if (from) from.drivers = from.drivers.filter(x => x !== p.id);
       const wasSeries = from ? from.series : null;
       p.team = t.id; p.series = s.id; t.drivers.push(p.id);
-      moves.push({ kind: wasSeries && seriesById(wasSeries).tier < tier ? 'up' : wasSeries ? 'move' : p.starts ? 'return' : 'rookie', pid: p.id, to: s.id, team: t.id });
+      moves.push({ kind: wasSeries && seriesById(wasSeries).tier < s.tier ? 'up' : wasSeries ? 'move' : p.starts ? 'return' : 'rookie', pid: p.id, to: s.id, team: t.id });
     };
     // a team that can do better replaces its slowest driver (they go looking for a seat)
     for (const t of order) {
@@ -886,7 +929,7 @@ const AI_AHEAD = 0.004;
 const DEV_STATS = ['power', 'grip', 'downforce', 'brake', 'rel'];
 const devZero = () => ({ power: 0, grip: 0, downforce: 0, brake: 0, rel: 0 });
 const lapGain = (d, sid) => Object.entries(lapKOf(sid)).reduce((a, [k, v]) => a + (d[k] || 0) * v, 0);
-const tierOf = (sid) => (seriesById(sid) || SERIES[0]).id;
+const tierOf = (sid) => (seriesById(sid) || seriesById(START_SERIES)).id;
 // how far each kind of development can go in a series (the rules, and physics): gains shrink as you approach it
 // (power: three times what it was in Street and GT, half as much again in Formula, since a percent of power was found
 // to be worth that much less lap time: LAP_KS. The engine parts and projects were scaled with it)
@@ -986,7 +1029,7 @@ export function buildFacility(w, k) {
 export const devOf = (w, t = myTeam(w)) => t.mine ? (w.car ? (w.car.dev ??= devZero()) : devZero()) : (t.dev ??= devZero());
 // a team's car rating (the drivers' ratings use it): its series' base, give or take its development
 export function carValue(w, t, pid = null) {
-  const base = (seriesById(t.series) || SERIES[0]).base;
+  const base = (seriesById(t.series) || seriesById(START_SERIES)).base;
   if (t.mine) {
     const m = w.car ? carMods(w, pid && pid !== 'P' && pid === teammateOf(w) ? 'mate' : 'me') : null;
     const K = lapKOf(t.series), g = m ? (m.power - 1) * K.power + (m.grip - 1) * K.grip + (m.downforce - 1) * K.downforce + (m.brake - 1) * K.brake + (m.drag - 1) * K.drag : 0;
@@ -1140,7 +1183,7 @@ function aiSeason(w) {
     const keep = t.style === 'build' ? 1.2 : 2.5;
     for (const k of order) {
       const nx = facNext(t, k); if (!nx || facLevel(t, 'base') < nx.needsBase) continue;
-      if (k === 'tunnel' && t.series !== 'formula') continue;
+      if (k === 'tunnel' && !SERIES_NEEDS[t.series]?.tunnel) continue;
       if (k === 'base' && facLevel(t, 'base') >= ({ street: 2 }[t.series] ?? 3)) continue; // (no factories in the Street Cup)
       const run = COSTS[t.series].entry + COSTS[t.series].crew;
       if (t.bank > nx.cost + run * keep * w.opts.len / 2) { t.bank -= nx.cost; facOf(t)[k] = facLevel(t, k) + 1; if (!w.pre && t.series === w.player.series) news(w, `${t.name.toUpperCase()} INVESTS`, `${t.name} has added ${nx.name.toLowerCase().replace(/^(an?|the) /, '')} to its base.`); break; }
@@ -1206,8 +1249,8 @@ function newSetup(w) {
   const T = w.teams[w.player.team], inherited = T.drivers.find(d => d !== 'P'), free = Object.values(w.people).filter(p => !p.retired && !p.team && ageOf(w, p) < 36 && !traitsOf(w, p).includes('gentleman'));
   const quick = free.filter(p => !traitsOf(w, p).includes('paydriver')).sort((a, b) => b.pace - a.pace)[0];
   let kid = free.filter(p => ageOf(w, p) <= 19 && p !== quick).sort((a, b) => b.pot - a.pot)[0];
-  if (!kid) kid = makePerson(w, { age: 17, series: null, lvl: SERIES[0].base - 8 });
-  const payer = makePerson(w, { age: r0(19 + rng(w) * 6), series: null, lvl: SERIES[0].base - 9 });
+  if (!kid) kid = makePerson(w, { age: 17, series: null, lvl: seriesById(START_SERIES).base - 8 });
+  const payer = makePerson(w, { age: r0(19 + rng(w) * 6), series: null, lvl: seriesById(START_SERIES).base - 9 });
   payer.traits = ['paydriver']; payer.purse = Math.round((15000 + rng(w) * 8000) / 500) * 500; payer.biz = pickLine(w, ['Carpets & Flooring', 'Discount Mattresses', 'Lawn Ornaments', 'Premium Gutters', 'Self Storage']);
   const drivers = [inherited, quick && quick.id, payer.id, kid.id].filter(Boolean);
   // what your scouting says they could become: a range around the truth
@@ -1758,8 +1801,8 @@ export const investorOf = (w) => w.investor || null;
 export const investorIn = (w) => (w.investor && w.investor.stage === 'in' ? w.investor : null);
 const INV_ADDR = (I) => `${I.name[0][0].toLowerCase()}.${I.name[1].toLowerCase().replace(/[^a-z]/g, '')}@${pickLineStable(I.name[1])}.sv`;
 const pickLineStable = (s) => ['meridiancap', 'valecapital', 'northgateholdings', 'brightwaterpartners'][[...s].reduce((a, c) => a + c.charCodeAt(0), 0) % 4];
-// how big a deal: by the series' tier (GT-level numbers; a Formula-level series x3)
-const invK = (w) => [0.6, 1, 3][seriesById(w.player.series).tier] ?? 3;
+// how big a deal: by the series (SERIES[].inv: GT-level numbers; a Formula-level series x3)
+const invK = (w) => seriesById(w.player.series).inv ?? 1;
 // someone new, when the team's noticed and nobody's around (and not straight after the last one)
 function investorWeek(w) {
   const I = w.investor;
@@ -1767,7 +1810,7 @@ function investorWeek(w) {
   if (I && I.stage !== 'gone' && I.stage !== 'out') return;
   if (I && nowIdx(w) - (I.left || 0) < 10) return;
   // (noticed: above the Street Cup, with a name or a win; a lost one doesn't come back soon)
-  const noticed = seriesById(w.player.series).tier >= 1 && (repOf(w) >= 45 || lastMe(w)?.pos === 1);
+  const noticed = !!seriesById(w.player.series).pro && (repOf(w) >= 45 || lastMe(w)?.pos === 1);
   if (!noticed || rng(w) > 0.06) return;
   const style = pickLine(w, Object.keys(INV_STYLES)), name = pickLine(w, INV_NAMES), J = { name, style, interest: 30 + Math.round(repOf(w) / 5), stage: 'dinner', misses: 0, met: 0 };
   w.investor = J;
@@ -2487,7 +2530,7 @@ function planWeek(w) {
     wk.gigs.push(newGig(w, 'courier', { client, what, fragile, urgent, title: `${client}: ${what.toLowerCase()}`, pay: fare, laps: rng(w) < 0.4 ? 2 : 1, tight: urgent ? 1.3 : 1.45 }));
   }
   // from GT up: corporate hot laps, and coaching people who've bought a car like yours
-  if (seriesById(w.player.series).tier >= 1) { proWeek(w, K); }
+  if (seriesById(w.player.series).pro) { proWeek(w, K); }
   // track days and club events (your race car)
   else if (rng(w) < 0.55) offerGig(w, newGig(w, 'rides', { title: 'Passenger rides', client: 'SV Track Days', pay: 320, tip: 150, laps: 3, riders: threeRiders(w) }), 'SV Track Days', 'bookings@svtrackdays.sv', 'Passenger rides this week?',
     [`Hi,`, `We've got three customers booked in for passenger rides in a "real race car" this week and our usual driver has done his back in.`, `It's three laps, one passenger a lap. We pay ${money$(320)} a ride, and they tip if they enjoy it. They don't tip if they're sick.`, `Your car, your fuel, your tires.`, `SV Track Days`]);
@@ -3253,7 +3296,7 @@ export function briefing(w) {
   if (gigRating(w) < 4.2) watch.push({ text: `GigGo has your account under review (${gigRating(w).toFixed(2)}): fewer jobs`, bad: false });
   watch.sort((a, b) => b.bad - a.bad);
   // what to build up
-  const n = st.length, up = SERIES[seriesById(sid).tier + 1], fund = fundOf(w, sid);
+  const n = st.length, up = nextUp(sid), upName = upNames(sid), fund = fundOf(w, sid);
   const amb = ambitionOf(w);
   goals.push({ label: 'Championship', value: raced ? `P${pos}` : '—', pct: raced ? (n - pos) / Math.max(1, n - 1) : 0, aim: amb ? (n - amb.t) / Math.max(1, n - 1) : null });
   const rep = repOf(w), next = SPONSOR_POOL.map((x, k) => sponsorById('sp' + k)).filter(x => x.rep > rep && x.rep < 999 && (!x.town || x.town === w.home)).sort((a, b) => a.rep - b.rep)[0];
@@ -3268,9 +3311,9 @@ export function briefing(w) {
   // (one short line with the ambition: the promotion rule tucked in after it)
   if (amb && !w.over) {
     const gap = raced && pos > amb.t ? st[amb.t - 1].pts - st[pos - 1].pts : 0;
-    hints.push(!raced ? `This year: ${amb.label.toLowerCase()}.${up ? ` Top 3 earns a ${up.name.replace(/ Championship$/, '')} offer.` : ''}` : pos <= amb.t ? `This year: ${amb.label.toLowerCase()}. You're P${pos}: on course.` : `This year: ${amb.label.toLowerCase()}. You're P${pos}, ${gap} point${gap === 1 ? '' : 's'} off.`);
+    hints.push(!raced ? `This year: ${amb.label.toLowerCase()}.${up ? ` Top 3 earns a ${upName.replace(/ Championship\b/g, '')} offer.` : ''}` : pos <= amb.t ? `This year: ${amb.label.toLowerCase()}. You're P${pos}: on course.` : `This year: ${amb.label.toLowerCase()}. You're P${pos}, ${gap} point${gap === 1 ? '' : 's'} off.`);
   }
-  else if (up) hints.push(raced && pos <= 3 ? `Stay in the top 3 for a ${up.name} offer.` : `Top 3 at the end (or your team top 2) earns a ${up.name} offer${raced && fund[pos - 1] ? ` (P${pos} pays ${money$(fund[pos - 1])})` : ''}.`);
+  else if (up) hints.push(raced && pos <= 3 ? `Stay in the top 3 for a ${upName} offer.` : `Top 3 at the end (or your team top 2) earns a ${upName} offer${raced && fund[pos - 1] ? ` (P${pos} pays ${money$(fund[pos - 1])})` : ''}.`);
   // (and whoever owns a share of the team: their target, in the same line, in place of the promotion rule)
   { const I = investorIn(w); if (I && !w.over && hints.length) hints[0] = hints[0].replace(/ Top 3 earns .*$/, '') + ` ${I.name[1]} (${Math.round(I.share * 100)}%) wants the top ${I.target}${I.misses ? ', or wants out' : ''}.`; }
   { const W = worksOf(w); if (W && !w.over && hints.length) hints[0] = hints[0].replace(/ Top 3 earns .*$/, '') + ` ${W.maker} wants the top ${W.target}.`; }
@@ -3284,7 +3327,7 @@ export function briefing(w) {
 
 // the next thing worth saving for: { name, cost, why }
 export function savingFor(w) {
-  const t = myTeam(w), up = SERIES[seriesById(w.player.series).tier + 1], to = w.player.offer?.answer === 'move' ? w.player.offer.to : up?.id;
+  const t = myTeam(w), up = nextUp(w.player.series), to = w.player.offer?.answer === 'move' ? w.player.offer.to : up?.id;
   const miss = to ? seriesMissing(t, to) : [];
   if (miss.length) {
     const cost = miss.reduce((a, [k, n]) => { let c = 0; for (let l = facLevel(t, k) + (k === 'base' ? 1 : 0); l <= (k === 'base' ? n : n - 1); l++) c += FACILITIES[k].levels[l][1]; return a + c; }, 0);
@@ -3873,12 +3916,12 @@ const USED_BLURB = ['Came off my car, ran fine.', 'Bought it, never fitted it. W
 export function refreshUsedParts(w) {
   const kits = KIT[w.player.series] || KIT.street, k = KIT[w.player.series] ? 1 : PRICE_K[w.player.series] || 1;
   // (above the Street Cup, the used parts are other teams' spares)
-  const sellers = w.player.series === 'street' ? AD_SELLERS : w.series[w.player.series].teams.filter(t => t !== w.player.team).map(t => w.teams[t].name);
+  const classifieds = seriesById(w.player.series).car === 'classifieds', sellers = classifieds ? AD_SELLERS : w.series[w.player.series].teams.filter(t => t !== w.player.team).map(t => w.teams[t].name);
   w.usedParts = [];
   for (let i = 0; i < 5; i++) {
     const [slot, name, gains, q0, price] = kits[Math.floor(rng(w) * kits.length)], luck = 0.25 + rng(w) * 1.1;
     w.usedParts.push({ id: 'up' + (w.nextId++), slot, name, gains: Object.fromEntries(Object.entries(gains).map(([s, v]) => [s, +(v * luck).toFixed(4)])),
-      q: +clamp(q0 - 0.15 - rng(w) * 0.45, 0.2, 0.95).toFixed(2), price: Math.round(price * k * (0.3 + rng(w) * 0.3) / 50) * 50, used: true, blurb: pickLine(w, w.player.series === 'street' ? USED_BLURB : USED_BLURB_PRO), seller: pick(w, sellers) });
+      q: +clamp(q0 - 0.15 - rng(w) * 0.45, 0.2, 0.95).toFixed(2), price: Math.round(price * k * (0.3 + rng(w) * 0.3) / 50) * 50, used: true, blurb: pickLine(w, classifieds ? USED_BLURB : USED_BLURB_PRO), seller: pick(w, sellers) });
   }
   // Danny knows a guy (some rounds)
   if (w.dannyHired && rng(w) < 0.4) {
@@ -4166,7 +4209,7 @@ function sponsorOffers(w, force = false) {
   if (!force && rng(w) > 0.3 + repOf(w) / 250) return;
   const S = seriesById(w.player.series), have = new Set([...deals.map(d => d.sid), ...(w.mail || []).filter(m => m.sponsorOffer && !m.answer).map(m => m.sponsorOffer.sid)]);
   if (stainOf(w)) return; // (nobody respectable signs with a team in the news for the wrong reasons)
-  const cands = SPONSOR_POOL.map((x, i) => sponsorById('sp' + i)).filter(sp => !have.has(sp.id) && sp.rep <= repOf(w) && (sp.town ? sp.town === w.home && S.tier < 2 : true));
+  const cands = SPONSOR_POOL.map((x, i) => sponsorById('sp' + i)).filter(sp => !have.has(sp.id) && sp.rep <= repOf(w) && (sp.town ? sp.town === w.home && S.local : true));
   if (!cands.length) return;
   const sp = cands.sort((a, b) => b.rep - a.rep + (rng(w) - 0.5) * 30)[0];
   const title = !deals.some(d => d.slot === 'title') && (sp.rep >= 10 || !deals.length);
@@ -4266,18 +4309,18 @@ function seasonOpenNews(w, moves = []) {
   for (const m of moves) {
     const p = w.people[m.pid];
     if (told >= 4 && m.kind !== 'you-up') continue;
-    if (m.kind === 'up' && m.to !== 'formula') continue;
+    if (m.kind === 'up' && seriesUp(m.to).length) continue; // (only a step up into a top series is news)
     told++;
     if (m.kind === 'retire' && p && (p.titles || p.wins >= 3)) news(w, `${p.last.toUpperCase()} HANGS UP THE HELMET`, `${nameOf(p)} retires at ${ageOf(w, p)} with ${p.wins} win${p.wins === 1 ? '' : 's'}${p.titles ? ` and ${p.titles} title${p.titles === 1 ? '' : 's'}` : ''}.`);
     else if (m.kind === 'up' && p) news(w, `${p.last.toUpperCase()} STEPS UP TO ${seriesById(m.to).name.toUpperCase()}`, `${nameOf(p)} joins ${w.teams[m.team].name}.`);
-    else if (m.kind === 'rookie' && p && m.to !== 'street') news(w, `ROOKIE ${p.last.toUpperCase()} SIGNS FOR ${w.teams[m.team].name.toUpperCase()}`, `${nameOf(p)}, ${ageOf(w, p)}, gets a ${seriesById(m.to).name} seat.`);
+    else if (m.kind === 'rookie' && p && m.to !== START_SERIES) news(w, `ROOKIE ${p.last.toUpperCase()} SIGNS FOR ${w.teams[m.team].name.toUpperCase()}`, `${nameOf(p)}, ${ageOf(w, p)}, gets a ${seriesById(m.to).name} seat.`);
     else if (m.kind === 'you-up') news(w, `${w.teams[w.player.team].name.toUpperCase()} MOVES UP`, `${w.player.name}'s team joins the ${seriesById(m.to).name} for ${w.year}.`);
   }
   news(w, `${w.year} SEASON PREVIEW`, `${s.name}: ${S.teams.map(t => w.teams[t].name).slice(0, 3).join(', ')} and more. Round 1 at ${S.cal[0].name}.`);
 }
 
 // the Paddock Wire's articles (js/wpress.js) get these to work with
-const PRESS_KIT = { SERIES, seriesById, standings: (w, sid) => standings(w, sid), teamStandings: (w, sid) => teamStandings(w, sid), teamOfPid: (w, pid) => teamOfPid(w, pid),
+const PRESS_KIT = { SERIES, seriesById, nextUp, standings: (w, sid) => standings(w, sid), teamStandings: (w, sid) => teamStandings(w, sid), teamOfPid: (w, pid) => teamOfPid(w, pid),
   ageOf: (w, p) => ageOf(w, p), DIRTY, news: (w, h, b, x) => news(w, h, b, x), pick: (w, a) => pickLine(w, a), rng: (w) => rng(w) };
 // ---------------- storylines: the sim's own stories, sifted out of what happened ----------------
 // After each round, a few patterns are looked for in the results and the incident ledger (a rival who keeps finishing
@@ -4567,7 +4610,7 @@ function seasonEndNews(w, sum) {
     else { const p = w.people[pid]; news(w, `${p.last.toUpperCase()} CLINCHES ${s.name.toUpperCase()} TITLE`, `${nameOf(p)} (${w.teams[p.team].name}) is the ${w.year} champion${p.titles > 1 ? ` again: title number ${p.titles}` : ''}.`); }
   }
   // the Grand Prix: the year's last race in the top series
-  { const S = w.series[SERIES[SERIES.length - 1].id], R = S.cal[S.cal.length - 1], res = S.results.at(-1), wn = R && R.gp && res && res.rows.find(r => r.pos === 1 && !r.dnf);
+  { const S = w.series[gpSeries().id], R = S.cal[S.cal.length - 1], res = S.results.at(-1), wn = R && R.gp && res && res.rows.find(r => r.pos === 1 && !r.dnf);
     if (wn) { const p = wn.pid === 'P' ? null : w.people[wn.pid]; news(w, `${p ? p.last.toUpperCase() : w.player.name.split(' ').pop().toUpperCase()} WINS THE ${GP_NAME.toUpperCase()}`, `${p ? nameOf(p) : w.player.name} (${w.teams[teamOfPid(w, wn.pid)]?.name || ''}) wins the ${w.year} ${GP_NAME} at ${R.name}.`); } }
   const you = sum.you;
   if (you) text(w, w.people[teammateOf(w)]?.first || 'Team', you.pos === 1 ? `CHAMPION! I knew it. Tonight we celebrate.` : `P${you.pos} in the championship. Not bad. Next year we go again.`);
@@ -4656,7 +4699,7 @@ export function loadWorld(id) {
     w.mail = w.mail || [];
     if (!w.money) startMoney(w);
     if (!w.founding) w.founding = { reg: true, car: true, legacy: true }; // (careers from before the founding: carry on as you were)
-    if (!w.series[SERIES[SERIES.length - 1].id].cal.some(c => c.gp)) gpRound(w, null); // (careers from before the Grand Prix)
+    if (!w.series[gpSeries().id].cal.some(c => c.gp)) gpRound(w, null); // (careers from before the Grand Prix)
     // (messages the old character voices reworded: back to how they were written)
     for (const m of [...(w.msgs || []), ...w.mail]) if (m.orig) { m.body = Array.isArray(m.body) ? m.orig.split(/\n\s*\n/) : m.orig; delete m.orig; delete m.voiced; }
     // (bursts of texts used to be filed last-first, so they read bottom to top: a burst is the one thing whose ids go up

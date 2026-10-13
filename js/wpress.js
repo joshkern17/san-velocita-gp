@@ -187,8 +187,9 @@ function drama(w, K, sid) {
   }
   // the rumour mill: halfway through, the best driver below is linked with a team above
   if (w.round === Math.floor(w.opts.len / 2) && once(`silly:${y}`)) {
-    for (const s of K.SERIES.slice(0, -1)) {
-      const up = K.SERIES[s.tier + 1], st = K.standings(w, s.id), top = st.find(e => e.pid !== 'P'); if (!top) continue;
+    for (const s of K.SERIES) {
+      const up = K.nextUp(s.id); if (!up) continue;
+      const st = K.standings(w, s.id), top = st.find(e => e.pid !== 'P'); if (!top) continue;
       const D = who(w, K, top.pid), teams = w.series[up.id].teams.map(t => w.teams[t]), t = teams[Math.floor(K.rng(w) * teams.length)];
       article(w, K, 'paddock', `${UP(D.last)} LINKED WITH ${UP(t.name)}`, [
         `${D.full}, ${ordinal(st.findIndex(e => e.pid === top.pid) + 1)} in the ${s.name}, has been seen in the ${t.name} hospitality unit at two ${up.name} rounds, according to people who notice these things.`,
