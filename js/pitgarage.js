@@ -13,7 +13,7 @@ const TYRE_CSS = { soft: '#e0302a', medium: '#f2d22a', hard: '#f0f0f0', wet: '#3
 // the room: x across (-W/2..W/2), z from the back wall (-D) to the door (0), the car in the middle facing the door
 const W = 12, D = 14, H = 4.6, CAR_Z = -6.5;
 const BULB_SCALE = 0.0006;
-const ENGINE_REAR = new Set(['rs964', 'testarossa', 'custom', 'svgp']); // (cars with the engine behind the driver) // exported point / spot light intensity -> the game's (a 300 W Blender bulb ≈ 10)
+const ENGINE_REAR = new Set(['rs964', 'rsr964', 'testarossa', 'custom', 'svgp']); // (cars with the engine behind the driver) // exported point / spot light intensity -> the game's (a 300 W Blender bulb ≈ 10)
 
 // your own garage model (Blender -> models/garage.glb, metres, the door facing Blender -Y, the floor at Z = 0, the
 // car's spot at the origin; see docs/GARAGE-MODEL.md for the named hooks). The single-file build carries it in

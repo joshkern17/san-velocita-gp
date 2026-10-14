@@ -17,6 +17,7 @@ import { CARSPEC } from './physics.js';
 export const CLASSES = {
   f1:     { label: 'Formula',  short: 'F1' },
   gt1:    { label: 'GT1 ’90s', short: 'GT1' },
+  gt2:    { label: 'GT2 ’90s', short: 'GT2' },
   street: { label: 'Street',  short: 'ST' },
   club:   { label: 'Club',    short: 'CL' },
   shitbox: { label: 'Shitbox', short: 'SB' },
@@ -70,6 +71,11 @@ const gt = (o) => ({
   ovh: [1.0, 0.95], // (body overhangs past the axles, m: contact.js bodyBox, for a car without its own body size)
   drift: true, driftMax: 0, ...o,
 });
+// a '90s GT2 car: a race car built from a road car (the GT racer's stiff low build, its wing and slicks), with the
+// power and the downforce a class below GT1: between the street cars and GT1 on pace
+const gt2 = (o) => gt({ mass: 1150, power: 310000, mu: 1.5, kd: 0.55, drag: 0.42, maxForce: 12000, rideHz: [2.2, 2.4], rollGrad: 1.4,
+  gears: [0, 26, 38, 50, 62, 73, 82], redline: 8000, ...o });
+
 const street = (o) => ({
   mass: 1450, a: 1.3, b: 1.4, cgh: 0.48, mu: 1.33, rearGrip: 1.03, kd: 0.14, aeroF: 0.45,
   drag: 0.4, roll: 22, power: 300000, maxForce: 11500, maxSteer: 0.48,
@@ -99,14 +105,6 @@ export const CARS = {
   porsche935: { name: 'Porsche 935', cls: 'gt1', sound: 'flat6turbo', glb: true, paint: true, livery: true,
     liveryLabels: { topNumber: [0.78, 0.5], sideNumber: [0.55, 0.5], sideSponsor: [0.55, 0.8] },
     spec: gt({ body: [2.32, 2.52, 0.99], gears: [0, 33, 53, 73, 93], box: 'manual', shift: 0.18, mass: 1030, power: 480000, kd: 0.9, drag: 0.43, torque: BIGTURBO, redline: 7800, a: 1.44, b: 0.96, rearGrip: 1.1, brakeF: 0.56 }) },
-  // your Blender model (E46 M3 GTR, white photo, full livery): the 2001 race car (the P60 4.0 V8, 1100 kg, a six-speed
-  // sequential), lifted to GT1 pace as the M1 ProCar is: the real one made about 330 kW and raced a class below, which
-  // here laps 3.7% off the GT1 field. At 460 kW it's mid-field (with the Aventus). The long wheelbase and even weight
-  // make it steady rather than sharp. rev: bumped when a car's spec changes enough that the AI's learned lines for it
-  // should be thrown away
-  m3gtr: { name: 'BMW M3 GTR', cls: 'gt1', sound: 'v8cross', glb: true, paint: true, livery: true, rev: 2,
-    liveryLabels: { topNumber: [0.42, 0.5], sideNumber: [0.5, 0.55], sideSponsor: [0.5, 0.8] },
-    spec: gt({ body: [2.21, 2.37, 0.93], mass: 1100, power: 460000, kd: 0.85, drag: 0.46, torque: NA, a: 1.37, b: 1.37 }) },
 
   // your Blender model (Zakspeed Ford Capri Turbo, Group 5, white photo, full livery): built from a high-poly model with
   // the low-poly pipeline (output/hd-lowpoly). A short, light front-engined car with a tiny turbo four that's all
@@ -124,11 +122,33 @@ export const CARS = {
     liveryLabels: { topNumber: [0.8, 0.5], sideNumber: [0.52, 0.57], sideSponsor: [0.52, 0.82] },
     spec: gt({ body: [2.57, 1.91, 1.05], gears: [0, 31, 48, 64, 79, 93], box: 'manual', shift: 0.15, mass: 1060, power: 470000, kd: 0.9, drag: 0.44, torque: TURBO, redline: 7800, a: 1.43, b: 1.03, brakeF: 0.58 }) },
 
+  // ---- GT2 ----
+  // your Blender model (E46 M3 GTR, white photo, full livery): the 2001 ALMS GT car, back in its own class (it was
+  // lifted to 460 kW to race in GT1 until GT2 existed). The P60 4.0 V8 at ~335 kW, 1150 kg, a six-speed sequential;
+  // the long wheelbase and even weight make it steady rather than sharp: the class's benchmark on power.
+  // rev: bumped when a car's spec changes enough that the AI's learned lines for it should be thrown away
+  m3gtr: { name: 'BMW M3 GTR', cls: 'gt2', sound: 'v8cross', glb: true, paint: true, livery: true, rev: 3,
+    liveryLabels: { topNumber: [0.42, 0.5], sideNumber: [0.5, 0.55], sideSponsor: [0.5, 0.8] },
+    spec: gt2({ body: [2.21, 2.37, 0.93], mass: 1150, power: 325000, kd: 0.6, drag: 0.44, torque: NA, a: 1.37, b: 1.37 }) },
+  // the 964 RS's model (for now: a race body kit and wing to come) as the '93 Carrera RSR 3.8: the 3.8 flat six
+  // (~280 kW), 1120 kg, a five-speed manual. The engine behind the rear axle: it puts the power down out of slow
+  // corners like nothing else in the class, and wants patience on turn-in and a smooth lift
+  rsr964: { name: 'Porsche 911 Carrera RSR 3.8 (964)', cls: 'gt2', sound: 'flat6', glb: true, paint: true,
+    spec: gt2({ body: [2.12, 2.15, 0.92], mass: 1100, power: 310000, kd: 0.62, mu: 1.56, drag: 0.41, torque: NA, a: 1.385, b: 0.885, cgh: 0.42, rearGrip: 1.15,
+      brakeF: 0.56, redline: 7500, gears: [0, 27, 40, 53, 66, 78] }) },
+  // your R34 GT-R model (for now: a race body kit and wing to come) as a GT2 racer: the RB26 turned up to ~320 kW,
+  // stripped to 1260 kg, the ATTESA kept (mostly rear-driven, up to a fifth to the front), a six-speed sequential.
+  // The heaviest in the class and the nose-heaviest: it makes it up out of slow corners and in the wet
+  r34gt2: { name: 'Nissan Skyline GT-R R34 GT2', cls: 'gt2', sound: 'i6turbo', glb: true, paint: true, livery: true,
+    liveryLabels: { topNumber: [0.42, 0.5], sideNumber: [0.5, 0.55], sideSponsor: [0.5, 0.8] },
+    spec: gt2({ body: [2.28, 2.32, 0.9], mass: 1250, power: 340000, kd: 0.57, drag: 0.43, torque: TURBO, a: 1.2, b: 1.465, cgh: 0.42, drive: 0.2,
+      maxForce: 13500, track: 1.52, brakeF: 0.66, redline: 8000 }) },
+
   testarossa: { name: 'Testa Rossa', cls: 'street', sound: 'flat12', glb: true, paint: true,
     spec: street({ body: [2.24, 2.27, 1.0], lsd: [50, 0.4, 0.2], mass: 1510, power: 290000, cgh: 0.44, a: 1.4, b: 1.15, mu: 1.35, kd: 0.18, redline: 7400, gears: [0, 20, 34, 48, 63, 80], torque: NA }) },
   jsport:  { name: 'Kaze Sports Coupe', cls: 'street', sound: 'i4turbo', glb: true, paint: false,
     spec: street({ body: [2.22, 2.25, 1.0], lsd: [80, 0.45, 0.3], mass: 1400, power: 280000, torque: TURBO, a: 1.3, b: 1.3, redline: 7000, gears: [0, 19, 32, 45, 60, 78] }) },
-  rs964:   { name: 'Neun Elf RS', cls: 'street', sound: 'flat6', glb: true, paint: true,
+  rs964:   { name: 'Porsche 911 Carrera RS (964)', cls: 'street', sound: 'flat6', glb: true, paint: true,
     spec: street({ body: [2.12, 2.15, 0.92], lsd: [60, 0.4, 0.4], mass: 1220, power: 195000, a: 1.5, b: 0.8, rearGrip: 1.08, cgh: 0.45, drag: 0.37, brakeF: 0.56, redline: 6900, gears: [0, 18, 30, 42, 55, 72] }) },
   mustang: { name: 'Pony GT 5.0', cls: 'street', sound: 'v8cross', glb: true, paint: true, bodyWheels: 'move', wheelW: 0.3,
     spec: street({ body: [2.4, 2.42, 1.0], lsd: [20, 0.43, 0.43], mass: 1690, power: 320000, torque: V8, a: 1.36, b: 1.36, mu: 1.28, rearGrip: 1.0, redline: 7000, gears: [0, 18, 29, 40, 52, 64, 76] }) },

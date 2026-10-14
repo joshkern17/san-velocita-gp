@@ -12,6 +12,7 @@
 const PACE_COST = {
   street: [[1, 0], [0.97, 0.35], [0.94, 1.2], [0.91, 2.25], [0.85, 5], [0.8, 8]],
   gt1:    [[1, 0], [0.97, 0.45], [0.94, 1.35], [0.91, 2.65], [0.85, 5.5], [0.8, 8.5]],
+  gt2:    [[1, 0], [0.97, 0.4], [0.94, 1.3], [0.91, 2.45], [0.85, 5.25], [0.8, 8.25]], // (not measured: between street and GT1)
   f1:     [[1, 0], [0.97, 0.05], [0.94, 0.15], [0.91, 0.8], [0.85, 4], [0.8, 7]],
 };
 const clsOf = (cls) => PACE_COST[cls] ? cls : 'street'; // (the fun class drives like the street one)
@@ -31,7 +32,7 @@ export const paceFor = (cls, cost) => lerpTable(PACE_COST[clsOf(cls)], Math.max(
 // Each flaw costs a different amount by class (an F1 is very sensitive to them, a GT1 car shrugs them off), so the
 // flaws are scaled per class to cost about TECH_FULL % at f = g = 1. An impatient driver also runs with less traction
 // control (with full TC the extra throttle is caught and costs nothing).
-const TECH_SCALE = { street: 0.75, gt1: 1.6, f1: 0.35 };
+const TECH_SCALE = { street: 0.75, gt2: 1.2, gt1: 1.6, f1: 0.35 };
 const TECH_FULL = 1.2;
 export function technique(cls, f, g) {
   const k = TECH_SCALE[clsOf(cls)], fi = Math.min(1, f * k);

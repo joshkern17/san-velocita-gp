@@ -31,7 +31,7 @@ const N = +(args.find(a => /^\d+$/.test(a)) || 40), SEASONS = +(args.filter(a =>
 
 const POOL = [['Pine Ridge', 'grass'], ['Mesa Loop', 'desert'], ['Harbour Run', 'coast'], ['Downtown GP', 'city'], ['Oak Valley', 'grass'], ['Red Rock', 'desert'], ['Bay Point', 'coast'], ['Uptown Ring', 'city']]
   .map(([name, theme]) => ({ name, env: { theme, time: 'day' } }));
-const STREET = [['testarossa', 'Testa Rossa', 290000], ['jsport', 'Kaze Sports Coupe', 280000], ['rs964', 'Neun Elf RS', 195000], ['mustang', 'Pony GT 5.0', 320000], ['m5', 'Bavaria M5 E39', 294000], ['r34', 'Nissan Skyline GT-R R34', 245000]]
+const STREET = [['testarossa', 'Testa Rossa', 290000], ['jsport', 'Kaze Sports Coupe', 280000], ['rs964', 'Porsche 911 Carrera RS (964)', 195000], ['mustang', 'Pony GT 5.0', 320000], ['m5', 'Bavaria M5 E39', 294000], ['r34', 'Nissan Skyline GT-R R34', 245000]]
   .map(([key, name, p]) => ({ key, name, value: Math.round(12000 + p * 0.11) }));
 // the GT cars (js/cars.js), for the customer programmes
 const CAT = { gt1: [['aventus', 'Emery Aventus ’92', 470000, 1120], ['bx300', 'Horai BX300 ’96', 430000, 1040], ['rmx', 'Kineto RM-X ’94', 500000, 1180], ['m1procar', 'Bavaria M1 ProCar ’79', 400000, 1020], ['porsche935', 'Porsche 935', 480000, 1030]]

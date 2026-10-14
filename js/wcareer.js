@@ -4873,6 +4873,16 @@ function retireCars(w) {
   for (const k of ['car', 'prevCar', 'ads', 'streetCars', 'carCat', 'bop']) swap(w[k]);
   for (const t of Object.values(w.teams || {})) if (t && RETIRED[t.chassis]) t.chassis = RETIRED[t.chassis]; // (an AI team's model: teamChassis)
 }
+// (the BMW M3 GTR raced in GT1 until GT2 existed, 2026-10-13: a GT1 entry that owns one gets a GT1 car in exchange,
+// the F40 LM, the nearest in pace; AI teams pick again from the class themselves, teamChassis)
+function gt2Moves(w) {
+  if (!w.car || w.car.chassis !== 'm3gtr' || w.car.cls !== 'gt1') return;
+  w.car.chassis = 'f40'; w.car.name = CARS.f40.name;
+  mail(w, 'GT Championship Office', 'office@gtchampionship.sv', 'Your car: the M3 GTR moves to GT2',
+    [`The BMW M3 GTR has been reclassified to the new GT2 class, where it was homologated in the first place. It is no longer eligible for the GT Championship.`,
+     `Under the reclassification scheme your car has been exchanged, at no cost, for a ${CARS.f40.name} in the same condition and with the same parts. The M3 will be well looked after by someone else.`,
+     `GT Championship Office`]);
+}
 export function loadWorld(id) {
   migrate();
   try {
@@ -4917,6 +4927,7 @@ export function loadWorld(id) {
       w.bookFix = true;
     }
     retireCars(w);
+    gt2Moves(w);
     return w;
   } catch (e) { return null; }
 }

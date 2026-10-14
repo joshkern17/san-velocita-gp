@@ -2766,7 +2766,7 @@ function endRecord(w) {
 // the cars of each class, for the customer racing programmes (World Career: moving up)
 function carCatalog() { // (from the specs, not the loaded models: a new career's is made before they've loaded)
   const of = (cls) => (cls === 'f1' ? carsOfClass(cls) : carsInClass(cls)).filter(id => cls !== 'f1' || id === 'f1').map(id => { const st = carStats(id); return { key: chassisKey(id), name: id === 'f1' ? 'SV-F spec chassis' : CARS[id].name, hp: Math.round(st.power), kg: Math.round(st.weight) }; });
-  return { club: of('club'), gt1: of('gt1'), f1: of('f1') };
+  return { club: of('club'), gt2: of('gt2'), gt1: of('gt1'), f1: of('f1') };
 }
 function openHub(first = false) {
   if (world) WC.setCarCatalog(world, carCatalog());
@@ -4699,7 +4699,7 @@ $('bi-name').addEventListener('blur', () => clearEdges());
 // ---------------- car select (on the grid, before the strategy) ----------------
 const ENGINE_NAME = { f1v6: '1.6 V6 turbo hybrid', v10: '3.0 V10', v8flat: 'Flat-plane V8', v8cross: 'V8', v8truck: 'Big-block V8', i6: 'Straight six',
   i6turbo: 'Twin-turbo straight six', v6turbo: 'Twin-turbo V6', v6na: 'V6', flat6: 'Flat six', flat6turbo: 'Turbo flat six', flat12: 'Flat twelve', i4turbo: 'Turbo four', diesel: 'Turbo diesel' };
-const CLASS_COL = { f1: '#e1261c', gt1: '#2a7fd0', street: '#e8b13a', club: '#2fa59a', shitbox: '#a8743a', fun: '#4f9a3c' };
+const CLASS_COL = { f1: '#e1261c', gt1: '#2a7fd0', gt2: '#7a4fc0', street: '#e8b13a', club: '#2fa59a', shitbox: '#a8743a', fun: '#4f9a3c' };
 let csel = null; // { cls, id, shownId, t, blip }
 const carReady = (id) => id === 'svgp' || (id === 'f1' ? customCarStatus() === 'ready' : chassisReady(id));
 const carsOfClass = (cls) => Object.keys(CARS).filter(id => CARS[id].cls === cls && carReady(id));
