@@ -1213,6 +1213,9 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .postcard.mini::after { background: linear-gradient(0deg, rgba(5,3,8,.9) 0%, rgba(0,0,0,0) 45%); }
 .rs-card .pc-map { top: 12px; right: 12px; width: 130px; z-index: 2; }
 .rs-card .ti-grid b { font-size: 19px; white-space: nowrap; }
+.rs-card .rs-go { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.1); }
+.rs-card .rs-go .item.action { font-size: 24px; line-height: 1.45; padding-left: 18px; margin-left: -18px; }
+.rs-card .rs-go .item.sel::before { left: 1px; border-left-width: 11px; border-top-width: 7px; border-bottom-width: 7px; }
 
 /* ---- race control: flag board + stewards' messages (top centre) ---- */
 @keyframes rcblink { 50% { filter: brightness(.35); } }

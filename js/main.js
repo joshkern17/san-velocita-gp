@@ -181,7 +181,7 @@ const GLYPHS = {
 const HINTS = {
   's-main': [['nav', 'Navigate'], ['ok', 'Select']],
   's-setup': () => [['nav', 'Circuit'], ['ok', 'Choose circuit'], ['back', fromEditor ? 'Back to editor' : 'Back']],
-  's-raceset': () => [['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ['back', fromEditor ? 'Back to editor' : 'Circuits']],
+  's-raceset': () => [['tab', 'Settings / Start'], ['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ['back', fromEditor ? 'Back to editor' : 'Circuits']],
   's-career': [['tab', 'Career type'], ['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ['back', 'Back']],
   's-online': [['nav', 'Navigate'], ['ok', 'Select'], ['back', 'Back']],
   's-lobby': () => [['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ['back', net && net.isHost ? 'Close room' : 'Leave room']],
@@ -232,7 +232,8 @@ document.addEventListener('click', (e) => {
 
 // ---------------- menu widget ----------------
 // items: { label, action } buttons, { label, values: [[v, text]], get, set } choices, { label, head: true } section headings;
-// any item may carry `desc` (shown in the screen's description bar while it's highlighted)
+// any item may carry `desc` (shown in the screen's description bar while it's highlighted) and `hide` (a function: true =
+// not shown, skipped by the cursor)
 let lastMouse = '';
 function scrollerOf(el) {
   for (let e = el; e && !e.classList.contains('screen'); e = e.parentElement) { const o = getComputedStyle(e).overflowY; if (o === 'auto' || o === 'scroll') return e; }
@@ -251,9 +252,10 @@ class Menu {
   valText(it) { if (it.show) return it.show(); const v = it.get(); const o = it.values.find(x => x[0] === v); return o ? o[1] : v; }
   render() {
     this.items.forEach((it, k) => { if (k !== this.i) it.armed = false; });
-    const cur = this.items[this.i];
-    if (cur && (cur.disabled || cur.head)) { const n = this.items.findIndex((it, k) => k > this.i && !it.disabled && !it.head); if (n >= 0) this.i = n; }
+    const cur = this.items[this.i], ok = (it) => !it.disabled && !it.head && !(it.hide && it.hide());
+    if (cur && !ok(cur)) { let n = this.items.findIndex((it, k) => k > this.i && ok(it)); if (n < 0) n = this.items.findLastIndex(ok); if (n >= 0) this.i = n; }
     this.el.innerHTML = this.items.map((it, k) => {
+      if (it.hide && it.hide()) return '';
       if (it.head) return `<div class="item head" data-k="${k}">${it.label}</div>`;
       const cls = ['item', it.values ? 'opt' : '', it.cls || '', k === this.i ? 'sel' : '', it.disabled ? 'disabled' : ''].join(' ');
       const val = it.values ? `<span class="val"><i class="arr" data-d="-1">&#8249;</i><span class="vt">${this.valText(it)}</span><i class="arr" data-d="1">&#8250;</i></span>` : '';
@@ -288,14 +290,14 @@ class Menu {
   move(d) {
     const n = this.items.length; if (!n) return;
     let i = this.i;
-    for (let k = 0; k < n; k++) { i = (i + d + n) % n; if (!this.items[i].disabled && !this.items[i].head) break; }
+    for (let k = 0; k < n; k++) { i = (i + d + n) % n; const it = this.items[i]; if (!it.disabled && !it.head && !(it.hide && it.hide())) break; }
     this.i = i; sfx.move(); this.render();
     this.opts.onMove && this.opts.onMove(this.items[i]);
   }
   // a grid: d cells on, stopping at the edges (no wrapping), skipping headings
   jump(d) {
     let i = Math.max(0, Math.min(this.items.length - 1, this.i + d));
-    while (this.items[i] && (this.items[i].head || this.items[i].disabled) && i !== this.i) i += Math.sign(d);
+    while (this.items[i] && (this.items[i].head || this.items[i].disabled || (this.items[i].hide && this.items[i].hide())) && i !== this.i) i += Math.sign(d);
     if (!this.items[i] || i === this.i) return;
     this.i = i; sfx.move(); this.render(); this.opts.onMove && this.opts.onMove(this.items[i]);
   }
@@ -305,7 +307,7 @@ class Menu {
     if (it.nudge) { if (it.nudge(d) !== false) { sfx.move(); this.render(); } return; }
     const vals = it.values.map(v => v[0]);
     let k = vals.indexOf(it.get()); k = (k + d + vals.length) % vals.length;
-    it.set(vals[k]); sfx.move(); this.render();
+    it.set(vals[k]); sfx.move(); this.render(); this.opts.onChange && this.opts.onChange(it);
   }
   activate() {
     const it = this.items[this.i]; if (!it || it.disabled) return;
@@ -869,8 +871,8 @@ function renderPick(t) {
 function openRaceSettings(instant = false) {
   const t = setupTracks[setupSel].t;
   $('rs-sub').textContent = t.name;
-  menus['s-raceset'][0].i = menus['s-raceset'][0].items.findIndex(it => it.cls && it.cls.includes('primary'));
-  menus['s-raceset'][0].render();
+  // (the cursor starts on Start Race, under the picture)
+  const [ms, mg] = menus['s-raceset']; mg.i = 0; ms.render(); mg.render(); mg.focusMe();
   renderRaceSetInfo();
   const go = () => show('s-raceset');
   if (instant) go(); else { sfx.select(); fadeTo(go, 180); }
@@ -1011,23 +1013,25 @@ backs['s-tuning'] = () => {
     show(tuningFrom); renderHints();
   }, 160);
 };
+const timedOn = () => settings.raceFormat === 'timed', lapsOn = () => !timedOn();
 menus['s-raceset'] = [
   new Menu($('m-setup'), [
     { label: 'Race', head: true },
-    { label: 'Laps', values: [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50].map(v => [v, String(v)]), get: () => raceCfg.laps, set: v => raceCfg.laps = v, desc: 'Race distance. Long races bring tyre wear and pit strategy into play.' },
-    // (a timed race: endurance - the clock in the race's own hours, compressed; the time of day moves with it; a co-driver)
+    // (a timed race: endurance - the clock in the race's own hours, compressed; the time of day moves with it; a co-driver.
+    // Only the rows for the format chosen are shown)
     { label: 'Format', values: [['laps', 'Laps'], ['timed', 'Timed']], get: () => settings.raceFormat || 'laps', set: v => { settings.raceFormat = v; saveSettings(); }, desc: '<b>Laps</b>: a set number of laps. <b>Timed</b>: an endurance race. The clock runs in the race\'s own hours, compressed (Endurance Length below); when it runs out, the leader takes the flag at the line. The time of day moves with the clock, and you can share the car with a co-driver.' },
-    { label: 'Race Clock', values: [1, 3, 6, 12, 24].map(v => [v, `${v} hour${v === 1 ? '' : 's'}`]), get: () => settings.endHours || 6, set: v => { settings.endHours = v; saveSettings(); }, desc: 'Timed races: how long the race runs on its own clock.' },
-    { label: 'Endurance Length', values: [[45, 'Short'], [90, 'Medium'], [180, 'Long']], get: () => settings.endur || 90, set: v => { settings.endur = v; saveSettings(); }, desc: 'Timed races: how long 24 hours of race clock takes in real time. <b>Short</b> 45 minutes, <b>Medium</b> 90, <b>Long</b> 180 (a 6 Hours: 11, 22 or 45 minutes).' },
-    { label: 'Start Time', values: [[8, 'Morning'], [14.5, 'Afternoon'], [18.5, 'Evening'], [22, 'Night']], get: () => settings.endStart ?? 14.5, set: v => { settings.endStart = v; saveSettings(); }, desc: 'Timed races: the time of day at the start. It moves on with the race clock: an afternoon start runs into the night.' },
-    { label: 'Co-Driver', values: [['on', 'AI co-driver'], ['off', 'Drive it all']], get: () => settings.coDriver || 'on', set: v => { settings.coDriver = v; saveSettings(); }, desc: 'Timed races: share the car. At each stop the engineer asks whether to swap; each of you has to drive 30% of the race. While they drive, watch at 1x, 4x or 8x, or skip to your next stint.' },
+    { label: 'Laps', hide: timedOn, values: [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50].map(v => [v, String(v)]), get: () => raceCfg.laps, set: v => raceCfg.laps = v, desc: 'Race distance. Long races bring tyre wear and pit strategy into play.' },
+    { label: 'Race Clock', hide: lapsOn, values: [1, 3, 6, 12, 24].map(v => [v, `${v} hour${v === 1 ? '' : 's'}`]), get: () => settings.endHours || 6, set: v => { settings.endHours = v; saveSettings(); }, desc: 'Timed races: how long the race runs on its own clock.' },
+    { label: 'Endurance Length', hide: lapsOn, values: [[45, 'Short'], [90, 'Medium'], [180, 'Long']], get: () => settings.endur || 90, set: v => { settings.endur = v; saveSettings(); }, desc: 'Timed races: how long 24 hours of race clock takes in real time. <b>Short</b> 45 minutes, <b>Medium</b> 90, <b>Long</b> 180 (a 6 Hours: 11, 22 or 45 minutes).' },
+    { label: 'Start Time', hide: lapsOn, values: [[8, 'Morning'], [14.5, 'Afternoon'], [18.5, 'Evening'], [22, 'Night']], get: () => settings.endStart ?? 14.5, set: v => { settings.endStart = v; saveSettings(); }, desc: 'Timed races: the time of day at the start. It moves on with the race clock: an afternoon start runs into the night.' },
+    { label: 'Co-Driver', hide: lapsOn, values: [['on', 'AI co-driver'], ['off', 'Drive it all']], get: () => settings.coDriver || 'on', set: v => { settings.coDriver = v; saveSettings(); }, desc: 'Timed races: share the car. At each stop the engineer asks whether to swap; each of you has to drive 30% of the race. While they drive, watch at 1x, 4x or 8x, or skip to your next stint.' },
     // (multiclass: half the field in another class: standings per class, the quicker class lapping through traffic)
     { label: 'Second Class', values: [['off', 'Off'], ...Object.keys(CLASSES).filter(k => k !== 'fun').map(k => [k, CLASSES[k].label])], get: () => settings.mixCls || 'off', set: v => { settings.mixCls = v; saveSettings(); }, desc: 'A multiclass race: half the AI field in another class. Positions and points go by class; the tower shows yours. A quicker class comes through your traffic (blue flags: hold your line and let them by), a slower one is traffic for you. Everyone finishes when the overall leader takes the flag.' },
     { label: 'Opponents', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(v => [v, String(v)]), get: () => raceCfg.opponents, set: v => raceCfg.opponents = v, desc: 'How many AI cars you race against.' },
     { label: 'Difficulty', values: [['easy', 'Rookie'], ['medium', 'Pro'], ['hard', 'Legend'], ['alien', 'Alien'], ['phantom', 'Phantom'], ['godlike', 'Godlike']], get: () => settings.difficulty, set: v => { settings.difficulty = v; saveSettings(); }, desc: 'How fast the AI is. <b>Rookie</b> to learn a circuit, <b>Legend</b> to match a clean lap at your best, <b>Alien</b> and up to be beaten. Above <b>Legend</b> the AI cars get extra grip and power, more at each level.' },
     { label: 'Weekend', values: WEEKEND_VALS, get: wkFmt, set: v => { settings.weekend = v; saveSettings(); syncGridItem(); }, desc: WEEKEND_DESC },
-    { label: 'Practice', values: PRAC_VALS, get: wkPrac, set: v => { settings.pracLen = v; saveSettings(); }, desc: PRAC_DESC },
-    { label: 'Qualifying', values: QUALI_VALS, get: wkQuali, set: v => { settings.qualiLen = v; saveSettings(); }, desc: QUALI_DESC },
+    { label: 'Practice', hide: () => wkFmt() !== 'full', values: PRAC_VALS, get: wkPrac, set: v => { settings.pracLen = v; saveSettings(); }, desc: PRAC_DESC },
+    { label: 'Qualifying', hide: () => wkFmt() === 'race', values: QUALI_VALS, get: wkQuali, set: v => { settings.qualiLen = v; saveSettings(); }, desc: QUALI_DESC },
     { label: 'Grid', values: GRID_VALS, get: () => wkFmt() !== 'race' ? 'quali' : settings.grid, set: v => { if (v !== 'quali') { settings.grid = v; saveSettings(); } }, desc: GRID_DESC },
     { label: 'Conditions', head: true },
     { label: 'Time', values: [['track', 'Track default'], ['day', 'Day'], ['dusk', 'Dusk'], ['night', 'Night']], get: () => settings.time, set: v => { settings.time = v; saveSettings(); conditionsChanged(); }, desc: 'Time of day. Track default uses what the circuit was designed with.' },
@@ -1042,7 +1046,10 @@ menus['s-raceset'] = [
     { label: 'Start Tyre', values: [['auto', 'Auto'], ['soft', 'Soft'], ['medium', 'Medium'], ['hard', 'Hard'], ['wet', 'Wet'], ['dirt', 'Dirt']], get: () => settings.startTyre, set: v => { settings.startTyre = v; saveSettings(); }, desc: 'The compound you start on. Auto picks the best one for the conditions (dirt tyres on a dirt track).' },
     { label: 'Pit Wall Calls', values: [['on', 'On'], ['off', 'Off']], get: () => settings.pitWall || 'on', set: v => { settings.pitWall = v; saveSettings(); }, desc: 'Your engineer asks you on the radio when there\'s a call to make: undercut, cover, a cheap stop under the VSC, your teammate. Answer with <b>X / B</b> (or <b>1 / 2</b>); if you don\'t, their pick happens. Off: they make the pit calls and tell you.' },
     { label: 'Drift Points', values: [['off', 'Off'], ['on', 'On']], get: () => settings.drift, set: v => { settings.drift = v; saveSettings(); }, desc: 'Score points for sliding road and GT cars. Records are kept per circuit.' },
-    { label: 'Start Race', cls: 'action primary', action: () => launch('race'), desc: 'Load the circuit. You choose your car on the grid.' },
+  ], { desc: 'd-setup', onChange: () => menus['s-raceset'][1].render() }),
+  // (the buttons under the circuit's picture, so you don't scroll the settings to go)
+  new Menu($('m-rsgo'), [
+    { get label() { const h = settings.endHours || 6, n = raceCfg.laps; return `Start Race<small>${timedOn() ? `${h} HOUR${h === 1 ? '' : 'S'}` : `${n} LAP${n === 1 ? '' : 'S'}`} &middot; ${raceCfg.opponents} AI</small>`; }, cls: 'action primary', action: () => launch('race'), desc: 'Load the circuit. You choose your car on the grid.' },
     { label: 'Time Trial', cls: 'action', action: () => launch('test'), desc: 'Just you and the clock. Your best lap on every circuit is saved.' },
   ], { desc: 'd-setup' }),
 ];
