@@ -5220,6 +5220,7 @@ function handleRaceEvents() {
       const go = () => { if (raceReturn === 'gig') gigFinish(); else if (raceReturn === 'world') { if (sim.net) coopFinish(); else worldRoundDone(); } else if (raceReturn === 'career') careerRoundDone(); else if (raceReturn === 'online') { if (screen !== 's-results') showNetResults(); } else if (raceReturn === 'coop') { if (screen !== 's-results' && screen !== 's-round') showCoopLive(); } else showResults(); };
       if (sim.net || !openPodium(go)) go();
     }
+    else if (ev.type === 'crew') { const c = sim.crew; hud.center(ev.who === 'C' ? `${String(c.name).toUpperCase()} IS DRIVING<span class="sub">X: WATCH FASTER · B: SKIP TO YOUR STINT</span>` : "YOU'RE IN<span class=\"sub\">YOUR STINT</span>", 'white', 2600); }
     else if (ev.type === 'timeup') hud.center('CLOCK AT ZERO<span class="sub">LAST LAP</span>', 'white', 2600);
     else if (ev.type === 'timedflag') { if (!sim.player.finished) hud.center('CHEQUERED FLAG<span class="sub">FINISH THIS LAP</span>', 'white', 2600); }
     else if (ev.type === 'qflag') { if (ev.onLap) hud.center('CHEQUERED FLAG<span class="sub">FINISH THIS LAP</span>', 'white', 2600); }
@@ -5815,6 +5816,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 let hubWas = null;
+let skipMsgT = 0; // (the skip-to-your-stint message, refreshed twice a second)
 function frameBody(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   const pad = pollGamepad();
@@ -5857,9 +5859,13 @@ function frameBody(now) {
     if (sim.call) { if (pressed('Digit1') || pressed('GP2')) sim.answerCall('a'); else if (pressed('Digit2') || pressed('GP1')) sim.answerCall('b'); hud.callTick(sim.call ? sim.call.left : 0); }
     if (pressed('Escape') || pressed('KeyP') || pressed('GP9')) pause();
     else {
-      // (sim.ff: the race run faster - a co-driver's stint watched at 4x / 8x: it steps that many times a frame)
-      const reps = sim.ff > 1 && !sim.net ? sim.ff : 1;
-      for (let r = 0; r < reps && sim; r++) sim.update(dt, ctl, r ? {} : press);
+      // (sim.ff: the race run faster - a co-driver's stint watched at 4x / 8x: it steps that many times a frame;
+      // sim.skipping: skipped to your next stint, the race runs on flat out, ~25 ms of it a frame, until you're in)
+      if (sim.skipping && !sim.net) {
+        const t0 = performance.now(); sim.update(dt, ctl, press); while (sim && sim.skipping && sim.state === 'racing' && performance.now() - t0 < 25) sim.update(1 / 30, ctl, {});
+        if (sim && sim.skipping && sim.timed && performance.now() - (skipMsgT || 0) > 500) { skipMsgT = performance.now(); const L = sim.timedClock(); hud.center('SKIPPING TO YOUR STINT', '', 700); hud.help(`${sim.crew.name} is driving · ${Math.floor(L.left / 3600)}h ${String(Math.floor(L.left / 60) % 60).padStart(2, '0')}m left`, 700); }
+      }
+      else { const reps = sim.ff > 1 && !sim.net ? sim.ff : 1; for (let r = 0; r < reps && sim; r++) sim.update(dt, ctl, r ? {} : press); }
       handleRaceEvents();
       if (sim) { const hs = sim.hudState(); hud.update(hs, sim); hud.pitMenu(hs, pitSel, true); driftHud.update(sim.drift, dt); }
       if (gig) gigTick(dt);

@@ -377,13 +377,22 @@ export class Race {
     // this.laps is the laps the leader looks like doing (everything that plans by laps - strategy, the radio - uses it)
     if (this.mode === 'race' && opts.duration > 0 && !T.open) {
       let lap = 0; for (let i = 0; i < T.N; i++) lap += T.ds / Math.max(5, this.lineV[i]);
-      this.timed = { dur: opts.duration, k: opts.clockK || 1, lapEst: lap * 1.12, flag: false }; // (the limit lap, plus traffic and stops)
-      this.laps = Math.max(2, Math.ceil(opts.duration / this.timed.lapEst));
+      // (the limit lap at the field's pace, plus traffic; the race's laps less what the stops cost)
+      const pace = Math.max(0.7, Math.min(1, this.diff.pace || 0.9));
+      this.timed = { dur: opts.duration, k: opts.clockK || 1, lapEst: lap * 1.12 / pace, flag: false };
       // stints: about one per hour and a half of the race's own time (a 6 Hours: 4), and the tires made to last one
       // (a medium set ~15% longer than a stint: the planner can stretch or split them)
       const hours = opts.duration * this.timed.k / 3600;
       this.timed.stints = opts.stints || Math.max(2, Math.round(hours / 1.5));
-      if (this.wearK) { const life = this.tyreLife('medium'), want = this.laps / this.timed.stints * 1.15; if (isFinite(life) && life > 0) this.wearK *= life / want; }
+      const stopLoss = (this.pit ? this.pit.length / this.pit.speed - this.pit.length / 55 + 5 : 30) + 10; // (the lane, the stop, a driver change)
+      this.laps = Math.max(2, Math.ceil((opts.duration - (this.timed.stints - 1) * stopLoss) / this.timed.lapEst));
+      // (with this car's own tire use here, learned with its limits: the cars take it when they're added)
+      if (this.wearK) {
+        const lm = this.limitMeta && (this.limitMeta[this.mainCarId()] || Object.values(this.limitMeta)[0]), w0 = this.wearPerM;
+        if (lm) this.wearPerM = lm.w;
+        const life = this.tyreLife('medium'), want = this.laps / this.timed.stints * 1.15; if (isFinite(life) && life > 0) this.wearK *= life / want;
+        this.wearPerM = w0;
+      }
     }
     this.pitLoss = this.pit ? this.pit.length / this.pit.speed - this.pit.length / 55 + 5 : 30;
     this.units = opts.units || 'kmh';
@@ -453,6 +462,8 @@ export class Race {
     });
     }
     this.player = this.cars.find(c => c.isPlayer) || null;
+    // an endurance race's co-driver (opts.codriver { name, paceK, aggr, craft, mistakes }): shares your car (this.crew)
+    if (this.timed && opts.codriver && this.player) this.crew = this.makeCrew(opts.codriver, opts.minShare);
     // drift points (race setup option): a scorer for your car (one per car later, for drift battles)
     this.drift = opts.drift === 'on' && this.player ? new DriftScore() : null;
     this.focus = this.player || this.cars[0];
@@ -1516,9 +1527,57 @@ export class Race {
     if (this.timed && !this.timed.flag && this.order && this.order[0] === car) this.timedLeaderLap(car);
     if ((car.lap > this.laps || (this.timed && this.timed.flag)) && !car.finished) {
       car.finished = true; car.finishTime = this.raceTime;
+      // (an endurance race: a driver short of the minimum drive time is out of the results)
+      if (car.isPlayer && this.crew) { const c = this.crew, m = c.min * this.timed.dur * 0.97; if (c.t.P < m || c.t.C < m) { car.dsq = true; this.events.push({ type: 'radio', vo: null, msg: `We're disqualified: ${c.t.P < m ? 'you' : c.name} didn't drive the minimum time.`, big: true }); } }
       this.addFinish(car);
       if (car.isPlayer) { this.events.push({ type: 'finish', pos: this.finishOrder.length, pen: car.pen || 0 }); this.state = 'finished'; this.stateT = 0; }
     }
+  }
+
+  // how many steps a frame the race runs (main.js): your co-driver's stint watched faster
+  get ff() { return this.crew && this.crew.cur === 'C' && !this.net ? this.crew.ff : 1; }
+  // ---------- an endurance race's co-driver (this.crew) ----------
+  // You and your co-driver share the car: cur 'P' (you) or 'C', t: seconds each has driven, min: the share of the race
+  // each must drive (the rules). At each stop the engineer asks whether to swap (the radio call, X / B: their pick if
+  // you don't answer before the box); a swap the rules need is made for you. While your co-driver drives, the call box
+  // is theirs: X watches faster (1x, 4x, 8x), B skips to your next stint (main.js runs the race on, flat out).
+  makeCrew(co, min = 0.3) {
+    const d = this.diff, ai = { pace: d.pace * (co.paceK ?? 0.97), bias: (Math.random() - 0.5) * 0.6, over: 0, stuckT: 0, react: 0.1, aggr: co.aggr ?? 0.4, craft: co.craft, mk: co.mistakes };
+    return { cur: 'P', co, name: co.name || 'Co-driver', t: { P: 0, C: 0 }, min, ai, swap: false, ff: 1 };
+  }
+  // how long each still has to drive (s), the race time left, a stint's length
+  crewNeed() {
+    const c = this.crew, t = this.timed, R = Math.max(0, t.dur - this.raceTime);
+    return { P: Math.max(0, c.min * t.dur - c.t.P), C: Math.max(0, c.min * t.dur - c.t.C), R, stint: t.dur / t.stints };
+  }
+  // in for a stop: the call (or the rules' say)
+  crewStop(car) {
+    const c = this.crew; if (!c || this.timed.flag) return;
+    const n = this.crewNeed(), other = c.cur === 'P' ? 'C' : 'P', short = (who) => n[who] > 0 && n[who] >= n.R - n.stint * 1.05;
+    const first = c.name.split(' ').pop(), mm = (s) => `${Math.floor(s * this.timed.k / 3600)}h ${String(Math.round(s * this.timed.k / 60) % 60).padStart(2, '0')}m`;
+    c.swap = false;
+    // (the rules: the other driver can't make their minimum unless they get in now; or the one in the car must stay)
+    if (short(other)) { c.swap = true; this.events.push({ type: 'radio', vo: 'crew.must', msg: c.cur === 'P' ? `Box, box: you hand over to <b>${first}</b>. They still need ${mm(n.C)} in the car.` : `<b>${first}</b> is boxing: <b>you're in</b>. You still need ${mm(n.P)} in the car.`, big: true }); return; }
+    if (short(c.cur)) { this.events.push({ type: 'radio', vo: 'crew.stay', msg: c.cur === 'P' ? `You stay in: you still need ${mm(n.P)} to make your minimum.` : `${first} stays in this stop.` }); return; }
+    if (this.skipping) { c.swap = true; return; } // (skipping to your stint: this is it)
+    // (else the engineer's pick: take turns, a stint each)
+    const rec = c.cur === 'P' ? (c.t.P >= c.t.C ? 'a' : 'b') : 'a';
+    this.openCall({ kind: 'crew', who: 'eng', vo: null, msg: c.cur === 'P' ? `Swap with <b>${first}</b> at this stop?` : `<b>${first}</b> is boxing. Take over?`,
+      a: c.cur === 'P' ? `Hand over to ${first}` : 'Take over', b: c.cur === 'P' ? 'Stay in' : `${first} stays in`, rec, until: this.raceTime + 12,
+      run: (w) => { c.swap = w === 'a'; this.events.push({ type: 'radio', vo: null, msg: c.swap ? (c.cur === 'P' ? `Copy. ${first} gets in.` : `Copy. You're in, get ready.`) : (c.cur === 'P' ? 'Copy. Double stint.' : `Copy. ${first} stays out.`) }); } });
+  }
+  // the change, at the end of the stop
+  crewSwap(car) {
+    const c = this.crew; c.cur = c.cur === 'P' ? 'C' : 'P'; c.swap = false;
+    if (this.call && this.call.kind === 'crew') { this.call = null; this.events.push({ type: 'callDone', which: null, late: true }); }
+    if (c.cur === 'P') { car.ai = null; c.ff = 1; this.skipping = false; this.events.push({ type: 'crew', who: 'P' }); }
+    else { car.ai = c.ai; this.events.push({ type: 'crew', who: 'C' }); this.crewPanel(); }
+  }
+  // the co-driver's stint: the call box is theirs (X: watch faster, B: skip to your stint)
+  crewPanel() {
+    const c = this.crew, first = c.name.split(' ').pop(), next = c.ff >= 8 ? 1 : c.ff * 4 > 8 ? 8 : c.ff * 4;
+    this.openCall({ kind: 'crewDrive', who: 'eng', vo: null, msg: `<b>${c.name}</b> is driving${c.ff > 1 ? ` · ${c.ff}x` : ''}`, a: next === 1 ? 'Watch at 1x' : `Watch at ${next}x`, b: 'Skip to my stint', rec: null, until: Infinity,
+      run: (w) => { if (w === 'a') c.ff = next; else this.skipping = true; if (c.cur === 'C' && !this.skipping) this.crewPanel(); } });
   }
 
   // a timed race: the leader's done a lap. The clock's run out: this was the last (the flag is out for everyone);
@@ -2325,6 +2384,7 @@ export class Race {
   // this.call: { kind, a, b, rec, open (when it opened), until (raceTime: team calls), entry (pit calls: decide by
   // this far from the pit entry), run(which) }
   wallUpdate(car) {
+    if (this.crew && (this.crew.cur === 'C' || (this.call && this.call.kind === 'crew'))) return; // (the co-driver's stint / the swap call: crew's own)
     if (this.mode !== 'race' || this.state !== 'racing' || car.finished || !car.plan && !this.mateCar()) return;
     const T = this.T, N = T.N, toEntry = this.pit ? ((this.pit.start - car.idx + N) % N) * T.ds : Infinity;
     const C = this.call;
@@ -2537,6 +2597,8 @@ export class Race {
     // (the teammate's already in: stack behind them only if it has to come in now; else a lap later, no queue)
     const mateIn = (() => { const m = this.teamMate(car); return m && m.pitting && !(m.pitReq && (m.pitReq.dt || m.pitReq.garage)); })();
     let due = false;
+    // (a timed race: each stint runs about the planned time - dur / stints - then it's in, whatever the tires say)
+    if (this.timed && !this.timed.flag && left > 1 && this.raceTime - (car.stintT0 || 0) >= this.timed.dur / this.timed.stints * (0.94 + ((car.teamIdx || 0) % 5) * 0.03)) due = true;
     if (plan && plan.stints.length > 1) {
       let lapsDone = 0;
       for (let k = 0; k <= car.pits; k++) lapsDone += plan.stints[Math.min(k, plan.stints.length - 1)].laps;
@@ -2583,6 +2645,8 @@ export class Race {
     const r = car.pitReq || {};
     let t = 2.3 + (r.tyre ? 2.2 : 0);
     for (const x of this.pitFixes(car)) t += x.secs;
+    // (an endurance race: a driver change, ~5 s; the AI's cars change at every stop, yours when you swap)
+    if (this.timed && (car.isPlayer ? this.crew && this.crew.swap : true)) t += 5;
     return Math.max(1.8, t + (car.pitBonus || 0));
   }
   // driving through the pit lane (player cars are driven automatically, like the F1 games)
@@ -2656,7 +2720,8 @@ export class Race {
       // decision point ~250m before the entry (AI) / actually driving in (player)
       const toEntry = ((pit.start - car.idx + N) % N) * T.ds;
       // (AI cars only: your car can carry an AI brain after its autopilot moments, but you decide when you pit)
-      if (car.ai && !car.isPlayer && toEntry < 250 && toEntry > 200 && !car.pitChecked) { car.pitChecked = true; if ((this.state === 'racing' || this.state === 'finished') && this.aiWantsPit(car)) car.pitting = true; }
+      const ai = car.ai && (!car.isPlayer || (this.crew && this.crew.cur === 'C')); // (your co-driver decides like the AI)
+      if (ai && toEntry < 250 && toEntry > 200 && !car.pitChecked) { car.pitChecked = true; if ((this.state === 'racing' || this.state === 'finished') && this.aiWantsPit(car)) { car.pitting = true; if (car.isPlayer) this.crewStop(car); } }
       if (pos >= 0) car.pitChecked = false;
       // you're in once you pass the pit entry line where the wall starts, on the lane side of it; before that you can
       // still steer back onto the track
@@ -2669,6 +2734,7 @@ export class Race {
         // (owing a drive-through: this visit is it, no work allowed)
         car.pitReq = car.dt ? { dt: true } : this.quali ? { garage: true } : { tyre: car.pitReq?.tyre || this.nextPlannedStop(car)?.tyre || (this.dirt ? 'dirt' : this.rain ? 'wet' : p.tyre.c), repair: fix };
         this.events.push({ type: 'pitIn' });
+        if (this.crew) this.crewStop(car);
         { const m = this.teamMate(car); if (m && m.pitting && !(car.pitReq && (car.pitReq.dt || car.pitReq.garage))) this.events.push({ type: 'radio', vo: 'box.doublestack', msg: `Double stack: you're in behind ${m.name}. Expect a wait at the box.` }); }
       }
       if (car.pitting) car.pitPhase = 'in';
@@ -2701,6 +2767,7 @@ export class Race {
         // time penalties are served first: the crew can't touch the car until they're up
         const pen = car.pen || 0;
         car.pitPhase = 'stop'; car.penServing = pen; car.pen = 0;
+        if (car.isPlayer && this.crew && this.call && this.call.kind === 'crew') this.answerCall(this.call.rec, true); // (in the box: the engineer's pick)
         car.pitTimer = this.serviceTime(car) + pen + Math.random() * 0.4; car.pitTotal = car.pitTimer;
         if (pen && car.isPlayer) this.events.push({ type: 'radio', vo: 'box.penalty', msg: `Serving your <b>${pen} second penalty</b>, then the crew goes to work.` });
       }
@@ -2712,10 +2779,11 @@ export class Race {
         if (r.tyre) { car.phys.fitTyres(r.tyre); car.model.setCompound(r.tyre); car.stintLap = car.lap; if (car.isPlayer) (car.setsUsed = car.setsUsed || []).push(r.tyre); }
         if (r.repair) { const fx = this.pitFixes(car).map(x => x.k); if (r.repair === true) car.phys.repairAll(); else car.phys.repairParts(fx); car.model.setDamage(car.phys.dmg); }
         car.pits++; car.pitPhase = 'out'; car.radio = {}; car.penServing = 0;
+        if (car.isPlayer && this.crew) { if (this.crew.swap) this.crewSwap(car); else if (this.crew.cur === 'C') this.crewPanel(); }
         if (car.isPlayer) this.events.push({ type: 'pitOut', time: car.pitTotal });
       }
     } else if (car.pitPhase === 'out') {
-      if (pos < 0 || pos >= pit.count - 2) { car.pitting = false; car.pitPhase = null; car.pitOutT = this.raceTime; car.pitLim = false; }
+      if (pos < 0 || pos >= pit.count - 2) { car.pitting = false; car.pitPhase = null; car.pitOutT = this.raceTime; car.pitLim = false; car.stintT0 = this.raceTime; car.stintCall = false; }
     }
   }
   // cars close behind another car in a straight line get a tow (less drag); the same air costs them downforce (dirty
@@ -3384,6 +3452,18 @@ export class Race {
 
     if (racing && (!this.net || this.quali)) this.raceTime += dt; // (online races take it from the shared start; a session times each car's laps on its own copy)
     if (this.timed && !this.timed.up && racing && this.raceTime >= this.timed.dur) { this.timed.up = true; this.events.push({ type: 'timeup' }); }
+    // (a timed race: your stint's up, the engineer says so, once)
+    { const pl = this.player; if (this.timed && racing && pl && !pl.finished && !pl.pitting && !pl.stintCall && !this.timed.flag && (!this.crew || this.crew.cur === 'P') && this.raceTime - (pl.stintT0 || 0) >= this.timed.dur / this.timed.stints && this.timed.dur - this.raceTime > this.timed.dur / this.timed.stints * 0.4) {
+      pl.stintCall = true; this.events.push({ type: 'radio', vo: null, msg: this.crew ? `That's your stint. <b>Box this lap</b> for tires${this.crew ? ` and ${this.crew.name.split(' ').pop()}` : ''}.` : "That's your stint. <b>Box this lap</b> for tires.", big: true });
+    } }
+    if (this.crew && racing && this.player && !this.player.finished) {
+      this.crew.t[this.crew.cur] += dt; // (who's driven how long)
+      // (you're in, and staying out much longer leaves your co-driver short of their minimum: the engineer says so)
+      const n = this.crewNeed(), c = this.crew;
+      if (c.cur === 'P' && n.C > 0 && n.C >= n.R - n.stint * 1.15 && !this.player.pitting && this.raceTime - (c.warnT ?? -99) > 45) {
+        c.warnT = this.raceTime; this.events.push({ type: 'radio', vo: null, msg: `Box this lap: <b>${c.name.split(' ').pop()}</b> has to drive. The rules need them in the car.`, big: true });
+      }
+    }
     // (the time of day moving with the race clock: four times a second; headlights on once it's dusky)
     if (this.tod0 != null && (this.todT == null || Math.abs(this.raceTime - this.todT) > 0.25)) {
       this.todT = this.raceTime; this.world.setTimeOfDay(this.todHour());
@@ -3397,7 +3477,8 @@ export class Race {
       if (dt > 0) { const u = car.phys.u || 0; car.acc = (car.acc || 0) + ((u - (car.uPrev ?? u)) / dt - (car.acc || 0)) * Math.min(1, dt * 5); car.uPrev = u; }
       if (car.remote) { this.netApply(car, dt); continue; }
       if (car.wreck) { car.ctl = { steer: 0, throttle: 0, brake: 0.5 }; continue; } // (nothing left to drive)
-      if (car.isPlayer && car.pitting && car.pitPhase === 'out' && this.pit && this.state === 'racing') {
+      const co = car.isPlayer && this.crew && this.crew.cur === 'C' && !car.finished; // (your co-driver has your car)
+      if (car.isPlayer && !co && car.pitting && car.pitPhase === 'out' && this.pit && this.state === 'racing') {
         // out of the box it's yours to drive (the autopilot ran wide at some pit exits, into walls and gravel);
         // the limiter holds you to the pit speed until the line at the end of the lane
         car.ctl = this.pitLimiter(car, this.brakeAssist(car, controls));
@@ -3409,6 +3490,7 @@ export class Race {
           if (car.handT == null) { car.handT = this.raceTime; car.handV = car.phys.speed; car.ai ||= { pace: 0.8, bias: 0, over: 0, stuckT: 0, react: 0 }; car.ai.pace = Math.min(car.ai.pace, 0.72); }
           car.ctl = this.aiControlsFor(car, dt);
         }
+        else if (co && this.state === 'racing') { car.ai = this.crew.ai; car.ctl = this.aiControlsFor(car, dt); }
         else if (car.autoT > 0 && this.state === 'racing') { car.autoT -= dt; car.ctl = this.aiControlsFor(car, dt); }
         else car.ctl = this.brakeAssist(car, controls);
       } else {
@@ -4557,6 +4639,7 @@ export class Race {
     return {
       pos: pl.pos, total: this.cars.length, lap: Math.max(1, Math.min(pl.lap, this.laps)), laps: this.laps,
       lapTime: lapNow, best: pl.best, last: pl.last, raceTime: this.raceTime, timed: this.timedClock(), lapNo: pl.lap,
+      crew: this.crew ? { cur: this.crew.cur, name: this.crew.name, t: { ...this.crew.t }, need: this.crewNeed(), ff: this.crew.ff, skipping: !!this.skipping } : null,
       speed: p.speed, gear: p.gear, rpm: p.rpm, standings, wrongWay: this.wrongWay,
       aids: this.aidHud(),
       state: this.state, surface: pl.surface,
