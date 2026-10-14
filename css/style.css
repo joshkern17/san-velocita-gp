@@ -2510,7 +2510,8 @@ span.tsw-face { width: 64px; height: 64px; }
 /* the start: five lights on, then out */
 .tsw-lights { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; background: rgba(4,3,8,.93); opacity: 0; visibility: hidden; transition: opacity .3s, visibility .3s; }
 .tsw-lights.on { opacity: 1; visibility: visible; }
-#s-hub .footer-hints { transition: opacity .3s; }
+#s-hub .footer-hints { transition: opacity .3s; pointer-events: none; } /* (the strip's empty part lets clicks through: Team Setup's Next / Start the season button sits under it) */
+#s-hub .footer-hints > * { pointer-events: auto; }
 #s-hub.tsw-lit .footer-hints { opacity: 0; pointer-events: none; }
 .tsw-lamps { display: flex; gap: 18px; padding: 18px 22px; border: 1.5px solid var(--sv-red); box-shadow: var(--sv-glow-box); background: rgba(5,3,8,.8); }
 .tsw-lamps i { width: 52px; height: 52px; border-radius: 50%; background: #2a0604; box-shadow: inset 0 3px 6px rgba(0,0,0,.8); transition: background .04s, box-shadow .04s; }
