@@ -34,6 +34,17 @@ const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 const RADAR_ZOOM = { near: 1.35, normal: 1, far: 0.62, vfar: 0.36 };
 export const RADAR_ZOOMS = ['near', 'normal', 'far', 'vfar'];
 const TOWER_HEAD = '<div class="h"><span class="n">POS</span><span class="nm">DRIVER</span><span class="g">GAP</span></div>';
+// a tower's rows cut to fit n lines: all of them if they fit; else the leaders (3), a line for the cars left out, and
+// the cars round yours (yours in the middle); a number in the list = that many cars left out
+export function towerCut(rows, n) {
+  if (rows.length <= n) return rows;
+  const me = Math.max(0, rows.findIndex(r => r.isPlayer));
+  if (me < n - 1) return [...rows.slice(0, n - 1), rows.length - (n - 1)];
+  const top = 3, w = n - top - 2, a = Math.min(rows.length - w, Math.max(top, me - Math.floor((w - 1) / 2)));
+  const out = [...rows.slice(0, top)]; if (a > top) out.push(a - top);
+  out.push(...rows.slice(a, a + w)); if (a + w < rows.length) out.push(rows.length - a - w);
+  return out;
+}
 const TYRE_CSS = { soft: '#e0302a', medium: '#f2d22a', hard: '#f0f0f0', wet: '#3a8af0', dirt: '#b8824a' };
 
 export class HUD {
@@ -102,6 +113,13 @@ export class HUD {
     this.cache = {};
   }
 
+  // how many tower lines fit down the left column (above the radio messages), at least 8
+  towerFit() {
+    // (measured once a second: a layout read)
+    const now = performance.now(); if (this._fit && now - this._fitT < 1000) return this._fit;
+    const col = this.el.tower.parentElement, h = col ? col.clientHeight : 0, r = this.el.tower.querySelector('.r');
+    this._fitT = now; return this._fit = h && r ? Math.max(8, Math.floor((h - 44 - 90) / r.offsetHeight)) : 12;
+  }
   reset(mode) {
     this.cap(null);
     this.mode = mode;
@@ -185,10 +203,14 @@ export class HUD {
       }).join('');
       if (this.cache.towerT === undefined || performance.now() - this.cache.towerT > 250) { this.cache.towerT = performance.now(); this.set('tower', E.tower, html, true); }
     } else if (this.mode === 'race') {
-      // (multiclass: your class's cars, their places in it, a stripe of the class's colour)
-      const rows = s.cls ? s.standings.filter(r => r.mine) : s.standings;
-      const html = TOWER_HEAD.replace('GAP', 'INT').replace('POS', s.cls || 'POS') + rows.slice(0, 12).map(r =>
-        `<div class="r${r.isPlayer ? ' me' : ''}${r.mate ? ' mt' : ''}"${r.clsCol ? ` style="box-shadow:inset 3px 0 0 ${r.clsCol}"` : ''}><span class="n">${r.clsPos || r.pos}</span><span class="c" style="background:${hex(r.color)}"></span><span class="nm">${code(r)}</span>${r.pit ? '<span class="pt">PIT</span>' : ''}${r.pen ? `<span class="pn">+${r.pen}s</span>` : ''}${r.dt ? '<span class="pn">DT</span>' : ''}${s.wear ? `<span class="ty" style="background:${TYRE_CSS[r.tyre]}">${r.tyre[0].toUpperCase()}</span>` : ''}<span class="g">${r.gap || '\u2014'}</span></div>`).join('');
+      // (multiclass: your class's cars and their places in it, or the whole field (towerAll: Tab / d-pad left-right),
+      // each with a stripe of its class's colour. More cars than fit: the leaders, then the cars round you)
+      const all = !s.cls || this.towerAll;
+      if (s.cls && !this.cache.towerHint && s.raceTime > 6) { this.cache.towerHint = true; this.help(`Leaderboard: <b>${this.towerAll ? 'WHOLE FIELD' : 'YOUR CLASS'}</b> · Tab / d-pad \u25C0 \u25B6 to switch`, 4000); }
+      const rows = all ? s.standings : s.standings.filter(r => r.mine);
+      const row = (r) => `<div class="r${r.isPlayer ? ' me' : ''}${r.mate ? ' mt' : ''}"${r.clsCol ? ` style="box-shadow:inset 3px 0 0 ${r.clsCol}"` : ''}><span class="n">${all ? r.pos : r.clsPos || r.pos}</span><span class="c" style="background:${hex(r.color)}"></span><span class="nm">${code(r)}</span>${r.pit ? '<span class="pt">PIT</span>' : ''}${r.pen ? `<span class="pn">+${r.pen}s</span>` : ''}${r.dt ? '<span class="pn">DT</span>' : ''}${s.wear ? `<span class="ty" style="background:${TYRE_CSS[r.tyre]}">${r.tyre[0].toUpperCase()}</span>` : ''}<span class="g">${(all && s.cls ? r.gapAll : r.gap) || '\u2014'}</span></div>`;
+      const gap = (n) => `<div class="r sep"><span class="n"></span><span class="nm">${n} car${n === 1 ? '' : 's'}</span></div>`;
+      const html = TOWER_HEAD.replace('GAP', 'INT').replace('POS', s.cls ? (all ? 'ALL' : s.cls) : 'POS') + towerCut(rows, this.towerFit()).map(x => typeof x === 'number' ? gap(x) : row(x)).join('');
       if (this.cache.towerT === undefined || performance.now() - this.cache.towerT > 250) { this.cache.towerT = performance.now(); this.set('tower', E.tower, html, true); }
     }
     this.drawRadar(race);

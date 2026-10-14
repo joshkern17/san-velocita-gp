@@ -148,6 +148,7 @@ function toggleFullscreen() {
 }
 
 const hud = new HUD();
+hud.towerAll = settings.towerAll === true; // (the timing tower in a multiclass race: the whole field, or your class)
 hud.padGlyphs = device.kind === 'pad'; onDevice((k) => { hud.padGlyphs = k === 'pad'; });
 const driftHud = new DriftHUD(document.getElementById('hud'));
 initInput();
@@ -1016,6 +1017,8 @@ backs['s-tuning'] = () => {
   }, 160);
 };
 const timedOn = () => settings.raceFormat === 'timed', lapsOn = () => !timedOn();
+// (the field: 11 AI, or 23 in a multiclass race - js/race.js MAX_FIELD)
+const maxOpp = () => settings.mixCls && settings.mixCls !== 'off' ? 23 : 11, nOpp = () => Math.min(raceCfg.opponents, maxOpp());
 menus['s-raceset'] = [
   new Menu($('m-setup'), [
     { label: 'Race', head: true },
@@ -1029,7 +1032,7 @@ menus['s-raceset'] = [
     { label: 'Co-Driver', hide: lapsOn, values: [['on', 'AI co-driver'], ['off', 'Drive it all']], get: () => settings.coDriver || 'on', set: v => { settings.coDriver = v; saveSettings(); }, desc: 'Timed races: share the car. At each stop the engineer asks whether to swap; each of you has to drive 30% of the race. While they drive, watch at 1x, 4x or 8x, or skip to your next stint.' },
     // (multiclass: half the field in another class: standings per class, the quicker class lapping through traffic)
     { label: 'Second Class', values: [['off', 'Off'], ...Object.keys(CLASSES).filter(k => k !== 'fun').map(k => [k, CLASSES[k].label])], get: () => settings.mixCls || 'off', set: v => { settings.mixCls = v; saveSettings(); }, desc: 'A multiclass race: half the AI field in another class. Positions and points go by class; the tower shows yours. A quicker class comes through your traffic (blue flags: hold your line and let them by), a slower one is traffic for you. Everyone finishes when the overall leader takes the flag.' },
-    { label: 'Opponents', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(v => [v, String(v)]), get: () => raceCfg.opponents, set: v => raceCfg.opponents = v, desc: 'How many AI cars you race against.' },
+    { label: 'Opponents', get values() { return [...Array(maxOpp() + 1).keys()].map(v => [v, String(v)]); }, get: nOpp, set: v => raceCfg.opponents = v, get desc() { return 'How many AI cars you race against.' + (maxOpp() > 11 ? ' With a second class, up to 23: a full multiclass field.' : ' Up to 11; with a <b>Second Class</b>, up to 23.'); } },
     { label: 'Difficulty', values: [['easy', 'Rookie'], ['medium', 'Pro'], ['hard', 'Legend'], ['alien', 'Alien'], ['phantom', 'Phantom'], ['godlike', 'Godlike']], get: () => settings.difficulty, set: v => { settings.difficulty = v; saveSettings(); }, desc: 'How fast the AI is. <b>Rookie</b> to learn a circuit, <b>Legend</b> to match a clean lap at your best, <b>Alien</b> and up to be beaten. Above <b>Legend</b> the AI cars get extra grip and power, more at each level.' },
     { label: 'Weekend', values: WEEKEND_VALS, get: wkFmt, set: v => { settings.weekend = v; saveSettings(); syncGridItem(); }, desc: WEEKEND_DESC },
     { label: 'Practice', hide: () => wkFmt() !== 'full', values: PRAC_VALS, get: wkPrac, set: v => { settings.pracLen = v; saveSettings(); }, desc: PRAC_DESC },
@@ -1051,7 +1054,7 @@ menus['s-raceset'] = [
   ], { desc: 'd-setup', onChange: () => menus['s-raceset'][1].render(), okValue: () => { const g = menus['s-raceset'][1]; g.i = 0; cycleFocus(1); g.render(); } }),
   // (the buttons under the circuit's picture, so you don't scroll the settings to go)
   new Menu($('m-rsgo'), [
-    { get label() { const h = settings.endHours || 6, n = raceCfg.laps; return `Start Race<small>${timedOn() ? `${h} HOUR${h === 1 ? '' : 'S'}` : `${n} LAP${n === 1 ? '' : 'S'}`} &middot; ${raceCfg.opponents} AI</small>`; }, cls: 'action primary', action: () => launch('race'), desc: 'Load the circuit. You choose your car on the grid.' },
+    { get label() { const h = settings.endHours || 6, n = raceCfg.laps; return `Start Race<small>${timedOn() ? `${h} HOUR${h === 1 ? '' : 'S'}` : `${n} LAP${n === 1 ? '' : 'S'}`} &middot; ${nOpp()} AI</small>`; }, cls: 'action primary', action: () => launch('race'), desc: 'Load the circuit. You choose your car on the grid.' },
     { label: 'Time Trial', cls: 'action', action: () => launch('test'), desc: 'Just you and the clock. Your best lap on every circuit is saved.' },
   ], { desc: 'd-setup' }),
 ];
@@ -1071,8 +1074,8 @@ function launch(mode) {
     const co = ['Ana Silva', 'Mika Lehto', 'Jules Arnaud', 'Rosa Quintero', 'Tom Ashcroft', 'Kenji Mori'][Math.floor(Math.random() * 6)];
     return { duration: dur, clockK: h * 3600 / dur, startHour: settings.endStart ?? 14.5, ...((settings.coDriver || 'on') === 'on' ? { codriver: { name: co, paceK: 0.97, aggr: 0.45 } } : {}) }; })() : null;
   const mix = mode === 'race' && settings.mixCls && settings.mixCls !== 'off' ? { mixCls: { cls: settings.mixCls } } : null;
-  const race = { mode, laps: raceCfg.laps, opponents: raceCfg.opponents, pick: true, ...(wx || timed || mix ? { extra: { ...(wx ? { wx } : {}), ...(timed || {}), ...(mix || {}) } } : {}) };
-  if (mode === 'race' && wkFmt() !== 'race' && raceCfg.opponents > 0) return startWeekend(t, race, 'setup', wkFmt(), [wkPrac(), wkQuali()]);
+  const race = { mode, laps: raceCfg.laps, opponents: nOpp(), pick: true, ...(wx || timed || mix ? { extra: { ...(wx ? { wx } : {}), ...(timed || {}), ...(mix || {}) } } : {}) };
+  if (mode === 'race' && wkFmt() !== 'race' && nOpp() > 0) return startWeekend(t, race, 'setup', wkFmt(), [wkPrac(), wkQuali()]);
   weekend = null;
   startRace(t, race, 'setup');
 }
@@ -5908,6 +5911,13 @@ function frameBody(now) {
       settings.radarZoom = RADAR_ZOOMS[(RADAR_ZOOMS.indexOf(settings.radarZoom) + 1) % RADAR_ZOOMS.length];
       applyVideo(); saveSettings(); sfx.move();
       hud.help(`Minimap zoom: <b>${{ near: 'CLOSE', normal: 'NORMAL', far: 'FAR', vfar: 'VERY FAR' }[settings.radarZoom]}</b>`, 1200);
+    }
+    // the timing tower: your class / the whole field (multiclass): Tab / d-pad left-right (left-right is the pit menu's
+    // while the crew drives you in)
+    const towerKey = pressed('Tab') | (!pitMenu && (pressed('GP14') | pressed('GP15')));
+    if (towerKey && sim.multi) {
+      hud.towerAll = !hud.towerAll; settings.towerAll = hud.towerAll; saveSettings(); sfx.move();
+      hud.help(`Leaderboard: <b>${hud.towerAll ? 'WHOLE FIELD' : 'YOUR CLASS'}</b>`, 1200);
     }
     // the radio's call: X / 1, B / 2 (only while one's open: X is a brake button too, so a call takes its tap)
     if (sim.call) { if (pressed('Digit1') || pressed('GP2')) sim.answerCall('a'); else if (pressed('Digit2') || pressed('GP1')) sim.answerCall('b'); hud.callTick(sim.call ? sim.call.left : 0); }

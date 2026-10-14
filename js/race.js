@@ -26,6 +26,7 @@ import { DirtTrack } from './dirttrack.js';
 import { Rubber } from './rubber.js';
 import { activeSetup, applySetup, stanceOf } from './setup.js';
 import { TireFX, SMOKE, DUST, FX } from './tirefx.js';
+import { TEAM_LIVERIES } from './teamliveries.js';
 import { Broadcast } from './broadcast.js';
 import { Acclimatization, MiniSectors, QualiSim, BrakeMarkers, ACCLIM_PASS, MSEC_PASS, QSIM_NOISE, planMinis } from './practice.js';
 
@@ -224,6 +225,11 @@ function groundCar(model) {
     g.add(q);
   }
 }
+// the Quick Race teams (TEAMS), then the other rival teams in their liveries (js/teamliveries.js) for a bigger field
+const MORE_DRIVERS = ['C. BRANDT', 'O. NILSEN', 'R. DUARTE', 'F. CALLOWAY', 'H. VOSS', 'G. MARCHETTI', 'N. ABARA', 'I. PETROV', 'W. DEACON', 'Y. HAYASHI', 'B. KESTREL', 'V. ORTEGA',
+  'U. LAMBERT', 'Z. HOLLOWAY', 'Q. FONTAINE', 'X. ARANDA', 'S. MCALLISTER', 'D. RENNIE', 'T. OYELARAN', 'M. ESPOSITO', 'K. VARGA', 'L. BRENNAN', 'J. HALVORSEN'];
+const ALL_TEAMS = [...TEAMS, ...Object.entries(TEAM_LIVERIES).filter(([n]) => !TEAMS.some(t => t.name === n))
+  .map(([name, l], k) => ({ name, main: l.main, accent: l.accent, helmet: l.accent, driver: MORE_DRIVERS[k % MORE_DRIVERS.length] }))];
 const WHEEL_SPOTS = [[0.8, 1.4, true], [-0.8, 1.4, true], [0.8, -1.4, false], [-0.8, -1.4, false]];
 // classes whose tyres come out of warmers (tyre temperatures); the rest start at the air's temperature
 const BLANKETS = new Set(['f1', 'gt1', 'gt2']);
@@ -275,10 +281,12 @@ export class Race {
     if (!opts.defer) this.finish();
   }
   // the AI teams, in the order the field is filled from (shuffled once: prepare and finish see the same field)
+  // (a field bigger than the 12 TEAMS - a multiclass Quick Race, up to 24 cars: the other rival teams, in their liveries)
+  static MAX_FIELD = 23;
   fieldTeams() {
     if (this._teams) return this._teams;
     const opts = this.opts, garage = opts.team === 'garage' || opts.team === undefined, reserved = garage ? 0 : +opts.team;
-    let aiTeams = TEAMS.map((t, i) => i).filter(i => i !== reserved);
+    let aiTeams = (opts.mixCls ? ALL_TEAMS : TEAMS).map((t, i) => i).filter(i => i !== reserved);
     for (let i = aiTeams.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [aiTeams[i], aiTeams[j]] = [aiTeams[j], aiTeams[i]]; }
     // championship: same AI teams every round, grid in championship order
     if (opts.roster) aiTeams = opts.roster.filter(i => i !== reserved);
@@ -295,7 +303,7 @@ export class Race {
     let ais = [];
     if (this.net) ais = this.net.grid.map(g => g.k === 'h' ? { id: carId(g.car), human: true } : { id: this.aiCarId(g.team), t: g.team });
     else {
-      const nField = Math.min(opts.roster ? Math.max(11, opts.roster.length) : 11, opts.opponents ?? 7); // (a multiclass championship round: its whole roster, two classes)
+      const nField = Math.min(opts.roster ? Math.max(11, opts.roster.length) : opts.mixCls ? Race.MAX_FIELD : 11, opts.opponents ?? 7); // (a multiclass championship round: its whole roster, two classes)
       const n = this.mode === 'test' ? 0 : this.mode === 'attract' ? 8 : nField; // (practice / qualifying: the field's laps are simulated)
       ais = this.fieldTeams().slice(0, n).map(t => ({ id: this.aiCarId(t), t }));
     }
@@ -421,7 +429,7 @@ export class Race {
       });
     } else {
     // (qualifying: a clear track, the AI field's times are simulated: see qualiStart)
-    const nField = Math.min(opts.roster ? Math.max(11, opts.roster.length) : 11, opts.opponents ?? 7); // (a multiclass championship round: its whole roster, two classes)
+    const nField = Math.min(opts.roster ? Math.max(11, opts.roster.length) : opts.mixCls ? Race.MAX_FIELD : 11, opts.opponents ?? 7); // (a multiclass championship round: its whole roster, two classes)
     const nAI = this.mode === 'test' || this.mode === 'quali' || this.mode === 'practice' ? 0 : this.mode === 'attract' ? 8 : nField;
     const garage = opts.team === 'garage' || opts.team === undefined;
     const playerTeam = garage ? -1 : +opts.team;
@@ -864,7 +872,7 @@ export class Race {
   // the AI field: 'class' = cars from the same class as yours (the F1 grid drives your F1 model), 'custom' / 'svgp' /
   // 'mixed' = the F1 models, 'multi' = every class mixed. Picked from the team index, so every online client agrees.
   // World Career: race slots carry real people (their own team, colours and name) instead of the stock TEAMS
-  teamFor(teamIdx) { return this.opts.entries?.[teamIdx]?.team || TEAMS[teamIdx]; }
+  teamFor(teamIdx) { return this.opts.entries?.[teamIdx]?.team || ALL_TEAMS[teamIdx]; }
   // who's in a car, for their looks (js/drivers.js): a World Career person's id, else the stock driver's name
   driverId(teamIdx, team = this.teamFor(teamIdx)) { return this.opts.entries?.[teamIdx]?.pid || team.driver || team.name; }
   aiChassisFor(teamIdx) {
@@ -4661,7 +4669,7 @@ export class Race {
       const ahead = this.multi ? this.order.slice(0, k).reverse().find(o => o.cls === c.cls && !o.gone) : this.order[k - 1];
       const gap = ahead ? this.interval(c, ahead) : '';
       return { pos: c.pos, name: c.name, color: c.team.main, isPlayer: c.isPlayer, mate: !!(c.ai && c.ai.trust != null), gap, tyre: c.phys.tyre.c, pit: !!c.pitting, pen: c.pen || 0, dt: !!c.dt, blue: !!c.blue,
-        ...(this.multi ? { cls: CLASSES[c.cls]?.short || c.cls, clsCol: CLASSES[c.cls]?.col || '#888', mine: c.cls === pl.cls, clsPos: this.classPos(c).pos } : {}) };
+        ...(this.multi ? { cls: CLASSES[c.cls]?.short || c.cls, clsCol: CLASSES[c.cls]?.col || '#888', mine: c.cls === pl.cls, clsPos: this.classPos(c).pos, gapAll: k ? this.interval(c, this.order[k - 1]) : '' } : {}) };
     });
     // the strategy panel: the set you're on, what a stop now would do (twice a second), your teammate (World Career)
     if (this.mode === 'race' && (!this.stratT || this.raceTime - this.stratT > 0.5 || this.raceTime < this.stratT)) {
