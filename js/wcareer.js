@@ -8,6 +8,7 @@ import { roundPress } from './wpress.js';
 import { knobsFor } from './aiskill.js';
 import { MATE_DAYS, fxText } from './matedays.js';
 import { CARS, RETIRED } from './cars.js';
+import { teamColors } from './teamliveries.js';
 
 // ---------------- data ----------------
 export const SEASON_LENGTHS = [4, 6, 8, 12];
@@ -62,18 +63,18 @@ const gpSeries = () => SERIES.find(s => s.gp) || SERIES.reduce((a, s) => s.tier 
 const TEAMS_PER = 6, SEATS = 2;
 
 const TEAM_POOL = [
-  ['Kobra Oil GP', 0x121214, 0xf2c21b], ['Azure Motorsport', 0x1d4fb8, 0xff7b1a], ['Verde Corse', 0x1c7a3a, 0xf0e6c8],
-  ['Neon FM Racing', 0x8d2bd8, 0x3ef0ff], ['Sunset Motel', 0xf07a2a, 0x2a1a60], ['Silverline', 0xb8bcc4, 0x0bb3a8],
-  ['Burger Duck', 0xf4c01a, 0xb31313], ['Rapid Tyres', 0xffffff, 0x1a4fb0], ['Bayside Blue', 0x0e2a55, 0xe8e8e8],
-  ['Mesa Energy', 0x7a3b12, 0xffb13a], ['Pine Hollow', 0x2c3a2c, 0xa4e04a], ['Harbour Lights', 0x16324a, 0xffd84a],
-  ['Kanjo Works', 0x0a0a0a, 0xff2b6a], ['Palm Bay Autosport', 0x14a39a, 0xff5a8a], ['Redline Garage', 0xb0101a, 0x101010],
-  ['Northwind', 0xdfe8f2, 0x1a2a6a], ['Coastline Racing', 0x2a7fd0, 0xf2f2f2], ['Maple Motorsport', 0x8a1c1c, 0xf2c45a],
-  ['Volt Arc', 0x22252c, 0x7dff3a], ['Copperhead', 0xb5652a, 0x1a1a1a],
-  ['Dave\'s Transmission', 0x2b4a8a, 0xf2f2f2], ['Two Guys Racing', 0xe8e0c8, 0xc8321e], ['Weekend Warriors', 0x3a5a2a, 0xf2d24a],
-  ['Lugnut Brothers', 0x5a5a60, 0xff8a1a], ['Budget Box Motorsport', 0xf2f2f2, 0x7a1ab0], ['Cul-de-Sac Racing', 0x9ad0ff, 0x1a1a2a],
-  ['Gulfstream Racing', 0x9fd6f0, 0xf07a1a], ['Stonebridge Competition', 0x2a2a30, 0xd8c08a], ['Apex Customer Racing', 0xd81e2a, 0xf2f2f2],
-  ['Blackwater Engineering', 0x101820, 0x3ad0a0], ['Lakeside Motorsport', 0x2a6a9a, 0xf2e24a], ['Ridgeway GT', 0x6a2a8a, 0xf2f2f2],
-  ['Crown Point Racing', 0xf2f2f2, 0x14306a], ['Old Mill Garage', 0x7a5a3a, 0xf0e0b0],
+  ['Kobra Oil GP', 0x0a0a0c, 0xc9a23a], ['Azure Motorsport', 0x1450b4, 0xd0202a], ['Verde Corse', 0x1a8a3a, 0xf4f4f2],
+  ['Neon FM Racing', 0xf4f4f2, 0x1c9a3a], ['Sunset Motel', 0xf06a1a, 0x111114], ['Silverline', 0xf4f4f2, 0x0e2a55],
+  ['Burger Duck', 0xf4c01a, 0xd01818], ['Rapid Tyres', 0xf4f4f2, 0x0e2a55], ['Bayside Blue', 0x1a5ad0, 0xf4f4f2],
+  ['Mesa Energy', 0xf4f4f2, 0x007a3a], ['Pine Hollow', 0x0f3a24, 0xf2d22a], ['Harbour Lights', 0xf2d21a, 0x111114],
+  ['Kanjo Works', 0x0a0a0a, 0xe0102a], ['Palm Bay Autosport', 0x14b3a8, 0xff5a8a], ['Redline Garage', 0xf4f4f2, 0xd01818],
+  ['Northwind', 0xf4f4f2, 0x14306a], ['Coastline Racing', 0x6ab8e8, 0xf4f4f2], ['Maple Motorsport', 0xf4f4f2, 0x7a1428],
+  ['Volt Arc', 0x111114, 0x7dff3a], ['Copperhead', 0xd0101a, 0xf4f4f2],
+  ['Dave\'s Transmission', 0x1a3a9a, 0xf4f4f2], ['Two Guys Racing', 0xff3a1a, 0xf4f4f2], ['Weekend Warriors', 0xf2d22a, 0x14306a],
+  ['Lugnut Brothers', 0xf4f4f2, 0xd0202a], ['Budget Box Motorsport', 0xf2a0b0, 0x8a1020], ['Cul-de-Sac Racing', 0x3ec8c0, 0x14306a],
+  ['Gulfstream Racing', 0x8fc8e8, 0xf07a1a], ['Stonebridge Competition', 0xb8bcc4, 0x00a19b], ['Apex Customer Racing', 0xd81e2a, 0xf4f4f2],
+  ['Blackwater Engineering', 0x101418, 0x00d2be], ['Lakeside Motorsport', 0xf2d21a, 0x14306a], ['Ridgeway GT', 0x5a1a8a, 0xf4f4f2],
+  ['Crown Point Racing', 0xf4f4f2, 0x2a2a8a], ['Old Mill Garage', 0x5a3a22, 0xf0e0b0],
 ];
 const NATS = {
   ITA: { f: ['Luca', 'Marco', 'Giulia', 'Matteo', 'Sofia', 'Andrea', 'Elena'], l: ['Rossi', 'Bianchi', 'Moretti', 'Ferraro', 'Conti', 'Greco', 'Marino', 'Rinaldi'] },
@@ -4910,6 +4911,7 @@ export function loadWorld(id) {
     w.mail = w.mail || [];
     for (const m of w.msgs || []) if (m.from === 'Mum') m.from = 'Mom'; // (one Mom: her two threads, together)
     addMissingSeries(w); // (a series added to the ladder since the save: its teams, drivers and calendar)
+    for (const t of Object.values(w.teams)) if (t.id !== 'T0') { const c = teamColors(t); t.main = c.main; t.accent = c.accent; } // (the rival teams' colours since their liveries, teamliveries.js)
     if (w.car2 && w.car2.kind === 'hire' && w.car && seriesById(w.player.series)?.oneMake) w.car2.name = `An arrive-and-drive ${w.car.name}`; // (the club's car two: the series' rental)
     if (!w.money) startMoney(w);
     if (!w.founding) w.founding = { reg: true, car: true, legacy: true }; // (careers from before the founding: carry on as you were)

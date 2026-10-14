@@ -2,6 +2,7 @@
 // Local space: +z forward, +x = car's left, y up, ground at y = 0.
 import * as THREE from 'three';
 import { paintCar, paintHelmet, paintSuit, fillLivery, VISOR_COL } from './livery.js';
+import { teamColors, teamLivery } from './teamliveries.js';
 
 // ---------------- part catalogue ----------------
 export const PARTS = {
@@ -602,6 +603,7 @@ function mergeStatic(parent) {
 
 // random-but-stable parts for AI teams
 export function teamCar(team, idx) {
+  team = teamColors(team);
   let s = (idx + 1) * 9301 + 49297;
   const r = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
   const pick = (o) => { const k = Object.keys(o); return k[Math.floor(r() * k.length)]; };
@@ -612,5 +614,6 @@ export function teamCar(team, idx) {
     number: [1, 4, 11, 16, 22, 27, 31, 44, 55, 63, 77, 81][idx % 12], sponsor: team.name.split(' ')[0], teamName: team.name,
     helmetDesign: { base: team.helmet, accent: team.main, third: team.accent, pattern: ['stripe', 'crown', 'bands', 'halves', 'flames', 'stars'][idx % 6], visor: ['dark', 'gold', 'blue', 'dark', 'red', 'clear'][idx % 6], number: true },
     suit: { base: team.main, accent: team.accent, pattern: ['sides', 'twotone', 'shoulders', 'sash'][idx % 4], chest: 'team' },
+    ...teamLivery(team.name), // (a rival team's own livery, js/teamliveries.js)
   };
 }

@@ -3,18 +3,18 @@ import * as THREE from 'three';
 import { getTextures } from './textures.js';
 
 export const TEAMS = [
-  { name: 'Volta Racing',   main: 0xc8141c, accent: 0xf2f2f2, helmet: 0xffd21a, driver: 'YOU' },
-  { name: 'Kobra Oil GP',   main: 0x121214, accent: 0xf2c21b, helmet: 0xe33030, driver: 'R. VALDEZ' },
-  { name: 'Azure Motorsport', main: 0x1d4fb8, accent: 0xff7b1a, helmet: 0xffffff, driver: 'K. TANAKA' },
-  { name: 'Verde Corse',    main: 0x1c7a3a, accent: 0xf0e6c8, helmet: 0x1c7a3a, driver: 'S. ROSSI' },
-  { name: 'Neon FM Racing', main: 0x8d2bd8, accent: 0x3ef0ff, helmet: 0xff5ce1, driver: 'J. MOREAU' },
-  { name: 'Sunset Motel',   main: 0xf07a2a, accent: 0x2a1a60, helmet: 0xfff4d0, driver: 'M. OKAFOR' },
-  { name: 'Silverline',     main: 0xb8bcc4, accent: 0x0bb3a8, helmet: 0x0bb3a8, driver: 'T. LINDQVIST' },
-  { name: 'Burger Duck',    main: 0xf4c01a, accent: 0xb31313, helmet: 0x3a2a10, driver: 'D. KOWALSKI' },
-  { name: 'Rapid Tyres',    main: 0xffffff, accent: 0x1a4fb0, helmet: 0x1a4fb0, driver: 'A. FERREIRA' },
-  { name: 'Bayside Blue',   main: 0x0e2a55, accent: 0xe8e8e8, helmet: 0xd02a2a, driver: 'L. NAKAMURA' },
-  { name: 'Mesa Energy',    main: 0x7a3b12, accent: 0xffb13a, helmet: 0xffffff, driver: 'P. SCHMIDT' },
-  { name: 'Pine Hollow',    main: 0x2c3a2c, accent: 0xa4e04a, helmet: 0xa4e04a, driver: 'E. OKONKWO' },
+  { name: 'Volta Racing',   main: 0xc8141c, accent: 0xf4f4f2, helmet: 0xffd21a, driver: 'YOU' },
+  { name: 'Kobra Oil GP',   main: 0x0a0a0c, accent: 0xc9a23a, helmet: 0xe33030, driver: 'R. VALDEZ' },
+  { name: 'Azure Motorsport', main: 0x1450b4, accent: 0xd0202a, helmet: 0xffffff, driver: 'K. TANAKA' },
+  { name: 'Verde Corse',    main: 0x1a8a3a, accent: 0xf4f4f2, helmet: 0x1c7a3a, driver: 'S. ROSSI' },
+  { name: 'Neon FM Racing', main: 0xf4f4f2, accent: 0x1c9a3a, helmet: 0xff5ce1, driver: 'J. MOREAU' },
+  { name: 'Sunset Motel',   main: 0xf06a1a, accent: 0x111114, helmet: 0xfff4d0, driver: 'M. OKAFOR' },
+  { name: 'Silverline',     main: 0xf4f4f2, accent: 0x0e2a55, helmet: 0x0bb3a8, driver: 'T. LINDQVIST' },
+  { name: 'Burger Duck',    main: 0xf4c01a, accent: 0xd01818, helmet: 0x3a2a10, driver: 'D. KOWALSKI' },
+  { name: 'Rapid Tyres',    main: 0xf4f4f2, accent: 0x0e2a55, helmet: 0x1a4fb0, driver: 'A. FERREIRA' },
+  { name: 'Bayside Blue',   main: 0x1a5ad0, accent: 0xf4f4f2, helmet: 0xd02a2a, driver: 'L. NAKAMURA' },
+  { name: 'Mesa Energy',    main: 0xf4f4f2, accent: 0x007a3a, helmet: 0xffffff, driver: 'P. SCHMIDT' },
+  { name: 'Pine Hollow',    main: 0x0f3a24, accent: 0xf2d22a, helmet: 0xa4e04a, driver: 'E. OKONKWO' },
 ];
 
 // ---------------- model ----------------

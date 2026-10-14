@@ -15,6 +15,7 @@
 import * as THREE from 'three';
 import { loadCharacters, charactersReady, makeCharacter, FACES, femaleFace } from './characters.js';
 import { HELMET_PATTERNS, VISOR_COL } from './livery.js';
+import { teamColors, teamLivery } from './teamliveries.js';
 
 // a stable number from an id
 const hash = (s) => { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
@@ -49,11 +50,13 @@ export function driverHelmet(id) {
 }
 // the team's suit: one pattern per team (from its name), so teammates match
 export function teamSuit(team) {
+  team = teamColors(team);
   return { base: team.main, accent: team.accent, pattern: SUITS[hash('suit:' + team.name) % SUITS.length], chest: 'team', number: 'none', gloves: team.third ?? 0x121214, boots: team.third ?? 0x121214 };
 }
 export function driverLivery(id, team, extra = {}) {
+  team = teamColors(team);
   return { main: team.main, accent: team.accent, third: team.third ?? (team.main === 0x121214 ? 0x2a2a30 : 0x121214), helmet: driverHelmet(id).base,
-    teamName: team.name, sponsor: (team.name || '').split(' ')[0], helmetDesign: driverHelmet(id), suit: teamSuit(team), ...extra };
+    teamName: team.name, sponsor: (team.name || '').split(' ')[0], helmetDesign: driverHelmet(id), suit: teamSuit(team), ...teamLivery(team.name), ...extra };
 }
 
 // ---------------- portraits ----------------

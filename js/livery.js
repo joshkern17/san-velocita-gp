@@ -12,7 +12,8 @@
 //                    W, H,                      // physical size in metres (keeps decals in proportion)
 //                    role, nose, pair, label }  // pattern hints, which edge points to the nose, mirror panel
 import { backupAsset } from './backup.js'; // (your images are kept in saves/ too)
-import { SPONSOR_LOGOS, LOGO_VERSIONS, logoUrl, logoAsset, logoForName } from './sponsorlogos.js';
+import { SPONSOR_LOGOS, LOGO_VERSIONS, LOGO_COLORS, logoUrl, logoAsset, logoForName } from './sponsorlogos.js';
+import { SCHEMES } from './teamliveries.js';
 
 // ---------------- image assets (imported PNG / SVG) ----------------
 // Stored in IndexedDB (they can be big); kept in memory once loaded. Liveries reference them by id.
@@ -171,8 +172,10 @@ function textFit(g, text, font, maxW, h) {
 // A sponsor's logo in place of its name sticker: about twice the name's letter height h, no wider than maxW, on a
 // plate of the bar colour when the sticker has one
 const STICKER_PAD = 0.3;
+// a team livery on a road car: the side number moves this far forward and the big logo this far back (of the length)
+const BIG_SHIFT = [0.12, 0.08];
 function logoBox(im, h, maxW) {
-  let lh = h * 1.9, lw = lh * im.naturalWidth / im.naturalHeight;
+  let lh = h * 1.9, lw = lh * (im.naturalWidth || im.width) / (im.naturalHeight || im.height);
   if (lw > maxW) { lh *= maxW / lw; lw = maxW; }
   return [lw, lh];
 }
@@ -181,16 +184,49 @@ function drawLogo(g, im, x, y, h, maxW, bar) {
   if (bar) { const pd = h * STICKER_PAD; g.fillStyle = bar; g.fillRect(x - lw / 2 - pd, y - lh / 2 - pd, lw + 2 * pd, lh + 2 * pd); }
   g.drawImage(im, x - lw / 2, y - lh / 2, lw, lh);
 }
-// the logo the built-in sponsor sticker shows, or null: the sponsor's name in letters
-function stickerLogo(L) {
+// the logos the built-in sponsor sticker may show (none: the sponsor's name in letters). 'tint': the white one, drawn in
+// L.sponsorTint; 'auto': whichever of its brand colour, white or black stands out on the paint under it
+function stickerLogos(L) {
   const slug = L.showSponsor && L.stickers !== 'decals' && L.sponsorLogo !== 'name' && logoForName(String(L.sponsor || '').slice(0, 14));
-  return slug ? logoAsset(slug, L.sponsorLogo || 'color') : null;
+  if (!slug) return [];
+  return L.sponsorLogo === 'auto' ? ['main', 'white', 'black'].map(v => logoAsset(slug, v)) : [logoAsset(slug, L.sponsorLogo === 'tint' ? 'white' : L.sponsorLogo || 'color')];
+}
+// the paint round a spot (x, y in the panel's metres, w x h the area it covers): the colours at a few points on it
+function paintUnder(g, x, y, w, h) {
+  const m = g.getTransform(), out = [];
+  for (const [dx, dy] of [[0, 0], [-0.35, 0], [0.35, 0], [0, -0.35], [0, 0.35], [-0.2, 0.2], [0.2, -0.2], [-0.2, -0.2], [0.2, 0.2]]) {
+    const p = m.transformPoint({ x: x + dx * w, y: y + dy * h }), d = g.getImageData(Math.round(p.x), Math.round(p.y), 1, 1).data;
+    if (d[3]) out.push([d[0], d[1], d[2]]);
+  }
+  return out;
+}
+const lum = ([r, g, b]) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+const rgb = (c) => [c >> 16 & 255, c >> 8 & 255, c & 255];
+// 'auto': the brand colour when it stands out clearly everywhere on that paint, else white or black, whichever stands
+// out more where it stands out least (a logo across two colours has to read on both)
+function autoVersion(slug, bgs) {
+  if (!bgs.length) return 'white';
+  const worst = (c) => Math.min(...bgs.map(b => contrast(c, b)));
+  if (worst(rgb(LOGO_COLORS[slug] ?? 0)) >= 3) return 'main';
+  return worst([255, 255, 255]) >= worst([17, 17, 20]) ? 'white' : 'black';
+}
+// a one-colour logo in another colour (kept: the same few are asked for on every repaint)
+const tints = new Map();
+function tinted(im, col) {
+  const k = im.src + col; let c = tints.get(k);
+  if (!c) {
+    c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+    const g = c.getContext('2d'); g.drawImage(im, 0, 0); g.globalCompositeOperation = 'source-in'; g.fillStyle = hex(col); g.fillRect(0, 0, c.width, c.height);
+    tints.set(k, c);
+  }
+  return c;
 }
 // the logo asset a title sponsor sticker shows (its text filled in), or null: its own name in letters
 export function boundLogo(d) {
   if (d.bind !== 'sponsor' || d.logo === 'name') return null;
   const slug = logoForName(d.text);
-  return slug ? logoAsset(slug, d.logo || 'color') : null;
+  return slug ? logoAsset(slug, LOGO_VERSIONS[d.logo] ? d.logo : 'color') : null; // (a team livery's 'auto' / 'tint': full colour)
 }
 
 export function drawDecal(g, d, x, y, onReady) {
@@ -267,8 +303,14 @@ const mirrored = (d) => d.path ? { ...d, flip: !d.flip, rot: -(d.rot || 0) } : d
 export function panelArt(g, name, p, cfg, model, onReady, decals = true) {
   const L = cfg.decals && cfg.helmetDesign ? cfg : fillLivery(cfg);
   const main = hex(L.main), acc = hex(L.accent), third = hex(L.third), pat = L.pattern;
-  const PW = p.W, PH = p.H, P = alongCross(p);
-  if (p.role === 'wing') { g.fillStyle = L.wingColor != null ? hex(L.wingColor) : acc; g.fillRect(0, 0, PW, PH); g.fillStyle = third; g.fillRect(0, PH * 0.9, PW, PH * 0.1); }
+  const PW = p.W, PH = p.H, P = alongCross(p), S = SCHEMES[L.scheme];
+  if (S) {
+    // a team's livery (teamliveries.js) in place of the pattern
+    if (p.role === 'wing') { g.fillStyle = hex(S.wing ?? L.accent); g.fillRect(0, 0, PW, PH); }
+    else if (p.role === 'plate') { g.fillStyle = hex(S.plate ?? L.accent); g.fillRect(0, 0, PW, PH * 0.22); }
+    else for (const sh of S.shapes) if (sh.on.includes(p.role)) { g.fillStyle = hex(sh.col); poly(g, P, sh.pts); }
+  }
+  else if (p.role === 'wing') { g.fillStyle = L.wingColor != null ? hex(L.wingColor) : acc; g.fillRect(0, 0, PW, PH); g.fillStyle = third; g.fillRect(0, PH * 0.9, PW, PH * 0.1); }
   else if (p.role === 'plate') { g.fillStyle = acc; g.fillRect(0, 0, PW, PH * 0.22); g.fillStyle = third; g.fillRect(0, PH * 0.22, PW, PH * 0.04); }
   else {
     g.fillStyle = acc;
@@ -295,13 +337,21 @@ export function panelArt(g, name, p, cfg, model, onReady, decals = true) {
   }
   // race number + sponsor (optional, part of the base livery)
   const num = String(L.number ?? 7), sp = String(L.sponsor || '').toUpperCase().slice(0, 14);
-  const spId = stickerLogo(L);
+  const spIds = stickerLogos(L);
   const label = (a, c, text, h, maxW, fill, bar) => {
     if (!text) return;
     const [x, y] = P(a, c);
     // (the sponsor's logo, when it has one)
     // (on its plate in full color; a one-color version goes straight on the paint)
-    if (text === sp && spId) { const im = decalImage(spId, onReady); if (im) drawLogo(g, im, x, y, h, maxW, bar && (L.sponsorLogo || 'color') === 'color' ? third : null); return; }
+    // (a team livery's is bigger, as big as the panel lets it be: 1.9 x hh tall at most 80% of it)
+    if (text === sp && spIds.length) {
+      const hh = Math.min(h * spK, PH * 0.42), mw = Math.min(maxW * spK, PW * 0.92);
+      let id = spIds[0];
+      if (L.sponsorLogo === 'auto') { const v = autoVersion(logoForName(sp), paintUnder(g, x, y, mw, hh * 1.9)); id = spIds.find(k => k.endsWith(':' + v)); }
+      const im = decalImage(id, onReady);
+      if (im) drawLogo(g, L.sponsorLogo === 'tint' ? tinted(im, L.sponsorTint ?? 0xffffff) : im, x, y, hh, mw, bar && (L.sponsorLogo || 'color') === 'color' && !S ? third : null);
+      return;
+    }
     g.textAlign = 'center'; g.textBaseline = 'middle';
     const hh = textFit(g, text, 'impact', maxW, h);
     const tw = Math.min(maxW, g.measureText(text).width);
@@ -309,16 +359,24 @@ export function panelArt(g, name, p, cfg, model, onReady, decals = true) {
     g.lineJoin = 'round'; g.lineWidth = hh * 0.16; g.strokeStyle = third; if (!bar) g.strokeText(text, x, y);
     g.fillStyle = fill; g.fillText(text, x, y);
   };
-  const numCol = pat === 'split' ? main : acc, lab = model.labels || {};
+  const numCol = S?.num != null ? hex(S.num) : pat === 'split' ? main : acc, lab = model.labels || {}, spK = S ? S.logoScale || 2 : 1;
   if (L.showNumber) {
     if (name === 'top') label(...(lab.topNumber || [0.83, 0.5]), num, 0.24, Math.min(0.4, PW * 0.8), numCol);
-    if (name === 'sideL' || name === 'sideR') label(...(lab.sideNumber || [0.68, 0.5]), num, 0.22, 0.6, numCol);
+    // (a team livery's on a car with a big flank logo: a little forward, the logo a little back, side by side)
+    if (name === 'sideL' || name === 'sideR') { const [a, c] = lab.sideNumber || [0.68, 0.5]; label(S && lab.sideSponsor && spIds.length ? a + BIG_SHIFT[0] : a, c, num, 0.22, 0.6, numCol); }
   }
   // (once the stickers are decals, L.stickers === 'decals', they're drawn with the rest below, wherever they've been moved)
   if (L.showSponsor && sp && L.stickers !== 'decals') {
     if (name === 'podL' || name === 'podR') label(0.5, 0.42, sp, Math.min(0.13, PH * 0.3), Math.min(1.2, PW * 0.6), acc, true);
     // (cars without sidepods, e.g. GT cars: on the flanks instead)
-    if (lab.sideSponsor && (name === 'sideL' || name === 'sideR')) label(...lab.sideSponsor, sp, 0.12, 1.1, acc, true);
+    if (lab.sideSponsor && (name === 'sideL' || name === 'sideR')) {
+      // (a team livery's big logo: behind the number, from its top down to the usual sticker's bottom edge, kept clear of it)
+      if (S && spIds.length) {
+        const top = (lab.sideNumber || [0.68, 0.5])[1] * PH - 0.04, bot = lab.sideSponsor[1] * PH + 0.115, gap = (BIG_SHIFT[0] + BIG_SHIFT[1]) * PW - 0.18;
+        label(lab.sideSponsor[0] - BIG_SHIFT[1], (top + bot) / 2 / PH, sp, Math.min(0.14 * spK, (bot - top) / 1.9) / spK, Math.max(0.5, 2 * gap) / spK, acc, true);
+      }
+      else label(...lab.sideSponsor, sp, 0.12, 1.1, acc, true);
+    }
     if (name === 'rwing') label(0.5, 0.5, sp, Math.min(0.13, PH * 0.4), PW * 0.88, main);
     if (name === 'plateL' || name === 'plateR') label(0.5, 0.6, sp, Math.min(0.1, PH * 0.3), PW * 0.85, acc);
     if (name === 'coverL' || name === 'coverR') label(0.55, 0.45, String(L.teamName || '').toUpperCase().slice(0, 18), Math.min(0.08, PH * 0.25), Math.min(1.1, PW * 0.6), acc);
@@ -772,8 +830,9 @@ export function stickerDecals(cfg, model) {
 export function paintCar(canvas, cfg, model, onReady) {
   const L = fillLivery(cfg), W = canvas.width, H = canvas.height, g = canvas.getContext('2d');
   // (models that keep their base paint between repaints know it by the livery: the sticker's logo arriving changes it)
-  const sl = model.paintProjected && stickerLogo(L);
-  if (model.paintProjected) return model.paintProjected(canvas, sl ? { ...L, logoIn: !!decalImage(sl) } : L, (pg, name, p) => { pg.fillStyle = hex(L.main); pg.fillRect(0, 0, p.W, p.H); panelArt(pg, name, p, L, model, onReady, !model.projectDecals); },
+  const sl = model.paintProjected ? stickerLogos(L) : [];
+  // (each one that arrives repaints: the key only changes once they all have)
+  if (model.paintProjected) return model.paintProjected(canvas, sl.length ? { ...L, logoIn: sl.map(id => !!decalImage(id, onReady)).every(Boolean) } : L, (pg, name, p) => { pg.fillStyle = hex(L.main); pg.fillRect(0, 0, p.W, p.H); panelArt(pg, name, p, L, model, onReady, !model.projectDecals); },
     model.projectDecals ? (ppm) => decalLayers(L, model, ppm, onReady) : null);
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.fillStyle = hex(L.main); g.fillRect(0, 0, W, H);

@@ -936,7 +936,8 @@ export class Race {
   // your car's look: the garage car, in your team's colours when you race for a team
   playerCfg(car, team, teamIdx) {
     const cfg = { ...car };
-    if (this.opts.team !== 'garage' && this.opts.team !== undefined) Object.assign(cfg, { main: team.main, accent: team.accent, third: teamCar(team, teamIdx).third, helmet: team.helmet, sponsor: team.name.split(' ')[0] });
+    // (racing for a stock team: its colours, and its livery when it has one, js/teamliveries.js)
+    if (this.opts.team !== 'garage' && this.opts.team !== undefined) { const tc = teamCar(team, teamIdx); Object.assign(cfg, { main: tc.main, accent: tc.accent, third: tc.third, helmet: team.helmet, sponsor: tc.sponsor, scheme: tc.scheme, sponsorLogo: tc.sponsorLogo ?? cfg.sponsorLogo, sponsorTint: tc.sponsorTint }); }
     return cfg;
   }
   previewCar(cfg) {

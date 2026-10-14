@@ -13,6 +13,8 @@ export const SPONSOR_LOGOS = {
   'lucky-lous-online-casino': "Lucky Lou's Online Casino", 'brians-bathrooms-and-kitchens': "Brian's Bathrooms & Kitchens",
   kobra: 'Kobra', 'neon-fm': 'Neon FM', rapid: 'Rapid', 'burger-duck': 'Burger Duck', sunset: 'Sunset', svgp: 'SVGP', bayside: 'Bayside',
 };
+// each one's brand colour (its 'main' version is drawn in it; tools/sponsors/list.mjs)
+export const LOGO_COLORS = { 'dales-tire-and-lube': 0x1f5c2a, 'pinewood-feed-and-seed': 0x7a5a2a, 'pine-hollow-credit-union': 0x1d3f7a, 'gulch-outlet-center': 0xd8742a, 'mesa-pawn-and-gold': 0xc8a020, 'desert-rose-motel': 0xd04070, 'metro-cab-co': 0xf2c21a, 'downtown-dental': 0x2aa0c8, 'capital-self-storage': 0xe0601a, 'azure-marine-supply': 0x1a6ab8, 'harbour-fish-market': 0x2a8a8a, 'port-azure-yacht-brokers': 0x14284a, 'hotline-pizza': 0xc8141c, 'max-hardware': 0xe08a1a, 'sunrise-insurance': 0x2a4fa0, 'volta-cola': 0xd01818, 'apex-energy': 0x18c040, 'velocita-state-lottery': 0xf2d22a, 'gold-coast-airlines': 0x1a3a7a, 'triton-watches': 0x111111, 'volt-rush-energy': 0x9ae01a, 'cloud-nine-vapor': 0x8a5ae0, 'quickcash-loans': 0x1fa040, 'lucky-lous-online-casino': 0xe0b020, 'brians-bathrooms-and-kitchens': 0x2a6ab8, kobra: 0x2a9a3a, 'neon-fm': 0xe02a9a, rapid: 0x1a8ae0, 'burger-duck': 0xf2a21a, sunset: 0xf06a2a, svgp: 0xc8141c, bayside: 0x1aa0b8 };
 export const logoUrl = (slug, v = 'color') => ((typeof window !== 'undefined' && window.__SVGP_SPONSORS) || {})[`${slug}/${v}`] || `assets/sponsors/${slug}/${v}.webp`;
 export const logoAsset = (slug, v = 'color') => `sp:${slug}:${v}`;
 export const parseLogoAsset = (id) => { const m = /^sp:([a-z0-9-]+):(\w+)$/.exec(id || ''); return m && SPONSOR_LOGOS[m[1]] ? { slug: m[1], v: m[2] } : null; };
