@@ -30,6 +30,18 @@ export function loadRoom() {
   return roomLoad;
 }
 
+// the tire stacks (setTyres): one lathed tire, shared, and a stripe in the compound's color on the top one
+const COMPOUND_ORDER = ['soft', 'medium', 'hard', 'wet', 'dirt'];
+const TYRE_STRIPE = { soft: 0xe0302a, medium: 0xf2d22a, hard: 0xf0f0f0, wet: 0x3a8af0, dirt: 0xb8824a };
+const TYRE_RUBBER = new THREE.MeshStandardMaterial({ color: 0x1b1b1d, roughness: 0.92, metalness: 0, flatShading: true, side: THREE.DoubleSide });
+let TYRE_GEO = null;
+function tyreGeo() {
+  if (TYRE_GEO) return TYRE_GEO;
+  const R = 0.3, r = 0.19, W = 0.22, e = 0.035;   // (a street tire, lying flat: 0.6 m across, 0.22 m wide)
+  const prof = [[r, 0], [R - e, 0], [R, e], [R, W - e], [R - e, W], [r, W], [r, 0]].map(([x, y]) => new THREE.Vector2(x, y));
+  return (TYRE_GEO = { W, tyre: new THREE.LatheGeometry(prof, 14), stripe: new THREE.RingGeometry(0.235, 0.258, 14).rotateX(-Math.PI / 2).translate(0, W + 0.003, 0) });
+}
+
 export class PitGarage {
   constructor(renderer, post) {
     this.r = renderer; this.post = post;
@@ -184,6 +196,37 @@ export class PitGarage {
     if (this.memLast) { this.memKey = null; this.setMemories(this.memLast); } // (placed against this room)
     if (this.team) this.setTeam(this.team);
     if (this.tyre) this.setTyre(this.tyre);
+    if (this.tyreStock) { this.tyreKey = null; this.setTyres(this.tyreStock); }
+  }
+
+  // your tires (World Career): a stack of four for every new set you have, by compound (the colored stripe on top), at
+  // the kit's TIRES hook. The first stack stands on the hook; rows of four go along its +Y in Blender (-Z here), the next
+  // column off its -X. tyreArea is the box they take (the first row's, with none: the walk spot's still there to order
+  // from). stock: { soft: 2, ... }, or null for none
+  setTyres(stock) {
+    this.tyreStock = stock;
+    const hook = this.kit && this.kit.tires, key = hook && stock ? `${this.custom}|${COMPOUND_ORDER.map(c => stock[c] || 0).join(',')}` : null;
+    if (key === this.tyreKey) return; this.tyreKey = key;
+    if (this.tyreStacks) { this.tyreStacks.removeFromParent(); this.tyreStacks.traverse(o => { if (o.isMesh && o.material !== TYRE_RUBBER) o.material.dispose(); }); this.tyreStacks = null; }
+    this.tyreArea = null; if (!key) return;
+    const G = tyreGeo(), g = new THREE.Group(), sets = COMPOUND_ORDER.flatMap(c => Array(Math.max(0, stock[c] || 0)).fill(c)).slice(0, 12);
+    let seed = 7; const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5);
+    const stripes = {};
+    sets.forEach((c, i) => {
+      const col = Math.floor(i / 4), row = i % 4;
+      const st = new THREE.Group(); st.position.set(-col * 0.64 + r() * 0.05, 0, -row * 0.64 + r() * 0.05); st.rotation.y = r() * 2;
+      for (let j = 0; j < 4; j++) {
+        const t = new THREE.Mesh(G.tyre, TYRE_RUBBER); t.position.set(r() * 0.03, j * G.W, r() * 0.03); st.add(t);
+        if (j === 3) { const s = new THREE.Mesh(G.stripe, stripes[c] ||= new THREE.MeshStandardMaterial({ color: TYRE_STRIPE[c], roughness: 0.6 })); s.position.copy(t.position); st.add(s); }
+      }
+      g.add(st);
+    });
+    g.traverse(o => { if (o.isMesh) { o.castShadow = this.shadowsOn !== false; o.receiveShadow = this.shadowsOn !== false; } });
+    hook.add(g); this.tyreStacks = g; g.updateWorldMatrix(true, true);
+    // (the box the walk spot uses: what's there, at least the first stack's spot)
+    const a = new THREE.Box3().setFromObject(g), p = hook.getWorldPosition(new THREE.Vector3());
+    a.union(new THREE.Box3(p.clone().add(new THREE.Vector3(-0.3, 0, -0.3)), p.clone().add(new THREE.Vector3(0.3, 4 * G.W, 0.3))));
+    this.tyreArea = a;
   }
 
   // your camera's shot, drifting a little around the point it looks at (above the car)
@@ -953,7 +996,7 @@ export class PitGarage {
       this.camera.fov = a.fov + (b.fov - a.fov) * k;
       this.shiftNow = a.shift + (b.shift - a.shift) * k;
       // (you, sat at the computer after walking up to it: gone halfway in, as the camera comes over your head)
-      if (this.parked) { this.parked.object.visible = this.zoomK < 0.5; if (this.parked.object.visible && this.parked.me) this.parked.me.update(dt); } // (still idling in the chair)
+      if (this.parked) { this.parked.object.visible = this.zoomK < 0.5 && !this.hideParked; if (this.parked.object.visible && this.parked.me) this.parked.me.update(dt); } // (still idling in the chair)
       if (this.car) this.car.animate({ steer: 0, spin: 0, heave: Math.sin(this.t * 1.6) * 0.003, pitch: 0, roll: 0 });
       if (this.car2 && this.car2.group.parent) this.car2.animate({ steer: 0, spin: 0, heave: Math.sin(this.t * 1.6 + 2) * 0.003, pitch: 0, roll: 0 });
       return;

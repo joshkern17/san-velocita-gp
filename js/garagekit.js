@@ -10,6 +10,7 @@
 //   kit.nav        NAV_floor meshes (the floor you can walk on; hidden)
 //   kit.stands     STAND_<role> (userData.clip: what they're doing there, userData.role)
 //   kit.interacts  INTERACT_<what> (userData.label)
+//   kit.tires      TIRES: where your tire stacks start (null without one)
 //   kit.stations   { tools: Object3D, ... } the stations set down, by facility
 //   kit.shell      the premises whose shell it is (a smaller one than asked for, when yours isn't made yet)
 //
@@ -67,5 +68,5 @@ export async function loadKit(premises, stations = []) {
   const nav = named('NAV_'); for (const n of nav) n.visible = false;
   for (const c of named('COL_')) c.visible = false;
   group.updateMatrixWorld(true);
-  return { group, shell: used, bays, spawn: named('SPAWN')[0] || null, nav, stands: named('STAND_'), interacts: named('INTERACT_'), stations: set };
+  return { group, shell: used, bays, spawn: named('SPAWN')[0] || null, nav, stands: named('STAND_'), interacts: named('INTERACT_'), tires: named('TIRES')[0] || null, stations: set };
 }

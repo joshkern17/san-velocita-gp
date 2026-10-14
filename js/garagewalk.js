@@ -85,6 +85,7 @@ export class GarageWalk {
   unpark() {
     const pg = this.pg; if (!this.me) return false;
     pg.parked = null; this.me.object.visible = true;
+    this.buildColliders(); if (this.ghost) this.ghost = true;   // (what's there may have changed while you were off: a stack of tires delivered)
     this.camFrom = { pos: pg.camera.position.clone(), quat: pg.camera.quaternion.clone(), fov: pg.camera.fov, shift: pg.shiftNow ?? 0, k: 0 };
     this.input = {}; this.speed = 0; this.active = true; pg.walker = this;
     return true;

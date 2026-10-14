@@ -29,8 +29,10 @@ Main Menu > **Home Garage** opens the room without a career: pick the premises, 
 In World Career your days happen where you'd do them: the roll-up door (`INTERACT_door`) is going out for the day (the
 day job, gigs, sponsor events, test days, days with your teammate, race day: the planner with just those), the car's
 tag has a second action, X / F "Spend the day" (rebuilding a part, a project), and the sim rig is a sim session. The
-calendar opens out the week, which stays up along the top while you walk. Esc / B pauses (Keep Walking, Career
-Options, Save & Quit).
+calendar opens out the week, which stays up along the top while you walk. Your tires stand in stacks by the door
+(`TIRES`): one per set, and you order more there. There's no menu: you're on your feet from the first day (getting the
+team going is done at the computer) to the season's end (the next one is out the door). Esc / B pauses (Keep Walking,
+Career Options, Save & Quit). Painting the car is on the car's menu (A at the car).
 
 **Walk Around** (here and on the World Career hub menu): left stick / WASD to walk, squeeze RT to jog (the walk eases
 into the jog as you squeeze; Shift on a keyboard), right stick /
@@ -88,6 +90,7 @@ Names only have to start with these (`SLOT_sim.001` is fine).
 | `NAV_floor` | shell (mesh) | The floor you can walk on. Hidden in the game |
 | `COL_...` | any (mesh) | Invisible blockers. Hidden in the game |
 | `STAND_<role>` | station or shell (empty) | Where a staff member stands. Custom properties: `clip` (what they're doing: `lean`, `kneel`, `sit_idle`...), `role` |
+| `TIRES` | shell (empty) | Your tire stacks: one stack of four for every new set you have, the compound's stripe on top. The first stands on the empty; rows of four go along its +Y, the next column off its -X (up to 12). Walk up to them to order more |
 | `INTERACT_<what>` | any (empty) | Something you can use. Its red marker (and the A prompt, when you walk up to it) hangs here; you use it from within about a metre. Custom property `label` |
 | `PC_Screen`, `TV_Screen`, `TeamMain`... | any | As in GARAGE-MODEL.md |
 
@@ -103,6 +106,7 @@ Custom properties are set in Object Properties > Custom Properties, and they com
 - shows the right wall again (you had it hidden for the old fixed camera) and adds a front wall with a roll-up door and
   a corrugated roof, so the room is closed in for walking round
 - drops the asset-pack samples parked outside the walls, and the dartboard's two darts (they came in about 37 x 52 m)
+- adds the tire stacks' `TIRES` hook in the front corner by the door, and a bare bulb over it
 - shrinks the desk and everything on it 0.75x against the wall (it came in 1.33x: a 1.0 m desktop) and sizes the chair
   so its seat is 0.48 m up, half a metre out from the desk, turned out to the room
 

@@ -1872,6 +1872,7 @@ const WALK_HINTS_HUB = [['cam', 'Walk'], ['look', 'Look'], ['ok', 'Use'], ['phon
 HINTS['s-hub'] = () => walk.active && !walkPaused && !dayPlan.isOpen && !phone.isOpen ? WALK_HINTS_HUB : walk.active && walkPaused ? [['nav', 'Navigate'], ['ok', 'Select'], ['back', 'Keep walking']] : ending.isOpen ? { scene: [['back', 'Skip']], wire: [['ok', 'Continue']], record: [['nav', 'Choose'], ['ok', 'Select']] }[ending.stage] || [] : dayPlan.isOpen ? [['nav', 'Choose'], ...(dayPlan.onSubs ? [['lr', 'Ideas']] : []), ['ok', 'Do it'], ['back', 'Garage']] : tsw.isOpen ? [['lr', 'Choose'], ['ok', tsw.step === 'ready' ? 'Start the season' : 'Next'], ['back', tsw.at ? 'Back' : 'Garage']] : pcSeat ? [['nav', 'Move'], ['ok', 'Select'], ...(pc.hasTabs ? [['tab', 'Sections']] : []), ['back', pc.app ? 'Back' : 'Stand up']]
   : phone.isOpen ? phoneHints : hubMode === 'car' ? [['nav', 'Part'], ['ok', 'Select'], ['back', 'Back']]
   : hubMode === 'poster' ? [['ok', 'Back'], ['back', 'Garage']]
+  : hubMode === 'tires' ? [['nav', 'Choose'], ['ok', 'Buy'], ['back', 'Garage']]
   : hubMode === 'list' ? (listStep ? [['nav', 'Choose'], ['ok', 'Write it'], ['back', 'Garage']] : [['ok', 'Select'], ['back', 'Garage']]) : [['nav', 'Navigate'], ['ok', 'Select'], ['phone', 'Phone']];
 
 // the computer on the desk: Mail, the news, the series' websites, the driver database (js/computer.js)
@@ -2293,6 +2294,8 @@ function walkSpots() {
   if (f) out.push({ key: 'computer', label: 'Use the computer', at: ds && ds.chair ? ds.seat.clone().setY(1.0) : f.c.clone().addScaledVector(new V(f.n.x, 0, f.n.z).normalize(), 0.55).setY(f.c.y), reach: ds && ds.chair ? 1.3 : undefined,
     mark: f.c.clone().addScaledVector(f.up, f.h / 2 + 0.16) });
   const lf = P.listMesh && P.listMesh.visible ? P.listFrame() : null; if (lf) out.push({ key: 'list', label: 'The List', at: lf.c.clone().addScaledVector(lf.n, 0.5), reach: 1.6, mark: lf.c.clone().addScaledVector(lf.up, lf.h / 2 + 0.08) });
+  // (your tires: the stacks in their corner, or where they'd be with none; you order more there)
+  if (k && k.tires && P.tyreArea) out.push({ key: 'tires', label: 'Tires', get box() { return P.tyreArea; } });
   const pf = P.posterFrame; if (pf && P.posterMesh?.parent?.visible) out.push({ key: 'poster', label: 'SVMA Pathway', at: pf.c.clone().addScaledVector(pf.n, 0.6).setY(1.2), reach: 1.8, mark: pf.c.clone().addScaledVector(pf.up, pf.h / 2 + 0.1) });
   // (a car's box where it stands now: one just built or placed behind the fade hasn't had its world matrix worked out,
   // and would measure at the room's origin, by the door; measured again if the car's rebuilt)
@@ -2307,15 +2310,22 @@ function walkSpots() {
   // (in a career: the door's tag says what's on out there; the car's offers its day of work)
   const door = out.find(s => s.key === 'door'); if (door) Object.defineProperty(door, 'label', { get: doorLabel });
   const car = out.find(s => s.key === 'car'); if (car) Object.defineProperty(car, 'alt', { get: () => dayAt('car').length ? 'Spend the day' : null });
-  for (const s of out) if (['computer', 'car', 'list', 'door', 'poster'].includes(s.key)) Object.defineProperty(s, 'want', { get: () => wantOf(s.key) });
+  for (const s of out) if (['computer', 'car', 'list', 'door', 'poster', 'tires'].includes(s.key)) Object.defineProperty(s, 'want', { get: () => wantOf(s.key) });
   return out;
 }
 // what a spot does: in a career, the hub menu's own item; in the preview, nothing (it says what it'd be)
+// the setup step you're on, if it's done at the computer (the hub menu's first item)
+const SETUP_RE = /^(Register The Team|Claim Your Winnings|Set Up The (Team|Season)|Buy A Car|Sort Out Payroll)/;
+const setupItem = () => (menus['s-hub'][0].items || []).find(it => it.cls === 'action primary' && SETUP_RE.test(String(it.label)));
+const offerPending = (w) => !!(w.player.offer && !w.player.offer.answer && (w.mail || []).some(m => m.offer && !m.answer));
 const WALK_DOES = { computer: /^Computer/, list: /^The List/, car: /^(Work On The Car|Look At The Car)/, car2: /^(Work On The Car|Look At The Car)/, tools: /^(Work On The Car|Look At The Car)/, calendar: /\bday\b/, sim: /\bday\b/ };
 function useSpot(s) {
   // the computer: walk round to the chair and sit down first (the preview: sit a moment, then get back up)
   if (s.key === 'computer' && walk.deskSeat()) {
     if (screen === 's-homeview') { sfx.select(); walk.sit().then(() => { toast(`In a career: <b>${s.label}</b>.`, 1800); setTimeout(() => { if (walk.active) walk.resume(); }, 1600); }); return; }
+    // (getting the team going: the step you're on is done at the computer: the form, the lottery's email, the setup,
+    // the listings, the payroll)
+    const su = setupItem(); if (su) { sfx.select(); if (/^Set Up/.test(su.label)) holdWalk(); su.action(); return; }
     const it = hubItem(WALK_DOES.computer); if (!it) { sfx.error(); return; }
     sfx.select(); it.action(); // (sitDown: walks you round to the chair first)
     return;
@@ -2323,6 +2333,12 @@ function useSpot(s) {
   if (screen === 's-homeview') { sfx.select(); toast(`In a career: <b>${s.label}</b>.`, 1800); return; }
   // the door: out for the day (the planner, with what's away from the garage); no days left, what's next (race day)
   if (s.key === 'door') {
+    // (the season's over: out the door is the next one, once you've answered the SVMA)
+    if (world.over) {
+      if (offerPending(world)) { sfx.error(); toast('First the SVMA\'s offer: it\'s in your email, on the computer.', 2200); return; }
+      const nx = hubItem(/^Start \d+ Season/); if (nx) { sfx.select(); nx.action(); } else sfx.error();
+      return;
+    }
     const next = hubItem(/^(Round \d+: Race|Start \d+ Season|Drive: )/);
     if (next && myWeek(world).left <= 0) { stopWalk(true); next.action(); return; }
     if (!openDayPlan(true, 'door')) { sfx.error(); toast(next ? 'Not yet.' : 'Nothing out there today.', 1600); }
@@ -2330,6 +2346,8 @@ function useSpot(s) {
   }
   // the SVMA's poster: over to it, and what the next rung takes
   if (s.key === 'poster') { goToPoster(); return; }
+  // your tires: over to the stacks, and order there
+  if (s.key === 'tires') { goToTires(); return; }
   // the sim rig: a session on it takes the day
   if (s.key === 'sim') { if (!openDayPlan(true, 'sim')) { sfx.error(); toast(myWeek(world).left <= 0 ? 'No days left this week.' : 'No sim session today: one a week, and not after a test day.', 2000); } return; }
   // the calendar: plan the day (every choice, wherever it's done)
@@ -2338,8 +2356,8 @@ function useSpot(s) {
   if (!it) { sfx.error(); toast(s.key === 'car2' ? 'Car two: on the computer (Team).' : 'Nothing to do here right now.', 1800); return; }
   holdWalk(); it.action();
 }
-// in your career you're on your feet in the garage: walking starts by itself once the garage is quiet (after the setup;
-// not while the computer, the list, the car, the planner or the ending has you), and picks up where you were after
+// in your career you're on your feet in the garage: walking starts by itself once the garage is quiet (from the first
+// day, setup and all, to the season's end; not while the computer, the list, the car, the planner or the ending has you), and picks up where you were after
 // anything you went off to do. You come in through the door from a race or a gig, and start in front of the cars
 // (SPAWN) when the career's loaded. Stop Walking (the pause menu) keeps you off your feet till Walk Around
 let walkOff = false, walkStarting = false, walkHeld = false, walkIdle = 0, walkEntry = null;
@@ -2349,7 +2367,7 @@ function holdWalk() {   // (off to the car, the list: you stand where you are, t
 }
 function walkWanted() {   // (the garage's quiet and yours: nothing else has you)
   const w = world;
-  return screen === 's-hub' && w && founded(w) && WC.setupDone(w) && !w.ended && !w.over && !coopGuest() && hubMode === 'room' && !optSub
+  return screen === 's-hub' && w && !w.ended && !coopGuest() && hubMode === 'room' && !optSub
     && !pcSeat && !walkSat && !tsw.isOpen && !dayPlan.isOpen && !ending.isOpen && !walk.active && !walkStarting && pitGarage.kit;
 }
 function walkTick(dt) {
@@ -2369,12 +2387,13 @@ let dayAtC = { t: 0, by: {} };
 function dayAt(where) {
   if (!world || screen !== 's-hub') return [];
   const now = performance.now(); if (now - dayAtC.t > 500) dayAtC = { t: now, by: {} };
-  return dayAtC.by[where] ||= myWeek(world).left > 0 ? (coopGuest() ? coopDayChoices(world) : dayChoices(world, true)).filter(o => DAY_AT(o.key) === where) : [];
+  return dayAtC.by[where] ||= myWeek(world).left > 0 && !world.over ? (coopGuest() ? coopDayChoices(world) : dayChoices(world, true)).filter(o => DAY_AT(o.key) === where) : [];
 }
 // what the door's tag says: what's on out there
 function doorLabel() {
   if (!world || screen !== 's-hub') return 'Head out';
   const w = world, wk = myWeek(w);
+  if (w.over) return `Start the ${w.year + 1} season`;
   if (wk.left <= 0) return hubItem(/^Round \d+: Race/) ? `Race day: round ${w.round + 1}` : 'Head out';
   const ch = dayAt('door'), ev = ch.find(o => /^ev|^din/.test(o.key) && o.tag === 'Today'), bk = ch.filter(o => /^bk|^pl/.test(o.key)).length;
   return ev ? `Head out: ${ev.short} today` : bk ? `Head out: ${bk} booked` : 'Head out for the day';
@@ -2388,7 +2407,6 @@ function pauseWalk(on) {
 function renderPauseMenu() {
   menus['s-hub'][0].setItems([
     { label: 'Keep Walking', cls: 'action primary', action: () => pauseWalk(false), desc: 'Back to the garage.' },
-    { label: 'Stop Walking', action: () => { walkPaused = false; walkOff = true; stopWalk(); renderHubMenu(); }, desc: 'The garage menu (Walk Around to get going again).' },
     { label: `Career Options<small>${(DIFF_LABEL[world.opts.difficulty] || '').toUpperCase()}</small>`, action: () => { optSub = true; sfx.select(); renderHubMenu(); }, desc: 'Difficulty, driver aids, circuits.' },
     { label: 'Save & Quit', action: () => { walkPaused = false; walk.stop(); saveWorld(); pitGarage.close(); quitToMenu(); }, desc: 'Your career is saved. Continue it from the main menu.' },
   ], true);
@@ -2464,7 +2482,7 @@ function hvHome() {
 function openHomeView() {
   fadeTo(() => {
     const c = hvCar();
-    pitGarage.openHome(c, { main: c.main, accent: c.accent, name: c.teamName || 'Your Team' }, hvHome());
+    pitGarage.openHome(c, { main: c.main, accent: c.accent, name: c.teamName || 'Your Team' }, hvHome()); pitGarage.setTyres({ soft: 3, medium: 1, hard: 1, wet: 2 }); // (a week's worth, to see)
     pitGarage.showCar(true); pitGarage.setPeople([]); pitGarage.setNotice(false); pitGarage.setMemories(null);
     hv.look = 'room'; show('s-homeview'); hvApply();
   }, 200);
@@ -2711,7 +2729,7 @@ function homeKit(w) {
     car2: c2 ? { ...car, number: (car.number || 7) % 99 + 1 } : null };
 }
 // (something bought or sold since: the room catches up)
-function syncHome() { if (world && pitGarage.active && pitGarage.mode === 'home') { const h = homeKit(world); pitGarage.pickRoom(h); pitGarage.setCar2(h.car2); } }
+function syncHome() { if (world && pitGarage.active && pitGarage.mode === 'home') { const h = homeKit(world); pitGarage.pickRoom(h); pitGarage.setCar2(h.car2); pitGarage.setTyres(founded(world) ? { ...WC.stockOf(world) } : null); } }
 function enterHub() {
   disposeSim(); updateLogoShown();
   const t = world.teams[world.player.team];
@@ -2720,7 +2738,7 @@ function enterHub() {
   pitGarage.setPeople(mateInRoom(world));
   dropWalk(); if (walk.active || walkHeld) { walk.stop(); walkHeld = false; } walkPaused = false; walkOff = false; walkIdle = 0; drawWalkTags(null);
   pcSeat = false; pc.close(); if (tsw.isOpen) tsw.close(); if (dayPlan.isOpen) dayPlan.close(); $('s-hub').classList.remove('seated', 'at-car', 'wizard', 'planning', 'at-list');
-  hubMode = 'room'; carSub = null; carPart = null; optSub = false; calSub = null; listStep = null; listPrev = null;
+  hubMode = 'room'; carSub = null; carPart = null; optSub = false; calSub = null; listStep = null; listPrev = null; pitGarage.hideParked = false;
   drawList(); renderHub(); show('s-hub'); hubEnter();
   if (world.ended) startEnding(!!world.endSeen); else if (!coopGuest()) maybeList();
   setTimeout(() => { if (world) warmPortraits(world); }, 1500);
@@ -2823,6 +2841,8 @@ function renderHub() {
       <p class="br-hint">${bank ? 'First Velocita has closed the account.' : `The ${escP(E.series || '')} has withdrawn your entry.`} ${escP(E.team)} is finished.</p>`;
   } else if (hubMode === 'list') {
     $('hub-card').innerHTML = listCard(w);
+  } else if (hubMode === 'tires') {
+    $('hub-card').innerHTML = tyreCard(w);
   } else if (hubMode === 'poster') {
     const [a, b] = WC.ladderNext(w), L = WC.licOf(w);
     $('hub-card').innerHTML = `<div class="panel-title">SVMA PATHWAY</div><div class="ti-name">${escP(WC.seriesById(w.player.series).name)}</div>
@@ -2900,7 +2920,7 @@ const hubTrackT = (tr) => { if (!hubTrackCache.has(tr.name)) hubTrackCache.set(t
 let wkStamp = -1; // (the day the planner just spent: stamped once on the strip)
 function renderWeekStrip() {
   const w = world, el = $('hub-week'), on = !!founded(w) && !w.over && !w.ended && hubMode === 'room';
-  el.hidden = !on; if (!on) return;
+  el.hidden = !on; if (!on) { renderWalkHud(); return; }   // (the walking line still says what's next)
   const wk = myWeek(w), R = w.series[w.player.series].cal[w.round], left = wk.left;
   const days = WC.DAY_NAMES.map((d, i) => {
     const e = wk.log.filter(x => x.day === i), x = e[e.length - 1];
@@ -2930,7 +2950,15 @@ function renderWeekStrip() {
 // moment and the rest fades in (the week's round and targets, the hint)
 function renderWalkHud() {
   const w = world, hud = $('walk-hud'), nx = $('walk-next');
-  if (!w || !founded(w) || w.over || w.ended || !w.money) { hud.innerHTML = nx.innerHTML = ''; return; }
+  if (!w || w.ended) { hud.innerHTML = nx.innerHTML = ''; return; }
+  // (getting going, and the season's end: just what's next, and where)
+  const su = setupItem();
+  if (su || !founded(w) || w.over || !w.money) {
+    hud.innerHTML = '';
+    nx.innerHTML = su ? `<b>Next</b> ${String(su.label).replace(/<[^>]+>.*$/, '')}: at the computer`
+      : w.over ? (offerPending(w) ? `<b>Next</b> The SVMA's offer: at the computer` : `<b>Next</b> The ${w.year + 1} season: head out the door`) : '';
+    return;
+  }
   const sid = w.player.series, S = w.series[sid], raced = S.results.length;
   const ts = WC.teamStandings(w, sid), ti = ts.findIndex(e => e.tid === w.player.team), ds = WC.seriesStandings(w, sid), di = ds.findIndex(e => e.pid === 'P');
   const B = WC.briefing(w), rep = B.goals[1], fz = WC.finances(w), runs = fz && fz.net < 0 ? Math.floor(fz.runway) : null;
@@ -2948,13 +2976,19 @@ function renderWalkHud() {
 // what a spot wants of you (its marker goes amber, pink when it's urgent, and its tag says why): { text, bad } or null
 let wantC = { t: 0, by: {} };
 function wantOf(key) {
-  const w = world; if (!w || screen !== 's-hub' || !founded(w)) return null;
+  const w = world; if (!w || screen !== 's-hub') return null;
   const now = performance.now(); if (now - wantC.t > 500) wantC = { t: now, by: {} };
   if (key in wantC.by) return wantC.by[key];
   let r = null;
-  if (key === 'computer') {
-    const nm = WC.unreadMail(w), owed = (w.staff || []).some(x => x.owed > 0);
-    r = WC.payrollShort(w) ? { text: 'Payroll short', bad: true } : owed ? { text: 'Wages owed', bad: true } : nm ? { text: `${nm} new`, bad: false } : w.car && tyreShort(w) ? { text: 'Order tyres', bad: false } : null;
+  const su = key === 'computer' && setupItem();
+  if (su) r = { text: String(su.label).replace(/<[^>]+>.*$/, ''), bad: false };   // (getting going: the step you're on)
+  else if (!founded(w)) r = null;
+  else if (key === 'computer') {
+    const nm = WC.unreadMail(w), owed = (w.staff || []).some(x => x.owed > 0), miss = w.over && w.player.offer && w.player.offer.answer === 'move' && WC.seriesMissing(WC.myTeam(w), w.player.offer.to).length;
+    r = WC.payrollShort(w) ? { text: 'Payroll short', bad: true } : owed ? { text: 'Wages owed', bad: true } : w.over && offerPending(w) ? { text: 'The SVMA\'s offer', bad: false } : miss ? { text: 'Requirements missing', bad: true } : nm ? { text: `${nm} new`, bad: false } : null;
+  } else if (key === 'tires') {
+    const sh = w.car && tyreShort(w), need = WC.tyreNeeds(w), st = WC.stockOf(w);
+    if (sh) r = { text: sh.map(c => `${need[c] - st[c]} ${c}`).join(', ') + ' short', bad: myWeek(w).left <= 0 };
   } else if (key === 'car' && w.car) {
     const P = WC.carParts(w), k = WC.PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)[0];
     if (P[k].cond < 0.5) r = { text: `${WC.PARTS[k].name} ${Math.round(P[k].cond * 100)}%`, bad: P[k].cond < 0.3 };
@@ -2962,6 +2996,8 @@ function wantOf(key) {
     r = WC.listWants(w) ? { text: 'To write', bad: false } : WC.listFresh(w).length ? { text: 'New', bad: false } : null;
   } else if (key === 'poster') {
     r = w.ladderSeen !== WC.ladderKey(w) ? { text: w.player.offer && !w.player.offer.answer ? 'Offer' : 'New', bad: false } : null;
+  } else if (key === 'door' && w.over) {
+    r = offerPending(w) ? null : { text: 'New season', bad: false };
   } else if (key === 'door') {
     const ch = dayAt('door'), ev = ch.find(o => /^ev|^din/.test(o.key) && o.tag === 'Today');
     r = ev ? { text: 'Today', bad: false } : myWeek(w).left <= 0 ? { text: 'Race day', bad: false } : null;
@@ -2973,6 +3009,7 @@ function renderHubMenu() {
   syncHome();
   if (hubMode === 'car') return renderCarMenu();
   if (hubMode === 'list') return renderListMenu();
+  if (hubMode === 'tires') return renderTyreMenu();
   if (hubMode === 'poster') { const m = menus['s-hub'][0]; m.setItems([{ label: 'Back to the garage', cls: 'action', action: () => leavePoster(), desc: 'The ladder, and where you are on it.' }]); return; }
   if (coopGuest()) return renderGuestMenu();
   if (world.ended) { // (the team's finished: what's left is reading about it)
@@ -3046,6 +3083,7 @@ backs['s-hub'] = () => {
   if (dayPlan.isOpen) return;
   if (hubMode === 'list') { if (!listPaper.busy) leaveList(); return; }
   if (hubMode === 'poster') { leavePoster(); return; }
+  if (hubMode === 'tires') { leaveTires(); return; }
   if (pcSeat && pc.isOpen) { if (pc.app) { pc.back(); renderHints(); } else standUp(); return; }
   if (hubMode === 'car') { if (carSub) { carSub = null; sfx.back(); renderHubMenu(); } else leaveCar(); }
   else if (optSub && calSub !== null) { calSub = calSub === 'list' ? null : 'list'; sfx.back(); renderOptMenu(); }
@@ -3102,6 +3140,7 @@ function renderCarMenu() {
       // (car two, if you bought it: a co-owner sells their own; the hire car comes back in its place)
       ...(WC.car2Sale(w) ? [{ label: `Sell Car Two<small>+${WC.money$(WC.car2Sale(w))}</small>`, confirm: 'Sell car two? Select again', action: () => { const v = WC.sellCar2(w); if (!v) return; sfx.best(); saveWorld(); toast(`Car two sold for ${WC.money$(v)}. A hire car takes its place.`); renderHub(); },
         desc: `The ${w.car2.name} in car two: <b>${WC.money$(WC.car2Sale(w))}</b> (what it cost, less wear). ${WC.car2Hire(w).replace(/^a/, 'A')} takes its place. Moving up a series sells it for the same, so sell now if you want the money now.` }] : []),
+      { label: 'Paint & Livery', action: () => openWorldGarage(), desc: `Your ${w.car.year} ${w.car.name}: paint it, design the livery, the helmet and the suit.` },
       { label: 'Back', action: () => leaveCar(), desc: 'Back to the garage.' });
   } else {
     const k = carSub, p = P[k], mech = WC.staffOf(w, 'mechanic');
@@ -3214,6 +3253,43 @@ function goToPoster() {
 }
 function leavePoster() {
   hubMode = 'room'; $('s-hub').classList.remove('at-list'); pitGarage.setView('room'); sfx.back(); saveWorld(); renderHub(); renderHints();
+}
+// your tires: the camera on the stacks, what the next round needs beside them, and the order on the menu (the computer's
+// Tires page, here: a stack goes up as each set comes in)
+function goToTires() {
+  const P = pitGarage, a = P.tyreArea; if (!world || hubMode === 'tires' || !founded(world) || !a) return;
+  holdWalk();
+  hubMode = 'tires'; optSub = false; $('s-hub').classList.add('at-list'); P.hideParked = true;   // (you'd stand between the camera and the stacks)
+  const c = a.getCenter(new THREE.Vector3()), to = P.carCentre().sub(c).setY(0).normalize(), side = new THREE.Vector3(-to.z, 0, to.x);
+  P.cine({ pos: c.clone().addScaledVector(to, 2.5).addScaledVector(side, 0.5).setY(1.75), at: c.clone().setY(0.45), fov: 52, shift: 0.15 }, 0.8);
+  sfx.select(); renderHub(); renderHints();
+}
+function leaveTires() {
+  hubMode = 'room'; pitGarage.hideParked = false; $('s-hub').classList.remove('at-list'); pitGarage.setView('room'); sfx.back(); renderHub(); renderHints();
+}
+const tyreShown = (w) => WC.COMPOUNDS.filter(c => c !== 'dirt' || WC.stockOf(w).dirt || WC.tyreNeeds(w).dirt);
+function tyreCard(w) {
+  const st = WC.stockOf(w), need = WC.tyreNeeds(w), R = w.series[w.player.series].cal[w.round], mgr = WC.staffOf(w, 'manager');
+  const row = (c) => `<div class="row"><span>${tyreDot(c)}${capit(c)}</span><span class="${st[c] < need[c] ? 'bad' : need[c] ? 'ok' : ''}">${st[c]} / ${need[c]}</span></div>`;
+  return `<div class="panel-title">Tires</div><div class="ti-name">${R ? `For round ${w.round + 1} at ${escP(R.gp ? WC.GP_NAME : R.name)}` : 'Your stock'}</div>
+    <div class="hub-steps">${tyreShown(w).map(row).join('')}</div>
+    <p class="hub-note">New sets you have / what the weekend needs. ${WC.money$(WC.tyreCost(w))} a set here; trackside they're ${WC.money$(WC.buyTrackside(w))}.${mgr ? ` ${mgr.first} orders for you before each round.` : ''}</p>`;
+}
+function renderTyreMenu() {
+  const w = world, st = WC.stockOf(w), need = WC.tyreNeeds(w), cost = WC.tyreCost(w), m = menus['s-hub'][0], R = w.series[w.player.series].cal[w.round];
+  const short = {}; for (const c of tyreShown(w)) short[c] = Math.max(0, need[c] - st[c]);
+  const n = Object.values(short).reduce((a, b) => a + b, 0), where = R ? `round ${w.round + 1} at ${R.gp ? WC.GP_NAME : R.name}` : 'the next round';
+  const buy = (o) => { const paid = WC.orderTyres(w, o); if (!paid) return; sfx.best(); saveWorld(); renderHub(); };
+  const items = [
+    ...(n && !w.over ? [{ label: `Order What You Need<small>${n} SET${n === 1 ? '' : 'S'} &middot; ${WC.money$(n * cost)}</small>`, cls: 'action primary', confirm: 'Pay for it? Select again', action: () => buy(short),
+      desc: `${tyreShown(w).filter(c => short[c]).map(c => `${short[c]} ${c}`).join(', ')}: what ${escP(where)} needs that you haven't got.` }] : []),
+    ...tyreShown(w).map(c => ({ label: `${capit(c)}<small>${st[c]} / ${need[c]}</small>`, confirm: 'Buy a set? Select again', action: () => buy({ [c]: 1 }),
+      desc: `One new set of ${c}s, ${WC.money$(cost)}. You have ${st[c]}; ${escP(where)} needs ${need[c]}.` })),
+    { label: 'Back', action: () => leaveTires(), desc: 'Back to the garage.' },
+  ];
+  const keep = m.items[m.i]?.label?.replace(/<small>.*$/, '');
+  m.setItems(items, true);
+  const k = items.findIndex(it => it.label.replace(/<small>.*$/, '') === keep); if (k >= 0) { m.i = k; m.render(); }
 }
 function leaveList() {
   hubMode = 'room'; listStep = null; listPrev = null; listHide.clear();

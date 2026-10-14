@@ -211,6 +211,8 @@ empty('BAY_2', hooks, BAY2, kind='SINGLE_ARROW', size=1.0, label='Car two')
 empty('SPAWN', hooks, (0.65, -4.4, 0), rotz=math.pi, kind='SINGLE_ARROW', size=0.6)   # (you, walking in from the door)
 empty('INTERACT_calendar', hooks, (-4.0, 3.42, 2.1), kind='SPHERE', size=0.25, label='The calendar')
 empty('INTERACT_door', hooks, (DOOR_X, Y0 + 0.7, 1.6), kind='SPHERE', size=0.25, label='Head out')   # (the roll-up door: out for the day)
+empty('TIRES', hooks, (3.8, Y0 + 0.45, 0), kind='ARROWS', size=0.4)   # (your tire stacks, in the corner by the door: rows go +Y along the wall, then -X)
+bulb('Light_Tires', lock, (3.5, Y0 + 1.4, 2.7), 180, (1.0, 0.85, 0.65))   # (a bare bulb over them: that corner was the darkest in the room)
 nav = box('NAV_floor', hooks, (7.3, 12.2, 0.0), (0.4, -0.15, 0.0)); nav.display_type = 'WIRE'; nav.hide_render = True
 
 # ---------------- stations: built beside the room, shown at their slots ----------------
