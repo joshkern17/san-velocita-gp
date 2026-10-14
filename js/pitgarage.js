@@ -199,25 +199,25 @@ export class PitGarage {
     if (this.tyreStock) { this.tyreKey = null; this.setTyres(this.tyreStock); }
   }
 
-  // your tires (World Career): a stack of four for every new set you have, by compound (the colored stripe on top), at
-  // the kit's TIRES hook. The first stack stands on the hook; rows of four go along its +Y in Blender (-Z here), the next
-  // column off its -X. tyreArea is the box they take (the first row's, with none: the walk spot's still there to order
-  // from). stock: { soft: 2, ... }, or null for none
+  // your tires (World Career): one stack for each compound you have, its height the share of your sets (the most you
+  // have of any is five high, the rest in proportion, at least one: how much, not the count), the compound's stripe on
+  // top. A row along the kit's TIRES hook: the first stands on it, the rest along its +Y in Blender (-Z here). tyreArea
+  // is the box they take (at least the first one's spot: the walk spot's still there to order from with none).
+  // stock: { soft: 2, ... }, or null for none
   setTyres(stock) {
     this.tyreStock = stock;
     const hook = this.kit && this.kit.tires, key = hook && stock ? `${this.custom}|${COMPOUND_ORDER.map(c => stock[c] || 0).join(',')}` : null;
     if (key === this.tyreKey) return; this.tyreKey = key;
     if (this.tyreStacks) { this.tyreStacks.removeFromParent(); this.tyreStacks.traverse(o => { if (o.isMesh && o.material !== TYRE_RUBBER) o.material.dispose(); }); this.tyreStacks = null; }
     this.tyreArea = null; if (!key) return;
-    const G = tyreGeo(), g = new THREE.Group(), sets = COMPOUND_ORDER.flatMap(c => Array(Math.max(0, stock[c] || 0)).fill(c)).slice(0, 12);
+    const G = tyreGeo(), g = new THREE.Group(), have = COMPOUND_ORDER.filter(c => (stock[c] || 0) > 0), most = Math.max(1, ...have.map(c => stock[c]));
     let seed = 7; const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5);
-    const stripes = {};
-    sets.forEach((c, i) => {
-      const col = Math.floor(i / 4), row = i % 4;
-      const st = new THREE.Group(); st.position.set(-col * 0.64 + r() * 0.05, 0, -row * 0.64 + r() * 0.05); st.rotation.y = r() * 2;
-      for (let j = 0; j < 4; j++) {
-        const t = new THREE.Mesh(G.tyre, TYRE_RUBBER); t.position.set(r() * 0.03, j * G.W, r() * 0.03); st.add(t);
-        if (j === 3) { const s = new THREE.Mesh(G.stripe, stripes[c] ||= new THREE.MeshStandardMaterial({ color: TYRE_STRIPE[c], roughness: 0.6 })); s.position.copy(t.position); st.add(s); }
+    have.forEach((c, i) => {
+      const n = Math.max(1, Math.round(5 * stock[c] / most));
+      const st = new THREE.Group(); st.position.set(r() * 0.04, 0, -i * 0.66); st.rotation.y = r() * 2;
+      for (let j = 0; j < n; j++) {
+        const t = new THREE.Mesh(G.tyre, TYRE_RUBBER); t.position.set(r() * 0.02, j * G.W, r() * 0.02); st.add(t);
+        if (j === n - 1) { const s = new THREE.Mesh(G.stripe, new THREE.MeshStandardMaterial({ color: TYRE_STRIPE[c], roughness: 0.6 })); s.position.copy(t.position); st.add(s); }
       }
       g.add(st);
     });
