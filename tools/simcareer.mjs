@@ -6,6 +6,7 @@
 //   node tools/simcareer.mjs 100 2 --skill=0.25    100 careers, 2 seasons, a driver quicker than most of the field
 //   node tools/simcareer.mjs 40 3 --policy=sketchy one policy, with a line per career
 //   node tools/simcareer.mjs 40 3 --gt             win the Street Cup first (a quick driver), then GT seasons at --skill
+//                                    (--to=gt: on up to GT1 (via GT2); default the rung above the Street Cup, GT2)
 //                                                  (--gentleman=no: no gentleman driver; --car=buy: buy, not lease)
 //   --street=0.02                                  (--gt) your pace in the Street Cup on the way up (default: quick)
 //   --seasonly                                     where the money went, season by season (careers that last)
@@ -17,12 +18,14 @@
 // broke: the bank closed the account (js/wcareer.js bankCheck: past the limit for BANK_ROUNDS rounds)
 // skill: where you'd qualify on pace alone, as a fraction down the field (0 = the fastest driver, 1 = the slowest).
 import * as WC from '../js/wcareer.js';
+import { writeFileSync } from 'node:fs';
 
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 const args = process.argv.slice(2), opt = (k, d) => { const a = args.find(x => x.startsWith(`--${k}=`)); return a ? a.split('=')[1] : d; };
 const ENTRY = opt('entry', 'fresh'), MATE = opt('mate', 'pay'), GT = args.includes('--gt'), GENT = opt('gentleman', 'yes') !== 'no', CARHOW = opt('car', 'lease');
 const HOSP = args.includes('--hosp'), WORKS = opt('works', 'yes') !== 'no', WORKSN = { offers: 0, took: 0 };
 const INV = opt('inv', 'yes') !== 'no', INVS = [], INVOUT = [], OFFERS = { n: 0 }, MET = { n: 0 };
+const TO = opt('to', 'gt2'); // (--gt: the series it moves up to and stays in)
 const STREETSKILL = +opt('street', 0.02); // (--gt: your pace in the Street Cup, before GT)
 const SEAT = opt('seat', 'gent'), SELLUP = opt('sellup', 'yes') !== 'no', LEN = +opt('len', 6), AMB = opt('amb', 'par'), SEASONLY = args.includes('--seasonly');
 // a transaction's kind, for --seasonly
@@ -34,7 +37,8 @@ const POOL = [['Pine Ridge', 'grass'], ['Mesa Loop', 'desert'], ['Harbour Run', 
 const STREET = [['testarossa', 'Testa Rossa', 290000], ['jsport', 'Kaze Sports Coupe', 280000], ['rs964', 'Porsche 911 Carrera RS (964)', 195000], ['mustang', 'Pony GT 5.0', 320000], ['m5', 'Bavaria M5 E39', 294000], ['r34', 'Nissan Skyline GT-R R34', 245000]]
   .map(([key, name, p]) => ({ key, name, value: Math.round(12000 + p * 0.11) }));
 // the GT cars (js/cars.js), for the customer programmes
-const CAT = { gt1: [['aventus', 'Emery Aventus ’92', 470000, 1120], ['bx300', 'Horai BX300 ’96', 430000, 1040], ['rmx', 'Kineto RM-X ’94', 500000, 1180], ['m1procar', 'Bavaria M1 ProCar ’79', 400000, 1020], ['porsche935', 'Porsche 935', 480000, 1030]]
+const CAT = { gt2: [['m3gtr', 'BMW M3 GTR', 325000, 1150], ['rsr964', 'Porsche 911 Carrera RSR 3.8 (964)', 310000, 1100], ['r34gt2', 'Nissan Skyline GT-R R34 GT2', 340000, 1250]]
+  .map(([key, name, w, kg]) => ({ key, name, hp: Math.round(w / 745.7), kg })), gt1: [['aventus', 'Emery Aventus ’92', 470000, 1120], ['bx300', 'Horai BX300 ’96', 430000, 1040], ['rmx', 'Kineto RM-X ’94', 500000, 1180], ['m1procar', 'Bavaria M1 ProCar ’79', 400000, 1020], ['porsche935', 'Porsche 935', 480000, 1030]]
   .map(([key, name, w, kg]) => ({ key, name, hp: Math.round(w / 745.7), kg })), f1: [{ key: 'custom', name: 'SV-F spec chassis', hp: 900, kg: 600 }], club: [{ key: 'miata', name: 'Mazda MX-5 Miata NA', hp: 114, kg: 1040 }] };
 
 // a seeded random for the policies (the world has its own)
@@ -69,7 +73,7 @@ function answerAll(w, P) {
     let key = 'no';
     if (m.lottery) continue;
     else if (m.sponsorOffer) key = 'yes';
-    else if (m.offer) key = (P.moveUp || GT) && !(GT && w.player.series === 'gt') ? 'move' : 'stay'; // (--gt: up to GT, and stay there)
+    else if (m.offer) key = (P.moveUp || GT) && !(GT && w.player.series === TO) ? 'move' : 'stay'; // (--gt: up to GT, and stay there)
     else if (m.gent) key = GENT && !(w.mate && WC.traitsOf(w, w.people[w.mate.pid] || {}).includes('gentleman')) ? 'sign' : 'no';
     else if (m.dayJob) key = P.work === 'none' ? 'no' : 'go';
     else if (m.gig) key = P.work === 'none' ? 'no' : 'in';
@@ -223,12 +227,14 @@ function career(P, s) {
       if (args.includes('--carwhy') && w.car) { const B = WC.carBreakdown(w), K = WC.lapKOf(w.player.series), by = {}; for (const ch of Object.keys(K)) for (const x of (B[ch] || [])) { const k = x.src + ':' + x.label.replace(/\(.*\)/, '').trim(); by[k] = (by[k] || 0) + (x.v || 0) * K[ch] * 100; } (globalThis.CARWHY ||= []).push([w.year, by]); }
       if (args.includes('--devref')) for (const S of WC.SERIES) { const vs = w.series[S.id].teams.filter(t => !w.teams[t].mine).map(t => (WC.carValue(w, w.teams[t]) - S.base) * 0.0275).sort((a, b) => a - b); ((globalThis.DEVREF ||= {})[S.id] ||= []).push(vs[Math.floor(vs.length / 2)]); }
       (out.car ||= []).push(w.car ? +((WC.carValue(w, WC.myTeam(w)) - vs[Math.floor(vs.length / 2)]) * 0.0275).toFixed(2) : null); }
-    if (GT && w.player.series === 'gt') { out.gt.push(w.money.balance); (out.gtPos ||= []).push(w.seasons.at(-1)?.you?.pos ?? null); (out.gtCar ||= []).push(out.car?.at(-1) ?? null); }
+    if (GT && w.player.series === TO) { out.gt.push(w.money.balance); (out.gtPos ||= []).push(w.seasons.at(-1)?.you?.pos ?? null); (out.gtCar ||= []).push(out.car?.at(-1) ?? null); }
     answerAll(w, P);
     { const t = WC.myTeam(w), off = w.player.offer; if (off && off.answer === 'move') for (const [k] of WC.seriesMissing(t, off.to)) { const nx = WC.facNext(t, k); if (nx && w.money.balance > nx.cost) WC.buildFacility(w, k); } }
     WC.nextSeason(w, POOL);
     seasonSetup(w);
-    if (GT && w.player.series === 'gt') { w.simSkill = SKILL; out.gtStart ??= w.money.balance; answerAll(w, P); }
+    if (GT && w.player.series === TO) { w.simSkill = SKILL; out.gtStart ??= w.money.balance; answerAll(w, P); }
+    // (--save=<file>: the first career to get there, saved as it starts its first season there: for .devtest/careerrace.mjs)
+    if (GT && w.player.series === TO && opt('save', null) && !globalThis.SAVED) { globalThis.SAVED = 1; writeFileSync(opt('save', null), JSON.stringify(w)); }
   }
   if (args.includes('--ledger')) { const cat = {}; for (const t of w.money.tx) { const k = t.what.replace(/^[^:]+: /, '').replace(/\(.*?\)|\d[\d,]*/g, '').replace(/ +/g, ' ').trim().slice(0, 34); cat[k] = (cat[k] || 0) + t.amt; } (globalThis.LEDGER ??= []).push(cat); }
   out.end = w.money.balance; out.work = (w.simWork || 0) / Math.max(1, out.rounds / 6); out.flags = { ...WC.record(w) }; out.rep = WC.repOf(w); out.arcs = (w.dir?.n || 0);

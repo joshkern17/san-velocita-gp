@@ -13,7 +13,7 @@ const [save, name = 'Laguna Seca', laps = '3', seed = '1'] = process.argv.slice(
 const w = JSON.parse(readFileSync(save, 'utf8'));
 // your own circuits (the saved editor tracks beside the save), for a circuit that isn't a preset or a real one
 let mine = []; try { const d = JSON.parse(readFileSync(join(dirname(save), 'svgp.tracks.txt'), 'utf8')); mine = Array.isArray(d) ? d : Object.values(d.tracks || d); } catch (e) {}
-const ent = WC.raceEntries(w), keys = ['testarossa', 'jsport', 'rs964', 'mustang', 'm5', 'r34'];
+const ent = WC.raceEntries(w), cls = WC.seriesById(w.player.series).cls, keys = (w.carCat?.[cls] || []).map(c => c.key).filter(k => k !== 'custom').length ? w.carCat[cls].map(c => c.key) : ['testarossa', 'jsport', 'rs964', 'mustang', 'm5', 'r34']; // (the series' own cars)
 for (const e of Object.values(ent.entries)) e.chassis = process.env.SAME || WC.teamChassis(w, e.tid, keys);
 const bop = process.env.SAME ? null : WC.bopTable(w, keys);
 const info = Object.fromEntries(Object.entries(ent.entries).map(([slot, e]) => [slot, { name: e.name, rating: WC.rating(w, e.pid), gap: e.gap, car: e.chassis }]));

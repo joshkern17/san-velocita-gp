@@ -4,6 +4,7 @@
 //   outline:  true: the guide's outline is the layout as it is (the map's roads don't trace this layout)
 //   roads:    Overpass filter for the roads the layout runs on (raceway for circuits, real roads for street / touge)
 //   skip:     names of ways never to drive on (pit lanes, kart tracks, other layouts)
+//   skipIds:  OSM way ids never to drive on (unnamed alternative lines)
 //   width:    default road width (m); widths: { 'way name': m } overrides
 //   scatter:  { mix, r, d } a Nature-brush stroke along the whole lap where the map has no trees (FLORA mixes in scenery.js)
 //   startBefore: { name, m } start line m metres before the section with that name
@@ -66,6 +67,26 @@ export const CATALOG = [
     roads: RACEWAY, skip: /pit|chicane|autocross|skidpad|kart|paddock/i, width: 10,
     env: { theme: 'grass', time: 'day', weather: 'clear', laps: 5, opponents: 11, setting: { kind: 'none', flora: 'mixed', seed: 1957 } },
     scatter: { mix: 'mixed', r: 70, d: 0.3 },
+  },
+  {
+    // the full course (the chicane at 10a/10b, the bridge over the run down to 12): GT2's home in the north Georgia hills
+    id: 'roadatlanta', name: 'Road Atlanta', country: 'USA', category: 'classic',
+    dem: 'usgs',
+    desc: 'Classic · the Esses climb and fall through the Georgia pines, then the long back straight dives under the bridge',
+    guide: { points: [[34.1504, -83.81426], [34.1488, -83.81124], [34.14694, -83.81064], [34.14509, -83.81209], [34.14337, -83.81373], [34.13981, -83.81654], [34.13615, -83.81813], [34.1413, -83.81839], [34.14617, -83.81846], [34.15018, -83.81726]] },
+    roads: RACEWAY, skip: /pit|club|short|motorcycle|kart|repair/i, skipIds: [396643998, 396644002], width: 12,
+    env: { theme: 'grass', time: 'day', weather: 'clear', laps: 4, opponents: 11, setting: { kind: 'none', flora: 'mixed', seed: 1970 } },
+    scatter: { mix: 'mixed', r: 80, d: 0.25 },
+  },
+  {
+    // the long course with the Boot, and the Inner Loop (since 1975): the Ninety, the Esses, the back straight, the Boot
+    id: 'watkinsglen', name: 'Watkins Glen', country: 'USA', category: 'classic',
+    dem: 'usgs',
+    desc: 'Classic · the Ninety, the Esses, the Inner Loop and the Boot, in the hills above Seneca Lake',
+    guide: { points: [[42.3410, -76.92882], [42.34423, -76.92765], [42.34239, -76.92354], [42.33841, -76.92067], [42.33371, -76.92043], [42.33173, -76.92036], [42.33221, -76.92464], [42.32934, -76.92622], [42.33380, -76.92837], [42.33354, -76.92519], [42.33649, -76.92483], [42.33719, -76.92610]] },
+    roads: RACEWAY, skip: /pit|short course/i, skipIds: [343460633], width: 12,
+    env: { theme: 'grass', time: 'day', weather: 'clear', laps: 3, opponents: 11, setting: { kind: 'none', flora: 'mixed', seed: 1948 } },
+    scatter: { mix: 'mixed', r: 80, d: 0.25 },
   },
   {
     id: 'zandvoort', name: 'Zandvoort', country: 'Netherlands', category: 'gp',

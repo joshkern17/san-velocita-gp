@@ -65,7 +65,7 @@ async function layout(c) {
   }
   const bb = bboxOf(G.all, 400);
   const data = await overpass(`[out:json][timeout:180];way${c.roads}(${bb.join(',')});out body geom;`, { label: c.id + ' roads' });
-  const skip = (t) => (c.skip && t.name && c.skip.test(t.name)) || t.area === 'yes' || (c.skip && t.service && c.skip.test(t.service));
+  const skip = (t, w) => (c.skip && t.name && c.skip.test(t.name)) || t.area === 'yes' || (c.skip && t.service && c.skip.test(t.service)) || (c.skipIds && w && c.skipIds.includes(w.id));
   const nodes = buildGraph(data.elements, skip);
   let line = route(nodes, G.points, { loop: !c.open, maxSnap: c.maxSnap || 60 });
   const ways = data.elements;
