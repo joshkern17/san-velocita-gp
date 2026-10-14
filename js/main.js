@@ -2937,9 +2937,9 @@ function renderWeekStrip() {
   const tr = findCalTrack(R.name), T = tr ? hubTrackT(tr) : null, km = T ? (trackStats(T).length / 1000).toFixed(1) : null;
   el.innerHTML = `<div class="wk-head"><span>The week before round ${w.round + 1} of ${w.opts.len}</span><b>${left ? `${left} day${left === 1 ? '' : 's'} left${wk.booked ? `, ${wk.booked} booked` : ''}` : 'Race day next'}</b></div>
     <div class="wk-days">${days}<div class="wk-day race"><small>Sat</small><b>Race</b><em>Round ${w.round + 1}</em></div></div>
-    <div class="wk-more"><div class="wk-line"><b>${R.gp ? WC.GP_NAME : R.name}</b>${tr ? ` &middot; ${THEMES[tr.env.theme].label}` : ''}${km ? ` &middot; ${km} km` : ''} &middot; ${R.time}, ${R.weather}</div>
+    <div class="wk-more"><div class="wk-line"><b>${R.gp ? WC.GP_NAME : R.endur ? WC.enduranceName(R) : R.name}</b>${tr ? ` &middot; ${THEMES[tr.env.theme].label}` : ''}${km ? ` &middot; ${km} km` : ''} &middot; ${R.time}, ${R.weather}</div>
     <div class="wk-targets"><canvas class="wk-map" width="180" height="132"></canvas><div class="wk-tg">
-      <div class="wk-track">${R.gp ? WC.GP_NAME : R.name}</div><div class="wk-cond">${R.gp ? `${R.name} &middot; ` : ''}${tr ? THEMES[tr.env.theme].label : ''}${km ? ` &middot; ${km} km, ${T.open ? 'point to point' : `${WC.raceLaps(w, T.L / 1000, false)} laps`}` : ''} &middot; ${R.time}, ${R.weather}</div>
+      <div class="wk-track">${R.gp ? WC.GP_NAME : R.endur ? WC.enduranceName(R) : R.name}</div><div class="wk-cond">${R.gp ? `${R.name} &middot; ` : ''}${tr ? THEMES[tr.env.theme].label : ''}${km ? ` &middot; ${km} km, ${T.open ? 'point to point' : R.endur ? `${R.endur.hours} hours on the clock (${Math.round(WC.enduranceClock(w, R).duration / 60)} minutes), sharing your car with your teammate` : `${WC.raceLaps(w, T.L / 1000, false)} laps`}` : ''} &middot; ${R.endur ? 'afternoon into night' : R.time}, ${R.weather}</div>
       ${tg || '<div class="br-none">No targets set. Race well.</div>'}</div></div></div>`;
   if (T) drawTrackMap(T, el.querySelector('.wk-map'));
   wkStamp = -1;
@@ -2970,8 +2970,8 @@ function renderWalkHud() {
     <div class="wh-cell ${mc}"><small>Bank</small><b>${WC.money$(bal)}</b>${runs !== null && runs < 6 ? `<em>${Math.max(0, runs)} round${runs === 1 ? '' : 's'} left</em>` : ''}</div></div>
     <p class="wh-hint">${B.hint || ''}</p>`;
   const wk = myWeek(w), R = S.cal[w.round], n = w.round + 1;
-  nx.innerHTML = wk.left <= 0 ? `<b>Race day</b> Round ${n} at ${escP(R.gp ? WC.GP_NAME : R.name)}: head out the door`
-    : `<b>Next</b> Round ${n} at ${escP(R.gp ? WC.GP_NAME : R.name)}, Saturday &middot; ${wk.left} day${wk.left === 1 ? '' : 's'} to spend`;
+  nx.innerHTML = wk.left <= 0 ? `<b>Race day</b> Round ${n}${R.endur ? ', the ' + escP(WC.enduranceName(R)) : ` at ${escP(R.gp ? WC.GP_NAME : R.name)}`}: head out the door`
+    : `<b>Next</b> Round ${n}${R.endur ? ', the ' + escP(WC.enduranceName(R)) : ` at ${escP(R.gp ? WC.GP_NAME : R.name)}`}, Saturday &middot; ${wk.left} day${wk.left === 1 ? '' : 's'} to spend`;
 }
 // what a spot wants of you (its marker goes amber, pink when it's urgent, and its tag says why): { text, bad } or null
 let wantC = { t: 0, by: {} };
@@ -3424,9 +3424,19 @@ function startWorldRound() {
   // win's points of second))
   const stand = WC.seriesStandings(w, sid), last = w.round === w.opts.len - 1;
   const introKind = w.round === 0 ? 'opener' : last && stand[1] && stand[0].pts - stand[1].pts <= WC.POINTS[0] ? 'finale' : null;
-  const race = { mode: 'race', laps: worldLaps(w, r), opponents: 11, brief, pick: !owned, onlyClass: cls,
+  // (an endurance round: a timed race; your teammate shares your car as co-driver, car two goes to two hired drivers)
+  let endur = null;
+  if (WC.isEndurance(r)) {
+    const slot = Object.keys(ent.entries).find(k => ent.entries[k].mate), e = slot && ent.entries[slot];
+    if (e) {
+      const hired = ['Voss', 'Lindgren', 'Okoro', 'Haldane', 'Moreira', 'Ishikawa', 'Brandt', 'Calloway'][w.round % 8];
+      endur = { ...WC.enduranceClock(w, r), codriver: { name: w.people[e.pid] ? `${w.people[e.pid].first} ${w.people[e.pid].last}` : e.name, paceK: (ent.teamPace[slot] || 1) * 0.98, aggr: e.aggr, craft: e.craft, mistakes: e.mistakes } };
+      ent.entries[slot] = { ...e, pid: null, mate: false, trust: undefined, owe: null, story: null, hired: true, name: hired.toUpperCase(), team: { ...e.team, driver: `${hired} / hired` } };
+    } else endur = WC.enduranceClock(w, r);
+  }
+  const race = { mode: 'race', laps: worldLaps(w, r), opponents: 11, brief: endur ? brief.replace(/ROUND \d+ OF \d+/, m => `${WC.enduranceName(r).toUpperCase()} &middot; ${m}`) : brief, pick: !owned, onlyClass: cls,
     extra: { car, mods, failure, introKind, bop: WC.bopTable(w, carsOfClass(cls).map(chassisKey)), difficulty: w.opts.difficulty, grid: 'back', team: 'garage', engineer: WC.staffOf(w, 'engineer')?.skill ?? 0, wx, roster: ent.roster, entries: ent.entries, teamPace: ent.teamPace, gridOrder, aiChassis: 'class', playerName: w.player.name.split(' ').pop().toUpperCase(),
-      trackData: WC.weekOf(w).trackData || null } };
+      trackData: WC.weekOf(w).trackData || null, ...(endur || {}) } };
   phone.hide();
   if (coopLive()) return w.opts.weekend === 'race' ? coopStartRace(track, race, ent) : coopStartSession(w.opts.weekend === 'full' ? 'practice' : 'quali', { track, race, ent }); // (co-op: the weekend online)
   if (w.opts.weekend !== 'race') return startWeekend(track, race, 'world', w.opts.weekend, [w.opts.pracLen, w.opts.qualiLen]);
@@ -3476,7 +3486,8 @@ function worldRoundDone(retired = false) {
   let car2 = null;
   if (coop && coop.race) { coop.race.done = true; coop.race.wait = null;
     const u = coop.race.use; if (u && w.money) { let t = 0; for (const c of u.sets) if (!WC.takeSet(w, c)) t++; car2 = { trackside: t, laps: u.laps, damage: u.damage }; } }
-  const out = WC.recordPlayerRound(w, res, sim.log || [], wkUse && w.money ? { trackside: wkUse.trackside, laps: wkUse.laps, damage: wkUse.damage, failed: wkUse.failed || null, aidPct: Math.max(0, sim.aidBonus ?? 0), grid: mine.grid ?? null, led: mine.led || 0, blamed, teamTrust: sim.trustDelta || 0, car2 } : null);
+  const hired = res.find(r => r.hired); // (an endurance round: car two, the hired drivers, paid on its own result)
+  const out = WC.recordPlayerRound(w, res, sim.log || [], wkUse && w.money ? { trackside: wkUse.trackside, laps: wkUse.laps, damage: wkUse.damage, failed: wkUse.failed || null, aidPct: Math.max(0, sim.aidBonus ?? 0), grid: mine.grid ?? null, led: mine.led || 0, blamed, teamTrust: sim.trustDelta || 0, car2, car2Pos: hired ? hired.pos : null, car2Dnf: hired ? !!(hired.dnf || hired.dsq) : false } : null);
   wkUse = null;
   saveWorld();
   sim.setPaused(true);
@@ -3844,6 +3855,9 @@ function renderOptMenu() {
     (() => { const R = !w.over && w.series[w.player.series].cal[w.round];
       return { label: 'Race Distance', values: [...(w.opts.dist ? [] : [[null, `${w.opts.laps} laps each`]]), ...DIST_VALS], get: () => w.opts.dist ?? null, set: v => { w.opts.dist = v; saveWorld(); renderHub(); renderOptMenu(); },
         desc: `${DIST_DESC} From the next round${R ? `: ${R.name} is <b>${worldLaps(w, R)} laps</b>` : ''}.` }; })(),
+    // (endurance races, GT2 and GT1: how long 24 hours of race clock takes in real time; a 6 Hours is a quarter)
+    { label: 'Endurance Length', values: [[45, 'Short'], [90, 'Medium'], [180, 'Long']], get: () => w.opts.endur || 90, set: v => { w.opts.endur = v; saveWorld(); },
+      desc: `GT2 and GT1 each run one ${WC.ENDURANCE_HOURS}-hour race a season, the clock compressed: <b>Short</b> runs 24 hours in 45 minutes (a 6 Hours: 11), <b>Medium</b> in 90 (a 6 Hours: 22), <b>Long</b> in 180 (a 6 Hours: 45). Day turns to night as it goes, and you share the car with your teammate.` },
     { label: 'Pit Wall Calls', values: [['on', 'On'], ['off', 'Off']], get: () => settings.pitWall || 'on', set: v => { settings.pitWall = v; saveSettings(); }, desc: 'Your engineer asks you on the radio when there\'s a call to make: undercut, cover, a cheap stop under the VSC, your teammate. Answer with <b>X / B</b> (or <b>1 / 2</b>); if you don\'t, their pick happens. Off: they make the pit calls and tell you.' },
     // circuits: before a season's first race (this season's calendars are drawn again), or at the end of one (next season's)
     ...(() => { const fresh = !w.over && w.round === 0 && !w.series[w.player.series].results.length, n = worldPool().length;

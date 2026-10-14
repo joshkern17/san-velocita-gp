@@ -490,7 +490,7 @@ export class Computer {
       <td><div class="tr-qty" data-nav data-cycle="q-${c}" data-key="q-${c}"${c === 'soft' ? ' data-first' : ''}><i data-act="cyc" data-arg="q-${c}:-1">&#9664;</i><b>${o[c] || 0}</b><i data-act="cyc" data-arg="q-${c}:1">&#9654;</i></div></td></tr>`).join('');
     const n = WC.COMPOUNDS.reduce((x, c) => x + (o[c] || 0), 0);
     return head + `<div class="tr-body">
-      ${R ? `<p class="tr-next">Next round: <b>${esc(R.name)}</b>, ${esc(R.time)}, forecast <b>${esc(R.weather)}</b>.</p>` : ''}
+      ${R ? `<p class="tr-next">Next round: <b>${esc(R.endur ? WC.enduranceName(R) : R.name)}</b>, ${R.endur ? 'afternoon into night' : esc(R.time)}, forecast <b>${esc(R.weather)}</b>.</p>` : ''}
       ${mgr ? `<p class="tr-mgr">${esc(mgr.first)} orders for each round. You can still order extra here.</p>` : ''}
       <table class="pc-tbl tr-tbl"><tr><th>COMPOUND</th><th class="r">NEW IN STOCK</th><th class="r">USED</th>${need ? '<th class="r">A WEEKEND USES</th>' : ''}<th>ORDER</th></tr>${rows}</table>
       <div class="tr-total">${n} set${n === 1 ? '' : 's'} &times; ${WC.money$(price)} = <b>${WC.money$(n * price)}</b>
@@ -1037,7 +1037,7 @@ export class Computer {
       body = `<table class="pc-tbl"><tr><th>RD</th><th>CIRCUIT</th><th>CONDITIONS</th><th>WINNER</th></tr>${S.cal.map((c, k) => {
         const res = S.results.find(x => x.round === k), win = res && res.rows.find(x => x.pos === 1 && !x.dnf);
         const now = s.id === w.player.series && k === w.round && !w.over;
-        return `<tr class="${now ? 'now' : ''}"><td>${k + 1}</td><td>${esc(c.name)}${now ? ' <small>NEXT</small>' : ''}</td><td>${esc(c.time)}${c.weather === 'clear' ? '' : ', ' + esc(c.weather)}</td><td>${win ? esc(WC.displayName(w, win.pid)) : ''}</td></tr>`; }).join('')}</table>`;
+        return `<tr class="${now ? 'now' : ''}"><td>${k + 1}</td><td>${esc(c.endur ? WC.enduranceName(c) : c.name)}${now ? ' <small>NEXT</small>' : ''}</td><td>${c.endur ? 'afternoon into night' : esc(c.time)}${c.weather === 'clear' ? '' : ', ' + esc(c.weather)}</td><td>${win ? esc(WC.displayName(w, win.pid)) : ''}</td></tr>`; }).join('')}</table>`;
     } else {
       const rows = w.seasons.slice().reverse().map(sum => { const pid = sum.champs[s.id], tid = sum.teamChamps[s.id]; return `<tr class="${pid === 'P' ? 'me' : ''}"><td>${sum.year}</td><td>${pid ? esc(WC.displayName(w, pid)) : ''}</td><td>${tid ? esc(w.teams[tid].name) : ''}</td></tr>`; }).join('');
       body = rows ? `<table class="pc-tbl"><tr><th>YEAR</th><th>CHAMPION</th><th>TEAMS' CHAMPION</th></tr>${rows}</table>` : '<p class="pc-empty">No champions yet: the first title is decided this year.</p>';

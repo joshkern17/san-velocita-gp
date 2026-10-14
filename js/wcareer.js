@@ -447,8 +447,30 @@ export function newCalendars(w, trackPool) {
     }
     w.series[s.id].cal = cal;
     w.series[s.id].results = [];
+    enduranceRound(w, s, cal);
   }
   gpRound(w, names);
+}
+// ---------------- endurance ----------------
+// GT2 and GT1 (the sports car path, tier 3 up) run one 6-hour race a season: a timed race, your teammate sharing your
+// car (race.js crew), the team's second car with two hired drivers. On the circuit with an endurance history if the
+// calendar has one, else the second last round (the last is the title decider). Its race clock runs the season's
+// endurance length (w.opts.endur: real minutes for 24 hours; a 6 Hours is a quarter of it)
+export const ENDURANCE_HOURS = 6, ENDURANCE_START = 14.5; // (a 2.30 pm start: it finishes under the lights)
+const ENDURANCE_TRACKS = ['Watkins Glen', 'Road Atlanta', 'Sebring', 'Road America', 'Spa-Francorchamps', 'Suzuka', 'Laguna Seca'];
+function enduranceRound(w, s, cal) {
+  if (s.path !== 'sportscar' || s.tier < 3 || cal.length < 3) return;
+  let k = -1;
+  for (const n of ENDURANCE_TRACKS) { k = cal.findIndex((c, i) => c.name === n && i < cal.length - 1); if (k >= 0) break; }
+  if (k < 0) k = cal.length - 2;
+  cal[k].endur = { hours: ENDURANCE_HOURS }; cal[k].time = 'day'; // (it starts in the afternoon whatever: the clock takes it into the night)
+}
+export const isEndurance = (R) => !!(R && R.endur);
+export const enduranceName = (R) => `${R.name} ${R.endur.hours} Hours`;
+// the race's real length (s) and its clock (race seconds a second)
+export function enduranceClock(w, R) {
+  const per24 = (w.opts.endur || 90) * 60, dur = Math.round(per24 * R.endur.hours / 24);
+  return { duration: dur, clockK: R.endur.hours * 3600 / dur, startHour: ENDURANCE_START };
 }
 // the top series ends every year with the San Velocita Grand Prix, always on the same circuit (picked once)
 function gpRound(w, names) {
@@ -762,6 +784,9 @@ export function recordPlayerRound(w, res, log = [], use = null) {
   let fl = null; for (const r of rows) if (!r.dnf && isFinite(r.best) && (!fl || r.best < fl.best)) fl = r;
   if (fl) fl.fl = true;
   const known = rows.filter(r => r.pid);
+  // (an endurance race: your teammate drove your car with you, and takes its result; car two's hired drivers don't score)
+  { const R = w.series[sid].cal[w.round], m = mateOf(w), me0 = known.find(r => r.pid === 'P');
+    if (isEndurance(R) && m && me0 && !known.some(r => r.pid === m.pid)) known.push({ pid: m.pid, pos: me0.pos, dnf: me0.dnf, dsq: me0.dsq, fl: me0.fl, best: me0.best }); }
   scoreRound(w, sid, known);
   for (const e of log) if (e.a && e.b) logLedger(w, { s: sid, ...e });
   grudgeTexts(w, log);
@@ -2187,9 +2212,10 @@ export function settleRound(w, use, me) {
   const prize = Math.round(base * (1 + pct / 100) * (bg.prize || 1) * (home ? 1.1 : 1) / 10) * 10;
   if (prize) items.push([`Prize money (P${me.pos}${pct ? `, +${pct}% for fewer aids` : ''}${home ? ', home crowd' : ''})`, prize]);
   // (and for the other car: the team's paid for both)
-  { const res = w.series[w.player.series].results.find(r => r.round === w.round), mate = mateOf(w), row = res && mate && res.rows.find(r => r.pid === mate.pid);
+  if (isEndurance(R)) items.push([`Car two: two hired drivers for the ${R.endur.hours} Hours`, -Math.round(c.crew * 0.6 / 100) * 100]);
+  { const res = w.series[w.player.series].results.find(r => r.round === w.round), mate = mateOf(w), row = isEndurance(R) ? (use.car2Pos ? { pos: use.car2Pos, dnf: !!use.car2Dnf } : null) : res && mate && res.rows.find(r => r.pid === mate.pid);
     const mp = row && !row.dnf ? Math.round((c.prize[row.pos - 1] || 0) * (bg.prize || 1) * (home ? 1.1 : 1) / 10) * 10 : 0;
-    if (mp) items.push([`Prize money, second car (${w.people[mate.pid].first}, P${row.pos})`, mp]); }
+    if (mp) items.push([isEndurance(R) ? `Prize money, second car (the hired drivers, P${row.pos})` : `Prize money, second car (${w.people[mate.pid].first}, P${row.pos})`, mp]); }
   // (whoever owns a share of the team takes it out of the prize money)
   { const I = investorIn(w), won = items.filter(([k, v]) => v > 0 && /^Prize money/.test(k)).reduce((a, [, v]) => a + v, 0); if (I && won) items.push([`Prize money share: ${I.name.join(' ')} (${Math.round(I.share * 100)}%)`, -Math.round(won * I.share / 10) * 10]); }
   const before = w.money.balance;

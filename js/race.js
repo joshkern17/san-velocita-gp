@@ -943,7 +943,7 @@ export class Race {
     // World Career: who's driving (their record is kept by pid), how hard and how cleanly they defend, how often they slip up
     const ent = !isPlayer && !extra.human ? this.opts.entries?.[teamIdx] : null;
     car.pid = isPlayer ? 'P' : ent ? ent.pid : null;
-    if (car.ai && ent) { car.ai.aggr = ent.aggr; if (ent.craft != null) car.ai.craft = ent.craft; car.ai.mk = ent.mistakes; if (ent.mate) car.ai.trust = ent.trust; car.story = ent.story || null; car.owe = ent.owe || null; } // (your teammate: how much they trust you, 0..100; a storyline with you: race.js storyRadio)
+    if (car.ai && ent) { car.ai.aggr = ent.aggr; if (ent.craft != null) car.ai.craft = ent.craft; car.ai.mk = ent.mistakes; if (ent.mate) car.ai.trust = ent.trust; car.story = ent.story || null; car.owe = ent.owe || null; car.hired = !!ent.hired; } // (your teammate: how much they trust you, 0..100; a storyline with you: race.js storyRadio)
     if (car.ai && this.opts.aiSetup?.[teamIdx]) car.ai.pace = this.opts.aiSetup[teamIdx].pace; // (as fast as they were in qualifying)
     // starting tyres
     let start = this.condTyre();
@@ -4695,7 +4695,7 @@ export class Race {
       gap: k === 0 ? '' : this.timed && c.finished && win.finished && c.lap < win.lap ? '+' + (win.lap - c.lap) + ' LAP' : c.finished && win.finished ? '+' + (time(c) - time(win)).toFixed(3) : lapsDown(win, c) >= 1 ? '+' + lapsDown(win, c) + ' LAP' : 'RUNNING',
       pen: (c.penTotal || 0) + (c.dt ? 20 : 0), dt: c.dtTotal || 0, dsq: !!c.dsq,
       best: c.best, pits: c.pits, led: c.led || 0, grid: c.startPos || null, cleanFinish: (c.maxDmg || 0) < 0.25 && !c.penTotal && !c.dtTotal,
-      human: c.human, key: c.key, dnf: !!c.gone, finished: c.finished, lap: c.lap,
+      human: c.human, key: c.key, dnf: !!c.gone, finished: c.finished, lap: c.lap, hired: !!c.hired,
       drift: Math.round(c.isPlayer && this.drift ? this.drift.total : c.driftTotal || 0),
     })).map(r => (r.dsq ? { ...r, gap: 'DSQ' } : r.dnf ? { ...r, gap: 'DNF' } : r));
   }
