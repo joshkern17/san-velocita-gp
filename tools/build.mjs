@@ -71,6 +71,13 @@ if (fs.existsSync(path.join(realDir, 'index.json'))) {
 const texDir = path.join(root, 'assets/textures'), texPngs = {};
 if (fs.existsSync(texDir)) for (const f of fs.readdirSync(texDir)) if (f.endsWith('.png')) texPngs[f.slice(0, -4)] = 'data:image/png;base64,' + fs.readFileSync(path.join(texDir, f)).toString('base64');
 const texTag = inlineScript(`window.__SVGP_TEXTURES = ${JSON.stringify(texPngs)};`);
+// the sponsors' logos (assets/sponsors/<slug>/<version>.webp), read from window.__SVGP_SPONSORS (js/sponsorlogos.js)
+const spDir = path.join(root, 'assets/sponsors'), spLogos = {};
+if (fs.existsSync(spDir)) for (const slug of fs.readdirSync(spDir)) {
+  const d = path.join(spDir, slug); if (!fs.statSync(d).isDirectory()) continue;
+  for (const f of fs.readdirSync(d)) if (f.endsWith('.webp')) spLogos[`${slug}/${f.slice(0, -5)}`] = 'data:image/webp;base64,' + fs.readFileSync(path.join(d, f)).toString('base64');
+}
+const spTag = inlineScript(`window.__SVGP_SPONSORS = ${JSON.stringify(spLogos)};`);
 // the recorded voices (assets/voice: the engineer and the booth, see tools/voice/gen.mjs), read from window.__SVGP_VOICE
 // (js/vo.js). Inline because a page opened from disk can't decode files beside it in Web Audio; squeezed to 64 kbps mono
 // on the way (ffmpeg; if it isn't installed, the clips go in as they are).
@@ -91,7 +98,7 @@ if (fs.existsSync(path.join(voiceDir, 'manifest.json'))) {
 }
 // the soundtrack is too big to inline: it goes in a music/ folder beside the HTML (js/audio.js reads __SVGP_MUSIC_DIR)
 const musicTag = inlineScript(`window.__SVGP_MUSIC_DIR = 'music/';`);
-swap('<script type="module" src="js/main.js"></script>', glbTag + garageTag + phoneTag + charsTag + blTag + envTag + carsTag + kitTag + realTag + texTag + voiceTag + musicTag + inlineScript(js, 'module'));
+swap('<script type="module" src="js/main.js"></script>', glbTag + garageTag + phoneTag + charsTag + blTag + envTag + carsTag + kitTag + realTag + texTag + spTag + voiceTag + musicTag + inlineScript(js, 'module'));
 
 fs.mkdirSync(dist, { recursive: true });
 const name = 'San Velocita GP.html';

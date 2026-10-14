@@ -1,7 +1,9 @@
 // Livery Designer UI: team colours + pattern, PNG/SVG + text decals placed by clicking on the car,
 // helmet, race suit, saved teams and livery files. Works on the model-independent livery data (livery.js).
 import { MODEL as CLASSIC } from './carmodel.js';
-import { PATTERNS, HELMET_PATTERNS, SUIT_PATTERNS, SUIT_NUMBERS, CREW_STYLES, VISORS, VISOR_STRIPS, FONTS, assets, importImageFile, decalImage, uvToPanel, uvTemplate, liveryAssetIds, fillLivery, stickerDecals, boundText, BOUND, pathD, shapeBounds } from './livery.js';
+import { PATTERNS, HELMET_PATTERNS, SUIT_PATTERNS, SUIT_NUMBERS, CREW_STYLES, VISORS, VISOR_STRIPS, FONTS, assets, importImageFile, decalImage, uvToPanel, uvTemplate, liveryAssetIds, fillLivery, stickerDecals, boundText, boundLogo, BOUND, pathD, shapeBounds } from './livery.js';
+import { SPONSOR_LOGOS, logoAsset, parseLogoAsset, logoForName } from './sponsorlogos.js';
+const LOGO_SHORT = { color: 'Color', main: 'Brand', black: 'Black', white: 'White' }; // (a sponsor logo's versions, one word each so the buttons line up)
 import { VectorEditor } from './vectoredit.js';
 import { sfx } from './audio.js';
 import { savedLiveries, saveLivery, deleteLivery, ensureThumb, liveryDate } from './liveries.js';
@@ -168,17 +170,21 @@ export class LiveryDesigner {
   carDecalsHtml() {
     const c = this.car, d = c.decals[this.sel];
     const list = c.decals.map((x, i) => {
-      const url = x.asset && assets.get(x.asset), txt = x.bind ? boundText(c, x.bind) : x.text;
-      const th = x.path ? shapeThumb(x) : txt != null ? `<span class="th" style="color:${hex(x.color)}">${esc(txt.slice(0, 3))}</span>` : `<span class="th" style="background-image:url('${url || ''}')"></span>`;
+      const txt = x.bind ? boundText(c, x.bind) : x.text, bl = x.bind && boundLogo({ ...x, text: txt }), url = assets.get(bl || x.asset);
+      const th = bl ? `<span class="th" style="background-image:url('${url || ''}')"></span>` : x.path ? shapeThumb(x) : txt != null ? `<span class="th" style="color:${hex(x.color)}">${esc(txt.slice(0, 3))}</span>` : `<span class="th" style="background-image:url('${url || ''}')"></span>`;
       return `<div class="lv-item ${i === this.sel ? 'sel' : ''}" data-i="${i}">${th}<span class="nm">${esc(x.bind ? BOUND[x.bind] : x.name || x.text || (x.path ? (x.path.closed ? 'Shape' : 'Line') : 'Decal'))}<br><span class="pn">${esc(this.def.panels[x.panel]?.label || x.panel)}${x.mirror ? ' · BOTH SIDES' : ''}</span></span>
         <button data-act="up" title="Draw earlier">&#9650;</button><button data-act="dup" title="Duplicate">+</button><button data-act="del" title="Delete">&#10005;</button></div>`;
     }).join('');
     let props = '<p class="muted">Select a decal to edit it.</p>';
     if (d) {
       const p = this.def.panels[d.panel] || Object.values(this.def.panels)[0];
+      const lg = parseLogoAsset(d.asset), bl = d.bind === 'sponsor' && logoForName(boundText(c, 'sponsor'));
       props = `<h4>SELECTED</h4>
         ${d.path ? this.shapeProps(d) : ''}
-        ${d.text != null ? `${d.bind ? `<p class="muted">Reads ${esc(boundText(c, d.bind) || '(nothing yet)')}: it follows the ${d.bind === 'sponsor' ? 'title sponsor' : 'team name'}.</p>` : `<div class="fld"><label>Text</label>${this.text('lv-dt', d.text, 20)}</div>`}
+        ${lg ? `<div class="fld"><label>Version</label></div>${this.seg('lv-dlv', LOGO_SHORT, lg.v)}` : ''}
+        ${bl ? `<div class="fld"><label>Logo</label></div>${this.seg('lv-dlv', { ...LOGO_SHORT, name: 'Name' }, d.logo || 'color')}` : ''}
+        ${bl && d.logo !== 'name' ? `<p class="muted">Shows ${esc(SPONSOR_LOGOS[bl])}'s logo: it follows the title sponsor.</p>${this.check('lv-dbar', 'Background plate', d.bar != null)}` : ''}
+        ${d.text != null && !(bl && d.logo !== 'name') ? `${d.bind ? `<p class="muted">Reads ${esc(boundText(c, d.bind) || '(nothing yet)')}: it follows the ${d.bind === 'sponsor' ? 'title sponsor' : 'team name'}.</p>` : `<div class="fld"><label>Text</label>${this.text('lv-dt', d.text, 20)}</div>`}
           <div class="fld"><label>Font</label><select id="lv-df">${Object.entries(FONTS).map(([k, v]) => `<option value="${k}" ${d.font === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
           <div class="lv-row">${this.colour('Colour', 'lv-dc', d.color ?? 0xffffff)}${this.colour('Outline', 'lv-do', d.outline ?? 0x000000)}</div>
           ${this.check('lv-dno', 'Outline', d.outline != null)}${this.check('lv-dbar', 'Background bar', d.bar != null)}` : ''}
@@ -194,6 +200,7 @@ export class LiveryDesigner {
     return `<h4>DECALS</h4>
       <div class="seg"><button id="lv-addimg" class="hot">+ Image (PNG / SVG)</button><button id="lv-addtxt">+ Text</button></div>
       <div class="seg"><button id="lv-addsp">+ Sponsor name</button><button id="lv-addteam">+ Team name</button></div>
+      <div class="fld"><select id="lv-addlogo"><option value="">+ Sponsor logo&hellip;</option>${Object.entries(SPONSOR_LOGOS).sort((a, b) => a[1].localeCompare(b[1])).map(([k, n]) => `<option value="${k}">${esc(n)}</option>`).join('')}</select></div>
       <div class="seg"><button id="lv-addshape" class="hot">${this.vec.open ? 'Exit shapes' : '+ Shape (pen, rectangle, ellipse)'}</button></div>
       <p class="muted">${!this.vec.open ? 'Images are stored in your browser. SVGs stay sharp at any size. Shapes are drawn right on the car.' : this.vec.flat ? 'You\'re drawing on a flat view of the car. Pick the side in the bar at the top.' : 'Draw right on the car. Flat View (top bar) gives you a square-on view for exact lines.'}</p>
       <div class="lv-list" id="lv-list">${list || '<p class="muted">No decals yet.</p>'}</div>
@@ -204,6 +211,7 @@ export class LiveryDesigner {
     $('lv-addimg').addEventListener('click', () => { const f = $('lv-file'); f.dataset.for = 'decal'; f.value = ''; f.click(); });
     $('lv-addtxt').addEventListener('click', () => this.addDecal({ text: c.sponsor || 'SPONSOR', font: 'impact', color: 0xffffff, outline: 0x000000, size: 0.12, name: null }));
     $('lv-addsp').addEventListener('click', () => this.addBound('sponsor')); $('lv-addteam').addEventListener('click', () => this.addBound('team'));
+    $('lv-addlogo').addEventListener('change', (e) => { const k = e.target.value; if (k) this.addLogo(k); });
     $('lv-addshape').addEventListener('click', () => { sfx.select(); if (this.vec.open) return this.vec.close(); this.sel = -1; this.vec.start(this.garageSide(), 'pen'); });
     // (the shape editor's undo takes in changes made here too)
     for (const id of ['lv-list', 'lv-props']) $(id).addEventListener('pointerdown', () => { if (this.vec.open) this.vec.mark(); }, true);
@@ -220,7 +228,13 @@ export class LiveryDesigner {
   bindDecalProps() {
     const d = this.car.decals[this.sel]; if (!d) return;
     if (d.path) this.bindShapeProps(d);
-    if (d.text != null) {
+    const lg = parseLogoAsset(d.asset);
+    if (lg) this.bindSeg('lv-dlv', v => { d.asset = logoAsset(lg.slug, v); this.changed(true); });
+    if (d.bind === 'sponsor' && logoForName(boundText(this.car, 'sponsor'))) {
+      this.bindSeg('lv-dlv', v => { d.logo = v; this.changed(true); });
+      if (d.logo !== 'name') this.bindCheck('lv-dbar', v => { d.bar = v ? this.car.third : null; });
+    }
+    if (d.text != null && $('lv-df')) {
       if (!d.bind) this.bindText('lv-dt', v => { d.text = v; });
       $('lv-df').addEventListener('change', (e) => { d.font = e.target.value; this.repaint(); });
       this.bindColour('lv-dc', v => d.color = v); this.bindColour('lv-do', v => { d.outline = v; });
@@ -273,6 +287,11 @@ export class LiveryDesigner {
   addBound(bind) {
     const c = this.car;
     this.addDecal({ bind, text: '', font: 'impact', color: c.accent, outline: null, bar: c.third, size: bind === 'sponsor' ? 0.12 : 0.09, name: null });
+  }
+  // a sponsor's logo (js/sponsorlogos.js) as an image decal, its width set so it's about as tall as a name sticker
+  addLogo(slug) {
+    const id = logoAsset(slug), place = (im) => this.addDecal({ asset: id, name: SPONSOR_LOGOS[slug], size: +Math.min(0.9, 0.24 * im.naturalWidth / im.naturalHeight).toFixed(2) });
+    const im = decalImage(id, () => place(decalImage(id))); if (im) place(im);
   }
   removeDecal(i) { this.car.decals.splice(i, 1); this.sel = Math.min(this.sel, this.car.decals.length - 1); sfx.back(); this.changed(true); }
   async importFile(file, target) {

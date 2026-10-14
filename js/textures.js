@@ -1,5 +1,6 @@
 // Procedural low-res "PS2" textures painted on canvas
 import * as THREE from 'three';
+import { logoUrl } from './sponsorlogos.js';
 
 let seed = 1337;
 const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
@@ -57,13 +58,28 @@ function photo(n) {
   if (!im) { im = photos[n] = new Image(); im.src = textureUrl(n); }
   return im;
 }
-function photoTex(w, h, names, paint) {
-  const [c, g] = canvas(w, h), t = tex(c);
+function photoTex(w, h, names, paint, logos = [], repeat = true) {
+  const [c, g] = canvas(w, h), t = tex(c, repeat);
   const ready = (im) => im.complete && im.naturalWidth > 0;
-  const draw = () => { g.clearRect(0, 0, w, h); paint(g, (n) => (ready(photo(n)) ? photo(n) : null)); t.needsUpdate = true; };
+  const draw = () => { g.clearRect(0, 0, w, h); paint(g, (n) => (ready(photo(n)) ? photo(n) : null), (s) => (ready(logo(s)) ? logo(s) : null)); t.needsUpdate = true; };
   draw();
   for (const n of names) if (!ready(photo(n))) photo(n).addEventListener('load', draw);
+  for (const s of logos) if (!ready(logo(s))) logo(s).addEventListener('load', draw);
   return t;
+}
+// the sponsors' logos (js/sponsorlogos.js), full color
+const logos = {};
+function logo(slug) {
+  let im = logos[slug];
+  if (!im) { im = logos[slug] = new Image(); im.src = logoUrl(slug); }
+  return im;
+}
+// a logo fitted inside a box (cx, cy its centre, w x h), or false if it hasn't loaded
+function fitLogo(g, im, cx, cy, w, h) {
+  if (!im) return false;
+  const k = Math.min(w / im.naturalWidth, h / im.naturalHeight), lw = im.naturalWidth * k, lh = im.naturalHeight * k;
+  g.drawImage(im, cx - lw / 2, cy - lh / 2, lw, lh);
+  return true;
 }
 // cover the canvas with a photo at its own size (or its usual colour until it's loaded), then lighten it toward
 // (screen) a grey: 0 leaves it, 255 is white
@@ -141,17 +157,20 @@ export function getTextures() {
     if (im) { g.globalCompositeOperation = 'luminosity'; g.globalAlpha = 0.25; g.drawImage(im, 0, 0); g.globalCompositeOperation = 'overlay'; g.globalAlpha = 0.6; g.drawImage(im, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; }
     g.fillStyle = '#444'; g.fillRect(30, 0, 4, 32);
   });
-  // concrete wall with ad banners: concrete_03
-  cache.wall = photoTex(256, 32, ['concrete_03'], (g, P) => {
+  // concrete wall with ad banners: concrete_03, the sponsors' logos on black boards (painted at 4x: the logos need the
+  // pixels; the concrete is drawn 4x up so it keeps its size on the wall)
+  const ADS = [['volta-cola', 'VOLTA COLA', '#c01818', '#fff'], ['kobra', 'KOBRA OIL', '#111', '#f2c21b'], ['rapid', 'RAPID TIRES', '#1a4fb0', '#fff'], ['neon-fm', 'NEON 98.1 FM', '#6a1ab0', '#ffe0ff']];
+  cache.wall = photoTex(1024, 128, ['concrete_03'], (g, P, LG) => {
+    g.save(); g.scale(4, 4);
     tilePhoto(g, P('concrete_03'), 256, 32, '#b5b0a6');
-    const ads = [['VOLTA COLA', '#c01818', '#fff'], ['KOBRA OIL', '#111', '#f2c21b'], ['RAPID TYRES', '#1a4fb0', '#fff'], ['NEON 98.1 FM', '#6a1ab0', '#ffe0ff']];
-    ads.forEach((a, i) => {
-      g.fillStyle = a[1]; g.fillRect(i * 64 + 2, 6, 60, 18);
-      g.fillStyle = a[2]; g.font = 'bold 10px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText(a[0], i * 64 + 32, 15.5);
-    });
     g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(0, 28, 256, 4);
-  });
+    g.restore();
+    ADS.forEach(([slug, name, bg, fg], i) => {
+      const x = i * 256 + 8, im = LG(slug);
+      g.fillStyle = im ? '#0c0b10' : bg; g.fillRect(x, 24, 240, 72);
+      if (!fitLogo(g, im, x + 120, 60, 220, 62)) { g.fillStyle = fg; g.font = 'bold 40px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(name, x + 120, 62); }
+    });
+  }, ADS.map(a => a[0]));
   burn(128 * 16);
   // building windows (tiles vertically per floor)
   const makeWindows = (base, lit) => {
@@ -185,24 +204,31 @@ export function getTextures() {
     }
     cache.crowd = tex(c);
   }
-  // billboards
+  // billboards: a sponsor's logo on black, a stripe of its color along the bottom (its name in letters until the logo
+  // has loaded). [0] also hangs on the start gantry and [3] is the long sign, so those two stay put
   cache.billboards = [
-    ['VOLTA', 'COLA', '#c01818', '#ffffff', '#ffd23a'],
-    ['KOBRA', 'MOTOR OIL', '#101010', '#f2c21b', '#e33'],
-    ['BURGER', 'DUCK', '#f4c01a', '#b31313', '#3a2a10'],
-    ['RAPID', 'TYRES', '#1a4fb0', '#ffffff', '#9fd0ff'],
-    ['NEON', '98.1 FM', '#26104a', '#ff5ce1', '#6ff'],
-    ['SUNSET', 'MOTEL', '#f07a2a', '#fff4d0', '#6a1a0a'],
-  ].map(([a, b, bg, fg, acc]) => {
-    const [c, g] = canvas(128, 64);
-    g.fillStyle = bg; g.fillRect(0, 0, 128, 64);
-    g.fillStyle = acc; g.fillRect(0, 50, 128, 6);
-    g.fillStyle = fg; g.textAlign = 'center';
-    g.font = 'bold 30px Impact, Arial Black, sans-serif'; g.fillText(a, 64, 32);
-    g.font = 'bold 12px Arial'; g.fillText(b, 64, 47);
-    g.strokeStyle = '#fff'; g.lineWidth = 2; g.strokeRect(2, 2, 124, 60);
-    return tex(c, false);
-  });
+    ['volta-cola', 'VOLTA', 'COLA', '#c01818', '#ffffff'],
+    ['kobra', 'KOBRA', 'MOTOR OIL', '#2a9a3a', '#f2c21b'],
+    ['burger-duck', 'BURGER', 'DUCK', '#f2a21a', '#b31313'],
+    ['rapid', 'RAPID', 'TIRES', '#1a8ae0', '#ffffff'],
+    ['neon-fm', 'NEON', '98.1 FM', '#e02a9a', '#ff5ce1'],
+    ['sunset', 'SUNSET', 'SUNGLASSES', '#f06a2a', '#fff4d0'],
+    ['hotline-pizza', 'HOTLINE', 'PIZZA', '#c8141c', '#ffffff'],
+    ['apex-energy', 'APEX', 'ENERGY', '#18c040', '#ffffff'],
+    ['velocita-state-lottery', 'VELOCITA', 'STATE LOTTERY', '#f2d22a', '#ffffff'],
+    ['gold-coast-airlines', 'GOLD COAST', 'AIRLINES', '#c8a020', '#ffffff'],
+    ['svgp', 'SVGP', 'GRAND PRIX', '#c8141c', '#ffffff'],
+    ['max-hardware', 'MAX', 'HARDWARE', '#e08a1a', '#ffffff'],
+  ].map(([slug, a, b, col, fg]) => photoTex(256, 128, [], (g, P, LG) => {
+    g.fillStyle = '#0c0b10'; g.fillRect(0, 0, 256, 128);
+    g.fillStyle = col; g.fillRect(0, 108, 256, 8);
+    if (!fitLogo(g, LG(slug), 128, 56, 228, 92)) {
+      g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+      g.font = 'bold 60px Impact, Arial Black, sans-serif'; g.fillText(a, 128, 64);
+      g.font = 'bold 24px Arial'; g.fillText(b, 128, 94);
+    }
+    g.strokeStyle = '#fff'; g.lineWidth = 4; g.strokeRect(4, 4, 248, 120);
+  }, [slug], false));
   // checkered start line
   {
     const [c, g] = canvas(64, 16);

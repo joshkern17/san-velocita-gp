@@ -12,6 +12,7 @@
 //                    W, H,                      // physical size in metres (keeps decals in proportion)
 //                    role, nose, pair, label }  // pattern hints, which edge points to the nose, mirror panel
 import { backupAsset } from './backup.js'; // (your images are kept in saves/ too)
+import { SPONSOR_LOGOS, LOGO_VERSIONS, logoUrl, logoAsset, logoForName } from './sponsorlogos.js';
 
 // ---------------- image assets (imported PNG / SVG) ----------------
 // Stored in IndexedDB (they can be big); kept in memory once loaded. Liveries reference them by id.
@@ -40,7 +41,11 @@ export const assets = {
   async save(id, url) { mem.set(id, url); await idbPut(id, url); flush(id); },
   async load(ids) { for (const id of ids) if (id && !mem.has(id)) { const v = await idbGet(id); if (v) { mem.set(id, v); flush(id); } } },
   pick(ids) { const o = {}; for (const id of ids) if (mem.has(id)) o[id] = mem.get(id); return o; },
+  // one that ships with the game (a file, never saved): it wins over anything stored under the same id
+  builtin(id, url) { mem.set(id, url); imgs.delete(id); flush(id); },
 };
+// the sponsors' logos, every version (js/sponsorlogos.js)
+for (const slug of Object.keys(SPONSOR_LOGOS)) for (const v of Object.keys(LOGO_VERSIONS)) assets.builtin(logoAsset(slug, v), logoUrl(slug, v));
 function flush(id) {
   const cbs = waiting.get(id); if (!cbs) return;
   waiting.delete(id);
@@ -108,6 +113,7 @@ export function fillLivery(cfg) {
   const c = { ...cfg };
   c.teamName ??= 'Your Team';
   c.showNumber ??= true; c.showSponsor ??= true; c.decals ??= [];
+  c.sponsorLogo ??= 'color'; // (the sponsor sticker: its logo in this version when the sponsor has one, 'name': just the name)
   c.helmetDesign = { base: c.helmet ?? c.accent, accent: c.main, third: c.third ?? 0x121214, pattern: 'stripe', visor: 'dark', strip: 'team', number: true, decal: null, ...(c.helmetDesign || {}) };
   c.suit = { base: c.main, accent: c.accent, pattern: 'sides', chest: 'team', number: 'back', gloves: c.third ?? 0x121214, boots: c.third ?? 0x121214, decals: [], ...(c.suit || {}) };
   c.crew = { style: 'suit', base: c.suit.base, accent: c.suit.accent, ...(c.crew || {}) };
@@ -162,12 +168,41 @@ function textFit(g, text, font, maxW, h) {
   return h;
 }
 
+// A sponsor's logo in place of its name sticker: about twice the name's letter height h, no wider than maxW, on a
+// plate of the bar colour when the sticker has one
+const STICKER_PAD = 0.3;
+function logoBox(im, h, maxW) {
+  let lh = h * 1.9, lw = lh * im.naturalWidth / im.naturalHeight;
+  if (lw > maxW) { lh *= maxW / lw; lw = maxW; }
+  return [lw, lh];
+}
+function drawLogo(g, im, x, y, h, maxW, bar) {
+  const [lw, lh] = logoBox(im, h, maxW);
+  if (bar) { const pd = h * STICKER_PAD; g.fillStyle = bar; g.fillRect(x - lw / 2 - pd, y - lh / 2 - pd, lw + 2 * pd, lh + 2 * pd); }
+  g.drawImage(im, x - lw / 2, y - lh / 2, lw, lh);
+}
+// the logo the built-in sponsor sticker shows, or null: the sponsor's name in letters
+function stickerLogo(L) {
+  const slug = L.showSponsor && L.stickers !== 'decals' && L.sponsorLogo !== 'name' && logoForName(String(L.sponsor || '').slice(0, 14));
+  return slug ? logoAsset(slug, L.sponsorLogo || 'color') : null;
+}
+// the logo asset a title sponsor sticker shows (its text filled in), or null: its own name in letters
+export function boundLogo(d) {
+  if (d.bind !== 'sponsor' || d.logo === 'name') return null;
+  const slug = logoForName(d.text);
+  return slug ? logoAsset(slug, d.logo || 'color') : null;
+}
+
 export function drawDecal(g, d, x, y, onReady) {
   g.save();
   g.translate(x, y); g.rotate(((d.rot || 0) * Math.PI) / 180); if (d.flip) g.scale(-1, 1);
   g.globalAlpha = d.opacity ?? 1;
   const w = d.size || 0.4;
-  if (d.text != null) {
+  const lid = d.text != null && boundLogo(d);
+  if (lid) { // (the title sponsor's sticker, as its logo)
+    const im = decalImage(lid, onReady);
+    if (im) drawLogo(g, im, 0, 0, w, w * 9, d.bar != null ? hex(d.bar) : null);
+  } else if (d.text != null) {
     const h = w; // text decals: size = letter height
     g.font = `${FONT_W[d.font] || ''}${h}px ${FONT_CSS[d.font] || FONT_CSS.impact}`;
     g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -260,9 +295,13 @@ export function panelArt(g, name, p, cfg, model, onReady, decals = true) {
   }
   // race number + sponsor (optional, part of the base livery)
   const num = String(L.number ?? 7), sp = String(L.sponsor || '').toUpperCase().slice(0, 14);
+  const spId = stickerLogo(L);
   const label = (a, c, text, h, maxW, fill, bar) => {
     if (!text) return;
     const [x, y] = P(a, c);
+    // (the sponsor's logo, when it has one)
+    // (on its plate in full color; a one-color version goes straight on the paint)
+    if (text === sp && spId) { const im = decalImage(spId, onReady); if (im) drawLogo(g, im, x, y, h, maxW, bar && (L.sponsorLogo || 'color') === 'color' ? third : null); return; }
     g.textAlign = 'center'; g.textBaseline = 'middle';
     const hh = textFit(g, text, 'impact', maxW, h);
     const tw = Math.min(maxW, g.measureText(text).width);
@@ -303,7 +342,12 @@ export function decalLayers(cfg, model, ppm, onReady) {
   const L = cfg.decals && cfg.helmetDesign ? cfg : fillLivery(cfg), out = [], g0 = document.createElement('canvas').getContext('2d');
   const add = (d, panel, x, y) => {
     const w = d.size || 0.4; let hw = w / 2, hh = w / 2;
-    if (d.text != null) { // (measured at 100x: canvas fonts this small in px don't measure reliably)
+    const lid = d.text != null && boundLogo(d);
+    if (lid) {
+      const im = decalImage(lid, onReady); if (!im) return;
+      const [lw, lh] = logoBox(im, w, w * 9), pd = d.bar != null ? w * STICKER_PAD : 0;
+      hw = lw / 2 + pd; hh = lh / 2 + pd;
+    } else if (d.text != null) { // (measured at 100x: canvas fonts this small in px don't measure reliably)
       g0.font = `${FONT_W[d.font] || ''}${w * 100}px ${FONT_CSS[d.font] || FONT_CSS.impact}`;
       hw = g0.measureText(d.text).width / 200 + w * (d.bar != null ? 0.4 : 0.1); hh = w * 0.7;
     } else if (d.path) {
@@ -710,7 +754,7 @@ export function stickerDecals(cfg, model) {
     const p = model.panels[name], text = boundText(L, bind); if (!p || !text) return;
     const [x, y] = alongCross(p)(a, c), size = textFit(g, text, 'impact', maxW, h);
     out.push({ id: 'd' + Math.random().toString(36).slice(2, 8), bind, panel: name, x: +x.toFixed(3), y: +y.toFixed(3), size: +size.toFixed(3), rot: 0, opacity: 1,
-      mirror: !!(p.pair && model.panels[p.pair]), flip: false, text: '', font: 'impact', color, outline: bar ? null : L.third, ...(bar ? { bar: L.third } : {}), name: null });
+      mirror: !!(p.pair && model.panels[p.pair]), flip: false, text: '', font: 'impact', color, outline: bar ? null : L.third, ...(bar && !(bind === 'sponsor' && /^(main|black|white)$/.test(L.sponsorLogo)) ? { bar: L.third } : {}), ...(bind === 'sponsor' ? { logo: L.sponsorLogo } : {}), name: null });
   };
   const pick = (n) => model.panels[n + 'L'] ? n + 'L' : model.panels[n + 'R'] ? n + 'R' : null; // (the left of a pair, else the right)
   const pod = pick('pod'), side = pick('side'), plate = pick('plate'), cover = pick('cover'), rw = model.panels.rwing;
@@ -727,7 +771,9 @@ export function stickerDecals(cfg, model) {
 // get each panel drawn on its own canvas and then mapped onto the surface by model.paintProjected().
 export function paintCar(canvas, cfg, model, onReady) {
   const L = fillLivery(cfg), W = canvas.width, H = canvas.height, g = canvas.getContext('2d');
-  if (model.paintProjected) return model.paintProjected(canvas, L, (pg, name, p) => { pg.fillStyle = hex(L.main); pg.fillRect(0, 0, p.W, p.H); panelArt(pg, name, p, L, model, onReady, !model.projectDecals); },
+  // (models that keep their base paint between repaints know it by the livery: the sticker's logo arriving changes it)
+  const sl = model.paintProjected && stickerLogo(L);
+  if (model.paintProjected) return model.paintProjected(canvas, sl ? { ...L, logoIn: !!decalImage(sl) } : L, (pg, name, p) => { pg.fillStyle = hex(L.main); pg.fillRect(0, 0, p.W, p.H); panelArt(pg, name, p, L, model, onReady, !model.projectDecals); },
     model.projectDecals ? (ppm) => decalLayers(L, model, ppm, onReady) : null);
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.fillStyle = hex(L.main); g.fillRect(0, 0, W, H);
@@ -812,7 +858,13 @@ export function paintSuit(torso, legs, arms, cfg, onReady, opts = {}) {
       if (opts.belt !== false) { g.fillStyle = third; g.fillRect(0, H * 0.88, W, H * 0.06); }
       const txt = S.chest === 'sponsor' ? String(L.sponsor || '') : S.chest === 'team' ? String(L.teamName || '') : '';
       // chest text straddles u = 0 (the front), so draw it at both edges of the canvas
-      if (txt) { g.fillStyle = fillOn; textFit(g, txt.toUpperCase(), 'impact', W * 0.3, H * 0.1); g.fillText(txt.toUpperCase(), 0, H * 0.42); g.fillText(txt.toUpperCase(), W, H * 0.42); }
+      // (a sponsor with a logo: the logo, white or black against the suit)
+      const slug = S.chest === 'sponsor' && L.sponsorLogo !== 'name' && logoForName(txt);
+      if (slug) {
+        const b = S.pattern === 'twotone' ? S.accent : S.base, light = ((b >> 16 & 255) * 0.3 + (b >> 8 & 255) * 0.59 + (b & 255) * 0.11) > 150;
+        const im = decalImage(logoAsset(slug, light ? 'black' : 'white'), onReady);
+        if (im) { let lh = H * 0.13, lw = lh * im.naturalWidth / im.naturalHeight; if (lw > W * 0.3) { lh *= W * 0.3 / lw; lw = W * 0.3; } for (const x of [0, W]) g.drawImage(im, x - lw / 2, H * 0.42 - lh / 2, lw, lh); }
+      } else if (txt) { g.fillStyle = fillOn; textFit(g, txt.toUpperCase(), 'impact', W * 0.3, H * 0.1); g.fillText(txt.toUpperCase(), 0, H * 0.42); g.fillText(txt.toUpperCase(), W, H * 0.42); }
       g.fillStyle = fillOn;
       if (S.number === 'back') { g.font = `bold ${H * 0.2}px Impact, Arial Black, sans-serif`; g.fillText(num, W * 0.5, H * 0.4); }
       else if (S.number === 'chest') { g.font = `bold ${H * 0.09}px Impact, Arial Black, sans-serif`; g.fillText(num, W * 0.075, H * 0.26); } // his left breast

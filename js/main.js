@@ -60,6 +60,7 @@ import { CARS, CLASSES, CAR_CREDITS, carId, carOf, chassisKey, carsInClass } fro
 import { Tuning } from './tuning.js';
 import { activeName, activeSetup, stanceOf } from './setup.js';
 import { assets, liveryAssetIds, importImageFile, fillLivery } from './livery.js';
+import { LOGO_VERSIONS, logoAsset, logoForName, parseLogoAsset } from './sponsorlogos.js';
 import { savedLiveries, saveLivery, deleteLivery, liveryDate } from './liveries.js';
 import { loadEnvCatalog, loadEnvModels, envCatalog } from './envlib.js';
 import { setWorldOptions } from './world.js';
@@ -512,6 +513,8 @@ menus['s-garage'] = [new Menu($('m-garage'), [
   part('Pattern', 'pattern', false, 'The paint pattern your three colours are laid out in.'), paintOpt('Main', 'main', 'The main body colour.'), paintOpt('Accent', 'accent', 'The second colour of the pattern.'), paintOpt('Detail', 'third', 'Stripes, pinstripes and small details.'),
   { label: 'Number', values: Array.from({ length: 99 }, (_, i) => [i + 1, String(i + 1)]), get: () => settings.car.number, set: v => { settings.car.number = v; garage.repaint(settings.car); }, desc: 'Your race number.' },
   { label: 'Sponsor', values: SPONSORS.map(s => [s, s]), get: () => settings.car.sponsor, set: v => { settings.car.sponsor = v; garage.repaint(settings.car); }, desc: 'The title sponsor sticker. Move it or take it off in the Livery Designer (Decals).' },
+  { label: 'Sponsor Logo', values: [...Object.entries(LOGO_VERSIONS), ['name', 'Name only']], get: () => settings.car.sponsorLogo || 'color', set: v => { settings.car.sponsorLogo = v; for (const x of settings.car.decals || []) if (x.bind === 'sponsor') x.logo = v; garage.repaint(settings.car); },
+    desc: 'How the title sponsor sticker looks: its logo in full color, in its brand color, black or white, or just its name in letters.' },
 ], { desc: 'd-garage' })];
 menus['s-garage'][0].i = 1;
 // ---- saved liveries (liveries.js) in the garage: the list in place of the menu, each one on the car as you move to it;
@@ -2627,10 +2630,16 @@ function worldCar() {
   if (t) { let n = ''; for (const wd of WC.sponsorName(t.sid).toUpperCase().replace(/'S\b/, 'S').split(' ')) { if ((n + ' ' + wd).trim().length > 14) break; n = (n + ' ' + wd).trim(); } c.sponsor = n || WC.sponsorName(t.sid).toUpperCase().slice(0, 14); } // (whole words that fit)
   return c;
 }
-// ---- sponsors' logos: one each (a plain one made up from their name and colour, or one you upload), on the car ----
+// ---- sponsors' logos: one each (its own, js/sponsorlogos.js; a plain one made up from its name and colour if it has
+// none; or one you upload), on the car ----
 const canDecal = () => { const C = CARS[carId(worldCar())]; return !!C && (C.cls === 'f1' || !!C.livery); };
+const sponsorSlug = (sid) => logoForName(WC.sponsorName(sid));
+// (cars from before the logos carry the made-up one, 'spl' + sid: it shows the real logo now)
+for (let i = 0; WC.sponsorInfo('sp' + i); i++) { const slug = sponsorSlug('sp' + i); if (slug) assets.builtin('splsp' + i, assets.get(logoAsset(slug))); }
 function logoOf(d) {
   if (d.logo && assets.has(d.logo)) return d.logo;
+  const slug = sponsorSlug(d.sid);
+  if (slug) return logoAsset(slug);
   const id = 'spl' + d.sid;
   if (!assets.has(id)) {
     const sp = WC.sponsorInfo(d.sid), c = document.createElement('canvas'); c.width = 512; c.height = 160;
@@ -2648,10 +2657,13 @@ function logoOf(d) {
 function updateLogoShown() {
   if (!world) return;
   if (!world.car || !canDecal()) { world.logoShown = null; return; }
+  // (the made-up logo on a car from before: the real one in its place, so its versions can be picked)
+  for (const x of world.livery?.decals || []) { const m = /^spl(sp\d+)$/.exec(x.asset || ''), slug = m && sponsorSlug(m[1]); if (slug) x.asset = logoAsset(slug); }
   const c = worldCar(), on = new Set((c.decals || []).map(x => x.asset).filter(Boolean));
+  const shows = (d) => on.has(d.logo) || on.has('spl' + d.sid) || [...on].some(a => parseLogoAsset(a)?.slug === sponsorSlug(d.sid));
   // (a livery the designer hasn't turned into decals yet still has the built-in sticker, unless it was switched off)
   const nameOn = c.stickers === 'decals' ? (c.decals || []).some(x => x.bind === 'sponsor') : c.showSponsor !== false;
-  world.logoShown = WC.dealsOf(world).filter(d => d.slot === 'title' ? nameOn : on.has(d.logo) || on.has('spl' + d.sid)).map(d => d.sid);
+  world.logoShown = WC.dealsOf(world).filter(d => d.slot === 'title' ? nameOn : shows(d)).map(d => d.sid);
 }
 // the livery designer, opened with a sponsor's logo ready to place
 let pendingDecal = null;

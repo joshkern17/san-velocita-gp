@@ -23,7 +23,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { applyPSXMaterial } from '../vendor/psx/src/PSXMaterial.js';
-import { fillLivery, paintHelmet, paintSuit, paintBoots, decalRaster, VISOR_COL } from './livery.js';
+import { fillLivery, paintHelmet, paintSuit, paintBoots, decalRaster, VISOR_COL, decalImage } from './livery.js';
+import { logoAsset, logoForName } from './sponsorlogos.js';
 
 export const LOOKS = [
   'coveralls_gray', 'coveralls_tan', 'coveralls_navy', 'coveralls_black', // mechanics / pit crew
@@ -646,11 +647,17 @@ function paintKit(kit, cfg, onReady) {
     if (mode === 'sponsor' && L.sponsor && sb.x1 > sb.x0) {
       const h = (sb.y1 - sb.y0 + 1) * 0.86, txt = String(L.sponsor).toUpperCase();
       g.save(); g.beginPath(); g.rect(sb.x0, sb.y0, sb.x1 - sb.x0 + 1, sb.y1 - sb.y0 + 1); g.clip();
-      g.font = `bold ${h}px Impact, "Arial Black", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-      const w = g.measureText(txt).width, maxW = (sb.x1 - sb.x0) * 0.62;
-      if (w > maxW) g.font = `bold ${h * maxW / w}px Impact, "Arial Black", sans-serif`;
-      g.fillStyle = isLight(sCol) ? '#121214' : '#ffffff';
-      g.fillText(txt, (sb.x0 + sb.x1) / 2, (sb.y0 + sb.y1) / 2 + h * 0.05);
+      // (the sponsor's logo when it has one: one color, black or white against the strip)
+      const slug = L.sponsorLogo !== 'name' && logoForName(txt), im = slug && decalImage(logoAsset(slug, isLight(sCol) ? 'black' : 'white'), onReady);
+      if (slug) {
+        if (im) { const lh = Math.min(h * 1.1, (sb.x1 - sb.x0) * 0.62 * im.naturalHeight / im.naturalWidth), lw = lh * im.naturalWidth / im.naturalHeight; g.drawImage(im, (sb.x0 + sb.x1 - lw) / 2, (sb.y0 + sb.y1 - lh) / 2, lw, lh); }
+      } else {
+        g.font = `bold ${h}px Impact, "Arial Black", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+        const w = g.measureText(txt).width, maxW = (sb.x1 - sb.x0) * 0.62;
+        if (w > maxW) g.font = `bold ${h * maxW / w}px Impact, "Arial Black", sans-serif`;
+        g.fillStyle = isLight(sCol) ? '#121214' : '#ffffff';
+        g.fillText(txt, (sb.x0 + sb.x1) / 2, (sb.y0 + sb.y1) / 2 + h * 0.05);
+      }
       g.restore();
     }
     mat.map.needsUpdate = true;
