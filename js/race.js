@@ -8,7 +8,7 @@ import { Spray } from './weatherfx.js';
 import { driverHelmet, teamSuit } from './drivers.js';
 import { CarPhysics, CARSPEC, TEAMS, TYRES, wearGrip, tyreGrip, tyreGripAt, wearMul, LOCK_K, PHYS_VERSION, WAKE } from './car.js';
 import { buildF1, teamCar, setStance, setBend } from './carmodel.js';
-import { CARS, carId, carsInClass, chassisKey } from './cars.js';
+import { CARS, CLASSES, carId, carsInClass, chassisKey } from './cars.js';
 import { EngineVoice, sfx } from './audio.js';
 import { DriftScore } from './drift.js';
 import { bodyBox, corners, boxContact, impulse, knock, rock, toLocal, partAt } from './contact.js';
@@ -295,7 +295,7 @@ export class Race {
     let ais = [];
     if (this.net) ais = this.net.grid.map(g => g.k === 'h' ? { id: carId(g.car), human: true } : { id: this.aiCarId(g.team), t: g.team });
     else {
-      const nField = Math.min(11, opts.opponents ?? 7);
+      const nField = Math.min(opts.roster ? Math.max(11, opts.roster.length) : 11, opts.opponents ?? 7); // (a multiclass championship round: its whole roster, two classes)
       const n = this.mode === 'test' ? 0 : this.mode === 'attract' ? 8 : nField; // (practice / qualifying: the field's laps are simulated)
       ais = this.fieldTeams().slice(0, n).map(t => ({ id: this.aiCarId(t), t }));
     }
@@ -421,7 +421,7 @@ export class Race {
       });
     } else {
     // (qualifying: a clear track, the AI field's times are simulated: see qualiStart)
-    const nField = Math.min(11, opts.opponents ?? 7);
+    const nField = Math.min(opts.roster ? Math.max(11, opts.roster.length) : 11, opts.opponents ?? 7); // (a multiclass championship round: its whole roster, two classes)
     const nAI = this.mode === 'test' || this.mode === 'quali' || this.mode === 'practice' ? 0 : this.mode === 'attract' ? 8 : nField;
     const garage = opts.team === 'garage' || opts.team === undefined;
     const playerTeam = garage ? -1 : +opts.team;
@@ -462,6 +462,7 @@ export class Race {
     });
     }
     this.player = this.cars.find(c => c.isPlayer) || null;
+    this.setupClasses();
     // an endurance race's co-driver (opts.codriver { name, paceK, aggr, craft, mistakes }): shares your car (this.crew)
     if (this.timed && opts.codriver && this.player) this.crew = this.makeCrew(opts.codriver, opts.minShare);
     // drift points (race setup option): a scorer for your car (one per car later, for drift battles)
@@ -871,6 +872,8 @@ export class Race {
     const main = this.opts.aiClassCar || this.mainCarId(), cls = (CARS[main] || CARS.f1).cls;
     const ent = this.opts.entries?.[teamIdx];
     if (ent && ent.chassis && ai === 'class') return ent.chassis; // (World Career: a team's two cars are the same model)
+    // (a multiclass race: opts.mixCls { cls, teams }: those teams race the other class; no list: every other team)
+    const mx = this.opts.mixCls; if (mx && mx.cls !== cls && (mx.teams ? mx.teams.includes(teamIdx) : teamIdx % 2 === 1)) { const list = carsInClass(mx.cls); if (list.length) return mx.cls === 'f1' ? 'custom' : chassisKey(list[teamIdx % list.length]); }
     if (ai === 'mixed') return teamIdx % 2 ? 'custom' : 'svgp';
     if (ai === 'same') return main === 'svgp' ? 'svgp' : cls === 'f1' ? 'custom' : chassisKey(main); // (a spec race: everyone in your model)
     if (ai === 'custom' || ai === 'svgp') return ai;
@@ -994,7 +997,7 @@ export class Race {
     // (online the host's lobby car decides the AI field, so only your car changes)
     const all = !this.net && (this.opts.aiChassis || 'class') === 'class' && CARS[id].cls !== before;
     for (const old of all ? [...this.cars] : [this.player]) this.rebuildCar(old, old.isPlayer && old.extra.cfg ? { ...old.extra, cfg: { ...cfg } } : old.extra);
-    this.player = this.cars.find(c => c.isPlayer); this.focus = this.player;
+    this.player = this.cars.find(c => c.isPlayer); this.focus = this.player; this.setupClasses();
     if (this.lineMesh) { this.disposeRacingLine(); this.buildRacingLine(); }
     if (this.prog) { const id = this.prog.id; this.setProgramme(null); this.setProgramme(id); } // (the gates at the new car's speeds)
     if (this.markers) { this.markers.key = null; this.markers.set(this.tdata.acclim?.marks); }
@@ -1223,6 +1226,7 @@ export class Race {
     const out = {};
     for (const id of types) {
       if (id === M) continue;
+      if ((CARS[id] || CARS.f1).cls !== (CARS[M] || CARS.f1).cls) continue; // (multiclass: another class keeps the level's edge, its own pace)
       if (memo[id]) { out[id] = memo[id]; continue; }
       tM ??= lap(M, D.grip, D.power);
       let grip = D.grip, power = D.power, t = lap(id, grip, power);
@@ -1525,13 +1529,35 @@ export class Race {
     if (car.isPlayer && this.prog) this.programmeLap();
     if (car.isPlayer && this.quali && this.quali.flag) this.qualiEnd();
     if (this.timed && !this.timed.flag && this.order && this.order[0] === car) this.timedLeaderLap(car);
-    if ((car.lap > this.laps || (this.timed && this.timed.flag)) && !car.finished) {
+    if ((car.lap > this.laps || (this.timed && this.timed.flag) || (this.multi && this.finishOrder.length > 0)) && !car.finished) {
       car.finished = true; car.finishTime = this.raceTime;
       // (an endurance race: a driver short of the minimum drive time is out of the results)
       if (car.isPlayer && this.crew) { const c = this.crew, m = c.min * this.timed.dur * 0.97; if (c.t.P < m || c.t.C < m) { car.dsq = true; this.events.push({ type: 'radio', vo: null, msg: `We're disqualified: ${c.t.P < m ? 'you' : c.name} didn't drive the minimum time.`, big: true }); } }
       this.addFinish(car);
       if (car.isPlayer) { this.events.push({ type: 'finish', pos: this.finishOrder.length, pen: car.pen || 0 }); this.state = 'finished'; this.stateT = 0; }
     }
+  }
+
+  // ---------- multiclass: more than one class in the race ----------
+  // Each car's class (car.cls); with two or more (this.multi), their order by pace here (this.clsRank: 0 the
+  // quickest, from each class's quickest learned lap). Positions are kept per class as well (classPos), a slower car
+  // with a quicker class right behind gets the blue flag (racecontrol.js), and when the overall leader takes the flag
+  // the race is over for everyone at their next time over the line (results by laps, then time).
+  setupClasses() {
+    const T = this.T, lap = {};
+    for (const c of this.cars) {
+      c.cls = (CARS[c.carId] || CARS.f1).cls;
+      const t = (c.lineV || this.lineV).reduce((a, v) => a + T.ds / Math.max(1, v), 0);
+      lap[c.cls] = Math.min(lap[c.cls] ?? Infinity, t);
+    }
+    const ks = Object.keys(lap).sort((a, b) => lap[a] - lap[b]);
+    this.multi = ks.length > 1;
+    this.clsRank = Object.fromEntries(ks.map((k, i) => [k, i]));
+  }
+  // a car's place in its class, and how many in it (live, from the running order)
+  classPos(car) {
+    let p = 0, n = 0; for (const c of this.order || this.cars) { if (c.cls !== car.cls || c.gone) continue; n++; if (c === car) p = n; }
+    return { pos: p, n };
   }
 
   // how many steps a frame the race runs (main.js): your co-driver's stint watched faster
@@ -3007,7 +3033,10 @@ export class Race {
       // it under a yellow, both sat there nudging each other)
       const edgeWait = this.opts.mirror !== false && Math.abs(o.s) > T.W[o.idx] / 2 - 1.5 && o.phys.speed < 45 && o.phys.speed < u + 2;
       const wk = !!o.wreck || crawl;
-      if (gap < -30 || gap > (o.wreck ? 160 : crawl ? Math.max(45, (u * u - o.phys.speed ** 2) / 24 + 25) : 45)) continue;
+      // (a much slower car ahead - a slower class's car in a multiclass race, one being lapped - is seen from as far as it
+      // takes to slow to its speed: at 220 km/h onto a GT2 car at 145, 45 m was too late and they were rear-ended)
+      const slowAhead = !wk && (o.blue === car || (this.multi && o.cls !== car.cls)) && o.phys.speed < u - 5 && this.opts.mcAI !== false; // (another class's car, or one being lapped; opts.mcAI false: as before, for benches)
+      if (gap < -30 || gap > (o.wreck ? 160 : crawl || slowAhead ? Math.max(45, (u * u - o.phys.speed ** 2) / 24 + 25) : 45)) continue;
       // (the lengths below were set for 4.6 m of car between the two centres, nose to gearbox: as the bodies are now)
       const bA = bodyBox(car.phys.p), bO = bodyBox(o.phys.p), len = (gap >= 0 ? bA.f + bO.r : bO.f + bA.r) - 4.6, near = 5.5 + len;
       // under yellow (a VSC, the safety car): no passing in any lane: the car just ahead sets the pace (not one that's
@@ -3028,7 +3057,9 @@ export class Race {
         if (o !== yo) continue; // (one we're dropping back behind: follow it, below)
       }
       // a car close behind and quicker: defend
-      if (gap < -near && gap > -25 && o.phys.u > u - 2.5) { if (!threat || gap > threat.gap) threat = { o, gap }; continue; }
+      // (not a quicker class's car, nor one we're shown the blue for: it isn't racing us, let it by)
+      const notRival = this.opts.mcAI !== false && (car.blue === o || (this.multi && this.clsRank[o.cls] < this.clsRank[car.cls]));
+      if (gap < -near && gap > -25 && o.phys.u > u - 2.5 && !notRival) { if (!threat || gap > threat.gap) threat = { o, gap }; continue; }
       if (gap <= 0) continue;
       // a car ahead in our lane: brake in time to not hit it, or go around it
       if (Math.abs(ds) < (wk ? 3.4 : 2.4) || o === yo) {
@@ -3039,9 +3070,10 @@ export class Race {
         const launch = ai.lane && this.raceTime < 6 && o.phys.u > u - 2 && (o.phys.speed > 4 || this.raceTime < 2);
         // (with the racecraft plan, a car racing us is its business; this is for the slow, stopped, crawling or pitting)
         const racingCar = passOn && !wk && !edgeWait && o.phys.speed > 10 && o.phys.u > u - 3 && !o.pitting && this.raceTime - (o.pitOutT ?? -99) >= 10 && !o.blue && !(o.giveBack && o.giveBack.car === car);
-        if (!launch && !racingCar && u > o.phys.u - 0.5 && gap < (wk ? 30 + u : 28) && (!yellow && !held || edgeWait || (o.rc && o.rc.hold > 0) || o.phys.speed < 10 || o.pitting || this.raceTime - (o.pitOutT ?? -99) < 10 || (o.giveBack && o.giveBack.car === car))) { // (a car pulling off for the pits, or just out and getting going, isn't a place: go round it, yellow or not)
+        if (!launch && !racingCar && u > o.phys.u - 0.5 && gap < (wk ? 30 + u : slowAhead ? 28 + (u - o.phys.u) * 2 : 28) && (!yellow && !held || edgeWait || (o.rc && o.rc.hold > 0) || o.phys.speed < 10 || o.pitting || this.raceTime - (o.pitOutT ?? -99) < 10 || (o.giveBack && o.giveBack.car === car))) { // (a car pulling off for the pits, or just out and getting going, isn't a place: go round it, yellow or not)
           const room = T.W[car.idx] / 2 - 2;
-          const dir = o.s > this.line[car.idx] ? -1 : 1;
+          // (one moving over for us - the blue flag - goes to the side away from us: we take the other)
+          const dir = o.blue === car && this.opts.mcAI !== false ? (o.s >= car.s ? -1 : 1) : o.s > this.line[car.idx] ? -1 : 1;
           const want = Math.max(-room, Math.min(room, o.s + dir * (wk ? 4.2 : 3.2))) - this.line[car.idx];
           ai.over += (want - ai.over) * Math.min(1, dt * 2.5);
         }
@@ -3180,7 +3212,7 @@ export class Race {
     if (yellow === 'sc' && !car.pitting) vt = Math.min(vt, Math.min(LV[car.idx], LV[la]) * 0.7);
     if (yellow === 'sc' && this.sc && !car.pitting) { const gap = this.sc.raw - car.raw;
       if (gap > 0 && gap < 500 && !this.cars.some(o => o !== car && !o.pitting && !o.gone && !o.wreck && o.raw > car.raw && o.raw < this.sc.raw)) slowTo = Math.min(slowTo, Math.sqrt(this.sc.v ** 2 + 2 * 9 * Math.max(0, gap - 16))); }
-    if (car.blue || (ai.yieldTo && ai.yieldTo.car.progress < car.progress && car.progress - ai.yieldTo.car.progress < 40)) vt *= 0.93; // being lapped (or letting your teammate by): lift and let them by
+    if (car.blue || (ai.yieldTo && ai.yieldTo.car.progress < car.progress && car.progress - ai.yieldTo.car.progress < 40)) vt *= car.blueCls ? 0.98 : 0.93; // being lapped (or letting your teammate by): lift and let them by (a quicker class coming through: a touch, and hold your line)
     // passed under yellow: lift and let them back past (off the racing line, so they can get by)
     if (car.giveBack) {
       const o = car.giveBack.car, gap = car.progress - o.progress;
@@ -4625,9 +4657,11 @@ export class Race {
     const p = pl.phys;
     const lapNow = pl.finished ? pl.last : pl.lap === 0 ? 0 : this.raceTime - pl.lapStart;
     const standings = this.order.map((c, k) => {
-      const ahead = this.order[k - 1];
+      // (multiclass: the gap to the car ahead in the same class, and the place in it)
+      const ahead = this.multi ? this.order.slice(0, k).reverse().find(o => o.cls === c.cls && !o.gone) : this.order[k - 1];
       const gap = ahead ? this.interval(c, ahead) : '';
-      return { pos: c.pos, name: c.name, color: c.team.main, isPlayer: c.isPlayer, mate: !!(c.ai && c.ai.trust != null), gap, tyre: c.phys.tyre.c, pit: !!c.pitting, pen: c.pen || 0, dt: !!c.dt, blue: !!c.blue };
+      return { pos: c.pos, name: c.name, color: c.team.main, isPlayer: c.isPlayer, mate: !!(c.ai && c.ai.trust != null), gap, tyre: c.phys.tyre.c, pit: !!c.pitting, pen: c.pen || 0, dt: !!c.dt, blue: !!c.blue,
+        ...(this.multi ? { cls: CLASSES[c.cls]?.short || c.cls, clsCol: CLASSES[c.cls]?.col || '#888', mine: c.cls === pl.cls, clsPos: this.classPos(c).pos } : {}) };
     });
     // the strategy panel: the set you're on, what a stop now would do (twice a second), your teammate (World Career)
     if (this.mode === 'race' && (!this.stratT || this.raceTime - this.stratT > 0.5 || this.raceTime < this.stratT)) {
@@ -4638,6 +4672,8 @@ export class Race {
     }
     return {
       pos: pl.pos, total: this.cars.length, lap: Math.max(1, Math.min(pl.lap, this.laps)), laps: this.laps,
+      // (multiclass: your place in your class, the class, and overall)
+      ...(this.multi ? (() => { const cp = this.classPos(pl); return { clsPos: cp.pos, clsN: cp.n, cls: CLASSES[pl.cls]?.short || pl.cls, clsCol: CLASSES[pl.cls]?.col }; })() : {}),
       lapTime: lapNow, best: pl.best, last: pl.last, raceTime: this.raceTime, timed: this.timedClock(), lapNo: pl.lap,
       crew: this.crew ? { cur: this.crew.cur, name: this.crew.name, t: { ...this.crew.t }, need: this.crewNeed(), ff: this.crew.ff, skipping: !!this.skipping } : null,
       speed: p.speed, gear: p.gear, rpm: p.rpm, standings, wrongWay: this.wrongWay,
@@ -4681,7 +4717,7 @@ export class Race {
     const prog = (c) => (c.raw ?? c.progress) - owed(c) * vRef;
     const list = [...this.cars].sort((a, b) => {
       if (a.gone !== b.gone) return a.gone ? 1 : -1;
-      if (a.finished && b.finished) return (this.timed ? b.lap - a.lap : 0) || time(a) - time(b); // (timed: laps first)
+      if (a.finished && b.finished) return (this.timed || this.multi ? b.lap - a.lap : 0) || time(a) - time(b); // (timed, multiclass: laps first)
       if (a.finished) return -1; if (b.finished) return 1;
       return prog(b) - prog(a);
     });
@@ -4692,12 +4728,12 @@ export class Race {
     return list.map((c, k) => ({
       pos: k + 1, name: c.name, team: c.team.name, color: c.team.main, isPlayer: c.isPlayer, pid: c.pid || null,
       time: c.finished ? time(c) : null,
-      gap: k === 0 ? '' : this.timed && c.finished && win.finished && c.lap < win.lap ? '+' + (win.lap - c.lap) + ' LAP' : c.finished && win.finished ? '+' + (time(c) - time(win)).toFixed(3) : lapsDown(win, c) >= 1 ? '+' + lapsDown(win, c) + ' LAP' : 'RUNNING',
+      gap: k === 0 ? '' : (this.timed || this.multi) && c.finished && win.finished && c.lap < win.lap ? '+' + (win.lap - c.lap) + ' LAP' : c.finished && win.finished ? '+' + (time(c) - time(win)).toFixed(3) : lapsDown(win, c) >= 1 ? '+' + lapsDown(win, c) + ' LAP' : 'RUNNING',
       pen: (c.penTotal || 0) + (c.dt ? 20 : 0), dt: c.dtTotal || 0, dsq: !!c.dsq,
       best: c.best, pits: c.pits, led: c.led || 0, grid: c.startPos || null, cleanFinish: (c.maxDmg || 0) < 0.25 && !c.penTotal && !c.dtTotal,
-      human: c.human, key: c.key, dnf: !!c.gone, finished: c.finished, lap: c.lap, hired: !!c.hired,
+      human: c.human, key: c.key, dnf: !!c.gone, finished: c.finished, lap: c.lap, hired: !!c.hired, cls: c.cls,
       drift: Math.round(c.isPlayer && this.drift ? this.drift.total : c.driftTotal || 0),
-    })).map(r => (r.dsq ? { ...r, gap: 'DSQ' } : r.dnf ? { ...r, gap: 'DNF' } : r));
+    })).map(r => (r.dsq ? { ...r, gap: 'DSQ' } : r.dnf ? { ...r, gap: 'DNF' } : r)).map((r, k, all) => ({ ...r, clsPos: all.slice(0, k + 1).filter(x => x.cls === r.cls).length })); // (the place in its class)
   }
 
   // Compile every shader behind the loading screen. A normal frame only compiles what the camera sees, so the rest

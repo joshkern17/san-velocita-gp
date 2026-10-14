@@ -1021,6 +1021,8 @@ menus['s-raceset'] = [
     { label: 'Endurance Length', values: [[45, 'Short'], [90, 'Medium'], [180, 'Long']], get: () => settings.endur || 90, set: v => { settings.endur = v; saveSettings(); }, desc: 'Timed races: how long 24 hours of race clock takes in real time. <b>Short</b> 45 minutes, <b>Medium</b> 90, <b>Long</b> 180 (a 6 Hours: 11, 22 or 45 minutes).' },
     { label: 'Start Time', values: [[8, 'Morning'], [14.5, 'Afternoon'], [18.5, 'Evening'], [22, 'Night']], get: () => settings.endStart ?? 14.5, set: v => { settings.endStart = v; saveSettings(); }, desc: 'Timed races: the time of day at the start. It moves on with the race clock: an afternoon start runs into the night.' },
     { label: 'Co-Driver', values: [['on', 'AI co-driver'], ['off', 'Drive it all']], get: () => settings.coDriver || 'on', set: v => { settings.coDriver = v; saveSettings(); }, desc: 'Timed races: share the car. At each stop the engineer asks whether to swap; each of you has to drive 30% of the race. While they drive, watch at 1x, 4x or 8x, or skip to your next stint.' },
+    // (multiclass: half the field in another class: standings per class, the quicker class lapping through traffic)
+    { label: 'Second Class', values: [['off', 'Off'], ...Object.keys(CLASSES).filter(k => k !== 'fun').map(k => [k, CLASSES[k].label])], get: () => settings.mixCls || 'off', set: v => { settings.mixCls = v; saveSettings(); }, desc: 'A multiclass race: half the AI field in another class. Positions and points go by class; the tower shows yours. A quicker class comes through your traffic (blue flags: hold your line and let them by), a slower one is traffic for you. Everyone finishes when the overall leader takes the flag.' },
     { label: 'Opponents', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(v => [v, String(v)]), get: () => raceCfg.opponents, set: v => raceCfg.opponents = v, desc: 'How many AI cars you race against.' },
     { label: 'Difficulty', values: [['easy', 'Rookie'], ['medium', 'Pro'], ['hard', 'Legend'], ['alien', 'Alien'], ['phantom', 'Phantom'], ['godlike', 'Godlike']], get: () => settings.difficulty, set: v => { settings.difficulty = v; saveSettings(); }, desc: 'How fast the AI is. <b>Rookie</b> to learn a circuit, <b>Legend</b> to match a clean lap at your best, <b>Alien</b> and up to be beaten. Above <b>Legend</b> the AI cars get extra grip and power, more at each level.' },
     { label: 'Weekend', values: WEEKEND_VALS, get: wkFmt, set: v => { settings.weekend = v; saveSettings(); syncGridItem(); }, desc: WEEKEND_DESC },
@@ -1059,7 +1061,8 @@ function launch(mode) {
   const timed = mode === 'race' && settings.raceFormat === 'timed' ? (() => { const h = settings.endHours || 6, dur = Math.round((settings.endur || 90) * 60 * h / 24);
     const co = ['Ana Silva', 'Mika Lehto', 'Jules Arnaud', 'Rosa Quintero', 'Tom Ashcroft', 'Kenji Mori'][Math.floor(Math.random() * 6)];
     return { duration: dur, clockK: h * 3600 / dur, startHour: settings.endStart ?? 14.5, ...((settings.coDriver || 'on') === 'on' ? { codriver: { name: co, paceK: 0.97, aggr: 0.45 } } : {}) }; })() : null;
-  const race = { mode, laps: raceCfg.laps, opponents: raceCfg.opponents, pick: true, ...(wx || timed ? { extra: { ...(wx ? { wx } : {}), ...(timed || {}) } } : {}) };
+  const mix = mode === 'race' && settings.mixCls && settings.mixCls !== 'off' ? { mixCls: { cls: settings.mixCls } } : null;
+  const race = { mode, laps: raceCfg.laps, opponents: raceCfg.opponents, pick: true, ...(wx || timed || mix ? { extra: { ...(wx ? { wx } : {}), ...(timed || {}), ...(mix || {}) } } : {}) };
   if (mode === 'race' && wkFmt() !== 'race' && raceCfg.opponents > 0) return startWeekend(t, race, 'setup', wkFmt(), [wkPrac(), wkQuali()]);
   weekend = null;
   startRace(t, race, 'setup');
@@ -3443,8 +3446,19 @@ function startWorldRound() {
       endur = { ...WC.enduranceClock(w, r), codriver: { name: w.people[e.pid] ? `${w.people[e.pid].first} ${w.people[e.pid].last}` : e.name, paceK: (ent.teamPace[slot] || 1) * 0.98, aggr: e.aggr, craft: e.craft, mistakes: e.mistakes } };
       ent.entries[slot] = { ...e, pid: null, mate: false, trust: undefined, owe: null, story: null, hired: true, name: hired.toUpperCase(), team: { ...e.team, driver: `${hired} / hired` } };
     } else endur = WC.enduranceClock(w, r);
+    // (alongside the other class: GT1 in GT2's 6 Hours and the other way round, a car a team; the quicker class on the
+    // grid first)
+    const os = WC.enduranceOther(w);
+    if (os) {
+      const slot0 = Math.max(...ent.roster, 0) + 1, oe = WC.classEntries(w, os.id, slot0), keys = carsOfClass(os.cls).map(chassisKey);
+      for (const e of Object.values(oe.entries)) e.chassis = os.cls === 'f1' ? 'custom' : WC.teamChassis(w, e.tid, keys);
+      Object.assign(ent.entries, oe.entries); Object.assign(ent.teamPace, oe.teamPace);
+      const own = gridOrder || [...ent.roster, 'P'];
+      gridOrder = os.tier > WC.seriesById(sid).tier ? [...oe.roster, ...own] : [...own, ...oe.roster];
+      ent.roster = [...ent.roster, ...oe.roster];
+    }
   }
-  const race = { mode: 'race', laps: worldLaps(w, r), opponents: 11, brief: endur ? brief.replace(/ROUND \d+ OF \d+/, m => `${WC.enduranceName(r).toUpperCase()} &middot; ${m}`) : brief, pick: !owned, onlyClass: cls,
+  const race = { mode: 'race', laps: worldLaps(w, r), opponents: Math.max(11, ent.roster.length), brief: endur ? brief.replace(/ROUND \d+ OF \d+/, m => `${WC.enduranceName(r).toUpperCase()} &middot; ${m}`) : brief, pick: !owned, onlyClass: cls,
     extra: { car, mods, failure, introKind, bop: WC.bopTable(w, carsOfClass(cls).map(chassisKey)), difficulty: w.opts.difficulty, grid: 'back', team: 'garage', engineer: WC.staffOf(w, 'engineer')?.skill ?? 0, wx, roster: ent.roster, entries: ent.entries, teamPace: ent.teamPace, gridOrder, aiChassis: 'class', playerName: w.player.name.split(' ').pop().toUpperCase(),
       trackData: WC.weekOf(w).trackData || null, ...(endur || {}) } };
   phone.hide();
@@ -3497,16 +3511,17 @@ function worldRoundDone(retired = false) {
   if (coop && coop.race) { coop.race.done = true; coop.race.wait = null;
     const u = coop.race.use; if (u && w.money) { let t = 0; for (const c of u.sets) if (!WC.takeSet(w, c)) t++; car2 = { trackside: t, laps: u.laps, damage: u.damage }; } }
   const hired = res.find(r => r.hired); // (an endurance round: car two, the hired drivers, paid on its own result)
-  const out = WC.recordPlayerRound(w, res, sim.log || [], wkUse && w.money ? { trackside: wkUse.trackside, laps: wkUse.laps, damage: wkUse.damage, failed: wkUse.failed || null, aidPct: Math.max(0, sim.aidBonus ?? 0), grid: mine.grid ?? null, led: mine.led || 0, blamed, teamTrust: sim.trustDelta || 0, car2, car2Pos: hired ? hired.pos : null, car2Dnf: hired ? !!(hired.dnf || hired.dsq) : false } : null);
+  const out = WC.recordPlayerRound(w, res, sim.log || [], wkUse && w.money ? { trackside: wkUse.trackside, laps: wkUse.laps, damage: wkUse.damage, failed: wkUse.failed || null, aidPct: Math.max(0, sim.aidBonus ?? 0), grid: mine.grid ?? null, led: mine.led || 0, blamed, teamTrust: sim.trustDelta || 0, car2, car2Pos: hired ? (hired.clsPos ?? hired.pos) : null, car2Dnf: hired ? !!(hired.dnf || hired.dsq) : false } : null);
   wkUse = null;
   saveWorld();
   sim.setPaused(true);
   const scored = w.series[sid].results.find(x => x.round === round), ptsOf = (pid) => scored.rows.find(r => r.pid === pid)?.pts || 0;
   $('round-title').textContent = 'Round Complete';
   $('round-sub').textContent = `${seriesName(sid)} · round ${round + 1} of ${w.opts.len} · ${trackName}`;
-  $('round-table').innerHTML = `<tr><th>POS</th><th>DRIVER</th><th>TEAM</th><th class="r">PTS</th></tr>` + res.map(r => {
+  const multi = multiOf(res);
+  $('round-table').innerHTML = `<tr><th>POS</th>${multi ? '<th>CLASS</th>' : ''}<th>DRIVER</th><th>TEAM</th><th class="r">PTS</th></tr>` + res.map(r => {
     const pid = r.isPlayer ? 'P' : r.pid, fl = scored.rows.find(x => x.pid === pid)?.fl;
-    return `<tr class="${r.isPlayer ? 'me' : ''}"><td class="p">${posBadge(r.pos)}</td><td><span class="swatch" style="background:${hex(r.color)}"></span>${pid ? WC.displayName(w, pid, true) : r.name}${fl ? ' <span class="fl">FASTEST LAP</span>' : ''}${r.pen || r.dt ? ` <span class="pen">${penText(r)}</span>` : ''}${r.dsq ? ' <span class="pen">DSQ</span>' : ''}</td><td>${r.team}</td><td class="n">${pid && ptsOf(pid) ? '+' + ptsOf(pid) : ''}</td></tr>`;
+    return `<tr class="${r.isPlayer ? 'me' : ''}"><td class="p">${posBadge(r.pos)}</td>${clsCell(r, multi)}<td><span class="swatch" style="background:${hex(r.color)}"></span>${pid ? WC.displayName(w, pid, true) : r.name}${fl ? ' <span class="fl">FASTEST LAP</span>' : ''}${r.pen || r.dt ? ` <span class="pen">${penText(r)}</span>` : ''}${r.dsq ? ' <span class="pen">DSQ</span>' : ''}</td><td>${r.team}</td><td class="n">${pid && ptsOf(pid) ? '+' + ptsOf(pid) : ''}</td></tr>`;
   }).join('');
   const me = out.me, st = WC.seriesStandings(w, sid), cp = st.findIndex(e => e.pid === 'P') + 1;
   const mateId = w.teams[w.player.team].drivers.find(d => d !== 'P'), mr = scored.rows.find(r => r.pid === mateId);
@@ -5357,21 +5372,27 @@ function showResults() {
 }
 // what a driver was penalised: '+5s', 'DT', '+5s · DT'
 const penText = (r) => [r.pen > 0 ? '+' + r.pen + 's' : '', r.dt > 0 ? (r.dt > 1 ? r.dt + '× DT' : 'DT') : ''].filter(Boolean).join(' · ');
+// (a multiclass race's results: each car's class and its place in it; '' when there's one class)
+const multiOf = (res) => new Set(res.map(r => r.cls).filter(Boolean)).size > 1;
+const clsCell = (r, multi) => multi ? `<td class="cls"><span class="swatch" style="background:${CLASSES[r.cls]?.col || '#888'}"></span>${CLASSES[r.cls]?.short || r.cls} ${r.clsPos}</td>` : '';
 function renderResultsTable(res) {
   // penalty column only when somebody got one (times already include them)
   const pens = res.some(r => r.pen > 0 || r.dt > 0);
-  $('results-table').innerHTML = `<tr><th>POS</th><th>DRIVER</th><th>TEAM</th><th class="r">TIME</th><th class="r">BEST LAP</th><th class="r">PITS</th>${pens ? '<th class="r">PEN</th>' : ''}</tr>` + res.map(r =>
-    `<tr class="${r.isPlayer ? 'me' : ''}"><td class="p">${posBadge(r.pos)}</td><td><span class="swatch" style="background:${hex(r.color)}"></span>${r.name}</td><td>${r.team}</td><td class="t">${r.pos === 1 && r.time ? fmtTime(r.time, 3) : r.gap}</td><td class="t">${r.best && isFinite(r.best) ? fmtTime(r.best, 3) : '—'}</td><td class="t">${r.pits}</td>${pens ? `<td class="t pen">${penText(r)}</td>` : ''}</tr>`).join('');
+  const multi = multiOf(res);
+  $('results-table').innerHTML = `<tr><th>POS</th>${multi ? '<th>CLASS</th>' : ''}<th>DRIVER</th><th>TEAM</th><th class="r">TIME</th><th class="r">BEST LAP</th><th class="r">PITS</th>${pens ? '<th class="r">PEN</th>' : ''}</tr>` + res.map(r =>
+    `<tr class="${r.isPlayer ? 'me' : ''}"><td class="p">${posBadge(r.pos)}</td>${clsCell(r, multi)}<td><span class="swatch" style="background:${hex(r.color)}"></span>${r.name}</td><td>${r.team}</td><td class="t">${r.pos === 1 && r.time ? fmtTime(r.time, 3) : r.gap}</td><td class="t">${r.best && isFinite(r.best) ? fmtTime(r.best, 3) : '—'}</td><td class="t">${r.pits}</td>${pens ? `<td class="t pen">${penText(r)}</td>` : ''}</tr>`).join('');
   // your race at a glance
-  const me = res.find(r => r.isPlayer), n = res.length, test = sim && sim.mode === 'test';
+  const me0 = res.find(r => r.isPlayer), test = sim && sim.mode === 'test';
+  // (multiclass: your place in your class, out of your class)
+  const me = me0 && multi ? { ...me0, pos: me0.clsPos } : me0, n = me0 && multi ? res.filter(r => r.cls === me0.cls).length : res.length, inCls = me0 && multi ? ` IN ${CLASSES[me0.cls]?.short || me0.cls}` : '';
   const fastest = Math.min(...res.map(r => r.best && isFinite(r.best) ? r.best : Infinity));
   $('results-sub').textContent = sim ? `${sim.track.name} · ${test ? 'Time Trial' : sim.laps + (sim.laps === 1 ? ' lap' : ' laps')}` : '';
   if (!me) { $('result-card').innerHTML = ''; return; }
   const p = me.pos, ord = ['TH', 'ST', 'ND', 'RD'][(p % 100 - 20) % 10] || ['TH', 'ST', 'ND', 'RD'][p % 100] || 'TH';
   const row = (k, v) => `<div class="row"><span>${k}</span><span>${v}</span></div>`;
   $('result-card').innerHTML = (test ? `<div class="big-pos">${me.best && isFinite(me.best) ? fmtTime(me.best, 3) : '&mdash;'}<small>BEST LAP</small></div>`
-    : `<div class="big-pos ${p === 1 ? 'gold' : p <= 3 ? 'podium' : ''}">${me.dnf ? 'DNF' : p + '<sup>' + ord + '</sup>'}<small>${me.dnf ? 'RETIRED' : p === 1 ? 'RACE WINNER' : p <= 3 ? 'PODIUM FINISH' : 'OF ' + n}</small></div>`)
-    + (test ? '' : row('Time', me.pos === 1 && me.time ? fmtTime(me.time, 3) : me.gap))
+    : `<div class="big-pos ${p === 1 ? 'gold' : p <= 3 ? 'podium' : ''}">${me.dnf ? 'DNF' : p + '<sup>' + ord + '</sup>'}<small>${me.dnf ? 'RETIRED' : p === 1 ? (inCls ? 'CLASS WINNER' + inCls : 'RACE WINNER') : p <= 3 ? 'PODIUM FINISH' + inCls : 'OF ' + n + inCls}</small></div>`)
+    + (test ? '' : row('Time', me0.pos === 1 && me0.time ? fmtTime(me0.time, 3) : me0.gap))
     + row('Best lap', me.best && isFinite(me.best) ? fmtTime(me.best, 3) + (me.best <= fastest + 1e-6 && !test ? ' <span class="fl">FASTEST</span>' : '') : '&mdash;')
     + (test ? '' : row('Pit stops', me.pits))
     + (!test && (me.pen > 0 || me.dt > 0) ? row('Penalties', `<span class="pen">${penText(me)}</span>`) : '');

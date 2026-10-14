@@ -355,15 +355,17 @@ export class RaceControl {
       if (!c.gone && !c.finished && !c.pitting && c.lap > 0 && !(T.open)) {
         for (const f of race.cars) {
           if (f === c || f.gone || f.finished || f.pitting) continue;
-          // a lap up on them by the lap count AND by distance (either alone trips up around the line)
+          // a lap up on them by the lap count AND by distance (either alone trips up around the line); or, in a
+          // multiclass race, a car of a quicker class coming up behind (after the first lap, closing on them)
           const lead = (f.raw ?? f.progress) - (c.raw ?? c.progress);
-          if (f.lap - c.lap < 1 || lead < L * 0.5) continue;
+          const quicker = race.multi && race.clsRank[f.cls] < race.clsRank[c.cls] && f.lap > 1 && f.phys.speed > c.phys.speed - 2;
+          if (!quicker && (f.lap - c.lap < 1 || lead < L * 0.5)) continue;
           const gap = ((c.idx - f.idx + N) % N) * T.ds; // f is this far behind c on the road
-          if (gap > 0 && gap < 70 && (!by || gap < by.gap)) by = { car: f, gap };
+          if (gap > 0 && gap < (quicker ? 55 : 70) && (!by || gap < by.gap)) by = { car: f, gap, cls: quicker && !(f.lap - c.lap >= 1 && lead >= L * 0.5) };
         }
       }
-      if (by) { c.blue = by.car; c.blueHold = 1; }
-      else if (c.blue) { c.blueHold -= dt; if (c.blueHold <= 0) c.blue = null; }
+      if (by) { c.blue = by.car; c.blueCls = by.cls; c.blueHold = 1; }
+      else if (c.blue) { c.blueHold -= dt; if (c.blueHold <= 0) { c.blue = null; c.blueCls = false; } }
     }
   }
   // holding up the leaders: warnings, then a penalty
@@ -371,8 +373,9 @@ export class RaceControl {
     const R = this.R;
     if (!car.blue || car.pitting) { car.blueT = Math.max(0, (car.blueT || 0) - dt * 0.5); if (!car.blueT) car.blueWarned = false; return; }
     car.blueT = (car.blueT || 0) + dt;
-    if (car.isPlayer && !car.blueWarned && car.blueT > R.blueWarn) { car.blueWarned = true; this.say(`Blue flags · let ${car.blue.name} through`, { me: true, cls: 'blue' }); }
-    if (car.blueT > R.bluePen) { car.blueT = 0; car.blueWarned = false; this.penalise(car, PEN, 'ignored blue flags'); }
+    if (car.isPlayer && !car.blueWarned && car.blueT > R.blueWarn * (car.blueCls ? 1.5 : 1)) { car.blueWarned = true; this.say(`Blue flags · let ${car.blue.name} through`, { me: true, cls: 'blue' }); }
+    // (a quicker class in the mirrors: hold your line and let them by; it's on them to get past, no penalty)
+    if (car.blueT > R.bluePen && !car.blueCls) { car.blueT = 0; car.blueWarned = false; this.penalise(car, PEN, 'ignored blue flags'); }
   }
 
   // ---------- Virtual Safety Car ----------

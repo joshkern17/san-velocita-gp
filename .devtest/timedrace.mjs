@@ -21,7 +21,7 @@ try {
     const t = PRESET ? (await import('/js/track.js')).presetTracks().find(t => t.name === PRESET) : await (await fetch('/.devtest/auburn2.json')).json(); t.env.weather = 'clear';
     window.__svgp.startRace(t, { mode: 'race', laps: 3, opponents: 7, grid: 'back', car: window.__svgp.settings.car, extra: { duration: secs, clockK: K, strategy: false } }, 'menu');
   }, [secs, K, PRESET]);
-  await pg.waitForFunction(() => window.__svgp.sim && window.__svgp.sim.cars && window.__svgp.sim.cars.length > 2 && window.__svgp.sim.lineV, null, { timeout: 120000 });
+  await pg.waitForFunction(() => window.__svgp.sim && window.__svgp.sim.cars && window.__svgp.sim.cars.length > 2 && window.__svgp.sim.lineV && window.__svgp.sim.player && window.__svgp.sim.mode === "race", null, { timeout: 120000 });
   const r = await pg.evaluate(() => {
     const sim = window.__svgp.sim; sim.state = 'racing'; sim.stateT = 0; sim.goAt = 0; sim.player.autoT = 1e9;
     const ev = [], clocks = [], est0 = sim.laps;

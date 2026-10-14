@@ -31,8 +31,10 @@ try {
   await pg.waitForFunction(() => window.__svgp.sim && window.__svgp.sim.cars && window.__svgp.sim.cars.length > 2 && window.__svgp.sim.lineV, null, { timeout: 180000 });
   // (on to the race: past the brief / car select / strategy screens if they come up)
   for (let k = 0; k < 90; k++) { const sc = await pg.evaluate(() => window.__svgp.screen); if (sc === 'hud') break; if (k % 10 === 0) console.log('  screen:', sc); await pg.keyboard.press('Enter'); await pg.waitForTimeout(2000); }
-  const s0 = await pg.evaluate(() => { const s = window.__svgp.sim; return { dur: s.timed && s.timed.dur, k: s.timed && s.timed.k, tod: s.tod0, crew: s.crew && s.crew.name, hired: s.cars.filter(c => c.hired).map(c => c.name), flow: !!s.track.env.timeFlow }; });
+  const s0 = await pg.evaluate(() => { const s = window.__svgp.sim; return { classes: s.cars.reduce((a, c) => (a[c.cls] = (a[c.cls] || 0) + 1, a), {}), multi: s.multi, grid: s.cars.slice().sort((a, b) => a.startPos - b.startPos).map(c => c.cls).join(','), dur: s.timed && s.timed.dur, k: s.timed && s.timed.k, tod: s.tod0, crew: s.crew && s.crew.name, hired: s.cars.filter(c => c.hired).map(c => c.name), flow: !!s.track.env.timeFlow }; });
   ok(s0.dur === Math.round(PER24 * 60 / 4) && Math.abs(s0.k - 16 * 90 / PER24 / 4 * 4) < 0.5 || s0.dur > 0, `a timed race: ${s0.dur} s, the clock x${s0.k && s0.k.toFixed(1)}, from ${s0.tod}h, time of day moving: ${s0.flow}`);
+  ok(s0.multi && Object.keys(s0.classes).length === 2, `alongside the other class: ${JSON.stringify(s0.classes)}`);
+  ok(s0.grid.startsWith('gt1'), `the quicker class on the grid first (${s0.grid})`);
   ok(s0.crew === pre.mate, `your teammate is your co-driver (${s0.crew})`);
   ok(s0.hired.length === 1, `car two: the hired drivers (${s0.hired.join(', ')})`);
   const r = await pg.evaluate(() => {
@@ -55,7 +57,8 @@ try {
   // (the podium, then the round's report: through them, as a player would)
   for (let k = 0; k < 12; k++) { const n = await pg.evaluate(() => { const w = window.__svgp.world; return w.series[w.player.series].results.length; }); if (n) break; await pg.keyboard.press('Enter'); await pg.waitForTimeout(1500); }
   const c = await pg.evaluate(([k, mpid]) => { const w = window.__svgp.world, S = w.series[w.player.series], res = S.results.find(x => x.round === k);
-    return res ? { me: res.rows.find(x => x.pid === 'P'), mate: res.rows.find(x => x.pid === mpid), round: w.round } : null; }, [pre.k, pre.mpid]);
+    return res ? { me: res.rows.find(x => x.pid === 'P'), mate: res.rows.find(x => x.pid === mpid), round: w.round, n: res.rows.length, others: res.rows.filter(x => !w.series[w.player.series].teams.includes(w.people[x.pid]?.team) && x.pid !== 'P').length } : null; }, [pre.k, pre.mpid]);
+  ok(c && c.others === 0, `only your class scored (${c && c.n} rows)`);
   ok(c && c.me && c.mate && c.mate.pos === c.me.pos && c.mate.pts === c.me.pts, `the career has it: you and your teammate P${c && c.me && c.me.pos}, ${c && c.me && c.me.pts} points each`);
 } finally { await b.close(); server.kill(); }
 console.log(fails ? `${fails} FAILED` : 'ALL OK'); process.exit(fails ? 1 : 0);

@@ -22,7 +22,7 @@ try {
     const t = (await import('/js/track.js')).presetTracks().find(t => t.name === NAME); t.env.weather = 'clear';
     window.__svgp.startRace(t, { mode: 'race', laps: 3, opponents: 7, car: window.__svgp.settings.car, extra: { duration: secs, clockK: K, startHour: 12, strategy: false, codriver: { name: 'Ana Silva', paceK: 0.96, aggr: 0.4 } } }, 'menu');
   }, [secs, K, NAME]);
-  await pg.waitForFunction(() => window.__svgp.sim && window.__svgp.sim.cars && window.__svgp.sim.cars.length > 2 && window.__svgp.sim.lineV, null, { timeout: 120000 });
+  await pg.waitForFunction(() => window.__svgp.sim && window.__svgp.sim.cars && window.__svgp.sim.cars.length > 2 && window.__svgp.sim.lineV && window.__svgp.sim.player && window.__svgp.sim.mode === "race", null, { timeout: 120000 });
   const r = await pg.evaluate(() => {
     const sim = window.__svgp.sim, pl = sim.player, c = sim.crew, T = sim.T, N = T.N;
     sim.state = 'racing'; sim.stateT = 0; sim.goAt = 0; pl.autoT = 1e9;

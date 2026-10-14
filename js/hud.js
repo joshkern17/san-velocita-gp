@@ -126,8 +126,10 @@ export class HUD {
     this.quali = s.quali;
     const E = this.el;
     const Q = s.quali;
-    this.set('poslbl', E.posLbl, this.mode === 'race' ? 'POSITION' : Q ? 'SESSION' : 'MODE');
-    if (this.mode === 'race') this.set('pos', E.pos, `${pad2(s.pos)}<small> / ${pad2(s.total)}</small>`, true);
+    this.set('poslbl', E.posLbl, this.mode === 'race' ? (s.cls ? `${s.cls} POSITION` : 'POSITION') : Q ? 'SESSION' : 'MODE');
+    // (multiclass: your place in your class)
+    if (this.mode === 'race' && s.cls) this.set('pos', E.pos, `${pad2(s.clsPos)}<small> / ${pad2(s.clsN)}</small>`, true);
+    else if (this.mode === 'race') this.set('pos', E.pos, `${pad2(s.pos)}<small> / ${pad2(s.total)}</small>`, true);
     else if (Q) {
       // the session clock where your position goes (bad-red in the last minute, the chequered flag at zero)
       const c = Q.left <= 0 ? '<span class="qclock end">FLAG</span>' : `<span class="qclock${Q.left < 60 ? ' late' : ''}">${fmtTime(Math.ceil(Q.left), 0)}</span>`;
@@ -183,8 +185,10 @@ export class HUD {
       }).join('');
       if (this.cache.towerT === undefined || performance.now() - this.cache.towerT > 250) { this.cache.towerT = performance.now(); this.set('tower', E.tower, html, true); }
     } else if (this.mode === 'race') {
-      const html = TOWER_HEAD.replace('GAP', 'INT') + s.standings.slice(0, 12).map(r =>
-        `<div class="r${r.isPlayer ? ' me' : ''}${r.mate ? ' mt' : ''}"><span class="n">${r.pos}</span><span class="c" style="background:${hex(r.color)}"></span><span class="nm">${code(r)}</span>${r.pit ? '<span class="pt">PIT</span>' : ''}${r.pen ? `<span class="pn">+${r.pen}s</span>` : ''}${r.dt ? '<span class="pn">DT</span>' : ''}${s.wear ? `<span class="ty" style="background:${TYRE_CSS[r.tyre]}">${r.tyre[0].toUpperCase()}</span>` : ''}<span class="g">${r.gap || '\u2014'}</span></div>`).join('');
+      // (multiclass: your class's cars, their places in it, a stripe of the class's colour)
+      const rows = s.cls ? s.standings.filter(r => r.mine) : s.standings;
+      const html = TOWER_HEAD.replace('GAP', 'INT').replace('POS', s.cls || 'POS') + rows.slice(0, 12).map(r =>
+        `<div class="r${r.isPlayer ? ' me' : ''}${r.mate ? ' mt' : ''}"${r.clsCol ? ` style="box-shadow:inset 3px 0 0 ${r.clsCol}"` : ''}><span class="n">${r.clsPos || r.pos}</span><span class="c" style="background:${hex(r.color)}"></span><span class="nm">${code(r)}</span>${r.pit ? '<span class="pt">PIT</span>' : ''}${r.pen ? `<span class="pn">+${r.pen}s</span>` : ''}${r.dt ? '<span class="pn">DT</span>' : ''}${s.wear ? `<span class="ty" style="background:${TYRE_CSS[r.tyre]}">${r.tyre[0].toUpperCase()}</span>` : ''}<span class="g">${r.gap || '\u2014'}</span></div>`).join('');
       if (this.cache.towerT === undefined || performance.now() - this.cache.towerT > 250) { this.cache.towerT = performance.now(); this.set('tower', E.tower, html, true); }
     }
     this.drawRadar(race);

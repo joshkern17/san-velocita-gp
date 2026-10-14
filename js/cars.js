@@ -14,14 +14,15 @@
 //   box = gearbox type (seamless | sequential | dual-clutch | manual | automatic), shift = s of reduced drive per change
 import { CARSPEC } from './physics.js';
 
+// (col: the class's colour, on the car select's tabs and a multiclass race's timing tower)
 export const CLASSES = {
-  f1:     { label: 'Formula',  short: 'F1' },
-  gt1:    { label: 'GT1 ’90s', short: 'GT1' },
-  gt2:    { label: 'GT2 ’90s', short: 'GT2' },
-  street: { label: 'Street',  short: 'ST' },
-  club:   { label: 'Club',    short: 'CL' },
-  shitbox: { label: 'Shitbox', short: 'SB' },
-  fun:    { label: 'Utility', short: 'UT' },
+  f1:     { label: 'Formula',  short: 'F1', col: '#e1261c' },
+  gt1:    { label: 'GT1 ’90s', short: 'GT1', col: '#2a7fd0' },
+  gt2:    { label: 'GT2 ’90s', short: 'GT2', col: '#7a4fc0' },
+  street: { label: 'Street',  short: 'ST', col: '#e8b13a' },
+  club:   { label: 'Club',    short: 'CL', col: '#2fa59a' },
+  shitbox: { label: 'Shitbox', short: 'SB', col: '#a8743a' },
+  fun:    { label: 'Utility', short: 'UT', col: '#4f9a3c' },
 };
 
 // torque shapes (fraction of redline -> multiplier on the power-limited force)

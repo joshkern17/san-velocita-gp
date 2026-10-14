@@ -466,6 +466,24 @@ function enduranceRound(w, s, cal) {
   cal[k].endur = { hours: ENDURANCE_HOURS }; cal[k].time = 'day'; // (it starts in the afternoon whatever: the clock takes it into the night)
 }
 export const isEndurance = (R) => !!(R && R.endur);
+// the other class in a sports car endurance race (GT2's 6 Hours runs alongside GT1, GT1's alongside GT2): its series
+export function enduranceOther(w, sid = w.player.series) {
+  const s = seriesById(sid); if (!s || s.path !== 'sportscar' || s.tier < 3) return null;
+  return SERIES.find(o => o.path === 'sportscar' && o.tier >= 3 && o.id !== sid && Math.abs(o.tier - s.tier) === 1) || null;
+}
+// its entries for the race, one car a team (its two drivers sharing, the first named): slots from slot0, as raceEntries
+export function classEntries(w, sid, slot0) {
+  const S = w.series[sid], s = seriesById(sid), rain = w.series[w.player.series].cal[w.round]?.weather === 'rain', med = seriesMedian(w, sid);
+  const entries = {}, teamPace = {}, roster = [];
+  let slot = slot0;
+  for (const tid of S.teams) {
+    const t = w.teams[tid], pid = t.drivers.find(d => d !== 'P' && w.people[d]); if (!pid) continue;
+    const p = w.people[pid], k = raceKnobs(w, pid, rain, s.cls, med);
+    entries[slot] = { pid, tid, other: sid, teamNo: 100 + S.teams.indexOf(tid), name: shortName(p).replace(/^\w\. /, ''), team: { name: t.name, main: t.main, accent: t.accent, helmet: t.accent, driver: shortName(p) }, aggr: k.aggr, craft: k.craft, mistakes: k.mistakes, gap: k.gap, skill: k.skill, tc: k.tc };
+    teamPace[slot] = k.pace; roster.push(slot++);
+  }
+  return { entries, teamPace, roster };
+}
 export const enduranceName = (R) => `${R.name} ${R.endur.hours} Hours`;
 // the race's real length (s) and its clock (race seconds a second)
 export function enduranceClock(w, R) {
@@ -779,7 +797,9 @@ export const ladderKey = (w) => `${licOf(w).g}|${w.player.series}|${w.player.off
 // use: what your weekend used (tyre sets, laps, damage), for the bill
 export function recordPlayerRound(w, res, log = [], use = null) {
   const sid = w.player.series;
-  const rows = res.map(r => ({ pid: r.isPlayer ? 'P' : r.pid, pos: r.pos, dnf: !!(r.dnf || r.dsq), dsq: !!r.dsq, fl: false, best: r.best }));
+  // (a multiclass race: your class's cars, at their places in it)
+  const mine = seriesById(sid).cls, multi = res.some(r => r.cls && r.cls !== mine);
+  const rows = res.filter(r => !multi || r.cls === mine).map(r => ({ pid: r.isPlayer ? 'P' : r.pid, pos: multi ? r.clsPos : r.pos, dnf: !!(r.dnf || r.dsq), dsq: !!r.dsq, fl: false, best: r.best }));
   // fastest lap: the quickest best lap among the finishers
   let fl = null; for (const r of rows) if (!r.dnf && isFinite(r.best) && (!fl || r.best < fl.best)) fl = r;
   if (fl) fl.fl = true;
