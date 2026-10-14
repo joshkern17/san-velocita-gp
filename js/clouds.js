@@ -5,10 +5,11 @@
 import * as THREE from 'three';
 
 // lit side / shadow side per time of day (from the reference's artistic palette table)
-const PALETTE = {
+export const PALETTE = {
   day:   { lit: 0xfff4e0, shade: 0x9aaabb },
   dusk:  { lit: 0xff8a50, shade: 0x5a3a6a },
   night: { lit: 0x2a2e44, shade: 0x12121e },
+  dawn:  { lit: 0xffb08a, shade: 0x5a4a74 },
 };
 
 function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
@@ -90,6 +91,13 @@ export function buildClouds(P, env, seed = 1) {
   const windA = rng() * Math.PI * 2;
   return {
     mesh,
+    // an endurance race's moving clock: between two times of day (u: how far), the sun where it is now
+    setTime(a, b, u, P) {
+      const A = PALETTE[a] || PALETTE.day, B = PALETTE[b] || PALETTE.day;
+      mat.uniforms.lit.value.setHex(A.lit).lerp(new THREE.Color(B.lit), u).multiplyScalar(heavy ? 0.6 : 1);
+      mat.uniforms.shade.value.setHex(A.shade).lerp(new THREE.Color(B.shade), u).multiplyScalar(heavy ? 0.75 : 1);
+      mat.uniforms.horizon.value.setHex(P.hor); mat.uniforms.sunDir.value.set(...P.sun).normalize();
+    },
     update(dt, camera) {
       t += dt;
       mat.uniforms.camPos.value.copy(camera.position);

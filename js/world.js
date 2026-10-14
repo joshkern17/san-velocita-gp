@@ -63,7 +63,29 @@ const TIMES = {
   day:   { top: 0x2f6fc8, hor: 0xc3d8ea, bottom: 0x8a9aa8, sun: [0.45, 0.75, 0.35], sunCol: 0xfff0d6, sunI: 1.7, hemiS: 0xb8d4f4, hemiG: 0x5e5238, hemiI: 0.68, fog: 0xc6d6e2, cloud: 0xffffff, far: 0x9aa4d8, grade: [1.04, 1.0, 0.94], night: 0 },
   dusk:  { top: 0x2a2466, hor: 0xff9a6a, bottom: 0x7a4a6a, sun: [-0.8, 0.12, 0.4], sunCol: 0xffa060, sunI: 1.25, hemiS: 0xb890c8, hemiG: 0x62442e, hemiI: 0.9, fog: 0xe8a08a, cloud: 0xff9a70, far: 0x7a62a8, grade: [1.1, 0.98, 0.9], night: 0 },
   night: { top: 0x03050c, hor: 0x1a2640, bottom: 0x0a0e18, sun: [0.3, 0.6, -0.45], sunCol: 0x9ab4e8, sunI: 0.55, hemiS: 0x55679a, hemiG: 0x1c1e26, hemiI: 0.85, fog: 0x141c2c, cloud: 0x384868, far: 0x241e48, grade: [0.92, 0.97, 1.12], night: 1 },
+  // (first light: the sun low in the east, cooler than dusk; an endurance race's clock passes through it)
+  dawn:  { top: 0x34447e, hor: 0xffb48a, bottom: 0x6a5a78, sun: [0.8, 0.12, -0.35], sunCol: 0xffb47a, sunI: 1.1, hemiS: 0xa4a8d4, hemiG: 0x52423a, hemiI: 0.82, fog: 0xd8aaa4, cloud: 0xffbca4, far: 0x7a6eb0, grade: [1.06, 0.99, 0.96], night: 0 },
 };
+// The time of day at an hour (0-24) as a blend of the presets: night until five, first light, day from half past
+// seven, dusk round seven in the evening, dark by twenty past eight (an endurance race's clock: setTimeOfDay)
+const DAY_KEYS = [[0, 'night'], [5, 'night'], [6.2, 'dawn'], [7.5, 'day'], [17.5, 'day'], [19, 'dusk'], [20.3, 'night'], [24, 'night']];
+const COLOR_KEYS = ['top', 'hor', 'bottom', 'sunCol', 'hemiS', 'hemiG', 'fog', 'cloud', 'far'];
+function mixDeep(a, b, t) {
+  if (typeof a === 'number' && typeof b === 'number') return a + (b - a) * t;
+  if (Array.isArray(a) && Array.isArray(b)) return a.map((v, k) => mixDeep(v, b[k], t));
+  if (a && b && typeof a === 'object') { const o = {}; for (const k of Object.keys(a)) o[k] = k in b ? mixDeep(a[k], b[k], t) : a[k]; return o; }
+  return t < 0.5 ? a : b;
+}
+export function envParamsAt(env, hour) {
+  const h = ((hour % 24) + 24) % 24;
+  let k = 0; while (k < DAY_KEYS.length - 2 && DAY_KEYS[k + 1][0] <= h) k++;
+  const [h0, a] = DAY_KEYS[k], [h1, b] = DAY_KEYS[k + 1], t = h1 > h0 ? (h - h0) / (h1 - h0) : 0, u = t * t * (3 - 2 * t);
+  const A = envParams({ ...env, time: a }), B = envParams({ ...env, time: b }), P = mixDeep(A, B, u);
+  for (const c of COLOR_KEYS) P[c] = new THREE.Color(A[c]).lerp(new THREE.Color(B[c]), u).getHex();
+  const sl = Math.hypot(...P.sun) || 1; P.sun = P.sun.map(v => v / sl);
+  P.tod = { a, b, u };
+  return P;
+}
 
 export function envParams(env) {
   const t = { ...TIMES[env.time] || TIMES.day };
@@ -92,6 +114,8 @@ function lookFor(t, env) {
       haze: { density: 0.0015, base: 0, falloff: 32, sunAmt: 0.75 } },
     night: { shadow: [0.8, 0.9, 1.18], high: [1.14, 1.0, 0.78], lift: [0.008, 0.014, 0.036], sat: 1.06, contrast: 1.1, bloom: 0.8, bloomThr: 0.85, rays: 0.05,
       haze: { density: 0.0022, base: 0, falloff: 14, sunAmt: 0.25 } },
+    dawn:  { shadow: [0.88, 0.9, 1.08], high: [1.1, 1.0, 0.86], lift: [0.03, 0.022, 0.036], sat: 1.1, contrast: 1.06, bloom: 0.45, bloomThr: 0.92, rays: 0.3,
+      haze: { density: 0.0018, base: 0, falloff: 28, sunAmt: 0.7 } },
   }[env.time] || null;
   const k = JSON.parse(JSON.stringify(L || { shadow: [1, 1, 1], high: [1, 1, 1], lift: [0, 0, 0], sat: 1.08, contrast: 1.06, bloom: 0.4, bloomThr: 0.9, haze: { density: 0.0015, base: 0, falloff: 50, sunAmt: 0.4 } }));
   const w = env.weather, h = k.haze;
@@ -132,7 +156,7 @@ function buildSky(P) {
           vec3 cc = cloudCol * (0.8 + 0.3*fbm(uv*2.3+3.));
           cc += sunCol * pow(sd, 6.) * 0.4;
           col = mix(col, cc, c);
-          if (night > 0.5) { vec3 q = floor(d*260.); float s = hash(q.xy + q.z*17.13); col += step(0.9975, s) * 0.9 * smoothstep(0.,0.3,h) * (1.-c); }
+          if (night > 0.02) { vec3 q = floor(d*260.); float s = hash(q.xy + q.z*17.13); col += step(0.9975, s) * 0.9 * smoothstep(0.,0.3,h) * (1.-c) * smoothstep(0.3, 0.9, night); }
         }
         col = mix(col, fogCol, haze * (1. - smoothstep(0., 0.35, h)) );
         gl_FragColor = vec4(col, 1.);
@@ -777,7 +801,10 @@ export function buildWorld(track, T, A, opts = {}) {
 
   // ---- lamps (positions first, used by road light pools) ----
   const lamps = [];
-  const lampsLit = night || (P.rain && env.time === 'dusk'); // streetlights come on for a wet dusk too
+  // (env.timeFlow: an endurance race, its time of day moving with the race clock: the lamps and floodlights are built
+  // in whatever the hour, and setTimeOfDay fades them in and out)
+  const flow = !!env.timeFlow, nightish = night || flow;
+  const lampsLit = nightish || (P.rain && env.time === 'dusk'); // streetlights come on for a wet dusk too
   // env.circuitLights: 'masts' (the circuit's own lamps, the default), 'banners' (the race-track pack's lamp posts with
   // sponsor banners, their lamp out over the track: lampModels, drawn with the scenery) or 'off'
   const lightsKind = env.circuitLights || 'masts', bannerPosts = lightsKind === 'banners' && envModelsReady() && envAsset('tp_lamppost_0');
@@ -785,11 +812,11 @@ export function buildWorld(track, T, A, opts = {}) {
   // (banner posts stand by day too: they're dressing as well as lights)
   const wantLamps = (lampsLit || theme === 'city' || bannerPosts) && lightsKind !== 'off';
   if (wantLamps) {
-    const every = Math.round((night ? 34 : 50) / T.ds);
+    const every = Math.round((nightish ? 34 : 50) / T.ds);
     for (let i = 0, n = 0; i < N; i += every, n++) {
       const side = n % 2 ? 1 : -1;
       const has = side < 0 ? A.HAS_L[i] : A.HAS_R[i];
-      if ((!has && !night) || pitSide(i, side) || A.BRIDGE[i]) continue;
+      if ((!has && !nightish) || pitSide(i, side) || A.BRIDGE[i]) continue;
       // behind the barrier, or (open sections at night) out past the runoff
       const off = has ? (side < 0 ? A.BL[i] : A.BR[i]) + 1.5 : T.W[i] / 2 + Math.max(4, runoff * 0.7);
       const x = T.X[i] + T.RX[i] * off * side, z = T.Z[i] + T.RZ[i] * off * side;
@@ -800,7 +827,7 @@ export function buildWorld(track, T, A, opts = {}) {
         lampModels.push({ id, x, y: y - 0.03, z, rot, s: 1 });
         const fz = a.d / 2 - 0.35, hx = x + Math.sin(rot) * fz, hz = z + Math.cos(rot) * fz, hy = y + a.h - 0.9;
         lamps.push({ i, side, x, z, y, h: hy - y + 0.25, model: id, hx, hy, hz });
-      } else lamps.push({ i, side, x, z, y, h: night ? 13 : 10 });
+      } else lamps.push({ i, side, x, z, y, h: nightish ? 13 : 10 });
     }
   }
 
@@ -1313,7 +1340,7 @@ export function buildWorld(track, T, A, opts = {}) {
     envPl.push(e); if (e.mv) movers.push(e);
   }
   // the race-track pack's props (PROPS > Trackside): models with the rest, fans in their stands, floodlights at night
-  const tpFx = placeTrackProps({ track, T, A, root, envPl, groundHeight, night, lit: night || env.time === 'dusk' });
+  const tpFx = placeTrackProps({ track, T, A, root, envPl, groundHeight, night, lit: nightish || env.time === 'dusk' });
   for (const q of lampModels) envPl.push(q); // (the circuit's banner lamp posts)
   const envCells = addEnvInstances(root, envPl, { night });
   addContactShadows(root, envPl, groundHeight, night);
@@ -1417,6 +1444,7 @@ export function buildWorld(track, T, A, opts = {}) {
     }
     lampFx && lampFx.update(t, camera);
     tpFx && tpFx.update(t, camera);
+    if (nightGroups.length && nightK < 0.999) for (const g of nightGroups) g.traverse(o => { if (o.isLight) o.intensity *= nightK; }); // (a moving clock: their real light fades too)
     startG && startG.update(t);
   }
 
@@ -1439,9 +1467,36 @@ export function buildWorld(track, T, A, opts = {}) {
     applyPSXMaterial(m, { snap: true, affine: m.map ? 0.6 : 0 }); m.userData.psx = true;
   }
   if (shadowsOn) root.traverse(o => { if ((o.isMesh || o.isInstancedMesh) && o.material && !o.material.transparent && !(o.material.isMeshBasicMaterial)) o.receiveShadow = true; });
+  // ---- an endurance race's clock (env.timeFlow): the time of day at hour h, the sky, sun, fog, clouds and grade
+  // blended (envParamsAt), the lamps' and floodlights' glow, beams, pools and lights faded in with the dark ----
+  let nightK = P.night;
+  const nightGroups = flow ? ['lampsNight', 'floodlights'].map(n => root.getObjectByName(n)).filter(Boolean) : [];
+  const base = new Map(), faceDay = new THREE.Color(0xb8bcc4), faceLit = new THREE.Color(0xffdca8).multiplyScalar(2.6);
+  function setTimeOfDay(h) {
+    if (!flow) return;
+    const Q = envParamsAt(env, h), keep = { fogNear: P.fogNear, fogFar: P.fogFar, grip: P.grip, rain: P.rain };
+    Object.assign(P, Q, keep); nightK = Q.night;
+    hemi.color.setHex(Q.hemiS); hemi.groundColor.setHex(Q.hemiG); hemi.intensity = Q.hemiI;
+    sun.color.setHex(Q.sunCol); sun.intensity = Q.sunI; if (!shadowsOn) sun.position.set(...Q.sun).multiplyScalar(100);
+    fog.color.setHex(Q.fog);
+    const u = sky.material.uniforms;
+    u.top.value.setHex(Q.top); u.hor.value.setHex(Q.hor); u.bottom.value.setHex(Q.bottom); u.sunDir.value.set(...Q.sun).normalize();
+    u.sunCol.value.setHex(Q.sunCol); u.cloudCol.value.setHex(Q.cloud); u.night.value = Q.night; u.fogCol.value.setHex(Q.fog);
+    if (clouds.setTime) clouds.setTime(Q.tod.a, Q.tod.b, Q.tod.u, Q);
+    for (const g of nightGroups) {
+      g.visible = nightK > 0.01;
+      g.traverse(o => {
+        for (const m of o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []) {
+          if (!base.has(m)) base.set(m, m.isShaderMaterial && m.uniforms.k ? m.uniforms.k.value : m.opacity);
+          if (m.isShaderMaterial && m.uniforms.k) m.uniforms.k.value = base.get(m) * nightK; else if (m.transparent) m.opacity = base.get(m) * nightK;
+        }
+      });
+      if (g.userData.face) g.userData.face.color.copy(faceDay).lerp(faceLit, nightK);
+    }
+  }
   const roadAt = (x, z) => !!(roadL && roadL.onGroundRoad(x, z, -1.6));
   const roadLines = roadL ? roadL.pieces.map(pc => pc.s.map(q => [q.x, q.z])) : [];
-  return { root, fog, P, update, setWeather, road: env.surface === 'dirt' ? null : { mat: roadMat }, groundHeight, paintAt, roadAt, streetStep: (x, z) => streetStep(x, z), roadLines, tvCams, startLights, life, boards: distBoards, center: new THREE.Vector3(cx, 0, cz), bounds: { minX, maxX, minZ, maxZ } };
+  return { root, fog, P, update, setWeather, setTimeOfDay, nightK: () => nightK, road: env.surface === 'dirt' ? null : { mat: roadMat }, groundHeight, paintAt, roadAt, streetStep: (x, z) => streetStep(x, z), roadLines, tvCams, startLights, life, boards: distBoards, center: new THREE.Vector3(cx, 0, cz), bounds: { minX, maxX, minZ, maxZ } };
 }
 
 // ---------- the runoff's surfaces ----------
@@ -2313,6 +2368,8 @@ function buildLamps(root, lamps, T, A, surfY, night, tx, roadMat) {
   for (const l of models) glowP.push(l.hx, l.hy, l.hz);
   if (posts.length) { root.add(im); root.add(ih); root.add(face); }
   if (!night) return null;
+  // (everything from here on only shines: one group, so an endurance race's night can fade it: setTimeOfDay)
+  const ng = new THREE.Group(); ng.name = 'lampsNight'; root.add(ng); ng.userData.face = posts.length ? face.material : null;
 
   // glows: a small bright core + a wide faint halo (bloom in the PS2 post pass does the rest)
   // (each lamp's strength, k: a placed floodlight's own setting, else 1, scales its glow, beam, pool and light)
@@ -2320,8 +2377,8 @@ function buildLamps(root, lamps, T, A, surfY, night, tx, roadMat) {
   for (const l of lamps) gk.push(kOf(l), kOf(l), kOf(l));
   const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(glowP, 3)); gg.setAttribute('color', new THREE.Float32BufferAttribute(gk, 3));
   const glowTex = softGlow();
-  root.add(new THREE.Points(gg, new THREE.PointsMaterial({ map: glowTex, size: 2.4, color: new THREE.Color(0xffd49a).multiplyScalar(1.8), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true, fog: false })));
-  root.add(new THREE.Points(gg, new THREE.PointsMaterial({ map: glowTex, size: 11, color: 0xffa860, vertexColors: true, transparent: true, opacity: 0.1, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true, fog: true })));
+  ng.add(new THREE.Points(gg, new THREE.PointsMaterial({ map: glowTex, size: 2.4, color: new THREE.Color(0xffd49a).multiplyScalar(1.8), vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true, fog: false })));
+  ng.add(new THREE.Points(gg, new THREE.PointsMaterial({ map: glowTex, size: 11, color: 0xffa860, vertexColors: true, transparent: true, opacity: 0.1, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true, fog: true })));
 
   // faint light beams down to the road (hazy night air)
   // (the soft volumetric beam of the floodlights, js/trackprops.js: no facets, no hard edge; one draw for them all)
@@ -2330,7 +2387,7 @@ function buildLamps(root, lamps, T, A, surfY, night, tx, roadMat) {
   const kc = new THREE.Color();
   lamps.forEach((l, k) => { m.compose(new THREE.Vector3(l.hx, l.hy, l.hz), new THREE.Quaternion(), new THREE.Vector3(1, l.h - 0.3, 1)); beams.setMatrixAt(k, m); beams.setColorAt(k, kc.setScalar(kOf(l))); });
   beams.renderOrder = 5;
-  root.add(beams);
+  ng.add(beams);
 
   // light pools painted on the road (for lamps too far away to get a real light)
   const pp = [], pu = [];
@@ -2359,7 +2416,7 @@ function buildLamps(root, lamps, T, A, surfY, night, tx, roadMat) {
     poolMat = new THREE.MeshBasicMaterial({ map: pool, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: 0xffb472, opacity: 0.5, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 });
     const mm = new THREE.Mesh(g, poolMat);
     mm.renderOrder = 2;
-    root.add(mm);
+    ng.add(mm);
   }
 
   const street = lamps.filter(l => l.i < 0);
@@ -2367,14 +2424,14 @@ function buildLamps(root, lamps, T, A, surfY, night, tx, roadMat) {
     const disc = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: pool, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: 0xffb472, opacity: 0.38, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }), street.length);
     const R = Math.min(15, 5 + street[0].h * 1.2);
     street.forEach((l, k) => { m.compose(new THREE.Vector3(l.hx, l.y + 0.1, l.hz), new THREE.Quaternion(), new THREE.Vector3(R * 2, 1, R * 2)); disc.setMatrixAt(k, m); disc.setColorAt(k, kc.setScalar(Math.min(1.8, kOf(l)))); });
-    disc.renderOrder = 2; root.add(disc);
+    disc.renderOrder = 2; ng.add(disc);
   }
 
   // Real lights on the lamps nearest the camera, for the extra light they throw on the cars, barriers and
   // buildings. They're gentle (the painted pools do most of the work) and each lamp's share eases in and out
   // over a second or so, so nothing ever snaps on as you drive up to it.
   const K = 8, WANT = 5, lights = [];
-  for (let k = 0; k < K; k++) { const pl = new THREE.PointLight(0xffbe7c, 0, 46, 1.6); root.add(pl); lights.push(pl); }
+  for (let k = 0; k < K; k++) { const pl = new THREE.PointLight(0xffbe7c, 0, 46, 1.6); ng.add(pl); lights.push(pl); }
   const w = new Float32Array(lamps.length), order = lamps.map((l, k) => k);
   let lastT = null;
   return {

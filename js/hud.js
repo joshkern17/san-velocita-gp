@@ -8,6 +8,7 @@ export function fmtTime(t, dp = 2) {
   return m + ':' + (s < 10 ? '0' : '') + s.toFixed(dp);
 }
 const pad2 = (n) => String(n).padStart(2, '0');
+const hms = (s) => { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 3600)}:${pad2(Math.floor(s / 60) % 60)}:${pad2(s % 60)}`; }; // (a timed race's clock)
 // tower name: the surname in full ("M. OKAFOR" -> OKAFOR); you stay YOU
 const code = (r) => r.isPlayer ? 'YOU' : String(r.name).trim().split(/\s+/).pop().toUpperCase() || r.name;
 // canvas drawing uses the design system's colours and fonts (css/sv.css)
@@ -133,7 +134,10 @@ export class HUD {
       this.set('pos', E.pos, c, true);
     }
     else this.set('pos', E.pos, `<small class="tt">TIME TRIAL</small>`, true);
+    // (a timed race: the race clock left, in the race's own hours, and the lap you're on)
+    const ll = E.lap.previousElementSibling, lt = s.timed ? 'CLOCK' : 'LAP'; if (ll && ll.textContent !== lt) ll.textContent = lt;
     if (Q) this.set('lap', E.lap, `<span class="qstat">${Q.status}</span>`, true);
+    else if (s.timed) this.set('lap', E.lap, s.timed.flag ? '<span class="qclock end">FLAG</span>' : `<span class="qclock${s.timed.left < 15 * 60 ? ' late' : ''}">${hms(s.timed.left)}</span><small> L${pad2(Math.max(1, s.lapNo))}</small>`, true);
     else this.set('lap', E.lap, this.mode === 'race' ? `${pad2(s.lap)} / ${pad2(s.laps)}` : pad2(Math.max(1, race.player.lap)));
     // live delta to your best lap (qualifying, time trial)
     const dl = s.sectors && this.secOn !== false ? null : s.delta;

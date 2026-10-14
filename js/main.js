@@ -5208,7 +5208,8 @@ function handleRaceEvents() {
       const name = sim.track.name, bl = bestLaps();
       if (!ev.invalid && (!bl[name] || ev.time < bl[name])) { bl[name] = ev.time; try { localStorage.setItem('svgp.best', JSON.stringify(bl)); } catch (e) {} if (sim.mode === 'test' && prevBest !== null) hud.center('NEW RECORD', 'white', 1600); }
       if (raceReturn === 'gig') gigLap();
-      if (sim.mode === 'race' && ev.lap <= ev.laps) hud.center(ev.lap === ev.laps ? 'FINAL LAP' : `LAP ${ev.lap}`, '', 1600);
+      if (sim.mode === 'race' && sim.timed) {} // (timed: no lap count to announce: the clock and the flag say it)
+      else if (sim.mode === 'race' && ev.lap <= ev.laps) hud.center(ev.lap === ev.laps ? 'FINAL LAP' : `LAP ${ev.lap}`, '', 1600);
     } else if (ev.type === 'finish') {
       sfx.finish();
       const p = ev.pos, o = ['TH', 'ST', 'ND', 'RD'][(p % 100 - 20) % 10] || ['TH', 'ST', 'ND', 'RD'][p % 100] || 'TH';
@@ -5219,6 +5220,8 @@ function handleRaceEvents() {
       const go = () => { if (raceReturn === 'gig') gigFinish(); else if (raceReturn === 'world') { if (sim.net) coopFinish(); else worldRoundDone(); } else if (raceReturn === 'career') careerRoundDone(); else if (raceReturn === 'online') { if (screen !== 's-results') showNetResults(); } else if (raceReturn === 'coop') { if (screen !== 's-results' && screen !== 's-round') showCoopLive(); } else showResults(); };
       if (sim.net || !openPodium(go)) go();
     }
+    else if (ev.type === 'timeup') hud.center('CLOCK AT ZERO<span class="sub">LAST LAP</span>', 'white', 2600);
+    else if (ev.type === 'timedflag') { if (!sim.player.finished) hud.center('CHEQUERED FLAG<span class="sub">FINISH THIS LAP</span>', 'white', 2600); }
     else if (ev.type === 'qflag') { if (ev.onLap) hud.center('CHEQUERED FLAG<span class="sub">FINISH THIS LAP</span>', 'white', 2600); }
     else if (ev.type === 'qpole') { sim.rc.say(`${ev.kind === 'practice' ? 'Fastest' : 'Provisional pole'} · ${ev.name} · ${fmtTime(ev.time, 3)}`, { cls: 'g', me: ev.name === sim.player?.name }); }
     else if (ev.type === 'garage') { if (!ev.first && screen === 'hud') fadeTo(() => openPitGarage(), 250); }
@@ -5854,7 +5857,9 @@ function frameBody(now) {
     if (sim.call) { if (pressed('Digit1') || pressed('GP2')) sim.answerCall('a'); else if (pressed('Digit2') || pressed('GP1')) sim.answerCall('b'); hud.callTick(sim.call ? sim.call.left : 0); }
     if (pressed('Escape') || pressed('KeyP') || pressed('GP9')) pause();
     else {
-      sim.update(dt, ctl, press);
+      // (sim.ff: the race run faster - a co-driver's stint watched at 4x / 8x: it steps that many times a frame)
+      const reps = sim.ff > 1 && !sim.net ? sim.ff : 1;
+      for (let r = 0; r < reps && sim; r++) sim.update(dt, ctl, r ? {} : press);
       handleRaceEvents();
       if (sim) { const hs = sim.hudState(); hud.update(hs, sim); hud.pitMenu(hs, pitSel, true); driftHud.update(sim.drift, dt); }
       if (gig) gigTick(dt);

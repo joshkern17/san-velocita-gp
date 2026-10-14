@@ -242,7 +242,12 @@ export class Race {
     this.pit = buildPitLane(T, A, track.env, track.osm && track.osm.pitLane, surfaceGrid(track.osm && track.osm.surface), track.dress && track.dress.pit);
     A.pit = this.pit;
     applyRoadsToCircuit(track, T, A); // barrier gaps, gates, the track bridging roads that tunnel under it
+    // (a timed race with a start hour: its time of day moves with the race clock - built with the lamps in, the world
+    // starts at the time nearest the hour and setTimeOfDay takes it on from there)
+    const flow = opts.duration > 0 && opts.startHour != null && this.mode === 'race';
+    if (flow) { const h = ((opts.startHour % 24) + 24) % 24; track.env = { ...track.env, timeFlow: true, time: h < 5.6 || h >= 20 ? 'night' : h < 7 ? 'dawn' : h < 18 ? 'day' : 'dusk' }; }
     this.world = buildWorld(track, T, A);
+    if (flow) { this.tod0 = opts.startHour; this.world.setTimeOfDay(this.tod0); }
     this.rain = this.world.P.rain;
     // the weather changing in the race (opts.wx: { to: 'rain' | 'dry', at, until }, as shares of the race distance):
     // rainK, how hard it's raining, and wet, how wet the road is (0..1; the grip follows it, wxUpdate)
@@ -367,10 +372,24 @@ export class Race {
     if (this.rubber) { this.rubber.attach(this.world.road); let lap = 0; for (let i = 0; i < T.N; i++) lap += T.ds / Math.max(5, this.lineV[i]); this.rubberLap = lap; }
     this.damageK = racey ? ({ off: 0, normal: 1, high: 1.8 }[opts.damage || 'normal'] ?? 1) : 0;
     this.laps = this.mode === 'race' ? (T.open ? 1 : opts.laps) : Infinity; // (point-to-point: one run, start to finish)
+    // a timed race (endurance): the race runs dur seconds, then the leader takes the flag at the line and everyone else
+    // at theirs after. k: race-clock seconds per real second (a 6-hour race run in 22 minutes: 16). Until the flag,
+    // this.laps is the laps the leader looks like doing (everything that plans by laps - strategy, the radio - uses it)
+    if (this.mode === 'race' && opts.duration > 0 && !T.open) {
+      let lap = 0; for (let i = 0; i < T.N; i++) lap += T.ds / Math.max(5, this.lineV[i]);
+      this.timed = { dur: opts.duration, k: opts.clockK || 1, lapEst: lap * 1.12, flag: false }; // (the limit lap, plus traffic and stops)
+      this.laps = Math.max(2, Math.ceil(opts.duration / this.timed.lapEst));
+      // stints: about one per hour and a half of the race's own time (a 6 Hours: 4), and the tires made to last one
+      // (a medium set ~15% longer than a stint: the planner can stretch or split them)
+      const hours = opts.duration * this.timed.k / 3600;
+      this.timed.stints = opts.stints || Math.max(2, Math.round(hours / 1.5));
+      if (this.wearK) { const life = this.tyreLife('medium'), want = this.laps / this.timed.stints * 1.15; if (isFinite(life) && life > 0) this.wearK *= life / want; }
+    }
     this.pitLoss = this.pit ? this.pit.length / this.pit.speed - this.pit.length / 55 + 5 : 30;
     this.units = opts.units || 'kmh';
     this.rainGrip = this.world.P.grip;
     this.night = this.world.P.night > 0;
+    if (this.tod0 != null) this.night = this.world.nightK() > 0.45;
 
     this.skids = new SkidMarks(this.scene);
     this.particles = new Particles(this.scene);
@@ -1494,12 +1513,26 @@ export class Race {
     if (car.isPlayer) this.events.push({ type: 'lap', time: t, best: wasBest, lap: car.lap, laps: this.laps, invalid: !valid });
     if (car.isPlayer && this.prog) this.programmeLap();
     if (car.isPlayer && this.quali && this.quali.flag) this.qualiEnd();
-    if (car.lap > this.laps && !car.finished) {
+    if (this.timed && !this.timed.flag && this.order && this.order[0] === car) this.timedLeaderLap(car);
+    if ((car.lap > this.laps || (this.timed && this.timed.flag)) && !car.finished) {
       car.finished = true; car.finishTime = this.raceTime;
       this.addFinish(car);
       if (car.isPlayer) { this.events.push({ type: 'finish', pos: this.finishOrder.length, pen: car.pen || 0 }); this.state = 'finished'; this.stateT = 0; }
     }
   }
+
+  // a timed race: the leader's done a lap. The clock's run out: this was the last (the flag is out for everyone);
+  // else how many more it looks like doing, from its laps so far
+  timedLeaderLap(car) {
+    const t = this.timed, done = car.lap - 1, left = t.dur - this.raceTime;
+    if (left <= 0) { t.flag = true; this.laps = done; this.events.push({ type: 'timedflag' }); return; }
+    const avg = done > 0 ? this.raceTime / done : t.lapEst;
+    this.laps = Math.max(done + 1, done + Math.ceil(left / avg));
+  }
+  // the race clock, as the race's own hours (left: still to run)
+  timedClock() { const t = this.timed; return t ? { left: Math.max(0, t.dur - this.raceTime) * t.k, total: t.dur * t.k, flag: t.flag, tod: this.tod0 != null ? this.todHour() % 24 : null } : null; }
+  // the hour of the day now (an endurance race whose time of day moves: from opts.startHour, on the race clock)
+  todHour() { return this.tod0 + this.raceTime * (this.timed ? this.timed.k : 1) / 3600; }
 
   // the Lap Review's reference: a clean lap by the AI in your car on your tyres, at the pace a quick human drives
   // (a touch under the AI's limit), recorded like one of yours. Cached per car + compound.
@@ -2148,7 +2181,10 @@ export class Race {
       const cost = (seq.length - 1) * this.pitLoss + stints.reduce((a, st, k) => a + st.laps * pace[st.c] + st.laps * lap * 0.03 * (st.laps / lives[k]), 0);
       opts.push({ cost, stints });
     };
-    for (const a of pool) { consider([a]); for (const b of pool) { consider([a, b]); for (const c of pool) consider([a, b, c]); } }
+    if (this.timed) { // (a timed race: as many stints as it takes, a first set and then one compound)
+      const most = Math.max(...pool.map(c => this.tyreLife(c) * 0.92)), n0 = Math.max(1, Math.ceil(R / most));
+      for (let n = n0; n <= Math.max(n0, this.timed.stints + 1); n++) for (const a of pool) for (const b of pool) consider([a, ...Array(n - 1).fill(b)]);
+    } else for (const a of pool) { consider([a]); for (const b of pool) { consider([a, b]); for (const c of pool) consider([a, b, c]); } }
     // (with tyre wear off every tyre lasts forever: just the compound choice)
     return opts.sort((x, y) => x.cost - y.cost);
   }
@@ -3347,6 +3383,12 @@ export class Race {
     this.world.startLights.forEach((m, k) => m.color.setHex(k < this.lightsOn ? 0xff2010 : 0x220606));
 
     if (racing && (!this.net || this.quali)) this.raceTime += dt; // (online races take it from the shared start; a session times each car's laps on its own copy)
+    if (this.timed && !this.timed.up && racing && this.raceTime >= this.timed.dur) { this.timed.up = true; this.events.push({ type: 'timeup' }); }
+    // (the time of day moving with the race clock: four times a second; headlights on once it's dusky)
+    if (this.tod0 != null && (this.todT == null || Math.abs(this.raceTime - this.todT) > 0.25)) {
+      this.todT = this.raceTime; this.world.setTimeOfDay(this.todHour());
+      const k = this.world.nightK(); this.night = k > 0.45; this.ambT = this.rain ? 16 : 30 - 10 * k;
+    }
 
     // controls
     for (const car of this.cars) {
@@ -4514,7 +4556,7 @@ export class Race {
     }
     return {
       pos: pl.pos, total: this.cars.length, lap: Math.max(1, Math.min(pl.lap, this.laps)), laps: this.laps,
-      lapTime: lapNow, best: pl.best, last: pl.last, raceTime: this.raceTime,
+      lapTime: lapNow, best: pl.best, last: pl.last, raceTime: this.raceTime, timed: this.timedClock(), lapNo: pl.lap,
       speed: p.speed, gear: p.gear, rpm: p.rpm, standings, wrongWay: this.wrongWay,
       aids: this.aidHud(),
       state: this.state, surface: pl.surface,
@@ -4556,7 +4598,7 @@ export class Race {
     const prog = (c) => (c.raw ?? c.progress) - owed(c) * vRef;
     const list = [...this.cars].sort((a, b) => {
       if (a.gone !== b.gone) return a.gone ? 1 : -1;
-      if (a.finished && b.finished) return time(a) - time(b);
+      if (a.finished && b.finished) return (this.timed ? b.lap - a.lap : 0) || time(a) - time(b); // (timed: laps first)
       if (a.finished) return -1; if (b.finished) return 1;
       return prog(b) - prog(a);
     });
@@ -4567,7 +4609,7 @@ export class Race {
     return list.map((c, k) => ({
       pos: k + 1, name: c.name, team: c.team.name, color: c.team.main, isPlayer: c.isPlayer, pid: c.pid || null,
       time: c.finished ? time(c) : null,
-      gap: k === 0 ? '' : c.finished && win.finished ? '+' + (time(c) - time(win)).toFixed(3) : lapsDown(win, c) >= 1 ? '+' + lapsDown(win, c) + ' LAP' : 'RUNNING',
+      gap: k === 0 ? '' : this.timed && c.finished && win.finished && c.lap < win.lap ? '+' + (win.lap - c.lap) + ' LAP' : c.finished && win.finished ? '+' + (time(c) - time(win)).toFixed(3) : lapsDown(win, c) >= 1 ? '+' + lapsDown(win, c) + ' LAP' : 'RUNNING',
       pen: (c.penTotal || 0) + (c.dt ? 20 : 0), dt: c.dtTotal || 0, dsq: !!c.dsq,
       best: c.best, pits: c.pits, led: c.led || 0, grid: c.startPos || null, cleanFinish: (c.maxDmg || 0) < 0.25 && !c.penTotal && !c.dtTotal,
       human: c.human, key: c.key, dnf: !!c.gone, finished: c.finished, lap: c.lap,
