@@ -375,6 +375,9 @@ try {
     // (its dressing, laid out in the Track Studio: tools/tracks/studio.mjs)
     const df = path.join(OUT, 'dress', c.id + '.json');
     if (!REF && fs.existsSync(df)) track.dress = JSON.parse(fs.readFileSync(df, 'utf8'));
+    // (and what was changed in the editor and made official: tools/tracks/official.mjs)
+    const ef = path.join(OUT, 'edits', c.id + '.json');
+    if (!REF && fs.existsSync(ef)) Object.assign(track, JSON.parse(fs.readFileSync(ef, 'utf8')));
     if (REF) {
       track.name += ' (reference)'; track.real.id = c.id + '_ref'; fs.mkdirSync(path.dirname(file), { recursive: true });
       // the model itself, placed: game x, z = R (model x, z) + t; game y = (model y + off - lo - base) * exag
