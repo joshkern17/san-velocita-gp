@@ -6,6 +6,7 @@ import { fetchElevation, packTerrain, projectOntoTrack } from '../../js/terrain.
 import { parseOSM, toLocal } from '../../js/geo.js';
 import { orientedRect, polyArea } from '../../js/zones.js';
 import { standLine, straightStands, STAND_GAP } from '../../js/standlines.js';
+import { pitStraightStart } from '../../js/startline.js';
 
 const BRIDGE_CLEAR = 8.5;   // deck over the road below (m)
 const RAMP_GRADE = 0.07;    // how steeply a lifted bridge ramps back to the ground
@@ -41,6 +42,12 @@ export async function bake(inp, log = () => {}) {
     track = make();
   }
   log(`${idx.length} nodes, worst fit ${err.toFixed(2)} m`);
+  // ---- the start/finish line: nothing better given (an F1 outline, a named spot), the middle of the pit straight ----
+  if (inp.autoStart && !open) {
+    const s = pitStraightStart(sampleTrack(track), inp.pitLane, idx.length);
+    if (s && s.node) { idx = [...idx.slice(s.node), ...idx.slice(0, s.node)]; track = make(); }
+    if (s) log(`start/finish: the middle of the ${s.how} (${s.len.toFixed(0)} m)`);
+  }
 
   // ---- real elevation ----
   let T = sampleTrack(track);

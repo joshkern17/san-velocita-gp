@@ -31,5 +31,9 @@ export function lapShift(T, track, ns) {
   if (track.real && track.real.names) track.real.names = track.real.names.flatMap(n => {
     const from = sh(n.from), to = sh(n.to);
     return to >= from ? [{ ...n, from, to }] : [{ ...n, from, to: +L.toFixed(1) }, { ...n, from: 0, to }];
-  }).sort((a, b) => a.from - b.from);
+  }).sort((a, b) => a.from - b.from).reduce((out, n) => { // (and one cut in two before, now in one piece: joined)
+    const l = out[out.length - 1];
+    if (l && l.name === n.name && n.from - l.to < 5) l.to = Math.max(l.to, n.to); else out.push(n);
+    return out;
+  }, []);
 }
