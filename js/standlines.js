@@ -51,8 +51,8 @@ export function straightStands(track, T, pitLane, id = 1) {
   // centred on the start line if it's on this straight, else the straight's middle
   let mid = a <= 0 && b >= 0 ? 0 : Math.round((a + b) / 2);
   const h = Math.round(len / 2 / T.ds); mid = Math.max(a + h + 4, Math.min(b - h - 4, mid));
-  // which side the pits are: the other one
-  let side = 1;
+  // which side the pits are: the other one (no mapped pit lane: the game tries the right first, js/track.js tryPit)
+  let side = track.env.pitSide === 'left' ? 1 : -1;
   if (pitLane && pitLane.length) {
     let s = 0; for (const [x, z] of pitLane) { const i = wrap(mid); if (Math.hypot(x - T.X[i], z - T.Z[i]) < 300) s += (x - T.X[i]) * T.RX[i] + (z - T.Z[i]) * T.RZ[i]; }
     side = s > 0 ? -1 : 1;

@@ -89,6 +89,36 @@ export const CATALOG = [
     scatter: { mix: 'mixed', r: 80, d: 0.25 },
   },
   {
+    // Big Willow, the 2.5-mile road course (1953), clockwise: the long front straight, the fast sweepers of Turns 8 and 9
+    id: 'willow', name: 'Willow Springs', country: 'USA', category: 'classic',
+    dem: 'usgs',
+    desc: 'Classic · the fastest road in the West: nine turns over the Mojave hills, finishing with the flat-out sweepers of 8 and 9',
+    guide: { points: [[34.87101, -118.26276], [34.87252, -118.26552], [34.87224, -118.26799], [34.87061, -118.27052], [34.87292, -118.27107], [34.87426, -118.26828], [34.87615, -118.26835], [34.87466, -118.26613], [34.87478, -118.26315], [34.87393, -118.26017], [34.87293, -118.25739], [34.87031, -118.25681], [34.86902, -118.25911], [34.87050, -118.26185]] },
+    roads: RACEWAY, skip: /streets|horse thief|kart|speedway|stadium|autocross|pit/i, skipIds: [10412884, 34365657], width: 12,
+    env: { theme: 'desert', time: 'day', weather: 'clear', laps: 3, opponents: 11, setting: { kind: 'none', flora: 'desert', seed: 1953 } },
+    scatter: { mix: 'desert', r: 90, d: 0.12 },
+  },
+  {
+    // the main circuit (1969), clockwise
+    id: 'summitpoint', name: 'Summit Point', country: 'USA', category: 'classic',
+    dem: 'usgs',
+    desc: 'Classic · two miles in the West Virginia countryside: club racing\'s East Coast home, short, quick and technical',
+    guide: { points: [[39.23459, -77.96931], [39.23203, -77.97044], [39.23116, -77.97210], [39.23373, -77.97100], [39.23596, -77.97196], [39.23813, -77.97394], [39.23890, -77.97565], [39.24068, -77.97373], [39.24044, -77.97062], [39.23900, -77.96770], [39.23642, -77.96853]] },
+    roads: RACEWAY, skip: /jefferson|shenn?andoah|kart|pit/i, skipIds: [471472805, 471472806, 471473072, 471488564, 954901941, 954901942, 954901943, 954901944, 1151047161, 1151047162, 1151047163, 1151047164, 1151047165, 1151047166], width: 11,
+    env: { theme: 'grass', time: 'day', weather: 'clear', laps: 4, opponents: 11, setting: { kind: 'none', flora: 'mixed', seed: 1969 } },
+    scatter: { mix: 'mixed', r: 80, d: 0.25 },
+  },
+  {
+    // the East course (1993): the home of the 25 Hours
+    id: 'thunderhill', name: 'Thunderhill', country: 'USA', category: 'classic',
+    dem: 'usgs',
+    desc: 'Classic · three miles of the Sacramento Valley: blind crests, the long front straight and the 25 Hours, where small cars go all night',
+    guide: { points: [[39.54024, -122.33119], [39.53753, -122.33117], [39.53603, -122.32893], [39.53690, -122.32665], [39.53828, -122.32949], [39.54068, -122.32916], [39.54261, -122.32910], [39.54464, -122.32997], [39.54497, -122.33338], [39.54307, -122.33586], [39.54071, -122.33565], [39.53802, -122.33508], [39.53936, -122.33284], [39.54213, -122.33279], [39.54381, -122.33176], [39.54132, -122.33120]] },
+    roads: RACEWAY, skip: /pit|bypass/i, skipIds: [756822998, 756822999, 756823000, 1016088342, 892530996, 892530998, 44958782, 969660090], width: 12,
+    env: { theme: 'grass', time: 'day', weather: 'clear', laps: 3, opponents: 11, setting: { kind: 'none', flora: 'meadow', seed: 1993 } },
+    scatter: { mix: 'meadow', r: 90, d: 0.15 },
+  },
+  {
     id: 'zandvoort', name: 'Zandvoort', country: 'Netherlands', category: 'gp',
     dem: 'ahn',
     desc: 'Grand Prix · in the dunes by the North Sea: Tarzan, the Hugenholtz banking and the steep banked Arie Luyendyk',

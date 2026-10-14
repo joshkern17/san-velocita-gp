@@ -26,7 +26,7 @@ export const POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 // A new series is a line here, plus its costs (COSTS, SEASON_FUND, TEAM_FUND) and its cars: the rest builds itself.
 export const SERIES = [
   { id: 'club', name: 'Spec Miata Club', cls: 'club', tier: 1, path: 'sportscar', oneMake: true, base: 44, spread: 14, car: 'classifieds', price: [14000, 14000], ages: [17, 12], inv: 0.4, local: true,
-    tracks: ['Lime Rock Park', 'Laguna Seca', 'Pine Hollow Park', 'Pinewood Sprint', 'Maple Ridge GP', 'Palm Bay Circuit'] },
+    tracks: ['Lime Rock Park', 'Summit Point', 'Willow Springs', 'Laguna Seca', 'Thunderhill', 'Maple Ridge GP'] },
   { id: 'street', name: 'Street Cup', cls: 'street', tier: 2, path: 'sportscar', base: 50, spread: 14, car: 'classifieds', bop: true, ages: [18, 9], inv: 0.6, local: true, lic: 2,
     tracks: ['Laguna Seca', 'Zandvoort', 'Indianapolis', 'Palm Bay Circuit', 'Harborview Streets', 'Road Atlanta', 'Watkins Glen'] },
   // (the customer GT racers a class below GT1: the cars bought from the maker, balanced with ballast, the second seat

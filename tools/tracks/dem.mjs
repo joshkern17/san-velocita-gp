@@ -66,7 +66,7 @@ const SOURCES = {
     const out = new Array(pts.length).fill(null);
     // (the service has off moments under load: a point that keeps failing comes back undefined, not cached, and a
     // rerun fetches it again)
-    await pool(pts, 4, async (p, k) => {
+    await pool(pts, 12, async (p, k) => {
       let j; try { j = await getJSON(`https://epqs.nationalmap.gov/v1/json?x=${p.lon}&y=${p.lat}&units=Meters&wkid=4326`); } catch (e) { out[k] = undefined; return; }
       const v = parseFloat(j.value); out[k] = isFinite(v) && v > -1000 ? v : null;
     });
