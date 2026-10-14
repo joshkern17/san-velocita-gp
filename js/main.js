@@ -1015,6 +1015,12 @@ menus['s-raceset'] = [
   new Menu($('m-setup'), [
     { label: 'Race', head: true },
     { label: 'Laps', values: [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50].map(v => [v, String(v)]), get: () => raceCfg.laps, set: v => raceCfg.laps = v, desc: 'Race distance. Long races bring tyre wear and pit strategy into play.' },
+    // (a timed race: endurance - the clock in the race's own hours, compressed; the time of day moves with it; a co-driver)
+    { label: 'Format', values: [['laps', 'Laps'], ['timed', 'Timed']], get: () => settings.raceFormat || 'laps', set: v => { settings.raceFormat = v; saveSettings(); }, desc: '<b>Laps</b>: a set number of laps. <b>Timed</b>: an endurance race. The clock runs in the race\'s own hours, compressed (Endurance Length below); when it runs out, the leader takes the flag at the line. The time of day moves with the clock, and you can share the car with a co-driver.' },
+    { label: 'Race Clock', values: [1, 3, 6, 12, 24].map(v => [v, `${v} hour${v === 1 ? '' : 's'}`]), get: () => settings.endHours || 6, set: v => { settings.endHours = v; saveSettings(); }, desc: 'Timed races: how long the race runs on its own clock.' },
+    { label: 'Endurance Length', values: [[45, 'Short'], [90, 'Medium'], [180, 'Long']], get: () => settings.endur || 90, set: v => { settings.endur = v; saveSettings(); }, desc: 'Timed races: how long 24 hours of race clock takes in real time. <b>Short</b> 45 minutes, <b>Medium</b> 90, <b>Long</b> 180 (a 6 Hours: 11, 22 or 45 minutes).' },
+    { label: 'Start Time', values: [[8, 'Morning'], [14.5, 'Afternoon'], [18.5, 'Evening'], [22, 'Night']], get: () => settings.endStart ?? 14.5, set: v => { settings.endStart = v; saveSettings(); }, desc: 'Timed races: the time of day at the start. It moves on with the race clock: an afternoon start runs into the night.' },
+    { label: 'Co-Driver', values: [['on', 'AI co-driver'], ['off', 'Drive it all']], get: () => settings.coDriver || 'on', set: v => { settings.coDriver = v; saveSettings(); }, desc: 'Timed races: share the car. At each stop the engineer asks whether to swap; each of you has to drive 30% of the race. While they drive, watch at 1x, 4x or 8x, or skip to your next stint.' },
     { label: 'Opponents', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(v => [v, String(v)]), get: () => raceCfg.opponents, set: v => raceCfg.opponents = v, desc: 'How many AI cars you race against.' },
     { label: 'Difficulty', values: [['easy', 'Rookie'], ['medium', 'Pro'], ['hard', 'Legend'], ['alien', 'Alien'], ['phantom', 'Phantom'], ['godlike', 'Godlike']], get: () => settings.difficulty, set: v => { settings.difficulty = v; saveSettings(); }, desc: 'How fast the AI is. <b>Rookie</b> to learn a circuit, <b>Legend</b> to match a clean lap at your best, <b>Alien</b> and up to be beaten. Above <b>Legend</b> the AI cars get extra grip and power, more at each level.' },
     { label: 'Weekend', values: WEEKEND_VALS, get: wkFmt, set: v => { settings.weekend = v; saveSettings(); syncGridItem(); }, desc: WEEKEND_DESC },
@@ -1049,7 +1055,11 @@ function launch(mode) {
   // (changeable: overcast, and rain at some point in the race, or not: a shower, or for good)
   const wx = settings.weather === 'changeable' && Math.random() < 0.75 ? (() => { const at = 0.2 + Math.random() * 0.4; return { to: 'rain', at, until: Math.random() < 0.45 ? at + 0.2 + Math.random() * 0.15 : null }; })() : null;
   if (wx) t.env.wxChange = true;
-  const race = { mode, laps: raceCfg.laps, opponents: raceCfg.opponents, pick: true, ...(wx ? { extra: { wx } } : {}) };
+  // (a timed race: its real length from the race clock and the endurance length; a co-driver with a name)
+  const timed = mode === 'race' && settings.raceFormat === 'timed' ? (() => { const h = settings.endHours || 6, dur = Math.round((settings.endur || 90) * 60 * h / 24);
+    const co = ['Ana Silva', 'Mika Lehto', 'Jules Arnaud', 'Rosa Quintero', 'Tom Ashcroft', 'Kenji Mori'][Math.floor(Math.random() * 6)];
+    return { duration: dur, clockK: h * 3600 / dur, startHour: settings.endStart ?? 14.5, ...((settings.coDriver || 'on') === 'on' ? { codriver: { name: co, paceK: 0.97, aggr: 0.45 } } : {}) }; })() : null;
+  const race = { mode, laps: raceCfg.laps, opponents: raceCfg.opponents, pick: true, ...(wx || timed ? { extra: { ...(wx ? { wx } : {}), ...(timed || {}) } } : {}) };
   if (mode === 'race' && wkFmt() !== 'race' && raceCfg.opponents > 0) return startWeekend(t, race, 'setup', wkFmt(), [wkPrac(), wkQuali()]);
   weekend = null;
   startRace(t, race, 'setup');
