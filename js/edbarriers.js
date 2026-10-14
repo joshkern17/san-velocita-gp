@@ -212,6 +212,15 @@ export function installBarrierTool(Ed) {
   P.drawBarrierEdit = function (c) {
     if (this.tool !== 'bars' || !this.T) return;
     const list = this.barList(), sel = list[this.barSel];
+    // every barrier in its type's color, its ends marked (a split shows as two)
+    if (this._barLinesA !== this.A || this._barLinesL !== list) { this._barLines = new WeakMap(); this._barLinesA = this.A; this._barLinesL = list; }
+    const lineOf = (b) => { let l = this._barLines.get(b); if (!l || l.pts !== b.pts) { l = { pts: b.pts, line: this.barLine(b) }; this._barLines.set(b, l); } return l.line; };
+    for (const b of list) {
+      if (b === sel || b.pts.length < 2) continue;
+      const line = lineOf(b);
+      c.strokeStyle = COL[b.type] || '#c8ccd4'; c.lineWidth = 2; c.globalAlpha = 0.85; c.beginPath(); line.forEach((p, k) => { const q = this.w2s(...p); k ? c.lineTo(...q) : c.moveTo(...q); }); c.stroke(); c.globalAlpha = 1;
+      for (const p of [line[0], line[line.length - 1]]) { const [px, py] = this.w2s(...p); c.fillStyle = COL[b.type] || '#c8ccd4'; c.strokeStyle = '#000'; c.lineWidth = 1.5; c.beginPath(); c.arc(px, py, 4, 0, Math.PI * 2); c.fill(); c.stroke(); }
+    }
     if (sel) {
       const line = this.barLine(sel);
       c.strokeStyle = '#ffd34a'; c.lineWidth = 5; c.globalAlpha = 0.55; c.beginPath(); line.forEach((p, k) => { const q = this.w2s(...p); k ? c.lineTo(...q) : c.moveTo(...q); }); c.stroke(); c.globalAlpha = 1;
@@ -262,9 +271,15 @@ export function installBarrierTool(Ed) {
     }
     const on = (id, fn) => { const e = $(id); if (e) e.addEventListener('click', fn); };
     on('br-split', () => {
+      // (two barriers that meet at the node: each its own copy of it, the first ending there, the second starting there;
+      // the second one picked, so you see both)
       this.push(); const own = this.barsEditable(), w = own[this.barSel], k = this.barNode;
-      own.splice(this.barSel, 1, { ...w, pts: w.pts.slice(0, k + 1) }, { ...w, pts: w.pts.slice(k).map(p => [...p]) });
-      this.barNode = -1; sfx.place(); this.changed(); this.renderBarrierTab();
+      const copy = (p) => (p[2] ? [p[0], p[1], { ...p[2] }] : [p[0], p[1]]);
+      const a = w.pts.slice(0, k + 1).map(copy), b = w.pts.slice(k).map(copy);
+      const end = a[a.length - 1][2]; if (end) { delete end.f; delete end.ho; }
+      const st = b[0][2]; if (st) delete st.hi;
+      own.splice(this.barSel, 1, { ...w, pts: a }, { ...w, pts: b });
+      this.barSel++; this.barNode = 0; sfx.place(); this.changed(); this.renderBarrierTab(); this.toast('SPLIT INTO 2 BARRIERS');
     });
     on('br-delnode', () => this.barDelete());
     // the picked node's stretches: straight (handles off), back along the track, or free
