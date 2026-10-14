@@ -11,6 +11,7 @@ import { initInput, pressed, isDown, clearEdges, pollGamepad, driveControls, gp,
 import { WheelSetup } from './wheelsetup.js';
 import { ffb, ffbSend } from './ffb.js';
 import { lapKey, lapsFor, loadPB, referenceLap, analyze } from './telemetry.js';
+import { saveSession } from './session.js';
 import { drawChart, drawMap, notesHtml, fmtGap, fmtSpeed, drawLineMap, lineMapHit, lineMapZoom, lineMapPan, chartHit, popHtml, boardZones, lineRange, setScramble, tipText } from './lapreview.js';
 import { garbleTree } from './garble.js';
 import { AIDS, AID_KEYS, PRESETS, PRESET_VALS, aidsOf, presetOf, applyPreset, aidBonus, AID_RULES, AID_RULE_DESC, limitAids } from './aids.js';
@@ -395,7 +396,7 @@ function commentaryName() {
   const sur = String(settings.driverName || '').trim().split(' ').pop(), slug = slugName(sur);
   return slug && has(slug) ? { commentaryName: slug, commentaryLabel: sur.toUpperCase() } : {};
 }
-function disposeSim() { driftHud.hide(); voStopAll(); if (sim) { sim.dispose(); sim = null; } }
+function disposeSim() { driftHud.hide(); voStopAll(); if (sim) { saveSession(sim); sim.dispose(); sim = null; } }
 
 // ---------------- boot ----------------
 let booted = false;

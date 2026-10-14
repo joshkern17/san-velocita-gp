@@ -6,6 +6,9 @@
 --auto-exit: quit once the game window has been closed for ~90 seconds
 (the game pings /__ping every 20s while it is open).
 
+Sessions: after each session you drove a lap in, the game sends how it went (your laps, the AI's) to saves/sessions/
+(the newest 40), for tools/session.mjs.
+
 Saves: on the game's own port (8000) the game mirrors everything it saves (tracks, liveries, careers, settings,
 your livery images) into saves/ next to this file, and restores from it if the browser's storage comes back empty.
 A dated copy is kept each day for two weeks (saves/history/). Other ports (test servers) don't touch saves/.
@@ -202,6 +205,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self.reply(json.dumps({'ok': False, 'error': str(e)}), 'application/json')
         if not SAVES:
             self.send_response(404); self.end_headers(); return
+        # a finished session, every lap of it (js/session.js): saves/sessions/<name>.json, the newest 40 kept, for
+        # tools/session.mjs to pick apart. Stays on this Mac (not copied to iCloud).
+        if u.path == '/__session':
+            d = os.path.join(SAVES, 'sessions'); os.makedirs(d, exist_ok=True)
+            with open(os.path.join(d, safe((q.get('name') or ['session'])[0]) + '.json'), 'w', encoding='utf-8') as fh:
+                fh.write(body)
+            for old in sorted(f for f in os.listdir(d) if f.endswith('.json'))[:-40]:
+                os.remove(os.path.join(d, old))
+            return self.reply('ok', 'text/plain')
         with lock:
             os.makedirs(LS, exist_ok=True); os.makedirs(ASSETS, exist_ok=True)
             daily_copy()

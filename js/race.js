@@ -369,6 +369,9 @@ export class Race {
     // the racing line, fitted to the car the race is built around (lineFor): the one the AI drives and you're shown
     this.line = this.lineFor(this.mainCarId()); this.lineOwner = this.mainCarId(); this.lineK = null;
     this.rec = opts.mode !== 'attract' ? new LapRecorder(T) : null; // your laps, sample by sample (telemetry.js: Lap Review)
+    // the AI's laps too, for the session file (session.js: each AI car's best lap and its lap times, so its driving can
+    // be set against yours) and the session's own laps of yours (opts.sessionLog false: none, for benches)
+    this.aiRec = this.rec && opts.sessionLog !== false ? new Map() : null; this.sessLaps = [];
     this.cars = [];
     this.log = []; // incidents between named drivers (World Career's ledger)
     this.diff = diffFor(opts);
@@ -1527,6 +1530,7 @@ export class Race {
     const wasBest = valid && t < car.best;
     if (wasBest) { car.best = t; car.bestWhen = this.raceTime; if (car.trace) car.bestTrace = car.trace; }
     if (car.isPlayer && this.rec) this.recordLap(car, t, valid);
+    if (car.ai && !car.isPlayer && this.aiRec) this.recordAiLap(car, t, valid);
     this.secLap(car, valid);
     car.lapInvalid = null; car.trace = null;
     car.lapStart = this.raceTime;
@@ -1667,12 +1671,20 @@ export class Race {
       valid, lap: car.lapTimes.length, mode: this.quali ? this.quali.kind || 'quali' : this.mode, car: car.carId,
       tyre: car.phys.tyre.c, wear: Math.min(car.phys.tyre.wf, car.phys.tyre.wr), rain: !!this.rain, when: Date.now(),
     });
-    if (lap) addLap(lapKey(this.track, this.T, car.carId), lap);
+    if (lap) { addLap(lapKey(this.track, this.T, car.carId), lap); this.sessLaps.push(lap); }
     // a new best: that's the ghost to chase from the next lap
     if (lap && lap.valid && this.ghostOn() && (this.opts.ghost || 'best') === 'best' && (!this.ghostLap || lap.time < this.ghostLap.time)) {
       this.ghostLap = lap;
       if (!this.ghost) this.buildGhost();
     }
+  }
+
+  // an AI car's lap for the session file: its best valid lap is kept whole (the rest only as lap times)
+  aiRecFor(car) { let r = this.aiRec.get(car); if (!r) this.aiRec.set(car, r = { rec: new LapRecorder(this.T), best: null }); return r.rec; }
+  recordAiLap(car, t, valid) {
+    const r = this.aiRec.get(car); if (!r) return;
+    const lap = r.rec.finish(car, t, { valid, lap: car.lapTimes.length, tyre: car.phys.tyre.c, wear: Math.min(car.phys.tyre.wf, car.phys.tyre.wr) });
+    if (lap && valid && (!r.best || t < r.best.time)) r.best = lap;
   }
 
   // ---------- the ghost car (time trial, practice, qualifying) ----------
@@ -3560,6 +3572,7 @@ export class Race {
         if (locked) { car.phys.vx = car.phys.vz = car.phys.r = 0; car.phys.gear = 1; car.phys.revT = 0; car.phys.rpm = car.phys.p.idle * 1.05 + (car.ctl.throttle || 0) * (car.phys.p.redline * 0.72 - car.phys.p.idle); car.phys.throttle = car.ctl.throttle || 0; }
         this.updateTracker(car);
         if (car === this.player && this.rec && car.lap > 0 && !car.finished) this.rec.sample(car, this.raceTime);
+        else if (car.ai && !car.isPlayer && this.aiRec && this.player && car.lap > 0 && !car.finished) this.aiRecFor(car).sample(car, this.raceTime);
         this.barriers(car);
         this.pitWall(car);
         if (car.pitPhase === 'stop') { car.phys.vx = car.phys.vz = car.phys.r = 0; }
