@@ -40,9 +40,16 @@ try {
   for (let k = 0; k < 6; k++) await key('ArrowDown');
   check(!(await sel()).startsWith('Laps'), 'cursor skips hidden rows: ' + await sel());
   await pg.screenshot({ path: join(ROOT, '.devtest/out/raceset-timed.png') });
+  // A / Enter on a setting: over to Start Race (the setting stays as it was)
+  const fmt = await pg.evaluate(() => JSON.parse(localStorage.getItem('svgp.settings')).raceFormat);
+  await key('Enter');
+  check((await sel()).startsWith('Start Race') && await pg.evaluate(() => JSON.parse(localStorage.getItem('svgp.settings')).raceFormat) === fmt, 'Enter on a setting goes to Start Race: ' + await sel());
+  const fill = await pg.evaluate(() => getComputedStyle(document.querySelector('#m-rsgo .item.primary')).backgroundColor);
+  check(fill !== 'rgba(0, 0, 0, 0)', 'Start Race filled when selected: ' + fill);
+  await pg.screenshot({ path: join(ROOT, '.devtest/out/raceset-go.png') });
   // back to the buttons with Tab, and Time Trial below Start Race
-  await key('Tab'); await key('ArrowDown');
-  check((await sel()).startsWith('Time Trial'), 'Tab back, down: ' + await sel());
+  await key('ArrowDown');
+  check((await sel()).startsWith('Time Trial'), 'down from Start Race: ' + await sel());
   // click Start Race: the race loads
   await pg.click('#m-rsgo .item.primary'); await pg.waitForFunction(() => __svgp.screen !== 's-raceset', null, { timeout: 20000 }).catch(() => {});
   check(await pg.evaluate(() => __svgp.screen !== 's-raceset'), 'clicking Start Race starts: ' + await pg.evaluate(() => __svgp.screen));

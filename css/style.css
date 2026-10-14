@@ -1214,8 +1214,15 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .rs-card .pc-map { top: 12px; right: 12px; width: 130px; z-index: 2; }
 .rs-card .ti-grid b { font-size: 19px; white-space: nowrap; }
 .rs-card .rs-go { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.1); }
-.rs-card .rs-go .item.action { font-size: 24px; line-height: 1.45; padding-left: 18px; margin-left: -18px; }
-.rs-card .rs-go .item.sel::before { left: 1px; border-left-width: 11px; border-top-width: 7px; border-bottom-width: 7px; }
+.rs-card .rs-go .item.action { font-size: 24px; line-height: 1.45; margin: 0; padding: 4px 16px; text-align: center; border: 1px solid color-mix(in srgb, currentColor 45%, transparent); }
+.rs-card .rs-go .item.action + .item.action { margin-top: 8px; }
+.rs-card .rs-go .item.sel::before { display: none; } /* (the box lights up instead) */
+.rs-card .rs-go .item.action.sel { border-color: currentColor; }
+/* Start Race: the filled button, as it was at the foot of the list */
+.rs-card .rs-go .item.action.primary { color: var(--sv-red); border: 2px solid currentColor; box-shadow: var(--sv-glow-box); }
+.rs-card .rs-go:not(.inactive) .item.action.primary.sel, .rs-card .rs-go .item.action.primary:hover { color: var(--sv-amber); background: var(--sv-amber); box-shadow: var(--sv-glow-fill); text-shadow: var(--sv-glow-ink); -webkit-text-fill-color: transparent; }
+.rs-card .rs-go .item.action.primary small { color: inherit; opacity: .7; }
+.rs-card .rs-go:not(.inactive) .item.action.primary.sel small, .rs-card .rs-go .item.action.primary:hover small { -webkit-text-fill-color: var(--sv-ink); }
 
 /* ---- race control: flag board + stewards' messages (top centre) ---- */
 @keyframes rcblink { 50% { filter: brightness(.35); } }

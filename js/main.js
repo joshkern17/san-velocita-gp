@@ -181,7 +181,7 @@ const GLYPHS = {
 const HINTS = {
   's-main': [['nav', 'Navigate'], ['ok', 'Select']],
   's-setup': () => [['nav', 'Circuit'], ['ok', 'Choose circuit'], ['back', fromEditor ? 'Back to editor' : 'Back']],
-  's-raceset': () => [['tab', 'Settings / Start'], ['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ['back', fromEditor ? 'Back to editor' : 'Circuits']],
+  's-raceset': () => (focusIdx['s-raceset'] || 0) === 0 ? [['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'To Start'], ['tab', 'Start / Settings'], ['back', fromEditor ? 'Back to editor' : 'Circuits']] : [['nav', 'Navigate'], ['ok', 'Select'], ['tab', 'Start / Settings'], ['back', fromEditor ? 'Back to editor' : 'Circuits']],
   's-career': [['tab', 'Career type'], ['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ['back', 'Back']],
   's-online': [['nav', 'Navigate'], ['ok', 'Select'], ['back', 'Back']],
   's-lobby': () => [['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ['back', net && net.isHost ? 'Close room' : 'Leave room']],
@@ -285,7 +285,7 @@ class Menu {
     this.showDesc();
   }
   showDesc() { if (this.descEl && this.active) { const d = this.items[this.i]?.desc; this.descEl.innerHTML = d || ''; this.descEl.classList.toggle('on', !!d); } }
-  focusMe() { const scr = this.el.closest('.screen').id; const list = menus[scr]; if (list) { focusIdx[scr] = list.indexOf(this); list.forEach(m => m.setActive(m === this)); } }
+  focusMe() { const scr = this.el.closest('.screen').id; const list = menus[scr]; if (list) { const was = focusIdx[scr]; focusIdx[scr] = list.indexOf(this); list.forEach(m => m.setActive(m === this)); if (was !== focusIdx[scr] && scr === screen) renderHints(); } }
   setActive(a) { this.active = a; this.el.classList.toggle('inactive', !a); if (a) this.showDesc(); }
   move(d) {
     const n = this.items.length; if (!n) return;
@@ -311,7 +311,9 @@ class Menu {
   }
   activate() {
     const it = this.items[this.i]; if (!it || it.disabled) return;
-    if (it.values && !it.action) return this.change(1); // (a picker with an action: the arrows choose, select does it)
+    // (a picker with an action: the arrows choose, select does it. okValue: select on a picker does that instead of
+    // changing it - Race Settings: over to Start Race)
+    if (it.values && !it.action) return this.opts.okValue ? this.opts.okValue(it) : this.change(1);
     // destructive choices ask twice
     if (it.confirm && !it.armed) { it.armed = true; sfx.move(); this.render(); return; }
     it.armed = false;
@@ -1046,7 +1048,7 @@ menus['s-raceset'] = [
     { label: 'Start Tyre', values: [['auto', 'Auto'], ['soft', 'Soft'], ['medium', 'Medium'], ['hard', 'Hard'], ['wet', 'Wet'], ['dirt', 'Dirt']], get: () => settings.startTyre, set: v => { settings.startTyre = v; saveSettings(); }, desc: 'The compound you start on. Auto picks the best one for the conditions (dirt tyres on a dirt track).' },
     { label: 'Pit Wall Calls', values: [['on', 'On'], ['off', 'Off']], get: () => settings.pitWall || 'on', set: v => { settings.pitWall = v; saveSettings(); }, desc: 'Your engineer asks you on the radio when there\'s a call to make: undercut, cover, a cheap stop under the VSC, your teammate. Answer with <b>X / B</b> (or <b>1 / 2</b>); if you don\'t, their pick happens. Off: they make the pit calls and tell you.' },
     { label: 'Drift Points', values: [['off', 'Off'], ['on', 'On']], get: () => settings.drift, set: v => { settings.drift = v; saveSettings(); }, desc: 'Score points for sliding road and GT cars. Records are kept per circuit.' },
-  ], { desc: 'd-setup', onChange: () => menus['s-raceset'][1].render() }),
+  ], { desc: 'd-setup', onChange: () => menus['s-raceset'][1].render(), okValue: () => { const g = menus['s-raceset'][1]; g.i = 0; cycleFocus(1); g.render(); } }),
   // (the buttons under the circuit's picture, so you don't scroll the settings to go)
   new Menu($('m-rsgo'), [
     { get label() { const h = settings.endHours || 6, n = raceCfg.laps; return `Start Race<small>${timedOn() ? `${h} HOUR${h === 1 ? '' : 'S'}` : `${n} LAP${n === 1 ? '' : 'S'}`} &middot; ${raceCfg.opponents} AI</small>`; }, cls: 'action primary', action: () => launch('race'), desc: 'Load the circuit. You choose your car on the grid.' },
