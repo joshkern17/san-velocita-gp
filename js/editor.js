@@ -16,6 +16,7 @@ import { realTracks, hydrateReal } from './realtracks.js';
 import { fetchElevation, packTerrain, projectOntoTrack, rawHeight, inGrid, EXAG_MAX, TERRAIN_ATTR } from './terrain.js';
 import { installKerbTool } from './edkerbs.js';
 import { installBarrierTool } from './edbarriers.js';
+import { lapShift } from './lapshift.js';
 import { installView3d } from './ed3d.js';
 import { installPitTool } from './edpit.js';
 import { installPaintShapes } from './edpaint.js';
@@ -2730,7 +2731,7 @@ export class Editor {
       inp.addEventListener('change', () => this.changed());
     };
     bind('n-w', 'w'); bind('n-e', 'e'); bind('n-b', 'b');
-    $('n-start') && $('n-start').addEventListener('click', () => { this.push(); this.track.start = sel[0]; sfx.select(); this.changed(true); this.toast('START/FINISH MOVED'); });
+    $('n-start') && $('n-start').addEventListener('click', () => { this.push(); lapShift(this.T, this.track, sel[0]); this.track.start = sel[0]; sfx.select(); this.changed(true); this.toast('START/FINISH MOVED'); });
     $('n-flat').addEventListener('click', () => { this.push(); sel.forEach(i => { P[i].b = 0; }); if (sel.length > 1) { const avg = sel.reduce((a, i) => a + P[i].e, 0) / sel.length; sel.forEach(i => P[i].e = Math.round(avg * 2) / 2); } this.changed(true); });
     $('n-del').addEventListener('click', () => this.deleteNodes());
     if ($('n-curve')) $('n-curve').addEventListener('click', () => { this.push(); sel.forEach(i => { delete P[i].hi; delete P[i].ho; }); sfx.move(); this.changed(true); this.renderPanels(); });
