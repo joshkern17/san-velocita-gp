@@ -5,6 +5,7 @@ import { sampleTrack, defaultEnv, THEMES } from '../../js/track.js';
 import { fetchElevation, packTerrain, projectOntoTrack } from '../../js/terrain.js';
 import { parseOSM, toLocal } from '../../js/geo.js';
 import { orientedRect, polyArea } from '../../js/zones.js';
+import { standLine, straightStands, STAND_GAP } from '../../js/standlines.js';
 
 const BRIDGE_CLEAR = 8.5;   // deck over the road below (m)
 const RAMP_GRADE = 0.07;    // how steeply a lifted bridge ramps back to the ground
@@ -122,7 +123,9 @@ export async function bake(inp, log = () => {}) {
   const HT = hashT(T, 40);
   const rank = (x, z) => { const { d } = nearIdx(T, HT, x, z); return d < 0 || !isFinite(d) ? 1e9 : d; };
   track.osm = parseOSM(geo, { elements: rest }, sbox, { rank, maxTrees: inp.maxTrees || 14000, step: 9 });
-  track.props = standsToProps(stands, geo, T);
+  // (the map's grandstands as lines of covered / flag stands; none mapped: one along the main straight)
+  ({ props: track.props, lines: track.propLines } = standsToProps(stands, geo, T));
+  if (!track.propLines.length && !open) { const L = straightStands(track, T, inp.pitLane); if (L) { track.propLines.push(L.line); track.props.push(...L.props); } }
   track.osm.water = waterPolys(water, geo, sbox);
   track.osm.wheels = wheels.map(el => wheelOf(el, geo, T)).filter(Boolean);
   log(`landmarks: ${track.osm.water.length} water areas, ${track.osm.wheels.length} Ferris wheels`);
@@ -130,7 +133,7 @@ export async function bake(inp, log = () => {}) {
     const s = inp.scatter, P = track.points;
     track.paint = [{ kind: 'flora', mix: s.mix, r: s.r, d: s.d, seed: 7, pts: [...P, ...(open ? [] : [P[0]])].map(p => [p.x, p.z]) }];
   }
-  log(`scenery: ${track.osm.buildings.length} buildings, ${track.osm.trees.length} trees, ${track.props.length} grandstands`);
+  log(`scenery: ${track.osm.buildings.length} buildings, ${track.osm.trees.length} trees, ${track.props.length} grandstands in ${track.propLines.length} lines`);
 
   track.geo = { lat: geo.lat, lon: geo.lon, label: inp.label || inp.name };
   track.map = { style: 'satellite', opacity: 0.8 };
@@ -361,9 +364,10 @@ function liftBridges(track, D) {
   return maxLift;
 }
 
-// OSM grandstand footprints -> the game's grandstand props, facing the track
+// OSM grandstand footprints -> lines of covered / flag grandstands along each one's length (js/standlines.js), facing
+// the track; one too short for two: bleachers
 function standsToProps(stands, geo, T) {
-  const H = hashT(T), out = [];
+  const H = hashT(T), props = [], lines = [];
   for (const el of stands) {
     if (!el.geometry || el.geometry.length < 4) continue;
     const pts = el.geometry.map(g => toLocal(geo, g.lat, g.lon));
@@ -372,9 +376,13 @@ function standsToProps(stands, geo, T) {
     const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
     const { i, d } = nearIdx(T, H, cx, cz);
     if (i < 0 || d > 220) continue;
-    out.push({ type: 'grandstand', x: r1(cx), z: r1(cz), rot: Math.round(Math.atan2(T.X[i] - cx, T.Z[i] - cz) * 1000) / 1000, len: Math.round(Math.max(20, Math.min(220, rect.len))) });
+    const fx = T.X[i] - cx, fz = T.Z[i] - cz, fl = Math.hypot(fx, fz) || 1;
+    const len = Math.max(0, Math.min(220, rect.len) - STAND_GAP), h = Math.round(len / STAND_GAP) * STAND_GAP / 2;
+    if (h < STAND_GAP / 2) { props.push({ type: 'bleachers', x: r1(cx), z: r1(cz), rot: Math.round(Math.atan2(fx, fz) * 1000) / 1000 }); continue; }
+    const n = lines.length, L = standLine(n + 1, [cx - rect.ux * h, cz - rect.uz * h], [cx + rect.ux * h, cz + rect.uz * h], fx / fl, fz / fl, n % 2 ? 'stand_flags' : 'stand_roof', n);
+    lines.push(L.line); props.push(...L.props);
   }
-  return out;
+  return { props, lines };
 }
 
 // water ways + multipolygon relations -> [{ p: outer ring, h: [holes] }] in local metres (big areas clipped to the box)

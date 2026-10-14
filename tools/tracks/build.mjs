@@ -363,7 +363,7 @@ try {
     const real = await realSurface(c, line, geo);
     const inp = { id: c.id, name: c.name, desc: c.desc, maxGrade: c.maxGrade, country: c.country, category: c.category, open: !!c.open, width: c.width, widths: c.widths,
       env: c.env, scatter: c.scatter, sea: !!c.sea, groundR: c.groundR, profile, profileRel, dem: c.dem, exag: c.exag, elevSmooth: c.elevSmooth, margin: c.margin, label: `${c.name}, ${c.country}`,
-      geo, line, osm, source: '© OpenStreetMap contributors' + (c.guide.f1 ? ' · outline: bacinger/f1-circuits' : '') + (c.dem ? ' · ' + DEM_CREDITS[c.dem] : '') + (c.photo ? ' · ' + ORTHO_CREDITS[c.photo] : '') + (fitCredit ? ' · ' + fitCredit : '') };
+      geo, line, osm, pitLane: real && real.pitLane, source: '© OpenStreetMap contributors' + (c.guide.f1 ? ' · outline: bacinger/f1-circuits' : '') + (c.dem ? ' · ' + DEM_CREDITS[c.dem] : '') + (c.photo ? ' · ' + ORTHO_CREDITS[c.photo] : '') + (fitCredit ? ' · ' + fitCredit : '') };
     const t0 = Date.now();
     const track = await page.evaluate(async (inp) => window.bake(inp, (s) => console.log(s)), inp);
     const shift = track._profileShift || 0; delete track._profileShift;

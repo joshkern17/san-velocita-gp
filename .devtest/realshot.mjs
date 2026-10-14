@@ -54,6 +54,15 @@ try {
           s.updateTracker(pl, true); s.placeModel(pl, 1); s.snapCamera(); for (let k = 0; k < 30; k++) s.updateCamera(0.05);
           return true;
         }
+        // (XZx/z: looking at that spot from the nearest bit of track, H m up: placed props, stands)
+        const xz = /^XZ(-?[\d.]+)\/(-?[\d.]+)$/.exec(name);
+        if (xz) {
+          const x = +xz[1], z = +xz[2]; let bi = 0, bd = Infinity; for (let k = 0; k < N; k++) { const d = Math.hypot(T.X[k] - x, T.Z[k] - z); if (d < bd) { bd = d; bi = k; } }
+          const dx = T.X[bi] - x, dz = T.Z[bi] - z, l = Math.hypot(dx, dz) || 1, y = T.Y[bi];
+          s.paused = true; s.state = 'racing'; const c = s.camera; s.updateCamera = () => {};
+          c.position.set(x + dx / l * (l + 30), y + H, z + dz / l * (l + 30)); c.lookAt(x, y, z); c.updateMatrixWorld();
+          return true;
+        }
         // (@1234: that far round the lap, in metres, for a circuit without corner names)
         const sec = /^@\d+$/.test(name) ? { from: +name.slice(1), to: +name.slice(1) } : (s.track.real.names || []).find(n => n.name === name);
         if (!sec) return false;

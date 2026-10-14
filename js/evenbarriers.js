@@ -7,7 +7,8 @@
 import { barrierLine, trackFrame } from './track.js';
 
 // T = sampleTrack(track), A = analyzeTrack(...) (for its bridges): { barriers, stats }
-export function evenBarriers(T, A, env, { dist = env.runoff || 14, tol = 0.5, type = null } = {}) {
+// wide: how much further out the barrier stands on the outside of a corner (1: up to ~70% more at a tight one, 0: even)
+export function evenBarriers(T, A, env, { dist = env.runoff || 14, tol = 0.5, type = null, wide = 1 } = {}) {
   const N = T.N, DIST = dist, TOL = tol;
   const wrap = T.open ? (i) => Math.max(0, Math.min(N - 1, i)) : (i) => ((i % N) + N) % N; // (a point-to-point run doesn't wrap)
 
@@ -25,9 +26,21 @@ export function evenBarriers(T, A, env, { dist = env.runoff || 14, tol = 0.5, ty
     for (const j of near(x, z, Wmax / 2 + s + 2)) if (Math.hypot(x - T.X[j], z - T.Z[j]) - T.W[j] / 2 < s - 0.5) return false;
     return true;
   };
+  // ---- wider on the outside of the corners: more the tighter it is, from the braking zone to the exit ----
+  // (which side is the outside: the one where the offset line is longer than the centre line)
+  let kmax = 0; for (let i = 0; i < N; i++) if (Math.abs(T.K[i]) > Math.abs(T.K[kmax])) kmax = i;
+  const p0 = ptAt(wrap(kmax - 1), 1, 10), p1 = ptAt(wrap(kmax + 1), 1, 10), outK = Math.sign(T.K[kmax]) * (Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) > 2 * T.ds ? 1 : -1);
+  const extra = (side) => {
+    const e = new Float32Array(N); if (!wide) return e;
+    for (let i = 0; i < N; i++) if (Math.sign(T.K[i]) * outK === side) e[i] = Math.min(DIST * 0.7, 480 * Math.abs(T.K[i])) * wide;
+    const w = Math.round(50 / T.ds), m = Math.round(20 / T.ds);
+    let o = Float32Array.from(e, (_, i) => { let v = 0; for (let k = -w; k <= w; k++) v = Math.max(v, e[wrap(i + k)]); return v; });
+    for (let pass = 0; pass < 2; pass++) o = Float32Array.from(o, (_, i) => { let v = 0; for (let k = -m; k <= m; k++) v += o[wrap(i + k)]; return v / (2 * m + 1); });
+    return o;
+  };
   function offsets(side) {
-    const raw = new Float32Array(N);
-    for (let i = 0; i < N; i++) { let s = DIST; while (s > 1 && !fits(i, side, s)) s -= 0.5; raw[i] = s; }
+    const raw = new Float32Array(N), ex = extra(side);
+    for (let i = 0; i < N; i++) { let s = DIST + ex[i]; while (s > 1 && !fits(i, side, s)) s -= 0.5; raw[i] = s; }
     // smooth: the lowest within 20 m either side, then averaged over 30 m twice (never further out than it fits)
     const w = Math.round(20 / T.ds), m = Math.round(15 / T.ds);
     let o = Float32Array.from(raw, (_, i) => { let v = Infinity; for (let k = -w; k <= w; k++) v = Math.min(v, raw[wrap(i + k)]); return v; });

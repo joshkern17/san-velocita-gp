@@ -28,6 +28,7 @@ try {
   await pg.screenshot({ path: join(out, 'even_before.png') });
   ok(await ev(() => !!document.getElementById('br-even')), 'Even Out All is in the panel');
   await pg.$eval('#br-even-d', (e) => { e.value = 10; e.dispatchEvent(new Event('input')); });
+  await pg.click('#br-wide button[data-v="0"]'); await pg.waitForTimeout(200); // (Even: the same distance at the corners)
   const t0 = Date.now(); await pg.click('#br-even'); const ms = Date.now() - t0; await pg.waitForTimeout(800);
   const after = await ev(() => { const e = window.__svgp.editor, l = e.track.dress.barriers;
     return { sides: l.map(b => b.side), nodes: l.map(b => b.pts.length), free: l.every(b => b.pts.slice(0, -1).every(p => p[2] && p[2].f && p[2].ho)), max: Math.max(...l.flatMap(b => b.pts.map(p => p[1]))), label: document.getElementById('br-even-v').textContent }; });
@@ -35,6 +36,11 @@ try {
   ok(after.free, 'every stretch is a curve with handles');
   ok(after.max <= 10.01 && after.label === '10m', `10 m out at most (${after.max}), the slider kept (${after.label})`);
   await pg.screenshot({ path: join(out, 'even_after.png') });
+  // Wider Outside: further out at the corners, not on the straights
+  await pg.click('#br-wide button[data-v="1"]'); await pg.waitForTimeout(200); await pg.click('#br-even'); await pg.waitForTimeout(800);
+  const wide = await ev(() => { const l = window.__svgp.editor.track.dress.barriers, o = l.flatMap(b => b.pts.map(p => p[1])); return { max: Math.max(...o), at10: o.filter(v => Math.abs(v - 10) < 0.3).length, n: o.length }; });
+  ok(wide.max > 13 && wide.max <= 17.01 && wide.at10 > wide.n / 4, `wider outside the corners (up to ${wide.max.toFixed(1)} m), 10 m on the straights (${wide.at10} of ${wide.n} nodes)`);
+  await pg.keyboard.press('Control+z'); await pg.waitForTimeout(400);
   await pg.keyboard.press('Control+z'); await pg.waitForTimeout(400);
   const undone = await ev(() => { const l = window.__svgp.editor.barList(); return { n: l.length, nodes: l.reduce((s, b) => s + b.pts.length, 0) }; });
   ok(undone.n === before.n && undone.nodes === before.nodes, `undo puts the old barriers back (${undone.n}, ${undone.nodes} nodes)`);

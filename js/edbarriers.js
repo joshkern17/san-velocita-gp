@@ -61,6 +61,7 @@ export function installBarrierTool(Ed) {
     if (!this.barsOwn()) { const l = this.barList().map(b => ({ ...b, pts: b.pts.map(p => [p[0], p[1]]) })); this.track.dress = { ...(this.track.dress || {}), barriers: l }; }
     return this.track.dress.barriers;
   };
+  P.barWide = true; // (Even Out: wider on the outside of the corners)
   P.barEvenDist = function () { return this._barEvenDist ?? Math.round(this.track.env.runoff || 14); };
   P.barNewType = function () { return (this.barType ??= this.track.env.barrier && TYPES.includes(this.track.env.barrier) ? this.track.env.barrier : 'armco'); };
 
@@ -256,7 +257,8 @@ export function installBarrierTool(Ed) {
       ${b ? `<div class="seg" style="margin-top:8px">${node && this.barNode > 0 && this.barNode < b.pts.length - 1 ? '<button id="br-split">Split Here</button>' : ''}${node ? '<button id="br-delnode">Delete Node</button>' : ''}<button id="br-del">Delete Barrier</button><button id="br-done">Done</button></div>` : ''}
       <p class="muted" style="margin-top:12px">${list.length} barrier${list.length === 1 ? '' : 's'}, ${total.toFixed(0)} m${own ? '' : ' (worked out from the track: edit any and they become this track\'s own)'}. ${b ? 'Drag a node to move it, the barrier to move it all in or out. Double-click the barrier for another node.' : 'Drag beside the track to put up a barrier where you drag. Click one to change it.'} Where there's no barrier, cars run on until the world's edge.</p>
       ${b ? '' : `<div class="fld" style="margin-top:12px"><label>Even Out · Distance From The Edge<span id="br-even-v">${this.barEvenDist().toFixed(0)}m</span></label><input type="range" id="br-even-d" min="2" max="40" step="1" value="${this.barEvenDist()}"></div>
-      <p class="muted" style="margin-top:-4px">Replaces every barrier with one down each side, this far from the track edge all the way round, with as few nodes as keep it smooth (closer in only where it can't fit). Each node has handles, so dragging one keeps the barrier smooth.</p>
+      <p class="muted" style="margin-top:-4px">Replaces every barrier with one down each side, this far from the track edge all the way round (further out on the outside of the corners, if you like), with as few nodes as keep it smooth (closer in only where it can't fit). Each node has handles, so dragging one keeps the barrier smooth.</p>
+      <div class="fld"><label>At Corners</label><div class="seg" id="br-wide"><button data-v="1" class="${this.barWide ? 'on' : ''}">Wider Outside</button><button data-v="0" class="${this.barWide ? '' : 'on'}">Even</button></div></div>
       <div class="seg"><button id="br-even">Even Out All</button></div>`}
       ${own ? `<div class="seg"><button id="br-auto">Back To Automatic</button><button id="br-clear">Remove All</button></div>` : `<div class="seg"><button id="br-clear">Remove All</button></div>`}`;
     el.querySelectorAll('#br-type button').forEach(btn => btn.addEventListener('click', () => {
@@ -292,12 +294,13 @@ export function installBarrierTool(Ed) {
     on('br-auto', () => { this.push(); delete this.track.dress.barriers; this.barSel = -1; this.barNode = -1; sfx.del(); this.changed(true); this.toast('BARRIERS BACK TO AUTOMATIC'); });
     const ev = $('br-even-d');
     if (ev) ev.addEventListener('input', () => { this._barEvenDist = +ev.value; $('br-even-v').textContent = ev.value + 'm'; });
+    el.querySelectorAll('#br-wide button').forEach(btn => btn.addEventListener('click', () => { this.barWide = btn.dataset.v === '1'; sfx.move(); this.renderBarrierTab(); }));
     on('br-even', () => {
       if (!this.T) return;
       // (the type most of the barriers are now, else the circuit's own)
       const n = {}; for (const q of list) n[q.type] = (n[q.type] || 0) + lenOf(q, L);
       const type = Object.keys(n).sort((a, c) => n[c] - n[a])[0] || this.barNewType();
-      const { barriers, stats } = evenBarriers(this.T, this.A, this.track.env, { dist: this.barEvenDist(), type });
+      const { barriers, stats } = evenBarriers(this.T, this.A, this.track.env, { dist: this.barEvenDist(), type, wide: this.barWide ? 1 : 0 });
       this.push(); this.track.dress = { ...(this.track.dress || {}), barriers }; this.barSel = -1; this.barNode = -1;
       sfx.place(); this.changed(true); this.toast(`BARRIERS EVENED OUT · ${stats.reduce((s, q) => s + q.nodes, 0)} NODES`);
     });
