@@ -11,6 +11,7 @@ import { initInput, pressed, isDown, clearEdges, pollGamepad, driveControls, gp,
 import { WheelSetup } from './wheelsetup.js';
 import { ffb, ffbSend } from './ffb.js';
 import { lapKey, lapsFor, loadPB, referenceLap, analyze } from './telemetry.js';
+import { radioMenu, ask as askEngineer } from './radioask.js';
 import { saveSession } from './session.js';
 import { drawChart, drawMap, notesHtml, fmtGap, fmtSpeed, drawLineMap, lineMapHit, lineMapZoom, lineMapPan, chartHit, popHtml, boardZones, lineRange, setScramble, tipText } from './lapreview.js';
 import { garbleTree } from './garble.js';
@@ -5102,6 +5103,9 @@ const TIPS = [
 ];
 let raceReturn = 'setup';
 let pitSel = 0;
+// ask the engineer (radioask.js): the menu while it's open { lvl (0: who, 1: what), top (who's key), sel, idle },
+// and the last question asked (the menu opens on it again)
+let askUI = null, askLast = { top: 'me', item: 'pace' };
 let lastRace = null;
 
 // the loading screen's progress bar and what it's doing
@@ -5160,7 +5164,7 @@ function startRace(track, cfg, ret, quick = false) {
       sim.warmUp(post, settings);
       sim.render(post, settings);
       hud.setTrack(sim.T, sim.A, sim.world.roadLines);
-      hud.reset(cfg.mode === 'race' ? 'race' : cfg.mode === 'quali' || cfg.mode === 'practice' ? 'quali' : 'test');
+      askUI = null; hud.reset(cfg.mode === 'race' ? 'race' : cfg.mode === 'quali' || cfg.mode === 'practice' ? 'quali' : 'test');
       hud.secOn = ret !== 'gig' && ret !== 'drivehome'; // (sectors: not on a job or the drive home)
       driftHud.reset(); if (sim.drift) driftHud.show(); else driftHud.hide();
       const wait = Math.max(0, 1300 - (performance.now() - t0));
@@ -5452,6 +5456,7 @@ function pauseInfo() {
       <div>${key('<kbd>L</kbd>', 'D-pad &#8593;')}<span>Racing line</span></div>
       <div>${key('<kbd>M</kbd>', 'D-pad &#8595;')}<span>Minimap zoom</span></div>
       <div>${key('<kbd>1</kbd><kbd>2</kbd>', '<kbd class="pb x">X</kbd><kbd class="pb b">B</kbd>')}<span>Answer the radio</span></div>
+      <div>${key('<kbd>T</kbd>', 'D-pad &#8594;')}<span>Ask the engineer</span></div>
       <div>${key('<kbd>Space</kbd>', '<kbd class="pb a">A</kbd>')}<span>Handbrake</span></div>
       <div>${key('<kbd>E</kbd><kbd>Q</kbd>', '<kbd class="pl">RB</kbd><kbd class="pl">LB</kbd>')}<span>Shift (manual)</span></div>
     </div>`;
@@ -5879,6 +5884,35 @@ function frame(now) {
 }
 let hubWas = null;
 let skipMsgT = 0; // (the skip-to-your-stint message, refreshed twice a second)
+// the radio menu, open: ▲▼ move, ▶ opens a row / asks, ◀ back (or closes); keyboard: the row's number, Backspace back,
+// T closes. Shut after 4 s with nothing pressed. An answer goes on the radio like anything else the engineer says
+function askInput(pl, dt) {
+  const menu = radioMenu(sim, pl), A = askUI;
+  let top = menu.findIndex(m => m.key === A.top); if (top < 0) { top = 0; A.top = menu[0].key; A.lvl = 0; }
+  const rows = A.lvl ? menu[top].items : menu;
+  if (A.lvl === 0) A.sel = top; else A.sel = Math.min(A.sel, rows.length - 1);
+  const up = pressed('GP12'), dn = pressed('GP13'), back = pressed('GP14') || pressed('Backspace'), go = pressed('GP15');
+  let pick = go ? A.sel : -1;
+  for (let k = 0; k < rows.length && k < 9; k++) if (pressed('Digit' + (k + 1))) pick = k;
+  A.idle = up || dn || back || pick >= 0 ? 0 : A.idle + dt;
+  const close = () => { askUI = null; hud.askMenu(null); };
+  if (pressed('KeyT') || A.idle > 4) return close();
+  if (up || dn) { A.sel = (A.sel + (dn ? 1 : -1) + rows.length) % rows.length; if (A.lvl === 0) A.top = menu[A.sel].key; sfx.move(); }
+  else if (back) { if (A.lvl) { A.lvl = 0; A.sel = top; } else return close(); sfx.move(); }
+  else if (pick >= 0) {
+    if (A.lvl === 0) { A.top = menu[pick].key; A.lvl = 1; const it = menu[pick].items.findIndex(x => x.key === askLast.item); A.sel = askLast.top === A.top && it >= 0 ? it : 0; sfx.move(); }
+    else {
+      const item = rows[pick]; askLast = { top: A.top, item: item.key };
+      const ans = askEngineer(sim, pl, A.top + '.' + item.key);
+      close(); sfx.select();
+      if (ans) hud.radio('eng', ans.msg); // (straight on: the race's events are cleared at its next step)
+      return;
+    }
+  }
+  const m = A.lvl ? menu[menu.findIndex(x => x.key === A.top)] : null;
+  hud.askMenu({ title: 'Radio', crumb: m ? `${m.label}${m.sub ? ' · ' + m.sub : ''}` : '', sel: A.sel,
+    rows: (A.lvl ? m.items : menu).map(r => ({ label: r.label, sub: A.lvl ? '' : r.sub, go: !A.lvl })) });
+}
 function frameBody(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   const pad = pollGamepad();
@@ -5912,21 +5946,28 @@ function frameBody(now) {
     }
     // minimap zoom: M / d-pad down (d-pad is the pit menu while the crew drives you in)
     const pitMenu = pl && pl.pitting && pl.pitPhase === 'in';
-    if (pressed('KeyM') || (!pitMenu && pressed('GP13'))) {
+    // ask the engineer: d-pad right / T opens it; then the d-pad (or the number keys) runs it. Not over a call (that has
+    // X / B and a clock), the pit menu, or while your co-driver has the car
+    const canAsk = pl && !pitMenu && !sim.call && !pl.finished && /^(race|quali|practice|test)$/.test(sim.mode) && sim.state === 'racing' && !(sim.crew && sim.crew.cur === 'C');
+    if (!canAsk) { if (askUI) { askUI = null; hud.askMenu(null); } }
+    else if (!askUI) { if (pressed('GP15') || pressed('KeyT')) { askUI = { lvl: 0, top: askLast.top, sel: 0, idle: 0 }; sfx.move(); } }
+    else askInput(pl, dt);
+    if (askUI) press.line = false;
+    if (pressed('KeyM') || (!pitMenu && !askUI && pressed('GP13'))) {
       settings.radarZoom = RADAR_ZOOMS[(RADAR_ZOOMS.indexOf(settings.radarZoom) + 1) % RADAR_ZOOMS.length];
       applyVideo(); saveSettings(); sfx.move();
       hud.help(`Minimap zoom: <b>${{ near: 'CLOSE', normal: 'NORMAL', far: 'FAR', vfar: 'VERY FAR' }[settings.radarZoom]}</b>`, 1200);
     }
     // the timing tower: your class / the whole field (multiclass): Tab / d-pad left-right (left-right is the pit menu's
     // while the crew drives you in)
-    const towerKey = pressed('Tab') | (!pitMenu && (pressed('GP14') | pressed('GP15')));
+    const towerKey = pressed('Tab') | (!pitMenu && !askUI && pressed('GP14')); // (d-pad right: the radio)
     if (towerKey && sim.multi) {
       hud.towerAll = !hud.towerAll; settings.towerAll = hud.towerAll; saveSettings(); sfx.move();
       hud.help(`Leaderboard: <b>${hud.towerAll ? 'WHOLE FIELD' : 'YOUR CLASS'}</b>`, 1200);
     }
     // the radio's call: X / 1, B / 2 (only while one's open: X is a brake button too, so a call takes its tap)
     if (sim.call) { if (pressed('Digit1') || pressed('GP2')) sim.answerCall('a'); else if (pressed('Digit2') || pressed('GP1')) sim.answerCall('b'); hud.callTick(sim.call ? sim.call.left : 0); }
-    if (pressed('Escape') || pressed('KeyP') || pressed('GP9')) pause();
+    if (pressed('Escape') || pressed('KeyP') || pressed('GP9')) { if (askUI) { askUI = null; hud.askMenu(null); } pause(); }
     else {
       // (sim.ff: the race run faster - a co-driver's stint watched at 4x / 8x: it steps that many times a frame;
       // sim.skipping: skipped to your next stint, the race runs on flat out, ~25 ms of it a frame, until you're in)

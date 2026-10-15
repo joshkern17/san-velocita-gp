@@ -610,6 +610,25 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .rd-bar { --v: 1; --n: 48; position: absolute; left: 16px; right: 18px; bottom: 9px; height: 4px; background: var(--sv-signal);
   -webkit-mask: linear-gradient(90deg, #000 calc(var(--v) * 100%), rgba(0,0,0,.16) 0), repeating-linear-gradient(90deg, #000 0 calc(100% / var(--n) - 3px), transparent 0 calc(100% / var(--n)));
   -webkit-mask-composite: source-in; mask-composite: intersect; filter: drop-shadow(0 0 2px var(--sv-signal-glow)); }
+/* ask the engineer: a list in the radio's frame (while it's open the radio's messages wait). Who (you, the car ahead...)
+   then what (pace, tires...): the selected row amber with the cyan cursor, snapped there (no sliding); the keys under it */
+.radio.asking .rd-msg { display: none; }
+.rd-ask { box-sizing: border-box; padding: 12px 18px 12px; opacity: 0; transition: opacity .2s; }
+.rd-ask.on { opacity: 1; }
+.ra-head { display: flex; align-items: baseline; gap: 12px; padding-bottom: 8px; margin-bottom: 6px; border-bottom: 1.5px solid color-mix(in srgb, var(--sv-red) 40%, transparent); }
+.ra-head small { font: 500 12px/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-amber); text-shadow: 0 0 4px var(--sv-amber); -webkit-text-fill-color: currentColor; }
+.ra-head b { font: 500 14px/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow-hud); -webkit-text-fill-color: transparent; }
+.ra-row { display: grid; grid-template-columns: 22px 1fr auto 14px; align-items: center; gap: 10px; height: 30px; font: 500 17px/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow-hud); -webkit-text-fill-color: transparent; }
+.ra-row .sv-cursor { visibility: hidden; justify-self: center; font-size: 17px; }
+.ra-row kbd { height: 20px; min-width: 20px; font-size: 11px; justify-self: center; -webkit-text-fill-color: currentColor; }
+.ra-row em { font: 500 14px/1 var(--f-ui); font-style: normal; color: var(--sv-red-dim); text-shadow: none; -webkit-text-fill-color: currentColor; }
+.ra-row u { text-decoration: none; text-align: center; color: var(--sv-red-dim); -webkit-text-fill-color: currentColor; }
+.ra-row.sel { color: var(--sv-amber); }
+.ra-row.sel .sv-cursor { visibility: visible; }
+.ra-row.sel em, .ra-row.sel u { color: var(--sv-amber); }
+.ra-foot { display: flex; justify-content: center; gap: 22px; margin-top: 8px; padding-top: 8px; border-top: 1.5px solid color-mix(in srgb, var(--sv-red) 25%, transparent); font: 500 12px/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red-dim); }
+.ra-foot span { display: flex; align-items: center; gap: 6px; }
+.ra-foot kbd { height: 18px; min-width: 18px; font-size: 10px; }
 .rc-msg { position: relative; max-width: 100%; padding: 6px 12px 5px 14px; background: rgba(5,3,8,.74); font: 500 14px/1.25 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow-hud); -webkit-text-fill-color: transparent; opacity: 0; transition: opacity .3s; --f: #8d939c; }
 .rc-msg::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--f); box-shadow: 0 0 6px var(--f); }
 .rc-msg.on { opacity: 1; }

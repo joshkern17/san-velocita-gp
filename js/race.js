@@ -1542,6 +1542,8 @@ export class Race {
     if (!this.T.open) this.secStart(car);
     car.cpNext = 1;
     car.lap++;
+    // (the tires at each line: what the radio measures wear by, radioask.js)
+    if (car.phys && car.phys.tyre) { const L = (car.wearLog ||= []); L.push({ lap: car.lap, c: car.phys.tyre.c, w: Math.min(car.phys.tyre.wf, car.phys.tyre.wr) }); if (L.length > 12) L.shift(); }
     if (car.isPlayer) this.events.push({ type: 'lap', time: t, best: wasBest, lap: car.lap, laps: this.laps, invalid: !valid });
     if (car.isPlayer && this.prog) this.programmeLap();
     if (car.isPlayer && this.quali && this.quali.flag) this.qualiEnd();
@@ -1702,6 +1704,7 @@ export class Race {
   recordAiLap(car, t, valid) {
     const r = this.aiRec.get(car); if (!r) return;
     const lap = r.rec.finish(car, t, { valid, lap: car.lapTimes.length, tyre: car.phys.tyre.c, wear: Math.min(car.phys.tyre.wf, car.phys.tyre.wr) });
+    if (lap) r.last = lap; // (the radio's "where am I losing time": against the car ahead's last lap)
     if (lap && valid && (!r.best || t < r.best.time)) r.best = lap;
   }
 
@@ -2632,6 +2635,48 @@ export class Race {
     const C = this.call; if (!C) return; this.call = null; this.callT = this.raceTime;
     this.events.push({ type: 'callDone', which, late });
     C.run(which);
+  }
+  // ---------- your orders to your teammate (asked on the radio: radioask.js) ----------
+  // Let me by and hold position work like the pit wall's team calls (wallUpdate); push and save tires change their
+  // pace and how hard they work their tires for five laps. How they take it is trust: low, and they may not. One order
+  // every 20 s. Returns the engineer's line ({ msg }); your teammate answers a moment later (mateReply).
+  mateOrder(kind) {
+    const m = this.mateCar(), pl = this.player; if (!m || !pl || this.mode !== 'race') return null;
+    const name = String(m.name).split(' ').pop().toLowerCase().replace(/(^|[-'])\w/g, x => x.toUpperCase()), t = m.ai.trust;
+    if (this.raceTime - (this.mateOrderT ?? -99) < 20) return { msg: `Give ${name} a minute. They've only just had the last one.` };
+    const reply = (lines, fn) => { this.mateReply = { at: this.raceTime + 1.6, fn: () => { if (fn) fn(); this.mateSay(m, lines); } }; };
+    if (kind === 'letby') {
+      if (this.order[pl.pos - 2] !== m) return { msg: `${name} isn't right in front of you.` };
+      this.mateOrderT = this.raceTime;
+      if (t >= 50 || (t >= 30 && Math.random() < 0.5)) reply(t >= 50 ? ['Copy.', 'Copy. Go on then.'] : ['...Copy.'], () => { m.ai.yieldTo = { car: pl, until: this.raceTime + 20 }; this.trust(-2); });
+      else reply(['Negative. Race me.', 'Not happening.'], () => this.trust(-1));
+      return { msg: `Asking ${name} to let you by.` };
+    }
+    if (kind === 'hold') {
+      if (this.order[pl.pos] !== m) return { msg: `${name} isn't right behind you.` };
+      this.mateOrderT = this.raceTime;
+      if (t >= 30) reply(t < 50 ? ['...Copy.'] : ['Copy. Holding.'], () => { m.ai.hold = { car: pl, until: this.raceTime + 40 }; this.trust(-2); });
+      else reply(['Not happening. I\'m quicker.', 'Negative.'], () => this.trust(-1));
+      return { msg: `Telling ${name} to hold position.` };
+    }
+    if (kind === 'push' || kind === 'save') {
+      this.mateOrderT = this.raceTime;
+      const push = kind === 'push';
+      if (t < 30 && Math.random() < 0.5) reply(push ? ['I am pushing.', 'What do you think I\'m doing?'] : ['My tires, my problem.', 'Nah.']);
+      else reply(push ? ['Copy. Pushing.', 'Copy. Flat out.'] : ['Copy. Looking after them.', 'Copy. Easing off.'], () => {
+        const O = this.mateOrd; if (O && O.car === m) { m.ai.pace = O.pace0; m.phys.wearK = O.wear0; }
+        this.mateOrd = { car: m, kind, until: m.lap + 5, pace0: m.ai.pace, wear0: m.phys.wearK };
+        m.ai.pace *= push ? 1.008 : 0.99; m.phys.wearK *= push ? 1.3 : 0.7;
+      });
+      return { msg: push ? `Telling ${name} to push.` : `Telling ${name} to save tires.` };
+    }
+    return null;
+  }
+  // the reply when it's due, and a push or a save over after its five laps (or the race)
+  mateOrderTick() {
+    const R = this.mateReply; if (R && this.raceTime >= R.at) { this.mateReply = null; R.fn(); }
+    const O = this.mateOrd, m = O && O.car;
+    if (O && (m.lap >= O.until || m.finished || m.gone || this.state !== 'racing')) { this.mateOrd = null; m.ai.pace = O.pace0; m.phys.wearK = O.wear0; }
   }
   // the set a stop now would take: the plan's next, or harder if that won't reach the end
   callTyre(car) {
@@ -3604,6 +3649,7 @@ export class Race {
 
     // pit stops
     if (this.letBy || this.cars.some(c => c.ai && c.ai.yieldTo)) this.wallAfter();
+    if (this.mateOrd || this.mateReply) this.mateOrderTick();
     if (this.sc) this.scUpdate(dt);
     if (this.mode === 'race' && this.state === 'racing' && this.player && !this.player.finished && (this.talkT = (this.talkT || 0) + dt) > 1) { this.talkT = 0; this.storyRadio(this.player); }
     if (this.wx && (this.state === 'racing' || this.state === 'finished')) this.wxUpdate(dt);

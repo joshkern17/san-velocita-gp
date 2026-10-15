@@ -133,7 +133,7 @@ export class HUD {
     this.el.help.classList.remove('shift');
     this.el.flag.className = 'rc-board';
     this.el.feed.innerHTML = ''; this.feedEls = [];
-    $('h-radio').innerHTML = ''; $('h-radio').classList.remove('calling'); this.radioEls = []; this.call = null;
+    $('h-radio').innerHTML = ''; $('h-radio').classList.remove('calling', 'asking'); this.radioEls = []; this.call = null; this.askEl = null;
     this.st.el.classList.remove('on');
     $('h-prog').classList.remove('on'); $('h-gate').className = 'gate-msg'; this.gateOn = false; $('h-secs').classList.remove('on'); $('h-pips').classList.remove('on');
     this.secPaths = null; this.quali = null;
@@ -321,6 +321,24 @@ export class HUD {
     el.querySelector('.rd-body').insertAdjacentHTML('beforeend', `<div class="rd-acts"><span class="${rec === 'a' ? 'rec' : ''}" data-k="a">${key('a')}<b>${a}</b></span><span class="${rec === 'b' ? 'rec' : ''}" data-k="b">${key('b')}<b>${b}</b></span></div>`);
     el.insertAdjacentHTML('beforeend', '<i class="rd-bar"></i>');
     this.call = el; return el;
+  }
+  // ask the engineer (d-pad right / T): the menu, over the radio's place while it's open. m: { title, crumb, rows:
+  // [{ label, sub, go (has a level under it) }], sel } or null (closed). Drawn again only when something on it changes.
+  askMenu(m) {
+    const box = $('h-radio');
+    if (!m) {
+      const el = this.askEl; if (!el) return; this.askEl = null; box.classList.remove('asking');
+      el.classList.remove('on'); setTimeout(() => el.remove(), 300); return;
+    }
+    const sig = JSON.stringify(m) + this.padGlyphs;
+    let el = this.askEl;
+    if (el && el.sig === sig) return;
+    if (!el) { el = this.askEl = document.createElement('div'); el.className = 'rd-ask sv-frame'; box.append(el); box.classList.add('asking'); requestAnimationFrame(() => el.classList.add('on')); }
+    el.sig = sig;
+    const pad = this.padGlyphs, k = (pd, kb) => pad ? `<kbd>${pd}</kbd>` : `<kbd>${kb}</kbd>`;
+    el.innerHTML = `<div class="ra-head"><small>${m.title}</small>${m.crumb ? `<b>${m.crumb}</b>` : ''}</div>`
+      + `<div class="ra-rows">${m.rows.map((r, i) => `<div class="ra-row${i === m.sel ? ' sel' : ''}">${pad ? '<i class="sv-cursor"></i>' : `<kbd>${i + 1}</kbd>`}<span>${r.label}</span><em>${r.sub || ''}</em>${r.go ? '<u>&#8250;</u>' : ''}</div>`).join('')}</div>`
+      + `<div class="ra-foot">${pad ? `<span>${k('&#9650;&#9660;', '')}Move</span>` : `<span><kbd>1</kbd>-<kbd>${m.rows.length}</kbd>Pick</span>`}<span>${k('&#9654;', 'T')}${pad ? (m.rows[m.sel]?.go ? 'Open' : 'Ask') : 'Close'}</span><span>${k('&#9664;', '&#9003;')}${m.crumb ? 'Back' : 'Close'}</span></div>`;
   }
   callTick(k) { if (this.call) this.call.querySelector('.rd-bar').style.setProperty('--v', Math.max(0, Math.min(1, k)).toFixed(3)); }
   callDone(which) {
