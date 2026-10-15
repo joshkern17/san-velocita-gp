@@ -2492,7 +2492,8 @@ function startPitWalk() {
   if (pgDesk) { pc.close(); pitGarage.setDesk(false); } // (pgDesk stays: you come back to the desk)
   const own = raceReturn === 'world' && world ? hubCar() : settings.car;
   sfx.select(); walkStarting = true; $('s-pitgarage').classList.add('walking');
-  walk.start({ livery: own, face: own.face, spots: pitSpots(), nav: new PitNav(sim, pitGarage) }).then(ok => {
+  const nav = new PitNav(sim, pitGarage);
+  walk.start({ livery: own, face: own.face, spots: pitSpots(nav), nav }).then(ok => {
     walkStarting = false;
     if (!ok) { $('s-pitgarage').classList.remove('walking'); if (pgDesk) pitGarage.setDesk(true); toast('The people aren\'t loaded.'); }
     renderHints();
@@ -2512,8 +2513,9 @@ function quitPitWalk() {
   if (walk.active) walk.stop(); walkStarting = false; drawWalkTags(null);
   $('s-pitgarage').classList.remove('walking', 'still');
 }
-// what you can use out there: your car and, in a career, the computer (its Race Weekend app)
-function pitSpots() {
+// what you can use out there: your car, in a career the computer (its Race Weekend app), and the other teams' drivers
+// in their boxes (while their car's in)
+function pitSpots(nav) {
   const P = pitGarage, out = [];
   if (P.car) { const b = () => { const bb = new THREE.Box3(), M = new THREE.Matrix4().copy(P.track.a.matrixWorld).invert(), m = new THREE.Matrix4(), sh = P.car.shadow;
       P.car.group.updateWorldMatrix(true, true);
@@ -2522,9 +2524,26 @@ function pitSpots() {
     let box = null; out.push({ key: 'car', label: 'Back to the garage', get box() { return box ||= b(); } }); }
   const f = raceReturn === 'world' && world ? P.screenFrame() : null;
   if (f) out.push({ key: 'computer', label: 'Use the computer', at: f.c.clone().addScaledVector(new THREE.Vector3(f.n.x, 0, f.n.z).normalize(), 0.7).setY(f.c.y), reach: 1.4, mark: f.c.clone().addScaledVector(f.up, f.h / 2 + 0.16) });
+  for (const b of sim.pitLife ? sim.pitLife.boxes : []) if (b.driver) {
+    const pos = (y) => b.driver.object.getWorldPosition(new THREE.Vector3()).applyMatrix4(nav.M).setY(y);
+    out.push({ key: 'talk', b, label: `Talk to ${b.driverName}`, get at() { return pos(1.0); }, get mark() { return pos(2.1); }, reach: 1.6, get off() { return !b.driver.object.visible || !b.driver.object.parent?.visible; } });
+  }
   return out;
 }
+// what a rival driver says when you walk up to them: how the session's going for them against you
+const TALK = {
+  none: ['You going out at some point, or is this a car show?', 'Big session. Huge. Nobody\'s done anything yet, but huge.', 'Engineer wants a "baseline." I want lunch.'],
+  ahead: ['Don\'t worry. The timing screen adds a second to everybody. Except me.', 'Track\'s quick today. Well. I am.', 'If you want my setup, it\'s on the car. Good luck reading it.', 'My engineer says I brake too late. I say he watches too early.'],
+  behind: ['We\'re running heavy. Like, really heavy. Sandbags.', 'That lap of yours. Was that with a tow? Asking for my engineer.', 'Our data says we\'re quicker than you. The stopwatch is wrong.', 'Saving tires. All of them. For later.'],
+};
+function talkLine(b) {
+  const rows = sim.qualiRows(), me = rows.find(r => r.isPlayer), them = rows.find(r => r.key === b.entry?.teamIdx);
+  const kind = !them || !isFinite(them.best) ? 'none' : !me || !isFinite(me.best) || them.best < me.best ? 'ahead' : 'behind';
+  const L = TALK[kind], n = (b.said = ((b.said ?? Math.floor(Math.random() * L.length)) + 1)) % L.length;
+  return L[n];
+}
 function usePitSpot(s) {
+  if (s.key === 'talk') { sfx.select(); sim.pitLife.talkTo(s.b, walk.me.object.getWorldPosition(new THREE.Vector3())); toast(`<b>${escP(s.b.driverName)}</b> · ${escP(s.b.team.name)}: &ldquo;${escP(talkLine(s.b))}&rdquo;`, 3600); return; }
   if (s.key === 'computer') return stopPitWalk(true);
   if (s.key === 'car') return stopPitWalk(false);
   sfx.error();

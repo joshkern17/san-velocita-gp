@@ -17,6 +17,7 @@ CLIPS = {
   'Sitting Yell': 'sit_yell', 'Sitting Yell(1)': 'sit_yell_2', 'Sitting Rubbing Arm': 'sit_rub_arm',
   'Leaning': 'lean', 'Leaning(1)': 'lean_2', 'Male Standing Pose(1)': 'stand_pose',
   'Kneeling': 'kneel', 'Kneeling Down': 'kneel_down', 'Kneeling Pointing': 'kneel_point',
+  'Talking': 'talk', 'Talking(1)': 'talk_2', 'Talking(2)': 'talk_3',
 }
 M = 'mixamorig:'
 GROUPS = {  # Rigify deform group -> Mixamo bone

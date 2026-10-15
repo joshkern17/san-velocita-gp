@@ -11,6 +11,9 @@ import { loadCharacters, makeCharacter, classicCrewLook } from './characters.js'
 import { fillLivery } from './livery.js';
 import { PitWall } from './pitwall.js';
 import { dressBox, shutBox, boxFrame, BOX } from './pitboxes.js';
+import { furnish } from './pitprops.js';
+import { buildF1, teamCar } from './carmodel.js';
+import { driverLivery, driverFace, driverHelmet, teamSuit } from './drivers.js';
 
 const _q = new THREE.Quaternion(), _x = new THREE.Vector3(1, 0, 0), _z = new THREE.Vector3(0, 0, 1);
 const turn = (b, axis, a) => { if (b && a) b.quaternion.multiply(_q.setFromAxisAngle(axis, a)); };
@@ -102,12 +105,14 @@ export class PitLife {
       const team = pl ? pl.team : cars[0]?.team || (tk != null && tk < TEAMS.length ? race.teamFor(tk) : null);
       if (!team) { this.shut(k); return; }
       const face = pit.CEN[bi] + pit.width / 2 + 0.6; // the garage fronts
-      const b = { k, bi, team, cars, mine: !!pl, face, crew: [], active: field.has(k), car: null, phase: 'home', t: 0, lift: 0, F: boxFrame(T, this.A, pit, k) };
+      const b = { k, bi, team, tk: pl ? pl.teamIdx : cars[0] ? cars[0].teamIdx : tk, cars, mine: !!pl, face, crew: [], active: field.has(k), car: null, phase: 'home', t: 0, lift: 0, F: boxFrame(T, this.A, pit, k) };
       this.boxes.push(b);
       this.makeSign(b);
       const dress = dressBox(T, this.A, pit, k, team, { name: team.name, desk: !!pl && !!race.quali });
       if (dress) this.root.add(dress);
     });
+    // the boxes' furniture (js/pitprops.js: models, once they're in)
+    furnish(this.root, this.boxes.filter(b => b.F).map(b => ({ F: b.F, mine: b.mine }))).then(g => { if (g && !this.alive) g.removeFromParent(); });
     // your box in practice and qualifying is where the garage menu is (js/pitgarage.js): the car parked in it is lit
     // by its ceiling lights, real ones, and its shell keeps the sun off. Here from the start of the session (a light
     // coming and going would rebuild every shader in the scene each time you went in or out)
@@ -193,6 +198,12 @@ export class PitLife {
         b.group.add(ch.object); b.crew.push(m);
       });
       this.homeSlots(b, true);
+      // practice and qualifying: the team's driver too, helmet off, about the box while the car's in
+      if (this.race.quali && !b.mine && b.F && b.tk != null) {
+        const did = this.race.driverId(b.tk, b.team);
+        b.driver = makeCharacter({ look: 'racer', clip: 'talk_3', livery: driverLivery(did, b.team), face: driverFace(did), helmet: false, seed: b.k * 17 + 5 });
+        b.driverName = b.team.driver || b.team.name; b.group.add(b.driver.object);
+      }
     }
     // at night the garages' light spills out onto the crews (else they're black cut-outs against the doors). The people
     // share their materials, so this is undone in dispose()
@@ -277,7 +288,7 @@ export class PitLife {
     for (const b of this.boxes) {
       b.cars = race.cars.filter(c => race.boxSlot(c.teamIdx) === b.k); // (online, cars come and go)
       if (signs) this.refreshSign(b);
-      const lift = this.crewUpdate(b, dt, cam);
+      const lift = race.quali && b.F ? this.atWork(b, dt, cam) : this.crewUpdate(b, dt, cam);
       for (const c of b.cars) c.lift = c === b.car ? lift : 0;
     }
   }
@@ -375,6 +386,90 @@ export class PitLife {
     return b.lift;
   }
 
+  // ---------- practice and qualifying: the boxes at work ----------
+  // The field's laps are worked out, not driven (js/race.js quali.field: each team's runs, plan[].at), so a box shows
+  // where its car is: in the box on its stands between runs, the crew round it (on the wheels, at the bench, leaning
+  // on the work bench, talking), the driver by it with an engineer; out on a run, an empty bay and the crew in the door
+  // watching the track. Your own box: the engineer at the bench, two talking at the back, the rest out front.
+  // (positions in the box's frame: x along its front, z in; face: the way they look; a person, or one of the others)
+  atWork(b, dt, cam) {
+    const race = this.race, q = race.quali, F = b.F, d = BOX.depth, wx = F.wx;
+    const mid = new THREE.Vector3().fromArray(F.P(0, 7, 0)), dist = mid.distanceTo(cam);
+    // (where the car is: on a run from a couple of laps before its time is posted until it's back in)
+    if (!b.mine && !b.entry) b.entry = (q.field || []).find(e => race.boxSlot(e.teamIdx) === b.k) || null;
+    const e = b.entry, el = q.time - q.left;
+    const out = !!e && e.plan.some(r => el > r.at - 2.3 * e.pot && el < r.at + 0.5 * e.pot);
+    // (the camera inside another box (your garage menu, walking round someone's): this one's behind its walls)
+    const o = F.P(0, 0, 0), t1 = F.P(1, 0, 0), cx = cam.x - o[0], cz = cam.z - o[2];
+    const ax = (cx * (t1[0] - o[0]) + cz * (t1[2] - o[2])), az = cx * F.n[0] + cz * F.n[1];
+    const walled = az > 0.3 && Math.abs(ax) > wx;
+    const near = dist < 75 && !walled;
+    // the car: built when you're near enough to see it, then kept
+    if (!b.mine && e && near && !b.parked && !out) this.parkCar(b);
+    if (b.parked) b.parked.group.visible = !out && dist < 140 && !walled;
+    const vis = near && !!b.crew.length; if (b.group) b.group.visible = vis;
+    // (further off, the people move on every third frame)
+    const every = dist < 30 ? 1 : 3; b.tick = ((b.tick || 0) + 1) % every; b.acc = (b.acc || 0) + dt;
+    const step = b.tick === 0 ? b.acc : 0; if (step) b.acc = 0;
+    const slots = this.workPlan(b, out, wx, d);
+    const floorY = F.P(0, 7, BOX.floor)[1];
+    const people = [...b.crew.map((m, r) => ({ m, s: slots[m.role] })), ...(b.driver ? [{ m: b.dm ||= { ch: b.driver, x: 0, z: 0, yaw: 0, k: 0, kT: 0, role: 'DR', placed: false }, s: out ? null : slots.DR }] : [])];
+    if (b.driver) b.driver.object.visible = !out;
+    for (const { m, s } of people) {
+      if (!s) continue;
+      const P = F.P(s[0], s[1], 0), A = F.P(s[0] + s[2][0], s[1] + s[2][1], 0);
+      m.tx = P[0]; m.tz = P[2]; m.tyaw = Math.atan2(A[0] - P[0], A[2] - P[2]); m.kT = 0;
+      if (!m.placed) { m.x = m.tx; m.z = m.tz; m.yaw = m.tyaw; m.placed = true; }
+      // (talked to: turned to you for a moment)
+      if (m === b.dm && b.talkT > 0) { b.talkT -= dt; m.tyaw = Math.atan2(b.talkAt.x - m.x, b.talkAt.z - m.z); }
+      if (!vis) { m.x = m.tx; m.z = m.tz; m.yaw = m.tyaw; continue; }
+      const dx = m.tx - m.x, dz = m.tz - m.z, dd = Math.hypot(dx, dz);
+      let clip = s[3], speed = 1;
+      if (dd > 0.08) { const mv = Math.min(dd, 1.35 * dt); m.x += dx / dd * mv; m.z += dz / dd * mv; m.yaw = lerpYaw(m.yaw, Math.atan2(dx, dz), Math.min(1, dt * 10)); clip = 'walk'; }
+      else { m.yaw = lerpYaw(m.yaw, m.tyaw, Math.min(1, dt * 6)); if (m === b.dm && b.talkT > 0) clip = 'talk'; }
+      m.k += (m.kT - m.k) * Math.min(1, dt * 9);
+      m.ch.play(clip, { speed, fade: 0.3 });
+      m.ch.object.position.set(m.x, floorY + (s[4] || 0) - (s[1] < BOX.frontT ? BOX.floor : 0), m.z); m.ch.object.rotation.y = m.yaw; // (out in the lane: a step down)
+      if (step) m.ch.update(step);
+    }
+    return 0;
+  }
+  // who stands where (see atWork): role -> [x, z, face, clip, lift]
+  workPlan(b, out, wx, d) {
+    const toward = (a, c) => [c[0] - a[0], c[1] - a[1]];
+    if (b.mine) { // (the desk's side of your box is left alone: the talkers on the other)
+      const o = b.F.mirror ? -1 : 1;
+      return { RR: [0, d - 1.55, [0, 1], 'sit_desk', 0.03], RJ: [o * 3.4, 10.4, [-o * 0.6, 0.8], 'talk_2'], LP: [o * 2.9, 11.2, [o * 0.6, -0.8], 'talk'],
+        FL: [-3.2, -0.9, [0, -1], 'idle_look'], FR: [3.2, -0.9, [0, -1], 'idle'], FJ: [-1.4, -1.1, [0.2, -1], 'idle'], RL: [1.6, -1.0, [-0.2, -1], 'idle_look'] };
+    }
+    if (out) return { // (the car's out: in the door, watching; the engineer at the screens)
+      RR: [0, d - 1.55, [0, 1], 'sit_desk', 0.03], FL: [-3.0, 1.2, [0, -1], 'idle_look'], FR: [-1.5, 1.0, [0.2, -1], 'idle'], FJ: [0.2, 1.3, [0, -1], 'idle_look'],
+      RJ: [1.7, 1.1, [-0.2, -1], 'idle'], LP: [3.1, 1.4, [0, -1], 'point'], RL: [wx - 1.15, 8.2, [-1, 0], 'lean'] };
+    const D = [-2.3, 7.4], E = [-2.85, 6.4], R1 = [-3.5, 10.2], R2 = [-2.8, 10.9];
+    return {
+      FL: [-1.35, 4.75, [1, 0], 'kneel_point'], FR: [1.35, 4.9, [-1, 0], 'kneel'],          // on the front wheels
+      RL: [wx - 1.15, 8.2, [-1, 0], 'lean'],                                                 // leaning on the work bench
+      RR: [0, d - 1.55, [0, 1], 'sit_desk', 0.03],                                          // the engineer at the screens
+      FJ: [...E, toward(E, D), 'talk'], DR: [...D, toward(D, E), 'talk_3'],                  // the driver and an engineer
+      RJ: [...R1, toward(R1, R2), 'talk_2'], LP: [...R2, toward(R2, R1), 'idle_look'],     // two at the back
+    };
+  }
+  // the team's car in its box, on its stands, nose to the door (a cheap one: the field isn't racing)
+  parkCar(b) {
+    const race = this.race, t = b.tk, did = race.driverId(t, b.team);
+    const cfg = teamCar(b.team, t); cfg.chassis = race.aiChassisFor(t);
+    Object.assign(cfg, { helmetDesign: { ...driverHelmet(did), number: true }, helmet: driverHelmet(did).base, suit: teamSuit(b.team) });
+    const m = buildF1(cfg, { texSize: 512, low: true }), F = b.F;
+    const at = F.P(0, 6.4, BOX.floor + 0.05), ah = F.P(0, 5.4, BOX.floor + 0.05);
+    m.group.position.fromArray(at); m.group.rotation.y = Math.atan2(ah[0] - at[0], ah[2] - at[2]);
+    if (m.shadow) { m.group.add(m.shadow); m.shadow.position.y = -0.04; }
+    m.group.traverse(o => { if (o.isMesh) o.castShadow = false; });
+    m.animate && m.animate({ steer: 0, spin: 0, heave: 0, pitch: 0, roll: 0 });
+    this.root.add(m.group); b.parked = m;
+  }
+  // you've walked up and spoken to box b's driver (at: where you are, in the world): they turn to you a while
+  talkTo(b, at) { if (!b.dm) return; b.talkT = 4.5; b.talkAt = at.clone(); }
+
   dispose() {
     this.alive = false;
     if (this.lit) for (const [mt, [e, map]] of this.lit) { mt.emissive.setHex(e); mt.emissiveMap = map; mt.needsUpdate = true; }
@@ -382,7 +477,7 @@ export class PitLife {
     if (this.wall) this.wall.dispose();
     this.root.traverse(o => {
       if (o.isSkinnedMesh) return; // (the people's geometry and materials are shared: characters.js owns them)
-      if (o.geometry) o.geometry.dispose();
+      if (o.geometry && !o.userData.sharedGeo) o.geometry.dispose(); // (the props' are the model's, kept for next time)
       if (o.userData.worldMat) return; // (a shutter wears the world's facade material)
       if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); }
     });

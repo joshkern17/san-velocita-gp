@@ -104,7 +104,7 @@ function frameOf(T, A, pit, slot) {
 
 // ---------- the light inside: three rows of strip lights across the room, a little daylight in at the door ----------
 const ROWS = [3.2, 7.2, 11.2], LX = 5;
-function lightAt(x, z, y, n) {
+export function lightAt(x, z, y, n) {
   let L = 0.42;
   const ly = BOX.ceil - 0.12;
   for (const lz of ROWS) {
@@ -170,6 +170,16 @@ class Build {
 }
 
 const INSIDE = () => new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide });
+// the rooms' surfaces: the PSX Industrial pack's concrete floor, corrugated ceiling, dark metal skirting and hazard
+// stripes, the garage tools pack's plaster walls (assets/textures; the light still baked into the vertex colors)
+const texUrl = (n) => ((typeof window !== 'undefined' && window.__SVGP_TEXTURES) || {})[n] || `assets/textures/${n}.png`;
+const TEX = {};
+function surface(name) {
+  if (typeof document === 'undefined') return INSIDE(); // (node: no images)
+  const t = TEX[name] ||= new THREE.TextureLoader().load(texUrl(name));
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter;
+  return new THREE.MeshBasicMaterial({ map: t, vertexColors: true, side: THREE.DoubleSide });
+}
 const GLOW = () => new THREE.MeshBasicMaterial({ color: 0xf4f8ff, toneMapped: false });
 
 // ---------- the block: fronts for every slot, rooms behind the boxes' open doors ----------
@@ -206,25 +216,28 @@ export function buildPitBoxes(root, T, A, pit, { mat } = {}) {
     if (!open) { fq(-dw, dw, 0, doorH, 6 / 64, 58 / 64, 0, VD - 0.01, shut); continue; } // shutter down
     // the room
     const B = new Build(F);
-    const FLOOR = 0xb3b7bc, WALL = 0xe3e3e0, SKIRT = 0x55595f, CEIL = 0x8d9298;
+    // (the textured surfaces, each its own mesh: tiles of `tile` metres)
+    const BF = new Build(F), BW = new Build(F), BS = new Build(F), BC = new Build(F), BH = new Build(F);
+    const tq = (Bt, o, u, v, col, n, cells, tile) => Bt.quad(o, u, v, col, n, cells, [0, Math.hypot(...u) / tile, 0, Math.hypot(...v) / tile]);
+    const FLOOR = 0xf4f4f4, WALL = 0xf6f5f2, SKIRT = 0xb0b0b0, CEIL = 0xc8ccd2;
     const fy = BOX.floor;
-    B.quad([-wx, frontT, fy], [2 * wx, 0, 0], [0, depth - frontT, 0], FLOOR, [0, 0, 1], 1.2);
-    B.quad([-dw, 0, fy], [doorW, 0, 0], [0, frontT, 0], FLOOR, [0, 0, 1], 1.2);      // the sill
-    B.quad([-dw, 0, -0.04], [doorW, 0, 0], [0, 0, fy + 0.04], SKIRT, [0, -1, 0], 1.5); // (its edge, down to the lane)
+    tq(BF, [-wx, frontT, fy], [2 * wx, 0, 0], [0, depth - frontT, 0], FLOOR, [0, 0, 1], 1.2, 1.6);
+    tq(BH, [-dw, 0, fy], [doorW, 0, 0], [0, frontT, 0], 0xffffff, [0, 0, 1], 1.2, 0.8);      // the sill: hazard stripes
+    B.quad([-dw, 0, -0.04], [doorW, 0, 0], [0, 0, fy + 0.04], 0x55595f, [0, -1, 0], 1.5); // (its edge, down to the lane)
     for (const sx of [-1, 1]) {                                                            // the side walls
       const x = sx * wx, n = [-sx, 0, 0];
-      B.quad([x, frontT, 0], [0, depth - frontT, 0], [0, 0, 0.25], SKIRT, n, 1.2);
-      B.quad([x, frontT, 0.25], [0, depth - frontT, 0], [0, 0, ceil - 0.25], WALL, n, 1.2);
+      tq(BS, [x, frontT, 0], [0, depth - frontT, 0], [0, 0, 0.25], SKIRT, n, 1.2, 1);
+      tq(BW, [x, frontT, 0.25], [0, depth - frontT, 0], [0, 0, ceil - 0.25], WALL, n, 1.2, 2);
       // the door's reveal
-      B.quad([sx * dw, 0, 0], [0, frontT, 0], [0, 0, doorH], WALL, [-sx, 0, 0], 1);
+      tq(BW, [sx * dw, 0, 0], [0, frontT, 0], [0, 0, doorH], WALL, [-sx, 0, 0], 1, 2);
       // inside the front, beside the door
-      B.quad([sx * dw, frontT, 0], [sx * (wx - dw), 0, 0], [0, 0, ceil], WALL, [0, 1, 0], 1.2);
+      tq(BW, [sx * dw, frontT, 0], [sx * (wx - dw), 0, 0], [0, 0, ceil], WALL, [0, 1, 0], 1.2, 2);
     }
-    B.quad([-dw, 0, doorH], [doorW, 0, 0], [0, frontT, 0], WALL, [0, 0, -1], 1.5);          // the door's head
-    B.quad([-dw, frontT, doorH], [doorW, 0, 0], [0, 0, ceil - doorH], WALL, [0, 1, 0], 1.5); // over it, inside
-    B.quad([-wx, depth, 0], [2 * wx, 0, 0], [0, 0, 0.25], SKIRT, [0, -1, 0], 1.2);           // the back wall
-    B.quad([-wx, depth, 0.25], [2 * wx, 0, 0], [0, 0, ceil - 0.25], WALL, [0, -1, 0], 1.2);
-    B.quad([-wx, frontT, ceil], [2 * wx, 0, 0], [0, depth - frontT, 0], CEIL, [0, 0, -1], 1.2); // the ceiling
+    tq(BW, [-dw, 0, doorH], [doorW, 0, 0], [0, frontT, 0], WALL, [0, 0, -1], 1.5, 2);          // the door's head
+    tq(BW, [-dw, frontT, doorH], [doorW, 0, 0], [0, 0, ceil - doorH], WALL, [0, 1, 0], 1.5, 2); // over it, inside
+    tq(BS, [-wx, depth, 0], [2 * wx, 0, 0], [0, 0, 0.25], SKIRT, [0, -1, 0], 1.2, 1);           // the back wall
+    tq(BW, [-wx, depth, 0.25], [2 * wx, 0, 0], [0, 0, ceil - 0.25], WALL, [0, -1, 0], 1.2, 2);
+    tq(BC, [-wx, frontT, ceil], [2 * wx, 0, 0], [0, depth - frontT, 0], CEIL, [0, 0, -1], 1.2, 1.2); // the ceiling
     // the walls' panel seams, two beams across the ceiling
     const SEAM = 0xc4c4c0;
     for (let z = frontT + 1.5; z < depth - 0.5; z += 1.5) for (const sx of [-1, 1]) B.quad([sx * (wx - 0.01), z, 0.25], [0, 0.04, 0], [0, 0, ceil - 0.25], SEAM, [-sx, 0, 0], 9);
@@ -238,7 +251,10 @@ export function buildPitBoxes(root, T, A, pit, { mat } = {}) {
     for (const sx of [-1, 1]) line(sx * (wx - 1.6), frontT + 0.6, sx * (wx - 1.6), depth - 2.2, 0.12, 0xe8c22e);
     line(-(wx - 1.6), depth - 2.2, wx - 1.6, depth - 2.2, 0.12, 0xe8c22e);
     for (const sx of [-1, 1]) line(sx * 1.6, frontT + 1.2, sx * 1.6, depth - 3.4, 0.1, 0xf2f2f0);
-    { const m = B.mesh(INSIDE()); if (m) m.userData.box = s.k; inside.push(m); } // (js/pitlife.js: your box's shell shades the sun off the car in it)
+    // (js/pitlife.js: your box's shell shades the sun off the car in it)
+    for (const [Bt, mt] of [[B, INSIDE()], [BF, surface('industrial_concrete_floor')], [BW, surface('plaster_wall')], [BS, surface('dark_industrial_metal')], [BC, surface('corrugated_metal')], [BH, surface('hazard_stripes_01')]]) {
+      const m = Bt.mesh(mt); if (m) { m.userData.box = s.k; inside.push(m); }
+    }
     // the strip lights
     const L = new Build(F, false);
     for (const lz of ROWS) for (const lx of [-LX, 0.4]) L.box(lx, lx + LX - 0.4, lz - 0.09, lz + 0.09, ceil - 0.08, ceil - 0.02, 0xffffff, 9);
@@ -275,19 +291,10 @@ export function dressBox(T, A, pit, k, team, { main, accent, name, desk = false 
     B.quad([sx * (wx - 0.02), BOX.frontT + 0.3, 0.25], [0, depth - BOX.frontT - 0.6, 0], [0, 0, 1.0], M, [-sx, 0, 0], 1.2);
     B.quad([sx * (wx - 0.025), BOX.frontT + 0.3, 1.25], [0, depth - BOX.frontT - 0.6, 0], [0, 0, 0.1], Ac, [-sx, 0, 0], 2);
   }
-  // the engineers' bench along the back wall: a desk, four screens, stools
+  // the engineers' bench along the back wall (its monitors and stools: js/pitprops.js)
   const dz0 = depth - 1.0, dz1 = depth - 0.15;
   B.box(-3.6, 3.6, dz0, dz1, 0.9, 0.96, DESK);
   for (const lx of [-3.5, -0.05, 3.4]) B.box(lx, lx + 0.1, dz0 + 0.05, dz1 - 0.05, 0, 0.9, DARK);
-  for (let s = 0; s < 4; s++) {
-    const cx = -2.7 + s * 1.8;
-    B.box(cx - 0.06, cx + 0.06, dz1 - 0.35, dz1 - 0.25, 0.96, 1.25, DARK);
-    B.box(cx - 0.5, cx + 0.5, dz1 - 0.38, dz1 - 0.3, 1.2, 1.82, DARK);
-    glow.quad([cx - 0.45, dz1 - 0.385, 1.25], [0.9, 0, 0], [0, 0, 0.52], s % 2 ? 0x2a6fd0 : 0x1c3e8a, [0, -1, 0], 2);
-    // (the timing lines on it)
-    for (let l = 0; l < 5; l++) glow.quad([cx - 0.4, dz1 - 0.39, 1.33 + l * 0.085], [0.5 + (l * 37 % 3) * 0.1, 0, 0], [0, 0, 0.03], 0xd8e8ff, [0, -1, 0], 2);
-  }
-  for (const sx of [-2.2, 0, 2.2]) { B.prism(sx, dz0 - 0.6, 0.06, 0, 0.62, DARK, 6); B.prism(sx, dz0 - 0.6, 0.22, 0.62, 0.7, M, 8); }
   // tires down the left wall: sets in their blankets (the team's color), bare ones with the compound's stripe
   const wheel = (cx, cz, y, stripe) => {
     B.prism(cx, cz, 0.33, y, y + 0.29, TIRE, 12, 0x2a2a2e);
@@ -312,7 +319,7 @@ export function dressBox(T, A, pit, k, team, { main, accent, name, desk = false 
     for (let c = 0; c < 4; c++) B.prism(sx * 2.4, z, 0.11, 1.75 + c * 0.07, 1.79 + c * 0.07, 0xe8c22e, 8, 0xe8c22e);
     B.box(sx * 2.4 - 0.06, sx * 2.4 + 0.06, z - 0.1, z + 0.1, 1.45, 1.75, 0x404448, 3);
   }
-  // the right wall: three tool chests in the team's color, a bench with the wheel guns on it
+  // the right wall: three tool chests in the team's color (the work bench past them: js/pitprops.js)
   for (let s = 0; s < 3; s++) {
     const z = 3.0 + s * 1.15;
     B.box(wx - 0.75, wx - 0.08, z, z + 1.0, 0.1, 1.05, M);
@@ -321,13 +328,9 @@ export function dressBox(T, A, pit, k, team, { main, accent, name, desk = false 
     for (const dz of [0.12, 0.88]) B.prism(wx - 0.42, z + dz, 0.05, 0, 0.1, DARK, 6);
   }
   // a spare wing on brackets over the bench
-  B.box(wx - 0.3, wx - 0.05, 7.6, 10.2, 2.0, 2.05, STEEL, 3);
-  B.box(wx - 0.62, wx - 0.12, 7.7, 10.1, 2.05, 2.13, M, 3);
-  for (const z of [7.62, 10.1]) B.box(wx - 0.66, wx - 0.1, z, z + 0.06, 2.05, 2.45, Ac, 3);
-  B.box(wx - 0.85, wx - 0.08, 7.2, 10.6, 0.9, 0.96, STEEL);
-  for (const z of [7.3, 10.4]) B.box(wx - 0.8, wx - 0.12, z, z + 0.1, 0, 0.9, DARK);
-  B.box(wx - 0.7, wx - 0.4, 8.0, 8.3, 0.96, 1.18, 0x404448);
-  B.box(wx - 0.7, wx - 0.4, 9.2, 9.5, 0.96, 1.18, 0x404448);
+  B.box(wx - 0.3, wx - 0.05, 7.6, 10.2, 2.1, 2.15, STEEL, 3);
+  B.box(wx - 0.62, wx - 0.12, 7.7, 10.1, 2.15, 2.23, M, 3);
+  for (const z of [7.62, 10.1]) B.box(wx - 0.66, wx - 0.1, z, z + 0.06, 2.15, 2.55, Ac, 3);
   // the team's name over the panel on the back wall
   if (typeof document !== 'undefined' && name) {
     const c = document.createElement('canvas'); c.width = 1024; c.height = 128;

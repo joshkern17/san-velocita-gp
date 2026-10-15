@@ -50,6 +50,9 @@ const charsTag = fs.existsSync(charsPath) ? inlineScript(`window.__SVGP_CHARACTE
 // the bleachers (models/bleachers.glb): window.__SVGP_BLEACHERS_GLB (js/crowd.js)
 const blPath = path.join(root, 'models/bleachers.glb');
 const blTag = fs.existsSync(blPath) ? inlineScript(`window.__SVGP_BLEACHERS_GLB = "data:model/gltf-binary;base64,${fs.readFileSync(blPath).toString('base64')}";`) : '';
+// the pit boxes' furniture (models/pitprops.glb): window.__SVGP_PITPROPS_GLB (js/pitprops.js)
+const ppPath = path.join(root, 'models/pitprops.glb');
+const ppTag = fs.existsSync(ppPath) ? inlineScript(`window.__SVGP_PITPROPS_GLB = "data:model/gltf-binary;base64,${fs.readFileSync(ppPath).toString('base64')}";`) : '';
 // the GT / street / utility cars (models/cars/*.glb), read from window.__SVGP_CARS
 const carsDir = path.join(root, 'models/cars');
 const carGlbs = {};
@@ -98,7 +101,7 @@ if (fs.existsSync(path.join(voiceDir, 'manifest.json'))) {
 }
 // the soundtrack is too big to inline: it goes in a music/ folder beside the HTML (js/audio.js reads __SVGP_MUSIC_DIR)
 const musicTag = inlineScript(`window.__SVGP_MUSIC_DIR = 'music/';`);
-swap('<script type="module" src="js/main.js"></script>', glbTag + garageTag + phoneTag + charsTag + blTag + envTag + carsTag + kitTag + realTag + texTag + spTag + voiceTag + musicTag + inlineScript(js, 'module'));
+swap('<script type="module" src="js/main.js"></script>', glbTag + garageTag + phoneTag + charsTag + blTag + ppTag + envTag + carsTag + kitTag + realTag + texTag + spTag + voiceTag + musicTag + inlineScript(js, 'module'));
 
 fs.mkdirSync(dist, { recursive: true });
 const name = 'San Velocita GP.html';

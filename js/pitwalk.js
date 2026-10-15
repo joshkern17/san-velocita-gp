@@ -13,6 +13,7 @@
 // your car and your desk, and the crews stood at their boxes.
 import * as THREE from 'three';
 import { pitSlots, BOX } from './pitboxes.js';
+import { PROP_OBSTACLES } from './pitprops.js';
 
 const v3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
 
@@ -60,6 +61,7 @@ export class PitNav {
     this.hits = [];
     sim.scene.getObjectByName('PitBoxes')?.traverse(o => { if (o.isMesh && !(o.material && o.material.toneMapped === false)) this.hits.push(o); });
     pg.room.traverse(o => { if (o.isMesh && o.visible && !o.userData.pcScreen) this.hits.push(o); });
+    for (const g of life ? life.root.children : []) if (g.name === 'BoxDress') g.traverse(o => { if (o.isMesh && !o.material.transparent) this.hits.push(o); }); // (the air lines, the benches)
   }
   // a thing's box in this frame
   localBox(o) {
@@ -83,6 +85,7 @@ export class PitNav {
     R(wx - 0.8, wx + 1, 2.95, 6.5); R(wx - 0.88, wx + 1, 7.15, 10.65); // the tool chests, the bench by them
     for (const s of [-1, 1]) Cc(s * (wx - 0.25), 1.0, 0.12);  // the fire extinguishers
     for (const s of [-1, 1]) for (const z of [4.6, 9.8]) if (!(mine && z > 9 && s === (mirror ? 1 : -1))) Cc(s * 2.4, z, 0.14); // the air lines
+    for (const r of PROP_OBSTACLES(wx)) R(...r);       // the furniture (js/pitprops.js)
   }
   // a point in a box's frame and back
   inFr(fr, p) {
@@ -93,7 +96,7 @@ export class PitNav {
   refreshCrew(dt) {
     if ((this.crewT -= dt) > 0) return; this.crewT = 0.5;
     const life = this.sim.pitLife, out = [], p = new THREE.Vector3();
-    for (const b of life ? life.boxes : []) for (const m of b.crew) { m.ch.object.getWorldPosition(p).applyMatrix4(this.M); out.push([p.x, p.z]); }
+    for (const b of life ? life.boxes : []) for (const ch of [...b.crew.map(m => m.ch), ...(b.driver && b.driver.object.visible ? [b.driver] : [])]) { ch.object.getWorldPosition(p).applyMatrix4(this.M); out.push([p.x, p.z]); }
     this.crew = out;
   }
   // out of anything in the way (a circle of radius r against rectangles and circles)

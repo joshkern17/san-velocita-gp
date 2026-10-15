@@ -215,6 +215,7 @@ export class GarageWalk {
     // the spot you're at: the nearest you're facing, within reach
     const fx = Math.sin(this.heading), fz = Math.cos(this.heading); let best = null, bd = Infinity;
     for (const s of this.act ? [] : this.spots) {
+      if (s.off) continue; // (not there right now: a driver out on a run)
       const px = s.box ? Math.max(s.box.min.x, Math.min(s.box.max.x, this.pos.x)) : s.at.x, pz = s.box ? Math.max(s.box.min.z, Math.min(s.box.max.z, this.pos.z)) : s.at.z;
       const vx = px - this.pos.x, vz = pz - this.pos.z, d = Math.hypot(vx, vz) - (s.box ? R : 0);
       if (d > (s.reach || REACH)) continue;
@@ -376,7 +377,7 @@ export class GarageWalk {
       const p = this.anchor(s).clone(); if (W) p.applyMatrix4(W); const at = pg.toScreen(p);
       if (look) { const d = p.clone().sub(cam), n = d.length(); s.hidden = n > 0.5 && new THREE.Raycaster(cam, d.normalize(), 0.05, n - 0.35).intersectObjects(this.camHits, false).some(h => !this.noCam || !this.noCam.has(h.object)); }
       const near = p.distanceTo(cam) < 1.2;   // (right by the camera, e.g. the door just as you've come in: it'd float over you)
-      return { s, x: at && at.x, y: at && at.y, show: !!at && !s.hidden && !near, open: s === this.spot };
+      return { s, x: at && at.x, y: at && at.y, show: !!at && !s.hidden && !near && !s.off, open: s === this.spot };
     });
   }
 }

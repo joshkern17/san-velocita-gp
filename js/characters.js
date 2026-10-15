@@ -61,6 +61,8 @@ export const CLIP_INFO = {
   stand_up: { loop: false },
   // sat at a desk, idling (Mixamo "Sitting Idle", a different one from sit_idle): hips 0.56 m up
   sit_desk: { loop: true, seat: 0.44 },
+  // stood talking, three ways (Mixamo "Talking"): hands going, weight shifting, on the spot
+  talk: { loop: true }, talk_2: { loop: true }, talk_3: { loop: true },
 };
 export const CLIPS = Object.keys(CLIP_INFO);
 
