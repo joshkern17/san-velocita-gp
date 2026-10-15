@@ -396,7 +396,7 @@ function commentaryName() {
   const sur = String(settings.driverName || '').trim().split(' ').pop(), slug = slugName(sur);
   return slug && has(slug) ? { commentaryName: slug, commentaryLabel: sur.toUpperCase() } : {};
 }
-function disposeSim() { driftHud.hide(); voStopAll(); if (sim) { saveSession(sim); sim.dispose(); sim = null; } }
+function disposeSim() { driftHud.hide(); voStopAll(); if (sim) { pitGarage.leaveTrack(); saveSession(sim); sim.dispose(); sim = null; } }
 
 // ---------------- boot ----------------
 let booted = false;
@@ -1281,7 +1281,9 @@ function openPitGarage() {
   const pl = sim.player;
   pgView = 'main'; pgBusy = false; $('pg-work').hidden = true;
   $('pg-receipt').hidden = true; if (wkOn()) pgReceipt();
-  pitGarage.open(pl.model.cfg || sim.opts.car, pl.team, pl.phys.tyre.c, pl.phys.dmg);
+  // (your box on the pit lane, where the track has real garages: js/pitboxes.js; else the garage's own room)
+  const box = !sim.T.open && sim.pitLife && sim.pitLife.mine;
+  pitGarage.open(pl.model.cfg || sim.opts.car, pl.team, pl.phys.tyre.c, pl.phys.dmg, null, box ? { sim, F: box.F } : null);
   pitGarage.setPeople(raceReturn === 'world' && world ? mateInRoom(world) : []);
   pgTiming = false; $('pg-timing').hidden = true; $('pg-car').hidden = false;
   // (World Career: you start at the computer, the Race Weekend app open beside the menu)

@@ -4410,6 +4410,7 @@ export class Race {
 
   updateCamera(dt, snap = false) {
     const car = this.focus, p = car.phys, cam = this.camera;
+    if (this.camHold) return this.camHold(cam); // (the garage menu has it, in your box: js/pitgarage.js)
     if (this.state === 'intro') return this.introCamera(dt);
     if (this.state === 'broadcast') return this.flyCamera(dt);
     if (this.state === 'strategy') return this.stratCamera(dt);

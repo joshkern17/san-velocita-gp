@@ -10,7 +10,7 @@ import { TEAMS } from './car.js';
 import { loadCharacters, makeCharacter, classicCrewLook } from './characters.js';
 import { fillLivery } from './livery.js';
 import { PitWall } from './pitwall.js';
-import { dressBox, shutBox, boxFrame } from './pitboxes.js';
+import { dressBox, shutBox, boxFrame, BOX } from './pitboxes.js';
 
 const _q = new THREE.Quaternion(), _x = new THREE.Vector3(1, 0, 0), _z = new THREE.Vector3(0, 0, 1);
 const turn = (b, axis, a) => { if (b && a) b.quaternion.multiply(_q.setFromAxisAngle(axis, a)); };
@@ -105,9 +105,18 @@ export class PitLife {
       const b = { k, bi, team, cars, mine: !!pl, face, crew: [], active: field.has(k), car: null, phase: 'home', t: 0, lift: 0, F: boxFrame(T, this.A, pit, k) };
       this.boxes.push(b);
       this.makeSign(b);
-      const dress = dressBox(T, this.A, pit, k, team, { name: team.name });
+      const dress = dressBox(T, this.A, pit, k, team, { name: team.name, desk: !!pl && !!race.quali });
       if (dress) this.root.add(dress);
     });
+    // your box in practice and qualifying is where the garage menu is (js/pitgarage.js): the car parked in it is lit
+    // by its ceiling lights, real ones, and its shell keeps the sun off. Here from the start of the session (a light
+    // coming and going would rebuild every shader in the scene each time you went in or out)
+    const me = race.quali && this.boxes.find(b => b.mine && b.F);
+    if (me) {
+      this.mine = me;
+      for (const z of [3.6, 9.2]) { const l = new THREE.PointLight(0xfff2e0, 9, 12, 1.4); l.position.fromArray(me.F.P(0, z, BOX.ceil - 0.5)); this.root.add(l); }
+      race.scene.getObjectByName('PitBoxes')?.traverse(o => { if (o.userData.box === me.k) o.castShadow = true; });
+    }
     // fonts: draw again once the house faces are in (the first draw may have used the fallback)
     if (typeof document !== 'undefined' && document.fonts) Promise.all(['700 62px "SV Display"', '500 40px "SV UI"'].map(f => document.fonts.load(f))).then(() => { if (this.alive) for (const b of this.boxes) drawSign(b.sign); }).catch(() => {});
     // the teams' stands on the pit wall, their flags, the flag marshal (js/pitwall.js)

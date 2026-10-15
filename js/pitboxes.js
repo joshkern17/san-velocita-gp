@@ -235,7 +235,7 @@ export function buildPitBoxes(root, T, A, pit, { mat } = {}) {
     for (const sx of [-1, 1]) line(sx * (wx - 1.6), frontT + 0.6, sx * (wx - 1.6), depth - 2.2, 0.12, 0xe8c22e);
     line(-(wx - 1.6), depth - 2.2, wx - 1.6, depth - 2.2, 0.12, 0xe8c22e);
     for (const sx of [-1, 1]) line(sx * 1.6, frontT + 1.2, sx * 1.6, depth - 3.4, 0.1, 0xf2f2f0);
-    inside.push(B.mesh(INSIDE()));
+    { const m = B.mesh(INSIDE()); if (m) m.userData.box = s.k; inside.push(m); } // (js/pitlife.js: your box's shell shades the sun off the car in it)
     // the strip lights
     const L = new Build(F, false);
     for (const lz of ROWS) for (const lx of [-LX, 0.4]) L.box(lx, lx + LX - 0.4, lz - 0.09, lz + 0.09, ceil - 0.08, ceil - 0.02, 0xffffff, 9);
@@ -256,7 +256,9 @@ export function buildPitBoxes(root, T, A, pit, { mat } = {}) {
 
 // ---------- a team's things in its box ----------
 const TIRE = 0x1c1c1f, STEEL = 0x8c9196, DARK = 0x2c2f35, DESK = 0x3a3d44;
-export function dressBox(T, A, pit, k, team, { main, accent, name } = {}) {
+// desk: your box in a session (js/pitgarage.js puts the computer's desk left of the car, seen from the door): the air
+// line that would hang over its chair is left out
+export function dressBox(T, A, pit, k, team, { main, accent, name, desk = false } = {}) {
   const F = boxFrame(T, A, pit, k);
   if (!F) return null;
   const { wx } = F, { depth, ceil } = BOX;
@@ -302,6 +304,7 @@ export function dressBox(T, A, pit, k, team, { main, accent, name } = {}) {
   for (const sx of [-1, 1]) { B.prism(sx * (wx - 0.25), 1.0, 0.09, 0, 0.62, 0xc8161a, 8, 0x222222); B.prism(sx * (wx - 0.25), 1.0, 0.03, 0.62, 0.72, 0x222222, 6); }
   // air lines dropping from the ceiling over the bay (the wheel guns' hoses), coiled at the bottom
   for (const sx of [-1, 1]) for (const z of [4.6, 9.8]) {
+    if (desk && z > 9 && sx === (F.mirror ? 1 : -1)) continue;
     B.prism(sx * 2.4, z, 0.025, 1.75, BOX.ceil, DARK, 5);
     for (let c = 0; c < 4; c++) B.prism(sx * 2.4, z, 0.11, 1.75 + c * 0.07, 1.79 + c * 0.07, 0xe8c22e, 8, 0xe8c22e);
     B.box(sx * 2.4 - 0.06, sx * 2.4 + 0.06, z - 0.1, z + 0.1, 1.45, 1.75, 0x404448, 3);
