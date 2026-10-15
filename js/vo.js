@@ -195,8 +195,8 @@ export async function engSeq(parts) {
   const files = parts.map(id => { const S = manifest[id.split('.')[0]]; return S && S[id] && S[id].file; });
   if (files.some(f => !f) || !chains()) return false;
   const bufs = await Promise.all(files.map(buffer)); if (bufs.some(b => !b)) return false;
-  // (a touch quicker than recorded: the voice drawls, and pieces read on their own come out slower than a sentence)
-  const { ctx } = radio, t0 = ctx.currentTime + 0.02, RATE = 1.15; let t = t0 + 0.06; const srcs = [];
+  // (at the speed recorded: played any quicker, the pitch goes up with it and he sounds like a chipmunk)
+  const { ctx } = radio, t0 = ctx.currentTime + 0.02, RATE = 1; let t = t0 + 0.06; const srcs = [];
   bufs.forEach((buf, i) => {
     const [s0, s1] = speech(buf), src = ctx.createBufferSource(); src.buffer = buf; src.playbackRate.value = RATE; src.connect(radio.input);
     src.start(t, s0, s1 - s0); srcs.push(src);
