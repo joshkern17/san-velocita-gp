@@ -13,6 +13,9 @@
 //   walk.park();                          // hand the camera over (the computer): you stay sat in the chair
 //   await walk.resume();                  // stand back up out of it and walk on
 //   walk.stop();
+//
+// Away from home (the pit lane: js/pitwalk.js), start({ nav }) gives where you can go instead of the room's walls: you
+// get up at nav.spawn, nav.push keeps you in, and you walk in the garage's own frame (its room, in the track's scene).
 import * as THREE from 'three';
 import { loadCharacters, makeCharacter, alignedClip, CLIP_INFO } from './characters.js';
 
@@ -26,28 +29,30 @@ const SIT_FROM = 0.25, SIT_TO = 0.68, SIT_SPEED = 1.15, SIT_BACK = 0.46, SIT_SID
 // stand_up (Mixamo "Stand Up", sat to stood): still till 0.2, up by 0.45, steady by 0.6, about 0.43 m forward
 const STAND_FROM = 0.15, STAND_TO = 0.6;
 const SWIVEL = 2.2; // rad/s, round on the chair
+const UP = new THREE.Vector3(0, 1, 0), _m4 = new THREE.Matrix4();
 
 export class GarageWalk {
   constructor(pg) { this.pg = pg; this.active = false; this.me = null; this.input = {}; this.spot = null; this.spots = []; }
 
   // from: where you come in. null: SPAWN; 'door': in through the roll-up door (back from a race, a gig); 'desk': getting
   // up from the desk chair (the career loaded); 'last': where you were when walking last stopped
-  async start({ livery, face, spots = [], from = null }) {
+  async start({ livery, face, spots = [], from = null, nav = null }) {
     const pg = this.pg;
-    this.spots = spots; this.spot = null; this.input = {}; this.speed = 0; this.act = null; this.ghost = false; this.camFrom = null; this.focus = null; this._hips = null;
+    this.nav = nav; this.spots = spots; this.spot = null; this.input = {}; this.speed = 0; this.act = null; this.ghost = false; this.camFrom = null; this.focus = null; this._hips = null;
     if (!(await loadCharacters())) return false;
     if (this.me) this.me.dispose();
     this.me = makeCharacter({ look: 'racer', clip: 'idle', livery, face, helmet: false, seed: 11 });
-    pg.scene.add(this.me.object);
+    (pg.track ? pg.track.a : pg.scene).add(this.me.object);
     this.buildColliders();
     // in at SPAWN (the kit's), else in front of the car
     const k = pg.kit, p = new THREE.Vector3(), q = new THREE.Quaternion();
-    if (k && k.spawn) { k.spawn.getWorldPosition(p); k.spawn.getWorldQuaternion(q); }
+    if (nav) p.copy(nav.spawn);
+    else if (k && k.spawn) { k.spawn.getWorldPosition(p); k.spawn.getWorldQuaternion(q); }
     else p.copy(pg.carCentre()).add(new THREE.Vector3(1.6, 0, 3.6));
     p.y = 0; this.pos = p; this.push();
     // facing: the way the spawn's arrow points; the camera behind you
     const f = new THREE.Vector3(0, 0, 1).applyQuaternion(q); this.heading = Math.atan2(f.x, f.z); // (Blender's -Y)
-    if (!(k && k.spawn)) this.heading = Math.PI;
+    if (nav) this.heading = nav.heading; else if (!(k && k.spawn)) this.heading = Math.PI;
     this.camYaw = this.heading; this.camPitch = 0.3; this.camDist = CAM_DIST;
     const at = this.entry(from, p.clone());
     this.me.object.position.copy(this.pos); this.me.object.rotation.y = this.heading;
@@ -91,6 +96,7 @@ export class GarageWalk {
     return true;
   }
   stop() {
+    this.nav = null;
     if (this.pos) this.last = { pos: this.pos.clone(), heading: this.heading, camYaw: this.camYaw };
     this.active = false; if (this.pg.walker === this) this.pg.walker = null; this.pg.parked = null; this.act = null;
     if (this.me) { this.me.dispose(); this.me.object.removeFromParent(); this.me = null; }
@@ -99,6 +105,7 @@ export class GarageWalk {
 
   // what you can't walk through: things standing on the floor (their boxes), the cars, the floor's edge (NAV_floor)
   buildColliders() {
+    if (this.nav) { this.boxes = []; this.bounds = null; this.camHits = this.nav.hits; this.noCam = new Set(); return; } // (the nav has them)
     const pg = this.pg, boxes = [];
     pg.room.updateMatrixWorld(true);
     pg.room.traverse(o => {
@@ -126,6 +133,7 @@ export class GarageWalk {
   // out of anything you've walked into (a circle against boxes), and inside the floor
   push() {
     const p = this.pos;
+    if (this.nav) return this.nav.push(p, R);
     // (just stood up from the chair, tucked in at the desk: what you're stood in, the chair and the desk, doesn't push
     // you till you're out of it; everything else does)
     const inside = (b) => p.x > b.min.x - R && p.x < b.max.x + R && p.z > b.min.z - R && p.z < b.max.z + R;
@@ -183,12 +191,14 @@ export class GarageWalk {
     if (!this.focus) this.focus = aim.clone(); this.focus.lerp(aim, this.easeT > 0 ? Math.min(1, dt * 8) : 1); const head = this.focus.clone();
     const back = new THREE.Vector3(-Math.sin(this.camYaw) * Math.cos(this.camPitch), Math.sin(this.camPitch), -Math.cos(this.camYaw) * Math.cos(this.camPitch));
     let dist = CAM_DIST;
-    const hit = new THREE.Raycaster(head, back, 0, CAM_DIST + 0.3).intersectObjects(this.camHits, false).find(h => !this.noCam || !this.noCam.has(h.object));
+    const W = pg.track && pg.track.a.matrixWorld; // (away from home: the frame's the garage's, in the track's world)
+    const hit = new THREE.Raycaster(W ? head.clone().applyMatrix4(W) : head, W ? back.clone().transformDirection(W) : back, 0, CAM_DIST + 0.3).intersectObjects(this.camHits, false).find(h => !this.noCam || !this.noCam.has(h.object));
     if (hit) dist = Math.max(0.5, hit.distance - 0.3);
     this.camDist += (dist - this.camDist) * Math.min(1, dt * (dist < this.camDist ? 25 : 4));
     // (pulled in close by a wall behind: up over your shoulder instead, looking down)
     const lift = Math.min(0.5, Math.max(0, CAM_DIST - this.camDist) * 0.25);
-    const cam = pg.camera; cam.position.copy(head).addScaledVector(back, this.camDist); cam.position.y += lift; cam.lookAt(head.x, head.y - 0.15 - lift * 0.3, head.z); cam.fov = 58;
+    const cam = pg.camera; cam.position.copy(head).addScaledVector(back, this.camDist); cam.position.y += lift; cam.fov = 58;
+    cam.quaternion.setFromRotationMatrix(_m4.lookAt(cam.position, new THREE.Vector3(head.x, head.y - 0.15 - lift * 0.3, head.z), UP)); // (in its parent's frame)
     // (back from the computer: out of the screen to here, not a cut)
     this.shift = 0;
     if (this.camFrom) {
@@ -361,9 +371,9 @@ export class GarageWalk {
   // every spot's tag this frame: { s, x, y (screen px) | null when off screen or behind a wall, open: the one you'd use }
   // (behind a wall: a ray from the camera hits the room first; checked ten times a second)
   tags(dt) {
-    const pg = this.pg, cam = pg.camera.position; this.tagT = (this.tagT || 0) - dt; const look = this.tagT <= 0; if (look) this.tagT = 0.1;
+    const pg = this.pg, W = pg.track && pg.track.a.matrixWorld, cam = W ? pg.camera.getWorldPosition(new THREE.Vector3()) : pg.camera.position; this.tagT = (this.tagT || 0) - dt; const look = this.tagT <= 0; if (look) this.tagT = 0.1;
     return this.spots.map(s => {
-      const p = this.anchor(s), at = pg.toScreen(p);
+      const p = this.anchor(s).clone(); if (W) p.applyMatrix4(W); const at = pg.toScreen(p);
       if (look) { const d = p.clone().sub(cam), n = d.length(); s.hidden = n > 0.5 && new THREE.Raycaster(cam, d.normalize(), 0.05, n - 0.35).intersectObjects(this.camHits, false).some(h => !this.noCam || !this.noCam.has(h.object)); }
       const near = p.distanceTo(cam) < 1.2;   // (right by the camera, e.g. the door just as you've come in: it'd float over you)
       return { s, x: at && at.x, y: at && at.y, show: !!at && !s.hidden && !near, open: s === this.spot };

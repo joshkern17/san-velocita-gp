@@ -1692,6 +1692,8 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .walk-tag.open em { transform: scale(.45); opacity: 0; transition: transform .14s ease-in, opacity .14s ease-in; }
 /* walking round the garage: the menu out of the way */
 .screen.walking .scr-head, .screen.walking .hub-left, .screen.walking .pg-left, .screen.walking .desc-bar, .screen.walking .menu-shade, .screen.walking .car-tags { opacity: 0; pointer-events: none; }
+/* (walking the pit lane: the garage's panels too; the session clock stays) */
+#s-pitgarage.walking .pg-car, #s-pitgarage.walking .pg-timing, #s-pitgarage.walking .pg-receipt { opacity: 0; pointer-events: none; }
 .pc-tag i { width: 1px; height: 26px; background: var(--sv-red); box-shadow: var(--sv-glow-line); }
 .pc-tag i::after { content: ''; display: block; width: 5px; height: 5px; margin: 24px 0 0 -2px; background: var(--sv-red); box-shadow: var(--sv-glow-line); transform: rotate(45deg); }
 .pc-tag.hot { opacity: 1; }

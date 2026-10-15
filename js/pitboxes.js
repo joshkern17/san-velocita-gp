@@ -13,7 +13,8 @@
 // garage line, so a bending pit lane gets a row of straight garages, like a real one.
 import * as THREE from 'three';
 
-export const BOX = { doorW: 11, doorH: 4.0, depth: 14, ceil: 4.6, frontT: 0.4, wallIn: 0.15, hgt: 7.5, pitch: 15 };
+export const BOX = { doorW: 11, doorH: 4.0, depth: 14, ceil: 4.6, frontT: 0.4, wallIn: 0.15, hgt: 7.5, pitch: 15, floor: 0.06 };
+// (floor: the garages' floor, a step up from the lane: level with it, the lane's tarmac run in under the doors fought it)
 
 // The garage line (the block's front, along the main stretch) as a polyline with its length along it, and what's
 // built along it: a room for each box, centred on its car's spot (as wide as the boxes' spacing lets it, 12-16 m),
@@ -206,8 +207,10 @@ export function buildPitBoxes(root, T, A, pit, { mat } = {}) {
     // the room
     const B = new Build(F);
     const FLOOR = 0xb3b7bc, WALL = 0xe3e3e0, SKIRT = 0x55595f, CEIL = 0x8d9298;
-    B.quad([-wx, frontT, 0.02], [2 * wx, 0, 0], [0, depth - frontT, 0], FLOOR, [0, 0, 1], 1.2);
-    B.quad([-dw, 0, 0.02], [doorW, 0, 0], [0, frontT, 0], FLOOR, [0, 0, 1], 1.2);    // the sill
+    const fy = BOX.floor;
+    B.quad([-wx, frontT, fy], [2 * wx, 0, 0], [0, depth - frontT, 0], FLOOR, [0, 0, 1], 1.2);
+    B.quad([-dw, 0, fy], [doorW, 0, 0], [0, frontT, 0], FLOOR, [0, 0, 1], 1.2);      // the sill
+    B.quad([-dw, 0, -0.04], [doorW, 0, 0], [0, 0, fy + 0.04], SKIRT, [0, -1, 0], 1.5); // (its edge, down to the lane)
     for (const sx of [-1, 1]) {                                                            // the side walls
       const x = sx * wx, n = [-sx, 0, 0];
       B.quad([x, frontT, 0], [0, depth - frontT, 0], [0, 0, 0.25], SKIRT, n, 1.2);
@@ -230,7 +233,7 @@ export function buildPitBoxes(root, T, A, pit, { mat } = {}) {
     // painted on the floor: the car's bay (a white outline), yellow lines along the walls
     const line = (xa, za, xb, zb, w, col) => {
       const lx = xb - xa, lz = zb - za, l = Math.hypot(lx, lz), nx = -lz / l * w / 2, nz = lx / l * w / 2;
-      B.quad([xa - nx, za - nz, 0.026], [lx, lz, 0], [2 * nx, 2 * nz, 0], col, [0, 0, 1], 1.5);
+      B.quad([xa - nx, za - nz, BOX.floor + 0.006], [lx, lz, 0], [2 * nx, 2 * nz, 0], col, [0, 0, 1], 1.5);
     };
     for (const sx of [-1, 1]) line(sx * (wx - 1.6), frontT + 0.6, sx * (wx - 1.6), depth - 2.2, 0.12, 0xe8c22e);
     line(-(wx - 1.6), depth - 2.2, wx - 1.6, depth - 2.2, 0.12, 0xe8c22e);

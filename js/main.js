@@ -23,6 +23,7 @@ import { presetTracks, sampleTrack, trackStats, THEMES, cloneTrack } from './tra
 import { TEAMS } from './car.js';
 import { Garage } from './garage.js';
 import { PitGarage } from './pitgarage.js';
+import { PitNav } from './pitwalk.js';
 import { PREMISES } from './garagekit.js';
 import { GarageWalk } from './garagewalk.js';
 import { Opening, trailerModel } from './opening.js';
@@ -397,7 +398,7 @@ function commentaryName() {
   const sur = String(settings.driverName || '').trim().split(' ').pop(), slug = slugName(sur);
   return slug && has(slug) ? { commentaryName: slug, commentaryLabel: sur.toUpperCase() } : {};
 }
-function disposeSim() { driftHud.hide(); voStopAll(); if (sim) { pitGarage.leaveTrack(); saveSession(sim); sim.dispose(); sim = null; } }
+function disposeSim() { driftHud.hide(); voStopAll(); if (sim) { quitPitWalk(); pitGarage.leaveTrack(); saveSession(sim); sim.dispose(); sim = null; } }
 
 // ---------------- boot ----------------
 let booted = false;
@@ -1338,6 +1339,8 @@ function renderGarageMenu() {
     ...(pgDesk ? [] : [{ label: 'Timing', action: () => { pgTiming = !pgTiming; $('pg-timing').hidden = !pgTiming; $('pg-car').hidden = pgTiming; renderGarageInfo(); }, desc: 'The full timing screen for the session (select again for the car).' }]),
     ...(typeof openLapReview === 'function' ? [{ label: 'Review Laps', action: () => openLapReview('s-pitgarage'), desc: 'Your laps against the reference: where the time went.' }] : []),
     ...(sim.net ? [] : [{ label: pgSkipLbl, action: () => { sim.skipTime(q.left > 330 ? 300 : q.left); sfx.select(); renderGarageMenu(); renderGarageInfo(); }, desc: 'Fast-forward the session clock. The AI keep setting times meanwhile.' }]),
+    ...(pitGarage.track ? [{ label: 'Walk The Pit Lane', action: () => startPitWalk(),
+      desc: 'Get up and walk the pit lane: your box, the other teams\' boxes, out to the pit wall. The session clock keeps running. <b>B / Esc</b> brings you back here.' }] : []),
     { label: 'Options', action: () => openOptions('s-pitgarage'), desc: 'Sound, camera, driving aids and the screen look.' },
     { label: 'End Session', confirm: 'End it? Select again', action: () => sim.qualiEnd(), desc: sim.net ? `You're done with ${SESSION_NAME[q.kind].toLowerCase()}: your best lap stands. The times come up once everyone's done.` : `Finish ${SESSION_NAME[q.kind].toLowerCase()} now. The AI still post their laps.` },
     ...(raceReturn === 'coop' ? [{ label: 'Leave Session', confirm: 'Leave? Select again', action: () => { pitGarage.close(); leaveOnline(); }, desc: 'Leave the career and go back to the main menu.' }] : []),
@@ -1487,7 +1490,7 @@ function goOut(how) {
 }
 menus['s-pitgarage'] = [new Menu($('m-pitgarage'), [], { desc: 'd-pitgarage' })];
 backs['s-pitgarage'] = () => { if (pgView !== 'main' && !pgBusy) { pgView = 'main'; sfx.back(); renderGarageMenu(); renderHints(); } };
-HINTS['s-pitgarage'] = () => pgPcFocus ? [['nav', 'Move'], ['ok', 'Select'], ['tab', 'Sections'], ['back', 'Menu']] : pgView === 'tyres' ? [['nav', 'Navigate'], ['ok', 'Fit'], ['back', 'Back']] : pgView === 'repair' ? [['nav', 'Navigate'], ['ok', 'Fix'], ['back', 'Back']] : pgView === 'plan' ? [['nav', 'Navigate'], ['ok', 'Choose'], ['back', 'Back']] : [['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ...(pgDesk && pc.isOpen ? [['tab', 'Computer']] : [])];
+HINTS['s-pitgarage'] = () => walk.active ? [['cam', 'Walk'], ['look', 'Look'], ['ok', 'Use'], ['back', 'Garage']] : pgPcFocus ? [['nav', 'Move'], ['ok', 'Select'], ['tab', 'Sections'], ['back', 'Menu']] : pgView === 'tyres' ? [['nav', 'Navigate'], ['ok', 'Fit'], ['back', 'Back']] : pgView === 'repair' ? [['nav', 'Navigate'], ['ok', 'Fix'], ['back', 'Back']] : pgView === 'plan' ? [['nav', 'Navigate'], ['ok', 'Choose'], ['back', 'Back']] : [['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ...(pgDesk && pc.isOpen ? [['tab', 'Computer']] : [])];
 
 // ---------------- career / grand prix ----------------
 let career = null;
@@ -2349,6 +2352,7 @@ const setupItem = () => (menus['s-hub'][0].items || []).find(it => it.cls === 'a
 const offerPending = (w) => !!(w.player.offer && !w.player.offer.answer && (w.mail || []).some(m => m.offer && !m.answer));
 const WALK_DOES = { computer: /^Computer/, list: /^The List/, car: /^(Work On The Car|Look At The Car)/, car2: /^(Work On The Car|Look At The Car)/, tools: /^(Work On The Car|Look At The Car)/, calendar: /\bday\b/, sim: /\bday\b/ };
 function useSpot(s) {
+  if (screen === 's-pitgarage') return usePitSpot(s);
   // the computer: walk round to the chair and sit down first (the preview: sit a moment, then get back up)
   if (s.key === 'computer' && walk.deskSeat()) {
     if (screen === 's-homeview') { sfx.select(); walk.sit().then(() => { toast(`In a career: <b>${s.label}</b>.`, 1800); setTimeout(() => { if (walk.active) walk.resume(); }, 1600); }); return; }
@@ -2471,7 +2475,7 @@ function walkInput() {
   walk.input = { mx: Math.max(-1, Math.min(1, mx)), my: Math.max(-1, Math.min(1, my)), run: isDown('ShiftLeft') || isDown('ShiftRight') ? 1 : p && p.buttons[7] ? Math.max(0, Math.min(1, (p.buttons[7].value - 0.08) / 0.84)) : 0,
     lx: rx * 2.6 * dt + (k('KeyL') - k('KeyJ')) * 2 * dt + walkMouse[0] * 0.005, ly: ry * 1.4 * dt + (k('KeyK') - k('KeyI')) * 1.2 * dt + walkMouse[1] * 0.003 };
   walkMouse = [0, 0];
-  if (pressed('Escape') || pressed('GP1') || pressed('Backspace')) { if (screen === 's-hub' && !walk.act) pauseWalk(true); else if (screen !== 's-hub') stopWalk(); return; }
+  if (pressed('Escape') || pressed('GP1') || pressed('Backspace')) { if (screen === 's-hub' && !walk.act) pauseWalk(true); else if (screen === 's-pitgarage') stopPitWalk(pgDesk); else if (screen !== 's-hub') stopWalk(); return; }
   if ((pressed('Enter') || pressed('Space') || pressed('GP0')) && walk.spot && !walk.act) useSpot(walk.spot);
   else if ((pressed('KeyF') || pressed('GP2')) && walk.spot && walk.spot.alt && !walk.act) useAlt(walk.spot);
   if (!walk.active || walkPaused || dayPlan.isOpen) return; // (off to what you used: its tags aren't wanted)
@@ -2480,6 +2484,51 @@ function walkInput() {
   $(screen).classList.toggle('still', now - walkStill > 1400);   // (stood still a moment: the rest fades in)
 }
 let walkStill = 0;
+// ---- walking the pit lane (practice and qualifying, in your box at the track: js/pitwalk.js). The garage menu's Walk
+// The Pit Lane; B / Esc, your car or the computer bring you back to it. The session goes on meanwhile ----
+function startPitWalk() {
+  if (!pitGarage.track || walk.active || walkStarting || pgBusy) return;
+  if (pgPcFocus) pcFocus(false);
+  if (pgDesk) { pc.close(); pitGarage.setDesk(false); } // (pgDesk stays: you come back to the desk)
+  const own = raceReturn === 'world' && world ? hubCar() : settings.car;
+  sfx.select(); walkStarting = true; $('s-pitgarage').classList.add('walking');
+  walk.start({ livery: own, face: own.face, spots: pitSpots(), nav: new PitNav(sim, pitGarage) }).then(ok => {
+    walkStarting = false;
+    if (!ok) { $('s-pitgarage').classList.remove('walking'); if (pgDesk) pitGarage.setDesk(true); toast('The people aren\'t loaded.'); }
+    renderHints();
+  });
+}
+// back to the menu: at the desk (World Career's computer), else the car's shot, eased round from where you were
+function stopPitWalk(desk) {
+  if (!walk.active || walk.act) return;
+  quitPitWalk();
+  if (desk !== pgDesk) deskView(desk); else { if (desk) pitGarage.setDesk(true); sfx.back(); }
+  if (!desk) pitGarage.toRoom();
+  renderGarageMenu(); renderHints();
+}
+// off your feet at once (the session's over, the garage's gone)
+function quitPitWalk() {
+  if (!walk.active && !walkStarting) return;
+  if (walk.active) walk.stop(); walkStarting = false; drawWalkTags(null);
+  $('s-pitgarage').classList.remove('walking', 'still');
+}
+// what you can use out there: your car and, in a career, the computer (its Race Weekend app)
+function pitSpots() {
+  const P = pitGarage, out = [];
+  if (P.car) { const b = () => { const bb = new THREE.Box3(), M = new THREE.Matrix4().copy(P.track.a.matrixWorld).invert(), m = new THREE.Matrix4(), sh = P.car.shadow;
+      P.car.group.updateWorldMatrix(true, true);
+      P.car.group.traverse(o => { if (o.isMesh && o !== sh && !(sh && sh.children.includes(o))) { if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); bb.union(o.geometry.boundingBox.clone().applyMatrix4(m.multiplyMatrices(M, o.matrixWorld))); } });
+      return bb; };
+    let box = null; out.push({ key: 'car', label: 'Back to the garage', get box() { return box ||= b(); } }); }
+  const f = raceReturn === 'world' && world ? P.screenFrame() : null;
+  if (f) out.push({ key: 'computer', label: 'Use the computer', at: f.c.clone().addScaledVector(new THREE.Vector3(f.n.x, 0, f.n.z).normalize(), 0.7).setY(f.c.y), reach: 1.4, mark: f.c.clone().addScaledVector(f.up, f.h / 2 + 0.16) });
+  return out;
+}
+function usePitSpot(s) {
+  if (s.key === 'computer') return stopPitWalk(true);
+  if (s.key === 'car') return stopPitWalk(false);
+  sfx.error();
+}
 // the tags over what you can use while walking: a small red triangle over each; the one you're at (close, facing it)
 // unfolds into its prompt (the button and what it does). null clears them
 function drawWalkTags(tags) {
@@ -5291,7 +5340,7 @@ function handleRaceEvents() {
       sfx.finish();
       const inGarage = screen === 's-pitgarage';
       hud.center(`SESSION COMPLETE<span class="sub">${me.pos === 1 ? (sim.quali.kind === 'practice' ? 'FASTEST' : 'POLE POSITION') : 'P' + me.pos}${isFinite(me.best) ? ' &middot; ' + fmtTime(me.best, 3) : ''}</span>`, me.pos === 1 ? '' : 'white', 2600);
-      setTimeout(() => { if (sim && sim.quali && sim.quali.done && (screen === 'hud' || screen === 's-pitgarage')) { if (sim.net) coopSessionDone(); else showQualiResults(); } }, inGarage ? 900 : 2600);
+      setTimeout(() => { if (sim && sim.quali && sim.quali.done && (screen === 'hud' || screen === 's-pitgarage')) { quitPitWalk(); if (sim.net) coopSessionDone(); else showQualiResults(); } }, inGarage ? 900 : 2600);
     }
     else if (ev.type === 'gate') hud.gate(ev);
     else if (ev.type === 'tdata') keepTrackData();
@@ -5919,7 +5968,7 @@ function frameBody(now) {
   if (walkSat && (screen !== 's-hub' || !pcSeat)) dropWalk(); // (gone somewhere else from the computer: nobody left in the chair)
   if (screen !== hubWas) { if (hubWas === 's-hub' && screen !== 's-hub' && world) walkEntry = /^s-(main|career|worlds?|boot)$/.test(screen) ? null : 'door'; hubWas = screen; }
   if (walkHeld && screen !== 's-hub') { walkHeld = false; walk.stop(); }
-  if (walk.active && screen !== 's-hub' && screen !== 's-homeview') { walk.stop(); walkPaused = false; drawWalkTags(null); document.querySelectorAll('.screen.walking').forEach(e => e.classList.remove('walking')); } // (out the door: a race, a gig)
+  if (walk.active && screen !== 's-hub' && screen !== 's-homeview' && screen !== 's-pitgarage') { walk.stop(); walkPaused = false; drawWalkTags(null); document.querySelectorAll('.screen.walking').forEach(e => e.classList.remove('walking')); } // (out the door: a race, a gig)
   if (screen === 'hud' && sim && !sim.paused) {
     const ctl = window.__autopilot && sim.player ? sim.aiControlsFor(sim.player, dt) : driveControls(pad);
     const press = {
@@ -6028,8 +6077,8 @@ function frameBody(now) {
     if (tuningFrom === 's-pitgarage') pitGarage.update(dt);
     if (tuningFrom === 's-garage') garage.update(dt);
   } else if (screen === 's-pitgarage' && sim) {
-    // the pit garage: the session carries on (the clock, the AI's laps) while you're in the menu
-    if (pgPcFocus) pgPcInput(); else menuInput();
+    // the pit garage: the session carries on (the clock, the AI's laps) while you're in the menu (or out walking)
+    if (walk.active) walkInput(); else if (walkStarting) clearEdges(); else if (pgPcFocus) pgPcInput(); else menuInput();
     if (sim) {
       sim.update(dt, { steer: 0, throttle: 0, brake: 0 }, {});
       handleRaceEvents();

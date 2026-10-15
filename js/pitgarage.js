@@ -8,6 +8,7 @@ import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { buildF1 } from './carmodel.js';
 import { loadCharacters, makeCharacter } from './characters.js';
 import { loadKit } from './garagekit.js';
+import { BOX } from './pitboxes.js';
 
 const hex = (c) => '#' + (c >>> 0).toString(16).padStart(6, '0');
 const UP = new THREE.Vector3(0, 1, 0), _m4 = new THREE.Matrix4(), _sc = new THREE.Vector3();
@@ -303,7 +304,7 @@ export class PitGarage {
     // (x along the box's front, to your right stood in the door looking in; z out of the door; a rotation, never a
     // mirror: the box's own x runs the other way on some lanes)
     const o = F.P(0, 0, 0), x1 = F.P(1, 0, 0), X = new THREE.Vector3(x1[0] - o[0], 0, x1[2] - o[2]).normalize().multiplyScalar(F.mirror ? -1 : 1);
-    a.matrix.makeBasis(X, UP, new THREE.Vector3(-F.n[0], 0, -F.n[1])).setPosition(o[0], o[1] + 0.02, o[2]);
+    a.matrix.makeBasis(X, UP, new THREE.Vector3(-F.n[0], 0, -F.n[1])).setPosition(o[0], o[1] + BOX.floor, o[2]);
     a.matrixWorldNeedsUpdate = true;
     sim.scene.add(a); a.add(this.room, this.bay, this.camera); a.updateMatrixWorld(true);
     this.track = { sim, F, a, half: F.wx };
@@ -1101,7 +1102,14 @@ export class PitGarage {
     const a = 0.62 + Math.sin(this.t * 0.12) * 0.1, r = 7.4;
     const tgt = new THREE.Vector3(0, 0.5, CAR_Z);
     this.camera.position.set(tgt.x + Math.sin(a) * r, 2.0 + Math.sin(this.t * 0.2) * 0.1, tgt.z + Math.cos(a) * r);
-    aim(this.camera, tgt);
+    aim(this.camera, tgt); this.camera.fov = 40;
+    // (back from walking the pit lane: eased round to it from where the walk left the camera)
+    if (this.from && this.blendK < 1) {
+      this.blendK = Math.min(1, this.blendK + dt / 0.9); const k = this.blendK * this.blendK * (3 - 2 * this.blendK), f = this.from;
+      this.camera.position.lerpVectors(f.pos, this.camera.position, k); this.camera.quaternion.slerpQuaternions(f.quat, this.camera.quaternion.clone(), k);
+      this.camera.fov = f.fov + (this.camera.fov - f.fov) * k; this.shiftNow = (f.shift ?? 0) + (this.shift - (f.shift ?? 0)) * k;
+      if (this.blendK >= 1) this.from = null;
+    }
     if (this.car) this.car.animate({ steer: 0, spin: 0, heave: Math.sin(this.t * 1.6) * 0.003, pitch: 0, roll: 0 });
   }
   render() {
