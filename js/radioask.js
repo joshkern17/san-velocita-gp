@@ -1,7 +1,8 @@
 // Ask the engineer: the questions you can put on the radio while you drive (d-pad right / T), and their answers.
 // The menu is two levels: who (you, the car ahead, the car behind, the leader or the session's fastest, your teammate)
 // and what (pace, tires, the gap, where you're losing time, the pit window). Only the rows that apply are offered.
-// An answer is { msg (the radio panel's text, numbers in <b>), say (what the engineer says: clip ids from the lines
+// An answer is { msg (the text as written, numbers in <b>: shown when there's no recording), say (what the engineer
+// says, and what the radio panel shows: clip ids, or { id, x (the real figure, when he rounded it) }, from the lines
 // file's [engs] section: whole sentences, played one after another by vo.js engSeq) }. Your engineer's skill (opts.engineer 0..5: World
 // Career's data engineer) sets how exact it is: a good one gives tenths and reads the other cars' tires closely, a
 // poor one says "about a second" and guesses. Other teams' tire wear is never known exactly: it's read off how long
@@ -50,6 +51,19 @@ function shown(R, s) {
   return k >= 3 || s >= 3 ? s : k >= 1 ? Math.max(0.2, Math.round(s * 2) / 2) : s < 0.6 ? 0.3 : Math.round(s);
 }
 const sayAmt = (R, s) => amtKey(shown(R, s));
+// A sentence whose number was rounded carries the real one (x), for a small tag after it on the radio panel: the figure
+// as precisely as your engineer has it (a good one: hundredths; a cheap one: his halves; the cheapest: none), and only
+// when it isn't what he said. X(id, tag) is V(id) with that tag.
+const X = (id, x) => x ? [{ id: 'engs.' + id, x }] : V(id);
+const BUCKET = { s1: 1, s1h: 1.5, s2: 2, s3: 3, s4: 4, s5: 5, g15: 15, g20: 20, g30: 30, g45: 45 };
+const bucketVal = (key) => key in BUCKET ? BUCKET[key] : /^t\d$/.test(key) ? +key[1] / 10 : /^g\d+$/.test(key) ? +key.slice(1) : null; // (s5p, g60: open-ended)
+function tagTime(R, s, key) {
+  s = Math.abs(s); const k = skillOf(R); if (k === 0) return null;
+  const v = k >= 3 ? s : shown(R, s), dp = k >= 3 && v < 10 ? 2 : 1, txt = v.toFixed(dp), b = bucketVal(key);
+  return b != null && Math.abs(+txt - b) < 0.005 ? null : v >= 60 ? fmtTime(v, 1) : txt + 's';
+}
+const tagPct = (w) => { const p = Math.round(w * 100); return p === pctKey(w) ? null : p + '%'; };
+const sayAmtX = (prefix, R, s) => { const key = sayAmt(R, s); return X(prefix + key, tagTime(R, s, key)); };
 const clampN = (n, hi) => Math.max(1, Math.min(hi, Math.round(n)));
 const pctKey = (w) => Math.max(5, Math.min(100, Math.round(w * 20) * 5));
 const TYRE_SAY = (c) => ({ soft: 'soft', medium: 'medium', hard: 'hard', wet: 'wet', dirt: 'dirt' }[c] || 'medium');
@@ -117,17 +131,17 @@ export function radioMenu(R, car) {
   out.push({ key: 'me', label: 'Me', sub: race ? `P${R.multi ? R.classPos(car).pos : car.pos}` : isFinite(car.best) ? fmtTime(car.best, 3) : '', items: me });
   const them = [{ key: 'pace', label: 'Pace' }, { key: 'tires', label: 'Tires' }];
   if (race) {
-    if (N.ahead) out.push({ key: 'ahead', label: 'Car Ahead', sub: `${surname(N.ahead)} ${gapTo(N.ahead)}`, items: [...them, { key: 'gap', label: 'Gap' }] });
-    if (N.behind) out.push({ key: 'behind', label: 'Car Behind', sub: `${surname(N.behind)} ${gapTo(N.behind)}`, items: [...them, { key: 'gap', label: 'Gap' }] });
-    if (N.leader) out.push({ key: 'leader', label: 'Leader', sub: surname(N.leader), items: [...them, { key: 'gap', label: 'Gap' }] });
-  } else if (N.fastest) out.push({ key: 'fastest', label: 'Fastest Car', sub: `${surname(N.fastest)} ${fmtTime(N.fastest.best, 3)}`, items: them });
+    if (N.ahead) out.push({ key: 'ahead', label: 'Car Ahead', name: surname(N.ahead), sub: `${surname(N.ahead)} ${gapTo(N.ahead)}`, items: [...them, { key: 'gap', label: 'Gap' }] });
+    if (N.behind) out.push({ key: 'behind', label: 'Car Behind', name: surname(N.behind), sub: `${surname(N.behind)} ${gapTo(N.behind)}`, items: [...them, { key: 'gap', label: 'Gap' }] });
+    if (N.leader) out.push({ key: 'leader', label: 'Leader', name: surname(N.leader), sub: surname(N.leader), items: [...them, { key: 'gap', label: 'Gap' }] });
+  } else if (N.fastest) out.push({ key: 'fastest', label: 'Fastest Car', name: surname(N.fastest), sub: `${surname(N.fastest)} ${fmtTime(N.fastest.best, 3)}`, items: them });
   if (N.mate) {
     // (orders, in a race: let me by / hold position only when they're right there)
     const orders = !race ? [] : [
       ...(N.ahead === N.mate && (gapOf(R, car, N.mate).s ?? 9) < 2 ? [{ key: 'letby', label: 'Let me by' }] : []),
       ...(N.behind === N.mate && (gapOf(R, car, N.mate).s ?? 9) < 2 ? [{ key: 'hold', label: 'Hold position' }] : []),
       { key: 'push', label: 'Push' }, { key: 'save', label: 'Save tires' }];
-    out.push({ key: 'mate', label: 'Teammate', sub: `${surname(N.mate)}${race ? ' ' + gapTo(N.mate) : ''}`, items: [{ key: 'both', label: 'Pace & tires' }, ...orders] });
+    out.push({ key: 'mate', label: 'Teammate', name: surname(N.mate), sub: `${surname(N.mate)}${race ? ' ' + gapTo(N.mate) : ''}`, items: [{ key: 'both', label: 'Pace & tires' }, ...orders] });
   }
   return out;
 }
@@ -146,7 +160,7 @@ function myPace(R, car) {
   const p = recentPace(R, car);
   if (p == null) return { msg: 'No clean laps yet. Give me one and I\'ll have numbers.', say: V('nolaps') };
   let msg = `Averaging <b>${fmtTime(p, 1)}</b>`, say = [];
-  if (isFinite(car.best) && p - car.best > 0.05) { msg += `, ${amount(R, p - car.best)} off your best`; say.push(...V('best.' + sayAmt(R, p - car.best))); }
+  if (isFinite(car.best) && p - car.best > 0.05) { msg += `, ${amount(R, p - car.best)} off your best`; say.push(...sayAmtX('best.', R, p - car.best)); }
   else say.push(...V('onbest'));
   msg += '.';
   // (where that ranks: everyone's recent pace, in your class)
@@ -160,13 +174,13 @@ function myTires(R, car) {
   const t = car.phys.tyre, w = worstOf(car), pct = Math.round(w * 100);
   if (!R.wearK) return { msg: `Tire wear's off today. ${TYRE[t.c] ? TYRE[t.c][0].toUpperCase() + TYRE[t.c].slice(1) : 'They'} will last forever.`, say: V('nowear') };
   const ax = t.wf < t.wr - 0.03 ? 'fronts' : t.wr < t.wf - 0.03 ? 'rears' : null, axle = ax ? ` ${ax === 'fronts' ? 'Fronts' : 'Rears'} are wearing faster.` : '', axSay = ax ? V(ax) : [];
-  if (w <= 0.3) return { msg: `Tires are at <b>${pct}%</b>. That's the cliff: you'll feel it everywhere.${axle}`, say: [...V('ti.pct.' + pctKey(w)), ...V('cliff'), ...axSay] };
+  if (w <= 0.3) return { msg: `Tires are at <b>${pct}%</b>. That's the cliff: you'll feel it everywhere.${axle}`, say: [...X('ti.pct.' + pctKey(w), tagPct(w)), ...V('cliff'), ...axSay] };
   const n = lapsToCliff(R, car), cliffLap = car.lap + Math.floor(n);
-  let msg = `${TYRE[t.c] ? TYRE[t.c][0].toUpperCase() + TYRE[t.c].slice(1) : 'Tires'} at <b>${pct}%</b>.`, say = V('ti.pct.' + pctKey(w));
+  let msg = `${TYRE[t.c] ? TYRE[t.c][0].toUpperCase() + TYRE[t.c].slice(1) : 'Tires'} at <b>${pct}%</b>.`, say = X('ti.pct.' + pctKey(w), tagPct(w));
   if (isFinite(n)) {
     const left = isFinite(R.laps) ? R.laps - car.lap + 1 : Infinity;
     msg += n >= left ? ' They\'ll make the flag.' : n < 1 ? ' They\'ll drop off <b>this lap</b>.' : ` About <b>${lapsText(Math.round(n))}</b> before they drop off${R.mode === 'race' && isFinite(R.laps) ? `, lap ${cliffLap}` : ''}.`;
-    say.push(...(n >= left ? V('makeflag') : n < 1 ? V('dropthis') : n > 15.5 ? V('ti.left.x') : V('ti.left.' + clampN(n, 15))));
+    say.push(...(n >= left ? V('makeflag') : n < 1 ? V('dropthis') : n > 15.5 ? X('ti.left.x', Math.round(n) + ' laps') : V('ti.left.' + clampN(n, 15))));
   }
   return { msg: msg + axle, say: [...say, ...axSay] };
 }
@@ -174,10 +188,10 @@ function myTires(R, car) {
 function pitWindow(R, car) {
   const nx = R.nextPlannedStop(car), n = lapsToCliff(R, car), P = R.pitProjection(car);
   let msg = nx ? `Plan is lap <b>${nx.lap}</b> for <b>${nx.tyre.toUpperCase()}S</b>.` : 'No more stops planned.';
-  const inN = nx ? nx.lap - car.lap : 0, say = nx ? [...V(inN <= 0 ? 'pit.box.0' : inN > 30 ? 'pit.box.x' : 'pit.box.' + inN), ...V('pit.to.' + TYRE_SAY(nx.tyre))] : V('nostops');
+  const inN = nx ? nx.lap - car.lap : 0, say = nx ? [...X(inN <= 0 ? 'pit.box.0' : inN > 30 ? 'pit.box.x' : 'pit.box.' + inN, 'lap ' + nx.lap), ...V('pit.to.' + TYRE_SAY(nx.tyre))] : V('nostops');
   if (nx && isFinite(n)) { const cliff = car.lap + Math.floor(n); msg += cliff < nx.lap ? ` Tires won't make it: box by lap ${cliff}.` : cliff > nx.lap + 2 ? ` Tires could go to lap ${cliff}.` : '';
     if (cliff < nx.lap) say.push(...V('wontmake')); else if (cliff > nx.lap + 2) say.push(...V('couldgo')); }
-  if (P && nx) { msg += ` Stop now: out <b>P${P.pos}</b>${P.ahead ? `, ${amount(R, P.aheadBy)} behind ${surname({ name: P.ahead })}` : ''}.`; say.push(...V('pit.out.' + clampN(P.pos, 24))); }
+  if (P && nx) { msg += ` Stop now: out <b>P${P.pos}</b>${P.ahead ? `, ${amount(R, P.aheadBy)} behind ${surname({ name: P.ahead })}` : ''}.`; say.push(...X('pit.out.' + clampN(P.pos, 24), P.pos > 24 ? 'P' + P.pos : null)); }
   return { msg, say };
 }
 
@@ -186,11 +200,11 @@ function theirPace(R, car, o, key) {
   if (a == null) return { msg: `No laps from ${who} yet.`, say: V('nolapsthem') };
   let msg = `${who}: <b>${fmtTime(a, 1)}</b>`, say = [];
   if (b != null) { const d = a - b; msg += Math.abs(d) < 0.08 ? ', same as you.' : d < 0 ? `, ${amount(R, d)} a lap <b>quicker</b> than you.` : `, ${amount(R, d)} a lap <b>slower</b> than you.`;
-    say = Math.abs(d) < 0.08 ? V('pace.same') : V((d < 0 ? 'pace.q.' : 'pace.s.') + sayAmt(R, d)); }
+    say = Math.abs(d) < 0.08 ? V('pace.same') : sayAmtX(d < 0 ? 'pace.q.' : 'pace.s.', R, d); }
   else msg += '.';
   // (practice, qualifying: best laps against each other)
   if (isFinite(o.best) && isFinite(car.best) && R.mode !== 'race') { msg += ` Best ${fmtTime(o.best, 3)}, ${amount(R, o.best - car.best)} ${o.best < car.best ? 'up on' : 'down on'} yours.`;
-    if (Math.abs(o.best - car.best) >= 0.05) say.push(...V((o.best < car.best ? 'bl.q.' : 'bl.s.') + sayAmt(R, o.best - car.best))); }
+    if (Math.abs(o.best - car.best) >= 0.05) say.push(...sayAmtX(o.best < car.best ? 'bl.q.' : 'bl.s.', R, o.best - car.best)); }
   return { msg, say };
 }
 
@@ -198,10 +212,10 @@ function theirTires(R, car, o, key) {
   const who = surname(o), c = o.phys.tyre.c, laps = Math.max(0, o.lap - (o.stintLap || 1));
   const set = `${laps ? `${laps} lap${laps > 1 ? 's' : ''} on ` : 'Fresh '}${TYRE[c] || c}`;
   // ("They're on mediums. That set's done eight laps." / "They're on a fresh set of mediums.")
-  const setSay = laps ? V('th.on.' + TYRE_SAY(c), laps > 30 ? 'th.age.x' : 'th.age.' + laps) : V('th.fresh.' + TYRE_SAY(c));
+  const setSay = laps ? [...V('th.on.' + TYRE_SAY(c)), ...X(laps > 30 ? 'th.age.x' : 'th.age.' + laps, laps > 30 ? laps + ' laps' : null)] : V('th.fresh.' + TYRE_SAY(c));
   if (!R.wearK) return { msg: `${who}: ${TYRE[c] || c}. No wear today.`, say: [...setSay, ...V('nowear')] };
   if (o.remote) return { msg: `${who}: ${set}. No data on their wear.`, say: [...setSay, ...V('nodata')] };
-  if (R.mateCar && R.mateCar() === o) return { msg: `${who}: ${set}, at <b>${Math.round(worstOf(o) * 100)}%</b>.`, say: [...setSay, ...V('th.pct.' + pctKey(worstOf(o)))] }; // (your own team's car: the real figure)
+  if (R.mateCar && R.mateCar() === o) return { msg: `${who}: ${set}, at <b>${Math.round(worstOf(o) * 100)}%</b>.`, say: [...setSay, ...X('th.pct.' + pctKey(worstOf(o)), tagPct(worstOf(o)))] }; // (your own team's car: the real figure)
   const w = guessWear(R, o), mine = worstOf(car);
   let msg = `${who}: ${set}. ${WEAR[wearK(w)]}`;
   const say = [...setSay, ...V('w.' + wearK(w))];
@@ -213,15 +227,15 @@ function theirTires(R, car, o, key) {
 
 function gapTrend(R, car, o, key) {
   const who = surname(o), ahead = o.pos < car.pos, G = gapOf(R, car, o), g = G.s;
-  if (G.laps) return { msg: ahead ? `${who} is <b>${lapsText(G.laps)}</b> up the road.` : `${who} is <b>${lapsText(G.laps)}</b> down on you.`, say: V((ahead ? 'gap.la.' : 'gap.lb.') + Math.min(3, G.laps)) };
+  if (G.laps) return { msg: ahead ? `${who} is <b>${lapsText(G.laps)}</b> up the road.` : `${who} is <b>${lapsText(G.laps)}</b> down on you.`, say: X((ahead ? 'gap.la.' : 'gap.lb.') + Math.min(3, G.laps), G.laps > 3 ? G.laps + ' laps' : null) };
   const a = recentPace(R, o), b = recentPace(R, car), close = g < 0.15;
   let msg = close ? `${who} is <b>right there</b> with you.` : `${who} is ${amount(R, g)} ${ahead ? 'up the road' : 'behind'}.`;
-  const say = close ? V('gap.close') : V((ahead ? 'gap.a.' : 'gap.b.') + gapKey(shown(R, g)));
+  const gk = gapKey(shown(R, g)), say = close ? V('gap.close') : X((ahead ? 'gap.a.' : 'gap.b.') + gk, tagTime(R, g, gk));
   if (a == null || b == null) return { msg, say };
   const d = ahead ? a - b : b - a; // (> 0: the gap's closing)
   if (Math.abs(d) < 0.08) return { msg: msg + ' The gap\'s holding.', say: [...say, ...V('tr.hold')] };
   if (d > 0) { const n = Math.max(1, Math.round(Math.max(0, g - 0.5) / d)); msg += ahead ? ` Closing ${amount(R, d)} a lap: on them in about <b>${lapsText(n)}</b>.` : ` They're closing ${amount(R, d)} a lap: on you in about <b>${lapsText(n)}</b>.`;
-    say.push(...V((ahead ? 'tr.catch.' : 'tr.caught.') + (n > 10 ? 'x' : n))); }
+    say.push(...X((ahead ? 'tr.catch.' : 'tr.caught.') + (n > 10 ? 'x' : n), n > 10 ? n + ' laps' : null)); }
   else { msg += ahead ? ` They're pulling away, ${amount(R, d)} a lap.` : ` You're pulling away, ${amount(R, d)} a lap.`; say.push(...V(ahead ? 'tr.away.them' : 'tr.away.you')); }
   return { msg, say };
 }
@@ -259,6 +273,6 @@ function losing(R, car, N) {
   // ("Against the car ahead." "You're losing the most in Turn four." "Three tenths there." "You're braking too early."
   // "Next is Turn nine."...)
   const spoken = [...V(vsKey)];
-  lost.forEach((c, k) => { const why = c.tips && c.tips[0] && WHY[c.tips[0].k] ? V('why.' + c.tips[0].k) : []; spoken.push(...V((k ? 'lo.next.' : 'lo.most.') + (c.n > 20 ? 'x' : c.n), 'lo.amt.' + sayAmt(R, c.loss)), ...why); });
+  lost.forEach((c, k) => { const why = c.tips && c.tips[0] && WHY[c.tips[0].k] ? V('why.' + c.tips[0].k) : []; spoken.push(...X((k ? 'lo.next.' : 'lo.most.') + (c.n > 20 ? 'x' : c.n), c.name || (c.n > 20 ? `Turn ${c.n}` : null)), ...sayAmtX('lo.amt.', R, c.loss), ...why); });
   return { msg, say: spoken };
 }

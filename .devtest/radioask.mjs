@@ -42,7 +42,7 @@ try {
         lap = pl.lap;
         if (lap < 3) continue;
         const menu = M.radioMenu(sim, pl), lines = [];
-        for (const m of menu) for (const it of m.items) { if (/^(letby|hold|push|save)$/.test(it.key)) continue; const a = M.ask(sim, pl, m.key + '.' + it.key); lines.push(`  ${m.key}.${it.key}: ${a ? a.msg.replace(/<\/?b>/g, '') : 'NULL'}\n      say: ${a && a.say ? a.say.map(x => x.slice(5)).join(' ') : 'NULL'}`); if (a && a.say) a.say.forEach(x => sayIds.add(x)); }
+        for (const m of menu) for (const it of m.items) { if (/^(letby|hold|push|save)$/.test(it.key)) continue; const a = M.ask(sim, pl, m.key + '.' + it.key); lines.push(`  ${m.key}.${it.key}: ${a ? a.msg.replace(/<\/?b>/g, '') : 'NULL'}\n      say: ${a && a.say ? a.say.map(x => (x.id || x).slice(5) + (x.x ? `[${x.x}]` : '')).join(' ') : 'NULL'}`); if (a && a.say) a.say.forEach(x => sayIds.add(x.id || x)); }
         cliff.push(+M.lapsToCliff(sim, pl).toFixed(1));
         if (lap === 3 && !mate.finished) { sim.events.length = 0; const kind = 'push', pace = mate.ai.pace, wear = mate.phys.wearK.toFixed(2); const a = M.ask(sim, pl, 'mate.' + kind); mateCheck = { kind, msg: a && a.msg, pace, wear, at: sim.raceTime + 2.5 }; const again = M.ask(sim, pl, 'mate.save'); lines.push('  (order again at once): ' + (again && again.msg)); }
         out.push(`lap ${lap - 1} done (${pl.last.toFixed(2)}, P${pl.pos}, wear ${(Math.min(pl.phys.tyre.wf, pl.phys.tyre.wr) * 100).toFixed(0)}%) menu: ${menu.map(m => m.key + (m.sub ? `[${m.sub}]` : '')).join(' ')}\n` + lines.join('\n'));
@@ -54,7 +54,7 @@ try {
     if (A && B) { const { analyze } = await import('/js/telemetry.js'); const an = analyze(A, B, sim.T, sim.corners.list); sum = { corners: +an.corners.reduce((s, c) => s + c.loss, 0).toFixed(3), lap: +(A.time - B.time).toFixed(3) }; }
     window.__svgp.sim = sim; sim.paused = true;
     // (every spoken piece at every engineer skill: amounts and their words, laps, turns, places)
-    for (const k of [0, 1, 2, 3, 5]) { sim.opts.engineer = k; for (const q of ['me.pace', 'me.tires', 'me.lose', 'me.pit', 'ahead.pace', 'ahead.gap', 'behind.gap', 'behind.tires']) { const a = M.ask(sim, pl, q); if (a && a.say) a.say.forEach(x => sayIds.add(x)); } }
+    for (const k of [0, 1, 2, 3, 5]) { sim.opts.engineer = k; for (const q of ['me.pace', 'me.tires', 'me.lose', 'me.pit', 'ahead.pace', 'ahead.gap', 'behind.gap', 'behind.tires']) { const a = M.ask(sim, pl, q); if (a && a.say) a.say.forEach(x => sayIds.add(x.id || x)); } }
     return { out, cliff, sum, eng: sim.opts.engineer ?? null, sayIds: [...sayIds] };
   });
   for (const o of r.out) { console.log(o); if (/NULL|undefined|NaN|Infinity/.test(o)) { bad++; console.log('FAIL: the answers above'); } }
@@ -74,6 +74,13 @@ try {
     await pg.keyboard.press('Digit2'); await pg.waitForTimeout(1200); await pg.screenshot({ path: `${SHOT}/ask-sub-kb.png` });
     await pg.keyboard.press('Digit1'); await pg.waitForTimeout(900);
     await pg.waitForTimeout(600); await pg.evaluate(() => { window.__svgp.hud.padGlyphs = true; }); await pg.keyboard.press('KeyT'); await pg.waitForFunction(() => document.querySelector('.rd-ask.on')); await pg.waitForTimeout(500); await pg.screenshot({ path: `${SHOT}/ask-top-pad.png` });
+    // (an answer on the panel as main.js shows it: his sentences, a rounded number's real one in a tag)
+    await pg.evaluate(async () => { const M = await import('/js/radioask.js'), vo = await import('/js/vo.js'), H = window.__svgp.hud, s = window.__svgp.sim;
+      H.askMenu(null); window.__svgp.sim.paused = true;
+      for (const q of ['ahead.pace', 'me.tires']) { const a = M.ask(s, s.player, q); const parts = a.say.map(p => typeof p === 'string' ? { id: p } : p);
+        H.radio('eng', parts.map(p => vo.lineText(p.id) + (p.x ? ` <i class="rd-x">${p.x}</i>` : '')).join(' '), { name: q === 'me.tires' ? 'Engineer' : 'Engineer · Car Ahead · Nakamura' }); }
+      document.querySelectorAll('#h-radio .rd-msg').forEach(e => { e.style.transition = 'none'; e.classList.add('on'); }); });
+    await pg.waitForTimeout(500); await pg.screenshot({ path: `${SHOT}/ask-tag.png` });
     console.log('answer', await pg.evaluate(() => { const r = document.getElementById('h-radio'); return r.className + ' | ' + [...r.children].map(e => e.className + ': ' + e.textContent.slice(0, 120)).join(' || '); })); await pg.screenshot({ path: `${SHOT}/ask-answer.png` });
   }
 } finally { await b.close(); server.kill(); }

@@ -17,7 +17,7 @@ import { drawChart, drawMap, notesHtml, fmtGap, fmtSpeed, drawLineMap, lineMapHi
 import { garbleTree } from './garble.js';
 import { AIDS, AID_KEYS, PRESETS, PRESET_VALS, aidsOf, presetOf, applyPreset, aidBonus, AID_RULES, AID_RULE_DESC, limitAids } from './aids.js';
 import { initAudio, sfx, setVolume, setMusicVolume, setMusicScene, updateMusic, setEngineSound } from './audio.js';
-import { engSay, engSeq, preload as voPreload, voStopAll, setVoiceOn, boothSay, boothSequence, stopBooth, boothLines, voBusy, pbpSay, lineSet, voReload } from './vo.js';
+import { engSay, engSeq, lineText, preload as voPreload, voStopAll, setVoiceOn, boothSay, boothSequence, stopBooth, boothLines, voBusy, pbpSay, lineSet, voReload } from './vo.js';
 import { NICKNAMES, slugName } from './broadcast.js';
 import { presetTracks, sampleTrack, trackStats, THEMES, cloneTrack } from './track.js';
 import { TEAMS } from './car.js';
@@ -5973,7 +5973,14 @@ function askInput(pl, dt) {
       const item = rows[pick]; askLast = { top: A.top, item: item.key };
       const ans = askEngineer(sim, pl, A.top + '.' + item.key);
       close(); sfx.select();
-      if (ans) { hud.radio('eng', ans.msg); engSeq(ans.say); }
+      if (ans) {
+        // (the panel shows what he says, sentence by sentence; a number he rounded has the real one in a small tag after
+        // it. No recording of a line: the written answer instead)
+        const parts = (ans.say || []).map(p => typeof p === 'string' ? { id: p } : p), lines = parts.map(p => lineText(p.id));
+        const text = parts.length && lines.every(Boolean) ? parts.map((p, i) => lines[i] + (p.x ? ` <i class="rd-x">${p.x}</i>` : '')).join(' ') : ans.msg;
+        const who = A.top === 'me' ? '' : ` · ${menu[top].label}${menu[top].name ? ' · ' + menu[top].name : ''}`;
+        hud.radio('eng', text, { name: 'Engineer' + who }); engSeq(parts.map(p => p.id));
+      }
       return;
     }
   }

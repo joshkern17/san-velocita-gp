@@ -187,6 +187,8 @@ export async function pbpSay(parts, o = {}) {
 // breath between sentences and one squelch either side. You asked, so it cuts in over whatever the engineer was
 // saying. A sentence missing (not recorded yet): it stays text only.
 const engGap = () => 0.28;
+// a line's words, as recorded (no [direction] tags): the radio panel shows what he says
+export const lineText = (id) => String(manifest?.[id.split('.')[0]]?.[id]?.text || '').replace(/\[[^\]]*\]\s*/g, '').trim();
 export async function engSeq(parts) {
   if (!enabled.eng || !manifest || !parts || !parts.length) return false;
   const files = parts.map(id => { const S = manifest[id.split('.')[0]]; return S && S[id] && S[id].file; });
