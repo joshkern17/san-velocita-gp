@@ -59,8 +59,8 @@ try {
   });
   for (const o of r.out) { console.log(o); if (/NULL|undefined|NaN|Infinity/.test(o)) { bad++; console.log('FAIL: the answers above'); } }
   console.log('laps to cliff by lap:', r.cliff.join(' '));
-  // every piece an answer said has a line in the [engp] section
-  const fs = await import('fs'), have = new Set(fs.readFileSync(join(ROOT, 'assets/voice/san_velocita_lines_with_announcer.txt'), 'utf8').split('\n').map(l => l.match(/^(engp\.[a-z0-9.]+)\s*=/)).filter(Boolean).map(m => m[1]));
+  // every piece an answer said has a line in the [engs] section
+  const fs = await import('fs'), have = new Set(fs.readFileSync(join(ROOT, 'assets/voice/san_velocita_lines_with_announcer.txt'), 'utf8').split('\n').map(l => l.match(/^(engs\.[a-z0-9.]+)\s*=/)).filter(Boolean).map(m => m[1]));
   const miss = r.sayIds.filter(x => !have.has(x));
   console.log(`spoken pieces used: ${r.sayIds.length}${miss.length ? ' · MISSING LINES: ' + miss.join(' ') : ''}`); if (miss.length) bad++;
   if (r.cliff.length > 1 && r.cliff.some((x, k) => k && isFinite(x) && x > r.cliff[k - 1] + 0.6)) { bad++; console.log('FAIL laps-to-cliff went up'); }

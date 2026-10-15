@@ -2643,21 +2643,21 @@ export class Race {
   mateOrder(kind) {
     const m = this.mateCar(), pl = this.player; if (!m || !pl || this.mode !== 'race') return null;
     const name = String(m.name).split(' ').pop().toLowerCase().replace(/(^|[-'])\w/g, x => x.toUpperCase()), t = m.ai.trust;
-    if (this.raceTime - (this.mateOrderT ?? -99) < 20) return { msg: `Give ${name} a minute. They've only just had the last one.`, say: ['engp.ord.wait'] };
+    if (this.raceTime - (this.mateOrderT ?? -99) < 20) return { msg: `Give ${name} a minute. They've only just had the last one.`, say: ['engs.ord.wait'] };
     const reply = (lines, fn) => { this.mateReply = { at: this.raceTime + 1.6, fn: () => { if (fn) fn(); this.mateSay(m, lines); } }; };
     if (kind === 'letby') {
-      if (this.order[pl.pos - 2] !== m) return { msg: `${name} isn't right in front of you.`, say: ['engp.ord.notahead'] };
+      if (this.order[pl.pos - 2] !== m) return { msg: `${name} isn't right in front of you.`, say: ['engs.ord.notahead'] };
       this.mateOrderT = this.raceTime;
       if (t >= 50 || (t >= 30 && Math.random() < 0.5)) reply(t >= 50 ? ['Copy.', 'Copy. Go on then.'] : ['...Copy.'], () => { m.ai.yieldTo = { car: pl, until: this.raceTime + 20 }; this.trust(-2); });
       else reply(['Negative. Race me.', 'Not happening.'], () => this.trust(-1));
-      return { msg: `Asking ${name} to let you by.`, say: ['engp.ord.letby'] };
+      return { msg: `Asking ${name} to let you by.`, say: ['engs.ord.letby'] };
     }
     if (kind === 'hold') {
-      if (this.order[pl.pos] !== m) return { msg: `${name} isn't right behind you.`, say: ['engp.ord.notbehind'] };
+      if (this.order[pl.pos] !== m) return { msg: `${name} isn't right behind you.`, say: ['engs.ord.notbehind'] };
       this.mateOrderT = this.raceTime;
       if (t >= 30) reply(t < 50 ? ['...Copy.'] : ['Copy. Holding.'], () => { m.ai.hold = { car: pl, until: this.raceTime + 40 }; this.trust(-2); });
       else reply(['Not happening. I\'m quicker.', 'Negative.'], () => this.trust(-1));
-      return { msg: `Telling ${name} to hold position.`, say: ['engp.ord.hold'] };
+      return { msg: `Telling ${name} to hold position.`, say: ['engs.ord.hold'] };
     }
     if (kind === 'push' || kind === 'save') {
       this.mateOrderT = this.raceTime;
@@ -2668,7 +2668,7 @@ export class Race {
         this.mateOrd = { car: m, kind, until: m.lap + 5, pace0: m.ai.pace, wear0: m.phys.wearK };
         m.ai.pace *= push ? 1.008 : 0.99; m.phys.wearK *= push ? 1.3 : 0.7;
       });
-      return { msg: push ? `Telling ${name} to push.` : `Telling ${name} to save tires.`, say: [push ? 'engp.ord.push' : 'engp.ord.save'] };
+      return { msg: push ? `Telling ${name} to push.` : `Telling ${name} to save tires.`, say: [push ? 'engs.ord.push' : 'engs.ord.save'] };
     }
     return null;
   }

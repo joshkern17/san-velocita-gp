@@ -182,14 +182,11 @@ export async function pbpSay(parts, o = {}) {
   p.src.onended = () => { done(true); if (now.booth === p) { now.booth = null; settle(); next(); } };
   return over;
 }
-// ---------- your engineer answering a question (radioask.js): an answer stitched from pieces ----------
-// parts: [engp] clip ids ('engp.s.ahead', 'engp.n.1', 'engp.pt.4', 'engp.quicker'), back to back through the radio, one
-// squelch either side. The pause after a piece follows its line's text: a full stop, a comma, or straight on (a
-// number's pieces run together); a new sentence gets its breath. You asked, so it cuts in over whatever the engineer
-// was saying. A piece missing (not recorded yet): it stays text only.
-const textOf = (id) => String(manifest?.[id.split('.')[0]]?.[id]?.text || '').replace(/\[[^\]]*\]\s*/g, '').trim();
-const startsSentence = (id) => !/^engp\.(n|pt|pct|turn|p|u|t)\./.test(id) && /^[A-Z]/.test(textOf(id));
-function engGap(a, b) { const t = textOf(a); return /[.!?]$/.test(t) || startsSentence(b) ? 0.26 : /,$/.test(t) ? 0.12 : 0.03; }
+// ---------- your engineer answering a question (radioask.js): whole sentences, one after another ----------
+// parts: [engs] clip ids ('engs.pace.q.t4': "They're four tenths a lap quicker than you."), through the radio with a
+// breath between sentences and one squelch either side. You asked, so it cuts in over whatever the engineer was
+// saying. A sentence missing (not recorded yet): it stays text only.
+const engGap = () => 0.28;
 export async function engSeq(parts) {
   if (!enabled.eng || !manifest || !parts || !parts.length) return false;
   const files = parts.map(id => { const S = manifest[id.split('.')[0]]; return S && S[id] && S[id].file; });

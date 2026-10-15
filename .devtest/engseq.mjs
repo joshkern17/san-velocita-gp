@@ -1,4 +1,4 @@
-// dev: the engineer's stitched radio answers (vo.js engSeq) play: every [engp] piece decodes, a few answers run
+// dev: the engineer's stitched radio answers (vo.js engSeq) play: every [engs] piece decodes, a few answers run
 // start to finish through the radio chain (no errors, the engineer's "talking" while they do, and quiet after), and
 // how long each one takes.   node .devtest/engseq.mjs
 import { spawn } from 'child_process';
@@ -19,10 +19,10 @@ try {
   const r = await pg.evaluate(async () => {
     const vo = await import('/js/vo.js'), au = await import('/js/audio.js'); await vo.voReady();
     au.initAudio();
-    const m = await fetch('/assets/voice/manifest.json').then(r => r.json()), ids = Object.keys(m.engp || {});
+    const m = await fetch('/assets/voice/manifest.json').then(r => r.json()), ids = Object.keys(m.engs || {});
     const out = { pieces: ids.length, runs: [] };
-    const answers = [['engp.s.ahead', 'engp.n.1', 'engp.pt.4', 'engp.quicker'], ['engp.tiresat', 'engp.pct.65', 'engp.about', 'engp.n.4', 'engp.u.laps', 'engp.dropoff', 'engp.rears'],
-      ['engp.vs.ahead', 'engp.mostin', 'engp.turn.4', 'engp.pt.3', 'engp.why.early', 'engp.then', 'engp.turn.9', 'engp.pt.1', 'engp.why.thr']];
+    const answers = [['engs.pace.q.t4'], ['engs.ti.pct.65', 'engs.ti.left.4', 'engs.rears'],
+      ['engs.lo.vs.ahead', 'engs.lo.most.4', 'engs.lo.amt.t3', 'engs.why.early', 'engs.lo.next.9', 'engs.lo.amt.t1', 'engs.why.thr']];
     for (const a of answers) { const t0 = performance.now(); const p = vo.engSeq(a); let talking = false; for (let k = 0; k < 30 && !talking; k++) { await new Promise(r => setTimeout(r, 100)); talking = vo.voState().eng; } const ok = await p; out.runs.push({ a: a.length, ok, talking, secs: +((performance.now() - t0) / 1000).toFixed(2), quiet: !vo.voState().eng }); }
     return out;
   });

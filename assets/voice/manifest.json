@@ -6306,1086 +6306,2186 @@
    "text": "[admiring, sincere] There's a lot of work behind a moment like that."
   }
  },
- "engp": {
-  "engp.n.2": {
-   "file": "engp/engp.n.2.mp3",
-   "hash": "8bf17c7822af",
-   "text": "[flat] two"
-  },
-  "engp.n.0": {
-   "file": "engp/engp.n.0.mp3",
-   "hash": "9e61459cc4c5",
-   "text": "[flat] zero"
-  },
-  "engp.n.3": {
-   "file": "engp/engp.n.3.mp3",
-   "hash": "003741b88c66",
-   "text": "[flat] three"
-  },
-  "engp.n.4": {
-   "file": "engp/engp.n.4.mp3",
-   "hash": "553004bd63c2",
-   "text": "[flat] four"
-  },
-  "engp.n.5": {
-   "file": "engp/engp.n.5.mp3",
-   "hash": "90c382eda1f1",
-   "text": "[flat] five"
-  },
-  "engp.n.6": {
-   "file": "engp/engp.n.6.mp3",
-   "hash": "4b959dc8d706",
-   "text": "[flat] six"
-  },
-  "engp.n.1": {
-   "file": "engp/engp.n.1.mp3",
-   "hash": "034bcf026a87",
-   "text": "[flat] one"
-  },
-  "engp.n.7": {
-   "file": "engp/engp.n.7.mp3",
-   "hash": "e16b23b7664a",
-   "text": "[flat] seven"
-  },
-  "engp.n.8": {
-   "file": "engp/engp.n.8.mp3",
-   "hash": "06c4b359c840",
-   "text": "[flat] eight"
-  },
-  "engp.n.9": {
-   "file": "engp/engp.n.9.mp3",
-   "hash": "1c9834c1af15",
-   "text": "[flat] nine"
-  },
-  "engp.n.10": {
-   "file": "engp/engp.n.10.mp3",
-   "hash": "be52cb59d820",
-   "text": "[flat] ten"
-  },
-  "engp.n.11": {
-   "file": "engp/engp.n.11.mp3",
-   "hash": "6f24016c467d",
-   "text": "[flat] eleven"
-  },
-  "engp.n.12": {
-   "file": "engp/engp.n.12.mp3",
-   "hash": "a435d0044063",
-   "text": "[flat] twelve"
-  },
-  "engp.n.13": {
-   "file": "engp/engp.n.13.mp3",
-   "hash": "e639200d5d04",
-   "text": "[flat] thirteen"
-  },
-  "engp.n.14": {
-   "file": "engp/engp.n.14.mp3",
-   "hash": "08e4011c1fa4",
-   "text": "[flat] fourteen"
-  },
-  "engp.n.15": {
-   "file": "engp/engp.n.15.mp3",
-   "hash": "6184ff8399a0",
-   "text": "[flat] fifteen"
-  },
-  "engp.n.17": {
-   "file": "engp/engp.n.17.mp3",
-   "hash": "5f276502a1e8",
-   "text": "[flat] seventeen"
-  },
-  "engp.n.16": {
-   "file": "engp/engp.n.16.mp3",
-   "hash": "975028e1859b",
-   "text": "[flat] sixteen"
-  },
-  "engp.n.18": {
-   "file": "engp/engp.n.18.mp3",
-   "hash": "ff8fb5d3e6a3",
-   "text": "[flat] eighteen"
-  },
-  "engp.n.19": {
-   "file": "engp/engp.n.19.mp3",
-   "hash": "39cb02956846",
-   "text": "[flat] nineteen"
-  },
-  "engp.n.20": {
-   "file": "engp/engp.n.20.mp3",
-   "hash": "955e405f17f7",
-   "text": "[flat] twenty"
-  },
-  "engp.n.30": {
-   "file": "engp/engp.n.30.mp3",
-   "hash": "b8867ae19d5f",
-   "text": "[flat] thirty"
-  },
-  "engp.n.50": {
-   "file": "engp/engp.n.50.mp3",
-   "hash": "262e50ea7611",
-   "text": "[flat] fifty"
-  },
-  "engp.n.40": {
-   "file": "engp/engp.n.40.mp3",
-   "hash": "d1643e86d66e",
-   "text": "[flat] forty"
-  },
-  "engp.n.60": {
-   "file": "engp/engp.n.60.mp3",
-   "hash": "857785685383",
-   "text": "[flat] sixty"
-  },
-  "engp.n.80": {
-   "file": "engp/engp.n.80.mp3",
-   "hash": "0c1a8406fec7",
-   "text": "[flat] eighty"
-  },
-  "engp.n.70": {
-   "file": "engp/engp.n.70.mp3",
-   "hash": "cedecfc455e2",
-   "text": "[flat] seventy"
-  },
-  "engp.n.90": {
-   "file": "engp/engp.n.90.mp3",
-   "hash": "d07215766966",
-   "text": "[flat] ninety"
-  },
-  "engp.n.100": {
-   "file": "engp/engp.n.100.mp3",
-   "hash": "6c8bcb7cb990",
-   "text": "[flat] over a hundred"
-  },
-  "engp.pt.0": {
-   "file": "engp/engp.pt.0.mp3",
-   "hash": "dce7b995f4c6",
-   "text": "[flat] point zero"
-  },
-  "engp.pt.1": {
-   "file": "engp/engp.pt.1.mp3",
-   "hash": "63b3008d7669",
-   "text": "[flat] point one"
-  },
-  "engp.pt.2": {
-   "file": "engp/engp.pt.2.mp3",
-   "hash": "d2895eadf264",
-   "text": "[flat] point two"
-  },
-  "engp.pt.3": {
-   "file": "engp/engp.pt.3.mp3",
-   "hash": "54b656a3c1c6",
-   "text": "[flat] point three"
-  },
-  "engp.pt.4": {
-   "file": "engp/engp.pt.4.mp3",
-   "hash": "f853f8c0d169",
-   "text": "[flat] point four"
-  },
-  "engp.pt.5": {
-   "file": "engp/engp.pt.5.mp3",
-   "hash": "697041c9261f",
-   "text": "[flat] point five"
-  },
-  "engp.pt.6": {
-   "file": "engp/engp.pt.6.mp3",
-   "hash": "ecf45807accd",
-   "text": "[flat] point six"
-  },
-  "engp.pt.7": {
-   "file": "engp/engp.pt.7.mp3",
-   "hash": "4971cc4ccf6f",
-   "text": "[flat] point seven"
-  },
-  "engp.pt.8": {
-   "file": "engp/engp.pt.8.mp3",
-   "hash": "562bd7ee70b7",
-   "text": "[flat] point eight"
-  },
-  "engp.pt.9": {
-   "file": "engp/engp.pt.9.mp3",
-   "hash": "0de65acd701d",
-   "text": "[flat] point nine"
-  },
-  "engp.pct.10": {
-   "file": "engp/engp.pct.10.mp3",
-   "hash": "87d8407cea7d",
-   "text": "[flat] ten percent."
-  },
-  "engp.pct.5": {
-   "file": "engp/engp.pct.5.mp3",
-   "hash": "598f875ed1fa",
-   "text": "[flat] five percent."
-  },
-  "engp.pct.15": {
-   "file": "engp/engp.pct.15.mp3",
-   "hash": "4ef98fa33644",
-   "text": "[flat] fifteen percent."
-  },
-  "engp.pct.25": {
-   "file": "engp/engp.pct.25.mp3",
-   "hash": "955648e07d08",
-   "text": "[flat] twenty-five percent."
-  },
-  "engp.pct.20": {
-   "file": "engp/engp.pct.20.mp3",
-   "hash": "e6c2cbb5bff2",
-   "text": "[flat] twenty percent."
-  },
-  "engp.pct.30": {
-   "file": "engp/engp.pct.30.mp3",
-   "hash": "96f4eff901c6",
-   "text": "[flat] thirty percent."
-  },
-  "engp.pct.35": {
-   "file": "engp/engp.pct.35.mp3",
-   "hash": "e604f653a1cd",
-   "text": "[flat] thirty-five percent."
-  },
-  "engp.pct.40": {
-   "file": "engp/engp.pct.40.mp3",
-   "hash": "f69bb0f727ae",
-   "text": "[flat] forty percent."
-  },
-  "engp.pct.45": {
-   "file": "engp/engp.pct.45.mp3",
-   "hash": "86ae462985dd",
-   "text": "[flat] forty-five percent."
-  },
-  "engp.pct.50": {
-   "file": "engp/engp.pct.50.mp3",
-   "hash": "4a062b0ff8ec",
-   "text": "[flat] fifty percent."
-  },
-  "engp.pct.55": {
-   "file": "engp/engp.pct.55.mp3",
-   "hash": "673580e7b0c8",
-   "text": "[flat] fifty-five percent."
-  },
-  "engp.pct.60": {
-   "file": "engp/engp.pct.60.mp3",
-   "hash": "297fa0d0dd80",
-   "text": "[flat] sixty percent."
-  },
-  "engp.pct.70": {
-   "file": "engp/engp.pct.70.mp3",
-   "hash": "d01bd19cf60a",
-   "text": "[flat] seventy percent."
-  },
-  "engp.pct.65": {
-   "file": "engp/engp.pct.65.mp3",
-   "hash": "fdd439588aa5",
-   "text": "[flat] sixty-five percent."
-  },
-  "engp.pct.75": {
-   "file": "engp/engp.pct.75.mp3",
-   "hash": "da4ce3d95303",
-   "text": "[flat] seventy-five percent."
-  },
-  "engp.pct.80": {
-   "file": "engp/engp.pct.80.mp3",
-   "hash": "3c81736a3cb1",
-   "text": "[flat] eighty percent."
-  },
-  "engp.pct.85": {
-   "file": "engp/engp.pct.85.mp3",
-   "hash": "a59e68f8342e",
-   "text": "[flat] eighty-five percent."
-  },
-  "engp.pct.90": {
-   "file": "engp/engp.pct.90.mp3",
-   "hash": "45cc5eb80df8",
-   "text": "[flat] ninety percent."
-  },
-  "engp.pct.100": {
-   "file": "engp/engp.pct.100.mp3",
-   "hash": "178f87e5875e",
-   "text": "[flat] a hundred percent."
-  },
-  "engp.pct.95": {
-   "file": "engp/engp.pct.95.mp3",
-   "hash": "8d9d13f95eb6",
-   "text": "[flat] ninety-five percent."
-  },
-  "engp.turn": {
-   "file": "engp/engp.turn.mp3",
-   "hash": "91d4f1de0b7a",
-   "text": "[flat] turn"
-  },
-  "engp.turn.1": {
-   "file": "engp/engp.turn.1.mp3",
-   "hash": "aa467553dbf9",
-   "text": "[flat] turn one,"
-  },
-  "engp.turn.2": {
-   "file": "engp/engp.turn.2.mp3",
-   "hash": "896aae6b44c1",
-   "text": "[flat] turn two,"
-  },
-  "engp.turn.3": {
-   "file": "engp/engp.turn.3.mp3",
-   "hash": "6181f846e04c",
-   "text": "[flat] turn three,"
-  },
-  "engp.turn.5": {
-   "file": "engp/engp.turn.5.mp3",
-   "hash": "755b0bfa0bea",
-   "text": "[flat] turn five,"
-  },
-  "engp.turn.4": {
-   "file": "engp/engp.turn.4.mp3",
-   "hash": "19e781943a6b",
-   "text": "[flat] turn four,"
-  },
-  "engp.turn.6": {
-   "file": "engp/engp.turn.6.mp3",
-   "hash": "023ce3668475",
-   "text": "[flat] turn six,"
-  },
-  "engp.turn.7": {
-   "file": "engp/engp.turn.7.mp3",
-   "hash": "21693a850b06",
-   "text": "[flat] turn seven,"
-  },
-  "engp.turn.8": {
-   "file": "engp/engp.turn.8.mp3",
-   "hash": "8e3beaf20335",
-   "text": "[flat] turn eight,"
-  },
-  "engp.turn.9": {
-   "file": "engp/engp.turn.9.mp3",
-   "hash": "08249049d365",
-   "text": "[flat] turn nine,"
-  },
-  "engp.turn.10": {
-   "file": "engp/engp.turn.10.mp3",
-   "hash": "bca96be1a518",
-   "text": "[flat] turn ten,"
-  },
-  "engp.turn.11": {
-   "file": "engp/engp.turn.11.mp3",
-   "hash": "aa38e1f9abcb",
-   "text": "[flat] turn eleven,"
-  },
-  "engp.turn.12": {
-   "file": "engp/engp.turn.12.mp3",
-   "hash": "fc64d781e1d8",
-   "text": "[flat] turn twelve,"
-  },
-  "engp.turn.13": {
-   "file": "engp/engp.turn.13.mp3",
-   "hash": "779142f83481",
-   "text": "[flat] turn thirteen,"
-  },
-  "engp.turn.14": {
-   "file": "engp/engp.turn.14.mp3",
-   "hash": "047f0eda957a",
-   "text": "[flat] turn fourteen,"
-  },
-  "engp.turn.15": {
-   "file": "engp/engp.turn.15.mp3",
-   "hash": "69f56dd6d641",
-   "text": "[flat] turn fifteen,"
-  },
-  "engp.turn.16": {
-   "file": "engp/engp.turn.16.mp3",
-   "hash": "cac80186c1f6",
-   "text": "[flat] turn sixteen,"
-  },
-  "engp.turn.17": {
-   "file": "engp/engp.turn.17.mp3",
-   "hash": "05605a1157d4",
-   "text": "[flat] turn seventeen,"
-  },
-  "engp.turn.18": {
-   "file": "engp/engp.turn.18.mp3",
-   "hash": "af8cbddf3d35",
-   "text": "[flat] turn eighteen,"
-  },
-  "engp.p": {
-   "file": "engp/engp.p.mp3",
-   "hash": "a2e408c067fe",
-   "text": "[flat] P"
-  },
-  "engp.turn.19": {
-   "file": "engp/engp.turn.19.mp3",
-   "hash": "9f275947b9b8",
-   "text": "[flat] turn nineteen,"
-  },
-  "engp.turn.20": {
-   "file": "engp/engp.turn.20.mp3",
-   "hash": "93570fa9c5b5",
-   "text": "[flat] turn twenty,"
-  },
-  "engp.p.1": {
-   "file": "engp/engp.p.1.mp3",
-   "hash": "6e504cbef158",
-   "text": "[flat] P one."
-  },
-  "engp.p.3": {
-   "file": "engp/engp.p.3.mp3",
-   "hash": "7cabe8fb3cf8",
-   "text": "[flat] P three."
-  },
-  "engp.p.2": {
-   "file": "engp/engp.p.2.mp3",
-   "hash": "518c5b47669c",
-   "text": "[flat] P two."
-  },
-  "engp.p.4": {
-   "file": "engp/engp.p.4.mp3",
-   "hash": "d7a6afccd725",
-   "text": "[flat] P four."
-  },
-  "engp.p.5": {
-   "file": "engp/engp.p.5.mp3",
-   "hash": "f89dfb643ccc",
-   "text": "[flat] P five."
-  },
-  "engp.p.6": {
-   "file": "engp/engp.p.6.mp3",
-   "hash": "df337f464ca1",
-   "text": "[flat] P six."
-  },
-  "engp.p.8": {
-   "file": "engp/engp.p.8.mp3",
-   "hash": "e8baa7a80698",
-   "text": "[flat] P eight."
-  },
-  "engp.p.7": {
-   "file": "engp/engp.p.7.mp3",
-   "hash": "f1c8dc5662c0",
-   "text": "[flat] P seven."
-  },
-  "engp.p.9": {
-   "file": "engp/engp.p.9.mp3",
-   "hash": "4dd00f987168",
-   "text": "[flat] P nine."
-  },
-  "engp.p.10": {
-   "file": "engp/engp.p.10.mp3",
-   "hash": "e32d337a803a",
-   "text": "[flat] P ten."
-  },
-  "engp.p.11": {
-   "file": "engp/engp.p.11.mp3",
-   "hash": "31dabc476099",
-   "text": "[flat] P eleven."
-  },
-  "engp.p.12": {
-   "file": "engp/engp.p.12.mp3",
-   "hash": "0c2b42c7ab50",
-   "text": "[flat] P twelve."
-  },
-  "engp.p.14": {
-   "file": "engp/engp.p.14.mp3",
-   "hash": "5f2854971ed3",
-   "text": "[flat] P fourteen."
-  },
-  "engp.p.13": {
-   "file": "engp/engp.p.13.mp3",
-   "hash": "90793cbfefe1",
-   "text": "[flat] P thirteen."
-  },
-  "engp.p.15": {
-   "file": "engp/engp.p.15.mp3",
-   "hash": "4c0edfb0dda5",
-   "text": "[flat] P fifteen."
-  },
-  "engp.p.16": {
-   "file": "engp/engp.p.16.mp3",
-   "hash": "4fb60501351c",
-   "text": "[flat] P sixteen."
-  },
-  "engp.p.17": {
-   "file": "engp/engp.p.17.mp3",
-   "hash": "f37ed8381a2b",
-   "text": "[flat] P seventeen."
-  },
-  "engp.p.18": {
-   "file": "engp/engp.p.18.mp3",
-   "hash": "0eb4171ee373",
-   "text": "[flat] P eighteen."
-  },
-  "engp.p.19": {
-   "file": "engp/engp.p.19.mp3",
-   "hash": "aa71473a06b2",
-   "text": "[flat] P nineteen."
-  },
-  "engp.p.20": {
-   "file": "engp/engp.p.20.mp3",
-   "hash": "8b37e9c8d95a",
-   "text": "[flat] P twenty."
-  },
-  "engp.p.21": {
-   "file": "engp/engp.p.21.mp3",
-   "hash": "e45e57f67f2e",
-   "text": "[flat] P twenty-one."
-  },
-  "engp.p.23": {
-   "file": "engp/engp.p.23.mp3",
-   "hash": "dd1aeb758c77",
-   "text": "[flat] P twenty-three."
-  },
-  "engp.p.22": {
-   "file": "engp/engp.p.22.mp3",
-   "hash": "aa9cb86f0c0e",
-   "text": "[flat] P twenty-two."
-  },
-  "engp.u.sec1": {
-   "file": "engp/engp.u.sec1.mp3",
-   "hash": "c5a90b1892b8",
-   "text": "[flat] second"
-  },
-  "engp.u.sec": {
-   "file": "engp/engp.u.sec.mp3",
-   "hash": "74ec6a9121c4",
-   "text": "[flat] seconds"
-  },
-  "engp.p.24": {
-   "file": "engp/engp.p.24.mp3",
-   "hash": "ede813c6075b",
-   "text": "[flat] P twenty-four."
-  },
-  "engp.u.laps": {
-   "file": "engp/engp.u.laps.mp3",
-   "hash": "56ff2bbcc158",
-   "text": "[flat] laps"
-  },
-  "engp.u.alap": {
-   "file": "engp/engp.u.alap.mp3",
-   "hash": "775446a5d33b",
-   "text": "[flat] a lap"
-  },
-  "engp.about": {
-   "file": "engp/engp.about.mp3",
-   "hash": "182492e145fd",
-   "text": "[flat] about"
-  },
-  "engp.amt.bit": {
-   "file": "engp/engp.amt.bit.mp3",
-   "hash": "e83f8d2cd8f6",
-   "text": "[flat] a bit"
-  },
-  "engp.amt.half": {
-   "file": "engp/engp.amt.half.mp3",
-   "hash": "964249d58378",
-   "text": "[flat] about half a second"
-  },
-  "engp.amt.couple": {
-   "file": "engp/engp.amt.couple.mp3",
-   "hash": "cc2f139ab4ac",
-   "text": "[flat] a couple of tenths"
-  },
-  "engp.amt.none": {
-   "file": "engp/engp.amt.none.mp3",
-   "hash": "dc5b19dd8881",
-   "text": "[flat] nothing"
-  },
-  "engp.amt.min": {
-   "file": "engp/engp.amt.min.mp3",
-   "hash": "0a7f701e28e3",
-   "text": "[flat] over a minute"
-  },
-  "engp.amt.sec": {
-   "file": "engp/engp.amt.sec.mp3",
-   "hash": "2365818d6e23",
-   "text": "[flat] about a second"
-  },
-  "engp.t.soft": {
-   "file": "engp/engp.t.soft.mp3",
-   "hash": "1a219b3dc9f0",
-   "text": "[flat] softs."
-  },
-  "engp.t.medium": {
-   "file": "engp/engp.t.medium.mp3",
-   "hash": "926272812118",
-   "text": "[flat] mediums."
-  },
-  "engp.t.hard": {
-   "file": "engp/engp.t.hard.mp3",
-   "hash": "d4e13b45c90b",
-   "text": "[flat] hards."
-  },
-  "engp.t.wet": {
-   "file": "engp/engp.t.wet.mp3",
-   "hash": "8692ac3a6aba",
-   "text": "[flat] wets."
-  },
-  "engp.t.dirt": {
-   "file": "engp/engp.t.dirt.mp3",
-   "hash": "384edc71d298",
-   "text": "[flat] dirt tires."
-  },
-  "engp.s.ahead": {
-   "file": "engp/engp.s.ahead.mp3",
-   "hash": "62610ded9ad6",
-   "text": "[calm] Car ahead's"
-  },
-  "engp.s.fastest": {
-   "file": "engp/engp.s.fastest.mp3",
-   "hash": "0428039707c0",
-   "text": "[calm] Fastest car's"
-  },
-  "engp.s.behind": {
-   "file": "engp/engp.s.behind.mp3",
-   "hash": "e5050963a633",
-   "text": "[calm] Car behind's"
-  },
-  "engp.s.leader": {
-   "file": "engp/engp.s.leader.mp3",
-   "hash": "1bc82051b619",
-   "text": "[calm] The leader's"
-  },
-  "engp.s.mate": {
-   "file": "engp/engp.s.mate.mp3",
-   "hash": "a98d682c2c3d",
-   "text": "[calm] Your teammate's"
-  },
-  "engp.youre": {
-   "file": "engp/engp.youre.mp3",
-   "hash": "f5c5c3cb2b98",
-   "text": "[calm] You're"
-  },
-  "engp.offbest": {
-   "file": "engp/engp.offbest.mp3",
-   "hash": "9aa2515d589d",
-   "text": "[calm] off your best."
-  },
-  "engp.onbest": {
-   "file": "engp/engp.onbest.mp3",
-   "hash": "7f5736bc0ada",
-   "text": "[approving] You're right on your best pace."
-  },
-  "engp.rank.1": {
-   "file": "engp/engp.rank.1.mp3",
-   "hash": "375a6fa2b51d",
-   "text": "[pleased] Quickest on track right now."
-  },
-  "engp.rank.2": {
-   "file": "engp/engp.rank.2.mp3",
-   "hash": "8acc4a412970",
-   "text": "[calm] Second quickest out there."
-  },
-  "engp.rank.3": {
-   "file": "engp/engp.rank.3.mp3",
-   "hash": "9db11e84da3f",
-   "text": "[calm] Third quickest out there."
-  },
-  "engp.rank.4": {
-   "file": "engp/engp.rank.4.mp3",
-   "hash": "e5ddd3e7ec84",
-   "text": "[calm] Fourth quickest out there."
-  },
-  "engp.rank.5": {
-   "file": "engp/engp.rank.5.mp3",
-   "hash": "594895a973fa",
-   "text": "[calm] Fifth quickest out there."
-  },
-  "engp.rank.6": {
-   "file": "engp/engp.rank.6.mp3",
-   "hash": "9032894ebcc1",
-   "text": "[calm] Sixth quickest out there."
-  },
-  "engp.rank.8": {
-   "file": "engp/engp.rank.8.mp3",
-   "hash": "a3846c6cbb6a",
-   "text": "[calm] Eighth quickest out there."
-  },
-  "engp.rank.7": {
-   "file": "engp/engp.rank.7.mp3",
-   "hash": "8bcd1c253acb",
-   "text": "[calm] Seventh quickest out there."
-  },
-  "engp.rank.9": {
-   "file": "engp/engp.rank.9.mp3",
-   "hash": "fc4456d2c07b",
-   "text": "[calm] Ninth quickest out there."
-  },
-  "engp.rank.back": {
-   "file": "engp/engp.rank.back.mp3",
-   "hash": "47dedd4d25da",
-   "text": "[calm] Down the order on pace right now."
-  },
-  "engp.rank.10": {
-   "file": "engp/engp.rank.10.mp3",
-   "hash": "b6f6d559bf63",
-   "text": "[calm] Tenth quickest out there."
-  },
-  "engp.slower": {
-   "file": "engp/engp.slower.mp3",
-   "hash": "7f5b15d8d99e",
-   "text": "[calm] a lap slower than you."
-  },
-  "engp.quicker": {
-   "file": "engp/engp.quicker.mp3",
-   "hash": "ac59b60f8567",
-   "text": "[calm] a lap quicker than you."
-  },
-  "engp.nolaps": {
-   "file": "engp/engp.nolaps.mp3",
-   "hash": "afc9e77cde82",
-   "text": "[calm] No clean laps yet. Give me one and I'll have numbers."
-  },
-  "engp.samepace": {
-   "file": "engp/engp.samepace.mp3",
-   "hash": "b0f130123bd3",
-   "text": "[calm] on the same pace as you."
-  },
-  "engp.theirbest": {
-   "file": "engp/engp.theirbest.mp3",
-   "hash": "c935cc17c676",
-   "text": "[calm] Their best is"
-  },
-  "engp.upon": {
-   "file": "engp/engp.upon.mp3",
-   "hash": "3307323bdf76",
-   "text": "[calm] up on yours."
-  },
-  "engp.downon": {
-   "file": "engp/engp.downon.mp3",
-   "hash": "272042781863",
-   "text": "[calm] down on yours."
-  },
-  "engp.nolapsthem": {
-   "file": "engp/engp.nolapsthem.mp3",
-   "hash": "46d4d7fb6c67",
-   "text": "[calm] No laps from them yet."
-  },
-  "engp.tiresat": {
-   "file": "engp/engp.tiresat.mp3",
-   "hash": "a406cf0f26d8",
-   "text": "[calm] Tires are at"
-  },
-  "engp.makeflag": {
-   "file": "engp/engp.makeflag.mp3",
-   "hash": "c1f5007cac11",
-   "text": "[calm] They'll make the flag."
-  },
-  "engp.cliff": {
-   "file": "engp/engp.cliff.mp3",
-   "hash": "5cb1f4f6051d",
-   "text": "[calm] That's the cliff. You'll feel it everywhere."
-  },
-  "engp.dropthis": {
-   "file": "engp/engp.dropthis.mp3",
-   "hash": "c09a03280915",
-   "text": "[calm] They'll drop off this lap."
-  },
-  "engp.dropoff": {
-   "file": "engp/engp.dropoff.mp3",
-   "hash": "2023e69a4608",
-   "text": "[calm] before they drop off."
-  },
-  "engp.fronts": {
-   "file": "engp/engp.fronts.mp3",
-   "hash": "2029e4f1b741",
-   "text": "[calm] Fronts are wearing faster."
-  },
-  "engp.rears": {
-   "file": "engp/engp.rears.mp3",
-   "hash": "a3bef470996b",
-   "text": "[calm] Rears are wearing faster."
-  },
-  "engp.nowear": {
-   "file": "engp/engp.nowear.mp3",
-   "hash": "e7942028e13a",
-   "text": "[calm] Tire wear's off today."
-  },
-  "engp.lapin": {
-   "file": "engp/engp.lapin.mp3",
-   "hash": "1226435d3a7d",
-   "text": "[calm] a lap into their"
-  },
-  "engp.lapsin": {
-   "file": "engp/engp.lapsin.mp3",
-   "hash": "937ba46813b9",
-   "text": "[calm] laps into their"
-  },
-  "engp.w.0": {
-   "file": "engp/engp.w.0.mp3",
-   "hash": "16f264e5a3a2",
-   "text": "[calm] They look fresh."
-  },
-  "engp.freshset": {
-   "file": "engp/engp.freshset.mp3",
-   "hash": "84dae73ee75a",
-   "text": "[calm] on a fresh set of"
-  },
-  "engp.w.1": {
-   "file": "engp/engp.w.1.mp3",
-   "hash": "5c0487894b7d",
-   "text": "[calm] They look good."
-  },
-  "engp.w.3": {
-   "file": "engp/engp.w.3.mp3",
-   "hash": "9d86e50d4ee3",
-   "text": "[calm] They're going off."
-  },
-  "engp.w.2": {
-   "file": "engp/engp.w.2.mp3",
-   "hash": "156faf16b9e7",
-   "text": "[calm] They're past their best."
-  },
-  "engp.w.4": {
-   "file": "engp/engp.w.4.mp3",
-   "hash": "5fb1cec81eb4",
-   "text": "[slight edge] They're gone."
-  },
-  "engp.cmp.same": {
-   "file": "engp/engp.cmp.same.mp3",
-   "hash": "05f761aaa55b",
-   "text": "[calm] About the same as yours."
-  },
-  "engp.cmp.better": {
-   "file": "engp/engp.cmp.better.mp3",
-   "hash": "116d8d1d8056",
-   "text": "[calm] Better than yours."
-  },
-  "engp.cmp.worse": {
-   "file": "engp/engp.cmp.worse.mp3",
-   "hash": "755927aaecb0",
-   "text": "[calm] Worse than yours."
-  },
-  "engp.stopsoon": {
-   "file": "engp/engp.stopsoon.mp3",
-   "hash": "22e915d4a8ab",
-   "text": "[calm] Expect them to stop soon."
-  },
-  "engp.nodata": {
-   "file": "engp/engp.nodata.mp3",
-   "hash": "105d69dacd9a",
-   "text": "[calm] No data on their wear."
-  },
-  "engp.theyreat": {
-   "file": "engp/engp.theyreat.mp3",
-   "hash": "d497d5e81d52",
-   "text": "[calm] They're at"
-  },
-  "engp.upahead": {
-   "file": "engp/engp.upahead.mp3",
-   "hash": "c03329600b1a",
-   "text": "[calm] up the road."
-  },
-  "engp.behindyou": {
-   "file": "engp/engp.behindyou.mp3",
-   "hash": "cd4c61bda295",
-   "text": "[calm] behind you."
-  },
-  "engp.downonyou": {
-   "file": "engp/engp.downonyou.mp3",
-   "hash": "17d83daf004c",
-   "text": "[calm] down on you."
-  },
-  "engp.holding": {
-   "file": "engp/engp.holding.mp3",
-   "hash": "ea04b9a3b7d9",
-   "text": "[calm] The gap's holding."
-  },
-  "engp.rightthere": {
-   "file": "engp/engp.rightthere.mp3",
-   "hash": "544100fc9a75",
-   "text": "[calm] right there with you."
-  },
-  "engp.youreclosing": {
-   "file": "engp/engp.youreclosing.mp3",
-   "hash": "3579ea7911f8",
-   "text": "[calm] You're closing"
-  },
-  "engp.onthemin": {
-   "file": "engp/engp.onthemin.mp3",
-   "hash": "f1b3d2688995",
-   "text": "[calm] On them in about"
-  },
-  "engp.theyreclosing": {
-   "file": "engp/engp.theyreclosing.mp3",
-   "hash": "f26c31450445",
-   "text": "[calm] They're closing"
-  },
-  "engp.onyouin": {
-   "file": "engp/engp.onyouin.mp3",
-   "hash": "5a55bb7b15ff",
-   "text": "[calm] On you in about"
-  },
-  "engp.theyrepulling": {
-   "file": "engp/engp.theyrepulling.mp3",
-   "hash": "7122a258d725",
-   "text": "[calm] They're pulling away,"
-  },
-  "engp.yourepulling": {
-   "file": "engp/engp.yourepulling.mp3",
-   "hash": "7a583995a94d",
-   "text": "[calm] You're pulling away,"
-  },
-  "engp.vs.ahead": {
-   "file": "engp/engp.vs.ahead.mp3",
-   "hash": "1858c83803f7",
-   "text": "[calm] Against the car ahead,"
-  },
-  "engp.vs.fastest": {
-   "file": "engp/engp.vs.fastest.mp3",
-   "hash": "9020c47dd80d",
-   "text": "[calm] Against the fastest car,"
-  },
-  "engp.vs.best": {
-   "file": "engp/engp.vs.best.mp3",
-   "hash": "5f88df07797c",
-   "text": "[calm] Against your best lap,"
-  },
-  "engp.vs.ideal": {
-   "file": "engp/engp.vs.ideal.mp3",
-   "hash": "37e105e93519",
-   "text": "[calm] Against our ideal lap,"
-  },
-  "engp.mostin": {
-   "file": "engp/engp.mostin.mp3",
-   "hash": "fabbb87f6102",
-   "text": "[calm] you're losing most in"
-  },
-  "engp.then": {
-   "file": "engp/engp.then.mp3",
-   "hash": "d7f1f43b8a54",
-   "text": "[calm] Then"
-  },
-  "engp.why.hit": {
-   "file": "engp/engp.why.hit.mp3",
-   "hash": "d6ac29785c51",
-   "text": "[calm] you hit the wall."
-  },
-  "engp.why.lock": {
-   "file": "engp/engp.why.lock.mp3",
-   "hash": "95deace4f0f4",
-   "text": "[calm] locking up."
-  },
-  "engp.why.off": {
-   "file": "engp/engp.why.off.mp3",
-   "hash": "7389eb4c0586",
-   "text": "[calm] you ran wide off the road."
-  },
-  "engp.why.late": {
-   "file": "engp/engp.why.late.mp3",
-   "hash": "0f5ec67ea6bf",
-   "text": "[calm] braking too late and overshooting."
-  },
-  "engp.why.early": {
-   "file": "engp/engp.why.early.mp3",
-   "hash": "9dec8fec9330",
-   "text": "[calm] braking too early."
-  },
-  "engp.why.under": {
-   "file": "engp/engp.why.under.mp3",
-   "hash": "24e2f3508237",
-   "text": "[calm] understeer on the way in."
-  },
-  "engp.why.min": {
-   "file": "engp/engp.why.min.mp3",
-   "hash": "6c4aa458142c",
-   "text": "[calm] too slow at the apex."
-  },
-  "engp.why.thr": {
-   "file": "engp/engp.why.thr.mp3",
-   "hash": "7d208619d4e6",
-   "text": "[calm] late on the throttle."
-  },
-  "engp.why.coast": {
-   "file": "engp/engp.why.coast.mp3",
-   "hash": "7b0aa567109a",
-   "text": "[calm] coasting between the pedals."
-  },
-  "engp.why.slide": {
-   "file": "engp/engp.why.slide.mp3",
-   "hash": "70f96c92a9e0",
-   "text": "[calm] the rear sliding on exit."
-  },
-  "engp.why.tc": {
-   "file": "engp/engp.why.tc.mp3",
-   "hash": "35812e635f79",
-   "text": "[calm] traction control on exit."
-  },
-  "engp.why.exit": {
-   "file": "engp/engp.why.exit.mp3",
-   "hash": "590166b17dbb",
-   "text": "[calm] a slow exit."
-  },
-  "engp.smallbits": {
-   "file": "engp/engp.smallbits.mp3",
-   "hash": "75ee09f21d2c",
-   "text": "[calm] only small bits everywhere. Nothing big."
-  },
-  "engp.matching": {
-   "file": "engp/engp.matching.mp3",
-   "hash": "1d7861392e2f",
-   "text": "[calm] you're matching them everywhere. Keep it up."
-  },
-  "engp.needlap": {
-   "file": "engp/engp.needlap.mp3",
-   "hash": "57dc32a0cceb",
-   "text": "[calm] Need a full lap of data first."
-  },
-  "engp.planlap": {
-   "file": "engp/engp.planlap.mp3",
-   "hash": "55c070333017",
-   "text": "[calm] Plan is lap"
-  },
-  "engp.for": {
-   "file": "engp/engp.for.mp3",
-   "hash": "9201de0a186a",
-   "text": "[calm] for"
-  },
-  "engp.nostops": {
-   "file": "engp/engp.nostops.mp3",
-   "hash": "540fce64c56b",
-   "text": "[calm] No more stops planned."
-  },
-  "engp.wontmake": {
-   "file": "engp/engp.wontmake.mp3",
-   "hash": "ec6ab0a7ed20",
-   "text": "[calm] Tires won't make it. Box by lap"
-  },
-  "engp.couldgo": {
-   "file": "engp/engp.couldgo.mp3",
-   "hash": "37174cb81bcf",
-   "text": "[calm] Tires could go to lap"
-  },
-  "engp.stopnow": {
-   "file": "engp/engp.stopnow.mp3",
-   "hash": "b78c59ea88d3",
-   "text": "[calm] Stop now and you're out"
-  },
-  "engp.ord.letby": {
-   "file": "engp/engp.ord.letby.mp3",
-   "hash": "9c2bb6cc4884",
-   "text": "[calm] Copy. Asking them to let you by."
-  },
-  "engp.ord.hold": {
-   "file": "engp/engp.ord.hold.mp3",
-   "hash": "2bd63b5dbae1",
-   "text": "[calm] Copy. Telling them to hold position."
-  },
-  "engp.ord.push": {
-   "file": "engp/engp.ord.push.mp3",
-   "hash": "212c9a2f446f",
-   "text": "[calm] Copy. Telling them to push."
-  },
-  "engp.ord.save": {
-   "file": "engp/engp.ord.save.mp3",
-   "hash": "6c3486ec329a",
-   "text": "[calm] Copy. Telling them to save tires."
-  },
-  "engp.ord.notahead": {
-   "file": "engp/engp.ord.notahead.mp3",
-   "hash": "5330d98c4a44",
-   "text": "[calm] They're not right in front of you."
-  },
-  "engp.ord.wait": {
-   "file": "engp/engp.ord.wait.mp3",
-   "hash": "277187c3372f",
-   "text": "[calm] Give them a minute. They've only just had the last one."
-  },
-  "engp.ord.notbehind": {
-   "file": "engp/engp.ord.notbehind.mp3",
-   "hash": "ef8c3057a8dd",
-   "text": "[calm] They're not right behind you."
-  },
-  "engp.lost": {
-   "file": "engp/engp.lost.mp3",
-   "hash": "a8bd47992f29",
-   "text": "[calm] Lost them on the data. Ask again."
+ "engs": {
+  "engs.best.t1": {
+   "file": "engs/engs.best.t1.mp3",
+   "hash": "ed8eef882138",
+   "text": "You're a tenth off your best."
+  },
+  "engs.best.t2": {
+   "file": "engs/engs.best.t2.mp3",
+   "hash": "cef03cd487d2",
+   "text": "You're two tenths off your best."
+  },
+  "engs.best.t3": {
+   "file": "engs/engs.best.t3.mp3",
+   "hash": "020852414471",
+   "text": "You're three tenths off your best."
+  },
+  "engs.best.t4": {
+   "file": "engs/engs.best.t4.mp3",
+   "hash": "8c9f1e264653",
+   "text": "You're four tenths off your best."
+  },
+  "engs.best.t6": {
+   "file": "engs/engs.best.t6.mp3",
+   "hash": "3b514fcd8b64",
+   "text": "You're six tenths off your best."
+  },
+  "engs.best.t5": {
+   "file": "engs/engs.best.t5.mp3",
+   "hash": "d4ede3583fd3",
+   "text": "You're five tenths off your best."
+  },
+  "engs.best.t7": {
+   "file": "engs/engs.best.t7.mp3",
+   "hash": "d436bad21f00",
+   "text": "You're seven tenths off your best."
+  },
+  "engs.best.t9": {
+   "file": "engs/engs.best.t9.mp3",
+   "hash": "0fe08ca31c69",
+   "text": "You're nine tenths off your best."
+  },
+  "engs.best.t8": {
+   "file": "engs/engs.best.t8.mp3",
+   "hash": "a6dcb4c1cc92",
+   "text": "You're eight tenths off your best."
+  },
+  "engs.best.s1": {
+   "file": "engs/engs.best.s1.mp3",
+   "hash": "c5699b8dab88",
+   "text": "You're a second off your best."
+  },
+  "engs.best.s2": {
+   "file": "engs/engs.best.s2.mp3",
+   "hash": "91872364e0c1",
+   "text": "You're two seconds off your best."
+  },
+  "engs.best.s1h": {
+   "file": "engs/engs.best.s1h.mp3",
+   "hash": "f7e4062fe668",
+   "text": "You're a second and a half off your best."
+  },
+  "engs.best.s3": {
+   "file": "engs/engs.best.s3.mp3",
+   "hash": "e900fdf3c571",
+   "text": "You're three seconds off your best."
+  },
+  "engs.best.s5": {
+   "file": "engs/engs.best.s5.mp3",
+   "hash": "3aaa7c3be1bc",
+   "text": "You're five seconds off your best."
+  },
+  "engs.best.s4": {
+   "file": "engs/engs.best.s4.mp3",
+   "hash": "998d502865e4",
+   "text": "You're four seconds off your best."
+  },
+  "engs.rank.1": {
+   "file": "engs/engs.rank.1.mp3",
+   "hash": "267c59b49ded",
+   "text": "Quickest on track right now."
+  },
+  "engs.onbest": {
+   "file": "engs/engs.onbest.mp3",
+   "hash": "0b86107a926b",
+   "text": "You're right on your best pace."
+  },
+  "engs.best.s5p": {
+   "file": "engs/engs.best.s5p.mp3",
+   "hash": "4f825d7ca2a8",
+   "text": "You're more than five seconds off your best."
+  },
+  "engs.rank.2": {
+   "file": "engs/engs.rank.2.mp3",
+   "hash": "1af3199a37f5",
+   "text": "Second quickest out there."
+  },
+  "engs.rank.4": {
+   "file": "engs/engs.rank.4.mp3",
+   "hash": "acbb6ddc8d89",
+   "text": "Fourth quickest out there."
+  },
+  "engs.rank.3": {
+   "file": "engs/engs.rank.3.mp3",
+   "hash": "a72721f59eab",
+   "text": "Third quickest out there."
+  },
+  "engs.rank.5": {
+   "file": "engs/engs.rank.5.mp3",
+   "hash": "14f739bacd9b",
+   "text": "Fifth quickest out there."
+  },
+  "engs.rank.6": {
+   "file": "engs/engs.rank.6.mp3",
+   "hash": "0a3f334827cb",
+   "text": "Sixth quickest out there."
+  },
+  "engs.rank.7": {
+   "file": "engs/engs.rank.7.mp3",
+   "hash": "97c6f766fce1",
+   "text": "Seventh quickest out there."
+  },
+  "engs.rank.9": {
+   "file": "engs/engs.rank.9.mp3",
+   "hash": "f6a1ebe4a9b1",
+   "text": "Ninth quickest out there."
+  },
+  "engs.rank.8": {
+   "file": "engs/engs.rank.8.mp3",
+   "hash": "3e096586d63d",
+   "text": "Eighth quickest out there."
+  },
+  "engs.rank.10": {
+   "file": "engs/engs.rank.10.mp3",
+   "hash": "4a71bfcd1d80",
+   "text": "Tenth quickest out there."
+  },
+  "engs.rank.back": {
+   "file": "engs/engs.rank.back.mp3",
+   "hash": "b596f0e23b19",
+   "text": "Down the order on pace right now."
+  },
+  "engs.pace.q.t1": {
+   "file": "engs/engs.pace.q.t1.mp3",
+   "hash": "26f6f444d32a",
+   "text": "They're a tenth a lap quicker than you."
+  },
+  "engs.nolaps": {
+   "file": "engs/engs.nolaps.mp3",
+   "hash": "49f45abad221",
+   "text": "No clean laps yet. Give me one and I'll have numbers."
+  },
+  "engs.pace.q.t2": {
+   "file": "engs/engs.pace.q.t2.mp3",
+   "hash": "e526165e426c",
+   "text": "They're two tenths a lap quicker than you."
+  },
+  "engs.pace.q.t3": {
+   "file": "engs/engs.pace.q.t3.mp3",
+   "hash": "067d9dd6916e",
+   "text": "They're three tenths a lap quicker than you."
+  },
+  "engs.pace.q.t4": {
+   "file": "engs/engs.pace.q.t4.mp3",
+   "hash": "155d468950c4",
+   "text": "They're four tenths a lap quicker than you."
+  },
+  "engs.pace.q.t5": {
+   "file": "engs/engs.pace.q.t5.mp3",
+   "hash": "7f96892aab44",
+   "text": "They're five tenths a lap quicker than you."
+  },
+  "engs.pace.q.t6": {
+   "file": "engs/engs.pace.q.t6.mp3",
+   "hash": "90a82652f943",
+   "text": "They're six tenths a lap quicker than you."
+  },
+  "engs.pace.q.t7": {
+   "file": "engs/engs.pace.q.t7.mp3",
+   "hash": "85a6af044ba8",
+   "text": "They're seven tenths a lap quicker than you."
+  },
+  "engs.pace.q.t8": {
+   "file": "engs/engs.pace.q.t8.mp3",
+   "hash": "05ed00927960",
+   "text": "They're eight tenths a lap quicker than you."
+  },
+  "engs.pace.q.t9": {
+   "file": "engs/engs.pace.q.t9.mp3",
+   "hash": "9fc01bb34fd9",
+   "text": "They're nine tenths a lap quicker than you."
+  },
+  "engs.pace.q.s1": {
+   "file": "engs/engs.pace.q.s1.mp3",
+   "hash": "06a104df1eac",
+   "text": "They're a second a lap quicker than you."
+  },
+  "engs.pace.q.s1h": {
+   "file": "engs/engs.pace.q.s1h.mp3",
+   "hash": "a2789d1706d1",
+   "text": "They're a second and a half a lap quicker than you."
+  },
+  "engs.pace.q.s2": {
+   "file": "engs/engs.pace.q.s2.mp3",
+   "hash": "11422185a989",
+   "text": "They're two seconds a lap quicker than you."
+  },
+  "engs.pace.q.s3": {
+   "file": "engs/engs.pace.q.s3.mp3",
+   "hash": "685271395f8a",
+   "text": "They're three seconds a lap quicker than you."
+  },
+  "engs.pace.q.s4": {
+   "file": "engs/engs.pace.q.s4.mp3",
+   "hash": "0437723d6dd8",
+   "text": "They're four seconds a lap quicker than you."
+  },
+  "engs.pace.q.s5": {
+   "file": "engs/engs.pace.q.s5.mp3",
+   "hash": "1fccdad98fe9",
+   "text": "They're five seconds a lap quicker than you."
+  },
+  "engs.pace.q.s5p": {
+   "file": "engs/engs.pace.q.s5p.mp3",
+   "hash": "891cf40d412d",
+   "text": "They're more than five seconds a lap quicker than you."
+  },
+  "engs.pace.s.t1": {
+   "file": "engs/engs.pace.s.t1.mp3",
+   "hash": "bf8b841b7d77",
+   "text": "They're a tenth a lap slower than you."
+  },
+  "engs.pace.s.t2": {
+   "file": "engs/engs.pace.s.t2.mp3",
+   "hash": "b8f17656d3cb",
+   "text": "They're two tenths a lap slower than you."
+  },
+  "engs.pace.s.t3": {
+   "file": "engs/engs.pace.s.t3.mp3",
+   "hash": "a8d8d8118c39",
+   "text": "They're three tenths a lap slower than you."
+  },
+  "engs.pace.s.t4": {
+   "file": "engs/engs.pace.s.t4.mp3",
+   "hash": "450373fce782",
+   "text": "They're four tenths a lap slower than you."
+  },
+  "engs.pace.s.t5": {
+   "file": "engs/engs.pace.s.t5.mp3",
+   "hash": "236382f8804a",
+   "text": "They're five tenths a lap slower than you."
+  },
+  "engs.pace.s.t6": {
+   "file": "engs/engs.pace.s.t6.mp3",
+   "hash": "ee507a1330ab",
+   "text": "They're six tenths a lap slower than you."
+  },
+  "engs.pace.s.t7": {
+   "file": "engs/engs.pace.s.t7.mp3",
+   "hash": "e225e7f42584",
+   "text": "They're seven tenths a lap slower than you."
+  },
+  "engs.pace.s.t8": {
+   "file": "engs/engs.pace.s.t8.mp3",
+   "hash": "9f6a286bf710",
+   "text": "They're eight tenths a lap slower than you."
+  },
+  "engs.pace.s.s1": {
+   "file": "engs/engs.pace.s.s1.mp3",
+   "hash": "a0d4a89079de",
+   "text": "They're a second a lap slower than you."
+  },
+  "engs.pace.s.t9": {
+   "file": "engs/engs.pace.s.t9.mp3",
+   "hash": "7755c7c0abda",
+   "text": "They're nine tenths a lap slower than you."
+  },
+  "engs.pace.s.s1h": {
+   "file": "engs/engs.pace.s.s1h.mp3",
+   "hash": "45dd377d9ddc",
+   "text": "They're a second and a half a lap slower than you."
+  },
+  "engs.pace.s.s2": {
+   "file": "engs/engs.pace.s.s2.mp3",
+   "hash": "6215b9abfb85",
+   "text": "They're two seconds a lap slower than you."
+  },
+  "engs.pace.s.s3": {
+   "file": "engs/engs.pace.s.s3.mp3",
+   "hash": "aa58e3b62aaa",
+   "text": "They're three seconds a lap slower than you."
+  },
+  "engs.pace.s.s4": {
+   "file": "engs/engs.pace.s.s4.mp3",
+   "hash": "ebce0c6ba156",
+   "text": "They're four seconds a lap slower than you."
+  },
+  "engs.pace.s.s5": {
+   "file": "engs/engs.pace.s.s5.mp3",
+   "hash": "4e683d5ed4c8",
+   "text": "They're five seconds a lap slower than you."
+  },
+  "engs.pace.s.s5p": {
+   "file": "engs/engs.pace.s.s5p.mp3",
+   "hash": "644096c8ecf5",
+   "text": "They're more than five seconds a lap slower than you."
+  },
+  "engs.pace.same": {
+   "file": "engs/engs.pace.same.mp3",
+   "hash": "acb2bda92270",
+   "text": "They're on the same pace as you."
+  },
+  "engs.bl.q.t1": {
+   "file": "engs/engs.bl.q.t1.mp3",
+   "hash": "b8c8d718ce98",
+   "text": "Their best lap is a tenth quicker than yours."
+  },
+  "engs.bl.q.t2": {
+   "file": "engs/engs.bl.q.t2.mp3",
+   "hash": "f41e4a58d0ac",
+   "text": "Their best lap is two tenths quicker than yours."
+  },
+  "engs.bl.q.t3": {
+   "file": "engs/engs.bl.q.t3.mp3",
+   "hash": "c1872ddb58b5",
+   "text": "Their best lap is three tenths quicker than yours."
+  },
+  "engs.bl.q.t4": {
+   "file": "engs/engs.bl.q.t4.mp3",
+   "hash": "04ee40157783",
+   "text": "Their best lap is four tenths quicker than yours."
+  },
+  "engs.bl.q.t5": {
+   "file": "engs/engs.bl.q.t5.mp3",
+   "hash": "d69eb646fc65",
+   "text": "Their best lap is five tenths quicker than yours."
+  },
+  "engs.bl.q.t6": {
+   "file": "engs/engs.bl.q.t6.mp3",
+   "hash": "7535e76a582f",
+   "text": "Their best lap is six tenths quicker than yours."
+  },
+  "engs.bl.q.t7": {
+   "file": "engs/engs.bl.q.t7.mp3",
+   "hash": "110901fb5e1c",
+   "text": "Their best lap is seven tenths quicker than yours."
+  },
+  "engs.bl.q.t8": {
+   "file": "engs/engs.bl.q.t8.mp3",
+   "hash": "cadba62915a8",
+   "text": "Their best lap is eight tenths quicker than yours."
+  },
+  "engs.bl.q.t9": {
+   "file": "engs/engs.bl.q.t9.mp3",
+   "hash": "8383981f77ff",
+   "text": "Their best lap is nine tenths quicker than yours."
+  },
+  "engs.bl.q.s1": {
+   "file": "engs/engs.bl.q.s1.mp3",
+   "hash": "86b8506667d4",
+   "text": "Their best lap is a second quicker than yours."
+  },
+  "engs.bl.q.s1h": {
+   "file": "engs/engs.bl.q.s1h.mp3",
+   "hash": "943cd0a47b50",
+   "text": "Their best lap is a second and a half quicker than yours."
+  },
+  "engs.bl.q.s2": {
+   "file": "engs/engs.bl.q.s2.mp3",
+   "hash": "5a2c2521482c",
+   "text": "Their best lap is two seconds quicker than yours."
+  },
+  "engs.bl.q.s3": {
+   "file": "engs/engs.bl.q.s3.mp3",
+   "hash": "cafe1069841e",
+   "text": "Their best lap is three seconds quicker than yours."
+  },
+  "engs.bl.q.s4": {
+   "file": "engs/engs.bl.q.s4.mp3",
+   "hash": "73a85d063f88",
+   "text": "Their best lap is four seconds quicker than yours."
+  },
+  "engs.bl.q.s5": {
+   "file": "engs/engs.bl.q.s5.mp3",
+   "hash": "ca947d10b4dc",
+   "text": "Their best lap is five seconds quicker than yours."
+  },
+  "engs.bl.q.s5p": {
+   "file": "engs/engs.bl.q.s5p.mp3",
+   "hash": "900c89e12462",
+   "text": "Their best lap is more than five seconds quicker than yours."
+  },
+  "engs.bl.s.t2": {
+   "file": "engs/engs.bl.s.t2.mp3",
+   "hash": "83b314c00cbb",
+   "text": "Their best lap is two tenths slower than yours."
+  },
+  "engs.bl.s.t1": {
+   "file": "engs/engs.bl.s.t1.mp3",
+   "hash": "5fb8ad79bb9d",
+   "text": "Their best lap is a tenth slower than yours."
+  },
+  "engs.bl.s.t3": {
+   "file": "engs/engs.bl.s.t3.mp3",
+   "hash": "9621a6056a9a",
+   "text": "Their best lap is three tenths slower than yours."
+  },
+  "engs.bl.s.t5": {
+   "file": "engs/engs.bl.s.t5.mp3",
+   "hash": "b1308664d552",
+   "text": "Their best lap is five tenths slower than yours."
+  },
+  "engs.bl.s.t4": {
+   "file": "engs/engs.bl.s.t4.mp3",
+   "hash": "4cbbfa2412eb",
+   "text": "Their best lap is four tenths slower than yours."
+  },
+  "engs.bl.s.t6": {
+   "file": "engs/engs.bl.s.t6.mp3",
+   "hash": "844a0251d854",
+   "text": "Their best lap is six tenths slower than yours."
+  },
+  "engs.bl.s.t7": {
+   "file": "engs/engs.bl.s.t7.mp3",
+   "hash": "66a04f370555",
+   "text": "Their best lap is seven tenths slower than yours."
+  },
+  "engs.bl.s.t8": {
+   "file": "engs/engs.bl.s.t8.mp3",
+   "hash": "ef2a5ff35a81",
+   "text": "Their best lap is eight tenths slower than yours."
+  },
+  "engs.bl.s.t9": {
+   "file": "engs/engs.bl.s.t9.mp3",
+   "hash": "a6df341e9bdf",
+   "text": "Their best lap is nine tenths slower than yours."
+  },
+  "engs.bl.s.s1": {
+   "file": "engs/engs.bl.s.s1.mp3",
+   "hash": "a41f87dea70e",
+   "text": "Their best lap is a second slower than yours."
+  },
+  "engs.bl.s.s1h": {
+   "file": "engs/engs.bl.s.s1h.mp3",
+   "hash": "49afe3370312",
+   "text": "Their best lap is a second and a half slower than yours."
+  },
+  "engs.bl.s.s2": {
+   "file": "engs/engs.bl.s.s2.mp3",
+   "hash": "5ffc26d42b2f",
+   "text": "Their best lap is two seconds slower than yours."
+  },
+  "engs.bl.s.s3": {
+   "file": "engs/engs.bl.s.s3.mp3",
+   "hash": "6f028b574c01",
+   "text": "Their best lap is three seconds slower than yours."
+  },
+  "engs.bl.s.s4": {
+   "file": "engs/engs.bl.s.s4.mp3",
+   "hash": "0590ffc64300",
+   "text": "Their best lap is four seconds slower than yours."
+  },
+  "engs.bl.s.s5": {
+   "file": "engs/engs.bl.s.s5.mp3",
+   "hash": "5d69110cfedb",
+   "text": "Their best lap is five seconds slower than yours."
+  },
+  "engs.nolapsthem": {
+   "file": "engs/engs.nolapsthem.mp3",
+   "hash": "cc6506c0e374",
+   "text": "No laps from them yet."
+  },
+  "engs.bl.s.s5p": {
+   "file": "engs/engs.bl.s.s5p.mp3",
+   "hash": "a91bb053bf7d",
+   "text": "Their best lap is more than five seconds slower than yours."
+  },
+  "engs.gap.a.t1": {
+   "file": "engs/engs.gap.a.t1.mp3",
+   "hash": "af507c1ee727",
+   "text": "They're a tenth up the road."
+  },
+  "engs.gap.a.t2": {
+   "file": "engs/engs.gap.a.t2.mp3",
+   "hash": "9b3df881d184",
+   "text": "They're two tenths up the road."
+  },
+  "engs.gap.a.t3": {
+   "file": "engs/engs.gap.a.t3.mp3",
+   "hash": "f998940f1c6f",
+   "text": "They're three tenths up the road."
+  },
+  "engs.gap.a.t4": {
+   "file": "engs/engs.gap.a.t4.mp3",
+   "hash": "df734fdf62a5",
+   "text": "They're four tenths up the road."
+  },
+  "engs.gap.a.t5": {
+   "file": "engs/engs.gap.a.t5.mp3",
+   "hash": "07682eebe2dc",
+   "text": "They're five tenths up the road."
+  },
+  "engs.gap.a.t6": {
+   "file": "engs/engs.gap.a.t6.mp3",
+   "hash": "e3805da1bf31",
+   "text": "They're six tenths up the road."
+  },
+  "engs.gap.a.t7": {
+   "file": "engs/engs.gap.a.t7.mp3",
+   "hash": "9597d5c6310b",
+   "text": "They're seven tenths up the road."
+  },
+  "engs.gap.a.t8": {
+   "file": "engs/engs.gap.a.t8.mp3",
+   "hash": "9ba50fe02e80",
+   "text": "They're eight tenths up the road."
+  },
+  "engs.gap.a.g1": {
+   "file": "engs/engs.gap.a.g1.mp3",
+   "hash": "a0604a427f50",
+   "text": "They're a second up the road."
+  },
+  "engs.gap.a.t9": {
+   "file": "engs/engs.gap.a.t9.mp3",
+   "hash": "1eb0700e1eab",
+   "text": "They're nine tenths up the road."
+  },
+  "engs.gap.a.g2": {
+   "file": "engs/engs.gap.a.g2.mp3",
+   "hash": "94009ff21af6",
+   "text": "They're two seconds up the road."
+  },
+  "engs.gap.a.g3": {
+   "file": "engs/engs.gap.a.g3.mp3",
+   "hash": "36d9be44f8a3",
+   "text": "They're three seconds up the road."
+  },
+  "engs.gap.a.g4": {
+   "file": "engs/engs.gap.a.g4.mp3",
+   "hash": "c7177f3c779c",
+   "text": "They're four seconds up the road."
+  },
+  "engs.gap.a.g5": {
+   "file": "engs/engs.gap.a.g5.mp3",
+   "hash": "873ec2af59ad",
+   "text": "They're five seconds up the road."
+  },
+  "engs.gap.a.g6": {
+   "file": "engs/engs.gap.a.g6.mp3",
+   "hash": "da983f5b77f3",
+   "text": "They're six seconds up the road."
+  },
+  "engs.gap.a.g7": {
+   "file": "engs/engs.gap.a.g7.mp3",
+   "hash": "5b66c98efb82",
+   "text": "They're seven seconds up the road."
+  },
+  "engs.gap.a.g8": {
+   "file": "engs/engs.gap.a.g8.mp3",
+   "hash": "fa7c739dc858",
+   "text": "They're eight seconds up the road."
+  },
+  "engs.gap.a.g9": {
+   "file": "engs/engs.gap.a.g9.mp3",
+   "hash": "073cd7be98aa",
+   "text": "They're nine seconds up the road."
+  },
+  "engs.gap.a.g10": {
+   "file": "engs/engs.gap.a.g10.mp3",
+   "hash": "90743dd302d9",
+   "text": "They're ten seconds up the road."
+  },
+  "engs.gap.a.g15": {
+   "file": "engs/engs.gap.a.g15.mp3",
+   "hash": "20880a30ac02",
+   "text": "They're fifteen seconds up the road."
+  },
+  "engs.gap.a.g20": {
+   "file": "engs/engs.gap.a.g20.mp3",
+   "hash": "207d3ade8d00",
+   "text": "They're twenty seconds up the road."
+  },
+  "engs.gap.a.g30": {
+   "file": "engs/engs.gap.a.g30.mp3",
+   "hash": "155061124730",
+   "text": "They're half a minute up the road."
+  },
+  "engs.gap.a.g45": {
+   "file": "engs/engs.gap.a.g45.mp3",
+   "hash": "493adb999d09",
+   "text": "They're forty-five seconds up the road."
+  },
+  "engs.gap.a.g60": {
+   "file": "engs/engs.gap.a.g60.mp3",
+   "hash": "02bfa0ecfad2",
+   "text": "They're over a minute up the road."
+  },
+  "engs.gap.b.t1": {
+   "file": "engs/engs.gap.b.t1.mp3",
+   "hash": "7bcd542efc79",
+   "text": "They're a tenth behind you."
+  },
+  "engs.gap.b.t2": {
+   "file": "engs/engs.gap.b.t2.mp3",
+   "hash": "5095e64373fd",
+   "text": "They're two tenths behind you."
+  },
+  "engs.gap.b.t3": {
+   "file": "engs/engs.gap.b.t3.mp3",
+   "hash": "4494161a3413",
+   "text": "They're three tenths behind you."
+  },
+  "engs.gap.b.t4": {
+   "file": "engs/engs.gap.b.t4.mp3",
+   "hash": "b5880a90a14b",
+   "text": "They're four tenths behind you."
+  },
+  "engs.gap.b.t5": {
+   "file": "engs/engs.gap.b.t5.mp3",
+   "hash": "1d6a545cd3f1",
+   "text": "They're five tenths behind you."
+  },
+  "engs.gap.b.t6": {
+   "file": "engs/engs.gap.b.t6.mp3",
+   "hash": "bf785626d46e",
+   "text": "They're six tenths behind you."
+  },
+  "engs.gap.b.t7": {
+   "file": "engs/engs.gap.b.t7.mp3",
+   "hash": "f1a9012f1047",
+   "text": "They're seven tenths behind you."
+  },
+  "engs.gap.b.t8": {
+   "file": "engs/engs.gap.b.t8.mp3",
+   "hash": "87f0d8fcbfc8",
+   "text": "They're eight tenths behind you."
+  },
+  "engs.gap.b.t9": {
+   "file": "engs/engs.gap.b.t9.mp3",
+   "hash": "8c6557582986",
+   "text": "They're nine tenths behind you."
+  },
+  "engs.gap.b.g1": {
+   "file": "engs/engs.gap.b.g1.mp3",
+   "hash": "6e1ec34b031e",
+   "text": "They're a second behind you."
+  },
+  "engs.gap.b.g2": {
+   "file": "engs/engs.gap.b.g2.mp3",
+   "hash": "2e0a2f01ba7a",
+   "text": "They're two seconds behind you."
+  },
+  "engs.gap.b.g3": {
+   "file": "engs/engs.gap.b.g3.mp3",
+   "hash": "7147b5a5b507",
+   "text": "They're three seconds behind you."
+  },
+  "engs.gap.b.g4": {
+   "file": "engs/engs.gap.b.g4.mp3",
+   "hash": "bc3391320057",
+   "text": "They're four seconds behind you."
+  },
+  "engs.gap.b.g5": {
+   "file": "engs/engs.gap.b.g5.mp3",
+   "hash": "96736e01cdcd",
+   "text": "They're five seconds behind you."
+  },
+  "engs.gap.b.g6": {
+   "file": "engs/engs.gap.b.g6.mp3",
+   "hash": "6003a1ae2d05",
+   "text": "They're six seconds behind you."
+  },
+  "engs.gap.b.g7": {
+   "file": "engs/engs.gap.b.g7.mp3",
+   "hash": "71bf68690214",
+   "text": "They're seven seconds behind you."
+  },
+  "engs.gap.b.g8": {
+   "file": "engs/engs.gap.b.g8.mp3",
+   "hash": "2c9a65da7857",
+   "text": "They're eight seconds behind you."
+  },
+  "engs.gap.b.g9": {
+   "file": "engs/engs.gap.b.g9.mp3",
+   "hash": "65a7534ddaee",
+   "text": "They're nine seconds behind you."
+  },
+  "engs.gap.b.g10": {
+   "file": "engs/engs.gap.b.g10.mp3",
+   "hash": "ac43791ea29a",
+   "text": "They're ten seconds behind you."
+  },
+  "engs.gap.b.g15": {
+   "file": "engs/engs.gap.b.g15.mp3",
+   "hash": "2c4a10a9a148",
+   "text": "They're fifteen seconds behind you."
+  },
+  "engs.gap.b.g20": {
+   "file": "engs/engs.gap.b.g20.mp3",
+   "hash": "aa3b8da84c90",
+   "text": "They're twenty seconds behind you."
+  },
+  "engs.gap.b.g30": {
+   "file": "engs/engs.gap.b.g30.mp3",
+   "hash": "d7b27a41c623",
+   "text": "They're half a minute behind you."
+  },
+  "engs.gap.b.g45": {
+   "file": "engs/engs.gap.b.g45.mp3",
+   "hash": "7821324162ef",
+   "text": "They're forty-five seconds behind you."
+  },
+  "engs.gap.b.g60": {
+   "file": "engs/engs.gap.b.g60.mp3",
+   "hash": "37ce7ec8c016",
+   "text": "They're over a minute behind you."
+  },
+  "engs.gap.la.1": {
+   "file": "engs/engs.gap.la.1.mp3",
+   "hash": "a7430a1b400b",
+   "text": "They're a lap up the road."
+  },
+  "engs.gap.lb.1": {
+   "file": "engs/engs.gap.lb.1.mp3",
+   "hash": "faada345366c",
+   "text": "They're a lap down on you."
+  },
+  "engs.gap.la.2": {
+   "file": "engs/engs.gap.la.2.mp3",
+   "hash": "77cf32940cf0",
+   "text": "They're two laps up the road."
+  },
+  "engs.gap.lb.2": {
+   "file": "engs/engs.gap.lb.2.mp3",
+   "hash": "d89839b80ba4",
+   "text": "They're two laps down on you."
+  },
+  "engs.gap.close": {
+   "file": "engs/engs.gap.close.mp3",
+   "hash": "3df476d70a66",
+   "text": "They're right there with you."
+  },
+  "engs.gap.lb.3": {
+   "file": "engs/engs.gap.lb.3.mp3",
+   "hash": "c0ede4fc76d8",
+   "text": "They're three laps or more down on you."
+  },
+  "engs.gap.la.3": {
+   "file": "engs/engs.gap.la.3.mp3",
+   "hash": "9b6317d6b6e8",
+   "text": "They're three laps or more up the road."
+  },
+  "engs.tr.catch.3": {
+   "file": "engs/engs.tr.catch.3.mp3",
+   "hash": "5d9ffa4f00f4",
+   "text": "You're catching them. On them in about three laps."
+  },
+  "engs.tr.catch.1": {
+   "file": "engs/engs.tr.catch.1.mp3",
+   "hash": "e2df91cdbfc0",
+   "text": "You're catching them. On them in about a lap."
+  },
+  "engs.tr.catch.2": {
+   "file": "engs/engs.tr.catch.2.mp3",
+   "hash": "917ccef4ea93",
+   "text": "You're catching them. On them in about two laps."
+  },
+  "engs.tr.catch.5": {
+   "file": "engs/engs.tr.catch.5.mp3",
+   "hash": "57fdeb39f245",
+   "text": "You're catching them. On them in about five laps."
+  },
+  "engs.tr.catch.4": {
+   "file": "engs/engs.tr.catch.4.mp3",
+   "hash": "79f87de2f5f6",
+   "text": "You're catching them. On them in about four laps."
+  },
+  "engs.tr.catch.6": {
+   "file": "engs/engs.tr.catch.6.mp3",
+   "hash": "35247962fa64",
+   "text": "You're catching them. On them in about six laps."
+  },
+  "engs.tr.catch.7": {
+   "file": "engs/engs.tr.catch.7.mp3",
+   "hash": "0295df9d7ebb",
+   "text": "You're catching them. On them in about seven laps."
+  },
+  "engs.tr.catch.9": {
+   "file": "engs/engs.tr.catch.9.mp3",
+   "hash": "bf4384031532",
+   "text": "You're catching them. On them in about nine laps."
+  },
+  "engs.tr.catch.8": {
+   "file": "engs/engs.tr.catch.8.mp3",
+   "hash": "48f3e428a5c2",
+   "text": "You're catching them. On them in about eight laps."
+  },
+  "engs.tr.catch.10": {
+   "file": "engs/engs.tr.catch.10.mp3",
+   "hash": "71f8a9d6c230",
+   "text": "You're catching them. On them in about ten laps."
+  },
+  "engs.tr.caught.1": {
+   "file": "engs/engs.tr.caught.1.mp3",
+   "hash": "f1f274029b2d",
+   "text": "They're catching you. On you in about a lap."
+  },
+  "engs.tr.catch.x": {
+   "file": "engs/engs.tr.catch.x.mp3",
+   "hash": "5f9e9e83b1ab",
+   "text": "You're catching them, slowly. More than ten laps out."
+  },
+  "engs.tr.caught.2": {
+   "file": "engs/engs.tr.caught.2.mp3",
+   "hash": "792c6a2114a1",
+   "text": "They're catching you. On you in about two laps."
+  },
+  "engs.tr.caught.3": {
+   "file": "engs/engs.tr.caught.3.mp3",
+   "hash": "2a79b6ea3c47",
+   "text": "They're catching you. On you in about three laps."
+  },
+  "engs.tr.caught.4": {
+   "file": "engs/engs.tr.caught.4.mp3",
+   "hash": "a3b490a46c0e",
+   "text": "They're catching you. On you in about four laps."
+  },
+  "engs.tr.caught.5": {
+   "file": "engs/engs.tr.caught.5.mp3",
+   "hash": "a806e6bcece0",
+   "text": "They're catching you. On you in about five laps."
+  },
+  "engs.tr.caught.6": {
+   "file": "engs/engs.tr.caught.6.mp3",
+   "hash": "9c12f8027810",
+   "text": "They're catching you. On you in about six laps."
+  },
+  "engs.tr.caught.7": {
+   "file": "engs/engs.tr.caught.7.mp3",
+   "hash": "421be98eadc3",
+   "text": "They're catching you. On you in about seven laps."
+  },
+  "engs.tr.caught.8": {
+   "file": "engs/engs.tr.caught.8.mp3",
+   "hash": "404dc548c8bd",
+   "text": "They're catching you. On you in about eight laps."
+  },
+  "engs.tr.caught.9": {
+   "file": "engs/engs.tr.caught.9.mp3",
+   "hash": "0f94e0651c4d",
+   "text": "They're catching you. On you in about nine laps."
+  },
+  "engs.tr.caught.10": {
+   "file": "engs/engs.tr.caught.10.mp3",
+   "hash": "27b5f9f2b5a1",
+   "text": "They're catching you. On you in about ten laps."
+  },
+  "engs.tr.away.them": {
+   "file": "engs/engs.tr.away.them.mp3",
+   "hash": "2095f3332ee2",
+   "text": "They're pulling away from you."
+  },
+  "engs.tr.away.you": {
+   "file": "engs/engs.tr.away.you.mp3",
+   "hash": "18d0884fbd6f",
+   "text": "You're pulling away from them."
+  },
+  "engs.tr.caught.x": {
+   "file": "engs/engs.tr.caught.x.mp3",
+   "hash": "fd9ef53a7bc0",
+   "text": "They're catching you, slowly. More than ten laps out."
+  },
+  "engs.tr.hold": {
+   "file": "engs/engs.tr.hold.mp3",
+   "hash": "668a9346f2d1",
+   "text": "The gap's holding."
+  },
+  "engs.ti.pct.5": {
+   "file": "engs/engs.ti.pct.5.mp3",
+   "hash": "ef1f1d0d8e18",
+   "text": "Tires are at five percent."
+  },
+  "engs.ti.pct.10": {
+   "file": "engs/engs.ti.pct.10.mp3",
+   "hash": "4b2880d3d52b",
+   "text": "Tires are at ten percent."
+  },
+  "engs.ti.pct.15": {
+   "file": "engs/engs.ti.pct.15.mp3",
+   "hash": "962411805cf7",
+   "text": "Tires are at fifteen percent."
+  },
+  "engs.ti.pct.20": {
+   "file": "engs/engs.ti.pct.20.mp3",
+   "hash": "50b104ad3ddb",
+   "text": "Tires are at twenty percent."
+  },
+  "engs.ti.pct.25": {
+   "file": "engs/engs.ti.pct.25.mp3",
+   "hash": "0636f9d67eb9",
+   "text": "Tires are at twenty-five percent."
+  },
+  "engs.ti.pct.30": {
+   "file": "engs/engs.ti.pct.30.mp3",
+   "hash": "6c3953347634",
+   "text": "Tires are at thirty percent."
+  },
+  "engs.ti.pct.35": {
+   "file": "engs/engs.ti.pct.35.mp3",
+   "hash": "19bfa56ca656",
+   "text": "Tires are at thirty-five percent."
+  },
+  "engs.ti.pct.40": {
+   "file": "engs/engs.ti.pct.40.mp3",
+   "hash": "489932f314af",
+   "text": "Tires are at forty percent."
+  },
+  "engs.ti.pct.45": {
+   "file": "engs/engs.ti.pct.45.mp3",
+   "hash": "8ae2f7903694",
+   "text": "Tires are at forty-five percent."
+  },
+  "engs.ti.pct.50": {
+   "file": "engs/engs.ti.pct.50.mp3",
+   "hash": "f4b0ea35733b",
+   "text": "Tires are at fifty percent."
+  },
+  "engs.ti.pct.55": {
+   "file": "engs/engs.ti.pct.55.mp3",
+   "hash": "e669176635c7",
+   "text": "Tires are at fifty-five percent."
+  },
+  "engs.ti.pct.60": {
+   "file": "engs/engs.ti.pct.60.mp3",
+   "hash": "a5a1ee5655f8",
+   "text": "Tires are at sixty percent."
+  },
+  "engs.ti.pct.65": {
+   "file": "engs/engs.ti.pct.65.mp3",
+   "hash": "145c831e6dc5",
+   "text": "Tires are at sixty-five percent."
+  },
+  "engs.ti.pct.70": {
+   "file": "engs/engs.ti.pct.70.mp3",
+   "hash": "d4fcb4e65390",
+   "text": "Tires are at seventy percent."
+  },
+  "engs.ti.pct.80": {
+   "file": "engs/engs.ti.pct.80.mp3",
+   "hash": "5d08e47e97e6",
+   "text": "Tires are at eighty percent."
+  },
+  "engs.ti.pct.75": {
+   "file": "engs/engs.ti.pct.75.mp3",
+   "hash": "2cd1d3c9dc83",
+   "text": "Tires are at seventy-five percent."
+  },
+  "engs.ti.pct.85": {
+   "file": "engs/engs.ti.pct.85.mp3",
+   "hash": "c384b37dd769",
+   "text": "Tires are at eighty-five percent."
+  },
+  "engs.ti.pct.90": {
+   "file": "engs/engs.ti.pct.90.mp3",
+   "hash": "e9e3883143de",
+   "text": "Tires are at ninety percent."
+  },
+  "engs.ti.pct.95": {
+   "file": "engs/engs.ti.pct.95.mp3",
+   "hash": "1605403db0df",
+   "text": "Tires are at ninety-five percent."
+  },
+  "engs.ti.pct.100": {
+   "file": "engs/engs.ti.pct.100.mp3",
+   "hash": "7b26d32bb218",
+   "text": "Tires are at a hundred percent."
+  },
+  "engs.ti.left.2": {
+   "file": "engs/engs.ti.left.2.mp3",
+   "hash": "e15ea3d30ce7",
+   "text": "About two laps before they drop off."
+  },
+  "engs.ti.left.1": {
+   "file": "engs/engs.ti.left.1.mp3",
+   "hash": "351405fdbebd",
+   "text": "About a lap before they drop off."
+  },
+  "engs.ti.left.3": {
+   "file": "engs/engs.ti.left.3.mp3",
+   "hash": "e8de90c73654",
+   "text": "About three laps before they drop off."
+  },
+  "engs.ti.left.4": {
+   "file": "engs/engs.ti.left.4.mp3",
+   "hash": "67ddae8eec70",
+   "text": "About four laps before they drop off."
+  },
+  "engs.ti.left.5": {
+   "file": "engs/engs.ti.left.5.mp3",
+   "hash": "01e75abf0ae0",
+   "text": "About five laps before they drop off."
+  },
+  "engs.ti.left.6": {
+   "file": "engs/engs.ti.left.6.mp3",
+   "hash": "c0b8bb8df7b1",
+   "text": "About six laps before they drop off."
+  },
+  "engs.ti.left.7": {
+   "file": "engs/engs.ti.left.7.mp3",
+   "hash": "bc28eaff6aab",
+   "text": "About seven laps before they drop off."
+  },
+  "engs.ti.left.8": {
+   "file": "engs/engs.ti.left.8.mp3",
+   "hash": "1e8a4226faf5",
+   "text": "About eight laps before they drop off."
+  },
+  "engs.ti.left.9": {
+   "file": "engs/engs.ti.left.9.mp3",
+   "hash": "bb3f40b77a79",
+   "text": "About nine laps before they drop off."
+  },
+  "engs.ti.left.10": {
+   "file": "engs/engs.ti.left.10.mp3",
+   "hash": "18ad9bb0f2ac",
+   "text": "About ten laps before they drop off."
+  },
+  "engs.ti.left.11": {
+   "file": "engs/engs.ti.left.11.mp3",
+   "hash": "a38eeb4876e8",
+   "text": "About eleven laps before they drop off."
+  },
+  "engs.ti.left.12": {
+   "file": "engs/engs.ti.left.12.mp3",
+   "hash": "a6f9d9c152ac",
+   "text": "About twelve laps before they drop off."
+  },
+  "engs.ti.left.13": {
+   "file": "engs/engs.ti.left.13.mp3",
+   "hash": "dd85234aab2b",
+   "text": "About thirteen laps before they drop off."
+  },
+  "engs.ti.left.14": {
+   "file": "engs/engs.ti.left.14.mp3",
+   "hash": "9147d011c092",
+   "text": "About fourteen laps before they drop off."
+  },
+  "engs.ti.left.15": {
+   "file": "engs/engs.ti.left.15.mp3",
+   "hash": "b34838691235",
+   "text": "About fifteen laps before they drop off."
+  },
+  "engs.ti.left.x": {
+   "file": "engs/engs.ti.left.x.mp3",
+   "hash": "16334e073072",
+   "text": "They've got plenty left in them."
+  },
+  "engs.makeflag": {
+   "file": "engs/engs.makeflag.mp3",
+   "hash": "a463cc742e57",
+   "text": "They'll make the flag."
+  },
+  "engs.dropthis": {
+   "file": "engs/engs.dropthis.mp3",
+   "hash": "724e3465d3e8",
+   "text": "They'll drop off this lap."
+  },
+  "engs.fronts": {
+   "file": "engs/engs.fronts.mp3",
+   "hash": "3105ada08ce2",
+   "text": "Fronts are wearing faster."
+  },
+  "engs.rears": {
+   "file": "engs/engs.rears.mp3",
+   "hash": "2b2310587625",
+   "text": "Rears are wearing faster."
+  },
+  "engs.cliff": {
+   "file": "engs/engs.cliff.mp3",
+   "hash": "9deaa74c4120",
+   "text": "That's the cliff. You'll feel it everywhere."
+  },
+  "engs.nowear": {
+   "file": "engs/engs.nowear.mp3",
+   "hash": "9a09ddda119f",
+   "text": "Tire wear's off today."
+  },
+  "engs.th.on.soft": {
+   "file": "engs/engs.th.on.soft.mp3",
+   "hash": "457634ff3915",
+   "text": "They're on softs."
+  },
+  "engs.th.on.medium": {
+   "file": "engs/engs.th.on.medium.mp3",
+   "hash": "8281cc770c7f",
+   "text": "They're on mediums."
+  },
+  "engs.th.on.hard": {
+   "file": "engs/engs.th.on.hard.mp3",
+   "hash": "8f314ddc42f5",
+   "text": "They're on hards."
+  },
+  "engs.th.on.wet": {
+   "file": "engs/engs.th.on.wet.mp3",
+   "hash": "72c9b9649564",
+   "text": "They're on wets."
+  },
+  "engs.th.on.dirt": {
+   "file": "engs/engs.th.on.dirt.mp3",
+   "hash": "704b0a8318fe",
+   "text": "They're on dirt tires."
+  },
+  "engs.th.fresh.soft": {
+   "file": "engs/engs.th.fresh.soft.mp3",
+   "hash": "f1a338498794",
+   "text": "They're on a fresh set of softs."
+  },
+  "engs.th.fresh.medium": {
+   "file": "engs/engs.th.fresh.medium.mp3",
+   "hash": "56ccc4903183",
+   "text": "They're on a fresh set of mediums."
+  },
+  "engs.th.fresh.hard": {
+   "file": "engs/engs.th.fresh.hard.mp3",
+   "hash": "5d4e066ea150",
+   "text": "They're on a fresh set of hards."
+  },
+  "engs.th.fresh.wet": {
+   "file": "engs/engs.th.fresh.wet.mp3",
+   "hash": "71609f70c9f7",
+   "text": "They're on a fresh set of wets."
+  },
+  "engs.th.age.1": {
+   "file": "engs/engs.th.age.1.mp3",
+   "hash": "45f0a8a6b01f",
+   "text": "That set's done one lap."
+  },
+  "engs.th.fresh.dirt": {
+   "file": "engs/engs.th.fresh.dirt.mp3",
+   "hash": "97ccab7f505b",
+   "text": "They're on a fresh set of dirt tires."
+  },
+  "engs.th.age.2": {
+   "file": "engs/engs.th.age.2.mp3",
+   "hash": "63f124173075",
+   "text": "That set's done two laps."
+  },
+  "engs.th.age.3": {
+   "file": "engs/engs.th.age.3.mp3",
+   "hash": "bc56f01c7937",
+   "text": "That set's done three laps."
+  },
+  "engs.th.age.4": {
+   "file": "engs/engs.th.age.4.mp3",
+   "hash": "6973b4d7f149",
+   "text": "That set's done four laps."
+  },
+  "engs.th.age.5": {
+   "file": "engs/engs.th.age.5.mp3",
+   "hash": "714376d780a7",
+   "text": "That set's done five laps."
+  },
+  "engs.th.age.6": {
+   "file": "engs/engs.th.age.6.mp3",
+   "hash": "2877f09aaff7",
+   "text": "That set's done six laps."
+  },
+  "engs.th.age.7": {
+   "file": "engs/engs.th.age.7.mp3",
+   "hash": "b93e8d222ae1",
+   "text": "That set's done seven laps."
+  },
+  "engs.th.age.8": {
+   "file": "engs/engs.th.age.8.mp3",
+   "hash": "c723f0729010",
+   "text": "That set's done eight laps."
+  },
+  "engs.th.age.9": {
+   "file": "engs/engs.th.age.9.mp3",
+   "hash": "7634ebbf7236",
+   "text": "That set's done nine laps."
+  },
+  "engs.th.age.10": {
+   "file": "engs/engs.th.age.10.mp3",
+   "hash": "4d76f46c9ef3",
+   "text": "That set's done ten laps."
+  },
+  "engs.th.age.11": {
+   "file": "engs/engs.th.age.11.mp3",
+   "hash": "dcd4286f717e",
+   "text": "That set's done eleven laps."
+  },
+  "engs.th.age.12": {
+   "file": "engs/engs.th.age.12.mp3",
+   "hash": "349dffc0721f",
+   "text": "That set's done twelve laps."
+  },
+  "engs.th.age.13": {
+   "file": "engs/engs.th.age.13.mp3",
+   "hash": "2b74fa500448",
+   "text": "That set's done thirteen laps."
+  },
+  "engs.th.age.14": {
+   "file": "engs/engs.th.age.14.mp3",
+   "hash": "c0f6492c24c3",
+   "text": "That set's done fourteen laps."
+  },
+  "engs.th.age.15": {
+   "file": "engs/engs.th.age.15.mp3",
+   "hash": "81de900dc8ae",
+   "text": "That set's done fifteen laps."
+  },
+  "engs.th.age.16": {
+   "file": "engs/engs.th.age.16.mp3",
+   "hash": "e9ad3db0b445",
+   "text": "That set's done sixteen laps."
+  },
+  "engs.th.age.17": {
+   "file": "engs/engs.th.age.17.mp3",
+   "hash": "02e908b469b8",
+   "text": "That set's done seventeen laps."
+  },
+  "engs.th.age.18": {
+   "file": "engs/engs.th.age.18.mp3",
+   "hash": "1a40c642dd74",
+   "text": "That set's done eighteen laps."
+  },
+  "engs.th.age.19": {
+   "file": "engs/engs.th.age.19.mp3",
+   "hash": "ad47f2359725",
+   "text": "That set's done nineteen laps."
+  },
+  "engs.th.age.20": {
+   "file": "engs/engs.th.age.20.mp3",
+   "hash": "64ef1521cfb0",
+   "text": "That set's done twenty laps."
+  },
+  "engs.th.age.21": {
+   "file": "engs/engs.th.age.21.mp3",
+   "hash": "54a90e7ebff9",
+   "text": "That set's done twenty-one laps."
+  },
+  "engs.th.age.22": {
+   "file": "engs/engs.th.age.22.mp3",
+   "hash": "2d122699f6cb",
+   "text": "That set's done twenty-two laps."
+  },
+  "engs.th.age.23": {
+   "file": "engs/engs.th.age.23.mp3",
+   "hash": "d53e7ba689ee",
+   "text": "That set's done twenty-three laps."
+  },
+  "engs.th.age.24": {
+   "file": "engs/engs.th.age.24.mp3",
+   "hash": "0206597c36b9",
+   "text": "That set's done twenty-four laps."
+  },
+  "engs.th.age.25": {
+   "file": "engs/engs.th.age.25.mp3",
+   "hash": "d75bd2224cbf",
+   "text": "That set's done twenty-five laps."
+  },
+  "engs.th.age.26": {
+   "file": "engs/engs.th.age.26.mp3",
+   "hash": "333a11cbe802",
+   "text": "That set's done twenty-six laps."
+  },
+  "engs.th.age.27": {
+   "file": "engs/engs.th.age.27.mp3",
+   "hash": "303a2b2b66a1",
+   "text": "That set's done twenty-seven laps."
+  },
+  "engs.th.age.28": {
+   "file": "engs/engs.th.age.28.mp3",
+   "hash": "5f72aaa45199",
+   "text": "That set's done twenty-eight laps."
+  },
+  "engs.th.age.29": {
+   "file": "engs/engs.th.age.29.mp3",
+   "hash": "144ca26d2acc",
+   "text": "That set's done twenty-nine laps."
+  },
+  "engs.th.age.30": {
+   "file": "engs/engs.th.age.30.mp3",
+   "hash": "5c79da9cada1",
+   "text": "That set's done thirty laps."
+  },
+  "engs.th.age.x": {
+   "file": "engs/engs.th.age.x.mp3",
+   "hash": "7035114124d9",
+   "text": "That set's done more than thirty laps."
+  },
+  "engs.w.1": {
+   "file": "engs/engs.w.1.mp3",
+   "hash": "c52c5542f8a5",
+   "text": "They look good."
+  },
+  "engs.w.0": {
+   "file": "engs/engs.w.0.mp3",
+   "hash": "edef33e49486",
+   "text": "They look fresh."
+  },
+  "engs.w.3": {
+   "file": "engs/engs.w.3.mp3",
+   "hash": "52aa97963aa0",
+   "text": "They're going off."
+  },
+  "engs.w.4": {
+   "file": "engs/engs.w.4.mp3",
+   "hash": "b32ad0fda8df",
+   "text": "They're gone."
+  },
+  "engs.w.2": {
+   "file": "engs/engs.w.2.mp3",
+   "hash": "0e4bb1b57e90",
+   "text": "They're past their best."
+  },
+  "engs.cmp.better": {
+   "file": "engs/engs.cmp.better.mp3",
+   "hash": "6ca026e4aa87",
+   "text": "Better than yours."
+  },
+  "engs.cmp.same": {
+   "file": "engs/engs.cmp.same.mp3",
+   "hash": "0841cee3614c",
+   "text": "About the same as yours."
+  },
+  "engs.cmp.worse": {
+   "file": "engs/engs.cmp.worse.mp3",
+   "hash": "5ef22395dd71",
+   "text": "Worse than yours."
+  },
+  "engs.stopsoon": {
+   "file": "engs/engs.stopsoon.mp3",
+   "hash": "dfbbdae5e3ef",
+   "text": "Expect them to stop soon."
+  },
+  "engs.nodata": {
+   "file": "engs/engs.nodata.mp3",
+   "hash": "f4b8d66bf169",
+   "text": "No data on their wear."
+  },
+  "engs.th.pct.5": {
+   "file": "engs/engs.th.pct.5.mp3",
+   "hash": "6758e464f17c",
+   "text": "They're at five percent."
+  },
+  "engs.th.pct.10": {
+   "file": "engs/engs.th.pct.10.mp3",
+   "hash": "6918852d43a5",
+   "text": "They're at ten percent."
+  },
+  "engs.th.pct.20": {
+   "file": "engs/engs.th.pct.20.mp3",
+   "hash": "82ce3471a305",
+   "text": "They're at twenty percent."
+  },
+  "engs.th.pct.15": {
+   "file": "engs/engs.th.pct.15.mp3",
+   "hash": "b553f0d3ba5c",
+   "text": "They're at fifteen percent."
+  },
+  "engs.th.pct.25": {
+   "file": "engs/engs.th.pct.25.mp3",
+   "hash": "15d428d219bb",
+   "text": "They're at twenty-five percent."
+  },
+  "engs.th.pct.30": {
+   "file": "engs/engs.th.pct.30.mp3",
+   "hash": "ef7ad5bfb48d",
+   "text": "They're at thirty percent."
+  },
+  "engs.th.pct.35": {
+   "file": "engs/engs.th.pct.35.mp3",
+   "hash": "7c9a1fb41a46",
+   "text": "They're at thirty-five percent."
+  },
+  "engs.th.pct.40": {
+   "file": "engs/engs.th.pct.40.mp3",
+   "hash": "a0ded9ba6df6",
+   "text": "They're at forty percent."
+  },
+  "engs.th.pct.45": {
+   "file": "engs/engs.th.pct.45.mp3",
+   "hash": "a9c31e3f1947",
+   "text": "They're at forty-five percent."
+  },
+  "engs.th.pct.50": {
+   "file": "engs/engs.th.pct.50.mp3",
+   "hash": "42cb692198ca",
+   "text": "They're at fifty percent."
+  },
+  "engs.th.pct.55": {
+   "file": "engs/engs.th.pct.55.mp3",
+   "hash": "337c29409f6e",
+   "text": "They're at fifty-five percent."
+  },
+  "engs.th.pct.60": {
+   "file": "engs/engs.th.pct.60.mp3",
+   "hash": "95e3b2318ca8",
+   "text": "They're at sixty percent."
+  },
+  "engs.th.pct.65": {
+   "file": "engs/engs.th.pct.65.mp3",
+   "hash": "599b5f60a1db",
+   "text": "They're at sixty-five percent."
+  },
+  "engs.th.pct.70": {
+   "file": "engs/engs.th.pct.70.mp3",
+   "hash": "114565267d4c",
+   "text": "They're at seventy percent."
+  },
+  "engs.th.pct.75": {
+   "file": "engs/engs.th.pct.75.mp3",
+   "hash": "f8ee64cafd9a",
+   "text": "They're at seventy-five percent."
+  },
+  "engs.th.pct.80": {
+   "file": "engs/engs.th.pct.80.mp3",
+   "hash": "231ccf625dcd",
+   "text": "They're at eighty percent."
+  },
+  "engs.th.pct.90": {
+   "file": "engs/engs.th.pct.90.mp3",
+   "hash": "9ab4550ca66c",
+   "text": "They're at ninety percent."
+  },
+  "engs.th.pct.85": {
+   "file": "engs/engs.th.pct.85.mp3",
+   "hash": "473b622bc510",
+   "text": "They're at eighty-five percent."
+  },
+  "engs.th.pct.95": {
+   "file": "engs/engs.th.pct.95.mp3",
+   "hash": "9c3a15638cf5",
+   "text": "They're at ninety-five percent."
+  },
+  "engs.th.pct.100": {
+   "file": "engs/engs.th.pct.100.mp3",
+   "hash": "ebde403305f5",
+   "text": "They're at a hundred percent."
+  },
+  "engs.lo.vs.ahead": {
+   "file": "engs/engs.lo.vs.ahead.mp3",
+   "hash": "6e039c8b9ed2",
+   "text": "Against the car ahead."
+  },
+  "engs.lo.vs.best": {
+   "file": "engs/engs.lo.vs.best.mp3",
+   "hash": "2eedaedb3437",
+   "text": "Against your best lap."
+  },
+  "engs.lo.vs.fastest": {
+   "file": "engs/engs.lo.vs.fastest.mp3",
+   "hash": "7c6c76a76ff4",
+   "text": "Against the fastest car."
+  },
+  "engs.lo.vs.ideal": {
+   "file": "engs/engs.lo.vs.ideal.mp3",
+   "hash": "147087ef82d3",
+   "text": "Against our ideal lap."
+  },
+  "engs.lo.most.1": {
+   "file": "engs/engs.lo.most.1.mp3",
+   "hash": "8635ae318f79",
+   "text": "You're losing the most in Turn one."
+  },
+  "engs.lo.most.2": {
+   "file": "engs/engs.lo.most.2.mp3",
+   "hash": "6dea29c2b463",
+   "text": "You're losing the most in Turn two."
+  },
+  "engs.lo.most.3": {
+   "file": "engs/engs.lo.most.3.mp3",
+   "hash": "190fae4b80d0",
+   "text": "You're losing the most in Turn three."
+  },
+  "engs.lo.most.4": {
+   "file": "engs/engs.lo.most.4.mp3",
+   "hash": "36dc3be676b8",
+   "text": "You're losing the most in Turn four."
+  },
+  "engs.lo.most.5": {
+   "file": "engs/engs.lo.most.5.mp3",
+   "hash": "3e8741917fa4",
+   "text": "You're losing the most in Turn five."
+  },
+  "engs.lo.most.6": {
+   "file": "engs/engs.lo.most.6.mp3",
+   "hash": "808d3e9dc982",
+   "text": "You're losing the most in Turn six."
+  },
+  "engs.lo.most.7": {
+   "file": "engs/engs.lo.most.7.mp3",
+   "hash": "59fa25f4cabc",
+   "text": "You're losing the most in Turn seven."
+  },
+  "engs.lo.most.8": {
+   "file": "engs/engs.lo.most.8.mp3",
+   "hash": "1310795f3102",
+   "text": "You're losing the most in Turn eight."
+  },
+  "engs.lo.most.9": {
+   "file": "engs/engs.lo.most.9.mp3",
+   "hash": "b0b60607aa36",
+   "text": "You're losing the most in Turn nine."
+  },
+  "engs.lo.most.10": {
+   "file": "engs/engs.lo.most.10.mp3",
+   "hash": "30f8eca82b1e",
+   "text": "You're losing the most in Turn ten."
+  },
+  "engs.lo.most.11": {
+   "file": "engs/engs.lo.most.11.mp3",
+   "hash": "7ab6360729b4",
+   "text": "You're losing the most in Turn eleven."
+  },
+  "engs.lo.most.12": {
+   "file": "engs/engs.lo.most.12.mp3",
+   "hash": "0d9541961d3f",
+   "text": "You're losing the most in Turn twelve."
+  },
+  "engs.lo.most.13": {
+   "file": "engs/engs.lo.most.13.mp3",
+   "hash": "2d93e7ef352c",
+   "text": "You're losing the most in Turn thirteen."
+  },
+  "engs.lo.most.14": {
+   "file": "engs/engs.lo.most.14.mp3",
+   "hash": "949bfb3bff18",
+   "text": "You're losing the most in Turn fourteen."
+  },
+  "engs.lo.most.15": {
+   "file": "engs/engs.lo.most.15.mp3",
+   "hash": "785d094952e7",
+   "text": "You're losing the most in Turn fifteen."
+  },
+  "engs.lo.most.16": {
+   "file": "engs/engs.lo.most.16.mp3",
+   "hash": "666fe5f4554a",
+   "text": "You're losing the most in Turn sixteen."
+  },
+  "engs.lo.most.17": {
+   "file": "engs/engs.lo.most.17.mp3",
+   "hash": "5539d8a9e392",
+   "text": "You're losing the most in Turn seventeen."
+  },
+  "engs.lo.most.18": {
+   "file": "engs/engs.lo.most.18.mp3",
+   "hash": "d24725d59665",
+   "text": "You're losing the most in Turn eighteen."
+  },
+  "engs.lo.most.19": {
+   "file": "engs/engs.lo.most.19.mp3",
+   "hash": "7d7ad9244451",
+   "text": "You're losing the most in Turn nineteen."
+  },
+  "engs.lo.most.20": {
+   "file": "engs/engs.lo.most.20.mp3",
+   "hash": "6dadaeeb14c8",
+   "text": "You're losing the most in Turn twenty."
+  },
+  "engs.lo.most.x": {
+   "file": "engs/engs.lo.most.x.mp3",
+   "hash": "74f8e4ae87e3",
+   "text": "You're losing the most late in the lap."
+  },
+  "engs.lo.next.1": {
+   "file": "engs/engs.lo.next.1.mp3",
+   "hash": "f8972075a816",
+   "text": "Next is Turn one."
+  },
+  "engs.lo.next.2": {
+   "file": "engs/engs.lo.next.2.mp3",
+   "hash": "18fdfe107261",
+   "text": "Next is Turn two."
+  },
+  "engs.lo.next.3": {
+   "file": "engs/engs.lo.next.3.mp3",
+   "hash": "d162754c3938",
+   "text": "Next is Turn three."
+  },
+  "engs.lo.next.4": {
+   "file": "engs/engs.lo.next.4.mp3",
+   "hash": "358fc0463f20",
+   "text": "Next is Turn four."
+  },
+  "engs.lo.next.5": {
+   "file": "engs/engs.lo.next.5.mp3",
+   "hash": "12d1be7e4a4a",
+   "text": "Next is Turn five."
+  },
+  "engs.lo.next.6": {
+   "file": "engs/engs.lo.next.6.mp3",
+   "hash": "6ec9ee362874",
+   "text": "Next is Turn six."
+  },
+  "engs.lo.next.7": {
+   "file": "engs/engs.lo.next.7.mp3",
+   "hash": "fd2e8bf1a09b",
+   "text": "Next is Turn seven."
+  },
+  "engs.lo.next.8": {
+   "file": "engs/engs.lo.next.8.mp3",
+   "hash": "dfa1bfb9b257",
+   "text": "Next is Turn eight."
+  },
+  "engs.lo.next.9": {
+   "file": "engs/engs.lo.next.9.mp3",
+   "hash": "83ccd8d31dc6",
+   "text": "Next is Turn nine."
+  },
+  "engs.lo.next.10": {
+   "file": "engs/engs.lo.next.10.mp3",
+   "hash": "4d12b3839908",
+   "text": "Next is Turn ten."
+  },
+  "engs.lo.next.11": {
+   "file": "engs/engs.lo.next.11.mp3",
+   "hash": "3af4894c2168",
+   "text": "Next is Turn eleven."
+  },
+  "engs.lo.next.12": {
+   "file": "engs/engs.lo.next.12.mp3",
+   "hash": "ffe6cbd337a0",
+   "text": "Next is Turn twelve."
+  },
+  "engs.lo.next.13": {
+   "file": "engs/engs.lo.next.13.mp3",
+   "hash": "e13bde4595d7",
+   "text": "Next is Turn thirteen."
+  },
+  "engs.lo.next.14": {
+   "file": "engs/engs.lo.next.14.mp3",
+   "hash": "27f5f776e2cb",
+   "text": "Next is Turn fourteen."
+  },
+  "engs.lo.next.15": {
+   "file": "engs/engs.lo.next.15.mp3",
+   "hash": "094370cc90a5",
+   "text": "Next is Turn fifteen."
+  },
+  "engs.lo.next.16": {
+   "file": "engs/engs.lo.next.16.mp3",
+   "hash": "46a3f0df98ba",
+   "text": "Next is Turn sixteen."
+  },
+  "engs.lo.next.17": {
+   "file": "engs/engs.lo.next.17.mp3",
+   "hash": "ff0472d2238b",
+   "text": "Next is Turn seventeen."
+  },
+  "engs.lo.next.18": {
+   "file": "engs/engs.lo.next.18.mp3",
+   "hash": "e2b77a2fa0ab",
+   "text": "Next is Turn eighteen."
+  },
+  "engs.lo.next.19": {
+   "file": "engs/engs.lo.next.19.mp3",
+   "hash": "d9d9ba66016f",
+   "text": "Next is Turn nineteen."
+  },
+  "engs.lo.next.20": {
+   "file": "engs/engs.lo.next.20.mp3",
+   "hash": "86fd6b7254bc",
+   "text": "Next is Turn twenty."
+  },
+  "engs.lo.next.x": {
+   "file": "engs/engs.lo.next.x.mp3",
+   "hash": "a88b26d07802",
+   "text": "Next is late in the lap."
+  },
+  "engs.lo.amt.t1": {
+   "file": "engs/engs.lo.amt.t1.mp3",
+   "hash": "136b0d2e9af9",
+   "text": "A tenth there."
+  },
+  "engs.lo.amt.t2": {
+   "file": "engs/engs.lo.amt.t2.mp3",
+   "hash": "8e8e29a9550a",
+   "text": "Two tenths there."
+  },
+  "engs.lo.amt.t3": {
+   "file": "engs/engs.lo.amt.t3.mp3",
+   "hash": "5edc1dadbb69",
+   "text": "Three tenths there."
+  },
+  "engs.lo.amt.t4": {
+   "file": "engs/engs.lo.amt.t4.mp3",
+   "hash": "442350d20a47",
+   "text": "Four tenths there."
+  },
+  "engs.lo.amt.t5": {
+   "file": "engs/engs.lo.amt.t5.mp3",
+   "hash": "e1cdcba29687",
+   "text": "Five tenths there."
+  },
+  "engs.lo.amt.t6": {
+   "file": "engs/engs.lo.amt.t6.mp3",
+   "hash": "f74056807811",
+   "text": "Six tenths there."
+  },
+  "engs.lo.amt.t7": {
+   "file": "engs/engs.lo.amt.t7.mp3",
+   "hash": "cd64adcfc9d0",
+   "text": "Seven tenths there."
+  },
+  "engs.lo.amt.t8": {
+   "file": "engs/engs.lo.amt.t8.mp3",
+   "hash": "f2996815a6a4",
+   "text": "Eight tenths there."
+  },
+  "engs.lo.amt.t9": {
+   "file": "engs/engs.lo.amt.t9.mp3",
+   "hash": "26b44c0a0ff3",
+   "text": "Nine tenths there."
+  },
+  "engs.lo.amt.s1": {
+   "file": "engs/engs.lo.amt.s1.mp3",
+   "hash": "9c3886276e44",
+   "text": "A second there."
+  },
+  "engs.lo.amt.s2": {
+   "file": "engs/engs.lo.amt.s2.mp3",
+   "hash": "ca5e524505cf",
+   "text": "Two seconds there."
+  },
+  "engs.lo.amt.s1h": {
+   "file": "engs/engs.lo.amt.s1h.mp3",
+   "hash": "d2c6cbc9e840",
+   "text": "A second and a half there."
+  },
+  "engs.lo.amt.s3": {
+   "file": "engs/engs.lo.amt.s3.mp3",
+   "hash": "fc865c5d32bc",
+   "text": "Three seconds there."
+  },
+  "engs.lo.amt.s4": {
+   "file": "engs/engs.lo.amt.s4.mp3",
+   "hash": "c6fa055e59f0",
+   "text": "Four seconds there."
+  },
+  "engs.lo.amt.s5": {
+   "file": "engs/engs.lo.amt.s5.mp3",
+   "hash": "2caebcbb9dc7",
+   "text": "Five seconds there."
+  },
+  "engs.lo.amt.s5p": {
+   "file": "engs/engs.lo.amt.s5p.mp3",
+   "hash": "5300ffd4a3e3",
+   "text": "More than five seconds there."
+  },
+  "engs.why.hit": {
+   "file": "engs/engs.why.hit.mp3",
+   "hash": "8a33273656c4",
+   "text": "You hit the wall."
+  },
+  "engs.why.off": {
+   "file": "engs/engs.why.off.mp3",
+   "hash": "60eca619e513",
+   "text": "You ran wide off the road."
+  },
+  "engs.why.lock": {
+   "file": "engs/engs.why.lock.mp3",
+   "hash": "a48d301e8d69",
+   "text": "You're locking up."
+  },
+  "engs.why.late": {
+   "file": "engs/engs.why.late.mp3",
+   "hash": "9e19100acfbd",
+   "text": "You're braking too late and overshooting."
+  },
+  "engs.why.early": {
+   "file": "engs/engs.why.early.mp3",
+   "hash": "c0967db2a83f",
+   "text": "You're braking too early."
+  },
+  "engs.why.under": {
+   "file": "engs/engs.why.under.mp3",
+   "hash": "75180c02031d",
+   "text": "You've got understeer on the way in."
+  },
+  "engs.why.min": {
+   "file": "engs/engs.why.min.mp3",
+   "hash": "bc9353f3f867",
+   "text": "You're too slow at the apex."
+  },
+  "engs.why.thr": {
+   "file": "engs/engs.why.thr.mp3",
+   "hash": "60a6c108cc48",
+   "text": "You're late on the throttle."
+  },
+  "engs.why.coast": {
+   "file": "engs/engs.why.coast.mp3",
+   "hash": "9c5a9746d6b3",
+   "text": "You're coasting between the pedals."
+  },
+  "engs.why.slide": {
+   "file": "engs/engs.why.slide.mp3",
+   "hash": "f0e77a292960",
+   "text": "The rear is sliding on exit."
+  },
+  "engs.why.tc": {
+   "file": "engs/engs.why.tc.mp3",
+   "hash": "37aecd745f1f",
+   "text": "Traction control is cutting in on exit."
+  },
+  "engs.why.exit": {
+   "file": "engs/engs.why.exit.mp3",
+   "hash": "d97c4fdb202e",
+   "text": "Your exit is slow."
+  },
+  "engs.smallbits": {
+   "file": "engs/engs.smallbits.mp3",
+   "hash": "79898b7ec5a7",
+   "text": "Only small bits everywhere. Nothing big."
+  },
+  "engs.matching": {
+   "file": "engs/engs.matching.mp3",
+   "hash": "4cc73ae750ab",
+   "text": "You're matching them everywhere. Keep it up."
+  },
+  "engs.needlap": {
+   "file": "engs/engs.needlap.mp3",
+   "hash": "4462a96e672b",
+   "text": "Need a full lap of data first."
+  },
+  "engs.pit.box.0": {
+   "file": "engs/engs.pit.box.0.mp3",
+   "hash": "57d37f66fcfa",
+   "text": "Plan says box this lap."
+  },
+  "engs.pit.box.1": {
+   "file": "engs/engs.pit.box.1.mp3",
+   "hash": "8eeac1248a77",
+   "text": "Plan says box next lap."
+  },
+  "engs.pit.box.2": {
+   "file": "engs/engs.pit.box.2.mp3",
+   "hash": "5b751f9a79a6",
+   "text": "Plan says box in two laps."
+  },
+  "engs.pit.box.3": {
+   "file": "engs/engs.pit.box.3.mp3",
+   "hash": "803fd040aa91",
+   "text": "Plan says box in three laps."
+  },
+  "engs.pit.box.4": {
+   "file": "engs/engs.pit.box.4.mp3",
+   "hash": "2b4fdd7d4a4e",
+   "text": "Plan says box in four laps."
+  },
+  "engs.pit.box.5": {
+   "file": "engs/engs.pit.box.5.mp3",
+   "hash": "090558f32b90",
+   "text": "Plan says box in five laps."
+  },
+  "engs.pit.box.6": {
+   "file": "engs/engs.pit.box.6.mp3",
+   "hash": "8e9755057f1c",
+   "text": "Plan says box in six laps."
+  },
+  "engs.pit.box.7": {
+   "file": "engs/engs.pit.box.7.mp3",
+   "hash": "41d587af3569",
+   "text": "Plan says box in seven laps."
+  },
+  "engs.pit.box.8": {
+   "file": "engs/engs.pit.box.8.mp3",
+   "hash": "50f98b82c722",
+   "text": "Plan says box in eight laps."
+  },
+  "engs.pit.box.9": {
+   "file": "engs/engs.pit.box.9.mp3",
+   "hash": "dca55b595b31",
+   "text": "Plan says box in nine laps."
+  },
+  "engs.pit.box.10": {
+   "file": "engs/engs.pit.box.10.mp3",
+   "hash": "5765a1d20c61",
+   "text": "Plan says box in ten laps."
+  },
+  "engs.pit.box.11": {
+   "file": "engs/engs.pit.box.11.mp3",
+   "hash": "e1aec2dec2ae",
+   "text": "Plan says box in eleven laps."
+  },
+  "engs.pit.box.12": {
+   "file": "engs/engs.pit.box.12.mp3",
+   "hash": "35fc09ca5146",
+   "text": "Plan says box in twelve laps."
+  },
+  "engs.pit.box.13": {
+   "file": "engs/engs.pit.box.13.mp3",
+   "hash": "4cc0b848396a",
+   "text": "Plan says box in thirteen laps."
+  },
+  "engs.pit.box.14": {
+   "file": "engs/engs.pit.box.14.mp3",
+   "hash": "f46e148c49a8",
+   "text": "Plan says box in fourteen laps."
+  },
+  "engs.pit.box.15": {
+   "file": "engs/engs.pit.box.15.mp3",
+   "hash": "b13b321bd2df",
+   "text": "Plan says box in fifteen laps."
+  },
+  "engs.pit.box.16": {
+   "file": "engs/engs.pit.box.16.mp3",
+   "hash": "ab857ed1d2a6",
+   "text": "Plan says box in sixteen laps."
+  },
+  "engs.pit.box.17": {
+   "file": "engs/engs.pit.box.17.mp3",
+   "hash": "82047a70f6f1",
+   "text": "Plan says box in seventeen laps."
+  },
+  "engs.pit.box.18": {
+   "file": "engs/engs.pit.box.18.mp3",
+   "hash": "1437882ecd4e",
+   "text": "Plan says box in eighteen laps."
+  },
+  "engs.pit.box.19": {
+   "file": "engs/engs.pit.box.19.mp3",
+   "hash": "f89d4e4c552d",
+   "text": "Plan says box in nineteen laps."
+  },
+  "engs.pit.box.20": {
+   "file": "engs/engs.pit.box.20.mp3",
+   "hash": "399f54e75ee0",
+   "text": "Plan says box in twenty laps."
+  },
+  "engs.pit.box.21": {
+   "file": "engs/engs.pit.box.21.mp3",
+   "hash": "1cfc48c2b80b",
+   "text": "Plan says box in twenty-one laps."
+  },
+  "engs.pit.box.22": {
+   "file": "engs/engs.pit.box.22.mp3",
+   "hash": "b878d98926a7",
+   "text": "Plan says box in twenty-two laps."
+  },
+  "engs.pit.box.23": {
+   "file": "engs/engs.pit.box.23.mp3",
+   "hash": "009c617ebcd0",
+   "text": "Plan says box in twenty-three laps."
+  },
+  "engs.pit.box.25": {
+   "file": "engs/engs.pit.box.25.mp3",
+   "hash": "d4b72d8b96fa",
+   "text": "Plan says box in twenty-five laps."
+  },
+  "engs.pit.box.24": {
+   "file": "engs/engs.pit.box.24.mp3",
+   "hash": "7abd4ae0cb8d",
+   "text": "Plan says box in twenty-four laps."
+  },
+  "engs.pit.box.27": {
+   "file": "engs/engs.pit.box.27.mp3",
+   "hash": "d28fe2e96bca",
+   "text": "Plan says box in twenty-seven laps."
+  },
+  "engs.pit.box.26": {
+   "file": "engs/engs.pit.box.26.mp3",
+   "hash": "5a34347635b9",
+   "text": "Plan says box in twenty-six laps."
+  },
+  "engs.pit.box.28": {
+   "file": "engs/engs.pit.box.28.mp3",
+   "hash": "90ab18425f5e",
+   "text": "Plan says box in twenty-eight laps."
+  },
+  "engs.pit.box.30": {
+   "file": "engs/engs.pit.box.30.mp3",
+   "hash": "338003ccec7f",
+   "text": "Plan says box in thirty laps."
+  },
+  "engs.pit.box.29": {
+   "file": "engs/engs.pit.box.29.mp3",
+   "hash": "0cda179a5a45",
+   "text": "Plan says box in twenty-nine laps."
+  },
+  "engs.pit.box.x": {
+   "file": "engs/engs.pit.box.x.mp3",
+   "hash": "2703cbf1a50e",
+   "text": "Plan says box in more than thirty laps."
+  },
+  "engs.pit.to.soft": {
+   "file": "engs/engs.pit.to.soft.mp3",
+   "hash": "4cef107f95de",
+   "text": "We'll go to softs."
+  },
+  "engs.pit.to.medium": {
+   "file": "engs/engs.pit.to.medium.mp3",
+   "hash": "035cf7305d4c",
+   "text": "We'll go to mediums."
+  },
+  "engs.pit.to.hard": {
+   "file": "engs/engs.pit.to.hard.mp3",
+   "hash": "eef733f278a6",
+   "text": "We'll go to hards."
+  },
+  "engs.pit.to.wet": {
+   "file": "engs/engs.pit.to.wet.mp3",
+   "hash": "ee69df87e3c5",
+   "text": "We'll go to wets."
+  },
+  "engs.wontmake": {
+   "file": "engs/engs.wontmake.mp3",
+   "hash": "08d583f5c3e5",
+   "text": "Tires won't make it to the stop."
+  },
+  "engs.couldgo": {
+   "file": "engs/engs.couldgo.mp3",
+   "hash": "bbbf6bf40e5e",
+   "text": "Tires could go a few laps longer."
+  },
+  "engs.pit.out.1": {
+   "file": "engs/engs.pit.out.1.mp3",
+   "hash": "0c072a966969",
+   "text": "Stop now and you'd come out Pone."
+  },
+  "engs.pit.out.2": {
+   "file": "engs/engs.pit.out.2.mp3",
+   "hash": "f4053dd25f64",
+   "text": "Stop now and you'd come out Ptwo."
+  },
+  "engs.pit.out.3": {
+   "file": "engs/engs.pit.out.3.mp3",
+   "hash": "7667f120cd90",
+   "text": "Stop now and you'd come out Pthree."
+  },
+  "engs.pit.out.4": {
+   "file": "engs/engs.pit.out.4.mp3",
+   "hash": "e4be67a0b5a2",
+   "text": "Stop now and you'd come out Pfour."
+  },
+  "engs.pit.out.5": {
+   "file": "engs/engs.pit.out.5.mp3",
+   "hash": "2e4576ab1fea",
+   "text": "Stop now and you'd come out Pfive."
+  },
+  "engs.pit.out.6": {
+   "file": "engs/engs.pit.out.6.mp3",
+   "hash": "5cb29f3179ea",
+   "text": "Stop now and you'd come out Psix."
+  },
+  "engs.pit.out.7": {
+   "file": "engs/engs.pit.out.7.mp3",
+   "hash": "bd39ad780390",
+   "text": "Stop now and you'd come out Pseven."
+  },
+  "engs.pit.out.8": {
+   "file": "engs/engs.pit.out.8.mp3",
+   "hash": "6847a7d878dd",
+   "text": "Stop now and you'd come out Peight."
+  },
+  "engs.pit.out.9": {
+   "file": "engs/engs.pit.out.9.mp3",
+   "hash": "17785d4920be",
+   "text": "Stop now and you'd come out Pnine."
+  },
+  "engs.pit.out.10": {
+   "file": "engs/engs.pit.out.10.mp3",
+   "hash": "e28d6cc076a4",
+   "text": "Stop now and you'd come out Pten."
+  },
+  "engs.pit.out.11": {
+   "file": "engs/engs.pit.out.11.mp3",
+   "hash": "5934586f5171",
+   "text": "Stop now and you'd come out Peleven."
+  },
+  "engs.pit.out.12": {
+   "file": "engs/engs.pit.out.12.mp3",
+   "hash": "2b3d58468527",
+   "text": "Stop now and you'd come out Ptwelve."
+  },
+  "engs.pit.out.13": {
+   "file": "engs/engs.pit.out.13.mp3",
+   "hash": "5bca0154e040",
+   "text": "Stop now and you'd come out Pthirteen."
+  },
+  "engs.pit.out.14": {
+   "file": "engs/engs.pit.out.14.mp3",
+   "hash": "c10605f65c3f",
+   "text": "Stop now and you'd come out Pfourteen."
+  },
+  "engs.pit.out.16": {
+   "file": "engs/engs.pit.out.16.mp3",
+   "hash": "d60bb470fa0f",
+   "text": "Stop now and you'd come out Psixteen."
+  },
+  "engs.pit.out.15": {
+   "file": "engs/engs.pit.out.15.mp3",
+   "hash": "d33bf1aa99d6",
+   "text": "Stop now and you'd come out Pfifteen."
+  },
+  "engs.pit.out.17": {
+   "file": "engs/engs.pit.out.17.mp3",
+   "hash": "ec0ec7cf18a0",
+   "text": "Stop now and you'd come out Pseventeen."
+  },
+  "engs.pit.out.18": {
+   "file": "engs/engs.pit.out.18.mp3",
+   "hash": "eace5437f716",
+   "text": "Stop now and you'd come out Peighteen."
+  },
+  "engs.pit.out.19": {
+   "file": "engs/engs.pit.out.19.mp3",
+   "hash": "03860a1284b5",
+   "text": "Stop now and you'd come out Pnineteen."
+  },
+  "engs.pit.out.20": {
+   "file": "engs/engs.pit.out.20.mp3",
+   "hash": "308072856faa",
+   "text": "Stop now and you'd come out Ptwenty."
+  },
+  "engs.pit.out.21": {
+   "file": "engs/engs.pit.out.21.mp3",
+   "hash": "0e888083f875",
+   "text": "Stop now and you'd come out Ptwenty-one."
+  },
+  "engs.pit.out.22": {
+   "file": "engs/engs.pit.out.22.mp3",
+   "hash": "0a0696a0a1d3",
+   "text": "Stop now and you'd come out Ptwenty-two."
+  },
+  "engs.nostops": {
+   "file": "engs/engs.nostops.mp3",
+   "hash": "45fba229b14c",
+   "text": "No more stops planned."
+  },
+  "engs.pit.out.23": {
+   "file": "engs/engs.pit.out.23.mp3",
+   "hash": "6ee35ee6b1ab",
+   "text": "Stop now and you'd come out Ptwenty-three."
+  },
+  "engs.pit.out.24": {
+   "file": "engs/engs.pit.out.24.mp3",
+   "hash": "09f69bd44184",
+   "text": "Stop now and you'd come out Ptwenty-four."
+  },
+  "engs.ord.hold": {
+   "file": "engs/engs.ord.hold.mp3",
+   "hash": "c45bd08474d7",
+   "text": "Copy. Telling them to hold position."
+  },
+  "engs.ord.letby": {
+   "file": "engs/engs.ord.letby.mp3",
+   "hash": "2e3cc1542ab3",
+   "text": "Copy. Asking them to let you by."
+  },
+  "engs.ord.push": {
+   "file": "engs/engs.ord.push.mp3",
+   "hash": "6fa7fd66464c",
+   "text": "Copy. Telling them to push."
+  },
+  "engs.ord.save": {
+   "file": "engs/engs.ord.save.mp3",
+   "hash": "73a29b95ae10",
+   "text": "Copy. Telling them to save tires."
+  },
+  "engs.ord.notahead": {
+   "file": "engs/engs.ord.notahead.mp3",
+   "hash": "0c43aa5857db",
+   "text": "They're not right in front of you."
+  },
+  "engs.ord.wait": {
+   "file": "engs/engs.ord.wait.mp3",
+   "hash": "e0ece90569c0",
+   "text": "Give them a minute. They've only just had the last one."
+  },
+  "engs.ord.notbehind": {
+   "file": "engs/engs.ord.notbehind.mp3",
+   "hash": "5ec00798a6b0",
+   "text": "They're not right behind you."
+  },
+  "engs.lost": {
+   "file": "engs/engs.lost.mp3",
+   "hash": "09cb560dc943",
+   "text": "Lost them on the data. Ask again."
   }
  }
 }

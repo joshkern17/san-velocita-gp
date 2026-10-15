@@ -5224,7 +5224,7 @@ function startRace(track, cfg, ret, quick = false) {
       await r.prepare((f, label) => loadStep(0.08 + f * 0.82, label));
       if (screen !== 's-loading') { r.dispose?.(); return; } // (left while it was building)
       sim = r;
-      voPreload('eng'); voPreload('engp'); // (the engineer's clips decoded now, so the first call isn't late; engp: the pieces radio answers are stitched from)
+      voPreload('eng'); voPreload('engs'); // (the engineer's clips decoded now, so the first call isn't late; engs: the sentences radio answers are made of)
       loadStep(0.92, 'Warming up');
       sim.aidBonus = bonusNow(); // (the lowest you race with counts: see noteAidBonus)
       // warm-up render so shaders compile behind the loading screen (all of them, not just what the start camera sees)

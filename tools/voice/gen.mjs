@@ -21,7 +21,7 @@ const MODEL = 'eleven_v4';
 // the voices (the user's own, in their ElevenLabs account); a section not listed here isn't voiced
 const VOICES = {
   eng: 'hoiJIjqBjNO1OD2v0ObR',       // SV engineer 001 - modern drawl
-  engp: 'hoiJIjqBjNO1OD2v0ObR',      // ...the pieces radio answers are stitched from (js/radioask.js)
+  engs: 'hoiJIjqBjNO1OD2v0ObR',      // ...the sentences radio answers are made of (js/radioask.js)
   announcer: 'JDrV7ejkLZSvqwpOlu3t', // SV announcer 002 - Modern American (main commentator)
   color: 'hQSbu3htRm8eJbMhfZcZ',     // SV announcer 004 (color commentator: a race car driver who happens to have a microphone)
   pbp: 'JDrV7ejkLZSvqwpOlu3t',       // the main commentator again, calling it live
