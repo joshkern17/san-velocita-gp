@@ -6305,5 +6305,1087 @@
    "hash": "b3e0e74dfed7",
    "text": "[admiring, sincere] There's a lot of work behind a moment like that."
   }
+ },
+ "engp": {
+  "engp.n.2": {
+   "file": "engp/engp.n.2.mp3",
+   "hash": "8bf17c7822af",
+   "text": "[flat] two"
+  },
+  "engp.n.0": {
+   "file": "engp/engp.n.0.mp3",
+   "hash": "9e61459cc4c5",
+   "text": "[flat] zero"
+  },
+  "engp.n.3": {
+   "file": "engp/engp.n.3.mp3",
+   "hash": "003741b88c66",
+   "text": "[flat] three"
+  },
+  "engp.n.4": {
+   "file": "engp/engp.n.4.mp3",
+   "hash": "553004bd63c2",
+   "text": "[flat] four"
+  },
+  "engp.n.5": {
+   "file": "engp/engp.n.5.mp3",
+   "hash": "90c382eda1f1",
+   "text": "[flat] five"
+  },
+  "engp.n.6": {
+   "file": "engp/engp.n.6.mp3",
+   "hash": "4b959dc8d706",
+   "text": "[flat] six"
+  },
+  "engp.n.1": {
+   "file": "engp/engp.n.1.mp3",
+   "hash": "034bcf026a87",
+   "text": "[flat] one"
+  },
+  "engp.n.7": {
+   "file": "engp/engp.n.7.mp3",
+   "hash": "e16b23b7664a",
+   "text": "[flat] seven"
+  },
+  "engp.n.8": {
+   "file": "engp/engp.n.8.mp3",
+   "hash": "06c4b359c840",
+   "text": "[flat] eight"
+  },
+  "engp.n.9": {
+   "file": "engp/engp.n.9.mp3",
+   "hash": "1c9834c1af15",
+   "text": "[flat] nine"
+  },
+  "engp.n.10": {
+   "file": "engp/engp.n.10.mp3",
+   "hash": "be52cb59d820",
+   "text": "[flat] ten"
+  },
+  "engp.n.11": {
+   "file": "engp/engp.n.11.mp3",
+   "hash": "6f24016c467d",
+   "text": "[flat] eleven"
+  },
+  "engp.n.12": {
+   "file": "engp/engp.n.12.mp3",
+   "hash": "a435d0044063",
+   "text": "[flat] twelve"
+  },
+  "engp.n.13": {
+   "file": "engp/engp.n.13.mp3",
+   "hash": "e639200d5d04",
+   "text": "[flat] thirteen"
+  },
+  "engp.n.14": {
+   "file": "engp/engp.n.14.mp3",
+   "hash": "08e4011c1fa4",
+   "text": "[flat] fourteen"
+  },
+  "engp.n.15": {
+   "file": "engp/engp.n.15.mp3",
+   "hash": "6184ff8399a0",
+   "text": "[flat] fifteen"
+  },
+  "engp.n.17": {
+   "file": "engp/engp.n.17.mp3",
+   "hash": "5f276502a1e8",
+   "text": "[flat] seventeen"
+  },
+  "engp.n.16": {
+   "file": "engp/engp.n.16.mp3",
+   "hash": "975028e1859b",
+   "text": "[flat] sixteen"
+  },
+  "engp.n.18": {
+   "file": "engp/engp.n.18.mp3",
+   "hash": "ff8fb5d3e6a3",
+   "text": "[flat] eighteen"
+  },
+  "engp.n.19": {
+   "file": "engp/engp.n.19.mp3",
+   "hash": "39cb02956846",
+   "text": "[flat] nineteen"
+  },
+  "engp.n.20": {
+   "file": "engp/engp.n.20.mp3",
+   "hash": "955e405f17f7",
+   "text": "[flat] twenty"
+  },
+  "engp.n.30": {
+   "file": "engp/engp.n.30.mp3",
+   "hash": "b8867ae19d5f",
+   "text": "[flat] thirty"
+  },
+  "engp.n.50": {
+   "file": "engp/engp.n.50.mp3",
+   "hash": "262e50ea7611",
+   "text": "[flat] fifty"
+  },
+  "engp.n.40": {
+   "file": "engp/engp.n.40.mp3",
+   "hash": "d1643e86d66e",
+   "text": "[flat] forty"
+  },
+  "engp.n.60": {
+   "file": "engp/engp.n.60.mp3",
+   "hash": "857785685383",
+   "text": "[flat] sixty"
+  },
+  "engp.n.80": {
+   "file": "engp/engp.n.80.mp3",
+   "hash": "0c1a8406fec7",
+   "text": "[flat] eighty"
+  },
+  "engp.n.70": {
+   "file": "engp/engp.n.70.mp3",
+   "hash": "cedecfc455e2",
+   "text": "[flat] seventy"
+  },
+  "engp.n.90": {
+   "file": "engp/engp.n.90.mp3",
+   "hash": "d07215766966",
+   "text": "[flat] ninety"
+  },
+  "engp.n.100": {
+   "file": "engp/engp.n.100.mp3",
+   "hash": "6c8bcb7cb990",
+   "text": "[flat] over a hundred"
+  },
+  "engp.pt.0": {
+   "file": "engp/engp.pt.0.mp3",
+   "hash": "dce7b995f4c6",
+   "text": "[flat] point zero"
+  },
+  "engp.pt.1": {
+   "file": "engp/engp.pt.1.mp3",
+   "hash": "63b3008d7669",
+   "text": "[flat] point one"
+  },
+  "engp.pt.2": {
+   "file": "engp/engp.pt.2.mp3",
+   "hash": "d2895eadf264",
+   "text": "[flat] point two"
+  },
+  "engp.pt.3": {
+   "file": "engp/engp.pt.3.mp3",
+   "hash": "54b656a3c1c6",
+   "text": "[flat] point three"
+  },
+  "engp.pt.4": {
+   "file": "engp/engp.pt.4.mp3",
+   "hash": "f853f8c0d169",
+   "text": "[flat] point four"
+  },
+  "engp.pt.5": {
+   "file": "engp/engp.pt.5.mp3",
+   "hash": "697041c9261f",
+   "text": "[flat] point five"
+  },
+  "engp.pt.6": {
+   "file": "engp/engp.pt.6.mp3",
+   "hash": "ecf45807accd",
+   "text": "[flat] point six"
+  },
+  "engp.pt.7": {
+   "file": "engp/engp.pt.7.mp3",
+   "hash": "4971cc4ccf6f",
+   "text": "[flat] point seven"
+  },
+  "engp.pt.8": {
+   "file": "engp/engp.pt.8.mp3",
+   "hash": "562bd7ee70b7",
+   "text": "[flat] point eight"
+  },
+  "engp.pt.9": {
+   "file": "engp/engp.pt.9.mp3",
+   "hash": "0de65acd701d",
+   "text": "[flat] point nine"
+  },
+  "engp.pct.10": {
+   "file": "engp/engp.pct.10.mp3",
+   "hash": "87d8407cea7d",
+   "text": "[flat] ten percent."
+  },
+  "engp.pct.5": {
+   "file": "engp/engp.pct.5.mp3",
+   "hash": "598f875ed1fa",
+   "text": "[flat] five percent."
+  },
+  "engp.pct.15": {
+   "file": "engp/engp.pct.15.mp3",
+   "hash": "4ef98fa33644",
+   "text": "[flat] fifteen percent."
+  },
+  "engp.pct.25": {
+   "file": "engp/engp.pct.25.mp3",
+   "hash": "955648e07d08",
+   "text": "[flat] twenty-five percent."
+  },
+  "engp.pct.20": {
+   "file": "engp/engp.pct.20.mp3",
+   "hash": "e6c2cbb5bff2",
+   "text": "[flat] twenty percent."
+  },
+  "engp.pct.30": {
+   "file": "engp/engp.pct.30.mp3",
+   "hash": "96f4eff901c6",
+   "text": "[flat] thirty percent."
+  },
+  "engp.pct.35": {
+   "file": "engp/engp.pct.35.mp3",
+   "hash": "e604f653a1cd",
+   "text": "[flat] thirty-five percent."
+  },
+  "engp.pct.40": {
+   "file": "engp/engp.pct.40.mp3",
+   "hash": "f69bb0f727ae",
+   "text": "[flat] forty percent."
+  },
+  "engp.pct.45": {
+   "file": "engp/engp.pct.45.mp3",
+   "hash": "86ae462985dd",
+   "text": "[flat] forty-five percent."
+  },
+  "engp.pct.50": {
+   "file": "engp/engp.pct.50.mp3",
+   "hash": "4a062b0ff8ec",
+   "text": "[flat] fifty percent."
+  },
+  "engp.pct.55": {
+   "file": "engp/engp.pct.55.mp3",
+   "hash": "673580e7b0c8",
+   "text": "[flat] fifty-five percent."
+  },
+  "engp.pct.60": {
+   "file": "engp/engp.pct.60.mp3",
+   "hash": "297fa0d0dd80",
+   "text": "[flat] sixty percent."
+  },
+  "engp.pct.70": {
+   "file": "engp/engp.pct.70.mp3",
+   "hash": "d01bd19cf60a",
+   "text": "[flat] seventy percent."
+  },
+  "engp.pct.65": {
+   "file": "engp/engp.pct.65.mp3",
+   "hash": "fdd439588aa5",
+   "text": "[flat] sixty-five percent."
+  },
+  "engp.pct.75": {
+   "file": "engp/engp.pct.75.mp3",
+   "hash": "da4ce3d95303",
+   "text": "[flat] seventy-five percent."
+  },
+  "engp.pct.80": {
+   "file": "engp/engp.pct.80.mp3",
+   "hash": "3c81736a3cb1",
+   "text": "[flat] eighty percent."
+  },
+  "engp.pct.85": {
+   "file": "engp/engp.pct.85.mp3",
+   "hash": "a59e68f8342e",
+   "text": "[flat] eighty-five percent."
+  },
+  "engp.pct.90": {
+   "file": "engp/engp.pct.90.mp3",
+   "hash": "45cc5eb80df8",
+   "text": "[flat] ninety percent."
+  },
+  "engp.pct.100": {
+   "file": "engp/engp.pct.100.mp3",
+   "hash": "178f87e5875e",
+   "text": "[flat] a hundred percent."
+  },
+  "engp.pct.95": {
+   "file": "engp/engp.pct.95.mp3",
+   "hash": "8d9d13f95eb6",
+   "text": "[flat] ninety-five percent."
+  },
+  "engp.turn": {
+   "file": "engp/engp.turn.mp3",
+   "hash": "91d4f1de0b7a",
+   "text": "[flat] turn"
+  },
+  "engp.turn.1": {
+   "file": "engp/engp.turn.1.mp3",
+   "hash": "aa467553dbf9",
+   "text": "[flat] turn one,"
+  },
+  "engp.turn.2": {
+   "file": "engp/engp.turn.2.mp3",
+   "hash": "896aae6b44c1",
+   "text": "[flat] turn two,"
+  },
+  "engp.turn.3": {
+   "file": "engp/engp.turn.3.mp3",
+   "hash": "6181f846e04c",
+   "text": "[flat] turn three,"
+  },
+  "engp.turn.5": {
+   "file": "engp/engp.turn.5.mp3",
+   "hash": "755b0bfa0bea",
+   "text": "[flat] turn five,"
+  },
+  "engp.turn.4": {
+   "file": "engp/engp.turn.4.mp3",
+   "hash": "19e781943a6b",
+   "text": "[flat] turn four,"
+  },
+  "engp.turn.6": {
+   "file": "engp/engp.turn.6.mp3",
+   "hash": "023ce3668475",
+   "text": "[flat] turn six,"
+  },
+  "engp.turn.7": {
+   "file": "engp/engp.turn.7.mp3",
+   "hash": "21693a850b06",
+   "text": "[flat] turn seven,"
+  },
+  "engp.turn.8": {
+   "file": "engp/engp.turn.8.mp3",
+   "hash": "8e3beaf20335",
+   "text": "[flat] turn eight,"
+  },
+  "engp.turn.9": {
+   "file": "engp/engp.turn.9.mp3",
+   "hash": "08249049d365",
+   "text": "[flat] turn nine,"
+  },
+  "engp.turn.10": {
+   "file": "engp/engp.turn.10.mp3",
+   "hash": "bca96be1a518",
+   "text": "[flat] turn ten,"
+  },
+  "engp.turn.11": {
+   "file": "engp/engp.turn.11.mp3",
+   "hash": "aa38e1f9abcb",
+   "text": "[flat] turn eleven,"
+  },
+  "engp.turn.12": {
+   "file": "engp/engp.turn.12.mp3",
+   "hash": "fc64d781e1d8",
+   "text": "[flat] turn twelve,"
+  },
+  "engp.turn.13": {
+   "file": "engp/engp.turn.13.mp3",
+   "hash": "779142f83481",
+   "text": "[flat] turn thirteen,"
+  },
+  "engp.turn.14": {
+   "file": "engp/engp.turn.14.mp3",
+   "hash": "047f0eda957a",
+   "text": "[flat] turn fourteen,"
+  },
+  "engp.turn.15": {
+   "file": "engp/engp.turn.15.mp3",
+   "hash": "69f56dd6d641",
+   "text": "[flat] turn fifteen,"
+  },
+  "engp.turn.16": {
+   "file": "engp/engp.turn.16.mp3",
+   "hash": "cac80186c1f6",
+   "text": "[flat] turn sixteen,"
+  },
+  "engp.turn.17": {
+   "file": "engp/engp.turn.17.mp3",
+   "hash": "05605a1157d4",
+   "text": "[flat] turn seventeen,"
+  },
+  "engp.turn.18": {
+   "file": "engp/engp.turn.18.mp3",
+   "hash": "af8cbddf3d35",
+   "text": "[flat] turn eighteen,"
+  },
+  "engp.p": {
+   "file": "engp/engp.p.mp3",
+   "hash": "a2e408c067fe",
+   "text": "[flat] P"
+  },
+  "engp.turn.19": {
+   "file": "engp/engp.turn.19.mp3",
+   "hash": "9f275947b9b8",
+   "text": "[flat] turn nineteen,"
+  },
+  "engp.turn.20": {
+   "file": "engp/engp.turn.20.mp3",
+   "hash": "93570fa9c5b5",
+   "text": "[flat] turn twenty,"
+  },
+  "engp.p.1": {
+   "file": "engp/engp.p.1.mp3",
+   "hash": "6e504cbef158",
+   "text": "[flat] P one."
+  },
+  "engp.p.3": {
+   "file": "engp/engp.p.3.mp3",
+   "hash": "7cabe8fb3cf8",
+   "text": "[flat] P three."
+  },
+  "engp.p.2": {
+   "file": "engp/engp.p.2.mp3",
+   "hash": "518c5b47669c",
+   "text": "[flat] P two."
+  },
+  "engp.p.4": {
+   "file": "engp/engp.p.4.mp3",
+   "hash": "d7a6afccd725",
+   "text": "[flat] P four."
+  },
+  "engp.p.5": {
+   "file": "engp/engp.p.5.mp3",
+   "hash": "f89dfb643ccc",
+   "text": "[flat] P five."
+  },
+  "engp.p.6": {
+   "file": "engp/engp.p.6.mp3",
+   "hash": "df337f464ca1",
+   "text": "[flat] P six."
+  },
+  "engp.p.8": {
+   "file": "engp/engp.p.8.mp3",
+   "hash": "e8baa7a80698",
+   "text": "[flat] P eight."
+  },
+  "engp.p.7": {
+   "file": "engp/engp.p.7.mp3",
+   "hash": "f1c8dc5662c0",
+   "text": "[flat] P seven."
+  },
+  "engp.p.9": {
+   "file": "engp/engp.p.9.mp3",
+   "hash": "4dd00f987168",
+   "text": "[flat] P nine."
+  },
+  "engp.p.10": {
+   "file": "engp/engp.p.10.mp3",
+   "hash": "e32d337a803a",
+   "text": "[flat] P ten."
+  },
+  "engp.p.11": {
+   "file": "engp/engp.p.11.mp3",
+   "hash": "31dabc476099",
+   "text": "[flat] P eleven."
+  },
+  "engp.p.12": {
+   "file": "engp/engp.p.12.mp3",
+   "hash": "0c2b42c7ab50",
+   "text": "[flat] P twelve."
+  },
+  "engp.p.14": {
+   "file": "engp/engp.p.14.mp3",
+   "hash": "5f2854971ed3",
+   "text": "[flat] P fourteen."
+  },
+  "engp.p.13": {
+   "file": "engp/engp.p.13.mp3",
+   "hash": "90793cbfefe1",
+   "text": "[flat] P thirteen."
+  },
+  "engp.p.15": {
+   "file": "engp/engp.p.15.mp3",
+   "hash": "4c0edfb0dda5",
+   "text": "[flat] P fifteen."
+  },
+  "engp.p.16": {
+   "file": "engp/engp.p.16.mp3",
+   "hash": "4fb60501351c",
+   "text": "[flat] P sixteen."
+  },
+  "engp.p.17": {
+   "file": "engp/engp.p.17.mp3",
+   "hash": "f37ed8381a2b",
+   "text": "[flat] P seventeen."
+  },
+  "engp.p.18": {
+   "file": "engp/engp.p.18.mp3",
+   "hash": "0eb4171ee373",
+   "text": "[flat] P eighteen."
+  },
+  "engp.p.19": {
+   "file": "engp/engp.p.19.mp3",
+   "hash": "aa71473a06b2",
+   "text": "[flat] P nineteen."
+  },
+  "engp.p.20": {
+   "file": "engp/engp.p.20.mp3",
+   "hash": "8b37e9c8d95a",
+   "text": "[flat] P twenty."
+  },
+  "engp.p.21": {
+   "file": "engp/engp.p.21.mp3",
+   "hash": "e45e57f67f2e",
+   "text": "[flat] P twenty-one."
+  },
+  "engp.p.23": {
+   "file": "engp/engp.p.23.mp3",
+   "hash": "dd1aeb758c77",
+   "text": "[flat] P twenty-three."
+  },
+  "engp.p.22": {
+   "file": "engp/engp.p.22.mp3",
+   "hash": "aa9cb86f0c0e",
+   "text": "[flat] P twenty-two."
+  },
+  "engp.u.sec1": {
+   "file": "engp/engp.u.sec1.mp3",
+   "hash": "c5a90b1892b8",
+   "text": "[flat] second"
+  },
+  "engp.u.sec": {
+   "file": "engp/engp.u.sec.mp3",
+   "hash": "74ec6a9121c4",
+   "text": "[flat] seconds"
+  },
+  "engp.p.24": {
+   "file": "engp/engp.p.24.mp3",
+   "hash": "ede813c6075b",
+   "text": "[flat] P twenty-four."
+  },
+  "engp.u.laps": {
+   "file": "engp/engp.u.laps.mp3",
+   "hash": "56ff2bbcc158",
+   "text": "[flat] laps"
+  },
+  "engp.u.alap": {
+   "file": "engp/engp.u.alap.mp3",
+   "hash": "775446a5d33b",
+   "text": "[flat] a lap"
+  },
+  "engp.about": {
+   "file": "engp/engp.about.mp3",
+   "hash": "182492e145fd",
+   "text": "[flat] about"
+  },
+  "engp.amt.bit": {
+   "file": "engp/engp.amt.bit.mp3",
+   "hash": "e83f8d2cd8f6",
+   "text": "[flat] a bit"
+  },
+  "engp.amt.half": {
+   "file": "engp/engp.amt.half.mp3",
+   "hash": "964249d58378",
+   "text": "[flat] about half a second"
+  },
+  "engp.amt.couple": {
+   "file": "engp/engp.amt.couple.mp3",
+   "hash": "cc2f139ab4ac",
+   "text": "[flat] a couple of tenths"
+  },
+  "engp.amt.none": {
+   "file": "engp/engp.amt.none.mp3",
+   "hash": "dc5b19dd8881",
+   "text": "[flat] nothing"
+  },
+  "engp.amt.min": {
+   "file": "engp/engp.amt.min.mp3",
+   "hash": "0a7f701e28e3",
+   "text": "[flat] over a minute"
+  },
+  "engp.amt.sec": {
+   "file": "engp/engp.amt.sec.mp3",
+   "hash": "2365818d6e23",
+   "text": "[flat] about a second"
+  },
+  "engp.t.soft": {
+   "file": "engp/engp.t.soft.mp3",
+   "hash": "1a219b3dc9f0",
+   "text": "[flat] softs."
+  },
+  "engp.t.medium": {
+   "file": "engp/engp.t.medium.mp3",
+   "hash": "926272812118",
+   "text": "[flat] mediums."
+  },
+  "engp.t.hard": {
+   "file": "engp/engp.t.hard.mp3",
+   "hash": "d4e13b45c90b",
+   "text": "[flat] hards."
+  },
+  "engp.t.wet": {
+   "file": "engp/engp.t.wet.mp3",
+   "hash": "8692ac3a6aba",
+   "text": "[flat] wets."
+  },
+  "engp.t.dirt": {
+   "file": "engp/engp.t.dirt.mp3",
+   "hash": "384edc71d298",
+   "text": "[flat] dirt tires."
+  },
+  "engp.s.ahead": {
+   "file": "engp/engp.s.ahead.mp3",
+   "hash": "62610ded9ad6",
+   "text": "[calm] Car ahead's"
+  },
+  "engp.s.fastest": {
+   "file": "engp/engp.s.fastest.mp3",
+   "hash": "0428039707c0",
+   "text": "[calm] Fastest car's"
+  },
+  "engp.s.behind": {
+   "file": "engp/engp.s.behind.mp3",
+   "hash": "e5050963a633",
+   "text": "[calm] Car behind's"
+  },
+  "engp.s.leader": {
+   "file": "engp/engp.s.leader.mp3",
+   "hash": "1bc82051b619",
+   "text": "[calm] The leader's"
+  },
+  "engp.s.mate": {
+   "file": "engp/engp.s.mate.mp3",
+   "hash": "a98d682c2c3d",
+   "text": "[calm] Your teammate's"
+  },
+  "engp.youre": {
+   "file": "engp/engp.youre.mp3",
+   "hash": "f5c5c3cb2b98",
+   "text": "[calm] You're"
+  },
+  "engp.offbest": {
+   "file": "engp/engp.offbest.mp3",
+   "hash": "9aa2515d589d",
+   "text": "[calm] off your best."
+  },
+  "engp.onbest": {
+   "file": "engp/engp.onbest.mp3",
+   "hash": "7f5736bc0ada",
+   "text": "[approving] You're right on your best pace."
+  },
+  "engp.rank.1": {
+   "file": "engp/engp.rank.1.mp3",
+   "hash": "375a6fa2b51d",
+   "text": "[pleased] Quickest on track right now."
+  },
+  "engp.rank.2": {
+   "file": "engp/engp.rank.2.mp3",
+   "hash": "8acc4a412970",
+   "text": "[calm] Second quickest out there."
+  },
+  "engp.rank.3": {
+   "file": "engp/engp.rank.3.mp3",
+   "hash": "9db11e84da3f",
+   "text": "[calm] Third quickest out there."
+  },
+  "engp.rank.4": {
+   "file": "engp/engp.rank.4.mp3",
+   "hash": "e5ddd3e7ec84",
+   "text": "[calm] Fourth quickest out there."
+  },
+  "engp.rank.5": {
+   "file": "engp/engp.rank.5.mp3",
+   "hash": "594895a973fa",
+   "text": "[calm] Fifth quickest out there."
+  },
+  "engp.rank.6": {
+   "file": "engp/engp.rank.6.mp3",
+   "hash": "9032894ebcc1",
+   "text": "[calm] Sixth quickest out there."
+  },
+  "engp.rank.8": {
+   "file": "engp/engp.rank.8.mp3",
+   "hash": "a3846c6cbb6a",
+   "text": "[calm] Eighth quickest out there."
+  },
+  "engp.rank.7": {
+   "file": "engp/engp.rank.7.mp3",
+   "hash": "8bcd1c253acb",
+   "text": "[calm] Seventh quickest out there."
+  },
+  "engp.rank.9": {
+   "file": "engp/engp.rank.9.mp3",
+   "hash": "fc4456d2c07b",
+   "text": "[calm] Ninth quickest out there."
+  },
+  "engp.rank.back": {
+   "file": "engp/engp.rank.back.mp3",
+   "hash": "47dedd4d25da",
+   "text": "[calm] Down the order on pace right now."
+  },
+  "engp.rank.10": {
+   "file": "engp/engp.rank.10.mp3",
+   "hash": "b6f6d559bf63",
+   "text": "[calm] Tenth quickest out there."
+  },
+  "engp.slower": {
+   "file": "engp/engp.slower.mp3",
+   "hash": "7f5b15d8d99e",
+   "text": "[calm] a lap slower than you."
+  },
+  "engp.quicker": {
+   "file": "engp/engp.quicker.mp3",
+   "hash": "ac59b60f8567",
+   "text": "[calm] a lap quicker than you."
+  },
+  "engp.nolaps": {
+   "file": "engp/engp.nolaps.mp3",
+   "hash": "afc9e77cde82",
+   "text": "[calm] No clean laps yet. Give me one and I'll have numbers."
+  },
+  "engp.samepace": {
+   "file": "engp/engp.samepace.mp3",
+   "hash": "b0f130123bd3",
+   "text": "[calm] on the same pace as you."
+  },
+  "engp.theirbest": {
+   "file": "engp/engp.theirbest.mp3",
+   "hash": "c935cc17c676",
+   "text": "[calm] Their best is"
+  },
+  "engp.upon": {
+   "file": "engp/engp.upon.mp3",
+   "hash": "3307323bdf76",
+   "text": "[calm] up on yours."
+  },
+  "engp.downon": {
+   "file": "engp/engp.downon.mp3",
+   "hash": "272042781863",
+   "text": "[calm] down on yours."
+  },
+  "engp.nolapsthem": {
+   "file": "engp/engp.nolapsthem.mp3",
+   "hash": "46d4d7fb6c67",
+   "text": "[calm] No laps from them yet."
+  },
+  "engp.tiresat": {
+   "file": "engp/engp.tiresat.mp3",
+   "hash": "a406cf0f26d8",
+   "text": "[calm] Tires are at"
+  },
+  "engp.makeflag": {
+   "file": "engp/engp.makeflag.mp3",
+   "hash": "c1f5007cac11",
+   "text": "[calm] They'll make the flag."
+  },
+  "engp.cliff": {
+   "file": "engp/engp.cliff.mp3",
+   "hash": "5cb1f4f6051d",
+   "text": "[calm] That's the cliff. You'll feel it everywhere."
+  },
+  "engp.dropthis": {
+   "file": "engp/engp.dropthis.mp3",
+   "hash": "c09a03280915",
+   "text": "[calm] They'll drop off this lap."
+  },
+  "engp.dropoff": {
+   "file": "engp/engp.dropoff.mp3",
+   "hash": "2023e69a4608",
+   "text": "[calm] before they drop off."
+  },
+  "engp.fronts": {
+   "file": "engp/engp.fronts.mp3",
+   "hash": "2029e4f1b741",
+   "text": "[calm] Fronts are wearing faster."
+  },
+  "engp.rears": {
+   "file": "engp/engp.rears.mp3",
+   "hash": "a3bef470996b",
+   "text": "[calm] Rears are wearing faster."
+  },
+  "engp.nowear": {
+   "file": "engp/engp.nowear.mp3",
+   "hash": "e7942028e13a",
+   "text": "[calm] Tire wear's off today."
+  },
+  "engp.lapin": {
+   "file": "engp/engp.lapin.mp3",
+   "hash": "1226435d3a7d",
+   "text": "[calm] a lap into their"
+  },
+  "engp.lapsin": {
+   "file": "engp/engp.lapsin.mp3",
+   "hash": "937ba46813b9",
+   "text": "[calm] laps into their"
+  },
+  "engp.w.0": {
+   "file": "engp/engp.w.0.mp3",
+   "hash": "16f264e5a3a2",
+   "text": "[calm] They look fresh."
+  },
+  "engp.freshset": {
+   "file": "engp/engp.freshset.mp3",
+   "hash": "84dae73ee75a",
+   "text": "[calm] on a fresh set of"
+  },
+  "engp.w.1": {
+   "file": "engp/engp.w.1.mp3",
+   "hash": "5c0487894b7d",
+   "text": "[calm] They look good."
+  },
+  "engp.w.3": {
+   "file": "engp/engp.w.3.mp3",
+   "hash": "9d86e50d4ee3",
+   "text": "[calm] They're going off."
+  },
+  "engp.w.2": {
+   "file": "engp/engp.w.2.mp3",
+   "hash": "156faf16b9e7",
+   "text": "[calm] They're past their best."
+  },
+  "engp.w.4": {
+   "file": "engp/engp.w.4.mp3",
+   "hash": "5fb1cec81eb4",
+   "text": "[slight edge] They're gone."
+  },
+  "engp.cmp.same": {
+   "file": "engp/engp.cmp.same.mp3",
+   "hash": "05f761aaa55b",
+   "text": "[calm] About the same as yours."
+  },
+  "engp.cmp.better": {
+   "file": "engp/engp.cmp.better.mp3",
+   "hash": "116d8d1d8056",
+   "text": "[calm] Better than yours."
+  },
+  "engp.cmp.worse": {
+   "file": "engp/engp.cmp.worse.mp3",
+   "hash": "755927aaecb0",
+   "text": "[calm] Worse than yours."
+  },
+  "engp.stopsoon": {
+   "file": "engp/engp.stopsoon.mp3",
+   "hash": "22e915d4a8ab",
+   "text": "[calm] Expect them to stop soon."
+  },
+  "engp.nodata": {
+   "file": "engp/engp.nodata.mp3",
+   "hash": "105d69dacd9a",
+   "text": "[calm] No data on their wear."
+  },
+  "engp.theyreat": {
+   "file": "engp/engp.theyreat.mp3",
+   "hash": "d497d5e81d52",
+   "text": "[calm] They're at"
+  },
+  "engp.upahead": {
+   "file": "engp/engp.upahead.mp3",
+   "hash": "c03329600b1a",
+   "text": "[calm] up the road."
+  },
+  "engp.behindyou": {
+   "file": "engp/engp.behindyou.mp3",
+   "hash": "cd4c61bda295",
+   "text": "[calm] behind you."
+  },
+  "engp.downonyou": {
+   "file": "engp/engp.downonyou.mp3",
+   "hash": "17d83daf004c",
+   "text": "[calm] down on you."
+  },
+  "engp.holding": {
+   "file": "engp/engp.holding.mp3",
+   "hash": "ea04b9a3b7d9",
+   "text": "[calm] The gap's holding."
+  },
+  "engp.rightthere": {
+   "file": "engp/engp.rightthere.mp3",
+   "hash": "544100fc9a75",
+   "text": "[calm] right there with you."
+  },
+  "engp.youreclosing": {
+   "file": "engp/engp.youreclosing.mp3",
+   "hash": "3579ea7911f8",
+   "text": "[calm] You're closing"
+  },
+  "engp.onthemin": {
+   "file": "engp/engp.onthemin.mp3",
+   "hash": "f1b3d2688995",
+   "text": "[calm] On them in about"
+  },
+  "engp.theyreclosing": {
+   "file": "engp/engp.theyreclosing.mp3",
+   "hash": "f26c31450445",
+   "text": "[calm] They're closing"
+  },
+  "engp.onyouin": {
+   "file": "engp/engp.onyouin.mp3",
+   "hash": "5a55bb7b15ff",
+   "text": "[calm] On you in about"
+  },
+  "engp.theyrepulling": {
+   "file": "engp/engp.theyrepulling.mp3",
+   "hash": "7122a258d725",
+   "text": "[calm] They're pulling away,"
+  },
+  "engp.yourepulling": {
+   "file": "engp/engp.yourepulling.mp3",
+   "hash": "7a583995a94d",
+   "text": "[calm] You're pulling away,"
+  },
+  "engp.vs.ahead": {
+   "file": "engp/engp.vs.ahead.mp3",
+   "hash": "1858c83803f7",
+   "text": "[calm] Against the car ahead,"
+  },
+  "engp.vs.fastest": {
+   "file": "engp/engp.vs.fastest.mp3",
+   "hash": "9020c47dd80d",
+   "text": "[calm] Against the fastest car,"
+  },
+  "engp.vs.best": {
+   "file": "engp/engp.vs.best.mp3",
+   "hash": "5f88df07797c",
+   "text": "[calm] Against your best lap,"
+  },
+  "engp.vs.ideal": {
+   "file": "engp/engp.vs.ideal.mp3",
+   "hash": "37e105e93519",
+   "text": "[calm] Against our ideal lap,"
+  },
+  "engp.mostin": {
+   "file": "engp/engp.mostin.mp3",
+   "hash": "fabbb87f6102",
+   "text": "[calm] you're losing most in"
+  },
+  "engp.then": {
+   "file": "engp/engp.then.mp3",
+   "hash": "d7f1f43b8a54",
+   "text": "[calm] Then"
+  },
+  "engp.why.hit": {
+   "file": "engp/engp.why.hit.mp3",
+   "hash": "d6ac29785c51",
+   "text": "[calm] you hit the wall."
+  },
+  "engp.why.lock": {
+   "file": "engp/engp.why.lock.mp3",
+   "hash": "95deace4f0f4",
+   "text": "[calm] locking up."
+  },
+  "engp.why.off": {
+   "file": "engp/engp.why.off.mp3",
+   "hash": "7389eb4c0586",
+   "text": "[calm] you ran wide off the road."
+  },
+  "engp.why.late": {
+   "file": "engp/engp.why.late.mp3",
+   "hash": "0f5ec67ea6bf",
+   "text": "[calm] braking too late and overshooting."
+  },
+  "engp.why.early": {
+   "file": "engp/engp.why.early.mp3",
+   "hash": "9dec8fec9330",
+   "text": "[calm] braking too early."
+  },
+  "engp.why.under": {
+   "file": "engp/engp.why.under.mp3",
+   "hash": "24e2f3508237",
+   "text": "[calm] understeer on the way in."
+  },
+  "engp.why.min": {
+   "file": "engp/engp.why.min.mp3",
+   "hash": "6c4aa458142c",
+   "text": "[calm] too slow at the apex."
+  },
+  "engp.why.thr": {
+   "file": "engp/engp.why.thr.mp3",
+   "hash": "7d208619d4e6",
+   "text": "[calm] late on the throttle."
+  },
+  "engp.why.coast": {
+   "file": "engp/engp.why.coast.mp3",
+   "hash": "7b0aa567109a",
+   "text": "[calm] coasting between the pedals."
+  },
+  "engp.why.slide": {
+   "file": "engp/engp.why.slide.mp3",
+   "hash": "70f96c92a9e0",
+   "text": "[calm] the rear sliding on exit."
+  },
+  "engp.why.tc": {
+   "file": "engp/engp.why.tc.mp3",
+   "hash": "35812e635f79",
+   "text": "[calm] traction control on exit."
+  },
+  "engp.why.exit": {
+   "file": "engp/engp.why.exit.mp3",
+   "hash": "590166b17dbb",
+   "text": "[calm] a slow exit."
+  },
+  "engp.smallbits": {
+   "file": "engp/engp.smallbits.mp3",
+   "hash": "75ee09f21d2c",
+   "text": "[calm] only small bits everywhere. Nothing big."
+  },
+  "engp.matching": {
+   "file": "engp/engp.matching.mp3",
+   "hash": "1d7861392e2f",
+   "text": "[calm] you're matching them everywhere. Keep it up."
+  },
+  "engp.needlap": {
+   "file": "engp/engp.needlap.mp3",
+   "hash": "57dc32a0cceb",
+   "text": "[calm] Need a full lap of data first."
+  },
+  "engp.planlap": {
+   "file": "engp/engp.planlap.mp3",
+   "hash": "55c070333017",
+   "text": "[calm] Plan is lap"
+  },
+  "engp.for": {
+   "file": "engp/engp.for.mp3",
+   "hash": "9201de0a186a",
+   "text": "[calm] for"
+  },
+  "engp.nostops": {
+   "file": "engp/engp.nostops.mp3",
+   "hash": "540fce64c56b",
+   "text": "[calm] No more stops planned."
+  },
+  "engp.wontmake": {
+   "file": "engp/engp.wontmake.mp3",
+   "hash": "ec6ab0a7ed20",
+   "text": "[calm] Tires won't make it. Box by lap"
+  },
+  "engp.couldgo": {
+   "file": "engp/engp.couldgo.mp3",
+   "hash": "37174cb81bcf",
+   "text": "[calm] Tires could go to lap"
+  },
+  "engp.stopnow": {
+   "file": "engp/engp.stopnow.mp3",
+   "hash": "b78c59ea88d3",
+   "text": "[calm] Stop now and you're out"
+  },
+  "engp.ord.letby": {
+   "file": "engp/engp.ord.letby.mp3",
+   "hash": "9c2bb6cc4884",
+   "text": "[calm] Copy. Asking them to let you by."
+  },
+  "engp.ord.hold": {
+   "file": "engp/engp.ord.hold.mp3",
+   "hash": "2bd63b5dbae1",
+   "text": "[calm] Copy. Telling them to hold position."
+  },
+  "engp.ord.push": {
+   "file": "engp/engp.ord.push.mp3",
+   "hash": "212c9a2f446f",
+   "text": "[calm] Copy. Telling them to push."
+  },
+  "engp.ord.save": {
+   "file": "engp/engp.ord.save.mp3",
+   "hash": "6c3486ec329a",
+   "text": "[calm] Copy. Telling them to save tires."
+  },
+  "engp.ord.notahead": {
+   "file": "engp/engp.ord.notahead.mp3",
+   "hash": "5330d98c4a44",
+   "text": "[calm] They're not right in front of you."
+  },
+  "engp.ord.wait": {
+   "file": "engp/engp.ord.wait.mp3",
+   "hash": "277187c3372f",
+   "text": "[calm] Give them a minute. They've only just had the last one."
+  },
+  "engp.ord.notbehind": {
+   "file": "engp/engp.ord.notbehind.mp3",
+   "hash": "ef8c3057a8dd",
+   "text": "[calm] They're not right behind you."
+  },
+  "engp.lost": {
+   "file": "engp/engp.lost.mp3",
+   "hash": "a8bd47992f29",
+   "text": "[calm] Lost them on the data. Ask again."
+  }
  }
 }

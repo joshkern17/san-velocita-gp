@@ -17,7 +17,7 @@ import { drawChart, drawMap, notesHtml, fmtGap, fmtSpeed, drawLineMap, lineMapHi
 import { garbleTree } from './garble.js';
 import { AIDS, AID_KEYS, PRESETS, PRESET_VALS, aidsOf, presetOf, applyPreset, aidBonus, AID_RULES, AID_RULE_DESC, limitAids } from './aids.js';
 import { initAudio, sfx, setVolume, setMusicVolume, setMusicScene, updateMusic, setEngineSound } from './audio.js';
-import { engSay, preload as voPreload, voStopAll, setVoiceOn, boothSay, boothSequence, stopBooth, boothLines, voBusy, pbpSay, lineSet, voReload } from './vo.js';
+import { engSay, engSeq, preload as voPreload, voStopAll, setVoiceOn, boothSay, boothSequence, stopBooth, boothLines, voBusy, pbpSay, lineSet, voReload } from './vo.js';
 import { NICKNAMES, slugName } from './broadcast.js';
 import { presetTracks, sampleTrack, trackStats, THEMES, cloneTrack } from './track.js';
 import { TEAMS } from './car.js';
@@ -5205,7 +5205,7 @@ function startRace(track, cfg, ret, quick = false) {
       await r.prepare((f, label) => loadStep(0.08 + f * 0.82, label));
       if (screen !== 's-loading') { r.dispose?.(); return; } // (left while it was building)
       sim = r;
-      voPreload('eng'); // (the engineer's clips decoded now, so the first call isn't late)
+      voPreload('eng'); voPreload('engp'); // (the engineer's clips decoded now, so the first call isn't late; engp: the pieces radio answers are stitched from)
       loadStep(0.92, 'Warming up');
       sim.aidBonus = bonusNow(); // (the lowest you race with counts: see noteAidBonus)
       // warm-up render so shaders compile behind the loading screen (all of them, not just what the start camera sees)
@@ -5954,7 +5954,7 @@ function askInput(pl, dt) {
       const item = rows[pick]; askLast = { top: A.top, item: item.key };
       const ans = askEngineer(sim, pl, A.top + '.' + item.key);
       close(); sfx.select();
-      if (ans) hud.radio('eng', ans.msg); // (straight on: the race's events are cleared at its next step)
+      if (ans) { hud.radio('eng', ans.msg); engSeq(ans.say); }
       return;
     }
   }

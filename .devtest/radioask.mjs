@@ -31,7 +31,7 @@ try {
     const sim = window.__svgp.sim, M = await import('/js/radioask.js');
     sim.setPaused(true); sim.paused = false; window.__svgp.sim = null;
     sim.state = 'racing'; sim.stateT = 0; sim.player.autoT = 1e9;
-    const pl = sim.player, out = [], cliff = [];
+    const pl = sim.player, out = [], cliff = [], sayIds = new Set();
     // (a teammate, as World Career has: the AI car with a trust figure)
     const mate = sim.cars.find(c => c.ai && !c.isPlayer); mate.ai.trust = 60; let mateCheck = null;
     let f = 0, lap = pl.lap;
@@ -42,7 +42,7 @@ try {
         lap = pl.lap;
         if (lap < 3) continue;
         const menu = M.radioMenu(sim, pl), lines = [];
-        for (const m of menu) for (const it of m.items) { if (/^(letby|hold|push|save)$/.test(it.key)) continue; const a = M.ask(sim, pl, m.key + '.' + it.key); lines.push(`  ${m.key}.${it.key}: ${a ? a.msg.replace(/<\/?b>/g, '') : 'NULL'}`); }
+        for (const m of menu) for (const it of m.items) { if (/^(letby|hold|push|save)$/.test(it.key)) continue; const a = M.ask(sim, pl, m.key + '.' + it.key); lines.push(`  ${m.key}.${it.key}: ${a ? a.msg.replace(/<\/?b>/g, '') : 'NULL'}\n      say: ${a && a.say ? a.say.map(x => x.slice(5)).join(' ') : 'NULL'}`); if (a && a.say) a.say.forEach(x => sayIds.add(x)); }
         cliff.push(+M.lapsToCliff(sim, pl).toFixed(1));
         if (lap === 3 && !mate.finished) { sim.events.length = 0; const kind = 'push', pace = mate.ai.pace, wear = mate.phys.wearK.toFixed(2); const a = M.ask(sim, pl, 'mate.' + kind); mateCheck = { kind, msg: a && a.msg, pace, wear, at: sim.raceTime + 2.5 }; const again = M.ask(sim, pl, 'mate.save'); lines.push('  (order again at once): ' + (again && again.msg)); }
         out.push(`lap ${lap - 1} done (${pl.last.toFixed(2)}, P${pl.pos}, wear ${(Math.min(pl.phys.tyre.wf, pl.phys.tyre.wr) * 100).toFixed(0)}%) menu: ${menu.map(m => m.key + (m.sub ? `[${m.sub}]` : '')).join(' ')}\n` + lines.join('\n'));
@@ -53,10 +53,16 @@ try {
     let sum = null;
     if (A && B) { const { analyze } = await import('/js/telemetry.js'); const an = analyze(A, B, sim.T, sim.corners.list); sum = { corners: +an.corners.reduce((s, c) => s + c.loss, 0).toFixed(3), lap: +(A.time - B.time).toFixed(3) }; }
     window.__svgp.sim = sim; sim.paused = true;
-    return { out, cliff, sum, eng: sim.opts.engineer ?? null };
+    // (every spoken piece at every engineer skill: amounts and their words, laps, turns, places)
+    for (const k of [0, 1, 2, 3, 5]) { sim.opts.engineer = k; for (const q of ['me.pace', 'me.tires', 'me.lose', 'me.pit', 'ahead.pace', 'ahead.gap', 'behind.gap', 'behind.tires']) { const a = M.ask(sim, pl, q); if (a && a.say) a.say.forEach(x => sayIds.add(x)); } }
+    return { out, cliff, sum, eng: sim.opts.engineer ?? null, sayIds: [...sayIds] };
   });
   for (const o of r.out) { console.log(o); if (/NULL|undefined|NaN|Infinity/.test(o)) { bad++; console.log('FAIL: the answers above'); } }
   console.log('laps to cliff by lap:', r.cliff.join(' '));
+  // every piece an answer said has a line in the [engp] section
+  const fs = await import('fs'), have = new Set(fs.readFileSync(join(ROOT, 'assets/voice/san_velocita_lines_with_announcer.txt'), 'utf8').split('\n').map(l => l.match(/^(engp\.[a-z0-9.]+)\s*=/)).filter(Boolean).map(m => m[1]));
+  const miss = r.sayIds.filter(x => !have.has(x));
+  console.log(`spoken pieces used: ${r.sayIds.length}${miss.length ? ' · MISSING LINES: ' + miss.join(' ') : ''}`); if (miss.length) bad++;
   if (r.cliff.length > 1 && r.cliff.some((x, k) => k && isFinite(x) && x > r.cliff[k - 1] + 0.6)) { bad++; console.log('FAIL laps-to-cliff went up'); }
   console.log('corner split check:', JSON.stringify(r.sum));
   if (r.sum && Math.abs(r.sum.corners - r.sum.lap) > 0.05) { bad++; console.log('FAIL corner losses do not add up'); }

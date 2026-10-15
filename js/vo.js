@@ -182,6 +182,35 @@ export async function pbpSay(parts, o = {}) {
   p.src.onended = () => { done(true); if (now.booth === p) { now.booth = null; settle(); next(); } };
   return over;
 }
+// ---------- your engineer answering a question (radioask.js): an answer stitched from pieces ----------
+// parts: [engp] clip ids ('engp.s.ahead', 'engp.n.1', 'engp.pt.4', 'engp.quicker'), back to back through the radio, one
+// squelch either side. The pause after a piece follows its line's text: a full stop, a comma, or straight on (a
+// number's pieces run together); a new sentence gets its breath. You asked, so it cuts in over whatever the engineer
+// was saying. A piece missing (not recorded yet): it stays text only.
+const textOf = (id) => String(manifest?.[id.split('.')[0]]?.[id]?.text || '').replace(/\[[^\]]*\]\s*/g, '').trim();
+const startsSentence = (id) => !/^engp\.(n|pt|pct|turn|p|u|t)\./.test(id) && /^[A-Z]/.test(textOf(id));
+function engGap(a, b) { const t = textOf(a); return /[.!?]$/.test(t) || startsSentence(b) ? 0.26 : /,$/.test(t) ? 0.12 : 0.03; }
+export async function engSeq(parts) {
+  if (!enabled.eng || !manifest || !parts || !parts.length) return false;
+  const files = parts.map(id => { const S = manifest[id.split('.')[0]]; return S && S[id] && S[id].file; });
+  if (files.some(f => !f) || !chains()) return false;
+  const bufs = await Promise.all(files.map(buffer)); if (bufs.some(b => !b)) return false;
+  // (a touch quicker than recorded: the voice drawls, and pieces read on their own come out slower than a sentence)
+  const { ctx } = radio, t0 = ctx.currentTime + 0.02, RATE = 1.15; let t = t0 + 0.06; const srcs = [];
+  bufs.forEach((buf, i) => {
+    const [s0, s1] = speech(buf), src = ctx.createBufferSource(); src.buffer = buf; src.playbackRate.value = RATE; src.connect(radio.input);
+    src.start(t, s0, s1 - s0); srcs.push(src);
+    t += (s1 - s0) / RATE + (i < bufs.length - 1 ? engGap(parts[i], parts[i + 1]) : 0);
+  });
+  for (let i = queue.length - 1; i >= 0; i--) if (queue[i].kind === 'eng') queue.splice(i, 1);
+  stop('eng');
+  let done; const over = new Promise(r => { done = r; });
+  const extra = [...srcs.slice(0, -1), noise(t0, 0.07, 0.2, 900, 4500), noise(t0 + 0.04, t - t0 + 0.06, 0.012), noise(t + 0.05, 0.11, 0.26, 900, 4500, 0.06)];
+  const p = { src: srcs[srcs.length - 1], extra, ends: t + 0.16, done };
+  now.eng = p; settle();
+  p.src.onended = () => setTimeout(() => { done(true); if (now.eng === p) { now.eng = null; settle(); next(); } }, 200);
+  return over;
+}
 // anyone talking (the director waits)
 export const voBusy = () => !!(now.eng || now.booth);
 export const boothBusy = () => !!now.booth;
