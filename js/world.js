@@ -19,6 +19,7 @@ import { settingOf, modelTransform, natureModel, FLORA, PROP_FLORA, fitHouse, ra
 import { WetReflections } from './weatherfx.js';
 import { StreetLife } from './lifefx.js';
 import { buildClouds } from './clouds.js';
+import { buildPitBoxes, pitCovered } from './pitboxes.js';
 import { applyPSXMaterial } from '../vendor/psx/src/PSXMaterial.js';
 import { loadCrowd, buildCrowd, makeBleachers, bleacherSeats, paintedPeople, BLEACHERS } from './crowd.js';
 
@@ -1040,7 +1041,7 @@ export function buildWorld(track, T, A, opts = {}) {
   if (walls) buildBarriers(root, T, A, env, surfY, groundHeight, tx, night, verge);
   const distBoards = (dressed && buildCornerBoards(root, T, A, env, surfY, groundHeight, roadL, night)) || []; // (where each one stands: the Lap Review measures from them)
   buildWalkways(root, T, A, env, surfY, groundHeight, tx);
-  if (pit) buildPitLane(root, T, pit, surfY, tx, night, env);
+  if (pit) buildPitLane(root, T, pit, surfY, tx, night, env, A);
 
   // bridge pillars — never on (or in the runoff of) a road passing underneath
   {
@@ -1651,7 +1652,7 @@ function fenceTexture() {
 
 
 // ---------- pit lane: tarmac, pit wall, garages, lines ----------
-function buildPitLane(root, T, pit, surfY, tx, night, env) {
+function buildPitLane(root, T, pit, surfY, tx, night, env, A) {
   const N = T.N, sd = pit.side;
   const idx = [];
   for (let i = 0; i < N; i++) if (pit.REG[i] >= 0) idx.push(i);
@@ -1663,14 +1664,16 @@ function buildPitLane(root, T, pit, surfY, tx, night, env) {
     buf.p.push(...a, ...b, ...c, ...b, ...d, ...c);
     buf.u.push(ua, va, ub, va, ua, vb, ub, va, ub, vb, ua, vb);
   };
-  const flip = sd > 0;
+  const flip = sd > 0, covered = pitCovered(T, A, pit);
   const face = (buf, a, b, c, d, ua, ub, va, vb) => flip ? quad(buf, b, a, d, c, ub, ua, va, vb) : quad(buf, a, b, c, d, ua, ub, va, vb);
   for (let k = 0; k < idx.length - 1; k++) {
     const i = idx[k], j = idx[k + 1];
     const oi = pit.CEN[i] + pit.width / 2, oj = pit.CEN[j] + pit.width / 2;
     const vi = T.D[i] / 12, vj = vi + T.ds / 12;
     // tarmac from the track edge out to the lane edge (on the ramps, tapering out of the track edge)
-    const ti = pit.OUT ? pit.OUT[i] : oi, tj = pit.OUT ? pit.OUT[j] : oj, R = pit.reach || oi - T.W[i] / 2;
+    // (along the garages, on under their fronts: no strip of grass at the doors)
+    const under = (q) => (pit.MAIN ? pit.MAIN[q] : !isNaN(pit.WALL[q])) ? 0.9 : 0;
+    const ti = (pit.OUT ? pit.OUT[i] : oi) + under(i), tj = (pit.OUT ? pit.OUT[j] : oj) + under(j), R = pit.reach || oi - T.W[i] / 2;
     const ui = (ti - T.W[i] / 2) / R, uj = (tj - T.W[j] / 2) / R;
     // (along the garages: from the pit wall out; the runoff in front of it is the circuit's own)
     const si = isNaN(pit.WALL[i]) ? T.W[i] / 2 - 0.05 : pit.WALL[i], sj = isNaN(pit.WALL[j]) ? T.W[j] / 2 - 0.05 : pit.WALL[j];
@@ -1686,7 +1689,7 @@ function buildPitLane(root, T, pit, surfY, tx, night, env) {
       if (Math.min(circDist(i, fin, N), circDist(j, fin, N)) * T.ds > 0.7) fence.push({ a: at(i, wi, 1.1), b: at(j, wj, 1.1), nx: -T.RX[i] * sd, nz: -T.RZ[i] * sd });
       // garages
       const gi = oi + 0.6, gj = oj + 0.6, depth = 16, hgt = 7.5;
-      face(gar, at(i, gi), at(j, gj), at(i, gi, hgt), at(j, gj, hgt), T.D[i] / 7.5, T.D[i] / 7.5 + T.ds / 7.5, 0, 1);
+      if (!covered(i, j)) face(gar, at(i, gi), at(j, gj), at(i, gi, hgt), at(j, gj, hgt), T.D[i] / 7.5, T.D[i] / 7.5 + T.ds / 7.5, 0, 1); // (the boxes have fronts of their own: js/pitboxes.js)
       face(gar, at(j, gj + depth), at(i, gi + depth), at(j, gj + depth, hgt), at(i, gi + depth, hgt), 0, 0.1, 0.9, 0.95);
       quad(roof, at(i, gi, hgt), at(j, gj, hgt), at(i, gi + depth, hgt), at(j, gj + depth, hgt), 0, 1, T.D[i] / 8, T.D[j] / 8);
     }
@@ -1752,8 +1755,10 @@ function buildPitLane(root, T, pit, surfY, tx, night, env) {
   mk(lane, new THREE.MeshLambertMaterial({ map: tx.pitAsphalt, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
   mk(wall, new THREE.MeshLambertMaterial({ map: tx.concrete, color: 0xd8d4cc, side: THREE.DoubleSide }));
   buildCatchFence(root, fence, fenceHeight(env, 2.3), fenceMaterial());
-  mk(gar, night ? new THREE.MeshLambertMaterial({ map: garageTexture(), emissive: 0xffffff, emissiveMap: garageTexture(true), emissiveIntensity: 0.8, color: 0x8890a0, side: THREE.DoubleSide })
-    : new THREE.MeshLambertMaterial({ map: garageTexture(), side: THREE.DoubleSide }));
+  const garMat = night ? new THREE.MeshLambertMaterial({ map: garageTexture(), emissive: 0xffffff, emissiveMap: garageTexture(true), emissiveIntensity: 0.8, color: 0x8890a0, side: THREE.DoubleSide })
+    : new THREE.MeshLambertMaterial({ map: garageTexture(), side: THREE.DoubleSide });
+  mk(gar, garMat);
+  buildPitBoxes(root, T, A, pit, { mat: garMat });
   mk(roof, new THREE.MeshLambertMaterial({ map: tx.concrete, color: 0xe4e2dc, side: THREE.DoubleSide }));
   const mm = mk(marks, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }));
   if (mm) mm.renderOrder = 1;

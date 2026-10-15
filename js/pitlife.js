@@ -10,6 +10,7 @@ import { TEAMS } from './car.js';
 import { loadCharacters, makeCharacter, classicCrewLook } from './characters.js';
 import { fillLivery } from './livery.js';
 import { PitWall } from './pitwall.js';
+import { dressBox, shutBox, boxFrame } from './pitboxes.js';
 
 const _q = new THREE.Quaternion(), _x = new THREE.Vector3(1, 0, 0), _z = new THREE.Vector3(0, 0, 1);
 const turn = (b, axis, a) => { if (b && a) b.quaternion.multiply(_q.setFromAxisAngle(axis, a)); };
@@ -99,17 +100,25 @@ export class PitLife {
       // (an empty box: the team whose own it'd be, by the same swap)
       const tk = race.player ? [...Array(Math.max(n, TEAMS.length)).keys()].find(t => t < TEAMS.length && slot(t) === k) : k;
       const team = pl ? pl.team : cars[0]?.team || (tk != null && tk < TEAMS.length ? race.teamFor(tk) : null);
-      if (!team) return;
+      if (!team) { this.shut(k); return; }
       const face = pit.CEN[bi] + pit.width / 2 + 0.6; // the garage fronts
-      const b = { k, bi, team, cars, mine: !!pl, face, crew: [], active: field.has(k), car: null, phase: 'home', t: 0, lift: 0 };
+      const b = { k, bi, team, cars, mine: !!pl, face, crew: [], active: field.has(k), car: null, phase: 'home', t: 0, lift: 0, F: boxFrame(T, this.A, pit, k) };
       this.boxes.push(b);
       this.makeSign(b);
+      const dress = dressBox(T, this.A, pit, k, team, { name: team.name });
+      if (dress) this.root.add(dress);
     });
     // fonts: draw again once the house faces are in (the first draw may have used the fallback)
     if (typeof document !== 'undefined' && document.fonts) Promise.all(['700 62px "SV Display"', '500 40px "SV UI"'].map(f => document.fonts.load(f))).then(() => { if (this.alive) for (const b of this.boxes) drawSign(b.sign); }).catch(() => {});
     // the teams' stands on the pit wall, their flags, the flag marshal (js/pitwall.js)
     this.wall = new PitWall(this);
     loadCharacters().then(ok => { if (ok && this.alive) { this.makeCrews(); this.wall.makePeople(); } });
+  }
+
+  // a box nobody's using: its shutter down (js/pitboxes.js)
+  shut(k) {
+    const m = shutBox(this.T, this.A, this.pit, k, this.race.scene.getObjectByName('PitBoxes')?.userData.mat);
+    if (m) { m.userData.worldMat = true; this.root.add(m); }
   }
 
   // a point beside the track at box i: s across from the centre line (on the pit side), y up from the lane
@@ -124,8 +133,9 @@ export class PitLife {
     const c = document.createElement('canvas'); c.width = CW; c.height = CH;
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
     const g = new THREE.Group();
-    g.position.copy(this.at(i, b.face - 0.16, SIGN_Y));
-    g.rotation.y = Math.atan2(-T.RX[i] * sd, -T.RZ[i] * sd); // facing out over the lane
+    // (on its garage's front: js/pitboxes.js; facing out over the lane)
+    if (b.F) { g.position.fromArray(b.F.P(0, -0.16, SIGN_Y)); g.rotation.y = Math.atan2(-b.F.n[0], -b.F.n[1]); }
+    else { g.position.copy(this.at(i, b.face - 0.16, SIGN_Y)); g.rotation.y = Math.atan2(-T.RX[i] * sd, -T.RZ[i] * sd); }
     const frame = new THREE.Mesh(new THREE.BoxGeometry(SIGN_W + 0.24, SIGN_H + 0.24, 0.24), new THREE.MeshLambertMaterial({ color: 0x1a1a1e }));
     frame.position.z = -0.06;
     const face = new THREE.Mesh(new THREE.PlaneGeometry(SIGN_W, SIGN_H), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
@@ -219,7 +229,7 @@ export class PitLife {
     b.crew.forEach((m, r) => {
       const along = (r - (b.crew.length - 1) / 2) * 1.35 + Math.sin(r * 12.9 + b.k) * 0.25;
       const i = (b.bi + Math.round(along / T.ds) + N) % N;
-      const p = this.at(i, b.face - 0.3);
+      const p = b.F ? new THREE.Vector3().fromArray(b.F.P(along, -0.3, 0.004)) : this.at(i, b.face - 0.3);
       m.tx = p.x; m.tz = p.z; m.tyaw = Math.atan2(-T.RX[i] * sd, -T.RZ[i] * sd) + Math.sin(r * 7.3 + b.k) * 0.5; m.kT = 0;
       if (snap) { m.x = m.tx; m.z = m.tz; m.yaw = m.tyaw; }
     });
@@ -364,6 +374,7 @@ export class PitLife {
     this.root.traverse(o => {
       if (o.isSkinnedMesh) return; // (the people's geometry and materials are shared: characters.js owns them)
       if (o.geometry) o.geometry.dispose();
+      if (o.userData.worldMat) return; // (a shutter wears the world's facade material)
       if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); }
     });
     if (this.root.parent) this.root.parent.remove(this.root);
