@@ -33,7 +33,7 @@ try {
     sim.state = 'racing'; sim.stateT = 0; sim.player.autoT = 1e9;
     const pl = sim.player, out = [], cliff = [], sayIds = new Set();
     // (a teammate, as World Career has: the AI car with a trust figure)
-    const mate = sim.cars.find(c => c.ai && !c.isPlayer); mate.ai.trust = 60; let mateCheck = null;
+    const mate = sim.cars.find(c => c.ai && !c.isPlayer); mate.ai.trust = 60; let mateCheck = null, mateBox = null;
     let f = 0, lap = pl.lap;
     while (sim.state === 'racing' && f < 60 * 60 * 10 && !(window.__stopLap && pl.lap > window.__stopLap)) {
       sim.update(1 / 60, { steer: 0, throttle: 0, brake: 0, handbrake: 0 }, {}); f++;
@@ -42,9 +42,20 @@ try {
         lap = pl.lap;
         if (lap < 3) continue;
         const menu = M.radioMenu(sim, pl), lines = [];
-        for (const m of menu) for (const it of m.items) { if (/^(letby|hold|push|save)$/.test(it.key)) continue; const a = M.ask(sim, pl, m.key + '.' + it.key); lines.push(`  ${m.key}.${it.key}: ${a ? a.msg.replace(/<\/?b>/g, '') : 'NULL'}\n      say: ${a && a.say ? a.say.map(x => (x.id || x).slice(5) + (x.x ? `[${x.x}]` : '')).join(' ') : 'NULL'}`); if (a && a.say) a.say.forEach(x => sayIds.add(x.id || x)); }
+        for (const m of menu) for (const it of m.items) { if (/^(letby|hold|push|save)$/.test(it.key) || it.items) continue; const a = M.ask(sim, pl, m.key + '.' + it.key); lines.push(`  ${m.key}.${it.key}: ${a ? a.msg.replace(/<\/?b>/g, '') : 'NULL'}\n      say: ${a && a.say ? a.say.map(x => (x.id || x).slice(5) + (x.x ? `[${x.x}]` : '')).join(' ') : 'NULL'}`); if (a && a.say) a.say.forEach(x => sayIds.add(x.id || x)); }
         cliff.push(+M.lapsToCliff(sim, pl).toFixed(1));
-        if (lap === 3 && !mate.finished) { sim.events.length = 0; const kind = 'push', pace = mate.ai.pace, wear = mate.phys.wearK.toFixed(2); const a = M.ask(sim, pl, 'mate.' + kind); mateCheck = { kind, msg: a && a.msg, pace, wear, at: sim.raceTime + 2.5 }; const again = M.ask(sim, pl, 'mate.save'); lines.push('  (order again at once): ' + (again && again.msg)); }
+        if (lap === 3 && !mate.finished) {
+          // strategy calls: your teammate on worn tires told to run to the end doesn't stop for them; told to box on softs, they do
+          const tw = { ...mate.phys.tyre }; sim.mateOrderT = -99; const e = M.ask(sim, pl, 'mate.strat.end'); mate.phys.tyre.wf = mate.phys.tyre.wr = 0.2; mate.pitChecked = false;
+          const stops = sim.aiWantsPit(mate); Object.assign(mate.phys.tyre, tw);
+          out.push(`strategy: mate.strat.end -> "${e && e.msg}" · on 20% tires, wants to pit: ${stops}${stops ? ' NULL (should run to the end)' : ''}`);
+          sim.mateOrderT = -99; const t = M.ask(sim, pl, 'mate.strat.tsoft'); sim.mateOrderT = -99; const bx = M.ask(sim, pl, 'mate.strat.box'); mateBox = { lap: mate.lap };
+          out.push(`strategy: tsoft -> "${t && t.msg}" · box -> "${bx && bx.msg}" say ${JSON.stringify(bx && bx.say)}`);
+          const me1 = M.ask(sim, pl, 'me.strat.thard'), me2 = M.ask(sim, pl, 'me.strat.box'); out.push(`strategy: me thard -> "${me1 && me1.msg}" · me box -> "${me2 && me2.msg}" pitReq ${JSON.stringify(pl.pitReq)}`);
+          out.push('strategy rows (me): ' + M.radioMenu(sim, pl).find(m => m.key === 'me').items.find(x => x.key === 'strat').items.map(r => r.label + (r.sub ? ` [${r.sub}]` : '')).join(' | '));
+        }
+        if (mateBox && mate.pits > 0 && !mateBox.done) { mateBox.done = true; out.push(`strategy: teammate boxed on lap ${mate.lap} (called lap ${mateBox.lap}), now on ${mate.phys.tyre.c}${mate.phys.tyre.c === 'soft' ? '' : ' NULL (wanted softs)'}`); }
+        if (lap === 3 && !mate.finished && false) { sim.events.length = 0; const kind = 'push', pace = mate.ai.pace, wear = mate.phys.wearK.toFixed(2); const a = M.ask(sim, pl, 'mate.' + kind); mateCheck = { kind, msg: a && a.msg, pace, wear, at: sim.raceTime + 2.5 }; const again = M.ask(sim, pl, 'mate.save'); lines.push('  (order again at once): ' + (again && again.msg)); }
         out.push(`lap ${lap - 1} done (${pl.last.toFixed(2)}, P${pl.pos}, wear ${(Math.min(pl.phys.tyre.wf, pl.phys.tyre.wr) * 100).toFixed(0)}%) menu: ${menu.map(m => m.key + (m.sub ? `[${m.sub}]` : '')).join(' ')}\n` + lines.join('\n'));
       }
     }

@@ -8486,6 +8486,86 @@
    "file": "engs/engs.lost.mp3",
    "hash": "09cb560dc943",
    "text": "Lost them on the data. Ask again."
+  },
+  "engs.strat.box.me": {
+   "file": "engs/engs.strat.box.me.mp3",
+   "hash": "b9ad10c6f016",
+   "text": "Copy. Box this lap."
+  },
+  "engs.strat.box.mate": {
+   "file": "engs/engs.strat.box.mate.mp3",
+   "hash": "603740507b6c",
+   "text": "Copy. Bringing them in this lap."
+  },
+  "engs.strat.late": {
+   "file": "engs/engs.strat.late.mp3",
+   "hash": "e3c2005b7f91",
+   "text": "They're past the call for this lap. It'll be next time by."
+  },
+  "engs.strat.end.mate": {
+   "file": "engs/engs.strat.end.mate.mp3",
+   "hash": "0f8c85981f3c",
+   "text": "Copy. They'll run to the end."
+  },
+  "engs.strat.end.me": {
+   "file": "engs/engs.strat.end.me.mp3",
+   "hash": "dba4f09e7bf6",
+   "text": "Copy. No more stops. Bring it home on these."
+  },
+  "engs.strat.warn.end": {
+   "file": "engs/engs.strat.warn.end.mp3",
+   "hash": "0e0bcf656520",
+   "text": "Those tires won't make the flag, though."
+  },
+  "engs.strat.warn.short": {
+   "file": "engs/engs.strat.warn.short.mp3",
+   "hash": "3d81239308f6",
+   "text": "That set won't make the flag from there."
+  },
+  "engs.strat.next.me.soft": {
+   "file": "engs/engs.strat.next.me.soft.mp3",
+   "hash": "3056c8e61a2b",
+   "text": "Copy. Softs at the next stop."
+  },
+  "engs.strat.next.mate.soft": {
+   "file": "engs/engs.strat.next.mate.soft.mp3",
+   "hash": "19cad44227c8",
+   "text": "Copy. Softs for them at their stop."
+  },
+  "engs.strat.next.me.medium": {
+   "file": "engs/engs.strat.next.me.medium.mp3",
+   "hash": "97c069a93a74",
+   "text": "Copy. Mediums at the next stop."
+  },
+  "engs.strat.next.mate.medium": {
+   "file": "engs/engs.strat.next.mate.medium.mp3",
+   "hash": "cb4b6becba6e",
+   "text": "Copy. Mediums for them at their stop."
+  },
+  "engs.strat.next.me.hard": {
+   "file": "engs/engs.strat.next.me.hard.mp3",
+   "hash": "860a04c4fd70",
+   "text": "Copy. Hards at the next stop."
+  },
+  "engs.strat.next.mate.hard": {
+   "file": "engs/engs.strat.next.mate.hard.mp3",
+   "hash": "10626cba86b1",
+   "text": "Copy. Hards for them at their stop."
+  },
+  "engs.strat.next.me.wet": {
+   "file": "engs/engs.strat.next.me.wet.mp3",
+   "hash": "33a45e7d71de",
+   "text": "Copy. Wets at the next stop."
+  },
+  "engs.strat.passon": {
+   "file": "engs/engs.strat.passon.mp3",
+   "hash": "9dbc2ea0400f",
+   "text": "Copy. Passing it on."
+  },
+  "engs.strat.next.mate.wet": {
+   "file": "engs/engs.strat.next.mate.wet.mp3",
+   "hash": "e16add6eb02d",
+   "text": "Copy. Wets for them at their stop."
   }
  }
 }

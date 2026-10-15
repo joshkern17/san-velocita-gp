@@ -5171,9 +5171,9 @@ const TIPS = [
 ];
 let raceReturn = 'setup';
 let pitSel = 0;
-// ask the engineer (radioask.js): the menu while it's open { lvl (0: who, 1: what), top (who's key), sel, idle },
+// ask the engineer (radioask.js): the menu while it's open { path (the rows opened), sel, idle },
 // and the last question asked (the menu opens on it again)
-let askUI = null, askLast = { top: 'me', item: 'pace' };
+let askUI = null, askLast = { path: ['me'], item: 'pace' };
 let lastRace = null;
 
 // the loading screen's progress bar and what it's doing
@@ -5953,40 +5953,45 @@ function frame(now) {
 let hubWas = null;
 let skipMsgT = 0; // (the skip-to-your-stint message, refreshed twice a second)
 // the radio menu, open: ▲▼ move, ▶ opens a row / asks, ◀ back (or closes); keyboard: the row's number, Backspace back,
-// T closes. Shut after 4 s with nothing pressed. An answer goes on the radio like anything else the engineer says
+// T closes. Shut after 4 s with nothing pressed. askUI.path: the rows opened so far (['mate', 'strat']); the menu is
+// built again each frame (the cars around you change), and a row that's gone takes you back up to where it was
 function askInput(pl, dt) {
   const menu = radioMenu(sim, pl), A = askUI;
-  let top = menu.findIndex(m => m.key === A.top); if (top < 0) { top = 0; A.top = menu[0].key; A.lvl = 0; }
-  const rows = A.lvl ? menu[top].items : menu;
-  if (A.lvl === 0) A.sel = top; else A.sel = Math.min(A.sel, rows.length - 1);
+  // (down the path, as far as it still goes)
+  const levels = [menu]; let node = null;
+  for (const k of A.path) { const r = levels[levels.length - 1].find(x => x.key === k); if (!r || !r.items) break; node = r; levels.push(r.items); }
+  A.path.length = levels.length - 1;
+  const rows = levels[levels.length - 1];
+  A.sel = Math.max(0, Math.min(A.sel, rows.length - 1));
   const up = pressed('GP12'), dn = pressed('GP13'), back = pressed('GP14') || pressed('Backspace'), go = pressed('GP15');
   let pick = go ? A.sel : -1;
   for (let k = 0; k < rows.length && k < 9; k++) if (pressed('Digit' + (k + 1))) pick = k;
   A.idle = up || dn || back || pick >= 0 ? 0 : A.idle + dt;
   const close = () => { askUI = null; hud.askMenu(null); };
   if (pressed('KeyT') || A.idle > 4) return close();
-  if (up || dn) { A.sel = (A.sel + (dn ? 1 : -1) + rows.length) % rows.length; if (A.lvl === 0) A.top = menu[A.sel].key; sfx.move(); }
-  else if (back) { if (A.lvl) { A.lvl = 0; A.sel = top; } else return close(); sfx.move(); }
+  if (up || dn) { A.sel = (A.sel + (dn ? 1 : -1) + rows.length) % rows.length; sfx.move(); }
+  else if (back) { if (!A.path.length) return close(); const k = A.path.pop(); A.sel = Math.max(0, levels[A.path.length].findIndex(x => x.key === k)); sfx.move(); }
   else if (pick >= 0) {
-    if (A.lvl === 0) { A.top = menu[pick].key; A.lvl = 1; const it = menu[pick].items.findIndex(x => x.key === askLast.item); A.sel = askLast.top === A.top && it >= 0 ? it : 0; sfx.move(); }
+    const row = rows[pick];
+    if (row.items) { A.path.push(row.key); const last = askLast.path.join('.') === A.path.join('.') ? row.items.findIndex(x => x.key === askLast.item) : -1; A.sel = Math.max(0, last); sfx.move(); }
     else {
-      const item = rows[pick]; askLast = { top: A.top, item: item.key };
-      const ans = askEngineer(sim, pl, A.top + '.' + item.key);
+      askLast = { path: [...A.path], item: row.key };
+      const ans = askEngineer(sim, pl, [...A.path, row.key].join('.'));
       close(); sfx.select();
       if (ans) {
         // (the panel shows what he says, sentence by sentence; a number he rounded has the real one in a small tag after
         // it. No recording of a line: the written answer instead)
         const parts = (ans.say || []).map(p => typeof p === 'string' ? { id: p } : p), lines = parts.map(p => lineText(p.id));
         const text = parts.length && lines.every(Boolean) ? parts.map((p, i) => lines[i] + (p.x ? ` <i class="rd-x">${p.x}</i>` : '')).join(' ') : ans.msg;
-        const who = A.top === 'me' ? '' : ` · ${menu[top].label}${menu[top].name ? ' · ' + menu[top].name : ''}`;
+        const top = menu.find(x => x.key === A.path[0]), who = A.path[0] === 'me' || !top ? '' : ` · ${top.label}${top.name ? ' · ' + top.name : ''}`;
         hud.radio('eng', text, { name: 'Engineer' + who }); engSeq(parts.map(p => p.id));
       }
       return;
     }
   }
-  const m = A.lvl ? menu[menu.findIndex(x => x.key === A.top)] : null;
-  hud.askMenu({ title: 'Radio', crumb: m ? `${m.label}${m.sub ? ' · ' + m.sub : ''}` : '', sel: A.sel,
-    rows: (A.lvl ? m.items : menu).map(r => ({ label: r.label, sub: A.lvl ? '' : r.sub, go: !A.lvl })) });
+  const at = A.path.length ? levels[A.path.length] : menu, crumbs = [];
+  { let L = menu; for (const k of A.path) { const r = L.find(x => x.key === k); crumbs.push(r.label + (r.sub && L === menu ? ' · ' + r.sub : '')); L = r.items; } }
+  hud.askMenu({ title: 'Radio', crumb: crumbs.join(' · '), sel: A.sel, rows: at.map(r => ({ label: r.label, sub: r.sub || '', go: !!r.items })) });
 }
 function frameBody(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
@@ -6025,7 +6030,7 @@ function frameBody(now) {
     // X / B and a clock), the pit menu, or while your co-driver has the car
     const canAsk = pl && !pitMenu && !sim.call && !pl.finished && /^(race|quali|practice|test)$/.test(sim.mode) && sim.state === 'racing' && !(sim.crew && sim.crew.cur === 'C');
     if (!canAsk) { if (askUI) { askUI = null; hud.askMenu(null); } }
-    else if (!askUI) { if (pressed('GP15') || pressed('KeyT')) { askUI = { lvl: 0, top: askLast.top, sel: 0, idle: 0 }; sfx.move(); } }
+    else if (!askUI) { if (pressed('GP15') || pressed('KeyT')) { askUI = { path: [], sel: Math.max(0, radioMenu(sim, pl).findIndex(m => m.key === askLast.path[0])), idle: 0 }; sfx.move(); } }
     else askInput(pl, dt);
     if (askUI) press.line = false;
     if (pressed('KeyM') || (!pitMenu && !askUI && pressed('GP13'))) {

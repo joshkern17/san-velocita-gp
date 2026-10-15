@@ -128,6 +128,7 @@ export function radioMenu(R, car) {
   const gapTo = (o) => { const g = gapOf(R, car, o); return (o.pos < car.pos ? '+' : '−') + (g.laps ? `${g.laps} LAP${g.laps > 1 ? 'S' : ''}` : g.s.toFixed(1)); };
   const me = [{ key: 'pace', label: 'Pace' }, { key: 'tires', label: 'Tires' }, { key: 'lose', label: 'Where am I losing time' }];
   if (race && R.pit && car.plan) me.push({ key: 'pit', label: 'Pit window' });
+  if (race && R.pit && !car.finished) me.push({ key: 'strat', label: 'Strategy', items: stratRows(R, car) });
   out.push({ key: 'me', label: 'Me', sub: race ? `P${R.multi ? R.classPos(car).pos : car.pos}` : isFinite(car.best) ? fmtTime(car.best, 3) : '', items: me });
   const them = [{ key: 'pace', label: 'Pace' }, { key: 'tires', label: 'Tires' }];
   if (race) {
@@ -141,14 +142,48 @@ export function radioMenu(R, car) {
       ...(N.ahead === N.mate && (gapOf(R, car, N.mate).s ?? 9) < 2 ? [{ key: 'letby', label: 'Let me by' }] : []),
       ...(N.behind === N.mate && (gapOf(R, car, N.mate).s ?? 9) < 2 ? [{ key: 'hold', label: 'Hold position' }] : []),
       { key: 'push', label: 'Push' }, { key: 'save', label: 'Save tires' }];
+    if (race && R.pit) orders.push({ key: 'strat', label: 'Strategy', items: stratRows(R, N.mate) });
     out.push({ key: 'mate', label: 'Teammate', name: surname(N.mate), sub: `${surname(N.mate)}${race ? ' ' + gapTo(N.mate) : ''}`, items: [{ key: 'both', label: 'Pace & tires' }, ...orders] });
   }
   return out;
 }
 
-// the answer to who.what (e.g. 'ahead.pace'): { msg } or null (nothing to say: the car's gone)
+// ---------- strategy: your car's or your teammate's ----------
+// The rows: box this lap (on the set it'd take), stay out to the end (while a stop's still coming), and the set the
+// next stop takes (the one it'd take marked). Wets when it's a wet race; nothing to choose on dirt.
+const nextSet = (R, c) => c.tyreCall || R.nextPlannedStop(c)?.tyre || R.callTyre(c);
+function stratRows(R, c) {
+  const nx = nextSet(R, c), stopping = R.nextPlannedStop(c) || c.pitReq || (c.ai && c.ai.boxNow);
+  const rows = [{ key: 'box', label: 'Box this lap', sub: TYRE[nx] || '' }];
+  if (stopping) rows.push({ key: 'end', label: 'Stay out to the end' });
+  if (!R.dirt) for (const t of R.wx || R.rain ? ['soft', 'medium', 'hard', 'wet'] : ['soft', 'medium', 'hard']) rows.push({ key: 't' + t, label: `Next tires: ${TYRE[t][0].toUpperCase() + TYRE[t].slice(1)}`, sub: t === nx ? '◂ next' : '' });
+  return rows;
+}
+// what the engineer says to a strategy call (race.js stratOrder does it), and whether the set gets there
+function strategy(R, car, c, kind, tyre) {
+  const mate = c !== car, name = surname(c), r = R.stratOrder(c, kind, tyre);
+  if (!r) return { msg: 'No pit lane here.', say: V('lost') };
+  if (r.wait) return { msg: `Give ${name} a minute. They've only just had the last one.`, say: V('ord.wait') };
+  if (r.refused) return { msg: `Passing it on to ${name}.`, say: V('strat.passon') }; // (and they turn it down themselves, a moment later)
+  const left = isFinite(R.laps) ? R.laps - c.lap + 1 : Infinity;
+  if (kind === 'box') {
+    const say = [...V(mate ? 'strat.box.mate' : 'strat.box.me', 'pit.to.' + TYRE_SAY(r.c || 'medium'))];
+    if (r.late) say.push(...V('strat.late'));
+    return { msg: `${mate ? `Bringing ${name} in` : 'Box'} this lap for <b>${(r.c || '').toUpperCase()}S</b>.${r.late ? ' They\'re past the call for this lap: next time by.' : ''}`, say };
+  }
+  if (kind === 'end') {
+    const short = lapsToCliff(R, c) < left - 0.5 && R.wearK;
+    return { msg: `${mate ? `${name} runs` : 'No more stops. Bring it home'} to the end on these.${short ? ' Those tires won\'t make the flag, though.' : ''}`, say: [...V(mate ? 'strat.end.mate' : 'strat.end.me'), ...(short ? V('strat.warn.end') : [])] };
+  }
+  // (the set from the next stop to the flag: does it last?)
+  const at = R.nextPlannedStop(c)?.lap ?? c.lap, after = left - Math.max(0, at - c.lap), short = R.wearK && tyre !== 'wet' && R.tyreLife(tyre) * 0.98 < after;
+  return { msg: `${mate ? `${name} takes` : 'Next stop:'} <b>${tyre.toUpperCase()}S</b>${mate ? ' at their stop' : ''}.${short ? ' That set won\'t make the flag from there.' : ''}`, say: [...V(`strat.next.${mate ? 'mate' : 'me'}.${tyre}`), ...(short ? V('strat.warn.short') : [])] };
+}
+
+// the answer to who.what (e.g. 'ahead.pace', 'mate.strat.tsoft'): { msg, say } or null (nothing to say: the car's gone)
 export function ask(R, car, q) {
-  const [who, what] = q.split('.'), N = neighbours(R, car);
+  const [who, what, arg] = q.split('.'), N = neighbours(R, car);
+  if (what === 'strat') { const c = who === 'me' ? car : N.mate; if (!c || !arg) return null; return arg === 'box' || arg === 'end' ? strategy(R, car, c, arg) : strategy(R, car, c, 'tyre', arg.slice(1)); }
   if (who === 'me') return what === 'pace' ? myPace(R, car) : what === 'tires' ? myTires(R, car) : what === 'lose' ? losing(R, car, N) : what === 'pit' ? pitWindow(R, car) : null;
   const o = N[who]; if (!o) return { msg: 'Lost them on the data, sorry. Ask again.', say: V('lost') };
   if (who === 'mate' && what === 'both') { const a = theirPace(R, car, o, who), b = theirTires(R, car, o, who); return { msg: a.msg + ' ' + b.msg.replace(/^[^:]+: /, ''), say: [...a.say, ...b.say] }; }

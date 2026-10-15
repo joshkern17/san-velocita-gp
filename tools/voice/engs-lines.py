@@ -82,6 +82,15 @@ head('orders to your teammate')
 add('ord.letby', 'Copy. Asking them to let you by.'); add('ord.hold', 'Copy. Telling them to hold position.'); add('ord.push', 'Copy. Telling them to push.')
 add('ord.save', 'Copy. Telling them to save tires.'); add('ord.wait', "Give them a minute. They've only just had the last one.")
 add('ord.notahead', "They're not right in front of you."); add('ord.notbehind', "They're not right behind you.")
+head('strategy calls: yours and your teammate\'s')
+add('strat.box.me', 'Copy. Box this lap.'); add('strat.box.mate', 'Copy. Bringing them in this lap.')
+add('strat.late', "They're past the call for this lap. It'll be next time by.")
+add('strat.end.me', 'Copy. No more stops. Bring it home on these.'); add('strat.end.mate', "Copy. They'll run to the end.")
+add('strat.warn.end', "Those tires won't make the flag, though."); add('strat.warn.short', "That set won't make the flag from there.")
+for c in ('soft', 'medium', 'hard', 'wet'):
+    add(f'strat.next.me.{c}', f'Copy. {TY[c][0].upper() + TY[c][1:]} at the next stop.')
+    add(f'strat.next.mate.{c}', f'Copy. {TY[c][0].upper() + TY[c][1:]} for them at their stop.')
+add('strat.passon', 'Copy. Passing it on.')
 add('lost', 'Lost them on the data. Ask again.')
 
 SEC = """# ── RADIO ANSWERS: WHOLE SENTENCES (js/radioask.js) ──────────────────────────

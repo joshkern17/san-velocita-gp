@@ -2672,6 +2672,45 @@ export class Race {
     }
     return null;
   }
+  // ---------- strategy on the radio: yours, or your teammate's (radioask.js words it) ----------
+  // 'box': this lap, on the next set (the one picked, else the plan's); 'end': no more stops (the plan's struck out, and
+  // an AI car runs its set past the cliff instead of stopping for it); 'tyre': the set the next stop takes. Your
+  // teammate goes along unless trust is very low (then, half the time, they don't: they say so a moment later).
+  // { ok, c (the set), late (they're past this lap's call: it'll be next lap), wait (an order too soon after the last),
+  // refused } or null (no pit lane, not a race).
+  stratOrder(car, kind, tyre) {
+    if (!this.pit || car.finished || this.mode !== 'race') return null;
+    const mate = !car.isPlayer;
+    if (mate) {
+      if (this.raceTime - (this.mateOrderT ?? -99) < 20) return { wait: true };
+      this.mateOrderT = this.raceTime;
+      if (car.ai.trust < 30 && Math.random() < 0.5) { this.mateReply = { at: this.raceTime + 1.6, fn: () => this.mateSay(car, kind === 'end' ? ['I\'m boxing when I need to.', 'These are done. I\'m coming in.'] : ['I know my tires.', 'Nah. I\'ll pick.']) }; return { refused: true }; }
+    }
+    const plan = car.plan ||= { stints: [{ c: car.phys.tyre.c, laps: this.laps }] };
+    if (kind === 'box') {
+      const c = car.tyreCall || plan.stints[car.pits + 1]?.c || this.callTyre(car);
+      if (mate) car.ai.boxNow = true; else car.pitReq = { tyre: c, repair: Math.max(car.phys.dmg.fw, car.phys.dmg.rw) > 0.12 };
+      if (mate) car.ai.noStop = false;
+      if (mate) this.mateReply = { at: this.raceTime + 1.6, fn: () => this.mateSay(car, ['Copy. Boxing.', 'Copy. In this lap.']) };
+      return { ok: true, c, late: mate && car.pitChecked };
+    }
+    if (kind === 'end') {
+      const done = plan.stints.slice(0, car.pits).reduce((a, st) => a + st.laps, 0);
+      plan.stints = plan.stints.slice(0, car.pits + 1); if (isFinite(this.laps)) plan.stints[car.pits].laps = Math.max(1, this.laps - done);
+      car.tyreCall = null;
+      if (mate) { car.ai.noStop = true; car.ai.boxNow = false; this.mateReply = { at: this.raceTime + 1.6, fn: () => this.mateSay(car, ['Copy. Bringing them home.', 'Copy. To the end.']) }; }
+      else { car.pitReq = null; car.planRadio = {}; }
+      return { ok: true };
+    }
+    if (kind === 'tyre') {
+      car.tyreCall = tyre;
+      if (plan.stints[car.pits + 1]) plan.stints[car.pits + 1].c = tyre;
+      if (!mate && car.pitReq && car.pitReq.tyre) car.pitReq.tyre = tyre;
+      if (mate) this.mateReply = { at: this.raceTime + 1.6, fn: () => this.mateSay(car, ['Copy.', 'Copy. Sounds good.']) };
+      return { ok: true, c: tyre };
+    }
+    return null;
+  }
   // the reply when it's due, and a push or a save over after its five laps (or the race)
   mateOrderTick() {
     const R = this.mateReply; if (R && this.raceTime >= R.at) { this.mateReply = null; R.fn(); }
@@ -2704,6 +2743,8 @@ export class Race {
     const worst = Math.min(p.tyre.wf, p.tyre.wr);
     const dmg = Math.max(p.dmg.fw, p.dmg.rw, (p.dmg.rad || 0) * 1.4, (p.dmg.gb || 0) * 1.1, (p.dmg.fl || 0) * 0.9); // (a holed radiator: in before the engine cooks; a dying gearbox; a torn floor)
     const plan = car.plan;
+    // (your call on the radio, for your teammate: box this lap, on the set you picked if you picked one)
+    if (car.ai && car.ai.boxNow) { car.ai.boxNow = false; car.pitReq = { tyre: car.tyreCall || plan?.stints[car.pits + 1]?.c || this.callTyre(car), repair: dmg > 0.12 }; return true; }
     // (the teammate's already in: stack behind them only if it has to come in now; else a lap later, no queue)
     const mateIn = (() => { const m = this.teamMate(car); return m && m.pitting && !(m.pitReq && (m.pitReq.dt || m.pitReq.garage)); })();
     let due = false;
@@ -2722,7 +2763,8 @@ export class Race {
     // (the weather changing: each driver picks their moment; the bold stay out on the wrong tyres longer, gambling)
     // (and a stop that was coming anyway, in a downpour: wets, whoever you are)
     const bold = car.ai ? car.ai.aggr ?? 0.5 : 0.5, wantWets = this.wx ? this.wet > 0.28 + bold * 0.35 || (due && this.rainK > 0.6 && this.wet > 0.12) : this.rain, wantDry = this.wx ? this.wet < 0.5 - bold * 0.3 : !this.rain;
-    const need = worst < 0.3 && left > 2 || dmg > 0.45 && left > 2 || (!this.dirt && wantWets && p.tyre.c !== 'wet') || (!this.dirt && wantDry && p.tyre.c === 'wet' && left > 2) || (this.dirt !== (p.tyre.c === 'dirt') && left > 2);
+    // (noStop: told to run to the end on these, so the worn set's no reason to stop)
+    const need = worst < 0.3 && left > 2 && !(car.ai && car.ai.noStop) || dmg > 0.45 && left > 2 || (!this.dirt && wantWets && p.tyre.c !== 'wet') || (!this.dirt && wantDry && p.tyre.c === 'wet' && left > 2) || (this.dirt !== (p.tyre.c === 'dirt') && left > 2);
     if (!due && !need) return false;
     if (mateIn && !need && !(this.rc && this.rc.vscOn())) return false;
     if (this.wx && p.tyre.c === 'wet' && !wantDry && !need) return false; // (the plan's stop was for dry running: on wets in the wet, stay out)
@@ -2730,6 +2772,7 @@ export class Race {
     const dryNext = ((c) => c && c !== 'wet' ? c : 'medium')(plan?.stints[car.pits + 1]?.c);
     let next = this.dirt ? 'dirt' : this.wx ? ((p.tyre.c === 'wet' ? !wantDry : wantWets) ? 'wet' : dryNext) : this.rain ? 'wet' : dryNext;
     if (next !== 'wet' && !this.dirt && this.tyreLife(next) < left) next = this.tyreLife('hard') >= left ? (this.tyreLife('medium') >= left ? 'medium' : 'hard') : 'hard';
+    if (car.tyreCall && !this.dirt && (car.tyreCall === 'wet') === (next === 'wet')) next = car.tyreCall; // (the set you called for them, while it's the right kind for the weather)
     car.pitReq = { tyre: next, repair: dmg > 0.12 || p.dmg.ch > 0.2 || (p.dmg.rad || 0) > 0.15 || (p.dmg.gb || 0) > 0.2 || (p.dmg.fl || 0) > 0.25 };
     return true;
   }
@@ -2842,7 +2885,7 @@ export class Race {
         // (each damaged part: fixed if it's worth the time, which you can change on the way in)
         for (const x of this.pitParts(car)) fix[x.k] = x.dmg > 0.08;
         // (owing a drive-through: this visit is it, no work allowed)
-        car.pitReq = car.dt ? { dt: true } : this.quali ? { garage: true } : { tyre: car.pitReq?.tyre || this.nextPlannedStop(car)?.tyre || (this.dirt ? 'dirt' : this.rain ? 'wet' : p.tyre.c), repair: fix };
+        car.pitReq = car.dt ? { dt: true } : this.quali ? { garage: true } : { tyre: car.pitReq?.tyre || car.tyreCall || this.nextPlannedStop(car)?.tyre || (this.dirt ? 'dirt' : this.rain ? 'wet' : p.tyre.c), repair: fix };
         this.events.push({ type: 'pitIn' });
         if (this.crew) this.crewStop(car);
         { const m = this.teamMate(car); if (m && m.pitting && !(car.pitReq && (car.pitReq.dt || car.pitReq.garage))) this.events.push({ type: 'radio', vo: 'box.doublestack', msg: `Double stack: you're in behind ${m.name}. Expect a wait at the box.` }); }
@@ -2886,7 +2929,7 @@ export class Race {
       car.pitTimer -= dt;
       if (car.pitTimer <= 0) {
         const r = car.pitReq || {};
-        if (r.tyre) { car.phys.fitTyres(r.tyre); car.model.setCompound(r.tyre); car.stintLap = car.lap; if (car.isPlayer) (car.setsUsed = car.setsUsed || []).push(r.tyre); }
+        if (r.tyre) { car.phys.fitTyres(r.tyre); car.model.setCompound(r.tyre); car.stintLap = car.lap; car.tyreCall = null; if (car.isPlayer) (car.setsUsed = car.setsUsed || []).push(r.tyre); }
         if (r.repair) { const fx = this.pitFixes(car).map(x => x.k); if (r.repair === true) car.phys.repairAll(); else car.phys.repairParts(fx); car.model.setDamage(car.phys.dmg); }
         if (this.story && this.mode === 'race') this.story.stops.push({ pid: this.storyId(car), lap: car.lap, c: r.tyre || null, y: !!(this.rc && this.rc.vscOn()) });
         car.pits++; car.pitPhase = 'out'; car.radio = {}; car.penServing = 0;
