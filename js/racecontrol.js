@@ -424,6 +424,7 @@ export class RaceControl {
     if (phase === 'on' && this.sc) return; // (never a VSC over the safety car: whatever calls for one)
     if (phase === 'on') {
       this.vsc = { phase: 'on', t0: now, until: now + 20 + Math.random() * 15, why };
+      if (race.story && race.order && race.order[0]) race.story.sc.push({ lap: race.order[0].lap, k: 'vsc', why });
       for (const c of race.cars) { c.vscDelta = 0; c.vscBad = 0; c.vscStrikes = 0; c.vscWarned = false; }
       this.say(`Virtual Safety Car${why ? ' · ' + why : ''}`, { cls: 'vsc', me: true });
       const pl = race.player, stop = pl && race.nextPlannedStop && race.nextPlannedStop(pl);

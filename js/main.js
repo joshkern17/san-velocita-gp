@@ -3524,7 +3524,9 @@ function worldRoundDone(retired = false) {
   if (coop && coop.race) { coop.race.done = true; coop.race.wait = null;
     const u = coop.race.use; if (u && w.money) { let t = 0; for (const c of u.sets) if (!WC.takeSet(w, c)) t++; car2 = { trackside: t, laps: u.laps, damage: u.damage }; } }
   const hired = res.find(r => r.hired); // (an endurance round: car two, the hired drivers, paid on its own result)
-  const out = WC.recordPlayerRound(w, res, sim.log || [], wkUse && w.money ? { trackside: wkUse.trackside, laps: wkUse.laps, damage: wkUse.damage, failed: wkUse.failed || null, aidPct: Math.max(0, sim.aidBonus ?? 0), grid: mine.grid ?? null, led: mine.led || 0, blamed, teamTrust: sim.trustDelta || 0, car2, car2Pos: hired ? (hired.clsPos ?? hired.pos) : null, car2Dnf: hired ? !!(hired.dnf || hired.dsq) : false } : null);
+  // (how the race went, for the Wire: retiring from the menu leaves no wreck to record)
+  if (retired && sim.story && sim.player && !sim.story.out.some(o => o.pid === 'P')) sim.story.out.push({ pid: 'P', lap: sim.player.lap, why: 'retired', part: null });
+  const out = WC.recordPlayerRound(w, res, sim.log || [], wkUse && w.money ? { trackside: wkUse.trackside, laps: wkUse.laps, damage: wkUse.damage, failed: wkUse.failed || null, aidPct: Math.max(0, sim.aidBonus ?? 0), grid: mine.grid ?? null, led: mine.led || 0, blamed, teamTrust: sim.trustDelta || 0, car2, car2Pos: hired ? (hired.clsPos ?? hired.pos) : null, car2Dnf: hired ? !!(hired.dnf || hired.dsq) : false } : null, sim.story || null);
   wkUse = null;
   saveWorld();
   sim.setPaused(true);

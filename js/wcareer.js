@@ -1,4 +1,4 @@
-import { roundPress } from './wpress.js';
+import { roundPress, digestRace } from './wpress.js';
 // World Career: a persistent motorsport world that keeps going whether or not you race in it.
 // Three series (Street Cup -> GT Championship -> Formula SV), six teams of two in each, every driver a person with
 // an age, stats that grow and fade, a career history and a record against you. Your races are real; the other series'
@@ -794,8 +794,9 @@ export const ladderKey = (w) => `${licOf(w).g}|${w.player.series}|${w.player.off
 
 // ---------------- a round: your race, then everyone else's ----------------
 // res: race.js results() rows (with pid: 'P' for you), log: race.js incident log ([{ type, a, b, blame }] by pid)
-// use: what your weekend used (tyre sets, laps, damage), for the bill
-export function recordPlayerRound(w, res, log = [], use = null) {
+// use: what your weekend used (tyre sets, laps, damage), for the bill; story: race.js's record of how the race went
+// (digested onto the round's result for the Wire: wpress.js digestRace)
+export function recordPlayerRound(w, res, log = [], use = null, story = null) {
   const sid = w.player.series;
   // (a multiclass race: your class's cars, at their places in it)
   const mine = seriesById(sid).cls, multi = res.some(r => r.cls && r.cls !== mine);
@@ -807,7 +808,8 @@ export function recordPlayerRound(w, res, log = [], use = null) {
   // (an endurance race: your teammate drove your car with you, and takes its result; car two's hired drivers don't score)
   { const R = w.series[sid].cal[w.round], m = mateOf(w), me0 = known.find(r => r.pid === 'P');
     if (isEndurance(R) && m && me0 && !known.some(r => r.pid === m.pid)) known.push({ pid: m.pid, pos: me0.pos, dnf: me0.dnf, dsq: me0.dsq, fl: me0.fl, best: me0.best }); }
-  scoreRound(w, sid, known);
+  const told = story && digestRace(story, res.filter(r => !multi || r.cls === mine).map(r => ({ pid: r.isPlayer ? 'P' : r.pid, grid: r.grid, time: r.dnf || r.dsq ? null : r.time, lap: r.lap })));
+  scoreRound(w, sid, known, told ? { story: told } : {});
   for (const e of log) if (e.a && e.b) logLedger(w, { s: sid, ...e });
   grudgeTexts(w, log);
   mateRace(w, log, use);

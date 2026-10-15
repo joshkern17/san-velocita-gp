@@ -374,6 +374,10 @@ export class Race {
     this.aiRec = this.rec && opts.sessionLog !== false ? new Map() : null; this.sessLaps = [];
     this.cars = [];
     this.log = []; // incidents between named drivers (World Career's ledger)
+    // how the race went, for the Paddock Wire's report (wpress.js digestRace): the running order each time the leader
+    // crosses the line (o: pids, 'P' you; y: 'sc' / 'vsc' if under yellow; gap: second place's seconds behind), the
+    // safety cars, every pit stop (the car's lap, the tyre it took) and every retirement (lap, why)
+    this.story = this.mode === 'race' ? { laps: [], sc: [], stops: [], out: [] } : null;
     this.diff = diffFor(opts);
     this.mistakeP = this.mode === 'race' ? (MISTAKE[opts.difficulty] ?? MISTAKE.medium) * (MISTAKES[opts.aiMistakes || 'normal'] ?? 1) : 0;
     this.limits = {}; // learned speed plan per car type
@@ -1521,6 +1525,7 @@ export class Race {
 
   completeLap(car) {
     if (this.mode === 'race' && this.order && this.order[0] === car) car.led = (car.led || 0) + 1; // (laps led: World Career's sponsors ask)
+    if (this.story && this.order && this.order[0] === car && !car.finished && !this.T.open) this.storyLap(car);
     const t = this.raceTime - car.lapStart;
     // (a lap where you broke track limits doesn't count as your best: race control deletes it)
     const valid = !car.lapInvalid;
@@ -1548,6 +1553,19 @@ export class Race {
       this.addFinish(car);
       if (car.isPlayer) { this.events.push({ type: 'finish', pos: this.finishOrder.length, pen: car.pen || 0 }); this.state = 'finished'; this.stateT = 0; }
     }
+  }
+
+  // the leader's over the line: the order as it stands (see this.story)
+  storyLap(car) {
+    const run = this.order.filter(c => !c.gone), second = run[1], g = second ? this.timeBehind(second, car) : null;
+    this.story.laps.push({ n: car.lap, o: run.map(c => this.storyId(c)), y: this.sc ? 'sc' : this.rc && this.rc.vsc ? 'vsc' : null, gap: g != null ? Math.round(g * 10) / 10 : null });
+  }
+  storyId(c) { return c.isPlayer ? 'P' : c.pid || null; }
+  // a car out of the race: when, and why (a wreck, a part that broke, the stewards, or just gone)
+  storyOut(car) {
+    if (!this.story || car.finished) return;
+    const why = car.dsq ? 'dsq' : car.wreck ? (car.wreck.kind === 'engine' ? 'engine' : 'crash') : car.failed ? 'failure' : 'retired';
+    this.story.out.push({ pid: this.storyId(car), lap: car.lap, why, part: car.failed && car.failed.part || null });
   }
 
   // ---------- multiclass: more than one class in the race ----------
@@ -2525,6 +2543,7 @@ export class Race {
     const lead = this.order.find(c => !c.gone && !c.finished && !c.pitting && !c.wreck) || this.order[0];
     // (just up the road from the leader, at the pace the field's slowing to: it slows on gently, so the leader comes up
     // behind it within a few seconds rather than into it)
+    if (this.story) this.story.sc.push({ lap: lead.lap, k: 'sc' });
     this.sc = { raw: lead.raw + 150, v: Math.max(22, Math.min(36, lead.phys.speed * 0.6)), lap0: lead.lap, t0: this.raceTime, model: this.scModel() };
     if (this.sc.model) this.sc.model.visible = true;
   }
@@ -2824,6 +2843,7 @@ export class Race {
         const r = car.pitReq || {};
         if (r.tyre) { car.phys.fitTyres(r.tyre); car.model.setCompound(r.tyre); car.stintLap = car.lap; if (car.isPlayer) (car.setsUsed = car.setsUsed || []).push(r.tyre); }
         if (r.repair) { const fx = this.pitFixes(car).map(x => x.k); if (r.repair === true) car.phys.repairAll(); else car.phys.repairParts(fx); car.model.setDamage(car.phys.dmg); }
+        if (this.story && this.mode === 'race') this.story.stops.push({ pid: this.storyId(car), lap: car.lap, c: r.tyre || null, y: !!(this.rc && this.rc.vscOn()) });
         car.pits++; car.pitPhase = 'out'; car.radio = {}; car.penServing = 0;
         if (car.isPlayer && this.crew) { if (this.crew.swap) this.crewSwap(car); else if (this.crew.cur === 'C') this.crewPanel(); }
         if (car.isPlayer) this.events.push({ type: 'pitOut', time: car.pitTotal });
@@ -2976,6 +2996,7 @@ export class Race {
   dropCar(key) {
     const car = this.cars.find(c => c.key === key);
     if (!car || car.gone) return;
+    this.storyOut(car);
     car.gone = true; car.model.group.visible = false;
     car.phys.vx = car.phys.vz = 0; car.phys.x = car.phys.z = 1e6;
     if (car === this.focus && this.player && car !== this.player) this.focus = this.player;
@@ -2996,6 +3017,7 @@ export class Race {
   // a car taken out of the race (disqualified, or its wreck craned away)
   removeCar(car) {
     if (car.key) return this.dropCar(car.key);
+    if (!car.gone) this.storyOut(car);
     car.gone = true; car.model.group.visible = false;
     car.phys.vx = car.phys.vz = 0; car.phys.x = car.phys.z = 1e6;
     if (car === this.focus && this.player) this.focus = this.player;
