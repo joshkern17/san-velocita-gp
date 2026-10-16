@@ -18,6 +18,7 @@ CLIPS = {
   'Leaning': 'lean', 'Leaning(1)': 'lean_2', 'Male Standing Pose(1)': 'stand_pose',
   'Kneeling': 'kneel', 'Kneeling Down': 'kneel_down', 'Kneeling Pointing': 'kneel_point',
   'Talking': 'talk', 'Talking(1)': 'talk_2', 'Talking(2)': 'talk_3',
+  'Push': 'push', 'Push(1)': 'push_2',
 }
 M = 'mixamorig:'
 GROUPS = {  # Rigify deform group -> Mixamo bone
@@ -117,7 +118,7 @@ def fix_rest(arm, act, base):
 
 # A walk or jog downloaded without "In Place" ticked carries the hips forward (a jog: 2 m a cycle); the game moves the
 # character itself, so take out the hips' steady drift (first key to last), keeping the bob and sway.
-IN_PLACE = {'walk', 'walk_2', 'jog', 'run'}
+IN_PLACE = {'walk', 'walk_2', 'jog', 'run', 'push', 'push_2'}
 def in_place(arm, act, base):
     bag = anim_utils.action_get_channelbag_for_slot(act, arm.animation_data.action_slot)
     fcs = [bag.fcurves.find(f'pose.bones["{M}Hips"].location', index=i) for i in range(3)]

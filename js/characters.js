@@ -67,6 +67,9 @@ export const CLIP_INFO = {
   // the pit crew at work (Motion Cast "Racing Team" mocap, tools/characters/motioncast.py; js/pitlife.js plays parts of
   // them, timed to the stop): the gunman on one knee at a wheel, the front and rear jacks, the lollipop man
   pit_gun: { loop: false }, pit_jack_front: { loop: false }, pit_jack_rear: { loop: false }, pit_lollipop: { loop: false },
+  // pushing something heavy, walking (Mixamo "Push", in place): hands about 0.74 m out in front at 1.0 m up (push_2:
+  // 0.62 m out, 1.1 m up). Slow, straining steps: js/pushcar.js plays them faster to push a car along
+  push: { loop: true, speed: 0.35 }, push_2: { loop: true, speed: 0.4 },
 };
 export const CLIPS = Object.keys(CLIP_INFO);
 

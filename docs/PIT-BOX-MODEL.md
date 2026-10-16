@@ -53,6 +53,13 @@ In practice and qualifying, each box's crew works out what to do from what's in 
 
 Every box rolls its own dice, so no two boxes are the same.
 
+**Pushing your car (`js/pushcar.js`):**
+- **Drive Out:** your crew pushes the car out of `REF_your_car`'s spot, through the door and round onto the lane.
+- **Pulling up at your box** at the end of a run: they push it back in, tail first, to that same spot.
+
+They take the four crew on their feet nearest the car and walk round what's in the box to get to it. So keep a way
+clear from the car's spot to the door.
+
 ## Known limits
 - **Lights and the room:** lights in the file are ignored, and so are changes to the floor, walls or ceiling.
 

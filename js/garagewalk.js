@@ -184,11 +184,13 @@ export class GarageWalk {
       if (got < this.speed * 0.5) this.speed = Math.max(got, Math.min(this.speed, WALK * 0.5));
       me.move(this.speed, { run: lane });
     } else { this.speed = 0; me.play('idle'); }
+    // (on the ground: in the pit lane it climbs and drops, box to box. Eased, so the step up into a garage isn't a jump)
+    if (this.nav && this.nav.groundY) { const gy = this.nav.groundY(this.pos); this.pos.y += (gy - this.pos.y) * (Math.abs(gy - this.pos.y) > 1 ? 1 : Math.min(1, dt * 14)); }
     me.object.position.copy(this.pos); me.object.rotation.y = this.heading; me.update(dt);
     // the camera: behind and above, pulled in front of any wall between it and you (sat down: your head, lower and back
     // over the seat)
     // (sitting down or getting up: following your hips, lower as you sit; eased, so it doesn't jump when that starts)
-    const A = this.act, aim = A && A.focus ? new THREE.Vector3(A.focus.x, CAM_HEAD - 0.3 * A.k, A.focus.z) : this.pos.clone().setY(CAM_HEAD);
+    const A = this.act, aim = A && A.focus ? new THREE.Vector3(A.focus.x, this.pos.y + CAM_HEAD - 0.3 * A.k, A.focus.z) : this.pos.clone().setY(this.pos.y + CAM_HEAD);
     this.easeT = A ? 0.6 : (this.easeT || 0) - dt; // (walking: right on you; sitting, getting up and just after: eased)
     if (!this.focus) this.focus = aim.clone(); this.focus.lerp(aim, this.easeT > 0 ? Math.min(1, dt * 8) : 1); const head = this.focus.clone();
     const back = new THREE.Vector3(-Math.sin(this.camYaw) * Math.cos(this.camPitch), Math.sin(this.camPitch), -Math.cos(this.camYaw) * Math.cos(this.camPitch));

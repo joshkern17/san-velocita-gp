@@ -22,7 +22,7 @@ export class PitNav {
     this.sim = sim; this.pg = pg;
     const a = pg.track.a; a.updateMatrixWorld(true);
     const M = this.M = new THREE.Matrix4().copy(a.matrixWorld).invert();
-    const L = (arr) => { const p = v3(arr).applyMatrix4(M); return { x: p.x, z: p.z }; };
+    const L = (arr) => { const p = v3(arr).applyMatrix4(M); return { x: p.x, z: p.z, y: p.y }; };
     const { T, A, pit } = sim, life = sim.pitLife;
     // the lane: the garage line (js/pitboxes.js pitSlots), each stretch's way in (to the garages), its length along
     const G = pitSlots(T, A, pit);
@@ -40,7 +40,7 @@ export class PitNav {
     for (const b of life ? life.boxes : []) {
       const F = b.F; if (!F) continue;
       const o = L(F.P(0, 0, 0)), px = L(F.P(1, 0, 0)), pz = L(F.P(0, 1, 0));
-      const fr = { o, t: { x: px.x - o.x, z: px.z - o.z }, n: { x: pz.x - o.x, z: pz.z - o.z }, wx: F.wx, dw: F.dw };
+      const fr = { o, t: { x: px.x - o.x, z: px.z - o.z }, n: { x: pz.x - o.x, z: pz.z - o.z }, wx: F.wx, dw: F.dw, F };
       this.rooms.push(fr);
       this.dress(fr, b === life.mine, F.mirror, life.boxModel && F);
     }
@@ -163,6 +163,22 @@ export class PitNav {
       }
     }
     if (best) { p.x = best[0]; p.z = best[1]; }
+  }
+  // the ground's height under p (this frame's y): a box's floor in it (its door too: the floor runs out under it), else
+  // the lane's, from the garage line. Your box's floor is y = 0 here; along a pit lane that climbs or drops, the
+  // others aren't (standing at 0 everywhere, you sank into the lane as it rose)
+  groundY(p) {
+    for (const fr of this.rooms) {
+      const q = this.inFr(fr, p);
+      if (q.z > 0 && q.z < BOX.depth && Math.abs(q.x) < (q.z > BOX.frontT ? fr.wx : fr.dw)) return v3(fr.F.P(q.x, q.z, BOX.floor)).applyMatrix4(this.M).y;
+    }
+    let y = 0, dmin = Infinity;
+    for (let j = 0; j < this.line.length - 1; j++) {
+      const a = this.line[j], b = this.line[j + 1], ex = b.x - a.x, ez = b.z - a.z, l2 = ex * ex + ez * ez || 1;
+      const u = Math.max(0, Math.min(1, ((p.x - a.x) * ex + (p.z - a.z) * ez) / l2)), d = Math.hypot(p.x - a.x - ex * u, p.z - a.z - ez * u);
+      if (d < dmin) { dmin = d; y = a.y + (b.y - a.y) * u + 0.004; } // (the lane's tarmac: js/world.js buildPitLane, a hair over the line)
+    }
+    return y;
   }
   push(p, r, dt = 1 / 60) {
     this.refreshCrew(dt);

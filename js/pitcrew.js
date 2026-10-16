@@ -222,6 +222,7 @@ export class BoxCrew {
       if (g.t <= 0) this.endGroup(g);
     }
     for (const p of this.people) {
+      if (p.held) continue; // (pushing your car: js/pushcar.js has them)
       if (p.role === 'driver' && out) continue;
       if (!p.group) { p.t -= dt; if (p.t <= 0) this.choose(p, !vis); }
       const m = p.m, a = p.act; if (!a) continue;

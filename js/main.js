@@ -26,6 +26,7 @@ import { PitGarage } from './pitgarage.js';
 import { PitNav } from './pitwalk.js';
 import { PREMISES } from './garagekit.js';
 import { GarageWalk } from './garagewalk.js';
+import { CarPush } from './pushcar.js';
 import { Opening, trailerModel } from './opening.js';
 import { driveHomeTrack, PARK } from './drivehome.js';
 import { Computer } from './computer.js';
@@ -1295,6 +1296,7 @@ function openPitGarage() {
   $('pg-sub').textContent = `${sim.track.name} · your garage`;
   renderGarageMenu(); renderGarageInfo();
   show('s-pitgarage');
+  sim.onBoxArrive = pushIn; // (back at the box at the end of a run: the crew pushes you in)
 }
 let pgDesk = false, pgPcT = 0, pgPcFocus = false;
 // the controls to the computer (and back: B / Esc), at the desk
@@ -1486,11 +1488,38 @@ function goOut(how) {
   sfx.go();
   if (pgBusy) return;
   if (pgPcFocus) pcFocus(false);
+  if (how === 'drive' && pushOut()) return;
   fadeTo(() => { if (pc.app === 'weekend') pc.close(); pitGarage.close(); sim.leaveGarage(sim.player, how, null); beginHud(); }, 250);
 }
+// ---- your crew pushing your car out of the box onto the lane, and back in at the end of a run (js/pushcar.js): the
+// camera eases from the menu's shot / the chase cam into a shot from the lane, and on into the next. A / B skips ----
+const carPush = new CarPush(pitGarage);
+function pushOut() {
+  if (pc.app === 'weekend') pc.close();
+  const ok = carPush.out(sim, ({ ahead, world }) => {
+    $('s-pitgarage').classList.remove('walking');
+    pitGarage.close(); sim.leaveGarage(sim.player, 'drive', null, ahead); beginHud();
+    // (the chase cam eased on from where the push left it: not a cut)
+    const cam = sim.camera; cam.position.copy(world.pos); cam.quaternion.copy(world.quat); cam.fov = world.fov; cam.updateProjectionMatrix();
+    sim.camBlend = { pos: world.pos.clone(), quat: world.quat.clone(), fov: world.fov, T: 1.8 };
+  });
+  if (ok) { $('s-pitgarage').classList.add('walking'); renderHints(); }
+  return ok;
+}
+function pushIn(car) {
+  if (screen !== 'hud' || !sim) return false;
+  const ok = carPush.in(sim, car, ({ from }) => {
+    $('hud').style.opacity = '';
+    sim.enterGarage(car); openPitGarage();
+    pitGarage.from = { ...from, secs: 1.8 }; pitGarage.blendK = 0; // (the menu's shot eased on from the lane's)
+  });
+  if (ok) { car.gone = true; $('hud').style.opacity = '0'; }
+  return ok;
+}
+const pushSkip = () => pressed('Enter') || pressed('Space') || pressed('Escape') || pressed('GP0') || pressed('GP1') || pressed('GP9');
 menus['s-pitgarage'] = [new Menu($('m-pitgarage'), [], { desc: 'd-pitgarage' })];
 backs['s-pitgarage'] = () => { if (pgView !== 'main' && !pgBusy) { pgView = 'main'; sfx.back(); renderGarageMenu(); renderHints(); } };
-HINTS['s-pitgarage'] = () => walk.active ? [['cam', 'Walk'], ['look', 'Look'], ['ok', 'Use'], ['back', 'Garage']] : pgPcFocus ? [['nav', 'Move'], ['ok', 'Select'], ['tab', 'Sections'], ['back', 'Menu']] : pgView === 'tyres' ? [['nav', 'Navigate'], ['ok', 'Fit'], ['back', 'Back']] : pgView === 'repair' ? [['nav', 'Navigate'], ['ok', 'Fix'], ['back', 'Back']] : pgView === 'plan' ? [['nav', 'Navigate'], ['ok', 'Choose'], ['back', 'Back']] : [['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ...(pgDesk && pc.isOpen ? [['tab', 'Computer']] : [])];
+HINTS['s-pitgarage'] = () => carPush.active ? [['skip', 'Skip']] : walk.active ? [['cam', 'Walk'], ['look', 'Look'], ['ok', 'Use'], ['back', 'Garage']] : pgPcFocus ? [['nav', 'Move'], ['ok', 'Select'], ['tab', 'Sections'], ['back', 'Menu']] : pgView === 'tyres' ? [['nav', 'Navigate'], ['ok', 'Fit'], ['back', 'Back']] : pgView === 'repair' ? [['nav', 'Navigate'], ['ok', 'Fix'], ['back', 'Back']] : pgView === 'plan' ? [['nav', 'Navigate'], ['ok', 'Choose'], ['back', 'Back']] : [['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ...(pgDesk && pc.isOpen ? [['tab', 'Computer']] : [])];
 
 // ---------------- career / grand prix ----------------
 let career = null;
@@ -5355,6 +5384,7 @@ function handleRaceEvents() {
     else if (ev.type === 'qpole') { sim.rc.say(`${ev.kind === 'practice' ? 'Fastest' : 'Provisional pole'} · ${ev.name} · ${fmtTime(ev.time, 3)}`, { cls: 'g', me: ev.name === sim.player?.name }); }
     else if (ev.type === 'garage') { if (!ev.first && screen === 'hud') fadeTo(() => openPitGarage(), 250); }
     else if (ev.type === 'qdone') {
+      if (carPush.active) carPush.skip(); // (the session's over mid-push: parked, then the results)
       const me = sim.qualiRows().find(r => r.isPlayer);
       sfx.finish();
       const inGarage = screen === 's-pitgarage';
@@ -6047,7 +6077,8 @@ function frameBody(now) {
     }
     // the radio's call: X / 1, B / 2 (only while one's open: X is a brake button too, so a call takes its tap)
     if (sim.call) { if (pressed('Digit1') || pressed('GP2')) sim.answerCall('a'); else if (pressed('Digit2') || pressed('GP1')) sim.answerCall('b'); hud.callTick(sim.call ? sim.call.left : 0); }
-    if (pressed('Escape') || pressed('KeyP') || pressed('GP9')) { if (askUI) { askUI = null; hud.askMenu(null); } pause(); }
+    if (carPush.active && pushSkip()) carPush.skip(); // (being pushed into your box: A / B skips it, no pause menu)
+    else if (!carPush.active && (pressed('Escape') || pressed('KeyP') || pressed('GP9'))) { if (askUI) { askUI = null; hud.askMenu(null); } pause(); }
     else {
       // (sim.ff: the race run faster - a co-driver's stint watched at 4x / 8x: it steps that many times a frame;
       // sim.skipping: skipped to your next stint, the race runs on flat out, ~25 ms of it a frame, until you're in)
@@ -6057,6 +6088,7 @@ function frameBody(now) {
       }
       else { const reps = sim.ff > 1 && !sim.net ? sim.ff : 1; for (let r = 0; r < reps && sim; r++) sim.update(dt, ctl, r ? {} : press); }
       handleRaceEvents();
+      if (carPush.active && screen === 'hud') carPush.update(dt);
       if (sim) { const hs = sim.hudState(); hud.update(hs, sim); hud.pitMenu(hs, pitSel, true); driftHud.update(sim.drift, dt); }
       if (gig) gigTick(dt);
       if (drive) driveTick();
@@ -6109,13 +6141,14 @@ function frameBody(now) {
     if (tuningFrom === 's-garage') garage.update(dt);
   } else if (screen === 's-pitgarage' && sim) {
     // the pit garage: the session carries on (the clock, the AI's laps) while you're in the menu (or out walking)
-    if (walk.active) walkInput(); else if (walkStarting) clearEdges(); else if (pgPcFocus) pgPcInput(); else menuInput();
+    if (carPush.active) { if (pushSkip()) carPush.skip(); } else if (walk.active) walkInput(); else if (walkStarting) clearEdges(); else if (pgPcFocus) pgPcInput(); else menuInput();
     if (sim) {
       sim.update(dt, { steer: 0, throttle: 0, brake: 0 }, {});
       handleRaceEvents();
       if (sim && sim.quali && screen === 's-pitgarage' && (pgInfoT += dt) > 0.25) { pgInfoT = 0; renderGarageInfo(); }
     }
     pitGarage.update(dt);
+    if (carPush.active) carPush.update(dt);
     // at the desk: the computer rides the monitor's glass once the camera's there; LB / RB (Q / E) flip its sections;
     // the timing on it moves on every second
     if (pgDesk && screen === 's-pitgarage') {
@@ -6196,4 +6229,4 @@ requestAnimationFrame(frame);
 // debug handle
 window.__svgp = { get world() { return world; }, get photo() { return photo; }, get hud() { return hud; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, handleRaceEvents, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), goToPoster: () => goToPoster(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); }, openHomeView: () => openHomeView(), startWalk: () => startWalk(), get walk() { return walk; }, homeView: (o) => { Object.assign(hv, o); hvApply(); }, get hv() { return hv; } } };
+  dbg: { get carPush() { return carPush; }, startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), goToPoster: () => goToPoster(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); }, openHomeView: () => openHomeView(), startWalk: () => startWalk(), get walk() { return walk; }, homeView: (o) => { Object.assign(hv, o); hvApply(); }, get hv() { return hv; } } };

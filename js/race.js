@@ -1409,12 +1409,13 @@ export class Race {
     car.phys.fitTyres(set.c); car.phys.tyre.wf = set.wf ?? 1; car.phys.tyre.wr = set.wr ?? 1;
     car.model.setCompound(set.c);
   }
-  leaveGarage(car, how, tyre) {
+  // ahead: m further along the lane than your box (the crew pushed it out there: js/pushcar.js)
+  leaveGarage(car, how, tyre, ahead = 0) {
     if (tyre) { this.skipTime(TYRE_FIT); car.phys.fitTyres(tyre); car.model.setCompound(tyre); }
     car.inGarage = false; car.gone = false; car.model.group.visible = true;
     if (this.T.open) { if (this.quali && car.isPlayer) this.quali.used = (this.quali.used || 0) + 1; this.restartRun(car); car.runoffT = 0; this.snapCamera(); }
     else if (how === 'drive' && this.pit) {
-      const pit = this.pit, b = pit.boxes[this.boxSlot(car.teamIdx)], T = this.T;
+      const pit = this.pit, T = this.T, b = ((pit.boxes[this.boxSlot(car.teamIdx)] + Math.round(ahead / T.ds)) % T.N + T.N) % T.N;
       const off = pit.side * (pit.CEN[b] + 2.4);
       car.phys.place(T.X[b] + T.RX[b] * off, T.Z[b] + T.RZ[b] * off, Math.atan2(T.FX[b], T.FZ[b]));
       car.idx = b; car.laneSide = undefined; this.updateTracker(car, true);
@@ -2912,7 +2913,7 @@ export class Race {
       // that's behind you)
       const past = T.L - d, at = d < 1.5 || past < 40; // (at the box, or stopped short of 40 m past it: the crew comes to you)
       if (car.pitReq && !car.pitReq.dt && past >= 40 && past < 400) { car.pitPhase = 'out'; if (car.isPlayer) this.events.push({ type: 'radio', vo: car.pitReq.garage ? 'box.pastgarage' : 'box.overshot', msg: car.pitReq.garage ? 'You went past the garage. Come in next lap.' : 'You overshot the box. No stop: come in again next lap.' }); return; }
-      if (car.pitReq && car.pitReq.garage) { if (at && car.phys.speed < 3) this.enterGarage(car); } // (sessions: into the garage)
+      if (car.pitReq && car.pitReq.garage) { if (at && car.phys.speed < 3 && !(car.isPlayer && this.onBoxArrive && this.onBoxArrive(car))) this.enterGarage(car); } // (sessions: into the garage; yours pushed in by the crew first, js/pushcar.js)
       else if (car.pitReq && car.pitReq.dt) {
         // drive-through: served once past your box (no stop, and it isn't a pit stop for the strategy)
         if (d < 2 || d > T.L - 30) { car.pitPhase = 'out'; this.rc.driveThroughServed(car); }
@@ -3755,6 +3756,7 @@ export class Race {
     }
     if (this.rec) this.updateGhost(dt);
     this.updateCamera(dt);
+    if (this.camBlend) this.blendCamera(dt);
     this.world.update(dt, this.camera, this.rain ? this.wetLights() : null, this.cars.filter(c => !c.gone && c.phys).map(c => ({ x: c.phys.x, z: c.phys.z, speed: c.phys.speed || 0, vx: c.phys.vx, vz: c.phys.vz })));
     setCrowdCars(this.cars.filter(c => !c.gone && c.phys).map(c => ({ x: c.phys.x, y: c.y, z: c.phys.z })), this.camera.position, this.camera.fov); // (the spectators watch them; the far ones aren't drawn)
     if (this.spray) this.updateSpray(dt);
@@ -4501,6 +4503,14 @@ export class Race {
     return (car.camSz = { h: all.max.y, back: -all.min.z });
   }
 
+  // (a cutscene's camera handing over to this one: eased on from where it left it. camBlend: { pos, quat, fov, T })
+  blendCamera(dt) {
+    const b = this.camBlend, cam = this.camera; b.k = Math.min(1, (b.k || 0) + dt / (b.T || 1.5));
+    const e = b.k * b.k * (3 - 2 * b.k);
+    cam.position.lerpVectors(b.pos, cam.position, e); cam.quaternion.slerpQuaternions(b.quat, cam.quaternion.clone(), e);
+    cam.fov = b.fov + (cam.fov - b.fov) * e; cam.updateProjectionMatrix();
+    if (b.k >= 1) this.camBlend = null;
+  }
   updateCamera(dt, snap = false) {
     const car = this.focus, p = car.phys, cam = this.camera;
     if (this.camHold) return this.camHold(cam); // (the garage menu has it, in your box: js/pitgarage.js)

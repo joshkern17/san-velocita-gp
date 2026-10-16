@@ -65,6 +65,9 @@ listed is skipped (and printed as SKIP).
 - sit_down (*Sitting*, stand to sat): sat by 0.65 of the way, 0.46 m back, the hips 0.61 m up (a seat about 0.48 m).
   stand_up (*Stand Up*): starts sat higher (hips 0.76 m), stands 0.43 m forward by 0.5. `js/garagewalk.js` eases
   between the two.
+- push / push_2 (Mixamo *Push*, *Push(1)*, in place): slow, straining steps, about 0.35 / 0.4 m/s. Hands about
+  0.74 m out in front at 1.0 m up (push_2: 0.62 m out, 1.1 m up). `js/pushcar.js` plays them about twice as fast to
+  push a car at 0.85 m/s.
 - sit_desk (*Sitting Idle*, the desk one: not the same file as sit_idle's): hips 0.56 m up, right over the origin.
   `alignedClip('sit_desk', 'sit_down')` makes a copy lined up with where sit_down ends, to blend into it.
 - Sitting: hips 0.60 m up, straight above the origin, so the seat is about 0.48 m. sit_rub_arm: hips 0.69 m, so

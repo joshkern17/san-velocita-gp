@@ -535,7 +535,8 @@ export class PitLife {
     // (where the car is: on a run from a couple of laps before its time is posted until it's back in)
     if (!b.mine && !b.entry) b.entry = (q.field || []).find(e => race.boxSlot(e.teamIdx) === b.k) || null;
     const e = b.entry, el = q.time - q.left;
-    const out = !!e && e.plan.some(r => el > r.at - 2.3 * e.pot && el < r.at + 0.5 * e.pot);
+    // (yours: out from when it's left the box till it's back in it)
+    const out = b.mine ? !!(race.player && !race.player.inGarage) : !!e && e.plan.some(r => el > r.at - 2.3 * e.pot && el < r.at + 0.5 * e.pot);
     // (the camera inside another box (your garage menu, walking round someone's): this one's behind its walls)
     const o = F.P(0, 0, 0), t1 = F.P(1, 0, 0), cx = cam.x - o[0], cz = cam.z - o[2];
     const ax = (cx * (t1[0] - o[0]) + cz * (t1[2] - o[2])), az = cx * F.n[0] + cz * F.n[1];

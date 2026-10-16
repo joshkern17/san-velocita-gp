@@ -1123,9 +1123,9 @@ export class PitGarage {
     const a = (tgt.x > 0.5 ? -1 : 1) * (0.62 + Math.sin(this.t * 0.12) * 0.1), r = 7.4; // (from the room's middle: a car parked off to one side has a wall beyond it)
     this.camera.position.set(tgt.x + Math.sin(a) * r, 2.0 + Math.sin(this.t * 0.2) * 0.1, tgt.z + Math.cos(a) * r);
     aim(this.camera, tgt); this.camera.fov = 40;
-    // (back from walking the pit lane: eased round to it from where the walk left the camera)
+    // (back from walking the pit lane, or your car pushed back in: eased round to it from where the camera was left)
     if (this.from && this.blendK < 1) {
-      this.blendK = Math.min(1, this.blendK + dt / 0.9); const k = this.blendK * this.blendK * (3 - 2 * this.blendK), f = this.from;
+      this.blendK = Math.min(1, this.blendK + dt / (this.from.secs || 0.9)); const k = this.blendK * this.blendK * (3 - 2 * this.blendK), f = this.from; // (secs: slower, in from the lane: js/pushcar.js)
       this.camera.position.lerpVectors(f.pos, this.camera.position, k); this.camera.quaternion.slerpQuaternions(f.quat, this.camera.quaternion.clone(), k);
       this.camera.fov = f.fov + (this.camera.fov - f.fov) * k; this.shiftNow = (f.shift ?? 0) + (this.shift - (f.shift ?? 0)) * k;
       if (this.blendK >= 1) this.from = null;
