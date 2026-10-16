@@ -359,7 +359,7 @@ export function buildStartGantry({ T, i, root, y }) {
     if (ax >= L) return s * (L2 + (ax - L) * legW2 / legW);
     return s * (boxHalf + (ax - boxHalf) * (L2 - boxHalf) / (L - boxHalf));
   };
-  const grp = new THREE.Group();
+  const grp = new THREE.Group(); grp.name = 'StartGantry';
   const lamps = { R: [], G: [] };
   for (const pt of parts) {
     const geo = pt.geo.clone(), pos = geo.getAttribute('position');

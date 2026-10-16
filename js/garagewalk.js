@@ -20,7 +20,7 @@ import * as THREE from 'three';
 import { loadCharacters, makeCharacter, alignedClip, CLIP_INFO } from './characters.js';
 
 const R = 0.28;            // your radius (m): how close you get to things
-const WALK = CLIP_INFO.walk.speed, RUN = 2.3; // m/s (walking pace; the trigger all the way in: a jog, a bit quicker than the clip's stride)
+const WALK = CLIP_INFO.walk.speed, RUN = 2.3, SPRINT = 4.6; // m/s (walking pace; the trigger all the way in: a jog, a bit quicker than the clip's stride; out in the pit lane, a run)
 const ACCEL = 4.5, DECEL = 7;                 // m/s² (speeding up and slowing down: the walk eases into the jog)
 const CAM_DIST = 2.7, CAM_HEAD = 1.45, REACH = 1.1;
 // sit_down (Mixamo "Sitting", stand to sat): it stands about till 0.25 of the way, is down by 0.65, and sits back
@@ -163,7 +163,9 @@ export class GarageWalk {
     const mx = busy ? 0 : I.mx || 0, my = busy ? 0 : I.my || 0, mag = Math.min(1, Math.hypot(mx, my));
     // how fast: the stick's push, at walking pace; the right trigger (or Shift) takes it up to a jog. Eased, so the
     // walk blends into the jog and back (Character.move)
-    const run = Math.max(0, Math.min(1, +I.run || 0)), want = mag > 0.15 ? WALK * Math.max(0.45, Math.min(1, mag / 0.9)) * (1 - run) + RUN * run : 0;
+    // (out in the pit lane, not in a garage: a proper run)
+    const lane = !!(this.nav && this.nav.inBox && !this.nav.inBox(this.pos));
+    const run = Math.max(0, Math.min(1, +I.run || 0)), want = mag > 0.15 ? WALK * Math.max(0.45, Math.min(1, mag / 0.9)) * (1 - run) + (lane ? SPRINT : RUN) * run : 0;
     this.speed += Math.max(-DECEL * dt, Math.min(ACCEL * dt, want - this.speed));
     if (mag > 0.15) {
       const c = this.camYaw, vx = Math.sin(c) * my - Math.cos(c) * mx, vz = Math.cos(c) * my + Math.sin(c) * mx;
@@ -180,7 +182,7 @@ export class GarageWalk {
       // (walked into something: only as fast as you actually got anywhere)
       const got = Math.hypot(this.pos.x - x0, this.pos.z - z0) / Math.max(1e-4, dt);
       if (got < this.speed * 0.5) this.speed = Math.max(got, Math.min(this.speed, WALK * 0.5));
-      me.move(this.speed);
+      me.move(this.speed, { run: lane });
     } else { this.speed = 0; me.play('idle'); }
     me.object.position.copy(this.pos); me.object.rotation.y = this.heading; me.update(dt);
     // the camera: behind and above, pulled in front of any wall between it and you (sat down: your head, lower and back

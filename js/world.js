@@ -19,7 +19,7 @@ import { settingOf, modelTransform, natureModel, FLORA, PROP_FLORA, fitHouse, ra
 import { WetReflections } from './weatherfx.js';
 import { StreetLife } from './lifefx.js';
 import { buildClouds } from './clouds.js';
-import { buildPitBoxes, pitCovered } from './pitboxes.js';
+import { buildPitBoxes, pitCovered, pitBlockTest } from './pitboxes.js';
 import { applyPSXMaterial } from '../vendor/psx/src/PSXMaterial.js';
 import { loadCrowd, buildCrowd, makeBleachers, bleacherSeats, paintedPeople, BLEACHERS } from './crowd.js';
 
@@ -1095,6 +1095,17 @@ export function buildWorld(track, T, A, opts = {}) {
     });
     return ok;
   };
+  // (the garage block's rooms reach back behind its front: nothing of the scenery in them)
+  const inBlock = pitBlockTest(T, A, pit) || (() => false);
+  const keepProp = (p) => {
+    // (its footprint: a stand's length and depth, a model's size from the catalogue, else a couple of metres round it)
+    const a = envAsset(p.type), sx = p.sx || 1;
+    const [hw, hd] = p.type === 'grandstand' ? [(p.len || 50) / 2, 8] : p.type === 'bleachers' ? [BLEACHERS.w / 2, 8] : a && a.w ? [a.w * sx / 2, a.d / 2] : [0, 0];
+    if (!hw) return !inBlock(p.x, p.z, 2.5);
+    const cs = Math.cos(p.rot || 0), sn = Math.sin(p.rot || 0), stX = Math.max(1, hw / Math.ceil(hw / 3)), stZ = Math.max(1, hd / Math.ceil(hd / 3));
+    for (let lx = -hw; lx <= hw + 0.01; lx += stX) for (let lz = -hd; lz <= hd + 0.01; lz += stZ) if (inBlock(p.x + lx * cs + lz * sn, p.z - lx * sn + lz * cs, 1)) return false;
+    return true;
+  };
   const inst = { tree: [], pine: [], palm: [], cactus: [], rock: [], bush: [], tires: [], cones: [] };
   const buildings = [];
   const stands = [];
@@ -1103,6 +1114,7 @@ export function buildWorld(track, T, A, opts = {}) {
   // trees, bushes and rocks come from the PS1 model library (the track's tree mix) once it's loaded;
   // the old procedural shapes are only a fallback while it isn't
   const addInst = (type, x, z, rot, sc, auto = true) => {
+    if (inBlock(x, z, 2)) return;
     const m = envModelsReady() ? natureModel(type, auto ? rng : mulberry(Math.floor(x * 31.7) ^ Math.floor(z * 57.3)), env, auto) : null;
     if (m && envModel(m.id)) { envPl.push({ id: m.id, x, z, y: groundHeight(x, z) - 0.1, rot, s: +(m.s * (auto ? sc : 1)).toFixed(2) }); return; }
     const t = inst[type] ? type : ['blossom', 'autumn', 'birch', 'willow', 'bare'].includes(type) ? 'tree' : type === 'flowers' ? 'bush' : null;
@@ -1222,6 +1234,7 @@ export function buildWorld(track, T, A, opts = {}) {
   }
   // user props
   for (const p of track.props || []) {
+    if (!keepProp(p)) continue;
     const y = groundHeight(p.x, p.z);
     const rot = p.rot || 0;
     if (inst[p.type] || PROP_FLORA[p.type]) addInst(p.type, p.x, p.z, rot, 1, false);
@@ -1241,7 +1254,7 @@ export function buildWorld(track, T, A, opts = {}) {
   // bleachers (your model, PROPS > Trackside) with their crowd, and the people the PAINT tool's Crowd brush put down.
   // The characters load on first use: the stands and people join the world when they're in (a moment, the first time)
   {
-    const bl = (track.props || []).filter(p => p.type === 'bleachers'), painted = (track.paint || []).some(s => s.kind === 'crowd');
+    const bl = (track.props || []).filter(p => p.type === 'bleachers' && keepProp(p)), painted = (track.paint || []).some(s => s.kind === 'crowd');
     const frac = (v) => v - Math.floor(v), h01 = (a, b, k) => frac(Math.sin(a * 12.9898 + b * 78.233 + k * 37.719) * 43758.5453);
     const place = () => {
       const people = [];
@@ -1341,8 +1354,9 @@ export function buildWorld(track, T, A, opts = {}) {
     envPl.push(e); if (e.mv) movers.push(e);
   }
   // the race-track pack's props (PROPS > Trackside): models with the rest, fans in their stands, floodlights at night
-  const tpFx = placeTrackProps({ track, T, A, root, envPl, groundHeight, night, lit: nightish || env.time === 'dusk' });
+  const tpFx = placeTrackProps({ track: { ...track, props: (track.props || []).filter(keepProp) }, T, A, root, envPl, groundHeight, night, lit: nightish || env.time === 'dusk' });
   for (const q of lampModels) envPl.push(q); // (the circuit's banner lamp posts)
+  for (let k = envPl.length - 1; k >= 0; k--) if (inBlock(envPl[k].x, envPl[k].z, 2)) envPl.splice(k, 1); // (out of the garages)
   const envCells = addEnvInstances(root, envPl, { night });
   addContactShadows(root, envPl, groundHeight, night);
   if (real.paving && real.paving.length) buildPaving(root, real.paving, groundHeight, tx);
@@ -1350,8 +1364,8 @@ export function buildWorld(track, T, A, opts = {}) {
   const stS = settingOf(env);
   const lifeTrees = setOn ? envPl.filter(p => { const a = envAsset(p.id); return a && a.cat === 'tree'; }).map(p => [p.x, p.y, p.z, envAsset(p.id).h * (p.s || 1)]) : [];
   const life = setOn && real.life && stS.life > 0 ? new StreetLife(root, { ...real.life, trees: lifeTrees, movers }, { surf: surfAt, life: stS.life, night, dusk: env.time === 'dusk', rain: P.rain, fog: env.weather === 'fog', seed: stS.seed, gh: groundHeight }) : null;
-  for (const s of stands) root.add(buildStand(s, tx, groundHeight));
-  for (const b of boards) root.add(buildBoard(b, tx, groundHeight));
+  for (const s of stands) if (keepProp({ ...s, type: 'grandstand' })) root.add(buildStand(s, tx, groundHeight));
+  for (const b of boards) if (!inBlock(b.x, b.z, 6)) root.add(buildBoard(b, tx, groundHeight));
   const lampFx = buildLamps(root, lamps, T, A, surfY, lampsLit, tx, roadMat);
   // rain: the lights reflect on the wet road
   let wet = null;
@@ -1754,7 +1768,7 @@ function buildPitLane(root, T, pit, surfY, tx, night, env, A) {
   };
   mk(lane, new THREE.MeshLambertMaterial({ map: tx.pitAsphalt, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
   mk(wall, new THREE.MeshLambertMaterial({ map: tx.concrete, color: 0xd8d4cc, side: THREE.DoubleSide }));
-  buildCatchFence(root, fence, fenceHeight(env, 2.3), fenceMaterial());
+  { const inB = pitBlockTest(T, A, pit); buildCatchFence(root, inB ? fence.filter(f => !inB(f.a[0], f.a[2], 0.3) && !inB(f.b[0], f.b[2], 0.3)) : fence, fenceHeight(env, 2.3), fenceMaterial()); } // (none through the garages' rooms)
   const garMat = night ? new THREE.MeshLambertMaterial({ map: garageTexture(), emissive: 0xffffff, emissiveMap: garageTexture(true), emissiveIntensity: 0.8, color: 0x8890a0, side: THREE.DoubleSide })
     : new THREE.MeshLambertMaterial({ map: garageTexture(), side: THREE.DoubleSide });
   mk(gar, garMat);
@@ -1934,6 +1948,7 @@ function buildCornerBoards(root, T, A, env, surfY, groundHeight, roadL, night) {
 }
 
 function buildBarriers(root, T, A, env, surfY, groundHeight, tx, night, verge) {
+  const inBlk = pitBlockTest(T, A, A.pit);
   const N = T.N;
   // (the track's barrier, or stretch by stretch what a real circuit's dressing has: track.js WALL_TYPES)
   const mains = {}, tops = {}, fence = [];
@@ -1974,6 +1989,7 @@ function buildBarriers(root, T, A, env, surfY, groundHeight, tx, night, verge) {
       if (!has[i] || !has[j]) continue;
       if (A.OVERPASS && (A.OVERPASS[i] || A.OVERPASS[j])) continue; // the overpass has its own parapet + fence
       if (A.pit && A.pit.side === side && (A.pit.HIDE[i] || A.pit.HIDE[j])) continue;
+      if (inBlk && [i, j].every(k => inBlk(T.X[k] + T.RX[k] * side * off[k], T.Z[k] + T.RZ[k] * side * off[k], 0.3))) continue; // (through the garages' rooms: none)
       const gateArr = side < 0 ? A.GATE_L : A.GATE_R, isGate = gateArr && (gateArr[i] || gateArr[j]);
       const la = [FOOT[i], LVL[i]], lb = [FOOT[j], LVL[j]];
       const P = (k, extra = 0) => { // (its top, fence and what it holds back: no further out than the line can go without folding)
@@ -2044,7 +2060,7 @@ function buildBarriers(root, T, A, env, surfY, groundHeight, tx, night, verge) {
     mk(gate, new THREE.MeshLambertMaterial({ map: gateTexture(), transparent: true, alphaTest: 0.3, side: THREE.DoubleSide }));
     for (const p of gatePosts) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.6, 0.22), new THREE.MeshLambertMaterial({ color: 0xd8d4c8 })); m.position.set(p[0], p[1] + 1.3, p[2]); root.add(m); }
   }
-  if (fence.length) buildCatchFence(root, fence, fenceHeight(env), fenceMaterial());
+  if (fence.length) buildCatchFence(root, inBlk ? fence.filter(f => !inBlk(f.a[0], f.a[2], 0.3) && !inBlk(f.b[0], f.b[2], 0.3)) : fence, fenceHeight(env), fenceMaterial());
   if (posts.length) {
     const im = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12, 1, 0.12), new THREE.MeshLambertMaterial({ color: 0x6a6e76 }), posts.length);
     const m = new THREE.Matrix4();

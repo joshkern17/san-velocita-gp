@@ -47,6 +47,7 @@ export const CLIP_INFO = {
   idle: { loop: true }, idle_look: { loop: true }, idle_stretch: { loop: true },
   wave: { loop: true }, victory: { loop: true }, point: { loop: true }, point_angry: { loop: true }, handshake: { loop: true },
   walk: { loop: true, speed: 1.35 }, walk_2: { loop: true, speed: 0.95 }, jog: { loop: true, speed: 1.9 },
+  run: { loop: true, speed: 4.0 }, // (Mixamo "Running", in place: a stride's 0.7 s)
   sit: { loop: true, seat: 0.48 }, sit_idle: { loop: true, seat: 0.48 }, sit_clap: { loop: true, seat: 0.48 },
   sit_clap_2: { loop: true, seat: 0.48 }, sit_yell: { loop: true, seat: 0.48 }, sit_yell_2: { loop: true, seat: 0.48 },
   sit_rub_arm: { loop: true, seat: 0.57 },
@@ -201,10 +202,13 @@ export class Character {
   // jog from CLIP_INFO.jog.speed), at a pace that keeps the feet from sliding. Both clips put the left foot down at the
   // same point of their cycle, so they run in step (the same fraction of the way through) and the blend never scissors.
   // Called every frame while moving; fades in from whatever was playing, play() fades out of it
-  move(v, { fade = 0.25 } = {}) {
-    const W = TPL.clips.walk, J = TPL.clips.jog;
+  // run: the fast end's a run (js/garagewalk.js: out in the pit lane), not a jog
+  move(v, { fade = 0.25, run = false } = {}) {
+    const fast = run && TPL.clips.run ? 'run' : 'jog', W = TPL.clips.walk, J = TPL.clips[fast];
     if (!J) return this.play('walk', { speed: Math.max(0.45, v / CLIP_INFO.walk.speed) });
-    const sw = CLIP_INFO.walk.speed, sj = CLIP_INFO.jog.speed;
+    const sw = CLIP_INFO.walk.speed, sj = CLIP_INFO[fast].speed;
+    if (this.clip === 'move' && this._fast !== fast) { this._pair.fadeOut(fade); this.clip = 'move:' + this._fast; } // (jog to run or back: the new one faded in)
+    this._fast = fast;
     const w = Math.max(0, Math.min(1, (v - sw) / (sj - sw))), k = w * w * (3 - 2 * w), m = this.mixer; // (eased)
     const aw = m.clipAction(W), aj = m.clipAction(J);
     if (this.clip !== 'move') {

@@ -11,7 +11,7 @@ CHECK = 'check' in argv[2:]
 CLIPS = {
   'Standing Idle': 'idle', 'Look Around': 'idle_look', 'Arm Stretching': 'idle_stretch', 'Waving': 'wave', 'Victory': 'victory',
   'Pointing': 'point', 'Angry Point': 'point_angry', 'Shaking Hands 2': 'handshake',
-  'Walking': 'walk', 'Walking(1)': 'walk_2', 'Jog Forward': 'jog',
+  'Walking': 'walk', 'Walking(1)': 'walk_2', 'Jog Forward': 'jog', 'Running': 'run',
   'Sitting Down': 'sit_down', 'Stand Up': 'stand_up', 'Sitting Idle Desk': 'sit_desk',
   'Sitting': 'sit', 'Sitting Idle': 'sit_idle', 'Sitting Clap': 'sit_clap', 'Sitting Clap(1)': 'sit_clap_2',
   'Sitting Yell': 'sit_yell', 'Sitting Yell(1)': 'sit_yell_2', 'Sitting Rubbing Arm': 'sit_rub_arm',
@@ -117,7 +117,7 @@ def fix_rest(arm, act, base):
 
 # A walk or jog downloaded without "In Place" ticked carries the hips forward (a jog: 2 m a cycle); the game moves the
 # character itself, so take out the hips' steady drift (first key to last), keeping the bob and sway.
-IN_PLACE = {'walk', 'walk_2', 'jog'}
+IN_PLACE = {'walk', 'walk_2', 'jog', 'run'}
 def in_place(arm, act, base):
     bag = anim_utils.action_get_channelbag_for_slot(act, arm.animation_data.action_slot)
     fcs = [bag.fcurves.find(f'pose.bones["{M}Hips"].location', index=i) for i in range(3)]

@@ -102,6 +102,19 @@ function frameOf(T, A, pit, slot) {
   return { P, x0, x1, slot, n: [nx, nz], dw: Math.min(BOX.doorW, len - 3) / 2, wx: len / 2 - BOX.wallIn, mirror: right < 0 };
 }
 
+// is x, z (the world) in the garage block, its rooms (r: that much round it too)? null: no garages. js/world.js keeps
+// the scenery (trees, stands, boards, props) out of them: they used to be a front with nothing behind it. y: only
+// below the rooms' ceilings counts
+export function pitBlockTest(T, A, pit) {
+  if (!pit) return null;
+  const L = pitSlots(T, A, pit); if (!L.slots.length) return null;
+  const frs = L.slots.map(s => { const F = frameOf(T, A, pit, s), o = F.P(0, 0, 0), t = F.P(1, 0, 0); return { F, o, tx: t[0] - o[0], tz: t[2] - o[2] }; });
+  return (x, z, r = 0, y = null) => frs.some(({ F, o, tx, tz }) => {
+    const dx = x - o[0], dz = z - o[2], lx = dx * tx + dz * tz, lz = dx * F.n[0] + dz * F.n[1];
+    return lx > F.x0 - r && lx < F.x1 + r && lz > -r && lz < BOX.depth + 0.6 + r && (y == null || y < F.P(lx - F.x0 + F.x0, lz, 0)[1] + BOX.ceil);
+  });
+}
+
 // ---------- the light inside: three rows of strip lights across the room, a little daylight in at the door ----------
 const ROWS = [3.2, 7.2, 11.2], LX = 5;
 export function lightAt(x, z, y, n) {

@@ -1,6 +1,7 @@
 // dev: the pit boxes on every track (presets + real circuits): each team box has its room, the rooms' straight
 // fronts stay on the curved garage line, and nothing of the track runs through one
-//   node .devtest/boxcheck.mjs [name ...]
+//   node .devtest/boxcheck.mjs [name ...]      (SCENERY=1: also builds each world and looks for scenery in the rooms:
+//                                               trees, stands, boards, props, js/world.js keeps out with pitBlockTest)
 import { spawn } from 'child_process';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -18,8 +19,8 @@ try {
   if (process.env.V) await pg.addInitScript(() => { window.__V = 1; });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
   await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 });
-  const res = await pg.evaluate(async (only) => {
-    const M = await import('/js/track.js'), R = await import('/js/realtracks.js'), RO = await import('/js/runoff.js'), PB = await import('/js/pitboxes.js');
+  const res = await pg.evaluate(async ([only, SCENERY]) => {
+    const M = await import('/js/track.js'), R = await import('/js/realtracks.js'), RO = await import('/js/runoff.js'), PB = await import('/js/pitboxes.js'), W = SCENERY ? await import('/js/world.js') : null, THREE = await import('three');
     const list = [...M.presetTracks()];
     for (const p of R.realTracks()) list.push(await R.hydrateReal(M.cloneTrack(p)));
     const out = [];
@@ -56,11 +57,36 @@ try {
         if (widths.length && Math.min(...widths) < 11.9) probs.push(`a room only ${Math.min(...widths).toFixed(1)} m wide`);
         if (worst > 0.6) probs.push(`front ${worst.toFixed(2)} m off the garage line`);
         if (intrude) probs.push(`track inside a room (${intrude} samples)`);
+        // the scenery: anything small enough to be a thing (not the ground, the road, the lane) standing in a room
+        if (W) {
+          const inBlock = PB.pitBlockTest(T, A, pit), w = W.buildWorld(t, T, A), hits = new Map(), m4 = new THREE.Matrix4(), v = new THREE.Vector3();
+          w.root.updateMatrixWorld(true);
+          w.root.traverse(o => {
+            if (!o.isMesh) return;
+            for (let q = o.parent; q; q = q.parent) if (q.name === 'PitBoxes' || q.name === 'StartGantry') return; // (the gantry stands over the grid: on a tight street circuit its leg can be at a box's front)
+            if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+            if (o.geometry.boundingSphere.radius > 30) return;
+            if (o.geometry.isInstancedBufferGeometry) return; // (a shader's particles: rain, sparks)
+            const key = o.name || o.material?.name || o.geometry.type, hit = () => hits.set(key, (hits.get(key) || 0) + 1);
+            if (o.name === 'env-merged') { // (many things baked into one, in the world's frame: where its points are, below the roof)
+              const P = o.geometry.attributes.position; let c = 0;
+              for (let i = 0; i < P.count; i += 3) { v.fromBufferAttribute(P, i).applyMatrix4(o.matrixWorld); if (inBlock(v.x, v.z, -0.5, v.y)) c++; }
+              if (c > 20) hits.set(key + ' points', (hits.get(key + ' points') || 0) + c);
+              return;
+            }
+            const n = o.isInstancedMesh ? o.count : 1;
+            for (let k = 0; k < n; k++) {
+              if (o.isInstancedMesh) { o.getMatrixAt(k, m4); m4.premultiply(o.matrixWorld); v.copy(o.geometry.boundingSphere.center).applyMatrix4(m4); } else v.copy(o.geometry.boundingSphere.center).applyMatrix4(o.matrixWorld);
+              if (inBlock(v.x, v.z, -0.5, v.y)) { hit(); if (window.__V) console.log('  in a room:', key, o.parent && o.parent.name, o.material && o.material.name, v.toArray().map(x => x.toFixed(1)).join(','), 'r', o.geometry.boundingSphere.radius.toFixed(1), 'chain:', (() => { const c = []; for (let q = o.parent; q; q = q.parent) c.push(q.name || q.type); return c.join('<'); })(), 'n', o.geometry.attributes.position.count, 'inst', o.isInstancedMesh ? o.count : '-', 'near:', (t.props || []).filter(q => Math.hypot(q.x - v.x, q.z - v.z) < 20).map(q => q.type + '@' + Math.hypot(q.x - v.x, q.z - v.z).toFixed(1)).join(' ')); }
+            }
+          });
+          if (hits.size) probs.push('scenery in the rooms: ' + [...hits].map(([k, c]) => `${k} x${c}`).join(', '));
+        }
         out.push({ name: t.name, slots: slots.length, walls: L.walls.length, boxes: pit.boxes.length, off: +worst.toFixed(2), w: widths.length ? [Math.min(...widths), Math.max(...widths)].map(x => +x.toFixed(1)) : [], probs });
       } catch (e) { out.push({ name: t.name, error: String(e).slice(0, 200) }); }
     }
     return out;
-  }, process.argv.slice(2));
+  }, [process.argv.slice(2), !!process.env.SCENERY]);
   for (const r of res) {
     const fail = r.error || (r.probs && r.probs.length);
     if (fail) bad++;

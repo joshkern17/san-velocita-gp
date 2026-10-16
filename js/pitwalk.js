@@ -127,6 +127,11 @@ export class PitNav {
     }
     for (const [x, z] of this.crew) circ(x, z, 0.26);
   }
+  // in a team's box (past its door's sill), or out in the lane
+  inBox(p) {
+    for (const fr of this.rooms) { const q = this.inFr(fr, p); if (q.z > BOX.frontT - 0.1 && Math.abs(q.x) < fr.wx) return true; }
+    return false;
+  }
   // somewhere you can stand: in the lane, in a box, in its door. The nearest of them if you're in none
   contain(p, r) {
     let best = null, bd = Infinity;
