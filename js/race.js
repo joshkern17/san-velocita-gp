@@ -3904,7 +3904,10 @@ export class Race {
     const q = new THREE.Quaternion().setFromRotationMatrix(mat);
     if (dt >= 1) car.q.copy(q); else car.q.slerp(q, Math.min(1, dt * 14));
     m.group.quaternion.copy(car.q);
-    m.group.position.set(p.x, y + (car.lift || 0), p.z); // (lift: up on the jacks in a pit stop)
+    // (up on the jacks in a pit stop: each end as its jack lifts it, js/pitlife.js; the car tips nose or tail up between)
+    const lf = car.liftF || 0, lr = car.liftR || 0;
+    if (lf || lr) m.group.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.atan2(lf - lr, (p.p.a ?? 1.6) + (p.p.b ?? 1.6))));
+    m.group.position.set(p.x, y + (car.lift || 0) + (lf + lr) / 2, p.z);
     // suspension: the body rolls / pitches / bounces exactly as the physics' sprung body does (the same springs, dampers
     // and anti-roll bars that set each tyre's load), plus the kerb rumble; each wheel where its physics wheel is (on the
     // road, up a kerb, or hanging from the body at full droop when the body lifts), tilted with its axle and the body

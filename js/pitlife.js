@@ -86,6 +86,10 @@ function drawSign(sign) {
 // a crew: 4 on the wheel guns, a jack at each end, and the lollipop. Slots in the car's frame: [along, across, facing]
 // (across > 0 is the garage side; facing is the yaw from the car's heading, 0 = facing the way the car points)
 const ROLES = ['FL', 'FR', 'RL', 'RR', 'FJ', 'RJ', 'LP'];
+// with the wheel takes (pit_off, pit_on): two more at each wheel, one who pulls the old one off (..o) and one with the
+// new one (..n), either side of the gunman
+const WHEEL_ROLES = ['FLo', 'FLn', 'FRo', 'FRn', 'RLo', 'RLn', 'RRo', 'RRn'];
+const LIFT = 0.11; // (m: how far the jacks lift each end, wheels off the ground)
 // The stop, in mocap (characters.js pit_*: Motion Cast's takes). Each role plays a stretch of its take, in seconds:
 //   wait: looped while the car's coming in (else they hold the pose at a);
 //   a..h: the work, from the car stopping: sped up to fit the stop, held at h if it's a long one (a penalty, repairs);
@@ -94,12 +98,20 @@ const ROLES = ['FL', 'FR', 'RL', 'RR', 'FJ', 'RJ', 'LP'];
 // own forward (where the car was when it was performed) turned to the spot's facing
 const MOCAP = {
   FL: 'pit_gun', FR: 'pit_gun', RL: 'pit_gun', RR: 'pit_gun', FJ: 'pit_jack_front', RJ: 'pit_jack_rear', LP: 'pit_lollipop',
+  ...Object.fromEntries(WHEEL_ROLES.map(r => [r, r.endsWith('o') ? 'pit_off' : 'pit_on'])),
 };
+const BASE_MOCAP = ['pit_gun', 'pit_jack_front', 'pit_jack_rear', 'pit_lollipop'];
+// by: how far into the stop each gets to h (1: at the release). The car goes up first, the old wheels come off, the new
+// ones go on, the guns do them up, and down it comes. up / down: when the jacks lift it and drop it; grab / drop: when
+// the old wheel comes off the car and is put down; fit: when the new one's on (the takes' own seconds, measured:
+// .devtest/clipmeasure.mjs)
 const SEG = {
   pit_gun: { wait: [0.2, 3.0], a: 3.17, h: 8.17, r: 8.17 },     // kneeling: waits, the nut off, waits, the nut on
-  pit_jack_front: { a: 2.2, h: 4.67, r: 6.8 },                 // at the nose: levers it up, holds; drops it, backs off
-  pit_jack_rear: { a: 2.8, h: 4.8, r: 5.75 },                  // down on the rear jack, holds; up
+  pit_jack_front: { a: 2.2, h: 4.67, r: 6.8, by: 0.3, up: [2.5, 3.0], down: [4.8, 5.15] }, // at the nose: levers it up, holds; drops it, backs off
+  pit_jack_rear: { a: 2.8, h: 4.8, r: 5.75, by: 0.3, up: [2.8, 3.5], down: [5.0, 5.5] },   // down on the rear jack, holds; up
   pit_lollipop: { a: 1.4, h: 4.67, r: 8.2 },                   // the board down in front of the car; up, steps back
+  pit_off: { wait: [0.4, 3.2], a: 3.3, h: 6.1, r: 8.9, by: 0.55, grab: 3.95, drop: 6.0 }, // kneeling: pulls the wheel off, puts it down beside
+  pit_on: { wait: [0.2, 2.2], a: 2.3, h: 4.6, r: 5.9, by: 1, fit: 3.3 },              // crouched with the new one: on it goes, holds, steps back
 };
 // where a take puts the hips (ground, in the character's own frame) and which way they face, at time t: measured once
 // on a crew member (every look shares the skeleton)
@@ -115,6 +127,33 @@ function hipAt(ch, clip, t) {
   const out = { x: hp.x, z: hp.z, yaw: -Math.atan2(l.z - r.z, l.x - r.x) };
   o.position.copy(keep[0]); o.rotation.y = keep[1]; if (was) ch.play(was, { fade: 0 });
   _hip.set(key, out); return out;
+}
+// and where its hands are (between them, in its own frame), which way from the hips (yaw), how high: the wheel men
+// are put by their hands, on the wheel
+const _hand = new Map();
+function handAt(ch, clip, t) {
+  const key = clip + '@' + t; if (_hand.has(key)) return _hand.get(key);
+  const was = ch.clip, o = ch.object, keep = [o.position.clone(), o.rotation.y];
+  o.position.set(0, 0, 0); o.rotation.y = 0;
+  ch.play(clip, { fade: 0, once: true }); ch.action.time = t; ch.mixer.update(0); o.updateMatrixWorld(true);
+  const w = (n) => o.worldToLocal(ch.bone(n).getWorldPosition(new THREE.Vector3()));
+  const h = w('LeftHand').add(w('RightHand')).multiplyScalar(0.5), hp = w('Hips');
+  const out = { x: h.x, y: h.y, z: h.z, dir: Math.atan2(h.x - hp.x, h.z - hp.z) };
+  o.position.copy(keep[0]); o.rotation.y = keep[1]; if (was) ch.play(was, { fade: 0 });
+  _hand.set(key, out); return out;
+}
+// the lollipop's board: BRAKES (red) while they work, GO (green) to go
+let _boards = null;
+function boardTex() {
+  if (_boards) return _boards;
+  const mk = (bg, text) => {
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    g.fillStyle = '#111'; g.beginPath(); g.arc(64, 64, 64, 0, 7); g.fill();
+    g.fillStyle = bg; g.beginPath(); g.arc(64, 64, 57, 0, 7); g.fill();
+    g.fillStyle = '#fff'; g.font = `700 ${text.length > 3 ? 28 : 44}px "SV Display", "Helvetica Neue", Arial, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 64, 67);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  };
+  return (_boards = { stop: mk('#d8180c', 'BRAKES'), go: mk('#18b832', 'GO') });
 }
 const HOME_IDLES = ['idle', 'idle_look', 'idle_stretch', 'kneel', 'kneel_point']; // (waiting at the box)
 
@@ -225,12 +264,15 @@ export class PitLife {
       // the team's crew kit (Livery Designer → Uniform): team suits by default, or the stock coveralls in a colour near theirs
       const classic = fillLivery(b.team).crew.style === 'classic', look = classic ? classicCrewLook(b.team) : 'racer';
       b.group = new THREE.Group(); this.root.add(b.group);
-      ROLES.forEach((role, r) => {
+      // (the wheel men only for races: practice and qualifying have no stops, and the garages are full enough)
+      const roles = !this.race.quali && hasClip('pit_off') && hasClip('pit_on') ? [...ROLES, ...WHEEL_ROLES] : ROLES;
+      roles.forEach((role, r) => {
         const ch = makeCharacter({ look, clip: 'idle', seed: b.k * 31 + r * 7 + 1, crew: !classic, livery: classic ? null : b.team, helmet: !this.race.quali, face: this.race.quali ? (b.k * 5 + r * 3) % FACES.length : null }); // (no helmets in the garage)
         const m = { ch, role, k: 0, kT: 0, mode: role.endsWith('J') ? 'jack' : 'gun', x: 0, z: 0, yaw: 0, tx: 0, tz: 0, tyaw: 0, idleT: Math.random() * 8 };
         ch.post = (c) => crouchPose(c, c.clip && (c.clip.startsWith('kneel') || c.clip.startsWith('pit_')) ? 0 : m.k, m.mode); // (a kneel clip, or the mocap, is its own pose)
         // a prop in the right hand: the wheel gun, or the lollipop (red: brakes on; green: go)
         if (role === 'LP') m.board = this.attachLollipop(ch, hasClip('pit_lollipop'));
+        else if (role.length === 3) m.wheel = true; // (the wheel men: their hands are for the wheels)
         else if (role !== 'FJ' && role !== 'RJ') this.attachGun(ch);
         else if (hasClip(MOCAP[role])) { m.jack = this.makeJack(); b.group.add(m.jack); }
         b.group.add(ch.object); b.crew.push(m);
@@ -238,8 +280,8 @@ export class PitLife {
       this.homeSlots(b, true);
       // (the mocap, when the people file has it: where each take puts the hips, measured now, not mid-stop)
       if (this.mocapOn === undefined) {
-        this.mocapOn = Object.values(MOCAP).every(hasClip);
-        if (this.mocapOn) { const ch = b.crew[0].ch; for (const c of new Set(Object.values(MOCAP))) { hipAt(ch, c, SEG[c].h); hipAt(ch, c, SEG[c].r); } ch.play('idle', { fade: 0 }); }
+        this.mocapOn = BASE_MOCAP.every(hasClip);
+        if (this.mocapOn) { const ch = b.crew[0].ch; for (const c of new Set(Object.values(MOCAP))) if (hasClip(c)) { hipAt(ch, c, SEG[c].h); hipAt(ch, c, SEG[c].r); } ch.play('idle', { fade: 0 }); }
       }
       // practice and qualifying: the team's driver too, helmet off, about the box while the car's in
       if (this.race.quali && !b.mine && b.F && b.tk != null) {
@@ -269,33 +311,38 @@ export class PitLife {
     hand.add(mesh);
   }
   attachGun(ch) {
-    const gun = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.26, 0.1), new THREE.MeshLambertMaterial({ color: 0x18181a }));
-    gun.position.y = 0.1;
-    this.attachProp(ch, gun);
+    const g = new THREE.Group(), dark = new THREE.MeshLambertMaterial({ color: 0x1c1c20 }), steel = new THREE.MeshLambertMaterial({ color: 0x9a9ca2 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.24, 0.09), dark); body.position.y = 0.1;
+    const socket = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.07, 8), steel); socket.position.y = 0.25;
+    const hose = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.22, 5), dark); hose.position.set(0, -0.08, -0.03); hose.rotation.x = 0.5;
+    g.add(body, socket, hose);
+    this.attachProp(ch, g);
   }
   attachLollipop(ch, mocap) {
     if (mocap) {
       // the grip the mocap was made with (the take's own lollipop on its hand, in this skeleton's RightHand frame,
-      // measured in tools: the stick runs out from the palm, the board at its end facing along it, at the driver)
-      const a = new THREE.Vector3(-0.06, 0.08, 0.06), e = new THREE.Vector3(0.79, 0.12, -0.22), len = a.distanceTo(e), dir = e.clone().sub(a).normalize();
+      // measured in tools: the stick runs out from the palm). The take's pole was short (0.92 m): a real one's longer,
+      // out over the car's nose, the board at its end turned to the driver (each frame: faceBoard)
+      const a = new THREE.Vector3(-0.06, 0.08, 0.06), dir = new THREE.Vector3(0.79, 0.12, -0.22).sub(a).normalize(), len = 1.55, e = a.clone().addScaledVector(dir, len);
       const g = new THREE.Group();
-      const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, len, 5), new THREE.MeshLambertMaterial({ color: 0xdddddd }));
+      const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, len, 6), new THREE.MeshLambertMaterial({ color: 0xd8d8d8 }));
       stick.position.copy(a).add(e).multiplyScalar(0.5); stick.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-      const mat = new THREE.MeshBasicMaterial({ color: 0xd8180c, side: THREE.DoubleSide });
-      const disc = new THREE.Mesh(new THREE.CircleGeometry(0.24, 14), mat);
-      disc.position.copy(e); disc.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+      const T = boardTex(), mat = new THREE.MeshBasicMaterial({ map: T.stop });
+      const disc = new THREE.Mesh(new THREE.CircleGeometry(0.3, 20), mat), back = new THREE.Mesh(disc.geometry, mat);
+      back.rotation.y = Math.PI; disc.add(back); // (the words the right way round on both sides)
+      disc.position.copy(e).addScaledVector(dir, 0.27);
       g.add(stick, disc); this.attachProp(ch, g);
-      return mat;
+      return { mat, disc, g, dir, go: false, set(go) { if (go !== this.go) { this.go = go; mat.map = go ? T.go : T.stop; mat.needsUpdate = true; } } };
     }
     const g = new THREE.Group();
     const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.1, 5), new THREE.MeshLambertMaterial({ color: 0xdddddd }));
     stick.position.y = 0.55;
-    const mat = new THREE.MeshBasicMaterial({ color: 0xd8180c, side: THREE.DoubleSide });
-    const disc = new THREE.Mesh(new THREE.CircleGeometry(0.24, 14), mat);
+    const T = boardTex(), mat = new THREE.MeshBasicMaterial({ map: T.stop, side: THREE.DoubleSide });
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(0.28, 20), mat);
     disc.position.y = 1.15; disc.rotation.y = Math.PI / 2;
     g.add(stick, disc);
     this.attachProp(ch, g);
-    return mat;
+    return { mat, disc, go: false, set(go) { if (go !== this.go) { this.go = go; mat.map = go ? T.go : T.stop; mat.needsUpdate = true; } } };
   }
 
   // a jack (the mocap's jack men hold nothing): a lever from their hands down to the cradle under the car's nose or
@@ -333,8 +380,9 @@ export class PitLife {
   // straight a third of its frame), facing the lane. They come out of it when their car's coming in
   homeSlots(b, snap) {
     const T = this.T, sd = this.pit.side, N = T.N;
+    const gap = Math.min(1.35, ((b.F ? b.F.dw : 5.5) * 2 - 1) / Math.max(1, b.crew.length - 1)); // (the whole crew in the door)
     b.crew.forEach((m, r) => {
-      const along = (r - (b.crew.length - 1) / 2) * 1.35 + Math.sin(r * 12.9 + b.k) * 0.25;
+      const along = (r - (b.crew.length - 1) / 2) * gap + Math.sin(r * 12.9 + b.k) * gap * 0.18;
       const i = (b.bi + Math.round(along / T.ds) + N) % N;
       const p = b.F ? new THREE.Vector3().fromArray(b.F.P(along, -0.3, 0.004)) : this.at(i, b.face - 0.3);
       m.tx = p.x; m.tz = p.z; m.tyaw = Math.atan2(-T.RX[i] * sd, -T.RZ[i] * sd) + Math.sin(r * 7.3 + b.k) * 0.5; m.kT = 0;
@@ -356,7 +404,21 @@ export class PitLife {
       LP: [box.f + 0.5, hw + 1.25, 3],
     };
     const yawF = Math.atan2(fx, fz), yawG = Math.atan2(gx, gz);
+    b.g = { x: gx, z: gz };
     for (const m of b.crew) {
+      if (m.wheel) {
+        // the hub (its outside face), and where they hold it from: off the gunman's line, the one taking the old
+        // wheel off from behind it, the one with the new one from in front. Their hands, at the moment it comes off /
+        // goes on, are on the hub
+        const front = m.role[0] === 'F', side = m.role[1] === 'L' ? 1 : -1, off = m.role.endsWith('o');
+        const al = front ? a : -rb, hx = pose.x + fx * al + gx * side * (hw + 0.12), hz = pose.z + fz * al + gz * side * (hw + 0.12);
+        const clip = MOCAP[m.role], H = handAt(m.ch, clip, off ? SEG[clip].grab : SEG[clip].fit);
+        const th = (off ? 1 : -1) * 0.75, ix = -gx * side, iz = -gz * side; // (in, towards the car; turned towards its tail / nose)
+        const dx = ix * Math.cos(th) + fx * Math.sin(th), dz = iz * Math.cos(th) + fz * Math.sin(th);
+        const yaw = Math.atan2(dx, dz) - H.dir, c = Math.cos(yaw), sn = Math.sin(yaw);
+        m.tx = hx - (H.x * c + H.z * sn); m.tz = hz - (-H.x * sn + H.z * c); m.tyaw = yaw; m.kT = 0; m.hub = { x: hx, z: hz };
+        continue;
+      }
       const [al, ac, f] = S[m.role];
       m.tx = pose.x + fx * al + gx * ac; m.tz = pose.z + fz * al + gz * ac;
       // facing: 1 / -1 towards the car from the garage / far side, 0 back at the nose (jack), 2 at the tail, 3 the cockpit
@@ -375,12 +437,12 @@ export class PitLife {
     for (const b of this.boxes) {
       b.cars = race.cars.filter(c => race.boxSlot(c.teamIdx) === b.k); // (online, cars come and go)
       if (signs) this.refreshSign(b);
-      const lift = race.quali && b.F ? this.atWork(b, dt, cam) : this.crewUpdate(b, dt, cam);
-      for (const c of b.cars) c.lift = c === b.car ? lift : 0;
+      if (race.quali && b.F) { this.atWork(b, dt, cam); b.liftF = b.liftR = 0; } else this.crewUpdate(b, dt, cam);
+      for (const c of b.cars) { const on = c === b.car; c.liftF = on ? b.liftF || 0 : 0; c.liftR = on ? b.liftR || 0 : 0; } // (each end, on its jack: race.js placeModel)
     }
   }
   crewUpdate(b, dt, cam) {
-    if (!b.crew.length) return 0;
+    if (!b.crew.length) return;
     const race = this.race, T = this.T, N = T.N, pit = this.pit;
     const bp = this.at(b.bi, b.face - 3), dist = bp.distanceTo(cam);
     // far away: nobody's watching, skip them (and the pose work), but keep the stop logic running
@@ -427,12 +489,23 @@ export class PitLife {
         for (const m of b.crew) { m.kT = 0; if (m.mc) m.mc.go = true; } // up off the wheels, guns away; the mocap plays on
       }
     }
-    // the car on its jacks while they work
-    b.lift += ((b.phase === 'work' ? 0.055 : 0) - b.lift) * Math.min(1, dt * (b.phase === 'work' ? 10 : 16));
-    // the lollipop: red while they work, green to go
+    // the stop's own clock (seconds into the work), for the takes' timings (stopP)
+    if (b.phase === 'work') b.wt = prev === 'work' ? (b.wt || 0) + dt : 0;
+    // the wheels back on, whatever happened (a stop cut short, a take abandoned), and the old ones cleared away
+    if (b.phase !== prev && (b.phase === 'release' || b.phase === 'home')) this.wheelsBack(b, b.phase === 'home');
+    // the car on its jacks: each end up and down as its jack man levers it (else, no takes: both, while they work)
+    // (their jack man not under it yet, still on his way: it waits for him)
+    const ease = (v, to) => v + (to - v) * Math.min(1, dt * (b.phase === 'work' ? 10 : 16));
+    const jack = (role, v) => {
+      const m = b.crew.find(q => q.role === role), M = m && m.mc, s = M && M.s;
+      if (show && s && s.up && b.car && m.ch.action) { const t = m.ch.action.time; return LIFT * smooth((t - s.up[0]) / (s.up[1] - s.up[0])) * (1 - smooth((t - s.down[0]) / (s.down[1] - s.down[0]))); }
+      return ease(v || 0, b.phase === 'work' && !(show && this.mocapOn && m) ? LIFT : 0);
+    };
+    b.liftF = jack('FJ', b.liftF); b.liftR = jack('RJ', b.liftR);
+    // the lollipop: BRAKES while they work, GO to go
     const lp = b.crew.find(m => m.role === 'LP');
-    if (lp && lp.board) lp.board.color.setHex(b.phase === 'release' ? 0x18c838 : 0xd8180c);
-    if (!show) { for (const m of b.crew) { m.x = m.tx; m.z = m.tz; m.yaw = m.tyaw; m.k = m.kT; } return b.lift; }
+    if (lp && lp.board) lp.board.set(b.phase === 'release');
+    if (!show) { for (const m of b.crew) { m.x = m.tx; m.z = m.tz; m.yaw = m.tyaw; m.k = m.kT; } return; }
     // far-ish: animate at a lower rate
     const every = dist < 90 ? 1 : 3;
     b.tick = ((b.tick || 0) + 1) % every; b.acc = (b.acc || 0) + dt;
@@ -472,7 +545,74 @@ export class PitLife {
       m.ch.object.rotation.y = m.yaw;
       if (step) m.ch.update(step);
     }
-    return b.lift;
+    // the board out in front of the driver's eyes (the pole pointed there from his hands: the take was made with a
+    // shorter man and pole), turned to them
+    if (lp && lp.board && b.car && b.phase !== 'home') {
+      // (eye: up over the nose, in the driver's line of sight, above the jack man crouched at the nose)
+      const p = b.car.phys, B = lp.board, eye = new THREE.Vector3(p.x + Math.sin(p.h) * 1.6, b.car.y + 2.1, p.z + Math.cos(p.h) * 1.6);
+      if (B.g && lp.mc) {
+        const hand = B.g.parent, grip = hand.getWorldPosition(new THREE.Vector3()), q = hand.getWorldQuaternion(new THREE.Quaternion()).invert();
+        B.g.quaternion.setFromUnitVectors(B.dir, eye.clone().sub(grip).normalize().applyQuaternion(q));
+      } else if (B.g) B.g.quaternion.identity();
+      B.disc.lookAt(p.x, b.car.y + 1.0, p.z);
+    }
+  }
+  // how far through the stop it is (0..1): the car's service clock (after any penalty it sits out first); a rival
+  // online doesn't say, so about how long one takes
+  stopP(b) {
+    const c = b.car;
+    if (c && !c.remote && c.pitPhase === 'stop' && c.pitTotal) {
+      const pen = c.penServing || 0, T = Math.max(0.5, c.pitTotal - pen - 0.35);
+      return Math.max(0, Math.min(1, (c.pitTotal - c.pitTimer - pen) / T));
+    }
+    return Math.min(1, (b.wt || 0) / 4.5);
+  }
+  // ---------- the wheels coming off and going on ----------
+  // the car's wheel at a wheel man's corner (the model's: js/carmodel.js wheels[], its spinning part), by which end and
+  // which side of the car (the garage side: b.g)
+  cornerWheel(b, m) {
+    const car = b.car, W = car && car.model && car.model.wheels; if (!W || !b.g) return null;
+    const front = m.role[0] === 'F', side = m.role[1] === 'L' ? 1 : -1, p = car.phys, v = new THREE.Vector3();
+    let best = null, bd = -Infinity;
+    for (const w of W) { if (w.front !== front) continue; w.pivot.getWorldPosition(v); const d = side * ((v.x - p.x) * b.g.x + (v.z - p.z) * b.g.z); if (d > bd) { bd = d; best = w; } }
+    return best;
+  }
+  // a wheel to carry: a copy of the car's (its tire, rim, disc), in the world
+  wheelCopy(w) {
+    const c = w.mesh.clone(true); c.visible = true; c.matrixAutoUpdate = true;
+    w.mesh.updateWorldMatrix(true, false); w.mesh.matrixWorld.decompose(c.position, c.quaternion, c.scale);
+    this.root.add(c); return c;
+  }
+  // each frame a wheel man's take plays: the old wheel off the car into his hands, down on the ground; the new one in
+  // his hands till it's on
+  wheelStep(b, m) {
+    const M = m.mc; if (!M || !b.car || !m.ch.action) return;
+    const w = m.cw && m.cw.car === b.car ? m.cw.w : (m.cw = { car: b.car, w: this.cornerWheel(b, m) }).w; if (!w) return;
+    const t = m.ch.action.time, s = M.s, ch = m.ch, hb = m._hands ||= [ch.bone('LeftHand'), ch.bone('RightHand')];
+    const hands = hb[0].getWorldPosition(new THREE.Vector3()).add(hb[1].getWorldPosition(new THREE.Vector3())).multiplyScalar(0.5);
+    const hub = w.mesh.getWorldPosition(new THREE.Vector3());
+    if (M.clip === 'pit_off') {
+      if (t < s.grab || b.phase === 'ready') { if (m.prop && !m.prop.userData.down) m.prop.visible = false; return; }
+      if (!m.prop) { m.prop = this.wheelCopy(w); m.prop.userData.from = hub.clone(); m.prop.userData.t0 = t; }
+      w.mesh.visible = false;
+      const P = m.prop, r = w.r || 0.33;
+      if (t < s.drop) { const k = smooth((t - P.userData.t0) / 0.3); P.position.copy(P.userData.from).lerp(hands, k); P.visible = true; }
+      else if (!P.userData.down) { P.userData.down = true; P.position.y = this.laneY(nearIdx(this.T, b.bi, P.position.x, P.position.z)) + r; } // (put down, stood on its tire)
+    } else {
+      if (!m.prop) m.prop = this.wheelCopy(w);
+      const P = m.prop;
+      if (t < s.fit) { P.visible = true; P.position.copy(hands); if (t > s.fit - 0.25) P.position.lerp(hub, smooth((t - (s.fit - 0.25)) / 0.25)); }
+      else { P.visible = false; w.mesh.visible = true; }
+    }
+  }
+  // the car's wheels all back on (the release: in case a take didn't get there); home: the old ones taken away too
+  wheelsBack(b, all) {
+    for (const m of b.crew) {
+      if (m.cw && m.cw.w) m.cw.w.mesh.visible = true;
+      if (m.prop && (all || m.role.endsWith('n'))) { m.prop.removeFromParent(); m.prop = null; }
+      if (all) m.cw = null;
+    }
+    const c = b.car || b.served; if (c && c.model && c.model.wheels) for (const w of c.model.wheels) w.mesh.visible = true;
   }
 
   // ---------- the stop, in mocap ----------
@@ -481,9 +621,9 @@ export class PitLife {
   // from wherever the take left them.
   mocapStart(b, m) {
     const clip = MOCAP[m.role], s = SEG[clip], ch = m.ch;
-    // (the hips at the work's end on the spot, facing the way the spot faces)
-    const H = hipAt(ch, clip, s.h), yaw = m.tyaw, c = Math.cos(yaw), sn = Math.sin(yaw);
-    m.mc = { clip, s, go: false, ox: m.tx - (H.x * c + H.z * sn), oz: m.tz - (-H.x * sn + H.z * c), yaw };
+    // (the hips at the work's end on the spot, facing the way the spot faces; a wheel man's spot is where he's put)
+    const o = this.mcOrigin(m, clip, s);
+    m.mc = { clip, s, go: false, ox: o.x, oz: o.z, yaw: m.tyaw };
     ch.play(clip, { fade: 0.25, once: true }); ch.action.time = s.wait ? s.wait[0] : s.a; ch.action.timeScale = 0;
   }
   mocap(b, m, dt, step) {
@@ -496,16 +636,17 @@ export class PitLife {
     } else if (b.phase === 'work' && !M.go) {
       if (!M.t0) { M.t0 = true; if (A.time < s.a) A.time = s.a; }
       // (the spot, now around where the car really stopped: slide over to it if it's close, else walk there and start again)
-      const H = hipAt(ch, M.clip, s.h), yaw = m.tyaw, c = Math.cos(yaw), sn = Math.sin(yaw);
-      const ox = m.tx - (H.x * c + H.z * sn), oz = m.tz - (-H.x * sn + H.z * c), d = Math.hypot(ox - M.ox, oz - M.oz);
+      const H = hipAt(ch, M.clip, s.h), yaw = m.tyaw, o = this.mcOrigin(m, M.clip, s), ox = o.x, oz = o.z, d = Math.hypot(ox - M.ox, oz - M.oz);
       if (d > 1.0) { m.mc = null; m.x = ch.object.position.x + (H.x * Math.cos(M.yaw) + H.z * Math.sin(M.yaw)); m.z = ch.object.position.z + (-H.x * Math.sin(M.yaw) + H.z * Math.cos(M.yaw)); return false; }
       if (d > 0.005) { const k = Math.min(1, 2 * dt / d); M.ox += (ox - M.ox) * k; M.oz += (oz - M.oz) * k; }
       M.yaw = lerpYaw(M.yaw, yaw, Math.min(1, dt * 6));
-      // to h by the release (the stop's time left: after any penalty, which the car sits out first), then held there
-      const pen = car && car.penServing && car.pitTotal - car.pitTimer < car.penServing;
-      const left = car && !car.remote && car.pitPhase === 'stop' ? Math.max(0.25, car.pitTimer - 0.35) : 1.5;
-      A.timeScale = pen ? 0 : A.time >= s.h ? 0 : Math.max(1, (s.h - A.time) / left);
-      if (A.time > s.h) A.time = s.h;
+      // through the work as the stop goes (each take its own share of it: SEG by), never backwards, then held at h
+      // (behind, having got there late: caught up at up to 3.5x, not jumped, so nothing's missed)
+      let want = s.a + (s.h - s.a) * Math.min(1, this.stopP(b) / (s.by || 1));
+      // (one thing after another at each corner: the wheel off once its end's up, the new one on once the old one's away)
+      if (M.clip === 'pit_off' && (m.role[0] === 'F' ? b.liftF : b.liftR) < LIFT * 0.8) want = Math.min(want, s.grab - 0.05);
+      if (M.clip === 'pit_on') { const o = b.crew.find(q => q.role === m.role.slice(0, 2) + 'o'); if (o && (!o.mc || o.ch.action.time < 5.0)) want = Math.min(want, s.fit - 0.35); }
+      A.timeScale = 0; A.time = Math.min(s.h, A.time + Math.max(0, Math.min(want - A.time, dt * 3.5)));
     } else {
       // released: the rest of the take at its own pace, then back to walking from where it left them
       if (A.time < s.h) A.time = s.h;
@@ -519,8 +660,15 @@ export class PitLife {
     }
     const i = nearIdx(this.T, b.bi, M.ox, M.oz);
     ch.object.position.set(M.ox, this.laneY(i), M.oz); ch.object.rotation.y = M.yaw;
-    if (step) { ch.update(step); ch.object.updateMatrixWorld(true); this.jackPose(b, m); }
+    if (step) { ch.update(step); ch.object.updateMatrixWorld(true); this.jackPose(b, m); if (m.wheel) this.wheelStep(b, m); }
     return true;
+  }
+  // where a take's character stands for its spot: a wheel man right where he's put (his hands on the wheel), the rest
+  // with their hips on the spot at the work's end
+  mcOrigin(m, clip, s) {
+    if (m.wheel) return { x: m.tx, z: m.tz };
+    const H = hipAt(m.ch, clip, s.h), c = Math.cos(m.tyaw), sn = Math.sin(m.tyaw);
+    return { x: m.tx - (H.x * c + H.z * sn), z: m.tz - (-H.x * sn + H.z * c) };
   }
 
   // ---------- practice and qualifying: the boxes at work ----------
@@ -626,6 +774,7 @@ export class PitLife {
   }
 }
 
+const smooth = (k) => { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); };
 const lerpYaw = (a, b, t) => { let d = ((b - a + Math.PI) % (Math.PI * 2)); if (d < 0) d += Math.PI * 2; return a + (d - Math.PI) * t; };
 // the track sample nearest (x, z), searching along from i
 function nearIdx(T, i, x, z) {

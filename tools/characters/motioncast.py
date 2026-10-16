@@ -15,6 +15,8 @@ TAKES = {
   'pit_jack_front': '2-Mechanic with front jack-Take1',  # walks up to the nose, levers the car up, holds, drops it, backs off
   'pit_jack_rear': '3-Mechanic holding the rear jack',  # the rear jack: down on it, holds, up
   'pit_lollipop': '1-Lollipop man-Take1',               # steps out, the board down in front of the car, holds, lifts it
+  'pit_off': "5-Mechanic removes the wheel-10'style-Take1",  # kneeling at a wheel: waits, pulls it off, sets it down beside
+  'pit_on': "6-Mechanic Inserts the wheel-10'style-Take1",   # crouched with the new one: steps in, puts it on, steps back
 }
 MAP = {  # Mixamo bone (without 'mixamorig:') <- Motion Cast bone
   'Hips': 'Hip', 'Spine': 'LowerSpine', 'Spine1': 'MiddleSpine', 'Spine2': 'Chest', 'Neck': 'Neck', 'Head': 'Head',
