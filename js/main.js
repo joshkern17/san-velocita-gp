@@ -6003,7 +6003,7 @@ function frameBody(now) {
   if (screen === 'hud' && sim && !sim.paused) {
     const ctl = window.__autopilot && sim.player ? sim.aiControlsFor(sim.player, dt) : driveControls(pad);
     const press = {
-      camera: pressed('KeyC') || pressed('GP3'), reset: pressed('KeyR') || pressed('GP8'), line: pressed('KeyL') || pressed('GP12'),
+      camera: pressed('KeyC') || pressed('GP3'), reset: pressed('KeyR') || pressed('GP8'), line: pressed('KeyL') || (!askUI && !(sim.player && sim.player.pitting && sim.player.pitPhase === 'in') && pressed('GP12')), // (d-pad up: the radio menu's or the pit menu's while they're open)
       shiftUp: pressed('KeyE') || pressed('GP5'), shiftDown: pressed('KeyQ') || pressed('GP4'),
       skip: pressed('Enter') || pressed('GP0'),
     };
