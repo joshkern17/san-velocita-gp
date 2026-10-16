@@ -17,31 +17,43 @@ settings are fine: +Y Up on, everything included (not just the selection). Then 
   Anything more than 3.4 m off the middle keeps its distance from its own side wall. Anything nearer the middle
   stays where it is.
 - On some pit lanes the boxes are mirror images (left and right swapped), as the built-in ones are.
-- **Your car** parks at Y = 6.5, nose to the door: `REF_your_car` is its outline.
+- **The cars** park where `REF_your_car` is, nose to the door: yours in your box, each team's in theirs. Move it
+  and they all move.
 
 ## Names the game looks for
 
 | Name | What it does |
 |---|---|
-| `PLAYER_COMPUTER` | **Your computer** (the race-weekend menu's). It only appears in your box, and is never mirrored. The menu's camera shots are set from where it is. |
+| `PLAYER_COMPUTER` | **Your computer** (the race-weekend menu's). It's in every box, but in your box its glass shows the computer's screen, and nobody else sits at it. |
 | `PLAYER_SCREEN` | The computer's glass: the computer's screen is drawn on this plane. Keep it parented to `PLAYER_COMPUTER`. |
-| `PLAYER_*` | The rest of your desk (desk, chair, keyboard, lamp…): only in your box, never mirrored. Anything else that would stand where your desk is gets left out of your box. |
+| anything with `COMPUTER` in its name | A crew computer (`CREW_COMPUTER`, `PLAYER_COMPUTER.001`…): an engineer sits at it if there's a chair beside it. |
+| anything with `chair` or `stool` in its name | A seat: it belongs to the computer nearest it (within 1.6 m), and the engineer sits there facing that computer. |
 | `TIMING_SCREEN` | The glass on the wall: in your box the session's live timing shows here. |
 | `TEAM_NAME` | The plane each team's name is written on. |
 | `TEAM_MAIN`, `TEAM_ACCENT` (materials) | Painted in each team's colors. |
 | `GLOW_*` (materials) | Lit up: drawn at full brightness, no shading. |
 | `REF_*` | Left out by the game: the room (built to each box's width), your car's outline, the spare props. |
 
-Everything else in the **Box** collection appears in every box. The room's light is baked into it when it's
+Everything else (any collection) appears in every box. The little things (`box_`, `bucket`, `broom`, `jerry`,
+`paint`, `spray`, `tape`, `screw_bin`, `toolbox`, `wrench`, `hammer`) differ from box to box: about a third are left out,
+the rest are nudged and turned a little. The room's light is baked into it when it's
 loaded. Any object standing on the floor below head height also blocks you when walking the pit lane.
 
 **Spare props** (hidden collection): one of each piece of furniture from the tools pack. Duplicate one (Shift+D)
 into the Box collection to add it.
 
-## Known limits
+## The people (`js/pitcrew.js`)
 
-- **The crew's spots don't follow your edits:** the engineer at the bench, the mechanic leaning on the work bench
-  and the others are placed in code (`js/pitlife.js`).
+In practice and qualifying, each box's crew works out what to do from what's in the file:
+- **Engineers** sit at the computers that have a chair.
+- **The others** talk in twos to fours. They also go off to the tire stacks, tool chests (and anything with `tool` in
+  its name), benches (they lean back on them), shelves, the timing screen, and the car's wheels.
+- **Getting around:** they walk round whatever stands on the floor.
+- **Car out on a run:** most go to the door to watch.
+
+Every box rolls its own dice, so no two boxes are the same.
+
+## Known limits
 - **Lights and the room:** lights in the file are ignored, and so are changes to the floor, walls or ceiling.
 
 ## Remaking the file from the game

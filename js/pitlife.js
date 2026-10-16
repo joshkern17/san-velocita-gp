@@ -7,12 +7,13 @@
 // It only watches what any car shows (pitting, where it is, its speed), so an online rival's stop gets a crew too.
 import * as THREE from 'three';
 import { TEAMS } from './car.js';
-import { loadCharacters, makeCharacter, classicCrewLook, hasClip } from './characters.js';
+import { loadCharacters, makeCharacter, classicCrewLook, hasClip, FACES } from './characters.js';
 import { fillLivery } from './livery.js';
 import { PitWall } from './pitwall.js';
 import { dressBox, shutBox, boxFrame, BOX } from './pitboxes.js';
 import { furnish } from './pitprops.js';
 import { loadPitBox, fitBoxes } from './pitbox.js';
+import { BoxCrew } from './pitcrew.js';
 import { buildF1, teamCar } from './carmodel.js';
 import { driverLivery, driverFace, driverHelmet, teamSuit } from './drivers.js';
 
@@ -145,7 +146,7 @@ export class PitLife {
     loadPitBox().then(tpl => {
       if (!this.alive) return;
       const desk = (b) => b.mine && !!race.quali;
-      if (tpl) { this.boxModel = tpl; fitBoxes(tpl, this.root, this.boxes.map(b => ({ F: b.F, team: b.team, mine: desk(b) }))); return; }
+      if (tpl) { this.boxModel = tpl; fitBoxes(tpl, this.root, this.boxes.map(b => ({ F: b.F, k: b.k, team: b.team, mine: desk(b) }))); return; }
       for (const b of this.boxes) { const d = dressBox(T, this.A, pit, b.k, b.team, { name: b.team.name, desk: desk(b) }); if (d) this.root.add(d); }
       furnish(this.root, this.boxes.filter(b => b.F).map(b => ({ F: b.F, mine: b.mine }))).then(g => { if (g && !this.alive) g.removeFromParent(); });
     });
@@ -225,7 +226,7 @@ export class PitLife {
       const classic = fillLivery(b.team).crew.style === 'classic', look = classic ? classicCrewLook(b.team) : 'racer';
       b.group = new THREE.Group(); this.root.add(b.group);
       ROLES.forEach((role, r) => {
-        const ch = makeCharacter({ look, clip: 'idle', seed: b.k * 31 + r * 7 + 1, crew: !classic, livery: classic ? null : b.team });
+        const ch = makeCharacter({ look, clip: 'idle', seed: b.k * 31 + r * 7 + 1, crew: !classic, livery: classic ? null : b.team, helmet: !this.race.quali, face: this.race.quali ? (b.k * 5 + r * 3) % FACES.length : null }); // (no helmets in the garage)
         const m = { ch, role, k: 0, kT: 0, mode: role.endsWith('J') ? 'jack' : 'gun', x: 0, z: 0, yaw: 0, tx: 0, tz: 0, tyaw: 0, idleT: Math.random() * 8 };
         ch.post = (c) => crouchPose(c, c.clip && (c.clip.startsWith('kneel') || c.clip.startsWith('pit_')) ? 0 : m.k, m.mode); // (a kneel clip, or the mocap, is its own pose)
         // a prop in the right hand: the wheel gun, or the lollipop (red: brakes on; green: go)
@@ -547,8 +548,10 @@ export class PitLife {
     // (further off, the people move on every third frame)
     const every = dist < 30 ? 1 : 3; b.tick = ((b.tick || 0) + 1) % every; b.acc = (b.acc || 0) + dt;
     const step = b.tick === 0 ? b.acc : 0; if (step) b.acc = 0;
-    const slots = this.workPlan(b, out, wx, d);
     const floorY = F.P(0, 7, BOX.floor)[1];
+    // your model's boxes (js/pitbox.js): their people have minds of their own (js/pitcrew.js)
+    if (this.boxModel && b.crew.length) { (b.brain ||= new BoxCrew(this, b, this.boxModel)).update(dt, { out, vis, step, floorY }); return 0; }
+    const slots = this.workPlan(b, out, wx, d);
     const people = [...b.crew.map((m, r) => ({ m, s: slots[m.role] })), ...(b.driver ? [{ m: b.dm ||= { ch: b.driver, x: 0, z: 0, yaw: 0, k: 0, kT: 0, role: 'DR', placed: false }, s: out ? null : slots.DR }] : [])];
     if (b.driver) b.driver.object.visible = !out;
     for (const { m, s } of people) {
@@ -596,7 +599,8 @@ export class PitLife {
     const cfg = teamCar(b.team, t); cfg.chassis = race.aiChassisFor(t);
     Object.assign(cfg, { helmetDesign: { ...driverHelmet(did), number: true }, helmet: driverHelmet(did).base, suit: teamSuit(b.team) });
     const m = buildF1(cfg, { texSize: 512, low: true }), F = b.F;
-    const at = F.P(0, 6.4, BOX.floor + 0.05), ah = F.P(0, 5.4, BOX.floor + 0.05);
+    const c = this.boxModel ? this.boxModel.car(F) : { x: 0, z: 6.4 }; // (where your model's box has it)
+    const at = F.P(c.x, c.z, BOX.floor + 0.05), ah = F.P(c.x, c.z - 1, BOX.floor + 0.05);
     m.group.position.fromArray(at); m.group.rotation.y = Math.atan2(ah[0] - at[0], ah[2] - at[2]);
     if (m.shadow) { m.group.add(m.shadow); m.shadow.position.y = -0.04; }
     m.group.traverse(o => { if (o.isMesh) o.castShadow = false; });

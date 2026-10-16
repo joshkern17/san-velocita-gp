@@ -327,15 +327,17 @@ export class PitGarage {
         tv.geometry.dispose(); tv.geometry = new THREE.PlaneGeometry(f.w, f.h);
         tv.position.copy(f.c).addScaledVector(f.n, 0.012); tv.position.y -= BOX.floor; tv.rotation.set(0, Math.atan2(f.n.x, f.n.z), 0);
       }
-      const mine = box && box.desk();
-      if (mine && mine.screen) {
-        const g = mine.group; g.position.y = -BOX.floor; // (the model's floor is the room's: the anchor's already on it)
-        const sc = mine.screen;
-        sc.material = new THREE.MeshBasicMaterial({ map: this.pcTex(false), color: 0xdddddd, polygonOffset: true, polygonOffsetFactor: -2 });
-        sc.userData.pcScreen = true; this.screen = sc;
-        let hit = null; if (mine.computer) mine.computer.traverse(o => { if (!hit && o.isMesh && o !== sc) hit = o; });
-        this.screenHit = hit || sc;
-        this.room.add(g); this.shade(g); return;
+      // your model's box (js/pitbox.js): the car where it parks there, the computer's screen on PLAYER_COMPUTER's glass
+      // (the box is the model's mirror image on some lanes: so is the glass, so its picture's turned back round)
+      const sc = box && box.screen(F);
+      if (sc) {
+        const c = box.car(F); this.bay.position.set(s * c.x, 0, -c.z - CAR_Z);
+        const geo = sc.geo.clone();
+        if (F.mirror) { const uv = geo.attributes.uv; if (uv) { for (let i = 0; i < uv.count; i++) uv.setX(i, 1 - uv.getX(i)); } }
+        const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: this.pcTex(false), color: 0xdddddd, polygonOffset: true, polygonOffsetFactor: -2, side: THREE.DoubleSide }));
+        mesh.matrixAutoUpdate = false; mesh.matrix.copy(a.matrix).invert().multiply(sc.matrix); mesh.matrix.decompose(mesh.position, mesh.quaternion, mesh.scale);
+        mesh.userData.pcScreen = true; this.screen = mesh; this.screenHit = mesh;
+        this.room.add(mesh); return;
       }
       const g = new THREE.Group(); g.position.z = CAR_Z;
       if (!m) { // (no model: the plain room's desk and CRT, where the model's stands)
@@ -360,7 +362,7 @@ export class PitGarage {
     this.room.clear(); this.screen = this.screenHit = null;
     this.scene.add(this.room, this.bay); this.camera.removeFromParent(); this.camera.far = 120; this.camera.updateProjectionMatrix();
     t.a.removeFromParent();
-    this.track = null; this.roomWant = null; this.roomLoading = null;
+    this.track = null; this.roomWant = null; this.roomLoading = null; this.bay.position.set(0, 0, 0);
     this.custom = 'track'; // (an empty room: useDefault fills it again if there's no model to load)
   }
   // when the room you're going to is in (its shots are placed from what's in it)
@@ -853,7 +855,7 @@ export class PitGarage {
   get atList() { return this.shot === 'list' && this.settled; }
   get nearScreen() { return this.shot === 'seat' || (this.prevShot === 'seat' && !this.settled); }
   get zoomK() { return this.shot === 'seat' ? this.blendK : this.prevShot === 'seat' ? 1 - this.blendK : 0; }
-  carCentre() { return new THREE.Vector3(0, 0.55, CAR_Z); }
+  carCentre() { return new THREE.Vector3(0, 0.55, CAR_Z).add(this.bay.position); } // (the bay's moved to where your model's box has the car)
   // look round the car (dyaw, dpitch rad; zoom × the distance); the first call starts from where the camera is now.
   // look(null) hands the camera back to the room's own shot
   look(dy, dp = 0, zoom = 1) {
@@ -875,7 +877,7 @@ export class PitGarage {
   carPose(part) {
     const C = this.carCentre();
     // (shift 0: the car sits between the menu on the left and its performance panel on the right)
-    if (!part) return { pos: C.clone().add(new THREE.Vector3(3.6, 1.7, 3.8)), at: C.clone(), fov: 46, shift: 0 };
+    if (!part) return { pos: C.clone().add(new THREE.Vector3(C.x > 0.5 ? -3.6 : 3.6, 1.7, 3.8)), at: C.clone(), fov: 46, shift: 0 };
     const A = this.partAnchor(part) || C;
     const dir = new THREE.Vector3(A.x - C.x, 0, A.z - C.z); if (dir.lengthSq() < 0.04) dir.set(1, 0, 0.3); dir.normalize();
     const pos = A.clone().addScaledVector(dir, 3.6).add(new THREE.Vector3(0, 1.25, 0)).addScaledVector(new THREE.Vector3(-dir.z, 0, dir.x), 1.6);
@@ -1117,8 +1119,8 @@ export class PitGarage {
       return;
     }
     // a slow drift around the front three-quarter (staying inside the room)
-    const a = 0.62 + Math.sin(this.t * 0.12) * 0.1, r = 7.4;
-    const tgt = new THREE.Vector3(0, 0.5, CAR_Z);
+    const tgt = this.carCentre(); tgt.y = 0.5;
+    const a = (tgt.x > 0.5 ? -1 : 1) * (0.62 + Math.sin(this.t * 0.12) * 0.1), r = 7.4; // (from the room's middle: a car parked off to one side has a wall beyond it)
     this.camera.position.set(tgt.x + Math.sin(a) * r, 2.0 + Math.sin(this.t * 0.2) * 0.1, tgt.z + Math.cos(a) * r);
     aim(this.camera, tgt); this.camera.fov = 40;
     // (back from walking the pit lane: eased round to it from where the walk left the camera)

@@ -67,7 +67,7 @@ try {
   const nb = await pg.evaluate(() => {
     const nav = window.__svgp.dbg.walk.nav, me = nav.rooms.find(fr => Math.hypot(fr.o.x, fr.o.z) < 1), o = nav.rooms.filter(fr => fr !== me).sort((a, b) => Math.hypot(a.o.x, a.o.z) - Math.hypot(b.o.x, b.o.z))[0];
     const at = (x, z) => { const w = { x: 0, z: 0 }; nav.outFr(o, { x, z }, w); return w; };
-    return { door: at(0, -3), inside: at(0, 7), far: Math.hypot(o.o.x, o.o.z) };
+    return { door: at(0, -3), inside: at(0, 1.6), far: Math.hypot(o.o.x, o.o.z) };
   });
   console.log('next box', JSON.stringify(nb));
   await walkTo(nb.door.x, nb.door.z, 40);
