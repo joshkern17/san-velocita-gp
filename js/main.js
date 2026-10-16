@@ -435,14 +435,33 @@ const MAIN_ITEMS = [
   { label: 'Career', action: () => openCareer(), desc: 'A championship season with upgrades, perks and a Team Principal to keep happy. Or a straight Grand Prix.' },
   { label: 'Online', action: () => openOnline(), desc: 'Host a room or join a friend with a room code. Up to 8 drivers.' },
   { label: 'Garage', action: () => openGarage(), desc: 'Choose your car, build your F1 car and design its livery, helmet and suit.' },
-  { label: 'The Opening', action: () => openOpening(), desc: 'Preview: how a World Career begins. The trailer, the pile on the side table, the lottery draw, the claim office. Look around with the mouse or a stick.' },
-  { label: 'The Ending', action: () => openEndingPreview(), desc: 'Preview: how a World Career ends when the money runs out. The garage at night, the car going, the list off the wall, the Wire, the record. A made-up career: nothing is saved.' },
-  { label: 'Home Garage', action: () => openHomeView(), desc: 'Preview: the World Career garage. Pick the premises, the facilities and car two, and see the room change. Nothing is saved.' },
+  { label: 'Development', action: () => mainDev(true), desc: 'Previews and quick tests: a pit stop, the World Career opening and ending, the home garage.' },
   { label: 'Track Editor', action: () => openEditor(), desc: 'Draw your own circuit, even on a real map of your town, then race it.' },
   { label: 'Options', action: () => openOptions('s-main'), desc: 'Screen look, retro effects, driving aids, units and sound.', cls: 'gap' },
   { label: 'How To Play', action: () => fadeTo(() => { openHelp(0); }, 200), desc: 'Controls for keyboard and controller, and racing tips.' },
   { label: 'Credits', action: () => fadeTo(() => { fillCredits(); show('s-credits'); }, 200), desc: 'The artists and libraries behind the game.' },
 ];
+// Development: previews and quick tests, in place of the main menu's list (B / Back: the main menu again)
+const DEV_ITEMS = [
+  { label: 'Pit Stop', action: () => devPitView(), desc: 'A race at Pinewood Sprint, your car boxing as soon as it goes green: watch the crew work. In any race, F8 does the same.' },
+  { label: 'The Opening', action: () => openOpening(), desc: 'Preview: how a World Career begins. The trailer, the pile on the side table, the lottery draw, the claim office. Look around with the mouse or a stick.' },
+  { label: 'The Ending', action: () => openEndingPreview(), desc: 'Preview: how a World Career ends when the money runs out. The garage at night, the car going, the list off the wall, the Wire, the record. A made-up career: nothing is saved.' },
+  { label: 'Home Garage', action: () => openHomeView(), desc: 'Preview: the World Career garage. Pick the premises, the facilities and car two, and see the room change. Nothing is saved.' },
+  { label: 'Back', action: () => mainDev(false), desc: 'The main menu.', cls: 'gap' },
+];
+let mainDevOn = false, devPitPending = false;
+function mainDev(on) {
+  mainDevOn = on; (on ? sfx.select : sfx.back)();
+  const m = menus['s-main'][0]; m.setItems(on ? DEV_ITEMS : [...m.items.filter(it => it.cls === 'cont'), ...MAIN_ITEMS]);
+  m.i = on ? 0 : Math.max(0, m.items.findIndex(it => it.label === 'Development')); m.render();
+}
+backs['s-main'] = () => { if (mainDevOn) mainDev(false); };
+// the pit stop to watch: a short race, and as soon as it's green your car's boxing (race.js devPitStop, F8's)
+function devPitView() {
+  const t = cloneTrack(presetTracks().find(q => q.name === 'Pinewood Sprint') || presetTracks()[0]);
+  startRace(t, { mode: 'race', laps: 5, opponents: 5, pick: false, extra: { car: settings.car, strategy: false, grid: 'back' } }, 'menu');
+  devPitPending = true; // (after: a race starting clears it)
+}
 // the highlighted entry's description sits right under it (see .main-menu .idesc)
 menus['s-main'] = [new Menu($('m-main'), MAIN_ITEMS, { inlineDesc: true })];
 // a saved championship goes straight to the top of the menu
@@ -458,7 +477,7 @@ function buildMainMenu() {
   }
   // keep the highlighted entry, unless a saved run just appeared or went away (then offer to continue it)
   const selLabel = m.items[m.i]?.label, contKey = items.map(it => it.label + it.desc).join();
-  m.setItems([...items, ...MAIN_ITEMS]);
+  m.setItems(mainDevOn ? DEV_ITEMS : [...items, ...MAIN_ITEMS]); // (back from a preview: still in Development)
   const k = m.items.findIndex(it => it.label === selLabel);
   m.i = contKey !== m.contKey ? 0 : k >= 0 ? k : 0; m.contKey = contKey; m.render();
   // your current car, bottom right (click it for the garage)
@@ -5223,6 +5242,7 @@ function showLoading(track) {
 }
 
 function startRace(track, cfg, ret, quick = false) {
+  devPitPending = false;
   if (ret !== 'gig') { gig = null; document.body.classList.remove('gig-on'); }
   clearTimeout(developT);
   raceReturn = ret;
@@ -6063,7 +6083,7 @@ function frameBody(now) {
     else if (!askUI) { if (pressed('GP15') || pressed('KeyT')) { askUI = { path: [], sel: Math.max(0, radioMenu(sim, pl).findIndex(m => m.key === askLast.path[0])), idle: 0 }; sfx.move(); } }
     else askInput(pl, dt);
     if (askUI) press.line = false;
-    if (pressed('F8') && sim.devPitStop()) hud.help('Pit stop test: <b>boxing now</b>', 1600); // (testing: a pit stop to watch)
+    if ((pressed('F8') || (devPitPending && sim.state === 'racing' && sim.stateT > 1)) && sim.devPitStop()) { devPitPending = false; hud.help('Pit stop test: <b>boxing now</b>', 1600); } // (testing: a pit stop to watch. F8, or Development > Pit Stop)
     if (pressed('KeyM') || (!pitMenu && !askUI && pressed('GP13'))) {
       settings.radarZoom = RADAR_ZOOMS[(RADAR_ZOOMS.indexOf(settings.radarZoom) + 1) % RADAR_ZOOMS.length];
       applyVideo(); saveSettings(); sfx.move();
