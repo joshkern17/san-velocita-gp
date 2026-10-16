@@ -3677,7 +3677,11 @@ export class Race {
         if (car.remote || car.gone) continue;
         const locked = !racing;
         const env = this.surfaceEnv(car);
-        car.phys.step(h, locked ? { steer: 0, throttle: 0, brake: 0 } : car.ctl, env);
+        // (stopped at the box: off the throttle and on the brake whatever you press, so it doesn't rev or spin its wheels
+        // while the crew works, and in 1st for the getaway; the steering's still yours)
+        const boxed = car.pitPhase === 'stop';
+        car.phys.step(h, locked ? { steer: 0, throttle: 0, brake: 0 } : boxed ? { steer: car.ctl.steer || 0, throttle: 0, brake: 1, handbrake: 0 } : car.ctl, env);
+        if (boxed && car.phys.gear !== 1) { car.phys.gear = 1; car.phys.revT = 0; }
         if (car.wreck) this.wreckStep(car, h);
         if (locked) { car.phys.vx = car.phys.vz = car.phys.r = 0; car.phys.gear = 1; car.phys.revT = 0; car.phys.rpm = car.phys.p.idle * 1.05 + (car.ctl.throttle || 0) * (car.phys.p.redline * 0.72 - car.phys.p.idle); car.phys.throttle = car.ctl.throttle || 0; }
         this.updateTracker(car);
