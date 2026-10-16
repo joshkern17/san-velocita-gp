@@ -7,7 +7,7 @@
 // It only watches what any car shows (pitting, where it is, its speed), so an online rival's stop gets a crew too.
 import * as THREE from 'three';
 import { TEAMS } from './car.js';
-import { loadCharacters, makeCharacter, classicCrewLook } from './characters.js';
+import { loadCharacters, makeCharacter, classicCrewLook, hasClip } from './characters.js';
 import { fillLivery } from './livery.js';
 import { PitWall } from './pitwall.js';
 import { dressBox, shutBox, boxFrame, BOX } from './pitboxes.js';
@@ -85,6 +85,36 @@ function drawSign(sign) {
 // a crew: 4 on the wheel guns, a jack at each end, and the lollipop. Slots in the car's frame: [along, across, facing]
 // (across > 0 is the garage side; facing is the yaw from the car's heading, 0 = facing the way the car points)
 const ROLES = ['FL', 'FR', 'RL', 'RR', 'FJ', 'RJ', 'LP'];
+// The stop, in mocap (characters.js pit_*: Motion Cast's takes). Each role plays a stretch of its take, in seconds:
+//   wait: looped while the car's coming in (else they hold the pose at a);
+//   a..h: the work, from the car stopping: sped up to fit the stop, held at h if it's a long one (a penalty, repairs);
+//   h..r: on the release (the jacks drop it and step away, the lollipop goes up), then they walk back as before.
+// at h each one's hips are put on its spot by the car (where they are in the take at that moment: hipAt), the take's
+// own forward (where the car was when it was performed) turned to the spot's facing
+const MOCAP = {
+  FL: 'pit_gun', FR: 'pit_gun', RL: 'pit_gun', RR: 'pit_gun', FJ: 'pit_jack_front', RJ: 'pit_jack_rear', LP: 'pit_lollipop',
+};
+const SEG = {
+  pit_gun: { wait: [0.2, 3.0], a: 3.17, h: 8.17, r: 8.17 },     // kneeling: waits, the nut off, waits, the nut on
+  pit_jack_front: { a: 2.2, h: 4.67, r: 6.8 },                 // at the nose: levers it up, holds; drops it, backs off
+  pit_jack_rear: { a: 2.8, h: 4.8, r: 5.75 },                  // down on the rear jack, holds; up
+  pit_lollipop: { a: 1.4, h: 4.67, r: 8.2 },                   // the board down in front of the car; up, steps back
+};
+// where a take puts the hips (ground, in the character's own frame) and which way they face, at time t: measured once
+// on a crew member (every look shares the skeleton)
+const _hip = new Map();
+function hipAt(ch, clip, t) {
+  const key = clip + '@' + t; if (_hip.has(key)) return _hip.get(key);
+  const was = ch.clip, o = ch.object, keep = [o.position.clone(), o.rotation.y];
+  o.position.set(0, 0, 0); o.rotation.y = 0;
+  ch.play(clip, { fade: 0, once: true }); ch.action.time = t; ch.mixer.update(0); o.updateMatrixWorld(true);
+  const w = (n) => o.worldToLocal(ch.bone(n).getWorldPosition(new THREE.Vector3()));
+  const hp = w('Hips'), l = w('LeftUpLeg'), r = w('RightUpLeg');
+  // (facing +Z, the left hip's at +X: the turn from that to where the left hip is now)
+  const out = { x: hp.x, z: hp.z, yaw: -Math.atan2(l.z - r.z, l.x - r.x) };
+  o.position.copy(keep[0]); o.rotation.y = keep[1]; if (was) ch.play(was, { fade: 0 });
+  _hip.set(key, out); return out;
+}
 const HOME_IDLES = ['idle', 'idle_look', 'idle_stretch', 'kneel', 'kneel_point']; // (waiting at the box)
 
 export class PitLife {
@@ -197,13 +227,19 @@ export class PitLife {
       ROLES.forEach((role, r) => {
         const ch = makeCharacter({ look, clip: 'idle', seed: b.k * 31 + r * 7 + 1, crew: !classic, livery: classic ? null : b.team });
         const m = { ch, role, k: 0, kT: 0, mode: role.endsWith('J') ? 'jack' : 'gun', x: 0, z: 0, yaw: 0, tx: 0, tz: 0, tyaw: 0, idleT: Math.random() * 8 };
-        ch.post = (c) => crouchPose(c, c.clip && c.clip.startsWith('kneel') ? 0 : m.k, m.mode); // (a kneel clip is its own pose)
+        ch.post = (c) => crouchPose(c, c.clip && (c.clip.startsWith('kneel') || c.clip.startsWith('pit_')) ? 0 : m.k, m.mode); // (a kneel clip, or the mocap, is its own pose)
         // a prop in the right hand: the wheel gun, or the lollipop (red: brakes on; green: go)
-        if (role === 'LP') m.board = this.attachLollipop(ch);
+        if (role === 'LP') m.board = this.attachLollipop(ch, hasClip('pit_lollipop'));
         else if (role !== 'FJ' && role !== 'RJ') this.attachGun(ch);
+        else if (hasClip(MOCAP[role])) { m.jack = this.makeJack(); b.group.add(m.jack); }
         b.group.add(ch.object); b.crew.push(m);
       });
       this.homeSlots(b, true);
+      // (the mocap, when the people file has it: where each take puts the hips, measured now, not mid-stop)
+      if (this.mocapOn === undefined) {
+        this.mocapOn = Object.values(MOCAP).every(hasClip);
+        if (this.mocapOn) { const ch = b.crew[0].ch; for (const c of new Set(Object.values(MOCAP))) { hipAt(ch, c, SEG[c].h); hipAt(ch, c, SEG[c].r); } ch.play('idle', { fade: 0 }); }
+      }
       // practice and qualifying: the team's driver too, helmet off, about the box while the car's in
       if (this.race.quali && !b.mine && b.F && b.tk != null) {
         const did = this.race.driverId(b.tk, b.team);
@@ -236,7 +272,20 @@ export class PitLife {
     gun.position.y = 0.1;
     this.attachProp(ch, gun);
   }
-  attachLollipop(ch) {
+  attachLollipop(ch, mocap) {
+    if (mocap) {
+      // the grip the mocap was made with (the take's own lollipop on its hand, in this skeleton's RightHand frame,
+      // measured in tools: the stick runs out from the palm, the board at its end facing along it, at the driver)
+      const a = new THREE.Vector3(-0.06, 0.08, 0.06), e = new THREE.Vector3(0.79, 0.12, -0.22), len = a.distanceTo(e), dir = e.clone().sub(a).normalize();
+      const g = new THREE.Group();
+      const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, len, 5), new THREE.MeshLambertMaterial({ color: 0xdddddd }));
+      stick.position.copy(a).add(e).multiplyScalar(0.5); stick.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      const mat = new THREE.MeshBasicMaterial({ color: 0xd8180c, side: THREE.DoubleSide });
+      const disc = new THREE.Mesh(new THREE.CircleGeometry(0.24, 14), mat);
+      disc.position.copy(e); disc.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+      g.add(stick, disc); this.attachProp(ch, g);
+      return mat;
+    }
     const g = new THREE.Group();
     const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.1, 5), new THREE.MeshLambertMaterial({ color: 0xdddddd }));
     stick.position.y = 0.55;
@@ -246,6 +295,37 @@ export class PitLife {
     g.add(stick, disc);
     this.attachProp(ch, g);
     return mat;
+  }
+
+  // a jack (the mocap's jack men hold nothing): a lever from their hands down to the cradle under the car's nose or
+  // tail, a foot on the ground there. Placed each frame by jackPose: the bar's a unit long along y, scaled to fit
+  makeJack() {
+    const g = new THREE.Group(), mat = new THREE.MeshLambertMaterial({ color: 0x2a2a2e });
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1, 6), mat); bar.name = 'bar';
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.1, 0.42), mat); foot.name = 'foot';
+    g.add(bar, foot); g.visible = false;
+    return g;
+  }
+  jackPose(b, m) {
+    const J = m.jack; if (!J) return;
+    const car = b.car, on = !!m.mc && !!car;
+    J.visible = on; if (!on) return;
+    const ch = m.ch, hb = m._hands ||= [ch.bone('LeftHand'), ch.bone('RightHand')];
+    const l = hb[0].getWorldPosition(new THREE.Vector3()), r = hb[1].getWorldPosition(new THREE.Vector3());
+    const h = l.add(r).multiplyScalar(0.5);
+    // the cradle: under the nose / tail while the car's there, else on the ground where it was (pulled clear)
+    let f;
+    if (b.phase === 'ready') { const y = ch.object.rotation.y; f = new THREE.Vector3(ch.object.position.x + Math.sin(y) * 1.1, 0, ch.object.position.z + Math.cos(y) * 1.1); } // (the car's still coming: the jack on the ground in front of them)
+    else if (!m.mc.go || car.phys.speed < 1) {
+      const P = car.phys.p, ph = car.phys, al = m.role === 'FJ' ? (P.body ? P.body[0] : (P.a ?? 1.6) + (P.ovh?.[0] ?? 0.9)) - 0.15 : -((P.body ? P.body[1] : (P.b ?? 1.6) + (P.ovh?.[1] ?? 0.9)) - 0.2);
+      f = new THREE.Vector3(ph.x + Math.sin(ph.h) * al, 0, ph.z + Math.cos(ph.h) * al); m.jackAt = f.clone();
+    } else f = m.jackAt || h.clone();
+    const i = nearIdx(this.T, b.bi, f.x, f.z); f.y = this.laneY(i) + 0.12;
+    const foot = J.getObjectByName('foot'), bar = J.getObjectByName('bar');
+    foot.position.set(f.x, f.y - 0.07, f.z); foot.rotation.y = car.phys.h;
+    bar.position.copy(f).add(h).multiplyScalar(0.5);
+    bar.scale.y = Math.max(0.1, f.distanceTo(h));
+    bar.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), h.clone().sub(f).normalize());
   }
 
   // waiting: in the garage door (and not drawn there: 84 people standing about in front of the boxes cost the start
@@ -343,7 +423,7 @@ export class PitLife {
         const p = b.car.phys; b.pose = { x: p.x, z: p.z, h: p.h };
         this.workSlots(b, b.car, b.pose, true);
       } else if (b.phase === 'release' && prev === 'work') {
-        for (const m of b.crew) m.kT = 0; // up off the wheels, guns away
+        for (const m of b.crew) { m.kT = 0; if (m.mc) m.mc.go = true; } // up off the wheels, guns away; the mocap plays on
       }
     }
     // the car on its jacks while they work
@@ -358,6 +438,7 @@ export class PitLife {
     const step = b.tick === 0 ? b.acc : 0; if (step) b.acc = 0;
     const hurry = b.phase === 'ready' || b.phase === 'work';
     for (const m of b.crew) {
+      if (this.mocap(b, m, dt, step)) continue;
       const dx = m.tx - m.x, dz = m.tz - m.z, d = Math.hypot(dx, dz);
       const v = hurry ? 2.6 : 1.35, mv = Math.min(d, v * dt);
       let clip, speed = 1;
@@ -369,6 +450,7 @@ export class PitLife {
       } else {
         m.yaw = lerpYaw(m.yaw, m.tyaw, Math.min(1, dt * 8));
         const gun = m.mode === 'gun' && m.role !== 'LP';
+        if (MOCAP[m.role] && this.mocapOn && (b.phase === 'ready' || b.phase === 'work') && b.car) { this.mocapStart(b, m); continue; } // (in place: the mocap from here)
         if (gun && b.phase === 'work' && m.kT > 0) clip = 'kneel'; // on one knee at the wheel
         else if (gun && b.phase === 'ready') clip = 'kneel_down';  // in their spot for the car: down on one knee
         else if (m.role === 'LP' && (b.phase === 'work' || b.phase === 'ready')) clip = 'point';
@@ -390,6 +472,54 @@ export class PitLife {
       if (step) m.ch.update(step);
     }
     return b.lift;
+  }
+
+  // ---------- the stop, in mocap ----------
+  // m.mc: { clip, s (SEG), go (released) } while a crew member's take is playing. Started once they're on their spot
+  // with the car coming or in; it owns them (position, clip) until it's played out, then the walking above takes over
+  // from wherever the take left them.
+  mocapStart(b, m) {
+    const clip = MOCAP[m.role], s = SEG[clip], ch = m.ch;
+    // (the hips at the work's end on the spot, facing the way the spot faces)
+    const H = hipAt(ch, clip, s.h), yaw = m.tyaw, c = Math.cos(yaw), sn = Math.sin(yaw);
+    m.mc = { clip, s, go: false, ox: m.tx - (H.x * c + H.z * sn), oz: m.tz - (-H.x * sn + H.z * c), yaw };
+    ch.play(clip, { fade: 0.25, once: true }); ch.action.time = s.wait ? s.wait[0] : s.a; ch.action.timeScale = 0;
+  }
+  mocap(b, m, dt, step) {
+    const M = m.mc; if (!M) { if (m.jack) m.jack.visible = false; return false; }
+    const ch = m.ch, A = ch.action, s = M.s, car = b.car;
+    if (!A || ch.clip !== M.clip || b.phase === 'home' && !M.go) { m.mc = null; return false; }
+    if (b.phase === 'ready') {
+      // waiting for the car: the gunners' loop, the others still at a
+      if (s.wait) { A.timeScale = 1; if (A.time >= s.wait[1]) A.time = s.wait[0]; } else { A.time = s.a; A.timeScale = 0; }
+    } else if (b.phase === 'work' && !M.go) {
+      if (!M.t0) { M.t0 = true; if (A.time < s.a) A.time = s.a; }
+      // (the spot, now around where the car really stopped: slide over to it if it's close, else walk there and start again)
+      const H = hipAt(ch, M.clip, s.h), yaw = m.tyaw, c = Math.cos(yaw), sn = Math.sin(yaw);
+      const ox = m.tx - (H.x * c + H.z * sn), oz = m.tz - (-H.x * sn + H.z * c), d = Math.hypot(ox - M.ox, oz - M.oz);
+      if (d > 1.0) { m.mc = null; m.x = ch.object.position.x + (H.x * Math.cos(M.yaw) + H.z * Math.sin(M.yaw)); m.z = ch.object.position.z + (-H.x * Math.sin(M.yaw) + H.z * Math.cos(M.yaw)); return false; }
+      if (d > 0.005) { const k = Math.min(1, 2 * dt / d); M.ox += (ox - M.ox) * k; M.oz += (oz - M.oz) * k; }
+      M.yaw = lerpYaw(M.yaw, yaw, Math.min(1, dt * 6));
+      // to h by the release (the stop's time left: after any penalty, which the car sits out first), then held there
+      const pen = car && car.penServing && car.pitTotal - car.pitTimer < car.penServing;
+      const left = car && !car.remote && car.pitPhase === 'stop' ? Math.max(0.25, car.pitTimer - 0.35) : 1.5;
+      A.timeScale = pen ? 0 : A.time >= s.h ? 0 : Math.max(1, (s.h - A.time) / left);
+      if (A.time > s.h) A.time = s.h;
+    } else {
+      // released: the rest of the take at its own pace, then back to walking from where it left them
+      if (A.time < s.h) A.time = s.h;
+      A.timeScale = 1;
+      if (A.time >= s.r - 0.02 || s.r <= s.h) {
+        ch.object.updateMatrixWorld(true);
+        const p = (m._hips ||= ch.bone('Hips')).getWorldPosition(new THREE.Vector3()), H = hipAt(ch, M.clip, Math.min(s.r, A.getClip().duration));
+        m.x = p.x; m.z = p.z; m.yaw = M.yaw + H.yaw; m.mc = null; if (m.jack) m.jack.visible = false;
+        return false;
+      }
+    }
+    const i = nearIdx(this.T, b.bi, M.ox, M.oz);
+    ch.object.position.set(M.ox, this.laneY(i), M.oz); ch.object.rotation.y = M.yaw;
+    if (step) { ch.update(step); ch.object.updateMatrixWorld(true); this.jackPose(b, m); }
+    return true;
   }
 
   // ---------- practice and qualifying: the boxes at work ----------

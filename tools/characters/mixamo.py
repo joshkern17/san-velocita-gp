@@ -152,8 +152,15 @@ for f in sorted(glob.glob(os.path.join(SRC, '*.fbx'))):
     strip = track.strips.new(act.name, int(act.frame_range[0]), act); track.mute = True
     rig.animation_data.action = None
     print('CLIP', act.name, tuple(act.frame_range))
+# the pit crew's mocap (Motion Cast "Racing Team", tools/characters/motioncast.py), when its folder's given
+MC_DIR = os.environ.get('MOTIONCAST')
+mc_clips = []
+if MC_DIR and os.path.isdir(MC_DIR):
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import motioncast
+    mc_clips = motioncast.add(rig, MC_DIR, M)
 for a in list(bpy.data.actions):
-    if a.name not in CLIPS.values(): bpy.data.actions.remove(a)
+    if a.name not in CLIPS.values() and a.name not in mc_clips: bpy.data.actions.remove(a)
 missing = [f for f, c in CLIPS.items() if c not in bpy.data.actions]
 if missing: raise SystemExit('MISSING clip files: ' + ', '.join(f + '.fbx' for f in missing))
 

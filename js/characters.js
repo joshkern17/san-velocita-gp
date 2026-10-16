@@ -63,6 +63,9 @@ export const CLIP_INFO = {
   sit_desk: { loop: true, seat: 0.44 },
   // stood talking, three ways (Mixamo "Talking"): hands going, weight shifting, on the spot
   talk: { loop: true }, talk_2: { loop: true }, talk_3: { loop: true },
+  // the pit crew at work (Motion Cast "Racing Team" mocap, tools/characters/motioncast.py; js/pitlife.js plays parts of
+  // them, timed to the stop): the gunman on one knee at a wheel, the front and rear jacks, the lollipop man
+  pit_gun: { loop: false }, pit_jack_front: { loop: false }, pit_jack_rear: { loop: false }, pit_lollipop: { loop: false },
 };
 export const CLIPS = Object.keys(CLIP_INFO);
 
@@ -93,6 +96,7 @@ export function loadCharacters() {
   return loading;
 }
 export const charactersReady = () => !!TPL;
+export const hasClip = (name) => !!(TPL && TPL.clips[name]);
 export const charactersStatus = () => (TPL ? 'ready' : loadError ? 'missing' : 'loading');
 
 // PS1 look, same as the scenery (js/envlib.js): Lambert, crisp texels, vertex snapping

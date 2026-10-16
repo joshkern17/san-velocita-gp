@@ -10,6 +10,12 @@
   `.fbx` per clip, downloaded as *FBX Binary, Without Skin, 30 fps*, walks with *In Place* ticked.
   Everything sits loose in the pack folder (`~/Downloads/Male PSX Characters`).
 
+- **Motion Cast "Racing Team" (Animation Pack #03 Vol. 1, Blender version)**: the pit crew's mocap. One `.blend` per
+  take (a 53-bone mannequin, 30 fps, T-pose rest), unpacked to `~/Downloads/motioncast03/v15` (or `MOTIONCAST=...`).
+  `motioncast.py` retargets the takes in its `TAKES` onto the Mixamo skeleton (world-space, both rest in a T-pose) as
+  `pit_gun`, `pit_jack_front`, `pit_jack_rear`, `pit_lollipop`; `js/pitlife.js` plays stretches of them (`SEG`),
+  timed to each stop. A missing folder just leaves them out (the crews fall back to the Mixamo kneel / point / wave).
+
 - **The racer**: `models/helmet-paint.glb`, exported from `models/racer/helmet-paint.blend` (the long-sleeve suit
   with gloves, made from the coveralls guy, and the helmet). That `.blend` is also where the helmet is painted.
 
