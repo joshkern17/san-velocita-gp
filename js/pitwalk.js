@@ -42,7 +42,7 @@ export class PitNav {
       const o = L(F.P(0, 0, 0)), px = L(F.P(1, 0, 0)), pz = L(F.P(0, 1, 0));
       const fr = { o, t: { x: px.x - o.x, z: px.z - o.z }, n: { x: pz.x - o.x, z: pz.z - o.z }, wx: F.wx, dw: F.dw };
       this.rooms.push(fr);
-      this.dress(fr, b === life.mine, F.mirror);
+      this.dress(fr, b === life.mine, F.mirror, life.boxModel && F);
     }
     // your car and your desk (in this frame already: the garage's room)
     const parts = [];
@@ -75,9 +75,11 @@ export class PitNav {
     return bb;
   }
   // what's in a box (js/pitboxes.js dressBox's things, in its frame: x along its front, z in from it)
-  dress(fr, mine, mirror) {
+  // (model: js/pitbox.js's, when the boxes are from models/pitbox.glb: what's in them is whatever's in that)
+  dress(fr, mine, mirror, model) {
     const { wx, dw } = fr, d = BOX.depth, R = (x0, x1, z0, z1) => this.obs.push({ fr, r: [x0, x1, z0, z1] }), Cc = (x, z, r) => this.obs.push({ fr, c: [x, z, r] });
     for (const s of [-1, 1]) R(s < 0 ? -wx - 0.3 : dw, s < 0 ? -dw : wx + 0.3, -0.05, BOX.frontT); // (the pillars either side of the door)
+    if (model) { for (const r of this.sim.pitLife.boxModel.footprints(model, mine)) R(...r); return; }
     // (against a wall, each runs on through it: stood in one, the nearest way out is into the room)
     R(-3.65, 3.65, d - 1.05, d + 1);                   // the engineers' bench, its stools
     for (const x of [-2.2, 0, 2.2]) Cc(x, d - 1.6, 0.25);

@@ -9,6 +9,7 @@ import { buildF1 } from './carmodel.js';
 import { loadCharacters, makeCharacter } from './characters.js';
 import { loadKit } from './garagekit.js';
 import { BOX } from './pitboxes.js';
+import { loadPitBox } from './pitbox.js';
 
 const hex = (c) => '#' + (c >>> 0).toString(16).padStart(6, '0');
 const UP = new THREE.Vector3(0, 1, 0), _m4 = new THREE.Matrix4(), _sc = new THREE.Vector3();
@@ -312,13 +313,30 @@ export class PitGarage {
     sim.camHold = this.track.hold = (cam) => { this.camera.updateWorldMatrix(true, false); this.camera.matrixWorld.decompose(cam.position, cam.quaternion, _sc); cam.fov = this.camera.fov; cam.updateProjectionMatrix(); };
     this.roomWant = 'track'; this.custom = 'track'; this.view = null; this.kit = null; this.flick = null; this.bulbs = []; this.tubes = [];
     this.room.clear(); this.tyreBands = []; this.teamMats = []; this.screen = null; this.screenHit = null; this.listHook = null; this.dropList();
-    // the wall's timing screen (js/pitboxes.js dressBox: high on the box's left wall by the door) shows the session
-    { const s = F.mirror ? -1 : 1, tv = new THREE.Mesh(new THREE.PlaneGeometry(1.16, 0.61), new THREE.MeshBasicMaterial({ map: this.tvTex, toneMapped: false }));
-      this.tvTex.flipY = true; this.tvTex.needsUpdate = true;
-      tv.position.set(s * (-F.wx + 0.145), 3.075, -2.25); tv.rotation.y = s * Math.PI / 2; this.room.add(tv); }
-    // the desk: the one from the garage model (where it stands there, from the car)
-    this.roomLoading = loadRoom().then(m => {
+    // the wall's timing screen (js/pitboxes.js dressBox: high on the box's left wall by the door; or your model's
+    // TIMING_SCREEN: js/pitbox.js) shows the session
+    const s = F.mirror ? -1 : 1, tv = new THREE.Mesh(new THREE.PlaneGeometry(1.16, 0.61), new THREE.MeshBasicMaterial({ map: this.tvTex, toneMapped: false }));
+    this.tvTex.flipY = true; this.tvTex.needsUpdate = true;
+    tv.position.set(s * (-F.wx + 0.145), 3.075, -2.25); tv.rotation.y = s * Math.PI / 2; this.room.add(tv);
+    // the desk: your model's (PLAYER_*: js/pitbox.js), else the one from the garage model (where it stands there,
+    // from the car)
+    this.roomLoading = Promise.all([loadRoom(), loadPitBox()]).then(([m, box]) => {
       if (!this.track || this.track.a !== a) return;
+      const f = box && box.tvFrame(F);
+      if (f) {
+        tv.geometry.dispose(); tv.geometry = new THREE.PlaneGeometry(f.w, f.h);
+        tv.position.copy(f.c).addScaledVector(f.n, 0.012); tv.position.y -= BOX.floor; tv.rotation.set(0, Math.atan2(f.n.x, f.n.z), 0);
+      }
+      const mine = box && box.desk();
+      if (mine && mine.screen) {
+        const g = mine.group; g.position.y = -BOX.floor; // (the model's floor is the room's: the anchor's already on it)
+        const sc = mine.screen;
+        sc.material = new THREE.MeshBasicMaterial({ map: this.pcTex(false), color: 0xdddddd, polygonOffset: true, polygonOffsetFactor: -2 });
+        sc.userData.pcScreen = true; this.screen = sc;
+        let hit = null; if (mine.computer) mine.computer.traverse(o => { if (!hit && o.isMesh && o !== sc) hit = o; });
+        this.screenHit = hit || sc;
+        this.room.add(g); this.shade(g); return;
+      }
       const g = new THREE.Group(); g.position.z = CAR_Z;
       if (!m) { // (no model: the plain room's desk and CRT, where the model's stands)
         const lam = (color) => new THREE.MeshLambertMaterial({ color }), box = (w, h, d, mat, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); o.position.set(x, y, z); g.add(o); return o; };

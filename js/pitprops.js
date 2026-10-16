@@ -15,7 +15,7 @@ export function loadPitProps() { return load ||= new GLTFLoader().loadAsync(url(
 
 // the layout, in a box's frame (x along the front, z in from it, y up from the floor; face: the way its front looks)
 const TOP = 0.95; // (the work bench's top)
-function layout(F, d) {
+export function layout(F, d = BOX.depth) {
   const L = [], wx = F.wx;
   const put = (name, x, z, y, face) => L.push({ name, x, z, y, face });
   for (let s = 0; s < 4; s++) put('monitor', -2.7 + s * 1.8, d - 0.5, 0.96, [0, -1]);      // the engineers' bench

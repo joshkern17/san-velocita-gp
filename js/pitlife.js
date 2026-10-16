@@ -12,6 +12,7 @@ import { fillLivery } from './livery.js';
 import { PitWall } from './pitwall.js';
 import { dressBox, shutBox, boxFrame, BOX } from './pitboxes.js';
 import { furnish } from './pitprops.js';
+import { loadPitBox, fitBoxes } from './pitbox.js';
 import { buildF1, teamCar } from './carmodel.js';
 import { driverLivery, driverFace, driverHelmet, teamSuit } from './drivers.js';
 
@@ -108,11 +109,16 @@ export class PitLife {
       const b = { k, bi, team, tk: pl ? pl.teamIdx : cars[0] ? cars[0].teamIdx : tk, cars, mine: !!pl, face, crew: [], active: field.has(k), car: null, phase: 'home', t: 0, lift: 0, F: boxFrame(T, this.A, pit, k) };
       this.boxes.push(b);
       this.makeSign(b);
-      const dress = dressBox(T, this.A, pit, k, team, { name: team.name, desk: !!pl && !!race.quali });
-      if (dress) this.root.add(dress);
     });
-    // the boxes' furniture (js/pitprops.js: models, once they're in)
-    furnish(this.root, this.boxes.filter(b => b.F).map(b => ({ F: b.F, mine: b.mine }))).then(g => { if (g && !this.alive) g.removeFromParent(); });
+    // what's in the boxes: your model of one (models/pitbox.glb: js/pitbox.js), else the game's own things and
+    // furniture (js/pitboxes.js dressBox, js/pitprops.js)
+    loadPitBox().then(tpl => {
+      if (!this.alive) return;
+      const desk = (b) => b.mine && !!race.quali;
+      if (tpl) { this.boxModel = tpl; fitBoxes(tpl, this.root, this.boxes.map(b => ({ F: b.F, team: b.team, mine: desk(b) }))); return; }
+      for (const b of this.boxes) { const d = dressBox(T, this.A, pit, b.k, b.team, { name: b.team.name, desk: desk(b) }); if (d) this.root.add(d); }
+      furnish(this.root, this.boxes.filter(b => b.F).map(b => ({ F: b.F, mine: b.mine }))).then(g => { if (g && !this.alive) g.removeFromParent(); });
+    });
     // your box in practice and qualifying is where the garage menu is (js/pitgarage.js): the car parked in it is lit
     // by its ceiling lights, real ones, and its shell keeps the sun off. Here from the start of the session (a light
     // coming and going would rebuild every shader in the scene each time you went in or out)

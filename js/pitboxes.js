@@ -214,51 +214,7 @@ export function buildPitBoxes(root, T, A, pit, { mat } = {}) {
     fq(x0, -dw, 0, doorH, 0.02, 0.07, 0.05, 0.45);                   // the pillars (plain wall)
     fq(dw, x1, 0, doorH, 0.02, 0.07, 0.05, 0.45);
     if (!open) { fq(-dw, dw, 0, doorH, 6 / 64, 58 / 64, 0, VD - 0.01, shut); continue; } // shutter down
-    // the room
-    const B = new Build(F);
-    // (the textured surfaces, each its own mesh: tiles of `tile` metres)
-    const BF = new Build(F), BW = new Build(F), BS = new Build(F), BC = new Build(F), BH = new Build(F);
-    const tq = (Bt, o, u, v, col, n, cells, tile) => Bt.quad(o, u, v, col, n, cells, [0, Math.hypot(...u) / tile, 0, Math.hypot(...v) / tile]);
-    const FLOOR = 0xf4f4f4, WALL = 0xf6f5f2, SKIRT = 0xb0b0b0, CEIL = 0xc8ccd2;
-    const fy = BOX.floor;
-    tq(BF, [-wx, frontT, fy], [2 * wx, 0, 0], [0, depth - frontT, 0], FLOOR, [0, 0, 1], 1.2, 1.6);
-    tq(BH, [-dw, 0, fy], [doorW, 0, 0], [0, frontT, 0], 0xffffff, [0, 0, 1], 1.2, 0.8);      // the sill: hazard stripes
-    B.quad([-dw, 0, -0.04], [doorW, 0, 0], [0, 0, fy + 0.04], 0x55595f, [0, -1, 0], 1.5); // (its edge, down to the lane)
-    for (const sx of [-1, 1]) {                                                            // the side walls
-      const x = sx * wx, n = [-sx, 0, 0];
-      tq(BS, [x, frontT, 0], [0, depth - frontT, 0], [0, 0, 0.25], SKIRT, n, 1.2, 1);
-      tq(BW, [x, frontT, 0.25], [0, depth - frontT, 0], [0, 0, ceil - 0.25], WALL, n, 1.2, 2);
-      // the door's reveal
-      tq(BW, [sx * dw, 0, 0], [0, frontT, 0], [0, 0, doorH], WALL, [-sx, 0, 0], 1, 2);
-      // inside the front, beside the door
-      tq(BW, [sx * dw, frontT, 0], [sx * (wx - dw), 0, 0], [0, 0, ceil], WALL, [0, 1, 0], 1.2, 2);
-    }
-    tq(BW, [-dw, 0, doorH], [doorW, 0, 0], [0, frontT, 0], WALL, [0, 0, -1], 1.5, 2);          // the door's head
-    tq(BW, [-dw, frontT, doorH], [doorW, 0, 0], [0, 0, ceil - doorH], WALL, [0, 1, 0], 1.5, 2); // over it, inside
-    tq(BS, [-wx, depth, 0], [2 * wx, 0, 0], [0, 0, 0.25], SKIRT, [0, -1, 0], 1.2, 1);           // the back wall
-    tq(BW, [-wx, depth, 0.25], [2 * wx, 0, 0], [0, 0, ceil - 0.25], WALL, [0, -1, 0], 1.2, 2);
-    tq(BC, [-wx, frontT, ceil], [2 * wx, 0, 0], [0, depth - frontT, 0], CEIL, [0, 0, -1], 1.2, 1.2); // the ceiling
-    // the walls' panel seams, two beams across the ceiling
-    const SEAM = 0xc4c4c0;
-    for (let z = frontT + 1.5; z < depth - 0.5; z += 1.5) for (const sx of [-1, 1]) B.quad([sx * (wx - 0.01), z, 0.25], [0, 0.04, 0], [0, 0, ceil - 0.25], SEAM, [-sx, 0, 0], 9);
-    for (let x = -wx + 1.5; x < wx - 0.5; x += 1.5) B.quad([x, depth - 0.01, 0.25], [0.04, 0, 0], [0, 0, ceil - 0.25], SEAM, [0, -1, 0], 9);
-    for (const z of [5.2, 9.2]) B.box(-wx, wx, z - 0.1, z + 0.1, ceil - 0.25, ceil, 0x6b7076, 1.5);
-    // painted on the floor: the car's bay (a white outline), yellow lines along the walls
-    const line = (xa, za, xb, zb, w, col) => {
-      const lx = xb - xa, lz = zb - za, l = Math.hypot(lx, lz), nx = -lz / l * w / 2, nz = lx / l * w / 2;
-      B.quad([xa - nx, za - nz, BOX.floor + 0.006], [lx, lz, 0], [2 * nx, 2 * nz, 0], col, [0, 0, 1], 1.5);
-    };
-    for (const sx of [-1, 1]) line(sx * (wx - 1.6), frontT + 0.6, sx * (wx - 1.6), depth - 2.2, 0.12, 0xe8c22e);
-    line(-(wx - 1.6), depth - 2.2, wx - 1.6, depth - 2.2, 0.12, 0xe8c22e);
-    for (const sx of [-1, 1]) line(sx * 1.6, frontT + 1.2, sx * 1.6, depth - 3.4, 0.1, 0xf2f2f0);
-    // (js/pitlife.js: your box's shell shades the sun off the car in it)
-    for (const [Bt, mt] of [[B, INSIDE()], [BF, surface('industrial_concrete_floor')], [BW, surface('plaster_wall')], [BS, surface('dark_industrial_metal')], [BC, surface('corrugated_metal')], [BH, surface('hazard_stripes_01')]]) {
-      const m = Bt.mesh(mt); if (m) { m.userData.box = s.k; inside.push(m); }
-    }
-    // the strip lights
-    const L = new Build(F, false);
-    for (const lz of ROWS) for (const lx of [-LX, 0.4]) L.box(lx, lx + LX - 0.4, lz - 0.09, lz + 0.09, ceil - 0.08, ceil - 0.02, 0xffffff, 9);
-    glow.push(L.mesh(GLOW()));
+    const r = roomMeshes(F, s.k); inside.push(...r.inside); glow.push(r.glow);
   }
   for (const [buf, m] of [[front, mat], [shut, shutMat]]) {
     if (!buf.p.length || !m) continue;
@@ -273,26 +229,83 @@ export function buildPitBoxes(root, T, A, pit, { mat } = {}) {
   return g;
 }
 
+// a box's room (its floor, walls, ceiling and strip lights) in frame F; k: the box (on the meshes, for js/pitlife.js)
+export function roomMeshes(F, k) {
+  const { wx, dw } = F, doorW = 2 * dw, { doorH, depth, ceil, frontT } = BOX, inside = [];
+  const B = new Build(F);
+  // (the textured surfaces, each its own mesh: tiles of `tile` metres)
+  const BF = new Build(F), BW = new Build(F), BS = new Build(F), BC = new Build(F), BH = new Build(F);
+  const tq = (Bt, o, u, v, col, n, cells, tile) => Bt.quad(o, u, v, col, n, cells, [0, Math.hypot(...u) / tile, 0, Math.hypot(...v) / tile]);
+  const FLOOR = 0xf4f4f4, WALL = 0xf6f5f2, SKIRT = 0xb0b0b0, CEIL = 0xc8ccd2;
+  const fy = BOX.floor;
+  tq(BF, [-wx, frontT, fy], [2 * wx, 0, 0], [0, depth - frontT, 0], FLOOR, [0, 0, 1], 1.2, 1.6);
+  tq(BH, [-dw, 0, fy], [doorW, 0, 0], [0, frontT, 0], 0xffffff, [0, 0, 1], 1.2, 0.8);      // the sill: hazard stripes
+  B.quad([-dw, 0, -0.04], [doorW, 0, 0], [0, 0, fy + 0.04], 0x55595f, [0, -1, 0], 1.5); // (its edge, down to the lane)
+  for (const sx of [-1, 1]) {                                                            // the side walls
+    const x = sx * wx, n = [-sx, 0, 0];
+    tq(BS, [x, frontT, 0], [0, depth - frontT, 0], [0, 0, 0.25], SKIRT, n, 1.2, 1);
+    tq(BW, [x, frontT, 0.25], [0, depth - frontT, 0], [0, 0, ceil - 0.25], WALL, n, 1.2, 2);
+    // the door's reveal
+    tq(BW, [sx * dw, 0, 0], [0, frontT, 0], [0, 0, doorH], WALL, [-sx, 0, 0], 1, 2);
+    // inside the front, beside the door
+    tq(BW, [sx * dw, frontT, 0], [sx * (wx - dw), 0, 0], [0, 0, ceil], WALL, [0, 1, 0], 1.2, 2);
+  }
+  tq(BW, [-dw, 0, doorH], [doorW, 0, 0], [0, frontT, 0], WALL, [0, 0, -1], 1.5, 2);          // the door's head
+  tq(BW, [-dw, frontT, doorH], [doorW, 0, 0], [0, 0, ceil - doorH], WALL, [0, 1, 0], 1.5, 2); // over it, inside
+  tq(BS, [-wx, depth, 0], [2 * wx, 0, 0], [0, 0, 0.25], SKIRT, [0, -1, 0], 1.2, 1);           // the back wall
+  tq(BW, [-wx, depth, 0.25], [2 * wx, 0, 0], [0, 0, ceil - 0.25], WALL, [0, -1, 0], 1.2, 2);
+  tq(BC, [-wx, frontT, ceil], [2 * wx, 0, 0], [0, depth - frontT, 0], CEIL, [0, 0, -1], 1.2, 1.2); // the ceiling
+  // the walls' panel seams, two beams across the ceiling
+  const SEAM = 0xc4c4c0;
+  for (let z = frontT + 1.5; z < depth - 0.5; z += 1.5) for (const sx of [-1, 1]) B.quad([sx * (wx - 0.01), z, 0.25], [0, 0.04, 0], [0, 0, ceil - 0.25], SEAM, [-sx, 0, 0], 9);
+  for (let x = -wx + 1.5; x < wx - 0.5; x += 1.5) B.quad([x, depth - 0.01, 0.25], [0.04, 0, 0], [0, 0, ceil - 0.25], SEAM, [0, -1, 0], 9);
+  for (const z of [5.2, 9.2]) B.box(-wx, wx, z - 0.1, z + 0.1, ceil - 0.25, ceil, 0x6b7076, 1.5);
+  // painted on the floor: the car's bay (a white outline), yellow lines along the walls
+  const line = (xa, za, xb, zb, w, col) => {
+    const lx = xb - xa, lz = zb - za, l = Math.hypot(lx, lz), nx = -lz / l * w / 2, nz = lx / l * w / 2;
+    B.quad([xa - nx, za - nz, BOX.floor + 0.006], [lx, lz, 0], [2 * nx, 2 * nz, 0], col, [0, 0, 1], 1.5);
+  };
+  for (const sx of [-1, 1]) line(sx * (wx - 1.6), frontT + 0.6, sx * (wx - 1.6), depth - 2.2, 0.12, 0xe8c22e);
+  line(-(wx - 1.6), depth - 2.2, wx - 1.6, depth - 2.2, 0.12, 0xe8c22e);
+  for (const sx of [-1, 1]) line(sx * 1.6, frontT + 1.2, sx * 1.6, depth - 3.4, 0.1, 0xf2f2f0);
+  // (js/pitlife.js: your box's shell shades the sun off the car in it)
+  for (const [Bt, mt] of [[B, INSIDE()], [BF, surface('industrial_concrete_floor')], [BW, surface('plaster_wall')], [BS, surface('dark_industrial_metal')], [BC, surface('corrugated_metal')], [BH, surface('hazard_stripes_01')]]) {
+    const m = Bt.mesh(mt); if (m) { m.userData.box = k; inside.push(m); }
+  }
+  // the strip lights
+  const L = new Build(F, false);
+  for (const lz of ROWS) for (const lx of [-LX, 0.4]) L.box(lx, lx + LX - 0.4, lz - 0.09, lz + 0.09, ceil - 0.08, ceil - 0.02, 0xffffff, 9);
+  return { inside, glow: L.mesh(GLOW()) };
+}
+
 // ---------- a team's things in its box ----------
 const TIRE = 0x1c1c1f, STEEL = 0x8c9196, DARK = 0x2c2f35, DESK = 0x3a3d44;
 // desk: your box in a session (js/pitgarage.js puts the computer's desk left of the car, seen from the door): the air
 // line that would hang over its chair is left out
-export function dressBox(T, A, pit, k, team, { main, accent, name, desk = false } = {}) {
+export function dressBox(T, A, pit, k, team, opts = {}) {
   const F = boxFrame(T, A, pit, k);
-  if (!F) return null;
+  return F ? dressFrame(F, team, opts) : null;
+}
+// the same in any frame. split (tools/props/pitbox-export.mjs, for Blender): each thing its own mesh, named, its
+// colors as they are (no light baked in)
+export function dressFrame(F, team, { main, accent, name, desk = false, split = false } = {}) {
   const { wx } = F, { depth, ceil } = BOX;
   const M = main ?? team?.main ?? 0xcc2222, Ac = accent ?? team?.accent ?? 0xffffff;
   const g = new THREE.Group(); g.name = 'BoxDress';
-  const B = new Build(F), glow = new Build(F, false);
+  let B = new Build(F, !split), glow = new Build(F, false);
+  const parts = [], part = (nm) => { if (split) { B = new Build(F, false); glow = new Build(F, false); parts.push([nm, B, glow]); } };
   // the team's colors: a panel on the back wall, a band along the side walls
+  part('team_panel');
   B.quad([-6.2, depth - 0.02, 1.25], [12.4, 0, 0], [0, 0, 2.9], M, [0, -1, 0], 1.2);
   B.quad([-6.2, depth - 0.025, 1.25], [12.4, 0, 0], [0, 0, 0.14], Ac, [0, -1, 0], 2);
   for (const sx of [-1, 1]) {
+    part(sx < 0 ? 'team_band_L' : 'team_band_R');
     B.quad([sx * (wx - 0.02), BOX.frontT + 0.3, 0.25], [0, depth - BOX.frontT - 0.6, 0], [0, 0, 1.0], M, [-sx, 0, 0], 1.2);
     B.quad([sx * (wx - 0.025), BOX.frontT + 0.3, 1.25], [0, depth - BOX.frontT - 0.6, 0], [0, 0, 0.1], Ac, [-sx, 0, 0], 2);
   }
   // the engineers' bench along the back wall (its monitors and stools: js/pitprops.js)
   const dz0 = depth - 1.0, dz1 = depth - 0.15;
+  part('engineers_bench');
   B.box(-3.6, 3.6, dz0, dz1, 0.9, 0.96, DESK);
   for (const lx of [-3.5, -0.05, 3.4]) B.box(lx, lx + 0.1, dz0 + 0.05, dz1 - 0.05, 0, 0.9, DARK);
   // tires down the left wall: sets in their blankets (the team's color), bare ones with the compound's stripe
@@ -304,17 +317,22 @@ export function dressBox(T, A, pit, k, team, { main, accent, name, desk = false 
   const blanketed = (cx, cz, n) => {
     for (let t = 0; t < n; t++) { const y = t * 0.31; B.prism(cx, cz, 0.35, y + 0.02, y + 0.27, Ac, 12, 0x2a2a2e); B.prism(cx, cz, 0.33, y, y + 0.3, TIRE, 12, 0x2a2a2e); }
   };
+  part('tires');
   blanketed(-wx + 0.55, 3.0, 4); blanketed(-wx + 0.55, 3.8, 4);
   [[0xe0302a, 5.0, 4], [0xe0302a, 5.8, 3], [0xf2d22a, 6.6, 4], [0xf0f0f0, 7.4, 2]].forEach(([c, z, n]) => { for (let t = 0; t < n; t++) wheel(-wx + 0.55, z, t * 0.31, t === n - 1 ? c : null); });
   [[0x3a8af0, 9.4, 4], [0x3a8af0, 10.2, 4]].forEach(([c, z, n]) => { for (let t = 0; t < n; t++) wheel(-wx + 0.55, z, t * 0.31, t === n - 1 ? c : null); });
   // a timing screen high on the left wall by the door, fire extinguishers either side of it
+  part('timing_screen_frame');
   B.box(-wx + 0.02, -wx + 0.12, 1.6, 2.9, 2.7, 3.45, DARK);
+  part('TIMING_SCREEN');
   glow.quad([-wx + 0.13, 1.66, 2.76], [0, 1.18, 0], [0, 0, 0.63], 0x1c3e8a, [1, 0, 0], 2);
+  part('timing_screen_text');
   for (let l = 0; l < 6; l++) glow.quad([-wx + 0.135, 1.75, 2.82 + l * 0.09], [0, 0.6 + (l * 53 % 4) * 0.1, 0], [0, 0, 0.035], 0xd8e8ff, [1, 0, 0], 2);
-  for (const sx of [-1, 1]) { B.prism(sx * (wx - 0.25), 1.0, 0.09, 0, 0.62, 0xc8161a, 8, 0x222222); B.prism(sx * (wx - 0.25), 1.0, 0.03, 0.62, 0.72, 0x222222, 6); }
+  for (const sx of [-1, 1]) { part(sx < 0 ? 'extinguisher_L' : 'extinguisher_R'); B.prism(sx * (wx - 0.25), 1.0, 0.09, 0, 0.62, 0xc8161a, 8, 0x222222); B.prism(sx * (wx - 0.25), 1.0, 0.03, 0.62, 0.72, 0x222222, 6); }
   // air lines dropping from the ceiling over the bay (the wheel guns' hoses), coiled at the bottom
   for (const sx of [-1, 1]) for (const z of [4.6, 9.8]) {
     if (desk && z > 9 && sx === (F.mirror ? 1 : -1)) continue;
+    part(`air_line_${sx < 0 ? 'L' : 'R'}_${z < 7 ? 'front' : 'back'}`);
     B.prism(sx * 2.4, z, 0.025, 1.75, BOX.ceil, DARK, 5);
     for (let c = 0; c < 4; c++) B.prism(sx * 2.4, z, 0.11, 1.75 + c * 0.07, 1.79 + c * 0.07, 0xe8c22e, 8, 0xe8c22e);
     B.box(sx * 2.4 - 0.06, sx * 2.4 + 0.06, z - 0.1, z + 0.1, 1.45, 1.75, 0x404448, 3);
@@ -322,34 +340,49 @@ export function dressBox(T, A, pit, k, team, { main, accent, name, desk = false 
   // the right wall: three tool chests in the team's color (the work bench past them: js/pitprops.js)
   for (let s = 0; s < 3; s++) {
     const z = 3.0 + s * 1.15;
+    part('tool_chest_' + (s + 1));
     B.box(wx - 0.75, wx - 0.08, z, z + 1.0, 0.1, 1.05, M);
     for (let d = 0; d < 5; d++) B.box(wx - 0.77, wx - 0.08, z + 0.04, z + 0.96, 0.22 + d * 0.17, 0.235 + d * 0.17, DARK, 3);
     B.box(wx - 0.79, wx - 0.75, z + 0.3, z + 0.7, 0.98, 1.0, STEEL, 3);
     for (const dz of [0.12, 0.88]) B.prism(wx - 0.42, z + dz, 0.05, 0, 0.1, DARK, 6);
   }
   // a spare wing on brackets over the bench
+  part('spare_wing');
   B.box(wx - 0.3, wx - 0.05, 7.6, 10.2, 2.1, 2.15, STEEL, 3);
   B.box(wx - 0.62, wx - 0.12, 7.7, 10.1, 2.15, 2.23, M, 3);
   for (const z of [7.62, 10.1]) B.box(wx - 0.66, wx - 0.1, z, z + 0.06, 2.15, 2.55, Ac, 3);
   // the team's name over the panel on the back wall
-  if (typeof document !== 'undefined' && name) {
-    const c = document.createElement('canvas'); c.width = 1024; c.height = 128;
-    const x = c.getContext('2d');
-    x.font = '700 92px "SV Display", "Helvetica Neue", Arial, sans-serif'; x.letterSpacing = '-2px';
-    x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#ffffff';
-    let s = String(name).toUpperCase(); while (s.length > 2 && x.measureText(s).width > 980) s = s.slice(0, -1);
-    x.fillText(s, 512, 68);
-    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const tex = teamNameTexture(name);
+  if (tex) {
     const N = new Build(F, false);
     N.quad([-5.6, depth - 0.04, 2.25], [11.2, 0, 0], [0, 0, 1.4], 0xffffff, [0, -1, 0], 20, F.mirror ? [1, 0, 0, 1] : [0, 1, 0, 1]);
     const L = lightAt(0, depth - 0.1, 2.9, [0, -1, 0]);
     const m = N.mesh(new THREE.MeshBasicMaterial({ map: tex, transparent: true, color: new THREE.Color(L, L, L), side: THREE.DoubleSide, depthWrite: false }));
-    if (m) { m.renderOrder = 1; g.add(m); }
+    if (m) { m.renderOrder = 1; m.name = 'TEAM_NAME'; g.add(m); }
     g.userData.tex = tex;
   }
-  for (const m of [B.mesh(INSIDE()), glow.mesh(new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false, side: THREE.DoubleSide }))]) if (m) g.add(m);
+  if (split) {
+    for (const [nm, b, gl] of parts) {
+      const m = b.mesh(INSIDE()), m2 = gl.mesh(new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false, side: THREE.DoubleSide }));
+      if (m2) { m2.name = m ? nm + '_glow' : nm; m2.userData.glow = true; (m || g).add(m2); }
+      if (m) { m.name = nm; g.add(m); }
+    }
+  } else for (const m of [B.mesh(INSIDE()), glow.mesh(new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false, side: THREE.DoubleSide }))]) if (m) g.add(m);
   g.traverse(o => { o.matrixAutoUpdate = false; });
   return g;
+}
+
+// a team's name, white on clear, for the back wall (null: no document, or no name)
+export function teamNameTexture(name) {
+  if (typeof document === 'undefined' || !name) return null;
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 128;
+  const x = c.getContext('2d');
+  x.font = '700 92px "SV Display", "Helvetica Neue", Arial, sans-serif'; x.letterSpacing = '-2px';
+  x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#ffffff';
+  let s = String(name).toUpperCase(); while (s.length > 2 && x.measureText(s).width > 980) s = s.slice(0, -1);
+  x.fillText(s, 512, 68);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  return tex;
 }
 
 // box k with nobody in it: its shutter down (the facade's own painted one)
