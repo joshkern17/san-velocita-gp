@@ -3575,6 +3575,23 @@ export class Race {
     this.log.push({ type: kind, a: 'P', b: o.pid, lap: this.player.lap, t });
   }
 
+  // (testing, F8: your car 220 m short of the pit entry, boxing now, the crew driving you in: a pit stop to watch.
+  // In practice and qualifying it's into your garage instead)
+  devPitStop() {
+    const car = this.player, pit = this.pit, T = this.T;
+    if (!car || !pit || car.pitting || car.gone || car.finished || T.open || this.state !== 'racing' || this.net) return false;
+    const N = T.N, i = ((pit.start - Math.round(220 / T.ds)) % N + N) % N, o = this.line[i], p = car.phys, v = Math.min(30, (car.lineV || this.lineV)[i] * 0.8);
+    p.place(T.X[i] + T.RX[i] * o, T.Z[i] + T.RZ[i] * o, Math.atan2(T.FX[i], T.FZ[i]));
+    p.vx = T.FX[i] * v; p.vz = T.FZ[i] * v;
+    const G = p.p.gears; let g = 1; while (g < G.length - 1 && v > G[g] * 0.92) g++; p.gear = g;
+    car.idx = i; car.laneSide = undefined; car.pitChecked = true; car.sec = null; this.updateTracker(car, true);
+    const fix = {}; for (const x of this.pitParts(car)) fix[x.k] = x.dmg > 0.08;
+    car.pitting = true; car.pitPhase = 'in';
+    car.pitReq = this.quali ? { garage: true } : { tyre: this.nextPlannedStop(car)?.tyre || (this.rain ? 'wet' : p.tyre.c === 'soft' ? 'medium' : 'soft'), repair: fix };
+    this.events.push({ type: 'pitIn' });
+    this.placeModel(car, 1); this.snapCamera();
+    return true;
+  }
   resetCar(car) {
     const T = this.T, i = car.idx;
     const s = car.isPlayer ? 0 : this.line[i];

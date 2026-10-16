@@ -6063,6 +6063,7 @@ function frameBody(now) {
     else if (!askUI) { if (pressed('GP15') || pressed('KeyT')) { askUI = { path: [], sel: Math.max(0, radioMenu(sim, pl).findIndex(m => m.key === askLast.path[0])), idle: 0 }; sfx.move(); } }
     else askInput(pl, dt);
     if (askUI) press.line = false;
+    if (pressed('F8') && sim.devPitStop()) hud.help('Pit stop test: <b>boxing now</b>', 1600); // (testing: a pit stop to watch)
     if (pressed('KeyM') || (!pitMenu && !askUI && pressed('GP13'))) {
       settings.radarZoom = RADAR_ZOOMS[(RADAR_ZOOMS.indexOf(settings.radarZoom) + 1) % RADAR_ZOOMS.length];
       applyVideo(); saveSettings(); sfx.move();
