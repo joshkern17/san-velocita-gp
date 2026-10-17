@@ -1334,6 +1334,8 @@ function pgPcInput() {
 }
 // the desk or the car (World Career)
 function deskView(on) { pgDesk = on; if (!on) { if (pgPcFocus) pcFocus(false); pc.close(); } pitGarage.setDesk(on); $('pg-car').hidden = on || pgTiming; $('pg-timing').hidden = on || !pgTiming; if (on) $('pg-receipt').hidden = true; else if (wkOn()) pgReceipt(); sfx.select(); renderGarageMenu(); }
+const walkItem = () => ({ label: 'Walk The Pit Lane', cls: 'action', action: () => startPitWalk(),
+  desc: 'Get up and walk the pit lane: your box, the other teams\' boxes, out to the pit wall. The session clock keeps running. <b>B / Esc</b> brings you back here.' });
 function renderGarageMenu() {
   const q = sim.quali, quick = raceReturn !== 'career' && raceReturn !== 'world';
   pgSkipLbl = q.left > 330 ? 'Skip 5 Minutes' : 'Skip To The End';
@@ -1345,8 +1347,11 @@ function renderGarageMenu() {
   const items = [
     ...(open ? [{ label: `Start Run ${(q.used || 0) + 1}<small>OF ${q.runs || 1}</small>`, cls: 'action primary', action: () => goOut('run'),
         desc: `From the top: a standing start, timed from the line to the finish, then back up here. ${runsLeft === 1 ? '<b>Your last run.</b>' : `${runsLeft} runs left.`} ${q.kind === 'practice' ? 'Learn the road.' : 'Your best run sets your grid slot.'}` }]
-      : [{ label: 'Flying Lap', cls: 'action primary', action: () => goOut('flying'), desc: 'Straight onto a flying lap: the clock starts at the line.' }]),
-    ...(sim.pit && !open ? [{ label: 'Drive Out', cls: 'action', action: () => goOut('drive'), desc: 'Down the pit lane and an out lap first, to get the tyres going.' }] : []),
+      : [
+        // (Drive Out first where there's a pit lane: the crew pushes you out, an out lap, then the flying laps)
+        ...(sim.pit ? [{ label: 'Drive Out', cls: 'action primary', action: () => goOut('drive'), desc: 'Down the pit lane and an out lap first, to get the tyres going.' }] : []),
+        { label: 'Flying Lap', cls: sim.pit ? 'action' : 'action primary', action: () => goOut('flying'), desc: 'Straight onto a flying lap: the clock starts at the line.' },
+        ...(pitGarage.track ? [walkItem()] : [])]),
     ...(q.kind === 'practice' ? [{ label: `Run Plan<small>${sim.prog ? progById(sim.prog.id).name : 'Free Running'}</small>`, action: () => { pgView = 'plan'; sfx.select(); renderGarageMenu(); },
         desc: `What to do on track: free running, or a job from the engineer that gathers track data for the weekend. ${planSummary()}` }] : []),
     { label: `Tyres<small>${capit(t.c)} &middot; ${pct(t)}%</small>`, action: () => { pgView = 'tyres'; sfx.select(); renderGarageMenu(); }, desc: `Change tyres: a new set of any compound${wkOn() ? ` (${WC.money$(WC.tyreCost(world))} each)` : ''}, or one you ran earlier.` },
@@ -1360,8 +1365,7 @@ function renderGarageMenu() {
     ...(pgDesk ? [] : [{ label: 'Timing', action: () => { pgTiming = !pgTiming; $('pg-timing').hidden = !pgTiming; $('pg-car').hidden = pgTiming; renderGarageInfo(); }, desc: 'The full timing screen for the session (select again for the car).' }]),
     ...(typeof openLapReview === 'function' ? [{ label: 'Review Laps', action: () => openLapReview('s-pitgarage'), desc: 'Your laps against the reference: where the time went.' }] : []),
     ...(sim.net ? [] : [{ label: pgSkipLbl, action: () => { sim.skipTime(q.left > 330 ? 300 : q.left); sfx.select(); renderGarageMenu(); renderGarageInfo(); }, desc: 'Fast-forward the session clock. The AI keep setting times meanwhile.' }]),
-    ...(pitGarage.track ? [{ label: 'Walk The Pit Lane', action: () => startPitWalk(),
-      desc: 'Get up and walk the pit lane: your box, the other teams\' boxes, out to the pit wall. The session clock keeps running. <b>B / Esc</b> brings you back here.' }] : []),
+    ...(pitGarage.track && open ? [walkItem()] : []),
     { label: 'Options', action: () => openOptions('s-pitgarage'), desc: 'Sound, camera, driving aids and the screen look.' },
     { label: 'End Session', confirm: 'End it? Select again', action: () => sim.qualiEnd(), desc: sim.net ? `You're done with ${SESSION_NAME[q.kind].toLowerCase()}: your best lap stands. The times come up once everyone's done.` : `Finish ${SESSION_NAME[q.kind].toLowerCase()} now. The AI still post their laps.` },
     ...(raceReturn === 'coop' ? [{ label: 'Leave Session', confirm: 'Leave? Select again', action: () => { pitGarage.close(); leaveOnline(); }, desc: 'Leave the career and go back to the main menu.' }] : []),
@@ -1370,7 +1374,7 @@ function renderGarageMenu() {
   const m = menus['s-pitgarage'][0]; m.setItems(items, true); m.render();
 }
 // the run plan (practice.js): free running or one of the engineer's jobs, each with how it's gone this weekend. Pick
-// a job and it's on from your next lap (the menu goes back with Flying Lap / Start Run under the cursor)
+// a job and it's on from your next lap (the menu goes back with Drive Out / Start Run under the cursor)
 const progStatus = (id) => {
   const a = sim && sim.tdata && sim.tdata[id]; if (!a || !a.best) return 'Not done yet';
   if (id === 'qsim') return a.field ? `Done &middot; P${a.lo}${a.hi !== a.lo ? '&ndash;' + a.hi : ''} pace` : 'Done';
@@ -1383,7 +1387,7 @@ function planSummary() {
 function planItems() {
   const cur = sim.prog ? sim.prog.id : null, pick = (id) => {
     sim.setProgramme(id); sfx.select(); pgView = 'main'; renderGarageMenu(); renderGarageInfo(); renderHints();
-    const m = menus['s-pitgarage'][0]; m.i = 0; m.render(); // (back on Flying Lap / Start Run)
+    const m = menus['s-pitgarage'][0]; m.i = 0; m.render(); // (back on the first: Drive Out / Start Run)
   };
   const items = [{ label: 'Run Plan', head: true },
     { label: `Free Running${cur ? '' : '<small>On</small>'}`, on: !cur, action: () => pick(null), desc: 'No job: drive as you like.' }];
