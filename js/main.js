@@ -1492,7 +1492,45 @@ function renderGarageInfo() {
       if (wkOn()) pgReceipt();
     }
   }
+  renderTrackBoard();
   if ((q.left > 330 ? 'Skip 5 Minutes' : 'Skip To The End') !== pgSkipLbl) renderGarageMenu();
+}
+// who's out (a live session, js/livesession.js): the circuit with a dot for each car on it, and what each is doing
+// (out lap, flying lap, in lap, in the pit lane, being pushed out), the cars on a flying lap first
+const BOARD_ORDER = { flying: 0, out: 1, push: 2, in: 3, pushIn: 4 };
+function renderTrackBoard() {
+  let el = $('pg-track');
+  const on = sim && sim.live && !pgTiming && !pgDesk;
+  if (!on) { if (el) el.hidden = true; return; }
+  if (!el) {
+    el = document.createElement('div'); el.id = 'pg-track'; el.className = 'panel pg-track';
+    el.innerHTML = '<div class="panel-title">ON TRACK</div><canvas width="520" height="300"></canvas><div class="pg-trk-list"></div>';
+    $('s-pitgarage').appendChild(el);
+  }
+  el.hidden = false;
+  const T = sim.T, cv = el.querySelector('canvas'), c = cv.getContext('2d'), W = cv.width, H = cv.height;
+  // (the outline: fitted to the canvas once per circuit)
+  if (!sim.__boardFit) {
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (let i = 0; i < T.N; i++) { x0 = Math.min(x0, T.X[i]); x1 = Math.max(x1, T.X[i]); z0 = Math.min(z0, T.Z[i]); z1 = Math.max(z1, T.Z[i]); }
+    const k = Math.min((W - 40) / (x1 - x0 || 1), (H - 40) / (z1 - z0 || 1));
+    sim.__boardFit = { k, ox: W / 2 - (x0 + x1) / 2 * k, oz: H / 2 - (z0 + z1) / 2 * k };
+  }
+  const f = sim.__boardFit, px = (x) => f.ox + x * f.k, pz = (z) => f.oz + z * f.k;
+  c.clearRect(0, 0, W, H);
+  c.beginPath(); for (let i = 0; i <= T.N; i += 2) { const j = i % T.N; i ? c.lineTo(px(T.X[j]), pz(T.Z[j])) : c.moveTo(px(T.X[j]), pz(T.Z[j])); } c.closePath();
+  c.lineJoin = 'round'; c.strokeStyle = 'rgba(255,255,255,.16)'; c.lineWidth = 10; c.stroke(); c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 3; c.stroke();
+  // (the start line)
+  c.fillStyle = '#fff'; c.beginPath(); c.arc(px(T.X[0]), pz(T.Z[0]), 4, 0, Math.PI * 2); c.fill();
+  const all = sim.live.board(), out = all.filter(r => r.st !== 'garage').sort((a, b) => (BOARD_ORDER[a.st] ?? 9) - (BOARD_ORDER[b.st] ?? 9));
+  for (const r of out) {
+    c.beginPath(); c.arc(px(r.x), pz(r.z), r.isPlayer ? 9 : 7, 0, Math.PI * 2);
+    c.fillStyle = r.isPlayer ? '#FF2B00' : r.color; c.fill(); c.lineWidth = 2; c.strokeStyle = r.st === 'flying' ? '#fff' : 'rgba(0,0,0,.7)'; c.stroke();
+  }
+  const inBox = all.length - out.length;
+  el.querySelector('.pg-trk-list').innerHTML = (out.length ? out.slice(0, 8).map(r => `<div class="pg-trk-row${r.isPlayer ? ' me' : ''}${r.st === 'flying' ? ' hot' : ''}"><span class="swatch" style="background:${r.isPlayer ? '#FF2B00' : r.color}"></span><b>${r.name}</b><em>${r.label}</em></div>`).join('')
+    + (out.length > 8 ? `<p class="pg-note">and ${out.length - 8} more</p>` : '') : '<p class="pg-note">Everyone\'s in the pits.</p>')
+    + `<p class="pg-note">${inBox} in the garage${inBox === 1 ? '' : 's'}</p>`;
 }
 // the garage's car panel, in practice: each job on the run plan and how far it's got (its best lap's rating, the line
 // where it's done), and what it's paid out so far

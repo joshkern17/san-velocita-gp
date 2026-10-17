@@ -16,6 +16,7 @@
 import * as THREE from 'three';
 import { CLIP_INFO } from './characters.js';
 import { PitNav } from './pitwalk.js';
+import { BOX } from './pitboxes.js';
 
 const V = 0.85;            // pushing pace, m/s (the push clips' own feet go at about 0.4: played faster)
 const ACC = 0.55;          // getting it rolling, and stopping it, m/s²
@@ -70,7 +71,7 @@ export class CarPush {
     this.home = { pos: g.position.clone(), rot: g.rotation.clone() };
     // the crew: the ones on their feet nearest the car first, up to four
     const B = sim.pitLife.mine.brain, C = this.spot(), sg = pg.track.F.mirror ? -1 : 1, fx = near ? sg * near.x : C.fx, fz = near ? -near.z : C.fz;
-    const ppl = B.people.filter(p => p.role === 'crew').sort((p, q) => (!!p.seat - !!q.seat) || (Math.hypot(p.x - fx, p.z - fz) - Math.hypot(q.x - fx, q.z - fz))).slice(0, 4);
+    const ppl = B.people.filter(p => p.role === 'crew' && !p.held).sort((p, q) => (!!p.seat - !!q.seat) || (Math.hypot(p.x - fx, p.z - fz) - Math.hypot(q.x - fx, q.z - fz))).slice(0, 4);
     this.brain = B; this.crew = [];
     const slots = this.slots(ppl.length);
     ppl.forEach((p, k) => {
@@ -288,3 +289,147 @@ export class CarPush {
   }
 }
 function lerpYaw(a, b, t) { return a + wrap(b - a) * t; }
+
+// ---------- the other cars: any box's crew pushing its car ----------
+// An AI car in a live session (js/livesession.js): pushed out of its side of the box onto the lane when it goes out
+// on a run, and back in, tail first, when it comes back. No camera of its own; everything in the box's frame as
+// above (x across to your right stood in the door, z out into the lane, the floor at y = 0).
+//
+//   const p = new BoxPush(race, b, car, 'out' | 'in', done)   // b: js/pitlife.js's box; done(ahead) at the end
+//   p.update(dt)  // until !p.active
+//   p.skip()      // there at once (the session skipped on, or nobody's watching)
+export class BoxPush {
+  constructor(race, b, car, kind, done) {
+    const life = race.pitLife, F = b.F, pose = life.parkPose(car);
+    this.race = race; this.life = life; this.b = b; this.car = car; this.carObj = car.model; this.kind = kind; this.done = done;
+    this.t = 0; this.phase = 'gather'; this.s = 0; this.v = 0; this.prevH = null; this.steer = 0; this.active = true;
+    // (the box's frame: as js/pitgarage.js useTrack's)
+    const o = F.P(0, 0, 0), x1 = F.P(1, 0, 0), X = new THREE.Vector3(x1[0] - o[0], 0, x1[2] - o[2]).normalize().multiplyScalar(F.mirror ? -1 : 1);
+    this.Mw = new THREE.Matrix4().makeBasis(X, UP, new THREE.Vector3(-F.n[0], 0, -F.n[1])).setPosition(o[0], o[1] + BOX.floor, o[2]);
+    this.Mi = this.Mw.clone().invert(); this.oy = o[1] + BOX.floor;
+    const f = new THREE.Vector3(0, 0, 1).transformDirection(this.Mw); this.yawA = Math.atan2(f.x, f.z);
+    const sg = F.mirror ? -1 : 1; this.sg = sg;
+    // the car's size (its own frame), from the physics: half its width, its nose and tail from its middle
+    const P = car.phys.p; this.hw = Math.max(0.7, (P.track ?? 1.6) / 2 + 0.12);
+    this.zf = P.body ? P.body[0] : (P.a ?? 1.6) + 0.9; this.zr = -(P.body ? P.body[1] : (P.b ?? 1.6) + 0.9);
+    // its spot in the box (this frame) and the lane
+    const C = { x: sg * pose.spot.x, z: -pose.spot.z };
+    if (kind === 'out') {
+      const L0 = this.laneAt(0), dx = Math.sign(Math.sin(L0.h)) || 1;
+      const ahead = (C.x - L0.x) * dx + 6.5, E = this.laneAt(ahead);
+      this.ahead = ahead;
+      const k1 = Math.max(2.5, (E.z - C.z) * 0.62), k2 = Math.max(2.2, Math.abs(E.x - C.x) * 0.5);
+      this.path = curve(C, { x: C.x, z: C.z + k1 }, { x: E.x - Math.sin(E.h) * k2, z: E.z - Math.cos(E.h) * k2 }, { x: E.x, z: E.z });
+      this.rev = false;
+    } else {
+      const p = car.phys, w = new THREE.Vector3(p.x, 0, p.z).applyMatrix4(this.Mi), h = wrap(p.h - this.yawA);
+      const dist = Math.hypot(w.x - C.x, w.z - C.z), k1 = Math.max(2.5, dist * 0.42), k2 = Math.max(2.8, Math.min(5, C.z < 0 ? -C.z + 2.4 : 4));
+      this.path = curve({ x: w.x, z: w.z }, { x: w.x - Math.sin(h) * k1, z: w.z - Math.cos(h) * k1 }, { x: C.x, z: C.z + k2 }, { x: C.x, z: C.z });
+      this.rev = true;
+    }
+    // the crew: up to four on their feet nearest the car (none to hand: it just goes)
+    const B = b.brain, near = along(this.path, 0), fx = sg * near.x, fz = -near.z;
+    const ppl = B ? B.people.filter(p => p.role === 'crew' && !p.held && !p.seat).sort((p, q) => Math.hypot(p.x - fx, p.z - fz) - Math.hypot(q.x - fx, q.z - fz)).slice(0, 4) : [];
+    this.brain = B; this.crew = [];
+    const slots = CarPush.prototype.slots.call(this, ppl.length);
+    for (const [k, p] of ppl.entries()) {
+      B.release(p); p.held = true; p.path = [];
+      const w = p.m.ch.object.position.clone().applyMatrix4(this.Mi);
+      this.crew.push({ p, ch: p.m.ch, x: w.x, z: w.z, yaw: wrap(p.m.ch.object.rotation.y - this.yawA), slot: slots[k], path: null, there: false });
+    }
+    if (!this.crew.length) this.phase = 'push';
+    this.carObj.group.visible = true;
+    this.place(0);
+  }
+  // the lane spot ahead of this car's box (as CarPush's)
+  laneAt(ahead) {
+    const race = this.race, T = race.T, pit = race.pit, N = T.N, b0 = pit.boxes[race.boxSlot(this.car.teamIdx)];
+    const b = ((b0 + Math.round(ahead / T.ds)) % N + N) % N, off = pit.side * (pit.CEN[b] + 2.4);
+    const w = new THREE.Vector3(T.X[b] + T.RX[b] * off, 0, T.Z[b] + T.RZ[b] * off).applyMatrix4(this.Mi);
+    return { x: w.x, z: w.z, h: wrap(Math.atan2(T.FX[b], T.FZ[b]) - this.yawA) };
+  }
+  // the ground (this frame): the box's floor inside it, the lane's tarmac out in front
+  groundY(x, z) {
+    if (z < -0.05) return 0;
+    const w = new THREE.Vector3(x, 0, z).applyMatrix4(this.Mw), T = this.race.T, i = nearIdx(T, this.b.bi, w.x, w.z);
+    return this.life.laneY(i) - this.oy;
+  }
+  update(dt) {
+    if (!this.active) return;
+    dt = Math.min(dt, 0.05); this.t += dt;
+    const ph = this.phase;
+    if (ph === 'gather' || ph === 'brace') {
+      if (ph === 'gather' && this.crew.every(c => c.there)) { this.phase = 'brace'; this.bt = 0; }
+      if (ph === 'brace' && (this.bt += dt) > 0.6) this.phase = 'push';
+      if (ph === 'gather' && this.t > 7) for (const c of this.crew) c.there = true;
+      this.place(0);
+    } else if (ph === 'push') {
+      const left = this.path.len - this.s, want = Math.min(V, Math.sqrt(Math.max(0, 2 * ACC * left)));
+      this.v += Math.max(-ACC * 1.6 * dt, Math.min(ACC * dt, want - this.v));
+      if (left < 0.02 || (this.v < 0.02 && left < 0.25)) { this.s = this.path.len; this.v = 0; this.phase = 'hold'; this.ht = 0; }
+      const s0 = this.s; this.s = Math.min(this.path.len, this.s + this.v * dt);
+      this.place(this.s - s0);
+    } else if (ph === 'hold') {
+      this.place(0);
+      if ((this.ht += dt) > 0.5) return this.finish();
+    }
+    this.crewStep(dt);
+  }
+  place(ds) {
+    const q = along(this.path, this.s), h = this.rev ? wrap(q.dir + Math.PI) : q.dir, fwd = this.rev ? -ds : ds;
+    const dh = this.prevH == null ? 0 : wrap(h - this.prevH); this.prevH = h;
+    const steer = Math.abs(fwd) > 1e-4 ? Math.max(-0.55, Math.min(0.55, Math.atan(WB * dh / fwd))) : this.steer;
+    this.steer += (steer - this.steer) * 0.2;
+    this.cx = q.x; this.cz = q.z; this.ch = h; this.cy = this.groundY(q.x, q.z);
+    const g = this.carObj.group;
+    g.position.set(q.x, this.cy, q.z).applyMatrix4(this.Mw); g.quaternion.setFromAxisAngle(UP, h + this.yawA);
+    this.carObj.animate && this.carObj.animate({ steer: this.steer, spin: fwd || 0, heave: 0, pitch: 0, roll: 0 });
+  }
+  crewStep(dt) {
+    const h = this.ch, sn = Math.sin(h), cs = Math.cos(h), B = this.brain, s = this.sg;
+    for (const c of this.crew) {
+      const sl = c.slot, rx = -cs, rz = sn;
+      const tx = this.cx + rx * sl.a + sn * sl.b, tz = this.cz + rz * sl.a + cs * sl.b;
+      const fyaw = sl.face > 0 ? h : wrap(h + Math.PI);
+      if (!c.there) {
+        if (!c.path) { c.path = B.path([s * c.x, -c.z], [s * tx, -tz]).map(([px, pz]) => ({ x: s * px, z: -pz })); c.path.push({ x: tx, z: tz }); }
+        const n = c.path[0], dx = n.x - c.x, dz = n.z - c.z, d = Math.hypot(dx, dz);
+        if (d < 0.08) { c.path.shift(); if (!c.path.length) c.there = true; }
+        else { const mv = Math.min(d, JOG * dt); c.x += dx / d * mv; c.z += dz / d * mv; c.yaw = lerpYaw(c.yaw, Math.atan2(dx, dz), Math.min(1, dt * 10)); c.ch.move(JOG); }
+      }
+      if (c.there) {
+        const dx = tx - c.x, dz = tz - c.z;
+        c.x = tx; c.z = tz; c.yaw = lerpYaw(c.yaw, fyaw, Math.min(1, dt * 6));
+        const v = this.phase === 'push' ? this.v : 0, info = CLIP_INFO[sl.clip] || {};
+        let clip, speed = 1;
+        if (sl.clip === 'walk') { if (v > 0.05) { clip = 'walk'; speed = v / (info.speed || 1.35); } else clip = 'idle'; }
+        else { clip = sl.clip; speed = this.phase === 'brace' || this.phase === 'hold' ? 0.25 : Math.max(0.25, v / (info.speed || 0.4)); }
+        if (Math.hypot(dx, dz) > 0.5) { c.there = false; c.path = null; }
+        c.ch.play(clip, { fade: 0.3, speed });
+      }
+      c.ch.object.position.set(c.x, this.groundY(c.x, c.z), c.z).applyMatrix4(this.Mw); c.ch.object.rotation.y = c.yaw + this.yawA;
+      c.ch.update(dt);
+    }
+  }
+  skip() {
+    if (!this.active) return;
+    this.s = this.path.len; this.v = 0; this.prevH = null; this.place(0);
+    this.finish();
+  }
+  finish() {
+    if (!this.active) return;
+    this.active = false;
+    for (const c of this.crew) {
+      const p = c.p, s = this.sg;
+      p.held = false; p.x = s * c.x; p.z = -c.z; p.yaw = Math.atan2(s * Math.sin(c.yaw), -Math.cos(c.yaw)); p.act = null; p.t = 0.3 + Math.random() * 0.9; p.path = [];
+      c.ch.play('idle', { fade: 0.4 });
+    }
+    const done = this.done; this.done = null;
+    if (done) done(this.ahead || 0);
+  }
+}
+// the track sample nearest (x, z), searching along from i
+function nearIdx(T, i, x, z) {
+  const along = (x - T.X[i]) * T.FX[i] + (z - T.Z[i]) * T.FZ[i];
+  return (i + Math.round(along / T.ds) + T.N) % T.N;
+}

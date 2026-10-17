@@ -5,7 +5,7 @@
 // Each box rolls its own dice (seeded by the box), so no two are doing the same thing.
 //
 //   new BoxCrew(life, b, tpl)    // b: js/pitlife.js's box (its crew, its driver), tpl: the model
-//   crew.update(dt, { out, vis, step, floorY })
+//   crew.update(dt, { out, ins, vis, step, floorY })   // ins: each car's side, whether its car's in (b.carSpots)
 //
 // Everything here is in the box's own frame (F.P(x, z, y): x along its front, z in from the door), metres.
 import * as THREE from 'three';
@@ -25,13 +25,18 @@ export class BoxCrew {
   constructor(life, b, tpl) {
     this.life = life; this.b = b; this.F = b.F; this.r = rng(b.k * 7919 + 13);
     const F = this.F, wx = F.wx, d = BOX.depth;
-    this.car = tpl.car(F);
+    // the cars' places: the model's, and a team with two cars in the box has the other one's mirrored across it
+    this.cars = b.carSpots || [tpl.car(F)]; this.car = this.cars[0];
     this.seats = tpl.seats(F).filter(s => !(b.mine && s.player)).map(s => ({ ...s, who: null })); // (yours is yours)
     this.spots = tpl.spots(F).map(s => ({ ...s, who: null }));
-    // round the car: its four wheels and a corner either side of its nose (taken when it's in)
-    const cx = this.car.x, cz = this.car.z;
-    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) this.spots.push({ x: cx + sx * 1.35, z: cz + sz * 1.45, face: [-sx, 0], kind: 'wheel', car: true, who: null });
-    for (const sx of [-1, 1]) this.spots.push({ x: cx + sx * 1.6, z: cz - 2.7, face: [-sx * 0.6, 1], kind: 'car', car: true, who: null });
+    // round each car: its four wheels and a corner either side of its nose (taken when it's in)
+    this.cars.forEach(({ x: cx, z: cz }, ci) => {
+      for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) this.spots.push({ x: cx + sx * 1.35, z: cz + sz * 1.45, face: [-sx, 0], kind: 'wheel', car: true, ci, who: null });
+      for (const sx of [-1, 1]) this.spots.push({ x: cx + sx * 1.6, z: cz - 2.7, face: [-sx * 0.6, 1], kind: 'car', car: true, ci, who: null });
+    });
+    // (furniture where the second car parks: off it, so the crew's spots there aren't inside it)
+    const inCar = (x, z) => this.cars.some(c => Math.abs(x - c.x) < 1.25 && Math.abs(z - c.z) < 2.75);
+    this.spots = this.spots.filter(s => s.car || !inCar(s.x, s.z));
     // the floor, in cells: what's in the way (the walls, what stands on the floor; the car when it's in)
     this.nx = Math.ceil(2 * (wx + 0.5) / CELL); this.nz = Math.ceil((d - LANE) / CELL);
     const base = new Uint8Array(this.nx * this.nz);
@@ -43,18 +48,26 @@ export class BoxCrew {
       if (!bad) for (const r of foot) if (x > r[0] - 0.28 && x < r[1] + 0.28 && z > r[2] - 0.28 && z < r[3] + 0.28) { bad = true; break; }
       base[i * this.nz + j] = bad ? 1 : 0;
     }
-    this.gridOut = base; this.gridIn = base.slice();
-    for (let i = 0; i < this.nx; i++) for (let j = 0; j < this.nz; j++) {
-      const x = this.cx(i), z = this.cz(j);
-      if (Math.abs(x - cx) < 1.25 && Math.abs(z - cz) < 2.75) this.gridIn[i * this.nz + j] = 1;
-    }
+    this.gridOut = base; this.grids = new Map();
+    this.ins = this.cars.map(() => true);
     this.people = []; this.groups = []; this.out = null;
+  }
+  // the floor with the cars that are in on it (one grid per which-are-in, made when first wanted)
+  gridFor(ins) {
+    const key = ins.map(x => x ? 1 : 0).join('');
+    let g = this.grids.get(key); if (g) return g;
+    g = this.gridOut.slice();
+    this.cars.forEach((c, ci) => {
+      if (!ins[ci]) return;
+      for (let i = 0; i < this.nx; i++) for (let j = 0; j < this.nz; j++) if (Math.abs(this.cx(i) - c.x) < 1.25 && Math.abs(this.cz(j) - c.z) < 2.75) g[i * this.nz + j] = 1;
+    });
+    this.grids.set(key, g); return g;
   }
   cx(i) { return -this.F.wx - 0.5 + (i + 0.5) * CELL; }
   cz(j) { return LANE + (j + 0.5) * CELL; }
   ci(x) { return Math.max(0, Math.min(this.nx - 1, Math.floor((x + this.F.wx + 0.5) / CELL))); }
   cj(z) { return Math.max(0, Math.min(this.nz - 1, Math.floor((z - LANE) / CELL))); }
-  get grid() { return this.out ? this.gridOut : this.gridIn; }
+  get grid() { return this.gridFor(this.ins); }
   free(x, z) { return !this.grid[this.ci(x) * this.nz + this.cj(z)]; }
 
   // the way from a to b round what's in the way (A* on the cells, then straightened): [[x, z], ...] ending at b
@@ -141,7 +154,7 @@ export class BoxCrew {
     if (p.engineer && r() < 0.8) { const s = this.seats.find(x => !x.who); if (s) return this.sit(p, s, now); }
     const w = r();
     if (w < (p.role === 'driver' ? 0.7 : 0.42)) { if (this.talk(p, now)) return; }
-    const spots = this.spots.filter(s => !s.who && !(s.car && out));
+    const spots = this.spots.filter(s => !s.who && !(s.car && !this.ins[s.ci]));
     const want = spots.filter(s => s.car).length && w > 0.7 ? spots.filter(s => s.car) : spots;
     if (want.length) return this.task(p, pick(r, want), now);
     this.talk(p, now, true) || this.wait(p);
@@ -207,12 +220,17 @@ export class BoxCrew {
     });
   }
 
-  update(dt, { out, vis, step, floorY }) {
-    if (!this.people.length) { this.out = out; this.init(); }
+  update(dt, { out, ins, vis, step, floorY }) {
+    ins = ins || this.cars.map(() => !out);
+    if (!this.people.length) { this.out = out; this.ins = ins; this.init(); }
     const b = this.b, F = this.F, r = this.r;
-    if (out !== this.out) { // (the car's gone out, or come back in: everyone not sat down has a rethink)
-      this.out = out;
-      for (const p of this.people) if (!p.seat && (out || !this.free(p.x, p.z) || r() < 0.6)) { p.t = r() * 2.5; }
+    const changed = ins.some((x, k) => x !== this.ins[k]);
+    if (out !== this.out || changed) { // (a car's gone out, or come back in: everyone not sat down has a rethink)
+      const wentOut = out && !this.out;
+      this.out = out; this.ins = ins;
+      // (a car's gone: off its spots; one's come in: off where it's parked)
+      for (const p of this.people) if (p.spot && p.spot.car && !ins[p.spot.ci]) p.t = Math.min(p.t, r() * 1.5);
+      for (const p of this.people) if (!p.seat && !p.held && (wentOut || !this.free(p.x, p.z) || (changed && r() < 0.3))) { p.t = r() * 2.5; }
     }
     if (b.driver) b.driver.object.visible = !out;
     // the conversations: whose turn it is, and when they break up

@@ -18,7 +18,8 @@ settings are fine: +Y Up on, everything included (not just the selection). Then 
   stays where it is.
 - On some pit lanes the boxes are mirror images (left and right swapped), as the built-in ones are.
 - **The cars** park where `REF_your_car` is, nose to the door: yours in your box, each team's in theirs. Move it
-  and they all move.
+  and they all move. A box with two cars in it (you and your teammate, or a team of two) has the second one
+  mirrored across the box (X the other way), so keep that side clear too.
 
 ## Names the game looks for
 
@@ -52,6 +53,10 @@ In practice and qualifying, each box's crew works out what to do from what's in 
 - **Car out on a run:** most go to the door to watch.
 
 Every box rolls its own dice, so no two boxes are the same.
+
+**Live sessions (`js/livesession.js`):** in practice and qualifying on a circuit with a pit lane, every team's car
+sits in its box until its runs: its crew push it out, it drives an out lap, a flying lap and an in lap, and they push
+it back in. The garage menu's On Track panel shows who's out and where.
 
 **Pushing your car (`js/pushcar.js`):**
 - **Drive Out:** your crew pushes the car out of `REF_your_car`'s spot, through the door and round onto the lane.

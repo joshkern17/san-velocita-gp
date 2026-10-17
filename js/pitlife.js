@@ -755,15 +755,21 @@ export class PitLife {
     // (where the car is: on a run from a couple of laps before its time is posted until it's back in)
     if (!b.mine && !b.entry) b.entry = (q.field || []).find(e => race.boxSlot(e.teamIdx) === b.k) || null;
     const e = b.entry, el = q.time - q.left;
-    // (yours: out from when it's left the box till it's back in it)
-    const out = b.mine ? !!(race.player && !race.player.inGarage) : !!e && e.plan.some(r => el > r.at - 2.3 * e.pot && el < r.at + 0.5 * e.pot);
+    // (yours: out from when it's left the box till it's back in it; a live session (js/livesession.js): each car in
+    // the box on its own side, out when it's out)
+    let out, ins = null;
+    if (race.live) {
+      const cs = this.boxCars(b); b.carSpots ||= this.carSpots(b, cs.length);
+      ins = b.carSpots.map((_, k) => cs.some(c => this.sideOf(c) === k && race.live.isIn(c)));
+      out = !ins.some(x => x);
+    } else out = b.mine ? !!(race.player && !race.player.inGarage) : !!e && e.plan.some(r => el > r.at - 2.3 * e.pot && el < r.at + 0.5 * e.pot);
     // (the camera inside another box (your garage menu, walking round someone's): this one's behind its walls)
     const o = F.P(0, 0, 0), t1 = F.P(1, 0, 0), cx = cam.x - o[0], cz = cam.z - o[2];
     const ax = (cx * (t1[0] - o[0]) + cz * (t1[2] - o[2])), az = cx * F.n[0] + cz * F.n[1];
     const walled = az > 0.3 && Math.abs(ax) > wx;
     const near = dist < 75 && !walled;
     // the car: built when you're near enough to see it, then kept
-    if (!b.mine && e && near && !b.parked && !out) this.parkCar(b);
+    if (!b.mine && e && near && !b.parked && !out && !race.live) this.parkCar(b);
     if (b.parked) b.parked.group.visible = !out && dist < 140 && !walled;
     const vis = near && !!b.crew.length; if (b.group) b.group.visible = vis;
     // (further off, the people move on every third frame)
@@ -771,7 +777,7 @@ export class PitLife {
     const step = b.tick === 0 ? b.acc : 0; if (step) b.acc = 0;
     const floorY = F.P(0, 7, BOX.floor)[1];
     // your model's boxes (js/pitbox.js): their people have minds of their own (js/pitcrew.js)
-    if (this.boxModel && b.crew.length) { (b.brain ||= new BoxCrew(this, b, this.boxModel)).update(dt, { out, vis, step, floorY }); return 0; }
+    if (this.boxModel && b.crew.length) { (b.brain ||= new BoxCrew(this, b, this.boxModel)).update(dt, { out, ins, vis, step, floorY }); return 0; }
     const slots = this.workPlan(b, out, wx, d);
     const people = [...b.crew.map((m, r) => ({ m, s: slots[m.role] })), ...(b.driver ? [{ m: b.dm ||= { ch: b.driver, x: 0, z: 0, yaw: 0, k: 0, kT: 0, role: 'DR', placed: false }, s: out ? null : slots.DR }] : [])];
     if (b.driver) b.driver.object.visible = !out;
@@ -813,6 +819,32 @@ export class PitLife {
       FJ: [...E, toward(E, D), 'talk'], DR: [...D, toward(D, E), 'talk_3'],                  // the driver and an engineer
       RJ: [...R1, toward(R1, R2), 'talk_2'], LP: [...R2, toward(R2, R1), 'idle_look'],     // two at the back
     };
+  }
+  // ---------- the cars' places in a box ----------
+  // the cars that belong in box b (yours first, then by team: a team of two shares a box, and so do two teams when
+  // there are more teams than boxes)
+  boxCars(b) {
+    const race = this.race;
+    return race.cars.filter(c => !c.remote && race.boxSlot(c.teamIdx) === b.k).sort((p, q) => (q.isPlayer - p.isPlayer) || (p.teamIdx - q.teamIdx) || (p.carId < q.carId ? -1 : p.carId > q.carId ? 1 : 0));
+  }
+  // where they park, in the box's frame (x along its front, z in): your model's spot (REF_your_car), and a second car
+  // mirrored across the box from it
+  carSpots(b, n = 2) {
+    const c = this.boxModel ? this.boxModel.car(b.F) : { x: -3.35, z: 6.4 };
+    return n > 1 ? [{ x: c.x, z: c.z }, { x: -c.x, z: c.z }] : [{ x: c.x, z: c.z }];
+  }
+  // a car's side of its box (0: your model's spot, 1: the other), and the box
+  sideOf(car) {
+    const race = this.race, b = this.boxes.find(x => x.k === race.boxSlot(car.teamIdx));
+    if (!b) return 0;
+    const i = this.boxCars(b).indexOf(car); return i < 0 ? 0 : i % 2;
+  }
+  // where a car stands parked on its side (the world: [x, y, z], heading h, nose to the door), or null
+  parkPose(car) {
+    const race = this.race, b = this.boxes.find(x => x.k === race.boxSlot(car.teamIdx)); if (!b || !b.F) return null;
+    const n = this.boxCars(b).length, c = this.carSpots(b, Math.max(2, n))[this.sideOf(car)], F = b.F;
+    const at = F.P(c.x, c.z, BOX.floor + 0.05), ah = F.P(c.x, c.z - 1, BOX.floor + 0.05);
+    return { b, side: this.sideOf(car), spot: c, at, h: Math.atan2(ah[0] - at[0], ah[2] - at[2]) };
   }
   // the team's car in its box, on its stands, nose to the door (a cheap one: the field isn't racing)
   parkCar(b) {

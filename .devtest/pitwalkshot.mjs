@@ -79,7 +79,9 @@ try {
   const wall = await walkTo(got.x + 40, got.z, 30);
   check(Math.hypot(wall.x - got.x, wall.z - got.z) < 9, `stopped by the box's side wall (${JSON.stringify(wall)})`);
   // the keys: W walks you (the way the camera looks)
-  const k0 = await pg.evaluate(() => { const W = window.__svgp.dbg.walk; W.camYaw += Math.PI; return W.pos.clone(); }); // (turned round, off the wall)
+  // (back in the middle of the box first: by the side wall a live session's parked car (js/livesession.js) has you hemmed in)
+  await walkTo(got.x, got.z, 20);
+  const k0 = await pg.evaluate(() => { const W = window.__svgp.dbg.walk; W.camYaw += Math.PI; return W.pos.clone(); }); // (turned round)
   await pg.keyboard.down('KeyW'); await pg.waitForTimeout(2500); await pg.keyboard.up('KeyW');
   const k1 = await pg.evaluate(() => window.__svgp.dbg.walk.pos.clone());
   check(Math.hypot(k1.x - k0.x, k1.z - k0.z) > 0.3, `W walks (${Math.hypot(k1.x - k0.x, k1.z - k0.z).toFixed(2)} m)`);

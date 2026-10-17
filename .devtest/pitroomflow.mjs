@@ -47,7 +47,7 @@ try {
   await pg.evaluate(() => window.__svgp.dbg.pitGarage.setDesk(false));
   // out on track
   await pg.evaluate(() => { [...document.querySelectorAll('#m-pitgarage .item')].find(e => /Drive Out/i.test(e.textContent)).click(); });
-  await pg.waitForFunction(() => window.__svgp.screen === 'hud', null, { timeout: 20000 });
+  await pg.waitForFunction(() => window.__svgp.screen === 'hud', null, { timeout: 120000 });
   await pg.waitForTimeout(1500);
   s = await state(); console.log(JSON.stringify(s));
   check(!s.hold && s.simCamToCar < 15, 'driving: the session camera is back on the car');

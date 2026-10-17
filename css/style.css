@@ -1289,6 +1289,17 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .pg-car .pg-note { margin-top: 6px; font-size: 11px; text-align: right; }
 /* practice: the run plan under the car (main.js planRows): each job's best lap rating, a tick where it's done */
 .pg-car .pg-plan-title { margin-top: 14px; }
+/* who's out, a live session (main.js renderTrackBoard): the circuit with the cars on it, and what each is doing */
+.pg-track { position: absolute; right: 5%; top: 19%; width: 260px; padding: 12px 14px 10px; background: rgba(5,3,8,.6); border: 0; box-shadow: none; }
+.pg-track .panel-title { margin-bottom: 6px; }
+.pg-track canvas { display: block; width: 100%; height: auto; }
+.pg-track .pg-trk-row { display: grid; grid-template-columns: 12px 1fr auto; gap: 8px; align-items: center; height: 20px; font-size: 11px; }
+.pg-track .pg-trk-row b { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-track .pg-trk-row em { font-style: normal; opacity: .7; }
+.pg-track .pg-trk-row.hot em { opacity: 1; color: var(--sv-amber); }
+.pg-track .pg-trk-row.me b { color: var(--sv-red); }
+.pg-track .pg-trk-row .swatch { width: 10px; height: 10px; margin-right: 0; }
+.pg-track .pg-note { margin-top: 6px; font-size: 11px; text-align: right; }
 .pg-plan .pg-bar { position: relative; }
 .pg-plan .pg-bar u { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--sv-red-dim); }
 .pg-plan.on span { color: var(--sv-amber); }
@@ -1696,7 +1707,7 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 /* walking round the garage: the menu out of the way */
 .screen.walking .scr-head, .screen.walking .hub-left, .screen.walking .pg-left, .screen.walking .desc-bar, .screen.walking .menu-shade, .screen.walking .car-tags { opacity: 0; pointer-events: none; }
 /* (walking the pit lane: the garage's panels too; the session clock stays) */
-#s-pitgarage.walking .pg-car, #s-pitgarage.walking .pg-timing, #s-pitgarage.walking .pg-receipt { opacity: 0; pointer-events: none; }
+#s-pitgarage.walking .pg-car, #s-pitgarage.walking .pg-timing, #s-pitgarage.walking .pg-receipt, #s-pitgarage.walking .pg-track { opacity: 0; pointer-events: none; }
 .pc-tag i { width: 1px; height: 26px; background: var(--sv-red); box-shadow: var(--sv-glow-line); }
 .pc-tag i::after { content: ''; display: block; width: 5px; height: 5px; margin: 24px 0 0 -2px; background: var(--sv-red); box-shadow: var(--sv-glow-line); transform: rotate(45deg); }
 .pc-tag.hot { opacity: 1; }

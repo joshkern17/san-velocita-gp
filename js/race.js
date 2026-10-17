@@ -19,6 +19,7 @@ import { fastLine, fastLineSteps, lineCar } from './raceline.js';
 import { technique, curveCost, curvePace } from './aiskill.js';
 import { passPlan, claimOn } from './racecraft.js';
 import { PitLife } from './pitlife.js';
+import { LiveSession } from './livesession.js';
 import { RaceDrivers } from './racedrivers.js';
 import { LapRecorder, addLap, lapKey, bestLap, loadPB, lapPoseAt } from './telemetry.js';
 import { setCrowdCars } from './crowd.js';
@@ -1370,6 +1371,8 @@ export class Race {
     // each from a standing start at the top, back to the garage after each one (to change tyres), done when they're used
     if (this.T.open) { q.runs = q.kind === 'practice' ? 4 : 2; q.used = 0; }
     if (pl) this.enterGarage(pl, true);
+    // (a circuit with a pit lane: the field drives its runs for real, out of their garages: js/livesession.js)
+    if (LiveSession.wanted(this)) this.live = new LiveSession(this);
   }
   // online: the host's field for this session ({ teamIdx, name, color, id, pot, plan }), the same laps at the same times
   netField(list) {
@@ -1438,6 +1441,7 @@ export class Race {
   skipTime(sec) {
     const q = this.quali; if (!q || q.done || this.net) return; // (online the clock is everyone's: nobody skips it)
     q.left = Math.max(1, q.left - sec);
+    if (this.live) this.live.skip(); // (everyone out on a run's back in their box, their laps up below)
     const el = q.time - q.left;
     for (const e of q.field) for (const r of e.plan) if (!r.done && r.at <= el) this.qualiPost(e, r);
   }
@@ -1469,7 +1473,8 @@ export class Race {
     if (this.net) q.left = this.net.goT == null ? q.time : Math.max(0, q.time - Math.max(0, (this.net.clock() - this.net.goT) / 1000));
     else q.left = Math.max(0, q.left - dt);
     const el = q.time - q.left;
-    for (const e of q.field) for (const r of e.plan) if (!r.done && r.at <= el) this.qualiPost(e, r);
+    // (a lap being driven (js/livesession.js) goes up when its car crosses the line)
+    for (const e of q.field) for (const r of e.plan) if (!r.done && r.at <= el && !(this.live && this.live.holds(e, r))) this.qualiPost(e, r);
     const pl = this.player;
     if (!q.flag && q.left <= 0) {
       q.flag = true;
@@ -2913,7 +2918,7 @@ export class Race {
       // that's behind you)
       const past = T.L - d, at = d < 1.5 || past < 40; // (at the box, or stopped short of 40 m past it: the crew comes to you)
       if (car.pitReq && !car.pitReq.dt && past >= 40 && past < 400) { car.pitPhase = 'out'; if (car.isPlayer) this.events.push({ type: 'radio', vo: car.pitReq.garage ? 'box.pastgarage' : 'box.overshot', msg: car.pitReq.garage ? 'You went past the garage. Come in next lap.' : 'You overshot the box. No stop: come in again next lap.' }); return; }
-      if (car.pitReq && car.pitReq.garage) { if (at && car.phys.speed < 3 && !(car.isPlayer && this.onBoxArrive && this.onBoxArrive(car))) this.enterGarage(car); } // (sessions: into the garage; yours pushed in by the crew first, js/pushcar.js)
+      if (car.pitReq && car.pitReq.garage) { if (at && car.phys.speed < 3 && !(car.isPlayer && this.onBoxArrive && this.onBoxArrive(car)) && !(car.live && this.live && this.live.arrive(car))) this.enterGarage(car); } // (sessions: into the garage; yours pushed in by the crew first, js/pushcar.js)
       else if (car.pitReq && car.pitReq.dt) {
         // drive-through: served once past your box (no stop, and it isn't a pit stop for the strategy)
         if (d < 2 || d > T.L - 30) { car.pitPhase = 'out'; this.rc.driveThroughServed(car); }
@@ -3751,6 +3756,7 @@ export class Race {
     if (this.rc) this.rc.update(dt);
     if (this.bc) this.bc.update(dt);
     if (this.quali && !this.paused) this.qualiUpdate(dt);
+    if (this.live && !this.paused) this.live.update(dt);
 
     // visuals
     if (this.drift && this.player && dt > 0) this.drift.update(dt, this.player, this.state === 'racing' && !this.player.pitting && !this.player.finished && !this.player.gone);

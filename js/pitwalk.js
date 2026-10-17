@@ -43,6 +43,12 @@ export class PitNav {
       const fr = { o, t: { x: px.x - o.x, z: px.z - o.z }, n: { x: pz.x - o.x, z: pz.z - o.z }, wx: F.wx, dw: F.dw, F };
       this.rooms.push(fr);
       this.dress(fr, b === life.mine, F.mirror, life.boxModel && F);
+      // (a live session's cars (js/livesession.js), each parked on its side of its box: in the way while it's there)
+      if (sim.live) for (const c of life.boxCars(b)) {
+        if (c.isPlayer) continue; // (yours: the garage's own, below)
+        const P = life.parkPose(c); if (!P) continue;
+        const { x, z } = P.spot; this.obs.push({ fr, r: [x - 1.0, x + 1.0, z - 2.5, z + 2.5], when: () => sim.live.isIn(c) });
+      }
     }
     // your car and your desk (in this frame already: the garage's room)
     const parts = [];
@@ -120,6 +126,7 @@ export class PitNav {
       return true;
     };
     for (const o of this.obs) {
+      if (o.when && !o.when()) continue;
       if (o.box) { rect(p, o.box); continue; }
       if (o.c) { const q = this.inFr(o.fr, p), [x, z, cr] = o.c, dx = q.x - x, dz = q.z - z, d = Math.hypot(dx, dz), m = cr + r;
         if (d < m) { if (d < 1e-4) q.x += m; else { q.x = x + dx / d * m; q.z = z + dz / d * m; } this.outFr(o.fr, q, p); } continue; }
