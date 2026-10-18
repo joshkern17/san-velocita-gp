@@ -13,6 +13,8 @@ The plan (what's next) and the ledger (every post and how it did). The head of m
 | 0.45 | Narrator voice: design in ElevenLabs (calm, earnest, "we"), dev picks from previews | HoM → dev OK | done 2026-10-18: SV narrator 001, id 7HQTSYjhnOsl76FVM9QA |
 | 0.46 | First 6 explainer scripts (tire temps, AI learns each track, LiDAR circuits, pit crew mocap, draw a track, shitbox start) | HoM | todo |
 | 0.6 | Remotion templates: the narrated explainer (main) + the fast-cut Short (minor); captions, end card | HoM → dev OK | explainer v1 made 2026-10-18 (marketing/video TireTemps): waiting on dev OK |
+| 0.71 | Website v1 on a free subdomain (dev chose free subdomain + email list): pitch, reel, pillars, email sign-up, socials | build | in progress 2026-10-18 |
+| 0.72 | Content bank: 4 new explainers (engines, Spa scan, dirty air, what the AI sees) + 2 tire-temp hook variants | HoM | in progress 2026-10-18 |
 | 0.7 | Steam Coming Soon page: capsule art, ~30 s trailer, short description, tags, screenshots | HoM → dev OK | todo |
 | 0.8 | Marketing Desk page (review queue) | build | todo |
 | 0.9 | First batch: 6 clips × 3 hooks, ready the day the Steam page goes live | HoM | todo |

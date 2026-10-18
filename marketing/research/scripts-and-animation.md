@@ -60,6 +60,17 @@ reel to just an explainer … mix them in with other topics of the game."
 | Exhaust-pipe physics (waveguide engine) | engines / car classes |
 | LiDAR elevation + camber | real circuits / the track editor |
 
+## Idea from the dev (2026-10-18): "what the AI sees"
+"Videos do well showing what the AI sees … overlay what they see with the track." The director draws the AI's
+internals into the 3D world while it races:
+- the learned speed plan (brake / coast / throttle colors along the road);
+- braking markers and target corner speeds;
+- the racing line;
+- the overtake planner's gap and commit moment.
+
+Hook: "This is everything the AI is thinking going into Turn 1." It pairs with the "I drew this corner, the AI learned
+it" video (the plan getting faster lap by lap).
+
 ## Earlier concept (superseded in shape, kept for the topic list)
 - **Shape:**
   1. A hook about real cars, as an animated technical explainer (15–25 s): modern motion, the game's tokens.
