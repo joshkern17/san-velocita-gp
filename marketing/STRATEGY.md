@@ -57,6 +57,26 @@ A publisher's estimate (unaudited, but it matches every case study):
 7. **Low priority:** press, which covers games after they're popular; X and Bluesky, at 0.1–1.8% of traffic; long-form devlogs, which mostly reach other developers. Paid ads stay out at $0.
 
 ## 4. How the videos get made
+### Main format: the narrated feature explainer (added 2026-10-18)
+- **The evidence:** `research/reference-accounts.md`, 12 Reels from EATMEAT Games and Mix and Jam.
+  - Every Reel with a calm voice explaining a feature did **66K–1.2M**.
+  - Every music-only or no-voice Reel did **3K–31K**, on both accounts.
+- **One feature per video.** A calm voice explains *why* it exists, over long shots of it working.
+- **Script shape:**
+  1. A hook sentence: a feeling the viewer has had, a bold claim, a big number, a list that builds, or "nobody made X, so…".
+  2. What it is.
+  3. How it works, shown on screen.
+  4. Why: the design reason and the real-world grounding (real tire physics, LiDAR).
+  5. A quotable closing line.
+  6. A question to the viewer.
+- **Pacing:**
+  - 25–60 s long.
+  - Speech at ~2–2.5 words/s.
+  - Shots held 3–6 s while the feature visibly works.
+  - The game's own sound (engine, wheel gun, radio) is the payoff moment.
+- **This overrides the general rules below** where they conflict: length, and cuts every 1–2 s. The fast-cut rules still apply to the minor formats (crash, loop, before/after montage).
+- **Narrator:** start with a designed AI voice speaking as "we". Then A/B the dev's own recorded voice on the same scripts and keep whichever holds viewers longer.
+
 ### The format rules, and why
 - **One idea, readable in 1–2 s, as on-screen text.** Viewers swipe in 1–2 s if the topic isn't clear (Derek Lieu, Zukowski).
 - **Game name on screen.** About half of viewers search Steam by name instead of using a link.

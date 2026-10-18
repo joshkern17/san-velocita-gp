@@ -34,14 +34,18 @@ Status: draft 1, 2026-10-18.
 - Word-by-word captions **snap in place** (no pop-scale, no wobble).
 - No zoom-punch transitions, no whoosh swipes, no glitch transitions, no fake CRT flicker.
 - Speed ramps on footage are fine (re-cuts at ~110–130% speed are a tested lever); the type never ramps.
-- Pacing: a new shot every 1–2 s in Shorts; hold on a payoff shot as long as it earns it.
+- Pacing: the main narrated series holds shots 3–6 s, with slow drifting cameras (calm is the style). The fast-cut
+  minor formats take a new shot every 1–2 s.
 
 ## 4. Sound
 - **Engines lead.** Game audio is the bed of every clip; music sits underneath and fades, never jumps.
 - Music: the game's own soundtrack only. **No trending licensed sounds** (business accounts can't use them, and they bury the engines).
-- **Narrator [YOUR OK]:** the race engineer ("SV engineer 001", the dev's designed voice, ElevenLabs
-  `hoiJIjqBjNO1OD2v0ObR`, eleven_v4) through the in-game radio filter (`tools/voice/radiofx.sh`). He speaks as if
-  on team radio to whoever is driving: short, deadpan, 1–2 lines a clip, never a voice-over announcer.
+- **Narrator of the main series [YOUR OK on the voice]:** a calm, earnest designed AI voice speaking as "we, the
+  team making this". Warm, unhurried (~2–2.5 words/s), sincere, with a quiet dry aside now and then; never hype.
+  Designed in ElevenLabs (eleven_v4); the dev picks from previews. Later A/B: the dev's own recorded voice on the
+  same scripts (see STRATEGY §4).
+- **The race engineer** ("SV engineer 001", ElevenLabs `hoiJIjqBjNO1OD2v0ObR`, through `tools/voice/radiofx.sh`)
+  is a cameo, not the narrator: an in-world radio line as a payoff or a minor comedy series.
   Example: *"Box, box. Actually, don't. You drew this corner."*
 - The announcer and color voices stay in the game. They're booth voices, not the brand.
 
@@ -65,6 +69,8 @@ Loops cleanly back into the first frame where possible.
 
 ## 8. Formats we use (see STRATEGY.md for why)
 Each is a Remotion template once approved; episodes inside an approved template don't need per-item sign-off.
+- **Main: the feature explainer.** One crafted feature, a calm narrator explaining why it exists, a closing
+  line, a question. 25–60 s. Reference: `research/reference-accounts.md`.
 - **Before → after** (empty editor → racing it)
 - **Comment reply** (viewer asks for a track/livery → we build it → lap)
 - **Unscripted moment** (AI incident, photo finish, save)

@@ -14,6 +14,13 @@ Lesson: <what to do differently / keep doing>
 
 ---
 
+## 2026-10-18 · reference accounts · DIRECTION
+What it was: the dev pointed to @eatmeatgames (Sharp Flint) and @mixandjam (Eye of the Match) as the style they like.
+Said: "a sort of earnest or calming person talking over the cool, detailed, well crafted features of the game"
+Lesson: the main series is a calm narrated feature explainer (see research/reference-accounts.md). Start with a
+designed AI voice; later A/B the dev's own voice ("start with ai voice, then we can try my own voice and see what
+the data says").
+
 ## Seeded from the game's own design feedback (before any marketing work)
 - Dislikes lopsided, busy or oversized layouts: check symmetry, even spacing, centred text.
 - Motion should feel 2005: snaps and fades, no sliding selectors, no flicker.
