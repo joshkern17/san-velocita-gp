@@ -72,6 +72,29 @@ try {
   ok(gs === 'car:car2', `friend's car spots: ${gs}`);
   // the friend's car: a day on it, with the host first
   const ch = await guest.evaluate(() => { const d = window.__svgp.dbg; return null; });
+  // a race weekend online: qualifying, both of you in the pit garage, then out walking the pit lane
+  if (process.env.PIT !== '0') {
+    await host.evaluate((T) => { const w = window.__svgp.world, S = w.series[w.player.series], R = S.cal[w.round]; if (R) R.name = T; w.opts.weekend = 'quali'; /* (a circuit with a pit lane and garages) */ window.__svgp.dbg.startWorldRound(); }, process.env.TRACK || 'Spa-Francorchamps');
+    for (const [n, pg] of [['host', host], ['guest', guest]]) {
+      await pg.waitForFunction(() => window.__svgp.screen === 's-pitgarage' && window.__svgp.dbg.pitGarage.active, null, { timeout: 180000, polling: 500 }).catch(() => {});
+      ok(await pg.evaluate(() => window.__svgp.screen) === 's-pitgarage', `${n} in the pit garage (${await pg.evaluate(() => window.__svgp.screen)})`);
+    }
+    await host.waitForTimeout(3000);
+    for (const [n, pg] of [['host', host], ['guest', guest]]) {
+      console.log('  ', n, await pg.evaluate(() => { const d = window.__svgp.dbg, P = d.pitGarage, sm = window.__svgp.sim; return JSON.stringify({ tname: sm && sm.track.name, open: sm && sm.T.open, pit: !!(sm && sm.pit), ref: !!(sm && sm.track.refModel), life: !!(sm && sm.pitLife), mine: !!(sm && sm.pitLife && sm.pitLife.mine), boxes: sm && sm.pitLife && sm.pitLife.boxes.filter(b => b.mine).length, net: !!(sm && sm.net), track: !!P.track, walk: d.walk.active, mode: P.mode, items: [...document.querySelectorAll('#s-pitgarage .menu-item, #s-pitgarage li')].map(e => e.textContent.trim().slice(0, 24)).slice(0, 12) }); }));
+      await pg.evaluate(() => window.__svgp.dbg.startPitWalk());
+      await pg.waitForFunction(() => window.__svgp.dbg.walk.active, null, { timeout: 30000, polling: 500 }).catch(() => {});
+      ok(await pg.evaluate(() => window.__svgp.dbg.walk.active), `${n} walking the pit lane`);
+    }
+    await host.waitForTimeout(2500);
+    const wpos = (pg) => pg.evaluate(() => { const w = window.__svgp.dbg.walk, o = w.me.object.getWorldPosition(w.me.object.position.clone()); return [o.x, o.y, o.z]; });
+    const fpos = (pg) => pg.evaluate(() => { const f = window.__svgp.dbg.pitGarage.friend; if (!f.ch || !f.ch.object.visible || !f.ch.object.parent) return null; const o = f.ch.object.getWorldPosition(f.ch.object.position.clone()); return [o.x, o.y, o.z, f.ch.clip]; });
+    for (const [n, pg, other] of [['host', host, guest], ['guest', guest, host]]) {
+      const o = await wpos(other), f = await fpos(pg), d = f ? Math.hypot(o[0] - f[0], o[2] - f[2]) : null;
+      ok(f && d < 0.5, `pit lane: the ${n} sees the other where they are (${d == null ? 'not shown' : d.toFixed(2) + ' m off'}; they're at ${o.map(v => v.toFixed(1)).join(',')})`);
+    }
+    for (const [n, pg] of [['host', host], ['guest', guest]]) await pg.screenshot({ path: join(out, `coop-pit-${n}.png`) });
+  }
   // shots: each sees the other
   for (const [n, pg] of [['host', host], ['guest', guest]]) await pg.screenshot({ path: join(out, `coop-${n}.png`) });
 } finally { await b.close(); server.kill(); }
