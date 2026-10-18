@@ -40,9 +40,11 @@ Status: draft 1, 2026-10-18.
 ## 4. Sound
 - **Engines lead.** Game audio is the bed of every clip; music sits underneath and fades, never jumps.
 - Music: the game's own soundtrack only. **No trending licensed sounds** (business accounts can't use them, and they bury the engines).
-- **Narrator of the main series [YOUR OK on the voice]:** a calm, earnest designed AI voice speaking as "we, the
-  team making this". Warm, unhurried (~2–2.5 words/s), sincere, with a quiet dry aside now and then; never hype.
-  Designed in ElevenLabs (eleven_v4); the dev picks from previews. Later A/B: the dev's own recorded voice on the
+- **Narrator of the main series (APPROVED 2026-10-18):** "SV narrator 001 - calm dev", ElevenLabs voice id
+  `7HQTSYjhnOsl76FVM9QA` (designed with eleven_ttv_v3; generate lines with **eleven_v4**, the dev's preferred model).
+  Calm, earnest, speaking as "we, the team making this". Warm, unhurried (~2.5 words/s), sincere, with a quiet dry
+  aside now and then; never hype. No radio filter. The approved audition is
+  `assets/voice/auditions/narrator/C_7HQTSYjhnOsl76FVM9QA.mp3`: match its pace and tone. Later A/B: the dev's own recorded voice on the
   same scripts (see STRATEGY §4).
 - **The race engineer** ("SV engineer 001", ElevenLabs `hoiJIjqBjNO1OD2v0ObR`, through `tools/voice/radiofx.sh`)
   is a cameo, not the narrator: an in-world radio line as a payoff or a minor comedy series.

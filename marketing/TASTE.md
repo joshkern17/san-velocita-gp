@@ -14,6 +14,11 @@ Lesson: <what to do differently / keep doing>
 
 ---
 
+## 2026-10-18 · narrator voice · APPROVED
+What it was: three designed previews of the tire-temperature line; picked C (slowest, ~2.5 words/s, 20 s).
+Said: "C is perfect."
+Lesson: slower and calmer wins. Voice id 7HQTSYjhnOsl76FVM9QA; generate with eleven_v4.
+
 ## 2026-10-18 · reference accounts · DIRECTION
 What it was: the dev pointed to @eatmeatgames (Sharp Flint) and @mixandjam (Eye of the Match) as the style they like.
 Said: "a sort of earnest or calming person talking over the cool, detailed, well crafted features of the game"
