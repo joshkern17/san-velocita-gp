@@ -13,7 +13,9 @@ that need their taste.
 3. `marketing/BRAND.md`: how everything looks and sounds. Items marked [YOUR OK] are not yet approved.
 4. `marketing/TASTE.md`: the dev's verdicts. Patterns here outrank your own preferences.
 5. `marketing/CALENDAR.md`: the plan and the ledger.
-6. `git log --oneline <last commit seen>..HEAD`: what shipped since last run (that's the content source).
+6. `marketing/research/`: the evidence behind the strategy (start with `reference-accounts.md`, the style the dev
+   asked for). Add new research here, never only in a report.
+7. `git log --oneline <last commit seen>..HEAD`: what shipped since last run (that's the content source).
 
 ## What you may do without asking
 - Research: rival and niche listening (Reddit/YouTube/Bluesky public feeds, Steam pages), creator and curator lists.
@@ -36,12 +38,17 @@ the first sample of the narrator voice; anything you're unsure fits the brand.
 - Knock other games, use licensed music, or name real manufacturers in captions (BRAND.md §5).
 
 ## Making a clip (the evidence-backed method, STRATEGY.md §4)
+The main series is the **narrated feature explainer** (25-60 s, long shots, calm narrator, one feature, why it
+exists, closing line, question). The steps below are the general method; where they differ, STRATEGY §4 "Main format"
+wins for that series.
 1. Pick a pillar pair (TRK DRV LIV CAR COOP) and a format from BRAND.md §8. Prefer pairs the ledger hasn't tested
    yet, then double down on winners.
 2. Shoot in the game (director mode); frame-stepped, 9:16 master, 16:9 if useful.
-3. Cut 15-30 s: the hook readable in 1-2 s as on-screen text, a new shot every 1-2 s, the game name on screen, the
-   3 s end card, an ending that loops.
-4. Make **3-5 hook variants** of the same cut, varying one thing each (hook text, first shot, or speed ~110-130%).
+3. Cut it: the hook readable in 1-2 s (as on-screen text, or the narrator's first sentence), the game name on
+   screen, the 3 s end card. Fast-cut formats: 15-30 s, a new shot every 1-2 s, an ending that loops. Narrated
+   explainers: 25-60 s, shots held 3-6 s, speech ~2-2.5 words/s.
+4. Make **3-5 hook variants** of the same cut, varying one thing each (hook text or first sentence, first shot,
+   caption style, or speed ~110-130% for fast cuts).
 5. Check it yourself before queueing: watch frame grabs at 0 s, 1 s, 2 s and the end; type sizes, safe zones (bottom
    22%, right 14%), one amber word, no sliding/bouncing type, engines audible over music, American spelling, no AI
    tells. Fix, then queue.

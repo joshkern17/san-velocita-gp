@@ -80,7 +80,7 @@ A publisher's estimate (unaudited, but it matches every case study):
 ### The format rules, and why
 - **One idea, readable in 1–2 s, as on-screen text.** Viewers swipe in 1–2 s if the topic isn't clear (Derek Lieu, Zukowski).
 - **Game name on screen.** About half of viewers search Steam by name instead of using a link.
-- **15–30 s.** Videos over 1M views averaged 27 s. Completion is TikTok's strongest stated signal.
+- **15–30 s for the fast-cut minor formats; 25–60 s for the narrated main series.** Videos over 1M views averaged 27 s. Completion is TikTok's strongest stated signal.
 - **The ending loops into the start.** Replays count as views.
 - **Burned-in captions.** Many people watch muted.
 - **A 3 s wishlist call to action at the end.**
@@ -108,9 +108,9 @@ A publisher's estimate (unaudited, but it matches every case study):
 | Satisfying | A PS1 drift that loops perfectly | Loops add replays |
 
 ### Faceless, with a recurring voice
-- Face-cam does better on average. The workaround that worked was making a **game character the account's face** (The Matriarch).
-- **Proposal:** the in-game race engineer, already voiced, deadpans over clips on the radio: *"Box, box. Actually, don't. You drew this corner."* It fits the tongue-in-cheek tone, and it's ours.
-- Taste call for you.
+- Face-cam does better on average, so the account needs a recurring voice instead.
+- **Decided 2026-10-18:** the voice is the calm narrator of the main series (see "Main format" above): a designed AI voice first, the dev's own voice A/B tested later.
+- The race engineer, already voiced, is an in-world radio cameo: *"Box, box. Actually, don't. You drew this corner."* He's a payoff line or a minor comedy series, not the narrator.
 
 ### The content engine
 - **Director mode:** the game films itself. AI races, cinematic cameras, frame-stepped 60 fps, 9:16 and 16:9. That's what makes 3–5 hooks per clip and 3–4 posts a week free.

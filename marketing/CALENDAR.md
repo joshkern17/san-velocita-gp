@@ -10,7 +10,9 @@ The plan (what's next) and the ledger (every post and how it did). The head of m
 | 0.3 | Pay Steam Direct fee ($100), create the app | dev | todo |
 | 0.4 | Claim handles: TikTok, YouTube, Instagram, X, Bluesky, Reddit (HoM drafts bios + profile art) | dev (sign-ups), HoM (copy/art) | todo |
 | 0.5 | Director mode: the game films itself (cameras, frame-stepped 60 fps, 9:16 + 16:9) | build | todo |
-| 0.6 | Remotion Short template (hook, captions, end card) | HoM → dev OK | todo |
+| 0.45 | Narrator voice: design in ElevenLabs (calm, earnest, "we"), dev picks from previews | HoM → dev OK | todo |
+| 0.46 | First 6 explainer scripts (tire temps, AI learns each track, LiDAR circuits, pit crew mocap, draw a track, shitbox start) | HoM | todo |
+| 0.6 | Remotion templates: the narrated explainer (main) + the fast-cut Short (minor); captions, end card | HoM → dev OK | todo |
 | 0.7 | Steam Coming Soon page: capsule art, ~30 s trailer, short description, tags, screenshots | HoM → dev OK | todo |
 | 0.8 | Marketing Desk page (review queue) | build | todo |
 | 0.9 | First batch: 6 clips × 3 hooks, ready the day the Steam page goes live | HoM | todo |
