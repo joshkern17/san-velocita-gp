@@ -14,6 +14,16 @@ Lesson: <what to do differently / keep doing>
 
 ---
 
+## 2026-10-18 · content bank review · mostly APPROVED, dirty air CHANGED
+What it was: engines, Spa scan, dirty air, AI sees, tire hooks B and C.
+Said: "They are good for the most part, hook c is best for sure." On dirty air: the last shot ("getting close is
+easy, getting past is the race") shows the Capri sliding off track and crashing into the pit lane, "which doesnt at
+all fit what youre saying"; another shot has "two cars crash in front of the hero car on a turn which looks bad".
+Lesson:
+- **Every shot must match its line.** No crashes, offs, spins or wrecks unless the line is about one.
+- Check every shot for incidents in frame, not just layout (AI mistakes happen in the races we film).
+- Tire temps: hook C ("Every tire here has two temperatures.") is the lead post; B and v2 are the variants.
+
 ## 2026-10-18 · what the AI sees overlay · APPROVED
 What it was: the AI's plan as a ribbon in the game's racing-line colors (green throttle / yellow lift / red brake),
 red brake posts, apex speeds in mph, the pass planner's call.
