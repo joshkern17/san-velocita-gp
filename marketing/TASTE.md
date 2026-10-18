@@ -14,6 +14,17 @@ Lesson: <what to do differently / keep doing>
 
 ---
 
+## 2026-10-18 · explainer 001 v2 tire temps (+ slip-angle beat) · APPROVED: template approved
+What it was: tire-temps-v2.mp4. Script from the explainer-script skill (hook "This Miata's tires are at 35 degrees. They
+want 70."), plus the HyperFrames slip-angle beat inside it.
+Said: "Wow thats so cool. Great script, literally all perfect. We need to make sure hooks stay intriguing and attention
+catching, and i think that was good."
+Lesson:
+- The narrated explainer + physics beat is the approved template: episodes in it no longer need per-item sign-off
+  (BRAND §8).
+- Hooks: lead with a specific, surprising, true number or contrast from the game itself. Always intriguing; test
+  variants.
+
 ## 2026-10-18 · explainer 001 tire temps · CHANGED (close)
 What it was: tire-temps-v1.mp4, the first narrated explainer (DRV + CAR).
 Said: "it is really close" ... "wasnt bad at all tho"; wants scripts that are "more natural and engaging".

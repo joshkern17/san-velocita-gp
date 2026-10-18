@@ -34,6 +34,16 @@ Hook patterns that worked (research/reference-accounts.md):
 
 The first sentence must work alone, muted, as on-screen text. Fewer than ~12 words.
 
+**Hook bar (the dev's rule: hooks must always be intriguing and attention-catching).** The approved benchmark is
+"This Miata's tires are at 35 degrees. They want 70." It's specific, true, visible on screen, and it opens a question
+the viewer needs answered. Every hook must pass all four:
+1. **Specific:** a real number, name or image, not a category.
+2. **Open loop:** the viewer can't guess the answer, and wants it.
+3. **True and shown:** the thing it claims is on screen within 2 s.
+4. **About the game:** no generic clickbait that the video doesn't pay off.
+
+Write 5 candidate hooks, score them against the four, keep the best as the main cut and the next two as variants.
+
 ## 3. The shape (25-60 s, ~2.5 words/s, so 60-140 words)
 1. **Moment / hook** (1 line): the feeling, the claim, the question.
 2. **What it is** (1-2 lines): plainly.
