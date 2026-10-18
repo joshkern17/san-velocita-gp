@@ -188,7 +188,9 @@ export class HUD {
     $('h-tow').classList.toggle('on', (s.slip || 0) > 0.3 && !lim && !dirty);
     $('h-dirty').classList.toggle('on', !!dirty);
     this.set('gear', E.gear, s.gear === -1 ? 'R' : s.speed < 0.5 && s.gear === 1 ? 'N' : String(s.gear));
-    const r = Math.max(0, Math.min(1, (s.rpm - 4000) / 8500));
+    // the rev bar runs from this car's idle to its redline (every engine's own range: an F1's 4000-12500, a road car's
+    // 850-7200); the last 7% flashes for the shift
+    const lo = s.idle ?? 4000, hi = s.redline ?? 12500, r = Math.max(0, Math.min(1, (s.rpm - lo) / Math.max(1, hi - lo)));
     const rw = Math.round(r * 100);
     if (this.cache.rpm !== rw) { this.cache.rpm = rw; E.rpm.style.setProperty('--v', (rw / 100).toFixed(2)); E.rpm.classList.toggle('hot', r > 0.93); }
     E.wrong.classList.toggle('on', !!s.wrongWay);

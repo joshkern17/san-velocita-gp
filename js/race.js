@@ -4849,7 +4849,7 @@ export class Race {
       ...(this.multi ? (() => { const cp = this.classPos(pl); return { clsPos: cp.pos, clsN: cp.n, cls: CLASSES[pl.cls]?.short || pl.cls, clsCol: CLASSES[pl.cls]?.col }; })() : {}),
       lapTime: lapNow, best: pl.best, last: pl.last, raceTime: this.raceTime, timed: this.timedClock(), lapNo: pl.lap,
       crew: this.crew ? { cur: this.crew.cur, name: this.crew.name, t: { ...this.crew.t }, need: this.crewNeed(), ff: this.crew.ff, skipping: !!this.skipping } : null,
-      speed: p.speed, gear: p.gear, rpm: p.rpm, standings, wrongWay: this.wrongWay,
+      speed: p.speed, gear: p.gear, rpm: p.rpm, idle: p.p.idle, redline: p.p.redline, standings, wrongWay: this.wrongWay,
       aids: this.aidHud(),
       state: this.state, surface: pl.surface,
       tyre: p.tyre, dmg: p.dmg, wear: this.wearK > 0, damage: this.damageK > 0,
