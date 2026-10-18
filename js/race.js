@@ -800,8 +800,11 @@ export class Race {
     if (!this.pit) return teamIdx % n;
     // (online: the drivers get the boxes nearest the exit, in grid-list order, the same on every copy; the AI share the
     // rest. Box 0 is right by the entry: too close to stop in from pit-entry speed)
-    if (this.net) { const H = this.net.grid.filter(g => g.k === 'h').map(g => g.team), h = H.indexOf(teamIdx);
-      return h >= 0 ? Math.max(0, n - 1 - h) : teamIdx % Math.max(1, n - H.length); }
+    // (co-op World Career: you and your co-owner are one team, so one box: the drivers with a career person (pid) and
+    // the same team share it)
+    if (this.net) { const H = this.net.grid.filter(g => g.k === 'h'), key = (g) => g.pid != null && g.teamObj ? 'c:' + g.teamObj.name : 'h:' + g.team;
+      const keys = [...new Set(H.map(key))], g = H.find(x => x.team === teamIdx);
+      return g ? Math.max(0, n - 1 - keys.indexOf(key(g))) : teamIdx % Math.max(1, n - keys.length); }
     const pl = this.player || (this.cars || []).find(c => c.isPlayer), idxs = [...(this.cars || []).map(c => c.teamIdx), ...(this.quali ? this.qualiTeams || [] : [])];
     const sig = idxs.join() + '|' + (pl ? pl.teamIdx : '') + '|' + teamIdx;
     if (this._boxSig !== sig) {
@@ -1379,6 +1382,7 @@ export class Race {
     const q = this.quali; if (!q || q.netField) return;
     q.netField = true;
     q.field = list.map(e => { const team = this.teamFor(e.teamIdx); return { ...e, team, color: team.main, best: Infinity, when: Infinity, plan: e.plan.map(r => ({ ...r, done: false })) }; });
+    if (!this.live && LiveSession.wanted(this)) this.live = new LiveSession(this);   // (the host's cars out on their runs, here too)
   }
   fieldForNet() { return (this.quali?.field || []).map(e => ({ teamIdx: e.teamIdx, name: e.name, id: e.id, pot: e.pot, plan: e.plan.map(r => ({ at: r.at, time: r.time, del: r.del })) })); }
   // ---------- the garage (practice / qualifying) ----------
@@ -3082,9 +3086,17 @@ export class Race {
     if (s.best && s.best !== car.best) { car.best = s.best; car.bestWhen = this.raceTime; }
     car.last = s.last;
     // (a session: in their garage they're off the track here too; out again, they appear where they are)
-    if (this.quali) { const ig = !!s.ig; if (ig !== !!car.inGarage) { car.inGarage = ig; car.gone = ig; car.model.group.visible = !ig; if (!ig) car.netInit = false; } car.qDone = !!s.qd; }
+    if (this.quali) { const ig = !!s.ig; if (ig !== !!car.inGarage) { car.inGarage = ig; car.gone = ig; if (ig) this.parkRemote(car); else { car.model.group.visible = true; car.netInit = false; } } car.qDone = !!s.qd; }
     if (s.fin && !car.finished) { car.finished = true; car.finishTime = s.ft; this.addFinish(car); }
     if (s.dnf && !car.gone) this.dropCar(car.key);
+  }
+  // an online car into its garage: stood on its side of its box (a co-op teammate's beside yours; the host's AI out on
+  // a live session's runs), or out of sight with no box to stand it in
+  parkRemote(car) {
+    const pose = this.pitLife && this.pitLife.parkPose(car), g = car.model.group;
+    if (!pose) { g.visible = false; return; }
+    g.position.set(pose.at[0], pose.at[1], pose.at[2]); g.rotation.set(0, pose.h, 0); g.quaternion.setFromEuler(g.rotation); g.visible = true;
+    car.model.animate && car.model.animate({ steer: 0, spin: 0, heave: 0, pitch: 0, roll: 0 });
   }
   // someone left / retired: their car disappears and is classified DNF
   dropCar(key) {
@@ -3657,7 +3669,8 @@ export class Race {
 
     // controls
     for (const car of this.cars) {
-      if (car.gone) continue;
+      if (car.gone && !(car.remote && car.inGarage)) continue;   // (an online car in its garage: still listening, to come out)
+      if (car.gone) { this.netApply(car, dt); continue; }
       // (how hard it's accelerating, smoothed over ~0.2 s: what the AI behind it on the launch expects it to keep doing)
       if (dt > 0) { const u = car.phys.u || 0; car.acc = (car.acc || 0) + ((u - (car.uPrev ?? u)) / dt - (car.acc || 0)) * Math.min(1, dt * 5); car.uPrev = u; }
       if (car.remote) { this.netApply(car, dt); continue; }

@@ -6,7 +6,11 @@
 // Slow cars (an out lap, an in lap) get the blue flag for a car on a flying lap closing on them, you too, and the AI
 // move over for it. Nobody leaves for the first stretch of the session: everyone's in the pits for a bit.
 //
-//   LiveSession.wanted(race)          // offline, a session on a circuit with a pit lane
+//   LiveSession.wanted(race)          // a session on a circuit with a pit lane
+//
+// Online (a co-op weekend): the host runs the field's cars as here, keyed 'a:<team>' so they go out with its other
+// cars' states; the guest's is a follower (race.js netField makes it): the same cars, remote, standing in their boxes
+// till the host's come out (race.js netApply / parkRemote moves them), its times posted on the plan's clock.
 //   race.live = new LiveSession(race) // after qualiStart's field is made
 //   race.live.update(dt)              // each frame
 //   race.live.holds(e, r)             // the run r of field entry e is being driven: its time goes up at the line
@@ -22,14 +26,16 @@ const QUIET = 35;      // s: nobody goes out before this (and each car its own w
 
 export class LiveSession {
   static wanted(race) {
-    return !race.net && !!race.quali && !!race.pit && !race.T.open && race.opts.live !== false && !!(race.quali.field && race.quali.field.length) && !!race.pitLife;
+    return !!race.quali && !!race.pit && !race.T.open && race.opts.live !== false && !!(race.quali.field && race.quali.field.length) && !!race.pitLife;
   }
   constructor(race) {
     this.race = race; this.runners = []; this.pushes = []; this.blueT = 0;
+    this.follow = !!(race.net && !race.net.host);   // (online, not the host: its cars are the host's)
     const q = race.quali, R = Math.random;
     q.field.forEach((e, k) => {
-      const car = race.addCar(e.team, 1 + k, false, e.teamIdx);
+      const car = race.addCar(e.team, 1 + k, false, e.teamIdx, race.net ? { key: 'a:' + e.teamIdx, remote: this.follow } : {});
       car.live = true; car.plan = null; car.qEntry = e;
+      if (this.follow) { const R0 = { e, car, st: 'garage', run: null, laps: 0, push: null }; this.runners.push(R0); this.park(car); return; }
       if (car.ai) car.ai.pace = e.pace;
       car.phys.powerMul = car.basePower = e.power;
       const c = race.rain ? 'wet' : 'soft'; car.phys.fitTyres(c); car.model.setCompound(c);
@@ -43,6 +49,7 @@ export class LiveSession {
   // ---------- each frame ----------
   update(dt) {
     const race = this.race, q = race.quali; if (!q || !q.started) return;
+    if (this.follow) { for (const R of this.runners) R.st = R.car.inGarage ? 'garage' : R.car.pitting ? 'in' : R.car.lap > 0 ? 'flying' : 'out'; return; }
     const el = q.time - q.left, T = race.T, N = T.N, pit = race.pit, cam = race.camera.position;
     for (const R of this.runners) {
       const { car, e } = R;
@@ -149,6 +156,7 @@ export class LiveSession {
     car.parkShown = true;
   }
   holds(e, r) {
+    if (this.follow) return false;   // (the guest posts the field's times on the plan's clock)
     const R = this.runners.find(x => x.e === e);
     return !!R && R.run === r && R.st !== 'garage' && R.st !== 'pushIn';
   }
@@ -161,13 +169,13 @@ export class LiveSession {
   // a car on a slow lap (out, in; yours: your out lap, or crawling) with a car on a flying lap closing on it from
   // behind gets the blue flag for it: the AI move over (race.js aiControls), you get the flag on the HUD
   blues() {
-    const race = this.race, T = race.T, N = T.N, cars = race.cars.filter(c => !c.gone && !c.remote);
-    const flying = (c) => { const R = this.byCar.get(c); return R ? R.st === 'flying' : c.isPlayer && c.lap > 0 && !c.pitting; };
+    const race = this.race, T = race.T, N = T.N, cars = race.cars.filter(c => !c.gone && !c.remote), quick = race.cars.filter(c => !c.gone);
+    const flying = (c) => { const R = this.byCar.get(c); return R ? R.st === 'flying' : (c.isPlayer || (c.remote && c.human)) && c.lap > 0 && !c.pitting; };   // (online: your co-op partner on a lap too)
     for (const c of cars) {
       const R = this.byCar.get(c);
       let slow = R ? (R.st === 'out' || R.st === 'in') && !c.pitting : c.isPlayer && (c.lap === 0 || c.pitting);
       let by = null;
-      for (const f of cars) {
+      for (const f of quick) {
         if (f === c || f.pitting) continue;
         const gap = ((c.idx - f.idx + N) % N) * T.ds; // (f this far behind c, on the road)
         const closing = f.phys.speed - c.phys.speed;

@@ -300,8 +300,9 @@ export class PitGarage {
   // z = 0, the car at CAR_Z), and the camera goes with them, so every shot here is the same one; what's drawn is the
   // session's world (the pit lane, the crews, the weather), and the session's own camera follows ours (its shadows
   // and sky are round us). F: the box's frame (boxFrame). The box's lights and dressing are js/pitlife.js's
-  useTrack(sim, F) {
-    if (this.track && this.track.sim === sim && this.track.F === F) { sim.camHold = this.track.hold; return; }
+  // side: your car's side of the box (pitlife.js sideOf: 1 for a co-op guest, across from the host's)
+  useTrack(sim, F, side = 0) {
+    if (this.track && this.track.sim === sim && this.track.F === F && this.track.side === side) { sim.camHold = this.track.hold; return; }
     this.leaveTrack();
     const a = new THREE.Group(); a.name = 'PitGarage'; a.matrixAutoUpdate = false;
     // (x along the box's front, to your right stood in the door looking in; z out of the door; a rotation, never a
@@ -310,7 +311,7 @@ export class PitGarage {
     a.matrix.makeBasis(X, UP, new THREE.Vector3(-F.n[0], 0, -F.n[1])).setPosition(o[0], o[1] + BOX.floor, o[2]);
     a.matrixWorldNeedsUpdate = true;
     sim.scene.add(a); a.add(this.room, this.bay, this.camera); a.updateMatrixWorld(true);
-    this.track = { sim, F, a, half: F.wx };
+    this.track = { sim, F, a, half: F.wx, side };
     this.camera.near = 0.1; this.camera.far = Math.min(1500, sim.camera.far); this.camera.updateProjectionMatrix();
     sim.camHold = this.track.hold = (cam) => { this.camera.updateWorldMatrix(true, false); this.camera.matrixWorld.decompose(cam.position, cam.quaternion, _sc); cam.fov = this.camera.fov; cam.updateProjectionMatrix(); };
     this.roomWant = 'track'; this.custom = 'track'; this.view = null; this.kit = null; this.flick = null; this.bulbs = []; this.tubes = [];
@@ -333,7 +334,7 @@ export class PitGarage {
       // (the box is the model's mirror image on some lanes: so is the glass, so its picture's turned back round)
       const sc = box && box.screen(F);
       if (sc) {
-        const c = box.car(F); this.bay.position.set(s * c.x, 0, -c.z - CAR_Z);
+        const c = box.car(F); this.bay.position.set(s * c.x * (side ? -1 : 1), 0, -c.z - CAR_Z);
         const geo = sc.geo.clone();
         if (F.mirror) { const uv = geo.attributes.uv; if (uv) { for (let i = 0; i < uv.count; i++) uv.setX(i, 1 - uv.getX(i)); } }
         const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: this.pcTex(false), color: 0xdddddd, polygonOffset: true, polygonOffsetFactor: -2, side: THREE.DoubleSide }));
@@ -1086,7 +1087,7 @@ export class PitGarage {
   // track: { sim, F } your box at the track (useTrack), else the room
   open(cfg, team, tyre, dmg, home = null, track = null) {
     this.active = true; this.t = 0; this.mode = 'pit'; this.shot = 'room'; this.prevShot = null; this.blendK = 1; this.from = null; this.bay.visible = true;
-    if (track && !home) this.useTrack(track.sim, track.F);
+    if (track && !home) this.useTrack(track.sim, track.F, track.side || 0);
     else { this.leaveTrack(); this.pickRoom(home); } // (your own garage model, or home's kit)
     if (!home) this.setCar2(null);
     this.setCar(cfg);

@@ -823,9 +823,12 @@ export class PitLife {
   // ---------- the cars' places in a box ----------
   // the cars that belong in box b (yours first, then by team: a team of two shares a box, and so do two teams when
   // there are more teams than boxes)
+  // (online, the same on every machine: the cars of everyone's copy count, the host's car first, then its co-op
+  // partner's, so a shared box has the host on your model's side and the guest across from it on both screens)
   boxCars(b) {
-    const race = this.race;
-    return race.cars.filter(c => !c.remote && race.boxSlot(c.teamIdx) === b.k).sort((p, q) => (q.isPlayer - p.isPlayer) || (p.teamIdx - q.teamIdx) || (p.carId < q.carId ? -1 : p.carId > q.carId ? 1 : 0));
+    const race = this.race, net = race.net;
+    const rank = (c) => { if (!net || !c.human) return c.isPlayer ? 0 : 3; const g = net.grid.find(x => 'h:' + x.id === c.key); return g && g.pid === 'P' ? 0 : 1; };
+    return race.cars.filter(c => race.boxSlot(c.teamIdx) === b.k).sort((p, q) => (rank(p) - rank(q)) || (p.teamIdx - q.teamIdx) || (p.carId < q.carId ? -1 : p.carId > q.carId ? 1 : 0));
   }
   // where they park, in the box's frame (x along its front, z in): your model's spot (REF_your_car), and a second car
   // mirrored across the box from it

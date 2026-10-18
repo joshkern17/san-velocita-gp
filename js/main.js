@@ -1331,7 +1331,7 @@ function openPitGarage() {
   $('pg-receipt').hidden = true; if (wkOn()) pgReceipt();
   // (your box on the pit lane, where the track has real garages: js/pitboxes.js; else the garage's own room)
   const box = !sim.T.open && sim.pitLife && sim.pitLife.mine;
-  pitGarage.open(pl.model.cfg || sim.opts.car, pl.team, pl.phys.tyre.c, pl.phys.dmg, null, box ? { sim, F: box.F } : null);
+  pitGarage.open(pl.model.cfg || sim.opts.car, pl.team, pl.phys.tyre.c, pl.phys.dmg, null, box ? { sim, F: box.F, side: sim.pitLife.sideOf(pl) } : null);   // (a co-op guest: across the box from the host)
   pitGarage.setPeople(raceReturn === 'world' && world ? mateInRoom(world) : []);
   pgTiming = false; $('pg-timing').hidden = true; $('pg-car').hidden = false;
   // (World Career: you start at the computer, the Race Weekend app open beside the menu)
