@@ -31,3 +31,11 @@ models/tracks/
 
 # test screenshots
 .devtest/tmp/
+
+# marketing media (renders and footage stay local; the briefs and logs are tracked)
+marketing/**/*.mp4
+marketing/**/*.mov
+marketing/**/*.webm
+marketing/**/*.wav
+marketing/**/*.mp3
+marketing/footage/
