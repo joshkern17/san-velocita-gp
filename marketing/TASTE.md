@@ -14,6 +14,11 @@ Lesson: <what to do differently / keep doing>
 
 ---
 
+## 2026-10-18 · director reel with engine sound · APPROVED
+What it was: the same reel with the game's own engines in sync (camera-relative pan, distance, doppler).
+Said: "wowwww thats so cool"
+Lesson: the game's own engine sound under the footage is a keeper; engines lead the mix (BRAND §4).
+
 ## 2026-10-18 · director test reel · APPROVED
 What it was: marketing/footage/example/reel.mp4: dolly, trackside long lens, wheel close-up, heli, orbit, chase (silent).
 Said: "That reel looks so sick"
