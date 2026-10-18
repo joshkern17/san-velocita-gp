@@ -11,7 +11,7 @@ models/garage/
   shell_lockup.glb         Rented lock-up        (FACILITIES.base level 0)
   shell_unit.glb           Industrial unit       (level 1)   from unit-start.blend (tools/garage-unit.py)
   shell_workshop.glb       Race workshop         (level 2)   from workshop-start.blend (tools/garage-workshop.py)
-  shell_factory.glb        Factory               (level 3)   not made yet
+  shell_factory.glb        Factory               (level 3)   from factory-start.blend (tools/garage-factory.py)
   station_tools.glb        Proper tools (a workbench, a locker)
   station_sim.glb          Sim rig (a CRT on a stand, a wheel on a post with pedals, an office chair)
   station_<facility>.glb   one per facility: tools, dyno, fab, sim, data, truck, tunnel
@@ -102,6 +102,7 @@ Names only have to start with these (`SLOT_sim.001` is fine).
 | `PHOTO_nn` | shell (flat plane, 4 : 3, facing in) | A past season's photo (your car in the team's colors, the year, the series, where you finished). `PHOTO_nn_...` are its frame: all hidden with no season for it |
 | `SCALEPAD_<corner>` | shell (empty, its parts parented to it) | A setup pad's scale: the game moves each under its own wheel of the car in bay one |
 | `SCALE_READOUT` | shell (empty) | Where the scales' cables plug in: the game draws them to it from the pads |
+| `PLINTH_nn` | shell (empty) | A plinth in the factory's Boulevard: a car of your career stands on it (newest first), along the plinth. `PLINTH_nn_Plaque` (a plane, 2:1) gets its plaque printed |
 
 Custom properties are set in Object Properties > Custom Properties, and they come through to the game.
 
@@ -208,3 +209,21 @@ mess. The detail is a file each in `tools/workshop/`: `structure.py` (the steel,
 Check it: `node .devtest/workshopshot.mjs <folder>` (shots round it, the walk up to the office; `SHELL_WS=` a tagged
 copy) and `node .devtest/devwalk.mjs <folder>` (Development > Walk The Lock-up / Unit / Workshop, the cabinet and the
 scales under the wheels).
+
+## The Factory
+
+`tools/garage-factory.py` builds `models/garage/factory-start.blend` and, with `-- --export`, `shell_factory.glb`
+(`--noao` skips the baked shadows, which take a while): "SVGP Technology Centre", a technology centre on a lake in the
+McLaren mould, 38 x 28 m. In through a glass rotunda to the Boulevard, a dim gallery along the curved glass where the cars
+of your career stand on plinths (`wcareer.js` honorsOf `cars`: each season's car is kept in its history entry), ending
+at the Hall of Fame (the same TROPHY_/PHOTO_ hooks as the workshop's cabinet). Behind its glass: the atrium, two floors
+high, your three bays under a ring of light, the stairs up to a walkway round it. Off it: the tire bay, the machine shop
+(`station_tools3`), the wind tunnel's hall (`station_tunnel2`, the model shop `station_tunnel`), and behind, the
+composites shop (`station_fab` + `station_fab2`), the dyno cells, the loading dock (`station_truck`, the transporter).
+Upstairs: your office, race ops (`station_data`), the tunnel's control pod, the cafe, the sim suite (`station_sim` +
+`station_sim2`). The detail is a file each in `tools/factory/` (structure, rooms, boulevard); the stations are
+`tools/garage-tunnel.py`, `garage-fab2.py`, `garage-tools3.py`, `garage-sim2.py`, `garage-truck.py`. `FA_TAG=<tag>`
+builds a copy of its own.
+
+Check it: `node .devtest/factoryshot.mjs <folder>` (shots round it, the walk from the Boulevard up to your office);
+Development > Walk The Factory has everything bought and a made-up career's cars and trophies.

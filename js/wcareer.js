@@ -872,7 +872,7 @@ function seasonEnd(w) {
     summary.champs[s.id] = st[0]?.pid; summary.teamChamps[s.id] = tst[0]?.tid;
     st.forEach((e, k) => {
       const tid = teamOfPid(w, e.pid), entry = { y: w.year, s: s.id, team: w.teams[tid]?.name || '', pos: k + 1, pts: e.pts, wins: e.wins, pods: e.pods };
-      if (e.pid === 'P') { w.player.hist.push(entry); summary.you = entry; if (k === 0) w.player.titles++; }
+      if (e.pid === 'P') { if (w.car) { entry.car = w.car.chassis; entry.carName = w.car.name; } w.player.hist.push(entry); summary.you = entry; if (k === 0) w.player.titles++; }   // (the car: the factory's Boulevard shows every one)
       else if (w.people[e.pid]) { w.people[e.pid].hist.push(entry); if (k === 0) w.people[e.pid].titles++; }
     });
   }
@@ -4808,7 +4808,16 @@ function honorsOf(w) {
     for (let i = 0; i < Math.max(0, (h.pods || 0) - (h.wins || 0)); i++) small.push({ kind: 'pod', pos: 2 + (i % 2), line1: SN(h.s), line2: String(h.y) });
   }
   const seasons = H.slice(0, 4).map(h => ({ y: h.y, series: SN(h.s), pos: h.pos, wins: h.wins || 0, pods: h.pods || 0, team: h.team }));
-  return { shelf: { big: big.slice(0, 4), small: small.slice(0, 12) }, seasons };
+  // the cars of your career, newest first, one each (the factory's Boulevard: a plinth a car): this season's, then the
+  // seasons' (careers from before the seasons kept their car: just the one you have)
+  const cars = [], ord = (p) => p === 1 ? 'Champions' : p ? `${p}${p === 2 ? 'nd' : p === 3 ? 'rd' : 'th'}` : '';
+  if (w.car && w.car.chassis) cars.push({ chassis: w.car.chassis, name: w.car.name, years: [w.year], series: SN(w.player.series), result: 'This season' });
+  for (const h of H) if (h.car) {
+    const c = cars.find(x => x.chassis === h.car);
+    if (c) { if (!c.years.includes(h.y)) c.years.push(h.y); continue; }
+    cars.push({ chassis: h.car, name: h.carName || h.car, years: [h.y], series: SN(h.s), result: ord(h.pos) });
+  }
+  return { shelf: { big: big.slice(0, 4), small: small.slice(0, 12) }, seasons, cars: cars.slice(0, 8) };
 }
 
 // what the Wire calls you: the lottery winner, until you've earned something else

@@ -48,6 +48,7 @@ ST_X0, ST_X1, ST_Y0, ST_Y1 = 4.8, 6.0, -1.0, 3.4   # (the stairs up the mezzanin
 
 import garagelib as G
 from garagelib import *
+GEN = os.path.join(SRC, 'workshop_gen' + ('_' + os.environ['WS_TAG'] if os.environ.get('WS_TAG') else ''))   # (again: garagelib's * brought its own GEN, the unit's)
 G.configure(GEN, seed=2003); RNG = G.RNG
 lib_coll = G.lib_collection()
 

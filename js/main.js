@@ -452,6 +452,7 @@ const DEV_ITEMS = [
   { label: 'Walk The Lock-up', action: () => devWalkGarage('lockup'), desc: 'Straight into walking round your first garage, the rented lock-up, with everything bought and the crew at work. B / Esc: the Home Garage menu.', cls: 'gap' },
   { label: 'Walk The Unit', action: () => devWalkGarage('unit'), desc: 'Straight into walking round the industrial unit, with everything bought and the crew at work. B / Esc: the Home Garage menu.' },
   { label: 'Walk The Workshop', action: () => devWalkGarage('workshop'), desc: 'Straight into walking round the Race Workshop, with everything bought, the crew at work and a few made-up trophies in the cabinet. Nothing is saved. B / Esc: the Home Garage menu.' },
+  { label: 'Walk The Factory', action: () => devWalkGarage('factory'), desc: 'Straight into walking round the Factory, the technology centre on the lake, with everything bought, the crew at work, and a made-up career: its cars on the Boulevard, its trophies in the Hall of Fame. Nothing is saved. B / Esc: the Home Garage menu.' },
   { label: 'Back', action: () => mainDev(false), desc: 'The main menu.', cls: 'gap' },
 ];
 // Development > Walk The ...: that premises with every facility bought (the lift too), the crew at work, a made-up
@@ -461,9 +462,11 @@ const DEV_HONORS = { clips: [], trophies: ['title', 'win', 'win', 'pod'], bills:
     small: [{ kind: 'win', pos: 1, line1: 'Laguna Seca', line2: 'GT2 Championship 2028' }, { kind: 'pod', pos: 2, line1: 'Road Atlanta', line2: 'GT2 Championship 2028' },
       { kind: 'win', pos: 1, line1: 'Street Cup', line2: '2027' }, { kind: 'win', pos: 1, line1: 'Street Cup', line2: '2027' }, { kind: 'pod', pos: 3, line1: 'Street Cup', line2: '2027' },
       { kind: 'pod', pos: 2, line1: 'Spec Miata Club', line2: '2026' }] },
-  seasons: [{ y: 2027, series: 'Street Cup', pos: 1, wins: 4, pods: 7 }, { y: 2026, series: 'Spec Miata Club', pos: 3, wins: 1, pods: 3 }] };
+  seasons: [{ y: 2027, series: 'Street Cup', pos: 1, wins: 4, pods: 7 }, { y: 2026, series: 'Spec Miata Club', pos: 3, wins: 1, pods: 3 }],
+  cars: [{ chassis: 'f1', name: 'Formula SV', years: [2029], series: 'Formula SV', result: 'This season' }, { chassis: 'r34gt2', name: 'Skyline GT2', years: [2028], series: 'GT2 Championship', result: '2nd' },
+    { chassis: 'civic', name: 'Civic EK', years: [2027], series: 'Street Cup', result: 'Champions' }, { chassis: 'miata', name: 'Miata', years: [2025, 2026], series: 'Spec Miata Club', result: '3rd' }] };
 function devWalkGarage(premises) {
-  Object.assign(hv, { premises, fac: { tools: 2, sim: 1, dyno: 1, fab: 1, data: 1 }, car2: true, crew: true, busy: true });
+  Object.assign(hv, { premises, fac: premises === 'factory' ? { tools: 3, sim: 2, dyno: 1, fab: 2, data: 1, truck: 1, tunnel: 2 } : { tools: 2, sim: 1, dyno: 1, fab: 1, data: 1 }, car2: true, crew: true, busy: true });   // (the factory: every top level, so its own stations show)
   openHomeView();
   const ready = async () => {
     for (let k = 0; k < 100 && !(pitGarage.custom && pitGarage.custom.startsWith(`home:${premises}`)); k++) await new Promise(r => setTimeout(r, 100));
@@ -2706,7 +2709,7 @@ function hvCrew() {
   return [crewPerson('hv:mech', 'mechanic', 'Sal', team), crewPerson('hv:mech2', 'mechanic', 'Ruby', team), crewPerson('hv:eng', 'engineer', 'Priya', team),
     crewPerson('hv:mgr', 'manager', 'Danny', team), { key: 'hv:mate', role: 'driver', look: 'racer', livery: driverLivery('hv:mate', team), face: driverFace('hv:mate') }];
 }
-const hvBusy = () => hv.busy ? ['dyno', 'fab', 'tools2', 'data'] : [];
+const hvBusy = () => hv.busy ? ['dyno', 'fab', 'tools2', 'data', 'fab2', 'tools3', 'tunnel2', 'sim2'] : [];
 function hvHome() {
   return { premises: hv.premises, stations: WC.FAC_KEYS.flatMap(k => stationKeys(k, hv.fac[k])),
     car2: hv.car2 ? { ...hvCar(), number: (settings.car.number || 7) % 99 + 1 } : null };
@@ -2984,10 +2987,12 @@ function homeCrewOf(w) {
 function homeBusy(w) {
   const out = new Set();
   for (const x of (w.projects || []).filter(p => !p.done && !p.shop)) {
-    if (x.area === 'engine') out.add('dyno'); else if (x.area === 'chassis' || x.area === 'aero') out.add('fab');
-    out.add('tools2');
+    if (x.area === 'engine') out.add('dyno'); else if (x.area === 'chassis' || x.area === 'aero') { out.add('fab'); out.add('fab2'); }
+    if (x.area === 'aero') out.add('tunnel2');   // (the factory's: the model in the tunnel, a part in the autoclave)
+    out.add('tools2'); out.add('tools3');
   }
   if (WC.staffOf(w, 'engineer')) out.add('data');
+  out.add('sim2');   // (the pro simulator: someone's always on it)
   return [...out];
 }
 // (something bought or sold since: the room catches up)

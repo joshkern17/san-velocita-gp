@@ -40,7 +40,7 @@ for n, pos, at in shots:
     sc.render.filepath = os.path.join(out, f'r-{n}.png'); bpy.ops.render.render(write_still=True)
 try:   # (a sheet of the four, if Pillow's there)
     import subprocess
-    subprocess.run(['python3', '-c', f'''
+    subprocess.run(['/usr/local/bin/python3' if os.path.exists('/usr/local/bin/python3') else 'python3', '-c', f'''
 from PIL import Image
 im = Image.new("RGB", (1920, 1200))
 for k, f in enumerate(["front", "left", "main", "work"]): im.paste(Image.open("{out}/r-" + f + ".png"), ((k % 2) * 960, (k // 2) * 600))

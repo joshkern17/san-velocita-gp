@@ -82,5 +82,7 @@ export async function loadKit(premises, stations = []) {
   const trophies = named('TROPHY_').filter(o => /^TROPHY_\d+$/.test(o.name)).sort(byName);
   const photos = named('PHOTO_').filter(o => /^PHOTO_\d+$/.test(o.name)).sort(byName).map(o => ({ pic: o, parts: named(o.name) }));
   return { group, setBusy, shell: used, bays, spawn: named('SPAWN')[0] || null, nav, stands: named('STAND_'), interacts: named('INTERACT_'), tires: named('TIRES')[0] || null, stations: set,
-    trophies, trophyNote: named('TROPHY_NOTE'), photos, scalePads: named('SCALEPAD_'), scaleReadout: named('SCALE_READOUT')[0] || null };
+    trophies, trophyNote: named('TROPHY_NOTE'), photos, scalePads: named('SCALEPAD_'), scaleReadout: named('SCALE_READOUT')[0] || null,
+    // the factory's Boulevard: PLINTH_nn where a car of your career stands, PLINTH_nn_Plaque its printed plaque
+    plinths: named('PLINTH_').filter(o => /^PLINTH_\d+$/.test(o.name)).sort(byName).map(o => ({ at: o, plaque: named(o.name + '_Plaque')[0] || null })) };
 }

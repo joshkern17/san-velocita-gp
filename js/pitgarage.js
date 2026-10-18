@@ -756,6 +756,21 @@ export class PitGarage {
     put(shelf.big, big); put(shelf.small, small);
     const any = shelf.big.length + shelf.small.length > 0;
     for (const o of k.trophyNote || []) o.visible = !any;
+    // the Boulevard (the factory): a car of your career on each plinth, newest first, in your livery; its plaque printed
+    const cars = (m && m.cars) || [], base = this.carCfg || {};
+    (k.plinths || []).forEach((p, i) => {
+      const c = cars[i]; if (!c) return;
+      const car = buildF1({ ...base, chassis: c.chassis }, { texSize: 512 }), g = car.group;
+      p.at.getWorldPosition(g.position); p.at.getWorldQuaternion(q); g.quaternion.copy(q);
+      g.rotateY(Math.PI / 2 - 0.08); g.updateMatrixWorld(true);   // (along its plinth, the nose a touch to the walkway: faced at it, an F1 car hung over the rope)
+      if (car.shadow) car.shadow.visible = false;
+      G.add(g);
+      if (p.plaque) {
+        const tex = new THREE.CanvasTexture(this.plaqueCanvas(c)); tex.colorSpace = THREE.SRGBColorSpace; tex.flipY = false;
+        if (p.plaque.material && p.plaque.material.userData.honors && p.plaque.material.map) p.plaque.material.map.dispose();
+        p.plaque.material = new THREE.MeshBasicMaterial({ map: tex, color: 0xd8d8d8 }); p.plaque.material.userData.honors = true;
+      }
+    });
     const seasons = (m && m.seasons) || [];
     (k.photos || []).forEach((ph, i) => {
       const s = seasons[i]; for (const o of ph.parts) o.visible = !!s;
@@ -791,6 +806,20 @@ export class PitGarage {
       hd.rotation.z = sd > 0 ? -Math.PI / 2 : Math.PI / 2; hd.position.set(sd * 0.082 * s, ph + 0.235 * s, 0); o.add(hd);
     }
     return o;
+  }
+  // a Boulevard plaque: the car, its years, the series and how it went, white on dark brushed steel
+  plaqueCanvas(c) {
+    const cv = document.createElement('canvas'); cv.width = 512; cv.height = 256; const g = cv.getContext('2d');
+    const gr = g.createLinearGradient(0, 0, 512, 256); gr.addColorStop(0, '#2a2d33'); gr.addColorStop(1, '#16181c'); g.fillStyle = gr; g.fillRect(0, 0, 512, 256);
+    g.strokeStyle = '#8a9099'; g.lineWidth = 6; g.strokeRect(8, 8, 496, 240);
+    g.fillStyle = '#4aa8ff'; g.fillRect(28, 150, 140, 4);
+    g.textBaseline = 'alphabetic'; g.fillStyle = '#f2f2ee';
+    const fit = (t, size, y, col, w = 456) => { let f = size; do { g.font = `bold ${f}px Helvetica, Arial, sans-serif`; f--; } while (g.measureText(t).width > w && f > 10); g.fillStyle = col; g.fillText(t, 28, y); };
+    const ys = c.years.slice().sort((a, b) => a - b), yr = ys.length > 1 ? `${ys[0]}-${String(ys[ys.length - 1]).slice(-2)}` : String(ys[0]);
+    fit(String(c.name || c.chassis).toUpperCase(), 46, 82, '#f2f2ee');
+    fit(`${yr}  ${c.series || ''}`, 30, 136, '#c9ced6');
+    if (c.result) fit(c.result, 34, 204, c.result === 'Champions' ? '#e8c060' : '#f2f2ee');
+    return cv;
   }
   plateTex(it) {
     const c = document.createElement('canvas'); c.width = 256; c.height = 96; const g = c.getContext('2d');
@@ -1100,7 +1129,7 @@ export class PitGarage {
   // (a different car in the bay: the one you just bought)
   setCar(cfg) {
     if (this.car) { this.bay.remove(this.car.group); this.car.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
-    this.car = buildF1(cfg, { texSize: 2048 }); this.cfgChassis = cfg.chassis || 'custom'; this.car.group.visible = !this.carOff; this.shadeCar(this.car);
+    this.car = buildF1(cfg, { texSize: 2048 }); this.cfgChassis = cfg.chassis || 'custom'; this.carCfg = cfg; this.car.group.visible = !this.carOff; this.shadeCar(this.car);
     if (this.active && this.mode === 'home') { this.car.group.position.set(0, 0, CAR_Z); this.car.group.add(this.car.shadow); this.car.shadow.position.y = 0.01; this.bay.add(this.car.group); }
   }
   // an empty bay (World Career: the car's been sold, or burned)
