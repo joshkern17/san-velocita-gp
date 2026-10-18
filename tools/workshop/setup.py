@@ -87,6 +87,11 @@ for s in (-1, 1): rd(f'Su_Readout_HandleArm{s}', SU, (RX + 0.04, RY + s * 0.17, 
 empty('SCALE_READOUT', SU, (RX + 0.03, RY, 0.96), kind='SPHERE', size=0.05)   # (the four cables plug in under the box)
 for k in range(4): cy(f'Su_Readout_Plug{k}', SU, 0.011, 0.04, (RX + 0.03, RY - 0.06 + k * 0.04, 0.985), blackp, verts=6)
 
+# (the stand turned to face the doors, where you see it from the floor: built screen to -X, turned a quarter round)
+bpy.context.view_layer.update()
+Mturn = Matrix.Translation(Vector((RX, RY, 0))) @ Matrix.Rotation(D90, 4, 'Z') @ Matrix.Translation(Vector((-RX, -RY, 0)))
+for o in [o for o in SU.objects if o.name.startswith(('Su_Stand', 'Su_Readout', 'SCALE_READOUT'))]: o.matrix_world = Mturn @ o.matrix_world
+
 # ---------------- the alignment trolley, behind the car ----------------
 TX, TY = BAY1.x - 0.2, BAY1.y + 4.25
 W2, D2 = 0.9, 0.5
@@ -130,5 +135,5 @@ bx('Su_Clip', SU, (0.08, 0.03, 0.012), (TX + 0.0, TY + 0.235, TOP + 0.014), stai
 rd('Su_Pen', SU, (TX + 0.16, TY + 0.02, TOP + 0.012), (TX + 0.17, TY + 0.15, TOP + 0.012), 0.005, plain_mat('Su_Pen', (0.1, 0.2, 0.7), dirt=0.0), verts=5)
 
 # where they work: reading the scales, at the trolley
-empty('STAND_engineer.020', hooks, (RX - 0.55, RY, 0), rotz=D90, kind='SINGLE_ARROW', size=0.5, clip='lean', role='engineer')
+empty('STAND_engineer.020', hooks, (RX, RY - 0.55, 0), rotz=math.pi, kind='SINGLE_ARROW', size=0.5, clip='lean', role='engineer')   # (in front of the screen, facing it)
 empty('STAND_mechanic.020', hooks, (TX, TY - 0.6, 0), rotz=math.pi, kind='SINGLE_ARROW', size=0.5, clip='lean', role='mechanic')

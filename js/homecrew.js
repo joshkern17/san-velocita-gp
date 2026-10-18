@@ -90,6 +90,8 @@ export class HomeCrew {
     for (const c of [pg.car, pg.car2]) if (c && c.group.parent && c.group.visible) {
       const b = new THREE.Box3(); c.group.updateMatrixWorld(true);
       c.group.traverse(o => { if (o.isMesh && o !== c.shadow && !(c.shadow && c.shadow.children.includes(o))) b.expandByObject(o); });
+      // (and where its wheels really are, along it: an open-wheeler's wings stretch its box well past them)
+      if (c.wheels && c.wheels.length) b.wheelZ = c.wheels.map(w => (w.pivot || w.mesh).getWorldPosition(_v).z);
       if (!b.isEmpty()) { boxes.push(b); this.carBoxes.push(b); }
     }
     this.floors = ys.map(y => {
@@ -128,7 +130,8 @@ export class HomeCrew {
     for (const b of this.carBoxes) {
       const cx = (b.min.x + b.max.x) / 2, cz = (b.min.z + b.max.z) / 2, hx = (b.max.x - b.min.x) / 2, hz = (b.max.z - b.min.z) / 2;
       for (const [sx, sz] of [[-1, -0.62], [1, -0.62], [-1, 0.62], [1, 0.62]]) {
-        const x = cx + sx * (hx + 0.32), z = cz + sz * hz;
+        const want = cz + sz * hz, z = b.wheelZ ? b.wheelZ.reduce((m, q) => Math.abs(q - want) < Math.abs(m - want) ? q : m) : want;   // (at a wheel)
+        const x = cx + sx * (hx + 0.32);
         this.spots.push({ x, z, y: 0, L: 0, yaw: Math.atan2(-sx, 0), clip: 'kneel', role: 'wheel', st: null, who: null });
       }
       this.spots.push({ x: cx + hx + 0.6, z: cz + hz * 0.1, y: 0, L: 0, yaw: Math.atan2(-1, 0), clip: 'idle_look', role: 'wheel', st: null, who: null });

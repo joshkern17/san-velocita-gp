@@ -309,6 +309,18 @@ for i, b in ((1, BAY1), (2, BAY2), (3, BAY3)):
 for o in guides.objects: o.hide_render = True
 
 # ======================================================================================================================
+# baked shadows (garagelib bake_ao: ambient occlusion into the vertex colors, the game multiplies it in): dark under and
+# behind things, in corners, where parts meet; the room's own floor and walls are what they're dark against. Not the
+# see-through (glass, cutouts: their alpha's in play). -- --noao: skip it (a quick look)
+if '--noao' not in args:
+    import time; t0 = time.time()
+    def see_through(m):
+        p = m.node_tree.nodes.get('Principled BSDF') if m and m.node_tree else None
+        return bool(p) and (p.inputs['Alpha'].is_linked or p.inputs['Alpha'].default_value < 0.999)
+    skip = {m for m in bpy.data.materials if see_through(m)}
+    n = bake_ao(shell, skip=skip, distance=0.6, samples=32, wall=False)
+    print(f'AO baked on {n} objects in {time.time() - t0:.0f} s')
+
 EXPORT = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'garage-unit.py')).read().split("EXPORT = r'''")[1].split("'''")[0]
 t = bpy.data.texts.new('export_kit'); t.write(EXPORT)
 # WS_TAG=<tag>: a build of its own (workshop-start-<tag>.blend, shell_workshop_<tag>.glb), so several can be built at
