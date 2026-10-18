@@ -65,6 +65,8 @@ rules. Reference: `marketing/anim/slip-beat` (HyperFrames).
   release naming decision, marketing avoids naming manufacturers in text/captions and avoids close-ups of homage
   liveries in paid or press material. Organic clips can show cars as they are.
 
+- **No pit lanes in shot on real tracks (dev, 2026-10-18).** Pit lanes are broken on real tracks until the dev fixes
+  them (Spa's pokes into the track at La Source). Avoid start/finish, pit entry and exit; check frame grabs.
 - **Cars on screen (dev, 2026-10-18):** no open-wheel F1 cars for now. Feature the hero cars and rotate them, so
   people see the range:
   - Mazda MX-5 Miata `miata`

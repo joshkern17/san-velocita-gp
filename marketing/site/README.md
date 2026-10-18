@@ -13,3 +13,8 @@ One static page in the game's neon-signal look. Built 2026-10-18.
   - deploy the folder, media included, to the free host.
 - **Open question:** the Helvetica Now woff2 files. Publishing them on a website needs a web-font licence. Check the
   game's font licence, or swap in a free lookalike for the site.
+
+## Gotcha: glow-only text
+The game draws type as glow with a transparent fill. That only works in Chromium: Safari paints nothing. On the web,
+text keeps a solid fill with the glow on top. Only the wordmark keeps transparent fill (it uses background-clip:text,
+which Safari supports). Check in WebKit before shipping (playwright-core `webkit`, installed 2026-10-18).

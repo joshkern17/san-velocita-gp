@@ -28,7 +28,9 @@ a { color: inherit; }
 
 /* soft glowing type, the game's way: no crisp fill, two blurred copies in its own colour */
 .caption, h2, .num, .btn, .socials a, .foot, .form-note, .pillar-text p, .hero-sub, .explainer-text p,
-.hero-line, .pitch-line, .cta-line { text-shadow: var(--glow); -webkit-text-fill-color: transparent; }
+.hero-line, .pitch-line, .cta-line { text-shadow: var(--glow); }
+/* (the game draws type as glow only, with a transparent fill. That needs Chromium: Safari doesn't paint the shadows of
+   unfilled text. So on the web the text keeps its fill and wears the same glow on top.) */
 
 /* the faint grid the whole page sits on */
 .grid-bg { position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: .5;
@@ -48,7 +50,7 @@ section, header, footer { position: relative; z-index: 1; }
   -webkit-text-fill-color: transparent; filter: blur(.6px) drop-shadow(0 0 2px var(--hot)); padding-top: .04em; }
 .wm-band { display: flex; align-items: center; gap: 16px; margin-top: 14px; }
 .wm-band span { font: 500 clamp(18px, 2.2vw, 26px)/1 var(--f-ui); letter-spacing: var(--track-cap); color: var(--red); text-shadow: var(--glow-strong);
-  -webkit-text-fill-color: transparent; white-space: nowrap; margin-right: calc(-1 * var(--track-cap)); }
+  white-space: nowrap; margin-right: calc(-1 * var(--track-cap)); }
 .wm-line { flex: 1; min-width: 32px; height: 2px; background: var(--red); box-shadow: var(--glow-line); }
 .signal { flex: none; width: 120px; height: 20px; background: var(--signal); transform: skewX(-20deg); filter: blur(.5px) drop-shadow(0 0 2px #6a72ff);
   -webkit-mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 9px); mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 9px); }
@@ -61,7 +63,7 @@ section, header, footer { position: relative; z-index: 1; }
 .signup { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 12px; max-width: 560px; }
 .signup input { flex: 1 1 260px; min-width: 0; height: 54px; padding: 0 18px; background: var(--plate); border: 2px solid var(--red-dim);
   color: var(--red); font: 500 18px/1 var(--f-ui); letter-spacing: .08em; outline: none; box-shadow: 0 0 2px var(--red-dim); }
-.signup input::placeholder { color: var(--red-dim); -webkit-text-fill-color: var(--red-dim); }
+.signup input::placeholder { color: var(--red-dim); }
 .signup input:focus { border-color: var(--amber); color: var(--amber); box-shadow: 0 0 3px var(--amber), 0 0 6px var(--amber); }
 .btn { height: 54px; padding: 0 26px; background: transparent; border: 2px solid var(--red); color: var(--red); cursor: pointer;
   font: 500 18px/1 var(--f-ui); letter-spacing: .12em; box-shadow: 0 0 2px var(--red), 0 0 4px var(--red), inset 0 0 2px var(--red);
