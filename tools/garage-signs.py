@@ -130,4 +130,37 @@ def gauges(d, W, H):
     for i in range(8): d.ellipse([20 + i * 28, 140, 32 + i * 28, 152], fill=(40, 220, 60) if i < 5 else (220, 160, 30) if i < 7 else (220, 40, 30))
     d.text((20, 162), 'DYNO CONTROL  WB-200', font=ARIALB(12), fill=(180, 180, 180))
 screen('panel_gauges', gauges, bg=(46, 50, 54))
+
+# ---- the engine dyno's cell (tools/garage-dyno.py) ----
+# the absorber's nameplate: riveted aluminium, stamped
+im = Image.new('RGB', (256, 96), (176, 178, 172)); d = ImageDraw.Draw(im)
+d.rectangle([0, 0, 255, 95], outline=(90, 92, 90), width=4)
+for x, y in ((8, 8), (247, 8), (8, 87), (247, 87)): d.ellipse([x - 4, y - 4, x + 4, y + 4], fill=(120, 122, 118))
+centered(d, 10, 'SVT  EC-450', BLACK(26), (30, 34, 40), 256)
+centered(d, 44, 'EDDY CURRENT DYNAMOMETER', ARIALB(15), (30, 34, 40), 256)
+centered(d, 66, 'MAX 450 kW   12 000 rpm', MONO(13), (50, 52, 56), 256)
+im.save(os.path.join(OUT, 'dyno_plate.png'))
+# the console's switch panel: toggles, lamps, the labels, a dymo strip
+im = Image.new('RGB', (384, 128), (58, 62, 66)); d = ImageDraw.Draw(im)
+d.rectangle([0, 0, 383, 127], outline=(30, 32, 34), width=4)
+for i, lab in enumerate(('IGN', 'FUEL', 'START', 'FAN', 'WATER', 'EXH', 'LOG', 'AUX')):
+    x = 24 + i * 45; d.rectangle([x - 8, 40, x + 8, 70], fill=(24, 24, 26)); d.rectangle([x - 3, 30 if i % 3 else 52, x + 3, 56 if i % 3 else 78], fill=(200, 200, 196))
+    d.ellipse([x - 7, 10, x + 7, 24], fill=(40, 220, 60) if i in (0, 1, 3, 4, 5) else (220, 160, 30) if i == 6 else (80, 30, 26))
+    d.text((x - 14, 84), lab, font=ARIALB(11), fill=(220, 220, 214))
+d.rectangle([20, 104, 220, 120], fill=(20, 20, 20)); d.text((26, 104), 'DO NOT TOUCH - DANNY', font=MONO(12), fill=(230, 230, 230))
+im.save(os.path.join(OUT, 'dyno_switches.png'))
+# ENGINE RUNNING: lit, and dark
+for name, on in (('sign_running', True), ('sign_running_off', False)):
+    im = Image.new('RGB', (256, 64), (200, 20, 14) if on else (52, 14, 12)); d = ImageDraw.Draw(im)
+    centered(d, 16, 'ENGINE RUNNING', BLACK(22), (255, 236, 200) if on else (96, 40, 34), 256)
+    im.save(os.path.join(OUT, name + '.png'))
+# a rack unit's front: vents, LEDs, a readout
+im = Image.new('RGB', (128, 256), (34, 36, 40)); d = ImageDraw.Draw(im)
+for k in range(8):
+    y = 6 + k * 31; d.rectangle([4, y, 123, y + 26], fill=(46, 48, 54), outline=(20, 20, 22))
+    for j in range(6): d.ellipse([10 + j * 9, y + 9, 15 + j * 9, y + 14], fill=R.choice([(40, 230, 70), (40, 230, 70), (230, 170, 30), (30, 60, 30)]))
+    if k % 3 == 1: d.rectangle([70, y + 6, 116, y + 20], fill=(10, 30, 14)); d.text((73, y + 6), f'{R.randint(10, 99)}.{R.randint(0, 9)}', font=MONO(12), fill=(90, 255, 120))
+    else:
+        for j in range(8): d.line([(70 + j * 6, y + 6), (70 + j * 6, y + 20)], fill=(24, 24, 26), width=2)
+im.save(os.path.join(OUT, 'rack_front.png'))
 print('wrote', OUT)

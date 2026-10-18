@@ -5,7 +5,7 @@
 # Re-running overwrites stations-start.blend: Save As your own copy to edit, then export from inside Blender (Text
 # Editor > export_kit > Run Script). station_tools and station_sim stay in kit-start.blend (tools/garage-kit.py).
 #
-#   station_dyno     Engine dyno: an engine on a test bed, the water brake, a chain-link screen, the control desk
+#   station_dyno     Engine dyno: (the old one, kept for reference; tools/garage-dyno.py builds the game's now)
 #   station_fab      Fabrication bay: a welding table with a frame on it, the welder, a weld screen, tube and sheet
 #   station_data     Data room: three desks at the mezzanine's rail, CRTs, the printer, the whiteboard
 #   station_tools2   Lift and engine hoist (Tools, level 2): a two-post lift and an engine crane, for the third bay
@@ -371,10 +371,11 @@ EXPORT = r'''
 import bpy, os
 from mathutils import Matrix, Vector
 OUT = bpy.path.abspath('//')   # (next to the .blend: models/garage/)
+SKIP = {'station_dyno'}   # (built by their own scripts now: tools/garage-dyno.py)
 def export_kit(out=OUT, only=None):
     done = []
     for coll in bpy.data.collections:
-        if not coll.name.startswith(('shell_', 'station_')) or ' ' in coll.name: continue
+        if not coll.name.startswith(('shell_', 'station_')) or ' ' in coll.name or coll.name in SKIP: continue
         if only and coll.name not in only: continue
         objs = [o for o in coll.all_objects if not o.name.startswith('GUIDE') and o.visible_get()]
         off = Vector(coll.instance_offset) if coll.name.startswith('station_') else None

@@ -14,6 +14,9 @@ const b = await chromium.launch({ channel: 'chrome', headless: true });
 try {
   const pg = await b.newPage({ viewport: { width: 1600, height: 900 } });
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
+  // KIT=station_dyno=station_dyno_v2,...: load those pieces from other files (a new version, side by side with the old)
+  if (process.env.KIT) await pg.addInitScript((swap) => { const m = {}; for (const n of ['shell_lockup', 'shell_unit', 'station_tools', 'station_tools2', 'station_dyno', 'station_fab', 'station_sim', 'station_data']) m[n] = `models/garage/${n}.glb`;
+    for (const kv of swap.split(',')) { const [a, b] = kv.split('='); m[a] = `models/garage/${b}.glb`; } window.__SVGP_KIT = m; }, process.env.KIT);
   pg.on('pageerror', e => console.log('PAGE ERROR', e.stack));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
   await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(800);

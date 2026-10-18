@@ -295,3 +295,201 @@ def card(name, coll, w, h, loc, mat, rotz=0.0, tilt=0.0):
     for li, (u, v) in zip(me.polygons[0].loop_indices, ((0, 0), (1, 0), (1, 1), (0, 1))): uv.data[li].uv = (u, v)
     if me.polygons[0].normal.y > 0: me.flip_normals()
     o = bpy.data.objects.new(name, me); o.location = loc; o.rotation_euler = (tilt, 0, rotz); coll.objects.link(o); me.materials.append(mat); return o
+
+
+# ======================================================================================================================
+# Detailed stations (tools/garage-dyno.py and after; the method: .claude/skills/garage-station/SKILL.md). Shapes that
+# read as the real thing: chamfered boxes, lathed parts, smooth swept tubes with textures that run along them, steel
+# sections; a see-through cutout; ambient occlusion baked into vertex colours; the export. Everything made with these
+# is kept in BUILT (what the AO bake works on); wrap a garagelib box/cyl/rod/card in mk() to add it.
+import bmesh
+BUILT = []
+
+def _obj(name, coll, me, mat):
+    o = bpy.data.objects.new(name, me); coll.objects.link(o)
+    if isinstance(mat, (list, tuple)):
+        for m in mat: me.materials.append(m)
+    else: me.materials.append(mat)
+    BUILT.append(o); return o
+
+def mk(o): BUILT.append(o); return o
+
+def bbox(name, coll, size, loc, mat, rot=(0, 0, 0), bev=0.012):
+    # a box with its edges chamfered (catches the light along them: no more razor boxes)
+    o = box(name, coll, size, loc, mat, rot)
+    bm = bmesh.new(); bm.from_mesh(o.data)
+    bmesh.ops.bevel(bm, geom=list(bm.edges), offset=min(bev, min(size) * 0.3), offset_type='OFFSET', segments=1, profile=0.5, affect='EDGES')
+    bm.to_mesh(o.data); bm.free()
+    while o.data.uv_layers: o.data.uv_layers.remove(o.data.uv_layers[0])
+    uv_world(o.data, o.matrix_world, 0.5); return mk(o)
+
+def bx(*a, **k): return mk(box(*a, **k))
+def cy(*a, **k): return mk(cyl(*a, **k))
+def rd(*a, **k): return mk(rod(*a, **k))
+def cd(*a, **k): return mk(card(*a, **k))
+
+def lathe(name, coll, prof, loc, mat, segs=14, rot=(0, 0, 0), cap0=True, cap1=True, vscale=None):
+    # a profile [(r, z)] turned about Z (then rot): trumpets, pulleys, the absorber, the beacon
+    verts, faces, uvs = [], [], []
+    L = [0.0]
+    for (r0, z0), (r1, z1) in zip(prof, prof[1:]): L.append(L[-1] + math.hypot(r1 - r0, z1 - z0))
+    for i, (r, z) in enumerate(prof):
+        for j in range(segs + 1):
+            a = j / segs * math.tau; verts.append((r * math.cos(a), r * math.sin(a), z))
+    n = segs + 1
+    for i in range(len(prof) - 1):
+        for j in range(segs): faces.append((i * n + j, i * n + j + 1, (i + 1) * n + j + 1, (i + 1) * n + j))
+    if cap0 and prof[0][0] > 1e-4: faces.append(tuple(range(segs - 1, -1, -1)))
+    if cap1 and prof[-1][0] > 1e-4: k = (len(prof) - 1) * n; faces.append(tuple(k + j for j in range(segs)))
+    me = bpy.data.meshes.new(name); me.from_pydata(verts, [], faces)
+    uv = me.uv_layers.new(); vs = vscale or (1.0 / max(1e-3, L[-1]))
+    for f in me.polygons:
+        for li in f.loop_indices:
+            vi = me.loops[li].vertex_index; i, j = divmod(vi, n); uv.data[li].uv = (j / segs, L[min(i, len(L) - 1)] * vs)
+    me.validate(); me.update()
+    o = _obj(name, coll, me, mat); o.location = loc; o.rotation_euler = rot
+    for p in me.polygons: p.use_smooth = True
+    return o
+
+def _cr(p0, p1, p2, p3, t):
+    t2, t3 = t * t, t * t * t
+    return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3)
+
+def sweep(name, coll, pts, r, mat, segs=8, per_m=10, vscale=None, closed=False, caps=True, rv=None):
+    # a tube along a smooth (Catmull-Rom) path through pts: headers, hoses, the flex duct, a belt. UVs run along it
+    # (u round, v along: 1 over its length unless vscale, per metre), so a texture can change along a pipe.
+    # rv: radius along it, a function of 0..1
+    P = [Vector(p) for p in pts]
+    if closed: P = P + P[:3]
+    ext = [P[0] * 2 - P[1]] + P + [P[-1] * 2 - P[-2]]
+    S = []
+    for i in range(1, len(ext) - 2 - (2 if closed else 0)):
+        n = max(2, int((ext[i + 1] - ext[i]).length * per_m))
+        for k in range(n): S.append(_cr(ext[i - 1], ext[i], ext[i + 1], ext[i + 2], k / n))
+    if closed: S.append(S[0].copy())
+    else: S.append(P[-1].copy())
+    T = [(S[min(k + 1, len(S) - 1)] - S[max(k - 1, 0)]).normalized() for k in range(len(S))]
+    ref = Vector((0, 0, 1)) if abs(T[0].z) < 0.9 else Vector((1, 0, 0))
+    N = [T[0].cross(ref).normalized()]
+    for k in range(1, len(S)):
+        q = T[k - 1].rotation_difference(T[k]); N.append((q @ N[-1]).normalized())
+    L = [0.0]
+    for k in range(1, len(S)): L.append(L[-1] + (S[k] - S[k - 1]).length)
+    vs = vscale if vscale else 1.0 / max(1e-3, L[-1])
+    verts, faces = [], []
+    for k, c in enumerate(S):
+        B = T[k].cross(N[k]); rr = r * (rv(L[k] / L[-1]) if rv else 1)
+        for j in range(segs + 1):
+            a = j / segs * math.tau; verts.append(c + (N[k] * math.cos(a) + B * math.sin(a)) * rr)
+    m = segs + 1
+    for k in range(len(S) - 1):
+        for j in range(segs): faces.append((k * m + j, (k + 1) * m + j, (k + 1) * m + j + 1, k * m + j + 1))
+    if caps and not closed:
+        faces.append(tuple(range(segs - 1, -1, -1))); e = (len(S) - 1) * m; faces.append(tuple(e + j for j in range(segs)))
+    me = bpy.data.meshes.new(name); me.from_pydata(verts, [], faces)
+    uv = me.uv_layers.new()
+    for f in me.polygons:
+        for li in f.loop_indices:
+            vi = me.loops[li].vertex_index; k, j = divmod(vi, m); uv.data[li].uv = (j / segs, L[k] * vs)
+    me.validate(); me.update()
+    for p in me.polygons: p.use_smooth = True
+    return _obj(name, coll, me, mat)
+
+def ibeam(name, coll, x0, x1, y, z, mat, w=0.12, h=0.16, t=0.016):
+    # a steel I-section along X, its bottom at z
+    prof = [(-w / 2, 0), (w / 2, 0), (w / 2, t), (t / 2, t), (t / 2, h - t), (w / 2, h - t), (w / 2, h), (-w / 2, h), (-w / 2, h - t), (-t / 2, h - t), (-t / 2, t), (-w / 2, t)]
+    n = len(prof); verts = [(x0, y + a, z + b) for a, b in prof] + [(x1, y + a, z + b) for a, b in prof]
+    faces = [tuple(range(n - 1, -1, -1)), tuple(range(n, 2 * n))] + [(i, (i + 1) % n, n + (i + 1) % n, n + i) for i in range(n)]
+    me = bpy.data.meshes.new(name); me.from_pydata(verts, [], faces); me.validate(); me.update(); uv_world(me, Matrix.Identity(4), 0.5)
+    return _obj(name, coll, me, mat)
+
+def tiled_card(name, coll, w, h, loc, mat, tile=0.3, **k):
+    # a card whose texture repeats every `tile` metres (the mesh: wires every 7.5 cm), not stretched over it
+    o = card(name, coll, w, h, loc, mat, **k)
+    for d in o.data.uv_layers[0].data: d.uv = (d.uv[0] * w / tile, d.uv[1] * h / tile)
+    return mk(o)
+
+def retile(o, scale):
+    while o.data.uv_layers: o.data.uv_layers.remove(o.data.uv_layers[0])
+    uv_world(o.data, o.matrix_world, scale); return o
+
+def grid_out(o, cell=0.3):
+    # more vertices on big flat faces, for the vertex-colour AO to land somewhere
+    bm = bmesh.new(); bm.from_mesh(o.data)
+    long = max((e.calc_length() for e in bm.edges), default=0)
+    cuts = min(14, int(long / cell))
+    if cuts > 0: bmesh.ops.subdivide_edges(bm, edges=list(bm.edges), cuts=cuts, use_grid_fill=True)
+    bm.to_mesh(o.data); bm.free(); o.data.update()
+
+def px_tex(name, col, alpha=None):
+    h, w = col.shape[:2]; rgba = np.ones((h, w, 4), np.float32); rgba[..., :3] = psx(col)
+    if alpha is not None: rgba[..., 3] = alpha
+    im = bpy.data.images.get(name) or bpy.data.images.new(name, w, h, alpha=alpha is not None)
+    if tuple(im.size) != (w, h): im.scale(w, h)
+    im.pixels = rgba.ravel(); im.filepath_raw = os.path.join(GEN, name + '.png'); im.file_format = 'PNG'; im.save(); return im
+
+
+def cutout_mat(name, col, alpha, rough=0.6):
+    # a material you see through where alpha < 0.5 (welded mesh, grating, a fence): glTF alphaMode MASK. Leave it out
+    # of bake_ao (skip=), it doesn't shade
+    m = mat_img(name, px_tex(name, col, alpha=alpha), rough)
+    nt = m.node_tree; t = [n for n in nt.nodes if n.type == 'TEX_IMAGE'][0]; g = nt.nodes.new('ShaderNodeMath'); g.operation = 'GREATER_THAN'; g.inputs[1].default_value = 0.5
+    nt.links.new(t.outputs['Alpha'], g.inputs[0]); nt.links.new(g.outputs[0], nt.nodes['Principled BSDF'].inputs['Alpha'])
+    return m
+
+
+def solid_mat(name, rgb, rough=0.5):
+    m = mat_img(name, None, rough); m.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (*rgb, 1); return m
+
+
+def bake_ao(coll, skip=(), distance=0.55, samples=64):
+    # ambient occlusion into a vertex colour ('AO') on everything built here (BUILT) in coll, against a floor and a wall
+    # where the station stands (its back on y = 0), lifted so it darkens without blacking out; every material those use
+    # gets its base colour multiplied by it (glTF COLOR_0: three.js multiplies it in). skip: materials left out (a
+    # see-through cutout); those meshes get plain white AO so they aren't black in the game
+    sc = bpy.context.scene; sc.render.engine = 'CYCLES'; sc.cycles.samples = 64; sc.cycles.device = 'CPU'
+    if not sc.world: sc.world = bpy.data.worlds.new('World')
+    sc.world.light_settings.distance = distance; sc.cycles.samples = samples
+    occ = bpy.data.materials.get('TMP_Occluder') or mat_img('TMP_Occluder', None)
+    tmp = [box('TMP_Floor', coll, (12, 12, 0.02), (0, -2, -0.01), occ), box('TMP_Wall', coll, (12, 0.02, 6), (0, 0.01, 3), occ)]
+    mine = set(coll.all_objects)
+    objs = [o for o in BUILT if o in mine and o.type == 'MESH' and not any(m in skip for m in o.data.materials)]
+    for o in objs:
+        a = o.data.color_attributes.get('AO') or o.data.color_attributes.new('AO', 'BYTE_COLOR', 'CORNER'); o.data.color_attributes.active_color = a
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in objs: o.select_set(True)
+    bpy.context.view_layer.objects.active = objs[0]
+    bpy.ops.object.bake(type='AO', target='VERTEX_COLORS')
+    for o in objs:   # (lifted: AO darkens, never blacks out; a little warm in the dark)
+        a = o.data.color_attributes['AO']; v = np.empty(len(a.data) * 4, np.float32); a.data.foreach_get('color', v); v = v.reshape(-1, 4)
+        k = 0.42 + 0.58 * np.clip(v[:, 0], 0, 1) ** 0.85; v[:, 0] = k; v[:, 1] = k * 0.985; v[:, 2] = k * 0.96; v[:, 3] = 1; a.data.foreach_set('color', v.ravel())
+    for t in tmp: bpy.data.objects.remove(t, do_unlink=True)
+    # every material the built things use: base colour times the AO
+    mats = {m for o in objs for m in o.data.materials if m}
+    for m in mats:
+        nt = m.node_tree; p = nt.nodes.get('Principled BSDF')
+        if any(n.type == 'VERTEX_COLOR' for n in nt.nodes): continue
+        ca = nt.nodes.new('ShaderNodeVertexColor'); ca.layer_name = 'AO'
+        mix = nt.nodes.new('ShaderNodeMix'); mix.data_type = 'RGBA'; mix.blend_type = 'MULTIPLY'; mix.inputs['Factor'].default_value = 1.0
+        src = p.inputs['Base Color'].links[0].from_socket if p.inputs['Base Color'].links else None
+        if src: nt.links.new(src, mix.inputs['A'])
+        else: mix.inputs['A'].default_value = p.inputs['Base Color'].default_value
+        nt.links.new(ca.outputs['Color'], mix.inputs['B']); nt.links.new(mix.outputs['Result'], p.inputs['Base Color'])
+    # (anything built that wasn't baked, the mesh: plain white AO so it isn't black in the game)
+    for o in BUILT:
+        if o in mine and o.type == 'MESH' and 'AO' not in o.data.color_attributes:
+            a = o.data.color_attributes.new('AO', 'BYTE_COLOR', 'CORNER'); v = np.ones(len(a.data) * 4, np.float32); a.data.foreach_set('color', v)
+    return len(objs)
+
+def export_station(coll, path):
+    # the station's collection to a .glb: lights, extras (the hooks' clip/role), the AO as COLOR_0
+    objs = [o for o in coll.all_objects if not o.name.startswith(('GUIDE', 'TMP'))]
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in objs: o.hide_set(False); o.select_set(True)
+    bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=True, export_cameras=False, export_lights=True,
+                              export_extras=True, export_apply=True, export_yup=True, export_vertex_color='ACTIVE')
+    print('exported', path)
+
+
+def tris(coll):
+    return sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in coll.all_objects if o.type == 'MESH')
