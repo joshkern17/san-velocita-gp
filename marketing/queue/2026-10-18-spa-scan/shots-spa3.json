@@ -1,0 +1,6 @@
+{ "name": "spa-scan-3", "aspect": "9:16", "seed": 21, "track": { "real": "spa" }, "env": { "time": "day", "weather": "clear" },
+  "race": { "car": "f1gtr", "team": "Gulfstream Racing", "opponents": 7, "aiChassis": "class", "laps": 10 }, "warmup": 4,
+  "shots": [
+    { "rig": "heli", "dur": 4.0, "at": 1250, "back": 32, "h": 24, "name": "kemmel-heli" },
+    { "rig": "trackside", "dur": 4.0, "at": 2780, "ahead": 110, "name": "bruxelles" }
+  ] }

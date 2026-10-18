@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <!-- LiDAR beat for explainer 003 (Spa). 16.2 s, timed to narration take 3 from 10.75 s:
+         "From the lowest point of the lap to the highest… a hundred and two meters. / Eau Rouge drops you into the
+         valley. Then Raidillon climbs twenty-five meters, almost fifteen percent at its steepest. / We even measured the
+         tilt of the road, side to side."
+         Every number and line here is the game's own track (tracks/real/spa.json through js/track.js sampleTrack,
+         exported to spa-data.json): the lap profile, the Eau Rouge / Raidillon section in 3D (height ×2, labelled), the
+         camber at 1,040 m. Tokens: docs/DESIGN.md. Motion: the BRAND §3 exception for physics beats. -->
+    <style>
+      @font-face { font-family: "SV UI"; src: url("fonts/SVUI-500.woff2") format("woff2"); font-weight: 500; }
+      @font-face { font-family: "SV Display"; src: url("fonts/SVDisplay-700.woff2") format("woff2"); font-weight: 700; }
+      @font-face { font-family: "SV Num"; src: url("fonts/SVNum-500.woff2") format("woff2"); font-weight: 500; }
+      :root { --hot: #ff6a1c; --hot-top: #ff8a2a; --hot-deep: #ff3d0c; --red: #ff2b00; --red-dim: #c93216; --amber: #ffc21a; --blue: #2d36f2; --blue-pale: #6a72ff; --ink: #05060c; --pink: #ff3d8a; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--ink); }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--ink); }
+      .glow { text-shadow: 0 0 .025em currentColor, 0 0 .06em currentColor; -webkit-text-fill-color: transparent; letter-spacing: -0.02em; }
+      .glow-strong { text-shadow: 0 0 .04em currentColor, 0 0 .1em currentColor; -webkit-text-fill-color: transparent; }
+      #stage { position: absolute; inset: 0; }
+      svg.full { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; }
+      .title { position: absolute; left: 0; right: 0; top: 150px; text-align: center; font: 500 30px/1 "SV UI"; color: var(--red); letter-spacing: .34em; }
+      #title-rule { position: absolute; left: 380px; width: 320px; top: 200px; height: 2px; background: var(--red); box-shadow: 0 0 2px var(--red), 0 0 4px var(--red); }
+      .lab { position: absolute; font: 500 26px/1 "SV UI"; letter-spacing: .26em; color: var(--red); white-space: nowrap; }
+      .big { position: absolute; font: 700 120px/0.9 "SV Display"; letter-spacing: -0.02em; text-align: center;
+        background: linear-gradient(180deg, var(--hot-top), var(--hot) 45%, var(--hot-deep)); -webkit-background-clip: text; background-clip: text;
+        -webkit-text-fill-color: transparent; filter: blur(.5px) drop-shadow(0 0 3px var(--hot)); font-variant-numeric: tabular-nums; white-space: nowrap; }
+      .num { position: absolute; font: 500 64px/1 "SV Num"; font-variant-numeric: tabular-nums; white-space: nowrap; }
+      .line { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-width="1080" data-height="1920" data-duration="16.2">
+      <section id="scene" class="clip" data-start="0" data-duration="16.2" data-track-index="0" style="position:absolute;inset:0">
+        <div id="stage">
+          <svg id="grid" class="full" viewBox="0 0 1080 1920"></svg>
+          <div id="t1" class="title glow-strong">SPA · LASER SCAN</div>
+          <div id="t2" class="title glow-strong" style="opacity:0">EAU ROUGE · RAIDILLON</div>
+          <div id="t3" class="title glow-strong" style="opacity:0">CAMBER · RAIDILLON</div>
+          <div id="title-rule"></div>
+
+          <!-- phase 1: the lap's elevation profile -->
+          <div id="p1">
+            <svg class="full" viewBox="0 0 1080 1920">
+              <path id="frame1" class="line" d="" stroke="#ff2b00" stroke-width="3" style="filter: drop-shadow(0 0 2px #ff2b00)" />
+              <path id="prof-fill" d="" fill="rgba(255,43,0,.10)" opacity="0" />
+              <path id="prof" class="line" d="" stroke="#ff6a1c" stroke-width="5" style="filter: drop-shadow(0 0 4px #ff6a1c)" />
+              <path id="win" d="" fill="rgba(255,194,26,.10)" stroke="#ffc21a" stroke-width="2" stroke-dasharray="6 8" opacity="0" />
+              <g id="dim" opacity="0" stroke="#ffc21a" stroke-width="2.5" style="filter: drop-shadow(0 0 2px #ffc21a)">
+                <line id="dim-hi" x1="0" y1="0" x2="0" y2="0" stroke-dasharray="5 7" /><line id="dim-lo" x1="0" y1="0" x2="0" y2="0" stroke-dasharray="5 7" />
+                <line id="dim-v" x1="0" y1="0" x2="0" y2="0" />
+              </g>
+              <circle id="hi-dot" r="10" fill="#ffc21a" opacity="0" style="filter: drop-shadow(0 0 6px #ffc21a)" />
+              <circle id="lo-dot" r="10" fill="#ffc21a" opacity="0" style="filter: drop-shadow(0 0 6px #ffc21a)" />
+            </svg>
+            <div class="lab" id="km0" style="top:930px">0 KM</div>
+            <div class="lab" id="km7" style="top:930px">7 KM</div>
+            <div class="lab" id="lab-hi" style="opacity:0">HIGHEST</div>
+            <div class="lab" id="lab-lo" style="opacity:0">LOWEST</div>
+            <div class="big" id="m102" style="opacity:0">102 M</div>
+          </div>
+
+          <!-- phase 2: Eau Rouge and Raidillon in 3D -->
+          <div id="p2" style="opacity:0">
+            <svg class="full" viewBox="0 0 1080 1920"><g id="road"></g><circle id="ride" r="12" fill="#ffffff" style="filter: drop-shadow(0 0 7px #6a72ff)" /></svg>
+            <div class="lab" id="l-er">EAU ROUGE</div>
+            <div class="lab" id="l-ra">RAIDILLON</div>
+            <div class="lab" id="l-x2" style="left:0; right:0; top:1150px; text-align:center; color:#c93216; font-size:22px">HEIGHT SHOWN ×4</div>
+            <div class="num" id="climb" style="left:110px; top:990px; color:#ff6a1c; opacity:0">+25 M</div>
+            <div class="num" id="grade" style="right:110px; top:990px; color:#ffc21a; opacity:0">14.9%</div>
+            <div class="lab" id="climb-k" style="left:112px; top:1065px; opacity:0">CLIMB</div>
+            <div class="lab" id="grade-k" style="right:112px; top:1065px; opacity:0; text-align:right">STEEPEST</div>
+          </div>
+
+          <!-- phase 3: the road's cross-section, tilted by the measured camber -->
+          <div id="p3" style="opacity:0">
+            <svg class="full" viewBox="0 0 1080 1920">
+              <line x1="170" y1="760" x2="910" y2="760" stroke="#c93216" stroke-width="2" stroke-dasharray="8 10" />
+              <g id="slab"><rect x="190" y="740" width="700" height="40" rx="6" fill="#14151c" stroke="#ff2b00" stroke-width="3" style="filter: drop-shadow(0 0 3px #ff2b00)" />
+                <line x1="200" y1="740" x2="880" y2="740" stroke="#ff6a1c" stroke-width="3" /></g>
+              <path id="camber-arc" class="line" d="" stroke="#ffc21a" stroke-width="3" style="filter: drop-shadow(0 0 3px #ffc21a)" />
+              <g id="pts" fill="#6a72ff" style="filter: drop-shadow(0 0 4px #6a72ff)"></g>
+            </svg>
+            <div class="big" id="cam-v" style="left:0; right:0; top:880px; opacity:0">3.2°</div>
+            <div class="lab" style="left:0; right:0; top:1010px; text-align:center">MEASURED ACROSS THE ROAD</div>
+            <div class="lab" style="left:0; right:0; top:1100px; text-align:center; color:#c93216; font-size:22px">TILT SHOWN ×3</div>
+          </div>
+        </div>
+      </section>
+    </div>
+    <script>
+      const $ = (id) => document.getElementById(id), NS = "http://www.w3.org/2000/svg";
+      let gd = ""; for (let x = 60; x < 1080; x += 60) gd += `<line x1="${x}" y1="0" x2="${x}" y2="1920" />`; for (let y = 60; y < 1920; y += 60) gd += `<line x1="0" y1="${y}" x2="1080" y2="${y}" />`;
+      $("grid").innerHTML = `<g stroke="#ff2b00" stroke-opacity=".06" stroke-width="1">${gd}</g>`;
+      const SPA = {"L":6967,"lo":{"m":4981,"y":0},"hi":{"m":2478,"y":102.21},"prof":[[0,50.3],[20,50.69],[40,51.07],[60,51.46],[80,51.83],[100,52.26],[120,52.71],[140,53.26],[160,54.02],[180,54.89],[200,55.64],[220,56.3],[240,57.06],[260,57.16],[280,56.15],[300,55.08],[320,53.85],[340,52.63],[360,51.46],[380,50.25],[400,49.08],[420,47.74],[440,46.28],[460,45.02],[480,43.82],[500,42.58],[520,41.37],[540,40.23],[560,39.11],[580,38.05],[600,37.06],[620,36.15],[640,35.16],[660,34.16],[680,33.17],[700,32.12],[720,31.06],[740,30.01],[760,29],[780,28.01],[800,27.08],[820,26.23],[840,25.44],[860,24.69],[880,24.02],[900,23.39],[920,23.02],[940,23.38],[960,24.13],[980,25.94],[1000,28.6],[1020,31.47],[1040,34.51],[1060,37.42],[1080,40.31],[1100,42.51],[1120,44.25],[1140,46.05],[1160,47.44],[1180,48.33],[1200,49.22],[1220,50.11],[1240,50.99],[1260,51.88],[1280,52.8],[1300,53.79],[1320,54.77],[1340,55.64],[1360,56.54],[1380,57.5],[1400,58.49],[1420,59.41],[1440,60.34],[1460,61.26],[1480,62.17],[1500,63.05],[1520,63.93],[1540,64.79],[1560,65.7],[1580,66.6],[1600,67.51],[1620,68.43],[1640,69.35],[1660,70.27],[1680,71.2],[1700,72.12],[1720,73.01],[1740,73.88],[1760,74.78],[1780,75.69],[1800,76.62],[1820,77.54],[1840,78.48],[1860,79.41],[1880,80.32],[1900,81.21],[1920,82.12],[1940,83.05],[1960,83.99],[1980,84.91],[2000,85.81],[2020,86.7],[2040,87.62],[2060,88.55],[2080,89.5],[2100,90.43],[2120,91.37],[2140,92.29],[2160,93.19],[2180,94.08],[2200,94.96],[2220,95.81],[2240,96.8],[2260,97.69],[2280,98.44],[2300,99.14],[2320,99.76],[2340,100.31],[2360,100.77],[2380,101.24],[2400,101.54],[2420,101.78],[2440,101.98],[2460,102.13],[2480,102.21],[2500,102.18],[2520,102.04],[2540,101.85],[2560,101.51],[2580,101.13],[2600,100.72],[2620,100.2],[2640,99.6],[2660,98.91],[2680,98.15],[2700,97.34],[2720,96.48],[2740,95.54],[2760,94.48],[2780,93.34],[2800,92.21],[2820,91.02],[2840,89.59],[2860,88.2],[2880,86.82],[2900,85.34],[2920,83.87],[2940,82.4],[2960,80.99],[2980,79.55],[3000,78.2],[3020,76.83],[3040,75.44],[3060,73.95],[3080,72.54],[3100,71.26],[3120,69.8],[3140,68.41],[3160,67],[3180,65.57],[3200,64.14],[3220,62.79],[3240,61.34],[3260,59.89],[3280,58.44],[3300,57],[3320,55.63],[3340,54.33],[3360,53.02],[3380,51.57],[3400,50.05],[3420,48.59],[3440,47.25],[3460,45.94],[3480,44.58],[3500,43.19],[3520,41.77],[3540,40.37],[3560,38.95],[3580,37.6],[3600,36.27],[3620,34.83],[3640,33.27],[3660,31.87],[3680,30.44],[3700,29.05],[3720,27.55],[3740,26.24],[3760,24.83],[3780,23.49],[3800,22.1],[3820,20.75],[3840,19.21],[3860,17.98],[3880,16.75],[3900,15.68],[3920,14.75],[3940,13.76],[3960,12.88],[3980,12.17],[4000,11.47],[4020,10.85],[4040,10.31],[4060,9.86],[4080,9.52],[4100,9.26],[4120,9.08],[4140,8.98],[4160,8.94],[4180,8.97],[4200,9.07],[4220,9.23],[4240,9.41],[4260,9.58],[4280,9.77],[4300,10],[4320,10.19],[4340,10.32],[4360,10.53],[4380,10.68],[4400,10.81],[4420,10.96],[4440,11.01],[4460,11],[4480,10.98],[4501,10.83],[4521,10.66],[4541,10.44],[4561,10.29],[4581,10.05],[4601,9.82],[4621,9.5],[4641,9.09],[4661,8.66],[4681,8.23],[4701,7.75],[4721,7.23],[4741,6.66],[4761,6.02],[4781,5.27],[4801,4.54],[4821,3.76],[4841,2.99],[4861,2.25],[4881,1.65],[4901,1.14],[4921,0.73],[4941,0.41],[4961,0.13],[4981,0],[5001,0.08],[5021,0.18],[5041,0.42],[5061,0.79],[5081,1.23],[5101,1.77],[5121,2.35],[5141,2.96],[5161,3.6],[5181,4.27],[5201,4.9],[5221,5.47],[5241,6.11],[5261,6.78],[5281,7.47],[5301,8.14],[5321,8.81],[5341,9.44],[5361,10.04],[5381,10.63],[5401,11.2],[5421,11.74],[5441,12.27],[5461,12.8],[5481,13.25],[5501,13.64],[5521,14.05],[5541,14.47],[5561,14.89],[5581,15.26],[5601,15.63],[5621,16.04],[5641,16.47],[5661,16.92],[5681,17.37],[5701,17.84],[5721,18.31],[5741,18.79],[5761,19.22],[5781,19.68],[5801,20.21],[5821,20.72],[5841,21.29],[5861,21.87],[5881,22.43],[5901,22.95],[5921,23.45],[5941,23.94],[5961,24.44],[5981,25.07],[6001,25.64],[6021,26.27],[6041,26.74],[6061,27.18],[6081,27.61],[6101,27.96],[6121,28.24],[6141,28.44],[6161,28.66],[6181,28.93],[6201,29.21],[6221,29.49],[6241,29.8],[6261,30.24],[6281,30.76],[6301,31.3],[6321,31.84],[6341,32.45],[6361,33.15],[6381,33.9],[6401,34.61],[6421,35.35],[6441,36.05],[6461,36.75],[6481,37.46],[6501,38.16],[6521,38.82],[6541,39.49],[6561,40.26],[6581,41.01],[6601,41.63],[6621,42.23],[6641,43.09],[6661,43.72],[6681,44.28],[6701,44.84],[6721,45.34],[6741,45.83],[6761,46.3],[6781,46.74],[6801,47.16],[6821,47.56],[6841,47.92],[6861,48.25],[6881,48.61],[6901,49.01],[6921,49.42],[6941,49.8],[6961,50.18]],"sec":[[760,-16.73,29,-926.34,-0.0053,13],[764,-14.13,28.8,-923.29,-0.0028,13],[768,-11.54,28.6,-920.24,-0.0001,13],[772,-8.95,28.4,-917.2,0.0027,13],[776,-6.36,28.2,-914.15,0.0056,13],[780,-3.77,28.01,-911.1,0.0083,13],[784,-1.18,27.81,-908.05,0.0107,13],[788,1.41,27.63,-905,0.0128,13],[792,4,27.44,-901.95,0.0144,13],[796,6.6,27.26,-898.91,0.0154,13],[800,9.19,27.08,-895.86,0.0157,13],[804,11.78,26.9,-892.81,0.016,13],[808,14.37,26.73,-889.77,0.0166,13],[812,16.96,26.56,-886.72,0.0176,13],[816,19.55,26.39,-883.67,0.0188,13],[820,22.14,26.23,-880.62,0.0203,13],[824,24.73,26.06,-877.57,0.0218,13],[828,27.32,25.9,-874.52,0.0234,13],[832,29.91,25.75,-871.47,0.0251,13],[836,32.5,25.59,-868.43,0.0266,13],[840,35.1,25.44,-865.38,0.0281,13],[844,37.69,25.28,-862.33,0.0293,13],[848,40.29,25.13,-859.29,0.0304,13],[852,42.89,24.98,-856.25,0.0311,13],[856,45.49,24.84,-853.21,0.0314,13],[860,48.09,24.69,-850.17,0.0315,13],[864,50.66,24.55,-847.1,0.0318,13],[868,53.21,24.42,-844.02,0.0323,13],[872,55.75,24.28,-840.94,0.033,13],[876,58.29,24.15,-837.84,0.0337,13],[880,60.83,24.02,-834.75,0.0346,13],[884,63.38,23.89,-831.67,0.0355,13],[888,65.94,23.76,-828.6,0.0364,13],[892,68.53,23.63,-825.55,0.0374,13],[896,71.15,23.51,-822.52,0.0382,13],[900,73.81,23.39,-819.53,0.039,13],[904,76.52,23.28,-816.6,0.0397,13],[908,79.32,23.17,-813.73,0.0401,13],[912,82.21,23.08,-810.97,0.0399,13],[916,85.21,23.03,-808.33,0.0378,13],[920,88.32,23.02,-805.81,0.0335,13],[924,91.53,23.03,-803.42,0.0283,13],[928,94.8,23.09,-801.12,0.0237,13],[932,98.1,23.17,-798.86,0.0212,13],[936,101.41,23.27,-796.61,0.0203,13],[940,104.78,23.38,-794.45,0.017,13],[944,108.18,23.5,-792.35,0.0117,13],[948,111.61,23.62,-790.28,0.0054,13],[952,115.05,23.77,-788.24,-0.0013,13],[956,118.49,23.93,-786.2,-0.0079,13],[960,121.92,24.13,-784.14,-0.0136,13],[964,125.32,24.37,-782.04,-0.0178,13],[968,128.69,24.65,-779.88,-0.0192,13],[972,132.02,25,-777.67,-0.021,13],[976,135.34,25.43,-775.43,-0.0247,13],[980,138.62,25.94,-773.14,-0.0293,13],[984,141.86,26.49,-770.79,-0.0334,13],[988,145.02,27.03,-768.34,-0.035,13],[992,148.13,27.54,-765.82,-0.0372,13],[996,151.14,28.06,-763.19,-0.0417,13],[1000,154.02,28.6,-760.42,-0.045,13],[1004,156.75,29.15,-757.49,-0.046,13],[1008,159.34,29.73,-754.45,-0.0486,13],[1012,161.79,30.3,-751.29,-0.0518,13],[1016,164.12,30.87,-748.03,-0.0539,13],[1020,166.35,31.47,-744.71,-0.0542,13],[1024,168.47,32.1,-741.32,-0.0544,13],[1028,170.52,32.72,-737.88,-0.0548,13],[1032,172.48,33.32,-734.4,-0.0552,13],[1036,174.36,33.92,-730.86,-0.0556,13],[1040,176.15,34.51,-727.29,-0.0558,13],[1044,177.84,35.1,-723.66,-0.0557,13],[1048,179.42,35.69,-719.99,-0.0549,13],[1052,180.92,36.27,-716.28,-0.0536,13],[1056,182.33,36.85,-712.53,-0.052,13],[1060,183.67,37.42,-708.76,-0.0505,13],[1064,184.93,38.01,-704.97,-0.0494,13],[1068,186.12,38.59,-701.15,-0.0489,13],[1072,187.19,39.18,-697.3,-0.046,13],[1076,188.13,39.76,-693.41,-0.039,13],[1080,188.94,40.31,-689.49,-0.0314,13],[1084,189.69,40.79,-685.56,-0.0269,13],[1088,190.42,41.24,-681.63,-0.0258,13],[1092,191.03,41.7,-677.67,-0.0228,13],[1096,191.58,42.12,-673.71,-0.0181,13],[1100,192.1,42.51,-669.74,-0.0124,13],[1104,192.59,42.88,-665.77,-0.006,13],[1108,193.08,43.23,-661.8,0.0008,13],[1112,193.58,43.57,-657.83,0.0076,13],[1116,194.1,43.91,-653.87,0.0144,13],[1120,194.65,44.25,-649.9,0.0209,13],[1124,195.25,44.6,-645.95,0.0268,13],[1128,195.92,44.96,-642.01,0.0318,13],[1132,196.69,45.34,-638.08,0.0354,13],[1136,197.64,45.71,-634.19,0.0367,13],[1140,198.74,46.05,-630.35,0.037,13],[1144,200.01,46.36,-626.55,0.0377,13],[1148,201.45,46.67,-622.82,0.0387,13],[1152,203.05,46.96,-619.16,0.0396,13],[1156,204.75,47.21,-615.54,0.0401,13],[1160,206.53,47.44,-611.96,0.0401,13],[1164,208.45,47.65,-608.44,0.0399,13],[1168,210.46,47.84,-604.99,0.0396,13],[1172,212.55,48.01,-601.58,0.0392,13],[1176,214.68,48.17,-598.19,0.0389,13],[1180,216.83,48.33,-594.82,0.0386,13],[1184,218.97,48.49,-591.44,0.0384,13],[1188,221.1,48.66,-588.05,0.0384,13],[1192,223.23,48.85,-584.66,0.0378,13],[1196,225.38,49.04,-581.29,0.0366,13],[1200,227.54,49.22,-577.92,0.035,13],[1204,229.71,49.4,-574.56,0.0332,13],[1208,231.89,49.58,-571.21,0.0313,13],[1212,234.08,49.76,-567.86,0.0293,13],[1216,236.27,49.93,-564.51,0.0275,13],[1220,238.45,50.11,-561.16,0.0258,13],[1224,240.64,50.28,-557.81,0.0243,13],[1228,242.82,50.46,-554.45,0.0233,13],[1232,244.99,50.64,-551.1,0.0227,13],[1236,247.16,50.82,-547.73,0.0225,13],[1240,249.33,50.99,-544.37,0.0214,13],[1244,251.49,51.17,-541.01,0.0197,13],[1248,253.65,51.34,-537.64,0.0175,13],[1252,255.82,51.52,-534.27,0.0149,13],[1256,257.98,51.7,-530.91,0.0122,13],[1260,260.14,51.88,-527.54,0.0095,13],[1264,262.3,52.06,-524.18,0.0072,13],[1268,264.46,52.24,-520.81,0.0052,13],[1272,266.62,52.42,-517.44,0.0039,13],[1276,268.78,52.61,-514.07,0.0035,13],[1280,270.94,52.8,-510.71,0.0031,13],[1284,273.1,52.99,-507.34,0.002,13],[1288,275.26,53.19,-503.97,0.0004,13],[1292,277.41,53.39,-500.6,-0.0016,13],[1296,279.57,53.59,-497.23,-0.0037,13],[1300,281.73,53.79,-493.86,-0.0059,13],[1304,283.88,53.99,-490.49,-0.008,13],[1308,286.04,54.19,-487.12,-0.0098,13],[1312,288.2,54.39,-483.76,-0.0112,13],[1316,290.36,54.58,-480.39,-0.0121,13],[1320,292.52,54.77,-477.02,-0.0123,13]],"laSource":{"b":-0.06975821405649185,"w":13},"names":[{"name":"La Source","from":226,"to":280},{"name":"Eau Rouge","from":870,"to":962},{"name":"Raidillon","from":964,"to":1182},{"name":"Kemmel","from":1184,"to":2230},{"name":"Les Combes","from":2232,"to":2396},{"name":"Malmedy","from":2470,"to":2552},{"name":"Bruxelles","from":2830,"to":3002},{"name":"Speaker's Corner","from":3102,"to":3352},{"name":"Double Gauche","from":3612,"to":3982},{"name":"Fagnes","from":4274,"to":4567},{"name":"Campus","from":4747,"to":4841},{"name":"Courbe Paul Frère","from":4949,"to":5137},{"name":"Blanchimont","from":5539,"to":6087},{"name":"Chicane","from":6563,"to":6599}]};
+      const run = (D) => {
+        // ---- phase 1: profile (whole lap), x 110..970, y 560 (102 m) .. 880 (0 m)
+        const X0 = 110, X1 = 970, Y0 = 880, Y1 = 560, px = (m) => X0 + (m / D.L) * (X1 - X0), py = (y) => Y0 - (y / D.hi.y) * (Y0 - Y1);
+        let d = ""; D.prof.forEach(([m, y], i) => d += (i ? " L " : "M ") + px(m).toFixed(1) + " " + py(y).toFixed(1));
+        $("prof").setAttribute("d", d); $("prof-fill").setAttribute("d", d + ` L ${X1} ${Y0} L ${X0} ${Y0} Z`);
+        const L = 34, fx0 = 80, fx1 = 1000, fy0 = 500, fy1 = 910;
+        $("frame1").setAttribute("d", `M ${fx0} ${fy0 + L} V ${fy0} H ${fx0 + L} M ${fx1 - L} ${fy0} H ${fx1} V ${fy0 + L} M ${fx1} ${fy1 - L} V ${fy1} H ${fx1 - L} M ${fx0 + L} ${fy1} H ${fx0} V ${fy1 - L}`);
+        $("km0").style.left = (X0 - 4) + "px"; $("km7").style.left = (X1 - 92) + "px";
+        const hx = px(D.hi.m), hy = py(D.hi.y), lx = px(D.lo.m), ly = py(D.lo.y);
+        $("hi-dot").setAttribute("cx", hx); $("hi-dot").setAttribute("cy", hy); $("lo-dot").setAttribute("cx", lx); $("lo-dot").setAttribute("cy", ly);
+        $("lab-hi").style.left = (hx - 70) + "px"; $("lab-hi").style.top = (hy - 52) + "px";
+        $("lab-lo").style.left = (lx - 60) + "px"; $("lab-lo").style.top = (ly + 24) + "px";
+        // the 102 m dimension: dashed levels from both points to a vertical bar between them
+        const vx = (hx + lx) / 2;
+        $("dim-hi").setAttribute("x1", hx); $("dim-hi").setAttribute("y1", hy); $("dim-hi").setAttribute("x2", vx); $("dim-hi").setAttribute("y2", hy);
+        $("dim-lo").setAttribute("x1", lx); $("dim-lo").setAttribute("y1", ly); $("dim-lo").setAttribute("x2", vx); $("dim-lo").setAttribute("y2", ly);
+        $("dim-v").setAttribute("x1", vx); $("dim-v").setAttribute("y1", hy); $("dim-v").setAttribute("x2", vx); $("dim-v").setAttribute("y2", ly);
+        $("m102").style.left = "0px"; $("m102").style.right = "0px"; $("m102").style.top = "330px";
+        // the Eau Rouge window on the profile
+        $("win").setAttribute("d", `M ${px(760)} ${Y1 - 20} H ${px(1320)} V ${Y0} H ${px(760)} Z`);
+        const dash = (el) => { const n = el.getTotalLength(); el.style.strokeDasharray = n; el.style.strokeDashoffset = n; return n; };
+        dash($("prof")); dash($("frame1"));
+
+        // ---- phase 2: the section as a 3D ribbon (height ×2), orbiting slowly
+        const S = D.sec, cx0 = S.reduce((a, s) => a + s[1], 0) / S.length, cz0 = S.reduce((a, s) => a + s[3], 0) / S.length, yMin = Math.min(...S.map(s => s[2]));
+        const VX = 4, W = 13 * 1.8; // (height ×2; the road drawn 1.6× wide so it reads at this size)
+        // right vector per point from the centerline direction
+        const pts = S.map((s, i) => { const a = S[Math.max(0, i - 1)], b = S[Math.min(S.length - 1, i + 1)]; let fx = b[1] - a[1], fz = b[3] - a[3]; const n = Math.hypot(fx, fz) || 1; fx /= n; fz /= n; return { m: s[0], x: s[1] - cx0, y: (s[2] - yMin) * VX, z: s[3] - cz0, rx: fz, rz: -fx, b: s[4] }; });
+        const st = { yaw: 0, ride: 800, reveal: 0 };
+        const segs = []; for (let i = 0; i < pts.length - 1; i++) { const p = document.createElementNS(NS, "polygon"); $("road").appendChild(p); segs.push(p); }
+        const edgeL = document.createElementNS(NS, "path"), edgeR = document.createElementNS(NS, "path"), cl = document.createElementNS(NS, "path");
+        for (const e of [edgeL, edgeR]) { e.setAttribute("class", "line"); e.setAttribute("stroke", "#ff2b00"); e.setAttribute("stroke-width", 3); e.style.filter = "drop-shadow(0 0 3px #ff2b00)"; $("road").appendChild(e); }
+        cl.setAttribute("class", "line"); cl.setAttribute("stroke", "#ffc21a"); cl.setAttribute("stroke-width", 2); cl.setAttribute("stroke-dasharray", "10 14"); cl.setAttribute("opacity", ".7"); $("road").appendChild(cl);
+        // a side-on three-quarter view: the section runs left (Eau Rouge) to right (top of Raidillon), the camera a
+        // little above, so the climb reads as height. Curtains drop from the road to a base plane to show it.
+        const proj = (x, y, z, yaw) => { const c = Math.cos(yaw), s = Math.sin(yaw); const X = x * c - z * s, Z = x * s + z * c; const pitch = 0.36, cp = Math.cos(pitch), sp = Math.sin(pitch);
+          const Y2 = y * cp - Z * sp, Z2 = y * sp + Z * cp + 1100; const f = 1300 / Z2; return [X * f, -Y2 * f, Z2]; };
+        const A = pts[0], Bp = pts[pts.length - 1]; let side = Math.atan2(-(Bp.z - A.z), Bp.x - A.x);
+        if (proj(Bp.x, 0, Bp.z, side)[0] < proj(A.x, 0, A.z, side)[0]) side += Math.PI;
+        const base = side - 0.8;
+        const fitFor = (yaw) => { let a = 1e9, b = -1e9, c = 1e9, e = -1e9; for (const p of pts) for (const sd of [-1, 1]) for (const yy of [p.y, 0]) { const q = proj(p.x + p.rx * W / 2 * sd, yy, p.z + p.rz * W / 2 * sd, yaw); a = Math.min(a, q[0]); b = Math.max(b, q[0]); c = Math.min(c, q[1]); e = Math.max(e, q[1]); }
+          const k = Math.min(820 / (b - a), 520 / (e - c)); return { k, ox: 540 - (a + b) / 2 * k, oy: 700 - (c + e) / 2 * k }; };
+        const fit = fitFor(base + 0.12); // (one fit for the whole orbit: no breathing scale)
+        const P = (x, y, z) => { const q = proj(x, y, z, st.yaw); return [fit.ox + q[0] * fit.k, fit.oy + q[1] * fit.k, q[2]]; };
+        const at = (m) => { const i = Math.max(0, Math.min(pts.length - 1, (m - pts[0].m) / 4)); const i0 = Math.floor(i), t = i - i0, a = pts[i0], b = pts[Math.min(pts.length - 1, i0 + 1)]; return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t }; };
+        const wall = document.createElementNS(NS, "path"), baseL = document.createElementNS(NS, "path"), posts = document.createElementNS(NS, "path");
+        wall.setAttribute("fill", "rgba(255,106,28,.10)"); baseL.setAttribute("class", "line"); baseL.setAttribute("stroke", "#c93216"); baseL.setAttribute("stroke-width", 2); baseL.setAttribute("stroke-dasharray", "6 9");
+        posts.setAttribute("class", "line"); posts.setAttribute("stroke", "#ff6a1c"); posts.setAttribute("stroke-width", 1.5); posts.setAttribute("opacity", ".45");
+        $("road").appendChild(wall); $("road").appendChild(baseL); $("road").appendChild(posts);
+        function draw3d() {
+          const n = Math.max(1, Math.round((pts.length - 1) * st.reveal));
+          let dl = "", dr = "", dc = "";
+          const order = [];
+          for (let i = 0; i < pts.length - 1; i++) {
+            const a = pts[i], b = pts[i + 1], h = W / 2;
+            const q = [P(a.x - a.rx * h, a.y, a.z - a.rz * h), P(a.x + a.rx * h, a.y, a.z + a.rz * h), P(b.x + b.rx * h, b.y, b.z + b.rz * h), P(b.x - b.rx * h, b.y, b.z - b.rz * h)];
+            const vis = i < n; segs[i].setAttribute("points", q.map(v => v[0].toFixed(1) + "," + v[1].toFixed(1)).join(" "));
+            const shade = Math.max(0, Math.min(1, (a.y / ((Math.max(...pts.map(p => p.y))) || 1))));
+            segs[i].setAttribute("fill", `rgb(${Math.round(18 + shade * 40)},${Math.round(12 + shade * 8)},${Math.round(22 + shade * 4)})`);
+            segs[i].setAttribute("opacity", vis ? 1 : 0); order.push([(q[0][2] + q[2][2]) / 2, segs[i]]);
+            if (vis) { dl += (i ? " L " : "M ") + q[0][0].toFixed(1) + " " + q[0][1].toFixed(1); dr += (i ? " L " : "M ") + q[1][0].toFixed(1) + " " + q[1][1].toFixed(1);
+              const c = P(a.x, a.y, a.z); dc += (i ? " L " : "M ") + c[0].toFixed(1) + " " + c[1].toFixed(1); }
+          }
+          order.sort((u, v) => v[0] - u[0]).forEach(([, el]) => $("road").insertBefore(el, edgeL));
+          let dw = "", db = "", dp = "";
+          for (let i = 0; i < n; i++) { const p = pts[i], c = P(p.x, p.y, p.z), g = P(p.x, 0, p.z);
+            db += (i ? " L " : "M ") + g[0].toFixed(1) + " " + g[1].toFixed(1); if (i % 4 === 0) dp += ` M ${c[0].toFixed(1)} ${c[1].toFixed(1)} L ${g[0].toFixed(1)} ${g[1].toFixed(1)}`; }
+          for (let i = 0; i < n; i++) { const p = pts[i], c = P(p.x, p.y, p.z); dw += (i ? " L " : "M ") + c[0].toFixed(1) + " " + c[1].toFixed(1); }
+          for (let i = n - 1; i >= 0; i--) { const p = pts[i], g = P(p.x, 0, p.z); dw += " L " + g[0].toFixed(1) + " " + g[1].toFixed(1); }
+          wall.setAttribute("d", dw + " Z"); baseL.setAttribute("d", db); posts.setAttribute("d", dp);
+          edgeL.setAttribute("d", dl); edgeR.setAttribute("d", dr); cl.setAttribute("d", dc);
+          const r = at(st.ride), rp = P(r.x, r.y + 2.2, r.z); $("ride").setAttribute("cx", rp[0]); $("ride").setAttribute("cy", rp[1]);
+          const er = at(920), ep = P(er.x, er.y, er.z), ra = at(1110), rq = P(ra.x, ra.y, ra.z);
+          $("l-er").style.left = (ep[0] - 30) + "px"; $("l-er").style.top = (ep[1] + 48) + "px";
+          $("l-ra").style.left = (rq[0] - 110) + "px"; $("l-ra").style.top = (rq[1] - 78) + "px";
+        }
+        // ---- phase 3: the cross-section at 1,040 m (camber from the scan)
+        const b1040 = pts.find(p => p.m === 1040).b, deg = Math.abs(b1040 * 57.2958);
+        $("cam-v").textContent = deg.toFixed(1) + "°";
+        const cam = { k: 0 };
+        // LiDAR points on the surface (7 across the road, as the builder samples them)
+        for (let i = 0; i < 7; i++) { const c = document.createElementNS(NS, "circle"); c.setAttribute("cx", 240 + i * 100); c.setAttribute("cy", 728); c.setAttribute("r", 8); $("pts").appendChild(c); }
+        function draw3() {
+          const a = -Math.sign(b1040) * deg * cam.k * 3; // (tilt drawn ×3 so 3° reads; the number is the real one)
+          $("slab").setAttribute("transform", `rotate(${a.toFixed(3)} 540 760)`); $("pts").setAttribute("transform", `rotate(${a.toFixed(3)} 540 760)`);
+          const r = 330, rad = a * Math.PI / 180, x2 = 540 + Math.cos(rad) * r, y2 = 760 + Math.sin(rad) * r;
+          $("camber-arc").setAttribute("d", Math.abs(a) > 0.05 ? `M ${540 + r} 760 A ${r} ${r} 0 0 ${a > 0 ? 1 : 0} ${x2.toFixed(1)} ${y2.toFixed(1)}` : "");
+        }
+
+        const tl = gsap.timeline({ paused: true, onUpdate: () => { draw3d(); draw3(); } });
+        // build + phase 1 (L3 from 0.0; "a hundred and two meters" at ~2.95)
+        tl.fromTo("#grid", { opacity: 0 }, { opacity: 1, duration: 1.2, ease: "sine.out" }, 0.05);
+        tl.fromTo("#t1", { opacity: 0, scale: 1.08 }, { opacity: 1, scale: 1, duration: 0.9, ease: "expo.out" }, 0.1);
+        tl.fromTo("#title-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.8, ease: "power3.out" }, 0.25);
+        tl.to("#frame1", { strokeDashoffset: 0, duration: 1.0, ease: "power2.inOut" }, 0.3);
+        tl.fromTo(["#km0", "#km7"], { opacity: 0 }, { opacity: 1, duration: 0.5 }, 0.6);
+        tl.to("#prof", { strokeDashoffset: 0, duration: 2.0, ease: "power1.inOut" }, 0.5);
+        tl.fromTo("#prof-fill", { opacity: 0 }, { opacity: 1, duration: 1.0 }, 1.8);
+        tl.fromTo(["#lo-dot", "#lab-lo"], { opacity: 0 }, { opacity: 1, duration: 0.4 }, 1.9);
+        tl.fromTo(["#hi-dot", "#lab-hi"], { opacity: 0 }, { opacity: 1, duration: 0.4 }, 2.2);
+        tl.fromTo("#dim", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "sine.out" }, 2.6);
+        tl.fromTo("#m102", { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(1.6)" }, 2.9);
+        // → phase 2 ("Eau Rouge" at ~4.95): mark the window, then the section takes over in 3D
+        tl.fromTo("#win", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 4.2);
+        tl.to("#m102", { opacity: 0, duration: 0.3 }, 4.2);
+        tl.to("#p1", { opacity: 0, scale: 1.06, duration: 0.6, ease: "power2.in", transformOrigin: "30% 45%" }, 4.7);
+        tl.to("#t1", { opacity: 0, duration: 0.3 }, 4.7); tl.to("#t2", { opacity: 1, duration: 0.4 }, 5.0);
+        tl.to("#p2", { opacity: 1, duration: 0.5, ease: "sine.out" }, 5.0);
+        tl.fromTo(st, { reveal: 0 }, { reveal: 1, duration: 1.4, ease: "power2.out" }, 5.0);
+        tl.fromTo(st, { yaw: base }, { yaw: base + 0.24, duration: 7.6, ease: "sine.inOut" }, 5.0);
+        tl.fromTo(st, { ride: 790 }, { ride: 940, duration: 2.0, ease: "power1.in" }, 5.4);   // down into the valley
+        tl.to(st, { ride: 1180, duration: 2.4, ease: "power1.out" }, 7.6);                      // "then Raidillon climbs"
+        tl.fromTo(["#l-er"], { opacity: 0 }, { opacity: 1, duration: 0.4 }, 5.1);
+        tl.fromTo(["#l-ra"], { opacity: 0 }, { opacity: 1, duration: 0.4 }, 7.7);
+        tl.fromTo(["#climb", "#climb-k"], { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.5, ease: "expo.out" }, 9.2);
+        tl.fromTo(["#grade", "#grade-k"], { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.5, ease: "expo.out" }, 10.5);
+        // → phase 3 ("We even measured the tilt" from ~12.9)
+        tl.to("#p2", { opacity: 0, duration: 0.5, ease: "power2.in" }, 12.3);
+        tl.to("#t2", { opacity: 0, duration: 0.3 }, 12.3); tl.to("#t3", { opacity: 1, duration: 0.4 }, 12.7);
+        tl.to("#p3", { opacity: 1, duration: 0.5 }, 12.7);
+        tl.fromTo("#pts", { opacity: 0 }, { opacity: 1, duration: 0.6 }, 12.9);
+        tl.to(cam, { k: 1, duration: 1.4, ease: "power2.inOut" }, 13.6);
+        tl.fromTo("#cam-v", { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.6)" }, 14.3);
+        tl.fromTo("#stage", { scale: 1 }, { scale: 1.03, duration: 16.2, ease: "none", transformOrigin: "50% 40%" }, 0);
+        tl.to({}, { duration: 0.01 }, 16.19);
+        window.__timelines = window.__timelines || {}; window.__timelines["main"] = tl;
+        draw3d(); draw3();
+      };
+      run(SPA); // (spa-data.json inlined so the timeline registers synchronously)
+    </script>
+  </body>
+</html>

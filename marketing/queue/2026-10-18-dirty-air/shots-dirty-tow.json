@@ -1,0 +1,6 @@
+{ "name": "dirty-air-3", "aspect": "9:16", "seed": 34, "track": { "preset": "Maple Ridge GP" }, "env": { "time": "day", "weather": "clear" },
+  "race": { "car": "f40", "team": "Volta Racing", "opponents": 11, "aiChassis": "class", "grid": "front", "laps": 20 }, "warmup": 8,
+  "shots": [
+    { "rig": "game", "mode": "chase", "dur": 5.5, "focus": 4, "until": { "slip": 0.65, "wakeBelow": 0.3 }, "name": "tow-chase" },
+    { "rig": "dolly", "dur": 5.0, "focus": 3, "until": { "slip": 0.6 }, "name": "tow-dolly" }
+  ] }

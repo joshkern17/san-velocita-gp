@@ -1,0 +1,179 @@
+{
+ "dir": "aisees",
+ "narration": "narration.mp3",
+ "music": "engines/music.mp3",
+ "musicVol": 0.08,
+ "shots": [
+  {
+   "name": "hook: T1 chase",
+   "v": "t1-chase.mp4",
+   "dur": 3.6,
+   "lines": [
+    {
+     "a": 0,
+     "b": 3.5,
+     "at": 0.08,
+     "text": "This is everything the AI is thinking going into Turn One.",
+     "amber": "thinking"
+    }
+   ]
+  },
+  {
+   "name": "T1 far",
+   "v": "t1-far.mp4",
+   "dur": 5.8,
+   "lines": [
+    {
+     "a": 3.7,
+     "b": 5.6,
+     "at": 0,
+     "text": "Green, it's on the throttle."
+    },
+    {
+     "a": 5.7,
+     "b": 7.5,
+     "at": 1.95,
+     "text": "Yellow, it's lifting."
+    },
+    {
+     "a": 7.6,
+     "b": 9.5,
+     "at": 3.85,
+     "text": "Red, it's braking."
+    }
+   ]
+  },
+  {
+   "name": "heli A",
+   "v": "heli-a.mp4",
+   "dur": 5,
+   "lines": [
+    {
+     "a": 9.65,
+     "b": 12.6,
+     "at": 0.05,
+     "text": "Each number is the speed it wants at the apex.",
+     "amber": "apex"
+    },
+    {
+     "a": 12.65,
+     "b": 14.3,
+     "at": 3.05,
+     "text": "Nobody typed those in.",
+     "amber": "typed"
+    }
+   ]
+  },
+  {
+   "name": "far B",
+   "v": "far-b.mp4",
+   "dur": 4.2,
+   "lines": [
+    {
+     "a": 14.4,
+     "b": 18.3,
+     "at": 0.05,
+     "text": "The first time it sees a track, it runs practice laps in secret.",
+     "amber": "secret"
+    }
+   ]
+  },
+  {
+   "name": "heli C",
+   "v": "heli-c.mp4",
+   "dur": 3.7,
+   "lines": [
+    {
+     "a": 18.4,
+     "b": 22,
+     "at": 0.05,
+     "text": "Wherever it slides or runs wide, it slows down there\u2026",
+     "amber": "slows"
+    }
+   ]
+  },
+  {
+   "name": "heli",
+   "v": "heli.mp4",
+   "dur": 2.5,
+   "lines": [
+    {
+     "a": 22.05,
+     "b": 24.35,
+     "at": 0.05,
+     "text": "\u2026and never tries that speed again.",
+     "amber": "never"
+    }
+   ]
+  },
+  {
+   "name": "chase",
+   "v": "chase.mp4",
+   "dur": 5.2,
+   "lines": [
+    {
+     "a": 24.5,
+     "b": 27.1,
+     "at": 0,
+     "text": "Everywhere else, it tries a little faster.",
+     "amber": "faster"
+    },
+    {
+     "a": 27.25,
+     "b": 29.85,
+     "at": 2.6,
+     "text": "Until it can do two clean laps in a row.",
+     "amber": "clean"
+    }
+   ]
+  },
+  {
+   "name": "dolly",
+   "v": "dolly.mp4",
+   "dur": 4.8,
+   "lines": [
+    {
+     "a": 29.95,
+     "b": 34.75,
+     "at": 0,
+     "text": "Then it races the plan, and trims it for worn tires and dirty air.",
+     "amber": "trims"
+    }
+   ]
+  },
+  {
+   "name": "question + end",
+   "v": "orbit.mp4",
+   "dur": 8.5,
+   "eng": [
+    [
+     0,
+     0.32
+    ],
+    [
+     5.4,
+     0.32
+    ],
+    [
+     6,
+     0.62
+    ]
+   ],
+   "lines": [
+    {
+     "a": 35,
+     "b": 37.6,
+     "at": 0.1,
+     "text": "Draw a new corner, and it learns that too.",
+     "amber": "learns"
+    },
+    {
+     "a": 37.8,
+     "b": 40.32,
+     "at": 2.8,
+     "text": "Would you race it, or let it race for you?"
+    }
+   ]
+  }
+ ]
+}

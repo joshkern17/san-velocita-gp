@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <!-- Pipe-physics beat for explainer 002 (engines). 13.6 s, timed to narration take 3 from 4.85 s:
+         "Each cylinder is a short tube, with a valve at each end. / Every firing sends a pulse through the headers, the
+         muffler… and out the tailpipe. / The pipes keep their own notes. The revs just set how often they're hit."
+         Matches the game's model (js/engineworklet.js: a tube per cylinder with valves at both ends, exhaust into a
+         header, a shared pipe, a muffler, the outlet; the tube resonances stay put while the firing rate follows rpm).
+         Tokens: docs/DESIGN.md neon signal. Motion: the BRAND §3 exception for physics beats. -->
+    <style>
+      @font-face { font-family: "SV UI"; src: url("fonts/SVUI-500.woff2") format("woff2"); font-weight: 500; }
+      @font-face { font-family: "SV Body"; src: url("fonts/SVBody-500.woff2") format("woff2"); font-weight: 500; }
+      @font-face { font-family: "SV Display"; src: url("fonts/SVDisplay-700.woff2") format("woff2"); font-weight: 700; }
+      @font-face { font-family: "SV Num"; src: url("fonts/SVNum-500.woff2") format("woff2"); font-weight: 500; }
+      :root { --hot: #ff6a1c; --hot-top: #ff8a2a; --hot-deep: #ff3d0c; --red: #ff2b00; --red-dim: #c93216; --amber: #ffc21a; --blue: #2d36f2; --blue-pale: #6a72ff; --ink: #05060c; --pink: #ff3d8a; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--ink); }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--ink); }
+      .glow { text-shadow: 0 0 .025em currentColor, 0 0 .06em currentColor; -webkit-text-fill-color: transparent; letter-spacing: -0.02em; }
+      .glow-strong { text-shadow: 0 0 .04em currentColor, 0 0 .1em currentColor; -webkit-text-fill-color: transparent; }
+      #stage { position: absolute; inset: 0; }
+      #grid, #art { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; }
+      #title { position: absolute; left: 0; right: 0; top: 150px; text-align: center; font: 500 30px/1 "SV UI"; color: var(--red); letter-spacing: .34em; }
+      #title-rule { position: absolute; left: 380px; width: 320px; top: 200px; height: 2px; background: var(--red); box-shadow: 0 0 2px var(--red), 0 0 4px var(--red); }
+      .lab { position: absolute; font: 500 26px/1 "SV UI"; letter-spacing: .26em; color: var(--red-dim); white-space: nowrap; }
+      #rpm { position: absolute; left: 0; right: 0; top: 1110px; text-align: center; }
+      #rpm .v { font: 500 96px/1 "SV Num"; color: var(--hot); font-variant-numeric: tabular-nums; }
+      #rpm .k { font: 500 26px/1 "SV UI"; color: var(--red); letter-spacing: .34em; margin-top: 10px; }
+      .line { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-width="1080" data-height="1920" data-duration="13.6">
+      <section id="scene" class="clip" data-start="0" data-duration="13.6" data-track-index="0" style="position:absolute;inset:0">
+        <div id="stage">
+          <svg id="grid" viewBox="0 0 1080 1920"></svg>
+          <div id="title" class="glow-strong">ONE CYLINDER</div>
+          <div id="title2" class="glow-strong" style="position:absolute;left:0;right:0;top:150px;text-align:center;font:500 30px/1 'SV UI';color:var(--red);letter-spacing:.34em;opacity:0">PIPES AND AIR</div>
+          <div id="title-rule"></div>
+          <div id="wrap" style="position:absolute;inset:0">
+          <svg id="art" viewBox="0 0 1080 1920">
+            <defs>
+              <radialGradient id="fire"><stop offset="0" stop-color="#ffc21a" stop-opacity="1" /><stop offset=".5" stop-color="#ff6a1c" stop-opacity=".7" /><stop offset="1" stop-color="#ff3d0c" stop-opacity="0" /></radialGradient>
+            </defs>
+            <!-- intake pipe (blue: fresh air) -->
+            <path id="intake" class="line" d="M 110 420 H 330" stroke="#2d36f2" stroke-width="34" opacity=".28" />
+            <path id="intake-wall" class="line" d="M 110 403 H 330 M 110 437 H 330" stroke="#6a72ff" stroke-width="3" style="filter: drop-shadow(0 0 3px #6a72ff)" />
+            <!-- the exhaust path: header, the shared pipe into the muffler, through it, out the tailpipe -->
+            <path id="pipe-bg" class="line" d="" stroke="#ff2b00" stroke-width="34" opacity=".10" />
+            <path id="pipe" class="line" d="" stroke="#ff2b00" stroke-width="3" style="filter: drop-shadow(0 0 3px #ff2b00)" />
+            <path id="pipe2" class="line" d="" stroke="#ff2b00" stroke-width="3" style="filter: drop-shadow(0 0 3px #ff2b00)" />
+            <!-- the standing wave inside the header (its note stays put) -->
+            <path id="wave" class="line" d="" stroke="#ffc21a" stroke-width="4" opacity="0" style="filter: drop-shadow(0 0 4px #ffc21a)" />
+            <!-- muffler: a box with parallel tubes inside -->
+            <g id="muffler">
+              <rect id="muf-box" x="600" y="720" width="360" height="170" rx="26" fill="#0d0e16" stroke="#ff2b00" stroke-width="3" style="filter: drop-shadow(0 0 3px #ff2b00)" />
+              <g id="muf-tubes" stroke="#c93216" stroke-width="2.5" opacity=".9">
+                <line x1="630" y1="755" x2="930" y2="755" /><line x1="630" y1="790" x2="930" y2="790" /><line x1="630" y1="825" x2="930" y2="825" /><line x1="630" y1="860" x2="930" y2="860" />
+              </g>
+            </g>
+            <!-- the cylinder: a short tube with a valve at each end -->
+            <g id="cyl">
+              <ellipse id="burn" cx="480" cy="420" rx="140" ry="90" fill="url(#fire)" opacity="0" />
+              <rect id="cyl-box" class="line" x="330" y="345" width="300" height="150" rx="18" stroke="#ff2b00" stroke-width="3" fill="#0d0e16" style="filter: drop-shadow(0 0 3px #ff2b00)" />
+            </g>
+            <g id="valve-in" style="filter: drop-shadow(0 0 4px #6a72ff)"><rect x="322" y="385" width="16" height="70" rx="4" fill="#6a72ff" /></g>
+            <g id="valve-ex" style="filter: drop-shadow(0 0 4px #ff6a1c)"><rect x="622" y="385" width="16" height="70" rx="4" fill="#ff6a1c" /></g>
+            <!-- pulses -->
+            <g id="dots"></g>
+            <g id="air"></g>
+            <!-- firing ticks (how often the pipes get hit) -->
+            <g id="ticks" opacity="0"></g>
+          </svg>
+          <div class="lab" id="l-valve1" style="left:260px; top:510px">VALVE</div>
+          <div class="lab" id="l-valve2" style="left:575px; top:510px">VALVE</div>
+          <div class="lab" id="l-intake" style="left:110px; top:350px; color:#6a72ff">INTAKE</div>
+          <div class="lab" id="l-header" style="left:700px; top:555px">HEADER</div>
+          <div class="lab" id="l-muffler" style="left:700px; top:915px">MUFFLER</div>
+          <div class="lab" id="l-tail" style="left:150px; top:960px">TAILPIPE</div>
+          <div class="lab" id="l-note" style="left:745px; top:600px; color:#ffc21a">NOTE</div>
+          <div id="rpm"><div class="v glow" id="rpm-v">3000</div><div class="k glow">RPM</div></div>
+          </div>
+        </div>
+      </section>
+    </div>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      // grid
+      let gd = ""; for (let x = 60; x < 1080; x += 60) gd += `<line x1="${x}" y1="0" x2="${x}" y2="1920" />`; for (let y = 60; y < 1920; y += 60) gd += `<line x1="0" y1="${y}" x2="1080" y2="${y}" />`;
+      $("grid").innerHTML = `<g stroke="#ff2b00" stroke-opacity=".06" stroke-width="1">${gd}</g>`;
+      // the exhaust path (header down into the muffler's left end, through it, then the tailpipe out to the left)
+      const PATH = "M 630 420 H 800 Q 860 420 860 480 V 620 Q 860 680 800 680 H 640 Q 600 680 600 720 V 805 H 960 Q 1000 805 1000 845 V 960 Q 1000 1000 960 1000 H 120";
+      // (header ends at the bend above the muffler; the muffler run is the straight H 960 inside the box)
+      $("pipe").setAttribute("d", "M 630 420 H 800 Q 860 420 860 480 V 620 Q 860 680 800 680 H 640 Q 600 680 600 720");
+      $("pipe2").setAttribute("d", "M 960 805 Q 1000 805 1000 845 V 960 Q 1000 1000 960 1000 H 120");
+      $("pipe-bg").setAttribute("d", PATH);
+      const ref = document.createElementNS("http://www.w3.org/2000/svg", "path"); ref.setAttribute("d", PATH); $("art").appendChild(ref); ref.style.display = "none";
+      const LEN = ref.getTotalLength();
+      // where the parts are along the path (px): header 0..~360, muffler ~445..~805, tailpipe after
+      const S_HEADER = 120, S_MUF = 520, S_TAIL = 900;
+      const dash = (el) => { const n = el.getTotalLength(); el.style.strokeDasharray = n; el.style.strokeDashoffset = n; return n; };
+      dash($("pipe")); dash($("pipe2")); dash($("cyl-box")); dash($("intake-wall"));
+
+      // firing times: slow while it's explained, then the revs climb (3000 → 8000) and the firing rate follows
+      const T0 = 4.95, SPEED = 240, R = { rpm: 3000 };
+      const rpmAt = (t) => t < 10.8 ? 3000 : t > 13.0 ? 8000 : 3000 + 5000 * ((u) => u * u * (3 - 2 * u))((t - 10.8) / 2.2);
+      const fires = []; { let ph = 0; for (let t = T0; t < 13.6; t += 1 / 600) { ph += (rpmAt(t) / 3000) * 1.55 / 600; if (ph >= 1 || fires.length === 0) { fires.push(t); ph = ph >= 1 ? ph - 1 : 0; } } }
+      // dots pool
+      const NS = "http://www.w3.org/2000/svg", POOL = 40, dots = [], air = [];
+      for (let i = 0; i < POOL; i++) { const c = document.createElementNS(NS, "circle"); c.setAttribute("r", 13); c.setAttribute("fill", "#ffc21a"); c.style.filter = "drop-shadow(0 0 8px #ff6a1c)"; $("dots").appendChild(c); dots.push(c);
+        const a = document.createElementNS(NS, "circle"); a.setAttribute("r", 8); a.setAttribute("fill", "#8a90ff"); a.style.filter = "drop-shadow(0 0 5px #6a72ff)"; $("air").appendChild(a); air.push(a); }
+      // ticks row (each firing, a tick slides left: closer together as the revs climb)
+      const TK = []; for (let i = 0; i < 60; i++) { const l = document.createElementNS(NS, "line"); l.setAttribute("y1", 1050); l.setAttribute("y2", 1086); l.setAttribute("stroke", "#ff6a1c"); l.setAttribute("stroke-width", 4); l.style.filter = "drop-shadow(0 0 3px #ff6a1c)"; $("ticks").appendChild(l); TK.push(l); }
+
+      const st = { lit: [0, 0, 0], wave: 0 };
+      const lab = (id, k, base = "#c93216", on = "#ff6a1c") => { const e = $(id); e.style.color = k > 0.5 ? on : base; e.style.textShadow = k > 0.5 ? "0 0 .04em currentColor, 0 0 .12em currentColor" : ""; };
+      let tNow = 0;
+      function draw() {
+        const t = tNow;
+        // pulses along the exhaust; fresh air into the intake
+        let k = 0, ka = 0, fireGlow = 0, valveEx = 0, valveIn = 0;
+        for (const tf of fires) {
+          const age = t - tf; if (age < 0) break;
+          if (age < 0.25) { fireGlow = Math.max(fireGlow, 1 - age / 0.25); valveEx = Math.max(valveEx, Math.sin(Math.PI * age / 0.25)); }
+          const s = age * SPEED * (rpmAt(tf) / 3000 * 0.6 + 0.4);
+          if (s < LEN && k < POOL) {
+            const p = ref.getPointAtLength(s), d = dots[k++];
+            const inMuf = s > S_MUF - 80 && s < S_TAIL - 80;
+            d.setAttribute("cx", p.x); d.setAttribute("cy", p.y);
+            d.setAttribute("r", inMuf ? 9 : 13); d.setAttribute("opacity", s > LEN - 140 ? (LEN - s) / 140 : inMuf ? 0.6 : 1);
+          }
+          // intake: a little blue air drawn in half a cycle earlier
+          const ia = age + 0.35; if (ia < 0.9 && ka < POOL) { const a = air[ka++]; a.setAttribute("cx", 110 + ia / 0.9 * 220); a.setAttribute("cy", 420); a.setAttribute("opacity", Math.min(1, (0.9 - ia) * 3)); valveIn = Math.max(valveIn, ia > 0.55 ? Math.sin(Math.PI * (ia - 0.55) / 0.35) : 0); }
+        }
+        for (; k < POOL; k++) dots[k].setAttribute("opacity", 0);
+        for (; ka < POOL; ka++) air[ka].setAttribute("opacity", 0);
+        $("burn").setAttribute("opacity", (fireGlow * 0.9).toFixed(3));
+        // valves open (slide back off the end of the tube) and close with the cycle
+        $("valve-ex").setAttribute("transform", `translate(${(valveEx * 14).toFixed(2)} 0)`);
+        $("valve-in").setAttribute("transform", `translate(${(-valveIn * 14).toFixed(2)} 0)`);
+        // labels light as the first pulse reaches each part (and stay lit)
+        const first = t - fires[0], s0 = first > 0 ? first * SPEED * 1.0 : -1;
+        lab("l-header", s0 > S_HEADER ? 1 : 0); lab("l-muffler", s0 > S_MUF ? 1 : 0); lab("l-tail", s0 > S_TAIL ? 1 : 0);
+        // the pipe's note: a standing wave in the header that doesn't change with the revs
+        if (st.wave > 0) {
+          let d = ""; const amp = 12 * Math.sin(t * 2 * Math.PI * 2.2) * st.wave;
+          for (let i = 0; i <= 60; i++) { const y = 470 + i * 2.5, x = 860 + amp * Math.sin(Math.PI * 2 * i / 60); d += (i ? " L " : "M ") + x.toFixed(1) + " " + y.toFixed(1); }
+          $("wave").setAttribute("d", d); $("wave").setAttribute("opacity", st.wave.toFixed(3));
+        }
+        // the firing tick row: each firing's tick moves left at a fixed speed, so faster revs pack them closer
+        let j = 0; for (const tf of fires) { const age = t - tf; if (age < 0) break; const x = 900 - age * 260; if (x > 180 && j < TK.length) { const l = TK[j++]; l.setAttribute("x1", x); l.setAttribute("x2", x); l.setAttribute("opacity", Math.min(1, (x - 180) / 80)); } }
+        for (; j < TK.length; j++) TK[j].setAttribute("opacity", 0);
+        $("rpm-v").textContent = (Math.round(rpmAt(t) / 100) * 100).toLocaleString("en-US");
+      }
+
+      const tl = gsap.timeline({ paused: true, onUpdate: () => { tNow = tl.time(); draw(); } });
+      // build (line 3 "Each cylinder is a short tube, with a valve at each end")
+      tl.fromTo("#grid", { opacity: 0 }, { opacity: 1, duration: 1.2, ease: "sine.out" }, 0.05);
+      tl.fromTo("#title", { opacity: 0, scale: 1.08 }, { opacity: 1, scale: 1, duration: 0.9, ease: "expo.out" }, 0.1);
+      tl.fromTo("#title-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.8, ease: "power3.out" }, 0.25);
+      tl.to("#cyl-box", { strokeDashoffset: 0, duration: 1.0, ease: "power2.inOut" }, 0.4);
+      tl.fromTo(["#valve-in", "#valve-ex"], { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(2)", stagger: 0.25, transformOrigin: "50% 50%" }, 2.1);
+      tl.fromTo(["#l-valve1", "#l-valve2"], { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out", stagger: 0.25 }, 2.25);
+      // the cylinder starts centered alone, then the frame eases over as the pipes draw on
+      tl.fromTo("#wrap", { x: 68 }, { x: -12, duration: 1.1, ease: "power2.inOut" }, 3.3);
+      // the pipes draw on ("Every firing sends a pulse…")
+      tl.to("#title", { opacity: 0, duration: 0.25, ease: "sine.in" }, 3.5);
+      tl.to("#title2", { opacity: 1, duration: 0.35, ease: "sine.out" }, 3.78);
+      tl.to("#intake-wall", { strokeDashoffset: 0, duration: 0.6, ease: "power2.out" }, 3.4);
+      tl.fromTo("#intake", { opacity: 0 }, { opacity: 0.28, duration: 0.6 }, 3.4);
+      tl.fromTo("#l-intake", { opacity: 0 }, { opacity: 1, duration: 0.4 }, 3.7);
+      tl.to("#pipe", { strokeDashoffset: 0, duration: 0.9, ease: "power2.inOut" }, 3.5);
+      tl.fromTo("#muffler", { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.6, ease: "expo.out", svgOrigin: "780 805" }, 4.0);
+      tl.to("#pipe2", { strokeDashoffset: 0, duration: 0.8, ease: "power2.inOut" }, 4.3);
+      tl.fromTo("#pipe-bg", { opacity: 0 }, { opacity: 0.1, duration: 0.8 }, 4.0);
+      tl.fromTo(["#l-header", "#l-muffler", "#l-tail"], { opacity: 0 }, { opacity: 1, duration: 0.5, stagger: 0.15 }, 4.4);
+      // line 5: "The pipes keep their own notes" → the header's standing wave; "the revs just set how often they're hit"
+      tl.to(st, { wave: 1, duration: 0.8, ease: "sine.out" }, 9.4);
+      tl.fromTo("#l-note", { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, 9.6);
+      tl.fromTo("#rpm", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.6, ease: "expo.out" }, 10.4);
+      tl.fromTo("#ticks", { opacity: 0 }, { opacity: 1, duration: 0.5 }, 10.5);
+      tl.fromTo("#stage", { scale: 1 }, { scale: 1.03, duration: 13.6, ease: "none", transformOrigin: "50% 35%" }, 0);
+      tl.to({}, { duration: 0.01 }, 13.59);
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = tl;
+      draw();
+    </script>
+  </body>
+</html>

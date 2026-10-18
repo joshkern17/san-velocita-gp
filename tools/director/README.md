@@ -25,12 +25,24 @@ node tools/director/director.mjs tools/director/shots/example.json --only 3   # 
 { "name": "tires-1", "aspect": "9:16", "seed": 3,
   "track": { "real": "spa" } | { "preset": "Maple Ridge GP" } | { "file": ".devtest/auburn2.json" },
   "env": { "time": "day|dawn|dusk|night", "weather": "clear|overcast|rain" },
-  "race": { "car": "m1procar", "opponents": 7, "aiChassis": "class", "grid": "middle", "laps": 5, "extra": {} },
+  "race": { "car": "m1procar", "team": "Silverline", "opponents": 7, "aiChassis": "class", "grid": "middle", "laps": 5, "extra": {} },
   "video": { "look": "arcade", "trails": true },   // optional overrides of the game's video settings
   "res": "hd",                                      // render lines: 9:16 defaults to hd (720), 16:9 to ps2 (448)
   "warmup": 12,                                     // seconds raced unfilmed before shot 1
   "shots": [ { "rig": "dolly", "dur": 5, "focus": "player" | "leader" | 3, ...rig params } ] }
 ```
+- `race.team`: a rival team's livery on your car (`js/teamliveries.js` names, e.g. "Gulfstream Racing"), so the hero
+  cars don't all wear the default red/white #7.
+- Per shot, where it starts (both race on unfilmed until true, max 240 s):
+  - `"at": 870`: metres into the lap for the focus car (a shot at Eau Rouge, not "whenever").
+  - `"until": { "wake": 0.85 }`: the focus car deep in a car's dirty air; `{ "slip": 0.6, "wakeBelow": 0.15 }`: in
+    the tow on a straight.
+- `"aiSees": true` on a shot draws the focus car's own plan into the world (`aisees.js`): its racing line colored
+  throttle / lift / brake from its speed plan, a post at each braking point, the target speed (mph) over each apex,
+  and the pass planner's move once it commits. Marketing overlay only; it never touches the race.
+- The per-frame log (`NN-<rig>.engine.json`) also has the focus car's `wake` (0..1, dirty air) and `slip` (0..1,
+  tow), plus `wakeK` (its front/rear downforce loss at full wake), for live readouts in the edit.
+- Real tracks: until the dev fixes the pit lanes, keep the pit lane, pit entry and exit out of frame (BRAND §5).
 - Shots run back to back on one continuous race. Every shot is its own file, so the edit cuts them.
 - Car ids are in `models/cars/cars.json`. Real track ids are in `tracks/real/index.json`.
 

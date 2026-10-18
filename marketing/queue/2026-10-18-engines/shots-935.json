@@ -1,0 +1,38 @@
+{
+ "name": "engines-935",
+ "aspect": "9:16",
+ "seed": 11,
+ "track": {
+  "real": "laguna"
+ },
+ "env": {
+  "time": "day",
+  "weather": "clear"
+ },
+ "race": {
+  "car": "porsche935",
+  "opponents": 0,
+  "aiChassis": "class",
+  "team": "Silverline"
+ },
+ "warmup": 14,
+ "shots": [
+  {
+   "rig": "dolly",
+   "dur": 4.6,
+   "name": "a"
+  },
+  {
+   "rig": "trackside",
+   "dur": 4,
+   "ahead": 80,
+   "name": "b"
+  },
+  {
+   "rig": "wheel",
+   "dur": 3.6,
+   "axle": "rear",
+   "name": "c"
+  }
+ ]
+}

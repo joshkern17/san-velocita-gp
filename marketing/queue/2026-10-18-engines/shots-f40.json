@@ -1,0 +1,33 @@
+{
+ "name": "engines-f40",
+ "aspect": "9:16",
+ "seed": 12,
+ "track": {
+  "real": "laguna"
+ },
+ "env": {
+  "time": "day",
+  "weather": "clear"
+ },
+ "race": {
+  "car": "f40",
+  "opponents": 0,
+  "aiChassis": "class",
+  "team": "Volta Racing"
+ },
+ "warmup": 16,
+ "shots": [
+  {
+   "rig": "dolly",
+   "dur": 3.4,
+   "side": -1,
+   "name": "a"
+  },
+  {
+   "rig": "trackside",
+   "dur": 4.4,
+   "ahead": 90,
+   "name": "b"
+  }
+ ]
+}

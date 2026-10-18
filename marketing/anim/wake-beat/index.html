@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <!-- Dirty-air beat for explainer 004. 11.6 s, timed to narration take 1 from 7.85 s:
+         "Downforce needs clean air. In the wake, the front gets the worst of it… so the nose starts to push wide. / It
+         starts about forty meters back, and gets worse the closer you get."
+         The numbers are the game's own (js/race.js:2998 wake from 3 m to 40 m behind; js/cars.js:70 GT cars lose 30% of
+         front and 12% of rear downforce at full wake). Cars drawn larger than scale; the gap is to scale.
+         Tokens: docs/DESIGN.md. Motion: the BRAND §3 exception for physics beats. -->
+    <style>
+      @font-face { font-family: "SV UI"; src: url("fonts/SVUI-500.woff2") format("woff2"); font-weight: 500; }
+      @font-face { font-family: "SV Num"; src: url("fonts/SVNum-500.woff2") format("woff2"); font-weight: 500; }
+      :root { --hot: #ff6a1c; --red: #ff2b00; --red-dim: #c93216; --amber: #ffc21a; --blue: #2d36f2; --blue-pale: #6a72ff; --ink: #05060c; --pink: #ff3d8a; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--ink); }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--ink); }
+      .glow { text-shadow: 0 0 .025em currentColor, 0 0 .06em currentColor; -webkit-text-fill-color: transparent; letter-spacing: -0.02em; }
+      .glow-strong { text-shadow: 0 0 .04em currentColor, 0 0 .1em currentColor; -webkit-text-fill-color: transparent; }
+      #stage { position: absolute; inset: 0; }
+      svg.full { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; }
+      #title { position: absolute; left: 0; right: 0; top: 150px; text-align: center; font: 500 30px/1 "SV UI"; color: var(--red); letter-spacing: .34em; }
+      #title-rule { position: absolute; left: 380px; width: 320px; top: 200px; height: 2px; background: var(--red); box-shadow: 0 0 2px var(--red), 0 0 4px var(--red); }
+      .lab { position: absolute; font: 500 24px/1 "SV UI"; letter-spacing: .26em; color: var(--red); white-space: nowrap; }
+      .gauge { position: absolute; top: 470px; width: 170px; text-align: center; }
+      .gauge .k { font: 500 24px/1 "SV UI"; letter-spacing: .26em; color: var(--red); }
+      .gauge .v { font: 500 60px/1 "SV Num"; margin-top: 476px; font-variant-numeric: tabular-nums; }
+      .line { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-width="1080" data-height="1920" data-duration="11.6">
+      <section id="scene" class="clip" data-start="0" data-duration="11.6" data-track-index="0" style="position:absolute;inset:0">
+        <div id="stage">
+          <svg id="grid" class="full" viewBox="0 0 1080 1920"></svg>
+          <div id="title" class="glow-strong">DIRTY AIR</div>
+          <div id="title-rule"></div>
+          <svg id="art" class="full" viewBox="0 0 1080 1920">
+            <defs>
+              <linearGradient id="wakeGrad" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ff3d8a" stop-opacity=".30" /><stop offset="1" stop-color="#ff3d8a" stop-opacity="0" /></linearGradient>
+              <clipPath id="roadClip"><rect x="380" y="300" width="320" height="940" /></clipPath>
+            </defs>
+            <path id="edges" class="line" d="M 380 300 V 1240 M 700 300 V 1240" stroke="#ff2b00" stroke-width="3" style="filter: drop-shadow(0 0 2px #ff2b00)" />
+            <g clip-path="url(#roadClip)">
+              <g id="clean" stroke="#8a90ff" stroke-width="2.5" opacity="0"></g>
+              <path id="cone" d="" fill="url(#wakeGrad)" opacity="0" />
+              <g id="dirty" stroke="#ff3d8a" stroke-width="3" opacity="0" style="filter: drop-shadow(0 0 3px #ff3d8a)"></g>
+            </g>
+            <!-- the dimension between the cars -->
+            <g id="dim" opacity="0" stroke="#ffc21a" stroke-width="2.5">
+              <line id="dim-v" x1="340" y1="0" x2="340" y2="0" /><line id="dim-t" x1="325" y1="0" x2="355" y2="0" /><line id="dim-b" x1="325" y1="0" x2="355" y2="0" />
+            </g>
+            <!-- cars from above (drawn larger than scale) -->
+            <g id="lead" opacity="0"><rect x="-34" y="-70" width="68" height="140" rx="16" fill="#14151c" stroke="#ff2b00" stroke-width="3" style="filter: drop-shadow(0 0 3px #ff2b00)" />
+              <rect x="-24" y="-30" width="48" height="44" rx="6" fill="none" stroke="#c93216" stroke-width="2" /><rect x="-38" y="56" width="76" height="10" rx="3" fill="#ff2b00" /></g>
+            <g id="foll"><g id="foll-yaw"><rect x="-34" y="-70" width="68" height="140" rx="16" fill="#14151c" stroke="#6a72ff" stroke-width="3" style="filter: drop-shadow(0 0 3px #6a72ff)" />
+              <rect x="-24" y="-30" width="48" height="44" rx="6" fill="none" stroke="#2d36f2" stroke-width="2" /><rect x="-38" y="56" width="76" height="10" rx="3" fill="#6a72ff" /></g></g>
+            <path id="wide" class="line" d="" stroke="#ffc21a" stroke-width="4" stroke-dasharray="10 10" opacity="0" style="filter: drop-shadow(0 0 3px #ffc21a)" />
+            <!-- gauges: front (left) and rear (right) downforce -->
+            <g id="gauges" opacity="0">
+              <rect x="135" y="520" width="80" height="420" fill="none" stroke="#c93216" stroke-width="2.5" />
+              <rect id="g-front" x="143" y="528" width="64" height="404" fill="#6a72ff" style="filter: drop-shadow(0 0 4px #6a72ff)" />
+              <rect x="865" y="520" width="80" height="420" fill="none" stroke="#c93216" stroke-width="2.5" />
+              <rect id="g-rear" x="873" y="528" width="64" height="404" fill="#6a72ff" style="filter: drop-shadow(0 0 4px #6a72ff)" />
+            </g>
+          </svg>
+          <div id="gl" class="gauge" style="left:90px; opacity:0"><div class="k glow">FRONT</div><div class="v glow" id="v-front" style="color:#8a90ff">100%</div></div>
+          <div id="gr" class="gauge" style="left:820px; opacity:0"><div class="k glow">REAR</div><div class="v glow" id="v-rear" style="color:#8a90ff">100%</div></div>
+          <div class="lab" id="l-df" style="left:90px; width:170px; top:1045px; text-align:center; color:#c93216; opacity:0; font-size:20px">DOWNFORCE</div>
+          <div class="lab" id="l-df2" style="left:820px; width:170px; top:1045px; text-align:center; color:#c93216; opacity:0; font-size:20px">DOWNFORCE</div>
+          <div class="lab" id="l-wide" style="opacity:0; color:#ffc21a">PUSHES WIDE</div>
+          <div class="lab" id="l-gap" style="opacity:0; color:#ffc21a; font: 500 40px/1 'SV Num'; letter-spacing:0"></div>
+        </div>
+      </section>
+    </div>
+    <script>
+      const $ = (id) => document.getElementById(id), NS = "http://www.w3.org/2000/svg";
+      let gd = ""; for (let x = 60; x < 1080; x += 60) gd += `<line x1="${x}" y1="0" x2="${x}" y2="1920" />`; for (let y = 60; y < 1920; y += 60) gd += `<line x1="0" y1="${y}" x2="1080" y2="${y}" />`;
+      $("grid").innerHTML = `<g stroke="#ff2b00" stroke-opacity=".06" stroke-width="1">${gd}</g>`;
+      // the game's numbers: full wake at 3 m, none at 40 m (race.js:2998); GT cars lose 30% front, 12% rear (cars.js:70)
+      const W = [0.30, 0.12], wakeAt = (gap) => Math.max(0, Math.min(1, 1 - (gap - 3) / 37));
+      const PXM = 14, LEAD_Y = 400, CAR = 70; // px per metre for the gap; car half-length in px
+      const st = { gap: 44, lead: 0, wakeOn: 0, push: 0, dimOn: 0 };
+      // streamlines
+      const CL = [], DL = []; for (let i = 0; i < 7; i++) { const l = document.createElementNS(NS, "path"); l.setAttribute("class", "line"); l.setAttribute("stroke-dasharray", "26 30"); $("clean").appendChild(l); CL.push(l);
+        const d = document.createElementNS(NS, "path"); d.setAttribute("class", "line"); $("dirty").appendChild(d); DL.push(d); }
+      let tNow = 0;
+      function draw() {
+        const t = tNow, fy = LEAD_Y + CAR * 2 + st.gap * PXM; // follower centre y: lead's rear + gap
+        $("foll").setAttribute("transform", `translate(540 ${fy.toFixed(1)})`);
+        $("foll-yaw").setAttribute("transform", `rotate(${(st.push * 9).toFixed(2)})`);
+        $("lead").setAttribute("transform", `translate(540 ${LEAD_Y})`);
+        // clean air: straight streamlines flowing down past the cars
+        CL.forEach((l, i) => { const x = 410 + i * 43; l.setAttribute("d", `M ${x} 300 V 1240`); l.style.strokeDashoffset = (-t * 260).toFixed(1); });
+        // the wake: a cone widening behind the lead car out to 40 m, filled with churning lines
+        const y0 = LEAD_Y + CAR, y1 = y0 + 40 * PXM * st.wakeOn;
+        const w0 = 40, w1 = 40 + 40 * 0.03 * PXM * 3; // (narrow at the car, wider further back, like the game's cone)
+        $("cone").setAttribute("d", `M ${540 - w0} ${y0} L ${540 + w0} ${y0} L ${540 + w1} ${y1} L ${540 - w1} ${y1} Z`);
+        DL.forEach((d, i) => { let p = ""; const x0 = 540 + (i - 3) * 16;
+          for (let k = 0; k <= 40; k++) { const y = y0 + (y1 - y0) * k / 40, spread = (k / 40), x = x0 * 1 + (x0 - 540) * spread * 0.8 + Math.sin(k * 0.55 + t * 7 + i * 1.7) * (6 + 18 * spread); p += (k ? " L " : "M ") + x.toFixed(1) + " " + y.toFixed(1); }
+          d.setAttribute("d", p); });
+        // gauges from the gap (only once the lead car is there)
+        const w = wakeAt(st.gap) * st.lead, fr = 1 - W[0] * w, rr = 1 - W[1] * w;
+        const H = 404, set = (id, k) => { const h = H * k; $(id).setAttribute("y", 528 + (H - h)); $(id).setAttribute("height", h); $(id).setAttribute("fill", k < 0.8 ? "#ff3d8a" : k < 0.95 ? "#ffc21a" : "#6a72ff"); $(id).style.filter = `drop-shadow(0 0 4px ${k < 0.8 ? "#ff3d8a" : k < 0.95 ? "#ffc21a" : "#6a72ff"})`; };
+        set("g-front", fr); set("g-rear", rr);
+        const txt = (id, k) => { const e = $(id); e.textContent = Math.round(k * 100) + "%"; e.style.color = k < 0.8 ? "#ff3d8a" : k < 0.95 ? "#ffc21a" : "#8a90ff"; };
+        txt("v-front", fr); txt("v-rear", rr);
+        // pushing wide: the nose drifts out of the corner
+        $("wide").setAttribute("d", `M 540 ${(fy - CAR).toFixed(1)} Q 560 ${(fy - CAR - 120).toFixed(1)} 640 ${(fy - CAR - 190).toFixed(1)}`);
+        $("l-wide").style.left = "718px"; $("l-wide").style.top = (fy - CAR - 240) + "px";
+        // the gap dimension (lead's rear to follower's nose)
+        const a = LEAD_Y + CAR, b = fy - CAR;
+        $("dim-v").setAttribute("y1", a); $("dim-v").setAttribute("y2", b); $("dim-t").setAttribute("y1", a); $("dim-t").setAttribute("y2", a); $("dim-b").setAttribute("y1", b); $("dim-b").setAttribute("y2", b);
+        $("l-gap").textContent = Math.round(st.gap) + " M"; $("l-gap").style.left = "232px"; $("l-gap").style.top = Math.max(540, (a + b) / 2 - 20) + "px"; // (clear of the gauge header when close)
+      }
+      const tl = gsap.timeline({ paused: true, onUpdate: () => { tNow = tl.time(); draw(); } });
+      tl.fromTo("#grid", { opacity: 0 }, { opacity: 1, duration: 1.0, ease: "sine.out" }, 0.05);
+      tl.fromTo("#title", { opacity: 0, scale: 1.08 }, { opacity: 1, scale: 1, duration: 0.9, ease: "expo.out" }, 0.1);
+      tl.fromTo("#title-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.8, ease: "power3.out" }, 0.25);
+      tl.fromTo("#edges", { opacity: 0 }, { opacity: 1, duration: 0.6 }, 0.2);
+      // "Downforce needs clean air": the follower alone, clean air streaming past, both gauges full
+      tl.fromTo("#foll", { opacity: 0 }, { opacity: 1, duration: 0.5 }, 0.3);
+      tl.to("#clean", { opacity: 0.55, duration: 0.6 }, 0.4);
+      tl.to(["#gauges", "#gl", "#gr", "#l-df", "#l-df2"], { opacity: 1, duration: 0.6, ease: "sine.out" }, 0.7);
+      // "In the wake, the front gets the worst of it": a car ahead, its wake, the follower moves up into it
+      tl.to("#lead", { opacity: 1, duration: 0.5 }, 2.2);
+      tl.to(st, { lead: 1, duration: 0.01 }, 2.2);
+      tl.to("#cone", { opacity: 1, duration: 0.6 }, 2.4); tl.to("#dirty", { opacity: 0.85, duration: 0.6 }, 2.4);
+      tl.to(st, { wakeOn: 1, duration: 1.0, ease: "power2.out" }, 2.4);
+      tl.to("#clean", { opacity: 0.18, duration: 0.6 }, 2.6);
+      tl.to(st, { gap: 5, duration: 2.0, ease: "power2.inOut" }, 2.6);
+      // "so the nose starts to push wide"
+      tl.to(st, { push: 1, duration: 1.4, ease: "sine.inOut" }, 5.2);
+      tl.to("#wide", { opacity: 1, duration: 0.4 }, 5.4); tl.to("#l-wide", { opacity: 1, duration: 0.4 }, 5.6);
+      // "It starts about forty meters back": drop back to 40 m, the dimension
+      tl.to(["#wide", "#l-wide"], { opacity: 0, duration: 0.3 }, 7.3); tl.to(st, { push: 0, duration: 0.6 }, 7.3);
+      tl.to(st, { gap: 40, duration: 1.0, ease: "power2.inOut" }, 7.5);
+      tl.to(["#dim", "#l-gap"], { opacity: 1, duration: 0.4 }, 8.2);
+      // "…and gets worse the closer you get"
+      tl.to(st, { gap: 4, duration: 1.9, ease: "power1.in" }, 9.4);
+      tl.fromTo("#stage", { scale: 1 }, { scale: 1.03, duration: 11.6, ease: "none", transformOrigin: "50% 40%" }, 0);
+      tl.to({}, { duration: 0.01 }, 11.59);
+      window.__timelines = window.__timelines || {}; window.__timelines["main"] = tl;
+      draw();
+    </script>
+  </body>
+</html>

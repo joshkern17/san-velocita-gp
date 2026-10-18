@@ -1,0 +1,7 @@
+{ "name": "ai-sees-2", "aspect": "9:16", "seed": 43, "track": { "file": ".devtest/auburn2.json" }, "env": { "time": "day", "weather": "clear" },
+  "race": { "car": "r34gt2", "team": "Bayside Blue", "opponents": 7, "aiChassis": "class", "laps": 20 }, "warmup": 30,
+  "shots": [
+    { "rig": "heli", "dur": 5.0, "back": 26, "h": 20, "aiSees": true, "name": "heli-a" },
+    { "rig": "game", "mode": "far", "dur": 5.5, "aiSees": true, "name": "far-b" },
+    { "rig": "heli", "dur": 5.0, "back": 34, "h": 26, "offset": -12, "aiSees": true, "name": "heli-c" }
+  ] }

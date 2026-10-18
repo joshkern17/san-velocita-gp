@@ -1,0 +1,177 @@
+{
+ "dir": "spa",
+ "narration": "narration.mp3",
+ "music": "engines/music.mp3",
+ "musicVol": 0.08,
+ "shots": [
+  {
+   "name": "hook: Raidillon heli",
+   "v": "raidillon-heli.mp4",
+   "dur": 3.2,
+   "lines": [
+    {
+     "a": 0,
+     "b": 3.1,
+     "at": 0.08,
+     "text": "This isn't a copy of Spa. It's a scan.",
+     "amber": "scan"
+    }
+   ]
+  },
+  {
+   "name": "Kemmel heli",
+   "v": "kemmel-heli.mp4",
+   "dur": 2.15,
+   "lines": [
+    {
+     "a": 3.25,
+     "b": 5.35,
+     "at": 0,
+     "text": "The road comes from map data.",
+     "amber": "map"
+    }
+   ]
+  },
+  {
+   "name": "Raidillon long lens",
+   "v": "raidillon-long.mp4",
+   "from": 1.2,
+   "dur": 3.0,
+   "lines": [
+    {
+     "a": 5.4,
+     "b": 8.3,
+     "at": 0.05,
+     "text": "Every height on it comes from a Belgian laser survey,",
+     "amber": "laser"
+    }
+   ]
+  },
+  {
+   "name": "Kemmel dolly",
+   "v": "kemmel-dolly.mp4",
+   "dur": 2.4,
+   "lines": [
+    {
+     "a": 8.45,
+     "b": 10.6,
+     "at": 0.05,
+     "text": "one point every half meter.",
+     "amber": "half"
+    }
+   ]
+  },
+  {
+   "name": "ANIM spa beat",
+   "v": "spa-beat.mp4",
+   "anim": true,
+   "dur": 16.2,
+   "lines": [
+    {
+     "a": 10.75,
+     "b": 15.5,
+     "at": 0,
+     "text": "From the lowest point of the lap to the highest\u2026 a hundred and two meters.",
+     "amber": "hundred"
+    },
+    {
+     "a": 15.6,
+     "b": 17.85,
+     "at": 4.85,
+     "text": "Eau Rouge drops you into the valley.",
+     "amber": "valley"
+    },
+    {
+     "a": 17.9,
+     "b": 20.65,
+     "at": 7.15,
+     "text": "Then Raidillon climbs twenty-five meters,",
+     "amber": "climbs"
+    },
+    {
+     "a": 20.7,
+     "b": 23.35,
+     "at": 9.95,
+     "text": "almost fifteen percent at its steepest.",
+     "amber": "steepest"
+    },
+    {
+     "a": 23.45,
+     "b": 26.85,
+     "at": 12.7,
+     "text": "We even measured the tilt of the road, side to side.",
+     "amber": "tilt"
+    }
+   ]
+  },
+  {
+   "name": "Raidillon chase",
+   "v": "raidillon-chase.mp4",
+   "dur": 3.8,
+   "lines": [
+    {
+     "a": 26.9,
+     "b": 30.3,
+     "at": 0.15,
+     "text": "So the hill you feel at Raidillon\u2026 is the real one.",
+     "amber": "real"
+    }
+   ]
+  },
+  {
+   "name": "Blanchimont",
+   "v": "blanchimont.mp4",
+   "dur": 4.0,
+   "lines": [
+    {
+     "a": 30.35,
+     "b": 34.1,
+     "at": 0.1,
+     "text": "Fourteen circuits so far, all built from open data.",
+     "amber": "open"
+    }
+   ]
+  },
+  {
+   "name": "Bruxelles",
+   "v": "bruxelles.mp4",
+   "dur": 3.4,
+   "lines": [
+    {
+     "a": 34.15,
+     "b": 37.3,
+     "at": 0.1,
+     "text": "If it's steep in the game, it's steep in Belgium.",
+     "amber": "Belgium"
+    }
+   ]
+  },
+  {
+   "name": "question + end",
+   "v": "orbit.mp4",
+   "dur": 5.4,
+   "eng": [
+    [
+     0,
+     0.32
+    ],
+    [
+     2.2,
+     0.32
+    ],
+    [
+     2.9,
+     0.62
+    ]
+   ],
+   "lines": [
+    {
+     "a": 37.35,
+     "b": 39.36,
+     "at": 0.1,
+     "text": "Which track should we scan next?"
+    }
+   ]
+  }
+ ]
+}

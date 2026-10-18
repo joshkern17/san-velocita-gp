@@ -1,0 +1,33 @@
+{
+ "name": "engines-miata",
+ "aspect": "9:16",
+ "seed": 15,
+ "track": {
+  "real": "laguna"
+ },
+ "env": {
+  "time": "day",
+  "weather": "clear"
+ },
+ "race": {
+  "car": "miata",
+  "opponents": 3,
+  "aiChassis": "class",
+  "team": "Palm Bay Autosport"
+ },
+ "warmup": 14,
+ "shots": [
+  {
+   "rig": "dolly",
+   "dur": 4,
+   "side": -1,
+   "name": "a"
+  },
+  {
+   "rig": "orbit",
+   "dur": 9,
+   "speed": 0.2,
+   "name": "b"
+  }
+ ]
+}

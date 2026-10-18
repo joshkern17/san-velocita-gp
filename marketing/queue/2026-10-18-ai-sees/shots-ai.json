@@ -1,0 +1,12 @@
+{ "name": "ai-sees", "aspect": "9:16", "seed": 42, "track": { "file": ".devtest/auburn2.json" }, "env": { "time": "day", "weather": "clear" },
+  "race": { "car": "r34gt2", "team": "Bayside Blue", "opponents": 7, "aiChassis": "class", "laps": 20 }, "warmup": 6,
+  "shots": [
+    { "rig": "game", "mode": "chase", "dur": 3.6, "at": 0, "aiSees": true, "name": "t1-chase" },
+    { "rig": "game", "mode": "far", "dur": 5.8, "aiSees": true, "name": "t1-far" },
+    { "rig": "heli", "dur": 3.2, "back": 30, "h": 18, "aiSees": true, "name": "heli" },
+    { "rig": "trackside", "dur": 5.2, "ahead": 90, "aiSees": true, "name": "trackside" },
+    { "rig": "dolly", "dur": 5.6, "aiSees": true, "name": "dolly" },
+    { "rig": "game", "mode": "chase", "dur": 5.2, "aiSees": true, "name": "chase" },
+    { "rig": "trackside", "dur": 4.5, "ahead": 110, "side": -1, "aiSees": true, "name": "trackside-2" },
+    { "rig": "orbit", "dur": 8.5, "speed": 0.2, "name": "orbit" }
+  ] }

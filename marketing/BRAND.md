@@ -80,6 +80,12 @@ rules. Reference: `marketing/anim/slip-beat` (HyperFrames).
 
   Use a variety in every video (mixed-class fields are fine), and don't let the same car lead two videos in a row.
 
+- **Pit lanes (dev, 2026-10-18, temporary):** the real tracks' pit lane geometry is broken (at Spa it runs into the
+  track at La Source). Until the dev fixes it: no shot on a real track with the pit lane, pit entry or pit exit in
+  frame. At Spa, stay off the start/finish straight and La Source (use Eau Rouge/Raidillon, Kemmel, Pouhon,
+  Blanchimont). Check the frame grabs for it before queueing. The director's `"at"` (metres into the lap) puts a shot
+  where you want it.
+
 ## 6. The end card (every clip)
 3 s: wordmark (`.logo`: title + G R A N D  P R I X caption + hairline + signal meter), then
 **WISHLIST ON STEAM** in UI caps, red, soft glow. No URL text needed; the platform link and name search do the job.

@@ -1,0 +1,10 @@
+{ "name": "spa-scan", "aspect": "9:16", "seed": 21, "track": { "real": "spa" }, "env": { "time": "day", "weather": "clear" },
+  "race": { "car": "f1gtr", "team": "Gulfstream Racing", "opponents": 7, "aiChassis": "class", "laps": 10 }, "warmup": 4,
+  "shots": [
+    { "rig": "heli", "dur": 4.6, "at": 760, "back": 34, "h": 30, "name": "eau-rouge-heli" },
+    { "rig": "trackside", "dur": 5.0, "at": 860, "ahead": 170, "name": "raidillon-long" },
+    { "rig": "game", "mode": "chase", "dur": 4.0, "at": 880, "name": "raidillon-chase" },
+    { "rig": "dolly", "dur": 4.0, "at": 1350, "side": -1, "name": "kemmel-dolly" },
+    { "rig": "trackside", "dur": 4.0, "at": 840, "ahead": 120, "side": -1, "name": "eau-rouge-low" },
+    { "rig": "orbit", "dur": 7.0, "at": 1500, "speed": 0.2, "name": "kemmel-orbit" }
+  ] }

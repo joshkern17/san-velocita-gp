@@ -36,7 +36,7 @@ export const Caption: React.FC<{ text: string; amber?: string }> = ({ text, ambe
   return (
     <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: 1920 * 0.25 }}>
       <div style={{ maxWidth: 860, padding: "18px 30px 20px", background: C.plate, textAlign: "center",
-        fontFamily: F.body, fontWeight: 500, fontSize: 50, lineHeight: 1.18, color: C.red, ...glow() }}>
+        fontFamily: F.body, fontWeight: 500, fontSize: 50, lineHeight: 1.18, color: C.red, textWrap: "balance", ...glow() }}>
         {words.map((w, i) => (
           <span key={i} style={amber && w.replace(/[^\w']/g, "").toLowerCase() === amber.toLowerCase() ? { color: C.amber } : undefined}>
             {w}{i < words.length - 1 ? " " : ""}

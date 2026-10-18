@@ -3,7 +3,45 @@
 One entry per run, newest at the top: what it looked at, what it made, what it's waiting on. The next run starts by
 reading the top entry.
 
-## 2026-10-18 · tire temps v2 + animated beat (read this first)
+## 2026-10-18 · content bank: 4 explainers + 2 hook variants (read this first)
+- **READY:**
+  - `tire-temps-hook-b`: a new narrated first line, "Thirty-five degrees. That's how cold this Miata's tires are."
+  - `tire-temps-hook-c`: the first two lines swapped, no new audio.
+  - `engines`: "Nobody recorded these engines." 935 / F40 / M3 GTR / M1 / Miata at Laguna Seca, with a pipe-physics
+    beat and live RPM.
+  - `spa-scan`: "This isn't a copy of Spa. It's a scan." F1 GTR; a LiDAR beat drawn from the game's own spa.json.
+  - `dirty-air`: GT1 field, wake beat, live downforce and drag readouts.
+- **NEEDS OK:** `ai-sees`, the new in-world overlay (`tools/director/aisees.js`). Question in its post.md.
+- **Swapped:** nothing. Dirty air is really simulated for GT cars (30% front / 12% rear downforce at full wake), but
+  small in total grip, so the script stays modest.
+- **Pit lanes (dev, via the coordinator):** the real-track pit lanes are broken, so no pit lane, pit entry or exit in
+  frame on any real track (rule added to BRAND §5).
+  - Spa: dropped the Eau Rouge heli (pit exit alongside) and a low Eau Rouge trackside (pit garages). Re-filmed at
+    Raidillon, Kemmel, Bruxelles and Blanchimont.
+  - Dirty air moved to Maple Ridge GP, and the AI video to Auburn (both drawn tracks).
+  - Engines (Laguna Seca): every shot checked, no pits in frame.
+- **Director (marketing tooling only):**
+  - `race.team` (rival liveries on the hero cars);
+  - per-shot `"at"` (metres into the lap) and `"until"` (wake/tow state);
+  - `"aiSees"`;
+  - wake/tow columns in the per-frame log.
+  - README updated.
+- **Edit:** `marketing/video/src/Explainer.tsx` is the template driven by `src/specs/*.json`. Captions now
+  balance their lines (no one-word second line).
+- **Beats:** `marketing/anim/engine-beat`, `spa-beat`, `wake-beat` (HyperFrames, telemetry off).
+- **Facts:** `research/scripts-and-animation.md`, "Verified for scripts".
+- **ElevenLabs:** 9,687 credits (5 generations × 4 takes; no retries).
+- **Last commit seen:** 87e944c (the site session's).
+- **Waiting on:**
+  - the dev's OK on the AI overlay look;
+  - a listen to "Eau Rouge" / "Raidillon" in the Spa take;
+  - accounts, before anything can post.
+- **Next:**
+  - hook variants for 002-004 (lines listed in each post.md);
+  - "I drew this corner, the AI learned it" with editor footage;
+  - re-film Spa's start/finish once the pit lanes are fixed.
+
+## 2026-10-18 · tire temps v2 + animated beat
 - Dev on v1: "really close"; wants scripts more natural and engaging. Physics animations go *inside* feature videos.
 - Built:
   - the `explainer-script` skill (`.claude/skills/explainer-script`);

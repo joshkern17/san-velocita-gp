@@ -1,0 +1,27 @@
+{
+ "name": "engines-m1",
+ "aspect": "9:16",
+ "seed": 14,
+ "track": {
+  "real": "laguna"
+ },
+ "env": {
+  "time": "dusk",
+  "weather": "clear"
+ },
+ "race": {
+  "car": "m1procar",
+  "opponents": 0,
+  "aiChassis": "class",
+  "team": "Rapid Tyres"
+ },
+ "warmup": 10,
+ "shots": [
+  {
+   "rig": "game",
+   "mode": "chase",
+   "dur": 12,
+   "name": "a"
+  }
+ ]
+}

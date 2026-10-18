@@ -54,7 +54,10 @@ try {
     if (!L.silent) { const A = await import('/js/audio.js'); A.initAudio(); await new Promise(r => setTimeout(r, 800)); } // (the race only builds engine voices if sound is on)
     Object.assign(S, L.settings || {});
     const R = L.race || {};
-    const car = { ...S.car, ...(R.car ? { chassis: R.car } : {}), ...(R.livery || {}) };
+    // "team": a rival team's livery on your car (js/teamliveries.js), so every hero car doesn't wear the same default paint
+    const team = R.team ? (await import('/js/teamliveries.js')).teamLivery(R.team) : null;
+    if (R.team && !team) throw new Error('no team livery: ' + R.team);
+    const car = { ...S.car, ...(R.car ? { chassis: R.car } : {}), ...(team || {}), ...(R.livery || {}) };
     S.car = car; // (startRace reads the chosen car from settings too)
     G.startRace(t, { mode: 'race', laps: R.laps ?? 5, opponents: R.opponents ?? 7, grid: R.grid || 'middle', aiChassis: R.aiChassis || 'class', car, extra: R.extra || {} }, 'menu');
   }, L);
@@ -78,6 +81,8 @@ try {
     s.mirror = () => {}; // (no rear-view mirror in the shots)
     const { install } = await import('/tools/director/rigs.js');
     window.__dir.D = install(s);
+    // "aiSees": draw the focus car's own plan into the world for that shot (tools/director/aisees.js)
+    if ((L.shots || []).some(x => x.aiSees)) window.__dir.ai = (await import('/tools/director/aisees.js')).install(s);
     // sound: log exactly what the race sends its engine voices every frame (the player's car made camera-relative:
     // the race plays it as if you're in the car), to play back in real time after filming (see the audio pass)
     const A = await import('/js/audio.js'), bus = A.audioBus();
@@ -109,13 +114,15 @@ try {
       s.update(dt, { steer: 0, throttle: 0, brake: 0, handbrake: 0 }, {});
       G.handleRaceEvents();
       window.__dir.D.tick(dt);
+      if (window.__dir.ai) { const on = !!(window.__dir.D.shot && window.__dir.D.shot.aiSees); window.__dir.ai.show(on); if (on) window.__dir.ai.update(s.focus || s.player); }
       if (!render) return null;
       if (window.__dir.au.on && window.__dir.au.frames) window.__dir.au.note();
       // (no motion trails on a shot's first frames: they'd ghost the previous shot into the cut)
       s.render(G.post, window.__dir.D.t < 0.05 ? { ...G.settings, trails: false } : G.settings);
       const c = s.focus || s.player, p = c && c.phys;
       return { png: G.post.r.domElement.toDataURL('image/png'), rpm: p ? +(p.rpm || 0).toFixed(0) : 0, kmh: p ? +(p.speed * 3.6).toFixed(1) : 0, gear: p ? p.gear : 0,
-        tS: p && p.tS ? Array.from(p.tS, v => +v.toFixed(1)) : null, tC: p && p.tC ? Array.from(p.tC, v => +v.toFixed(1)) : null, opt: p ? p.tyreOpt : 0 };
+        tS: p && p.tS ? Array.from(p.tS, v => +v.toFixed(1)) : null, tC: p && p.tC ? Array.from(p.tC, v => +v.toFixed(1)) : null, opt: p ? p.tyreOpt : 0,
+        wake: p ? +(p.wake || 0).toFixed(3) : 0, slip: p ? +(p.slip || 0).toFixed(3) : 0, wakeK: p && p.p && p.p.wake ? p.p.wake : [0.25, 0.1] };
     };
   }, { RES, L });
 
@@ -127,6 +134,29 @@ try {
   const shots = L.shots || [], done = [];
   for (let k = 0; k < shots.length; k++) {
     const sh = shots[k], frames = Math.round((sh.dur || 5) * FPS);
+    // "at": metres into the lap: race on unfilmed until the focus car gets there (a shot at Eau Rouge, not "whenever")
+    if (sh.at != null) {
+      const waited = await pg.evaluate((sh) => {
+        const s = window.__svgp.sim, T = s.T, f = sh.focus ?? 'player';
+        const pick = () => f === 'player' ? s.player : f === 'leader' ? s.order[0] : typeof f === 'number' ? s.order[Math.min(s.order.length, f) - 1] : s.player;
+        const target = Math.round(sh.at / T.ds) % T.N; let n = 0;
+        for (; n < 60 * 240; n++) { const c = pick(), d = (c.idx - target + T.N) % T.N; if (n > 30 && d < 15) break; window.__dir.frame(false); }
+        return n / 60;
+      }, sh);
+      console.log(`  (raced ${waited.toFixed(1)} s unfilmed to reach ${sh.at} m)`);
+    }
+    // "until": race on unfilmed until the focus car is in a state, e.g. {"wake": 0.85} (deep in a car's dirty air) or
+    // {"slip": 0.6, "wakeBelow": 0.1} (in the tow on a straight); gives up after 240 s
+    if (sh.until) {
+      const waited = await pg.evaluate((sh) => {
+        const s = window.__svgp.sim, f = sh.focus ?? 'player', U = sh.until;
+        const pick = () => f === 'player' ? s.player : f === 'leader' ? s.order[0] : typeof f === 'number' ? s.order[Math.min(s.order.length, f) - 1] : s.player;
+        const ok = (p) => (U.wake == null || (p.wake || 0) >= U.wake) && (U.slip == null || (p.slip || 0) >= U.slip) && (U.wakeBelow == null || (p.wake || 0) < U.wakeBelow);
+        let n = 0; for (; n < 60 * 240; n++) { if (n > 10 && ok(pick().phys)) break; window.__dir.frame(false); }
+        return n / 60;
+      }, sh);
+      console.log(`  (raced ${waited.toFixed(1)} s unfilmed until ${JSON.stringify(sh.until)})`);
+    }
     if (ONLY && ONLY !== k + 1) { await pg.evaluate((n) => { for (let i = 0; i < n; i++) window.__dir.frame(false); }, frames); continue; }
     await pg.evaluate((sh) => {
       const s = window.__svgp.sim, f = sh.focus ?? 'player';
@@ -137,16 +167,16 @@ try {
     const file = join(OUT, `${String(k + 1).padStart(2, '0')}-${sh.rig}${sh.name ? '-' + sh.name : ''}.mp4`);
     const ff = spawn('ffmpeg', ['-v', 'error', '-y', '-f', 'image2pipe', '-c:v', 'png', '-framerate', String(FPS), '-i', '-',
       '-vf', `scale=${OW}:${OH}:flags=bicubic`, '-c:v', 'libx264', '-preset', 'slow', '-crf', '14', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', file], { stdio: ['pipe', 'inherit', 'inherit'] });
-    const log = []; const ts = Date.now();
+    const log = []; const ts = Date.now(); let wakeK = null;
     for (let i = 0; i < frames; i++) {
       const fr = await pg.evaluate(() => window.__dir.frame(true));
-      log.push([i, fr.rpm, fr.kmh, fr.gear, fr.tS, fr.tC, fr.opt]);
+      log.push([i, fr.rpm, fr.kmh, fr.gear, fr.tS, fr.tC, fr.opt, fr.wake, fr.slip]); wakeK = fr.wakeK;
       if (!ff.stdin.write(Buffer.from(fr.png.split(',')[1], 'base64'))) await new Promise(r => ff.stdin.once('drain', r));
     }
     ff.stdin.end(); await new Promise(r => ff.on('close', r));
     await pg.evaluate((k) => { const AU = window.__dir.au; if (AU.on) AU.shots[k] = AU.frames; AU.frames = null; }, k);
     done.push({ k, file });
-    writeFileSync(file.replace(/\.mp4$/, '.engine.json'), JSON.stringify({ fps: FPS, cols: ['frame', 'rpm', 'kmh', 'gear', 'tireSurface[FL,FR,RL,RR]', 'tireCore', 'tireBest'], rows: log }));
+    writeFileSync(file.replace(/\.mp4$/, '.engine.json'), JSON.stringify({ fps: FPS, cols: ['frame', 'rpm', 'kmh', 'gear', 'tireSurface[FL,FR,RL,RR]', 'tireCore', 'tireBest', 'wake (0..1, dirty air)', 'slip (0..1, tow)'], wakeK, rows: log }));
     console.log(`shot ${k + 1}/${shots.length} ${sh.rig}: ${frames} frames in ${((Date.now() - ts) / 1000).toFixed(0)} s -> ${file.replace(ROOT + '/', '')}`);
   }
 

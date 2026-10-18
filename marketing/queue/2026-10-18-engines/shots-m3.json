@@ -1,0 +1,32 @@
+{
+ "name": "engines-m3",
+ "aspect": "9:16",
+ "seed": 13,
+ "track": {
+  "real": "laguna"
+ },
+ "env": {
+  "time": "day",
+  "weather": "clear"
+ },
+ "race": {
+  "car": "m3gtr",
+  "opponents": 0,
+  "aiChassis": "class",
+  "team": "Crown Point Racing"
+ },
+ "warmup": 16,
+ "shots": [
+  {
+   "rig": "dolly",
+   "dur": 3.4,
+   "name": "a"
+  },
+  {
+   "rig": "trackside",
+   "dur": 4.4,
+   "ahead": 90,
+   "name": "b"
+  }
+ ]
+}

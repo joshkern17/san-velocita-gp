@@ -1,0 +1,14 @@
+{ "name": "tire-temps-gt", "aspect": "9:16", "seed": 7, "track": { "file": ".devtest/auburn2.json" }, "env": { "time": "day", "weather": "clear" },
+  "settings": { "temps": "normal" },
+  "race": { "car": "m1procar", "opponents": 7, "aiChassis": "class" }, "warmup": 15,
+  "shots": [
+    { "rig": "wheel", "dur": 4.2, "name": "s1" },
+    { "rig": "trackside", "dur": 3.6, "ahead": 70, "name": "s2" },
+    { "rig": "heli", "dur": 4.4, "name": "s3" },
+    { "rig": "dolly", "dur": 4.6, "name": "s4" },
+    { "rig": "wheel", "dur": 3.6, "axle": "rear", "name": "s5a" },
+    { "rig": "trackside", "dur": 3.6, "ahead": 90, "name": "s6" },
+    { "rig": "game", "dur": 3.0, "mode": "chase", "name": "s7a" },
+    { "rig": "game", "dur": 2.8, "mode": "bumper", "name": "s7b" },
+    { "rig": "orbit", "dur": 7.2, "speed": 0.2, "name": "s8" }
+  ] }

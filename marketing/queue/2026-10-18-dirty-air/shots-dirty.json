@@ -1,0 +1,11 @@
+{ "name": "dirty-air-2", "aspect": "9:16", "seed": 33, "track": { "preset": "Maple Ridge GP" }, "env": { "time": "day", "weather": "clear" },
+  "race": { "car": "f40", "team": "Volta Racing", "opponents": 11, "aiChassis": "class", "grid": "front", "laps": 20 }, "warmup": 8,
+  "shots": [
+    { "rig": "game", "mode": "chase", "dur": 5, "focus": 3, "until": { "wake": 0.8 }, "name": "hook-chase" },
+    { "rig": "heli", "dur": 4.5, "back": 24, "h": 14, "focus": 3, "until": { "wake": 0.6 }, "name": "heli" },
+    { "rig": "game", "mode": "bumper", "dur": 5, "focus": 4, "until": { "slip": 0.6, "wakeBelow": 0.3 }, "name": "tow-bumper" },
+    { "rig": "trackside", "dur": 4.5, "ahead": 80, "focus": 3, "until": { "wake": 0.5 }, "name": "trackside" },
+    { "rig": "dolly", "dur": 4.5, "focus": 5, "until": { "wake": 0.6 }, "name": "dolly-ai" },
+    { "rig": "game", "mode": "chase", "dur": 4.5, "focus": 2, "until": { "wake": 0.6 }, "name": "chase-2" },
+    { "rig": "orbit", "dur": 7, "speed": 0.2, "focus": 3, "name": "orbit" }
+  ] }

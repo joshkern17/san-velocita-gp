@@ -112,3 +112,22 @@ it" video (the plan getting faster lap by lap).
   - Move like now: eased line-draws, depth and parallax, the game's car models as glowing wireframe or technical
     cutaways, plots and force arrows that draw on.
   - This is an exception to the in-game "2005 motion" rule, at the dev's request, for these animated pieces only.
+
+## Verified for scripts (2026-10-18, content bank)
+Traced in the code before scripting; each video's `script.md` has the line-by-line fact sheet.
+- **Engines:** a physical tube model by default (js/audio.js `engineModel = 'phys'`; js/engineworklet.js, after
+  Baldan et al. 2015 via Antonio-R1/engine-sound-generator, MIT). No recorded engine samples. 15 engine profiles.
+  Turbo whistle, blow-off and crackle are synth add-ons, not pipe physics. The F40's profile has no turbo; the F1 GTR
+  uses the flat-12 profile (no V12). The AI shifts the M1 at ~8,600 rpm, not its 9,000 redline.
+- **Spa:** road from OSM; heights from Wallonia's MNT 2021-22 LiDAR (0.5 m grid); a height every ~8 m; camber measured
+  across the road (current method: 7 points to 1 m inside each edge). From the game's spa.json: 102.2 m lowest to
+  highest, Eau Rouge dip 23.0 m → Raidillon top 48.1 m (+25 m), steepest 14.9% over 50 m, max camber 4.0° at La
+  Source, 3.2° at Raidillon (1,040 m). Unverified: "102 m is official". 14 real circuits, 13 with laser road heights.
+- **Dirty air:** real and in every car, player and AI; GT cars lose 30% front / 12% rear downforce at full wake (3 m),
+  fading to none at 40 m; the tow cuts drag up to 30%. In total grip it's small (~3-4.5% for GT cars at 200 km/h),
+  so script it as "the nose pushes wide". The pass planner (racecraft.js) doesn't read the wake.
+- **AI plan:** each car learns its own speed plan in hidden practice laps (race.js learnLimits): slower (×0.965, and
+  never that fast again) wherever it slides, runs wide or goes off; ×1.04 elsewhere; stops after two clean laps in a
+  row (max 40). In the race it drives the plan scaled by its grip now (wear, temperature, damage, dirty air, rubber).
+- **Filming lesson:** dirty air is hard to catch by chance. The director's `"until": {"wake": 0.8}` with the camera on a
+  mid-pack AI car (`"focus": 3`) finds it in seconds; filming the player's car from the back of the grid didn't.

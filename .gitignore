@@ -39,6 +39,7 @@ marketing/**/*.webm
 marketing/**/*.wav
 marketing/**/*.mp3
 marketing/footage/
+marketing/queue/**/grabs/
 
 # HyperFrames working files
 marketing/anim/**/.hyperframes/
