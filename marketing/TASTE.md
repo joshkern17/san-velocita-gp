@@ -14,6 +14,12 @@ Lesson: <what to do differently / keep doing>
 
 ---
 
+## 2026-10-18 · explainer 001 tire temps · CHANGED (close)
+What it was: tire-temps-v1.mp4, the first narrated explainer (DRV + CAR).
+Said: "it is really close" ... "wasnt bad at all tho"; wants scripts that are "more natural and engaging".
+Lesson: the template is nearly there; the script is the weak link. Write more like a person talking, with more pull (see research on script skills).
+Idea raised (needs workshopping): sometimes open with beautiful animated real-physics explainers (real cars), then reveal the game playable in the browser. The look: the game's UI style, "in a more modern application of the design".
+
 ## 2026-10-18 · director reel with engine sound · APPROVED
 What it was: the same reel with the game's own engines in sync (camera-relative pan, distance, doppler).
 Said: "wowwww thats so cool"
