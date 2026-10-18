@@ -14,6 +14,12 @@ Lesson: <what to do differently / keep doing>
 
 ---
 
+## 2026-10-18 · what the AI sees overlay · APPROVED
+What it was: the AI's plan as a ribbon in the game's racing-line colors (green throttle / yellow lift / red brake),
+red brake posts, apex speeds in mph, the pass planner's call.
+Said: "Keep racing line colors"
+Lesson: in-world game data keeps the game's own colors (racing line, tire temps), not the brand palette.
+
 ## 2026-10-18 · cars on screen · DIRECTION
 Said: "avoid using the f1 cars for now. Stick to miatas, f40, f1, porsche 935, m1 pro car, ford capri, m3, skyline …
 use a variety of them so people see what cool cars there are."

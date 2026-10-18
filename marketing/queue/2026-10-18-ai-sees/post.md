@@ -1,8 +1,4 @@
-Status: NEEDS OK
-Question: Is this the right look for the "what the AI sees" overlay: its plan as a ribbon on the road in the game's
-own racing-line colors (green throttle, yellow lift, red brake), a red post where it starts braking, and its target
-apex speed in orange mph numbers floating over each corner? (Or should it move to the brand's red/amber/blue and
-show fewer labels?)
+Status: READY (dev 2026-10-18: "Keep racing line colors": the overlay look is approved).
 
 # Explainer 005: what the AI sees
 - File: `ai-sees.mp4` (43.4 s, 1080×1920, −14 LUFS)
