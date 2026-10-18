@@ -75,5 +75,12 @@ export async function loadKit(premises, stations = []) {
   const tagged = []; room.traverse(o => { const m = /^(BUSY|IDLE)_([a-z0-9]+)/i.exec(o.name || ''); if (m) tagged.push([o, m[1].toUpperCase() === 'BUSY', m[2]]); });
   const setBusy = (keys = []) => { for (const [o, busy, k] of tagged) o.visible = busy === keys.includes(k); };
   setBusy([]);
-  return { group, setBusy, shell: used, bays, spawn: named('SPAWN')[0] || null, nav, stands: named('STAND_'), interacts: named('INTERACT_'), tires: named('TIRES')[0] || null, stations: set };
+  // the trophy cabinet (TROPHY_nn: its places, TROPHY_NOTE... the note on an empty one), past seasons' photos (PHOTO_nn the
+  // picture, PHOTO_nn_... its frame), the setup pad's scales (SCALEPAD_<corner>: moved under the car's wheels) and the
+  // readout they're wired to (SCALE_READOUT)
+  const byName = (a, b) => a.name.localeCompare(b.name);
+  const trophies = named('TROPHY_').filter(o => /^TROPHY_\d+$/.test(o.name)).sort(byName);
+  const photos = named('PHOTO_').filter(o => /^PHOTO_\d+$/.test(o.name)).sort(byName).map(o => ({ pic: o, parts: named(o.name) }));
+  return { group, setBusy, shell: used, bays, spawn: named('SPAWN')[0] || null, nav, stands: named('STAND_'), interacts: named('INTERACT_'), tires: named('TIRES')[0] || null, stations: set,
+    trophies, trophyNote: named('TROPHY_NOTE'), photos, scalePads: named('SCALEPAD_'), scaleReadout: named('SCALE_READOUT')[0] || null };
 }

@@ -437,7 +437,7 @@ const MAIN_ITEMS = [
   { label: 'Career', action: () => openCareer(), desc: 'A championship season with upgrades, perks and a Team Principal to keep happy. Or a straight Grand Prix.' },
   { label: 'Online', action: () => openOnline(), desc: 'Host a room or join a friend with a room code. Up to 8 drivers.' },
   { label: 'Garage', action: () => openGarage(), desc: 'Choose your car, build your F1 car and design its livery, helmet and suit.' },
-  { label: 'Development', action: () => mainDev(true), desc: 'Previews and quick tests: a pit stop, the World Career opening and ending, the home garage.' },
+  { label: 'Development', action: () => mainDev(true), desc: 'Previews and quick tests: a pit stop, the World Career opening and ending, the home garage, walking round each garage.' },
   { label: 'Track Editor', action: () => openEditor(), desc: 'Draw your own circuit, even on a real map of your town, then race it.' },
   { label: 'Options', action: () => openOptions('s-main'), desc: 'Screen look, retro effects, driving aids, units and sound.', cls: 'gap' },
   { label: 'How To Play', action: () => fadeTo(() => { openHelp(0); }, 200), desc: 'Controls for keyboard and controller, and racing tips.' },
@@ -449,8 +449,29 @@ const DEV_ITEMS = [
   { label: 'The Opening', action: () => openOpening(), desc: 'Preview: how a World Career begins. The trailer, the pile on the side table, the lottery draw, the claim office. Look around with the mouse or a stick.' },
   { label: 'The Ending', action: () => openEndingPreview(), desc: 'Preview: how a World Career ends when the money runs out. The garage at night, the car going, the list off the wall, the Wire, the record. A made-up career: nothing is saved.' },
   { label: 'Home Garage', action: () => openHomeView(), desc: 'Preview: the World Career garage. Pick the premises, the facilities and car two, and see the room change. Nothing is saved.' },
+  { label: 'Walk The Lock-up', action: () => devWalkGarage('lockup'), desc: 'Straight into walking round your first garage, the rented lock-up, with everything bought and the crew at work. B / Esc: the Home Garage menu.', cls: 'gap' },
+  { label: 'Walk The Unit', action: () => devWalkGarage('unit'), desc: 'Straight into walking round the industrial unit, with everything bought and the crew at work. B / Esc: the Home Garage menu.' },
+  { label: 'Walk The Workshop', action: () => devWalkGarage('workshop'), desc: 'Straight into walking round the Race Workshop, with everything bought, the crew at work and a few made-up trophies in the cabinet. Nothing is saved. B / Esc: the Home Garage menu.' },
   { label: 'Back', action: () => mainDev(false), desc: 'The main menu.', cls: 'gap' },
 ];
+// Development > Walk The ...: that premises with every facility bought (the lift too), the crew at work, a made-up
+// career's honors (the workshop's cabinet and photos; the desk's cups elsewhere), and you on your feet in it
+const DEV_HONORS = { clips: [], trophies: ['title', 'win', 'win', 'pod'], bills: 0, mattress: false,
+  shelf: { big: [{ kind: 'title', pos: 1, line1: 'Street Cup Champion', line2: '2027' }, { kind: 'season', pos: 3, line1: 'Spec Miata Club, 3rd', line2: '2026' }],
+    small: [{ kind: 'win', pos: 1, line1: 'Laguna Seca', line2: 'GT2 Championship 2028' }, { kind: 'pod', pos: 2, line1: 'Road Atlanta', line2: 'GT2 Championship 2028' },
+      { kind: 'win', pos: 1, line1: 'Street Cup', line2: '2027' }, { kind: 'win', pos: 1, line1: 'Street Cup', line2: '2027' }, { kind: 'pod', pos: 3, line1: 'Street Cup', line2: '2027' },
+      { kind: 'pod', pos: 2, line1: 'Spec Miata Club', line2: '2026' }] },
+  seasons: [{ y: 2027, series: 'Street Cup', pos: 1, wins: 4, pods: 7 }, { y: 2026, series: 'Spec Miata Club', pos: 3, wins: 1, pods: 3 }] };
+function devWalkGarage(premises) {
+  Object.assign(hv, { premises, fac: { tools: 2, sim: 1, dyno: 1, fab: 1, data: 1 }, car2: true, crew: true, busy: true });
+  openHomeView();
+  const ready = async () => {
+    for (let k = 0; k < 100 && !(pitGarage.custom && pitGarage.custom.startsWith(`home:${premises}`)); k++) await new Promise(r => setTimeout(r, 100));
+    await pitGarage.roomReady(); if (screen !== 's-homeview') return;
+    pitGarage.setMemories(DEV_HONORS); startWalk();
+  };
+  setTimeout(ready, 300);
+}
 let mainDevOn = false, devPitPending = false;
 function mainDev(on) {
   mainDevOn = on; (on ? sfx.select : sfx.back)();
@@ -6369,4 +6390,4 @@ requestAnimationFrame(frame);
 // debug handle
 window.__svgp = { get world() { return world; }, get photo() { return photo; }, get hud() { return hud; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, handleRaceEvents, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { get carPush() { return carPush; }, startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), goToPoster: () => goToPoster(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); }, openHomeView: () => openHomeView(), startWalk: () => startWalk(), startPitWalk: () => startPitWalk(), get walk() { return walk; }, homeView: (o) => { Object.assign(hv, o); hvApply(); }, get hv() { return hv; } } };
+  dbg: { get carPush() { return carPush; }, startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), goToPoster: () => goToPoster(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); }, openHomeView: () => openHomeView(), startWalk: () => startWalk(), startPitWalk: () => startPitWalk(), get walk() { return walk; }, homeView: (o) => { Object.assign(hv, o); hvApply(); }, get hv() { return hv; }, devWalkGarage: (p) => devWalkGarage(p) } };

@@ -4791,7 +4791,24 @@ export function memoriesOf(w) {
   // (the license on its lanyard: grade, stamps toward the next, whose it is)
   const L = licOf(w), G = LICENSES[L.g];
   const lic = { g: L.g, name: G.name, col: G.col, c: L.c, need: G.need, next: LICENSES[L.g + 1]?.name || null, no: L.no, since: L.up || L.since, holder: p.name };
-  return { clips: (w.keeps || []).slice(-8), trophies, bills, mattress: !(p.hist || []).length || bal < 0, lic, ladder: setupDone(w) ? ladderOf(w) : null };
+  return { clips: (w.keeps || []).slice(-8), trophies, bills, mattress: !(p.hist || []).length || bal < 0, lic, ladder: setupDone(w) ? ladderOf(w) : null, ...honorsOf(w) };
+}
+// the trophy cabinet (a premises with one: the Race Workshop): the big shelf's championship trophies (a title, or 2nd /
+// 3rd in a series), the race trophies on the glass shelves (this season's by track, past seasons' by series), newest
+// first; and the seasons for the photos either side
+function honorsOf(w) {
+  const p = w.player, H = [...(p.hist || [])].reverse(), SN = (id) => seriesById(id)?.name || id;
+  const big = H.filter(h => h.pos <= 3).map(h => ({ kind: h.pos === 1 ? 'title' : 'season', pos: h.pos, line1: h.pos === 1 ? `${SN(h.s)} Champion` : `${SN(h.s)}, ${h.pos === 2 ? '2nd' : '3rd'}`, line2: String(h.y) }));
+  const small = [];
+  for (const sid of Object.keys(w.series || {})) for (const res of [...(w.series[sid].results || [])].reverse()) {
+    const r = res.rows.find(q => q.pid === 'P'); if (r && !r.dnf && r.pos <= 3) small.push({ kind: r.pos === 1 ? 'win' : 'pod', pos: r.pos, line1: res.track, line2: `${SN(sid)} ${w.year}` });
+  }
+  for (const h of H) if (h.y < w.year) {   // (a past season's: how many, not where)
+    for (let i = 0; i < (h.wins || 0); i++) small.push({ kind: 'win', pos: 1, line1: SN(h.s), line2: String(h.y) });
+    for (let i = 0; i < Math.max(0, (h.pods || 0) - (h.wins || 0)); i++) small.push({ kind: 'pod', pos: 2 + (i % 2), line1: SN(h.s), line2: String(h.y) });
+  }
+  const seasons = H.slice(0, 4).map(h => ({ y: h.y, series: SN(h.s), pos: h.pos, wins: h.wins || 0, pods: h.pods || 0, team: h.team }));
+  return { shelf: { big: big.slice(0, 4), small: small.slice(0, 12) }, seasons };
 }
 
 // what the Wire calls you: the lottery winner, until you've earned something else

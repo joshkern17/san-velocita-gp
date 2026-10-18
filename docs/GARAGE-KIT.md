@@ -10,7 +10,7 @@ models/garage/
   kit-start.blend          the template: every piece, in one file
   shell_lockup.glb         Rented lock-up        (FACILITIES.base level 0)
   shell_unit.glb           Industrial unit       (level 1)   from unit-start.blend (tools/garage-unit.py)
-  shell_workshop.glb       Race workshop         (level 2)   not made yet
+  shell_workshop.glb       Race workshop         (level 2)   from workshop-start.blend (tools/garage-workshop.py)
   shell_factory.glb        Factory               (level 3)   not made yet
   station_tools.glb        Proper tools (a workbench, a locker)
   station_sim.glb          Sim rig (a CRT on a stand, a wheel on a post with pedals, an office chair)
@@ -97,6 +97,11 @@ Names only have to start with these (`SLOT_sim.001` is fine).
 | `TIRES` | shell (empty) | Your tires: one stack per compound you have, as tall as its share of your sets (the most you have of any is five high), the compound's stripe on top. The first stands on the empty, the rest in a row along its +Y. Walk up to them to order more |
 | `INTERACT_<what>` | any (empty) | Something you can use. Its red marker (and the A prompt, when you walk up to it) hangs here; you use it from within about a metre. Custom property `label` |
 | `PC_Screen`, `TV_Screen`, `TeamMain`... | any | As in GARAGE-MODEL.md |
+| `TROPHY_nn` | shell (empty) | A place in the trophy cabinet: your trophies stand there (custom prop `size_kind: big` for the championship ones). With these, the desk gets none |
+| `TROPHY_NOTE...` | shell (any) | Shown only while the cabinet's empty (Danny's note) |
+| `PHOTO_nn` | shell (flat plane, 4 : 3, facing in) | A past season's photo (your car in the team's colors, the year, the series, where you finished). `PHOTO_nn_...` are its frame: all hidden with no season for it |
+| `SCALEPAD_<corner>` | shell (empty, its parts parented to it) | A setup pad's scale: the game moves each under its own wheel of the car in bay one |
+| `SCALE_READOUT` | shell (empty) | Where the scales' cables plug in: the game draws them to it from the pads |
 
 Custom properties are set in Object Properties > Custom Properties, and they come through to the game.
 
@@ -187,3 +192,19 @@ engineer and manager a clipboard. You walk round them. Preview: **Crew** in Home
 
 No station has an `INTERACT_` yet: there's nothing for them to do. Check them: `node .devtest/stationshot.mjs <folder>`
 (three shots of each, in the unit with everything bought).
+
+## The Race Workshop
+
+`tools/garage-workshop.py` builds `models/garage/workshop-start.blend` and, with `-- --export`, `shell_workshop.glb`: a
+2000s GT team's race shop, 24 x 18 m. The main hall: bay 1 on the setup pad, bay 2, the project bay (the lift), the bench
+on the left wall, the tire stacks by the big roll-up door. Behind a block partition: the dyno room (a window onto the
+hall), the parts store (a hatch), the fab shop, your office. Up the stairs to the mezzanine on the right: the
+engineering office behind glass (the data room) and the sim room. Under it: reception with the trophy cabinet, and the
+mess. The detail is a file each in `tools/workshop/`: `structure.py` (the steel, stairs, doors, light fittings),
+`services.py` (the air main, electrics, heaters, fire kit, banner and signs), `rooms.py` (the rooms' furniture),
+`setup.py` (the setup pad) and `trophies.py` (the cabinet and photos); their signs are drawn by the `art_*.py` scripts.
+`WS_TAG=<tag>` builds a copy of its own (`shell_workshop_<tag>.glb`) to look at beside the real one.
+
+Check it: `node .devtest/workshopshot.mjs <folder>` (shots round it, the walk up to the office; `SHELL_WS=` a tagged
+copy) and `node .devtest/devwalk.mjs <folder>` (Development > Walk The Lock-up / Unit / Workshop, the cabinet and the
+scales under the wheels).

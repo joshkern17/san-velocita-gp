@@ -202,7 +202,7 @@ export class PitGarage {
     if (!this.screen && crts.length) this.attachScreen(crts[0], 0.391, 0.34, new THREE.Vector3(-0.0015, 0.30, 0.2245), 0);
     this.room.add(m); this.custom = key;
     this.placeCar2();
-    if (this.memLast) { this.memKey = null; this.setMemories(this.memLast); } // (placed against this room)
+    { this.memKey = null; this.setMemories(this.memLast || null); }   // (no career's memories: the cabinet still gets its note, the empty frames go) // (placed against this room)
     if (this.team) this.setTeam(this.team);
     if (this.tyre) this.setTyre(this.tyre);
     if (this.tyreStock) { this.tyreKey = null; this.setTyres(this.tyreStock); }
@@ -276,7 +276,7 @@ export class PitGarage {
     for (const l of this.lights) l.visible = true;
     if (this.fill) { this.fill.removeFromParent(); this.fill = null; }
     this.view = null; this.kit = null; this.custom = false; this.placeCar2();
-    if (this.memLast) { this.memKey = null; this.setMemories(this.memLast); }
+    { this.memKey = null; this.setMemories(this.memLast || null); }   // (no career's memories: the cabinet still gets its note, the empty frames go)
     if (this.team) this.setTeam(this.team);
     if (this.tyre) this.setTyre(this.tyre);
   }
@@ -527,6 +527,7 @@ export class PitGarage {
     this.memKey = key; this.memRoom = this.custom;
     if (this.memGroup) { this.memGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); for (const mt of [o.material].flat().filter(Boolean)) { if (mt.map) mt.map.dispose(); mt.dispose(); } }); this.memGroup.removeFromParent(); }
     const G = this.memGroup = new THREE.Group(); this.scene.add(G); G.visible = this.mode === 'home';
+    const cabinet = this.fillHonors(G, m);   // (a premises with a trophy cabinet: the trophies go there, not on the desk)
     if (!m) return;
     this.room.updateMatrixWorld(true);
     const solid = (h) => h.object !== this.screen && h.object.visible && !G.children.includes(h.object) && h.object !== this.listMesh && h.object !== this.noticeMesh;
@@ -559,7 +560,7 @@ export class PitGarage {
       const n = new THREE.Vector3(f.n.x, 0, f.n.z).normalize(), side = new THREE.Vector3().crossVectors(n, new THREE.Vector3(0, 1, 0)).normalize(), deskY = f.c.y - f.h / 2;
       const onDesk = (p) => { const s0 = p.clone(); s0.y += 0.5; const h = new THREE.Raycaster(s0, new THREE.Vector3(0, -1, 0), 0, 1.2).intersectObject(this.room, true).find(solid); return h && h.point.y > deskY - 0.35 && h.point.y < deskY + 0.2 ? h.point : null; };
       // trophies: in a row on the other side of the screen from the notice, the big ones at the back
-      m.trophies.forEach((k, i) => {
+      if (!cabinet) m.trophies.forEach((k, i) => {
         const p = onDesk(f.c.clone().addScaledVector(n, 0.16 + (i % 2) * 0.09).addScaledVector(side, f.w / 2 + 0.08 + Math.floor(i / 2) * 0.09)); if (!p) return;
         const t = this.trophy(k); t.position.copy(p); t.rotation.y = Math.atan2(n.x, n.z) + i * 0.4; G.add(t);
       });
@@ -738,6 +739,89 @@ export class PitGarage {
     g.fillStyle = '#888'; for (let y = 60; y < 90; y += 9) g.fillRect(30, y, 90, 3);
     if (red) { g.save(); g.translate(190, 40); g.rotate(-0.25); g.strokeStyle = '#c8141c'; g.lineWidth = 4; g.strokeRect(-46, -14, 92, 28); g.fillStyle = '#c8141c'; g.font = 'bold 16px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('OVERDUE', 0, 1); g.restore(); }
     const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+  }
+  // ---------- the trophy cabinet and the photos either side (a kit with TROPHY_ places: the Race Workshop) ----------
+  // m.shelf { big: [...], small: [...] } (wcareer.js honorsOf): each { kind: title | season | win | pod, pos, line1,
+  // line2 }; m.seasons for the photos. Nothing won yet: Danny's note on the glass. Returns whether there's a cabinet
+  fillHonors(G, m) {
+    const k = this.kit && /^home:/.test(this.custom || '') ? this.kit : null;
+    if (!k || !k.trophies || !k.trophies.length) return false;
+    const big = k.trophies.filter(t => t.userData.size_kind === 'big'), small = k.trophies.filter(t => t.userData.size_kind !== 'big');
+    const shelf = (m && m.shelf) || { big: [], small: [] }, q = new THREE.Quaternion();
+    const put = (list, places) => list.slice(0, places.length).forEach((it, i) => {
+      const t = this.cabinetTrophy(it); places[i].getWorldPosition(t.position); places[i].getWorldQuaternion(q); t.quaternion.copy(q);
+      t.rotateY(((i * 37) % 7 - 3) * 0.03); G.add(t);   // (not quite lined up: someone put them there)
+    });
+    put(shelf.big, big); put(shelf.small, small);
+    const any = shelf.big.length + shelf.small.length > 0;
+    for (const o of k.trophyNote || []) o.visible = !any;
+    const seasons = (m && m.seasons) || [];
+    (k.photos || []).forEach((ph, i) => {
+      const s = seasons[i]; for (const o of ph.parts) o.visible = !!s;
+      if (!s) return;
+      const tex = new THREE.CanvasTexture(this.seasonPhoto(s)); tex.colorSpace = THREE.SRGBColorSpace; tex.flipY = false;
+      if (ph.pic.material && ph.pic.material.map && ph.pic.material.userData.honors) ph.pic.material.map.dispose();
+      ph.pic.material = new THREE.MeshLambertMaterial({ map: tex }); ph.pic.material.userData.honors = true;
+    });
+    return true;
+  }
+  // a cabinet's trophy, 0.25-0.5 m tall, on its plinth with an engraved plate (to the room: +Z). title: the big gold cup
+  // with handles; season: 2nd / 3rd in a series, a silver / bronze cup with handles; win: a gold cup; pod: silver / bronze
+  cabinetTrophy(it) {
+    const metal = it.kind === 'title' || it.kind === 'win' ? 0xd8a830 : it.pos === 2 ? 0xc8ccd4 : 0xb07040;
+    const glow = it.kind === 'title' || it.kind === 'win' ? 0x3a2a08 : it.pos === 2 ? 0x2a2c30 : 0x2a1608;
+    const mat = new THREE.MeshPhongMaterial({ color: metal, emissive: glow, specular: 0xffffff, shininess: 80, side: THREE.DoubleSide });
+    const h = { title: 0.36, season: 0.28, win: 0.22, pod: 0.17 }[it.kind] || 0.2, handles = it.kind === 'title' || it.kind === 'season';
+    const o = new THREE.Group();
+    // the plinth: two tiers of black, the plate on its front
+    const pw = h * 0.55 + 0.04, ph = h * 0.32;
+    const base = new THREE.Mesh(new THREE.BoxGeometry(pw, ph * 0.6, pw), new THREE.MeshPhongMaterial({ color: 0x111113, shininess: 60 })); base.position.y = ph * 0.3;
+    const top = new THREE.Mesh(new THREE.BoxGeometry(pw * 0.75, ph * 0.4, pw * 0.75), base.material); top.position.y = ph * 0.6 + ph * 0.2;
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(pw * 0.86, ph * 0.5), new THREE.MeshPhongMaterial({ map: this.plateTex(it), color: 0xffffff, shininess: 90 }));
+    plate.position.set(0, ph * 0.3, pw / 2 + 0.001); o.add(base, top, plate);
+    // the cup: stem, bowl, lip, a lid with a finial on a title
+    const s = h / 0.36, P = [[0, 0], [0.05, 0], [0.05, 0.01], [0.02, 0.025], [0.013, 0.06], [0.012, 0.13], [0.02, 0.145], [0.045, 0.16], [0.075, 0.22], [0.085, 0.29], [0.08, 0.3], [0.07, 0.235], [0.04, 0.17], [0, 0.16]];
+    const cup = new THREE.Mesh(new THREE.LatheGeometry(P.map(([x, y]) => new THREE.Vector2(x * s, y * s)), 24), mat); cup.position.y = ph; o.add(cup);
+    if (it.kind === 'title') {
+      const lid = new THREE.Mesh(new THREE.LatheGeometry([[0, 0.3], [0.082, 0.3], [0.06, 0.33], [0.015, 0.345], [0.012, 0.36], [0.022, 0.375], [0, 0.39]].map(([x, y]) => new THREE.Vector2(x * s, y * s)), 20), mat); lid.position.y = ph; o.add(lid);
+    }
+    if (handles) for (const sd of [-1, 1]) {   // (ear handles: a half ring each side)
+      const hd = new THREE.Mesh(new THREE.TorusGeometry(0.045 * s, 0.007 * s, 6, 12, Math.PI), mat);
+      hd.rotation.z = sd > 0 ? -Math.PI / 2 : Math.PI / 2; hd.position.set(sd * 0.082 * s, ph + 0.235 * s, 0); o.add(hd);
+    }
+    return o;
+  }
+  plateTex(it) {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 96; const g = c.getContext('2d');
+    const gold = it.kind === 'title' || it.kind === 'win';
+    g.fillStyle = gold ? '#c9a043' : '#b8bcc4'; g.fillRect(0, 0, 256, 96); g.strokeStyle = '#3a2a10'; g.lineWidth = 4; g.strokeRect(4, 4, 248, 88);
+    g.fillStyle = '#2a1e0c'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const fit = (t, size, y) => { let f = size; do { g.font = `bold ${f}px Helvetica, Arial, sans-serif`; f--; } while (g.measureText(t).width > 230 && f > 9); g.fillText(t, 128, y); };
+    fit(String(it.line1 || '').toUpperCase(), 28, 34); fit(String(it.line2 || ''), 24, 68);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  }
+  // a past season's photo: the car through a corner at speed in the team's colors, the stand behind blurred, the
+  // caption along the bottom (the year, the series, where you finished)
+  seasonPhoto(s) {
+    const W = 320, H = 240, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+    const main = this.team ? hex(this.team.main) : '#c8102e', acc = this.team ? hex(this.team.accent ?? 0xffffff) : '#ffffff';
+    const sky = g.createLinearGradient(0, 0, 0, 90); sky.addColorStop(0, '#8fb4d8'); sky.addColorStop(1, '#d8e4ec'); g.fillStyle = sky; g.fillRect(0, 0, W, 90);
+    let r = (s.y * 7919 + (s.pos || 1) * 104729) % 9973; const rnd = () => (r = (r * 16807) % 2147483647) / 2147483647;
+    for (let x = 0; x < W; x += 6) { g.fillStyle = `hsl(${rnd() * 360},${30 + rnd() * 30}%,${40 + rnd() * 30}%)`; g.fillRect(x, 58 + rnd() * 10, 6, 34); }   // (the crowd, blurred)
+    g.fillStyle = '#b8b8b0'; g.fillRect(0, 90, W, 10); g.fillStyle = '#5c5e62'; g.fillRect(0, 100, W, 110);   // (the wall, the track)
+    for (let x = 0; x < W; x += 24) { g.fillStyle = (x / 24) % 2 ? '#d8242a' : '#f2f2f2'; g.fillRect(x, 196, 24, 12); }   // (the curb)
+    g.globalAlpha = 0.25; for (let k = 0; k < 14; k++) { g.fillStyle = '#ffffff'; g.fillRect(rnd() * W, 110 + rnd() * 80, 40 + rnd() * 60, 2); } g.globalAlpha = 1;   // (motion streaks)
+    // the car, side on: the body in the team's main color, a stripe in the accent, the wheels, the driver's helmet
+    const cx = 90 + rnd() * 100, cy = 150;
+    g.fillStyle = main; g.beginPath(); g.moveTo(cx - 90, cy + 12); g.lineTo(cx - 80, cy - 8); g.lineTo(cx - 20, cy - 14); g.lineTo(cx + 10, cy - 30); g.lineTo(cx + 40, cy - 30); g.lineTo(cx + 70, cy - 12); g.lineTo(cx + 95, cy - 8); g.lineTo(cx + 98, cy + 12); g.closePath(); g.fill();
+    g.fillStyle = acc; g.fillRect(cx - 82, cy - 2, 178, 5);
+    g.fillStyle = '#1a1a1c'; g.beginPath(); g.arc(cx + 22, cy - 30, 8, 0, Math.PI * 2); g.fill();
+    for (const wx of [cx - 55, cx + 62]) { g.fillStyle = '#111'; g.beginPath(); g.arc(wx, cy + 14, 17, 0, Math.PI * 2); g.fill(); g.fillStyle = '#9a9ca0'; g.beginPath(); g.arc(wx, cy + 14, 8, 0, Math.PI * 2); g.fill(); }
+    // the caption
+    g.fillStyle = 'rgba(10,10,12,0.82)'; g.fillRect(0, H - 34, W, 34); g.fillStyle = '#f2f2ee'; g.font = 'bold 15px Helvetica, Arial, sans-serif'; g.textBaseline = 'middle';
+    const pos = s.pos === 1 ? 'Champions' : `${s.pos}${s.pos === 2 ? 'nd' : s.pos === 3 ? 'rd' : 'th'}`;
+    g.fillText(`${s.y}  ${s.series}  ${pos}${s.wins ? `, ${s.wins} win${s.wins > 1 ? 's' : ''}` : ''}`.slice(0, 44), 10, H - 17);
+    return c;
   }
   // a cup: a title is the big one (gold), a win gold, a podium bronze
   trophy(kind) {
@@ -1046,6 +1130,42 @@ export class PitGarage {
     if (this.kit && this.kit.setBusy) this.kit.setBusy(busy);
     if (this.homeCrew) this.homeCrew.setBusy(busy);
   }
+  // the setup pad's scales (a kit with SCALEPAD_s: the Race Workshop): each under its own wheel of the car in bay one,
+  // whatever its wheelbase and track, the cables from them to the readout drawn along the floor. Checked twice a second
+  // (a car's model loads after it's put in the bay); with no car they go back where they were built
+  padTick(dt) {
+    const k = this.mode === 'home' && this.kit && /^home:/.test(this.custom || '') ? this.kit : null, pads = k && k.scalePads;
+    if (!pads || !pads.length) { if (this.padCables) { this.padCables.removeFromParent(); this.padCables = null; } return; }
+    this.padT = (this.padT || 0) - dt; if (this.padT > 0) return; this.padT = 0.5;
+    for (const p of pads) if (!p.userData.home) p.userData.home = p.position.clone();
+    const c = this.car, on = c && c.group.parent && c.group.visible && c.wheels && c.wheels.length >= 4;
+    const at = [], v = new THREE.Vector3();
+    if (on) { c.group.updateMatrixWorld(true); for (const wh of c.wheels) { (wh.pivot || wh.mesh).getWorldPosition(v); at.push(v.clone()); } }
+    const key = on ? at.map(p => `${p.x.toFixed(2)},${p.z.toFixed(2)}`).join('|') : 'home';
+    if (key === this.padKey && this.padCables && this.padCables.parent) return; this.padKey = key;
+    // each wheel to the pad that waits nearest it (the pads' corners match a car's however it's modelled)
+    const free = [...pads];
+    for (const p of pads) p.position.copy(p.userData.home);
+    if (on) for (const w of at) {
+      let best = null, bd = Infinity;
+      for (const p of free) { p.parent.localToWorld(v.copy(p.userData.home)); const d = Math.hypot(v.x - w.x, v.z - w.z); if (d < bd) { bd = d; best = p; } }
+      if (!best || bd > 1.6) continue; free.splice(free.indexOf(best), 1);
+      const loc = best.parent.worldToLocal(new THREE.Vector3(w.x, 0, w.z)); best.position.set(loc.x, best.userData.home.y, loc.z);
+    }
+    // the cables: from each pad's outer side, along the floor, to the stand's foot, up its pole to the readout
+    if (this.padCables) { this.padCables.traverse(o => o.geometry && o.geometry.dispose()); this.padCables.removeFromParent(); }
+    const G = this.padCables = new THREE.Group(); G.name = 'ScaleCables'; this.room.parent.add(G);
+    const R = k.scaleReadout; if (!R) return;
+    this.room.updateMatrixWorld(true); const top = R.getWorldPosition(new THREE.Vector3()), mat = this.padCableMat || (this.padCableMat = new THREE.MeshLambertMaterial({ color: 0x141416 }));
+    const foot = new THREE.Vector3(top.x, 0.012, top.z);
+    pads.forEach((p, i) => {
+      const s = p.getWorldPosition(new THREE.Vector3()), sock = p.getObjectByProperty('name', p.children.map(o => o.name).find(n => /Socket/.test(n)));
+      const a = sock ? sock.getWorldPosition(new THREE.Vector3()).setY(0.012) : s.clone().setY(0.012), out = Math.sign(a.x - s.x) || 1, lift = 0.04 * i;
+      const pts = [a, new THREE.Vector3(a.x + out * 0.2, 0.012, a.z + 0.08), new THREE.Vector3((a.x + foot.x) / 2, 0.012, (a.z + foot.z) / 2 + 0.25 * (i - 1.5)),
+        new THREE.Vector3(foot.x + 0.12, 0.012, foot.z + 0.06 * (i - 1.5)), new THREE.Vector3(foot.x + 0.02, 0.2, foot.z), new THREE.Vector3(top.x, top.y - 0.12 - lift * 0.2, top.z - 0.06 + i * 0.04)];
+      const m = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.006, 5), mat); G.add(m);
+    });
+  }
   crewTick(dt) {
     const W = this.crewWant, kit = this.mode === 'home' && this.custom && /^home:/.test(this.custom) ? this.kit : null;
     const want = kit && W && W.list.length ? `${this.custom}|${W.key}` : null;
@@ -1103,6 +1223,7 @@ export class PitGarage {
     }
     this.flickTick(dt);
     this.crewTick(dt);
+    this.padTick(dt);
     if (this.friend) this.friend.update(dt); // (co-op: the other one of you, js/coopwalk.js)
     // walking round (js/garagewalk.js): you and the camera behind you
     if (this.walker && this.walker.active) {
