@@ -192,7 +192,7 @@ export class HomeCrew {
     return [...this.pathOn(La, a, [p.x, p.z]), [q.x, q.z], ...this.pathOn(Lb, [q.x, q.z], b)];
   }
   floorAt(x, y, z) {
-    _ray.set(_v.set(x, y + 1.0, z), _down); _ray.far = 3.5;
+    _ray.set(_v.set(x, y + 1.0, z), _down); _ray.far = 9;   // (down to the floor from the factory's upper floor, 4.2 m: at 3.5 m someone stepping off the stairs part way up never found it, and hung there)
     const h = _ray.intersectObjects(this.navMeshes, false)[0]; return h ? h.point.y : y;
   }
 
