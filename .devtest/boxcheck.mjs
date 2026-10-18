@@ -81,6 +81,26 @@ try {
             }
           });
           if (hits.size) probs.push('scenery in the rooms: ' + [...hits].map(([k, c]) => `${k} x${c}`).join(', '));
+          // the ground (terrain, plots, runoff, roads: the big meshes) never above a room's floor: rays down through each room
+          const big = []; w.root.traverse(o => {
+            if (!o.isMesh || o.isInstancedMesh) return;
+            for (let q = o.parent; q; q = q.parent) if (q.name === 'PitBoxes') return;
+            if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+            if (o.geometry.boundingSphere.radius > 30) big.push(o);
+          });
+          const rc = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0); let gWorst = 0, gWho = '', gN = 0;
+          for (const s of slots) {
+            const F = PB.boxFrame(T, A, pit, s.k < 0 ? null : s.k) || (() => null)();
+            if (s.k < 0 || !F) continue;
+            for (let x = F.x0 + 0.4; x <= F.x1 - 0.4; x += 1.0) for (let z = 0.3; z <= PB.BOX.depth - 0.3; z += 1.0) {
+              const f = F.P(x, z, PB.BOX.floor);
+              rc.set(new THREE.Vector3(f[0], f[1] + 3.5, f[2]), down); rc.far = 3.5;
+              for (const h of rc.intersectObjects(big, false)) {
+                const up = h.point.y - f[1]; if (up > 0.005) { gN++; if (up > gWorst) { gWorst = up; gWho = [h.object.name, h.object.material?.name, h.object.material?.type, h.object.parent?.name, h.object.geometry.attributes.position.count, Object.keys(h.object.geometry.attributes).join('+'), 'c' + h.object.material?.color?.getHexString(), 'side' + h.object.material?.side, !!h.object.material?.map].join('|') + ' at ' + h.point.toArray().map(v => v.toFixed(1)).join(','); } }
+              }
+            }
+          }
+          if (gN) probs.push(`ground above a room's floor: ${gN} points, up to ${gWorst.toFixed(2)} m (${gWho})`);
         }
         out.push({ name: t.name, slots: slots.length, walls: L.walls.length, boxes: pit.boxes.length, off: +worst.toFixed(2), w: widths.length ? [Math.min(...widths), Math.max(...widths)].map(x => +x.toFixed(1)) : [], probs });
       } catch (e) { out.push({ name: t.name, error: String(e).slice(0, 200) }); }

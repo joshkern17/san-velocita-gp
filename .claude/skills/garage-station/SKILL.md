@@ -28,7 +28,19 @@ pre-baked shading. What made the dyno work, in order of impact:
 4. **Grime on everything custom-built** (the user's standing rule): `grimy_tile` from the PSX Industrial textures, never
    a flat colour on a big surface. Pack models keep their own textures.
 5. **Baked AO** (`bake_ao`): dark under the engine, in corners, where parts meet. Free at runtime, very PS1.
-6. **Something that changes when it's in use**: BUSY_ pieces (the engine, glowing screens, a lit sign, a beacon and
+6. **Every small object gets the same care** (the user's rule since the pit box, Oct 2026: "that level of detail and
+   care for any object"). The pit box's first wheel guns were three boxes under a coil with a gap; the remade ones
+   (lathed motor housing, team band, hex socket, pistol grip, trigger, reverse switch, a hose that drops off the reel,
+   coils and runs into the grip, each gun tipped until its weight hangs under the hose, the four turned differently)
+   were "so much better". So for each prop:
+   - Model its real parts, not a stand-in.
+   - Make it rest the way physics would: hung things hang under their hanger; screens sit on a mount, arm or stand.
+   - Give anything with a face a back: a laptop lid or monitor is a shell plus the screen card, never the card alone.
+   - Vary repeats: not four identical clones.
+7. **Grime in proportion.** Big painted panels (a team backdrop, cabinets, roll cabs) get `plain_mat`'s smooth paint
+   with light grime (dirt ~0.1-0.16). The metal tiles' blotches over a whole wall read as too much. Save heavy grime
+   for floors, steel, and things that get handled.
+8. **Something that changes when it's in use**: BUSY_ pieces (the engine, glowing screens, a lit sign, a beacon and
    its light) and IDLE_ ones (dark screens, a covered bench, boxes). The crew works busy stations harder.
 
 ## Conventions (the game relies on these)
@@ -71,7 +83,8 @@ pre-baked shading. What made the dyno work, in order of impact:
 5. **Check** (catches floating props, broken hooks, BUSY without IDLE, the budget; exit 1 on errors):
    `Blender -b models/garage/<key>-start.blend --python .claude/skills/garage-station/scripts/check_station.py -- station_<key> [budget]`
 6. **Look at it**: `Blender -b models/garage/<key>-start.blend --python .claude/skills/garage-station/scripts/render_station.py -- station_<key> <outdir> [idle]`
-   then Read `<outdir>/sheet.png`. Look like the user will: is anything floating, clipping, stretched (a texture over a
+   then Read `<outdir>/sheet.png`. Then close-ups of each small prop, from the front AND from behind (a camera a
+   metre off, aimed at it: the sheet's wide shots hide a gap under a gun or a screen with no back). Look like the user will: is anything floating, clipping, stretched (a texture over a
    whole panel instead of tiled), oddly coloured (oil-slick textures turn rainbow purple), backwards (screens), hidden?
 7. **In the game**, side by side with the old one, without replacing it:
    `KIT=station_<key>=station_<key>_v2 node .devtest/stationshot.mjs .devtest/out/<key>/new <key>` and put old/new

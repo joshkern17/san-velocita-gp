@@ -56,6 +56,9 @@ function template(scene) {
     const map = m.map || null; if (map) map.magFilter = THREE.NearestFilter;
     const col = glow ? (m.emissive && m.emissive.getHex() ? m.emissive : m.color) : team ? new THREE.Color(1, 1, 1) : m.color;
     const out = { key: m.uuid, glow, team, mat: new THREE.MeshBasicMaterial({ map, color: col.clone(), vertexColors: !glow, side: THREE.DoubleSide, toneMapped: !glow, transparent: !!m.transparent, alphaTest: m.alphaTest || 0 }) };
+    // READ_ in its name: something with writing on it (a sign, a logo, a screen of text): in a mirrored box it'd read
+    // backwards, so those boxes get its texture flipped back (fitBoxes)
+    if (/(^|_)READ_/.test(m.name || '') && map) { const f = map.clone(); f.repeat.x = -1; f.offset.x = 1; f.needsUpdate = true; out.flip = out.mat.clone(); out.flip.map = f; }
     MATS.set(m, out); return out;
   };
   for (const top of scene.children) {
@@ -78,10 +81,12 @@ function template(scene) {
         const M = matFor(mats[gr.materialIndex] || mats[0]);
         const g = sub(geo, gr.start, gr.count);
         // the room's light, baked in (as the room's own is)
-        const p = g.attributes.position, n = g.attributes.normal, cl = new Float32Array(p.count * 3);
+        // (times the model's own baked AO, its COLOR_0, where it has one: the dark under things and in their corners)
+        const p = g.attributes.position, n = g.attributes.normal, ao = g.attributes.color, cl = new Float32Array(p.count * 3);
         for (let i = 0; i < p.count; i++) {
           const L = M.glow ? 1 : Math.max(0.5, lightAt(p.getX(i), -p.getZ(i), p.getY(i), [n.getX(i), -n.getZ(i), n.getY(i)]));
-          cl[i * 3] = cl[i * 3 + 1] = cl[i * 3 + 2] = L;
+          if (ao && !M.glow) { cl[i * 3] = L * ao.getX(i); cl[i * 3 + 1] = L * ao.getY(i); cl[i * 3 + 2] = L * ao.getZ(i); }
+          else cl[i * 3] = cl[i * 3 + 1] = cl[i * 3 + 2] = L;
         }
         g.setAttribute('color', new THREE.BufferAttribute(cl, 3));
         pieces.push({ thing, bin, M, geo: g });
@@ -119,6 +124,9 @@ function sub(geo, start, count) {
     if (a) for (let i = 0; i < count; i++) for (let j = 0; j < size; j++) arr[i * size + j] = a.array[(start + i) * a.itemSize + j];
     g.setAttribute(k, new THREE.BufferAttribute(arr, size));
   }
+  // (the model's baked AO, COLOR_0: often stored as normalized integers, so read through getX, not the raw array)
+  const c = geo.attributes.color;
+  if (c) { const arr = new Float32Array(count * 3); for (let i = 0; i < count; i++) { arr[i * 3] = c.getX(start + i); arr[i * 3 + 1] = c.getY(start + i); arr[i * 3 + 2] = c.getZ(start + i); } g.setAttribute('color', new THREE.BufferAttribute(arr, 3)); }
   return g;
 }
 function merge(pieces) {
@@ -159,11 +167,16 @@ export function fitBoxes(tpl, root, boxes) {
   const C = new THREE.Color(), tint = (M, team) => M.team === 'main' ? C.set(team?.main ?? 0xcc2222) : M.team === 'accent' ? C.set(team?.accent ?? 0xffffff) : C.set(0xffffff);
   const ZERO = new THREE.Matrix4().makeScale(0, 0, 0), mm = new THREE.Matrix4();
   const add = (s, at) => {
-    const im = new THREE.InstancedMesh(s.geo, s.M.mat, list.length);
-    list.forEach((b, i) => { const m = at(b); im.setMatrixAt(i, m || ZERO); im.setColorAt(i, tint(s.M, b.team)); });
-    im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
-    im.computeBoundingSphere(); im.userData.sharedGeo = true; im.userData.worldMat = true; im.name = 'pitbox'; // (the model's, kept for next time)
-    g.add(im);
+    // (writing, READ_: the mirrored boxes in a mesh of their own, its texture flipped back)
+    const sets = s.M.flip ? [[list.filter(b => !b.F.mirror), s.M.mat], [list.filter(b => b.F.mirror), s.M.flip]] : [[list, s.M.mat]];
+    for (const [bs, mat] of sets) {
+      if (!bs.length) continue;
+      const im = new THREE.InstancedMesh(s.geo, mat, bs.length);
+      bs.forEach((b, i) => { const m = at(b); im.setMatrixAt(i, m || ZERO); im.setColorAt(i, tint(s.M, b.team)); });
+      im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
+      im.computeBoundingSphere(); im.userData.sharedGeo = true; im.userData.worldMat = true; im.name = 'pitbox'; // (the model's, kept for next time)
+      g.add(im);
+    }
   };
   for (const s of tpl.shared) add(s, (b) => frameMatrix(b.F, s.bin));
   for (const s of tpl.clutter) add(s, (b) => { const c = clutterAt(b.k ?? 0, s.thing); return c && mm.multiplyMatrices(frameMatrix(b.F, s.bin), c).clone(); });

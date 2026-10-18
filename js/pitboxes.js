@@ -115,6 +115,25 @@ export function pitBlockTest(T, A, pit) {
   });
 }
 
+// the garage block's floor under x, z (the world): { y: the floor's height there, d: how far outside the block's
+// footprint x, z is, 0 inside }, from the nearest room; null: no garages, or more than `reach` m from them.
+// js/world.js tucks the ground under it: on a site rising away from the lane the terrain came up through the floors
+export function pitBlockFloor(T, A, pit, reach = 30) {
+  if (!pit) return null;
+  const L = pitSlots(T, A, pit); if (!L.slots.length) return null;
+  const frs = L.slots.map(s => { const F = frameOf(T, A, pit, s), o = F.P(0, 0, 0), t = F.P(1, 0, 0); return { F, o, tx: t[0] - o[0], tz: t[2] - o[2] }; });
+  return (x, z) => {
+    let best = null;
+    for (const { F, o, tx, tz } of frs) {
+      const dx = x - o[0], dz = z - o[2], lx = dx * tx + dz * tz, lz = dx * F.n[0] + dz * F.n[1];
+      const ex = Math.max(F.x0 - lx, 0, lx - F.x1), ez = Math.max(-lz, 0, lz - BOX.depth - 0.6), d = Math.hypot(ex, ez);
+      if (d > reach || (best && d >= best.d)) continue;
+      best = { y: F.P(Math.max(F.x0, Math.min(F.x1, lx)), Math.max(0, Math.min(BOX.depth, lz)), BOX.floor)[1], d };
+    }
+    return best;
+  };
+}
+
 // ---------- the light inside: three rows of strip lights across the room, a little daylight in at the door ----------
 const ROWS = [3.2, 7.2, 11.2], LX = 5;
 export function lightAt(x, z, y, n) {
@@ -183,8 +202,9 @@ class Build {
 }
 
 const INSIDE = () => new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide });
-// the rooms' surfaces: the PSX Industrial pack's concrete floor, corrugated ceiling, dark metal skirting and hazard
-// stripes, the garage tools pack's plaster walls (assets/textures; the light still baked into the vertex colors)
+// the rooms' surfaces: a team garage's pale epoxy floor, white composite wall panels and a tiled ceiling
+// (tools/pit-textures.py), the PSX Industrial pack's dark metal skirting and hazard stripes (assets/textures; the
+// light still baked into the vertex colors)
 const texUrl = (n) => ((typeof window !== 'undefined' && window.__SVGP_TEXTURES) || {})[n] || `assets/textures/${n}.png`;
 const TEX = {};
 function surface(name) {
@@ -249,7 +269,7 @@ export function roomMeshes(F, k) {
   // (the textured surfaces, each its own mesh: tiles of `tile` metres)
   const BF = new Build(F), BW = new Build(F), BS = new Build(F), BC = new Build(F), BH = new Build(F);
   const tq = (Bt, o, u, v, col, n, cells, tile) => Bt.quad(o, u, v, col, n, cells, [0, Math.hypot(...u) / tile, 0, Math.hypot(...v) / tile]);
-  const FLOOR = 0xf4f4f4, WALL = 0xf6f5f2, SKIRT = 0xb0b0b0, CEIL = 0xc8ccd2;
+  const FLOOR = 0xffffff, WALL = 0xffffff, SKIRT = 0x9a9ea4, CEIL = 0xf0f2f4;
   const fy = BOX.floor;
   tq(BF, [-wx, frontT, fy], [2 * wx, 0, 0], [0, depth - frontT, 0], FLOOR, [0, 0, 1], 1.2, 1.6);
   tq(BH, [-dw, 0, fy], [doorW, 0, 0], [0, frontT, 0], 0xffffff, [0, 0, 1], 1.2, 0.8);      // the sill: hazard stripes
@@ -268,11 +288,16 @@ export function roomMeshes(F, k) {
   tq(BS, [-wx, depth, 0], [2 * wx, 0, 0], [0, 0, 0.25], SKIRT, [0, -1, 0], 1.2, 1);           // the back wall
   tq(BW, [-wx, depth, 0.25], [2 * wx, 0, 0], [0, 0, ceil - 0.25], WALL, [0, -1, 0], 1.2, 2);
   tq(BC, [-wx, frontT, ceil], [2 * wx, 0, 0], [0, depth - frontT, 0], CEIL, [0, 0, -1], 1.2, 1.2); // the ceiling
-  // the walls' panel seams, two beams across the ceiling
-  const SEAM = 0xc4c4c0;
-  for (let z = frontT + 1.5; z < depth - 0.5; z += 1.5) for (const sx of [-1, 1]) B.quad([sx * (wx - 0.01), z, 0.25], [0, 0.04, 0], [0, 0, ceil - 0.25], SEAM, [-sx, 0, 0], 9);
-  for (let x = -wx + 1.5; x < wx - 0.5; x += 1.5) B.quad([x, depth - 0.01, 0.25], [0.04, 0, 0], [0, 0, ceil - 0.25], SEAM, [0, -1, 0], 9);
-  for (const z of [5.2, 9.2]) B.box(-wx, wx, z - 0.1, z + 0.1, ceil - 0.25, ceil, 0x6b7076, 1.5);
+  // (the wall panels carry their own seams and fixings: pit_panel); two beams across the ceiling, a cable tray along
+  // each side wall up high, and a dado rail where the panels meet the skirting's grubbier band
+  for (const z of [5.2, 9.2]) B.box(-wx, wx, z - 0.1, z + 0.1, ceil - 0.25, ceil, 0x5c6168, 1.5);
+  for (const sx of [-1, 1]) {
+    const x = sx * (wx - 0.25);
+    B.box(Math.min(x, x + sx * 0.2), Math.max(x, x + sx * 0.2), frontT + 0.3, depth - 0.3, ceil - 0.62, ceil - 0.58, 0x8a8f96, 2);   // the tray
+    B.box(Math.min(x, x + sx * 0.2), Math.max(x, x + sx * 0.2), frontT + 0.3, depth - 0.3, ceil - 0.6, ceil - 0.52, 0x24272c, 2);    // its cables
+    B.box(Math.min(sx * wx, sx * (wx - 0.04)), Math.max(sx * wx, sx * (wx - 0.04)), frontT, depth, 1.18, 1.24, 0x7c8188, 2);          // the rail
+  }
+  B.box(-wx, wx, depth - 0.04, depth, 1.18, 1.24, 0x7c8188, 2);
   // painted on the floor: the car's bay (a white outline), yellow lines along the walls
   const line = (xa, za, xb, zb, w, col) => {
     const lx = xb - xa, lz = zb - za, l = Math.hypot(lx, lz), nx = -lz / l * w / 2, nz = lx / l * w / 2;
@@ -282,7 +307,7 @@ export function roomMeshes(F, k) {
   line(-(wx - 1.6), depth - 2.2, wx - 1.6, depth - 2.2, 0.12, 0xe8c22e);
   for (const sx of [-1, 1]) line(sx * 1.6, frontT + 1.2, sx * 1.6, depth - 3.4, 0.1, 0xf2f2f0);
   // (js/pitlife.js: your box's shell shades the sun off the car in it)
-  for (const [Bt, mt] of [[B, INSIDE()], [BF, surface('industrial_concrete_floor')], [BW, surface('plaster_wall')], [BS, surface('dark_industrial_metal')], [BC, surface('corrugated_metal')], [BH, surface('hazard_stripes_01')]]) {
+  for (const [Bt, mt] of [[B, INSIDE()], [BF, surface('pit_epoxy')], [BW, surface('pit_panel')], [BS, surface('dark_industrial_metal')], [BC, surface('pit_ceiling')], [BH, surface('hazard_stripes_01')]]) {
     const m = Bt.mesh(mt); if (m) { m.userData.box = k; inside.push(m); }
   }
   // the strip lights

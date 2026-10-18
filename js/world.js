@@ -19,7 +19,7 @@ import { settingOf, modelTransform, natureModel, FLORA, PROP_FLORA, fitHouse, ra
 import { WetReflections } from './weatherfx.js';
 import { StreetLife } from './lifefx.js';
 import { buildClouds } from './clouds.js';
-import { buildPitBoxes, pitCovered, pitBlockTest } from './pitboxes.js';
+import { buildPitBoxes, pitCovered, pitBlockTest, pitBlockFloor } from './pitboxes.js';
 import { applyPSXMaterial } from '../vendor/psx/src/PSXMaterial.js';
 import { loadCrowd, buildCrowd, makeBleachers, bleacherSeats, paintedPeople, BLEACHERS } from './crowd.js';
 
@@ -587,13 +587,17 @@ export function buildWorld(track, T, A, opts = {}) {
     const tucked = (x, z, h) => {
       const a = V.at(x, z); if (a) h = Math.min(h, a.y - 0.15);
       const w = V.behindWall(x, z, trenchW); if (w !== null) h = Math.min(h, w - 0.15);
+      // under the pit garages: below their floor, out past the walls far enough that no ~3 m triangle can bring it up
+      // through a room's floor, then a bank back up to the ground round it
+      const g = blockFloor && blockFloor(x, z); if (g) h = Math.min(h, g.y - 0.12 + Math.max(0, g.d - blockM) * 0.5);
       return h;
     };
+    const blockM = fineS * 1.5 + 0.3, blockFloor = pitBlockFloor(T, A, A.pit, blockM + 30);
     let reach = 0; for (let i = 0; i < N; i++) reach = Math.max(reach, V.EXT[0][i], V.EXT[1][i]);
     reach += trenchW;
     for (let j = 0; j < nz - 1; j++) for (let k = 0; k < nx - 1; k++) {
       const cell = j * (nx - 1) + k; if (cellMask[cell]) continue;
-      const a = j * nx + k; if (Math.min(nearD[a], nearD[a + 1], nearD[a + nx], nearD[a + nx + 1]) > reach + step * 1.5) continue;
+      const a = j * nx + k; if (Math.min(nearD[a], nearD[a + 1], nearD[a + nx], nearD[a + nx + 1]) > reach + step * 1.5 && !(blockFloor && blockFloor(gx0 + (k + 0.5) * step, gz0 + (j + 0.5) * step))) continue;
       for (const [u, v] of [[0, 0], [1, 0], [0, 1], [1, 1], [0.5, 0.5], [0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]]) {
         const x = gx0 + (k + u) * step, z = gz0 + (j + v) * step, h = terrainHeight(x, z);
         if (h - tucked(x, z, h) > 0.05) { cellMask[cell] = 2; break; }
@@ -1989,7 +1993,10 @@ function buildBarriers(root, T, A, env, surfY, groundHeight, tx, night, verge) {
       if (!has[i] || !has[j]) continue;
       if (A.OVERPASS && (A.OVERPASS[i] || A.OVERPASS[j])) continue; // the overpass has its own parapet + fence
       if (A.pit && A.pit.side === side && (A.pit.HIDE[i] || A.pit.HIDE[j])) continue;
-      if (inBlk && [i, j].every(k => inBlk(T.X[k] + T.RX[k] * side * off[k], T.Z[k] + T.RZ[k] * side * off[k], 0.3))) continue; // (through the garages' rooms: none)
+      if (inBlk && (() => { // (through the garages' rooms: none. Any of it, ends or middle: at Monaco another stretch's wall cut through a room)
+        const xa = T.X[i] + T.RX[i] * side * off[i], za = T.Z[i] + T.RZ[i] * side * off[i], xb = T.X[j] + T.RX[j] * side * off[j], zb = T.Z[j] + T.RZ[j] * side * off[j];
+        return inBlk(xa, za, 0.3) || inBlk(xb, zb, 0.3) || inBlk((xa + xb) / 2, (za + zb) / 2, 0.3);
+      })()) continue;
       const gateArr = side < 0 ? A.GATE_L : A.GATE_R, isGate = gateArr && (gateArr[i] || gateArr[j]);
       const la = [FOOT[i], LVL[i]], lb = [FOOT[j], LVL[j]];
       const P = (k, extra = 0) => { // (its top, fence and what it holds back: no further out than the line can go without folding)
@@ -2006,8 +2013,11 @@ function buildBarriers(root, T, A, env, surfY, groundHeight, tx, night, verge) {
         if (verge) {
           const si = side < 0 ? 0 : 1, wa = verge.EXT[si][i] - off[i] + verge.trenchW, wb = verge.EXT[si][j] - off[j] + verge.trenchW;
           const a2 = P(i, wa), b2 = P(j, wb); a2[1] = la[1] + 0.04; b2[1] = lb[1] + 0.04; const a1 = [a[0], la[1] + 0.04, a[2]], b1 = [b[0], lb[1] + 0.04, b[2]];
-          retain.p.push(...a1, ...b1, ...a2, ...b1, ...b2, ...a2);
-          retain.u.push(0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1);
+          const across = (u, t) => [0, 2].map(c => ((1 - u) * a1[c] + u * b1[c]) * (1 - t) + ((1 - u) * a2[c] + u * b2[c]) * t);
+          if (!(inBlk && [0, 0.5, 1].some(u => [0.25, 0.5, 0.75, 1].some(t => { const q = across(u, t); return inBlk(q[0], q[1], 0.3); })))) { // (not reaching back into a garage)
+            retain.p.push(...a1, ...b1, ...a2, ...b1, ...b2, ...a2);
+            retain.u.push(0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1);
+          }
         }
       }
       const ua = T.D[i], ub = j === 0 ? T.L : T.D[j];
