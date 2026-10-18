@@ -3,6 +3,18 @@
 One entry per run, newest at the top: what it looked at, what it made, what it's waiting on. The next run starts by
 reading the top entry.
 
+## 2026-10-18 · first explainer: tire temperatures (read this first)
+- Made `queue/2026-10-18-tire-temps/tire-temps-v1.mp4`, the first narrated explainer, end to end:
+  - script (fact-checked against docs/PHYSICS.md);
+  - narrator take 1 of 4 (eleven_v4; all four word-perfect by whisper);
+  - director footage (GT race + a cold Miata at dawn);
+  - the Remotion edit in `marketing/video` (composition `TireTemps`): brand captions, a live tire readout from the
+    director's per-frame tire log, the end card;
+  - mix: engines ~7 LU under the voice, then −14 LUFS overall.
+- The director now logs tire surface/core temperatures per frame too.
+- Status NEEDS OK: the template itself, plus °F vs °C on the readout.
+- **Next, after the verdict:** hook variants, then the next explainers, then garage/editor/livery scenes.
+
 ## 2026-10-18 · narrator + director v1
 - Narrator voice approved: "SV narrator 001 - calm dev", `7HQTSYjhnOsl76FVM9QA` (BRAND §4). Generate with eleven_v4,
   then check the first real line against the C audition before using it.

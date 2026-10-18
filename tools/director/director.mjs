@@ -114,7 +114,8 @@ try {
       // (no motion trails on a shot's first frames: they'd ghost the previous shot into the cut)
       s.render(G.post, window.__dir.D.t < 0.05 ? { ...G.settings, trails: false } : G.settings);
       const c = s.focus || s.player, p = c && c.phys;
-      return { png: G.post.r.domElement.toDataURL('image/png'), rpm: p ? +(p.rpm || 0).toFixed(0) : 0, kmh: p ? +(p.speed * 3.6).toFixed(1) : 0, gear: p ? p.gear : 0 };
+      return { png: G.post.r.domElement.toDataURL('image/png'), rpm: p ? +(p.rpm || 0).toFixed(0) : 0, kmh: p ? +(p.speed * 3.6).toFixed(1) : 0, gear: p ? p.gear : 0,
+        tS: p && p.tS ? Array.from(p.tS, v => +v.toFixed(1)) : null, tC: p && p.tC ? Array.from(p.tC, v => +v.toFixed(1)) : null, opt: p ? p.tyreOpt : 0 };
     };
   }, { RES, L });
 
@@ -139,13 +140,13 @@ try {
     const log = []; const ts = Date.now();
     for (let i = 0; i < frames; i++) {
       const fr = await pg.evaluate(() => window.__dir.frame(true));
-      log.push([i, fr.rpm, fr.kmh, fr.gear]);
+      log.push([i, fr.rpm, fr.kmh, fr.gear, fr.tS, fr.tC, fr.opt]);
       if (!ff.stdin.write(Buffer.from(fr.png.split(',')[1], 'base64'))) await new Promise(r => ff.stdin.once('drain', r));
     }
     ff.stdin.end(); await new Promise(r => ff.on('close', r));
     await pg.evaluate((k) => { const AU = window.__dir.au; if (AU.on) AU.shots[k] = AU.frames; AU.frames = null; }, k);
     done.push({ k, file });
-    writeFileSync(file.replace(/\.mp4$/, '.engine.json'), JSON.stringify({ fps: FPS, cols: ['frame', 'rpm', 'kmh', 'gear'], rows: log }));
+    writeFileSync(file.replace(/\.mp4$/, '.engine.json'), JSON.stringify({ fps: FPS, cols: ['frame', 'rpm', 'kmh', 'gear', 'tireSurface[FL,FR,RL,RR]', 'tireCore', 'tireBest'], rows: log }));
     console.log(`shot ${k + 1}/${shots.length} ${sh.rig}: ${frames} frames in ${((Date.now() - ts) / 1000).toFixed(0)} s -> ${file.replace(ROOT + '/', '')}`);
   }
 

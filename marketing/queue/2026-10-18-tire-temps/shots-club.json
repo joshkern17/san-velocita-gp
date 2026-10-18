@@ -1,0 +1,4 @@
+{ "name": "tire-temps-club", "aspect": "9:16", "seed": 7, "track": { "file": ".devtest/auburn2.json" }, "env": { "time": "dawn", "weather": "clear" },
+  "settings": { "temps": "normal" },
+  "race": { "car": "miata", "opponents": 7, "aiChassis": "class" }, "warmup": 3,
+  "shots": [ { "rig": "dolly", "dur": 4.8, "side": -1, "name": "s5b" } ] }
