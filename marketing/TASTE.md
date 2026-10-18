@@ -14,6 +14,12 @@ Lesson: <what to do differently / keep doing>
 
 ---
 
+## 2026-10-18 · cars on screen · DIRECTION
+Said: "avoid using the f1 cars for now. Stick to miatas, f40, f1, porsche 935, m1 pro car, ford capri, m3, skyline …
+use a variety of them so people see what cool cars there are."
+Lesson: no open-wheel F1 ("f1" in the list = McLaren F1 GTR). Rotate the hero cars (BRAND §5).
+Also from the dev the same day: "what the AI sees" overlays (research/scripts-and-animation.md).
+
 ## 2026-10-18 · explainer 001 v2 tire temps (+ slip-angle beat) · APPROVED: template approved
 What it was: tire-temps-v2.mp4. Script from the explainer-script skill (hook "This Miata's tires are at 35 degrees. They
 want 70."), plus the HyperFrames slip-angle beat inside it.

@@ -65,6 +65,19 @@ rules. Reference: `marketing/anim/slip-beat` (HyperFrames).
   release naming decision, marketing avoids naming manufacturers in text/captions and avoids close-ups of homage
   liveries in paid or press material. Organic clips can show cars as they are.
 
+- **Cars on screen (dev, 2026-10-18):** no open-wheel F1 cars for now. Feature the hero cars and rotate them, so
+  people see the range:
+  - Mazda MX-5 Miata `miata`
+  - Ferrari F40 LM `f40`
+  - McLaren F1 GTR `f1gtr`
+  - Porsche 935 `porsche935`
+  - M1 ProCar `m1procar`
+  - Ford Capri Turbo `capri`
+  - BMW M3 GTR `m3gtr`
+  - Nissan Skyline R34 `r34` / `r34gt2`
+
+  Use a variety in every video (mixed-class fields are fine), and don't let the same car lead two videos in a row.
+
 ## 6. The end card (every clip)
 3 s: wordmark (`.logo`: title + G R A N D  P R I X caption + hairline + signal meter), then
 **WISHLIST ON STEAM** in UI caps, red, soft glow. No URL text needed; the platform link and name search do the job.
