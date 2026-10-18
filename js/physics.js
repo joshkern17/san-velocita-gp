@@ -30,7 +30,7 @@ export const CARSPEC = {
 
 const G = 9.81, D2R = Math.PI / 180;
 // the engine's water: heat per second flat out, cooling per °C over the air at speed (88°C racing, undamaged)
-const ENG = { heat: 2.8, cool: 0.03 }, ENG_COOK = 140; // (°C·s over 132°C before it lets go: ~14 s at 142°C, a minute at 134°C)
+const ENG = { heat: 2.8, cool: 0.044, tow: 0.15 }, ENG_COOK = 140; // (cool: a healthy car flat out in clean air on a 30°C day settles ~94°C; tow: the air a car ahead takes off the radiator) // (°C·s over 132°C before it lets go: ~14 s at 142°C, a minute at 134°C)
 // the floor: static height h (m, a spec's floorH else this); touching down closing faster than v m/s knocks off hit × (the
 // excess); scraping, per cm under per s at 40 m/s; off-track grinding per wheel per s at 30 m/s
 const FLOOR = { h: 0.11, v: 0.25, hit: 0.04, grind: 0.006, scrape: 0.004 };
@@ -357,15 +357,25 @@ export class CarPhysics {
   }
   // the next usable gear from g going dir (a lost gear's skipped); g itself when there's none
   gbNext(g, dir) { const n = this.p.gears.length - 1; let k = g + dir; if (k === this.lostGear) k += dir; return k >= 1 && k <= n ? k : g; }
+  // the speed (m/s) this car's radiator is sized for: 60% of its top speed (where its power meets the drag, or its top
+  // gear runs out), 25-60 m/s
+  get coolV() {
+    const P = this.p; if (this._coolP === P) return this._coolV;
+    let v = P.gears[P.gears.length - 1];
+    for (let lo = 0, hi = v, i = 0; i < 30; i++) { const m = (lo + hi) / 2; if (P.drag * m * m * m + P.roll * m * m > P.power) hi = v = m; else lo = m; }
+    this._coolP = P; return (this._coolV = Math.max(25, Math.min(60, 0.6 * v))); // (cached per spec: a setup swaps it)
+  }
   // The engine's water temperature (Realistic damage: engOn). It makes heat with the throttle (and the revs), the
-  // radiator takes it away with the air through it (none standing still, less in another car's tow: slip), and a
-  // thermostat holds it at ~88°C when there's cooling to spare. A damaged radiator (dmg.rad) has less to spare: the
-  // temperature climbs to where it balances. Over 112°C the engine protects itself (power down, to 55% at ~140°C);
+  // radiator takes it away with the air through it (a fan's worth standing still, less in another car's tow: slip), and
+  // a thermostat holds it at ~88°C when there's cooling to spare. Every car's radiator is sized for its own speeds (the
+  // air's measured against coolV: 60% of its top speed), with the margin to run flat out in clean air on a hot day and
+  // still take a long tow (~105°C). A damaged radiator (dmg.rad) has less to spare: the temperature climbs to where it
+  // balances. Over 112°C the engine protects itself (power down, to 55% at ~140°C);
   // held over 132°C it's cooking (engCook), and past ENG_COOK it lets go (engBlown: the race retires the car).
   engineHeat(dt, thr, speed) {
     const rpmK = Math.min(1, Math.max(0.2, this.rpm / this.p.redline));
     const heat = ENG.heat * (0.25 + 0.75 * thr * rpmK);
-    const air = (0.35 + 0.65 * Math.min(1, speed / 40)) * (1 - 0.35 * (this.slip || 0)) * (1 - 0.6 * (this.dmg.rad || 0));
+    const air = (0.35 + 0.65 * Math.min(1, speed / this.coolV)) * (1 - ENG.tow * (this.slip || 0)) * (1 - 0.6 * (this.dmg.rad || 0));
     const T = this.engT, open = T < 86 ? 0.25 : T < 90 ? 0.25 + 0.75 * (T - 86) / 4 : 1; // (the thermostat opening)
     this.engT = T + (heat - ENG.cool * air * open * (T - this.ambT)) * dt;
     this.engK = this.engT > 112 ? Math.max(0.55, 1 - (this.engT - 112) / 62) : 1;
@@ -392,29 +402,29 @@ export class CarPhysics {
     return out;
   }
   // the temperature this car's tyres work best at (°C): the compound's, plus the car's own (tyreT: a Formula tyre's hotter)
-  get tyreOpt() { return TYRES[this.tyre.c].opt + (this.p.tyreT || 0); }
+  // (a cooler-working road tyre's offset is for the dry compounds: wets already work cool, in rain that keeps them there)
+  get tyreOpt() { const c = this.tyre.c, d = this.p.tyreT || 0; return TYRES[c].opt + (d < 0 && (c === 'wet' || c === 'dirt') ? 0 : d); }
   // each tyre's grip from its temperature (tempG), and the four's mean (tempGrip: the AI reads it)
   tempGrips() {
-    const c = this.tyre.c, m = this.tempMode, dT = this.p.tyreT || 0; let a = 0;
-    for (let i = 0; i < 4; i++) a += this.tempG[i] = m ? tempGrip(m === 2 ? 0.65 * this.tS[i] + 0.35 * this.tC[i] : this.tS[i], c, m, dT) : 1;
+    const c = this.tyre.c, m = this.tempMode, dT = this.tyreOpt - TYRES[c].opt; let a = 0;
+    for (let i = 0; i < 4; i++) a += this.tempG[i] = m ? tempGrip(0.65 * this.tS[i] + 0.35 * this.tC[i], c, m, dT) : 1;
     this.tempGrip = a / 4;
   }
   // Tyre temperatures (tempMode 1 / 2): heated by sliding (the tyre's force × how fast it slides over the road) and by
   // rolling (the carcass flexing under load), cooled by the air rushing past (much more in the wet: a slick can't stay
-  // warm on a wet road, a wet tyre on a dry one overheats). Normal: one temperature per tyre. Realistic: the surface
-  // takes the sliding heat and cools fast (a big slide spikes it, then it's gone), the core takes the rolling heat and
-  // swaps heat with the surface slowly; grip from 65% surface + 35% core.
+  // warm on a wet road, a wet tyre on a dry one overheats). The surface takes the sliding heat and cools fast (a big
+  // slide spikes it, then it's gone), the core takes the rolling heat and swaps heat with the surface slowly; grip from
+  // 65% surface + 35% core. Both modes heat the same way, only the window differs (TEMP). (Normal had one temperature
+  // per tyre, cooled as fast as a surface: it settled ~20 °C under Realistic, so nobody's tyres ever came in, 2026-10-15)
   tyreHeat(dt, FX, FY, A, WS, WU, WN, R, speed) {
-    const st = this.p.mass * G / 4, wet = this.wet ?? (this.rain ? 1 : 0), amb = this.ambT, H = HEAT, real = this.tempMode === 2;
+    const st = this.p.mass * G / 4, wet = this.wet ?? (this.rain ? 1 : 0), amb = this.ambT, H = HEAT;
     const air = (H.air0 + H.air1 * speed) * (1 + H.wet * wet), moving = Math.min(1, speed / 2);
     for (let i = 0; i < 4; i++) {
       const vy = Math.abs(Math.tan(A[i])) * Math.max(Math.abs(WU[i]), 1), vx = Math.abs(WS[i] * R - WU[i]);
       const qS = H.slide * moving * (Math.abs(FY[i]) * Math.min(vy, 30) + Math.abs(FX[i]) * Math.min(vx, 30)) / Math.max(st, WN[i]), qR = H.roll * speed * Math.sqrt(Math.max(0, WN[i]) / st); // (sqrt: downforce loads a tyre more than it flexes it)
-      if (real) {
-        const s = this.tS[i], c = this.tC[i];
-        this.tS[i] = s + (qS * 3 + (c - s) * 0.25 - (s - amb) * air * 1.2) * dt;
-        this.tC[i] = c + (qR + (s - c) * 0.08 - (c - amb) * air * 0.5) * dt;
-      } else { const t = this.tS[i]; this.tS[i] = this.tC[i] = t + (qS + qR - (t - amb) * air) * dt; }
+      const s = this.tS[i], c = this.tC[i];
+      this.tS[i] = s + (qS * 3 + (c - s) * 0.25 - (s - amb) * air * 1.2) * dt;
+      this.tC[i] = c + (qR + (s - c) * 0.08 - (c - amb) * air * 0.5) * dt;
     }
     this.tempGrips();
   }

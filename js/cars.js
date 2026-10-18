@@ -172,7 +172,8 @@ export const CARS = {
     liveryLabels: { topNumber: [0.42, 0.5], sideNumber: [0.5, 0.55], sideSponsor: [0.5, 0.8] },
     spec: street({ body: [2.2, 1.99, 0.86], mass: 1080, a: 1.0, b: 1.56, cgh: 0.5, power: 80000, maxForce: 8200, torque: NA, drive: 1, lsd: [0, 0, 0],
       mu: 1.22, rearGrip: 1.02, kd: 0.05, drag: 0.38, maxSteer: 0.5, redline: 7200, idle: 850, gears: [0, 14, 24, 34, 44, 54], shift: 0.18,
-      brakeF: 0.74, track: 1.47, rideHz: [1.5, 1.6], damp: 0.45, rollGrad: 3, unsprung: 32, aeroH: [0, 0], aeroYaw: 1, drift: false }) },
+      brakeF: 0.74, track: 1.47, rideHz: [1.5, 1.6], damp: 0.45, rollGrad: 3, unsprung: 32, aeroH: [0, 0], aeroYaw: 1, drift: false,
+      tyreT: -25 }) }, // (cheap road-legal track tyres: they work cooler, a light slow car can't heat a GT's: physics.js tyreHeat)
 
   // Spec Miata (the club rung: every car the same). A ready-made low-poly model (tools/cars/miata.py: real size, the
   // paint baked white so it takes liveries). An NA on a club racer's budget: the 1.6 (~115 hp), 5-speed, a Torsen-style
@@ -181,7 +182,8 @@ export const CARS = {
     liveryLabels: { topNumber: [0.42, 0.5], sideNumber: [0.5, 0.55], sideSponsor: [0.5, 0.8] },
     spec: street({ body: [1.91, 2.06, 0.86], mass: 1040, a: 1.115, b: 1.207, cgh: 0.44, power: 85000, maxForce: 7600, torque: NA, drive: 0, lsd: [30, 0.25, 0.15],
       mu: 1.4, rearGrip: 1.03, kd: 0.06, drag: 0.4, maxSteer: 0.5, redline: 7200, idle: 850, gears: [0, 16, 27, 38, 51, 62], shift: 0.15,
-      brakeF: 0.68, track: 1.41, rideHz: [1.9, 2.0], damp: 0.6, rollGrad: 1.6, unsprung: 30, aeroH: [0, 0], aeroYaw: 1, floorH: 0.12 }) },
+      brakeF: 0.68, track: 1.41, rideHz: [1.9, 2.0], damp: 0.6, rollGrad: 1.6, unsprung: 30, aeroH: [0, 0], aeroYaw: 1, floorH: 0.12,
+      tyreT: -25 }) }, // (club racing tyres work cooler: a Miata at the limit runs them ~55-80 °C, a GT's best is 95. physics.js tyreHeat)
 
   transit: { name: 'Works Van ’99', cls: 'fun', sound: 'diesel', glb: true, paint: false,
     spec: street({ body: [2.4, 2.43, 1.05], lsd: [0, 0, 0], mass: 1950, power: 95000, torque: DIESEL, drive: 0, cgh: 0.8, track: 1.7, rideHz: [1.3, 1.5], travel: [0.15, 0.14], solidR: true, damp: 0.45, rollGrad: 5, unsprung: 55, rcH: 0.12, antiDive: 0.15, antiSquat: 0.15, mu: 1.05, kd: 0, drag: 0.62, a: 1.55, b: 1.45, maxSteer: 0.5, redline: 4600, idle: 800, shift: 0.22, gears: [0, 13, 22, 32, 41, 50] }) },

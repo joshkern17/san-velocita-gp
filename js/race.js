@@ -4355,7 +4355,7 @@ export class Race {
   // are all four tyres up to temperature (tyre temperatures on)? null: they're off, so there's nothing to wait for
   tyresIn(p) {
     if (!p.tempMode) return null;
-    for (let i = 0; i < 4; i++) { const m = p.tempMode === 2 ? 0.65 * p.tS[i] + 0.35 * p.tC[i] : p.tS[i]; if ((m - p.tyreOpt) / (p.tempMode === 2 ? 25 : 35) / 1.6 < -0.25) return false; }
+    for (let i = 0; i < 4; i++) { const m = 0.65 * p.tS[i] + 0.35 * p.tC[i]; if ((m - p.tyreOpt) / (p.tempMode === 2 ? 25 : 35) / 1.6 < -0.25) return false; }
     return true;
   }
   // the corner at (or next after) a sample: "T6"
@@ -4859,7 +4859,7 @@ export class Race {
       pitStack: pl.pitting && pl.pitPhase === 'in' && pl.stackBehind ? { name: pl.stackBehind.name, left: pl.stackBehind.pitPhase === 'stop' ? Math.max(0, pl.stackBehind.pitTimer) : null } : null,
       pitting: pl.pitting, pitPhase: pl.pitPhase, pitLim: pl.pitPhase === 'out' ? !!pl.pitLim : pl.pitting && pl.pitPhase !== 'stop', pitTimer: pl.pitTimer, pitTotal: pl.pitTotal, pitReq: pl.pitReq, pits: pl.pits,
       // (tyre temperatures: what grip each tyre's temperature is giving, -1 cold .. 0 at its best .. 1 overheated)
-      temps: p.tempMode ? Array.from(p.tS, (t, i) => { const m = p.tempMode === 2 ? 0.65 * t + 0.35 * p.tC[i] : t; return Math.max(-1, Math.min(1, (m - p.tyreOpt) / (p.tempMode === 2 ? 25 : 35) / 1.6)); }) : null,
+      temps: p.tempMode ? Array.from(p.tS, (t, i) => { const m = 0.65 * t + 0.35 * p.tC[i]; return Math.max(-1, Math.min(1, (m - p.tyreOpt) / (p.tempMode === 2 ? 25 : 35) / 1.6)); }) : null,
       wake: p.wakeLoss, latG: p.latG, bent: p.bentOn ? Array.from(p.bent) : null, bentDir: p.bentOn ? Array.from(p.bentDir) : null, eng: p.engOn ? { t: p.engT, k: p.engK, rad: p.dmg.rad || 0, gb: p.dmg.gb || 0, fl: p.dmg.fl || 0, lost: p.lostGear, fd: p.p.drive ?? 0 } : null,
       shape: pl.hudShape || (pl.hudShape = this.hudShape(pl)),
       hasPit: !!this.pit, slip: p.slip, plan: pl.plan ? this.nextPlannedStop(pl) : null, strat: this.mode === 'race' ? { ...this.strat, tyreLaps: Math.max(0, pl.lap - (pl.stintLap || 1)) } : null,
