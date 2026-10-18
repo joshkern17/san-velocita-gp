@@ -60,6 +60,22 @@ reel to just an explainer … mix them in with other topics of the game."
 | Exhaust-pipe physics (waveguide engine) | engines / car classes |
 | LiDAR elevation + camber | real circuits / the track editor |
 
+## Video idea bank (2026-10-18; hooks scored against the hook bar in the explainer-script skill)
+| Hook | Pillars | Beat inside |
+|---|---|---|
+| "This isn't a copy of Spa. It's a scan." | real tracks | LiDAR elevation + camber, Eau Rouge in 3D |
+| "Nobody recorded these engines." | cars | engine sound built from exhaust-pipe physics |
+| "I drew this corner in 10 seconds. The AI learned it in 30." | tracks + AI | the AI's plan getting faster lap by lap |
+| "This is everything the AI is thinking going into Turn 1." | AI | what the AI sees (below) |
+| "The car behind can't follow. Here's why." (GT cars, not open-wheel F1) | racecraft | dirty air, downforce loss |
+| "Your pit crew is motion-captured." | career + garage | the real stop sequence |
+| "Week 1: a lottery win and a spec Miata. Week 40: a GT team." | career | the progression ladder |
+| "We built a dyno that actually measures your engine." | garage | torque curve drawing live |
+| "My co-op partner runs the strategy." | co-op | — |
+| Comment replies: "make Monaco" → real Monaco | tracks | — |
+
+**The career currently starts in the Miata spec series, not the Civic** (dev, 2026-10-18). Show that.
+
 ## Idea from the dev (2026-10-18): "what the AI sees"
 "Videos do well showing what the AI sees … overlay what they see with the track." The director draws the AI's
 internals into the 3D world while it races:
