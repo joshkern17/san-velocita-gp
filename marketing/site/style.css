@@ -1,0 +1,142 @@
+/* San Velocita GP: the game's "neon signal" language (docs/DESIGN.md) for the web. Glowing type drawn as soft copies
+   of itself, one cool accent, amber only for focus, corner-bracket frames for anything that holds data or footage. */
+@font-face { font-family: "SV Display"; src: url("fonts/SVDisplay-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "SV UI"; src: url("fonts/SVUI-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "SV Body"; src: url("fonts/SVBody-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "SV Num"; src: url("fonts/SVNum-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+
+:root {
+  --hot-top: #ff8a2a; --hot: #ff6a1c; --hot-deep: #ff3d0c;
+  --red: #ff2b00; --red-dim: #c93216; --amber: #ffc21a; --blue: #2d36f2; --blue-pale: #8a90ff;
+  --ink: #05060c; --plate: rgba(6, 4, 10, .58);
+  --signal: linear-gradient(90deg, #a9b0ff 0%, #6a72ff 30%, #2d36f2 65%, #5a1fd6 100%);
+  --glow: 0 0 max(.5px, .025em) currentColor, 0 0 max(1px, .06em) currentColor;
+  --glow-strong: 0 0 max(.8px, .04em) currentColor, 0 0 max(1.6px, .1em) currentColor;
+  --glow-line: 0 0 2px var(--red), 0 0 4px var(--red);
+  --track: -0.02em; --track-cap: .34em;
+  --edge: clamp(16px, 5vw, 72px);
+  --f-display: "SV Display", "Helvetica Neue", Arial, sans-serif;
+  --f-ui: "SV UI", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "SV Body", "Helvetica Neue", Arial, sans-serif;
+  --f-num: "SV Num", "Helvetica Neue", Arial, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { background: var(--ink); scroll-behavior: smooth; }
+body { background: var(--ink); color: var(--red); font: 500 18px/1.5 var(--f-body); letter-spacing: var(--track); overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+a { color: inherit; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* soft glowing type, the game's way: no crisp fill, two blurred copies in its own colour */
+.caption, h2, .num, .btn, .socials a, .foot, .form-note, .pillar-text p, .hero-sub, .explainer-text p,
+.hero-line, .pitch-line, .cta-line { text-shadow: var(--glow); -webkit-text-fill-color: transparent; }
+
+/* the faint grid the whole page sits on */
+.grid-bg { position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: .5;
+  background-image: linear-gradient(rgba(255,43,0,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,43,0,.05) 1px, transparent 1px);
+  background-size: 60px 60px; }
+section, header, footer { position: relative; z-index: 1; }
+
+/* ---------- hero ---------- */
+.hero { min-height: 100svh; display: grid; place-items: end start; padding: var(--edge); padding-bottom: clamp(64px, 12vh, 140px); overflow: hidden; }
+.hero-reel { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; }
+.hero-shade { position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(90deg, rgba(5,6,12,.92) 0%, rgba(5,6,12,.62) 42%, rgba(5,6,12,.08) 75%), linear-gradient(0deg, rgba(5,6,12,.9) 0%, transparent 38%); }
+.hero-inner { max-width: 760px; }
+.wordmark { width: min(560px, 100%); }
+.wm-top { font: 700 clamp(64px, 11vw, 132px)/.84 var(--f-display); text-transform: uppercase; letter-spacing: var(--track);
+  background: linear-gradient(180deg, var(--hot-top) 0%, var(--hot) 45%, var(--hot-deep) 100%); -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; filter: blur(.6px) drop-shadow(0 0 2px var(--hot)); padding-top: .04em; }
+.wm-band { display: flex; align-items: center; gap: 16px; margin-top: 14px; }
+.wm-band span { font: 500 clamp(18px, 2.2vw, 26px)/1 var(--f-ui); letter-spacing: var(--track-cap); color: var(--red); text-shadow: var(--glow-strong);
+  -webkit-text-fill-color: transparent; white-space: nowrap; margin-right: calc(-1 * var(--track-cap)); }
+.wm-line { flex: 1; min-width: 32px; height: 2px; background: var(--red); box-shadow: var(--glow-line); }
+.signal { flex: none; width: 120px; height: 20px; background: var(--signal); transform: skewX(-20deg); filter: blur(.5px) drop-shadow(0 0 2px #6a72ff);
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 9px); mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 9px); }
+.hero-line { margin-top: clamp(28px, 4vh, 44px); font: 500 clamp(26px, 3.4vw, 44px)/1.15 var(--f-ui); text-transform: uppercase; color: var(--hot); }
+.hero-sub { margin-top: 16px; max-width: 560px; font-size: clamp(16px, 1.4vw, 19px); color: var(--red); }
+.br-wide { display: none; }
+@media (min-width: 900px) { .br-wide { display: inline; } }
+
+/* sign-up: outlined, fills amber on hover/focus (the game's buttons) */
+.signup { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 12px; max-width: 560px; }
+.signup input { flex: 1 1 260px; min-width: 0; height: 54px; padding: 0 18px; background: var(--plate); border: 2px solid var(--red-dim);
+  color: var(--red); font: 500 18px/1 var(--f-ui); letter-spacing: .08em; outline: none; box-shadow: 0 0 2px var(--red-dim); }
+.signup input::placeholder { color: var(--red-dim); -webkit-text-fill-color: var(--red-dim); }
+.signup input:focus { border-color: var(--amber); color: var(--amber); box-shadow: 0 0 3px var(--amber), 0 0 6px var(--amber); }
+.btn { height: 54px; padding: 0 26px; background: transparent; border: 2px solid var(--red); color: var(--red); cursor: pointer;
+  font: 500 18px/1 var(--f-ui); letter-spacing: .12em; box-shadow: 0 0 2px var(--red), 0 0 4px var(--red), inset 0 0 2px var(--red);
+  transition: background .15s, color .15s, box-shadow .15s, border-color .15s; }
+.btn:hover, .btn:focus-visible { background: var(--amber); border-color: var(--amber); color: var(--ink); outline: none;
+  text-shadow: 0 0 .025em var(--ink), 0 0 .06em var(--ink); box-shadow: 0 0 3px var(--amber), 0 0 6px var(--amber); }
+.form-note { flex-basis: 100%; font-size: 15px; color: var(--red-dim); }
+.form-note.ok { color: var(--blue-pale); }
+
+.scroll-cue { position: absolute; left: 50%; bottom: 26px; width: 22px; height: 36px; margin-left: -11px; border: 2px solid var(--red-dim); border-radius: 12px; }
+.scroll-cue span { position: absolute; left: 50%; top: 7px; width: 4px; height: 8px; margin-left: -2px; background: var(--red); box-shadow: var(--glow-line); animation: cue 2.4s infinite; }
+@keyframes cue { 0% { opacity: 0; transform: translateY(0); } 30% { opacity: 1; } 80% { opacity: 0; transform: translateY(10px); } 100% { opacity: 0; } }
+
+/* ---------- pitch ---------- */
+.caption { font: 500 16px/1 var(--f-ui); letter-spacing: var(--track-cap); color: var(--red); text-shadow: var(--glow-strong); }
+.pitch { padding: clamp(96px, 16vh, 180px) var(--edge); text-align: center; }
+.pitch .caption { margin-bottom: 26px; }
+.pitch-line { font: 700 clamp(40px, 7vw, 96px)/.95 var(--f-display); text-transform: uppercase; color: var(--hot); max-width: 1100px; margin: 0 auto; }
+
+/* ---------- frames (the HUD's corner brackets) ---------- */
+.frame { position: relative; background: #000; }
+.frame::before, .frame::after { content: ""; position: absolute; inset: -10px; pointer-events: none;
+  --c: var(--red); --l: 26px;
+  background:
+    linear-gradient(var(--c), var(--c)) top left / var(--l) 2px, linear-gradient(var(--c), var(--c)) top left / 2px var(--l),
+    linear-gradient(var(--c), var(--c)) top right / var(--l) 2px, linear-gradient(var(--c), var(--c)) top right / 2px var(--l),
+    linear-gradient(var(--c), var(--c)) bottom left / var(--l) 2px, linear-gradient(var(--c), var(--c)) bottom left / 2px var(--l),
+    linear-gradient(var(--c), var(--c)) bottom right / var(--l) 2px, linear-gradient(var(--c), var(--c)) bottom right / 2px var(--l);
+  background-repeat: no-repeat; filter: drop-shadow(0 0 2px var(--red)); }
+.frame::after { display: none; }
+.frame video { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* ---------- pillars: clip left, text right, every row the same (fixed slots, nothing lopsided) ---------- */
+.pillars { padding: 0 var(--edge) clamp(80px, 12vh, 140px); display: grid; gap: clamp(72px, 11vh, 120px); max-width: 1280px; margin: 0 auto; }
+.pillar { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: clamp(28px, 4.5vw, 64px); align-items: center; }
+.pillar .clip { aspect-ratio: 16 / 9; }
+.num { display: block; font: 500 20px/1 var(--f-num); color: var(--red-dim); margin-bottom: 14px; font-variant-numeric: tabular-nums; }
+h2 { font: 500 clamp(30px, 3.6vw, 46px)/1.05 var(--f-ui); text-transform: uppercase; color: var(--hot); text-shadow: var(--glow-strong); }
+.pillar-text p { margin-top: 16px; max-width: 460px; font-size: 18px; color: var(--red); }
+@media (max-width: 820px) { .pillar { grid-template-columns: 1fr; } }
+
+/* ---------- explainer ---------- */
+.explainer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: clamp(32px, 6vw, 96px); align-items: center;
+  max-width: 1080px; margin: 0 auto; padding: clamp(40px, 8vh, 96px) var(--edge); }
+.explainer-text h2 { margin-top: 18px; }
+.explainer-text p:last-child { margin-top: 16px; max-width: 420px; }
+.phone { width: min(340px, 78vw); aspect-ratio: 9 / 16; }
+@media (max-width: 820px) { .explainer { grid-template-columns: 1fr; justify-items: center; text-align: center; } .explainer-text p:last-child { margin-inline: auto; } }
+
+/* ---------- CTA ---------- */
+.cta { padding: clamp(96px, 16vh, 170px) var(--edge) clamp(64px, 10vh, 110px); text-align: center; display: grid; justify-items: center; }
+.cta-line { margin-top: 22px; font: 700 clamp(40px, 6.4vw, 84px)/.95 var(--f-display); text-transform: uppercase; color: var(--hot); }
+.cta .signup { justify-content: center; }
+.cta .form-note { text-align: center; }
+.socials { margin-top: 48px; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 32px; }
+.socials a { font: 500 16px/1 var(--f-ui); letter-spacing: .2em; text-decoration: none; color: var(--red-dim); padding: 6px 0; }
+.socials a:hover, .socials a:focus-visible { color: var(--amber); outline: none; }
+.socials a[aria-disabled="true"] { pointer-events: none; opacity: .45; }
+
+.foot { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 26px var(--edge) 34px; border-top: 1px solid rgba(255,43,0,.25);
+  font: 500 14px/1 var(--f-ui); letter-spacing: .2em; color: var(--red); }
+.foot .dim { color: var(--red-dim); }
+
+/* ---------- motion: one-way fades, nothing slides (the game's 2005 rule for UI) ---------- */
+.reveal { opacity: 0; transition: opacity .9s cubic-bezier(.2,.7,.2,1) var(--d, 0s); }
+.reveal.in { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .reveal { transition: none; opacity: 1; } .scroll-cue span { animation: none; } html { scroll-behavior: auto; } }
+
+/* balanced headlines (no lone words) */
+.pitch-line, .cta-line, .hero-line, h2 { text-wrap: balance; }
+/* phones: a fuller shade behind the hero text, full-width controls, a shorter signal meter inside the gutter */
+@media (max-width: 640px) {
+  .hero-shade { background: linear-gradient(0deg, rgba(5,6,12,.94) 0%, rgba(5,6,12,.78) 55%, rgba(5,6,12,.35) 100%); }
+  .signup .btn { flex: 1 1 100%; }
+  .signal { width: 72px; }
+  .cta .form-note, .form-note { text-align: left; }
+  .cta .form-note { text-align: center; }
+}

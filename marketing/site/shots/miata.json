@@ -1,0 +1,6 @@
+{ "name": "site-miata", "aspect": "16:9", "seed": 13, "silent": true, "track": { "file": ".devtest/auburn2.json" }, "env": { "time": "dawn", "weather": "clear" },
+  "race": { "car": "miata", "opponents": 9, "aiChassis": "class" }, "warmup": 10,
+  "shots": [
+    { "rig": "heli", "dur": 4.5, "name": "miata-heli" },
+    { "rig": "dolly", "dur": 4.5, "side": 1, "name": "miata-dolly" }
+  ] }

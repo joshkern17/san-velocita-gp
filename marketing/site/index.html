@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>San Velocita GP</title>
+  <meta name="description" content="A PS1-era sim racer. Draw a track or race a real one scanned from LiDAR, paint your car, and build a team from a spec Miata to GT1." />
+  <meta property="og:title" content="San Velocita GP" />
+  <meta property="og:description" content="Draw the track. Paint the car. Race both through a career." />
+  <meta property="og:image" content="media/og.jpg" />
+  <meta name="theme-color" content="#05060c" />
+  <link rel="preload" href="fonts/SVDisplay-700.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="fonts/SVUI-500.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="grid-bg" aria-hidden="true"></div>
+
+  <!-- HERO: the game films itself (tools/director) -->
+  <header class="hero">
+    <video class="hero-reel" autoplay muted loop playsinline preload="auto" poster="media/hero-poster.jpg">
+      <source src="media/hero.mp4" type="video/mp4" />
+    </video>
+    <div class="hero-shade" aria-hidden="true"></div>
+    <div class="hero-inner">
+      <div class="wordmark reveal" style="--d:.15s">
+        <div class="wm-top">San Velocita</div>
+        <div class="wm-band"><span>GRAND PRIX</span><i class="wm-line"></i><i class="signal"></i></div>
+      </div>
+      <h1 class="hero-line reveal" style="--d:.45s">Draw the track. Paint the car.<br class="br-wide" /> Race both through a career.</h1>
+      <p class="hero-sub reveal" style="--d:.65s">A PS1-era sim racer with real tire physics, real circuits scanned from LiDAR, and a career that starts in a spec Miata.</p>
+      <form class="signup reveal" style="--d:.85s" data-endpoint="" novalidate>
+        <label class="visually-hidden" for="email-hero">Email</label>
+        <input id="email-hero" type="email" name="email" placeholder="YOUR EMAIL" autocomplete="email" required />
+        <button type="submit" class="btn">GET UPDATES</button>
+        <p class="form-note" aria-live="polite">Coming to Steam. Sign up and we'll tell you when it's playable.</p>
+      </form>
+    </div>
+    <a class="scroll-cue reveal" style="--d:1.2s" href="#pitch" aria-label="Scroll down"><span></span></a>
+  </header>
+
+  <!-- PITCH -->
+  <section id="pitch" class="pitch">
+    <p class="caption reveal">THE IDEA</p>
+    <p class="pitch-line reveal">Gran Turismo 2, with a track editor.</p>
+  </section>
+
+  <!-- PILLARS -->
+  <section class="pillars" aria-label="Features">
+    <article class="pillar">
+      <div class="clip frame reveal"><video muted loop playsinline preload="none" data-src="media/p1-tracks.mp4" poster="media/p1-tracks.jpg"></video></div>
+      <div class="pillar-text reveal">
+        <span class="num">01</span>
+        <h2>Make tracks</h2>
+        <p>Draw a circuit in a minute and the AI learns it. Or race a real one, rebuilt from national LiDAR scans down to the camber in the corners.</p>
+      </div>
+    </article>
+    <article class="pillar">
+      <div class="clip frame reveal"><video muted loop playsinline preload="none" data-src="media/p2-drive.mp4" poster="media/p2-drive.jpg"></video></div>
+      <div class="pillar-text reveal">
+        <span class="num">02</span>
+        <h2>Drive it yourself</h2>
+        <p>Every tire has a surface and a core temperature. Grip peaks at a few degrees of slip, then slides away. The AI drives the same physics you do.</p>
+      </div>
+    </article>
+    <article class="pillar">
+      <div class="clip frame reveal"><video muted loop playsinline preload="none" data-src="media/p3-cars.mp4" poster="media/p3-cars.jpg"></video></div>
+      <div class="pillar-text reveal">
+        <span class="num">03</span>
+        <h2>Your car</h2>
+        <p>Club racers, GT2 and GT1 legends. Paint yours in the livery designer, sponsors and all, then take it racing.</p>
+      </div>
+    </article>
+    <article class="pillar">
+      <div class="clip frame reveal"><video muted loop playsinline preload="none" data-src="media/p4-career.mp4" poster="media/p4-career.jpg"></video></div>
+      <div class="pillar-text reveal">
+        <span class="num">04</span>
+        <h2>Build a team</h2>
+        <p>Start in a spec Miata series. Win, upgrade, move into a bigger garage, and climb through Street and GT2 to GT1.</p>
+      </div>
+    </article>
+    <article class="pillar">
+      <div class="clip frame reveal"><video muted loop playsinline preload="none" data-src="media/p5-together.mp4" poster="media/p5-together.jpg"></video></div>
+      <div class="pillar-text reveal">
+        <span class="num">05</span>
+        <h2>Race together</h2>
+        <p>Race your friends online. A shared co-op career, one team and one garage between you, is in the works.</p>
+      </div>
+    </article>
+  </section>
+
+  <!-- EXPLAINER -->
+  <section class="explainer">
+    <div class="explainer-text reveal">
+      <p class="caption">HOW IT WORKS</p>
+      <h2>Why your tires have two temperatures</h2>
+      <p>Forty seconds on slip angle, heat, and why we didn't give you a grip slider.</p>
+    </div>
+    <div class="phone frame reveal">
+      <video controls playsinline preload="none" poster="media/explainer-poster.jpg">
+        <source src="media/explainer-tires.mp4" type="video/mp4" />
+      </video>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta">
+    <p class="caption reveal">COMING TO STEAM</p>
+    <p class="cta-line reveal">Be there for the first lap.</p>
+    <form class="signup reveal" data-endpoint="" novalidate>
+      <label class="visually-hidden" for="email-foot">Email</label>
+      <input id="email-foot" type="email" name="email" placeholder="YOUR EMAIL" autocomplete="email" required />
+      <button type="submit" class="btn">GET UPDATES</button>
+      <p class="form-note" aria-live="polite">One email when there's something to play. No spam.</p>
+    </form>
+    <nav class="socials reveal" aria-label="Socials">
+      <a data-social="tiktok" href="#">TIKTOK</a>
+      <a data-social="youtube" href="#">YOUTUBE</a>
+      <a data-social="instagram" href="#">INSTAGRAM</a>
+      <a data-social="x" href="#">X</a>
+      <a data-social="bluesky" href="#">BLUESKY</a>
+    </nav>
+  </section>
+
+  <footer class="foot">
+    <span>SAN VELOCITA GP</span><span class="dim">MADE BY ONE DEVELOPER</span>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>

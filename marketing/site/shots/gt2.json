@@ -1,0 +1,7 @@
+{ "name": "site-gt2", "aspect": "16:9", "seed": 12, "silent": true, "track": { "file": ".devtest/auburn2.json" }, "env": { "time": "day", "weather": "clear" },
+  "race": { "car": "m3gtr", "opponents": 7, "aiChassis": "class" }, "warmup": 12,
+  "shots": [
+    { "rig": "dolly", "dur": 4.5, "name": "gt2-dolly" },
+    { "rig": "trackside", "dur": 4.5, "ahead": 80, "name": "gt2-pass" },
+    { "rig": "game", "dur": 4, "mode": "chase", "name": "gt2-chase" }
+  ] }

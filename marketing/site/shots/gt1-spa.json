@@ -1,0 +1,9 @@
+{ "name": "site-gt1-spa", "aspect": "16:9", "seed": 11, "silent": true, "track": { "real": "spa" }, "env": { "time": "dusk", "weather": "clear" },
+  "race": { "car": "f40", "opponents": 7, "aiChassis": "class" }, "warmup": 14,
+  "shots": [
+    { "rig": "heli", "dur": 5, "name": "hero-heli" },
+    { "rig": "trackside", "dur": 5, "ahead": 90, "name": "hero-pass" },
+    { "rig": "dolly", "dur": 5, "side": -1, "name": "hero-dolly" },
+    { "rig": "wheel", "dur": 3.5, "name": "hero-wheel" },
+    { "rig": "orbit", "dur": 5, "speed": 0.22, "name": "hero-orbit" }
+  ] }
