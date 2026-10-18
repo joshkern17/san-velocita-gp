@@ -1,0 +1,7 @@
+{ "name": "site-gt1-spa-heli", "aspect": "16:9", "seed": 11, "silent": true, "track": { "real": "spa" }, "env": { "time": "dusk", "weather": "clear" },
+  "race": { "car": "f40", "opponents": 7, "aiChassis": "class" }, "warmup": 48,
+  "shots": [
+    { "rig": "heli", "dur": 5, "name": "heli-kemmel" },
+    { "rig": "trackside", "dur": 5, "ahead": 120, "name": "pass-kemmel" },
+    { "rig": "heli", "dur": 5, "offset": -14, "name": "heli-late" }
+  ] }
