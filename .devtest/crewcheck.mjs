@@ -29,7 +29,7 @@ try {
         if (!p.path.length && /^kneel/.test(p.ch.clip || '') && p.spot) {
           const k = `${p.role}@${p.spot.st || p.spot.role}(${p.spot.x.toFixed(1)},${p.spot.z.toFixed(1)})`;
           if (T.kneels[k]) continue; T.kneels[k] = 1;
-          const ax = p.x + Math.sin(p.yaw) * 0.55, az = p.z + Math.cos(p.yaw) * 0.55, ay = p.y + 0.35;
+          const ax = p.spot.x + Math.sin(p.spot.yaw) * 0.55, az = p.spot.z + Math.cos(p.spot.yaw) * 0.55, ay = p.y + 0.35; // (where they'll face once turned: the kneel starts within 23 degrees of it)
           const P = window.__svgp.dbg.pitGarage, B = new (Object.getPrototypeOf(new P.camera.position.constructor()).constructor === Object ? Object : Object)();
           let hit = false; P.room.traverse(o => { if (hit || !o.isMesh || !o.visible || /^(NAV|WALK|COL)_/.test(o.name)) return; o.geometry.computeBoundingBox(); const bb = o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld); if (ax > bb.min.x && ax < bb.max.x && az > bb.min.z && az < bb.max.z && ay > bb.min.y - 0.05 && ay < bb.max.y + 0.2) hit = true; });
           for (const c of [P.car, P.car2]) if (!hit && c && c.group.visible) c.group.traverse(o => { if (hit || !o.isMesh || o === c.shadow) return; o.geometry.computeBoundingBox(); const bb = o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld); if (ax > bb.min.x && ax < bb.max.x && az > bb.min.z && az < bb.max.z) hit = true; });

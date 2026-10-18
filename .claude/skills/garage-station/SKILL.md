@@ -60,8 +60,11 @@ pre-baked shading. What made the dyno work, in order of impact:
    export sections). Shared helpers come from `tools/garagelib.py`:
    - `bbox lathe sweep ibeam tiled_card retile grid_out` + `bx cy rd cd` (garagelib's box/cyl/rod/card, registered
      for the AO bake; anything made another way: `mk(obj)`)
-   - `grimy_tile px_tex cutout_mat solid_mat art_mat mat_img` for materials; `lib()`/`put()` for pack props
-   - `bake_ao(coll, skip=(cutout mats,))`, `export_station(coll, path)`, `tris(coll)`
+   - `grimy_tile` (metal, concrete, wood), `plain_mat` (laminate, plastic, painted board: metal tiles look like camo
+     there), `px_tex`, `cutout_mat` (see-through from an array), `art_cutout` (a PNG with its own alpha: chalk,
+     sparks, decals), `solid_mat`, `art_mat`, `mat_img`; `lib()`/`put()` for pack props
+   - `bake_ao(coll, skip=(cutout mats,), wall=True)` (wall=False for a piece out in the room, like the lift bay),
+     `export_station(coll, path)`, `tris(coll)`
    Default the output to `models/garage/station_<key>_v2.glb` while it's being compared; `--blend` saves
    `models/garage/<key>-start.blend` (gitignored, for looking at).
 4. **Build** headless (≈10 s): `/Applications/Blender.app/Contents/MacOS/Blender -b --python-exit-code 1 --python tools/garage-<key>.py -- --blend`
@@ -90,3 +93,12 @@ pre-baked shading. What made the dyno work, in order of impact:
 - `oil_slick_*` textures read as purple rainbows at PSX resolution; a dark glossy puddle reads as oil.
 - The headless render lighting isn't the game's; always confirm in a game shot.
 - Big, few-vertex faces get no AO detail: `grid_out` plain boxes (floor plates, panels), not bevelled ones.
+- A newly made object's `matrix_world` is stale until `bpy.context.view_layer.update()`: moving things by their world
+  matrix before that sends them to the origin.
+- A piece that isn't against a wall (a lift in a car bay): `bake_ao(wall=False)`, and pass `nowall` to the checker and
+  `nowall studio` to the renderer (studio adds soft lights for pieces with few of their own).
+- Thin walls (bins, trays) under 6 mm don't count as support in the checker: make them 8 mm.
+- The game camera in `stationshot.mjs` stands at a fixed spot: if the hero piece is out of its frame, write your own
+  framing (`.devtest/dataShot.mjs`, `.devtest/simshot.mjs` are examples) rather than moving the piece for the camera.
+- Seats: the sit clips expect a 0.48 m seat (`CLIP_INFO` in js/characters.js); sitting clips are relaxed poses, hands
+  in the lap, not on a wheel.

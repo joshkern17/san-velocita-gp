@@ -365,6 +365,7 @@ def export_kit(out=OUT, only=None):
     done = []
     for coll in bpy.data.collections:
         if not coll.name.startswith(('shell_', 'station_')) or coll.name.endswith(' hooks'): continue
+        if coll.name in ('station_tools', 'station_sim'): continue   # (built by their own scripts now: tools/garage-tools.py, tools/garage-sim.py)
         if only and coll.name not in only: continue
         objs = [o for o in coll.all_objects if not o.name.startswith('GUIDE') and o.visible_get()]
         off = Vector(coll.instance_offset) if coll.name.startswith('station_') else None

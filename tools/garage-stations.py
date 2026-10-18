@@ -371,7 +371,7 @@ EXPORT = r'''
 import bpy, os
 from mathutils import Matrix, Vector
 OUT = bpy.path.abspath('//')   # (next to the .blend: models/garage/)
-SKIP = {'station_dyno'}   # (built by their own scripts now: tools/garage-dyno.py)
+SKIP = {'station_dyno', 'station_fab', 'station_data', 'station_tools2'}   # (built by their own scripts now: tools/garage-<key>.py)
 def export_kit(out=OUT, only=None):
     done = []
     for coll in bpy.data.collections:

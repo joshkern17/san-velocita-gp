@@ -290,6 +290,7 @@ export class PitGarage {
     this.roomLoading = get.then(({ m, kit }) => {
       if (this.roomWant !== key) return;
       this.kit = kit;
+      if (kit && kit.setBusy && this.crewWant) kit.setBusy(this.crewWant.busy); // (the stations in use, asked for before the room had loaded)
       if (m) this.useRoom(m, key); else this.useDefault();
     });
   }

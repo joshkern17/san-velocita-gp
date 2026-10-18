@@ -1,5 +1,5 @@
 # Checks a built station before anyone looks at it: the things that went wrong before, found by measuring.
-#   Blender -b <the .blend> --python .claude/skills/garage-station/scripts/check_station.py -- station_dyno [budget]
+#   Blender -b <the .blend> --python .claude/skills/garage-station/scripts/check_station.py -- station_dyno [budget] [nowall]
 # Reports (and exits 1 on errors):
 #   FLOATING   a mesh whose bottom is in the air with nothing under it and nothing it touches (the dyno's CRTs, set at the
 #              height of a bridge that had been made shorter). Lamps, chains, ducts and things on the back wall are fine
@@ -12,7 +12,7 @@ from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
 args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
-name = args[0] if args else 'station_dyno'; budget = int(args[1]) if len(args) > 1 else 16000
+name = args[0] if args else 'station_dyno'; budget = int(next((a for a in args[1:] if a.isdigit()), 16000)); nowall = 'nowall' in args   # (nowall: out in the room, no wall behind it)
 coll = bpy.data.collections[name]
 dg = bpy.context.evaluated_depsgraph_get()
 meshes = [o for o in coll.all_objects if o.type == 'MESH' and not o.name.startswith(('GUIDE', 'TMP', 'IDLE_'))]
@@ -48,7 +48,7 @@ def resting(o, p, tol=0.03):   # p's top meets o's bottom, under o's middle
 HANGS = ('Lamp', 'Chain', 'Duct', 'Hanger', 'Sign', 'Light', 'Louvre', 'Fan', 'Tray', 'Cable', 'Beacon', 'Bulb', 'Note', 'Screen', 'Hook', 'Ear', 'Plate', 'Print', 'Gauges', 'Switches', 'Mesh', 'Flex', 'Header', 'Hose', 'Belt', 'Line', 'Rail', 'Post', 'Shade')
 for o in meshes:
     lo, hi = boxes[o]
-    if lo.z < 0.03 or hi.y > -0.12: continue                  # (on the floor, or on the back wall)
+    if lo.z < 0.03 or (hi.y > -0.12 and not nowall): continue   # (on the floor, or on the back wall)
     if any(k in o.name for k in HANGS): continue
     sup = [p for p in meshes if p is not o and solid(p)]
     if any(touches(o, p) for p in sup): continue                # (touching something solid: resting on it or fixed to it)

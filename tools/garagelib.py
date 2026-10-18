@@ -438,11 +438,31 @@ def cutout_mat(name, col, alpha, rough=0.6):
     return m
 
 
+def plain_mat(name, rgb, dirt=0.25, fleck=0.03, rough=0.7):
+    # a smooth surface (laminate, beige plastic, painted board): its colour with a fine fleck and soft grime. The metal
+    # tiles' blotches read as camouflage on these
+    m_ = 64; c = np.ones((m_, m_, 3), np.float32) * np.array(rgb, np.float32)
+    c = c * (1 + fleck * (vnoise(m_, m_, 1, wrap=True) - 0.5) * 2)[..., None]
+    return mat_img(name, px_tex(name, grime(c, np.clip(fbm(m_, m_, (32, 8), wrap=True) - 0.35, 0, 1) * dirt)), rough)
+
+
+def art_cutout(name, png, emit=None):
+    # a printed card that uses the PNG's own transparency (chalk marks, sparks, a decal): glTF MASK; emit: it glows
+    im = bpy.data.images.load(png, check_existing=True); m = bpy.data.materials.new(name)
+    nt = m.node_tree; p = nt.nodes['Principled BSDF']; t = nt.nodes.new('ShaderNodeTexImage'); t.image = im; t.interpolation = 'Closest'
+    nt.links.new(t.outputs['Color'], p.inputs['Base Color'])
+    g = nt.nodes.new('ShaderNodeMath'); g.operation = 'GREATER_THAN'; g.inputs[1].default_value = 0.5
+    nt.links.new(t.outputs['Alpha'], g.inputs[0]); nt.links.new(g.outputs[0], p.inputs['Alpha'])
+    p.inputs['Roughness'].default_value = 0.9; p.inputs['Metallic'].default_value = 0.0
+    if emit: nt.links.new(t.outputs['Color'], p.inputs['Emission Color']); p.inputs['Emission Strength'].default_value = emit
+    return m
+
+
 def solid_mat(name, rgb, rough=0.5):
     m = mat_img(name, None, rough); m.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (*rgb, 1); return m
 
 
-def bake_ao(coll, skip=(), distance=0.55, samples=64):
+def bake_ao(coll, skip=(), distance=0.55, samples=64, wall=True):
     # ambient occlusion into a vertex colour ('AO') on everything built here (BUILT) in coll, against a floor and a wall
     # where the station stands (its back on y = 0), lifted so it darkens without blacking out; every material those use
     # gets its base colour multiplied by it (glTF COLOR_0: three.js multiplies it in). skip: materials left out (a
@@ -451,7 +471,7 @@ def bake_ao(coll, skip=(), distance=0.55, samples=64):
     if not sc.world: sc.world = bpy.data.worlds.new('World')
     sc.world.light_settings.distance = distance; sc.cycles.samples = samples
     occ = bpy.data.materials.get('TMP_Occluder') or mat_img('TMP_Occluder', None)
-    tmp = [box('TMP_Floor', coll, (12, 12, 0.02), (0, -2, -0.01), occ), box('TMP_Wall', coll, (12, 0.02, 6), (0, 0.01, 3), occ)]
+    tmp = [box('TMP_Floor', coll, (12, 12, 0.02), (0, -2, -0.01), occ)] + ([box('TMP_Wall', coll, (12, 0.02, 6), (0, 0.01, 3), occ)] if wall else [])   # (wall=False: a piece out in the room, a car bay)
     mine = set(coll.all_objects)
     objs = [o for o in BUILT if o in mine and o.type == 'MESH' and not any(m in skip for m in o.data.materials)]
     for o in objs:

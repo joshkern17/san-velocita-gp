@@ -21,7 +21,7 @@ try {
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
   await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(800);
   await pg.evaluate((p) => { const d = window.__svgp.dbg; d.openHomeView(); d.homeView({ premises: p, fac: { tools: 2, dyno: 1, fab: 1, sim: 1, data: 1 }, car2: true }); }, process.env.PREMISES || 'unit');
-  await pg.waitForFunction(() => /dyno/.test(String(window.__svgp.dbg.pitGarage.custom)), null, { timeout: 30000 }); await pg.waitForTimeout(3000);
+  await pg.waitForFunction(() => window.__svgp.screen === 's-homeview' && /dyno/.test(String(window.__svgp.dbg.pitGarage.custom)) && window.__svgp.dbg.pitGarage.kit, null, { timeout: 60000, polling: 300 }); await pg.waitForTimeout(3000);   // (in the garage view, its kit in: not the title screen)
   const keys = await pg.evaluate(() => Object.keys(window.__svgp.dbg.pitGarage.kit.stations));
   console.log('stations:', keys.join(', '));
   for (const k of keys.filter(k => !only.length || only.includes(k))) {
