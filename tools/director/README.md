@@ -11,9 +11,14 @@ node tools/director/director.mjs tools/director/shots/example.json --only 3   # 
   --swiftshader   software GL, if the GPU path fails    --headed   watch it happen
 ```
 - **Speed:** about 10–13 frames/s, so a 30 s shot list takes ~2.5 min.
-- **Output:** `marketing/footage/<name>/NN-<rig>.mp4` (1080×1920 or 1920×1080, H.264 crf 14), plus `NN-<rig>.engine.json`,
-  the focus car's rpm, speed and gear for every frame, for rendering engine audio in sync later. Footage is
-  gitignored.
+- **Output:** `marketing/footage/<name>/NN-<rig>.mp4` (1080×1920 or 1920×1080, H.264 crf 14), with the game's own engine
+  sound under it. Also `NN-<rig>.wav` (24-bit, for the mix) and `NN-<rig>.engine.json` (the focus car's rpm, speed and
+  gear per frame). Footage is gitignored.
+- **Sound:** while filming, the director logs exactly what the race sends its engine voices each frame: your car,
+  plus the two AI cars nearest the camera, with pan and doppler. Your car is made camera-relative, so it's quieter
+  from a trackside camera far away and panned to where it is. After filming, it plays those logs back through the
+  game's own engine synth (engine, tire squeal, wind, rumble) in real time and records the result, so the picture and
+  sound line up exactly. It adds about the shot's length in time. `"silent": true` in the shot list skips it.
 
 ## Shot list
 ```json
@@ -41,6 +46,7 @@ node tools/director/director.mjs tools/director/shots/example.json --only 3   # 
 | `game` | the game's own cameras | `mode` chase/far/tcam/bumper |
 
 ## Not yet
-- Audio: engines rendered offline from the `.engine.json` logs (next step).
+- Sound follows your car and the two AI nearest the camera. A shot focused on another car still plays your car's engine.
+- No crash or impact sounds yet; no music or voice (those go in the edit).
 - Garage, editor (draw-a-track) and livery-designer scenes.
 - Grid starts: shots begin with the race already running.

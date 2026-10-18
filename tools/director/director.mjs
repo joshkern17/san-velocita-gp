@@ -2,11 +2,12 @@
 // AI race (the AI drives your car too), stops the game's own loop, then steps the race exactly 1/60 s per frame, puts
 // the camera on a rig (tools/director/rigs.js) and grabs every frame straight off the canvas (no HUD: it's DOM).
 // Each shot becomes its own mp4 in marketing/footage/<name>/, plus a log of the focus car's revs/speed/gear per frame
-// (for rendering engine audio in sync later).
+// (for reference). Then an audio pass plays the logged engine inputs back through the game's own engine voices and
+// lays the recording under each shot (NN-<rig>.wav kept for the mix). "silent": true in the shot list skips sound.
 //   node tools/director/director.mjs <shotlist.json> [--only 2] [--swiftshader] [--headed]
 // Shot list: see tools/director/shots/example.json.
 import { spawn } from 'child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -49,7 +50,8 @@ try {
     else t = await (await fetch('/' + (tr.file || '.devtest/auburn2.json'))).json();
     if (!t) throw new Error('track not found: ' + JSON.stringify(tr));
     t.env = { ...(t.env || {}), ...(L.env || {}) };
-    S.commentary = 'off'; S.engVoice = 'off'; S.volume = 0; S.music = 0;
+    S.commentary = 'off'; S.engVoice = 'off'; S.music = 0;
+    if (!L.silent) { const A = await import('/js/audio.js'); A.initAudio(); await new Promise(r => setTimeout(r, 800)); } // (the race only builds engine voices if sound is on)
     Object.assign(S, L.settings || {});
     const R = L.race || {};
     const car = { ...S.car, ...(R.car ? { chassis: R.car } : {}), ...(R.livery || {}) };
@@ -76,12 +78,39 @@ try {
     s.mirror = () => {}; // (no rear-view mirror in the shots)
     const { install } = await import('/tools/director/rigs.js');
     window.__dir.D = install(s);
+    // sound: log exactly what the race sends its engine voices every frame (the player's car made camera-relative:
+    // the race plays it as if you're in the car), to play back in real time after filming (see the audio pass)
+    const A = await import('/js/audio.js'), bus = A.audioBus();
+    const AU = window.__dir.au = { on: !L.silent && !!(bus && s.voice && s.voice.out), cur: [], frames: null, shots: {} };
+    if (AU.on) {
+      [s.voice, ...s.aiVoices].forEach((v, k) => {
+        const u = v.update.bind(v), si = v.silence.bind(v); v.__u = u; v.__s = si;
+        v.update = (o) => { AU.cur[k] = { ...o }; return u(o); }; v.silence = () => { AU.cur[k] = null; return si(); };
+      });
+      const REC = `class R extends AudioWorkletProcessor{constructor(){super();this.on=false;this.port.onmessage=e=>{this.on=e.data}}process(i){const x=i[0];if(this.on&&x&&x.length)this.port.postMessage([x[0].slice(),(x[1]||x[0]).slice()]);return true}}registerProcessor('dir-rec',R)`;
+      await bus.ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([REC], { type: 'application/javascript' })));
+      if (bus.ctx.state !== 'running') await bus.ctx.resume();
+    }
+    AU.note = () => { // (after each filmed frame)
+      const pl = s.player, o = AU.cur[0], cam = s.camera;
+      if (o && pl) {
+        const gp = pl.model.group.position, d = cam.position.distanceTo(gp);
+        const right = new cam.position.constructor(1, 0, 0).applyQuaternion(cam.quaternion), dir = gp.clone().sub(cam.position).normalize();
+        o.pan = Math.max(-1, Math.min(1, dir.dot(right))) * 0.8;
+        o.gain = d < 10 ? 1 : Math.max(0.1, Math.pow(Math.max(0, 1 - (d - 10) / 150), 2));
+        if (AU.lastCam) { const cv = cam.position.clone().sub(AU.lastCam).multiplyScalar(60), p = pl.phys;
+          o.doppler = 1 + Math.max(-0.2, Math.min(0.2, ((p.vx - cv.x) * -dir.x + (p.vz - cv.z) * -dir.z) / 340)); }
+      }
+      AU.lastCam = cam.position.clone();
+      AU.frames.push(JSON.parse(JSON.stringify(AU.cur)));
+    };
     window.__dir.frame = (render) => {
       const dt = 1 / 60; window.__dir.step(dt);
       s.update(dt, { steer: 0, throttle: 0, brake: 0, handbrake: 0 }, {});
       G.handleRaceEvents();
       window.__dir.D.tick(dt);
       if (!render) return null;
+      if (window.__dir.au.on && window.__dir.au.frames) window.__dir.au.note();
       // (no motion trails on a shot's first frames: they'd ghost the previous shot into the cut)
       s.render(G.post, window.__dir.D.t < 0.05 ? { ...G.settings, trails: false } : G.settings);
       const c = s.focus || s.player, p = c && c.phys;
@@ -94,7 +123,7 @@ try {
   await pg.evaluate((n) => { for (let i = 0; i < n; i++) window.__dir.frame(false); }, warm);
   console.log(`race ready, warm-up ${L.warmup ?? 8} s done (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
 
-  const shots = L.shots || [];
+  const shots = L.shots || [], done = [];
   for (let k = 0; k < shots.length; k++) {
     const sh = shots[k], frames = Math.round((sh.dur || 5) * FPS);
     if (ONLY && ONLY !== k + 1) { await pg.evaluate((n) => { for (let i = 0; i < n; i++) window.__dir.frame(false); }, frames); continue; }
@@ -102,6 +131,7 @@ try {
       const s = window.__svgp.sim, f = sh.focus ?? 'player';
       const car = f === 'player' ? s.player : f === 'leader' ? s.order[0] : typeof f === 'number' ? s.order[Math.min(s.order.length, f) - 1] : s.player;
       s.focus = car; window.__dir.D.start(sh, car);
+      const AU = window.__dir.au; AU.frames = []; AU.lastCam = null;
     }, sh);
     const file = join(OUT, `${String(k + 1).padStart(2, '0')}-${sh.rig}${sh.name ? '-' + sh.name : ''}.mp4`);
     const ff = spawn('ffmpeg', ['-v', 'error', '-y', '-f', 'image2pipe', '-c:v', 'png', '-framerate', String(FPS), '-i', '-',
@@ -113,8 +143,42 @@ try {
       if (!ff.stdin.write(Buffer.from(fr.png.split(',')[1], 'base64'))) await new Promise(r => ff.stdin.once('drain', r));
     }
     ff.stdin.end(); await new Promise(r => ff.on('close', r));
+    await pg.evaluate((k) => { const AU = window.__dir.au; if (AU.on) AU.shots[k] = AU.frames; AU.frames = null; }, k);
+    done.push({ k, file });
     writeFileSync(file.replace(/\.mp4$/, '.engine.json'), JSON.stringify({ fps: FPS, cols: ['frame', 'rpm', 'kmh', 'gear'], rows: log }));
     console.log(`shot ${k + 1}/${shots.length} ${sh.rig}: ${frames} frames in ${((Date.now() - ts) / 1000).toFixed(0)} s -> ${file.replace(ROOT + '/', '')}`);
+  }
+
+  // the audio pass: play each shot's logged engine inputs back through the game's own engine voices in real time,
+  // record their output (before the master volume), and lay it under the picture
+  if (await pg.evaluate(() => window.__dir.au.on)) for (const { k, file } of done) {
+    const ts = Date.now();
+    const got = await pg.evaluate(async (k) => {
+      const s = window.__svgp.sim, A = await import('/js/audio.js'), ctx = A.audioBus().ctx, frames = window.__dir.au.shots[k];
+      const vs = [s.voice, ...s.aiVoices], sleep = (ms) => new Promise(r => setTimeout(r, ms));
+      const rec = new AudioWorkletNode(ctx, 'dir-rec', { numberOfInputs: 1, numberOfOutputs: 1, channelCount: 2, channelCountMode: 'explicit', outputChannelCount: [2] });
+      const sink = ctx.createGain(); sink.gain.value = 0; rec.connect(sink); sink.connect(ctx.destination);
+      vs.forEach(v => v.out.connect(rec));
+      const Lc = [], Rc = []; rec.port.onmessage = (e) => { Lc.push(e.data[0]); Rc.push(e.data[1]); };
+      const apply = (f) => vs.forEach((v, i) => f[i] ? v.__u(f[i]) : v.__s());
+      apply(frames[0]); await sleep(500); // (let the voices settle on the first frame: no fade-in from silence)
+      rec.port.postMessage(true); const t0 = ctx.currentTime; let last = 0;
+      await new Promise(res => { const id = setInterval(() => { const i = Math.floor((ctx.currentTime - t0) * 60); if (i >= frames.length) { clearInterval(id); res(); return; } if (i !== last) { apply(frames[i]); last = i; } }, 4); });
+      rec.port.postMessage(false); await sleep(60);
+      vs.forEach(v => { v.out.disconnect(rec); v.__s(); }); rec.disconnect(); sink.disconnect();
+      const n = Lc.reduce((a, c) => a + c.length, 0), out = new Float32Array(n * 2); let j = 0;
+      for (let c = 0; c < Lc.length; c++) for (let i = 0; i < Lc[c].length; i++) { out[j++] = Lc[c][i]; out[j++] = Rc[c][i]; }
+      const u8 = new Uint8Array(out.buffer); let bin = '';
+      for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+      return { sr: ctx.sampleRate, b64: btoa(bin) };
+    }, k);
+    const raw = file.replace(/\.mp4$/, '.f32'), wav = file.replace(/\.mp4$/, '.wav'), tmp = file.replace(/\.mp4$/, '.tmp.mp4');
+    writeFileSync(raw, Buffer.from(got.b64, 'base64'));
+    const run = (a) => new Promise((res, rej) => spawn('ffmpeg', ['-v', 'error', '-y', ...a], { stdio: 'inherit' }).on('close', c => c ? rej(new Error('ffmpeg ' + c)) : res()));
+    await run(['-f', 'f32le', '-ar', String(got.sr), '-ac', '2', '-i', raw, '-c:a', 'pcm_s24le', wav]);
+    await run(['-i', file, '-i', wav, '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '256k', '-shortest', '-movflags', '+faststart', tmp]);
+    renameSync(tmp, file); unlinkSync(raw);
+    console.log(`  sound for shot ${k + 1}: ${((Date.now() - ts) / 1000).toFixed(0)} s -> ${wav.replace(ROOT + '/', '')}`);
   }
 } finally { await b.close(); server.kill(); }
 console.log(`done in ${((Date.now() - t0) / 1000).toFixed(0)} s`);

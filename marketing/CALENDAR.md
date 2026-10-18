@@ -9,7 +9,7 @@ The plan (what's next) and the ledger (every post and how it did). The head of m
 | 0.2 | Brand book (BRAND.md): sign off the [YOUR OK] items | dev | waiting |
 | 0.3 | Pay Steam Direct fee ($100), create the app | dev | todo |
 | 0.4 | Claim handles: TikTok, YouTube, Instagram, X, Bluesky, Reddit (HoM drafts bios + profile art) | dev (sign-ups), HoM (copy/art) | todo |
-| 0.5 | Director mode: the game films itself (cameras, frame-stepped 60 fps, 9:16 + 16:9) | build | v1 done 2026-10-18 (tools/director: race rigs, video only); next: engine audio, garage/editor/livery scenes, grid starts |
+| 0.5 | Director mode: the game films itself (cameras, frame-stepped 60 fps, 9:16 + 16:9) | build | v1 done 2026-10-18 (tools/director: race rigs + in-sync engine sound); next: garage/editor/livery scenes, grid starts |
 | 0.45 | Narrator voice: design in ElevenLabs (calm, earnest, "we"), dev picks from previews | HoM → dev OK | done 2026-10-18: SV narrator 001, id 7HQTSYjhnOsl76FVM9QA |
 | 0.46 | First 6 explainer scripts (tire temps, AI learns each track, LiDAR circuits, pit crew mocap, draw a track, shitbox start) | HoM | todo |
 | 0.6 | Remotion templates: the narrated explainer (main) + the fast-cut Short (minor); captions, end card | HoM → dev OK | todo |

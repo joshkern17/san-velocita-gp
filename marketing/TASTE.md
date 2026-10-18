@@ -14,6 +14,11 @@ Lesson: <what to do differently / keep doing>
 
 ---
 
+## 2026-10-18 · director test reel · APPROVED
+What it was: marketing/footage/example/reel.mp4: dolly, trackside long lens, wheel close-up, heli, orbit, chase (silent).
+Said: "That reel looks so sick"
+Lesson: the calm rigs and the game's own look (arcade preset, ps2/hd lines, soft upscale) are right. Keep them.
+
 ## 2026-10-18 · narrator voice · APPROVED
 What it was: three designed previews of the tire-temperature line; picked C (slowest, ~2.5 words/s, 20 s).
 Said: "C is perfect."

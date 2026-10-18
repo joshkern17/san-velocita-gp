@@ -8,8 +8,9 @@ reading the top entry.
   then check the first real line against the C audition before using it.
 - Director mode v1 built: `tools/director/` (see its README). It films AI races with 7 calm rigs at a locked 60 fps,
   as 9:16 or 16:9, with no HUD, no racing line and seeded runs. Test reel: `marketing/footage/example/reel.mp4`.
+- Engine sound added the same day: every shot now carries the game's own engines, in sync (README "Sound").
+  The dev on the silent reel: "That reel looks so sick".
 - **Next:**
-  - Engine audio from the `.engine.json` logs.
   - Garage, editor and livery scenes.
   - Grid starts.
   - Then the narrated Remotion template (0.6) and the first explainer (tire temperatures).
