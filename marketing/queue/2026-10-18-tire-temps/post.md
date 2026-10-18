@@ -1,9 +1,4 @@
-Status: NEEDS OK: v2 (`tire-temps-v2.mp4`, 39 s) answers the dev's v1 note ("really close"; wants more natural,
-engaging scripts):
-- a new script from the explainer-script skill (`script-v2.md`);
-- the first animated physics beat (slip angle → heat), made in HyperFrames (`marketing/anim/slip-beat`).
-Question: does the script land now, and does the animated beat look like "the game's UI style, in a more modern
-application of the design"? Still open from v1: °F or °C on the readout.
+Status: READY (v2 approved by the dev 2026-10-18: "literally all perfect"). Post `tire-temps-v2.mp4`. Readout units: °C (unanswered; the game's own).
 
 # Explainer 001: tire temperatures
 - File: `tire-temps-v1.mp4` (36.9 s, 1080×1920, −14.5 LUFS)
