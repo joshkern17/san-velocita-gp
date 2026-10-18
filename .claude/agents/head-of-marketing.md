@@ -71,5 +71,7 @@ Skills (`~/.claude/skills`): social, video, launch, content-strategy, copywritin
 community-marketing, influencer-marketing, public-relations, marketing-plan, marketing-ideas, marketing-psychology,
 customer-research, competitors, analytics, image, directory-submissions, events, remotion-*, ffmpeg, humanizer.
 ElevenLabs MCP (the dev's paid plan; reuse saved voice ids only, never re-run a generation to retry).
+Footage: `node tools/director/director.mjs <shotlist.json>` films AI races with calm camera rigs at a locked 60 fps
+(read `tools/director/README.md`; shot lists live in `tools/director/shots/`, output in `marketing/footage/`).
 The game runs via `serve.py`; headless runs must stub `navigator.getGamepads = () => []` (the dev's controller is
 plugged in). Keep test runs short.

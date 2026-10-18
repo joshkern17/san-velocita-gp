@@ -3,7 +3,18 @@
 One entry per run, newest at the top: what it looked at, what it made, what it's waiting on. The next run starts by
 reading the top entry.
 
-## 2026-10-18 · style direction (read this first)
+## 2026-10-18 · narrator + director v1
+- Narrator voice approved: "SV narrator 001 - calm dev", `7HQTSYjhnOsl76FVM9QA` (BRAND §4). Generate with eleven_v4,
+  then check the first real line against the C audition before using it.
+- Director mode v1 built: `tools/director/` (see its README). It films AI races with 7 calm rigs at a locked 60 fps,
+  as 9:16 or 16:9, with no HUD, no racing line and seeded runs. Test reel: `marketing/footage/example/reel.mp4`.
+- **Next:**
+  - Engine audio from the `.engine.json` logs.
+  - Garage, editor and livery scenes.
+  - Grid starts.
+  - Then the narrated Remotion template (0.6) and the first explainer (tire temperatures).
+
+## 2026-10-18 · style direction
 - The dev pointed to @eatmeatgames (Sharp Flint) and @mixandjam (Eye of the Match). They want "an earnest or
   calming person talking over the cool, detailed, well crafted features".
 - Reviewed 12 Reels → `research/reference-accounts.md`. Narrated = 66K–1.2M, music-only = 3–31K.

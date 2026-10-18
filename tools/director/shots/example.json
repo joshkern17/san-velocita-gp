@@ -1,0 +1,17 @@
+{
+  "name": "example",
+  "aspect": "9:16",
+  "seed": 3,
+  "track": { "file": ".devtest/auburn2.json" },
+  "env": { "time": "day", "weather": "clear" },
+  "race": { "car": "m1procar", "opponents": 7, "aiChassis": "class", "grid": "middle" },
+  "warmup": 12,
+  "shots": [
+    { "rig": "dolly", "dur": 5, "side": 1, "from": 3, "to": -3 },
+    { "rig": "trackside", "dur": 5, "ahead": 90 },
+    { "rig": "wheel", "dur": 4 },
+    { "rig": "heli", "dur": 5 },
+    { "rig": "orbit", "dur": 5, "speed": 0.25 },
+    { "rig": "game", "dur": 4, "mode": "chase" }
+  ]
+}
