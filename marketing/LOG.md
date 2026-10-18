@@ -3,7 +3,19 @@
 One entry per run, newest at the top: what it looked at, what it made, what it's waiting on. The next run starts by
 reading the top entry.
 
-## 2026-10-18 · first explainer: tire temperatures (read this first)
+## 2026-10-18 · tire temps v2 + animated beat (read this first)
+- Dev on v1: "really close"; wants scripts more natural and engaging. Physics animations go *inside* feature videos.
+- Built:
+  - the `explainer-script` skill (`.claude/skills/explainer-script`);
+  - `script-v2.md`, fact-checked (cold grip loss is small, so the hook is the real number: 35° vs 70°);
+  - narration v2 (take 3 of 4, word-perfect);
+  - the slip-angle beat in HyperFrames (`marketing/anim/slip-beat`, 10 s, timed to the words);
+  - the edit, `TireTempsV2` (39 s, −14.8 LUFS).
+- Installed HyperFrames skills (heygen-com/hyperframes); its telemetry is disabled (`hyperframes telemetry disable`;
+  also set HYPERFRAMES_NO_TELEMETRY=1). Its `init` added hyperframes-audio/registry/studio and media-use by itself.
+- Waiting: the dev's verdict on v2; °F/°C.
+
+## 2026-10-18 · first explainer: tire temperatures
 - Made `queue/2026-10-18-tire-temps/tire-temps-v1.mp4`, the first narrated explainer, end to end:
   - script (fact-checked against docs/PHYSICS.md);
   - narrator take 1 of 4 (eleven_v4; all four word-perfect by whisper);

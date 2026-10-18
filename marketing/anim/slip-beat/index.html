@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <!-- Slip-angle beat for explainer 001 (tire temperatures). 10 s, timed to narration take 3, lines 3-4:
+         "A tire grips best while it's slipping a little. About five or six degrees. / Past that, it starts to slide…
+         and sliding makes heat." San Velocita's neon-signal tokens (docs/DESIGN.md), modern motion (BRAND exception). -->
+    <style>
+      @font-face { font-family: "SV UI"; src: url("fonts/SVUI-500.woff2") format("woff2"); font-weight: 500; }
+      @font-face { font-family: "SV Body"; src: url("fonts/SVBody-500.woff2") format("woff2"); font-weight: 500; }
+      @font-face { font-family: "SV Display"; src: url("fonts/SVDisplay-700.woff2") format("woff2"); font-weight: 700; }
+      @font-face { font-family: "SV Num"; src: url("fonts/SVNum-500.woff2") format("woff2"); font-weight: 500; }
+      :root {
+        --hot: #ff6a1c; --hot-top: #ff8a2a; --hot-deep: #ff3d0c; --red: #ff2b00; --red-dim: #c93216;
+        --amber: #ffc21a; --blue: #2d36f2; --blue-pale: #6a72ff; --ink: #05060c; --pink: #ff3d8a;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--ink); }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--ink); }
+      .glow { text-shadow: 0 0 .025em currentColor, 0 0 .06em currentColor; -webkit-text-fill-color: transparent; letter-spacing: -0.02em; }
+      .glow-strong { text-shadow: 0 0 .04em currentColor, 0 0 .1em currentColor; -webkit-text-fill-color: transparent; }
+      #stage { position: absolute; inset: 0; }
+      #grid { position: absolute; inset: 0; width: 1080px; height: 1920px; }
+      #title { position: absolute; left: 0; right: 0; top: 150px; text-align: center; font: 500 30px/1 "SV UI"; color: var(--red); letter-spacing: .34em; }
+      #title-rule { position: absolute; left: 380px; width: 320px; top: 200px; height: 2px; background: var(--red); box-shadow: 0 0 2px var(--red), 0 0 4px var(--red); transform-origin: 50% 50%; }
+      #diagram { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; }
+      #diagram .line { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      #alpha { position: absolute; left: 720px; top: 420px; width: 280px; }
+      #alpha .k { font: 500 26px/1 "SV UI"; color: var(--red); letter-spacing: .3em; }
+      #alpha .v { font: 700 128px/0.9 "SV Display"; letter-spacing: -0.02em; margin-top: 10px;
+        background: linear-gradient(180deg, var(--hot-top), var(--hot) 45%, var(--hot-deep)); -webkit-background-clip: text; background-clip: text;
+        -webkit-text-fill-color: transparent; filter: blur(.5px) drop-shadow(0 0 3px var(--hot)); font-variant-numeric: tabular-nums; }
+      #temp { position: absolute; left: 80px; top: 420px; width: 260px; }
+      #temp .k { font: 500 26px/1 "SV UI"; color: var(--red); letter-spacing: .3em; }
+      #temp .v { font: 500 92px/1 "SV Num"; margin-top: 14px; font-variant-numeric: tabular-nums; }
+      .lab { font: 500 24px/1 "SV UI"; letter-spacing: .22em; }
+      #peak-tag { position: absolute; width: 300px; }
+      #peak-tag .a { font: 500 26px/1 "SV UI"; color: var(--amber); letter-spacing: .26em; }
+      #peak-tag .b { font: 500 44px/1 "SV Num"; color: var(--amber); margin-top: 8px; }
+      #slide-tag { position: absolute; font: 500 26px/1 "SV UI"; color: var(--pink); letter-spacing: .3em; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-width="1080" data-height="1920" data-duration="10">
+      <section id="scene" class="clip" data-start="0" data-duration="10" data-track-index="0" style="position:absolute;inset:0">
+        <div id="stage">
+          <svg id="grid" viewBox="0 0 1080 1920"></svg>
+          <div id="title" class="glow-strong">SLIP ANGLE</div>
+          <div id="title-rule"></div>
+          <svg id="diagram" viewBox="0 0 1080 1920">
+            <defs>
+              <linearGradient id="hotGrad" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0" stop-color="#ffc21a" /><stop offset=".35" stop-color="#ff6a1c" /><stop offset="1" stop-color="#ff3d8a" />
+              </linearGradient>
+              <radialGradient id="heatGlow"><stop offset="0" stop-color="#ff6a1c" stop-opacity=".9" /><stop offset="1" stop-color="#ff3d8a" stop-opacity="0" /></radialGradient>
+            </defs>
+            <!-- the tire, seen from above; travel arrow straight up, heading rotates by the slip angle -->
+            <g id="tire-g"><g id="tire-rot">
+              <ellipse id="heat" cx="540" cy="520" rx="150" ry="230" fill="url(#heatGlow)" opacity="0" />
+              <line id="heading" class="line" x1="540" y1="280" x2="540" y2="730" stroke="#ff2b00" stroke-width="2.5" stroke-dasharray="10 12" style="filter: drop-shadow(0 0 2px #ff2b00)" />
+              <rect id="tire" x="468" y="370" width="144" height="300" rx="34" fill="#14151c" stroke="#ff2b00" stroke-width="3" style="filter: drop-shadow(0 0 3px #ff2b00)" />
+              <g id="tread" stroke="#2a2c38" stroke-width="7" stroke-linecap="round">
+                <line x1="504" y1="392" x2="504" y2="648" /><line x1="540" y1="392" x2="540" y2="648" /><line x1="576" y1="392" x2="576" y2="648" />
+              </g>
+              <rect id="tread-hot" x="474" y="376" width="132" height="288" rx="30" fill="#ff6a1c" opacity="0" style="mix-blend-mode: screen" />
+            </g></g>
+            <g id="travel">
+              <line id="travel-line" class="line" x1="540" y1="520" x2="540" y2="252" stroke="#2d36f2" stroke-width="5" style="filter: drop-shadow(0 0 3px #6a72ff)" />
+              <path id="travel-head" d="M 522 278 L 540 248 L 558 278" class="line" stroke="#2d36f2" stroke-width="5" style="filter: drop-shadow(0 0 3px #6a72ff)" />
+            </g>
+            <text id="travel-lab" x="566" y="262" class="lab" fill="#6a72ff">TRAVEL</text>
+            <path id="arc" d="" fill="rgba(255,43,0,.22)" stroke="#ff2b00" stroke-width="2.5" style="filter: drop-shadow(0 0 2px #ff2b00)" />
+            <g id="streaks" stroke="#ff3d8a" stroke-width="4" stroke-linecap="round" opacity="0" style="filter: drop-shadow(0 0 3px #ff3d8a)">
+              <line x1="492" y1="700" x2="492" y2="790" /><line x1="528" y1="708" x2="528" y2="776" /><line x1="562" y1="694" x2="562" y2="782" />
+            </g>
+            <!-- the grip curve -->
+            <g id="graph">
+              <path id="frame" class="line" d="" stroke="#ff2b00" stroke-width="3" style="filter: drop-shadow(0 0 2px #ff2b00)" />
+              <path id="axes" class="line" d="M 170 1200 L 920 1200 M 170 1200 L 170 880" stroke="#c93216" stroke-width="3" />
+              <text x="170" y="862" class="lab" fill="#ff2b00" id="ylab">GRIP</text>
+              <text x="920" y="1240" class="lab" fill="#ff2b00" text-anchor="end" id="xlab">SLIP ANGLE</text>
+              <g id="ticks" fill="#c93216" class="lab" font-size="22"></g>
+              <path id="curve-ghost" class="line" d="" stroke="#c93216" stroke-width="3" opacity="0" stroke-dasharray="4 10" />
+              <path id="curve-rise" class="line" d="" stroke="#2d36f2" stroke-width="7" style="filter: drop-shadow(0 0 4px #6a72ff)" />
+              <path id="curve-fall" class="line" d="" stroke="url(#hotGrad)" stroke-width="7" style="filter: drop-shadow(0 0 4px #ff6a1c)" />
+              <line id="peak-line" x1="0" y1="1200" x2="0" y2="880" stroke="#ffc21a" stroke-width="2" stroke-dasharray="6 8" opacity="0" />
+              <circle id="dot" cx="170" cy="1200" r="13" fill="#ffffff" opacity="0" style="filter: drop-shadow(0 0 6px #6a72ff)" />
+            </g>
+          </svg>
+          <div id="alpha"><div class="k glow">ANGLE</div><div class="v" id="alpha-v">0.0°</div></div>
+          <div id="temp"><div class="k glow">SURFACE</div><div class="v glow" id="temp-v" style="color:#8a90ff">85°</div></div>
+          <div id="peak-tag"><div class="a glow">PEAK GRIP</div><div class="b glow">5–6°</div></div>
+          <div id="slide-tag" class="glow">SLIDING</div>
+        </div>
+      </section>
+    </div>
+    <script>
+      // --- geometry -------------------------------------------------------------------------------
+      // grip vs slip angle: a smooth curve that peaks at 5.5° and falls off past it (illustrative shape; the game's
+      // tyres peak at 0.085-0.11 rad = 4.9-6.3°, js/cars.js slipPeak)
+      const PEAK = 5.5, XMAX = 14, B = Math.sqrt(3) / PEAK;
+      const grip = (a) => Math.sin(1.5 * Math.atan(B * a));
+      const GX0 = 170, GX1 = 900, GY0 = 1200, GY1 = 905;
+      const gx = (a) => GX0 + (a / XMAX) * (GX1 - GX0), gy = (a) => GY0 - grip(a) * (GY0 - GY1);
+      const pathFor = (a0, a1) => { let d = ""; for (let i = 0; i <= 80; i++) { const a = a0 + (a1 - a0) * i / 80; d += (i ? " L " : "M ") + gx(a).toFixed(1) + " " + gy(a).toFixed(1); } return d; };
+      const $ = (id) => document.getElementById(id);
+      $("curve-ghost").setAttribute("d", pathFor(0, XMAX));
+      $("curve-rise").setAttribute("d", pathFor(0, PEAK));
+      $("curve-fall").setAttribute("d", pathFor(PEAK, XMAX));
+      $("peak-line").setAttribute("x1", gx(PEAK)); $("peak-line").setAttribute("x2", gx(PEAK)); $("peak-line").setAttribute("y2", gy(PEAK) - 10);
+      const tag = $("peak-tag"); tag.style.left = (gx(PEAK) + 18) + "px"; tag.style.top = (gy(PEAK) + 60) + "px"; tag.style.textAlign = "left";
+      const st = $("slide-tag"); st.style.left = (gx(10.5) - 20) + "px"; st.style.top = (gy(10.5) - 62) + "px";
+      for (const a of [0, 5, 10]) { const t = document.createElementNS("http://www.w3.org/2000/svg", "text"); t.setAttribute("x", gx(a)); t.setAttribute("y", 1232); t.setAttribute("text-anchor", "middle"); t.textContent = a + "°"; $("ticks").appendChild(t); }
+      // corner brackets around the graph (the game's .sv-frame language)
+      const L = 34, fx0 = 120, fx1 = 960, fy0 = 815, fy1 = 1265;
+      $("frame").setAttribute("d", `M ${fx0} ${fy0 + L} V ${fy0} H ${fx0 + L} M ${fx1 - L} ${fy0} H ${fx1} V ${fy0 + L} M ${fx1} ${fy1 - L} V ${fy1} H ${fx1 - L} M ${fx0 + L} ${fy1} H ${fx0} V ${fy1 - L}`);
+      // faint background grid
+      let gd = ""; for (let x = 60; x < 1080; x += 60) gd += `<line x1="${x}" y1="0" x2="${x}" y2="1920" />`; for (let y = 60; y < 1920; y += 60) gd += `<line x1="0" y1="${y}" x2="1080" y2="${y}" />`;
+      $("grid").innerHTML = `<g stroke="#ff2b00" stroke-opacity=".06" stroke-width="1">${gd}</g>`;
+      // dash setup for path draws (measured, not guessed)
+      const dash = (el) => { const n = el.getTotalLength(); el.style.strokeDasharray = n; el.style.strokeDashoffset = n; return n; };
+      const lenRise = dash($("curve-rise")), lenFall = dash($("curve-fall")), lenAxes = dash($("axes")), lenFrame = dash($("frame"));
+      const lenTravel = dash($("travel-line"));
+
+      // --- the slip angle drives everything ---------------------------------------------------------
+      const S = { a: 0, heat: 0 };
+      const mix = (c1, c2, k) => { const p = (c) => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)); const A = p(c1), Bc = p(c2); return "#" + A.map((v, i) => Math.round(v + (Bc[i] - v) * k).toString(16).padStart(2, "0")).join(""); };
+      function draw() {
+        const a = S.a, rad = a * Math.PI / 180;
+        $("tire-rot").setAttribute("transform", `rotate(${a.toFixed(3)} 540 520)`);
+        // the wedge between where it travels (up) and where it points
+        const r = 250, cx = 540, cy = 520, x2 = cx + Math.sin(rad) * r, y2 = cy - Math.cos(rad) * r;
+        $("arc").setAttribute("d", a > 0.05 ? `M ${cx} ${cy} L ${cx} ${cy - r} A ${r} ${r} 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)} Z` : "");
+        $("alpha-v").textContent = a.toFixed(1) + "°";
+        // the dot rides the curve; each half of the curve is drawn up to it
+        const d = $("dot"); d.setAttribute("cx", gx(a)); d.setAttribute("cy", gy(a));
+        $("curve-rise").style.strokeDashoffset = lenRise * (1 - Math.min(1, a / PEAK));
+        $("curve-fall").style.strokeDashoffset = lenFall * (1 - Math.max(0, Math.min(1, (a - PEAK) / (XMAX - PEAK))));
+        d.style.filter = a > PEAK ? "drop-shadow(0 0 7px #ff3d8a)" : "drop-shadow(0 0 6px #6a72ff)";
+        // heat: the tread and the surface number
+        const h = S.heat, t = 85 + h * 27;
+        $("temp-v").textContent = Math.round(t) + "°";
+        $("temp-v").style.color = h < 0.35 ? "#8a90ff" : h < 0.7 ? mix("#8a90ff", "#ff6a1c", (h - 0.35) / 0.35) : mix("#ff6a1c", "#ff3d8a", (h - 0.7) / 0.3);
+        $("tread-hot").setAttribute("opacity", (h * 0.75).toFixed(3));
+        $("heat").setAttribute("opacity", (h * 0.8).toFixed(3));
+      }
+      draw();
+
+      // --- timeline (seconds from the start of line 3) ----------------------------------------------
+      const tl = gsap.timeline({ paused: true, onUpdate: draw });
+      // build: grid breathes in, title, frame
+      tl.fromTo("#grid", { opacity: 0 }, { opacity: 1, duration: 1.4, ease: "sine.out" }, 0.1);
+      tl.fromTo("#title", { opacity: 0, scale: 1.08 }, { opacity: 1, scale: 1, duration: 1.0, ease: "expo.out" }, 0.15);
+      tl.fromTo("#title-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.9, ease: "power3.out" }, 0.3);
+      tl.fromTo("#tire-g", { opacity: 0, scale: 0.86 }, { opacity: 1, scale: 1, duration: 0.8, ease: "back.out(1.4)", svgOrigin: "540 520" }, 0.25);
+      tl.to("#travel-line", { strokeDashoffset: 0, duration: 0.7, ease: "power2.out" }, 0.5);
+      tl.fromTo("#travel-head", { opacity: 0 }, { opacity: 1, duration: 0.25 }, 1.05);
+      tl.fromTo("#travel-lab", { opacity: 0, x: -12 }, { opacity: 1, x: 0, duration: 0.5, ease: "power2.out" }, 1.0);
+      tl.to("#frame", { strokeDashoffset: 0, duration: 1.1, ease: "power2.inOut" }, 0.55);
+      tl.to("#axes", { strokeDashoffset: 0, duration: 0.8, ease: "power3.out" }, 0.8);
+      tl.fromTo(["#ylab", "#xlab", "#ticks"], { opacity: 0 }, { opacity: 1, duration: 0.5, stagger: 0.12, ease: "sine.out" }, 1.1);
+      tl.fromTo("#curve-ghost", { opacity: 0 }, { opacity: 0.55, duration: 0.8, ease: "sine.inOut" }, 1.2);
+      tl.fromTo("#alpha", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.6, ease: "expo.out" }, 1.3);
+      tl.fromTo("#temp", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.6, ease: "expo.out" }, 1.45);
+      tl.fromTo("#dot", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 1.5);
+      // "slipping a little" … "about five or six degrees": the angle opens to the peak
+      tl.to(S, { a: PEAK, duration: 2.5, ease: "power2.inOut" }, 1.55);
+      tl.fromTo("#peak-line", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "sine.out" }, 3.6);
+      tl.fromTo("#peak-tag", { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(2)" }, 3.75);
+      tl.fromTo("#dot", { attr: { r: 13 } }, { attr: { r: 22 }, duration: 0.25, ease: "power2.out", yoyo: true, repeat: 1, immediateRender: false }, 3.9);
+      // "past that, it starts to slide": over the top
+      tl.to(S, { a: 11, duration: 2.2, ease: "power1.in" }, 5.2);
+      tl.to("#peak-tag", { opacity: 0.45, duration: 0.6, ease: "sine.out" }, 5.6);
+      tl.fromTo("#slide-tag", { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, 6.6);
+      tl.fromTo("#streaks", { opacity: 0 }, { opacity: 1, duration: 0.6, ease: "power2.out" }, 6.6);
+      // "and sliding makes heat"
+      tl.to(S, { heat: 1, duration: 1.5, ease: "power2.out" }, 7.9);
+      tl.fromTo("#tire-g", { scale: 1 }, { scale: 1.04, duration: 1.5, ease: "sine.inOut", immediateRender: false, svgOrigin: "540 520" }, 7.9);
+      // breathe: the whole stage drifts a touch closer
+      tl.fromTo("#stage", { scale: 1 }, { scale: 1.035, duration: 10, ease: "none", transformOrigin: "50% 40%" }, 0);
+      tl.to({}, { duration: 0.01 }, 9.99);
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

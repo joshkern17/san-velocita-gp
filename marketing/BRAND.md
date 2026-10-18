@@ -37,6 +37,11 @@ Status: draft 1, 2026-10-18.
 - Pacing: the main narrated series holds shots 3–6 s, with slow drifting cameras (calm is the style). The fast-cut
   minor formats take a new shot every 1–2 s.
 
+### Exception: animated physics beats (dev's request, 2026-10-18)
+The 5–10 s animated "why" inside a feature video uses modern motion: eased line-draws, a dot riding a curve, glows
+building, a slow push-in. The tokens stay exactly the game's. Everything else (captions, end card, UI) keeps the 2005
+rules. Reference: `marketing/anim/slip-beat` (HyperFrames).
+
 ## 4. Sound
 - **Engines lead.** Game audio is the bed of every clip; music sits underneath and fades, never jumps.
 - Music: the game's own soundtrack only. **No trending licensed sounds** (business accounts can't use them, and they bury the engines).

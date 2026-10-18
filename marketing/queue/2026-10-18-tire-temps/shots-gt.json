@@ -10,5 +10,5 @@
     { "rig": "trackside", "dur": 3.6, "ahead": 90, "name": "s6" },
     { "rig": "game", "dur": 3.0, "mode": "chase", "name": "s7a" },
     { "rig": "game", "dur": 2.8, "mode": "bumper", "name": "s7b" },
-    { "rig": "orbit", "dur": 5.6, "speed": 0.2, "name": "s8" }
+    { "rig": "orbit", "dur": 7.2, "speed": 0.2, "name": "s8" }
   ] }

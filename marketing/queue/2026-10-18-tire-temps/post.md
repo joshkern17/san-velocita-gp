@@ -1,6 +1,9 @@
-Status: NEEDS OK (first video in the narrated-explainer template: the template itself needs the dev's verdict)
-Question: Does this template feel right (captions, tire readout, pacing, engine/voice balance, end card)? And should
-the readout show °F (American audience) or °C (the game's own units, sim-racing norm)?
+Status: NEEDS OK: v2 (`tire-temps-v2.mp4`, 39 s) answers the dev's v1 note ("really close"; wants more natural,
+engaging scripts):
+- a new script from the explainer-script skill (`script-v2.md`);
+- the first animated physics beat (slip angle → heat), made in HyperFrames (`marketing/anim/slip-beat`).
+Question: does the script land now, and does the animated beat look like "the game's UI style, in a more modern
+application of the design"? Still open from v1: °F or °C on the readout.
 
 # Explainer 001: tire temperatures
 - File: `tire-temps-v1.mp4` (36.9 s, 1080×1920, −14.5 LUFS)
