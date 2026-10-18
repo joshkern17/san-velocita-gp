@@ -75,6 +75,7 @@ A publisher's estimate (unaudited, but it matches every case study):
   - Shots held 3–6 s while the feature visibly works.
   - The game's own sound (engine, wheel gun, radio) is the payoff moment.
 - **This overrides the general rules below** where they conflict: length, and cuts every 1–2 s. The fast-cut rules still apply to the minor formats (crash, loop, before/after montage).
+- **Physics beats:** where a feature has real physics under it, a 5–10 s animated "why" sits inside the video (never a standalone reel). Pairings: research/scripts-and-animation.md.
 - **Narrator:** start with a designed AI voice speaking as "we". Then A/B the dev's own recorded voice on the same scripts and keep whichever holds viewers longer.
 
 ### The format rules, and why

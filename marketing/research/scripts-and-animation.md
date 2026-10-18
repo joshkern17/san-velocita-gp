@@ -42,7 +42,25 @@ design".
   graphs like the tire grip curve.
 - Design-taste packs (pbakaus/impeccable 82K, leonxlnx/taste-skill 99K) are aimed at web UI, not video. Skip for now.
 
-## Real-physics series: concept to workshop
+## Decided 2026-10-18: physics animations are a beat inside a feature video, never a reel of their own
+The dev: real physics like slip angle "should be tied in with a gameplay mechanic video like tire heat … not a dedicated
+reel to just an explainer … mix them in with other topics of the game."
+
+- **Shape:** a gameplay moment → the animated "why" (5–10 s) → back to gameplay showing it → the payoff line.
+- The animation may sometimes be the first 2–3 s, as a scroll-stopper, but it always lands in the game fast.
+- Pairings (each physics beat goes with the feature where the player feels it):
+
+| Physics beat | Feature video |
+|---|---|
+| Slip angle + the grip curve (past ~5–6° the tire slides, and sliding is heat) | tire temperatures (redo of 001) |
+| Weight transfer under braking | trail braking / Lap Review coaching |
+| Dirty air, downforce loss behind a car | AI racecraft, overtaking, the F1 class |
+| Downforce / wings | tuning menu + car classes |
+| Limited-slip diff | drifting / power out of corners |
+| Exhaust-pipe physics (waveguide engine) | engines / car classes |
+| LiDAR elevation + camber | real circuits / the track editor |
+
+## Earlier concept (superseded in shape, kept for the topic list)
 - **Shape:**
   1. A hook about real cars, as an animated technical explainer (15–25 s): modern motion, the game's tokens.
   2. The turn: "this is all running in a game you can play in your browser".
