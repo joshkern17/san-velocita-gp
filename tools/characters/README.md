@@ -68,6 +68,13 @@ listed is skipped (and printed as SKIP).
 - push / push_2 (Mixamo *Push*, *Push(1)*, in place): slow, straining steps, about 0.35 / 0.4 m/s. Hands about
   0.74 m out in front at 1.0 m up (push_2: 0.62 m out, 1.1 m up). `js/pushcar.js` plays them about twice as fast to
   push a car at 0.85 m/s.
+- The home crew's (`js/homecrew.js`, 2026-10-17): talk_4 (*Talking(3)*); nod, nod_long, nod_think, nod_sarcastic
+  (*Head Nod Yes*, *Lengthy*, *Thoughtful*, *Sarcastic Head Nod*); point_fwd, bored, idle_neck (*Neck Stretching*);
+  drink (cup in the left hand); phone (*Talking On A Cell Phone*, right hand at the ear, turns about ±50° on the
+  spot); text (*Texting While Standing*); walk_text (*Walking While Texting*, in place, 0.87 m/s); pick_up (*Picking
+  Up*, once, 9.6 s); kneel_inspect; desk clips type, write, sit_talk (hips as sit_desk's; write sits 0.07 m higher and
+  0.15 m further forward), sit_to_type / type_to_sit, sit_cheer. Left out: *Talking Phone Pacing* and *Sitting
+  Drinking* walk off several metres and turn round; *Kneeling(1)* is the same clip as *Kneeling*.
 - sit_desk (*Sitting Idle*, the desk one: not the same file as sit_idle's): hips 0.56 m up, right over the origin.
   `alignedClip('sit_desk', 'sit_down')` makes a copy lined up with where sit_down ends, to blend into it.
 - Sitting: hips 0.60 m up, straight above the origin, so the seat is about 0.48 m. sit_rub_arm: hips 0.69 m, so

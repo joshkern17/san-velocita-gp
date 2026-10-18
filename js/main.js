@@ -24,6 +24,7 @@ import { TEAMS } from './car.js';
 import { Garage } from './garage.js';
 import { PitGarage } from './pitgarage.js';
 import { PitNav } from './pitwalk.js';
+import { walkerState, FriendWalker } from './coopwalk.js';
 import { PREMISES } from './garagekit.js';
 import { GarageWalk } from './garagewalk.js';
 import { CarPush } from './pushcar.js';
@@ -64,6 +65,7 @@ import { CARS, CLASSES, CAR_CREDITS, carId, carOf, chassisKey, carsInClass } fro
 import { Tuning } from './tuning.js';
 import { activeName, activeSetup, stanceOf } from './setup.js';
 import { assets, liveryAssetIds, importImageFile, fillLivery } from './livery.js';
+import { classicCrewLook } from './characters.js';
 import { LOGO_VERSIONS, logoAsset, logoForName, parseLogoAsset } from './sponsorlogos.js';
 import { savedLiveries, saveLivery, deleteLivery, liveryDate } from './liveries.js';
 import { loadEnvCatalog, loadEnvModels, envCatalog } from './envlib.js';
@@ -73,7 +75,7 @@ import { DayPlan } from './dayplan.js';
 import { CarPanel, partEffect } from './carsheet.js';
 import { ListPaper } from './thelist.js';
 import { Ending } from './ending.js';
-import { portrait, photoOf, setPhotoContext, driverLivery, driverFace, setPeopleSource } from './drivers.js';
+import { portrait, photoOf, setPhotoContext, driverLivery, driverFace, faceForName, setPeopleSource } from './drivers.js';
 import { setVertexSnapEnabled, setJitterScale, setAffineAmount, setAffineCap, setAffineFade } from '../vendor/psx/src/PSXMaterial.js';
 
 const $ = (id) => document.getElementById(id);
@@ -503,7 +505,10 @@ function fillCredits() {
   const c = envCatalog(), el = $('credits-list');
   const esc = (t) => String(t || '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
   const packs = [...(c ? Object.values(c.packs) : []), ...Object.values(CAR_CREDITS), { title: 'PSX Mobile Phone', author: 'Retro Assets Library', license: 'see pack' },
-    { title: 'TV Remote - (PSX)', author: 'Kasugay', license: 'CC-BY-4.0' }, { title: 'PSX Computer Asset Pack', author: 'see pack', license: 'see pack' }, { title: 'Office furniture pack (chairs)', author: 'see pack', license: 'see pack' }, { title: 'PSX Trailer Park', author: 'see pack', license: 'see pack' },
+    { title: 'TV Remote - (PSX)', author: 'Kasugay', license: 'CC-BY-4.0' }, { title: 'PSX Computer Asset Pack', author: 'see pack', license: 'see pack' }, // (the home garage's Industrial unit and its stations: tools/garage-unit.py, tools/garage-stations.py)
+    { title: 'Garage', author: 'LunaQuantica', license: 'itch.io purchase' }, { title: 'PSX Style Chain Fence', author: 'mrpeanut', license: 'CC-BY-4.0' },
+    { title: 'PSX Win95 PC. 90s', author: 'NiKoGillsky', license: 'CC-BY-4.0' }, { title: 'PSX Style Smoking Pack', author: 'wooolvie', license: 'CC-BY-4.0' },
+    { title: 'Trash and Debris', author: 'mcsteegs', license: 'Sketchfab Standard' }, { title: 'Office furniture pack (chairs)', author: 'see pack', license: 'see pack' }, { title: 'PSX Trailer Park', author: 'see pack', license: 'see pack' },
     // the real-world circuits: layouts, buildings, trees, water from the map; hills from the terrain tiles
     ...(realTracks().length ? [{ title: 'Real-World Circuits: map data', author: 'OpenStreetMap contributors', license: 'ODbL 1.0' }, { title: 'Real-World Circuits: F1 outlines', author: 'bacinger/f1-circuits', license: 'MIT' }, { title: 'Real-World Circuits: elevation', author: 'AWS Terrain Tiles (Mapzen, USGS, SRTM)', license: 'see source' },
       { title: 'Real-World Circuits: road heights (LiDAR)', author: 'Service public de Wallonie · IGN France · GSI Japan · USGS 3DEP', license: 'open data, attribution' }] : [])];
@@ -2177,6 +2182,7 @@ const MATE_IN_ROOM = false;
 function mateInRoom(w) {
   if (!MATE_IN_ROOM) return [];
   const m = WC.mateOf(w), p = m && w.people[m.pid], t = w.teams[w.player.team]; if (!p || !t) return [];
+  if (m.human && friendHere(w)) return []; // (co-op: they're here themselves, js/coopwalk.js)
   return [{ key: p.id + '|' + t.main + '|' + t.accent, livery: driverLivery(p.id, t), face: driverFace(p.id) }];
 }
 // (made ahead, while you're in the garage: everyone in your series, and anyone the Team Setup offers you)
@@ -2404,6 +2410,7 @@ function openEndingPreview() {
 // ---- walking round the garage (js/garagewalk.js): World Career's hub and the Home Garage preview. The things you can
 // use show a prompt (A / Enter); each one does what its hub menu item does (so it's there when the menu has it) ----
 const walk = new GarageWalk(pitGarage);
+const friend = new FriendWalker(pitGarage); pitGarage.friend = friend; // (co-op: the other one of you about the garage, coopWalkTick)
 let walkMouse = [0, 0];
 const WALK_ITEM = () => ({ label: 'Walk Around', action: () => startWalk(), desc: 'Get up and walk round the garage. Left stick or WASD to walk (RT or Shift to hurry), right stick or drag the mouse to look. Walk up to something and press A or Enter to use it.' });
 // a hub menu item by its label (or class), if the menu has it right now
@@ -2423,15 +2430,17 @@ function walkSpots() {
   // and would measure at the room's origin, by the door; measured again if the car's rebuilt)
   const carBox = (c) => { const b = new THREE.Box3(); c.group.updateWorldMatrix(true, true); c.group.traverse(o => { if (o.isMesh && o !== c.shadow && !(c.shadow && c.shadow.children.includes(o))) b.expandByObject(o); }); return b; };
   const carSpot = (key, label, get) => { let g = null, b = null; return { key, label, get box() { const c = get(); if (c && c.group !== g) { g = c.group; b = carBox(c); } return b; } }; };
-  if (P.car && P.car.group.visible) out.push(carSpot('car', 'Work on the car', () => P.car));
-  if (P.car2 && P.car2.group.parent && P.car2.group.visible) out.push(carSpot('car2', 'Car two', () => P.car2));
+  // (co-op: each of you has your own car to go to. The co-owner's is car two, the host's car one; the other's isn't yours)
+  const co = screen === 's-hub' && world && world.coop, mine2 = co && coopGuest();
+  if (!mine2 && P.car && P.car.group.visible) out.push(carSpot('car', 'Work on the car', () => P.car));
+  if (P.car2 && P.car2.group.parent && P.car2.group.visible && (mine2 || !co)) out.push(carSpot(mine2 ? 'car' : 'car2', mine2 ? 'Your car' : 'Car two', () => P.car2));
   if (k) for (const it of k.interacts) {
     const key = it.name.slice(9).replace(/[._]\d+$/, ''), at = it.getWorldPosition(new V());
     out.push({ key, label: it.userData.label || key, mark: at.clone().setY(Math.max(at.y + 0.15, 1.3)), reach: at.y > 1.6 ? 1.8 : 1.2, at: at.setY(Math.min(at.y, 1.2)) }); // (up on a wall, often behind a desk: from further)
   }
   // (in a career: the door's tag says what's on out there; the car's offers its day of work)
   const door = out.find(s => s.key === 'door'); if (door) Object.defineProperty(door, 'label', { get: doorLabel });
-  const car = out.find(s => s.key === 'car'); if (car) Object.defineProperty(car, 'alt', { get: () => dayAt('car').length ? 'Spend the day' : null });
+  const car = out.find(s => s.key === 'car'); if (car) Object.defineProperty(car, 'alt', { get: () => !coopGuest() && dayAt('car').length ? 'Spend the day' : null }); // (the co-owner's car: its day's what selecting it does)
   for (const s of out) if (['computer', 'car', 'list', 'door', 'poster', 'tires'].includes(s.key)) Object.defineProperty(s, 'want', { get: () => wantOf(s.key) });
   return out;
 }
@@ -2462,7 +2471,7 @@ function useSpot(s) {
       const nx = hubItem(/^Start \d+ Season/); if (nx) { sfx.select(); nx.action(); } else sfx.error();
       return;
     }
-    const next = hubItem(/^(Round \d+: Race|Start \d+ Season|Drive: )/);
+    const next = !coopGuest() && hubItem(/^(Round \d+: Race|Start \d+ Season|Drive: )/); // (co-op: race day's the host's to start)
     if (next && myWeek(world).left <= 0) { stopWalk(true); next.action(); return; }
     if (!openDayPlan(true, 'door')) { sfx.error(); toast(next ? 'Not yet.' : 'Nothing out there today.', 1600); }
     return;
@@ -2475,6 +2484,8 @@ function useSpot(s) {
   if (s.key === 'sim') { if (!openDayPlan(true, 'sim')) { sfx.error(); toast(myWeek(world).left <= 0 ? 'No days left this week.' : 'No sim session today: one a week, and not after a test day.', 2000); } return; }
   // the calendar: plan the day (every choice, wherever it's done)
   if (s.key === 'calendar') { if (!openDayPlan(true)) { sfx.error(); toast('No days left this week.', 1600); } return; }
+  // (co-op, the co-owner's car: a day on it, on the project, or with the host)
+  if (s.key === 'car' && coopGuest()) { if (!openDayPlan(true, 'car')) { sfx.error(); toast('No days left this week.', 1600); } return; }
   const it = WALK_DOES[s.key] && hubItem(WALK_DOES[s.key]);
   if (!it) { sfx.error(); toast(s.key === 'car2' ? 'Car two: on the computer (Team).' : 'Nothing to do here right now.', 1800); return; }
   holdWalk(); it.action();
@@ -2490,7 +2501,7 @@ function holdWalk() {   // (off to the car, the list: you stand where you are, t
 }
 function walkWanted() {   // (the garage's quiet and yours: nothing else has you)
   const w = world;
-  return screen === 's-hub' && w && !w.ended && !coopGuest() && hubMode === 'room' && !optSub
+  return screen === 's-hub' && w && !w.ended && hubMode === 'room' && !optSub
     && !pcSeat && !walkSat && !tsw.isOpen && !dayPlan.isOpen && !ending.isOpen && !walk.active && !walkStarting && pitGarage.kit;
 }
 function walkTick(dt) {
@@ -2510,7 +2521,7 @@ let dayAtC = { t: 0, by: {} };
 function dayAt(where) {
   if (!world || screen !== 's-hub') return [];
   const now = performance.now(); if (now - dayAtC.t > 500) dayAtC = { t: now, by: {} };
-  return dayAtC.by[where] ||= myWeek(world).left > 0 && !world.over ? (coopGuest() ? coopDayChoices(world) : dayChoices(world, true)).filter(o => DAY_AT(o.key) === where) : [];
+  return dayAtC.by[where] ||= myWeek(world).left > 0 && !world.over ? (coopGuest() ? coopDayChoices(world) : dayChoices(world, true)).filter(o => DAY_AT(o.key) === where).sort((a, b) => (b.icon === 'mate') - (a.icon === 'mate')) : []; // (with your co-owner first)
 }
 // what the door's tag says: what's on out there
 function doorLabel() {
@@ -2538,7 +2549,7 @@ function renderPauseMenu() {
 let walkSat = false;
 function dropWalk() { if (walkSat) { walkSat = false; walk.stop(); } if (walkHeld) { walkHeld = false; walk.stop(); } }
 function startWalk(from = null, quiet = false) {
-  const own = screen === 's-homeview' ? settings.car : hubCar();
+  const own = screen === 's-homeview' ? settings.car : coopGuest() ? { ...coopMe().livery, face: coopMe().face } : hubCar(); // (co-op: the co-owner's their own driver)
   if (!quiet) sfx.select();
   walkOff = false; walkStarting = true;
   // (the menus go now, not once you've loaded; behind the fade, at once: not still fading out when the garage shows)
@@ -2546,6 +2557,7 @@ function startWalk(from = null, quiet = false) {
   return walk.start({ livery: own, face: own.face, spots: walkSpots(), from }).then(ok => {
     walkStarting = false;
     if (!ok) { $(screen).classList.remove('walking'); toast('The people aren\'t loaded.'); return; }
+    if (coopGuest() && !from) { const h = walk.heading; walk.pos.x -= Math.cos(h) * 1.1; walk.pos.z += Math.sin(h) * 1.1; walk.push(); } // (co-op: the co-owner comes in beside the host, not on the same spot)
     renderHints();
   });
 }
@@ -2580,7 +2592,7 @@ function startPitWalk() {
   if (!pitGarage.track || walk.active || walkStarting || pgBusy) return;
   if (pgPcFocus) pcFocus(false);
   if (pgDesk) { pc.close(); pitGarage.setDesk(false); } // (pgDesk stays: you come back to the desk)
-  const own = raceReturn === 'world' && world ? hubCar() : settings.car;
+  const own = raceReturn === 'world' && world ? hubCar() : coopGuest() && world && world.coop ? { ...coopMe().livery, face: coopMe().face } : settings.car;
   sfx.select(); walkStarting = true; $('s-pitgarage').classList.add('walking');
   const nav = new PitNav(sim, pitGarage);
   walk.start({ livery: own, face: own.face, spots: pitSpots(nav), nav }).then(ok => {
@@ -2660,10 +2672,22 @@ addEventListener('mousemove', (e) => { if (walk.active && (e.buttons & 1)) { wal
 
 // ---- the home garage, previewed (main menu): the World Career garage built from its kit (js/garagekit.js) with the
 // premises, facilities and second car you pick; your Garage car in bay one. Nothing is saved ----
-const hv = { premises: 'lockup', fac: {}, car2: true, look: 'room' };
+const hv = { premises: 'lockup', fac: {}, car2: true, look: 'room', crew: true, busy: true };
 const hvCar = () => ({ ...settings.car });
+// the stations a facility at level n puts in the room: its own (tools) and one a level above the first (tools2: the lift,
+// tools3: the machine shop), each a station_<key>.glb at the shell's SLOT_<key>
+const stationKeys = (k, n) => k === 'base' || !(n > 0) ? [] : [k, ...Array.from({ length: n - 1 }, (_, i) => k + (i + 2))];
+const stationName = (key) => { const [, k, n] = /^([a-z]+)(\d*)$/.exec(key); return WC.FACILITIES[k].levels[(+n || 1) - 1][0]; };
+// (the preview's people: a full crew, in your Garage car's colours)
+function hvCrew() {
+  if (!hv.crew) return [];
+  const c = settings.car, team = { main: c.main, accent: c.accent, name: c.teamName || 'Your Team' };
+  return [crewPerson('hv:mech', 'mechanic', 'Sal', team), crewPerson('hv:mech2', 'mechanic', 'Ruby', team), crewPerson('hv:eng', 'engineer', 'Priya', team),
+    crewPerson('hv:mgr', 'manager', 'Danny', team), { key: 'hv:mate', role: 'driver', look: 'racer', livery: driverLivery('hv:mate', team), face: driverFace('hv:mate') }];
+}
+const hvBusy = () => hv.busy ? ['dyno', 'fab', 'tools2', 'data'] : [];
 function hvHome() {
-  return { premises: hv.premises, stations: WC.FAC_KEYS.filter(k => k !== 'base' && hv.fac[k] > 0),
+  return { premises: hv.premises, stations: WC.FAC_KEYS.flatMap(k => stationKeys(k, hv.fac[k])),
     car2: hv.car2 ? { ...hvCar(), number: (settings.car.number || 7) % 99 + 1 } : null };
 }
 function openHomeView() {
@@ -2676,7 +2700,7 @@ function openHomeView() {
 }
 // (something changed: the room catches up, then the menu says what's in it)
 function hvApply() {
-  const h = hvHome(); pitGarage.pickRoom(h); pitGarage.setCar2(h.car2);
+  const h = hvHome(); pitGarage.pickRoom(h); pitGarage.setCar2(h.car2); pitGarage.setCrew(hvCrew(), hvBusy());
   renderHomeView();
   pitGarage.roomReady().then(() => { if (screen !== 's-homeview') return; if (!hvLooks().some(([k]) => k === hv.look)) hv.look = 'room'; hvLook(); renderHomeView(); });
 }
@@ -2684,7 +2708,7 @@ function hvApply() {
 function hvLooks() {
   const k = pitGarage.kit, out = [['room', 'The Room']];
   if (k && pitGarage.car2 && pitGarage.car2.group.parent) out.push(['car2', 'Car Two']);
-  if (k) for (const f of Object.keys(k.stations)) out.push([f, WC.FACILITIES[f].name]);
+  if (k) for (const f of Object.keys(k.stations)) out.push([f, stationName(f)]);
   return out;
 }
 function hvLook() {
@@ -2709,6 +2733,8 @@ function renderHomeView() {
       desc: `${F[f].what}${hv.fac[f] > 0 && k && !k.stations[f] ? ` <b>Not in this room</b>: ${pitGarage.custom && /^home:/.test(pitGarage.custom) ? `no station_${f}.glb yet, or no SLOT_${f} in the shell` : 'loading'}.` : ''}` })),
     { label: 'Car Two', values: [[true, 'In The Bay'], [false, 'None']], get: () => hv.car2, set: v => { hv.car2 = v; hvApply(); },
       desc: `The second car, in BAY_2.${hv.car2 && k && !k.bays[1] ? ' <b>This shell has no second bay.</b>' : ''}` },
+    { label: 'Crew', values: [[true, 'At Work'], [false, 'None']], get: () => hv.crew, set: v => { hv.crew = v; hvApply(); }, desc: 'Your people about the garage, doing their jobs: a mechanic or two, the engineer, the manager and your teammate (js/homecrew.js).' },
+    { label: 'Stations', values: [[true, 'In Use'], [false, 'Idle']], get: () => hv.busy, set: v => { hv.busy = v; hvApply(); }, desc: 'In use: an engine on the dyno and the lift, a frame on the welding table, the data room\'s screens on (BUSY_ and IDLE_ pieces).' },
     WALK_ITEM(),
     { label: 'Look At', values: hvLooks(), get: () => hv.look, set: v => { hv.look = v; hvLook(); }, desc: 'Move the camera to the room, car two or a station.', cls: 'gap' },
     { label: 'Back', action: () => backs['s-homeview'](), desc: 'Back to the main menu.' },
@@ -2830,6 +2856,8 @@ backs['s-circuits'] = () => closeTrackPick();
 function worldCar() {
   const c = { ...(world.livery || settings.car) };
   if (world.car) c.chassis = world.car.chassis;
+  // (this career's team, never the name on the garage car or another save's livery)
+  const team = world.teams[world.player.team]; if (team) c.teamName = team.name;
   // the title sponsor's name goes on the car (no title sponsor: whatever you've written there yourself)
   const t = WC.dealsOf(world).find(d => d.slot === 'title');
   if (t) { let n = ''; for (const wd of WC.sponsorName(t.sid).toUpperCase().replace(/'S\b/, 'S').split(' ')) { if ((n + ' ' + wd).trim().length > 14) break; n = (n + ' ' + wd).trim(); } c.sponsor = n || WC.sponsorName(t.sid).toUpperCase().slice(0, 14); } // (whole words that fit)
@@ -2912,17 +2940,43 @@ function hubCar() {
 // room) and car two in the second bay
 function homeKit(w) {
   const t = w.teams[w.player.team], c2 = w.car && WC.car2Of(w), car = hubCar();
-  return { premises: PREMISES[WC.facLevel(t, 'base')] || PREMISES[0], stations: WC.FAC_KEYS.filter(k => k !== 'base' && WC.facLevel(t, k) > 0),
+  return { premises: PREMISES[WC.facLevel(t, 'base')] || PREMISES[0], stations: WC.FAC_KEYS.flatMap(k => stationKeys(k, WC.facLevel(t, k))),
     car2: c2 ? { ...car, number: (car.number || 7) % 99 + 1 } : null };
 }
+// your people at home (js/homecrew.js): your staff and your teammate, dressed for the job. The chief mechanic in the
+// team's kit (or stock coveralls near its colour), the engineer and the manager in a polo in the team's colour (Danny in
+// a T-shirt), your teammate in their suit
+const poloOf = (team) => { const c = new THREE.Color(team.main ?? 0x888888), h = {}; c.getHSL(h); return h.l > 0.7 || h.s < 0.15 ? 'polo_white' : h.h > 0.5 && h.h < 0.75 ? 'polo_navy' : h.h < 0.05 || h.h > 0.9 ? 'polo_maroon' : 'polo_beige'; };
+function crewPerson(key, role, first, team) {
+  if (role === 'mechanic') { const classic = fillLivery(team).crew.style === 'classic'; return { key, role, look: classic ? classicCrewLook(team) : 'racer', crew: !classic, livery: classic ? null : team, face: faceForName(first, key) }; }
+  return { key, role, look: poloOf(team), face: faceForName(first, key) };
+}
+function homeCrewOf(w) {
+  const t = w.teams[w.player.team]; if (!t) return [];
+  const out = (w.staff || []).filter(x => x.role in { mechanic: 1, engineer: 1, manager: 1 }).map(x => ({ ...crewPerson(x.id, x.role, x.first, t), ...(x.danny ? { look: 'tee_blue' } : {}) }));
+  const m = WC.mateOf(w), p = m && w.people[m.pid];
+  if (p && !(m.human && friendHere(w))) out.push({ key: p.id, role: 'driver', look: 'racer', livery: driverLivery(p.id, t), face: driverFace(p.id) });
+  return out;
+}
+// the stations in use: the dyno and the lift for engine work, the welding table for chassis and aero, the lift for the
+// rest; the data room's screens on while you've a data engineer
+function homeBusy(w) {
+  const out = new Set();
+  for (const x of (w.projects || []).filter(p => !p.done && !p.shop)) {
+    if (x.area === 'engine') out.add('dyno'); else if (x.area === 'chassis' || x.area === 'aero') out.add('fab');
+    out.add('tools2');
+  }
+  if (WC.staffOf(w, 'engineer')) out.add('data');
+  return [...out];
+}
 // (something bought or sold since: the room catches up)
-function syncHome() { if (world && pitGarage.active && pitGarage.mode === 'home') { const h = homeKit(world); pitGarage.pickRoom(h); pitGarage.setCar2(h.car2); pitGarage.setTyres(founded(world) ? { ...WC.stockOf(world) } : null); } }
+function syncHome() { if (world && pitGarage.active && pitGarage.mode === 'home') { const h = homeKit(world); pitGarage.pickRoom(h); pitGarage.setPeople(mateInRoom(world)); pitGarage.setCar2(h.car2); pitGarage.setCrew(homeCrewOf(world), homeBusy(world)); pitGarage.setTyres(founded(world) ? { ...WC.stockOf(world) } : null); } }
 function enterHub() {
   disposeSim(); updateLogoShown();
   const t = world.teams[world.player.team];
   if (world.livery) { t.main = world.livery.main; t.accent = world.livery.accent; }
   pitGarage.openHome(hubCar(), { main: t.main, accent: t.accent, name: t.name }, homeKit(world)); pitGarage.showCar(!!world.car);
-  pitGarage.setPeople(mateInRoom(world));
+  pitGarage.setPeople(mateInRoom(world)); pitGarage.setCrew(homeCrewOf(world), homeBusy(world));
   dropWalk(); if (walk.active || walkHeld) { walk.stop(); walkHeld = false; } walkPaused = false; walkOff = false; walkIdle = 0; drawWalkTags(null);
   pcSeat = false; pc.close(); if (tsw.isOpen) tsw.close(); if (dayPlan.isOpen) dayPlan.close(); $('s-hub').classList.remove('seated', 'at-car', 'wizard', 'planning', 'at-list');
   hubMode = 'room'; carSub = null; carPart = null; optSub = false; calSub = null; listStep = null; listPrev = null; pitGarage.hideParked = false;
@@ -3010,7 +3064,7 @@ async function settleHub() {
 function renderHub() {
   if (world && !world.carCat) WC.setCarCatalog(world, carCatalog());
   if (!world) return;
-  if (screen === 's-hub' || pitGarage.mode === 'home') pitGarage.setPeople(mateInRoom(world));
+  if (screen === 's-hub' || pitGarage.mode === 'home') { pitGarage.setPeople(mateInRoom(world)); pitGarage.setCrew(homeCrewOf(world), homeBusy(world)); }
   const w = world, sid = w.player.series, S = w.series[sid];
   $('hub-title').textContent = w.teams[w.player.team].name;
   $('hub-sub').textContent = `${seriesName(sid)} · ${w.year} · ${w.over ? 'season complete' : `round ${w.round + 1} of ${w.opts.len}`}${coopGuest() ? ` · ${w.player.name.split(' ')[0]} is ${coop.doing || 'in the garage'}` : ''}${coop && coop.host ? ` · co-op ${coop.peer ? `· ${WC.coopPerson(w)?.first || coop.name} is here${coop.ready ? ', ready' : ''}` : `room ${coop.code}`}` : ''}`;
@@ -3176,6 +3230,8 @@ function wantOf(key) {
   } else if (key === 'tires') {
     const sh = w.car && tyreShort(w), need = WC.tyreNeeds(w), st = WC.stockOf(w);
     if (sh) r = { text: sh.map(c => `${need[c] - st[c]} ${c}`).join(', ') + ' short', bad: myWeek(w).left <= 0 };
+  } else if (key === 'car' && coopGuest()) {
+    const c2 = WC.car2Of(w); if (c2 && c2.cond < 0.5) r = { text: `Car two ${Math.round(c2.cond * 100)}%`, bad: c2.cond < 0.3 };
   } else if (key === 'car' && w.car) {
     const P = WC.carParts(w), k = WC.PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)[0];
     if (P[k].cond < 0.5) r = { text: `${WC.PARTS[k].name} ${Math.round(P[k].cond * 100)}%`, bad: P[k].cond < 0.3 };
@@ -3588,6 +3644,8 @@ function startWorldRound() {
   // your team wears your livery
   const mine = w.teams[w.player.team], wc = worldCar(); mine.main = wc.main; mine.accent = wc.accent;
   const ent = WC.raceEntries(w);
+  // (car two: your livery, its own number, as in the garage at home)
+  for (const e of Object.values(ent.entries)) if (e.mate) e.livery = { ...wc, number: (wc.number || 7) % 99 + 1 };
   const clsCars = carsOfClass(WC.seriesById(sid).cls);
   for (const e of Object.values(ent.entries)) e.chassis = WC.seriesById(sid).cls === 'f1' ? 'custom' : WC.teamChassis(w, e.tid, clsCars.map(chassisKey));
   // race only: the grid in championship order after round 1 (pid -> slot)
@@ -3894,7 +3952,7 @@ const myWeek = (w) => coopGuest() ? WC.coopWeek(w) : { used: WC.weekOf(w).used, 
 const dayPlan = new DayPlan($('dayplan'), {
   world: () => world,
   week: (w) => coopGuest() ? WC.coopWeek(w) : null,
-  choices: () => (coopGuest() ? coopDayChoices(world) : dayChoices(world, dayRace)).filter(o => !dayWhere || DAY_AT(o.key) === dayWhere),
+  choices: () => { const c = (coopGuest() ? coopDayChoices(world) : dayChoices(world, dayRace)).filter(o => !dayWhere || DAY_AT(o.key) === dayWhere); return dayWhere === 'car' ? c.sort((a, b) => (b.icon === 'mate') - (a.icon === 'mate')) : c; }, // (at the car: with your co-owner first)
   pick: (k) => { dayPick = k; renderHints(); },
   sfx: (k) => sfx[k] && sfx[k](),
   save: () => saveWorld(),
@@ -3914,7 +3972,8 @@ function openDayPlan(canRace, where = null) {
 }
 // where each of the day's choices is done, walking round: the car's work at the car, a sim session at the sim rig,
 // everything else out the door
-const DAY_AT = (k) => k === 'fix' || k === 'proj' || k === 'projs' ? 'car' : k === 'sim' ? 'sim' : 'door';
+// (co-op: working on the cars together is at the car too: asking, or saying yes)
+const DAY_AT = (k) => k === 'fix' || k === 'proj' || k === 'projs' || k === 'askgarage' || ((k === 'yes' || k === 'asked') && world?.week?.co?.ask?.what === 'garage') ? 'car' : k === 'sim' ? 'sim' : 'door';
 let dayWhere = null;
 function dayInput() {
   if (!dayPlan.isOpen) return false;
@@ -4410,6 +4469,7 @@ function hostMessage(m, from) {
 function clientMessage(m) {
   if (m.t === 'locks') { if (m.race === netRaceId()) { locksOf().ids = new Set(m.ids || []); } return; }
   if (m.t === 'go') { if (sim && sim.net && m.race === netRaceId() && sim.net.goT == null) sim.net.goT = m.at; else if (m.race === netRaceId()) pendingGo = m; return; }
+  if (m.t === 'wk') { if (coop) friend.set(m); return; }
   if (m.t === 'cworld' || m.t === 'cstat' || m.t === 'cstart' || m.t === 'cround' || m.t === 'csess' || m.t === 'cfield' || m.t === 'cqres') { coopClient(m); return; }
   if (m.t === 'reject') { leaveOnline(m.reason); return; }
   if (m.t === 'kick') { leaveOnline('You were removed from the room.'); return; }
@@ -4686,7 +4746,7 @@ function wireCoop(n) {
   n.on('left', (pid) => {
     if (!coop || pid !== coop.peer) return;
     const who = world && world.coop ? WC.coopPerson(world).first : coop.name;
-    coop.peer = null; coop.ready = false;
+    coop.peer = null; coop.ready = false; setTimeout(syncHome, 0);
     toast(`<b>${who}</b> left. Their car is raced for them until they're back.`, 5000);
     if (sim && sim.net) { sim.dropCar('h:' + pid); hostMaybeGo(); }
     if (screen === 's-hub') { renderHub(); if (optSub) renderOptMenu(); }
@@ -4699,7 +4759,7 @@ function coopHostMessage(m, from) {
     if (m.ver !== PROTO) return no('Your game version does not match the host. Get the latest copy.');
     if (coop.peer) return no('Someone is already in this career with the host.');
     if (w.coop && w.coop.token !== m.token) { const p = WC.coopPerson(w); return no(`This career already has a co-owner: ${p.first} ${p.last}.`); }
-    coop.peer = from; coop.name = cleanName(m.name); coop.ready = false;
+    coop.peer = from; coop.name = cleanName(m.name); coop.ready = false; setTimeout(syncHome, 0); // (their stand-in in the garage makes way)
     coop.assetKey = null; // (the livery's images go with the career, coopPush)
     coopPush(true);
     toast(w.coop ? `<b>${WC.coopPerson(w).first}</b> is here` : `<b>${coop.name}</b> joined. They're reading the agreement.`); sfx.best();
@@ -4727,6 +4787,7 @@ function coopHostMessage(m, from) {
     if (screen === 's-hub') { renderHub(); if (pcSeat) pc.render?.(); if (dayPlan.isOpen && !dayPlan.busy) dayPlan.render(); }
   } else if (m.t === 'lock') { hostLocked(from, m.race);
   } else if (m.t === 'cuse') { if (coop.race && m.race === coop.race.id) coop.race.use = { sets: (m.sets || []).filter(c => typeof c === 'string').slice(0, 8), laps: Math.max(0, Math.min(500, m.laps | 0)), damage: Math.max(0, Math.min(1, +m.damage || 0)) };
+  } else if (m.t === 'wk') { friend.set(m);
   } else if (m.t === 'ready') { coop.ready = !!m.ready; if (screen === 's-hub') { renderHub(); if (optSub) renderOptMenu(); } }
   else if (m.t === 'bye') coop.net.hostDrop(from);
 }
@@ -4921,8 +4982,24 @@ function renderCoopLive() {
 }
 // every frame: the host's whereabouts for the friend's page; in a race, my car to the other, and the host's wait
 let coopSendT = 0, coopStatT = 0, coopLiveT = 0;
+// co-op: where you are to your friend, ten times a second, and how they look to you. The garage you're both in: home (the
+// host's premises) or your box at the race weekend
+const coopSpace = () => !coop || !world || !world.coop || !pitGarage.active ? null
+  : screen === 's-hub' && pitGarage.mode === 'home' ? 'home' : screen === 's-pitgarage' && coop.race ? 'pit:' + coop.race.id : null;
+const coopMe = () => coopGuest() ? { livery: coopCar(), face: driverFace(world.coop.pid) } : (c => ({ livery: c, face: c.face }))(hubCar());
+const coopThem = () => coopGuest() ? (c => ({ livery: c, face: c.face }))(hubCar()) : { livery: coopCar(), face: driverFace(world.coop.pid) };
+const friendHere = (w = world) => !!(w && w.coop && (coopGuest() || (coop && coop.host && coop.peer))); // (the co-owner's the real one, not a stand-in)
+let coopWkT = 0, coopLookT = 0;
+function coopWalkTick(dt) {
+  const on = coop && world && world.coop && (coop.host ? coop.peer : true);
+  if (!on) { friend.set(null); friend.space = null; return; }
+  friend.space = coopSpace();
+  if ((coopLookT -= dt) <= 0) { coopLookT = 2; try { friend.setLook(coopThem()); } catch (e) {} }
+  if ((coopWkT += dt) >= 0.1) { coopWkT = 0; coop.net.sendState(walkerState(pitGarage, walk, friend.space)); }
+}
 function coopTick(dt) {
   if (!coop) return;
+  coopWalkTick(dt);
   if (coop.host && coop.peer && (coopStatT += dt) > 3) { coopStatT = 0; coop.net.sendTo(coop.peer, { t: 'cstat', doing: coopDoing() }); }
   if (!sim || !sim.net || !coop.race || coop.race.done) return;
   if (sim.quali) {

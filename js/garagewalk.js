@@ -30,6 +30,7 @@ const SIT_FROM = 0.25, SIT_TO = 0.68, SIT_SPEED = 1.15, SIT_BACK = 0.46, SIT_SID
 const STAND_FROM = 0.15, STAND_TO = 0.6;
 const SWIVEL = 2.2; // rad/s, round on the chair
 const UP = new THREE.Vector3(0, 1, 0), _m4 = new THREE.Matrix4();
+const _ray = new THREE.Raycaster(), _o = new THREE.Vector3(), _down = new THREE.Vector3(0, -1, 0);
 
 export class GarageWalk {
   constructor(pg) { this.pg = pg; this.active = false; this.me = null; this.input = {}; this.spot = null; this.spots = []; }
@@ -103,16 +104,19 @@ export class GarageWalk {
     this.spot = null;
   }
 
-  // what you can't walk through: things standing on the floor (their boxes), the cars, the floor's edge (NAV_floor)
+  // what you can't walk through: things standing on the floor (their boxes), the cars, the floor's edge (NAV_floor).
+  // Which of them are in your way depends on the floor you're on (push: a unit's mezzanine is another floor)
   buildColliders() {
-    if (this.nav) { this.boxes = []; this.bounds = null; this.camHits = this.nav.hits; this.noCam = new Set(); return; } // (the nav has them)
+    if (this.nav) { this.boxes = []; this.bounds = null; this.floors = null; this.camHits = this.nav.hits; this.noCam = new Set(); return; } // (the nav has them)
     const pg = this.pg, boxes = [];
     pg.room.updateMatrixWorld(true);
+    const shown = (o) => { for (let x = o; x && x !== pg.room; x = x.parent) if (!x.visible) return false; return true; };
+    const named = (o, re) => re.test(o.name || '') || re.test(o.parent && o.parent.name || '');
     pg.room.traverse(o => {
-      if (!o.isMesh || (!o.visible && !/^COL_/.test(o.name))) return;
-      if (/^NAV_/.test(o.name)) return;
+      if (!o.isMesh || (!shown(o) && !/^COL_/.test(o.name))) return;
+      if (named(o, /^(NAV|WALK)_/)) return;                                  // (what you walk on: the floors, stairs, a deck)
       const b = new THREE.Box3().setFromObject(o);
-      if (b.isEmpty() || b.max.y < 0.15 || b.min.y > 1.7) return;           // (the floor, the roof, things on the walls up high)
+      if (b.isEmpty()) return;
       const w = b.max.x - b.min.x, d = b.max.z - b.min.z;
       if (w * d > 8 && w > 0.3 && d > 0.3) return;                           // (a big L of walls: its box is the room)
       boxes.push(b);
@@ -123,24 +127,34 @@ export class GarageWalk {
       if (!b.isEmpty()) boxes.push(b);
     }
     this.boxes = boxes;
-    // the floor you can walk on: NAV_floor's box, else the room's walls
-    const nav = pg.kit && pg.kit.nav[0];
-    this.bounds = nav ? new THREE.Box3().setFromObject(nav) : new THREE.Box3(new THREE.Vector3(-5.6, 0, -13.6), new THREE.Vector3(5.6, 0, -0.4));
+    // the floor you can walk on: the NAV_ meshes' box (all of them: the floor, stairs and a deck), else the room's walls.
+    // You stand on whichever is under you (floorAt)
+    const navs = (pg.kit && pg.kit.nav) || [];
+    this.floors = navs.length ? navs : null;
+    this.bounds = navs.length ? navs.reduce((B, n) => B.expandByObject(n), new THREE.Box3()) : new THREE.Box3(new THREE.Vector3(-5.6, 0, -13.6), new THREE.Vector3(5.6, 0, -0.4));
     this.camHits = []; pg.room.traverse(o => { if (o.isMesh && o.visible) this.camHits.push(o); });
     // (the camera goes through the desk chair: sat in it, its back would push the camera right in over your head)
     const ds = this.deskSeat(); this.noCam = new Set(); if (ds && ds.chair) ds.chair.o.traverse(m => { if (m.isMesh) this.noCam.add(m); });
   }
+  // the floor under you at home: the highest NAV_ mesh below your knees (a step up the stairs, not the deck overhead)
+  floorAt(p) {
+    _ray.set(_o.set(p.x, p.y + 1.0, p.z), _down); _ray.far = 3;
+    const h = _ray.intersectObjects(this.floors, false)[0];
+    return h ? h.point.y : p.y;
+  }
   // out of anything you've walked into (a circle against boxes), and inside the floor
   push() {
     const p = this.pos;
-    if (this.nav) return this.nav.push(p, R);
+    if (this.nav) { const r = this.nav.push(p, R); this.pushFriend(p); return r; }
     // (just stood up from the chair, tucked in at the desk: what you're stood in, the chair and the desk, doesn't push
     // you till you're out of it; everything else does)
-    const inside = (b) => p.x > b.min.x - R && p.x < b.max.x + R && p.z > b.min.z - R && p.z < b.max.z + R;
+    const level = (b) => b.max.y >= p.y + 0.15 && b.min.y <= p.y + 1.7;   // (in your way on this floor: not under your feet, not over your head)
+    const inside = (b) => level(b) && p.x > b.min.x - R && p.x < b.max.x + R && p.z > b.min.z - R && p.z < b.max.z + R;
     if (this.ghost === true) this.ghost = new Set((this.boxes || []).filter(inside));
     if (this.ghost) { for (const b of this.ghost) if (!inside(b)) this.ghost.delete(b); if (!this.ghost.size) this.ghost = null; }
     for (let it = 0; it < 3; it++) for (const b of this.boxes || []) {
       if (this.ghost && this.ghost.has(b)) continue;
+      if (!level(b)) continue;
       const cx = Math.max(b.min.x, Math.min(b.max.x, p.x)), cz = Math.max(b.min.z, Math.min(b.max.z, p.z));
       let dx = p.x - cx, dz = p.z - cz, d = Math.hypot(dx, dz);
       if (d >= R) continue;
@@ -150,7 +164,21 @@ export class GarageWalk {
       }
       p.x = cx + dx / d * R; p.z = cz + dz / d * R;
     }
+    // (your people about the garage, js/homecrew.js: round them, not through them)
+    const crew = this.pg.homeCrew; if (crew) for (const q of crew.people) {
+      if (Math.abs(q.y - p.y) > 1) continue;
+      const dx = p.x - q.x, dz = p.z - q.z, d = Math.hypot(dx, dz), m = R + 0.24;
+      if (d < m && d > 1e-4) { p.x = q.x + dx / d * m; p.z = q.z + dz / d * m; }
+    }
+    this.pushFriend(p);
     if (this.bounds) { const B = this.bounds; p.x = Math.max(B.min.x + R, Math.min(B.max.x - R, p.x)); p.z = Math.max(B.min.z + R, Math.min(B.max.z - R, p.z)); }
+  }
+
+  // (co-op: round your friend, not through them: js/coopwalk.js, in the same frame as you)
+  pushFriend(p) {
+    const fr = this.pg.friend && this.pg.friend.pos; if (!fr || Math.abs(fr.y - p.y) > 1) return;
+    const dx = p.x - fr.x, dz = p.z - fr.z, d = Math.hypot(dx, dz), m = R * 2;
+    if (d < m && d > 1e-4) { p.x = fr.x + dx / d * m; p.z = fr.z + dz / d * m; }
   }
 
   update(dt) {
@@ -186,6 +214,7 @@ export class GarageWalk {
     } else { this.speed = 0; me.play('idle'); }
     // (on the ground: in the pit lane it climbs and drops, box to box. Eased, so the step up into a garage isn't a jump)
     if (this.nav && this.nav.groundY) { const gy = this.nav.groundY(this.pos); this.pos.y += (gy - this.pos.y) * (Math.abs(gy - this.pos.y) > 1 ? 1 : Math.min(1, dt * 14)); }
+    else if (this.floors) { const gy = this.floorAt(this.pos); this.pos.y += (gy - this.pos.y) * Math.min(1, dt * 14); } // (at home: up the stairs to a mezzanine)
     me.object.position.copy(this.pos); me.object.rotation.y = this.heading; me.update(dt);
     // the camera: behind and above, pulled in front of any wall between it and you (sat down: your head, lower and back
     // over the seat)
@@ -220,6 +249,7 @@ export class GarageWalk {
     const fx = Math.sin(this.heading), fz = Math.cos(this.heading); let best = null, bd = Infinity;
     for (const s of this.act ? [] : this.spots) {
       if (s.off) continue; // (not there right now: a driver out on a run)
+      const sy = this.floors ? (s.box ? s.box.min.y : s.at?.y) : null; if (sy != null && (sy < this.pos.y - 0.5 || sy > this.pos.y + 2.6)) continue; // (at home, on another floor)
       const px = s.box ? Math.max(s.box.min.x, Math.min(s.box.max.x, this.pos.x)) : s.at.x, pz = s.box ? Math.max(s.box.min.z, Math.min(s.box.max.z, this.pos.z)) : s.at.z;
       const vx = px - this.pos.x, vz = pz - this.pos.z, d = Math.hypot(vx, vz) - (s.box ? R : 0);
       if (d > (s.reach || REACH)) continue;

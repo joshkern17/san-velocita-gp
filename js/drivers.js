@@ -41,6 +41,8 @@ export function isWoman(id) {
 }
 // their face: one of the men's (FACES) or, if there are any, the women's after them
 export const driverFace = (id) => { const f = isWoman(id) ? femaleFace(hash('face:' + id)) : null; return f ?? hash('face:' + id) % FACES.length; };
+// someone who isn't a driver (your staff): a face from their first name the same way, keyed on whatever's theirs
+export const faceForName = (first, key) => { const w = WOMEN.has(first) || (EITHER.has(first) && hash('sex:' + key) % 2 === 0), f = w ? femaleFace(hash('face:' + key)) : null; return f ?? hash('face:' + key) % FACES.length; };
 // their own helmet design (for life)
 export function driverHelmet(id) {
   const r = rng('helmet:' + id), pick = (a) => a[Math.floor(r() * a.length)];

@@ -8,6 +8,7 @@ import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { buildF1 } from './carmodel.js';
 import { loadCharacters, makeCharacter } from './characters.js';
 import { loadKit } from './garagekit.js';
+import { HomeCrew } from './homecrew.js';
 import { BOX } from './pitboxes.js';
 import { loadPitBox } from './pitbox.js';
 
@@ -616,7 +617,24 @@ export class PitGarage {
   // spots, every corner of the sheet on the wall). posterFrame (like listFrame) is what the camera and the walk spot use
   hangPoster(G, L, lf, solid) {
     const W = 0.62, H = 0.88, C = this.carCentre(), d = this.doorDir(), sd = new THREE.Vector3(-d.z, 0, d.x), Y = 1.48;
-    const wallAt = (from, dir, len = 9) => new THREE.Raycaster(from, dir, 0, len).intersectObject(this.room, true).find(solid);
+    const hang = (c, n) => {
+      const t = new THREE.Vector3().crossVectors(n, new THREE.Vector3(0, 1, 0)).normalize();
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({ map: this.posterTex(L), color: 0xd6d0c2, polygonOffset: true, polygonOffsetFactor: -2 }));
+      mesh.position.copy(c).addScaledVector(n, 0.01); mesh.lookAt(mesh.position.clone().add(n)); G.add(mesh);
+      // (four pins, one a little crooked)
+      for (const [a, b] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) { const pin = new THREE.Mesh(new THREE.SphereGeometry(0.007, 8, 6), new THREE.MeshStandardMaterial({ color: a + b === 0 ? 0x1d3f9a : 0xc8141c, roughness: 0.4 })); pin.position.copy(mesh.position).addScaledVector(t, a * (W / 2 - 0.02)).add(new THREE.Vector3(0, b * (H / 2 - 0.02), 0)).addScaledVector(n, 0.004); G.add(pin); }
+      this.posterMesh = mesh; this.posterFrame = { c: mesh.position.clone(), n: n.clone(), up: new THREE.Vector3(0, 1, 0), side: t.clone().negate(), w: W, h: H };
+    };
+    // the room's own spot for it (a POSTER empty on the wall, facing out of it the way you face at SPAWN), if it has one
+    let hook = null; this.room.traverse(o => { if (!hook && /^POSTER/.test(o.name || '')) hook = o; });
+    if (hook) {
+      hook.updateWorldMatrix(true, false);
+      const n = new THREE.Vector3(0, 0, 1).applyQuaternion(hook.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize();
+      hang(hook.getWorldPosition(new THREE.Vector3()), n); return;
+    }
+    // (never on a door: a roll-up door isn't flat, and it opens)
+    const door = (h) => { for (let o = h.object; o && o !== this.room; o = o.parent) if (/door/i.test(o.name || '')) return true; return false; };
+    const wallAt = (from, dir, len = 9) => { const h = new THREE.Raycaster(from, dir, 0, len).intersectObject(this.room, true).find(solid); return h && !door(h) ? h : null; };
     for (const dir of [sd, sd.clone().negate(), d.clone().negate(), d]) {
       const o = C.clone(); o.y = Y; const h = wallAt(o, dir); if (!h || !h.face) continue;
       const n = h.face.normal.clone().transformDirection(h.object.matrixWorld); n.y = 0; if (n.lengthSq() < 0.5) continue; n.normalize(); if (n.dot(dir) > 0) n.negate();
@@ -629,12 +647,7 @@ export class PitGarage {
           const x = wallAt(p, n.clone().negate(), 0.45); return x && Math.abs(x.distance - 0.3) < 0.03;
         });
         if (!ok) continue;
-        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({ map: this.posterTex(L), color: 0xd6d0c2, polygonOffset: true, polygonOffsetFactor: -2 }));
-        mesh.position.copy(c).addScaledVector(n, 0.01); mesh.lookAt(mesh.position.clone().add(n)); G.add(mesh);
-        // (four pins, one a little crooked)
-        for (const [a, b] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) { const pin = new THREE.Mesh(new THREE.SphereGeometry(0.007, 8, 6), new THREE.MeshStandardMaterial({ color: a + b === 0 ? 0x1d3f9a : 0xc8141c, roughness: 0.4 })); pin.position.copy(mesh.position).addScaledVector(t, a * (W / 2 - 0.02)).add(new THREE.Vector3(0, b * (H / 2 - 0.02), 0)).addScaledVector(n, 0.004); G.add(pin); }
-        this.posterMesh = mesh; this.posterFrame = { c: mesh.position.clone(), n: n.clone(), up: new THREE.Vector3(0, 1, 0), side: t.clone().negate(), w: W, h: H };
-        return;
+        hang(c, n); return;
       }
     }
   }
@@ -1024,6 +1037,33 @@ export class PitGarage {
     bay.getWorldPosition(c.group.position).setY(0); bay.getWorldQuaternion(c.group.quaternion);
     c.group.visible = !this.carOff; this.bay.add(c.group);
   }
+  // your people at home, about the garage doing their jobs (js/homecrew.js): [{ key, role, look, livery, face, crew }],
+  // and the stations in use (['dyno', ...]: their BUSY_ pieces showing). Only in a kit's room; the same again changes
+  // nothing, the stations in use change without a rebuild
+  setCrew(list = [], busy = []) {
+    this.crewWant = { list, busy, key: list.map(p => p.key + ':' + p.role).join('|') };
+    if (this.kit && this.kit.setBusy) this.kit.setBusy(busy);
+    if (this.homeCrew) this.homeCrew.setBusy(busy);
+  }
+  crewTick(dt) {
+    const W = this.crewWant, kit = this.mode === 'home' && this.custom && /^home:/.test(this.custom) ? this.kit : null;
+    const want = kit && W && W.list.length ? `${this.custom}|${W.key}` : null;
+    if ((this.homeCrew && this.homeCrew.wantKey) !== want) {
+      if (this.homeCrew) { this.homeCrew.dispose(); this.homeCrew = null; }
+      if (want) { if (kit.setBusy) kit.setBusy(W.busy); this.homeCrew = new HomeCrew(this, kit, W.list, W.busy); this.homeCrew.wantKey = want; }
+    }
+    if (this.homeCrew) {
+      // (a car's come or gone, or been rebuilt: what's in their way again)
+      // (measured twice a second: a car's model loads after it's put in the bay, and its box then was a speck: the
+      // wheel spots were inside it)
+      if ((this.homeCrew.carT = (this.homeCrew.carT || 0) - dt) <= 0) {
+        this.homeCrew.carT = 0.5; const bx = new THREE.Box3();
+        const ck = [this.car, this.car2].map(c => { if (!(c && c.group.parent && c.group.visible)) return '-'; bx.makeEmpty(); c.group.traverse(o => { if (o.isMesh && o !== c.shadow) bx.expandByObject(o); }); return bx.isEmpty() ? '0' : [bx.min.x, bx.min.z, bx.max.x, bx.max.z].map(v => v.toFixed(1)).join(','); }).join('|');
+        if (ck !== this.homeCrew.carKey) { this.homeCrew.carKey = ck; this.homeCrew.floors = null; }
+      }
+      this.homeCrew.update(dt);
+    }
+  }
   // people in the room (your teammate): [{ key, livery, face, clip }] (js/drivers.js dresses them). They stand behind
   // the car's right side, turned to the camera, helmets off; the same list again changes nothing
   setPeople(list = []) {
@@ -1061,6 +1101,8 @@ export class PitGarage {
       ch.update(dt);
     }
     this.flickTick(dt);
+    this.crewTick(dt);
+    if (this.friend) this.friend.update(dt); // (co-op: the other one of you, js/coopwalk.js)
     // walking round (js/garagewalk.js): you and the camera behind you
     if (this.walker && this.walker.active) {
       this.walker.update(dt); this.shiftNow = this.walker.shift || 0;

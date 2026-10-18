@@ -7,12 +7,13 @@
 //   kit.group      the room, BAY_1 at its origin (the car's spot), the car's nose and the door down +Z
 //   kit.bays       [BAY_1, BAY_2, ...] (Object3D: where each car sits and the way it faces)
 //   kit.spawn      SPAWN: where you walk in (null without one)
-//   kit.nav        NAV_floor meshes (the floor you can walk on; hidden)
+//   kit.nav        NAV_ meshes (the floor you can walk on at every level: NAV_floor, a mezzanine's stairs and deck; hidden)
 //   kit.stands     STAND_<role> (userData.clip: what they're doing there, userData.role)
 //   kit.interacts  INTERACT_<what> (userData.label)
 //   kit.tires      TIRES: where your tire stacks start (null without one)
 //   kit.stations   { tools: Object3D, ... } the stations set down, by facility
 //   kit.shell      the premises whose shell it is (a smaller one than asked for, when yours isn't made yet)
+//   kit.setBusy(['dyno', ...])   the stations in use: their BUSY_<key>... shown, IDLE_<key>... hidden (and the other way)
 //
 // The single-file build carries the pieces in window.__SVGP_KIT ({ shell_lockup: 'data:...', ... }).
 import * as THREE from 'three';
@@ -58,6 +59,8 @@ export async function loadKit(premises, stations = []) {
     const st = await piece('station_' + k); if (!st) return;
     const c = cloneLit(st); c.name = 'station_' + k; s.add(c); set[k] = c;
   }));
+  // the junk where a facility will go (WITHOUT_<facility>...): cleared out once you have it
+  room.traverse(o => { const m = /^WITHOUT_([a-z0-9]+)/i.exec(o.name || ''); if (m && stations.includes(m[1])) o.visible = false; });
   room.updateMatrixWorld(true);
   const bays = named('BAY_').sort((a, b) => a.name.localeCompare(b.name));
   // BAY_1 at the origin, turned straight: the rest of the game puts the car there
@@ -68,5 +71,9 @@ export async function loadKit(premises, stations = []) {
   const nav = named('NAV_'); for (const n of nav) n.visible = false;
   for (const c of named('COL_')) c.visible = false;
   group.updateMatrixWorld(true);
-  return { group, shell: used, bays, spawn: named('SPAWN')[0] || null, nav, stands: named('STAND_'), interacts: named('INTERACT_'), tires: named('TIRES')[0] || null, stations: set };
+  // in use or not (an engine on the dyno, a frame on the welding table): BUSY_<key>... / IDLE_<key>...
+  const tagged = []; room.traverse(o => { const m = /^(BUSY|IDLE)_([a-z0-9]+)/i.exec(o.name || ''); if (m) tagged.push([o, m[1].toUpperCase() === 'BUSY', m[2]]); });
+  const setBusy = (keys = []) => { for (const [o, busy, k] of tagged) o.visible = busy === keys.includes(k); };
+  setBusy([]);
+  return { group, setBusy, shell: used, bays, spawn: named('SPAWN')[0] || null, nav, stands: named('STAND_'), interacts: named('INTERACT_'), tires: named('TIRES')[0] || null, stations: set };
 }

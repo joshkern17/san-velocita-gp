@@ -70,6 +70,21 @@ export const CLIP_INFO = {
   // pushing something heavy, walking (Mixamo "Push", in place): hands about 0.74 m out in front at 1.0 m up (push_2:
   // 0.62 m out, 1.1 m up). Slow, straining steps: js/pushcar.js plays them faster to push a car along
   push: { loop: true, speed: 0.35 }, push_2: { loop: true, speed: 0.4 },
+  // listening: nodding along (yes; a long one; thinking it over; not buying it). talk_4's a fourth way of talking
+  talk_4: { loop: true }, nod: { loop: true }, nod_long: { loop: true }, nod_think: { loop: true }, nod_sarcastic: { loop: true },
+  // stood about: pointing ahead (at the car), bored (shifting about), rolling the neck, drinking (a cup in the left
+  // hand), on the phone (the right hand at the ear, turning about on the spot), texting (both hands)
+  point_fwd: { loop: true }, bored: { loop: true }, idle_neck: { loop: true }, drink: { loop: true }, phone: { loop: true }, text: { loop: true },
+  // walking while texting (in place): a slower walk
+  walk_text: { loop: true, speed: 0.87 },
+  // bending down for something on the floor and standing back up with it, once
+  pick_up: { loop: false },
+  // down on one knee (as kneel), looking something over close to, turned a little to the left
+  kneel_inspect: { loop: true },
+  // sat at a desk (hips as sit_desk's, 0.56 m up): typing, writing (sat 0.07 m higher and 0.15 m further forward),
+  // talking to someone beside them, cheering; sit_to_type and type_to_sit go between sit_desk and type, once
+  type: { loop: true, seat: 0.44 }, write: { loop: true, seat: 0.44 }, sit_talk: { loop: true, seat: 0.44 }, sit_cheer: { loop: true, seat: 0.48 },
+  sit_to_type: { loop: false, seat: 0.44 }, type_to_sit: { loop: false, seat: 0.44 },
 };
 export const CLIPS = Object.keys(CLIP_INFO);
 

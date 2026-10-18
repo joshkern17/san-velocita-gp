@@ -9,12 +9,14 @@ industrial unit and the whole room changes. Race weekends still use your pit box
 models/garage/
   kit-start.blend          the template: every piece, in one file
   shell_lockup.glb         Rented lock-up        (FACILITIES.base level 0)
-  shell_unit.glb           Industrial unit       (level 1)   not made yet
+  shell_unit.glb           Industrial unit       (level 1)   from unit-start.blend (tools/garage-unit.py)
   shell_workshop.glb       Race workshop         (level 2)   not made yet
   shell_factory.glb        Factory               (level 3)   not made yet
   station_tools.glb        Proper tools (a workbench, a locker)
   station_sim.glb          Sim rig (a CRT on a stand, a wheel on a post with pedals, an office chair)
   station_<facility>.glb   one per facility: tools, dyno, fab, sim, data, truck, tunnel
+  station_<facility><n>.glb  that facility at level n and up: station_tools2 is the lift (Tools level 2), tools3 the machine shop
+  stations-start.blend     dyno, fab, data, tools2 (tools/garage-stations.py)
   src/                     the asset-pack files the template is built from
 ```
 
@@ -87,7 +89,9 @@ Names only have to start with these (`SLOT_sim.001` is fine).
 | `BAY_1`, `BAY_2` | shell (empty) | Where car one and car two sit, nose down the empty's -Y. Car two only shows in a shell with a `BAY_2` |
 | `SLOT_<facility>` | shell (empty) | Where that facility's station goes, turned as the empty is |
 | `SPAWN` | shell (empty) | Where you walk in (walking comes later) |
-| `NAV_floor` | shell (mesh) | The floor you can walk on. Hidden in the game |
+| `NAV_floor` | shell (mesh) | The floor you can walk on. Hidden in the game. More `NAV_` meshes (`NAV_stairs`, `NAV_deck`) are more floors: you stand on whichever is under you, so a ramp up the stairs takes you onto a mezzanine. What's in your way depends on the floor you're on |
+| `WALK_...` | any (mesh) | Something you walk on (treads, the deck): never in your way |
+| `WITHOUT_<facility>...` | shell (any) | Shown only till the team has that facility: the junk in the corner where it'll go |
 | `COL_...` | any (mesh) | Invisible blockers. Hidden in the game |
 | `STAND_<role>` | station or shell (empty) | Where a staff member stands. Custom properties: `clip` (what they're doing: `lean`, `kneel`, `sit_idle`...), `role` |
 | `TIRES` | shell (empty) | Your tires: one stack per compound you have, as tall as its share of your sets (the most you have of any is five high), the compound's stripe on top. The first stands on the empty, the rest in a row along its +Y. Walk up to them to order more |
@@ -118,3 +122,68 @@ Rebuild the template (this overwrites `kit-start.blend` and the `.glb`s):
 
 Check it in the game: `node .devtest/homekit.mjs <folder>` (screenshots of the lock-up, the stations, and the switch to
 a race weekend's pit box and back).
+
+## The Industrial unit
+
+`tools/garage-unit.py` builds `models/garage/unit-start.blend` and, with `-- --export`, `shell_unit.glb`:
+
+```
+/Applications/Blender.app/Contents/MacOS/Blender --background --python tools/garage-unit.py -- --export
+```
+
+It's Garage by LunaQuantica (`models/garage/src/luna`: its brick, roll-up door, windows, rails and signs) made into a
+16 x 14 m unit with a mezzanine along the back (3.5 m deep, 2.7 m up, stairs up the right wall). The pack pieces keep
+their own textures; everything the script builds (floor, walls, roof, trusses, columns, the deck and stairs) is
+textured from the PSX Industrial textures (`src/psx_industrial`) or Luna's brick with grime baked in, written to
+`src/unit_gen`. The props are from the packs in `src/unit`, `src/psx_industrial_pack.glb` and `models/pitprops.glb`;
+your desk, chair, CRT, calendar and the vending machine come from `kit-start.blend` as they stand in the lock-up.
+
+Slots: `tools`, `dyno` and `fab` along the left wall, `sim` under the mezzanine, `data` on it, `tools2` (the lift) in the third bay.
+Until a team has the dyno, fabrication or the data room, those places hold junk (`WITHOUT_...`). Staff spots face the
+empty's -Y, as you do at `SPAWN`; `STAND_any` is anyone's (idle: the couch, the vending machine, the rail upstairs).
+Check it: `node .devtest/unitshot.mjs <folder>` (shots round the room, a walk up the stairs; `FAC=all` for everything
+bought).
+
+## The stations (tools/garage-stations.py)
+
+```
+/Applications/Blender.app/Contents/MacOS/Blender --background --python tools/garage-stations.py -- --export
+```
+
+builds `models/garage/stations-start.blend` and exports `station_dyno`, `station_fab`, `station_data` and
+`station_tools2` (station_tools and station_sim stay in kit-start.blend). Each is built round its own origin like
+the rest (on the floor at the middle of its back, its front down -Y), from the packs in `src/stations` (their own
+textures) and things built from boxes and cylinders with the grimy PSX Industrial textures (`tools/garagelib.py`,
+shared with the unit). The printed bits (the signs, Danny's note on the dyno's CRT, the whiteboard, the dot-matrix
+printout, the screens) are drawn by `tools/garage-signs.py` (system Python with Pillow; the stations script runs it
+when they're missing, or with `-- --art`).
+
+A facility at level n puts every station up to it in the room: Tools 2 is `tools` and `tools2`. The game passes those
+keys (`main.js` stationKeys), so a shell gives a level its own place with `SLOT_tools2`, `WITHOUT_tools2...`.
+
+- **Engine dyno** (3.5 x 3.4 m): an inline four on a test bed with the water brake, its barrel and hoses, a radiator,
+  fuel on a shelf, the exhaust duct up to a board in the window, a chain-link screen, the control desk outside it
+  (gauges, the CRT with the power curve, Danny's note), a cage lamp. Staff: `STAND_dyno` (sat at the desk), a kneel.
+- **Fabrication** (3.5 x 3.4 m): a welding table with a frame clamped up on it, the welder trolley and gas bottle, an
+  orange weld screen on the side by the bench, tube on wall brackets, sheet against the wall, a grinder and a pillar
+  drill, the offcut bin. Staff: `STAND_fab`, a talk by the welder.
+- **Data room** (9 x 3.5 m, on the mezzanine): three desks at the rail (two CRTs with telemetry and timing, a Win95
+  PC), chairs facing the rail, filing, a bookcase of binders, the dot-matrix printer with its printout to the floor,
+  the whiteboard (a track sketch, setup changes, lap times). Staff: two `STAND_data`, `STAND_manager`.
+- **Lift and engine hoist** (`tools2`, stands in a bay, its origin the bay's middle): a two-post lift with its arms
+  in, top beam, power unit, the engine crane folded by the door, axle stands, a drain caddy.
+
+**In use.** `BUSY_<key>...` pieces show only while that station's in use, `IDLE_<key>...` only while it isn't
+(`kit.setBusy`, no reload). In a career (`main.js` homeBusy): engine work puts the engine on the dyno, chassis and aero
+work a frame on the welding table (with the arc's glow), any project the lift's engine out on the crane and wheels off;
+the data room's screens are on while you have a data engineer. The Home Garage preview's **Stations** item flips it.
+
+**Your people** (`js/homecrew.js`): your hired staff and your teammate about the room. They go to `STAND_` spots that
+suit their job (`role`: mechanic, engineer/data, dyno, fab, manager, driver, any; `clip`: what they do there; they face
+the empty's -Y), round the cars' wheels and the tire stacks, keener on a station that's in use, walk there round what's
+in the way (both floors, up the stairs), and stop to talk in twos and threes. The mechanic carries a wrench, the
+engineer and manager a clipboard. You walk round them. Preview: **Crew** in Home Garage. Check:
+`node .devtest/crewshot.mjs <folder>`.
+
+No station has an `INTERACT_` yet: there's nothing for them to do. Check them: `node .devtest/stationshot.mjs <folder>`
+(three shots of each, in the unit with everything bought).
