@@ -51,7 +51,7 @@ function bboxOf(pts, padM) {
 async function layout(c) {
   // (a measured lap: the layout as it is)
   if (c.lap) {
-    const pts = JSON.parse(fs.readFileSync(path.join(HERE, 'ref', c.lap + '.lap.json'), 'utf8')).pts.map(p => ({ lat: p.lat, lon: p.lon, f: { n: null, layer: 0, tun: 0, w: p.w } }));
+    const pts = JSON.parse(fs.readFileSync(path.join(HERE, 'ref', c.lap + '.lap.json'), 'utf8')).pts.map(p => ({ lat: p.lat, lon: p.lon, f: { n: null, layer: 0, tun: 0, w: p.w, y: p.y, b: p.b } }));
     let L = 0; for (let i = 0; i < pts.length; i++) L += dist(pts[i], pts[(i + 1) % pts.length]);
     console.log(`  layout: the measured lap (${pts.length} points), ${(L / 1000).toFixed(2)} km`);
     return pts;
@@ -363,6 +363,15 @@ try {
     }
     const osm = await surroundings(c, line);
     let profile = await roadProfile(c, line);
+    // (a measured lap with its own heights and camber: those, moved to the laser scan's level. The scan's line can
+    // catch what's beside the road, an oval's banking, a wall, as bumps)
+    if (c.lap && profile && line.every(p => p.f.y !== undefined)) {
+      const diffs = [];
+      for (let i = 0; i < line.length; i++) { const r = profile[Math.min(profile.length - 1, Math.round(i * profile.length / line.length))]; diffs.push(r[2] - line[i].f.y); }
+      diffs.sort((a, b) => a - b); const off = diffs[diffs.length >> 1];
+      console.log(`  heights: the measured lap's, moved ${off.toFixed(1)} m to the scan's level (scan vs lap: p10 ${(diffs[Math.floor(diffs.length * 0.1)] - off).toFixed(2)} m, p90 ${(diffs[Math.floor(diffs.length * 0.9)] - off).toFixed(2)} m)`);
+      profile = line.map(p => [p.lat, p.lon, +(p.f.y + off).toFixed(2), p.f.b]);
+    }
     if (process.env.DUMP_PROFILE) fs.writeFileSync(process.env.DUMP_PROFILE, JSON.stringify({ profile, line: line.map(p => [p.lat, p.lon, p.f]) }));
     const geo = centre(line); // (a reference road is measured in the OSM layout's frame: it keeps that origin)
     let profileRel = false;
