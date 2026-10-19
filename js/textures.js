@@ -235,6 +235,17 @@ export function getTextures() {
     for (let x = 0; x < 16; x++) for (let y = 0; y < 4; y++) { g.fillStyle = (x + y) % 2 ? '#111' : '#f0f0f0'; g.fillRect(x * 4, y * 4, 4, 4); }
     cache.checker = tex(c, true, true);
   }
+  // the Yard of Bricks (Indianapolis's start line, track.dress.start 'bricks'): worn red brick in rows, grey mortar;
+  // one tile is 2 m across the track, the strip's 0.9 m along it
+  {
+    const [c, g] = canvas(64, 16); let s = 11; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+    g.fillStyle = '#6d6a63'; g.fillRect(0, 0, 64, 16);
+    for (let row = 0; row < 4; row++) for (let k = -1; k < 9; k++) {
+      const x = k * 8 + (row % 2) * 4, v = rnd();
+      g.fillStyle = `rgb(${92 + v * 40 | 0},${46 + v * 18 | 0},${36 + v * 12 | 0})`; g.fillRect(x + 1, row * 4 + 1, 7, 3);
+    }
+    cache.bricks = tex(c, true, true);
+  }
   // soft round blob (shadows / coronas)
   {
     const [c, g] = canvas(64, 64);

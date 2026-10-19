@@ -981,7 +981,10 @@ export function buildWorld(track, T, A, opts = {}) {
     };
     const w0 = T.W[0];
     const chk = { p: [], u: [] };
-    patch(chk, -0.9, 0.9, -w0 / 2, w0 / 2, 8, w0 / 4, 1);
+    // (a real circuit's own start line: Indianapolis's Yard of Bricks, the bricks 0.9 m along, edge to edge)
+    const bricks = track.dress && track.dress.start === 'bricks';
+    if (bricks) { const bk = { p: [], u: [] }; patch(bk, -0.46, 0.46, -w0 / 2 - 0.3, w0 / 2 + 0.3, 8, (w0 + 0.6) / 2, 1); mesh(bk, new THREE.MeshLambertMaterial({ map: tx.bricks, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, side: THREE.DoubleSide })); }
+    else patch(chk, -0.9, 0.9, -w0 / 2, w0 / 2, 8, w0 / 4, 1);
     if (T.open) { const df = T.D[T.finish], wf = T.W[T.finish]; patch(chk, df - 0.9, df + 0.9, -wf / 2, wf / 2, 8, wf / 4, 1); } // (point-to-point: the finish line too)
     mesh(chk, new THREE.MeshLambertMaterial({ map: tx.checker, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, side: THREE.DoubleSide }));
     const bars = { p: [], u: [] };

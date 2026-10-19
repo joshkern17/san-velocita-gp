@@ -50,6 +50,7 @@ export const PAINTS = {
 //          your own instead), type: a KERB_TYPES key (default raised), w: width (m, default 1.3), tin / tout: the
 //          tapered wedge it starts / ends with (m along the track: its width grows from nothing over that).
 //          With any, only these have curbs (no automatic ones). Edited in the Circuit Designer (CURBS) and Track Studio
+//   start: 'bricks': the start line is a strip of brick across the road (Indianapolis's Yard of Bricks), not the checker
 //   walls: [{ a, b, side, type, off? }]  type: a WALL_TYPES key ('none': no barrier there); off: metres out from the
 //          track edge (else where the barrier already stands). (Track Studio's; barriers, below, replace them)
 //   barriers: [{ side, type, pts: [[d, off], ...] }]  every barrier the track has (with this, there are no others):
