@@ -15,7 +15,7 @@ export type Shot = {
   eng?: number | [number, number][]; // engine volume, or keyframes [seconds into the shot, volume]
   rate?: number;
 };
-export type Spec = { dir: string; narration: string; music?: string; musicVol?: number; shots: Shot[]; data?: Record<string, Record<string, number[]>> };
+export type Spec = { dir: string; narration: string; music?: string; musicVol?: number; eng?: number; shots: Shot[]; data?: Record<string, Record<string, number[]>> };
 
 const ENGINE = 0.32, FPS = 60;
 // (the last shot runs on under the 3 s end card, so its duration includes it)
@@ -55,7 +55,7 @@ export const Explainer: React.FC<{ spec: Spec }> = ({ spec }) => {
     <AbsoluteFill style={{ background: C.ink }}>
       {spec.shots.map((s, k) => {
         const at = Math.round(t * fps), len = Math.round(s.dur * fps); t += s.dur;
-        const eng = s.eng ?? ENGINE;
+        const eng = s.eng ?? spec.eng ?? ENGINE;
         const vol = typeof eng === "number" ? eng : (f: number) => interpolate(f / fps, eng.map((e) => e[0]), eng.map((e) => e[1]), { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
         const lines = s.lines || [];
         return (

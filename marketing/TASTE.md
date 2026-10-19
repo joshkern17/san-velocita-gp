@@ -89,3 +89,6 @@ the data says").
 - Never claim something matches a reference without a side-by-side check.
 - Music subtle under the engines; fade, never jump.
 - Writing: subtle, dry, never explains its own joke.
+- Engines must be clearly heard (dev, 2026-10-18: "way too quiet, you can barely hear them" in the engines video, at
+  ~12 LU under the voice). Even out each clip to -18 LUFS with a fixed gain (never a one-pass loudnorm: it flattens
+  pass-bys), then engines ~4 LU under the voice and level with it in the gaps. Spec field `eng` sets the default.

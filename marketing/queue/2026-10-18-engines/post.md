@@ -1,7 +1,7 @@
 Status: READY
 
 # Explainer 002: nobody recorded these engines
-- File: `engines.mp4` (48.2 s, 1080×1920, −14 LUFS)
+- File: `engines.mp4` (48.2 s, 1080×1920, −14 LUFS; engines ~4 LU under the voice, level with it in the gaps)
 - Format: narrated feature explainer + physics beat (approved template) · Pillars: CAR + DRV
 - Cars: Porsche 935 (hook, Silverline livery), F40 (flat-plane V8), M3 GTR (cross-plane V8), M1 ProCar (inline-six,
   dusk, live RPM readout), Miata (live RPM readout). Track: Laguna Seca. No pit lane in frame (checked every shot).
