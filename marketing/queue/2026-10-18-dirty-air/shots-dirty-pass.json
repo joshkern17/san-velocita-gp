@@ -1,0 +1,9 @@
+{ "name": "dirty-air-pass", "aspect": "9:16", "seed": 37, "track": { "preset": "Maple Ridge GP" }, "env": { "time": "day", "weather": "clear" },
+  "race": { "car": "f40", "team": "Volta Racing", "opponents": 11, "aiChassis": "class", "grid": "front", "laps": 20 }, "warmup": 25,
+  "shots": [
+    { "rig": "game", "mode": "chase", "dur": 5.0, "focus": "auto", "until": { "pass": true }, "name": "pass-chase-a" },
+    { "rig": "heli", "dur": 5.0, "back": 22, "h": 12, "focus": "auto", "until": { "pass": true }, "name": "pass-heli-a" },
+    { "rig": "game", "mode": "far", "dur": 5.0, "focus": "auto", "until": { "pass": true }, "name": "pass-far" },
+    { "rig": "game", "mode": "chase", "dur": 5.5, "focus": "auto", "until": { "slip": 0.7, "wakeBelow": 0.25 }, "name": "tow-chase-b" },
+    { "rig": "heli", "dur": 5.0, "back": 26, "h": 14, "focus": "auto", "until": { "pass": true }, "name": "pass-heli-b" }
+  ] }

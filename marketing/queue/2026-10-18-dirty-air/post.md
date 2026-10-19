@@ -4,6 +4,14 @@ Status: READY
 - File: `dirty-air.mp4` (43.7 s, 1080×1920, −14 LUFS)
 - Format: narrated feature explainer + physics beat (approved template) · Pillars: DRV + CAR
 - Cars: GT1 field (F40, 935, M1 ProCar, Capri) in the rival teams' liveries. No open-wheel F1. Track: Maple Ridge GP.
+- **Re-cut 2026-10-18 after the dev's review** (every shot must match its line; no crashes unless the line is about one):
+  - "Being close is easy. Getting past is the race." was the Capri sliding off into the pit lane; now two cars side by
+    side going for a pass.
+  - "On the straight, it flips. The same wake pulls you along…" opened on cars tangling in a turn ahead; now a car
+    pulling into the tow, then a clean train (the first 1.4 s of that take dropped).
+  - "So you hang back in the corners… and pounce" (a smoky trackside shot) is now a car following through a corner
+    and lining up on the straight.
+  - New takes filmed with clean racing (AI mistakes off) and the director's incident check: no warnings on any shot used.
 - Verified first: dirty air is simulated for every car, player and AI (js/race.js:2987-3005, js/physics.js:304-313);
   GT cars lose 30% front / 12% rear downforce at full wake, and the AI slows its corner speed in it. The effect is
   small in total grip (~3-4.5% for a GT car at 200 km/h), so the script says "pushes wide", nothing bigger.

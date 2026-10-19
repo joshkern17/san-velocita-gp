@@ -42,6 +42,13 @@ node tools/director/director.mjs tools/director/shots/example.json --only 3   # 
   and the pass planner's move once it commits. Marketing overlay only; it never touches the race.
 - The per-frame log (`NN-<rig>.engine.json`) also has the focus car's `wake` (0..1, dirty air) and `slip` (0..1,
   tow), plus `wakeK` (its front/rear downforce loss at full wake), for live readouts in the edit.
+- **Clean racing by default:** AI mistakes are off (`settings.aiMistakes = 'off'`) unless the shot list sets
+  `"incidents": true`. Contact between cars can still happen, so every filmed frame is checked: any car in frame
+  (within 150 m) that makes contact, leaves the road, spins (pointing >60° off the road) or wrecks is logged in the
+  shot's `.engine.json` (`incidents`) and printed as `WARNING shot N (name): 1.4s capri off road, ...`.
+- `"until": { "pass": true }`: the focus car has committed to a move on the car ahead (racecraft out / dive).
+- `"focus": "auto"` with `"until"`: the first car in the field that meets the condition becomes the shot's car
+  (finds a deep wake or a pass attempt in seconds instead of waiting on one car).
 - Real tracks: until the dev fixes the pit lanes, keep the pit lane, pit entry and exit out of frame (BRAND §5).
 - Shots run back to back on one continuous race. Every shot is its own file, so the edit cuts them.
 - Car ids are in `models/cars/cars.json`. Real track ids are in `tracks/real/index.json`.

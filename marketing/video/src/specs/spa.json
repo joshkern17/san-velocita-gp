@@ -75,25 +75,28 @@
      "amber": "hundred"
     },
     {
-     "a": 15.6,
-     "b": 17.85,
+     "a": 0.0,
+     "b": 2.55,
      "at": 4.85,
      "text": "Eau Rouge drops you into the valley.",
-     "amber": "valley"
+     "amber": "valley",
+     "src": "spa/names.mp3"
     },
     {
-     "a": 17.9,
-     "b": 20.65,
-     "at": 7.15,
+     "a": 2.7,
+     "b": 5.5,
+     "at": 7.4,
      "text": "Then Raidillon climbs twenty-five meters,",
-     "amber": "climbs"
+     "amber": "climbs",
+     "src": "spa/names.mp3"
     },
     {
-     "a": 20.7,
-     "b": 23.35,
-     "at": 9.95,
+     "a": 5.55,
+     "b": 8.05,
+     "at": 10.2,
      "text": "almost fifteen percent at its steepest.",
-     "amber": "steepest"
+     "amber": "steepest",
+     "src": "spa/names.mp3"
     },
     {
      "a": 23.45,
@@ -110,11 +113,12 @@
    "dur": 3.8,
    "lines": [
     {
-     "a": 26.9,
-     "b": 30.3,
+     "a": 8.3,
+     "b": 11.65,
      "at": 0.15,
      "text": "So the hill you feel at Raidillon\u2026 is the real one.",
-     "amber": "real"
+     "amber": "real",
+     "src": "spa/names.mp3"
     }
    ]
   },

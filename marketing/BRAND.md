@@ -80,6 +80,11 @@ rules. Reference: `marketing/anim/slip-beat` (HyperFrames).
 
   Use a variety in every video (mixed-class fields are fine), and don't let the same car lead two videos in a row.
 
+- **Every shot matches its line (dev, 2026-10-18).** No crash, spin, off or wreck in frame unless the line is about
+  one ("getting past is the race" over a car crashing into the pit lane "doesn't at all fit"). The director races
+  clean by default (AI mistakes off; `"incidents": true` in a shot list turns them back on for a line that's about
+  one) and prints `WARNING shot N (name): 1.4s capri off road, ...` for any car in frame that makes contact, leaves the
+  road, spins or wrecks. Read those warnings and the frame grabs before cutting; re-film a flagged shot.
 - **Pit lanes (dev, 2026-10-18, temporary):** the real tracks' pit lane geometry is broken (at Spa it runs into the
   track at La Source). Until the dev fixes it: no shot on a real track with the pit lane, pit entry or pit exit in
   frame. At Spa, stay off the start/finish straight and La Source (use Eau Rouge/Raidillon, Kemmel, Pouhon,

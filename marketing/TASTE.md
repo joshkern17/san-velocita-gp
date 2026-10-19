@@ -14,6 +14,13 @@ Lesson: <what to do differently / keep doing>
 
 ---
 
+## 2026-10-18 · Spa scan narration · CHANGED (pronunciation)
+What it was: the narrator saying "Eau Rouge" and "Raidillon" with a proper French accent.
+Said: it sounds weird, "because no american pronounces raidillon correctly".
+Lesson: **foreign names (corners, tracks, cars) are said the way an American enthusiast says them.** Respell them
+phonetically in the TTS prompt ("Oh Roozh", "Ray-dee-yon"), try 2-3 respellings, keep the take that sounds like a casual
+American fan, and re-voice whole sentences (never splice words). Captions keep the real spellings.
+
 ## 2026-10-18 · content bank review · mostly APPROVED, dirty air CHANGED
 What it was: engines, Spa scan, dirty air, AI sees, tire hooks B and C.
 Said: "They are good for the most part, hook c is best for sure." On dirty air: the last shot ("getting close is

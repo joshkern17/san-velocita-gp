@@ -10,8 +10,10 @@ Status: READY
 - Beat: `marketing/anim/spa-beat` (HyperFrames, 16.2 s), drawn from the game's own `tracks/real/spa.json`: the lap's
   elevation profile (102 m lowest to highest), Eau Rouge / Raidillon in 3D (height ×4, labeled; +25 m, 14.9% at the
   steepest), the camber measured across the road at Raidillon (3.2°; tilt drawn ×3, labeled).
-- Narration: SV narrator 001, take 3 of 4 (`takes/`). Whisper can't spell the French names, so give "Eau Rouge" and
-  "Raidillon" one listen before posting.
+- Narration: SV narrator 001, take 3 of 4 (`takes/`). **Re-voiced 2026-10-18** (dev: the French accent "sounds weird,
+  because no american pronounces raidillon correctly"): the three sentences with "Eau Rouge" / "Raidillon" are a new
+  take respelled for an American fan ("Oh Roozh", "Ray-dee-yon"; `takes-names-a/1`, chosen over "Oh Rooj" /
+  "Raid-ill-on" in `takes-names-b/`), cut in whole at the pauses. Captions keep the real spellings.
 - Edit: `marketing/video/src/specs/spa.json` → composition `SpaScan`.
 - Frame grabs: `grabs/`
 

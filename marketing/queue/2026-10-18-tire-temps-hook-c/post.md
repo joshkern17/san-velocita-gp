@@ -1,10 +1,10 @@
-Status: READY
+Status: READY · LEAD POST for tire temps (dev, 2026-10-18: "hook c is best for sure"); v2 and hook B are its variants
 
 # Tire temps, hook C: "Every tire here has two temperatures."
 - File: `tire-temps-hook-c.mp4` (42.0 s, 1080×1920, −14 LUFS)
 - Format: narrated feature explainer + physics beat (approved template) · Pillars: DRV + CAR · Car: M1 ProCar (hook), Miata
 - What changes vs v2: the first two lines swap (wheel close-up and "two temperatures" first). No new narration. Post it
-  48-72 h after v2 so the two hooks can be compared on 2 s hold and completion.
+  first; v2 and hook B follow 48-72 h apart as the variants.
 - Frame grabs: `grabs/` (0 s, 1 s, 2 s, end)
 
 ## Hook (on screen, as the first caption)
@@ -17,5 +17,5 @@ Every tire here has two temperatures.
 - **Pinned comment (all):** How do you bring yours in: slow out lap, or send it?
 
 ## When and where
-- All three platforms, same file. Suggested slot: weekday evening, 6-9 pm US Eastern, 48-72 h after v2 goes out.
+- All three platforms, same file. Suggested slot: weekday evening, 6-9 pm US Eastern. This one goes out first.
 - Ledger row when posted: ID `001-C`.

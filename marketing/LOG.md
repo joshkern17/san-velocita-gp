@@ -3,7 +3,49 @@
 One entry per run, newest at the top: what it looked at, what it made, what it's waiting on. The next run starts by
 reading the top entry.
 
-## 2026-10-18 · content bank: 4 explainers + 2 hook variants (read this first)
+## 2026-10-18 · fixes after the dev's review of the content bank (read this first)
+- **Verdict (TASTE.md):**
+  - Mostly good.
+  - Hook C is the lead tire post; v2 and B are its variants.
+  - The AI overlay look is approved, so ai-sees is READY.
+  - Dirty air needed fixes.
+  - The Spa corner names sounded French.
+- **Rules added:**
+  - Every shot must match its line, with no crash, spin or off unless the line is about one (BRAND §5, the
+    explainer-script skill).
+  - Foreign names are said the American-fan way: respelled in the TTS prompt, real spellings in the captions (TASTE,
+    the skill).
+- **Director:**
+  - Clean racing is the default: `settings.aiMistakes = 'off'` unless the shot list sets `"incidents": true`.
+  - A per-frame incident check covers cars in frame: contact, off road, spinning, wrecked. It's logged in
+    `.engine.json` and printed as `WARNING shot N (name): 1.4s capri off road`.
+  - The check caught real contact on two re-takes, and I didn't use them.
+  - New: `"focus": "auto"` and `"until": { "pass": true }`.
+- **Re-checked every queued video (1 s frame grids):**
+  - **Dirty air:** re-cut.
+    - The "getting past is the race" crash shot became a side-by-side pass.
+    - "On the straight, it flips / pulls you along" became a car in the tow, then a clean train; the tangle in the
+      turn was cut.
+    - "Hang back… pounce" became a follow-and-line-up shot.
+  - **AI sees:** re-cut. "Practice laps in secret" and "slides or runs wide" had a car spinning in smoke ahead, and the
+    end orbit too; all three re-filmed clean.
+  - **Tire temps, all three cuts (v2, B, C):** the whole GT shot list was re-filmed clean, and the readouts were
+    rebuilt from the new log. The old heli shot had cars spinning ahead.
+  - **Engines:** clean. Solo cars, nothing to fix.
+  - **Spa:** clean (car on track in every shot).
+- **Spa narration:** the three name sentences were re-voiced as "Oh Roozh" / "Ray-dee-yon" (picked over "Oh Rooj" /
+  "Raid-ill-on") and cut in whole at the pauses.
+- **Left as is:** GT1 cars throw tire smoke out of slow corners, so some shots still show puffs. The incident check
+  sees no contact, offs or spins in any shot used.
+- **ElevenLabs this round:** 1,404 credits (2 respellings × 4 takes). Run total: 11,091.
+- **Not committed:** `queue/2026-10-18-tire-temps/post.md` was edited by another session (its READY status). I left
+  it alone; its mp4 is now the clean re-cut.
+- **Next:**
+  - hook variants for 002-004;
+  - "I drew this corner, the AI learned it";
+  - Spa's start/finish once the pit lanes are fixed.
+
+## 2026-10-18 · content bank: 4 explainers + 2 hook variants
 - **READY:**
   - `tire-temps-hook-b`: a new narrated first line, "Thirty-five degrees. That's how cold this Miata's tires are."
   - `tire-temps-hook-c`: the first two lines swapped, no new audio.

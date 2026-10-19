@@ -65,6 +65,11 @@ Write 5 candidate hooks, score them against the four, keep the best as the main 
   going.").
 - **Dry, not jokey** (BRAND §1). One small aside at most. Never explain the joke.
 - **American English.**
+- **Foreign names, American mouth** (dev, 2026-10-18): corners, tracks and cars are said the way an American
+  enthusiast says them, not with a native accent ("no American pronounces Raidillon correctly"). In the TTS prompt,
+  respell them phonetically (Eau Rouge → "Oh Roozh", Raidillon → "Ray-dee-yon"; try 2-3 respellings and keep the take
+  that sounds most like a casual fan); captions keep the real spellings. Fix one by re-voicing the whole sentence and
+  cutting it in at the pauses, never by splicing a word.
 - **Banned:** "it's not X, it's Y" reveals; "no X, no Y, no Z" lists (EATMEAT gets away with it once, we don't need
   to); "game-changer", "insane", "next level", "immersive", "unleash"; rhetorical questions in the middle; a trailing
   clause after a comma that adds nothing.
@@ -81,7 +86,9 @@ Write 5 candidate hooks, score them against the four, keep the best as the main 
 Write `marketing/queue/<date>-<slug>/script.md` with:
 - the fact sheet (with sources);
 - the script as a table, one row per line: the line, the shot (director rig, or ANIM for the physics beat), the
-  on-screen readout if any, and the one amber word;
+  on-screen readout if any, and the one amber word. **The shot must show what its line says** (a pass for "getting
+  past is the race", a clean pack for "hang back"), with no crash, spin or off in frame unless the line is about one
+  (BRAND §5). The director races clean by default and warns per shot; check the warnings and the grabs before cutting;
 - the estimated runtime;
 - 2-3 alternative hook lines for the hook variants.
 

@@ -65,8 +65,8 @@
    ]
   },
   {
-   "name": "far B",
-   "v": "far-b.mp4",
+   "name": "far C",
+   "v": "far-c.mp4",
    "dur": 4.2,
    "lines": [
     {
@@ -79,8 +79,8 @@
    ]
   },
   {
-   "name": "heli C",
-   "v": "heli-c.mp4",
+   "name": "heli D",
+   "v": "heli-d.mp4",
    "dur": 3.7,
    "lines": [
     {

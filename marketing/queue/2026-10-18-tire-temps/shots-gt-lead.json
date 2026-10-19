@@ -1,0 +1,7 @@
+{ "name": "tire-temps-gt-lead", "aspect": "9:16", "seed": 8, "track": { "file": ".devtest/auburn2.json" }, "env": { "time": "day", "weather": "clear" },
+  "settings": { "temps": "normal" },
+  "race": { "car": "m1procar", "opponents": 7, "aiChassis": "class", "grid": "front" }, "warmup": 25,
+  "shots": [
+    { "rig": "heli", "dur": 4.4, "name": "s3" },
+    { "rig": "orbit", "dur": 7.2, "speed": 0.2, "name": "s8" }
+  ] }
