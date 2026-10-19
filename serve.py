@@ -79,16 +79,27 @@ def sync_tree(src, dst):
         if root != dst and not os.path.isdir(mine):
             shutil.rmtree(root, ignore_errors=True)
 
+cloud_busy = threading.Lock()
 def cloud_copy():
-    # saves/ -> iCloud Drive (never allowed to get in the way of the game)
-    if not CLOUD:
+    # saves/ -> iCloud Drive (never allowed to get in the way of the game): snapshot saves/ to a local staging folder
+    # under the save lock, then copy that to iCloud with the lock released, so a hung iCloud write (it happens: open()
+    # on a file iCloud is busy with can block for good) never holds up start-up or a save. One copy at a time.
+    if not CLOUD or not cloud_busy.acquire(blocking=False):
         return
     try:
+        stage = os.path.join(SAVES, '.cloudstage')
         with lock:
             for part in CLOUD_PARTS:
-                sync_tree(os.path.join(SAVES, part), os.path.join(CLOUD, part))
+                sync_tree(os.path.join(SAVES, part), os.path.join(stage, part))
+        for part in CLOUD_PARTS:
+            sync_tree(os.path.join(stage, part), os.path.join(CLOUD, part))
     except Exception as e:
         print('iCloud copy of saves failed:', e)
+    finally:
+        cloud_busy.release()
+
+def cloud_copy_bg():
+    threading.Thread(target=cloud_copy, daemon=True).start()
 
 cloud_timer = None
 def cloud_soon():
@@ -258,7 +269,7 @@ def watchdog(httpd):
 
 if CLOUD:
     cloud_restore()
-    cloud_copy()
+    cloud_copy_bg()
 
 with Server(('127.0.0.1', PORT), Handler) as httpd:
     url = f'http://localhost:{PORT}/'
@@ -273,4 +284,5 @@ with Server(('127.0.0.1', PORT), Handler) as httpd:
         pass
     if cloud_timer:
         cloud_timer.cancel()
-    cloud_copy()
+    t = threading.Thread(target=cloud_copy, daemon=True)
+    t.start(); t.join(20)   # a last copy, but a stuck iCloud doesn't keep the server alive
