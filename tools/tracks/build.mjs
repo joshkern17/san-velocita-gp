@@ -49,6 +49,13 @@ function bboxOf(pts, padM) {
 }
 
 async function layout(c) {
+  // (a measured lap: the layout as it is)
+  if (c.lap) {
+    const pts = JSON.parse(fs.readFileSync(path.join(HERE, 'ref', c.lap + '.lap.json'), 'utf8')).pts.map(p => ({ lat: p.lat, lon: p.lon, f: { n: null, layer: 0, tun: 0, w: p.w } }));
+    let L = 0; for (let i = 0; i < pts.length; i++) L += dist(pts[i], pts[(i + 1) % pts.length]);
+    console.log(`  layout: the measured lap (${pts.length} points), ${(L / 1000).toFixed(2)} km`);
+    return pts;
+  }
   const G = guideOf(c);
   // (outline: the guide's own line is the layout, where the map's roads don't trace it: a circuit newer than the
   // map, or an old layout since rebuilt)
@@ -363,7 +370,7 @@ try {
     const real = await realSurface(c, line, geo);
     const inp = { id: c.id, name: c.name, desc: c.desc, maxGrade: c.maxGrade, country: c.country, category: c.category, open: !!c.open, width: c.width, widths: c.widths,
       env: c.env, scatter: c.scatter, sea: !!c.sea, groundR: c.groundR, profile, profileRel, dem: c.dem, exag: c.exag, elevSmooth: c.elevSmooth, margin: c.margin, label: `${c.name}, ${c.country}`,
-      geo, line, osm, pitLane: real && real.pitLane, autoStart: !c.guide.f1 && !c.startBefore && !c.open, source: '© OpenStreetMap contributors' + (c.guide.f1 ? ' · outline: bacinger/f1-circuits' : '') + (c.dem ? ' · ' + DEM_CREDITS[c.dem] : '') + (c.photo ? ' · ' + ORTHO_CREDITS[c.photo] : '') + (fitCredit ? ' · ' + fitCredit : '') };
+      geo, line, osm, pitLane: real && real.pitLane, autoStart: !c.guide.f1 && !c.startBefore && !c.open, source: '© OpenStreetMap contributors' + (c.guide.f1 && !c.lap ? ' · outline: bacinger/f1-circuits' : '') + (c.dem ? ' · ' + DEM_CREDITS[c.dem] : '') + (c.photo ? ' · ' + ORTHO_CREDITS[c.photo] : '') + (fitCredit ? ' · ' + fitCredit : '') };
     const t0 = Date.now();
     const track = await page.evaluate(async (inp) => window.bake(inp, (s) => console.log(s)), inp);
     const shift = track._profileShift || 0; delete track._profileShift;
