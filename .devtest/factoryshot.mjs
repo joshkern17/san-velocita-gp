@@ -48,13 +48,13 @@ try {
   const walkTo = async (heading, ms) => { await pg.evaluate((h) => { const w = window.__svgp.dbg.walk; w.heading = h; w.camYaw = h; }, heading); await pg.keyboard.down('KeyW'); await pg.waitForTimeout(ms); await pg.keyboard.up('KeyW'); await pg.waitForTimeout(300); return at(); };
   await pg.evaluate((p) => { const w = window.__svgp.dbg.walk; w.pos.set(p.x, 0, p.z); w.camFrom = null; }, g(-5.7, -8.6, 0));
   console.log('through the doorway:', JSON.stringify(await walkTo(Math.PI, 2400)));
-  await pg.evaluate((p) => { const w = window.__svgp.dbg.walk; w.pos.set(p.x, 0, p.z); }, g(-7.3, -5.9, 0));
+  await pg.evaluate((p) => { const w = window.__svgp.dbg.walk; w.pos.set(p.x, 0, p.z); }, g(-7.3, -4.9, 0));
   const ys = [];
   await pg.evaluate(() => { const w = window.__svgp.dbg.walk; w.heading = Math.PI; w.camYaw = Math.PI; }); await pg.keyboard.down('KeyW');
   for (let i = 0; i < 18; i++) { await pg.waitForTimeout(400); ys.push(await at()); if (i === 7) await pg.screenshot({ path: join(out, 'fa-13-stairs.png') }); }
   await pg.keyboard.up('KeyW');
   console.log('up the stairs (x, y, z):', JSON.stringify(ys));
-  console.log('onto the walkway:', JSON.stringify(await walkTo(-Math.PI / 2, 1200)), 'along it:', JSON.stringify(await walkTo(0, 2600)), 'into the office:', JSON.stringify(await walkTo(-Math.PI / 2, 1800)));
+  console.log('onto the walkway:', JSON.stringify(await walkTo(-Math.PI / 2, 1200)), 'along it:', JSON.stringify(await walkTo(0, 3500)), 'into the office:', JSON.stringify(await walkTo(-Math.PI / 2, 1800)));
   await pg.screenshot({ path: join(out, 'fa-14-office-walk.png') });
   }
 } finally { await b.close(); server.kill(); }

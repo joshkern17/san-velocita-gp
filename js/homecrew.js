@@ -82,6 +82,7 @@ export class HomeCrew {
       if (!o.isMesh || (!shown(o) && !/^COL_/.test(o.name))) return;
       const nm = o.name || '', pn = (o.parent && o.parent.name) || '';
       if (/^(NAV|WALK)_/.test(nm) || /^(NAV|WALK)_/.test(pn)) return;
+      if (/door/i.test(nm) || /door/i.test(pn)) return;   // (a doorway's frame, its open leaf, the glass beside it: padded, they shut the way through)
       const b = new THREE.Box3().setFromObject(o); if (b.isEmpty()) return;
       const w = b.max.x - b.min.x, d = b.max.z - b.min.z; if (w * d > 8 && w > 0.3 && d > 0.3) return;
       boxes.push(b);
@@ -101,7 +102,11 @@ export class HomeCrew {
       const g = new Uint8Array(nx * nz), mine = boxes.filter(b => b.max.y >= y + 0.15 && b.min.y <= y + 1.7);
       for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
         const x = x0 + (i + 0.5) * CELL, z = z0 + (j + 0.5) * CELL;
-        let bad = !areas.some(a => x > a.min.x + 0.15 && x < a.max.x - 0.15 && z > a.min.z + 0.15 && z < a.max.z - 0.15);
+        // (in the floor, 0.15 m in from its outer edge: from the union's, not each piece's. A floor made of pieces that
+        // meet (the factory's upstairs: walkways, office, ops) was cut into islands along their joins, and the way up
+        // to a seat crossed the atrium's void in a straight line, down to the floor below)
+        const inU = (u, w) => areas.some(a => u >= a.min.x - 0.12 && u <= a.max.x + 0.12 && w >= a.min.z - 0.12 && w <= a.max.z + 0.12);   // (and across the hairline gaps where pieces meet)
+        let bad = !(inU(x, z) && inU(x - 0.15, z) && inU(x + 0.15, z) && inU(x, z - 0.15) && inU(x, z + 0.15));
         if (!bad) for (const b of mine) if (x > b.min.x - PAD && x < b.max.x + PAD && z > b.min.z - PAD && z < b.max.z + PAD) { bad = true; break; }
         g[i * nz + j] = bad ? 1 : 0;
       }
@@ -161,7 +166,7 @@ export class HomeCrew {
     if (s < 0 || t < 0) return [b];
     const g = new Float32Array(N).fill(Infinity), from = new Int32Array(N).fill(-1), done = new Uint8Array(N), open = [s]; g[s] = 0;
     const h = (k) => Math.hypot(Math.floor(k / nz) - Math.floor(t / nz), (k % nz) - (t % nz));
-    for (let it = 0; open.length && it < 9000; it++) {
+    for (let it = 0, cap = Math.max(9000, N * 1.5); open.length && it < cap; it++) {   // (the factory's floors are ~13k cells: 9000 gave up on the long ways round)
       let bi = 0; for (let q = 1; q < open.length; q++) if (g[open[q]] + h(open[q]) < g[open[bi]] + h(open[bi])) bi = q;
       const k = open[bi]; open[bi] = open[open.length - 1]; open.pop();
       if (k === t) break; if (done[k]) continue; done[k] = 1;
@@ -342,13 +347,19 @@ export class HomeCrew {
         moving = true;
         if (!p.path.length) p.L = a.L;
       } else {
-        // there: turned to face it first (on the spot), then what they came to do
+        // there: turned to face it first (on the spot), then what they came to do. On the wrong floor (under or over
+        // it): the way there again, by the stairs
+        if (a.L !== p.L && this.floors[a.L] && !p.repath) { p.repath = true; p.path = this.path(p.L, [p.x, p.z], a.L, [a.x, a.z]) || []; }
+        else if (a.L === p.L) p.repath = false;
         const d = wrap(a.yaw - p.yaw); p.yaw += d * Math.min(1, dt * 6);
         if (Math.abs(d) > 0.4 && !p.group) clip = 'idle';
         else if (!p.group) clip = this.doing(p, a, dt);
       }
       if (!moving && p.group) { const g = p.group, i = this.people.indexOf(p) + Math.floor(g.t / 7); clip = g.who[g.speaker] === p ? TALK[i % TALK.length] : LISTEN[i % LISTEN.length]; if (!hasClip(clip)) clip = 'idle'; }
       const gy = this.floorAt(p.x, p.y, p.z); p.y += (gy - p.y) * Math.min(1, dt * 12);
+      // (which floor they're on, from where they are: never just from the plan. A plan that thought someone was upstairs
+      // while they walked the ground floor took them under their seat, to sit on nothing)
+      { const Lh = this.levelOf(p.y, this.ys || [0]); if (Math.abs((this.ys || [0])[Lh] - p.y) < 0.25 && Lh !== p.L) { p.L = Lh; if (p.path.length && a.L !== Lh) p.path = this.path(Lh, [p.x, p.z], a.L, [a.x, a.z]) || p.path; } }
       const seated = !moving && SEATED.has(clip); p.seated = seated;
       const walkText = moving && p.texting, shows = walkText ? 'walk_text' : moving ? 'walk' : clip;
       if (p.prop) p.prop.visible = !seated && !HANDS_FULL.test(shows);
