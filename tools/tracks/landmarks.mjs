@@ -72,6 +72,8 @@ export function applyLandmarks(track, lm, log = console.log) {
     });
     const live = new Set(track.props.map(p => p.ln)); track.propLines = (track.propLines || []).filter(l => live.has(l.id));
   }
+  // (its runoff: what it's made of where, as the reference has it; the physics reads it too)
+  if (lm.surface) { o.surface = lm.surface; track.env.runoffStyle = 'real'; }
   track.landmarks = { url: lm.url, items };
   // (and the world's scattered trees kept out of the stands: world.js inLandmark)
   track.landmarks.stands = (track.props || []).filter(p => /^tp_stand_/.test(p.type)).map(p => [p.x, p.z, p.rot]);
