@@ -1,0 +1,9 @@
+{ "name": "steam-limerock", "aspect": "16:9", "res": "hd", "seed": 3, "silent": true,
+  "track": { "real": "limerock" }, "env": { "time": "day", "weather": "clear" },
+  "race": { "car": "miata", "livery": { "pattern": "split", "main": 952970, "accent": 16316658, "detail": 1052688, "number": 12, "sponsor": "PINE" }, "opponents": 11, "aiChassis": "class", "grid": "middle", "laps": 5 },
+  "warmup": 3,
+  "shots": [
+    { "rig": "trackside", "dur": 3, "at": 350, "ahead": 120, "stills": [1.0, 1.8, 2.6] },
+    { "rig": "heli", "dur": 3, "back": 26, "h": 13, "offset": -6, "stills": [1.0, 2.0] },
+    { "rig": "dolly", "dur": 3, "side": -1, "dist": 5, "from": 2.5, "to": 0.5, "h": 0.7, "stills": [1.0, 2.0] }
+  ] }

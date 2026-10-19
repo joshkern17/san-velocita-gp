@@ -1,0 +1,10 @@
+{ "name": "steam-spa", "aspect": "16:9", "res": "hd", "seed": 7, "silent": true,
+  "track": { "real": "spa" }, "env": { "time": "day", "weather": "clear" },
+  "race": { "car": "f40", "livery": { "pattern": "sash", "main": 16316658, "accent": 16722688, "detail": 1052688, "number": 40, "sponsor": "VOLTA" }, "opponents": 9, "aiChassis": "class", "grid": "middle", "laps": 5 },
+  "warmup": 6,
+  "shots": [
+    { "rig": "trackside", "dur": 3, "at": 1000, "ahead": 110, "stills": [1.0, 1.8, 2.6] },
+    { "rig": "dolly", "dur": 3, "at": 1100, "side": -1, "dist": 6, "from": 3, "to": 1, "h": 0.7, "stills": [0.8, 1.6, 2.4] },
+    { "rig": "heli", "dur": 3, "at": 2300, "back": 22, "h": 14, "offset": 8, "stills": [1.0, 2.0] },
+    { "rig": "trackside", "dur": 3, "at": 4300, "ahead": 90, "stills": [1.0, 2.0, 2.8] }
+  ] }

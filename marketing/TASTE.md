@@ -14,6 +14,18 @@ Lesson: <what to do differently / keep doing>
 
 ---
 
+## 2026-10-19 · how marketing decisions get made · DIRECTION (rule)
+What it was: the dev agreeing the cadence, the weekly mix, the scorecard and the Steam page plan.
+Said (their concern, as relayed): their past products failed because they stuck to their own taste over what converts.
+Lesson (a standing rule, STRATEGY §0):
+- **Taste governs how it looks:** the brand book, the voice, the polish bar.
+- **Data governs what we make:** topics, formats, hooks, length.
+- The scorecard rules (STRATEGY §4) are fixed before any results.
+- After 4 posts per format, the weaker format gets cut back regardless of preference, including mine and the dev's.
+- If a winning format looks off-brand, I make it look right instead of dropping it.
+- In this file, verdicts on *looks* stay binding; a verdict like "I don't like this format" is noted, but the scorecard
+  decides.
+
 ## 2026-10-18 · Spa scan narration · CHANGED (pronunciation)
 What it was: the narrator saying "Eau Rouge" and "Raidillon" with a proper French accent.
 Said: it sounds weird, "because no american pronounces raidillon correctly".

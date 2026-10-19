@@ -1,0 +1,65 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- Steam capsule drafts: one page, sized and filled by render.mjs (window.CAP). The wordmark is the game's / site's
+     (marketing/site/style.css .wordmark), the art is a real director still. No other text (Valve's capsule rules). -->
+<style>
+@font-face { font-family: "SV Display"; src: url("../../../site/fonts/SVDisplay-700.woff2") format("woff2"); font-weight: 700; }
+@font-face { font-family: "SV UI"; src: url("../../../site/fonts/SVUI-500.woff2") format("woff2"); font-weight: 500; }
+:root { --hot-top: #ff8a2a; --hot: #ff6a1c; --hot-deep: #ff3d0c; --red: #ff2b00; --ink: #05060c;
+  --signal: linear-gradient(90deg, #a9b0ff 0%, #6a72ff 30%, #2d36f2 65%, #5a1fd6 100%); --track: -0.02em; --track-cap: .34em; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { background: transparent; overflow: hidden; }
+#cap { position: relative; overflow: hidden; background: var(--ink); }
+#cap.clear { background: transparent; }
+#art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+#shade { position: absolute; inset: 0; }
+#trackline { position: absolute; overflow: visible; }
+#trackline path { fill: none; stroke-linejoin: round; stroke-linecap: round; }
+#trackline .g { stroke: var(--red); filter: drop-shadow(0 0 3px var(--red)) drop-shadow(0 0 8px var(--hot-deep)); }
+#trackline .r { stroke: #2b2c33; } #trackline .m { stroke: rgba(255,255,255,.7); }
+#trackline rect { fill: #fff; stroke: #05060c; }
+.wordmark { position: absolute; display: inline-block; }
+.wm-top { font: 700 100px/.84 "SV Display", "Helvetica Neue", Arial, sans-serif; text-transform: uppercase; letter-spacing: var(--track); white-space: nowrap;
+  background: linear-gradient(180deg, var(--hot-top) 0%, var(--hot) 45%, var(--hot-deep) 100%); -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; filter: blur(.0045em) drop-shadow(0 0 .015em var(--hot)) drop-shadow(0 .02em .06em rgba(5,6,12,.9)); padding-top: .04em; }
+.wm-top.stack { line-height: .86; }
+.wm-band { display: flex; align-items: center; gap: .16em; margin-top: .13em; font-size: 100px; }
+.wm-band span { font: 500 .24em/1 "SV UI", "Helvetica Neue", Arial, sans-serif; letter-spacing: var(--track-cap); color: var(--red); white-space: nowrap;
+  text-shadow: 0 0 .04em currentColor, 0 0 .1em currentColor, 0 0 .3em rgba(5,6,12,.9); margin-right: calc(-1 * var(--track-cap)); }
+.wm-line { flex: 1; min-width: .3em; height: max(1px, .02em); background: var(--red); box-shadow: 0 0 .02em var(--red), 0 0 .05em var(--red); }
+.signal { flex: none; width: 1.1em; height: .19em; background: var(--signal); transform: skewX(-20deg); filter: drop-shadow(0 0 .02em #6a72ff);
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 .055em, transparent .055em .085em); mask: repeating-linear-gradient(90deg, #000 0 .055em, transparent .055em .085em); }
+</style></head>
+<body><div id="cap"><img id="art" alt=""><div id="shade"></div><svg id="trackline"><path id="tp-glow" class="g"/><path id="tp-road" class="r"/><path id="tp-mid" class="m"/><g id="tp-nodes"></g></svg>
+<div class="wordmark" id="wm"><div class="wm-top" id="wmtop">San Velocita</div><div class="wm-band" id="wmband"><span>GRAND PRIX</span><i class="wm-line"></i><i class="signal"></i></div></div></div>
+<script>
+// window.CAP = { w, h, art, pos ('50% 50%'), zoom, shade (css background), wm: { x, y, size, anchor: 'tl'|'tc'|'bl'|'tr'|'c'|'bc', band: true, stack: false, width },
+//               track: { d (svg path, 0..1 box), x, y, w, h, stroke }, clear: true (no art: library logo) }
+window.build = (C) => {
+  const cap = document.getElementById('cap'); cap.style.width = C.w + 'px'; cap.style.height = C.h + 'px';
+  const art = document.getElementById('art');
+  if (C.art) { art.src = C.art; art.style.objectPosition = C.pos || '50% 50%'; if (C.zoom) { art.style.transform = `scale(${C.zoom})`; art.style.transformOrigin = C.pos || '50% 50%'; } } else art.remove();
+  if (C.clear) cap.classList.add('clear');
+  document.getElementById('shade').style.background = C.shade || 'none';
+  const tl = document.getElementById('trackline');
+  if (C.track) { const T = C.track; Object.assign(tl.style, { left: T.x + 'px', top: T.y + 'px', width: T.w + 'px', height: T.h + 'px' }); tl.setAttribute('viewBox', '0 0 1 1'); tl.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    // (drawn the way the circuit designer draws a road: a glowing edge, the asphalt, a dashed center line, node squares)
+    const k = T.stroke || 0.012;
+    for (const [id, w, dash] of [['tp-glow', k * 2.2], ['tp-road', k * 1.6], ['tp-mid', k * 0.18, `${k * 0.9} ${k * 0.9}`]]) {
+      const p = document.getElementById(id); p.setAttribute('d', T.d); p.style.strokeWidth = w; if (dash) p.style.strokeDasharray = dash; }
+    const g = document.getElementById('tp-nodes'), n = k * 0.9;
+    (T.nodes || []).forEach(([x, y]) => { const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      Object.entries({ x: x - n / 2, y: y - n / 2, width: n, height: n, 'stroke-width': n * 0.25 }).forEach(([a, v]) => r.setAttribute(a, v)); g.appendChild(r); });
+  } else tl.remove();
+  const wm = document.getElementById('wm');
+  if (!C.wm) { wm.remove(); return; }
+  const W = C.wm; wm.style.fontSize = W.size + 'px';
+  document.getElementById('wmtop').style.fontSize = W.size + 'px'; document.getElementById('wmband').style.fontSize = W.size + 'px';
+  if (W.stack) { const t = document.getElementById('wmtop'); t.innerHTML = 'San<br>Velocita'; t.classList.add('stack'); }
+  if (W.band === false) document.getElementById('wmband').remove();
+  const a = W.anchor || 'tl', r = wm.getBoundingClientRect();
+  const x = a === 'c' || a === 'bc' || a === 'tc' ? (C.w - r.width) / 2 + (W.x || 0) : a === 'tr' ? C.w - r.width - W.x : W.x;
+  const y = a === 'c' ? (C.h - r.height) / 2 + (W.y || 0) : a === 'bl' || a === 'bc' ? C.h - r.height - W.y : W.y;
+  wm.style.left = x + 'px'; wm.style.top = y + 'px';
+};
+</script></body></html>

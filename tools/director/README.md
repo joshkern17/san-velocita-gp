@@ -49,6 +49,13 @@ node tools/director/director.mjs tools/director/shots/example.json --only 3   # 
 - **No pit stops while filming** (the AI never decides to come in) unless the shot list sets `"pits": true`. The
   incident check also flags any car in frame (or the shot's car) that's pitting, and the pit lane itself in frame
   (within 250 m), so a pit-lane shot can't slip into a cut.
+- `"stills": [1.0, 2.6]` on a shot also saves those frames as PNGs at the output size
+  (`NN-<rig>-still-1.0s.png`), with the incident and pit check printed per still. Used for the Steam screenshots
+  (16:9, `"res": "hd"`).
+- **Stills with the HUD or the UI** (`tools/director/stills.mjs <stills.json>`) handle what the canvas grab can't show:
+  the race HUD (real time, AI driving), the Circuit Designer (with an optional 3D view), the Livery Designer, and the
+  World Career garage. The output is 1920×1080 with the how-to tips hidden. Example list:
+  `marketing/steam/screenshots/stills.json`.
 - `"until": { "pass": true }`: the focus car has committed to a move on the car ahead (racecraft out / dive).
 - `"focus": "auto"` with `"until"`: the first car in the field that meets the condition becomes the shot's car
   (finds a deep wake or a pass attempt in seconds instead of waiting on one car).
@@ -70,5 +77,7 @@ node tools/director/director.mjs tools/director/shots/example.json --only 3   # 
 ## Not yet
 - Sound follows your car and the two AI nearest the camera. A shot focused on another car still plays your car's engine.
 - No crash or impact sounds yet; no music or voice (those go in the edit).
-- Garage, editor (draw-a-track) and livery-designer scenes.
+- Garage, editor (draw-a-track) and livery-designer scenes **in motion** (stills work: `stills.mjs`). The editor is
+  first priority (CALENDAR 0.51).
+- HUD in a filmed shot (stills only, real time).
 - Grid starts: shots begin with the race already running.

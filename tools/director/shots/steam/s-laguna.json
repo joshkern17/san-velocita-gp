@@ -1,0 +1,69 @@
+{
+ "name": "steam-laguna",
+ "aspect": "16:9",
+ "res": "hd",
+ "seed": 5,
+ "silent": true,
+ "track": {
+  "real": "laguna"
+ },
+ "env": {
+  "time": "day",
+  "weather": "clear"
+ },
+ "race": {
+  "car": "porsche935",
+  "livery": {
+   "pattern": "arrow",
+   "main": 1714826,
+   "accent": 16761370,
+   "detail": 16316658,
+   "number": 35,
+   "sponsor": "MESA"
+  },
+  "opponents": 7,
+  "aiChassis": "class",
+  "grid": "middle",
+  "laps": 5
+ },
+ "warmup": 6,
+ "shots": [
+  {
+   "rig": "trackside",
+   "dur": 3,
+   "at": 2480,
+   "ahead": 140,
+   "stills": [
+    1.0,
+    1.8,
+    2.6
+   ]
+  },
+  {
+   "rig": "trackside",
+   "dur": 3,
+   "at": 2400,
+   "ahead": 200,
+   "h": 1.5,
+   "stills": [
+    1.0,
+    1.8,
+    2.6
+   ]
+  },
+  {
+   "rig": "dolly",
+   "dur": 3,
+   "at": 600,
+   "side": 1,
+   "dist": 6,
+   "from": 3,
+   "to": 1,
+   "h": 0.8,
+   "stills": [
+    1.0,
+    2.0
+   ]
+  }
+ ]
+}

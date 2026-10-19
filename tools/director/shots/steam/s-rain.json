@@ -1,0 +1,9 @@
+{ "name": "steam-rain", "aspect": "16:9", "res": "hd", "seed": 6, "silent": true,
+  "track": { "real": "suzuka" }, "env": { "time": "day", "weather": "rain" },
+  "race": { "car": "capri", "livery": { "pattern": "sash", "main": 16722688, "accent": 1052688, "detail": 16316658, "number": 8, "sponsor": "KOBRA" }, "opponents": 9, "aiChassis": "class", "grid": "middle", "laps": 5 },
+  "warmup": 6,
+  "shots": [
+    { "rig": "trackside", "dur": 3, "at": 900, "ahead": 100, "stills": [1.0, 1.8, 2.6] },
+    { "rig": "dolly", "dur": 3, "side": -1, "dist": 6, "from": 3, "to": 1, "h": 0.7, "stills": [1.0, 2.0] },
+    { "rig": "heli", "dur": 3, "back": 24, "h": 12, "offset": 6, "stills": [1.0, 2.0] }
+  ] }

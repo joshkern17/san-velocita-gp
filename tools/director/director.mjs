@@ -208,18 +208,26 @@ try {
     const file = join(OUT, `${String(k + 1).padStart(2, '0')}-${sh.rig}${sh.name ? '-' + sh.name : ''}.mp4`);
     const ff = spawn('ffmpeg', ['-v', 'error', '-y', '-f', 'image2pipe', '-c:v', 'png', '-framerate', String(FPS), '-i', '-',
       '-vf', `scale=${OW}:${OH}:flags=bicubic`, '-c:v', 'libx264', '-preset', 'slow', '-crf', '14', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', file], { stdio: ['pipe', 'inherit', 'inherit'] });
-    const log = []; const ts = Date.now(); let wakeK = null; const incidents = [], incSeen = new Set();
+    const log = []; const ts = Date.now(); let wakeK = null; const stillsMade = []; const incidents = [], incSeen = new Set();
     for (let i = 0; i < frames; i++) {
       const fr = await pg.evaluate(() => window.__dir.frame(true));
       log.push([i, fr.rpm, fr.kmh, fr.gear, fr.tS, fr.tC, fr.opt, fr.wake, fr.slip]); wakeK = fr.wakeK;
       for (const w of fr.inc || []) { const key = w + '@' + Math.floor(i / 30); if (!incSeen.has(key)) { incSeen.add(key); incidents.push([+(i / FPS).toFixed(1), w]); } }
-      if (!ff.stdin.write(Buffer.from(fr.png.split(',')[1], 'base64'))) await new Promise(r => ff.stdin.once('drain', r));
+      const png = Buffer.from(fr.png.split(',')[1], 'base64');
+      // "stills": [s, ...]: also keep these frames as PNG stills at the output size (Steam screenshots, thumbnails)
+      if (sh.stills && sh.stills.some(t => Math.round(t * FPS) === i)) {
+        const sp = file.replace(/\.mp4$/, `-still-${(i / FPS).toFixed(1)}s.png`);
+        await new Promise((res, rej) => { const f2 = spawn('ffmpeg', ['-v', 'error', '-y', '-f', 'png_pipe', '-i', '-', '-vf', `scale=${OW}:${OH}:flags=bicubic`, sp], { stdio: ['pipe', 'inherit', 'inherit'] }); f2.on('close', c => c ? rej(new Error('still ' + c)) : res()); f2.stdin.end(png); });
+        stillsMade.push([+(i / FPS).toFixed(1), fr.inc || []]);
+      }
+      if (!ff.stdin.write(png)) await new Promise(r => ff.stdin.once('drain', r));
     }
     ff.stdin.end(); await new Promise(r => ff.on('close', r));
     await pg.evaluate((k) => { const AU = window.__dir.au; if (AU.on) AU.shots[k] = AU.frames; AU.frames = null; }, k);
     done.push({ k, file });
     writeFileSync(file.replace(/\.mp4$/, '.engine.json'), JSON.stringify({ fps: FPS, cols: ['frame', 'rpm', 'kmh', 'gear', 'tireSurface[FL,FR,RL,RR]', 'tireCore', 'tireBest', 'wake (0..1, dirty air)', 'slip (0..1, tow)'], wakeK, incidents, rows: log }));
     if (incidents.length) console.log(`  WARNING shot ${k + 1} (${sh.name || sh.rig}): ` + incidents.slice(0, 8).map(([t, w]) => `${t}s ${w}`).join(', ') + (incidents.length > 8 ? ` (+${incidents.length - 8} more)` : ''));
+    for (const [t, inc] of stillsMade) console.log(`  still ${t}s` + (inc.length ? ' WARNING ' + inc.join(', ') : ' clean'));
     console.log(`shot ${k + 1}/${shots.length} ${sh.rig}: ${frames} frames in ${((Date.now() - ts) / 1000).toFixed(0)} s -> ${file.replace(ROOT + '/', '')}`);
   }
 

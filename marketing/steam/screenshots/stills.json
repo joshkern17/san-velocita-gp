@@ -1,0 +1,188 @@
+{
+ "out": "marketing/steam/screenshots/raw",
+ "scenes": [
+  {
+   "name": "livery-m1",
+   "type": "livery",
+   "car": "m1procar",
+   "livery": {
+    "pattern": "stripe",
+    "main": 16316658,
+    "accent": 16722688,
+    "detail": 1714826,
+    "number": 79,
+    "sponsor": "VOLTA"
+   },
+   "view": "three",
+   "tab": "decals"
+  },
+  {
+   "name": "livery-capri",
+   "type": "livery",
+   "car": "capri",
+   "livery": {
+    "pattern": "sash",
+    "main": 16722688,
+    "accent": 1052688,
+    "detail": 16316658,
+    "number": 8,
+    "sponsor": "KOBRA"
+   },
+   "view": "three",
+   "tab": "team"
+  },
+  {
+   "name": "editor-maple",
+   "type": "editor",
+   "track": {
+    "preset": "Maple Ridge GP"
+   },
+   "v3d": {
+    "at": 1500,
+    "side": 1,
+    "h": 14,
+    "back": 40,
+    "off": 10,
+    "turn": 0.4,
+    "pitch": -0.35
+   }
+  },
+  {
+   "name": "editor-laguna",
+   "type": "editor",
+   "track": {
+    "real": "laguna",
+    "hydrate": true
+   },
+   "v3d": {
+    "at": 2560,
+    "side": -1,
+    "h": 12,
+    "back": 60,
+    "off": 8,
+    "turn": 0.3,
+    "pitch": -0.3
+   }
+  },
+  {
+   "name": "career",
+   "type": "career",
+   "spot": "car"
+  },
+  {
+   "name": "hud-m1",
+   "type": "race",
+   "track": {
+    "real": "watkinsglen"
+   },
+   "env": {
+    "time": "day",
+    "weather": "clear"
+   },
+   "settings": {
+    "temps": "realistic",
+    "dirtyAir": "on",
+    "units": "mph",
+    "racingLine": "off"
+   },
+   "race": {
+    "car": "m1procar",
+    "livery": {
+     "pattern": "stripe",
+     "main": 16316658,
+     "accent": 16722688,
+     "detail": 1714826,
+     "number": 79,
+     "sponsor": "VOLTA"
+    },
+    "opponents": 9,
+    "grid": "back"
+   },
+   "camera": "chase",
+   "shots": [
+    12,
+    6,
+    6,
+    6
+   ]
+  },
+  {
+   "name": "hud-m3",
+   "type": "race",
+   "track": {
+    "preset": "Maple Ridge GP"
+   },
+   "env": {
+    "time": "day",
+    "weather": "clear"
+   },
+   "settings": {
+    "temps": "realistic",
+    "wear": "off",
+    "dirtyAir": "on",
+    "units": "mph",
+    "racingLine": "off"
+   },
+   "race": {
+    "car": "m3gtr",
+    "livery": {
+     "pattern": "arrow",
+     "main": 16316658,
+     "accent": 1714826,
+     "detail": 16722688,
+     "number": 3,
+     "sponsor": "NEON FM"
+    },
+    "opponents": 9,
+    "grid": "back"
+   },
+   "camera": "chase",
+   "shots": [
+    3,
+    2,
+    2,
+    3,
+    4
+   ]
+  },
+  {
+   "name": "hud-m3b",
+   "type": "race",
+   "track": {
+    "preset": "Maple Ridge GP"
+   },
+   "env": {
+    "time": "day",
+    "weather": "clear"
+   },
+   "settings": {
+    "temps": "realistic",
+    "wear": "off",
+    "dirtyAir": "on",
+    "units": "mph",
+    "racingLine": "off"
+   },
+   "race": {
+    "car": "m3gtr",
+    "livery": {
+     "pattern": "arrow",
+     "main": 16316658,
+     "accent": 1714826,
+     "detail": 16722688,
+     "number": 3,
+     "sponsor": "NEON FM"
+    },
+    "opponents": 9,
+    "grid": "back"
+   },
+   "camera": "chase",
+   "shots": [
+    7,
+    2,
+    2,
+    2
+   ],
+   "seed": 5
+  }
+ ]
+}

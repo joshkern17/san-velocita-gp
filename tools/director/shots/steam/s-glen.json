@@ -1,0 +1,70 @@
+{
+ "name": "steam-glen",
+ "aspect": "16:9",
+ "res": "hd",
+ "seed": 11,
+ "silent": true,
+ "track": {
+  "real": "watkinsglen"
+ },
+ "env": {
+  "time": "day",
+  "weather": "overcast"
+ },
+ "race": {
+  "car": "m3gtr",
+  "livery": {
+   "pattern": "stripe",
+   "main": 1052688,
+   "accent": 16722688,
+   "detail": 16316658,
+   "number": 3,
+   "sponsor": "NEON FM"
+  },
+  "opponents": 11,
+  "aiChassis": "class",
+  "grid": "middle",
+  "laps": 5
+ },
+ "warmup": 4,
+ "shots": [
+  {
+   "rig": "heli",
+   "dur": 3,
+   "at": 1300,
+   "back": 30,
+   "h": 16,
+   "offset": 6,
+   "stills": [
+    0.5,
+    1.5,
+    2.5
+   ]
+  },
+  {
+   "rig": "trackside",
+   "dur": 3,
+   "at": 1900,
+   "ahead": 100,
+   "stills": [
+    1.0,
+    1.8,
+    2.6
+   ]
+  },
+  {
+   "rig": "dolly",
+   "dur": 3,
+   "at": 2600,
+   "side": 1,
+   "dist": 6,
+   "from": 3,
+   "to": 1,
+   "h": 0.8,
+   "stills": [
+    1.0,
+    2.0
+   ]
+  }
+ ]
+}

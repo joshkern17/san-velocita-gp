@@ -1,0 +1,3 @@
+# raw takes are reproducible (node tools/director/stills.mjs screenshots/stills.json; tools/director/shots/steam/*.json)
+screenshots/raw/
+screenshots/stills-test.json

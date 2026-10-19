@@ -1,6 +1,33 @@
 # San Velocita GP: Marketing Strategy
 
 Draft 1, 2026-10-18. Built from three research passes, with sources at the end. Every rule here has a reason under it. If the reason stops being true, change the rule.
+Updated 2026-10-19 with what the dev agreed: the taste/data rule (§0), the cadence and weekly mix, the scorecard (§4), and the
+before-the-page rules (§5).
+
+---
+
+## 0. Taste governs how it looks; data governs what we make (agreed 2026-10-19)
+**The dev's own concern, in their framing:** their past products failed because they stuck to their own taste over what
+converts. So the two get separate jobs:
+- **Taste (the dev's, TASTE.md and BRAND.md) governs how it looks:**
+  - the brand book;
+  - the narrator voice;
+  - the polish bar;
+  - type, motion and color;
+  - "every shot matches its line."
+  The dev's verdicts here are final.
+- **Data governs what we make:**
+  - topics;
+  - formats;
+  - hooks;
+  - length;
+  - which pillar pairs get more posts.
+  These are decided by the §4 scorecard, with the rules fixed *before* the results come in.
+  - A format the dev likes that loses on the scorecard gets cut back anyway.
+  - A format nobody loves that wins gets more posts, made to the brand's polish bar.
+- **When the two collide** (a winning format that looks off-brand), the fix is to make the winner look right, not to drop
+  it. If it can't be made to look right, that's the one case for the dev's call, and it gets logged in TASTE.md as a
+  taste-vs-data decision.
 
 ---
 
@@ -48,7 +75,7 @@ A publisher's estimate (unaudited, but it matches every case study):
 | The developer's own posts | ~5% | Cheap, and they feed the 35% above. Not an end in themselves. |
 
 **Channel priority:**
-1. **The Steam page, before anything else.** One clip got 3.8M views and 0 wishlists because there was no page. 48% of FREERIDE's TikTok traffic came from people searching the name on Steam.
+1. **The Steam page, as early as possible.** One clip got 3.8M views and 0 wishlists because there was no page. 48% of FREERIDE's TikTok traffic came from people searching the name on Steam. Until the page is live, posts point to the website and its email list, and the pushes that convert only through Steam wait for it (§5).
 2. **A clip factory** (TikTok + Reels + Shorts), with clips built to be reposted.
 3. **A demo:** Steam demo plus the browser build. PolyTrack spread on play-in-browser alone, and Night-Runners' free prologue earned 22.7k reviews.
 4. **YouTube creators**, once the demo exists. This is the strongest documented lever (Dome Keeper +40k in a month).
@@ -94,7 +121,48 @@ A publisher's estimate (unaudited, but it matches every case study):
 - **Every version goes to all three platforms**, because results don't transfer: one clip got 6k on TikTok and 23k on Reels. Clean exports, no watermarks.
 - **Judge on** viewed-vs-swiped in the first 2 s, completion, and saves per view. Shares correlate weakly, so they don't count much.
 - **Winners get re-cut again**, then pitched to curator accounts.
-- **Cadence:** 3–4 posts a week, batch-made. Data says posting often matters more than any one video.
+- **Cadence (agreed 2026-10-19):**
+  - **3 new videos a week**, each cross-posted to TikTok, Reels and Shorts;
+  - **plus 2 re-cuts of the week's best** (a new hook, first shot or speed);
+  - that makes **5 posts a week per platform**, batch-made.
+  - Data says posting often matters more than any one video.
+
+### The weekly mix (agreed 2026-10-19)
+- **1 narrated explainer.** This is the main series above, at 25-60 s.
+- **2 quick, broad-audience formats**, at 15-30 s, rotating through four:
+  1. **Draw a track → drive it.** The editor, a road sketched in, Race It, then flat out on it. Pillar 1 (TRK × DRV).
+  2. **A livery that gets wrecked.** A 5 s paint time-lapse, then it gets wrecked (LIV × DRV). This is the one format
+     where a crash *is* the line, so it's filmed with `"incidents": true`.
+  3. **An unscripted AI moment.** A photo finish, a pass, a save (DRV × AI). It's real AI racing, never staged.
+  4. **"Do Spa" comment replies.** A viewer names a real track; we reply with its LiDAR version and a lap (TRK × DRV).
+     Until there are comments to answer, it runs on the rival's and r/simracing's most-asked tracks.
+- **Draw-a-track goes first.** None of the 7 videos ready on 2026-10-19 shows pillar #1 (they are tire temps ×3,
+  engines, Spa scan, dirty air, AI sees). **The director has to film the track editor first** (CALENDAR 0.51).
+- Until the director can film the editor, the second quick slot is an unscripted AI moment.
+- Each of these four formats is new, so the first episode of each needs the dev's OK on its look (BRAND §8).
+  After that, episodes run inside the approved format.
+
+### The scorecard: decision rules, fixed before any results (agreed 2026-10-19)
+Written down before the first post so nobody, including the dev or me, can rationalize a favorite afterwards.
+- **What's compared:** the formats in the weekly mix, each against the others, on the same platform.
+- **When:** after **4 posts per format** (re-cuts count as posts of their format).
+- **Three numbers per post,** read from each platform's analytics 7 days after posting:
+  | Metric | What it is | Where |
+  |---|---|---|
+  | **2 s hold** | % of viewers still there at 2 s (viewed vs swiped) | TikTok "viewed vs swiped away" / Reels "skip rate" (100 − skip) / Shorts "stayed to watch" |
+  | **Completion** | % who watched to the end | TikTok "watched full video" / Reels and Shorts average % viewed |
+  | **Steam intent per 1k views** | Steam clicks per 1k views; until the page is live, profile visits per 1k views | UTM'd link clicks (Steam UTM report) / profile visits |
+- **The rule:**
+  - Rank the formats on each metric by their median over the 4 posts.
+  - A format that ranks **last on 2 of the 3 metrics** gets cut back to one post every other week.
+  - Its slot goes to the leader.
+  - If it's a tie, Steam intent decides, because it's closest to a wishlist.
+- **Regardless of preference.** The dev's taste can change how the winner looks, but not whether it runs (§0).
+- **Re-checked every 4 weeks.** A cut format can come back only on new evidence, such as a new hook that beats it in a
+  re-cut test.
+- **The narrated explainer** is scored the same way against its own past episodes (topic vs topic). It's the approved
+  main series, so it isn't cut. Its topics are chosen by the scorecard.
+- **The ledger (CALENDAR.md)** carries these three columns for every post.
 
 ### Hook bank (pillar pair → template)
 | Pair | Template | Evidence |
@@ -122,10 +190,30 @@ A publisher's estimate (unaudited, but it matches every case study):
 
 | When | What | Why then |
 |---|---|---|
-| **Now–mid Nov 2026** | Brand book, accounts, director mode, Remotion template. **Steam Coming Soon page** with capsule art, a ~30 s trailer and tags. Clips start the day the page is live. | The page must exist before any clip, and Backseat Champions' launch (Nov 13) brings people who search this niche. |
+| **Now–mid Nov 2026** | Brand book, accounts, director mode, Remotion template. **Steam Coming Soon page** with capsule art, a ~30 s trailer and tags (the kit: `steam/`). **Aim: the page live before Nov 13** (Backseat Champions' EA launch) if the dev's Steamworks account clears in time. Valve reviews a page in 3-5 business days, so it goes in by about **Nov 4**. Posting starts as soon as the accounts exist and doesn't wait for the page (see below). | Backseat Champions' launch (Nov 13) brings people who search this niche. |
 | **Dec 2026–Jan 2027** | A demo built to hold players (Gold-tier demos hold a median 38 min). Browser build plus Steam demo. Small Discord. Creator outreach starts once the demo exists. | Demos released well before Next Fest earned ~2.5× more. Creators need something to play. |
 | **Feb 2027 Next Fest** if at 2k+, otherwise **June 2027** | Next Fest push: batch 5–15 strong clips the week before. Look for the vehicle-themed Steam festival ("Start Your Engine", applications ~March). | One shot per game, so enter loaded. |
 | **Launch: 6–12 months after the page** | Hard date (needed for players' personal calendars on Steam), launch trailer, creator keys. | Avoid the run-up to the big Steam sales. |
+
+### Before the Steam page is live (agreed 2026-10-19)
+- **Allowed now:**
+  - Posting the weekly mix.
+  - Every post and bio points to **the website and its email list** (a sign-up now becomes a launch email later).
+- **Waits for the Steam page:**
+  - curator pitches;
+  - Reddit pushes;
+  - creator outreach.
+  These only pay off as wishlists, and a pitch without a page wastes the contact. A curator or creator usually gives
+  a game one look.
+- **The day the page goes live:**
+  - Links switch to Steam (with UTM tags, for the scorecard's Steam intent).
+  - The best clip so far gets a re-cut ending on "Wishlist on Steam".
+  - The outreach queue opens.
+
+### Money
+- The **$100 Steam Direct fee** is the dev's, paid by them.
+- Valve pays it back once the game makes **$1,000 adjusted gross revenue** (it shows in the payment after that point).
+- Nothing else is spent (§6).
 
 ## 6. What the head of marketing does alone vs asks you
 - **Alone:**

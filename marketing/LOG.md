@@ -3,7 +3,74 @@
 One entry per run, newest at the top: what it looked at, what it made, what it's waiting on. The next run starts by
 reading the top entry.
 
-## 2026-10-18 · end shots: the dirty-air pit orbit, plus a pit check (read this first)
+## 2026-10-19 · Steam store page kit + the strategy the dev agreed (read this first)
+- **The dev committed to the Coming Soon page.** They're paying the $100 Steam Direct fee themselves. I submit
+  nothing; the kit is for them to paste.
+- **Research:** `research/steam-store-specs.md`, from Valve's live docs plus howtomarketagame.
+  - Asset sizes changed in Aug 2024: header 920×430, small 462×174, main 1232×706, vertical 748×896, library
+    600×900, hero 3840×1240.
+  - The capsule text rules.
+  - Screenshots: the first 4 show in the hover.
+  - Images and GIFs in the description are 1170 px wide, 12 s max.
+  - Page review takes 3-5 business days, so it goes in **by about Nov 4** to be live by Nov 13.
+  - The release wait is 21 days.
+  - The fee is recouped at $1,000.
+  - Steam's live tag list has **no "Sim Racing", "PS1" or "Low-poly" tag**.
+- **A build audit for the copy** (every claim checked; notes at the end of COPY.md):
+  - 14 real circuits. "Most" have LiDAR or laser elevation; Madring has none.
+  - Online play for up to 8 players.
+  - The audit says the co-op World Career is built. The dev says the shared career is in the works, so the copy
+    follows the dev.
+  - Force feedback needs a helper app, so it isn't claimed.
+  - There's no Steam build or wrapper yet, so the system requirements are an estimate.
+- **Made (`steam/`):**
+  - **`COPY.md`:** the short description (256 characters), About This Game in pillar order with 5 GIF slots, 20 tags
+    with reasons, genre and categories, and the draft system requirements. **NEEDS OK** on trademarks: "Gran Turismo
+    2", circuit names, "PS1-era". ALT lines are included.
+  - **`SCREENSHOTS.md` + 10 PNGs at 1920×1080,** ordered HUD → editor → Spa → livery → garage → rain → club pack →
+    editor on a map → night → 935.
+    - Every one passed the director's incident and pit check.
+    - Flags: the M1's badge, the Esri imagery in #8, the Miata model's licence (#5, #7).
+  - **`CAPSULES.md` + `capsules/{A,B,C}/`:** all the store and library assets in three directions (A the race, B the
+    car, C draw-it-drive-it), plus `capsules/review.png`.
+    - The wordmark reads at 184×69 and 120×45.
+    - My pick is C. **NEEDS OK.**
+  - **`TRAILER.md`:** 40 s, driving in the first 6 s (the microtrailer), "DRAW A TRACK." at 5 s, the wishlist end
+    card, and a 14-shot director list. **NEEDS OK.** Not rendered.
+- **Tooling (marketing only):**
+  - `director.mjs` takes `"stills": [s…]` per shot, for PNG stills with the incident check.
+  - New `tools/director/stills.mjs`: 1920×1080 stills with the HUD and UI (race HUD, Circuit Designer, Livery
+    Designer, career garage).
+  - Shot lists in `tools/director/shots/steam/`.
+  - Lessons from filming:
+    - Dusk renders pink on Laguna and Lime Rock, so store frames are shot in daylight.
+    - Races start beside the pit lane, so use `at`.
+    - Race tires start warm (about 82°C), so "cold" shows only once they cool on a straight.
+- **Strategy (the dev agreed this; STRATEGY §0, §4, §5; TASTE; CALENDAR):**
+  - Taste governs how it looks; data governs what we make.
+  - 3 new videos plus 2 re-cuts = 5 posts a week per platform.
+  - The weekly mix: 1 explainer plus 2 quick formats (draw a track → drive it, a livery that gets wrecked, an
+    unscripted AI moment, "do Spa" replies). Draw-a-track goes first, which needs **0.51, the director filming the
+    editor**.
+  - The scorecard, fixed before results: after 4 posts per format, compare 2 s hold, completion and Steam intent per
+    1k. Last on 2 of 3 gets cut back.
+  - Before the page is live: post, pointing to the site and email list. Curators, Reddit and creators wait for the
+    page.
+  - The fee is recouped at $1,000.
+- **Last commit seen:** 513fd7d.
+- **Waiting on the dev:**
+  - the copy's trademark answer;
+  - a capsule direction;
+  - the trailer plan;
+  - a true line for "Made by one person";
+  - the system requirements, measured on a low-end PC;
+  - their Steamworks account.
+- **Next:**
+  - 0.51: the director films the editor (draw a stroke, Race It, the same track raced). It unblocks the first
+    draw-a-track video, the trailer and GIF 1.
+  - Then the first quick-format episodes for the dev's look-OK.
+
+## 2026-10-18 · end shots: the dirty-air pit orbit, plus a pit check
 - **The miss:** the dev caught the dirty-air closing orbit (the 935 sliding into the pit lane and pitting). I'd
   wrongly left it in the last round.
 - **Director:**
