@@ -53,7 +53,7 @@ UZ = 4.2                                     # (upstairs)
 RH = 3.8                                     # (the ground floor rooms' ceilings)
 BAY1, BAY2, BAY3 = Vector((-4.0, -0.3, 0)), Vector((1.0, -0.3, 0)), Vector((6.0, -0.3, 0))
 ROT = Vector((-16.6, -9.6, 0)); ROT_R = 3.2  # (the rotunda)
-ST_X0, ST_X1, ST_Y0, ST_Y1 = -8.0, -6.6, -5.6, 0.4   # (the stairs, up the atrium's left edge)
+ST_X0, ST_X1, ST_Y0, ST_Y1 = -8.0, -6.6, -4.6, 1.4   # (the stairs, up the atrium's left edge; 1.9 m back from its glass and doorway)
 WALK_W = 1.5                                 # (the walkways' width)
 CTL_Y1 = -3.4                                # (the tunnel's control pod: over the hall's front, x 10..19, y -6.5..-3.4)
 
@@ -212,6 +212,7 @@ solid('Back_Front', (X0, CY1, 0), (X1, CY1, 0), RH, greyw, opens=((11.4, 13.2, 3
 for x in (-3.0, 6.0): solid(f'Back_Side{x:+.0f}', (x, CY1, 0), (x, Y1, 0), RH, greyw)
 rectf('Ceil_Back', X0, CY1, X1, Y1, RH, white, up=False)
 rectf('Ceil_Corridor', AX0, AY1, X1, CY1, RH, white, up=False)
+solid('Atrium_ToolWall', (-6.7, AY1 + 0.1, 0), (-3.3, AY1 + 0.1, 0), RH, white)   # (behind the bench, SLOT_tools: its rack and air reel hang on it; open to the corridor, they floated)
 solid('Dyno_Split', (12.5, CY1, 0), (12.5, Y1, 0), RH, dark, opens=((2.0, 3.2, 2.2),))   # (two cells; the control between, later)
 
 # ======================================================================================================================

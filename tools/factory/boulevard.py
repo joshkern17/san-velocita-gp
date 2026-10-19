@@ -44,7 +44,7 @@ def framed(name, coll, size, c, mat, bev=0.006, a=0.0):   # (a box in that frame
 # ======================================================================================================================
 # the plinths: five along the curve, each turned with the glass, its slab floating on a line of light
 L_P, W_P = 5.4, 2.6
-X_FROM, X_TO = -12.9, 17.3
+X_FROM, X_TO = -12.9, 16.9   # (the last ends clear of the Hall of Fame's floor: they overlapped)
 NP = 5
 xs = [X_FROM + L_P / 2 + k * ((X_TO - X_FROM - L_P) / (NP - 1)) for k in range(NP)]
 plinths = []
@@ -147,8 +147,8 @@ for j in range(4):
     bx(f'PHOTO_{j:02d}_LightLens', FB, (0.03, 0.36, 0.006), (HX - 0.13, y, z + 0.313), edge)
     rd(f'PHOTO_{j:02d}_LightArm', FB, (HX - 0.065, y, z + 0.36), (HX - 0.12, y, z + 0.345), 0.008, steel, verts=5)
 # its floor: a dark inlay with a stainless border in front of the wall
-poly('Fb_HoF_Floor', FB, [(HX - 2.4, HY0, 0.003), (HX, HY0, 0.003), (HX, HY1, 0.003), (HX - 2.4, HY1, 0.003)], slab)
-for j, (a_, b_) in enumerate((((HX - 2.4, HY0), (HX - 2.4, HY1)), ((HX - 2.4, HY0), (HX - 0.6, HY0)), ((HX - 2.4, HY1), (HX - 0.6, HY1)))):
+poly('Fb_HoF_Floor', FB, [(HX - 1.7, HY0, 0.003), (HX, HY0, 0.003), (HX, HY1, 0.003), (HX - 1.7, HY1, 0.003)], slab)
+for j, (a_, b_) in enumerate((((HX - 1.7, HY0), (HX - 1.7, HY1)), ((HX - 1.7, HY0), (HX - 0.6, HY0)), ((HX - 1.7, HY1), (HX - 0.6, HY1)))):
     beam(f'Fb_HoF_Inlay{j}', FB, (*a_, 0.004), (*b_, 0.004), 0.03, 0.004, steel)
 
 # ======================================================================================================================

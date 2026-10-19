@@ -309,10 +309,10 @@ for t, (x, y, n) in enumerate(((-10.2, 10.2, 3), (-7.0, 12.3, 4), (-4.0, 10.3, 3
     for k in range(n):
         a = k / n * math.tau + t; cafe_chair(f'Fr_Cafe_Chair{t}{k}', x + math.cos(a) * 0.72, y + math.sin(a) * 0.72, a - D90)
     cup(f'Fr_Cafe_Cup{t}', (x + 0.1, y - 0.1, CZ + 0.74)); magazine(f'Fr_Cafe_Paper{t}', (x - 0.12, y + 0.1, CZ + 0.74), 0.4 + t, t % 3) if t % 2 else None
-bbox('Fr_Cafe_Ledge', FR, (10.6, 0.34, 0.04), (-4.0, CY1 + 0.22, CZ + 1.04), stone, bev=0.006)
-for k, x in enumerate((-8.6, -6.6, -4.6, -2.6, -0.6)):
+bbox('Fr_Cafe_Ledge', FR, (8.3, 0.34, 0.04), (-2.85, CY1 + 0.22, CZ + 1.04), stone, bev=0.006)   # (from past the door at x -8.5..-7.4: it ran across it)
+for k, x in enumerate((-6.6, -4.6, -2.6, -0.6, 1.0)):
     rd(f'Fr_Cafe_LedgeBracket{k}', FR, (x, CY1 + 0.06, CZ + 1.0), (x, CY1 + 0.3, CZ + 1.0), 0.01, chrome, verts=4)
-for k in range(7): stool(f'Fr_Cafe_Stool{k}', (-8.9 + k * 1.5, CY1 + 0.7, CZ))
+for k in range(6): stool(f'Fr_Cafe_Stool{k}', (-6.3 + k * 1.4, CY1 + 0.7, CZ))
 plant('Fr_Cafe_Plant', 1.4, 13.5, CZ, 1.4)
 stand(23, (-7.0 + 0.72 * math.cos(1.0), 12.3 + 0.72 * math.sin(1.0), CZ), 1.0 - D90, 'sit_idle'); stand(24, (-4.6, CY1 + 0.75, CZ), math.pi, 'lean')
 

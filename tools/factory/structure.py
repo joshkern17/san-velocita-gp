@@ -221,14 +221,14 @@ sign('Fs_Rot_Exit', 'fa_st_exit', sp, (-du.x, -du.y), 0.56, 0.2, emit=1.4)
 for s in (-1, 1): rd(f'Fs_Rot_ExitPost{s}', FS, sp + dp_ * s * 0.2 - Vector((0, 0, 0.26)), sp + dp_ * s * 0.2 - Vector((0, 0, 0.12)), 0.008, stain, verts=4)
 # the reception desk: curved round the far side (its back to the tire bay), layered: a recessed plinth, the white body
 # with a lit band, the counter, the raised ledge for visitors, the work top behind it
-A0, A1 = math.pi * 0.42, math.pi * 0.86
-arc_solid('Fs_Desk_Plinth', ROT, 2.05, 2.55, A0 + 0.02, A1 - 0.02, 0.0, 0.08, blk, segs=18)
-arc_solid('Fs_Desk_Body', ROT, 1.98, 2.6, A0, A1, 0.08, 1.04, deskw, segs=18)
-arc_solid('Fs_Desk_Band', ROT, 1.96, 1.985, A0 + 0.01, A1 - 0.01, 0.2, 0.26, cool, segs=18)
-arc_solid('Fs_Desk_Counter', ROT, 1.88, 2.66, A0 - 0.01, A1 + 0.01, 1.04, 1.09, deskw, segs=18)
-arc_solid('Fs_Desk_Ledge', ROT, 1.86, 2.02, A0 + 0.04, A1 - 0.04, 1.09, 1.17, stain, segs=18)
-arc_solid('Fs_Desk_Worktop', ROT, 2.3, 2.62, A0 + 0.03, A1 - 0.03, 0.72, 0.75, stone, segs=18)
-for a in (A0 + 0.05, (A0 + A1) / 2, A1 - 0.05): p = on(a, 2.46); bbox(f'Fs_Desk_Leg{a:.2f}', FS, (0.05, 0.05, 0.64), (p.x, p.y, 0.4), stain, bev=0.008)
+A0, A1 = math.pi * 0.54, math.pi * 0.82   # (centred on the team wall, 0.2 m in from it: at the wall's own ends it ran into them)
+arc_solid('Fs_Desk_Plinth', ROT, 1.85, 2.35, A0 + 0.02, A1 - 0.02, 0.0, 0.08, blk, segs=18)
+arc_solid('Fs_Desk_Body', ROT, 1.78, 2.40, A0, A1, 0.08, 1.04, deskw, segs=18)
+arc_solid('Fs_Desk_Band', ROT, 1.76, 1.79, A0 + 0.01, A1 - 0.01, 0.2, 0.26, cool, segs=18)
+arc_solid('Fs_Desk_Counter', ROT, 1.68, 2.46, A0 - 0.01, A1 + 0.01, 1.04, 1.09, deskw, segs=18)
+arc_solid('Fs_Desk_Ledge', ROT, 1.66, 1.82, A0 + 0.04, A1 - 0.04, 1.09, 1.17, stain, segs=18)
+arc_solid('Fs_Desk_Worktop', ROT, 2.10, 2.42, A0 + 0.03, A1 - 0.03, 0.72, 0.75, stone, segs=18)
+for a in (A0 + 0.05, (A0 + A1) / 2, A1 - 0.05): p = on(a, 2.26); bbox(f'Fs_Desk_Leg{a:.2f}', FS, (0.05, 0.05, 0.64), (p.x, p.y, 0.4), stain, bev=0.008)
 
 # ======================================================================================================================
 # the feature stair: closed white stringers, dark treads with lit nosings, glass to the atrium in a shoe with a
