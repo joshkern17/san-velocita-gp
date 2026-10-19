@@ -15,6 +15,8 @@
 //             moved to the middle of the edges they show and takes their width: photofit.js)
 //   camber:   false to keep the road level across; true to measure it from gsi's 5 m model anyway (build.mjs roadCamber)
 //   env:      track env (time, weather, laps, setting...) merged over the defaults
+//   geo:      [lat, lon] the track's frame pinned (else the layout's middle): what's laid out in it (landmarks, stands,
+//             runoff) stays put when the line is edited
 //   lap:      a measured lap file (tools/tracks/ref/<id>.lap.json: { pts: [{ lat, lon, w }] }, start line first) used
 //             as the layout as it is, centre line and widths (a layout the map doesn't have: measured off a reference)
 //   maxGrade: the steepest the real road gets (default 0.18): the elevation data is coarse and smears hillsides
@@ -138,7 +140,7 @@ export const CATALOG = [
     id: 'indy', name: 'Indianapolis', country: 'USA', category: 'gp',
     dem: 'usgs',
     desc: 'Road course · the Brickyard\'s infield circuit: Turn 1 off the front straight, the Hulman straight, the short chute and the Turn 13 complex inside the oval',
-    guide: { f1: 'Indianapolis Motor Speedway' }, lap: 'indy', photoFit: false, roads: RACEWAY, skip: PIT, width: 14,
+    guide: { f1: 'Indianapolis Motor Speedway' }, lap: 'indy', geo: [39.794157, -86.236038], photoFit: false, roads: RACEWAY, skip: PIT, width: 14,
     env: { theme: 'grass', time: 'day', weather: 'clear', laps: 3, opponents: 11, setting: { kind: 'none', flora: 'mixed', seed: 1909 } },
     scatter: { mix: 'mixed', r: 60, d: 0.06 },
   },

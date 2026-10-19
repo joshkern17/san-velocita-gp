@@ -374,7 +374,7 @@ try {
       profile = line.map(p => [p.lat, p.lon, +(p.f.y + off).toFixed(2), p.f.b]);
     }
     if (process.env.DUMP_PROFILE) fs.writeFileSync(process.env.DUMP_PROFILE, JSON.stringify({ profile, line: line.map(p => [p.lat, p.lon, p.f]) }));
-    const geo = centre(line); // (a reference road is measured in the OSM layout's frame: it keeps that origin)
+    const geo = c.geo ? { lat: c.geo[0], lon: c.geo[1] } : centre(line); // (a reference road is measured in the OSM layout's frame: it keeps that origin; geo: a frame pinned)
     let profileRel = false;
     if (REF) ({ line, profile, rel: profileRel } = refRoad(REF, line, profile));
     const real = await realSurface(c, line, geo);
