@@ -188,9 +188,11 @@ export function buildWorld(track, T, A, opts = {}) {
   const pitSide = (i, side) => pit && pit.REG[i] >= 0 && side === pit.side;
   // (nothing of the scenery in the pit lane, nor inside the circuit's own landmarks: track.landmarks, realworld.js)
   const LMK = (track.landmarks && track.landmarks.items || []).map(L => ({ ...L, c: Math.cos(L.rot || 0), s: Math.sin(L.rot || 0) }));
-  const inLandmark = (x, z) => LMK.some(L => { const dx = x - L.x, dz = z - L.z, u = dx * L.c + dz * L.s, v = -dx * L.s + dz * L.c; return Math.abs(u) < L.hw + 4 && Math.abs(v) < L.hd + 4; });
+  const LMS = (track.landmarks && track.landmarks.stands || []).map(([x, z, r]) => ({ x, z, c: Math.cos(r), s: Math.sin(r) })); // (its stands: the pack's, 14 x ~11 m)
+  const inLandmark = (x, z) => LMK.some(L => { const dx = x - L.x, dz = z - L.z, u = dx * L.c + dz * L.s, v = -dx * L.s + dz * L.c; return Math.abs(u) < L.hw + 4 && Math.abs(v) < L.hd + 4; })
+    || LMS.some(S => { const dx = x - S.x, dz = z - S.z; return Math.abs(dx * S.c - dz * S.s) < 10 && Math.abs(dx * S.s + dz * S.c) < 9; });
   const inPitZone = (x, z) => {
-    if (LMK.length && inLandmark(x, z)) return true;
+    if ((LMK.length || LMS.length) && inLandmark(x, z)) return true;
     if (!pit) return false;
     let hit = false;
     A.hash.query(x, z, 30, (j) => {

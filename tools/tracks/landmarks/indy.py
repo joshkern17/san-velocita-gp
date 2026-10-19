@@ -384,29 +384,47 @@ pagoda(); pylon(); media(); garages(); museum(); bridge(); small(); towers()
 
 # ---------------- where the grandstands go (the trackside pack's covered and flags stands: the game places them) ----
 # The reference's stands (tools/tracks/landmarks/indy-stands.json: stations every 4 m along the oval, the stand's front
-# and back m out from the oval's middle line, its height) as straight runs ~36 m long, at the front of where each real
-# stand stands, facing the track; tools/tracks/landmarks.mjs makes them lines of stands (9 m apart). Inside the front
-# straight: behind the pit garages, clear of the Pagoda and the media center.
+# and back m out from the oval's middle line, its height) as smooth curved lines: the front edge eased along each run
+# (the real stands are blocks, their fronts step), a node every 9 m, one stand at each, turned to face the track where
+# it stands. tools/tracks/landmarks.mjs makes them lines of stands (and drops the map's straight ones along them).
+# Inside the front straight: behind the pit garages, clear of the Pagoda and the media center.
+GAP = 9.0
+
+
 def stand_lines():
     R = json.load(open(os.path.join(HERE, 'indy-stands.json')))
     keep_out = [L for L in LM if L['kind'] != 'stand']
-    blocked = lambda x, z, pad: any(abs((x - L['x']) * math.cos(L['rot']) + (z - L['z']) * math.sin(L['rot'])) < L['hw'] + pad and abs(-(x - L['x']) * math.sin(L['rot']) + (z - L['z']) * math.cos(L['rot'])) < L['hd'] + pad for L in keep_out)
+    def blocked(x, z, pad):
+        for L in keep_out:
+            c, s_ = math.cos(L['rot']), math.sin(L['rot']); dx, dz = x - L['x'], z - L['z']
+            if abs(dx * c + dz * s_) < L['hw'] + pad and abs(-dx * s_ + dz * c) < L['hd'] + pad: return True
+        return False
+    def ease(v, k):   # (a moving average, ends held)
+        v = np.asarray(v, float); p = np.r_[np.full(k, v[0]), v, np.full(k, v[-1])]
+        return np.convolve(p, np.ones(2 * k + 1) / (2 * k + 1), 'valid')
     out = []
     for side, runs in R.items():
         for ri, run in enumerate(runs):
             fam = 'stand_roof' if (side == 'outer') == (ri % 2 == 0) else 'stand_flags'
             dep = 11.2 if fam == 'stand_roof' else 8.1
-            for k0 in range(0, len(run) - 3, 9):
-                ch = run[k0:k0 + 9]   # (32 m: its stands at 0, 9, 18, 27 m; the next run's first 9 m on)
-                if len(ch) < 4: continue
-                a = float(np.median([q[4] for q in ch]))
-                if side == 'inner': a = max(a, 34)
-                off = a + dep / 2 + 0.5
-                p0 = (ch[0][0] + ch[0][2] * off, ch[0][1] + ch[0][3] * off); p1 = (ch[-1][0] + ch[-1][2] * off, ch[-1][1] + ch[-1][3] * off)
-                if any(blocked(x, z, 6) for x, z in (p0, p1, ((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2))): continue
-                nx, nz = ch[len(ch) // 2][2], ch[len(ch) // 2][3]
-                out.append({'a': [round(p0[0], 1), round(p0[1], 1)], 'b': [round(p1[0], 1), round(p1[1], 1)], 'f': [round(-nx, 3), round(-nz, 3)], 'fam': fam})
-    print('stand lines:', len(out), f'({sum(math.dist(l["a"], l["b"]) for l in out):.0f} m)')
+            C = np.array([[q[0], q[1]] for q in run]); N = np.array([[q[2], q[3]] for q in run])
+            a = np.array([q[4] for q in run], float)
+            if side == 'inner': a = np.maximum(a, 34)
+            a = np.array([np.median(a[max(0, k - 4):k + 5]) for k in range(len(a))]); a = ease(ease(a, 6), 6)   # (the front, smooth)
+            Nn = np.c_[ease(N[:, 0], 3), ease(N[:, 1], 3)]; Nn /= np.linalg.norm(Nn, axis=1)[:, None]
+            F = C + Nn * (a + dep / 2 + 0.5)[:, None]
+            # (every 9 m along that curve: a stand, facing back across it to the track)
+            Ls = np.r_[0, np.cumsum(np.linalg.norm(np.diff(F, axis=0), axis=1))]
+            pts, faces = [], []
+            for u in np.arange(0, Ls[-1] - 4, GAP):
+                k = min(len(F) - 2, int(np.searchsorted(Ls, u, 'right') - 1)); f = (u - Ls[k]) / max(1e-6, Ls[k + 1] - Ls[k])
+                x, z = F[k] + (F[k + 1] - F[k]) * f; nrm = Nn[k] + (Nn[k + 1] - Nn[k]) * f; nrm /= np.linalg.norm(nrm)
+                if blocked(x, z, 6):   # (a break: what's built so far is one line)
+                    if len(pts) >= 3: out.append({'pts': pts, 'f': faces, 'fam': fam})
+                    pts, faces = [], []; continue
+                pts.append([round(float(x), 1), round(float(z), 1)]); faces.append([round(float(-nrm[0]), 3), round(float(-nrm[1]), 3)])
+            if len(pts) >= 3: out.append({'pts': pts, 'f': faces, 'fam': fam})
+    print('stand lines:', len(out), f"({sum(len(l['pts']) for l in out)} stands)")
     return out
 
 
