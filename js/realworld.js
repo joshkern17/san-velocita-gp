@@ -2,6 +2,7 @@
 // (tools/tracks): the sea at sea level, lakes / harbours / rivers, covered tunnel sections, Ferris wheels.
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
+import { applyPSXMaterial } from '../vendor/psx/src/PSXMaterial.js';
 
 let waterTex = null;
 function waterMap() {
@@ -79,6 +80,7 @@ export function addRealWorld(root, track, T, { groundHeight, night = false } = {
 
   root.add(out);
   if (track.refModel) loadRefModel(root, track.refModel);
+  else if (track.landmarks) loadLandmarks(root, track.landmarks, groundHeight, night);
   // ripples drift; wheels turn
   return {
     update(t) {
@@ -124,6 +126,49 @@ function loadRefModel(root, M) {
     root.add(wrap); wrap.updateMatrixWorld(true);
     console.log('reference model in:', M.url);
   }).catch((err) => console.warn('reference model not loaded:', M.url, err && err.message));
+}
+
+// The circuit's landmarks, made in the game's style (models/landmarks/<id>.glb, tools/tracks/landmarks/<id>.py): each
+// LM_<key> node already where it stands in the track's frame, at ground level 0, so it's seated on the ground: the
+// highest under its footprint (items: x, z, hw, hd, rot), a plinth hidden in it where the ground falls away. PS1 look:
+// Lambert, nearest-sampled textures, the baked light in the vertex colours, cut-outs for railings and trusses; the
+// windows' glow and the boards' screens lit at night.
+function loadLandmarks(root, L, groundHeight, night) {
+  const items = new Map(L.items.map(it => [it.key, it]));
+  new GLTFLoader().loadAsync(L.url).then((g) => {
+    const mats = new Map();
+    const conv = (m) => {
+      if (mats.has(m)) return mats.get(m);
+      const cut = m.alphaTest > 0 || m.transparent, glow = m.emissiveMap || (m.emissive && m.emissive.getHex() !== 0);
+      const out = new THREE.MeshLambertMaterial({ map: m.map || null, color: 0xffffff, vertexColors: true, side: cut ? THREE.DoubleSide : THREE.FrontSide, alphaTest: cut ? 0.5 : 0,
+        emissiveMap: glow ? (m.emissiveMap || m.map) : null, emissive: glow ? (night ? 0xffffff : 0x9a9a9a) : 0x000000 });
+      if (out.map) { out.map.magFilter = THREE.NearestFilter; out.map.minFilter = THREE.NearestMipmapLinearFilter; out.map.anisotropy = 4; }
+      out.name = m.name || ''; mats.set(m, out); return out;
+    };
+    const big = new Set();
+    for (const node of [...g.scene.children]) {
+      const key = node.name.replace(/^LM_/, ''), it = items.get(key);
+      let y = 0;
+      if (it) { // (the highest ground under it: its corners, edges' middles, its middle)
+        const c = Math.cos(it.rot || 0), s2 = Math.sin(it.rot || 0); y = -Infinity;
+        for (const [u, v] of [[0, 0], [1, 1], [1, -1], [-1, 1], [-1, -1], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const du = u * it.hw, dv = v * it.hd; y = Math.max(y, groundHeight(it.x + du * c - dv * s2, it.z + du * s2 + dv * c));
+        }
+        y -= 0.05;
+      }
+      node.position.y += y;
+      node.traverse((o) => {
+        if (!o.isMesh) return;
+        o.material = Array.isArray(o.material) ? o.material.map(conv) : conv(o.material);
+        o.castShadow = false; o.receiveShadow = true;
+        if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+        if (o.geometry.boundingSphere.radius > 40) for (const m of [].concat(o.material)) big.add(m);
+      });
+    }
+    // (the PSX vertex snap everywhere; the texture wobble only on smaller faces, big ones would swim)
+    for (const m of mats.values()) { applyPSXMaterial(m, { snap: true, affine: m.map && !big.has(m) ? 0.6 : 0 }); m.userData.psx = true; }
+    g.scene.name = 'landmarks'; root.add(g.scene);
+  }).catch((err) => console.warn('landmarks not loaded:', L.url, err && err.message));
 }
 
 function buildTunnel(group, T, tun, night) {

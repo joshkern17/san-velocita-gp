@@ -9,6 +9,7 @@ import { overpass, buildGraph, route, dist } from './osm.mjs';
 import { CATALOG } from './catalog.mjs';
 import { groundHeights, DEM_CREDITS } from './dem.mjs';
 import { surfaceMap, ORTHO_CREDITS } from './surface.mjs';
+import { applyLandmarks, landmarksFile } from './landmarks.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../..');
@@ -394,6 +395,8 @@ try {
     // (and what was changed in the editor and made official: tools/tracks/official.mjs)
     const ef = path.join(OUT, 'edits', c.id + '.json');
     if (!REF && fs.existsSync(ef)) Object.assign(track, JSON.parse(fs.readFileSync(ef, 'utf8')));
+    // (its landmarks, made in the game's style: tools/tracks/landmarks.mjs)
+    if (!REF && fs.existsSync(landmarksFile(c.id))) applyLandmarks(track, JSON.parse(fs.readFileSync(landmarksFile(c.id), 'utf8')));
     if (REF) {
       track.name += ' (reference)'; track.real.id = c.id + '_ref'; fs.mkdirSync(path.dirname(file), { recursive: true });
       // the model itself, placed: game x, z = R (model x, z) + t; game y = (model y + off - lo - base) * exag

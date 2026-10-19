@@ -42,8 +42,9 @@ try {
       const q = (a) => { const v = [...a].filter(x => x === x).map((x, i) => x).sort((x, y) => x - y); return v.length ? [0.1, 0.5, 0.9].map(p => v[Math.floor(v.length * p)].toFixed(0)).join('/') : '-'; };
       return `mapped barrier cover L ${cov[0]}% R ${cov[1]}% · offset p10/50/90 L ${q(RW[0])} R ${q(RW[1])} m · pit ${A.pit ? `${A.pit.real ? 'REAL ' : ''}side ${A.pit.side}, ${Math.round(A.pit.start * T.ds)} -> ${Math.round(A.pit.end * T.ds)} m (${Math.round(A.pit.length)} m), ramps ${Math.round(A.pit.nRamp * T.ds)} m, boxes ${A.pit.boxes.map(b => Math.round(b * T.ds)).join(',')}, lane at ${A.pit.CEN[A.pit.boxes[0]].toFixed(1)} m, wall ${A.pit.WALL[A.pit.boxes[0]].toFixed(1)} m` : 'none'}`;
     }));
+    if (process.env.EVAL) console.log('EVAL', JSON.stringify(await pg.evaluate(new Function('return (async () => {' + process.env.EVAL + '})()'))));   // (EVAL='js': run in the race's page, its result printed)
     for (const name of names) {
-      const ok = await pg.evaluate(([name, H, BACK, CHASE]) => {
+      const ok = await pg.evaluate(([name, H, BACK, CHASE, BACKXZ]) => {
         const s = window.__svgp.sim, T = s.T, N = T.N, pit = s.pit || s.A.pit;
         // (PIT0..PIT11: the car in that garage box; PITIN / PITOUT: the lane's ends)
         const pm = /^PIT(\d+|IN|OUT)$/.exec(name);
@@ -60,7 +61,7 @@ try {
           const x = +xz[1], z = +xz[2]; let bi = 0, bd = Infinity; for (let k = 0; k < N; k++) { const d = Math.hypot(T.X[k] - x, T.Z[k] - z); if (d < bd) { bd = d; bi = k; } }
           const dx = T.X[bi] - x, dz = T.Z[bi] - z, l = Math.hypot(dx, dz) || 1, y = T.Y[bi];
           s.paused = true; s.state = 'racing'; const c = s.camera; s.updateCamera = () => {};
-          c.position.set(x + dx / l * (l + 30), y + H, z + dz / l * (l + 30)); c.lookAt(x, y, z); c.updateMatrixWorld();
+          const back = BACKXZ; c.position.set(x + dx / l * (l + back), y + H, z + dz / l * (l + back)); c.lookAt(x, y, z); c.updateMatrixWorld();
           return true;
         }
         // (@1234: that far round the lap, in metres, for a circuit without corner names)
@@ -78,7 +79,7 @@ try {
         c.position.set(T.X[j] - T.FX[i] * 10, T.Y[i] + H, T.Z[j] - T.FZ[i] * 10); c.lookAt(T.X[i], T.Y[i], T.Z[i]);
         c.updateMatrixWorld();
         return true;
-      }, [name, +(process.env.H || 45), +(process.env.BACK || 40), !!process.env.CHASE]);
+      }, [name, +(process.env.H || 45), +(process.env.BACK || 40), !!process.env.CHASE, +(process.env.BACKXZ || 30)]); // (BACKXZ: how far behind the track an XZ shot stands)
       if (!ok) { console.log('no section', name); continue; }
       await pg.addStyleTag({ content: '*:not(canvas){visibility:hidden!important} canvas{visibility:visible!important}' });
       await pg.waitForTimeout(700);

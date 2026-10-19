@@ -186,7 +186,11 @@ export function buildWorld(track, T, A, opts = {}) {
   const RUN = A.run || (A.run = runoffLayout(T, A, track)); // (the runoff's surfaces: the physics reads them too)
   const pit = A.pit;
   const pitSide = (i, side) => pit && pit.REG[i] >= 0 && side === pit.side;
+  // (nothing of the scenery in the pit lane, nor inside the circuit's own landmarks: track.landmarks, realworld.js)
+  const LMK = (track.landmarks && track.landmarks.items || []).map(L => ({ ...L, c: Math.cos(L.rot || 0), s: Math.sin(L.rot || 0) }));
+  const inLandmark = (x, z) => LMK.some(L => { const dx = x - L.x, dz = z - L.z, u = dx * L.c + dz * L.s, v = -dx * L.s + dz * L.c; return Math.abs(u) < L.hw + 4 && Math.abs(v) < L.hd + 4; });
   const inPitZone = (x, z) => {
+    if (LMK.length && inLandmark(x, z)) return true;
     if (!pit) return false;
     let hit = false;
     A.hash.query(x, z, 30, (j) => {
