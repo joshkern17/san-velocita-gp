@@ -7,6 +7,8 @@ Status: READY · LEAD POST for tire temps (dev, 2026-10-18: "hook c is best for 
   first; v2 and hook B follow 48-72 h apart as the variants.
 - Frame grabs: `grabs/` (0 s, 1 s, 2 s, end)
 
+- Re-cut 2026-10-18: the whole GT race re-filmed clean (spins ahead in the old heli shot), and the closing orbit under
+  "So… slow out lap, or send it?" replaced with one mid-lap, no smoke, no pits (pit check: no warnings).
 ## Hook (on screen, as the first caption)
 Every tire here has two temperatures.
 

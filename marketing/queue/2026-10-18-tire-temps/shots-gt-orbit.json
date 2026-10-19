@@ -1,0 +1,8 @@
+{ "name": "tire-temps-gt-orbit", "aspect": "9:16", "seed": 9, "track": { "file": ".devtest/auburn2.json" }, "env": { "time": "day", "weather": "clear" },
+  "settings": { "temps": "normal" },
+  "race": { "car": "m1procar", "opponents": 7, "aiChassis": "class" }, "warmup": 15,
+  "shots": [
+    { "rig": "orbit", "dur": 7.2, "speed": 0.2, "at": 600, "name": "s8a" },
+    { "rig": "orbit", "dur": 7.2, "speed": 0.2, "at": 1400, "name": "s8b" },
+    { "rig": "orbit", "dur": 7.2, "speed": 0.2, "at": 2200, "name": "s8c" }
+  ] }

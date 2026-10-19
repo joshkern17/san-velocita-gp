@@ -12,6 +12,8 @@ Status: READY
 - Edit: `marketing/video/src/specs/engines.json` → composition `Engines` (generic `Explainer.tsx`).
 - Frame grabs: `grabs/`
 
+- Re-cut 2026-10-18: the closing Miata orbit (under "So… bark, or burble?" and the end card) re-filmed mid-lap with the
+  pit check; the old one had buildings near the Laguna Seca pit straight behind it.
 ## Hook
 Nobody recorded these engines.
 

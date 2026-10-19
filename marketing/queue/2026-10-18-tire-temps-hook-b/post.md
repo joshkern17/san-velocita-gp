@@ -7,6 +7,7 @@ Status: READY · variant of hook C (the lead post)
   48-72 h after hook C so the hooks can be compared on 2 s hold and completion.
 - Frame grabs: `grabs/` (0 s, 1 s, 2 s, end)
 
+- Re-cut 2026-10-18: same clean GT footage and closing orbit as hook C.
 ## Hook (on screen, as the first caption)
 Thirty-five degrees. That's how cold this Miata's tires are.
 

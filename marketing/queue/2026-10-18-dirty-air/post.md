@@ -11,6 +11,9 @@ Status: READY
     pulling into the tow, then a clean train (the first 1.4 s of that take dropped).
   - "So you hang back in the corners… and pounce" (a smoky trackside shot) is now a car following through a corner
     and lining up on the straight.
+  - The closing orbit under "So… dive in the corner, or wait for the straight?" (and under the end card) was the 935
+    sliding across the line into the pit lane and pitting. It's now the F40 alone on track, mid-lap, nowhere near the
+    pits (re-filmed with the pit check, no warnings).
   - New takes filmed with clean racing (AI mistakes off) and the director's incident check: no warnings on any shot used.
 - Verified first: dirty air is simulated for every car, player and AI (js/race.js:2987-3005, js/physics.js:304-313);
   GT cars lose 30% front / 12% rear downforce at full wake, and the AI slows its corner speed in it. The effect is

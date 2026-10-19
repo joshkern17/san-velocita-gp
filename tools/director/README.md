@@ -46,6 +46,9 @@ node tools/director/director.mjs tools/director/shots/example.json --only 3   # 
   `"incidents": true`. Contact between cars can still happen, so every filmed frame is checked: any car in frame
   (within 150 m) that makes contact, leaves the road, spins (pointing >60° off the road) or wrecks is logged in the
   shot's `.engine.json` (`incidents`) and printed as `WARNING shot N (name): 1.4s capri off road, ...`.
+- **No pit stops while filming** (the AI never decides to come in) unless the shot list sets `"pits": true`. The
+  incident check also flags any car in frame (or the shot's car) that's pitting, and the pit lane itself in frame
+  (within 250 m), so a pit-lane shot can't slip into a cut.
 - `"until": { "pass": true }`: the focus car has committed to a move on the car ahead (racecraft out / dive).
 - `"focus": "auto"` with `"until"`: the first car in the field that meets the condition becomes the shot's car
   (finds a deep wake or a pass attempt in seconds instead of waiting on one car).

@@ -1,0 +1,7 @@
+{ "name": "dirty-air-orbit", "aspect": "9:16", "seed": 38, "track": { "preset": "Maple Ridge GP" }, "env": { "time": "day", "weather": "clear" },
+  "race": { "car": "f40", "team": "Volta Racing", "opponents": 11, "aiChassis": "class", "grid": "front", "laps": 20 }, "warmup": 20,
+  "shots": [
+    { "rig": "orbit", "dur": 7, "speed": 0.2, "at": 700, "name": "orbit-a" },
+    { "rig": "orbit", "dur": 7, "speed": 0.2, "at": 1600, "name": "orbit-b" },
+    { "rig": "orbit", "dur": 7, "speed": 0.2, "at": 2400, "name": "orbit-c" }
+  ] }

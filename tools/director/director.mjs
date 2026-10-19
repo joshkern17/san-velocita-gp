@@ -80,6 +80,8 @@ try {
     if (s.state === 'strategy' && s.confirmStrategy) s.confirmStrategy(null);
     s.state = 'racing'; s.stateT = 0; s.goAt = 0;
     if (s.player) s.player.autoT = 1e9; // (the AI drives your car)
+    // no pit stops while filming (marketing): nobody decides to come in, unless the shot list asks ("pits": true)
+    if (!L.pits && s.aiWantsPit) s.aiWantsPit = () => false;
     s.lineMode = 'off'; // (no racing-line overlay in the shots)
     s.mirror = () => {}; // (no rear-view mirror in the shots)
     const { install } = await import('/tools/director/rigs.js');
@@ -116,11 +118,20 @@ try {
     // the road (grass, gravel, wall), points the wrong way (a spin) or wrecks. Logged per shot and printed as a warning
     // with the second, so a bad take is caught before it's cut.
     const THREE_ = s.camera.position.constructor, fr = { last: new Map() };
+    // the pit lane's centre line, sampled every ~10 m (for "pit lane in frame")
+    const PITPTS = [];
+    if (s.pit && s.pit.REG) { const P = s.pit, T = s.T, st = Math.max(1, Math.round(10 / T.ds));
+      for (let i = 0; i < T.N; i += st) if (P.REG[i] >= 0) { const off = P.side * ((P.CEN && !isNaN(P.CEN[i]) ? P.CEN[i] : T.W[i] / 2 + 5));
+        for (const o of [off, off + P.side * 12]) PITPTS.push(new THREE_(T.X[i] + T.RX[i] * o, T.Y[i] + 1.5, T.Z[i] + T.RZ[i] * o)); } } // (the lane, and the garages behind it)
+    window.__dir.pitInfo = { n: PITPTS.length, keys: s.pit ? Object.keys(s.pit).slice(0, 30).join(',') : 'no pit', cen: s.pit && s.pit.CEN ? Array.from(s.pit.CEN).filter(x => !isNaN(x)).slice(0, 3) : null };
     window.__dir.incidents = () => {
       const cam = s.camera; cam.updateMatrixWorld(); cam.updateProjectionMatrix();
       const out = [], T = s.T, v = new THREE_();
+      // the pit lane in frame (within 250 m), or the shot's car in the pits
+      for (const q of PITPTS) { if (cam.position.distanceTo(q) > 250) continue; const r = q.clone().project(cam); if (Math.abs(r.x) <= 1 && Math.abs(r.y) <= 1 && r.z < 1) { out.push('pit lane / garages in frame'); break; } }
+      const fc = s.focus || s.player; if (fc && fc.pitting) out.push((fc.carId || '?') + ' (shot car) pitting');
       for (const c of s.cars) {
-        if (!c || c.gone || c.pitting || !c.phys) continue;
+        if (!c || c.gone || !c.phys) continue;
         const p = c.phys; v.set(p.x, (c.y || 0) + 0.6, p.z);
         const d = cam.position.distanceTo(v); if (d > 150) continue;
         const q = v.clone().project(cam); if (Math.abs(q.x) > 1.05 || Math.abs(q.y) > 1.05 || q.z > 1) continue; // (not in frame)
@@ -130,6 +141,7 @@ try {
         if (c.onRoad === false) out.push(name + ' off road');
         if ((p.speed || 0) > 3 && along < 0.5) out.push(name + ' spinning');
         if (c.wreck) out.push(name + ' wrecked');
+        if (c.pitting) out.push(name + ' pitting');
       }
       return out;
     };
@@ -154,7 +166,7 @@ try {
   // warm-up: race on without rendering until the shots start (the field spreads out, tires warm)
   const warm = Math.round((L.warmup ?? 8) * FPS);
   await pg.evaluate((n) => { for (let i = 0; i < n; i++) window.__dir.frame(false); }, warm);
-  console.log(`race ready, warm-up ${L.warmup ?? 8} s done (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
+  console.log(`race ready, warm-up ${L.warmup ?? 8} s done (${((Date.now() - t0) / 1000).toFixed(0)} s); pit lane check: ${JSON.stringify(await pg.evaluate(() => window.__dir.pitInfo))}`);
 
   const shots = L.shots || [], done = [];
   for (let k = 0; k < shots.length; k++) {

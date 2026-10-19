@@ -3,7 +3,22 @@
 One entry per run, newest at the top: what it looked at, what it made, what it's waiting on. The next run starts by
 reading the top entry.
 
-## 2026-10-18 · fixes after the dev's review of the content bank (read this first)
+## 2026-10-18 · end shots: the dirty-air pit orbit, plus a pit check (read this first)
+- **The miss:** the dev caught the dirty-air closing orbit (the 935 sliding into the pit lane and pitting). I'd
+  wrongly left it in the last round.
+- **Director:**
+  - The AI never decides to pit while filming (`aiWantsPit` is overridden per race unless `"pits": true`).
+  - The incident check now also flags a car pitting (in frame, or the shot's car) and the pit lane or garages in
+    frame within 250 m.
+  - Tested: an orbit at the Maple Ridge start/finish flags it every half second.
+- **Replaced closing shots:**
+  - Dirty air: the orbit is now the F40 mid-lap (`dirty-air-orbit/03`).
+  - Engines: the Miata orbit was re-filmed mid-lap (`engines-miata-orbit/01`).
+  - Tire temps v2, B and C: the orbit was re-filmed clean, with no smoke (`tire-temps-gt-orbit/03`).
+  - Spa (Kemmel) and AI sees (city) checked: no pits.
+- **Verified:** frame grabs of the last 12 s of all seven deliverables.
+
+## 2026-10-18 · fixes after the dev's review of the content bank
 - **Verdict (TASTE.md):**
   - Mostly good.
   - Hook C is the lead tire post; v2 and B are its variants.
