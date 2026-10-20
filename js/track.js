@@ -853,6 +853,22 @@ export function analyzeTrack(T, env, paint = null, osm = null, dress = null) {
       KI[si][i] = n + 1; KW[si][i] = w * Math.max(0, f);
     }
   });
+  // (round a hairpin's inside the road's edge turns on so little that a full-width curb would fold over itself past the
+  // corner's middle: there it narrows to what fits, eased in and out. And its stripes are spaced along the edge it
+  // runs on (KV, m along each edge), not the middle of the road: there a tight inside's stripes bunched into slivers)
+  const KV = [new Float32Array(N), new Float32Array(N)];
+  for (const si of [0, 1]) {
+    const sd = si ? 1 : -1, cap = wallCaps(T, sd, 0.1), w = KW[si], g = 0.3 * T.ds, V = KV[si];
+    for (let i = 0; i < N; i++) if (w[i] > 0) w[i] = Math.max(0, Math.min(w[i], cap[i] - T.W[i] / 2 - 0.2));
+    for (let r = 0; r < 2; r++) {
+      for (let i = 1; i < N; i++) w[i] = Math.min(w[i], w[i - 1] + g);
+      for (let i = N - 2; i >= 0; i--) w[i] = Math.min(w[i], w[i + 1] + g);
+    }
+    for (let i = 1; i < N; i++) {
+      const a = sd * T.W[i - 1] / 2, b = sd * T.W[i] / 2;
+      V[i] = V[i - 1] + (i - 1 === T.cut ? 0 : Math.hypot(T.X[i] + T.RX[i] * b - T.X[i - 1] - T.RX[i - 1] * a, T.Z[i] + T.RZ[i] * b - T.Z[i - 1] - T.RZ[i - 1] * a));
+    }
+  }
   for (let i = 0; i < N; i++) KERB[i] = KW[0][i] > 0.05 || KW[1][i] > 0.05 ? 1 : 0;
   // (a circuit's own barriers, from its dressing, held inside the same caps the layout's are: on a tight corner's
   // inside, past its cap a wall folds into a bow tie. The ones you place on a drawn circuit may go out as far as the
@@ -923,7 +939,7 @@ export function analyzeTrack(T, env, paint = null, osm = null, dress = null) {
       if (len < short) for (let k = 0; k < len; k++) HAS[(i + k) % N] = 0;
     }
   }
-  return { hash, BRIDGE: BR2, LIFT, BL, BR: BRt, HAS_L, HAS_R, KERB, KI, KW, kerbs, WT, RZ, BMAX, realWalls: !!RW };
+  return { hash, BRIDGE: BR2, LIFT, BL, BR: BRt, HAS_L, HAS_R, KERB, KI, KW, KV, kerbs, WT, RZ, BMAX, realWalls: !!RW };
 }
 
 // No loops in the wall. On a corner's inside, a line standing off the centre line further than the corner is tight

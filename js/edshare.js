@@ -4,6 +4,7 @@
 // from the MAP tab. The points keep their heights, so the road is the same. (Steam Workshop later, on the same codes.)
 import { sampleTrack, THEMES, minNodes } from './track.js';
 import { sfx } from './audio.js';
+import { bigSet } from './backup.js';
 
 const $ = (id) => document.getElementById(id);
 const PREFIX = 'SVGP1.';
@@ -67,7 +68,7 @@ export function installShare(Editor) {
           title: p.name, ...this.thumbRow(p, `${THEMES[p.env?.theme || 'grass'].label} · ${new Date(p.saved || 0).toLocaleDateString()}`),
           pick: () => this.load(p, true),
           share: () => this.shareModal(p),
-          del: () => { const l = this.savedList(); l.splice(i, 1); localStorage.setItem('svgp.tracks', JSON.stringify(l)); this.openModal(); },
+          del: () => { const l = this.savedList(); l.splice(i, 1); bigSet('svgp.tracks', JSON.stringify(l)); this.openModal(); },
         })),
       ];
       this.modalList('My Circuits', rows, '', list.length ? (this.padOn ? 'Y: share the one picked · X: delete it.' : '') : 'Nothing saved yet: Save keeps the circuit you\'re on here.');

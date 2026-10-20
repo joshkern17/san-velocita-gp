@@ -132,7 +132,7 @@ export function installKerbTool(Ed) {
         const e0 = side * T.W[i] / 2, e1 = side * T.W[j] / 2;
         const q = [pt(i, e0), pt(j, e1), pt(j, e1 + side * wj), pt(i, e0 + side * wi)];
         const cols = kerbColors(k);
-        c.fillStyle = Math.floor(T.D[i] / 2) % 2 ? cols[1] : cols[0];
+        c.fillStyle = Math.floor(A.KV[si][i] / 2) % 2 ? cols[1] : cols[0];
         c.beginPath(); c.moveTo(...q[0]); for (let n = 1; n < 4; n++) c.lineTo(...q[n]); c.closePath(); c.fill();
         if (k.type === 'sausage' && sc > 3) { c.strokeStyle = 'rgba(0,0,0,0.35)'; c.lineWidth = 1; c.beginPath(); c.moveTo(...pt(i, e0 + side * wi / 2)); c.lineTo(...pt(j, e1 + side * wj / 2)); c.stroke(); }
       }

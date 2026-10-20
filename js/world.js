@@ -1016,7 +1016,8 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
         const cols = kerbColors(k), type = k.type || 'raised', key = cols.join('|');
         const buf = bufs[key] ??= { p: [], u: [], cols }, kp = buf.p, ku = buf.u;
         const p = (q, s, lift) => [T.X[q] + T.RX[q] * s, surfY(q, side * T.W[q] / 2) + lift, T.Z[q] + T.RZ[q] * s];
-        const si = side * T.W[i] / 2, sj = side * T.W[j] / 2, vi = T.D[i] / 8, vj = (j === 0 ? T.L : T.D[j]) / 8;
+        const V = A.KV[side < 0 ? 0 : 1], si = side * T.W[i] / 2, sj = side * T.W[j] / 2, vi = V[i] / 8;
+        const vj = (j === 0 ? V[i] + Math.hypot(T.X[0] + T.RX[0] * sj - T.X[i] - T.RX[i] * si, T.Z[0] + T.RZ[0] * sj - T.Z[i] - T.RZ[i] * si) : V[j]) / 8;
         // across it: [fraction of its width, height] (raised / saw: up to the top; flat; sausage: up and back down)
         const prof = type === 'flat' ? [[0, 0], [1, 0]] : type === 'sausage' ? [[0, 0], [0.25, SAUSAGE_H * 0.7], [0.5, SAUSAGE_H], [0.75, SAUSAGE_H * 0.7], [1, 0]] : [[0, 0], [1, KERB_H]];
         for (let q = 0; q + 1 < prof.length; q++) {

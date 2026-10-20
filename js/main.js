@@ -31,7 +31,7 @@ import { CarPush } from './pushcar.js';
 import { Opening, trailerModel } from './opening.js';
 import { driveHomeTrack, PARK } from './drivehome.js';
 import { Computer } from './computer.js';
-import { restoreSaves, exportBackup, importBackup } from './backup.js';
+import { restoreSaves, exportBackup, importBackup, bigGet } from './backup.js';
 import { voiceState, voiceStatus, voiceSignIn, voiceSignOut, voiceReacts, converse, pressAnswer, pitchAnswer, voiceStories, TALK_INTENTS } from './voice.js';
 import { carPhoto } from './carphoto.js';
 import { PARTS, DEFAULT_CAR, chassisReady, setStance } from './carmodel.js';
@@ -967,7 +967,7 @@ let setupSel = 0;
 let editorTrack = null;
 let fromEditor = false; // Quick Race opened with the editor's Race It: every exit leads back there
 let raceCfg = { laps: 3, opponents: 7 };
-function savedTracks() { try { return JSON.parse(localStorage.getItem('svgp.tracks')) || []; } catch (e) { return []; } }
+function savedTracks() { try { return JSON.parse(bigGet('svgp.tracks')) || []; } catch (e) { return []; } }
 function bestLaps() { try { return JSON.parse(localStorage.getItem('svgp.best')) || {}; } catch (e) { return {}; } }
 
 // Quick Race is two pages: pick a circuit (a picture of it + the live track behind the menu), then the rules

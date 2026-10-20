@@ -21,17 +21,19 @@ export async function restoreSaves() {
     const r = await fetch('__saves', { cache: 'no-store' });
     if (r.ok && (r.headers.get('content-type') || '').includes('json')) data = await r.json();
   } catch (e) {}
+  await loadBig(data);
   if (!data) return backupState;
   online = backupState.online = true;
   // the browser lost something: put it back (anything the browser still has is newer, and stays)
   for (const [k, v] of Object.entries(data.keys || {})) {
-    if (!k.startsWith(PREFIX)) continue;
+    if (!k.startsWith(PREFIX) || BIG.includes(k)) continue;
     try { if (localStorage.getItem(k) === null) { localStorage.setItem(k, v); backupState.restored++; } } catch (e) {}
   }
   // and the other way: whatever the browser has that the backup doesn't (first run, or saved while it was offline)
   try {
     for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(PREFIX) && !(k in (data.keys || {}))) queue(k); }
   } catch (e) {}
+  for (const k of BIG) if (big.has(k) && !(k in (data.keys || {}))) queue(k);
   watchStorage();
   syncAssets(new Set(data.assets || []));
   return backupState;
@@ -51,12 +53,66 @@ function queue(k, gone = false) {
 }
 function send(k) {
   const gone = pending.get(k); pending.delete(k); timers.delete(k);
-  const v = gone ? null : localStorage.getItem(k);
+  const v = gone ? null : BIG.includes(k) ? bigGet(k) : localStorage.getItem(k);
   const url = (gone || v === null ? '__del' : '__save') + '?k=' + encodeURIComponent(k);
   fetch(url, { method: 'POST', body: v ?? '', keepalive: (v || '').length < 60000 }).catch(() => {});
 }
 // before the window closes: anything still waiting goes now
 window.addEventListener('pagehide', () => { for (const k of [...pending.keys()]) send(k); });
+
+// ---------- big saves (IndexedDB) ----------
+// Your circuits outgrew localStorage, which a site only gets about 5 MB of in all (a real circuit carries its map:
+// Spa alone is half a megabyte, and the career, lap records and AI lines share the same 5 MB), so saving one ran out
+// of room. These keys live in IndexedDB instead (no such cap): read into memory once at start-up, so they're read
+// as plainly as localStorage (bigGet), and written through to IndexedDB and the backup on each bigSet. Without
+// IndexedDB (some private windows) they stay in localStorage as before.
+export const BIG = ['svgp.tracks', 'svgp.editorWork'];
+const big = new Map();
+let bigDB = null;
+const openBig = () => new Promise((res) => {
+  if (!('indexedDB' in window)) return res(null);
+  try {
+    const r = indexedDB.open('svgp-big', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => res(r.result); r.onerror = () => res(null); r.onblocked = () => res(null);
+  } catch (e) { res(null); }
+});
+const bigPut = (k, v) => new Promise((res) => {
+  try { const tx = bigDB.transaction('kv', 'readwrite'); v === null ? tx.objectStore('kv').delete(k) : tx.objectStore('kv').put(v, k); tx.oncomplete = () => res(true); tx.onerror = tx.onabort = () => res(false); }
+  catch (e) { res(false); }
+});
+// at start-up (restoreSaves): what IndexedDB has; else what localStorage still has (moved over, freeing its room);
+// else what the backup in saves/ has
+async function loadBig(data) {
+  bigDB = await openBig();
+  if (!bigDB) return;
+  await new Promise((res) => {
+    try {
+      const q = bigDB.transaction('kv').objectStore('kv').openCursor();
+      q.onsuccess = () => { const c = q.result; if (c) { big.set(c.key, c.value); c.continue(); } else res(); };
+      q.onerror = () => res();
+    } catch (e) { res(); }
+  });
+  for (const k of BIG) {
+    let v = null;
+    try { v = localStorage.getItem(k); } catch (e) {}
+    if (v !== null) {
+      if (!big.has(k)) { big.set(k, v); if (!(await bigPut(k, v))) continue; } // (kept in localStorage if it couldn't be written)
+      try { localStorage.removeItem(k); } catch (e) {}
+    } else if (!big.has(k) && data && typeof (data.keys || {})[k] === 'string') { big.set(k, data.keys[k]); await bigPut(k, data.keys[k]); backupState.restored++; }
+  }
+}
+export function bigGet(k) {
+  if (bigDB) return big.has(k) ? big.get(k) : null;
+  try { return localStorage.getItem(k); } catch (e) { return null; }
+}
+// (throws, as localStorage does, when it can't be kept)
+export function bigSet(k, v) {
+  if (!bigDB) return localStorage.setItem(k, v);
+  big.set(k, v);
+  bigPut(k, v);
+  queue(k);
+}
 
 // ---------- livery images (IndexedDB) ----------
 function assetDB() {
@@ -94,6 +150,7 @@ export function backupAsset(id, dataUrl) {
 export async function exportBackup() {
   const keys = {};
   for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(PREFIX)) keys[k] = localStorage.getItem(k); }
+  for (const k of BIG) { const v = bigGet(k); if (v !== null) keys[k] = v; }
   const d = await assetDB(), assets = d ? await idbAll(d) : {};
   const blob = new Blob([JSON.stringify({ kind: 'svgp-backup', v: 1, made: new Date().toISOString(), keys, assets })], { type: 'application/json' });
   const a = document.createElement('a');
@@ -111,7 +168,7 @@ export function importBackup() {
       try {
         const b = JSON.parse(await f.text());
         if (!b || b.kind !== 'svgp-backup') return res({ error: 'That isn\'t a San Velocita backup file.' });
-        for (const [k, v] of Object.entries(b.keys || {})) if (k.startsWith(PREFIX)) localStorage.setItem(k, v);
+        for (const [k, v] of Object.entries(b.keys || {})) if (k.startsWith(PREFIX)) BIG.includes(k) ? bigSet(k, v) : localStorage.setItem(k, v);
         const d = await assetDB();
         if (d) for (const [id, v] of Object.entries(b.assets || {})) { await idbPut(d, id, v); backupAsset(id, v); }
         res({ keys: Object.keys(b.keys || {}).length, assets: Object.keys(b.assets || {}).length });

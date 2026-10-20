@@ -2,6 +2,7 @@
 import { sampleTrack, analyzeTrack, buildPitLane, computeRacingLine, computeSpeedProfile, trackStats, cloneTrack, newTrack, presetTracks, archivedTracks, THEMES, PROP_TYPES, PAINTS, defaultEnv, trackReady, minNodes, fenceHeight, kerbOn, wallTypeAt, nodeHandles, densePath, trackFrame, trackProject } from './track.js';
 import { CARSPEC } from './car.js';
 import { sfx } from './audio.js';
+import { bigGet, bigSet } from './backup.js';
 import { fmtTime } from './hud.js';
 import { ZONE_TYPES, STYLE_COLORS, newZone, collectScenery, BUSINESSES, BUSINESS_KEYS, pointInPoly, centroid, buildingClear } from './zones.js';
 import { ROAD_TYPES, MEET, newRoad, roadLayout, applyRoadsToCircuit, raiseTrackOverRoads } from './roads.js';
@@ -124,8 +125,8 @@ export class Editor {
     if (this.dirty) { this.dirty = false; try { this.draw(); this.drawProfile(); } catch (e) { if (!this.drawErr) console.error(e); this.drawErr = true; } }
   }
 
-  loadWork() { try { return JSON.parse(localStorage.getItem('svgp.editorWork')); } catch (e) { return null; } }
-  saveWork() { try { localStorage.setItem('svgp.editorWork', JSON.stringify(this.track)); } catch (e) {} }
+  loadWork() { try { return JSON.parse(bigGet('svgp.editorWork')); } catch (e) { return null; } }
+  saveWork() { try { bigSet('svgp.editorWork', JSON.stringify(this.track)); } catch (e) {} }
 
   // ---------------- history ----------------
   snapshot() { return { j: JSON.stringify({ ...this.track, osm: null, ground: null }), osm: this.track.osm, ground: this.track.ground }; } // (the big ones by reference)
@@ -503,7 +504,7 @@ export class Editor {
     check(); inp.focus(); inp.select();
   }
 
-  savedList() { try { return JSON.parse(localStorage.getItem('svgp.tracks')) || []; } catch (e) { return []; } }
+  savedList() { try { return JSON.parse(bigGet('svgp.tracks')) || []; } catch (e) { return []; } }
   // Save keeps this circuit under its name. It never quietly replaces a different circuit: a name a built-in or real
   // circuit has, or one of yours this didn't come from, goes through Save As first. (replace: Save As said yes)
   save(replace = false) {
@@ -516,7 +517,7 @@ export class Editor {
     t.saved = Date.now(); this.track.saved = t.saved;
     const k = list.findIndex(x => x.name === t.name);
     if (k >= 0) list[k] = t; else list.push(t);
-    try { localStorage.setItem('svgp.tracks', JSON.stringify(list)); this.markSaved(); this.mine = t.name; this.saveWork(); this.guideStep('saved'); this.toast('Saved: ' + t.name); return true; }
+    try { bigSet('svgp.tracks', JSON.stringify(list)); this.markSaved(); this.mine = t.name; this.saveWork(); this.guideStep('saved'); this.toast('Saved: ' + t.name); return true; }
     catch (e) { sfx.error(); this.toast(t.osm ? 'Out of storage space. Share › Save As A File keeps big towns.' : 'Could not save'); return false; }
   }
   modalList(title, items, empty = '', note = '') {
