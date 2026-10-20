@@ -1,5 +1,5 @@
 // Top-down circuit designer
-import { sampleTrack, analyzeTrack, buildPitLane, computeRacingLine, computeSpeedProfile, trackStats, cloneTrack, newTrack, presetTracks, archivedTracks, THEMES, PROP_TYPES, PAINTS, defaultEnv, trackReady, minNodes, fenceHeight, kerbOn, wallTypeAt, nodeHandles } from './track.js';
+import { sampleTrack, analyzeTrack, buildPitLane, computeRacingLine, computeSpeedProfile, trackStats, cloneTrack, newTrack, presetTracks, archivedTracks, THEMES, PROP_TYPES, PAINTS, defaultEnv, trackReady, minNodes, fenceHeight, kerbOn, wallTypeAt, nodeHandles, densePath, trackFrame, trackProject } from './track.js';
 import { CARSPEC } from './car.js';
 import { sfx } from './audio.js';
 import { fmtTime } from './hud.js';
@@ -13,7 +13,9 @@ import { envReady, envAsset, envModelsReady, loadEnvModels, HOUSE_WALLS, HOUSE_R
 import { SCULPT_MODES, SCULPT_MAX, sculptPreview } from './sculpt.js';
 import { TileLayer, MAP_STYLES, searchPlace, myLocation, importOSM } from './geo.js';
 import { realTracks, hydrateReal } from './realtracks.js';
+import { fitStroke, simplifyTrack, lapRemap, remapDress } from './spline.js';
 import { fetchElevation, packTerrain, projectOntoTrack, rawHeight, inGrid, EXAG_MAX, TERRAIN_ATTR } from './terrain.js';
+import { groundMap, groundSource, GROUND_MARGIN } from './groundmap.js';
 import { installKerbTool } from './edkerbs.js';
 import { installBarrierTool } from './edbarriers.js';
 import { lapShift } from './lapshift.js';
@@ -126,8 +128,8 @@ export class Editor {
   saveWork() { try { localStorage.setItem('svgp.editorWork', JSON.stringify(this.track)); } catch (e) {} }
 
   // ---------------- history ----------------
-  snapshot() { return { j: JSON.stringify({ ...this.track, osm: null }), osm: this.track.osm }; }
-  restore(sn) { const t = JSON.parse(sn.j); t.osm = sn.osm; return t; }
+  snapshot() { return { j: JSON.stringify({ ...this.track, osm: null, ground: null }), osm: this.track.osm, ground: this.track.ground }; } // (the big ones by reference)
+  restore(sn) { const t = JSON.parse(sn.j); t.osm = sn.osm; t.ground = sn.ground || null; return t; }
   push() {
     this.history.push(this.snapshot());
     if (this.history.length > 120) this.history.shift();
@@ -350,7 +352,7 @@ export class Editor {
       paint: '<b>PAINT</b> &mdash; <b>Shape</b> (on the right): click round an area, point by point, for grass, paved or gravel exactly there; click one later to reshape or repaint it. <b>Brush</b>: drag to paint <b>grass</b>, <b>paved</b> runoff or <b>gravel</b> (past the barrier, it moves back), <b>Nature</b> (trees and plants), a street of <b>Houses</b> or a <b>Crowd</b> of spectators. <b>Erase</b> removes anything under it: grass, every tree and plant (painted or from the World tab) and buildings. <b>[ ]</b> brush size.',
       kerbs: '<b>CURBS</b> &mdash; <b>drag</b> along a track edge to lay a curb with the settings on the right. <b>Click</b> a curb to change its colors, type, width and tapered ends; drag its <b>end squares</b> to stretch it, or the curb itself to slide it along. <b>DEL</b> removes it.',
       bars: '<b>BARRIERS</b> &mdash; <b>click</b> a barrier to pick it, then drag its <b>nodes</b>: the barrier either side of a node you move runs <b>straight</b> to the next one; drag the round <b>handles</b> to bend it (<b>Shift</b>: one handle alone). Drag the barrier itself to move it all in or out. <b>Double-click</b> it for another node; <b>DEL</b> removes the picked node. <b>Drag</b> beside the track to put up a new barrier.',
-      pit: '<b>PIT LANE</b> &mdash; drag the lane\'s <b>nodes</b> to put it exactly where you want it, or the lane itself to move it in or out. Drag the blue <b>diamonds</b> to set where the garages and pit wall start and end. <b>Double-click</b> the lane for another node, <b>DEL</b> removes the picked one. No pit lane? <b>Drag</b> beside the track to lay one.',
+      pit: '<b>PIT LANE</b> &mdash; drag the lane\'s <b>nodes</b> to put it exactly where you want it, or the lane itself to move it in or out. Drag the blue <b>diamonds</b> to set where the garages start and end, the <b>white dots</b> where the pit wall does (it runs on beside the lane to where it meets the track). <b>Double-click</b> the lane for another node, <b>DEL</b> removes the picked one. No pit lane? <b>Drag</b> beside the track to lay one.',
       zones: '<b>ZONES</b> &mdash; draw a line and buildings spawn along it. Pick the type, height, spacing and side on the right. Click a zone line to select it, drag to move it, <b>DEL</b> removes.',
     };
     if (this.track && this.track.open) {
@@ -413,7 +415,7 @@ export class Editor {
         this.saveWork(); this.cb.onRace(cloneTrack(t)); break;
       case 'exit': this.exit(); break;
       case 'smooth': if (!this.needTrack()) break; this.push(); this.smooth(); break;
-      case 'simplify': if (!this.needTrack()) break; this.push(); this.simplify(); break;
+      case 'simplify': if (!this.needTrack()) break; this.simplify(); break;
       case 'reverse': this.push(); t.points.reverse(); t.points.forEach(p => { p.b = -p.b; const hi = p.hi; if (p.ho) p.hi = p.ho; else delete p.hi; if (hi) p.ho = hi; else delete p.ho; }); t.start = t.open ? 0 : (t.points.length - 1 - t.start); this.sel.clear(); this.changed(true); this.toast(t.open ? 'DIRECTION REVERSED · START AND FINISH SWAPPED' : 'DIRECTION REVERSED'); break;
       case 'autobank': if (!this.needTrack()) break; this.push(); this.autoBank(); break;
       case 'flatten': this.push(); t.points.forEach(p => { p.e = 0; p.b = 0; }); this.changed(true); this.toast('ELEVATION RESET'); break;
@@ -568,26 +570,25 @@ export class Editor {
     }
     this.changed(true); this.toast(targets ? 'SELECTION SMOOTHED' : 'TRACK SMOOTHED');
   }
+  // fewer points, same road: refitted with curve handles, the line kept within 0.75 m, heights 15 cm, widths half a
+  // metre; the start stays point 0, and the dressing (pit lane, kerbs, barriers: placed by m along the lap) moves
+  // onto the refit so it stays where it was (js/spline.js simplifyTrack, remapDress)
   simplify() {
-    const P = this.track.points;
-    let removed = 0;
-    for (let pass = 0; pass < 3; pass++) {
-      for (let i = 0; i < P.length && P.length > (this.track.open ? 3 : 6); i++) {
-        const n = P.length, a = P[(i - 1 + n) % n], b = P[i], c = P[(i + 1) % n];
-        if (i === this.track.start % n) continue;
-        if (this.track.open && (i === 0 || i === n - 1)) continue;
-        const abx = b.x - a.x, abz = b.z - a.z, bcx = c.x - b.x, bcz = c.z - b.z;
-        const l1 = Math.hypot(abx, abz), l2 = Math.hypot(bcx, bcz);
-        const cos = (abx * bcx + abz * bcz) / (l1 * l2 + 1e-9);
-        if ((cos > 0.985 || l1 < 12) && l1 + l2 < 260 && Math.abs(b.e - (a.e + c.e) / 2) < 1 && Math.abs(b.w - (a.w + c.w) / 2) < 1) {
-          P.splice(i, 1); removed++;
-          if (this.track.start > i) this.track.start--;
-          i--;
-        }
-      }
+    const was = this.track.points.length, pts = simplifyTrack(this.track, densePath);
+    if (!pts) return this.toast('Already as simple as it gets');
+    this.push();
+    const old = densePath(this.track, 1), T1 = this.T;
+    this.track.points = pts; this.track.start = 0;
+    if (this.track.dress) {
+      const map = lapRemap(old, densePath(this.track, 1), !!this.track.open), T2 = sampleTrack(this.track);
+      const place = (d, off, side) => { // (where it stands, found again beside the new road)
+        const F = trackFrame(T1, d), o = side * (F.w / 2 + off), g = map(d);
+        return trackProject(T2, F.x + F.rx * o, F.z + F.rz * o, side, g - 40, g + 40) || [g, off];
+      };
+      this.track.dress = remapDress(this.track.dress, map, place);
     }
     this.sel.clear();
-    this.changed(true); this.toast(removed ? `REMOVED ${removed} NODES` : 'ALREADY SIMPLE');
+    this.changed(true); this.toast(`Simplified: ${was} points to ${pts.length}, the same road`);
   }
   autoBank() {
     const T = this.T, P = this.track.points, n = P.length;
@@ -926,6 +927,13 @@ export class Editor {
     const f = T.NODE[ns.i] - Math.floor(T.NODE[ns.i]);
     this.push();
     const np = { x: T.X[ns.i], z: T.Z[ns.i], w: P[a].w + (P[b].w - P[a].w) * f, e: P[a].e + (P[b].e - P[a].e) * f, b: P[a].b + (P[b].b - P[a].b) * f };
+    if (P[a].ho || P[b].hi) { // a curve with handles: split it exactly there (de Casteljau), so the road doesn't move
+      const ho = nodeHandles(this.track, a).ho, hi = nodeHandles(this.track, b).hi, L = (p, q) => [p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f];
+      const p0 = [P[a].x, P[a].z], p1 = [p0[0] + ho[0], p0[1] + ho[1]], p3 = [P[b].x, P[b].z], p2 = [p3[0] + hi[0], p3[1] + hi[1]];
+      const q0 = L(p0, p1), q1 = L(p1, p2), q2 = L(p2, p3), r0 = L(q0, q1), r1 = L(q1, q2), m = L(r0, r1), r = (v) => Math.round(v * 10) / 10;
+      Object.assign(np, { x: r(m[0]), z: r(m[1]), hi: [r(r0[0] - m[0]), r(r0[1] - m[1])], ho: [r(r1[0] - m[0]), r(r1[1] - m[1])] });
+      P[a].ho = [r(q0[0] - p0[0]), r(q0[1] - p0[1])]; P[b].hi = [r(q2[0] - p3[0]), r(q2[1] - p3[1])];
+    }
     P.splice(a + 1, 0, np);
     if (this.track.start > a) this.track.start++;
     this.sel.clear(); this.sel.add(a + 1);
@@ -957,48 +965,21 @@ export class Editor {
       for (let k = -4; k <= 4; k++) { const q = rs[clamp(i + k, 0, rs.length - 1)]; x += q[0]; z += q[1]; c++; }
       return [x / c, z / c];
     });
-    // RDP
-    const eps = 3.5;
-    const rdp = (a, b, out) => {
-      let md = 0, mi = -1;
-      const [ax, az] = sm[a], [bx, bz] = sm[b];
-      const L = Math.hypot(bx - ax, bz - az) || 1;
-      for (let i = a + 1; i < b; i++) {
-        const d = Math.abs((bx - ax) * (az - sm[i][1]) - (ax - sm[i][0]) * (bz - az)) / L;
-        if (d > md) { md = d; mi = i; }
-      }
-      if (md > eps && mi > 0) { rdp(a, mi, out); rdp(mi, b, out); } else out.push(b);
-    };
-    const keep = [0];
-    rdp(0, sm.length - 1, keep);
-    let P = keep.map(i => sm[i]);
-    // enforce spacing
-    const out = [P[0]];
-    for (let i = 1; i < P.length; i++) {
-      const l = out[out.length - 1];
-      const d = Math.hypot(P[i][0] - l[0], P[i][1] - l[1]);
-      if (d < 22) continue;
-      if (d > 110) { const k = Math.ceil(d / 90); for (let j = 1; j < k; j++) out.push([l[0] + (P[i][0] - l[0]) * j / k, l[1] + (P[i][1] - l[1]) * j / k]); }
-      out.push(P[i]);
+    // the road: a point about every corner, each with its curve handles (js/spline.js)
+    let S = sm;
+    if (!open) { // (where the end runs back over the start it's dropped: the loop closes itself with a curve)
+      let k = S.length; while (k > S.length / 2 && Math.hypot(S[k - 1][0] - S[0][0], S[k - 1][1] - S[0][1]) < 30) k--; S = S.slice(0, k);
     }
-    if (open) { // keep the very end of the stroke as the finish
-      const e = sm[sm.length - 1], l = out[out.length - 1];
-      if (Math.hypot(e[0] - l[0], e[1] - l[1]) > 8) { if (out.length > 1 && Math.hypot(e[0] - l[0], e[1] - l[1]) < 22) out[out.length - 1] = e; else out.push(e); }
-    } else {
-      while (out.length > 4 && Math.hypot(out[out.length - 1][0] - out[0][0], out[out.length - 1][1] - out[0][1]) < 30) out.pop();
-      // closing gap
-      const l = out[out.length - 1], f = out[0];
-      const gap = Math.hypot(f[0] - l[0], f[1] - l[1]);
-      if (gap > 110) { const k = Math.ceil(gap / 90); for (let j = 1; j < k; j++) out.push([l[0] + (f[0] - l[0]) * j / k, l[1] + (f[1] - l[1]) * j / k]); }
-    }
+    const out = fitStroke(S, open, clamp(5 / this.view.scale, 3, 20)); // (as close as a hand can draw: about 5 pixels at this zoom)
     if (out.length < minNodes(this.track)) { sfx.error(); this.toast(open ? 'TRY AGAIN — DRAW A LONGER ROAD' : 'TRY AGAIN — NEED A PROPER LOOP'); return; }
     this.push();
-    this.track.points = out.map(([x, z]) => { const [sx, sz] = this.snapPt(x, z); return { x: sx, z: sz, w: this.defaultWidth, e: 0, b: 0 }; });
+    const r1 = (v) => Math.round(v * 10) / 10;
+    this.track.points = out.map(p => { const [sx, sz] = this.snapPt(p.x, p.z); return { x: sx, z: sz, w: this.defaultWidth, e: 0, b: 0, ...(p.hi ? { hi: p.hi.map(r1) } : {}), ...(p.ho ? { ho: p.ho.map(r1) } : {}) }; });
     this.track.start = 0;
     this.sel.clear();
     sfx.select();
     this.changed(true);
-    this.toast(`${open ? 'TRACK' : 'CIRCUIT'} CREATED · ${out.length} NODES`);
+    this.toast(`${open ? 'Road' : 'Circuit'} drawn: ${out.length} points. Drag a point, or click it for its curve handles`);
     this.setTool('edit');
   }
 
@@ -1195,6 +1176,8 @@ export class Editor {
       ${fld('Map opacity', 'map-op', 0.1, 1, 0.05, t.map.opacity, '')}
       <h4 style="margin-top:14px">REAL ELEVATION</h4>
       ${this.elevHtml()}
+      <h4 style="margin-top:14px">GROUND FROM PHOTO</h4>
+      ${this.groundHtml()}
       <h4 style="margin-top:14px">REAL-WORLD SCENERY</h4>
       <p class="muted">Pull real buildings and trees from OpenStreetMap around your circuit. Houses get pitched roofs, heights come from the map data where available. Anything on the track or runoff is removed automatically.</p>
       <div class="fld"><div class="seg" id="map-what"><button data-v="b" class="${this.impB !== false ? 'on' : ''}">Buildings</button><button data-v="t" class="${this.impT !== false ? 'on' : ''}">Trees & Woods</button></div></div>
@@ -1243,6 +1226,7 @@ export class Editor {
     mg.addEventListener('input', () => { this.impMargin = +mg.value; $('map-margin-v').textContent = mg.value + 'm'; });
     $('map-import').addEventListener('click', () => this.doImport());
     this.bindElev();
+    this.bindGround();
     $('map-clear') && $('map-clear').addEventListener('click', () => { this.push(); this.track.osm = null; this.changed(true); this.scheduleScenery(0); this.toast('IMPORTED SCENERY CLEARED'); });
     this.updateAttr();
   }
@@ -1261,7 +1245,7 @@ export class Editor {
     t.props.forEach(p => { p.x -= ox; p.z -= oz; });
     t.zones.forEach(z => z.pts.forEach(q => { q[0] -= ox; q[1] -= oz; }));
     const moved = !!t.osm;
-    t.osm = null;
+    t.osm = null; t.ground = null;
     t.geo = { lat: place.lat, lon: place.lon, label: (place.label || '').split(',').slice(0, 3).join(',') };
     if (t.map.style === 'off') t.map.style = 'satellite';
     if (t.env.theme !== 'city') { t.env.theme = 'city'; t.env.runoff = THEMES.city.runoff; t.env.barrier = THEMES.city.barrier; }
@@ -1346,6 +1330,49 @@ export class Editor {
       sfx.error();
       const s3 = $('elev-status'); if (s3) { s3.className = 'map-status err'; s3.textContent = e.message; }
       if (btn) btn.disabled = false;
+    }
+  }
+
+  // ---------------- ground from photo (groundmap.js) ----------------
+  groundHtml() {
+    const t = this.track, G = t.ground, src = groundSource(t.geo);
+    if (!t.geo) return '<p class="muted">Set a real location first, then the land around the circuit can be colored like the real place.</p>';
+    if (!this.T) return '<p class="muted">Draw a track first, then the land around it can be colored like the real place.</p>';
+    if (!src) return '<p class="muted">No open aerial photos for this place yet. So far: the Netherlands, Wallonia (Belgium), the USA and Japan.</p>';
+    return `<p class="muted">Colors the land around the circuit like the real place, from open aerial photos (${src.name}): grass, dry grass, sand, woods, car parks. Takes about a minute the first time. Anything it gets wrong, paint over with PAINT &rsaquo; Grass.${src.approx ? ' (No infrared photos here: grass and paving are told apart by color only, so expect more touch-ups.)' : ''}</p>
+      <button id="gnd-make" class="hot wide">${G ? 'Redo From Photo' : 'Ground From Photo'}</button>
+      <div class="map-status" id="gnd-status">${G ? `Ground colored over <b>${(G.w * G.res / 1000).toFixed(1)} &times; ${(G.h * G.res / 1000).toFixed(1)} km</b>.` : ''}</div>
+      ${G ? `<div class="seg"><button id="gnd-show" class="${this.showGround !== false ? 'on' : ''}">Show On Map</button><button id="gnd-clear">Remove</button></div>
+      <p class="muted">${esc(G.credit || '')}</p>` : ''}`;
+  }
+  bindGround() {
+    $('gnd-make') && $('gnd-make').addEventListener('click', () => this.makeGround());
+    $('gnd-show') && $('gnd-show').addEventListener('click', () => { this.showGround = this.showGround === false; sfx.move(); this.dirty = true; this.renderMapTab(); });
+    $('gnd-clear') && $('gnd-clear').addEventListener('click', () => { this.push(); this.track.ground = null; sfx.del(); this.changed(true); this.showTab('map'); this.toast('GROUND MAP REMOVED'); });
+  }
+  async makeGround() {
+    const t = this.track; if (!t.geo || !this.T || this.groundBusy) return;
+    const st = $('gnd-status'), btn = $('gnd-make'), m = GROUND_MARGIN;
+    let a = Infinity, b = -Infinity, c = Infinity, d = -Infinity;
+    for (let i = 0; i < this.T.N; i++) { a = Math.min(a, this.T.X[i]); b = Math.max(b, this.T.X[i]); c = Math.min(c, this.T.Z[i]); d = Math.max(d, this.T.Z[i]); }
+    const box = [a - m, c - m, b + m, d + m], km2 = (box[2] - box[0]) * (box[3] - box[1]) / 1e6;
+    if (km2 > 40) { st.className = 'map-status err'; st.textContent = `That's ${km2.toFixed(0)} km² of photos: too big. Make the circuit smaller first.`; return; }
+    this.groundBusy = true; btn.disabled = true; st.className = 'map-status';
+    const say = (msg) => { const e = $('gnd-status'); if (e) e.textContent = msg; };
+    try {
+      const geo = t.geo, G = await groundMap(geo, box, say);
+      if (this.track !== t || t.geo !== geo) return; // (another circuit, or moved, while the photos came in)
+      this.push();
+      t.ground = G;
+      this.changed(true);
+      this.showTab('map');
+      sfx.select();
+      this.toast('GROUND COLORED FROM THE AERIAL PHOTOS');
+    } catch (e) {
+      sfx.error();
+      const s3 = $('gnd-status'); if (s3) { s3.className = 'map-status err'; s3.textContent = e.message; }
+    } finally {
+      this.groundBusy = false; const b2 = $('gnd-make'); if (b2) b2.disabled = false;
     }
   }
 
@@ -1515,6 +1542,15 @@ export class Editor {
     if (mapOn) {
       this.tiles.draw(c, t.geo, t.map.style, this.view, this.W, this.H, (x, z) => this.w2s(x, z), (x, y) => this.s2w(x, y), this.dpr, t.map.opacity);
       c.fillStyle = 'rgba(5,8,16,0.18)'; c.fillRect(0, 0, this.W, this.H);
+    }
+    // the ground map (MAP › Ground From Photo): how the land will look, over the map
+    if (t.ground && this.showGround !== false) {
+      const G = t.ground;
+      if (!this._gImg || this._gImg.src !== G.img) { this._gImg = new Image(); this._gImg.onload = () => { this.dirty = true; }; this._gImg.src = G.img; }
+      if (this._gImg.complete && this._gImg.naturalWidth) {
+        const [sx, sy] = this.w2s(G.x0, G.z0), [ex, ey] = this.w2s(G.x0 + G.w * G.res, G.z0 + G.h * G.res);
+        c.save(); c.globalAlpha = 0.85; c.imageSmoothingEnabled = false; c.drawImage(this._gImg, sx, sy, ex - sx, ey - sy); c.restore();
+      }
     }
     // grid
     const [x0, z0] = this.s2w(0, 0), [x1, z1] = this.s2w(this.W, this.H);
@@ -1797,14 +1833,14 @@ export class Editor {
     for (let k = idx.length - 1; k >= 0; k--) { const i = idx[k]; const [x, y] = pt(i, p.OUT ? p.OUT[i] : p.CEN[i] + p.width / 2); c.lineTo(x, y); }
     c.closePath(); c.fillStyle = '#50535c'; c.fill();
     // garages
-    const main = idx.filter(i => !isNaN(p.WALL[i]));
+    const main = idx.filter(i => p.MAIN ? p.MAIN[i] : !isNaN(p.WALL[i])), walls = idx.filter(i => !isNaN(p.WALL[i]));
     c.beginPath();
     main.forEach((i, k) => { const [x, y] = pt(i, p.CEN[i] + p.width / 2 + 0.6); k ? c.lineTo(x, y) : c.moveTo(x, y); });
     for (let k = main.length - 1; k >= 0; k--) { const i = main[k]; const [x, y] = pt(i, p.CEN[i] + p.width / 2 + 16.6); c.lineTo(x, y); }
     c.closePath(); c.fillStyle = '#2a2f3a'; c.fill(); c.strokeStyle = '#e8b13a'; c.lineWidth = 1; c.stroke();
     // pit wall
     c.beginPath();
-    main.forEach((i, k) => { const [x, y] = pt(i, p.WALL[i]); k ? c.lineTo(x, y) : c.moveTo(x, y); });
+    walls.forEach((i, k) => { const [x, y] = pt(i, p.WALL[i]); k ? c.lineTo(x, y) : c.moveTo(x, y); });
     c.strokeStyle = '#e8e8e0'; c.lineWidth = Math.max(1.5, 0.5 * sc); c.stroke();
     if (sc > 0.35 && main.length) {
       const i = main[Math.floor(main.length / 2)], [x, y] = pt(i, p.CEN[i] + p.width / 2 + 8.6);

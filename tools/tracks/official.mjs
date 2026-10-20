@@ -39,7 +39,7 @@ fs.writeFileSync(f, JSON.stringify(track));
 
 // the index the game reads (light: no terrain / scenery)
 const xf = path.join(OUT, 'index.json'), index = JSON.parse(fs.readFileSync(xf, 'utf8'));
-const { osm, terrain, dress, ...light } = track;
+const { osm, terrain, dress, ground, ...light } = track;
 const i = index.findIndex(e => e.real && e.real.id === id);
 if (i >= 0) index[i] = { ...light, file: id + '.json' }; else index.push({ ...light, file: id + '.json' });
 fs.writeFileSync(xf, JSON.stringify(index));

@@ -182,6 +182,7 @@ export function buildWorld(track, T, A, opts = {}) {
   const P = envParams(env);
   const theme = env.theme;
   const rng = mulberry(hashStr(track.name || 'x') + T.N);
+  const groundTex = groundTintMap(track.ground); // (a real place's ground, from its aerial photos: groundmap.js)
   const real = collectScenery(track, T, A);
   const hasTown = real.buildings.length > 40;
   const RUN = A.run || (A.run = runoffLayout(T, A, track)); // (the runoff's surfaces: the physics reads them too)
@@ -488,9 +489,10 @@ export function buildWorld(track, T, A, opts = {}) {
 
   // ---- painted ground (editor PAINT tool): rasterise the brush strokes onto the terrain grid ----
   // value per vertex 0..1 (soft edges); later strokes win, "erase" strokes remove paint
-  let PM = null;
+  // (PG: just the Grass brush's, which wins over a ground map from the aerial photos: groundTint)
+  let PM = null, PG = null;
   if (track.paint && track.paint.length) {
-    PM = new Float32Array(NV);
+    PM = new Float32Array(NV); PG = groundTex ? new Float32Array(NV) : null;
     for (const st of track.paint) {
       if (st.kind === 'flora' && !(FLORA[st.mix] || FLORA.mixed).ground) continue; // (desert scrub, rocks: no grass under them)
       if (isRunoffPaint(st)) continue; // (paved and gravel: the runoff's own, runoff.js)
@@ -506,6 +508,7 @@ export function buildWorld(track, T, A, opts = {}) {
           const cover = 1 - smoothstep(r - Math.min(3, step) / 2, r + Math.min(3, step) / 2, strokeDist(st, gx0 + k * step, gz0 + j * step));
           if (cover <= 0) continue;
           const id = j * nx + k; PM[id] = Math.max(PM[id], cover);
+          if (PG && st.kind === 'grass') PG[id] = Math.max(PG[id], cover);
         }
         continue;
       }
@@ -523,6 +526,7 @@ export function buildWorld(track, T, A, opts = {}) {
           if (cover <= 0) continue;
           const id = j * nx + k;
           PM[id] = erase ? PM[id] * (1 - cover) : Math.max(PM[id], cover);
+          if (PG && (erase || st.kind === 'grass')) PG[id] = erase ? PG[id] * (1 - cover) : Math.max(PG[id], cover);
         }
       }
     }
@@ -626,9 +630,10 @@ export function buildWorld(track, T, A, opts = {}) {
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    if (PG) g.setAttribute('gpaint', new THREE.BufferAttribute(PG, 1));
     g.setIndex(new THREE.BufferAttribute(idx.subarray(0, q), 1));
     g.computeVertexNormals();
-    const terrMat = groundMaterial(theme);
+    const terrMat = groundMaterial(theme, groundTex);
     const m = new THREE.Mesh(g, terrMat);
     root.add(m);
     // the plot cells, re-meshed at ~3 m: the coarse surface (so the seams with the grid match exactly) plus the
@@ -713,7 +718,7 @@ export function buildWorld(track, T, A, opts = {}) {
         vg.setAttribute('uv', new THREE.Float32BufferAttribute(Uv, 2));
         vg.setAttribute('run', new THREE.Float32BufferAttribute(Rn, 4));
         vg.setIndex(I); vg.computeVertexNormals();
-        const vm = new THREE.Mesh(vg, runoffMaterial(groundMaterial(theme), RUN, theme, dirtTint)); vm.material.side = THREE.DoubleSide; vm.name = 'verge';
+        const vm = new THREE.Mesh(vg, runoffMaterial(groundMaterial(theme, groundTex), RUN, theme, dirtTint)); vm.material.side = THREE.DoubleSide; vm.name = 'verge';
         vm.material.polygonOffset = true; vm.material.polygonOffsetFactor = -1; vm.material.polygonOffsetUnits = -1;
         root.add(vm);
       }
@@ -749,7 +754,7 @@ export function buildWorld(track, T, A, opts = {}) {
         bg.setAttribute('uv', new THREE.Float32BufferAttribute(Ub, 2));
         bg.setAttribute('run', new THREE.Float32BufferAttribute(Rb, 4));
         bg.setIndex(Ib); bg.computeVertexNormals();
-        const bm = new THREE.Mesh(bg, runoffMaterial(groundMaterial(theme), RUN, theme, dirtTint)); bm.material.side = THREE.DoubleSide; bm.name = 'dirtEdge';
+        const bm = new THREE.Mesh(bg, runoffMaterial(groundMaterial(theme, groundTex), RUN, theme, dirtTint)); bm.material.side = THREE.DoubleSide; bm.name = 'dirtEdge';
         bm.material.polygonOffset = true; bm.material.polygonOffsetFactor = -3; bm.material.polygonOffsetUnits = -3; // (over the track's -2)
         root.add(bm);
       }
@@ -1597,7 +1602,8 @@ vec3 runAt(float row, float side, float t) {
   float r0 = floor(row), fr = row - r0;
   return mix(mix(runCell(r0, side, c0), runCell(r0, side, c0 + 1.0), fc), mix(runCell(r0 + 1.0, side, c0), runCell(r0 + 1.0, side, c0 + 1.0), fc), fr);
 }`)
-      .replace(GROUND_LINE, `${GROUND_LINE}
+      .replace(GROUND_LINE, `if (vRun.w > 0.5) gTintK = smoothstep(12.0, 22.0, vRun.y);
+${GROUND_LINE}
 if (vRun.w > 0.5) {
   // how far inside paved, gravel, painted grass (m), and the ground's own: inside where none of them are
   vec3 d3 = (runAt(vRun.x, vRun.z, vRun.y) * 255.0 - 128.0) * runSD / 127.0;
@@ -1633,18 +1639,30 @@ if (vRun.w > 0.5) {
 // desert's or the beach's), dark brown earth, blended where one turns into the next. The texture keeps its own
 // colours, shaded by how this spot's colour differs from the usual for that ground. Grey (the city) keeps the old
 // grey detail texture.
-const GROUND_LINE = 'diffuseColor.rgb = groundColor(vColor.rgb, vMapUv);'; // (the runoff draws its surfaces after it)
-function groundMaterial(theme) {
+// A real place's ground map (track.ground, js/groundmap.js: the aerial photo's dune grass, sand, car parks and woods, as
+// the ground's own colours, 2 m a texel) takes the place of the theme's colours where it reaches, faded out over its
+// last ~100 m. (The ground's uv is its x, z / 10, so the map is placed by them.)
+// On the runoff it fades in from 12 to 22 m off the track edge (gTintK): at 2 m a texel the photo's asphalt bleeds into
+// the verge, and what the runoff is made of is the runoff layout's to say (runoff.js).
+const GROUND_LINE = 'diffuseColor.rgb = groundColor(groundTint(vColor.rgb, vMapUv, gTintK), vMapUv);'; // (the runoff draws its surfaces after it)
+function groundMaterial(theme, tint = null) {
   const G = getGroundTextures();
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true, map: detailTexture() });
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, {
       gGrass: { value: G.grass }, gDry: { value: G.dry }, gSand: { value: theme === 'desert' ? G.desert : G.beach }, gEarth: { value: G.earth },
+      gTint: { value: tint ? tint.tex : null }, gTintBox: { value: tint ? tint.box : new THREE.Vector4(0, 0, 1, 1) },
     });
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <map_pars_fragment>', `#include <map_pars_fragment>
 uniform sampler2D gGrass, gDry, gSand, gEarth;
 vec3 groundShade(vec3 v, vec3 usual) { vec3 k = v / usual; return mix(vec3(dot(k, vec3(0.3, 0.55, 0.15))), k, 0.4); }
+${tint ? `uniform sampler2D gTint; uniform vec4 gTintBox;
+vec3 groundTint(vec3 v, vec2 uv, float k) {
+  vec2 p = (uv * 10.0 - gTintBox.xy) / gTintBox.zw, e = min(p, 1.0 - p);
+  float f = smoothstep(0.0, 0.05, min(e.x, e.y)) * k;
+  return f > 0.0 ? mix(v, texture(gTint, p).rgb, f) : v;
+}` : 'vec3 groundTint(vec3 v, vec2 uv, float k) { return v; }'}
 vec3 groundColor(vec3 v, vec2 uv) {
   float G = v.g - v.r, lum = dot(v, vec3(0.3, 0.55, 0.15)), chroma = max(max(v.r, v.g), v.b) - min(min(v.r, v.g), v.b);
   float wGrass = smoothstep(0.03, 0.11, G), wDry = (1.0 - wGrass) * smoothstep(-0.09, -0.02, G);
@@ -1656,9 +1674,26 @@ vec3 groundColor(vec3 v, vec2 uv) {
   return mix(c, v * texture(map, uv).rgb, 1.0 - smoothstep(0.05, 0.12, chroma));
 }`)
       .replace('#include <map_fragment>', '')
-      .replace('#include <color_fragment>', '#include <color_fragment>\n' + GROUND_LINE);
+      .replace('#include <color_fragment>', '#include <color_fragment>\nfloat gTintK = 1.0 - vGPaint;\n' + GROUND_LINE);
+    // (painted grass: the ground map gives way to it; meshes without the attribute read 0)
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float gpaint;\nvarying float vGPaint;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGPaint = gpaint;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vGPaint;');
   };
   return mat;
+}
+
+// the ground map's texture (made once per map: the editor rebuilds the world often)
+let _tint = null;
+function groundTintMap(G) {
+  if (!G || !G.img) return null;
+  if (_tint && _tint.img === G.img) return _tint;
+  const tex = new THREE.TextureLoader().load(G.img);
+  // (the texels are the ground's own colour values, as the vertex colours are: no colour space conversion; row 0 is z0)
+  tex.colorSpace = THREE.NoColorSpace; tex.flipY = false; tex.generateMipmaps = false;
+  tex.minFilter = THREE.LinearFilter; tex.magFilter = THREE.LinearFilter;
+  return (_tint = { img: G.img, tex, box: new THREE.Vector4(G.x0, G.z0, G.w * G.res, G.h * G.res) });
 }
 
 // ---------- textures local to world ----------
@@ -1700,7 +1735,7 @@ function fenceTexture() {
 
 // ---------- pit lane: tarmac, pit wall, garages, lines ----------
 function buildPitLane(root, T, pit, surfY, tx, night, env, A) {
-  const N = T.N, sd = pit.side;
+  const N = T.N, sd = pit.side, isMain = (i) => pit.MAIN ? !!pit.MAIN[i] : !isNaN(pit.WALL[i]); // (along the garages; the wall may run on past them)
   const idx = [];
   for (let i = 0; i < N; i++) if (pit.REG[i] >= 0) idx.push(i);
   idx.sort((a, b) => pit.REG[a] - pit.REG[b]);
@@ -1734,6 +1769,8 @@ function buildPitLane(root, T, pit, surfY, tx, night, env, A) {
       // (open at the finish line, where the flag marshal's plinth is: js/pitwall.js)
       const fin = T.open ? T.finish : 0;
       if (Math.min(circDist(i, fin, N), circDist(j, fin, N)) * T.ds > 0.7) fence.push({ a: at(i, wi, 1.1), b: at(j, wj, 1.1), nx: -T.RX[i] * sd, nz: -T.RZ[i] * sd });
+    }
+    if (isMain(i) && isMain(j)) {
       // garages
       const gi = oi + 0.6, gj = oj + 0.6, depth = 16, hgt = 7.5;
       if (!covered(i, j)) face(gar, at(i, gi), at(j, gj), at(i, gi, hgt), at(j, gj, hgt), T.D[i] / 7.5, T.D[i] / 7.5 + T.ds / 7.5, 0, 1); // (the boxes have fronts of their own: js/pitboxes.js)
@@ -1742,7 +1779,7 @@ function buildPitLane(root, T, pit, surfY, tx, night, env, A) {
     }
   }
   // end caps of the garage block
-  const main = idx.filter(i => !isNaN(pit.WALL[i]));
+  const main = idx.filter(isMain), walls = idx.filter(i => !isNaN(pit.WALL[i]));
   for (const [i, dir] of [[main[0], 1], [main[main.length - 1], -1]]) {
     if (i === undefined) continue;
     const g0 = pit.CEN[i] + pit.width / 2 + 0.6;
@@ -1766,17 +1803,18 @@ function buildPitLane(root, T, pit, surfY, tx, night, env, A) {
   // The lane's lines, solid white: the pit entry (and exit) line, leaving the track's edge line at the lane's mouth
   // and running out to the nose of the pit wall (keep to the lane side of it); the lane's outer edge, from where the
   // lane is wide enough to have one; along the garages, the line between the fast lane and the boxes
-  if (pit.OUT && main.length) {
-    const w0 = pit.WALL[main[0]], w1 = pit.WALL[main[main.length - 1]], nR = pit.nRamp, nRo = pit.nRampOut ?? nR, cnt = pit.count;
+  if (pit.OUT && walls.length) {
+    const w0 = pit.WALL[walls[0]], w1 = pit.WALL[walls[walls.length - 1]], cnt = pit.count;
+    const nR = pit.wallStart ?? pit.nRamp, nRo = pit.wallEnd != null ? cnt - pit.wallEnd : pit.nRampOut ?? pit.nRamp;
     const entryS = (i) => {
       const pos = pit.REG[i], half = T.W[i] / 2;
       const f = pos < nR ? pos / nR : pos > cnt - nRo ? (cnt - pos) / nRo : 1, e = f * f * (3 - 2 * f);
       return half + 0.12 + ((pos < nR ? w0 : w1) - 0.3 - half - 0.12) * e;
     };
     for (let k = 0; k < idx.length - 1; k++) {
-      const i = idx[k], j = idx[k + 1], inMain = !isNaN(pit.WALL[i]) && !isNaN(pit.WALL[j]);
-      if (!inMain) lineAlong(i, j, entryS(i), entryS(j), 0.18, 0xffffff);
-      const ei = inMain ? pit.WALL[i] : entryS(i), ej = inMain ? pit.WALL[j] : entryS(j);
+      const i = idx[k], j = idx[k + 1], walled = !isNaN(pit.WALL[i]) && !isNaN(pit.WALL[j]), inMain = isMain(i) && isMain(j);
+      if (!walled) lineAlong(i, j, entryS(i), entryS(j), 0.18, 0xffffff);
+      const ei = walled ? pit.WALL[i] : entryS(i), ej = walled ? pit.WALL[j] : entryS(j);
       if (pit.OUT[i] - 0.55 > ei + 2.5 && pit.OUT[j] - 0.55 > ej + 2.5) lineAlong(i, j, pit.OUT[i] - 0.55, pit.OUT[j] - 0.55, 0.15, 0xffffff);
       if (inMain) lineAlong(i, j, pit.CEN[i] + pit.width / 2 - 3.6, pit.CEN[j] + pit.width / 2 - 3.6, 0.15, 0xffffff);
       // and behind the wall, the edge of the strip the teams' stands stand on (js/pitwall.js)
@@ -1811,8 +1849,8 @@ function buildPitLane(root, T, pit, surfY, tx, night, env, A) {
   if (mm) mm.renderOrder = 1;
   // a crash cushion over the pit wall's nose, facing the cars coming at it (over the wall's first 3 m, so it's where
   // the wall is: you hit it as you'd hit the wall)
-  if (main.length > 2) {
-    const i = main[0], j = main[Math.min(main.length - 1, Math.max(1, Math.round(3 / T.ds)))];
+  if (walls.length > 2) {
+    const i = walls[0], j = walls[Math.min(walls.length - 1, Math.max(1, Math.round(3 / T.ds)))];
     const p0 = at(i, pit.WALL[i]), p1 = at(j, pit.WALL[j]), len = Math.hypot(p1[0] - p0[0], p1[2] - p0[2]);
     const box = new THREE.Mesh(new THREE.BoxGeometry(1.05, 1.18, len + 0.4), new THREE.MeshLambertMaterial({ map: cushionTexture() }));
     box.position.set((p0[0] + p1[0]) / 2 - T.FX[i] * 0.2, (p0[1] + p1[1]) / 2 + 0.59, (p0[2] + p1[2]) / 2 - T.FZ[i] * 0.2);

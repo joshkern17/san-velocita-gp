@@ -1,9 +1,11 @@
 // Circuit Designer: the PIT LANE tool (P). The pit lane exactly where you want it (track.dress.pit, js/track.js
 // ownPitLane): its centre line as nodes beside one side of the track, each how far along the lap and how far out from
 // the track edge (the first and last a little inside it: where it leaves and rejoins the track), and the stretch along
-// it with the garages and the pit wall (the two diamonds). A track that's never had it moved shows the one it works
-// out; the first edit makes it its own.
-//   drag a node to move it, the lane to move it all in or out, a diamond to move where the garages start / end
+// it with the garages (the two diamonds), and the pit wall's ends (the two white dots: past the garages it runs on
+// beside the lane, as far as there's room). A track that's never had it moved shows the one it works out; the first
+// edit makes it its own.
+//   drag a node to move it, the lane to move it all in or out, a diamond to move where the garages start / end, a
+//   white dot to move where the pit wall starts / ends
 //   double-click the lane: a new node;  DEL: the picked node
 //   no pit lane: drag beside the track to lay one along your drag
 import { pitToOwn, nodeU } from './track.js';
@@ -31,6 +33,18 @@ export function installPitTool(Ed) {
   };
   // the garages' ends on the lane (m along the lap), as built (its own, else where the track put them)
   P.pitMain = function (o) { return o.main || (this.pit ? [this.T.D[this.pit.mainStart], this.T.D[this.pit.mainEnd]] : null); };
+  // the pit wall's ends (m along the lap) as built (dragged past where there's room, it stops there), else its own
+  // (else along the garages)
+  P.pitWallEnds = function (o) {
+    const p = this.pit, T = this.T;
+    if (p && p.wallStart != null) return [T.D[(p.start + p.wallStart) % T.N], T.D[(p.start + p.wallEnd) % T.N]];
+    return o.wall || this.pitMain(o);
+  };
+  // where a wall end's dot sits: on the wall as built there, else 1 m off the track edge
+  P.pitWallXZ = function (o, d) {
+    const p = this.pit, T = this.T, i = ((Math.round(d / T.ds) % T.N) + T.N) % T.N;
+    return this.barXZ(o.side, d, p && !isNaN(p.WALL[i]) ? p.WALL[i] - T.W[i] / 2 : 1);
+  };
 
   P.hitPit = function (sx, sy) {
     const o = this.pitNodes(); if (!o) return null;
@@ -39,6 +53,8 @@ export function installPitTool(Ed) {
       for (let k = 0; k < o.pts.length; k++) { const [px, py] = this.w2s(...this.barXZ(o.side, ...o.pts[k])); if (Math.hypot(px - sx, py - sy) < 9) return { node: k }; }
       const m = this.pitMain(o);
       if (m) for (const e of [0, 1]) { const u = norm(m[e] - o.pts[0][0], L), [px, py] = this.w2s(...this.barXZ(o.side, m[e], offAt(o, u, L) ?? 0)); if (Math.hypot(px - sx, py - sy) < 11) return { main: e }; }
+      const we = this.pitWallEnds(o);
+      if (we) for (const e of [0, 1]) { const [px, py] = this.w2s(...this.pitWallXZ(o, we[e])); if (Math.hypot(px - sx, py - sy) < 9) return { wall: e }; }
     }
     const line = this.barLine(o);
     for (let k = 0; k + 1 < line.length; k++) {
@@ -53,7 +69,7 @@ export function installPitTool(Ed) {
     const h = this.hitPit(sx, sy), s = this.kerbSpot(wx, wz), o = this.pitNodes();
     if (h) {
       this.pitNode = h.node ?? -1; this.renderNodeTab(); this.dirty = true; sfx.move();
-      this.drag = { type: 'pit', dClick: s.d, mode: h.node != null ? 'node' : h.main != null ? 'main' : 'move', node: h.node, end: h.main, out0: s.out, side: o.side, orig: o.pts.map(p => [...p]), main0: this.pitMain(o), moved: false };
+      this.drag = { type: 'pit', dClick: s.d, mode: h.node != null ? 'node' : h.main != null ? 'main' : h.wall != null ? 'wall' : 'move', node: h.node, end: h.main ?? h.wall, out0: s.out, side: o.side, orig: o.pts.map(p => [...p]), main0: this.pitMain(o), wall0: this.pitWallEnds(o), moved: false };
       return;
     }
     this.pitNode = -1; this.renderNodeTab(); this.dirty = true;
@@ -76,7 +92,17 @@ export function installPitTool(Ed) {
     else if (d.mode === 'main') {
       const u = norm(s.d - d0, L), len = lenOf({ pts: d.orig }, L), m = [...d.main0].map(q => norm(q - d0, L));
       m[d.end] = Math.max(4, Math.min(len - 4, u));
-      if (m[1] - m[0] >= 20) o.main = m.map(q => +norm(d0 + q, L).toFixed(1));
+      if (m[1] - m[0] >= 20) {
+        o.main = m.map(q => +norm(d0 + q, L).toFixed(1));
+        // (the wall always runs at least the garages' length)
+        if (o.wall) { const w = o.wall.map(q => norm(q - d0, L)); o.wall = [Math.min(w[0], m[0]), Math.max(w[1], m[1])].map(q => +norm(d0 + q, L).toFixed(1)); }
+      }
+    } else if (d.mode === 'wall') {
+      // the pit wall's end: anywhere on the lane, from the garages outwards (where the lane runs into the track it stops)
+      const u = norm(s.d - d0, L), len = lenOf({ pts: d.orig }, L), m = d.main0.map(q => norm(q - d0, L)), w = d.wall0.map(q => norm(q - d0, L));
+      w[d.end] = d.end === 0 ? Math.max(0, Math.min(m[0], u > len ? 0 : u)) : Math.max(m[1], Math.min(len, u));
+      o.main = o.main || d.main0.map(q => +q.toFixed(1));
+      o.wall = w.map(q => +norm(d0 + q, L).toFixed(1));
     } else {
       const k = d.node, UO = nodeU(d.orig, L), uo = (q) => UO[q];
       let u = k === 0 ? ((s.d - d0 + L * 1.5) % L) - L / 2 : norm(s.d - d0, L);
@@ -84,6 +110,7 @@ export function installPitTool(Ed) {
       o.pts[k] = [+norm(d0 + u, L).toFixed(1), +Math.max(-T.W[s.i] / 2 + 1, Math.min(80, out)).toFixed(2)];
       // (the garages stay on the lane)
       if (o.main && (k === 0 || k === o.pts.length - 1)) { const a = o.pts[0][0], len = lenOf(o, L); o.main = o.main.map(q => +norm(a + Math.max(4, Math.min(len - 4, norm(q - a, L))), L).toFixed(1)); }
+      if (o.wall && (k === 0 || k === o.pts.length - 1)) { const a = o.pts[0][0], len = lenOf(o, L); o.wall = o.wall.map(q => +norm(a + Math.max(0, Math.min(len, norm(q - a, L))), L).toFixed(1)); }
     }
     this.barLive();
   };
@@ -138,6 +165,11 @@ export function installPitTool(Ed) {
         c.fillStyle = '#50d0ff'; c.strokeStyle = '#000'; c.lineWidth = 1.5;
         c.beginPath(); c.moveTo(px, py - 8); c.lineTo(px + 8, py); c.lineTo(px, py + 8); c.lineTo(px - 8, py); c.closePath(); c.fill(); c.stroke();
       }
+      const we = this.pitWallEnds(o);
+      if (we) for (const e of [0, 1]) {
+        const [px, py] = this.w2s(...this.pitWallXZ(o, we[e]));
+        c.fillStyle = '#ffffff'; c.strokeStyle = '#000'; c.lineWidth = 1.5; c.beginPath(); c.arc(px, py, 5.5, 0, Math.PI * 2); c.fill(); c.stroke();
+      }
     }
     const d = this.drag;
     if (d && d.type === 'pit' && d.mode === 'new' && d.trail.length > 1) {
@@ -153,14 +185,14 @@ export function installPitTool(Ed) {
     const node = o && this.pitNode >= 0 ? o.pts[this.pitNode] : null, m = o && this.pitMain(o);
     el.innerHTML = none ? `
       <h4>PIT LANE</h4>
-      <p class="muted">${this.track.env.pits === false ? 'This track has no pit lane.' : 'No pit lane fits on its own here.'} <b>Drag</b> beside the track, from where cars should peel off to where they rejoin (80 m or more), to lay one along your drag. Then move its nodes, and the two diamonds: where the garages and pit wall start and end.</p>
+      <p class="muted">${this.track.env.pits === false ? 'This track has no pit lane.' : 'No pit lane fits on its own here.'} <b>Drag</b> beside the track, from where cars should peel off to where they rejoin (80 m or more), to lay one along your drag. Then move its nodes, the two diamonds (where the garages start and end) and the two white dots (where the pit wall does).</p>
       ${own ? `<div class="seg"><button id="pl-auto">Back To Automatic</button></div>` : ''}` : `
       <h4>PIT LANE · ${o.side < 0 ? 'LEFT' : 'RIGHT'} · ${lenOf(o, L).toFixed(0)} M</h4>
-      ${this.pit ? `<p class="muted">Leaves the track at ${o.pts[0][0].toFixed(0)} m, rejoins at ${o.pts[o.pts.length - 1][0].toFixed(0)} m. Garages and pit wall from ${m ? m[0].toFixed(0) : '?'} m to ${m ? m[1].toFixed(0) : '?'} m (${this.pit.boxes.length} garages).</p>` : '<p class="warn">! This pit lane doesn\'t work: make it longer, or give the garages more room (drag the diamonds apart).</p>'}
+      ${this.pit ? `<p class="muted">Leaves the track at ${o.pts[0][0].toFixed(0)} m, rejoins at ${o.pts[o.pts.length - 1][0].toFixed(0)} m. Garages from ${m ? m[0].toFixed(0) : '?'} m to ${m ? m[1].toFixed(0) : '?'} m (${this.pit.boxes.length} garages). Pit wall from ${this.T.D[(this.pit.start + (this.pit.wallStart ?? this.pit.nRamp)) % this.T.N].toFixed(0)} m to ${this.T.D[(this.pit.start + (this.pit.wallEnd ?? this.pit.count - (this.pit.nRampOut ?? this.pit.nRamp))) % this.T.N].toFixed(0)} m.</p>` : '<p class="warn">! This pit lane doesn\'t work: make it longer, or give the garages more room (drag the diamonds apart).</p>'}
       ${node ? `<div class="fld"><label>Node ${this.pitNode + 1} of ${o.pts.length} · Out From The Edge<span id="pl-out-v">${node[1].toFixed(1)}m</span></label><input type="range" id="pl-out" min="-4" max="60" step="0.1" value="${node[1]}"></div>
       <p class="muted" style="margin-top:-4px">${node[0].toFixed(0)} m round the lap. Below 0 it's on the track: where the lane peels off and joins.</p>
       <div class="seg"><button id="pl-delnode">Delete Node</button><button id="pl-done">Done</button></div>` : ''}
-      <p class="muted" style="margin-top:12px">${own ? '' : 'Worked out from the track: move anything and it becomes this track\'s own. '}Drag a node to move it, the lane to move it all in or out, a diamond to move where the garages start or end. Double-click the lane for another node.</p>
+      <p class="muted" style="margin-top:12px">${own ? '' : 'Worked out from the track: move anything and it becomes this track\'s own. '}Drag a node to move it, the lane to move it all in or out, a diamond to move where the garages start or end, a white dot to move where the pit wall starts or ends (it runs on beside the lane, up to where the lane meets the track). Double-click the lane for another node.</p>
       <div class="seg">${own ? '<button id="pl-auto">Back To Automatic</button>' : ''}<button id="pl-none">Remove Pit Lane</button></div>`;
     const out = $('pl-out');
     if (out) {

@@ -2826,7 +2826,7 @@ export class Race {
     else if (car.pitPhase === 'in') mix = Math.min(1, Math.max(0, (18 - toBox) / 10));
     else if (car.pitPhase === 'out') mix = Math.min(1, Math.max(0, 1 - fromBox / 11));
     const lane = -2.0 + 4.4 * mix;
-    const main = !isNaN(pit.WALL[j]);
+    const main = pit.MAIN ? pit.MAIN[j] : !isNaN(pit.WALL[j]); // (along the garages)
     // approaching the entry: drift over to the pit side in good time (the racing line may be on the far side)
     const toEntry = ((pit.start - car.idx + N) % N) * T.ds;
     const early = car.pitPhase === 'in' && pit.REG[car.idx] < 0 && toEntry < 300 ? Math.min(1, (300 - toEntry) / 180) : 0;
@@ -4458,7 +4458,7 @@ export class Race {
       const i = (pit.start - pre + k + N) % N, reg = pit.REG[i];
       let off, y;
       if (reg >= 0) {
-        const main = !isNaN(pit.WALL[i]);
+        const main = pit.MAIN ? pit.MAIN[i] : !isNaN(pit.WALL[i]);
         const toBox = ((box - i + N) % N) * T.ds, fromBox = ((i - box + N) % N) * T.ds;
         const mix = toBox < 18 ? Math.min(1, (18 - toBox) / 10) : fromBox < 11 ? 1 - fromBox / 11 : 0;
         off = pit.side * (pit.CEN[i] + (main ? -2.0 + 4.4 * mix : 0));

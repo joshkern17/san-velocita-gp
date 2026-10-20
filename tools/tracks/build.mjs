@@ -426,7 +426,7 @@ try {
     fs.writeFileSync(file, JSON.stringify(track));
     if (REF) { // (the dev list js/realtracks.js adds to the picker when it's there)
       const lf = path.join(path.dirname(file), 'list.json'), list = fs.existsSync(lf) ? JSON.parse(fs.readFileSync(lf, 'utf8')).filter(e => e.real.id !== track.real.id) : [];
-      const { osm, terrain, ...light } = track;
+      const { osm, terrain, ground, ...light } = track;
       list.push({ ...light, file: path.basename(file), path: path.relative(ROOT, file) });
       fs.writeFileSync(lf, JSON.stringify(list));
     }
@@ -439,7 +439,7 @@ const index = [];
 for (const c of CATALOG) {
   const f = path.join(OUT, c.id + '.json'); if (!fs.existsSync(f)) continue;
   const t = JSON.parse(fs.readFileSync(f, 'utf8'));
-  const { osm, terrain, dress, ...light } = t;
+  const { osm, terrain, dress, ground, ...light } = t;
   index.push({ ...light, file: c.id + '.json' });
 }
 fs.writeFileSync(path.join(OUT, 'index.json'), JSON.stringify(index));

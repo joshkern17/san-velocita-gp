@@ -40,6 +40,7 @@ export async function hydrateReal(t) {
   if (!f) return t;
   t.terrain = f.terrain || null;
   t.osm = f.osm || null;
+  if (f.ground) t.ground = f.ground; // (its ground, coloured from the aerial photos: groundmap.js)
   if (f.refModel) t.refModel = f.refModel;
   if (f.landmarks) t.landmarks = f.landmarks; // (its landmarks, made in the game's style: models/landmarks)
   if (f.dress) t.dress = f.dress; // (its curbs and barriers as the real one has them: the Track Studio's)

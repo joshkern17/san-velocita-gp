@@ -493,6 +493,28 @@ function easeY(T) {
   }
 }
 
+// The road's own line, node to node, every `step` metres (a loop from its start node round to just before it; a
+// point-to-point start to finish, no lead-in or run-off): [{ x, z, e, w, b }]. For refitting a track with fewer
+// points (js/spline.js simplifyTrack).
+export function densePath(track, step = 2) {
+  const P = track.points, n = P.length, open = !!track.open;
+  const s0 = open ? 0 : ((track.start || 0) % n + n) % n, pts = open ? P : P.map((_, i) => P[(s0 + i) % n]);
+  const ghost = (a, b) => ({ x: 2 * a.x - b.x, z: 2 * a.z - b.z, e: 2 * a.e - b.e, w: a.w, b: a.b });
+  const fine = [];
+  for (let i = 0; i < (open ? n - 1 : n); i++) {
+    const p1 = pts[i], p2 = pts[(i + 1) % n];
+    const p0 = open ? (i > 0 ? pts[i - 1] : ghost(p1, p2)) : pts[(i - 1 + n) % n], p3 = open ? (i + 2 < n ? pts[i + 2] : ghost(p2, p1)) : pts[(i + 2) % n];
+    const cc = segCtrl(p0, p1, p2, p3), steps = Math.max(8, Math.ceil(segLength(p1, p2, cc) / 0.75));
+    for (let k = 0; k < steps; k++) { const u = k / steps, p = segPoint(p0, p1, p2, p3, u, cc); fine.push({ x: p.x, z: p.z, e: crElev(p0, p1, p2, p3, u), w: smooth(p1.w, p2.w, u), b: smooth(p1.b, p2.b, u) }); }
+  }
+  if (open) { const l = pts[n - 1]; fine.push({ x: l.x, z: l.z, e: l.e, w: l.w, b: l.b }); }
+  const out = [fine[0]];
+  let acc = 0;
+  for (let i = 1; i < fine.length; i++) { acc += Math.hypot(fine[i].x - fine[i - 1].x, fine[i].z - fine[i - 1].z); if (acc >= step) { out.push(fine[i]); acc = 0; } }
+  if (open && out[out.length - 1] !== fine[fine.length - 1]) out.push(fine[fine.length - 1]);
+  return out;
+}
+
 // a barrier's offsets (O: m from the centre line, per sample) moving in or out no faster than 0.3 m per metre, easing
 // in to the nearer of two stretches rather than stepping; never further out than it was (BR2: bridge decks, left be)
 function easeIn(T, O, BR2) {
@@ -1128,7 +1150,7 @@ export function buildPitLane(T, A, env, line = null, surf = null, own = null) {
   const WALL = new Float32Array(N).fill(NaN);
   const OUT = new Float32Array(N).fill(NaN); // the outer edge of the lane's tarmac (on the ramps: tapering from the track edge)
   const off = side < 0 ? A.BL : A.BR;
-  const HIDE = new Uint8Array(N);
+  const HIDE = new Uint8Array(N), MAIN = new Uint8Array(N); // (MAIN: along the garages)
   // (reaching here means the lane fits, so it's safe to move the barriers)
   const count = k1 - k0;
   for (let k = k0; k <= k1; k++) {
@@ -1141,7 +1163,7 @@ export function buildPitLane(T, A, env, line = null, surf = null, own = null) {
     CEN[i] = edge + (laneC(i) - edge) * f;
     OUT[i] = T.W[i] / 2 + (laneC(i) + PIT.width / 2 - T.W[i] / 2) * f;
     if (pos >= nRamp && pos <= count - nRamp) {
-      WALL[i] = T.W[i] / 2 + gapAt(i);
+      WALL[i] = T.W[i] / 2 + gapAt(i); MAIN[i] = 1;
       off[i] = CEN[i] + PIT.width / 2 + 0.6;       // the garage fronts are the barrier here
       HIDE[i] = 1;
     } else off[i] = Math.max(off[i], CEN[i] + PIT.width / 2 + 0.6);
@@ -1156,7 +1178,7 @@ export function buildPitLane(T, A, env, line = null, surf = null, own = null) {
   const limitIn = nRamp + Math.round(Math.min(40, lead * 0.4) / ds), limitOut = count - nRamp - Math.round(20 / ds);
   const start = idxAt(k0), end = idxAt(k1);
   // pit lane length and time lost vs. racing past (rough)
-  return { side, REG, CEN, WALL, OUT, HIDE, boxes, reach: gapAt(idxAt(k0 + nRamp)) + 0.6 + PIT.strip + PIT.width, gap: gapAt(idxAt(k0 + nRamp)), gapOut: gapAt(idxAt(k1 - nRamp)), strip: PIT.strip, start, end, count, nRamp, commitAt: nRamp, limitIn, limitOut, mainStart: idxAt(k0 + nRamp), mainEnd: idxAt(k1 - nRamp), length: count * ds, width: PIT.width, speed: PIT.speed };
+  return { side, REG, CEN, WALL, OUT, HIDE, MAIN, boxes, reach: gapAt(idxAt(k0 + nRamp)) + 0.6 + PIT.strip + PIT.width, gap: gapAt(idxAt(k0 + nRamp)), gapOut: gapAt(idxAt(k1 - nRamp)), strip: PIT.strip, start, end, count, nRamp, commitAt: nRamp, limitIn, limitOut, mainStart: idxAt(k0 + nRamp), mainEnd: idxAt(k1 - nRamp), length: count * ds, width: PIT.width, speed: PIT.speed };
   }
 }
 
@@ -1281,9 +1303,10 @@ export function pitToOwn(T, pit) {
   return { side: pit.side, pts: pts.filter((_, n) => keep[n]).map(([d, o]) => [+d.toFixed(1), +o.toFixed(2)]), main: [+T.D[pit.mainStart].toFixed(1), +T.D[pit.mainEnd].toFixed(1)] };
 }
 // A pit lane placed by hand (track.dress.pit, the Circuit Designer's PIT LANE tool): { side, pts: [[d, off], ...],
-// main?: [d0, d1] }. pts: its centre line, nodes in lap order, d m along the lap, off m out from the track edge (its
-// first and last a little inside it: where it leaves and rejoins the track); main: the garages and pit wall, m along
-// the lap (else the longest straight stretch clear of the track).
+// main?: [d0, d1], wall?: [d0, d1] }. pts: its centre line, nodes in lap order, d m along the lap, off m out from the
+// track edge (its first and last a little inside it: where it leaves and rejoins the track); main: the garages, m along
+// the lap (else the longest straight stretch clear of the track); wall: the pit wall, from where to where (else along
+// the garages): past them it runs on beside the lane, between it and the track, for as far as there's room.
 export function ownPitLane(T, A, own) {
   const ds = T.ds, L = T.L, P = own.pts, d0 = P[0][0], norm = (d) => ((d % L) + L) % L;
   const U = nodeU(P, L);
@@ -1296,16 +1319,17 @@ export function ownPitLane(T, A, own) {
     cen[pos] = T.W[((k0 + pos) % T.N + T.N) % T.N] / 2 + P[k][1] + (P[k + 1][1] - P[k][1]) * f;
   }
   const main = own.main && own.main.length === 2 ? [Math.round(norm(own.main[0] - d0) / ds), Math.round(norm(own.main[1] - d0) / ds)] : null;
-  return pitAlong(T, A, own.side < 0 ? -1 : 1, k0, count, cen, main && main[0] < main[1] && main[1] <= count ? main : null, { own: true });
+  const wall = own.wall && own.wall.length === 2 ? [Math.round(norm(own.wall[0] - d0) / ds), Math.round(norm(own.wall[1] - d0) / ds)] : null;
+  return pitAlong(T, A, own.side < 0 ? -1 : 1, k0, count, cen, main && main[0] < main[1] && main[1] <= count ? main : null, { own: true }, wall && wall[0] < wall[1] && wall[1] <= count ? wall : null);
 }
 
 // the pit lane's shape (buildPitLane's) from its centre line: cen[pos] m out (on its side) for the samples k0..k0+count;
 // main: [first, last] pos of the garages' stretch, else the longest one clear of the track and straight or gently
 // curved (radius over 250 m: never round a hairpin, where the lane cuts inside it); before it the way in, after it the
 // way out (each as long as it really is)
-function pitAlong(T, A, side, k0, count, cen, main, extra) {
+function pitAlong(T, A, side, k0, count, cen, main, extra, wall = null) {
   const N = T.N, ds = T.ds, idxAt = (k) => ((k % N) + N) % N, k1 = k0 + count;
-  const CEN = new Float32Array(N).fill(NaN), REG = new Int16Array(N).fill(-1), WALL = new Float32Array(N).fill(NaN), OUT = new Float32Array(N).fill(NaN), HIDE = new Uint8Array(N);
+  const CEN = new Float32Array(N).fill(NaN), REG = new Int16Array(N).fill(-1), WALL = new Float32Array(N).fill(NaN), OUT = new Float32Array(N).fill(NaN), HIDE = new Uint8Array(N), MAIN = new Uint8Array(N);
   // the garages and the pit wall: the longest stretch where the lane is clear of the track and the track runs straight
   // or gently curved (radius over 250 m: never round a hairpin, where the lane cuts inside it); before it the way in,
   // after it the way out (each as long as it really is)
@@ -1327,8 +1351,20 @@ function pitAlong(T, A, side, k0, count, cen, main, extra) {
     OUT[i] = Math.max(half, CEN[i] + PIT.width / 2);
     if (pos >= mA && pos <= mB) {
       WALL[i] = Math.max(half + 0.8, CEN[i] - PIT.width / 2 - PIT.strip - 0.6); // (where the stands' strip doesn't fit, it's squeezed)
-      off[i] = CEN[i] + PIT.width / 2 + 0.6; HIDE[i] = 1;
+      off[i] = CEN[i] + PIT.width / 2 + 0.6; HIDE[i] = 1; MAIN[i] = 1;
     } else off[i] = Math.max(off[i], CEN[i] + PIT.width / 2 + 0.6);
+  }
+  // the pit wall on past the garages (wall: from where to where), beside the lane: off the stands' strip over ~25 m,
+  // then 0.6 m off the lane's edge, until it's less than 0.8 m off the track's (where the lane runs into it)
+  let wA = mA, wB = mB;
+  if (wall) for (const dir of [-1, 1]) {
+    const to = dir < 0 ? Math.max(0, wall[0]) : Math.min(count, wall[1]), from = dir < 0 ? mA : mB, ease = 25 / ds;
+    for (let pos = from + dir; dir < 0 ? pos >= to : pos <= to; pos += dir) {
+      const i = idxAt(k0 + pos), half = T.W[i] / 2, f = Math.min(1, Math.abs(pos - from) / ease), e = f * f * (3 - 2 * f);
+      const w = CEN[i] - PIT.width / 2 - 0.6 - PIT.strip * (1 - e);
+      if (w < half + 0.8) break;
+      WALL[i] = w; if (dir < 0) wA = pos; else wB = pos;
+    }
   }
   const mainLen = (mB - mA) * ds;
   const lead = Math.max(30, Math.min(110, mainLen - 11 * 15 - 25));
@@ -1337,7 +1373,7 @@ function pitAlong(T, A, side, k0, count, cen, main, extra) {
   const limitIn = mA + Math.round(Math.min(40, lead * 0.4) / ds), limitOut = mB - Math.round(20 / ds);
   const gapAt = (i) => WALL[i] - T.W[i] / 2;
   const mS = idxAt(k0 + mA), mE = idxAt(k0 + mB);
-  return { side, REG, CEN, WALL, OUT, HIDE, boxes, reach: gapAt(mS) + 0.6 + PIT.strip + PIT.width, gap: gapAt(mS), gapOut: gapAt(mE), strip: PIT.strip, start: idxAt(k0), end: idxAt(k1), count, nRamp, nRampOut, commitAt: nRamp, limitIn, limitOut, mainStart: mS, mainEnd: mE, length: count * ds, width: PIT.width, speed: PIT.speed, ...extra };
+  return { side, REG, CEN, WALL, OUT, HIDE, MAIN, boxes, reach: gapAt(mS) + 0.6 + PIT.strip + PIT.width, gap: gapAt(idxAt(k0 + wA)), gapOut: gapAt(idxAt(k0 + wB)), strip: PIT.strip, start: idxAt(k0), end: idxAt(k1), count, nRamp, nRampOut, commitAt: wA, wallStart: wA, wallEnd: wB, limitIn, limitOut, mainStart: mS, mainEnd: mE, length: count * ds, width: PIT.width, speed: PIT.speed, ...extra };
 }
 
 export function trackStats(T) {
