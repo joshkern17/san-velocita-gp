@@ -15,6 +15,7 @@ import { lapShift } from './lapshift.js';
 import { loadEnvModels } from './envlib.js';
 import { sfx } from './audio.js';
 import { installEdit3d } from './ed3dedit.js';
+import { installSculpt3d } from './ed3dsculpt.js';
 
 const $ = (id) => document.getElementById(id);
 const BUDGET = 24; // (ms of building a frame: the map, or the open view, carries on at about 30 a second meanwhile)
@@ -23,6 +24,7 @@ const UI = '.ed-top, .ed-side, .ed-dock, .ed-v3d, .ed-modal, .ed-hint, .ed-toast
 export function installView3d(Ed) {
   const P = Ed.prototype;
   installEdit3d(Ed);
+  installSculpt3d(Ed);
 
   P.toggle3d = function () { return this.v3d || this.job3d ? this.close3d() : this.open3d(); };
   // a world of the track as it is now, built in steps; done(S) when it's ready (null: stopped, or it failed)
@@ -84,14 +86,16 @@ export function installView3d(Ed) {
     this.build3d((S) => {
       const v = this.v3d; if (!S) return; if (!v) return S.dispose();
       clearAir(S);
-      const old = v.S; v.S = S; S.scene.add(v.cam); if (v.ov) S.scene.add(v.ov.group);
+      const old = v.S; v.S = S; S.scene.add(v.cam); if (v.ov) S.scene.add(v.ov.group); if (v.sc) S.scene.add(v.sc.group);
       old.dispose();
+      this.sculptSwapped3d();
     });
   };
   P.close3d = function () {
     if (this.job3d) { this.stop3d(); if (!this.v3d) { this.toast('3D VIEW CANCELLED', 900); return; } }
     const v = this.v3d; if (!v) return;
     if (this.drag3d) this.up3d();
+    this.sculptLive = null;
     this.v3d = null; clearTimeout(this.rb3dT);
     $('s-editor').classList.remove('v3d'); $('s-editor').style.cursor = '';
     this.bar3d().hidden = true;
@@ -118,14 +122,16 @@ export function installView3d(Ed) {
     scr.addEventListener('pointerdown', (e) => {
       if (!inView(e)) return;
       const v = this.v3d; scr.setPointerCapture(e.pointerId);
-      if (e.button === 0 && !e.shiftKey && v.mode === 'orbit' && this.down3d(e)) return;
-      v.ptr = { x: e.clientX, y: e.clientY, pan: e.button === 2 || e.button === 1 || e.shiftKey, moved: false };
+      if (e.button === 0 && !e.shiftKey && v.mode === 'orbit' && (this.sculpting3d() ? this.sculptDown3d(e) : this.down3d(e))) return;
+      // (sculpting: the left button paints, so the right one turns round; else it pans)
+      v.ptr = { x: e.clientX, y: e.clientY, pan: e.button === 1 || e.shiftKey || (e.button === 2 && !this.sculpting3d()), moved: false };
     });
     scr.addEventListener('pointermove', (e) => {
       const v = this.v3d; if (!v) return;
       if (this.drag3d) return this.move3dDrag(e);
+      if (this.sculptLive) return this.sculptMove3d(e);
       const p = v.ptr;
-      if (!p) { if (inView(e)) this.hoverAt3d(e.clientX, e.clientY); return; }
+      if (!p) { if (inView(e)) { if (this.sculpting3d()) this.sculptHover3d(e.clientX, e.clientY); else this.hoverAt3d(e.clientX, e.clientY); } return; }
       const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
       if (Math.abs(dx) + Math.abs(dy) > 0) p.moved = true;
       if (v.mode === 'fly' || !p.pan) { v.yaw -= dx * 0.005; v.pitch = Math.max(v.mode === 'fly' ? -1.45 : -1.52, Math.min(v.mode === 'fly' ? 1.3 : -0.04, v.pitch - dy * 0.005)); }
@@ -134,9 +140,10 @@ export function installView3d(Ed) {
     scr.addEventListener('pointerup', (e) => {
       const v = this.v3d; if (!v) return;
       if (this.drag3d) return this.up3d();
+      if (this.sculptLive) return this.sculptUp3d();
       const p = v.ptr; v.ptr = null;
       // (a click on empty ground: nothing picked)
-      if (p && !p.moved && !p.pan && inView(e) && v.mode === 'orbit' && this.sel.size) { this.sel.clear(); this.renderPanels(); }
+      if (p && !p.moved && !p.pan && inView(e) && v.mode === 'orbit' && this.sel.size && !this.sculpting3d()) { this.sel.clear(); this.renderPanels(); }
     });
     scr.addEventListener('contextmenu', (e) => { if (inView(e)) e.preventDefault(); });
     scr.addEventListener('wheel', (e) => {
@@ -189,6 +196,7 @@ export function installView3d(Ed) {
     const v = this.v3d; if (!v) return false;
     if (e.ctrlKey || e.metaKey) return false;
     if (e.code === 'KeyV') { this.close3d(); return true; }
+    if (this.sculptKey3d(e)) return true;
     if (e.code === 'Escape') { if (this.drag3d) return true; if (this.sel.size) { this.sel.clear(); this.renderPanels(); } else this.close3d(); return true; }
     if (e.code === 'KeyC') { this.camMode3d(); return true; }
     if (e.code === 'KeyF') { this.frame3d(); return true; }
@@ -235,8 +243,10 @@ export function installView3d(Ed) {
     setHint0.call(this);
     if (!this.v3d) return;
     const fly = this.v3d.mode === 'fly';
-    $('ed-hint').innerHTML = this.mode !== 'shape'
-      ? '<b>3D VIEW</b> &mdash; in 3D for now: the <b>Shape</b> mode\'s points. Curbs, barriers, scenery and the map are on the map (<b>V</b>). <b>Tab</b>: Shape.'
+    $('ed-hint').innerHTML = this.tool === 'sculpt' && !fly
+      ? '<b>3D VIEW &middot; SCULPT</b> &mdash; <b>hold</b> to paint the land: <b>Raise</b>, <b>Lower</b>, <b>Smooth</b> or <b>Flatten</b> (to the height where you start) on the right. The ring dims where the land is the road\'s: the track, its runoff and banks never move. Amber: too steep to stand on. <b>[ ]</b> brush size, <b>Shift [ ]</b> strength. <b>Right-drag</b> to turn round, <b>wheel</b> to zoom, <b>W A S D</b> to pan.'
+      : this.mode !== 'shape'
+      ? '<b>3D VIEW</b> &mdash; in 3D for now: the <b>Shape</b> mode\'s points, and <b>Sculpt</b> (Scenery). Curbs, barriers and the rest are on the map (<b>V</b>) for now.'
       : fly ? '<b>3D VIEW &middot; FLY</b> &mdash; <b>drag</b> to look, <b>W A S D</b> to fly, <b>Q E</b> down / up, <b>Shift</b> faster. <b>C</b>: back to orbit, to work on the points.'
         : '<b>3D VIEW</b> &mdash; <b>drag a point</b> to slide it over the ground. On the picked point, drag its <b>arrow</b> for its height, its <b>ring</b> to bank the road, the <b>dots</b> either side for its width. <b>Drag</b> empty ground to turn round, <b>right-drag</b> to pan, <b>wheel</b> to zoom. <b>F</b>: frame the point, <b>C</b>: fly, <b>V</b>: the map.';
   };
@@ -265,6 +275,7 @@ export function installView3d(Ed) {
     c.aspect = el.clientWidth / Math.max(1, el.clientHeight); c.updateProjectionMatrix();
     c.position.copy(v.pos); c.rotation.set(v.pitch, v.yaw, 0, 'YXZ'); c.updateMatrixWorld();
     this.ovFrame3d();
+    this.sculptFrame3d();
     v.S.world.update(dt, c, [], []);
     post.render(v.S.scene, c, { trails: 0, grade: v.S.world.P.grade, look: v.S.look3d });
   };
