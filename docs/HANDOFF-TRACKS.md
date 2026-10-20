@@ -32,6 +32,15 @@ The tracks session's uncommitted work was committed for it by the editor session
 - js/trackview.js (the reference-model Track Viewer) is still uncommitted: its page, trackview.html, isn't in the
   repo, and the reference models were shelved.
 
+## Changed since (editor session, 2026-10-20)
+
+- Hairpins (9698107 and the commit after it): runoff and barriers no longer reach over another stretch across a
+  hairpin's nose (track.js sameStretch), and a kink in the road's line (a tight node where it turns tighter than the
+  road can) is eased in sampleTrack (track.js unkink). Of the real circuits only **Monaco** changes: its map glitch at
+  ~180 m is smoothed (the line moves up to 1.2 m, the lap is 3 m shorter, the estimated lap 2.5 s quicker; Track Check
+  11 fails -> 8). The new barrier rules (down the middle of a hairpin's tongue, round its nose, short gaps closed)
+  are for drawn circuits only (no osm): real circuits keep their open infields. Check: .devtest/hairpins.mjs.
+
 ## Coming next in world.js (coordinate before editing it)
 
 The 3D editor (plan: https://claude.ai/code/artifact/a98f11f5-03df-4ab5-b35d-a381775b2149) starts by splitting

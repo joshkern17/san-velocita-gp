@@ -396,7 +396,8 @@ function sampleOpen(track) {
 // barrier and runoff in a knot). There the road narrows, just enough to keep its inside edge, a curb and a barrier
 // (CLEAR) short of the fold, eased in and out over ~10 m each way. The race, the AI and the editor all use this width.
 // A track without such a corner is untouched.
-function fitWidths(T) {
+function fitWidths(T, nodes = 0, room = 1.5) {
+  if (!T.open && nodes) unkink(T, nodes, room);
   const N = T.N, CLEAR = 2, MIN = 3, lim = new Float32Array(N);
   let any = false;
   for (let i = 0; i < N; i++) { lim[i] = Math.max(MIN, 1 / Math.max(1e-6, Math.abs(T.K[i])) - CLEAR); if (lim[i] < T.W[i] / 2) any = true; } // (the corner's radius)
@@ -409,6 +410,50 @@ function fitWidths(T) {
     const half = s / (2 * w + 1);
     if (half < T.W[i] / 2) T.W[i] = 2 * half;
   }
+}
+
+// A curve through its points bends hardest at a point (the curve only keeps its direction smooth, not how sharply it
+// turns), so with three points close together at a hairpin's nose and long straights either side, it turns over a
+// metre or two far tighter than the corner as a whole: the road's inside edge comes to a point there (a V in the curbs,
+// a spike in the barrier). Where the line turns tighter than the road can (its inside edge within `room` of folding:
+// 1.5 m on a real circuit, 3.5 m on a drawn one, enough for a curb and a barrier round its hairpins), it's eased - each sample towards its neighbours' middle, fading out over 6 samples either side - and the samples
+// laid out evenly again along it, until it doesn't. A loop without such a kink is untouched.
+function unkink(T, nodes, room) {
+  const N = T.N;
+  const turn = (i) => { // (how sharply the line turns at sample i, 1 / m)
+    const p = (i - 1 + N) % N, q = (i + 1) % N, ax = T.X[i] - T.X[p], az = T.Z[i] - T.Z[p], bx = T.X[q] - T.X[i], bz = T.Z[q] - T.Z[i];
+    const la = Math.hypot(ax, az) || 1e-9, lb = Math.hypot(bx, bz) || 1e-9;
+    return Math.acos(Math.max(-1, Math.min(1, (ax * bx + az * bz) / (la * lb)))) / ((la + lb) / 2);
+  };
+  const A = new Float32Array(N);
+  for (let pass = 0; pass < 40; pass++) {
+    A.fill(0); let any = false;
+    for (let i = 0; i < N; i++) {
+      if (turn(i) * (T.W[i] / 2 + room) <= 1) continue;
+      any = true;
+      for (let k = -6; k <= 6; k++) { const j = (i + k + N) % N; A[j] = Math.max(A[j], 0.5 * (1 - Math.abs(k) / 7)); }
+    }
+    if (!any) break;
+    const X = T.X.slice(), Z = T.Z.slice();
+    for (let i = 0; i < N; i++) if (A[i]) { const p = (i - 1 + N) % N, q = (i + 1) % N; T.X[i] = X[i] + ((X[p] + X[q]) / 2 - X[i]) * A[i]; T.Z[i] = Z[i] + ((Z[p] + Z[q]) / 2 - Z[i]) * A[i]; }
+    respace(T, nodes);
+  }
+  finishFrames(T);
+}
+// the samples laid out evenly again along the loop they make (its length, ds and every per-sample value with them)
+function respace(T, nn) {
+  const N = T.N, cum = new Float64Array(N + 1);
+  for (let i = 0; i < N; i++) { const j = (i + 1) % N; cum[i + 1] = cum[i] + Math.hypot(T.X[j] - T.X[i], T.Z[j] - T.Z[i]); }
+  const L = cum[N], ds = L / N, old = { X: T.X.slice(), Z: T.Z.slice(), Y: T.Y.slice(), W: T.W.slice(), B: T.B.slice(), NODE: T.NODE.slice() };
+  let j = 0;
+  for (let i = 0; i < N; i++) {
+    const d = i * ds; while (j < N - 1 && cum[j + 1] < d) j++;
+    const k = (j + 1) % N, f = cum[j + 1] > cum[j] ? (d - cum[j]) / (cum[j + 1] - cum[j]) : 0, lerp = (a) => a[j] + (a[k] - a[j]) * f;
+    T.X[i] = lerp(old.X); T.Z[i] = lerp(old.Z); T.Y[i] = lerp(old.Y); T.W[i] = lerp(old.W); T.B[i] = lerp(old.B);
+    let nb = old.NODE[k]; if (nb < old.NODE[j]) nb += nn; T.NODE[i] = (old.NODE[j] + (nb - old.NODE[j]) * f) % nn;
+    T.D[i] = d;
+  }
+  T.L = L; T.ds = ds; T.raceL = L;
 }
 
 // forward / right vectors and curvature from the sample positions
@@ -499,7 +544,7 @@ export function sampleTrack(track) {
   }
   easeY(T);
   finishFrames(T);
-  fitWidths(T);
+  fitWidths(T, n, track.osm || track.real ? 1.5 : 3.5); // (a drawn circuit's: room for a curb and a barrier inside too)
   return T;
 }
 
@@ -571,6 +616,32 @@ export function buildHash(T, cell = 24) {
 }
 
 export const circDist = (a, b, N) => { const d = Math.abs(a - b) % N; return Math.min(d, N - d); };
+// From sample i out to `upto` on `side`: how far until the ground is another stretch's (a sample of it nearer, across
+// its own road, than i's is: the middle between two runs of road side by side), or Infinity. Each other sample can
+// only count where i's line crosses its own cross-section (within 0.75 ds of it), found once for the whole line.
+function meetLine(T, hash, i, side, sep, upto) {
+  const ux = T.RX[i] * side, uz = T.RZ[i] * side, t0 = T.W[i] / 2 + 0.5, cand = [];
+  if (upto <= t0) return Infinity;
+  const qx = T.X[i] + ux * (t0 + upto) / 2, qz = T.Z[i] + uz * (t0 + upto) / 2;
+  hash.query(qx, qz, (upto - t0) / 2 + 46, (j) => {
+    if (sameStretch(T, i, j, sep) || Math.abs(T.Y[i] - T.Y[j]) > 4.5) return;
+    const a0 = (T.X[i] - T.X[j]) * T.FX[j] + (T.Z[i] - T.Z[j]) * T.FZ[j], b = ux * T.FX[j] + uz * T.FZ[j], w = T.ds * 0.75;
+    let lo, hi;
+    if (Math.abs(b) < 1e-9) { if (Math.abs(a0) > w) return; lo = -Infinity; hi = Infinity; } else { const p = (-w - a0) / b, q = (w - a0) / b; lo = Math.min(p, q); hi = Math.max(p, q); }
+    if (hi >= t0 && lo <= upto) cand.push(j, lo, hi);
+  });
+  if (!cand.length) return Infinity;
+  for (let t = t0; t <= upto; t += 0.5) {
+    const x = T.X[i] + ux * t, z = T.Z[i] + uz * t;
+    for (let k = 0; k < cand.length; k += 3) {
+      if (t < cand[k + 1] || t > cand[k + 2]) continue;
+      const j = cand[k], lat = Math.abs((x - T.X[j]) * T.RX[j] + (z - T.Z[j]) * T.RZ[j]);
+      if (lat < t) return t;
+    }
+  }
+  return Infinity;
+}
+
 // samples i and j on the same stretch of road: fewer than `sep` apart along it, and the road between them hasn't
 // doubled back (the gap straight across is at least 3/4 of the way round: turned less than ~150 degrees). Across a
 // hairpin's nose the other leg is only 20-40 m along the road but is another stretch: its road, its runoff
@@ -689,11 +760,15 @@ export function analyzeTrack(T, env, paint = null, osm = null, dress = null) {
   // one far back, or one far back starts or ends, it curves in gently; never further out than it was)
   if (RW) for (const O of [BL, BRt]) easeIn(T, O, BR2);
   const BMAX = [unfold(T, BL, -1), unfold(T, BRt, 1)];
-  // barrier gaps where the barrier would sit on another section's road/runoff
-  const HAS_L = new Uint8Array(N).fill(1), HAS_R = new Uint8Array(N).fill(1);
+  // where the barrier would sit on another section's road / runoff: down the middle instead, where the two runoffs
+  // meet (a hairpin's infield tongue, two straights side by side: back to back, as on a real circuit), eased in
+  // from either side; only where even the middle is too near the road, none (a gap). A real circuit's mapped
+  // barriers keep to the map: there, none
+  const drawn = !osm;
+  const HAS_L = new Uint8Array(N).fill(1), HAS_R = new Uint8Array(N).fill(1), MID = [];
   for (let i = 0; i < N; i++) {
     for (const side of [-1, 1]) {
-      const off = side < 0 ? BL[i] : BRt[i];
+      const O = side < 0 ? BL : BRt, off = O[i];
       const qx = T.X[i] + T.RX[i] * off * side, qz = T.Z[i] + T.RZ[i] * off * side;
       let gap = false;
       hash.query(qx, qz, runoff + 20, (j) => {
@@ -703,7 +778,19 @@ export function analyzeTrack(T, env, paint = null, osm = null, dress = null) {
         const rj = BR2[j] ? T.W[j] / 2 + 1 : T.W[j] / 2 + runoff * 0.9;
         if (d < rj) gap = true;
       });
-      if (gap) (side < 0 ? HAS_L : HAS_R)[i] = 0;
+      if (!gap) continue;
+      if (!drawn) { (side < 0 ? HAS_L : HAS_R)[i] = 0; continue; }
+      const m = BR2[i] ? Infinity : meetLine(T, hash, i, side, sep, off) - 0.4;
+      if (!isFinite(m)) continue; // (no other stretch's ground before it: it's on this one's side, it stays)
+      if (m >= T.W[i] / 2 + 1.2) { O[i] = m; MID.push([i, side]); } else (side < 0 ? HAS_L : HAS_R)[i] = 0;
+    }
+  }
+  // (the barrier either side of where it's pulled in comes in to meet it at 0.3 m a metre, no step)
+  for (const [i, side] of MID) {
+    const O = side < 0 ? BL : BRt, r = 0.3 * T.ds, reach = Math.ceil(30 / T.ds);
+    for (let k = 1; k <= reach; k++) for (const dir of [-1, 1]) {
+      const j = stepIdx(T, i, dir * k); if (j === i || BR2[j]) continue;
+      const lim = O[i] + r * k; if (O[j] > lim) O[j] = Math.max(T.W[j] / 2 + 0.3, lim);
     }
   }
   for (let i = 0; i < N; i++) { if (NOWALL[0][i]) HAS_L[i] = 0; if (NOWALL[1][i]) HAS_R[i] = 0; }
@@ -768,8 +855,10 @@ export function analyzeTrack(T, env, paint = null, osm = null, dress = null) {
   });
   for (let i = 0; i < N; i++) KERB[i] = KW[0][i] > 0.05 || KW[1][i] > 0.05 ? 1 : 0;
   // (a circuit's own barriers, from its dressing, held inside the same caps the layout's are: on a tight corner's
-  // inside, past its cap a wall folds into a bow tie)
-  if (dress && Array.isArray(dress.barriers)) { unfold(T, BL, -1); unfold(T, BRt, 1); }
+  // inside, past its cap a wall folds into a bow tie. The ones you place on a drawn circuit may go out as far as the
+  // fold itself less the wall's own depth - round a hairpin's inside, that's as far from the road as a barrier can be)
+  const placedCap = (sd) => { const c = wallCaps(T, sd, 0.1); for (let i = 0; i < N; i++) c[i] -= 1; return c; };
+  if (dress && Array.isArray(dress.barriers)) { unfold(T, BL, -1, drawn ? placedCap(-1) : undefined); unfold(T, BRt, 1, drawn ? placedCap(1) : undefined); }
   // No barrier folding back on itself: round the outside of a hairpin a barrier far out sweeps a much longer way than
   // the road, and where its distance out changes fast as well it runs backwards for a stretch (a zig-zag in the wall).
   // Wherever a stretch of it would run less than half forward, its further-out end is eased in, until none does
@@ -793,13 +882,34 @@ export function analyzeTrack(T, env, paint = null, osm = null, dress = null) {
   // back on itself there: BMAX), there's none, as on a real hairpin's open infield. A street circuit's walls and a
   // mountain road's rails stand at the edge (city, or runoff under 6 m), and so do the concrete walls a circuit's own
   // dressing puts there (an oval's, Indianapolis's)
+  // (round a hairpin's nose it may stand nearer its fold than BMAX's margin allows, short of the fold by the wall's own
+  // depth: so a barrier can wrap round the nose instead of stopping either side of it)
+  const FOLD = [wallCaps(T, -1, 0.1), wallCaps(T, 1, 0.1)];
   if (env.theme !== 'city' && (env.runoff ?? 0) >= 6) for (const [si, O, HAS] of [[0, BL, HAS_L], [1, BRt, HAS_R]]) {
     for (let i = 0; i < N; i++) {
       if (!HAS[i] || BR2[i]) continue;
       if (WT && WT[si][i] === WALL_KEYS.indexOf('concrete') + 1 && dress && Array.isArray(dress.barriers)) continue;
       const need = T.W[i] / 2 + KW[si][i] + BARRIER_CLEAR;
       if (O[i] >= need) continue;
-      if (BMAX[si][i] < need) HAS[i] = 0; else O[i] = need;
+      if (BMAX[si][i] >= need || (drawn && FOLD[si][i] - 1.2 >= need)) { O[i] = need; continue; }
+      // (a drawn circuit's nose too tight for the full clearance: as far out as it goes, down to 1 m past the kerb, so
+      // its barrier runs on round it; else - and on a real circuit, whose hairpins have their open infields - none)
+      const fit = FOLD[si][i] - 1.2;
+      if (drawn && fit >= T.W[i] / 2 + KW[si][i] + 1) O[i] = Math.max(O[i], fit); else HAS[i] = 0;
+    }
+  }
+  // (a gap of a sample or three between two runs of barrier - the tip of a hairpin's nose, where the road's line kinks
+  // tighter than the corner is - is closed: the barrier runs on round it, as near as the two ends it joins)
+  if (drawn && env.theme !== 'city' && (env.runoff ?? 0) >= 6) for (const [si, O, HAS] of [[0, BL, HAS_L], [1, BRt, HAS_R]]) {
+    for (let i = 0; i < N; i++) {
+      if (HAS[i] || BR2[i] || i === T.cut + 1) continue;
+      const a = stepIdx(T, i, -1); if (!HAS[a] || a === i) continue;
+      let len = 1; while (len <= 3 && !HAS[stepIdx(T, i, len)]) len++;
+      const b = stepIdx(T, i, len); if (len > 3 || !HAS[b] || BR2[b]) continue;
+      // (only where it fits short of the fold: else it would knot)
+      const o = Math.min(O[a], O[b]);
+      let fits = true; for (let k = 0; k < len; k++) { const j = stepIdx(T, i, k); if (BR2[j] || o > FOLD[si][j] - 0.6) fits = false; }
+      if (fits) for (let k = 0; k < len; k++) { const j = stepIdx(T, i, k); HAS[j] = 1; O[j] = Math.max(T.W[j] / 2 + KW[si][j] + 0.5, o); }
     }
   }
   // (and no stub of barrier on its own: a run of it under 20 m between gaps - what's left by a hairpin's open inside,
@@ -824,8 +934,8 @@ export function analyzeTrack(T, env, paint = null, osm = null, dress = null) {
 // needed, the bigger the further), never onto the track. Returns the caps (the furthest out anything along the wall may stand: its top, the
 // ground it holds back).
 // the furthest out a wall on that side may stand at each sample before it folds back on itself
-function wallCaps(T, side) {
-  const N = T.N, M = 0.25 * T.ds, cap = new Float32Array(N).fill(1e9);
+export function wallCaps(T, side, M = 0.25 * T.ds) {
+  const N = T.N, cap = new Float32Array(N).fill(1e9);
   for (let i = 0; i < N; i++) {
     if (i === T.cut) continue;
     const j = (i + 1) % N, dx = T.X[j] - T.X[i], dz = T.Z[j] - T.Z[i];
@@ -836,8 +946,8 @@ function wallCaps(T, side) {
   }
   return cap;
 }
-function unfold(T, off, side) {
-  const N = T.N, cap = wallCaps(T, side);
+function unfold(T, off, side, cap = wallCaps(T, side)) {
+  const N = T.N;
   let any = false;
   for (let i = 0; i < N; i++) if (off[i] > cap[i]) { any = true; break; }
   if (!any) return cap;
