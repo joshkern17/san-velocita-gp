@@ -656,8 +656,8 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .ed-v3d span { font: 500 13px/1.2 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); }
 .ed-top { grid-column: 1 / 4; display: flex; align-items: center; gap: 14px; padding: 0 12px; background: var(--sv-ink); border-bottom: 1.5px solid var(--sv-red); box-shadow: 0 1px 4px color-mix(in srgb, var(--sv-red) 50%, transparent); z-index: 1; }
 .ed-brand { font: 700 32px/.9 var(--f-display); letter-spacing: var(--track); text-transform: uppercase; white-space: nowrap; color: var(--sv-hot); background: linear-gradient(180deg, var(--sv-hot-top) 0%, var(--sv-hot) 45%, var(--sv-hot-deep) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: var(--sv-glow-title); padding-top: .04em; text-shadow: none; }
-.ed-name { background: transparent; border: 1.5px solid var(--sv-red); border-radius: 3px; box-shadow: 0 0 2px var(--sv-red), 0 0 4px var(--sv-red); color: var(--sv-hot); font: 500 20px/1 var(--f-ui); letter-spacing: var(--track); padding: 5px 10px 3px; width: 280px; outline: none; }
-.ed-name:focus { border-color: var(--sv-amber); color: var(--sv-amber); box-shadow: 0 0 3px var(--sv-amber), 0 0 8px color-mix(in srgb, var(--sv-amber) 55%, transparent); }
+.ed-name, .ed-saveas { background: transparent; border: 1.5px solid var(--sv-red); border-radius: 3px; box-shadow: 0 0 2px var(--sv-red), 0 0 4px var(--sv-red); color: var(--sv-hot); font: 500 20px/1 var(--f-ui); letter-spacing: var(--track); padding: 5px 10px 3px; width: 280px; outline: none; }
+.ed-name:focus, .ed-saveas:focus { border-color: var(--sv-amber); color: var(--sv-amber); box-shadow: 0 0 3px var(--sv-amber), 0 0 8px color-mix(in srgb, var(--sv-amber) 55%, transparent); }
 .ed-btns { display: flex; gap: 6px; margin-left: auto; align-items: center; }
 .ed-btns .sep { width: 10px; }
 /* editor + livery buttons: the shared outlined button (css/sv.css .sv-btn) */
@@ -728,6 +728,8 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .ed-modal-box .li:hover .t { color: var(--sv-amber); }
 .ed-modal-box .li .d { font: 500 var(--t-small)/1.4 var(--f-body); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; }
 .ed-modal-box .li button { font-size: 11px !important; padding: 3px 8px !important; }
+.ed-modal-box .muted { color: var(--sv-red-dim); font: 500 var(--t-small)/1.5 var(--f-body); margin: 0 0 var(--s3); max-width: 480px; }
+.ed-modal-box .ed-saveas { width: 100%; box-sizing: border-box; margin-bottom: var(--s2); }
 .ed-modal-box .foot { margin-top: var(--s4); text-align: right; }
 .ed-toast { position: fixed; left: 50%; bottom: 190px; transform: translateX(-50%); background: rgba(5,3,8,.88); color: var(--sv-red); font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; padding: 11px 20px 10px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 40; }
 .ed-toast::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--sv-red); box-shadow: var(--sv-glow-line); }
@@ -2370,7 +2372,7 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 @property --tv { syntax: '<number>'; inherits: true; initial-value: 0; }
 .tsw { position: absolute; inset: 0; z-index: 1; color: var(--sv-red); }
 .tsw[hidden] { display: none; }
-#s-hub.wizard .scr-head, #s-hub.wizard .hub-left, #s-hub.wizard .desc-bar, #s-hub.wizard .menu-shade, #s-hub.wizard .hub-week, #s-hub.wizard .pc-tag, #s-hub.wizard .car-tags { opacity: 0; pointer-events: none; }
+#s-hub.wizard .walk-hud, #s-hub.wizard .walk-next, #s-hub.wizard .scr-head, #s-hub.wizard .hub-left, #s-hub.wizard .desc-bar, #s-hub.wizard .menu-shade, #s-hub.wizard .hub-week, #s-hub.wizard .pc-tag, #s-hub.wizard .car-tags { opacity: 0; pointer-events: none; }
 .tsw :where(h1, h2, h3, h4, p, ul, ol) { margin: 0; padding: 0; }
 .tsw :where(h2, h3, h4, small, span, b, em, li, p, button) { text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
 .tsw-shade { position: absolute; inset: 0; background: radial-gradient(ellipse 80% 70% at 62% 46%, rgba(4,3,8,.76), rgba(4,3,8,.94)); }
@@ -2573,7 +2575,7 @@ span.tsw-face { width: 64px; height: 64px; }
 @media (prefers-reduced-motion: reduce) { .tsw *, .tsw *::before, .tsw *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; } }
 
 /* ---------- World Career: the day planner, over the garage (js/dayplan.js; dresses as the Team Setup, .tsw) ---------- */
-#s-hub.planning .scr-head, #s-hub.planning .hub-left, #s-hub.planning .desc-bar, #s-hub.planning .menu-shade, #s-hub.planning .hub-week, #s-hub.planning .pc-tag, #s-hub.planning .car-tags { opacity: 0; pointer-events: none; }
+#s-hub.planning .walk-hud, #s-hub.planning .walk-next, #s-hub.planning .scr-head, #s-hub.planning .hub-left, #s-hub.planning .desc-bar, #s-hub.planning .menu-shade, #s-hub.planning .hub-week, #s-hub.planning .pc-tag, #s-hub.planning .car-tags { opacity: 0; pointer-events: none; }
 .dp-week li { padding-right: 12px; }
 .dp-week li small.gain { color: var(--sv-cyan); } .dp-week li small.neg { color: var(--sv-bad); }
 .dp-week li.on small { color: var(--sv-amber); }
@@ -2825,7 +2827,7 @@ span.tsw-face { width: 64px; height: 64px; }
 /* ---------- Tuning (js/tuning.js): laid out like the Garage (the list down the left, the car in full view, the
    screen clear for dragging round it); what the setup does across the top right, level with the title ---------- */
 #s-tuning { pointer-events: none; }
-.scr-sub em.tn-warn { font-style: normal; color: var(--sv-hot); }
+.tn-tabs .tn-state { margin-left: auto; align-self: center; white-space: nowrap; font: 500 var(--t-label)/1 var(--f-ui); font-style: normal; letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-hot); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
 /* (a soft dark band across the top: the strip reads over a lit room, the pit garage's, as well as the dark turntable) */
 .tn-topshade { position: absolute; left: 0; right: 0; top: 0; height: 34%; background: linear-gradient(180deg, rgba(4,3,8,.82) 0%, rgba(4,3,8,.62) 52%, rgba(4,3,8,0) 100%); }
 #s-tuning .panel, #s-tuning .footer-hints, #s-tuning .tn-name { pointer-events: auto; }
@@ -2879,9 +2881,10 @@ span.tsw-face { width: 64px; height: 64px; }
 .tn-bal-e span:last-child { text-align: right; }
 .tn-bal.spin .tn-bal-k b { color: var(--sv-bad); } .tn-bal.spin i.cur { background: var(--sv-bad); }
 /* the description under the list: turning it down, turning it up */
-.tn-desc { right: auto; left: 4%; width: 460px; font-size: 14px; }
-.tn-desc p { margin: 0 0 4px; }
-.tn-desc p b { display: inline-block; width: 64px; font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red-dim); }
+.tn-desc { right: auto; left: 4%; width: 460px; font-size: 15px; }
+.tn-desc p { margin: 0 0 4px; padding-left: 64px; } /* (a hanging indent: a second line lines up under the first, not the label) */
+.tn-desc p.tn-note { padding-left: 0; margin-top: 8px; color: var(--sv-red-dim); }
+.tn-desc p b { display: inline-block; width: 64px; margin-left: -64px; font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red-dim); }
 
 /* the pre-race broadcast (race.js flyCamera): just the pictures, and the skip hint */
 #hud.bcast > :not(#h-help):not(:has(#h-help)) { opacity: 0; transition: opacity .4s; }

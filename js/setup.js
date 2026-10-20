@@ -98,7 +98,7 @@ export function simpleFields(id) {
   f.push({ k: 'pow', label: 'Diff Lock', min: 0, max: 0.8, step: 0.05, get: s => s.pow, set: (s, v) => { s.pow = v; }, fmt: pct,
     more: 'Both driven wheels pushed together: better traction out of corners, but it pushes wide on the power.', less: 'Freer: turns better on the power, the inside wheel spins up sooner.' });
   f.push({ k: 'final', label: 'Gearing', min: -5, max: 5, step: 1, get: s => s.final, set: (s, v) => { s.final = v; }, fmt: (v, s) => spd(topOf(id, s)),
-    more: 'Longer: a higher top speed, slower to get going.', less: 'Shorter: quicker acceleration, tops out sooner.' });
+    more: 'Longer: a higher top speed, slower to get going.', less: 'Shorter: quicker acceleration, tops out sooner.', note: 'This speed is where top gear runs out of revs. Drag can hold the car below it: Top Speed, above, is what it actually reaches.' });
   return f;
 }
 
@@ -111,7 +111,7 @@ export function realisticFields(id) {
     add('aero', 'fw', 'Front Wing', -5, 5, 0.5, lvl, 'More front downforce: sharper turn-in at speed, a little more drag.', 'Less front downforce: the car understeers more in fast corners.');
     add('aero', 'rw', 'Rear Wing', -5, 5, 0.5, lvl, 'More rear downforce: planted in fast corners, much more drag.', 'Less: faster on the straights, the rear lighter in fast corners.');
   }
-  add('aero', 'rhF', 'Ride Height Front', -12, 12, 2, v => sgn(v) + ' MM', 'Higher: more room over curbs, less ground effect.', 'Lower: more downforce' + (aero ? '' : ' (what little there is)') + ', a lower centre of mass. Too low and it bottoms out.');
+  add('aero', 'rhF', 'Ride Height Front', -12, 12, 2, v => sgn(v) + ' MM', 'Higher: more room over curbs, less ground effect.', 'Lower: more downforce' + (aero ? '' : ' (what little there is)') + ', a lower center of mass. Too low and it bottoms out.');
   add('aero', 'rhR', 'Ride Height Rear', -12, 12, 2, v => sgn(v) + ' MM', 'Higher: more room over curbs, the nose pitched down (more front downforce on wing cars).', 'Lower: more rear grip from the floor. Too low and it bottoms out.');
   add('susp', 'sprF', 'Front Springs', -5, 5, 1, (v) => Math.round(k0[0] * (1 + 0.06 * v) ** 2 / 1000) + ' N/MM', 'Stiffer front: sharper response, the front lets go sooner in long corners.', 'Softer front: more front grip over bumps, more dive under braking.');
   add('susp', 'sprR', 'Rear Springs', -5, 5, 1, (v) => Math.round(k0[1] * (1 + 0.06 * v) ** 2 / 1000) + ' N/MM', 'Stiffer rear: the car rotates more, less squat on the power.', 'Softer rear: more traction, steadier on the power.');
@@ -128,7 +128,7 @@ export function realisticFields(id) {
   add('brakes', 'pow', 'Diff Power Lock', 0, 0.8, 0.05, pct, 'More: better traction out of corners, pushes wide on the power.', 'Less: turns better on the power, more wheelspin.');
   add('brakes', 'coast', 'Diff Coast Lock', 0, 0.8, 0.05, pct, 'More: stable off the throttle into corners.', 'Less: rotates more as you lift and turn in.');
   f.push({ tab: 'gears', k: 'final', label: 'Final Drive', min: -5, max: 5, step: 1, get: s => s.final, set: (s, v) => { s.final = v; }, fmt: (v, s) => spd(topOf(id, s)),
-    more: 'Longer: every gear longer, a higher top speed.', less: 'Shorter: every gear shorter, quicker acceleration.' });
+    more: 'Longer: every gear longer, a higher top speed.', less: 'Shorter: every gear shorter, quicker acceleration.', note: 'This speed is where top gear runs out of revs. Drag can hold the car below it: Top Speed, above, is what it actually reaches.' });
   for (let g = 1; g <= n; g++) f.push({ tab: 'gears', k: 'g' + g, label: `Gear ${g}`, min: 0.8, max: 1.2, step: 0.02, get: s => s.gears[g - 1], set: (s, v) => { s.gears[g - 1] = v; },
     fmt: (v, s) => { const G = applySetup(S, s, id).gears; return spd(G[g]); },
     more: `Longer ${g === 1 ? 'first gear: less wheelspin off the line and out of hairpins' : g === n ? 'top gear: more top speed, if the engine can pull it' : 'gear: fewer shifts, a softer pull'}.`,

@@ -104,7 +104,9 @@ if (fs.existsSync(path.join(voiceDir, 'manifest.json'))) {
 }
 // the soundtrack is too big to inline: it goes in a music/ folder beside the HTML (js/audio.js reads __SVGP_MUSIC_DIR)
 const musicTag = inlineScript(`window.__SVGP_MUSIC_DIR = 'music/';`);
-swap('<script type="module" src="js/main.js"></script>', glbTag + garageTag + phoneTag + charsTag + blTag + ppTag + pbTag + envTag + carsTag + kitTag + realTag + texTag + spTag + voiceTag + musicTag + inlineScript(js, 'module'));
+// --release: a player build, with the developer tools hidden (main.js DEV)
+const relTag = process.argv.includes('--release') ? inlineScript('window.__SVGP_RELEASE = true;') : '';
+swap('<script type="module" src="js/main.js"></script>', relTag + glbTag + garageTag + phoneTag + charsTag + blTag + ppTag + pbTag + envTag + carsTag + kitTag + realTag + texTag + spTag + voiceTag + musicTag + inlineScript(js, 'module'));
 
 fs.mkdirSync(dist, { recursive: true });
 const name = 'San Velocita GP.html';

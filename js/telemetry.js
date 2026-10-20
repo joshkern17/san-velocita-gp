@@ -163,7 +163,7 @@ function tipsFor(y, r, loss, vsRef) {
   if (y.lock > 4) tips.push({ k: 'lock', text: `The wheels locked under braking. Squeeze the brake on instead of stamping on it.` });
   if (lateBrake && y.minV < r.minV - 1.2) tips.push({ k: 'late', text: `You braked {m:${r.brakeDist - y.brakeDist}} later and overshot: {kmh:${r.minV - y.minV}} slower at the apex. Brake where the ${vsRef ? 'reference' : 'other lap'} does and carry more speed through.` });
   else if (earlyBrake && y.minV <= r.minV + 0.6) tips.push({ k: 'early', text: `You braked {m:${y.brakeDist - r.brakeDist}} earlier than you need to. Try braking later.` });
-  if (y.under > 12) tips.push({ k: 'under', text: `The front tyres were past their grip for {m:${y.under}}: too fast or too much steering on the way in. Slow a little more, then turn.` });
+  if (y.under > 12) tips.push({ k: 'under', text: `The front tires were past their grip for {m:${y.under}}: too fast or too much steering on the way in. Slow a little more, then turn.` });
   if (!lateBrake && y.minV < r.minV - 1.7) tips.push({ k: 'min', text: `{kmh:${r.minV - y.minV}} slower at the slowest point. Ease off the brake as you turn in and let the car roll through.` });
   if (y.thrDist != null && r.thrDist != null && y.thrDist - r.thrDist > 20) tips.push({ k: 'thr', text: `Back on the throttle {m:${y.thrDist - r.thrDist}} later than you could be. Start squeezing it on just after the slowest point.` });
   if (y.coast > 0.35) tips.push({ k: 'coast', text: `{s:${y.coast}} coasting with neither pedal. Blend the brake straight into the throttle.` });

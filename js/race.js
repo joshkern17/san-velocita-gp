@@ -2357,8 +2357,8 @@ export class Race {
     if (!this.wearK || !isFinite(R)) {
       // tyre wear off: it's just which compound to run
       const list = this.dirt ? ['dirt'] : this.rain ? ['wet'] : ['soft', 'medium', 'hard'];
-      return list.map((c, k) => ({ key: c, title: `${c[0].toUpperCase() + c.slice(1)} Tyres`, plan: { stints: [{ c, laps: isFinite(R) ? R : 1 }] },
-        desc: k === 0 ? 'Tyre wear is off, so the fastest compound is the obvious pick.' : c === 'dirt' ? 'Dirt tyres for the dirt.' : c === 'wet' ? 'Full wets for the rain.' : 'Tyre wear is off: a slower compound for no reason. Brave.' }));
+      return list.map((c, k) => ({ key: c, title: `${c[0].toUpperCase() + c.slice(1)} Tires`, plan: { stints: [{ c, laps: isFinite(R) ? R : 1 }] },
+        desc: k === 0 ? 'Tire wear is off, so the fastest compound is the obvious pick.' : c === 'dirt' ? 'Dirt tires for the dirt.' : c === 'wet' ? 'Full wets for the rain.' : 'Tire wear is off: a slower compound for no reason. Brave.' }));
     }
     const opts = this.strategyOptions();
     const out = [];
@@ -2366,7 +2366,7 @@ export class Race {
     const sig = (p) => p.stints.map(s => s.c[0] + s.laps).join('-');
     if (!opts.length) {
       const c = this.condTyre('hard');
-      return [{ key: 'rec', title: 'Recommended Strategy', desc: 'Nurse the tyres all the way — no set lasts a sprint to the flag.', plan: { stints: [{ c, laps: R }] } }];
+      return [{ key: 'rec', title: 'Recommended Strategy', desc: 'Nurse the tires all the way — no set lasts a sprint to the flag.', plan: { stints: [{ c, laps: R }] } }];
     }
     const rec = clone(opts[0]);
     out.push({ key: 'rec', title: 'Recommended Strategy', desc: 'The fastest projection for this race: the engineers\' pick.', plan: rec });
@@ -2375,7 +2375,7 @@ export class Race {
     if (alt) {
       const more = alt.stints.length > rec.stints.length;
       out.push({ key: 'alt', title: more ? 'Aggressive Strategy' : 'Conservative Strategy', plan: clone(alt),
-        desc: more ? 'Push hard on fresh rubber and make an extra stop to stay in the tyres\' sweet spot.' : 'Drive to look after the tyres and make fewer stops. Less time lost in the pit lane.' });
+        desc: more ? 'Push hard on fresh rubber and make an extra stop to stay in the tires\' sweet spot.' : 'Drive to look after the tires and make fewer stops. Less time lost in the pit lane.' });
     }
     // undercut: stop earlier than the cars around you and use the fresh-tyre pace to jump them
     const baseU = recStops > 0 ? rec : opts.find(o => o.stints.length === 2);
@@ -2383,7 +2383,7 @@ export class Race {
       const u = clone(baseU), early = Math.max(1, Math.min(3, Math.round(u.stints[0].laps * 0.25)));
       if (u.stints[0].laps - early >= 1) {
         u.stints[0].laps -= early; u.stints[1].laps += early;
-        out.push({ key: 'under', title: 'Undercut Strategy', plan: u, desc: `Box ${early} lap${early > 1 ? 's' : ''} before the planned window. Fresh tyres let you jump the cars ahead when they stop.` });
+        out.push({ key: 'under', title: 'Undercut Strategy', plan: u, desc: `Box ${early} lap${early > 1 ? 's' : ''} before the planned window. Fresh tires let you jump the cars ahead when they stop.` });
       }
     }
     return out;
@@ -2993,8 +2993,8 @@ export class Race {
   tyreRadio(car) {
     if (!this.wearK || car.finished) return;
     const w = Math.min(car.phys.tyre.wf, car.phys.tyre.wr);
-    if (w < 0.4 && !car.radio.t40) { car.radio.t40 = true; this.events.push({ type: 'radio', vo: 'tires.fading', msg: 'Tyres are starting to go off. Box when you can.' }); }
-    if (w < 0.25 && !car.radio.t25) { car.radio.t25 = true; this.events.push({ type: 'radio', vo: 'tires.gone', msg: 'Tyres are gone! <b>Box, box!</b>', big: true }); }
+    if (w < 0.4 && !car.radio.t40) { car.radio.t40 = true; this.events.push({ type: 'radio', vo: 'tires.fading', msg: 'Tires are starting to go off. Box when you can.' }); }
+    if (w < 0.25 && !car.radio.t25) { car.radio.t25 = true; this.events.push({ type: 'radio', vo: 'tires.gone', msg: 'Tires are gone! <b>Box, box!</b>', big: true }); }
   }
 
   // ---------- online ----------

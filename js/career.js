@@ -9,7 +9,7 @@ export const UPGRADES = {
   engine:  { label: 'Engine',          desc: '+2.5% power per level' },
   aero:    { label: 'Aero',            desc: '+4% downforce per level' },
   grip:    { label: 'Suspension',      desc: '+1.5% mechanical grip per level' },
-  tyres:   { label: 'Tyre Management', desc: '-10% tyre wear per level' },
+  tyres:   { label: 'Tire Management', desc: '-10% tire wear per level' },
   armour:  { label: 'Durability',      desc: '-15% damage per level' },
   crew:    { label: 'Pit Crew',        desc: '-0.4s per pit stop per level' },
 };
@@ -18,11 +18,11 @@ export const upgradeCost = (lvl) => [250, 450, 700, 1000, 1400][lvl] ?? Infinity
 
 export const PERKS = {
   slip:     { name: 'Slipstream King',   desc: 'Slipstream is 60% stronger for you.', tag: 'RACECRAFT' },
-  whisper:  { name: 'Tyre Whisperer',    desc: 'Your tyres wear 20% slower.', tag: 'TYRES' },
+  whisper:  { name: 'Tire Whisperer',    desc: 'Your tires wear 20% slower.', tag: 'TIRES' },
   rain:     { name: 'Rain Dancer',       desc: '+6% grip whenever it is wet.', tag: 'WEATHER' },
   wizards:  { name: 'Pit Wizards',       desc: 'Pit stops are 1 second quicker.', tag: 'PITS' },
   glass:    { name: 'Glass Cannon',      desc: '+3% grip, but you take 80% more damage.', tag: 'RISKY' },
-  hotmotor: { name: 'Hot Motor',         desc: '+4% power, but tyres wear 20% faster.', tag: 'RISKY' },
+  hotmotor: { name: 'Hot Motor',         desc: '+4% power, but tires wear 20% faster.', tag: 'RISKY' },
   frenzy:   { name: 'Sponsor Frenzy',    desc: 'All prize money +40%.', tag: 'MONEY' },
   lucky:    { name: 'Lucky Charm',       desc: 'Gain an extra star (up to 4).', tag: 'SAFETY', once: true },
   launch:   { name: 'Launch Control',    desc: '+25% power for the first 6 seconds of each race.', tag: 'STARTS' },
@@ -30,7 +30,7 @@ export const PERKS = {
   rep:      { name: 'Good Reputation',   desc: 'The Team Principal expects one place less every round.', tag: 'SAFETY' },
   brakes:   { name: 'Late Braker',       desc: 'Your brakes are 6% stronger.', tag: 'RACECRAFT' },
   iron:     { name: 'Iron Chassis',      desc: 'You take 40% less damage.', tag: 'SAFETY' },
-  softs:    { name: 'Fresh Rubber',      desc: 'Start every race on Softs with 2% more grip.', tag: 'TYRES' },
+  softs:    { name: 'Fresh Rubber',      desc: 'Start every race on Softs with 2% more grip.', tag: 'TIRES' },
   gamble:   { name: "Engineer's Gamble", desc: 'Instantly gain a free upgrade level (random).', tag: 'UPGRADE', once: true },
   cash:     { name: 'Cash Injection',    desc: 'Instantly receive $400k.', tag: 'MONEY', once: true },
 };

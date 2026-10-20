@@ -1112,10 +1112,10 @@ export const PROJECTS = {
   ],
   gt: [
     ['evoeng', 'engine', 'Engine evolution (a joker)', 'power', 0.0135, 8, 60000, null, true], ['map', 'engine', 'Mapping, within the rules', 'power', 0.0045, 2, 8000, { dyno: 1 }],
-    ['setup', 'chassis', 'Setup programme', 'grip', 0.0024, 3, 12000], ['dampers', 'chassis', 'Damper development', 'grip', 0.0036, 5, 30000], ['weight', 'chassis', 'Ballast placement', 'grip', 0.0018, 2, 6000],
+    ['setup', 'chassis', 'Setup program', 'grip', 0.0024, 3, 12000], ['dampers', 'chassis', 'Damper development', 'grip', 0.0036, 5, 30000], ['weight', 'chassis', 'Ballast placement', 'grip', 0.0018, 2, 6000],
     ['evoaero', 'aero', 'Aero evolution (a joker)', 'downforce', 0.015, 8, 70000, null, true],
     ['brakes', 'brakes', 'Brake cooling package', 'brake', 0.012, 3, 15000],
-    ['relgt', 'reliability', 'Reliability programme', 'rel', 0.1, 4, 20000],
+    ['relgt', 'reliability', 'Reliability program', 'rel', 0.1, 4, 20000],
   ],
   formula: [
     ['pu', 'engine', 'Power unit upgrade', 'power', 0.00675, 10, 250000], ['susp', 'chassis', 'Suspension concept', 'grip', 0.0045, 8, 200000],
@@ -1459,7 +1459,7 @@ export function setupApply(w) {
 export function setupEntries(w) {
   const old = w.teams[w.prev], mate = w.people[w.teams[w.player.team].drivers.find(d => d !== 'P')];
   return [
-    { key: 'fresh', name: 'Start from nothing', cost: 0, level: 'Hardest', blurb: 'A rented lock-up, a series licence, and all of your money. You buy your own car and pick your own people.',
+    { key: 'fresh', name: 'Start from nothing', cost: 0, level: 'Hardest', blurb: 'A rented lock-up, a series license, and all of your money. You buy your own car and pick your own people.',
       gets: ['Rented lock-up', w.car ? `Your ${w.car.year} ${w.car.name}` : 'No car: the classifieds', 'No staff', 'All your money'] },
     w.again && old && old.id === w.again.fid
       ? { key: 'takeover', name: `Take back ${old.name}`, cost: 28000, level: 'Middling', blurb: `Your old team. The liquidators still have what the bank didn't want: ${w.prevCar ? `the ${w.prevCar.name}` : 'a tired car'}, the lease on the unit, the tools${mate && mate.id === w.again.mate ? `, and ${mate.first}, who says they'll give it another go` : ''}.`,
@@ -1493,7 +1493,7 @@ export function setupSponsor(w, i) {
   const sp = sponsorById(o.sid); S.sponsored = o.sid;
   dealsOf(w).push({ sid: o.sid, slot: 'title', fee: o.fee, bonus: o.bonus, met: 0, misses: 0, since: w.year, obj: null, patience: o.patience });
   if (o.signing) pay(w, o.signing, `${sp.name}: signing bonus`);
-  mail(w, sp.name, sponsorAddr(sp.name), 'Welcome aboard', [`We're delighted. Our name goes on the car from the first round.`, `${money$(o.fee)} a round, and ${money$(o.bonus)} more each time you meet the target we set for that race. ${o.brand ? o.brand + '.' : ''}`, sp.name]);
+  mail(w, sp.name, sponsorAddr(sp.name), 'Welcome aboard', [`We're delighted. Our name goes on the car from the first round.`, `${money$(o.fee)} a round, and ${money$(o.bonus)} more each time you meet the target we set for that race. ${o.brand ? o.brand + '.' : ''}`, sp.name], { read: true }); // (you just signed it in the setup)
   return { ok: true };
 }
 export function setupMate(w, pid) {
@@ -1622,7 +1622,7 @@ function adsMail(w) {
 function carsMail(w) {
   const S = seriesById(w.player.series), b = seasonBudget(w, S);
   mail(w, `${S.name} Entries`, addrOf(S, 'entries'), `Your ${w.year} entry: the car`,
-    [`Welcome to the ${S.name}.`, S.car === 'spec' ? `Every team races the series chassis, leased from us for the season (from ${money$(b.lease)}).` : `Cars must be homologated for the ${S.name}. The makers' customer racing programmes sell and lease them (a lease from ${money$(b.lease)} a season, or from ${money$(b.buy)} to buy), and teams sometimes sell last year's cars.`,
+    [`Welcome to the ${S.name}.`, S.car === 'spec' ? `Every team races the series chassis, leased from us for the season (from ${money$(b.lease)}).` : `Cars must be homologated for the ${S.name}. The makers' customer racing programs sell and lease them (a lease from ${money$(b.lease)} a season, or from ${money$(b.buy)} to buy), and teams sometimes sell last year's cars.`,
      w.car ? `Your ${w.car.name} is not eligible. Most dealers will take it in part exchange.` : '', `Entries Office, ${S.name}`].filter(Boolean),
     { link: ['customer', 'See the cars'] });
 }
@@ -1864,7 +1864,7 @@ function seatRound(w) {
   const items = [], c = COSTS[w.player.series], res = w.series[w.player.series].results.find(x => x.round === w.round), row = res && res.rows.find(r => r.pid === w.mate.pid), p = w.people[w.mate.pid];
   if (d.per && d.kind !== 'junior') items.push([`Seat money: ${p.first} ${p.last}`, d.per]);
   if (d.kind === 'junior') {
-    items.push([`${d.maker}: junior programme`, d.per]);
+    items.push([`${d.maker}: junior program`, d.per]);
     if (row && (row.dnf || row.pos > JUNIOR_TOP)) {
       d.misses++;
       if (d.misses >= 3) { mail(w, `${d.maker} Motorsport`, `juniors@${d.maker.toLowerCase().replace(/[^a-z]/g, '')}.sv`, `${p.first} ${p.last}`, [`${p.first} has missed the target we agreed three times. We're moving ${p.first} to another team, with immediate effect.`, `Thank you for running our driver. The stipend stops this round.`, `${d.maker} Motorsport`]); seatGone(w); }
@@ -2210,13 +2210,13 @@ export function settleRound(w, use, me) {
   const items = [
     ['Entry fee', -c.entry], [home ? 'Travel (home race: you drove)' : 'Travel and freight', home ? 0 : -Math.round(c.travel * fx.travel * (facLevel(myTeam(w), 'truck') ? 0.65 : 1))], ['Pit crew (contract)', -c.crew],
     ['Premises and facilities', -facUpkeep(myTeam(w))],
-    [`Tyres bought trackside (${use.trackside || 0} set${use.trackside === 1 ? '' : 's'})`, -Math.round((use.trackside || 0) * c.tyre * TRACKSIDE)],
+    [`Tires bought trackside (${use.trackside || 0} set${use.trackside === 1 ? '' : 's'})`, -Math.round((use.trackside || 0) * c.tyre * TRACKSIDE)],
     [`Fuel (${use.laps} lap${use.laps === 1 ? '' : 's'})`, -Math.round(use.laps * c.fuelLap * (bg.fuel || 1))],
   ];
   if (w.car && w.car.lease) items.push([`Car lease (${w.car.lease.prog})`, -w.car.lease.perRound]);
   // (co-op: what car two used, from the co-owner's race: their sets came out of the stock, short ones trackside)
   if (use.car2) { const t = use.car2.trackside || 0, l = use.car2.laps || 0;
-    if (t) items.push([`Car two: tyres bought trackside (${t} set${t === 1 ? '' : 's'})`, -Math.round(t * c.tyre * TRACKSIDE)]);
+    if (t) items.push([`Car two: tires bought trackside (${t} set${t === 1 ? '' : 's'})`, -Math.round(t * c.tyre * TRACKSIDE)]);
     if (l) items.push([`Car two: fuel (${l} lap${l === 1 ? '' : 's'})`, -Math.round(l * c.fuelLap * (bg.fuel || 1))]); }
   if (use.damage > 0.005) items.push([bg.repair ? 'Repairs (mostly done yourself)' : 'Repairs', -Math.round(use.damage * c.repair * (bg.repair || 1) * fx.repair / 100) * 100]);
   for (const it of sponsorRound(w, use, me)) items.push(it);
@@ -2406,7 +2406,7 @@ export function sellCar(w) {
   if (s.value) pay(w, s.value, s.lease ? `${c.lease.prog}: lease handed back (${c.name}), deposit returned` : `Sold: ${c.year} ${c.name}`);
   w.car = null; w.grey = null;
   if (seriesById(w.player.series).car === 'classifieds') w.ads = makeAds(w);
-  news(w, `${w.teams[w.player.team].name.toUpperCase()} SELLS ITS CAR`, `${w.teams[w.player.team].name}'s ${c.name} has been ${s.lease ? 'handed back to the programme' : 'sold'}. The team says it is "restructuring".`);
+  news(w, `${w.teams[w.player.team].name.toUpperCase()} SELLS ITS CAR`, `${w.teams[w.player.team].name}'s ${c.name} has been ${s.lease ? 'handed back to the program' : 'sold'}. The team says it is "restructuring".`);
   react(w, 'danny', `The player just ${s.lease ? 'handed back the leased race car' : `sold the race car (the ${c.year} ${c.name}) for ${money$(s.value)}`} to pay the bills. No race car now.`);
   return s;
 }
@@ -2478,7 +2478,7 @@ export function doPlan(w, id) {
   p.done = true;
   if (p.fx === 'press') {
     useDay(w, p.what, 0, p.tag);
-    if (!p.given) { w.press = pressOf(w) + 2; w.rep = clamp(repOf(w) + 2, 0, 100); news(w, `INSIDE ${w.teams[w.player.team].name.toUpperCase()}: LOTTERY MONEY AND A LOT OF TYRES`, `"Everyone said I'd lose the lot," says the owner-driver. "I'm a bit behind schedule on that."`); }
+    if (!p.given) { w.press = pressOf(w) + 2; w.rep = clamp(repOf(w) + 2, 0, 100); news(w, `INSIDE ${w.teams[w.player.team].name.toUpperCase()}: LOTTERY MONEY AND A LOT OF TIRES`, `"Everyone said I'd lose the lot," says the owner-driver. "I'm a bit behind schedule on that."`); }
     return { line: p.what, note: 'She followed you round all day. The piece comes out this week.' };
   }
   if (p.fx === 'job') {
@@ -2705,6 +2705,7 @@ const themeOf = (w) => TOWNS[w.home]?.theme || 'city';
 // (three different people: one name twice read like a mistake)
 function threeRiders(w) { const out = []; for (let i = 0; i < 20 && out.length < 3; i++) { const r = pickLine(w, RIDERS); if (!out.some(x => x.split(',')[0] === r.split(',')[0])) out.push(r); } while (out.length < 3) out.push(pickLine(w, RIDERS)); return out; }
 function newGig(w, kind, o = {}) { return { id: 'g' + (w.nextId++), kind, laps: 1, theme: themeOf(w), ...o }; }
+const fresh = (w) => w.round === 0 && !w.again && !w.player.starts; // (a new team, before its first race)
 function planWeek(w) {
   const wk = w.week, r = gigRating(w), K = { club: 0.8, street: 1, gt2: 1.6, gt: 2.5, formula: 6 }[w.player.series] || 1, broke = w.money.balance < 25000;
   // GigGo: two or three offers (one, under review)
@@ -2717,13 +2718,14 @@ function planWeek(w) {
   }
   // from GT up: corporate hot laps, and coaching people who've bought a car like yours
   if (seriesById(w.player.series).pro) { proWeek(w, K); }
-  // track days and club events (your race car)
+  // track days and club events (your race car); not in a new team's first week, before its first race
+  else if (fresh(w)) { /* none yet */ }
   else if (rng(w) < 0.55) offerGig(w, newGig(w, 'rides', { title: 'Passenger rides', client: 'SV Track Days', pay: 320, tip: 150, laps: 3, riders: threeRiders(w) }), 'SV Track Days', 'bookings@svtrackdays.sv', 'Passenger rides this week?',
     [`Hi,`, `We've got three customers booked in for passenger rides in a "real race car" this week and our usual driver has done his back in.`, `It's three laps, one passenger a lap. We pay ${money$(320)} a ride, and they tip if they enjoy it. They don't tip if they're sick.`, `Your car, your fuel, your tires.`, `SV Track Days`]);
   else if (rng(w) < 0.4) offerGig(w, newGig(w, 'attack', { title: 'Time attack', client: `${TOWNS[w.home]?.name || 'Velocita'} Auto Club`, entry: 100, prizes: [2000, 1200, 500], laps: 3 }), `${TOWNS[w.home]?.name || 'Velocita'} Auto Club`, 'events@autoclub.sv', 'Time attack, members and guests',
     [`Our monthly time attack is on this week. Three laps, your best one counts.`, `Prize money: ${money$(2000)} for the gold time, ${money$(1200)} silver, ${money$(500)} bronze. Entry is ${money$(100)}. Guests welcome.`, `Guests welcome. Helmets compulsory.`, `The Committee`]);
   // Danny knows a guy (more often when money's short)
-  if (rng(w) < (broke ? 0.5 : 0.22)) {
+  if (!fresh(w) && rng(w) < (broke ? 0.5 : 0.22)) {
     const pot = Math.round((1200 + rng(w) * 1600) * (broke ? 1.25 : 1) * K / 100) * 100, who = pickLine(w, ['Vince', 'a guy called Marco', 'Big Steve', 'Tash', 'Dmitri', 'this kid Jayden']);
     offerGig(w, newGig(w, 'street', { title: 'Street race', client: who, pay: pot, laps: 2, night: true, theme: 'city' }), 'Danny', 'dannyboy1979@coolmail.sv', 'friday',
       [`Yo so ${who} wants to race you. Friday night, the industrial estate, two laps`, `${money$(pot)} cash, winner takes it`, `Cops don't really go there. Mostly`]);
@@ -2735,7 +2737,7 @@ function planWeek(w) {
   }
   // a sponsor's event: on a day this week (it's in the day planner until then)
   const deals = dealsOf(w).filter(d => !d.shady && !d.hosp);
-  if (deals.length && rng(w) < 0.4) {
+  if (deals.length && !fresh(w) && rng(w) < 0.4) {
     const d = deals[Math.floor(rng(w) * deals.length)], sp = sponsorById(d.sid);
     const what = pickLine(w, ['our grand reopening', 'our summer sale', 'a customer appreciation day', 'our 25th anniversary', 'a charity car wash']);
     const ev = { id: 'ev' + (w.nextId++), sid: d.sid, what, by: 1 + Math.floor(rng(w) * 3), rsvp: null, done: false };
@@ -2842,7 +2844,7 @@ export function gigDone(w, id, r, who = 'P') {
         const broke = clamp(r.dmg * (g.fragile ? 3.5 : 1.6), 0, 1);
         if (broke > 0.05) { add(g.fragile ? 'Damaged goods claim' : 'Damage claim', -broke * fare); stars -= broke > 0.4 ? 2 : 1; }
         head = late > 0 ? 'Delivered late' : broke > 0.4 ? 'Delivered (mostly)' : 'Delivered';
-        line = late > 0 ? `${g.client} expected it ${Math.round((k - g.tight) * r.ref)} seconds sooner.` : broke > 0.05 ? (g.fragile ? 'The customer has sent photos.' : 'Some of it was dented.') : pickLine(w, ['The customer left a thumbs up.', 'Signed for by "J".', 'Left with a neighbour, as requested.']);
+        line = late > 0 ? `${g.client} expected it ${Math.round((k - g.tight) * r.ref)} seconds sooner.` : broke > 0.05 ? (g.fragile ? 'The customer has sent photos.' : 'Some of it was dented.') : pickLine(w, ['The customer left a thumbs up.', 'Signed for by "J".', 'Left with a neighbor, as requested.']);
       } else {
         const [a, b] = g.window, comfort = r.comfort ?? 100;
         if (k < a) { add('Arrived early', -fare * 0.35); stars -= 1; line = 'You arrived before the family did.'; }
@@ -2883,7 +2885,7 @@ export function gigDone(w, id, r, who = 'P') {
     if (rng(w) < 0.18) {
       w.licence = (w.licence || 0) + 3;
       add('Fine: street racing', -1500);
-      head += ', and the police came'; line = `Three points on your licence (${w.licence} now).`;
+      head += ', and the police came'; line = `Three points on your license (${w.licence} now).`;
       if (w.licence >= 6) { news(w, `${w.teams[w.player.team].name.toUpperCase()} OWNER CAUGHT STREET RACING`, `A ${seriesById(w.player.series).name} team owner was among those stopped by police at an industrial estate on Friday night.`); w.rep = clamp(repOf(w) - 6, 0, 100); }
     }
   }
@@ -2980,7 +2982,7 @@ export function finances(w) {
   const mgr = staffOf(w, 'manager'), mw = m && m.wage ? (m.pay === 'full' ? m.wage : m.pay === 'half' ? Math.round(m.wage / 2) : 0) : 0;
   const costs = [
     ['Entry fee', c.entry], ['Travel', Math.round(c.travel * staffEffects(w).travel * (facLevel(t, 'truck') ? 0.65 : 1))], ['Pit crew', c.crew],
-    ['Tyres', Math.round(tyreCost(w) * 2.5)], ['Fuel', Math.round(c.fuelLap * 14 * (bg.fuel || 1))],
+    ['Tires', Math.round(tyreCost(w) * 2.5)], ['Fuel', Math.round(c.fuelLap * 14 * (bg.fuel || 1))],
     ['Wear and repairs', Math.max(raced ? spent(/rebuild \(|repairs|^new |crash|parts for a rebuild/i) / raced : 0, wearCost(w))],
     ['Premises', facUpkeep(t)], ['Staff wages', Math.max(0, payrollDue(w) - (w.wageClaims || 0))], ['Teammate', mw],
     ['Car lease', w.car?.lease?.perRound || 0], ['Bank loan', (w.loans || []).filter(l => !l.paid && !l.shark).reduce((a, l) => a + l.per, 0)],
@@ -3003,7 +3005,7 @@ export function finances(w) {
   // what you could change (only what applies, with its numbers)
   const levers = [];
   if (net < 0 && (w.weekAvg ?? 0) < job.pay * 4) levers.push(`Work more of the week: a day job pays ${money$(job.pay)} a day, gigs more.${w.weekAvg != null ? ` Your weeks average ${money$(w.weekAvg)}.` : ''}`);
-  if (mgr) { const save = Math.round((c.travel * (1 - mgrTravel(mgr.skill)) + c.tyre * 2.5 * (1 - mgrTyre(mgr.skill))) / 10) * 10, wage = wageNow(w, mgr); if (wage > save) levers.push(`Your manager costs ${money$(wage)} a round and saves about ${money$(save)} (plus ordering the tyres).`); }
+  if (mgr) { const save = Math.round((c.travel * (1 - mgrTravel(mgr.skill)) + c.tyre * 2.5 * (1 - mgrTyre(mgr.skill))) / 10) * 10, wage = wageNow(w, mgr); if (wage > save) levers.push(`Your manager costs ${money$(wage)} a round and saves about ${money$(save)} (plus ordering the tires).`); }
   const pd = Math.max(0, payrollDue(w) - (w.wageClaims || 0)); if (net < 0 && pd > 0) levers.push(`Paying staff half saves ${money$(pd / 2)} a round, but they're owed it, and they notice.`);
   if (mw) levers.push(`Your teammate costs ${money$(mw)} a round. A pay driver${seriesById(sid).gents ? ' or a gentleman driver' : ''} would bring money instead, and be slower.`);
   const open = SPONSOR_SLOTS.length - dealsOf(w).length; if (open) levers.push(`${open} sponsor slot${open === 1 ? '' : 's'} open: results, met targets and clean racing bring offers.`);
@@ -3126,7 +3128,7 @@ function answerInflate(w, m, key) {
   const d = dealsOf(w).find(x => x.sid === m.inflate); if (!d) return null;
   const sp = sponsorById(d.sid);
   if (key === 'inflate') { d.misses = Math.max(0, d.misses - 2); d.lied = true; w.lies = (w.lies || 0) + 1; flag(w, 'lies');
-    mail(w, sp.name, sponsorAddr(sp.name), 're: A word about results', [`Thanks for the figures. We hadn't realised the TV audience was that big. We're happy to carry on.`, sp.name]); return { msg: `${sp.name} are happy again.` }; }
+    mail(w, sp.name, sponsorAddr(sp.name), 're: A word about results', [`Thanks for the figures. We hadn't realized the TV audience was that big. We're happy to carry on.`, sp.name]); return { msg: `${sp.name} are happy again.` }; }
   mail(w, sp.name, sponsorAddr(sp.name), 're: A word about results', [`Thanks for being straight with us. We'll see how the next round goes.`, sp.name]);
   return null;
 }
@@ -3287,7 +3289,7 @@ const ARCS = {
     start(w, a) {
       const R = rivalOwner(w), t = w.teams[R.tid];
       mail(w, rivalName(w), rivalAddr(w), 'Welcome to the paddock',
-        [`I watched your car this weekend. Brave colours.`, `In my experience teams like yours last about a season and a half. I hope you're the exception.`, `If you'd like to sell your entry before then, do let me know. I'd give you a fair price for it, which is to say not much.`, `${R.name[0]} ${R.name[1]}`, `Team Owner, ${t.name}`]);
+        [`I watched your car this weekend. Brave colors.`, `In my experience teams like yours last about a season and a half. I hope you're the exception.`, `If you'd like to sell your entry before then, do let me know. I'd give you a fair price for it, which is to say not much.`, `${R.name[0]} ${R.name[1]}`, `Team Owner, ${t.name}`]);
       a.at = nowIdx(w) + 1;
     },
     step(w, a) {
@@ -3356,7 +3358,7 @@ const ARCS = {
     start(w, a) {
       const x = w.staff.find(s => s.danny);
       a.wait = mailId(w, 'Danny', 'dannyboy1979@coolmail.sv', 'so',
-        [`Yo so the tyre place on Route 9 offered me a job. Assistant manager. Dental plan and everything`, `Told them I'd think about it. I thought about it a little. I don't wanna go`, `But you owe me ${money$(x.owed)} and my landlord doesn't know what a racing team is`],
+        [`Yo so the tire place on Route 9 offered me a job. Assistant manager. Dental plan and everything`, `Told them I'd think about it. I thought about it a little. I don't wanna go`, `But you owe me ${money$(x.owed)} and my landlord doesn't know what a racing team is`],
         { arc: a.id, choices: [['pay', `Pay him the ${money$(x.owed)}`], ['wait', 'Ask him to hang on'], ['go', 'Tell him to take the job']] });
     },
     step(w, a) {
@@ -3471,7 +3473,7 @@ export function briefing(w) {
   }
   const P = carParts(w);
   if (P) for (const k of PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)) if (P[k].cond < 0.5) watch.push({ text: `${PARTS[k].name} at ${Math.round(P[k].cond * 100)}%${PARTS[k].fail ? ': could fail in a race' : ''}`, bad: P[k].cond < 0.3 });
-  if (!w.over && w.car && !staffOf(w, 'manager')) { const need = tyreNeeds(w), sk = stockOf(w); if (sk.soft < 1 || sk.medium < 1) watch.push({ text: `Low on tyres: trackside sets cost ${Math.round((TRACKSIDE - 1) * 100)}% more`, bad: false }); }
+  if (!w.over && w.car && !staffOf(w, 'manager')) { const need = tyreNeeds(w), sk = stockOf(w); if (sk.soft < 1 || sk.medium < 1) watch.push({ text: `Low on tires: trackside sets cost ${Math.round((TRACKSIDE - 1) * 100)}% more`, bad: false }); }
   // (one short line each: the hub's card has room for that)
   { const st = stainOf(w); if (st) { const n = st.until - nowIdx(w); watch.push({ text: `Caught: no new sponsors or loans for ${n} round${n === 1 ? '' : 's'}`, bad: true }); } }
   if (w.excluded && w.excluded[w.year] && !w.over) watch.push({ text: `Excluded from ${w.year}'s results so far`, bad: true });
@@ -3755,8 +3757,8 @@ export function managerRestock(w) {
   const need = tyreNeeds(w), st = stockOf(w), order = {};
   for (const c of COMPOUNDS) order[c] = Math.max(0, need[c] - st[c]);
   const cost = orderTyres(w, order);
-  if (cost) mail(w, `${m.first} ${m.last}`, `${m.first.toLowerCase()}@${w.teams[w.player.team].name.toLowerCase().replace(/[^a-z]+/g, '')}.sv`, 'Tyres ordered',
-    [m.danny ? `ordered tyres for ${w.series[w.player.series].cal[w.round].name}:` : `I've ordered tyres for ${w.series[w.player.series].cal[w.round].name}:`,
+  if (cost) mail(w, `${m.first} ${m.last}`, `${m.first.toLowerCase()}@${w.teams[w.player.team].name.toLowerCase().replace(/[^a-z]+/g, '')}.sv`, 'Tires ordered',
+    [m.danny ? `ordered tires for ${w.series[w.player.series].cal[w.round].name}:` : `I've ordered tires for ${w.series[w.player.series].cal[w.round].name}:`,
      COMPOUNDS.filter(c => order[c]).map(c => `${order[c]} ${c}`).join(', ') + ` (${money$(cost)}).`,
      m.danny ? `forecast says ${w.series[w.player.series].cal[w.round].weather}. got u covered` : `The forecast is ${w.series[w.player.series].cal[w.round].weather}.`]);
 }
@@ -3793,7 +3795,7 @@ export function registerTeam(w, f) {
   pay(w, -250, 'Business Registry: Form SV-1 processing fee');
   const first = f.name.split(' ')[0];
   mail(w, 'San Velocita Business Registry', 'no-reply@registry.sv.gov', `Registration confirmed: ${f.team}`,
-    [`Thank you for registering ${f.team}, a Sporting Enterprise based in ${TOWNS[f.home].name}.`, `Your processing fee of $250 has been collected. Please keep this email for your records.`, `San Velocita Business Registry`]);
+    [`Thank you for registering ${f.team}, a Sporting Enterprise based in ${TOWNS[f.home].name}.`, `Your processing fee of $250 has been collected. Please keep this email for your records.`, `San Velocita Business Registry`], { read: true }); // (a receipt for what you just did: arrives read)
   for (const m of w.mail || []) if (m.link && m.link[0] === 'registry') m.read = true; // (filed: the reminder's done with)
   if (w.again) againNews(w, f);
   else w.lawyerDue = { ex: f.ex, first, last: f.name.split(' ').pop() }; // (their letter comes once you've spent a day: lawyerMail)
@@ -3883,7 +3885,7 @@ export function buyCar(w, adId, fromSetup = false) {
   pay(w, -ad.price, `Classifieds: ${ad.year} ${ad.name} (from ${ad.seller})`);
   react(w, 'danny', `The player just bought their race car off the classifieds: a ${ad.year} ${ad.name} in ${condWord(ad.cond).toLowerCase()} condition, ${Math.round(ad.miles / 1000)}k miles, for ${money$(ad.price)}, from a seller called ${ad.seller}. Danny found the listings for them.`);
   mail(w, ad.seller, `${ad.seller.split(' ')[0].toLowerCase().replace(/[^a-z_]/g, '')}@coolmail.sv`, `re: ${ad.year} ${ad.name}`,
-    [`pleasure doing business`, `keys are under the mat`, condWord(ad.cond) === 'Project' ? `if it makes a noise thats normal` : `no refunds`]);
+    [`pleasure doing business`, `keys are under the mat`, condWord(ad.cond) === 'Project' ? `if it makes a noise thats normal` : `no refunds`], { read: fromSetup });
   return true;
 }
 // how much a car's condition holds it back (power): a project car is about 4% down until R&D sorts it out
@@ -4205,7 +4207,7 @@ export function measureParts(w) {
 // by your standing instructions per person: pay on time, pay half, hold. Unpaid wages are owed; unhappy staff work
 // worse and, owed money, walk out (and someone tells the press).
 export const ROLES = {
-  manager:  { name: 'Team manager', perk: 'Handles the logistics: cheaper travel, tyre orders, deals with suppliers. The better they are, the bigger the savings.' },
+  manager:  { name: 'Team manager', perk: 'Handles the logistics: cheaper travel, tire orders, deals with suppliers. The better they are, the bigger the savings.' },
   mechanic: { name: 'Chief mechanic', perk: 'Works on the car: rebuilds, repairs, pit stops and your development projects. The better they are, the more of everything.' },
   engineer: { name: 'Data engineer', perk: 'Reads the data: telemetry, what your upgrades really gave, how quick the other cars are. A senior one says why.' },
 };
@@ -4215,7 +4217,7 @@ export const PAY_MODES = [['full', 'On time'], ['half', 'Half'], ['hold', 'Hold'
 const CV = {
   manager: ['Ran logistics for a touring circus for six years.', 'Former events coordinator, municipal parks.', 'Twenty years in freight. Knows every weighbridge in the province.'],
   mechanic: ['Fifteen years at a dealership service bay.', 'Ex-rally mechanic. Can rebuild a gearbox in a car park.', 'Built drag cars in his garage. Has opinions.', 'Former crew chief, defunct GT team. Available immediately.', 'Mechanical engineering degree. Has never held a wrench in anger.'],
-  engineer: ['Graduate, applied mathematics. First job.', 'Six years in sim racing esports, data analyst.', 'Former telemetry engineer, Formula SV. Left "by mutual agreement".', 'Wrote a thesis on tyre thermals nobody has read.', 'Used to work in insurance, modelling crash rates.'],
+  engineer: ['Graduate, applied mathematics. First job.', 'Six years in sim racing esports, data analyst.', 'Former telemetry engineer, Formula SV. Left "by mutual agreement".', 'Wrote a thesis on tire thermals nobody has read.', 'Used to work in insurance, modelling crash rates.'],
 };
 function staffPerson(w, role, skill) {
   const nat = pick(w, NAT_KEYS), N = NATS[nat], [base, per] = ROLE_WAGE[role];
@@ -4269,8 +4271,8 @@ export function staffPerks(w, role, skill) {
   const c = COSTS[w.player.series], pct = (f) => Math.round(f * 100);
   if (role === 'manager') return [
     `Travel ${pct(1 - mgrTravel(skill))}% cheaper: about ${money$(c.travel * (1 - mgrTravel(skill)))} a round`,
-    skill > 1 ? `Tyres ${pct(1 - mgrTyre(skill))}% cheaper: bulk deals with the supplier` : 'Tyres at list price',
-    'Orders the tyres for every weekend (no trackside prices)'];
+    skill > 1 ? `Tires ${pct(1 - mgrTyre(skill))}% cheaper: bulk deals with the supplier` : 'Tires at list price',
+    'Orders the tires for every weekend (no trackside prices)'];
   if (role === 'mechanic') return [
     `Puts ${(1.5 + skill * 0.6).toFixed(1)} days a round into your projects`,
     `Rebuilds parts to about ${pct(0.68 + 0.05 * skill)}% (a shop: 80%, for half as much again)`,
@@ -4492,6 +4494,7 @@ export function text(w, from, body, extra = {}) {
 // ends up on top, and the phone's conversation reads them top to bottom)
 export function texts(w, from, lines, extra = {}) { for (const l of lines) text(w, from, l, extra); }
 export const unread = (w) => w.msgs.filter(m => !m.read).length;
+export const unreadChats = (w) => new Set(w.msgs.filter(m => !m.read).map(m => m.from)).size;
 // ---------------- reactions: someone writes to you about something you just did ----------------
 // Only with character voices on (js/voice.js + ChatGPT): the game decides who reacts and gives them the facts; the
 // words are theirs. who: danny / mate / rival / ex. facts: plain sentences about what happened (the only facts they

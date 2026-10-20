@@ -41,7 +41,7 @@ export const SETTINGS = {
     landmarks: ['in_tank_1', 'in_tank_2', 'in_chimney_4', 'in_chimney_5', 'in_silo', 'in_substation', 'in_powerplant', 'pi_silo', 'in_watertower'], nLandmarks: 5,
   },
   docks: {
-    label: 'Harbour Docks', theme: 'coast', tags: ['docks', 'industrial'],
+    label: 'Harbor Docks', theme: 'coast', tags: ['docks', 'industrial'],
     desc: 'Container stacks, gantry cranes and warehouses on the waterfront.',
     front: { warehouse: 3, industrial: 1, kiosk: 1 }, back: { warehouse: 3, industrial: 1 }, rows: 1, setback: 10, gap: [6, 20], gapM: 12, alleysD: 0, fill: 0.6,
     trees: { broad: 0.5 }, green: 0.05, street: 0, pave: 'concrete',

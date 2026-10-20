@@ -369,7 +369,7 @@ export class HUD {
       else if (rc.flag === 'g') { f = 'g'; t = 'GREEN FLAG'; sub = 'Track clear'; }
       else if (rc.dt && rc.dt.laps <= 1) { f = 'dt'; t = 'DRIVE-THROUGH'; sub = 'Last lap to serve it'; }
     }
-    if (!f && this.quali && this.quali.flag && !this.quali.done) { f = 'chq'; t = 'CHEQUERED FLAG'; sub = 'Finish this lap'; }
+    if (!f && this.quali && this.quali.flag && !this.quali.done) { f = 'chq'; t = 'CHECKERED FLAG'; sub = 'Finish this lap'; }
     const E = this.el, key = f ? f + t + sub : '';
     if (this.cache.flag !== key) {
       this.cache.flag = key;
@@ -501,7 +501,7 @@ export class HUD {
       html += `<div class="row"><span>${label}</span><span class="v">${val}</span></div><div class="bar"><i style="width:${(done * 100).toFixed(0)}%"></i></div>`;
     } else if (r.garage) {
       html += `<div class="row"><span>GARAGE</span><span class="v">BACK TO THE BOX</span></div>`;
-      html += `<div class="foot">the crew is driving you in &middot; choose tyres in the garage</div>`;
+      html += `<div class="foot">the crew is driving you in &middot; choose tires in the garage</div>`;
     } else if (r.dt) {
       html += `<div class="row"><span>DRIVE-THROUGH</span><span class="v">NO STOP</span></div>`;
       html += `<div class="foot">penalty · the crew waves you straight through the pit lane</div>`;

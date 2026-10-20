@@ -7,9 +7,9 @@ export const AIDS = {
   abs: { label: 'ABS', short: 'ABS', values: [['on', 'On'], ['off', 'Off']], bonus: { off: 6 },
     desc: 'Anti-lock brakes. <b>Off</b>: press the brake too hard and the front wheels lock: they skid, stop you less well, and won\'t steer until you ease off. Squeeze the brake instead of stamping on it. Keep it on if you brake with a key.' },
   tc: { label: 'Traction Control', short: 'TC', values: [['high', 'High'], ['low', 'Low'], ['off', 'Off']], bonus: { low: 3, off: 6 },
-    desc: 'Cuts power when the rear tyres start to spin. <b>Low</b> lets them slip a little, <b>Off</b> is all down to your right foot. In road and GT cars it switches to a drift mode once you\'re properly sideways (or just used the handbrake): the rears can spin enough to hold the angle, but not enough to spin you.' },
+    desc: 'Cuts power when the rear tires start to spin. <b>Low</b> lets them slip a little, <b>Off</b> is all down to your right foot. In road and GT cars it switches to a drift mode once you\'re properly sideways (or just used the handbrake): the rears can spin enough to hold the angle, but not enough to spin you.' },
   stab: { label: 'Stability Control', short: 'SC', values: [['on', 'On'], ['off', 'Off']], bonus: { off: 6 },
-    desc: 'When the car starts rotating faster than the tyres can hold, brakes the outside front wheel and eases the power, catching small slides. <b>Off</b>: a snap of oversteer is yours to catch.' },
+    desc: 'When the car starts rotating faster than the tires can hold, brakes the outside front wheel and eases the power, catching small slides. <b>Off</b>: a snap of oversteer is yours to catch.' },
   cs: { label: 'Counter-Steer Help', short: 'CS', values: [['strong', 'Strong'], ['light', 'Light'], ['off', 'Off']], bonus: { light: 2, off: 4 },
     desc: 'Turns the front wheels toward the slide for you when the rear steps out. It steps aside as soon as you counter-steer yourself.' },
   brake: { label: 'Braking Assist', short: 'BA', values: [['on', 'On'], ['off', 'Off']], bonus: { off: 5 },
@@ -27,7 +27,7 @@ export const PRESETS = {
   standard: { label: 'Standard', aids: { abs: 'on', tc: 'high', stab: 'on', cs: 'light', brake: 'off', steer: 'off' }, gearbox: 'auto', racingLine: 'full',
     desc: 'ABS, traction and stability control on. You do the braking and steering.' },
   sim: { label: 'Sim', aids: { abs: 'off', tc: 'off', stab: 'off', cs: 'off', brake: 'off', steer: 'off' }, gearbox: 'manual', racingLine: 'off',
-    desc: 'Nothing between you and the tyres. Manual gears, no line. The biggest prize bonus.' },
+    desc: 'Nothing between you and the tires. Manual gears, no line. The biggest prize bonus.' },
 };
 export const PRESET_VALS = [['easy', 'Easy'], ['standard', 'Standard'], ['sim', 'Sim'], ['custom', 'Custom']];
 

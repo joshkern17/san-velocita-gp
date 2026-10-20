@@ -135,7 +135,7 @@ export class LiveryDesigner {
     return `<h4>TEAM</h4>
       <div class="fld"><label>Team name</label>${this.text('lv-team', c.teamName, 22)}</div>
       <div class="lv-row"><div class="fld" style="flex:2"><label>Title sponsor</label>${this.text('lv-sp', c.sponsor, 14)}</div><div class="fld"><label>Number</label><input type="number" id="lv-num" min="0" max="99" value="${c.number}"></div></div>
-      <h4>COLOURS</h4>
+      <h4>COLORS</h4>
       <div class="lv-row">${this.colour('Main', 'lv-c1', c.main)}${this.colour('Accent', 'lv-c2', c.accent)}${this.colour('Detail', 'lv-c3', c.third)}</div>
       ${this.check('lv-wown', 'Own rear wing color', c.wingColor != null)}
       ${c.wingColor != null ? `<div class="lv-row">${this.colour('Rear wing', 'lv-cw', c.wingColor)}</div>` : ''}
@@ -186,7 +186,7 @@ export class LiveryDesigner {
         ${bl && d.logo !== 'name' ? `<p class="muted">Shows ${esc(SPONSOR_LOGOS[bl])}'s logo: it follows the title sponsor.</p>${this.check('lv-dbar', 'Background plate', d.bar != null)}` : ''}
         ${d.text != null && !(bl && d.logo !== 'name') ? `${d.bind ? `<p class="muted">Reads ${esc(boundText(c, d.bind) || '(nothing yet)')}: it follows the ${d.bind === 'sponsor' ? 'title sponsor' : 'team name'}.</p>` : `<div class="fld"><label>Text</label>${this.text('lv-dt', d.text, 20)}</div>`}
           <div class="fld"><label>Font</label><select id="lv-df">${Object.entries(FONTS).map(([k, v]) => `<option value="${k}" ${d.font === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
-          <div class="lv-row">${this.colour('Colour', 'lv-dc', d.color ?? 0xffffff)}${this.colour('Outline', 'lv-do', d.outline ?? 0x000000)}</div>
+          <div class="lv-row">${this.colour('Color', 'lv-dc', d.color ?? 0xffffff)}${this.colour('Outline', 'lv-do', d.outline ?? 0x000000)}</div>
           ${this.check('lv-dno', 'Outline', d.outline != null)}${this.check('lv-dbar', 'Background bar', d.bar != null)}` : ''}
         <div class="fld"><label>Panel</label><select id="lv-dp">${Object.entries(this.def.panels).map(([k, v]) => `<option value="${k}" ${d.panel === k ? 'selected' : ''}>${esc(v.label)}</option>`).join('')}</select></div>
         ${this.range('Across', 'lv-dx', 0, p.W, 0.01, d.x, ' m')}
@@ -351,12 +351,12 @@ export class LiveryDesigner {
       <div class="seg"><button id="lv-slogo">${s.decal ? 'Change image' : 'Add image (PNG / SVG)'}</button>${s.decal ? '<button id="lv-sclr">Remove</button>' : ''}</div>
       <h4>GLOVES + BOOTS</h4>
       <div class="lv-row">${this.colour('Gloves', 'lv-sg', s.gloves)}${this.colour('Boots', 'lv-sb', s.boots)}</div>
-      <p class="muted">Boots get a stripe in the suit's accent colour.</p>
+      <p class="muted">Boots get a stripe in the suit's accent color.</p>
       <p class="muted">Sponsors and logos on the suit and helmet: DECALS → On the driver.</p>
       <h4>PIT CREW</h4>
       ${this.seg('lv-cs', CREW_STYLES, cr.style)}
       ${cr.style === 'own' ? `<div class="lv-row">${this.colour('Base', 'lv-cb', cr.base)}${this.colour('Accent', 'lv-ca', cr.accent)}</div>` : ''}
-      <p class="muted">${cr.style === 'classic' ? 'Your crew wear mechanic\'s coveralls in a colour near the team\'s.' : 'Your crew wear the kit with your sponsors, without race numbers.'} </p>
+      <p class="muted">${cr.style === 'classic' ? 'Your crew wear mechanic\'s coveralls in a color near the team\'s.' : 'Your crew wear the kit with your sponsors, without race numbers.'} </p>
       <button class="wide" id="lv-crewview">Look at the crew</button>`;
   }
   bind_suit() {
@@ -384,7 +384,7 @@ export class LiveryDesigner {
     if (d) props = `<h4>SELECTED</h4>
         ${d.text != null ? `<div class="fld"><label>Text</label>${this.text('lv-kt', d.text, 20)}</div>
           <div class="fld"><label>Font</label><select id="lv-kf">${Object.entries(FONTS).map(([k, v]) => `<option value="${k}" ${d.font === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
-          <div class="lv-row">${this.colour('Colour', 'lv-kc', d.color ?? 0xffffff)}${this.colour('Outline', 'lv-ko', d.outline ?? 0x000000)}</div>
+          <div class="lv-row">${this.colour('Color', 'lv-kc', d.color ?? 0xffffff)}${this.colour('Outline', 'lv-ko', d.outline ?? 0x000000)}</div>
           ${this.check('lv-kno', 'Outline', d.outline != null)}` : ''}
         <div class="fld"><label>Part</label><select id="lv-kp">${Object.entries(KIT_PARTS).map(([k, v]) => `<option value="${k}" ${d.part === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
         ${this.range('Around', 'lv-ku', 0, 1, 0.005, d.u, '')}

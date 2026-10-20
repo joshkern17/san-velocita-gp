@@ -75,7 +75,7 @@ export class Tuning {
         if (v === val()) return false;
         f.set(st, v); if (f.gearCheck || f.k === 'final') fixGears(st, id); this.changed(); return true;
       },
-      desc: `<p><b>&#8249; Less</b>${f.less}</p><p><b>More &#8250;</b>${f.more}</p>`,
+      desc: `<p><b>&#8249; Less</b>${f.less}</p><p><b>More &#8250;</b>${f.more}</p>${f.note ? `<p class="tn-note">${f.note}</p>` : ''}`,
     };
   }
   items() {
@@ -99,6 +99,10 @@ export class Tuning {
       { head: true, label: 'Setups for this car' },
       choose({ label: `Standard${tag(!act)}`, action: () => pick(null), desc: '<p>The car as it comes: what the AI races with. Your own setups stay saved.</p>' }),
       ...list.map(x => choose({ label: `${x.name}${tag(x.name === act)}`, action: () => pick(x.name), desc: `<p>Race with ${x.name}. Saved ${new Date(x.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}.</p>` })),
+      ...(!act && this.dirty ? [ // (changes made to the standard setup: keep them here too, not only from the other tabs)
+        { head: true, label: 'Your changes' },
+        { label: `Save As ${nextName(id, this.track)}`, cls: 'action primary', action: () => this.save(true), desc: '<p>Keeps the changes you\'ve made as a setup of your own, and races with it. The standard setup stays as it is.</p>' },
+      ] : []),
       ...(act ? [
         { head: true, label: act },
         { label: 'Name', values: names.map(n => [n, n]), get: () => this.name, set: (n) => { this.name = renameSetup(id, this.name, n); this.render(); },
@@ -156,8 +160,11 @@ export class Tuning {
     this.renderHead(); this.renderResp();
   }
   renderHead() {
-    const tail = this.armed ? ' &middot; <em class="tn-warn">Unsaved: Esc again to leave without saving</em>' : this.dirty ? ' &middot; <em class="tn-warn">Unsaved changes</em>' : '';
-    this.el.sub.innerHTML = `${CARS[this.id].name} &middot; ${this.name || 'Standard setup'}${tail}`;
+    // unsaved: said at the end of the tab row, in the left column (the subtitle runs under the stat strip)
+    this.el.sub.innerHTML = `${CARS[this.id].name} &middot; ${this.name || 'Standard setup'}`;
+    let st = this.el.tabs.querySelector('.tn-state');
+    if (!st) { st = document.createElement('em'); st.className = 'tn-state'; this.el.tabs.appendChild(st); }
+    st.textContent = this.armed ? 'Esc again to leave' : this.dirty ? 'Unsaved' : '';
   }
   renderResp() {
     const b = this.base, c = this.cur || b, mph = units.mph;

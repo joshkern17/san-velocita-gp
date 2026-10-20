@@ -467,7 +467,7 @@ export class Computer {
       <p class="rg-small">Please complete all sections.</p>
       <h2>Section A: the enterprise</h2>
       ${text('team', 'Name of enterprise')}
-      ${cyc('c0', 'Principal colour', sw(f.colors[0]))}${cyc('c1', 'Secondary colour', sw(f.colors[1]))}
+      ${cyc('c0', 'Principal color', sw(f.colors[0]))}${cyc('c1', 'Secondary color', sw(f.colors[1]))}
       ${cyc('home', 'Registered premises', esc(T.name), `${esc(T.blurb)} <em>${esc(WC.HOME_PERK)}</em>`)}
       <h2>Section B: the proprietor</h2>
       ${text('name', 'Full name')}
@@ -904,8 +904,8 @@ export class Computer {
   // ---------- customer racing: the cars a series homologates, from the makers' programmes (and last year's, from teams) ----------
   customerSite() {
     const w = this.w, S = WC.carSeries(w), p = this.page, L = w.opts.len;
-    const head = `<div class="cr-head"><b>${esc(S.name)}</b><span>Homologated cars</span><small>${S.car === 'spec' ? 'One chassis, leased from the series' : 'Customer racing programmes &middot; ex-works cars'}</small></div>`;
-    if (S.car === 'classifieds') return head + '<p class="pc-empty">Customer programmes sell to licensed teams only.</p>';
+    const head = `<div class="cr-head"><b>${esc(S.name)}</b><span>Homologated cars</span><small>${S.car === 'spec' ? 'One chassis, leased from the series' : 'Customer racing programs &middot; ex-works cars'}</small></div>`;
+    if (S.car === 'classifieds') return head + '<p class="pc-empty">Customer programs sell to licensed teams only.</p>';
     const cars = WC.customerCars(w, S), used = WC.exWorks(w, S), mine = w.car && w.car.cls === S.cls ? w.car : null;
     const can = true, col = w.teams[w.player.team].main;
     const old = w.car ? (w.car.lease ? `Your ${esc(w.car.name)} goes back to ${esc(w.car.lease.prog)}.` : `Your ${esc(w.car.name)}: <b>${WC.money$(WC.tradeIn(w))}</b> in part exchange.`) : '';
@@ -914,7 +914,7 @@ export class Computer {
       const c = cars.find(x => x.key === p.cc) || used.find(x => x.id === p.cc); if (!c) return head + '<p class="pc-empty">That car is no longer available.</p>';
       const xw = !!c.team, short = (n) => w.money.balance < n ? ' <small class="neg">more than your balance</small>' : '';
       const deals = xw ? `<div class="cr-deal"><b>${WC.money$(c.price)}</b><small>${esc(c.team)}'s car from ${c.year}. ${WC.condName(c.cond)} (${Math.round(c.cond * 100)}%).</small>${short(c.price)}${can ? btn('used', c.id, `Buy it: ${WC.money$(c.price)}`, 1) : ''}</div>`
-        : `<div class="cr-deal"><b>Lease</b><small>${WC.money$(c.deposit)} deposit, then ${WC.money$(c.perRound)} a round (${WC.money$(c.deposit + c.perRound * L)} for a ${L}-round season). The engine and gearbox are rebuilt by the programme between rounds.</small>${short(c.deposit)}${can ? btn('lease', c.key, `Lease it: ${WC.money$(c.deposit)} now`, 1) : ''}</div>
+        : `<div class="cr-deal"><b>Lease</b><small>${WC.money$(c.deposit)} deposit, then ${WC.money$(c.perRound)} a round (${WC.money$(c.deposit + c.perRound * L)} for a ${L}-round season). The engine and gearbox are rebuilt by the program between rounds.</small>${short(c.deposit)}${can ? btn('lease', c.key, `Lease it: ${WC.money$(c.deposit)} now`, 1) : ''}</div>
            ${c.buy ? `<div class="cr-deal"><b>Buy new</b><small>${WC.money$(c.price)}. Yours to keep, sell, or rebuild.</small>${short(c.price)}${can ? btn('buy', c.key, `Buy it: ${WC.money$(c.price)}`) : ''}</div>` : ''}`;
       return head + `<div class="cr-page" data-nav data-scroll data-key="crpage"><div class="cr-top">${this.photo({ id: 'cc' + c.key + col, chassis: c.key, color: col }, 'cr-photo')}
         <div><h1>${esc(c.name)}</h1><p class="cr-prog">${esc(c.prog)}${xw ? `, ex-${esc(c.team)}` : ''}</p><table class="cl-attrs">${this.specRows(c.key)}</table><p class="cr-note">${esc(cars.find(x => x.key === c.key)?.note || '')}</p></div></div>

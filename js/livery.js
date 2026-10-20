@@ -97,15 +97,15 @@ export async function importImageFile(file) {
 const loadImg = (src) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('That file is not an image the browser can read.')); i.src = src; });
 
 // ---------------- defaults ----------------
-export const PATTERNS = { solid: 'Solid', stripe: 'Centre Stripe', split: 'Two-Tone', arrow: 'Arrow Nose', fade: 'Fade', sash: 'Side Sash' };
-export const HELMET_PATTERNS = { solid: 'Solid', stripe: 'Centre Stripe', crown: 'Crown', bands: 'Eye Bands', halves: 'Halves', flames: 'Flames', stars: 'Stars' };
+export const PATTERNS = { solid: 'Solid', stripe: 'Center Stripe', split: 'Two-Tone', arrow: 'Arrow Nose', fade: 'Fade', sash: 'Side Sash' };
+export const HELMET_PATTERNS = { solid: 'Solid', stripe: 'Center Stripe', crown: 'Crown', bands: 'Eye Bands', halves: 'Halves', flames: 'Flames', stars: 'Stars' };
 export const SUIT_PATTERNS = { solid: 'Solid', sides: 'Side Stripes', twotone: 'Two-Tone', shoulders: 'Shoulders', sash: 'Sash', panels: 'Side Panels', fade: 'Fade', chevron: 'Chevron' };
 export const SUIT_NUMBERS = { back: 'Back', chest: 'Chest', sleeves: 'Sleeves', none: 'None' };
 // the pit crew's kit: the driver's suit, their own colours, or the stock mechanic's coveralls
-export const CREW_STYLES = { suit: 'Team suits', own: 'Own colours', classic: 'Coveralls' };
+export const CREW_STYLES = { suit: 'Team suits', own: 'Own colors', classic: 'Coveralls' };
 export const VISORS = { dark: 'Dark', gold: 'Gold Iridium', blue: 'Blue Iridium', red: 'Red Iridium', clear: 'Light Tint' };
 // the strip across the top of the visor (on helmets that have one: the racer in js/characters.js)
-export const VISOR_STRIPS = { team: 'Team colour', sponsor: 'Sponsor', off: 'Off' };
+export const VISOR_STRIPS = { team: 'Team color', sponsor: 'Sponsor', off: 'Off' };
 export const FONTS = { impact: 'Impact', anton: 'Anton', gothic: 'Gothic', arimo: 'Clean', pixel: 'Pixel' };
 const FONT_CSS = { impact: 'Impact, "Arial Black", sans-serif', anton: 'Anton, Impact, sans-serif', gothic: '"Pirata One", serif', arimo: 'Arimo, Arial, sans-serif', pixel: 'VT323, monospace' };
 const FONT_W = { impact: 'bold ', anton: '', gothic: '', arimo: 'bold ', pixel: '' };

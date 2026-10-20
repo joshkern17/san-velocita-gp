@@ -15,7 +15,7 @@ export function loadEnvCatalog() {
   const E = embedded();
   loadingCat = (E ? Promise.resolve(E.catalog) : fetch('assets/env/catalog.json').then(r => r.json()))
     .then(c => { catalog = c; byId = new Map(c.assets.map(a => [a.id, a])); return c; })
-    .catch(e => { console.warn('scenery catalogue not loaded:', e && e.message); catalog = { packs: {}, assets: [] }; return catalog; });
+    .catch(e => { console.warn('scenery catalog not loaded:', e && e.message); catalog = { packs: {}, assets: [] }; return catalog; });
   return loadingCat;
 }
 export const envCatalog = () => catalog;
@@ -134,10 +134,10 @@ export const envModel = (id) => models.get(id);
 // own gets one from where it stands (one of the pack's own combinations, white siding often painted), so every
 // player sees the same street.
 export const HOUSE_WALLS = [
-  { label: 'Brick' }, { label: 'White siding' }, { label: 'Grey siding' }, { label: 'Teal siding' }, { label: 'Olive siding' }, { label: 'Stone' },
+  { label: 'Brick' }, { label: 'White siding' }, { label: 'Gray siding' }, { label: 'Teal siding' }, { label: 'Olive siding' }, { label: 'Stone' },
 ];
 export const HOUSE_ROOFS = [
-  { label: 'Green slate' }, { label: 'Red tile' }, { label: 'Grey slate' }, { label: 'Brown shingle' }, { label: 'Clay tile' }, { label: 'Black tile' },
+  { label: 'Green slate' }, { label: 'Red tile' }, { label: 'Gray slate' }, { label: 'Brown shingle' }, { label: 'Clay tile' }, { label: 'Black tile' },
 ];
 export const HOUSE_PAINTS = ['#f3ede0', '#efe0b0', '#f2c9a8', '#e6b8b8', '#c9dcc0', '#bcd3e6', '#d6cce6', '#b8b0a4', '#8fa8c0', '#9cb890'];
 const HOUSE_COMBOS = [[1, 3], [2, 2], [2, 3], [3, 3], [2, 4], [4, 1], [5, 4], [2, 5], [6, 3], [3, 4]];

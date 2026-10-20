@@ -15,7 +15,7 @@ export const PARTS = {
   halo:   { carbon: 'Carbon', painted: 'Painted' },
   rims:   { spokes: '5-Spoke', covers: 'Aero Covers', mesh: 'Multi-Spoke' },
   rimCol: { silver: 'Silver', black: 'Black', gold: 'Gold', white: 'White' },
-  pattern:{ solid: 'Solid', stripe: 'Centre Stripe', split: 'Two-Tone', arrow: 'Arrow Nose', fade: 'Fade', sash: 'Side Sash' },
+  pattern:{ solid: 'Solid', stripe: 'Center Stripe', split: 'Two-Tone', arrow: 'Arrow Nose', fade: 'Fade', sash: 'Side Sash' },
 };
 export const DEFAULT_CAR = {
   chassis: 'custom',

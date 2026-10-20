@@ -66,15 +66,17 @@ export class Editor {
   }
 
   // ---------------- lifecycle ----------------
-  open(track) {
+  // resume: back from a Test Drive / race of this track, so undo, redo and the saved state carry on
+  open(track, { resume = false } = {}) {
     this.active = true;
     this.track = cloneTrack(track || this.loadWork() || presetTracks()[0]);
     this.normalize(this.track);
-    this.history = []; this.future = [];
+    if (!resume) { this.history = []; this.future = []; this.mine = this.savedList().some(x => x.name === this.track.name && x.saved === this.track.saved) ? this.track.name : null; }
     this.sel.clear(); this.selProp = -1; this.kerbSel = -1; this.barSel = -1; this.barNode = -1; this.pitNode = -1; this.paintSel = -1; this.paintNode = -1; this.shapeDraw = null;
     $('ed-name').value = this.track.name;
     this.setTool(this.tool);
     this.recompute(true);
+    if (!resume) this.markSaved();
     this.needFit = true;
     requestAnimationFrame(() => { this.resize(); if (this.W > 50 && this.H > 50) { this.needFit = false; this.fit(); } this.renderPanels(); });
     this.loop();
@@ -95,8 +97,8 @@ export class Editor {
 
   loop() {
     if (!this.active) return;
-    if (this.dirty) { this.draw(); this.drawProfile(); this.dirty = false; }
     requestAnimationFrame(() => this.loop());
+    if (this.dirty) { this.dirty = false; try { this.draw(); this.drawProfile(); } catch (e) { if (!this.drawErr) console.error(e); this.drawErr = true; } }
   }
 
   loadWork() { try { return JSON.parse(localStorage.getItem('svgp.editorWork')); } catch (e) { return null; } }
@@ -339,7 +341,10 @@ export class Editor {
     if (a === 'view3d') return this.toggle3d();
     if (this.v3d) this.close3d();
     switch (a) {
-      case 'new': this.push(); { const n = newTrack('New Circuit'); n.env = { ...t.env }; if (t.open) { n.open = true; n.points = []; } this.track = n; } $('ed-name').value = this.track.name; this.sel.clear(); this.selProp = -1; this.changed(true); this.fit(); this.setTool('draw'); this.toast(this.track.open ? 'NEW TRACK — DRAW IT FROM START TO FINISH' : 'NEW CIRCUIT — DRAW A LOOP'); break;
+      case 'new': this.modalList('New', [
+        { title: 'Circuit', desc: 'A loop, raced lap after lap. Draw it in one go, back to where you started.', pick: () => this.newBlank(false) },
+        { title: 'Point-to-point', desc: 'A road from a start to a finish, one run. Draw it from start to finish.', pick: () => this.newBlank(true) },
+      ], '', this.isSaved() ? '' : 'Your changes stay in Undo, but they aren\'t saved in My Circuits.'); break;
       case 'presets': this.modalList('Presets', [
         ...realTracks().map(p => ({ title: p.name + ' (real)', desc: p.desc || p.real.country, pick: () => hydrateReal(cloneTrack(p)).then(t => this.load(t), () => this.toast('COULD NOT LOAD THE CIRCUIT DATA')) })),
         ...presetTracks().map(p => ({ title: p.name, desc: p.desc || `${THEMES[p.env.theme].label} · ${p.env.time} · ${p.env.weather}`, pick: () => this.load(p) })),
@@ -347,13 +352,14 @@ export class Editor {
       ]); break;
       case 'open': this.openModal(); break;
       case 'save': if (this.needTrack('SAVE')) this.save(); break;
+      case 'saveas': if (this.needTrack('SAVE')) this.saveAs(); break;
       case 'export': if (this.needTrack('EXPORT')) this.exportFile(); break;
       case 'import': $('ed-file').value = ''; $('ed-file').click(); break;
       case 'undo': this.undo(); break;
       case 'redo': this.redo(); break;
       case 'test': if (!this.needTrack('TEST')) break; this.saveWork(); this.cb.onTest(cloneTrack(t)); break;
       case 'race': if (!this.needTrack('RACE')) break; this.saveWork(); this.cb.onRace(cloneTrack(t)); break;
-      case 'exit': this.saveWork(); this.cb.onExit(); break;
+      case 'exit': this.exit(); break;
       case 'smooth': if (!this.needTrack()) break; this.push(); this.smooth(); break;
       case 'simplify': if (!this.needTrack()) break; this.push(); this.simplify(); break;
       case 'reverse': this.push(); t.points.reverse(); t.points.forEach(p => { p.b = -p.b; const hi = p.hi; if (p.ho) p.hi = p.ho; else delete p.hi; if (hi) p.ho = hi; else delete p.ho; }); t.start = t.open ? 0 : (t.points.length - 1 - t.start); this.sel.clear(); this.changed(true); this.toast(t.open ? 'DIRECTION REVERSED · START AND FINISH SWAPPED' : 'DIRECTION REVERSED'); break;
@@ -380,7 +386,7 @@ export class Editor {
     return false;
   }
 
-  load(track) {
+  load(track, fromSaves = false) {
     this.push();
     this.track = cloneTrack(track);
     this.normalize(this.track);
@@ -388,35 +394,94 @@ export class Editor {
     this.sel.clear(); this.selProp = -1;
     this.closeModal();
     this.changed(true); this.fit();
-    this.toast('LOADED: ' + this.track.name.toUpperCase());
+    this.markSaved(); this.mine = fromSaves ? this.track.name : null;
+    this.toast('Loaded: ' + this.track.name);
+  }
+  newBlank(open) {
+    this.closeModal(); this.push();
+    const env = this.track.env, n = newTrack('New Circuit');
+    n.env = { ...defaultEnv(env.theme), time: env.time, weather: env.weather };
+    n.points = []; if (open) n.open = true;
+    this.track = n; this.normalize(n);
+    $('ed-name').value = n.name; this.sel.clear(); this.selProp = -1;
+    this.changed(true); this.markSaved(); this.mine = null;
+    if (this.W) { this.view.cx = 0; this.view.cz = 0; this.view.scale = clamp(Math.min(this.W / 1400, this.H / 1000), 0.05, 6); }
+    this.setTool('draw');
+    this.toast(open ? 'Draw the road from start to finish' : 'Draw a loop, back to where you started');
+  }
+
+  // nothing to lose: what's on screen is as it was loaded or last saved (mine = the My Circuits name it's saved as)
+  markSaved() { this.savedJ = this.snapshot().j; }
+  isSaved() { return this.savedJ === this.snapshot().j; }
+  exit() {
+    this.saveWork();
+    if (this.isSaved() || !trackReady(this.track)) return this.cb.onExit();
+    this.modalList('Exit', [
+      { title: 'Save and exit', desc: `Keep "${this.track.name}" in My Circuits.`, pick: () => { this.closeModal(); if (this.save()) this.cb.onExit(); } },
+      { title: 'Exit without saving', desc: 'It comes back the next time you open the editor, until you start something else.', pick: () => { this.closeModal(); this.cb.onExit(); } },
+      { title: 'Keep editing', desc: '', pick: () => this.closeModal() },
+    ], '', 'This circuit has changes that aren\'t in My Circuits.');
+  }
+  // a name in use: one of yours (replace it?) or a built-in / real circuit (that name's taken, so pick another)
+  nameClash(name) {
+    if ([...presetTracks(), ...realTracks()].some(p => p.name === name)) return 'builtin';
+    return this.savedList().some(x => x.name === name) ? 'mine' : null;
+  }
+  saveAs(note = '') {
+    const box = $('ed-modal-box');
+    let name = this.track.name;
+    if (this.nameClash(name) === 'builtin') { let k = 2; while (this.nameClash(`${this.track.name} ${k}`)) k++; name = `${this.track.name} ${k}`; }
+    box.innerHTML = `<h3>Save As</h3>${note ? `<p class="muted">${esc(note)}</p>` : ''}<input id="ed-saveas" class="ed-saveas" maxlength="40" value="${esc(name)}"><p class="muted" id="ed-saveas-msg"></p><div class="foot"><button data-close>Cancel</button> <button data-ok class="hot">Save</button></div>`;
+    $('ed-modal').hidden = false;
+    const inp = $('ed-saveas'), msg = $('ed-saveas-msg'), ok = box.querySelector('[data-ok]');
+    let armed = null;
+    const check = () => { const n = inp.value.trim(), c = n && this.nameClash(n); armed = null; ok.textContent = 'Save';
+      msg.textContent = !n ? 'Give it a name.' : c === 'builtin' ? 'A built-in circuit has that name. Pick another.' : c === 'mine' ? 'You already have a circuit with that name. Saving replaces it.' : ''; };
+    const go = () => { const n = inp.value.trim(), c = n && this.nameClash(n);
+      if (!n || c === 'builtin') { sfx.error(); return; }
+      if (c === 'mine' && armed !== n) { armed = n; ok.textContent = 'Replace it'; sfx.select(); return; }
+      this.track.name = n; $('ed-name').value = n; this.closeModal(); this.save(true); };
+    inp.addEventListener('input', check);
+    inp.addEventListener('keydown', (e) => { if (e.code === 'Enter') go(); if (e.code === 'Escape') this.closeModal(); e.stopPropagation(); });
+    ok.addEventListener('click', go);
+    box.querySelector('[data-close]').addEventListener('click', () => this.closeModal());
+    $('ed-modal').onclick = (e) => { if (e.target.id === 'ed-modal') this.closeModal(); };
+    check(); inp.focus(); inp.select();
   }
 
   savedList() { try { return JSON.parse(localStorage.getItem('svgp.tracks')) || []; } catch (e) { return []; } }
-  save() {
-    if (!this.needTrack('SAVE')) return;
+  // Save keeps this circuit under its name. It never quietly replaces a different circuit: a name a built-in or real
+  // circuit has, or one of yours this didn't come from, goes through Save As first. (replace: Save As said yes)
+  save(replace = false) {
+    if (!this.needTrack('SAVE')) return false;
+    const clash = this.nameClash(this.track.name);
+    if (clash === 'builtin') { this.saveAs('A built-in circuit has that name, so yours needs its own.'); return false; }
+    if (clash === 'mine' && !replace && this.mine !== this.track.name) { this.saveAs('You already have a circuit with that name.'); return false; }
     const list = this.savedList();
     const t = cloneTrack(this.track);
-    t.saved = Date.now();
+    t.saved = Date.now(); this.track.saved = t.saved;
     const k = list.findIndex(x => x.name === t.name);
     if (k >= 0) list[k] = t; else list.push(t);
-    try { localStorage.setItem('svgp.tracks', JSON.stringify(list)); this.toast('SAVED: ' + t.name.toUpperCase()); }
-    catch (e) { sfx.error(); this.toast(t.osm ? 'BROWSER STORAGE FULL — USE EXPORT TO SAVE BIG TOWNS' : 'SAVE FAILED'); }
+    try { localStorage.setItem('svgp.tracks', JSON.stringify(list)); this.markSaved(); this.mine = t.name; this.saveWork(); this.toast('Saved: ' + t.name); return true; }
+    catch (e) { sfx.error(); this.toast(t.osm ? 'Out of storage space. Use Export to save big towns.' : 'Could not save'); return false; }
   }
   openModal() {
     const list = this.savedList();
     if (!list.length) return this.modalList('My Circuits', [], 'No saved circuits yet. Press SAVE to store the current one.');
     this.modalList('My Circuits', list.map((p, i) => ({
       title: p.name, desc: `${THEMES[p.env?.theme || 'grass'].label} · ${new Date(p.saved || 0).toLocaleDateString()}`,
-      pick: () => this.load(p),
+      pick: () => this.load(p, true),
       del: () => { const l = this.savedList(); l.splice(i, 1); localStorage.setItem('svgp.tracks', JSON.stringify(l)); this.openModal(); },
     })));
   }
-  modalList(title, items, empty = '') {
+  modalList(title, items, empty = '', note = '') {
     const box = $('ed-modal-box');
-    box.innerHTML = `<h3>${title}</h3>` + (items.length ? items.map((it, i) => `<div class="li" data-i="${i}"><div><div class="t">${esc(it.title)}</div><div class="d">${esc(it.desc)}</div></div>${it.del ? `<button data-del="${i}">Delete</button>` : ''}</div>`).join('') : `<p class="muted">${empty}</p>`) + `<div class="foot"><button data-close>Close</button></div>`;
+    box.innerHTML = `<h3>${title}</h3>` + (note ? `<p class="muted">${esc(note)}</p>` : '') + (items.length ? items.map((it, i) => `<div class="li" data-i="${i}"><div><div class="t">${esc(it.title)}</div><div class="d">${esc(it.desc)}</div></div>${it.del ? `<button data-del="${i}">Delete</button>` : ''}</div>`).join('') : `<p class="muted">${empty}</p>`) + `<div class="foot"><button data-close>Close</button></div>`;
     $('ed-modal').hidden = false;
     box.querySelectorAll('.li').forEach(el => el.addEventListener('click', (e) => { if (e.target.dataset.del) return; items[+el.dataset.i].pick(); }));
-    box.querySelectorAll('[data-del]').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation(); if (confirm('Delete this circuit?')) items[+el.dataset.del].del(); }));
+    box.querySelectorAll('[data-del]').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation();
+      if (el.dataset.armed) return items[+el.dataset.del].del();
+      el.dataset.armed = 1; el.textContent = 'Delete it?'; sfx.select(); }));
     box.querySelector('[data-close]').addEventListener('click', () => this.closeModal());
     $('ed-modal').onclick = (e) => { if (e.target.id === 'ed-modal') this.closeModal(); };
   }
@@ -2274,13 +2339,13 @@ export class Editor {
       <div class="fld"><label>Walls<span>${HOUSE_WALLS[look.w - 1].label}</span></label><div class="sw" id="${id}-w">${HOUSE_WALLS.map((w, i) => `<button data-v="${i + 1}" class="${look.w === i + 1 ? 'on' : ''}" title="${w.label}">${this.swatchImg('wall', i + 1)}</button>`).join('')}</div></div>
       <div class="fld"><label>Roof<span>${HOUSE_ROOFS[look.r - 1].label}</span></label><div class="sw" id="${id}-r">${HOUSE_ROOFS.map((w, i) => `<button data-v="${i + 1}" class="${look.r === i + 1 ? 'on' : ''}" title="${w.label}">${this.swatchImg('roof', i + 1)}</button>`).join('')}</div></div>
       ${this.colourHtml(look.c, id, 'Paint')}
-      <p class="muted" style="margin-top:-4px">Paint colours the walls (strongest on white siding).</p>`;
+      <p class="muted" style="margin-top:-4px">Paint colors the walls (strongest on white siding).</p>`;
   }
   colourHtml(c, id, label) {
     return `<div class="fld"><label>${label}<span>${c ? c.toUpperCase() : 'None'}</span></label><div class="sw" id="${id}-c">
       <button data-v="" class="${!c ? 'on' : ''}" title="No paint"><i class="none"></i></button>
       ${HOUSE_PAINTS.map(p => `<button data-v="${p}" class="${c === p ? 'on' : ''}" title="${p}"><i style="background:${p}"></i></button>`).join('')}
-      <span class="pick ${c && !HOUSE_PAINTS.includes(c) ? 'on' : ''}" title="Any colour"><i style="background:${c && !HOUSE_PAINTS.includes(c) ? c : 'conic-gradient(#f55,#fd5,#5f8,#5cf,#a6f,#f55)'}"></i><input type="color" id="${id}-cc" value="${c || '#ffffff'}"></span>
+      <span class="pick ${c && !HOUSE_PAINTS.includes(c) ? 'on' : ''}" title="Any color"><i style="background:${c && !HOUSE_PAINTS.includes(c) ? c : 'conic-gradient(#f55,#fd5,#5f8,#5cf,#a6f,#f55)'}"></i><input type="color" id="${id}-cc" value="${c || '#ffffff'}"></span>
     </div></div>`;
   }
   bindPaint(id, pick) {
@@ -2774,7 +2839,7 @@ export class Editor {
       ${env.walks ? fld('Sidewalk width', 't-walkw', 1.5, 5, 0.25, env.walkW || 2.5, 'm') : ''}
       <div class="fld"><label>Surface</label><div class="seg" id="t-surf"><button data-v="asphalt" class="${env.surface !== 'dirt' ? 'on' : ''}">Asphalt</button><button data-v="dirt" class="${env.surface === 'dirt' ? 'on' : ''}">Dirt</button></div></div>
       ${env.surface === 'dirt' ? '<p class="muted" style="margin-top:-4px">Loose dirt: about two thirds of the grip, slides and dust. No kerbs. The pit lane and paved runoff stay paved.</p>' : ''}
-      ${env.surface === 'dirt' ? '' : `<div class="fld"><label>Kerbs</label><div class="seg" id="t-kerb"><button data-v="1" class="${env.kerbs !== false ? 'on' : ''}">On</button><button data-v="0" class="${env.kerbs === false ? 'on' : ''}">Off</button></div></div>`}
+      ${env.surface === 'dirt' ? '' : `<div class="fld"><label>Curbs</label><div class="seg" id="t-kerb"><button data-v="1" class="${env.kerbs !== false ? 'on' : ''}">On</button><button data-v="0" class="${env.kerbs === false ? 'on' : ''}">Off</button></div></div>`}
       ${fld('Draw width', 't-dw', 8, 22, 0.5, this.defaultWidth, 'm')}
       <div class="seg"><button id="t-allw">Apply Width To All Nodes</button></div>
       <p class="muted" style="margin-top:12px">Draw width is used for new ${open ? 'tracks' : 'circuits'} sketched with the DRAW tool.</p>`;
@@ -2843,7 +2908,7 @@ export class Editor {
         ${fld('Litter &amp; trash', 'w-sl', 0, 1, 0.05, st.litter, '')}
         ${fld('Street trees', 'w-st', 0, 1, 0.05, st.streetTrees, '')}
         ${fld('Ambient life', 'w-sa', 0, 1, 0.05, st.life, '')}
-        <p class="muted" style="margin-top:-4px">Ambient life: paper blowing along the pavements (cars kick it up), steam from vents, pigeons, glowing vending machines and signs at night.</p>
+        <p class="muted" style="margin-top:-4px">Ambient life: paper blowing along the sidewalks (cars kick it up), steam from vents, pigeons, glowing vending machines and signs at night.</p>
         <div class="seg"><button id="w-reroll">&#8635; New Layout</button>${SETTINGS[st.kind].streets ? `<button id="w-streets" class="${st.streets !== false ? 'on' : ''}">Town streets: ${st.streets !== false ? 'On' : 'Off'}</button>` : ''}</div>
         <p class="muted">Every building can be clicked with the PROPS tool to move, turn or delete it. Your own zones, roads and imported buildings stay; the setting fills in around them.</p>` : ''}
       <h4>TREES</h4>
