@@ -277,7 +277,11 @@ export class HUD {
   // the strategy panel (races with a pit lane, or tyre wear): the set you're on and how old it is, the plan, where a
   // stop now would put you (and who you'd come out behind), your teammate (World Career)
   strategy(s) {
-    const S = this.st, x = s.strat, show = !!(x && this.mode === 'race' && (s.wear || s.hasPit));
+    const x = s.strat;
+    // (only when there's a strategy to show: a planned stop, weather on the way, a teammate, or a race long enough for
+    // stops to matter. A sprint to the flag on one set: no panel saying "to the end, a stop puts you P10")
+    const matters = x && (s.plan || x.wx || x.mate || !(s.laps > 0) || s.laps >= 10);
+    const S = this.st, show = !!(x && matters && this.mode === 'race' && (s.wear || s.hasPit));
     S.el.classList.toggle('on', show); if (!show) return;
     const dot = (c) => `<span class="ty" style="background:${TYRE_CSS[c] || '#777'}">${c[0].toUpperCase()}</span>`;
     // (a race whose weather may change: the track as it is, and the rain on its way)

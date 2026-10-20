@@ -6,7 +6,7 @@
 // him. While anyone talks the music dips too (audio.js setMusicDuck), and comes back up slowly.
 // Single-file build: the clips arrive inline in window.__SVGP_VOICE = { manifest, files: { 'eng/x.mp3': base64 } }
 // (a page opened from disk can't read files beside it into Web Audio); otherwise they're fetched from assets/voice/.
-import { audioBus, setMusicDuck } from './audio.js';
+import { voiceBus as audioBus, setMusicDuck } from './audio.js'; // (the voices' own level: Options > Sound)
 
 const embedded = () => (typeof window !== 'undefined' && window.__SVGP_VOICE) || null;
 const DIR = 'assets/voice/';

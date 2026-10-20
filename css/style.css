@@ -161,6 +161,8 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .tabs { position: relative; display: flex; gap: var(--s8); margin: 0 0 var(--s4); padding-left: 18px; }
 .tabs::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--sv-red); box-shadow: var(--sv-glow-line); opacity: .7; }
 .tabs span { position: relative; font: 500 22px/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; padding: 4px 0 10px; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; cursor: pointer; transition: color var(--m-fast); }
+.tabs span { white-space: nowrap; }
+#opt-tabs { gap: var(--s6); } /* (seven tabs: one line) */
 .tabs span:hover { color: var(--sv-hot); }
 .tabs span.on { color: var(--sv-amber); }
 .tabs span.on::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; background: currentColor; box-shadow: var(--sv-glow-fill); z-index: 1; }
@@ -291,6 +293,8 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 .hud-rcol { position: absolute; right: var(--edge); top: 4.5%; display: flex; flex-direction: column; gap: 12px; pointer-events: none; }
 .hud-tr { position: relative; width: 228px; padding: 10px 14px 8px; }
 /* the strategy panel: the set you're on, the plan, what a stop now would do, your teammate */
+/* (Options > Display > HUD: parts switched off) */
+body.hud-no-tower #h-tower, body.hud-no-strat .hud-strat.on, body.hud-no-radar .hud-bl { display: none !important; }
 .hud-strat { position: relative; width: 228px; padding: 10px 14px 8px; display: none; }
 .hud-strat.on { display: block; }
 .hud-strat > .hud-cap { position: relative; padding-bottom: 8px; margin-bottom: 6px; }

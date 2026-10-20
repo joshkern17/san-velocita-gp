@@ -1,7 +1,9 @@
 // Synthesised audio: engines, tyres, wind, impacts, menu blips
 import { ENGINES, REF_RPM, synthEngine, physOptions } from './engines.js';
 import { ENGINE_WORKLET } from './engineworklet.js';
-let ctx = null, master = null, sfxBus = null, noiseBuf = null, workletReady = null;
+let ctx = null, master = null, sfxBus = null, carBus = null, voBus = null, noiseBuf = null, workletReady = null;
+// the three mixer levels under the master (Options > Sound): the cars, the effects and menus, the voices
+const levels = { car: 1, sfx: 1, voice: 1 };
 // engine sound: 'phys' = the physical model (engineworklet.js), 'loop' = the firing-pulse loops (engines.js)
 let engineModel = 'phys';
 export function setEngineModel(m) { engineModel = m; }
@@ -17,7 +19,9 @@ export function initAudio() {
   const comp = ctx.createDynamicsCompressor();
   comp.threshold.value = -14; comp.ratio.value = 4;
   master.connect(comp); comp.connect(ctx.destination);
-  sfxBus = ctx.createGain(); sfxBus.connect(master);
+  sfxBus = ctx.createGain(); sfxBus.gain.value = levels.sfx; sfxBus.connect(master);
+  carBus = ctx.createGain(); carBus.gain.value = levels.car; carBus.connect(master);
+  voBus = ctx.createGain(); voBus.gain.value = levels.voice; voBus.connect(master);
   // the physical engine model runs in an AudioWorklet (loaded from a Blob: works in the single-file build too)
   if (ctx.audioWorklet) workletReady = ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([ENGINE_WORKLET], { type: 'application/javascript' })))
     .then(() => true).catch(e => { console.warn('engine worklet not loaded', e); return false; });
@@ -26,9 +30,13 @@ export function initAudio() {
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
 }
 export function setVolume(v) { volume = v; if (master) master.gain.setTargetAtTime(v, ctx.currentTime, 0.05); }
+// k: 'car' | 'sfx' | 'voice', v 0..1
+export function setLevel(k, v) { levels[k] = v; const g = { car: carBus, sfx: sfxBus, voice: voBus }[k]; if (g) g.gain.setTargetAtTime(v, ctx.currentTime, 0.05); }
 export const audioReady = () => !!ctx;
 // for scenes with their own sound graph (the opening's TV): the context, the sfx bus and the shared noise buffer
 export const audioBus = () => ctx ? { ctx, out: sfxBus, noise: noiseBuf } : null;
+// the same for the voices (the engineer, the booth, the people): their own level
+export const voiceBus = () => ctx ? { ctx, out: voBus, noise: noiseBuf } : null;
 
 // ---------- soundtrack ----------
 // assets/music/t1..t8 in order, then round again. A plain <audio> element rather than the Web Audio graph: it streams
@@ -131,7 +139,7 @@ export class EngineVoice {
     this.model = engineModel === 'phys' && workletReady ? 'phys' : 'loop';
     this.out = ctx.createGain(); this.out.gain.value = 0;
     this.pan = ctx.createStereoPanner ? ctx.createStereoPanner() : ctx.createGain();
-    this.pan.connect(this.out); this.out.connect(master);
+    this.pan.connect(this.out); this.out.connect(carBus);
     // engine: on / off loops -> drive -> resonances -> lowpass -> level
     this.onG = ctx.createGain(); this.offG = ctx.createGain(); this.onG.gain.value = this.offG.gain.value = 0;
     this.drive = ctx.createWaveShaper();
@@ -159,19 +167,19 @@ export class EngineVoice {
       this.sq = noiseSrc();
       const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1500; bp.Q.value = 4;
       this.sqGain = ctx.createGain(); this.sqGain.gain.value = 0;
-      this.sq.connect(bp); bp.connect(this.sqGain); this.sqGain.connect(master); this.sq.start();
+      this.sq.connect(bp); bp.connect(this.sqGain); this.sqGain.connect(carBus); this.sq.start();
       this.sqBp = bp;
       // wind / road
       this.wind = noiseSrc();
       const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 500;
       this.windGain = ctx.createGain(); this.windGain.gain.value = 0;
-      this.wind.connect(lp); lp.connect(this.windGain); this.windGain.connect(master); this.wind.start();
+      this.wind.connect(lp); lp.connect(this.windGain); this.windGain.connect(carBus); this.wind.start();
       this.windLp = lp;
       // gravel rumble
       this.rum = noiseSrc();
       const rl = ctx.createBiquadFilter(); rl.type = 'lowpass'; rl.frequency.value = 180;
       this.rumGain = ctx.createGain(); this.rumGain.gain.value = 0;
-      this.rum.connect(rl); rl.connect(this.rumGain); this.rumGain.connect(master); this.rum.start();
+      this.rum.connect(rl); rl.connect(this.rumGain); this.rumGain.connect(carBus); this.rum.start();
     }
   }
   // switch engine (the AI voices follow whichever cars are nearest)

@@ -16,7 +16,7 @@ import { saveSession } from './session.js';
 import { drawChart, drawMap, notesHtml, fmtGap, fmtSpeed, drawLineMap, lineMapHit, lineMapZoom, lineMapPan, chartHit, popHtml, boardZones, lineRange, setScramble, tipText } from './lapreview.js';
 import { garbleTree } from './garble.js';
 import { AIDS, AID_KEYS, PRESETS, PRESET_VALS, aidsOf, presetOf, applyPreset, aidBonus, AID_RULES, AID_RULE_DESC, limitAids } from './aids.js';
-import { initAudio, sfx, setVolume, setMusicVolume, setMusicScene, updateMusic, setEngineSound } from './audio.js';
+import { initAudio, sfx, setVolume, setLevel, setMusicVolume, setMusicScene, updateMusic, setEngineSound } from './audio.js';
 import { engSay, engSeq, lineText, preload as voPreload, voStopAll, setVoiceOn, boothSay, boothSequence, stopBooth, boothLines, voBusy, pbpSay, lineSet, voReload } from './vo.js';
 import { NICKNAMES, slugName } from './broadcast.js';
 import { presetTracks, sampleTrack, trackStats, THEMES, cloneTrack } from './track.js';
@@ -90,7 +90,7 @@ const DEV = !window.__SVGP_RELEASE && !new URLSearchParams(location.search).has(
 
 // ---------------- settings ----------------
 const DEFAULTS = {
-  uiTheme: 'red', res: 'ps2', filter: 'soft', trails: true, scan: false, dither: true, retro: 'psx', palette: 128, psxMat: 'strong', crt: 'flat', grain: 'light', rays: true, fringe: true, shadows: true, dirtFx: 5, look: 'arcade', units: 'kmh', gearbox: 'auto', tc: true,
+  uiTheme: 'red', res: 'ps2', filter: 'soft', trails: true, scan: false, dither: true, retro: 'psx', palette: 128, psxMat: 'strong', crt: 'flat', grain: 'light', rays: true, fringe: true, shadows: true, dirtFx: 5, look: 'arcade', units: /^en-(US|LR|MM)$/i.test(navigator.language || '') ? 'mph' : 'kmh', gearbox: 'auto', tc: true,
   volume: 7, music: 5, camera: 'chase', mirror: 'on', racingLine: 'full', lineStyle: 'blocks', wear: 'normal', damage: 'normal', startTyre: 'auto', drift: 'off', aiChassis: 'class', rules: 'arcade', safetyCar: 'on', aiMistakes: 'normal', quali: 0, radarMap: 'satellite', radarZoom: 'normal', car: null, difficulty: 'medium', grid: 'back', team: 0, time: 'track', weather: 'track',
 };
 let settings = { ...DEFAULTS };
@@ -134,7 +134,8 @@ function applyVideo() {
   FX.dirt = (settings.dirtFx ?? 5) / 5; // (dust and thrown dirt: 0 off, 1 as designed, 2 double)
   document.body.classList.toggle('no-scan', !settings.scan);
   document.documentElement.dataset.theme = settings.uiTheme; readThemeColours(); // (css/sv.css: the blue palette)
-  setVolume(settings.volume / 10); setMusicVolume(settings.music / 10); setEngineSound(settings.engineSound);
+  for (const [k, c] of [['hudTower', 'hud-no-tower'], ['hudStrat', 'hud-no-strat'], ['hudRadar', 'hud-no-radar']]) document.body.classList.toggle(c, settings[k] === 'off');
+  setVolume(settings.volume / 10); setMusicVolume(settings.music / 10); setLevel('car', (settings.carVol ?? 10) / 10); setLevel('sfx', (settings.sfxVol ?? 10) / 10); setLevel('voice', (settings.voiceVol ?? 10) / 10); setEngineSound(settings.engineSound);
   hud.units = settings.units; hud.dirtyAir = settings.dirtyAir !== 'off';
   hud.radarMap = settings.radarMap; hud.radarZoom = settings.radarZoom;
 }
@@ -184,7 +185,7 @@ function fadeTo(fn, ms = 320) {
 const GLYPHS = {
   kb: { tune: '<kbd>T</kbd>', nav: '<kbd>&#8593;</kbd><kbd>&#8595;</kbd>', lr: '<kbd>&#8592;</kbd><kbd>&#8594;</kbd>', ok: '<kbd>Enter</kbd>', back: '<kbd>Esc</kbd>', tab: '<kbd>Q</kbd><kbd>E</kbd>', skip: '<kbd>Enter</kbd>', view: '<kbd>V</kbd>', scrub: '<kbd>Z</kbd><kbd>X</kbd>', cls: '<kbd>&#8593;</kbd><kbd>&#8595;</kbd>', phone: '<kbd>P</kbd>', alt: '<kbd>F</kbd>', save: '<kbd>Ctrl</kbd><kbd>S</kbd>',
     cam: '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', look: '<kbd>I</kbd><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd>', dolly: '<kbd>Q</kbd><kbd>E</kbd>', zoom: '<kbd>Z</kbd><kbd>X</kbd>', shoot: '<kbd>Space</kbd>', hide: '<kbd>H</kbd>' },
-  pad: { tune: '<kbd class="pb y">Y</kbd>', nav: '<kbd class="dpad"></kbd>', lr: '<kbd class="dpad h"></kbd>', ok: '<kbd class="pb a">A</kbd>', back: '<kbd class="pb b">B</kbd>', tab: '<kbd class="pl">LB</kbd><kbd class="pl">RB</kbd>', skip: '<kbd>Enter</kbd>', view: '<kbd class="pb y">Y</kbd>', scrub: '<kbd class="pl">LT</kbd><kbd class="pl">RT</kbd>', cls: '<kbd class="pl">LB</kbd><kbd class="pl">RB</kbd>', phone: '<kbd class="pb y">Y</kbd>', alt: '<kbd class="pb x">X</kbd>', save: '<kbd class="pb x">X</kbd>',
+  pad: { tune: '<kbd class="pb y">Y</kbd>', nav: '<kbd class="dpad"></kbd>', lr: '<kbd class="dpad h"></kbd>', ok: '<kbd class="pb a">A</kbd>', back: '<kbd class="pb b">B</kbd>', tab: '<kbd class="pl">LB</kbd><kbd class="pl">RB</kbd>', skip: '<kbd class="pb a">A</kbd>', view: '<kbd class="pb y">Y</kbd>', scrub: '<kbd class="pl">LT</kbd><kbd class="pl">RT</kbd>', cls: '<kbd class="pl">LB</kbd><kbd class="pl">RB</kbd>', phone: '<kbd class="pb y">Y</kbd>', alt: '<kbd class="pb x">X</kbd>', save: '<kbd class="pb x">X</kbd>',
     cam: '<kbd class="pl">LS</kbd>', look: '<kbd class="pl">RS</kbd>', dolly: '<kbd class="pl">LB</kbd><kbd class="pl">RB</kbd>', zoom: '<kbd class="pl">LT</kbd><kbd class="pl">RT</kbd>', shoot: '<kbd class="pb a">A</kbd>', hide: '<kbd class="pb y">Y</kbd>' },
 };
 // per screen: [glyph, label] pairs; a function for screens whose prompts change
@@ -210,7 +211,7 @@ const HINTS = {
   's-strat': () => [['nav', 'Navigate'], ['lr', 'Edit custom plan'], ['ok', sim && sim.net ? 'Lock in' : 'Confirm & race'], ...(sim && sim.pickedCar && !sim.net || raceReturn === 'setup' ? [['back', 'Back']] : [])],
   's-pause': [['nav', 'Navigate'], ['ok', 'Select'], ['back', 'Resume']],
   's-photo': [['nav', 'Options'], ['cam', 'Orbit'], ['look', 'Look'], ['dolly', 'Distance'], ['zoom', 'Zoom'], ['shoot', 'Take photo'], ['hide', 'Hide menu'], ['back', 'Back']],
-  's-results': [['nav', 'Navigate'], ['ok', 'Select']],
+  's-results': [['nav', 'Navigate'], ['ok', 'Select'], ['back', 'Main menu']],
 };
 const hintKeys = (g) => (GLYPHS[device.kind] || GLYPHS.kb)[g];
 function renderHints() {
@@ -422,6 +423,7 @@ function boot() {
     fadeTo(() => { startAttract(); show('s-main'); });
   };
   $('s-boot').addEventListener('click', go);
+  const press = (k) => { $('boot-press').textContent = k === 'pad' ? 'PRESS A' : 'PRESS ENTER'; }; press(device.kind); onDevice(press);
   backs['s-boot'] = go;
   bootGo = go;
 }
@@ -730,15 +732,6 @@ const VIBES = { off: 0, low: 0.45, normal: 0.8, strong: 1.15 };
 let vibeTestUntil = 0;
 const OPTION_TABS = [
   ['Game', [
-    { label: 'Volume', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'MUTE']), get: () => settings.volume, set: v => { settings.volume = v; applyVideo(); saveSettings(); }, desc: 'Master volume for engines, effects and menus.' },
-    { label: 'Music', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'OFF']), get: () => settings.music, set: v => { settings.music = v; applyVideo(); saveSettings(); }, desc: 'Soundtrack volume. The eight tracks play in order and loop: fuller in the menus, quietly in the background on track.' },
-    { label: 'Engine Sound', values: [['classic', 'Classic'], ['crisp', 'Crisp']], get: () => settings.engineSound || 'classic', set: v => { settings.engineSound = v; applyVideo(); saveSettings(); }, desc: '<b>Classic</b>: the original engine mix. <b>Crisp</b>: the same tone with punchier firing pulses and a touch more top end, no louder. Changes straight away, engine running.' },
-    { label: 'Commentary', values: [['full', 'Full'], ['intro', 'Track Intros'], ['off', 'Off']], get: () => settings.commentary || 'off', set: v => { settings.commentary = v; setVoiceOn('booth', v !== 'off'); saveSettings(); }, desc: 'The broadcast booth. <b>Full</b>: a flyover of the circuit before each race while they introduce it, then they call the race: passes, battles, crashes, the finish. <b>Track Intros</b>: just the flyover. Changes apply from the next race.' },
-    { label: 'Commentary Name', values: [['auto', 'Your Surname'], ...NICKNAMES.map(n => [slugName(n), n])], get: () => settings.commentaryName || 'auto', set: v => { settings.commentaryName = v; saveSettings(); },
-      get desc() { const c = commentaryName(); return `What the announcer calls you. <b>Your Surname</b>: your driver's last name (${(settings.driverName || 'not set yet').split(' ').pop()}), if it's one he can say${c.commentaryName ? '' : ': it isn\'t, so pick a nickname'}. Or a nickname.`; } },
-    { label: 'Record Your Name', hide: () => !DEV, action: () => recordMyName(),
-      get desc() { const s = String(settings.driverName || '').trim().split(' ').pop(); return `The announcers learn your name: they record their calls with it (once, about a minute; needs the game running from serve.py with your ElevenLabs key). ${s ? (commentaryName().commentaryName === slugName(s) ? `They already know <b>${s}</b>.` : `Your driver: <b>${s}</b>.`) : 'It asks for your surname.'}`; } },
-    { label: 'Engineer Voice', values: [['on', 'On'], ['off', 'Off']], get: () => settings.engVoice || 'on', set: v => { settings.engVoice = v; setVoiceOn('eng', v !== 'off'); saveSettings(); }, desc: 'Your race engineer reads his radio messages out loud, over the team radio. Off: the messages still show on screen.' },
     { label: 'Camera', values: [['chase', 'Chase'], ['far', 'Far Chase'], ['tcam', 'T-Cam'], ['bumper', 'Nose']], get: () => settings.camera, set: v => { settings.camera = v; saveSettings(); }, desc: 'The view you start races in. Press C (or Y) while driving to switch.' },
     { label: 'Rear-View Mirror', values: [['on', 'On'], ['off', 'Off']], get: () => settings.mirror, set: v => { settings.mirror = v; setMirror(v !== 'off'); saveSettings(); }, desc: 'A mirror at the top of the screen, with your lap time under it.' },
     { label: 'AI Cars', values: [['class', 'Same Class As You'], ['same', 'Same Car As You'], ['multi', 'All Classes Mixed'], ['custom', 'F1: Your Model'], ['mixed', 'F1: Mixed Models'], ['svgp', 'F1: SVGP Classic']], get: () => settings.aiChassis, set: v => { settings.aiChassis = v; saveSettings(); }, desc: 'Which cars your opponents drive. <b>Same Class As You</b>: a mix of your class, each one tuned so it races as hard at your level as your own car would. <b>Same Car As You</b>: everyone in your model, so it comes down to the drivers.' },
@@ -761,6 +754,20 @@ const OPTION_TABS = [
         : voiceState.server === false ? toast('Character voices need the game\'s own server (the San Velocita GP app, or serve.py).')
         : voiceSignIn((ok) => { if (ok) { settings.voices = 'chatgpt'; saveSettings(); toast(`Signed in with ChatGPT${voiceState.email ? ` as <b>${voiceState.email}</b>` : ''}.`); runVoices(); } menus['s-options']?.[0]?.render(); }).then(ok => ok && toast('Sign in on the page that just opened, then come back.')),
       get desc() { return voiceState.signedIn ? `Signed in${voiceState.email ? ` as <b>${voiceState.email}</b>` : ''}${voiceState.model ? ` (${voiceState.model})` : ''}. Rewording counts against your ChatGPT plan's allowance; you can set a limit for this app in ChatGPT's settings.` : 'Opens OpenAI\'s sign-in page in your browser. Needs ChatGPT Plus or Pro. Your account stays on this computer (saves/llm/), never in the game\'s saves.'; } },
+  ]],
+  ['Sound', [
+    { label: 'Master Volume', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'MUTE']), get: () => settings.volume, set: v => { settings.volume = v; applyVideo(); saveSettings(); }, desc: 'Everything at once. The sliders under it set each part against the others.' },
+    { label: 'Music', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'OFF']), get: () => settings.music, set: v => { settings.music = v; applyVideo(); saveSettings(); }, desc: 'Soundtrack volume. The eight tracks play in order and loop: fuller in the menus, quietly in the background on track.' },
+    { label: 'Cars', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'OFF']), get: () => settings.carVol ?? 10, set: v => { settings.carVol = v; applyVideo(); saveSettings(); }, desc: 'Engines, tires, wind and the bumps: yours and everyone else\'s.' },
+    { label: 'Effects & Menus', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'OFF']), get: () => settings.sfxVol ?? 10, set: v => { settings.sfxVol = v; applyVideo(); saveSettings(); sfx.select(); }, desc: 'Menu sounds, the lights, crashes and the pit lane.' },
+    { label: 'Voices', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'OFF']), get: () => settings.voiceVol ?? 10, set: v => { settings.voiceVol = v; applyVideo(); saveSettings(); }, desc: 'Your engineer on the radio, the commentary booth and the people in the World Career.' },
+    { label: 'Engine Sound', values: [['classic', 'Classic'], ['crisp', 'Crisp']], get: () => settings.engineSound || 'classic', set: v => { settings.engineSound = v; applyVideo(); saveSettings(); }, desc: '<b>Classic</b>: the original engine mix. <b>Crisp</b>: the same tone with punchier firing pulses and a touch more top end, no louder. Changes straight away, engine running.' },
+    { label: 'Commentary', values: [['full', 'Full'], ['intro', 'Track Intros'], ['off', 'Off']], get: () => settings.commentary || 'off', set: v => { settings.commentary = v; setVoiceOn('booth', v !== 'off'); saveSettings(); }, desc: 'The broadcast booth. <b>Full</b>: a flyover of the circuit before each race while they introduce it, then they call the race: passes, battles, crashes, the finish. <b>Track Intros</b>: just the flyover. Changes apply from the next race.' },
+    { label: 'Commentary Name', values: [['auto', 'Your Surname'], ...NICKNAMES.map(n => [slugName(n), n])], get: () => settings.commentaryName || 'auto', set: v => { settings.commentaryName = v; saveSettings(); },
+      get desc() { const c = commentaryName(); return `What the announcer calls you. <b>Your Surname</b>: your driver's last name (${(settings.driverName || 'not set yet').split(' ').pop()}), if it's one he can say${c.commentaryName ? '' : ': it isn\'t, so pick a nickname'}. Or a nickname.`; } },
+    { label: 'Record Your Name', hide: () => !DEV, action: () => recordMyName(),
+      get desc() { const s = String(settings.driverName || '').trim().split(' ').pop(); return `The announcers learn your name: they record their calls with it (once, about a minute; needs the game running from serve.py with your ElevenLabs key). ${s ? (commentaryName().commentaryName === slugName(s) ? `They already know <b>${s}</b>.` : `Your driver: <b>${s}</b>.`) : 'It asks for your surname.'}`; } },
+    { label: 'Engineer Voice', values: [['on', 'On'], ['off', 'Off']], get: () => settings.engVoice || 'on', set: v => { settings.engVoice = v; setVoiceOn('eng', v !== 'off'); saveSettings(); }, desc: 'Your race engineer reads his radio messages out loud, over the team radio. Off: the messages still show on screen.' },
   ]],
   ['Aids', [
     presetItem(' Pick a preset, or set each aid below.'),
@@ -804,6 +811,10 @@ const OPTION_TABS = [
     { label: 'Resolution', values: [['r240', 'PS1 240p'], ['r288', 'PS1 288p'], ['r360', 'Arcade 360p'], ['ps2', 'PS2 448p'], ['hd', 'HD 720p'], ['native', 'Native']], get: () => settings.res, set: v => { settings.res = v; settings.look = 'custom'; applyVideo(); saveSettings(); }, desc: 'The resolution the 3D view renders at. Lower is chunkier and faster. ' + LOOK_DESC },
     { label: 'Upscaling', values: [['sharp', 'Sharp pixels'], ['soft', 'Soft (CRT)']], get: () => settings.filter, set: v => { settings.filter = v; applyVideo(); saveSettings(); }, desc: 'How the low-resolution picture is stretched to your screen.' },
     { label: 'Fullscreen', values: [[false, 'OFF'], [true, 'ON']], get: () => !!document.fullscreenElement, set: () => toggleFullscreen(), desc: 'You can also press F at any time.' },
+    { label: 'HUD', head: true },
+    { label: 'Timing Tower', values: [['on', 'On'], ['off', 'Off']], get: () => settings.hudTower || 'on', set: v => { settings.hudTower = v; applyVideo(); saveSettings(); }, desc: 'The running order down the left in a race.' },
+    { label: 'Strategy Panel', values: [['on', 'When It Matters'], ['off', 'Off']], get: () => settings.hudStrat || 'on', set: v => { settings.hudStrat = v; applyVideo(); saveSettings(); }, desc: 'Your tires, the pit plan and where a stop would put you, under the lap times. <b>When It Matters</b>: in races of 10 laps or more, or with a stop planned, weather coming or a teammate.' },
+    { label: 'Minimap', values: [['on', 'On'], ['off', 'Off']], get: () => settings.hudRadar || 'on', set: v => { settings.hudRadar = v; applyVideo(); saveSettings(); }, desc: 'The circuit map, bottom left.' },
     { label: 'Minimap Map', values: [['satellite', 'Satellite'], ['streets', 'Streets'], ['off', 'Off']], get: () => settings.radarMap, set: v => { settings.radarMap = v; applyVideo(); saveSettings(); }, desc: 'The real-world map under the minimap, on circuits built on a map.' },
     { label: 'Minimap Zoom', values: [['near', 'Close'], ['normal', 'Normal'], ['far', 'Far'], ['vfar', 'Very Far']], get: () => settings.radarZoom, set: v => { settings.radarZoom = v; applyVideo(); saveSettings(); }, desc: 'Press M (or d-pad down) to change it while racing.' },
   ]],
@@ -1080,6 +1091,15 @@ backs['s-tuning'] = () => {
 const timedOn = () => settings.raceFormat === 'timed', lapsOn = () => !timedOn();
 // (the field: 11 AI, or 23 in a multiclass race - js/race.js MAX_FIELD)
 const maxOpp = () => settings.mixCls && settings.mixCls !== 'off' ? 23 : 11, nOpp = () => Math.min(raceCfg.opponents, maxOpp());
+// Race Settings: the rules and realism rows fold under one row that says what they're set to
+let rsOpen = false;
+const rsShut = () => !rsOpen;
+function rsSummary(full = false) {
+  const v = (vals, x) => (vals.find(e => e[0] === x) || [, x])[1];
+  const bits = [`Wear ${v([['off', 'off'], ['normal', 'on'], ['fast', 'fast']], settings.wear)}`, `Damage ${v([['off', 'off'], ['normal', 'on'], ['high', 'real']], settings.damage)}`, v(RULES_VALS, settings.rules)];
+  if (full) bits.push(`temps ${v(TEMPS_VALS, settings.temps).toLowerCase()}`, `safety car ${(settings.safetyCar || 'on') === 'on' ? 'on' : 'off'}`, `AI mistakes ${v(MISTAKE_VALS, settings.aiMistakes).toLowerCase()}`, ...(settings.mixCls && settings.mixCls !== 'off' ? [`second class ${CLASSES[settings.mixCls]?.label || settings.mixCls}`] : []));
+  return bits.join(' · ');
+}
 menus['s-raceset'] = [
   new Menu($('m-setup'), [
     { label: 'Race', head: true },
@@ -1091,8 +1111,6 @@ menus['s-raceset'] = [
     { label: 'Endurance Length', hide: lapsOn, values: [[45, 'Short'], [90, 'Medium'], [180, 'Long']], get: () => settings.endur || 90, set: v => { settings.endur = v; saveSettings(); }, desc: 'Timed races: how long 24 hours of race clock takes in real time. <b>Short</b> 45 minutes, <b>Medium</b> 90, <b>Long</b> 180 (a 6 Hours: 11, 22 or 45 minutes).' },
     { label: 'Start Time', hide: lapsOn, values: [[8, 'Morning'], [14.5, 'Afternoon'], [18.5, 'Evening'], [22, 'Night']], get: () => settings.endStart ?? 14.5, set: v => { settings.endStart = v; saveSettings(); }, desc: 'Timed races: the time of day at the start. It moves on with the race clock: an afternoon start runs into the night.' },
     { label: 'Co-Driver', hide: lapsOn, values: [['on', 'AI co-driver'], ['off', 'Drive it all']], get: () => settings.coDriver || 'on', set: v => { settings.coDriver = v; saveSettings(); }, desc: 'Timed races: share the car. At each stop the engineer asks whether to swap; each of you has to drive 30% of the race. While they drive, watch at 1x, 4x or 8x, or skip to your next stint.' },
-    // (multiclass: half the field in another class: standings per class, the quicker class lapping through traffic)
-    { label: 'Second Class', values: [['off', 'Off'], ...Object.keys(CLASSES).filter(k => k !== 'fun').map(k => [k, CLASSES[k].label])], get: () => settings.mixCls || 'off', set: v => { settings.mixCls = v; saveSettings(); }, desc: 'A multiclass race: half the AI field in another class. Positions and points go by class; the tower shows yours. A quicker class comes through your traffic (blue flags: hold your line and let them by), a slower one is traffic for you. Everyone finishes when the overall leader takes the flag.' },
     { label: 'Opponents', get values() { return [...Array(maxOpp() + 1).keys()].map(v => [v, String(v)]); }, get: nOpp, set: v => raceCfg.opponents = v, get desc() { return 'How many AI cars you race against.' + (maxOpp() > 11 ? ' With a second class, up to 23: a full multiclass field.' : ' Up to 11; with a <b>Second Class</b>, up to 23.'); } },
     { label: 'Difficulty', values: [['easy', 'Rookie'], ['medium', 'Pro'], ['hard', 'Legend'], ['alien', 'Alien'], ['phantom', 'Phantom'], ['godlike', 'Godlike']], get: () => settings.difficulty, set: v => { settings.difficulty = v; saveSettings(); }, desc: 'How fast the AI is. <b>Rookie</b> to learn a circuit, <b>Legend</b> to match a clean lap at your best, <b>Alien</b> and up to be beaten. Above <b>Legend</b> the AI cars get extra grip and power, more at each level.' },
     { label: 'Weekend', values: WEEKEND_VALS, get: wkFmt, set: v => { settings.weekend = v; saveSettings(); syncGridItem(); }, desc: WEEKEND_DESC },
@@ -1102,16 +1120,21 @@ menus['s-raceset'] = [
     { label: 'Conditions', head: true },
     { label: 'Time', values: [['track', 'Track default'], ['day', 'Day'], ['dusk', 'Dusk'], ['night', 'Night']], get: () => settings.time, set: v => { settings.time = v; saveSettings(); conditionsChanged(); }, desc: 'Time of day. Track default uses what the circuit was designed with.' },
     { label: 'Weather', values: [['track', 'Track default'], ['clear', 'Clear'], ['overcast', 'Overcast'], ['rain', 'Rain'], ['changeable', 'Changeable'], ['fog', 'Fog']], get: () => settings.weather, set: v => { settings.weather = v; saveSettings(); conditionsChanged(); }, desc: 'Rain costs around 18% grip: brake earlier and use wet tires.' },
-    { label: 'Rules', head: true },
+    { label: 'Your Car & Rules', head: true },
     { label: 'Team', values: teamVals, get: () => settings.team, set: v => { settings.team = v; saveSettings(); }, desc: 'Race in your own Garage livery or in one of the teams\' colors.' },
     presetItem(' Set each aid in Options > Aids.'),
-    { label: 'Tire Wear', values: [['off', 'Off'], ['normal', 'Normal'], ['fast', 'Fast (x2.5)']], get: () => settings.wear, set: v => { settings.wear = v; saveSettings(); }, desc: 'Tires lose grip as they wear. Fast wear makes pit stops matter in short races.' },
-    { label: 'Tire Temps', values: TEMPS_VALS, get: () => settings.temps, set: v => { settings.temps = v; saveSettings(); }, desc: TEMPS_DESC },
-    { label: 'Damage', values: [['off', 'Off'], ['normal', 'Normal'], ['high', 'Realistic']], get: () => settings.damage, set: v => { settings.damage = v; saveSettings(); }, desc: 'Contact breaks wings and chassis, costing grip and speed until you pit. <b>Realistic</b>: a big enough hit tears a wheel off or breaks the suspension, and that car is out of the race (yours too).' },
-    rulesItem(), scItem(), mistakesItem(),
     { label: 'Start Tire', values: [['auto', 'Auto'], ['soft', 'Soft'], ['medium', 'Medium'], ['hard', 'Hard'], ['wet', 'Wet'], ['dirt', 'Dirt']], get: () => settings.startTyre, set: v => { settings.startTyre = v; saveSettings(); }, desc: 'The compound you start on. Auto picks the best one for the conditions (dirt tires on a dirt track).' },
-    { label: 'Pit Wall Calls', values: [['on', 'On'], ['off', 'Off']], get: () => settings.pitWall || 'on', set: v => { settings.pitWall = v; saveSettings(); }, desc: 'Your engineer asks you on the radio when there\'s a call to make: undercut, cover, a cheap stop under the VSC, your teammate. Answer with <b>X / B</b> (or <b>1 / 2</b>); if you don\'t, their pick happens. Off: they make the pit calls and tell you.' },
-    { label: 'Drift Points', values: [['off', 'Off'], ['on', 'On']], get: () => settings.drift, set: v => { settings.drift = v; saveSettings(); }, desc: 'Score points for sliding road and GT cars. Records are kept per circuit.' },
+    // (the realism and rules rows fold away: what they're set to shows on this row, so nothing's hidden from you)
+    { get label() { return `Rules & Realism<small>${rsShut() ? rsSummary() : 'Hide'}</small>`; }, cls: 'action', action: () => { rsOpen = !rsOpen; menus['s-raceset'][0].render(); },
+      get desc() { return rsOpen ? 'Select to fold these away again.' : 'Select to open. ' + `Tire wear and temperatures, damage, flags and penalties, the safety car, AI mistakes, a second class of car, pit wall calls and drift points. Now: ${rsSummary(true)}.`; } },
+    { hide: rsShut, label: 'Tire Wear', values: [['off', 'Off'], ['normal', 'Normal'], ['fast', 'Fast (x2.5)']], get: () => settings.wear, set: v => { settings.wear = v; saveSettings(); }, desc: 'Tires lose grip as they wear. Fast wear makes pit stops matter in short races.' },
+    { hide: rsShut, label: 'Tire Temps', values: TEMPS_VALS, get: () => settings.temps, set: v => { settings.temps = v; saveSettings(); }, desc: TEMPS_DESC },
+    { hide: rsShut, label: 'Damage', values: [['off', 'Off'], ['normal', 'Normal'], ['high', 'Realistic']], get: () => settings.damage, set: v => { settings.damage = v; saveSettings(); }, desc: 'Contact breaks wings and chassis, costing grip and speed until you pit. <b>Realistic</b>: a big enough hit tears a wheel off or breaks the suspension, and that car is out of the race (yours too).' },
+    { ...rulesItem(), hide: rsShut }, { ...scItem(), hide: rsShut }, { ...mistakesItem(), hide: rsShut },
+    // (multiclass: half the field in another class: standings per class, the quicker class lapping through traffic)
+    { hide: rsShut, label: 'Second Class', values: [['off', 'Off'], ...Object.keys(CLASSES).filter(k => k !== 'fun').map(k => [k, CLASSES[k].label])], get: () => settings.mixCls || 'off', set: v => { settings.mixCls = v; saveSettings(); }, desc: 'A multiclass race: half the AI field in another class. Positions and points go by class; the tower shows yours. A quicker class comes through your traffic (blue flags: hold your line and let them by), a slower one is traffic for you. Everyone finishes when the overall leader takes the flag.' },
+    { hide: rsShut, label: 'Pit Wall Calls', values: [['on', 'On'], ['off', 'Off']], get: () => settings.pitWall || 'on', set: v => { settings.pitWall = v; saveSettings(); }, desc: 'Your engineer asks you on the radio when there\'s a call to make: undercut, cover, a cheap stop under the VSC, your teammate. Answer with <b>X / B</b> (or <b>1 / 2</b>); if you don\'t, their pick happens. Off: they make the pit calls and tell you.' },
+    { hide: rsShut, label: 'Drift Points', values: [['off', 'Off'], ['on', 'On']], get: () => settings.drift, set: v => { settings.drift = v; saveSettings(); }, desc: 'Score points for sliding road and GT cars. Records are kept per circuit.' },
   ], { desc: 'd-setup', onChange: () => menus['s-raceset'][1].render(), okValue: () => { const g = menus['s-raceset'][1]; g.i = 0; cycleFocus(1); g.render(); } }),
   // (the buttons under the circuit's picture, so you don't scroll the settings to go)
   new Menu($('m-rsgo'), [
@@ -4581,19 +4604,20 @@ function renderLobby() {
       { label: 'Driver Aids', values: AID_RULES, get: () => S.aids || 'any', set: v => { S.aids = v; hostBroadcast(); }, desc: AID_RULE_DESC },
       { label: 'Garage', action: () => openGarage('s-lobby'), desc: 'Change your car and livery. Everyone sees it.' },
       { label: 'Copy Room Code', action: () => { navigator.clipboard?.writeText(lobby.code).then(() => toast('Room code <b>' + lobby.code + '</b> copied'), () => toast('Room code: <b>' + lobby.code + '</b>')); }, desc: 'Copy the code to paste into a message to your friends.' },
-      { label: 'Close Room', confirm: 'Close room? Select again', action: () => backs['s-lobby'](), desc: 'Everyone goes back to the menu.' },
+      { label: 'Close Room', confirm: 'Close room? Select again', action: () => leaveLobby(), desc: 'Everyone goes back to the menu.' },
     ], true);
   } else {
     const mine = me();
     m.setItems([
       { label: 'Ready', values: [[true, 'READY'], [false, 'NOT READY']], get: () => !!mine?.ready, set: v => { if (mine) mine.ready = v; net.send({ t: 'update', ready: v }); renderLobby(); }, desc: 'Tell the host you are ready. The host starts the race.' },
       { label: 'Garage', action: () => openGarage('s-lobby'), desc: 'Change your car and livery. Everyone sees it.' },
-      { label: 'Leave Room', confirm: 'Leave? Select again', action: () => backs['s-lobby'](), desc: 'Leave the room and go back to the menu.' },
+      { label: 'Leave Room', confirm: 'Leave? Select again', action: () => leaveLobby(), desc: 'Leave the room and go back to the menu.' },
     ], true);
   }
 }
 menus['s-lobby'] = [new Menu($('m-lobby'), [], { desc: 'd-lobby' })];
-backs['s-lobby'] = () => { sfx.back(); leaveOnline(); };
+function leaveLobby() { sfx.back(); leaveOnline(); }
+backs['s-lobby'] = () => backToLast('s-lobby'); // (to Leave / Close Room, which asks: B never drops you out of a room by accident)
 
 function hostStart() {
   const S = lobby.set;
@@ -5361,7 +5385,7 @@ const TIPS = [
   'Brake in a straight line before the corner, then roll the throttle on as you unwind the steering.',
   'Curbs are fine to clip, but gravel traps on the outside of fast corners will ruin your lap.',
   'Rain costs you around 18% grip. Brake earlier and be gentle with the throttle.',
-  'Press C to cycle cameras. The T-Cam gives the purest sense of speed.',
+  'Press C (Y on a pad) to cycle cameras. The T-Cam gives the purest sense of speed.',
   'In the Track Editor, raise one side of a crossover 5m or more and a bridge is built for you.',
   'Try Legend difficulty once you can lap consistently. The AI will not wait for you.',
   'Manual gearbox? E shifts up, Q shifts down. Watch the rev bar turn gold.',
@@ -5697,7 +5721,10 @@ const RESULT_ITEMS = [
   { label: 'Main Menu', action: () => quitToMenu() },
 ];
 menus['s-results'] = [new Menu($('m-results'), RESULT_ITEMS)];
-backs['s-results'] = () => {};
+// B / Esc on a menu that has a way out at the bottom: the cursor goes to it, and Select takes it (one rule for the
+// screens that end something: never straight out, never nothing)
+function backToLast(scr) { const m = menus[scr][0], k = m.items.length - 1; if (m.i !== k) { m.i = k; m.render(); sfx.move(); renderHints(); } }
+backs['s-results'] = () => backToLast('s-results');
 
 // pause
 const settingsLabel = (vals, v) => (vals.find(x => x[0] === v) || [, v])[1];
