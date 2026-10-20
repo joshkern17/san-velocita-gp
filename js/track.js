@@ -1,7 +1,8 @@
 // Track data model, spline sampling and analysis (shared by editor + race)
 import { BUSINESSES } from './zones.js';
 import { freeLayout, freeOffsets } from './freebar.js';
-import { runoffReach, realWallOffsets, surfaceGrid } from './runoff.js';
+import { runoffReach, realWallOffsets, surfaceGrid, isRunoffPaint, strokeDist } from './runoff.js';
+import { strokeBox } from './sculpt.js';
 
 export const SPACING = 2; // metres between track samples
 
@@ -947,8 +948,10 @@ export function analyzeTrack(T, env, paint = null, osm = null, dress = null) {
     free = freeLayout(dress.free);
     WT = [new Uint8Array(N), new Uint8Array(N)];
     const ti = (t) => WALL_KEYS.indexOf(t) + 1;
-    freeOffsets(T, hash, free, HAS_L, BL, WT[0], -1, ti, BR2, env.runoff ?? 0);
-    freeOffsets(T, hash, free, HAS_R, BRt, WT[1], 1, ti, BR2, env.runoff ?? 0);
+    const strokes = (paint || []).filter(st => isRunoffPaint(st) && (st.pts || []).length).map(st => ({ st, b: strokeBox(st, 1) }));
+    const painted = strokes.length ? (x, z) => strokes.some(({ st, b }) => x >= b[0] && x <= b[2] && z >= b[1] && z <= b[3] && strokeDist(st, x, z) < (st.r || 8)) : null;
+    freeOffsets(T, hash, free, HAS_L, BL, WT[0], -1, ti, BR2, env.runoff ?? 0, painted);
+    freeOffsets(T, hash, free, HAS_R, BRt, WT[1], 1, ti, BR2, env.runoff ?? 0, painted);
   }
   return { hash, BRIDGE: BR2, LIFT, BL, BR: BRt, HAS_L, HAS_R, KERB, KI, KW, KV, kerbs, WT, RZ, BMAX, realWalls: !!RW, free };
 }
