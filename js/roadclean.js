@@ -80,7 +80,9 @@ export function cleanRoad(track, { maxPasses = 80, maxMove = MAX_MOVE, minInner 
       const a1 = Math.atan2(T1[1] - C[1], T1[0] - C[0]); let a2 = Math.atan2(T2[1] - C[1], T2[0] - C[0]), sweep = a2 - a1;
       while (sd > 0 && sweep < 0) sweep += 2 * Math.PI; while (sd < 0 && sweep > 0) sweep -= 2 * Math.PI;
       const m = Math.max(3, Math.ceil(Math.abs(sweep) * R / 6)), ref = at(k), arc = [];
-      for (let q = 0; q <= m; q++) { const an = a1 + sweep * q / m; arc.push({ ...ref, x: C[0] + Math.cos(an) * R, z: C[1] + Math.sin(an) * R, e: pa.e + (pb.e - pa.e) * q / m, w: pa.w + (pb.w - pa.w) * q / m, b: (pa.b || 0) + ((pb.b || 0) - (pa.b || 0)) * q / m }); }
+      // (each arc point at the real road's height, width and camber where it passes: the corner's crest or dip kept)
+      const D0 = densePathOf(t), near = (x, z) => D0.reduce((b, d) => (d.x - x) ** 2 + (d.z - z) ** 2 < (b.x - x) ** 2 + (b.z - z) ** 2 ? d : b, D0[0]);
+      for (let q = 0; q <= m; q++) { const an = a1 + sweep * q / m, x = C[0] + Math.cos(an) * R, z = C[1] + Math.sin(an) * R, o = near(x, z); arc.push({ ...ref, x, z, e: +o.e.toFixed(2), w: +o.w.toFixed(1), b: +(o.b || 0).toFixed(1) }); }
       for (const q of arc) { delete q.hi; delete q.ho; }
       const apexMove = Math.min(...arc.map(q => Math.hypot(q.x - ref.x, q.z - ref.z)));
       if (apexMove > maxMove) continue;
