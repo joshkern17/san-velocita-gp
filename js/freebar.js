@@ -80,22 +80,25 @@ export function freeRay(F, x, z, dx, dz, len) {
   return bs >= 0 ? [best, bs] : null;
 }
 
-// For analyzeTrack: beside each bit of track, the first free barrier straight out from the edge (within 80 m, and
+// For analyzeTrack: beside each bit of track, the first free barrier straight out from the edge (within 40 m: one
+// further out is some other bit of ground's, past a car park or the pit lane, and
 // not past another stretch's road), as the barrier there: HAS, the offset (from the middle of the road) and its type.
-export function freeOffsets(T, hash, F, HAS, OFF, WT, side, typeIdx, skip) {
+// Where there's none, the offset is the circuit's own runoff (`runoff` m past the edge): the runoff and scenery reach
+// that far, not out to wherever a barrier used to be.
+export function freeOffsets(T, hash, F, HAS, OFF, WT, side, typeIdx, skip, runoff = 0) {
   const N = T.N, sep = Math.ceil(60 / T.ds);
   for (let i = 0; i < N; i++) {
     if (skip && skip[i]) continue;
     const h = T.W[i] / 2, rx = T.RX[i] * side, rz = T.RZ[i] * side;
-    const hit = freeRay(F, T.X[i] + rx * h, T.Z[i] + rz * h, rx, rz, 80);
-    if (!hit) { HAS[i] = 0; continue; }
+    const hit = freeRay(F, T.X[i] + rx * h, T.Z[i] + rz * h, rx, rz, 40);
+    if (!hit) { HAS[i] = 0; OFF[i] = h + runoff; continue; }
     // (another stretch's road before it: that's its barrier, not this one's. No road fits in under 6 m)
     let other = false;
     if (hit[0] > 6) for (let t = 3; t < hit[0] - 2 && !other; t += 4) {
       const x = T.X[i] + rx * (h + t), z = T.Z[i] + rz * (h + t);
       hash.query(x, z, 14, (j) => { if (!other && Math.hypot(x - T.X[j], z - T.Z[j]) < T.W[j] / 2 && !sameStretch(T, i, j, sep)) other = true; });
     }
-    if (other) { HAS[i] = 0; continue; }
+    if (other) { HAS[i] = 0; OFF[i] = h + Math.min(runoff, hit[0]); continue; }
     HAS[i] = 1; OFF[i] = h + hit[0]; if (WT) WT[i] = typeIdx(F.lines[F.segs[hit[1]][4]].type);
   }
 }

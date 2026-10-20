@@ -947,8 +947,8 @@ export function analyzeTrack(T, env, paint = null, osm = null, dress = null) {
     free = freeLayout(dress.free);
     WT = [new Uint8Array(N), new Uint8Array(N)];
     const ti = (t) => WALL_KEYS.indexOf(t) + 1;
-    freeOffsets(T, hash, free, HAS_L, BL, WT[0], -1, ti, BR2);
-    freeOffsets(T, hash, free, HAS_R, BRt, WT[1], 1, ti, BR2);
+    freeOffsets(T, hash, free, HAS_L, BL, WT[0], -1, ti, BR2, env.runoff ?? 0);
+    freeOffsets(T, hash, free, HAS_R, BRt, WT[1], 1, ti, BR2, env.runoff ?? 0);
   }
   return { hash, BRIDGE: BR2, LIFT, BL, BR: BRt, HAS_L, HAS_R, KERB, KI, KW, KV, kerbs, WT, RZ, BMAX, realWalls: !!RW, free };
 }
