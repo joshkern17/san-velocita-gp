@@ -1,5 +1,6 @@
 // Track data model, spline sampling and analysis (shared by editor + race)
 import { BUSINESSES } from './zones.js';
+import { freeLayout, freeOffsets } from './freebar.js';
 import { runoffReach, realWallOffsets, surfaceGrid } from './runoff.js';
 
 export const SPACING = 2; // metres between track samples
@@ -939,7 +940,17 @@ export function analyzeTrack(T, env, paint = null, osm = null, dress = null) {
       if (len < short) for (let k = 0; k < len; k++) HAS[(i + k) % N] = 0;
     }
   }
-  return { hash, BRIDGE: BR2, LIFT, BL, BR: BRt, HAS_L, HAS_R, KERB, KI, KW, KV, kerbs, WT, RZ, BMAX, realWalls: !!RW };
+  // free barriers (js/freebar.js): they're all there is, wherever they stand (bridge decks keep their parapets). Beside
+  // each bit of track, the first of them straight out from the edge is its barrier, for everything that asks
+  let free = null;
+  if (dress && Array.isArray(dress.free)) {
+    free = freeLayout(dress.free);
+    WT = [new Uint8Array(N), new Uint8Array(N)];
+    const ti = (t) => WALL_KEYS.indexOf(t) + 1;
+    freeOffsets(T, hash, free, HAS_L, BL, WT[0], -1, ti, BR2);
+    freeOffsets(T, hash, free, HAS_R, BRt, WT[1], 1, ti, BR2);
+  }
+  return { hash, BRIDGE: BR2, LIFT, BL, BR: BRt, HAS_L, HAS_R, KERB, KI, KW, KV, kerbs, WT, RZ, BMAX, realWalls: !!RW, free };
 }
 
 // No loops in the wall. On a corner's inside, a line standing off the centre line further than the corner is tight

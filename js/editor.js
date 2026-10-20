@@ -18,7 +18,7 @@ import { fitStroke, simplifyTrack, lapRemap, remapDress } from './spline.js';
 import { fetchElevation, packTerrain, projectOntoTrack, rawHeight, inGrid, EXAG_MAX, TERRAIN_ATTR } from './terrain.js';
 import { groundMap, groundSource, GROUND_MARGIN } from './groundmap.js';
 import { installKerbTool } from './edkerbs.js';
-import { installBarrierTool } from './edbarriers.js';
+import { installFreeBarrierTool } from './edfree.js';
 import { lapShift } from './lapshift.js';
 import { installView3d } from './ed3d.js';
 import { installPitTool } from './edpit.js';
@@ -155,7 +155,7 @@ export class Editor {
     if (this.selZone >= this.track.zones.length) this.selZone = -1;
     // (curbs / barriers stay picked through undo and redo while they're still there)
     if (!(this.kerbSel >= 0 && this.kerbSel < ((this.track.dress && this.track.dress.kerbs) || []).length)) this.kerbSel = -1;
-    const bl = (this.track.dress && this.track.dress.barriers) || []; if (!(this.barSel >= 0 && this.barSel < bl.length)) { this.barSel = -1; this.barNode = -1; } else if (!(this.barNode < bl[this.barSel].pts.length)) this.barNode = -1;
+    const bl = (this.track.dress && this.track.dress.free) || []; if (!(this.barSel >= 0 && this.barSel < bl.length)) { this.barSel = -1; this.barNode = -1; } else if (!(this.barNode < bl[this.barSel].pts.length)) this.barNode = -1;
     const pl = this.track.dress && this.track.dress.pit; if (!pl || !(this.pitNode < pl.pts.length)) this.pitNode = -1;
     if (!(this.paintSel >= 0 && this.paintSel < this.track.paint.length)) { this.paintSel = -1; this.paintNode = -1; } this.shapeDraw = null;
     $('ed-name').value = this.track.name;
@@ -329,6 +329,7 @@ export class Editor {
     if (was !== m) requestAnimationFrame(() => { this.resize(); this.dirty = true; }); // (the profile comes and goes: the map's size changes)
   }
   setTool(t) {
+    this.barPen = null;
     if (TOOL_MODE[t] && TOOL_MODE[t] !== this.mode) return this.setMode(TOOL_MODE[t], t); // (a tool's key or button takes you to its mode)
     // (RUNOFF: PAINT drawing shapes with the pen)
     if (t === 'runoff') { if (this.tool !== 'paint' || this.paintMode !== 'shape') { this.paintSel = -1; this.paintNode = -1; } this.paintMode = 'shape'; if (!['grass', 'paved', 'gravel'].includes(this.paintKind)) this.paintKind = 'gravel'; t = 'paint'; }
@@ -352,7 +353,7 @@ export class Editor {
       runoff: '<b>RUNOFF</b> &mdash; draw grass, paved or gravel runoff with a pen: <b>click</b> for a sharp corner, <b>click and drag</b> for a smooth curve, round the area; click the first node, double-click or press <b>Enter</b> to finish. <b>Click</b> a shape to pick it: drag its nodes, the round <b>handles</b> to bend it (<b>Shift</b>: one alone), or the shape to move it. Press <b>T</b> to see the map through the track.',
       paint: '<b>PAINT</b> &mdash; <b>Shape</b> (on the right): click round an area, point by point, for grass, paved or gravel exactly there; click one later to reshape or repaint it. <b>Brush</b>: drag to paint <b>grass</b>, <b>paved</b> runoff or <b>gravel</b> (past the barrier, it moves back), <b>Nature</b> (trees and plants), a street of <b>Houses</b> or a <b>Crowd</b> of spectators. <b>Erase</b> removes anything under it: grass, every tree and plant (painted or from the World tab) and buildings. <b>[ ]</b> brush size.',
       kerbs: '<b>CURBS</b> &mdash; <b>drag</b> along a track edge to lay a curb with the settings on the right. <b>Click</b> a curb to change its colors, type, width and tapered ends; drag its <b>end squares</b> to stretch it, or the curb itself to slide it along. <b>DEL</b> removes it.',
-      bars: '<b>BARRIERS</b> &mdash; <b>click</b> a barrier to pick it, then drag its <b>nodes</b>: the barrier either side of a node you move runs <b>straight</b> to the next one; drag the round <b>handles</b> to bend it (<b>Shift</b>: one handle alone). Drag the barrier itself to move it all in or out. <b>Double-click</b> it for another node; <b>DEL</b> removes the picked node. <b>Drag</b> beside the track to put up a new barrier.',
+      bars: '<b>BARRIERS</b> &mdash; put them anywhere. <b>Drag</b> on open ground to draw one, or <b>click</b> node by node (<b>Enter</b> finishes). <b>Click</b> a barrier to pick it: drag a <b>node</b> anywhere, drag the <b>line</b> to bend it, <b>Shift</b>+drag to move it all. Drop an end on another end to <b>join</b> them. <b>Double-click</b> a node for a sharp corner, <b>X</b> opens a gap where you point, <b>DEL</b> removes. <b>Outline The Track</b> (right) puts one all the way round.',
       pit: '<b>PIT LANE</b> &mdash; drag the lane\'s <b>nodes</b> to put it exactly where you want it, or the lane itself to move it in or out. Drag the blue <b>diamonds</b> to set where the garages start and end, the <b>white dots</b> where the pit wall does (it runs on beside the lane to where it meets the track). <b>Double-click</b> the lane for another node, <b>DEL</b> removes the picked one. No pit lane? <b>Drag</b> beside the track to lay one.',
       zones: '<b>ZONES</b> &mdash; draw a line and buildings spawn along it. Pick the type, height, spacing and side on the right. Click a zone line to select it, drag to move it, <b>DEL</b> removes.',
     };
@@ -368,6 +369,7 @@ export class Editor {
   setHint() {
     const t = this.track, h = { ...this.hints };
     if (t && !trackReady(t)) h.edit = `<b>EDIT</b> &mdash; no track yet. <b>Click</b> the map to place nodes (${minNodes(t)} or more), or use <b>DRAW</b> to sketch one.`;
+    if (this.barPen) h.bars = '<b>BARRIERS</b> &mdash; placing nodes: <b>click</b> for the next one, the <b>first</b> node to close it into a loop. <b>Enter</b>, <b>Esc</b> or a double-click finishes it.';
     else if (this.placing) h.edit = `<b>EDIT</b> &mdash; placing nodes: <b>click</b> to add the next one${t.open ? ' (the last one is the finish)' : ''}. Press <b>Enter</b> or <b>Esc</b> when you're done.`;
     const g = this.guide(), steps = [['drawn', 'Draw a road'], ['driven', 'Test Drive it'], ['saved', 'Save it']];
     const guide = steps.every(([k]) => g[k]) ? '' : `<div class="ed-guide">${steps.map(([k, n], i) => `<span class="${g[k] ? 'done' : ''}">${i + 1} ${n}${g[k] ? ' &#10003;' : ''}</span>`).join('')}</div>`;
@@ -783,6 +785,7 @@ export class Editor {
     this.mouse.wx = wx; this.mouse.wz = wz;
     const d = this.drag;
     if (this.profileDrag) return this.onProfileDrag(e);
+    if (!d && this.tool === 'bars') this.barHover(sx, sy);
     if (!d) { this.hoverNode = this.tool === 'edit' ? this.hitNode(sx, sy) : -1; this.hoverBld = this.tool === 'props' && (this.hitProp(wx, wz) >= 0 || !!this.hitBuilding(wx, wz)); this.dirty = true; return; }
     if (d.type === 'pan') {
       this.view.cx = d.cx - (sx - d.sx) / this.view.scale;
@@ -990,6 +993,7 @@ export class Editor {
     if (!$('ed-modal').hidden) { if (e.code === 'Escape') this.closeModal(); return; }
     if (this.v3d && this.key3d(e)) { e.preventDefault(); return; } // (what the 3D view doesn't take goes on: undo, delete, save...)
     if (this.tool === 'paint' && this.paintMode === 'shape' && !(e.ctrlKey || e.metaKey) && this.shapeKey(e)) { e.preventDefault(); return; }
+    if (this.tool === 'bars' && !(e.ctrlKey || e.metaKey) && this.barKey(e)) { e.preventDefault(); return; }
     if (e.code === 'KeyV' && !(e.ctrlKey || e.metaKey)) { this.open3d(); return; }
     const ctrl = e.ctrlKey || e.metaKey;
     if (ctrl && e.code === 'KeyZ') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); return; }
@@ -1613,7 +1617,11 @@ export class Editor {
         if (on) c.stroke();
       }
     };
-    drawBarriers(ground);
+    if (!A.free) drawBarriers(ground);
+    else if (this.tool !== 'bars') { // (free barriers: each along its own line; the BARRIERS tool draws its own)
+      c.lineWidth = Math.max(1.5, 1 * sc);
+      for (const { line, type } of A.free.lines) { c.strokeStyle = BAR_COL[type] || '#c8ccd4'; c.beginPath(); line.forEach((p, k) => { const q = this.w2s(p[0], p[1]); k ? c.lineTo(...q) : c.moveTo(...q); }); c.stroke(); }
+    }
     this.drawPit(c);
     const drawRoad = (chs, deck) => {
       for (const ch of chs) {
@@ -3059,7 +3067,7 @@ export class Editor {
   }
 }
 installKerbTool(Editor);
-installBarrierTool(Editor);
+installFreeBarrierTool(Editor);
 installView3d(Editor);
 installPitTool(Editor);
 installPaintShapes(Editor);

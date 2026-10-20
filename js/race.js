@@ -1929,6 +1929,7 @@ export class Race {
       this.wallPush(car, fx, fz, (k) => d0 + C[k * 2] * fx + C[k * 2 + 1] * fz);
     }
     const reach = bodyBox(p.p).reach;
+    if (A.free) return this.freeWalls(car, C, reach);
     for (const side of [1, -1]) {
       const HAS = side > 0 ? A.HAS_R : A.HAS_L, OFF = side > 0 ? A.BR : A.BL;
       if (side * car.s + reach < OFF[i0] - 1) continue; // (nowhere near this side's wall)
@@ -1939,6 +1940,31 @@ export class Race {
         return HAS[iC] ? side * car.s + cx * rx + cz * rz - OFF[iC] : -1;
       });
     }
+  }
+
+  // free barriers (js/freebar.js), wherever they stand: each one near the car pushes back on the corners that went
+  // past its face, the face on the side the car was on a moment ago (so a wall down the middle between two stretches
+  // works from either side, and a fast car can't slip through it). Round a wall's open end the car goes by.
+  freeWalls(car, C, reach) {
+    const F = this.A.free, p = car.phys, HALF = 0.3;
+    const ox = car._fwx ?? p.x, oz = car._fwz ?? p.z;
+    car._fwx = p.x; car._fwz = p.z;
+    if (!F.segs.length) return;
+    F.near(p.x, p.z, reach + 1, (s) => {
+      const [ax, az, bx, bz, n] = F.segs[s], ex = bx - ax, ez = bz - az, l2 = ex * ex + ez * ez; if (l2 < 1e-6) return;
+      const l = Math.sqrt(l2), nx = -ez / l, nz = ex / l;
+      // (how far the car's middle is from the wall's line, and which side it was on)
+      const t0 = ((p.x - ax) * ex + (p.z - az) * ez) / l2; if (t0 < -reach / l || t0 > 1 + reach / l) return;
+      const dNow = (p.x - ax) * nx + (p.z - az) * nz; if (Math.abs(dNow) > reach + HALF) return;
+      const was = (ox - ax) * nx + (oz - az) * nz, sd = (Math.abs(was) > 1e-4 ? was : dNow) < 0 ? -1 : 1;
+      this.wallPush(car, -nx * sd, -nz * sd, (k) => {
+        const cx = p.x + C[k * 2], cz = p.z + C[k * 2 + 1], t = ((cx - ax) * ex + (cz - az) * ez) / l2;
+        if (t < 0 || t > 1) return -1;
+        const d = HALF - ((cx - ax) * nx + (cz - az) * nz) * sd;
+        return d < 1.5 ? d : -1;
+      }, F.lines[n].type);
+    });
+    car._fwx = p.x; car._fwz = p.z;
   }
 
   // pit wall between the track and the pit lane (0.5 m thick, at pit.WALL)
@@ -1962,7 +1988,7 @@ export class Race {
   }
 
   // push the car out of a wall (n: into the wall; depth(k): how far corner k is past its face, m) and hit it
-  wallPush(car, nx, nz, depth) {
+  wallPush(car, nx, nz, depth, type) {
     const p = car.phys, C = this._cw, D = this._cd;
     let dMax = 0;
     for (let k = 0; k < 4; k++) { D[k] = depth(k); if (D[k] > dMax) dMax = D[k]; }
@@ -1972,11 +1998,11 @@ export class Race {
     for (let k = 0; k < 4; k++) if (D[k] > dMax - 0.15 && D[k] > 0) { px += C[k * 2]; pz += C[k * 2 + 1]; n++; }
     p.x -= nx * dMax; p.z -= nz * dMax;
     car.s -= (nx * this.T.RX[car.idx] + nz * this.T.RZ[car.idx]) * dMax;
-    this.wallHit(car, { nx, nz, px: p.x + px / n, pz: p.z + pz / n });
+    this.wallHit(car, { nx, nz, px: p.x + px / n, pz: p.z + pz / n, type });
   }
 
   wallHit(car, c) {
-    const p = car.phys, tyres = wallTypeAt(this.A, car.idx, car.s, this.track.env) === 'tires';
+    const p = car.phys, tyres = (c.type || wallTypeAt(this.A, car.idx, car.s, this.track.env)) === 'tires';
     if (this.track.env.barrier === 'none') { impulse(p, null, c, { mu: 0.1, e0: 0.05 }); return; } // (no wall: the world's edge, soft and silent)
     // (a tyre wall gives a little and grabs; concrete and armco are hard and the car slides along them)
     const r = impulse(p, null, c, tyres ? { mu: 0.6, e0: 0.35 } : { mu: 0.3, e0: 0.25 });

@@ -300,7 +300,7 @@ export function installView3d(Ed) {
     $('ed-hint').innerHTML = this.tool === 'sculpt' && !fly
       ? '<b>3D VIEW &middot; SCULPT</b> &mdash; <b>hold</b> to paint the land: <b>Raise</b>, <b>Lower</b>, <b>Smooth</b>, <b>Flatten</b> (to the height where you start) or <b>To Track</b> (down to the nearest road\'s height) on the right. The ring dims where the land is the road\'s: the track, its runoff and banks never move. Amber: too steep to stand on. <b>[ ]</b> brush size, <b>Shift [ ]</b> strength. <b>Right-drag</b> to turn round, <b>wheel</b> to zoom, <b>W A S D</b> to pan.'
       : this.mode !== 'shape'
-      ? '<b>3D VIEW</b> &mdash; in 3D for now: the <b>Shape</b> mode\'s points, and <b>Sculpt</b> (Scenery). Curbs, barriers and the rest are on the map (<b>V</b>) for now.'
+      ? '<b>3D VIEW</b> &mdash; <b>right-drag</b> to turn round, <b>wheel</b> to zoom, <b>W A S D</b> to pan, <b>V</b>: the map. Location is set on the map.'
       : fly ? '<b>3D VIEW &middot; FLY</b> &mdash; <b>drag</b> to look, <b>W A S D</b> to fly, <b>Q E</b> down / up, <b>Shift</b> faster. <b>C</b>: back to orbit, to work on the points.'
         : '<b>3D VIEW</b> &mdash; <b>drag a point</b> to slide it over the ground. On the picked point, drag its <b>arrow</b> for its height, its <b>ring</b> to bank the road, the <b>dots</b> either side for its width. <b>Drag</b> empty ground to turn round, <b>right-drag</b> to pan, <b>wheel</b> to zoom. <b>F</b>: frame the point, <b>C</b>: fly, <b>V</b>: the map.';
   };

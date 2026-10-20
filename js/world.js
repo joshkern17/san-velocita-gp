@@ -1144,6 +1144,7 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
   yield;
   // barriers
   if (walls) buildBarriers(root, T, A, env, surfY, groundHeight, tx, night, verge);
+  if (walls && A.free) buildFreeBarriers(root, T, A, env, groundHeight, tx);
   const distBoards = (dressed && buildCornerBoards(root, T, A, env, surfY, groundHeight, roadL, night)) || []; // (where each one stands: the Lap Review measures from them)
   buildWalkways(root, T, A, env, surfY, groundHeight, tx);
   if (pit) buildPitLane(root, T, pit, surfY, tx, night, env, A);
@@ -2185,6 +2186,7 @@ function buildBarriers(root, T, A, env, surfY, groundHeight, tx, night, verge) {
       if (i === T.cut) continue;
       const j = (i + 1) % N;
       if (!has[i] || !has[j]) continue;
+      if (A.free && !A.BRIDGE[i] && !A.BRIDGE[j]) continue; // (free barriers: buildFreeBarriers; a deck keeps its parapet)
       if (A.OVERPASS && (A.OVERPASS[i] || A.OVERPASS[j])) continue; // the overpass has its own parapet + fence
       if (A.pit && A.pit.side === side && (A.pit.HIDE[i] || A.pit.HIDE[j])) continue;
       if (inBlk && (() => { // (through the garages' rooms: none. Any of it, ends or middle: at Monaco another stretch's wall cut through a room)
@@ -2269,6 +2271,71 @@ function buildBarriers(root, T, A, env, surfY, groundHeight, tx, night, verge) {
     const im = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12, 1, 0.12), new THREE.MeshLambertMaterial({ color: 0x6a6e76 }), posts.length);
     const m = new THREE.Matrix4();
     posts.forEach((p, k) => { m.makeTranslation(p[0], p[1] + 0.5, p[2]); im.setMatrixAt(k, m); });
+    root.add(im);
+  }
+}
+
+// Free barriers (js/freebar.js): each built along its own line, as the track's are (the same walls, rails and
+// tire stacks, the catch fence leaning toward the nearest road), standing on the ground (the level eased along it
+// over ~10 m, like a wall someone built) with both faces, so it reads from either side
+function buildFreeBarriers(root, T, A, env, groundHeight, tx) {
+  const mains = {}, tops = {}, fence = [], posts = [];
+  const bufOf = (o, k) => (o[k] ??= { p: [], u: [] });
+  const quad = (buf, a, b, c, d, u0, u1, v0, v1) => { buf.p.push(...a, ...b, ...c, ...b, ...d, ...c); buf.u.push(u0, v0, u1, v0, u0, v1, u1, v0, u1, v1, u0, v1); };
+  const SIZE = { concrete: [1.2, 0.5], tires: [1.1, 1.0], armco: [0.95, 0.12], fence: [0, 0] };
+  for (const { line, type } of A.free.lines) {
+    const n = line.length; if (n < 2) continue;
+    const [H, TH] = SIZE[type] || SIZE.concrete;
+    // (each point's normal: across the line, mitred at the joins; and which way the road is, for the fence's lean)
+    const NX = new Float32Array(n), NZ = new Float32Array(n), Y = new Float32Array(n), U = new Float32Array(n);
+    for (let k = 0; k < n; k++) {
+      const a = line[Math.max(0, k - 1)], b = line[Math.min(n - 1, k + 1)], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1;
+      NX[k] = -dz / l; NZ[k] = dx / l;
+      Y[k] = groundHeight(line[k][0], line[k][1]);
+      if (k) U[k] = U[k - 1] + Math.hypot(line[k][0] - line[k - 1][0], line[k][1] - line[k - 1][1]);
+    }
+    const w = 3, LV = Float32Array.from(Y, (_, k) => { let s = 0, c = 0; for (let q = Math.max(0, k - w); q <= Math.min(n - 1, k + w); q++) { s += Math.max(Y[q], Y[k] - 0.4); c++; } return s / c; });
+    const at = (k, o, h) => [line[k][0] + NX[k] * o, h, line[k][1] + NZ[k] * o];
+    const main = bufOf(mains, type), top = bufOf(tops, type);
+    for (let k = 0; k + 1 < n; k++) {
+      const j = k + 1, fa = Y[k] - 0.15, fb = Y[j] - 0.15, ta = LV[k], tb = LV[j];
+      // (toward the road from the middle of this bit: the fence leans that way)
+      const mx = (line[k][0] + line[j][0]) / 2, mz = (line[k][1] + line[j][1]) / 2;
+      let bi = -1, bd = 1e18; A.hash.query(mx, mz, 80, (q) => { const d = (mx - T.X[q]) ** 2 + (mz - T.Z[q]) ** 2; if (d < bd) { bd = d; bi = q; } });
+      const nk = (NX[k] + NX[j]) / 2, nzk = (NZ[k] + NZ[j]) / 2, toward = bi >= 0 && ((T.X[bi] - mx) * nk + (T.Z[bi] - mz) * nzk) < 0 ? -1 : 1;
+      if (type === 'fence') {
+        fence.push({ a: [line[k][0], fa + 0.15, line[k][1]], b: [line[j][0], fb + 0.15, line[j][1]], nx: nk * toward, nz: nzk * toward });
+        continue;
+      }
+      const lo = type === 'armco' ? 0.35 : 0, u0 = type === 'tires' ? U[k] : U[k] / (type === 'armco' ? 4 : 16), u1 = type === 'tires' ? U[j] : U[j] / (type === 'armco' ? 4 : 16);
+      for (const sd of [-1, 1]) {
+        const o = sd * TH / 2;
+        const A0 = at(k, o, type === 'armco' ? ta + lo : fa), B0 = at(j, o, type === 'armco' ? tb + lo : fb), A1 = at(k, o, ta + H), B1 = at(j, o, tb + H);
+        quad(main, A0, B0, A1, B1, u0, u1, 0, 1);
+      }
+      if (type !== 'armco') quad(top, at(k, -TH / 2, ta + H), at(j, -TH / 2, tb + H), at(k, TH / 2, ta + H), at(j, TH / 2, tb + H), 0, 1, U[k] / 4, U[j] / 4);
+      else if (Math.floor(U[k] / 3) !== Math.floor(U[j] / 3) || k === 0) posts.push([line[k][0], Math.min(fa, ta), line[k][1], ta + H - Math.min(fa, ta)]);
+      fence.push({ a: [line[k][0], ta + H, line[k][1]], b: [line[j][0], tb + H, line[j][1]], nx: nk * toward, nz: nzk * toward });
+    }
+  }
+  const mk = (buf, mat) => {
+    if (!buf || !buf.p.length) return;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(buf.p, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(buf.u, 2));
+    g.computeVertexNormals();
+    root.add(new THREE.Mesh(g, mat));
+  };
+  for (const [type, main] of Object.entries(mains)) {
+    mk(main, new THREE.MeshLambertMaterial({ map: type === 'tires' ? tx.tires : type === 'armco' ? tx.armco : tx.wall, side: THREE.DoubleSide }));
+    mk(tops[type], new THREE.MeshLambertMaterial({ color: type === 'tires' ? 0x1a1a1a : 0xa8a49c, side: THREE.DoubleSide }));
+  }
+  const inBlk = pitBlockTest(T, A, A.pit);
+  if (fence.length) buildCatchFence(root, inBlk ? fence.filter(f => !inBlk(f.a[0], f.a[2], 0.3) && !inBlk(f.b[0], f.b[2], 0.3)) : fence, fenceHeight(env), fenceMaterial());
+  if (posts.length) {
+    const im = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12, 1, 0.12), new THREE.MeshLambertMaterial({ color: 0x6a6e76 }), posts.length);
+    const m = new THREE.Matrix4();
+    posts.forEach((p, k) => { m.makeScale(1, p[3], 1); m.setPosition(p[0], p[1] + p[3] / 2, p[2]); im.setMatrixAt(k, m); });
     root.add(im);
   }
 }

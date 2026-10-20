@@ -28,6 +28,13 @@ export function findProblems(track, T, A, pit) {
     out.push({ kind: 'steep', a, b, text: `Steeper than ${Math.round(STEEP * 100)}%: cars will bottom out and struggle up it. Even it out in the elevation profile.` });
   for (const [a, b] of runs(i => T.W[i] < NARROW, 2))
     out.push({ kind: 'narrow', a, b, text: `Narrower than ${NARROW} m: no room to pass. Widen the points here.` });
+  // (free barriers stay where they're put: a road moved under one leaves it in the way)
+  if (A.free) {
+    const on = new Uint8Array(N);
+    for (const { line } of A.free.lines) for (const [x, z] of line) A.hash.query(x, z, 30, (j) => { if (!A.BRIDGE[j] && Math.hypot(x - T.X[j], z - T.Z[j]) < T.W[j] / 2 + 0.3) on[j] = 1; });
+    for (const [a, b] of runs(i => on[i]))
+      out.push({ kind: 'barrier', a, b, text: 'A barrier stands on the road here: move it off (Trackside > Barriers), or open a gap in it with X.' });
+  }
   if (track.env.pits !== false && !pit && !T.open)
     out.push({ kind: 'pit', a: 0, b: 0, text: 'No room for a pit lane by the start: give the start straight more space, or turn pits off (Circuit tab).' });
   if ((T.raceL ?? T.L) < (T.open ? 400 : 800))
