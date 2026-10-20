@@ -350,8 +350,19 @@ export class Computer {
   // Mail: the inbox on the left, the open email on the right
   mailApp() {
     const w = this.w, list = w.mail || [], cur = list.find(m => m.id === this.page.mail) || list[0];
-    const rows = list.map(m => `<div class="pc-mrow${m.read ? '' : ' unread'}${cur && m.id === cur.id ? ' sel' : ''}" data-nav data-act="mail" data-arg="${m.id}" data-key="mail-${m.id}"${cur && m.id === cur.id && !(cur.choices && !cur.answer) && !cur.link ? ' data-first' : ''}>
-      <b>${esc(m.from)}</b><span>${esc(m.subj)}</span><small>${esc(m.when || '')} ${m.y}${(m.choices && !m.answer) || (m.pitch && !m.replied) ? ' <em class="pc-ask">Needs an answer</em>' : ''}</small></div>`).join('') || '<p class="pc-empty">No mail.</p>';
+    // one row per conversation (who it's from), newest first: the story with that sender in one place, its count, and
+    // whether any of it waits for an answer. Opening it opens the email that needs you (else the newest unread, else
+    // the newest); the reader shows that conversation's dated timeline over it
+    const ask = (m) => (m.choices && !m.answer) || (m.pitch && !m.replied);
+    const keyOf = (m) => m.addr || m.from, threads = [], byKey = new Map();
+    for (const m of list) { const k = keyOf(m); let t = byKey.get(k); if (!t) { byKey.set(k, t = { k, ms: [] }); threads.push(t); } t.ms.push(m); }
+    const curT = cur && byKey.get(keyOf(cur));
+    const rows = threads.map(t => {
+      const top = t.ms.find(ask) || t.ms.find(m => !m.read) || t.ms[0], on = t === curT, m = on ? cur : top, n = t.ms.length;
+      return `<div class="pc-mrow${t.ms.some(x => !x.read) ? ' unread' : ''}${on ? ' sel' : ''}" data-nav data-act="mail" data-arg="${top.id}" data-key="mail-${m.id}"${on && !ask(cur) && !cur.link ? ' data-first' : ''}>
+      <b>${esc(top.from)}${n > 1 ? ` <i class="pc-mn">${n}</i>` : ''}</b><span>${esc(t.ms[0].subj)}</span><small>${esc(t.ms[0].when || '')} ${t.ms[0].y}${t.ms.some(ask) ? ' <em class="pc-ask">Needs an answer</em>' : ''}</small></div>`;
+    }).join('') || '<p class="pc-empty">No mail.</p>';
+    const timeline = curT && curT.ms.length > 1 ? `<div class="pc-thread">${curT.ms.slice().reverse().map(m => `<div class="pc-trow${m === cur ? ' on' : ''}${m.read ? '' : ' unread'}" data-nav data-act="mail" data-arg="${m.id}" data-key="tm-${m.id}"><small>${esc(m.when || '')} ${m.y}</small><span>${esc(m.subj)}</span>${ask(m) ? '<em class="pc-ask">Needs an answer</em>' : ''}</div>`).join('')}</div>` : '';
     const me = `${w.player.name.split(' ')[0].toLowerCase()}@${w.teams[w.player.team].name.toLowerCase().replace(/[^a-z]+/g, '')}.sv`;
     let read = '<p class="pc-empty">Select an email to read it.</p>';
     if (cur) {
@@ -369,7 +380,7 @@ export class Computer {
       const pitch = cur.pitch && !cur.replied && this.src.pitches ? `<div class="pc-reply pc-press">${cur.pressBusy ? `<p class="pc-note">Sending&hellip;</p>` : `<p class="pc-note">How you answer matters. Read who they are.</p>
         <div class="pc-press-tones two">${this.src.pitches().map(([k, t]) => `<button class="pc-btn sm" data-nav data-act="pitch" data-arg="${cur.id}:${k}" data-key="pitch-${k}">${esc(t)}</button>`).join('')}</div>
         ${this.src.pitchType?.() ? `<textarea maxlength="500" placeholder="Or write your answer"></textarea><button class="pc-btn pri" data-nav data-act="pitchtype" data-arg="${cur.id}" data-key="pitch-send">Send</button>` : ''}`}</div>` : '';
-      read = `<div class="pc-mhead"><div><small>From:</small> ${esc(cur.from)} &lt;${esc(cur.addr)}&gt;</div><div><small>To:</small> ${esc(me)}</div><div><small>Date:</small> ${esc(cur.when || '')} ${cur.y}</div><div class="subj">${esc(cur.subj)}</div></div>
+      read = `${timeline}<div class="pc-mhead"><div><small>From:</small> ${esc(cur.from)} &lt;${esc(cur.addr)}&gt;</div><div><small>To:</small> ${esc(me)}</div><div><small>Date:</small> ${esc(cur.when || '')} ${cur.y}</div><div class="subj">${esc(cur.subj)}</div></div>
         <div class="pc-mbody" data-nav data-scroll data-key="mbody">${(Array.isArray(cur.body) ? cur.body : [cur.body]).map(p => `<p>${esc(p)}</p>`).join('')}${this.billTable(cur.bill)}${this.reportTable(cur.report, cur.y)}${ans}</div>${ch}${press}${pitch}`;
     }
     return `<div class="pc-mail"><div class="pc-mbar">Inbox (${WC.unreadMail(w)} unread)</div><div class="pc-mlist">${rows}</div><div class="pc-mread">${read}</div></div>`;

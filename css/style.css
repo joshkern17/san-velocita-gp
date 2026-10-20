@@ -1486,6 +1486,15 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .pc-mrow.sel { background: #dfe6f7; }
 .pc-mrow.f { background: #1d3f9a; }
 .pc-mrow.f b, .pc-mrow.f span, .pc-mrow.f small { color: #fff; }
+/* a conversation's timeline over the email (computer.js mailApp): one dated line each, oldest first, the open one marked */
+.pc-mn { font-style: normal; font-weight: normal; color: #777; font-size: 11px; }
+.pc-thread { flex: none; max-height: 30%; overflow-y: auto; border-bottom: 1px solid #ccc; background: #faf9f5; }
+.pc-trow { display: flex; gap: 10px; align-items: baseline; padding: 3px 12px; font-size: 12px; color: #444; border-bottom: 1px solid #eee; }
+.pc-trow small { flex: none; width: 92px; color: #888; font-size: 11px; }
+.pc-trow span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-trow.unread span { font-weight: bold; color: #000; }
+.pc-trow.on { background: #dfe6f7; }
+.pc-trow.f { background: #1d3f9a; } .pc-trow.f span, .pc-trow.f small { color: #fff; }
 .pc-mread { min-height: 0; display: flex; flex-direction: column; background: #fff; border: 2px inset #f4f2ec; }
 .pc-mhead { flex: none; padding: 8px 12px; background: #f1efe8; border-bottom: 1px solid #ccc; }
 .pc-mhead small { display: inline-block; width: 44px; color: #666; }
