@@ -8,6 +8,23 @@
 // standing there separates them). Every apron stops at roads crossing the runoff, under bridge decks and at the pit
 // lane (they have surfaces of their own); along the garages it runs up to the pit wall.
 
+import { sameStretch } from './track.js';
+
+// how far out on `side` each sample's row can reach before it crosses its neighbour's (track.js wallCaps, with only a
+// 10 cm margin: the strip is flat ground, not a wall that needs room)
+function foldCap(T, side) {
+  const N = T.N, M = 0.1, cap = new Float32Array(N).fill(1e9);
+  for (let i = 0; i < N; i++) {
+    if (i === T.cut) continue;
+    const j = (i + 1) % N, dx = T.X[j] - T.X[i], dz = T.Z[j] - T.Z[i];
+    const a = -side * (T.RX[j] * T.FX[i] + T.RZ[j] * T.FZ[i]);
+    if (a > 1e-4) cap[j] = Math.min(cap[j], (dx * T.FX[i] + dz * T.FZ[i] - M) / a);
+    const b = side * (T.RX[i] * T.FX[j] + T.RZ[i] * T.FZ[j]);
+    if (b > 1e-4) cap[i] = Math.min(cap[i], (dx * T.FX[j] + dz * T.FZ[j] - M) / b);
+  }
+  return cap;
+}
+
 // how deep each kind of barrier is (the runoff runs on under it, so the ground behind can't show in front)
 export const WALL_DEPTH = { tires: 1.0, armco: 0.6, concrete: 0.5 };
 
@@ -40,7 +57,7 @@ export function makeVerge(T, A, env, roadL) {
       const a = HM.get(HK(cx, cz)); if (!a) continue;
       for (let k = 0; k < a.length; k++) {
         const j = a[k];
-        if (skip >= 0 && circ(j, skip) < sep) continue;
+        if (skip >= 0 && sameStretch(T, j, skip, sep)) continue;
         const dx = x - T.X[j], dz = z - T.Z[j];
         if (Math.abs(dx * T.FX[j] + dz * T.FZ[j]) > win) continue;
         const lat = dx * T.RX[j] + dz * T.RZ[j], s = lat < 0 ? 0 : 1, al = Math.abs(lat);
@@ -66,7 +83,7 @@ export function makeVerge(T, A, env, roadL) {
         const xa = T.X[i] + ux * t0, za = T.Z[i] + uz * t0, xb = T.X[i] + ux * base, zb = T.Z[i] + uz * base;
         const qx = (xa + xb) / 2, qz = (za + zb) / 2, qr = Math.max(Math.abs(xb - xa), Math.abs(zb - za)) / 2 + 46;
         A.hash.query(qx, qz, qr, (j) => {
-          if (circ(j, i) < sep) return;
+          if (sameStretch(T, j, i, sep)) return;
           // along(t) = (X_i + u t - X_j) . F_j, linear in t: the t where |along| <= 0.75 ds (a little wider, for rounding)
           const a0 = (T.X[i] - T.X[j]) * T.FX[j] + (T.Z[i] - T.Z[j]) * T.FZ[j], b = ux * T.FX[j] + uz * T.FZ[j], w = T.ds * 0.75 + 1e-3;
           let lo, hi;
@@ -101,6 +118,11 @@ export function makeVerge(T, A, env, roadL) {
       let m = Infinity; for (let k = -w; k <= w; k++) { const v = src[(i + k + N) % N]; if (v) m = Math.min(m, v); }
       EXT[s][i] = Math.max(T.W[i] / 2 + 0.3, Math.min(src[i], m + 0.5));
     }
+    // (inside a tight corner, never past where this side's rows cross the next sample's: past it the strip folded
+    // back over itself, a fan of slivers across the infield. Where not even a sliver fits, none: the infield's ground
+    // meets the road edge there)
+    const cap = foldCap(T, side);
+    for (let i = 0; i < N; i++) if (EXT[s][i] > cap[i]) EXT[s][i] = cap[i] >= T.W[i] / 2 + 0.6 ? cap[i] : 0;
   }
   // the apron at (x, z): { y, i, s } or null (the nearer section's, within its reach)
   const at = (x, z) => { const c = claim(x, z, EXT); return c ? { y: AY[c.s][c.i], i: c.i, s: c.s } : null; };

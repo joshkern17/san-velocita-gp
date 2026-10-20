@@ -387,7 +387,28 @@ function sampleOpen(track) {
   for (let k = 1; k <= nLead; k++) put(N - k, first.x - sx * k * ds, first.z - sz * k * ds, first.e, first.w, first.b * Math.max(0, 1 - k * ds / 40), 0);
   easeY(T);
   finishFrames(T);
+  fitWidths(T);
   return T;
+}
+
+// A corner tighter than the road is wide can't be built: its inside edge would reach past the corner's centre and
+// fold back over itself, and everything laid off that edge with it (a pointed apex, curbs crossed in an X, the
+// barrier and runoff in a knot). There the road narrows, just enough to keep its inside edge, a curb and a barrier
+// (CLEAR) short of the fold, eased in and out over ~10 m each way. The race, the AI and the editor all use this width.
+// A track without such a corner is untouched.
+function fitWidths(T) {
+  const N = T.N, CLEAR = 2, MIN = 3, lim = new Float32Array(N);
+  let any = false;
+  for (let i = 0; i < N; i++) { lim[i] = Math.max(MIN, 1 / Math.max(1e-6, Math.abs(T.K[i])) - CLEAR); if (lim[i] < T.W[i] / 2) any = true; } // (the corner's radius)
+  if (!any) return;
+  // (the lowest within 2w, then that averaged over w: never past any sample's own limit, with no steps)
+  const w = Math.max(1, Math.round(10 / T.ds)), E = new Float32Array(N);
+  for (let i = 0; i < N; i++) { let m = Infinity; for (let k = -2 * w; k <= 2 * w; k++) m = Math.min(m, lim[stepIdx(T, i, k)]); E[i] = m; }
+  for (let i = 0; i < N; i++) {
+    let s = 0; for (let k = -w; k <= w; k++) s += Math.min(E[stepIdx(T, i, k)], 1e3);
+    const half = s / (2 * w + 1);
+    if (half < T.W[i] / 2) T.W[i] = 2 * half;
+  }
 }
 
 // forward / right vectors and curvature from the sample positions
@@ -478,6 +499,7 @@ export function sampleTrack(track) {
   }
   easeY(T);
   finishFrames(T);
+  fitWidths(T);
   return T;
 }
 
@@ -549,6 +571,15 @@ export function buildHash(T, cell = 24) {
 }
 
 export const circDist = (a, b, N) => { const d = Math.abs(a - b) % N; return Math.min(d, N - d); };
+// samples i and j on the same stretch of road: fewer than `sep` apart along it, and the road between them hasn't
+// doubled back (the gap straight across is at least 3/4 of the way round: turned less than ~150 degrees). Across a
+// hairpin's nose the other leg is only 20-40 m along the road but is another stretch: its road, its runoff
+const STRETCH = 0.75;
+export function sameStretch(T, i, j, sep) {
+  const n = circDist(i, j, T.N);
+  if (n >= sep) return false;
+  return n <= 3 || Math.hypot(T.X[i] - T.X[j], T.Z[i] - T.Z[j]) > STRETCH * n * T.ds;
+}
 
 // ---------- analysis: bridges, barriers ----------
 // paint: the track's painted strokes (runoff painted past the barrier moves it back); osm: a real circuit's map data
@@ -666,7 +697,7 @@ export function analyzeTrack(T, env, paint = null, osm = null, dress = null) {
       const qx = T.X[i] + T.RX[i] * off * side, qz = T.Z[i] + T.RZ[i] * off * side;
       let gap = false;
       hash.query(qx, qz, runoff + 20, (j) => {
-        if (gap || circDist(i, j, N) < sep) return;
+        if (gap || sameStretch(T, i, j, sep)) return;
         if (Math.abs(T.Y[i] - T.Y[j]) > 4.5) return;
         const d = Math.hypot(qx - T.X[j], qz - T.Z[j]);
         const rj = BR2[j] ? T.W[j] / 2 + 1 : T.W[j] / 2 + runoff * 0.9;
