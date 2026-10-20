@@ -74,6 +74,7 @@ export class Editor {
   // resume: back from a Test Drive / race of this track, so undo, redo and the saved state carry on
   open(track, { resume = false } = {}) {
     this.active = true;
+    const fresh = !track && !this.loadWork(); // (nothing to carry on with: the start screen)
     this.track = cloneTrack(track || this.loadWork() || presetTracks()[0]);
     this.normalize(this.track);
     if (!resume) { this.history = []; this.future = []; this.mine = this.savedList().some(x => x.name === this.track.name && x.saved === this.track.saved) ? this.track.name : null; }
@@ -84,9 +85,21 @@ export class Editor {
     this.recompute(true);
     if (!resume) this.markSaved();
     this.needFit = true;
-    requestAnimationFrame(() => { this.resize(); if (this.W > 50 && this.H > 50) { this.needFit = false; this.fit(); } this.renderPanels(); });
+    requestAnimationFrame(() => { this.resize(); if (this.W > 50 && this.H > 50) { this.needFit = false; this.fit(); } this.renderPanels(); if (fresh) this.startScreen(); });
     this.loop();
   }
+  // the first time in (nothing to carry on with): how to start, rather than someone else's circuit
+  startScreen() {
+    this.modalList('Circuit Designer', [
+      { title: 'Blank circuit', desc: 'A loop, raced lap after lap. Draw it in one go.', pick: () => this.newBlank(false) },
+      { title: 'Point-to-point road', desc: 'From a start to a finish, one run: a hill climb, a mountain pass.', pick: () => this.newBlank(true) },
+      { title: 'Start from a circuit', desc: 'One of the built-in or real circuits, to change as you like.', pick: () => { this.closeModal(); this.action('presets'); } },
+      { title: 'On my town', desc: 'A real map under it: find your town, then draw the circuit on its streets.', pick: () => { this.newBlank(false); this.setMode('location'); this.toast('Find your town in the panel on the right, then draw', 3200); } },
+    ], '', 'Three steps: draw it, test drive it, save it. Everything trackside is added for you.');
+  }
+  // the three steps, once: shown over the how-to until each has been done (draw a road, drive it, save it)
+  guideStep(k) { const g = this.guide(); if (g[k]) return; g[k] = true; try { localStorage.setItem('svgp.edGuide', JSON.stringify(g)); } catch (e) {} this.setHint(); }
+  guide() { if (!this._guide) { try { this._guide = JSON.parse(localStorage.getItem('svgp.edGuide')) || {}; } catch (e) { this._guide = {}; } } return this._guide; }
   close() { if (this.v3d) this.close3d(); this.active = false; this.saveWork(); }
 
   normalize(t) {
@@ -147,6 +160,7 @@ export class Editor {
 
   changed(panels = false) {
     this.recompute();
+    if (this.T && trackReady(this.track)) this.guideStep('drawn');
     this.dirty = true;
     if (panels) this.renderPanels(); else this.refreshStats();
     clearTimeout(this.workT); this.workT = setTimeout(() => this.saveWork(), 400);
@@ -341,7 +355,9 @@ export class Editor {
     const t = this.track, h = { ...this.hints };
     if (t && !trackReady(t)) h.edit = `<b>EDIT</b> &mdash; no track yet. <b>Click</b> the map to place nodes (${minNodes(t)} or more), or use <b>DRAW</b> to sketch one.`;
     else if (this.placing) h.edit = `<b>EDIT</b> &mdash; placing nodes: <b>click</b> to add the next one${t.open ? ' (the last one is the finish)' : ''}. Press <b>Enter</b> or <b>Esc</b> when you're done.`;
-    $('ed-hint').innerHTML = h[this.tool === 'paint' && this.paintMode === 'shape' ? 'runoff' : this.tool];
+    const g = this.guide(), steps = [['drawn', 'Draw a road'], ['driven', 'Test Drive it'], ['saved', 'Save it']];
+    const guide = steps.every(([k]) => g[k]) ? '' : `<div class="ed-guide">${steps.map(([k, n], i) => `<span class="${g[k] ? 'done' : ''}">${i + 1} ${n}${g[k] ? ' &#10003;' : ''}</span>`).join('')}</div>`;
+    $('ed-hint').innerHTML = guide + h[this.tool === 'paint' && this.paintMode === 'shape' ? 'runoff' : this.tool];
   }
   updatePalette() {
     document.querySelectorAll('#pr-grid [data-prop]').forEach(b => b.classList.toggle('on', b.dataset.prop === this.propType));
@@ -379,7 +395,7 @@ export class Editor {
       case 'import': $('ed-file').value = ''; $('ed-file').click(); break;
       case 'undo': this.undo(); break;
       case 'redo': this.redo(); break;
-      case 'test': if (!this.needTrack('TEST')) break; this.saveWork(); this.cb.onTest(cloneTrack(t)); break;
+      case 'test': if (!this.needTrack('TEST')) break; this.guideStep('driven'); this.saveWork(); this.cb.onTest(cloneTrack(t)); break;
       case 'race': if (!this.needTrack('RACE')) break;
         if (this.blocking().length) { sfx.error(); this.probAt = this.problems.indexOf(this.blocking()[0]) - 1; this.nextProblem(); break; } // (a flat crossing: to it, with what to do)
         this.saveWork(); this.cb.onRace(cloneTrack(t)); break;
@@ -486,7 +502,7 @@ export class Editor {
     t.saved = Date.now(); this.track.saved = t.saved;
     const k = list.findIndex(x => x.name === t.name);
     if (k >= 0) list[k] = t; else list.push(t);
-    try { localStorage.setItem('svgp.tracks', JSON.stringify(list)); this.markSaved(); this.mine = t.name; this.saveWork(); this.toast('Saved: ' + t.name); return true; }
+    try { localStorage.setItem('svgp.tracks', JSON.stringify(list)); this.markSaved(); this.mine = t.name; this.saveWork(); this.guideStep('saved'); this.toast('Saved: ' + t.name); return true; }
     catch (e) { sfx.error(); this.toast(t.osm ? 'Out of storage space. Use Export to save big towns.' : 'Could not save'); return false; }
   }
   openModal() {

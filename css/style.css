@@ -710,6 +710,9 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .ed-hint { position: absolute; left: 14px; top: 12px; background: rgba(5,3,8,.84); padding: 10px 14px 10px 16px; font: 500 13px/1.5 var(--f-body); color: var(--sv-red); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; max-width: 420px; pointer-events: none; }
 .ed-hint::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--sv-red); box-shadow: var(--sv-glow-line); }
 .ed-hint b { color: var(--sv-amber); font-weight: 500; }
+/* the three first steps over the how-to (editor.js guide): done ones ticked and quieter */
+.ed-guide { display: flex; gap: 14px; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid color-mix(in srgb, var(--sv-red) 40%, transparent); font: 500 14px/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-amber); }
+.ed-guide .done { color: var(--sv-red-dim); }
 .ed-scale { position: absolute; right: 14px; bottom: 10px; font: 500 16px var(--f-num); color: var(--sv-red-dim); pointer-events: none; }
 /* PROPS palette: a grid of items in the side panel */
 .pr-grid { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 46px; gap: 6px; margin-bottom: 16px; }
