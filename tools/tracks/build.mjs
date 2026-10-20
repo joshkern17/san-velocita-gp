@@ -401,12 +401,18 @@ try {
     // (the map's glitches out of the road: zig-zags, corners tighter than the road is wide; js/roadclean.js. The
     // dressing above was laid out on the cleaned road: tools/tracks/cleanroad.mjs)
     if (!REF) {
-      const r = await page.evaluate(async (t) => (await import('/js/roadclean.js')).cleanRoad(t), { points: track.points, open: !!track.open, start: track.start || 0 });
+      const r = await page.evaluate(async ([t, o]) => (await import('/js/roadclean.js')).cleanRoad(t, o), [{ points: track.points, open: !!track.open, start: track.start || 0 }, c.clean || {}]);
       if (r.moved > 0 || r.merged) console.log(`  road cleaned: ${r.merged} points merged, the most any moved ${r.moved} m${r.left ? `, ${r.left} samples still at fault` : ''}`);
       track.points = r.points; track.start = r.start; track.real.cleaned = true;
     }
     // (its landmarks, made in the game's style: tools/tracks/landmarks.mjs)
     if (!REF && fs.existsSync(landmarksFile(c.id))) applyLandmarks(track, JSON.parse(fs.readFileSync(landmarksFile(c.id), 'utf8')));
+    // (its grandstands behind the barriers: js/standsbehind.js)
+    if (!REF && (track.props || []).some(p => /^tp_stand_/.test(p.type))) {
+      const r = await page.evaluate(async (t) => { const S = await import('/js/standsbehind.js'), r = S.standsBehind(t); return { r, props: t.props, propLines: t.propLines, dress: t.dress, stands: t.landmarks && t.landmarks.stands }; }, track);
+      track.props = r.props; if (r.propLines) track.propLines = r.propLines; if (r.dress) track.dress = r.dress; if (r.stands) track.landmarks.stands = r.stands;
+      if (r.r.moved || r.r.walled) console.log(`  grandstands: ${r.r.moved} lines moved back behind the barrier, ${r.r.walled} with a wall put in front`);
+    }
     if (REF) {
       track.name += ' (reference)'; track.real.id = c.id + '_ref'; fs.mkdirSync(path.dirname(file), { recursive: true });
       // the model itself, placed: game x, z = R (model x, z) + t; game y = (model y + off - lo - base) * exag

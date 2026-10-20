@@ -6,7 +6,7 @@ import { gameHeight } from './terrain.js';
 import { applySculpt } from './sculpt.js';
 import { footSamples, rectFoot, makePlots } from './pads.js';
 import { makeVerge } from './verge.js';
-import { placeTrackProps, buildStartGantry, beamCone, beamMaterial, buildCatchFence } from './trackprops.js';
+import { placeTrackProps, buildStartGantry, beamCone, beamMaterial, buildCatchFence, CROWDS } from './trackprops.js';
 import { runoffLayout, isRunoffPaint, strokeDist, strokeBox, RUN_RES, RUN_SD } from './runoff.js';
 import { buildCourthouse, buildBusiness } from './landmarks.js';
 import { addRealWorld } from './realworld.js';
@@ -1279,14 +1279,14 @@ export function buildWorld(track, T, A, opts = {}) {
         for (const [lx, lz] of [[-W, 0], [W, 0], [-W, -D], [W, -D], [0, -D / 2]]) y = Math.max(y, groundHeight(p.x + lx * cs + lz * sn, p.z - lx * sn + lz * cs));
         const m = makeBleachers();
         if (m) { m.position.set(p.x, y - 0.03, p.z); m.rotation.y = rot; root.add(m); }
-        if (p.crowd === false) continue;
+        if (p.crowd === false || !CROWDS) continue;
         bleacherSeats().forEach((st, k) => {
           if (h01(p.x, p.z, k) > (p.fill ?? 0.8)) return; // (some seats empty)
           const j = h01(p.z, p.x, k);
           people.push({ x: p.x + st.x * cs + st.z * sn, y: y + st.y, z: p.z - st.x * sn + st.z * cs, rot: rot + (j - 0.5) * 0.35, sit: true, s: j });
         });
       }
-      if (painted) {
+      if (painted && CROWDS) {
         // (not in a building: the setting's, the map's, placed ones, or the classic boxes)
         const inBld = (x, z) => real.buildings.some(b => b.p && pointInPoly(x, z, b.p)) || buildings.some(b => Math.hypot(b.x - x, b.z - z) < b.r);
         const ok = (x, z) => clearance(x, z, 0.6) && !(roadL && roadL.onRoad(x, z, 0.6)) && !inPitZone(x, z) && !inBld(x, z);
@@ -1300,7 +1300,7 @@ export function buildWorld(track, T, A, opts = {}) {
       root.add(buildCrowd(people));
     };
     // (always after the build: the houses fitted below are in the lists by then. No characters: the stands still go up, empty)
-    if (bl.length || painted) loadCrowd().then(place);
+    if (bl.length || (painted && CROWDS)) loadCrowd().then(place);
   }
   const foot = buildings.map(b => rectFootprint(b, theme));
   // the classic scenery's houses: PSX houses too (no more extruded boxes with pitched roofs)

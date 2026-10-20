@@ -1,0 +1,47 @@
+{
+ "buildings": [
+  {
+   "key": "eaurouge",
+   "name": "Hotel de l'Eau Rouge",
+   "as": "hotel_eaurouge"
+  },
+  {
+   "key": "conciergerie",
+   "name": "Conciergerie",
+   "as": "lodge"
+  },
+  {
+   "key": "douane",
+   "name": "Ancienne douane",
+   "as": "douane"
+  },
+  {
+   "key": "endurance",
+   "name": "Stand Endurance",
+   "as": "pits_old"
+  },
+  {
+   "key": "hotelsource",
+   "name": "Hôtel de la Source",
+   "as": "hotel_source"
+  }
+ ],
+ "stands": [
+  {
+   "name": "Tribune F1",
+   "fam": "stand_roof"
+  },
+  {
+   "name": "Tribune Raidillon",
+   "fam": "stand_flags"
+  },
+  {
+   "name": "Tribune Endurance",
+   "fam": "stand_roof"
+  },
+  {
+   "name": "Grandstand Silver 1",
+   "fam": "stand_flags"
+  }
+ ]
+}

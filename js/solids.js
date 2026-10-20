@@ -94,3 +94,19 @@ export function treeInto(S, x, z, r) {
   }
   return [worst, by];
 }
+
+// How far a grandstand stands inside the barrier (m: 0 when it's behind it, as a real one is): its front (the side
+// facing the track: local +z, (sin rot, cos rot)) against the barrier beside the nearest bit of road, 1 m behind it.
+// T, A: the track as sampled and analysed (track.js). depth: the stand's, front to back. Where there's no barrier
+// beside it, only the road and its edge strip count (3 m clear of the edge).
+export function standInside(T, A, x, z, rot, depth) {
+  const fx = Math.sin(rot), fz = Math.cos(rot), px = x + fx * depth / 2, pz = z + fz * depth / 2;
+  let best = Infinity, bi = -1;
+  A.hash.query(px, pz, 120, (j) => { const d = Math.hypot(px - T.X[j], pz - T.Z[j]) - T.W[j] / 2; if (d < best) { best = d; bi = j; } });
+  if (bi < 0) return 0;
+  const side = ((px - T.X[bi]) * T.RX[bi] + (pz - T.Z[bi]) * T.RZ[bi]) > 0 ? 1 : -1;
+  const has = side < 0 ? A.HAS_L[bi] : A.HAS_R[bi], off = (side < 0 ? A.BL : A.BR)[bi] - T.W[bi] / 2;
+  const need = (has && !A.BRIDGE[bi] ? off + 1 : 3) - best;
+  return need > 0 ? need : 0;
+}
+export const STAND_DEPTH = { stand_roof: 11.2, stand_flags: 8.1 };

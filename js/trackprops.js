@@ -117,6 +117,8 @@ export async function applyLogos(track) {
 }
 
 // ---------------- in the world ----------------
+// fans in the stands: off for now (2026-10-19: the stands stand empty until the crowds are worth having)
+export const CROWDS = false;
 // ctx: { track, T, A, root, envPl, groundHeight, lit (the floodlights on: dusk / night), night }
 // Pushes the models into envPl (drawn with the rest of the scenery), seats fans in the stands (once the characters
 // are in), and puts up the floodlights' glow. Returns { update(t, camera) } (the lights near the camera) or null.
@@ -140,7 +142,7 @@ export function placeTrackProps(ctx) {
     if (a.span) y = groundHeight(p.x, p.z);
     envPl.push({ id: p.type, x: p.x, y: y - 0.03, z: p.z, rot, s: 1, sx, sy: 1, sz: 1 });
     // fans on the seats
-    if (a.seats && p.crowd !== false) a.seats.forEach(([x, py, z], k) => {
+    if (CROWDS && a.seats && p.crowd !== false) a.seats.forEach(([x, py, z], k) => {
       if (h01(p.x, p.z, k) > (p.fill ?? 0.8)) return; // (some seats empty)
       const j = h01(p.z, p.x, k);
       people.push({ x: p.x + x * cs + z * sn, y: y - 0.03 + py - 0.48, z: p.z - x * sn + z * cs, rot: rot + (j - 0.5) * 0.3, sit: true, s: j });

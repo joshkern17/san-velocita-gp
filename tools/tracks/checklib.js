@@ -6,7 +6,7 @@
 // nothing on the road, no stands stacked, no models floating). Every finding: { sev: 'fail' | 'warn', what, d (m
 // round the lap, if it has one), x, z, n (how many), note }.
 // sim: a Race (its T, A, pit, world, track).
-import { solidsAround, treeInto, overlap, OVERHEAD, TREE_INTO } from '../../js/solids.js';
+import { solidsAround, treeInto, overlap, standInside, OVERHEAD, TREE_INTO } from '../../js/solids.js';
 import { kerbW } from '../../js/track.js';
 
 
@@ -246,6 +246,9 @@ export function checkTrack(sim) {
         } else clash.push([S, B, o]);
       }
     });
+    // grandstands behind the barrier, as real ones are
+    const inside = solids.filter(S => S.kind === 'stand').map(S => [S, standInside(T, A, S.x, S.z, S.rot, S.a.d)]).filter(([, v]) => v > 0.5);
+    if (inside.length) add('fail', 'stands inside the barrier', { n: inside.length, x: Math.round(inside[0][0].x), z: Math.round(inside[0][0].z), note: `${inside.length} stand${inside.length > 1 ? 's' : ''} between the barrier and the track (worst ${Math.max(...inside.map(q => q[1])).toFixed(1)} m inside it)` });
     if (stacked.length) add('fail', 'stands stacked', { n: stacked.length, x: Math.round(stacked[0][0].x), z: Math.round(stacked[0][0].z), note: `${stacked.length} pair${stacked.length > 1 ? 's' : ''} of stands on top of each other or crossing` });
     if (clash.length) add('fail', 'scenery into scenery', { n: clash.length, x: Math.round(clash[0][0].x), z: Math.round(clash[0][0].z), note: clash.slice(0, 4).map(([S, B, o]) => `${S.kind} ${S.id} / ${B.kind} ${B.id} ${o.toFixed(1)} m`).join('; ') });
     // anything on the road or the pit lane

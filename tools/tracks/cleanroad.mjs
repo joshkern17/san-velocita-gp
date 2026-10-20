@@ -6,6 +6,7 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
+const CAT = (await import(join(ROOT, 'tools/tracks/catalog.mjs'))).CATALOG || [];
 const TK = await import(join(ROOT, 'js/track.js')), RC = await import(join(ROOT, 'js/roadclean.js')), SP = await import(join(ROOT, 'js/spline.js'));
 const args = process.argv.slice(2), WRITE = args.includes('--write');
 const index = JSON.parse(readFileSync(join(ROOT, 'tracks/real/index.json'), 'utf8')), all = (Array.isArray(index) ? index : index.tracks || Object.values(index)).filter(t => t && t.real).map(t => t.real.id);
@@ -16,7 +17,8 @@ for (const id of ids) {
   // (once only: what can't be cleaned within the limits would move a little further each time; the build cleans the
   // map's road afresh every bake)
   if (t.real && t.real.cleaned && !args.includes('--again')) { console.log(`${id.padEnd(12)} already cleaned (--again to redo)`); continue; }
-  const before = RC.roadFaults(t).faults, r = RC.cleanRoad(t);
+  const opts = (CAT.find(c => c.id === id) || {}).clean || {}; // (a circuit given more room: tools/tracks/catalog.mjs)
+  const before = RC.roadFaults(t, opts.minInner).faults, r = RC.cleanRoad(t, opts);
   if (!before.length && !r.dips) { console.log(`${id.padEnd(12)} clean`); continue; }
   const t2 = { ...t, points: r.points, start: r.start };
   const T1 = TK.sampleTrack(t), T2 = TK.sampleTrack(t2);

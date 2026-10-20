@@ -492,6 +492,15 @@ function easeY(T) {
   }
 }
 
+// a barrier's offsets (O: m from the centre line, per sample) moving in or out no faster than 0.3 m per metre, easing
+// in to the nearer of two stretches rather than stepping; never further out than it was (BR2: bridge decks, left be)
+function easeIn(T, O, BR2) {
+  const N = T.N, r = 0.3 * T.ds, wrap = T.cut < 0;
+  for (let n = 1; n < (wrap ? 2 * N : N); n++) { const i = n % N, h = (n - 1) % N; if (!BR2[i] && !BR2[h] && (wrap || i !== T.cut + 1)) O[i] = Math.min(O[i], O[h] + r); }
+  for (let n = (wrap ? 2 * N : N) - 2; n >= 0; n--) { const i = n % N, h = (n + 1) % N; if (!BR2[i] && !BR2[h] && (wrap || i !== T.cut)) O[i] = Math.min(O[i], O[h] + r); }
+  for (let i = 0; i < N; i++) O[i] = Math.max(O[i], T.W[i] / 2 + 0.3);
+}
+
 // ---------- spatial hash ----------
 export function buildHash(T, cell = 24) {
   const map = new Map();
@@ -622,14 +631,7 @@ export function analyzeTrack(T, env, paint = null, osm = null, dress = null) {
   // (a real circuit's mapped barriers, smoothed: each side's barrier moves in or out no faster than 0.3 m per metre,
   // easing in to the nearer of two stretches rather than stepping: where the map switches from a fence by the track to
   // one far back, or one far back starts or ends, it curves in gently; never further out than it was)
-  if (RW) for (const O of [BL, BRt]) {
-    const r = 0.3 * T.ds, wrap = T.cut < 0;
-    for (let pass = 0; pass < 2; pass++) {
-      for (let n = 1; n < (wrap ? 2 * N : N); n++) { const i = n % N, h = (n - 1) % N; if (!BR2[i] && !BR2[h] && (wrap || i !== T.cut + 1)) O[i] = Math.min(O[i], O[h] + r); }
-      for (let n = (wrap ? 2 * N : N) - 2; n >= 0; n--) { const i = n % N, h = (n + 1) % N; if (!BR2[i] && !BR2[h] && (wrap || i !== T.cut)) O[i] = Math.min(O[i], O[h] + r); }
-    }
-    for (let i = 0; i < N; i++) O[i] = Math.max(O[i], T.W[i] / 2 + 0.3);
-  }
+  if (RW) for (const O of [BL, BRt]) easeIn(T, O, BR2);
   const BMAX = [unfold(T, BL, -1), unfold(T, BRt, 1)];
   // barrier gaps where the barrier would sit on another section's road/runoff
   const HAS_L = new Uint8Array(N).fill(1), HAS_R = new Uint8Array(N).fill(1);
@@ -664,6 +666,9 @@ export function analyzeTrack(T, env, paint = null, osm = null, dress = null) {
       }
     }
   }
+  // (a dressed wall set nearer than the map's barrier beside it - one put in front of a grandstand - eased into it
+  // the same way: no step where it starts and ends)
+  if (dress && dress.walls && dress.walls.some(w => w.why === 'grandstand')) for (const O of [BL, BRt]) easeIn(T, O, BR2);
   // the dressing's own barriers: they're all there is (bridge decks keep their parapets)
   if (dress && Array.isArray(dress.barriers)) {
     WT = WT || [new Uint8Array(N), new Uint8Array(N)];

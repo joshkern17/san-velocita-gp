@@ -32,6 +32,7 @@ export const CATALOG = [
   {
     id: 'spa', name: 'Spa-Francorchamps', country: 'Belgium', category: 'gp',
     dem: 'wallonia', photo: 'wallonia',
+    clean: { minInner: 6, maxMove: 9 }, // (La Source drawn as a point on the map: rounded, more than the usual 4.5 m)
     desc: 'Grand Prix · Eau Rouge, Raidillon and the Kemmel straight through the Ardennes forest',
     guide: { f1: 'Circuit de Spa-Francorchamps' }, roads: RACEWAY, skip: PIT, width: 13,
     env: { theme: 'grass', time: 'day', weather: 'clear', laps: 3, opponents: 11, setting: { kind: 'none', flora: 'pine', seed: 1925 } },

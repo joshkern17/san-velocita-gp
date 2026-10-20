@@ -1,0 +1,60 @@
+{
+ "buildings": [
+  {
+   "key": "centerhouse",
+   "name": "センターハウス",
+   "as": "center_house"
+  },
+  {
+   "key": "westtower",
+   "name": "西コントロールタワー",
+   "as": "tower"
+  }
+ ],
+ "stands": [
+  {
+   "name": "V1",
+   "fam": "stand_roof"
+  },
+  {
+   "name": "V2",
+   "fam": "stand_roof"
+  },
+  {
+   "name": "A1",
+   "fam": "stand_flags"
+  },
+  {
+   "name": "B1",
+   "fam": "stand_flags"
+  },
+  {
+   "name": "B2",
+   "fam": "stand_flags"
+  },
+  {
+   "name": "C",
+   "fam": "stand_flags"
+  },
+  {
+   "name": "D5",
+   "fam": "stand_flags"
+  },
+  {
+   "name": "G",
+   "fam": "stand_flags"
+  },
+  {
+   "name": "Q1",
+   "fam": "stand_roof"
+  },
+  {
+   "name": "Q2",
+   "fam": "stand_flags"
+  },
+  {
+   "name": "S",
+   "fam": "stand_flags"
+  }
+ ]
+}

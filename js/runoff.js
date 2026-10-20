@@ -465,20 +465,45 @@ export function runoffLayout(T, A, track) {
 // comes out as smooth as one along it). Out past the barrier, and where the map has nothing (trees, buildings),
 // it's the ground.
 function realLayout(T, grid, reach, C, cells, skip) {
-  const N = T.N, kind = new Uint8Array(C);
+  const N = T.N, ds = T.ds;
   for (let s = 0; s < 2; s++) {
-    const side = s ? 1 : -1;
+    const side = s ? 1 : -1, K = new Uint8Array(N * C), at = (i, c) => i * C + c;
+    // (the map's surfaces, row by row out from the edge)
     for (let i = 0; i < N; i++) {
       if (skip(i, s)) continue;
       const half = T.W[i] / 2, dx = T.RX[i] * side, dz = T.RZ[i] * side, R = reach[s][i];
       const x0 = T.X[i] + dx * half, z0 = T.Z[i] + dz * half;
-      for (let c = 0; c < C; c++) { const t = (c + 0.5) * RUN_RES; kind[c] = t > R + RUN_RES ? 0 : grid.at(x0 + dx * t, z0 + dz * t); }
+      for (let c = 0; c < C; c++) { const t = (c + 0.5) * RUN_RES; K[at(i, c)] = t > R + RUN_RES ? 0 : grid.at(x0 + dx * t, z0 + dz * t); }
+    }
+    // tidied as a whole, so it reads as a real circuit's runoff: no sand in the middle of paved runoff. Small holes of
+    // nothing inside it (trees, a sign the photo saw) take the surface round them; gravel with tarmac either side of it
+    // across the row (or between the track's edge and tarmac), or along the track with tarmac before and after it over
+    // less than 120 m, is tarmac - a real gravel trap runs out to grass or the barrier
+    const runs = (get, set, n, fn) => { for (let c = 0; c < n; c++) { const v = get(c); let e = c; while (e + 1 < n && get(e + 1) === v) e++; fn(v, c, e); c = e; } };
+    for (let i = 0; i < N; i++) {
+      if (skip(i, s)) continue;
+      const g = (c) => K[at(i, c)];
+      runs(g, null, C, (v, c, e) => { if (v === 0 && c > 0 && e + 1 < C && e - c < 6 && g(c - 1) && g(e + 1)) for (let q = c; q <= e; q++) K[at(i, q)] = g(c - 1); });
+      runs(g, null, C, (v, c, e) => { if (v === 2 && (c === 0 || g(c - 1) === 1) && e + 1 < C && g(e + 1) === 1) for (let q = c; q <= e; q++) K[at(i, q)] = 1; });
+    }
+    const span = Math.round(120 / ds), wrap = T.cut < 0;
+    for (let c = 0; c < C; c++) {
+      const g = (i) => K[at(((i % N) + N) % N, c)];
+      for (let i = 0; i < N; i++) {
+        if (g(i) !== 2 || g(i - 1) === 2) continue;
+        let e = i; while (e - i < N && g(e + 1) === 2) e++;
+        if (e - i < span && g(i - 1) === 1 && g(e + 1) === 1 && (wrap || (i > 0 && e + 1 < N))) for (let q = i; q <= e; q++) K[at(((q % N) + N) % N, c)] = 1;
+        i = e;
+      }
+    }
+    for (let i = 0; i < N; i++) {
+      if (skip(i, s)) continue;
       for (let q = 0; q < 3; q++) {
         const want = q + 1;
         for (let c = 0; c < C; c++) {
-          const inside = kind[c] === want;
+          const inside = K[at(i, c)] === want;
           let k = 1; const lim = Math.ceil(RUN_SD / RUN_RES);
-          while (k <= lim && (c - k < 0 || (kind[c - k] === want) === inside) && (c + k >= C || (kind[c + k] === want) === inside)) k++;
+          while (k <= lim && (c - k < 0 || (K[at(i, c - k)] === want) === inside) && (c + k >= C || (K[at(i, c + k)] === want) === inside)) k++;
           // (off the row's inner end it carries on as the first cell: no edge there)
           const d = Math.min(RUN_SD, (k - 0.5) * RUN_RES);
           cells[((i * 2 + s) * C + c) * 4 + q] = enc(inside ? d : -d);
