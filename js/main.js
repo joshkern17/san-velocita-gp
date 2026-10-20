@@ -68,7 +68,7 @@ import { activeName, activeSetup, stanceOf, hasAero } from './setup.js';
 import { assets, liveryAssetIds, importImageFile, fillLivery } from './livery.js';
 import { classicCrewLook } from './characters.js';
 import { LOGO_VERSIONS, logoAsset, logoForName, parseLogoAsset } from './sponsorlogos.js';
-import { savedLiveries, saveLivery, deleteLivery, liveryDate } from './liveries.js';
+import { savedLiveries, saveLivery, updateLivery, deleteLivery, liveryDate } from './liveries.js';
 import { loadEnvCatalog, loadEnvModels, envCatalog } from './envlib.js';
 import { setWorldOptions } from './world.js';
 import { TeamSetup } from './teamsetup.js';
@@ -115,7 +115,7 @@ applyPadFeel();
 // Each car keeps its own look (settings.liveries, by model): its paint, pattern, decals and stickers, and the F1 car's
 // bodywork. Your team name, number and sponsor and your driver kit (helmet, suit, crew) go with you into every car.
 // settings.car stays the one flat livery everything reads (races, online, the designer); it's kept in step here.
-const CAR_LOOK = ['pattern', 'main', 'accent', 'third', 'decals', 'stickers', 'showNumber', 'showSponsor', 'sponsorLogo', 'nose', 'fwing', 'pods', 'cover', 'rwing', 'halo', 'rims', 'rimCol'];
+const CAR_LOOK = ['design', 'pattern', 'main', 'accent', 'third', 'decals', 'stickers', 'showNumber', 'showSponsor', 'sponsorLogo', 'nose', 'fwing', 'pods', 'cover', 'rwing', 'halo', 'rims', 'rimCol'];
 let carLookOff = false; // (the World Career's garage: that's the career's car, not one of yours)
 function keepCarLook() {
   if (carLookOff || !settings.car) return;
@@ -127,7 +127,7 @@ function switchCar(chassis) {
   const c = settings.car, L = settings.liveries && settings.liveries[chassis];
   c.chassis = chassis;
   if (L) { for (const k of CAR_LOOK) delete c[k]; Object.assign(c, JSON.parse(JSON.stringify(L))); }
-  else { c.decals = []; delete c.stickers; }
+  else { c.decals = []; delete c.stickers; delete c.design; }
 }
 const saveSettings = () => { keepCarLook(); try { localStorage.setItem('svgp.settings', JSON.stringify(settings)); } catch (e) {} };
 if (!settings.lookV3) { settings.lookV2 = settings.lookV3 = true; settings.look = 'arcade'; applyLook('arcade'); saveSettings(); } // new pipeline: start on Arcade Sunset
@@ -607,21 +607,32 @@ menus['s-garage'][0].i = 1;
 // loading keeps the car you're in (in the World Career, the car you bought). Back puts your livery back.
 const GARAGE_ITEMS = menus['s-garage'][0].items;
 let lvList = null; // { was: the livery before the list opened, del: deleting }
-const lvCar = (e) => ({ ...fillLivery(JSON.parse(JSON.stringify(e.car))), chassis: lvList.was.chassis });
+// a design on the car you're in: its look (paint, pattern, decals, stickers) and the team on it (name, number, sponsor);
+// your driver kit (helmet, suit, crew) stays yours
+const DESIGN_KEYS = [...CAR_LOOK, 'teamName', 'number', 'sponsor'];
+const lvCar = (e) => { const d = fillLivery(JSON.parse(JSON.stringify(e.car))), c = JSON.parse(JSON.stringify(lvList.was)); for (const k of CAR_LOOK) delete c[k]; for (const k of DESIGN_KEYS) if (d[k] !== undefined) c[k] = d[k]; c.design = e.id; return c; };
+// decals in a design made for another model that this one has no panel for (they're kept, just not shown)
+const lvMisfit = (e) => { const P = garage.car && garage.car.def && garage.car.def.panels; return P ? (e.car.decals || []).filter(d => d.panel && !P[d.panel] && !d.part).length : 0; };
 function lvShow(c) { garage.setCar(c); assets.load(liveryAssetIds(c)).then(() => { if (lvList && screen === 's-garage') garage.repaint(c); }).catch(() => {}); }
 function openSavedLiveries() { lvList = { was: JSON.parse(JSON.stringify(settings.car)), del: false }; sfx.select(); renderSavedLiveries(true); }
 function renderSavedLiveries(first = false) {
-  const list = savedLiveries(), m = menus['s-garage'][0], D = lvList.del;
-  const items = [{ label: `Saved Liveries<small>${list.length}</small>`, head: true }];
+  const here = settings.car.chassis || 'custom', all = savedLiveries(), m = menus['s-garage'][0], D = lvList.del;
+  const list = [...all.filter(e => (e.car.chassis || 'custom') === here), ...all.filter(e => (e.car.chassis || 'custom') !== here)]; // (this car's first)
+  const mine = all.find(e => e.id === settings.car.design); // (the one this livery came from or was last saved as)
+  const items = [{ label: `Saved Liveries<small>${all.length}</small>`, head: true }];
   if (!list.length) items.push({ label: 'None Saved Yet', disabled: true });
-  for (const e of list) items.push({ label: `${escP(e.name)}<small>#${e.car.number} &middot; ${liveryDate(e)}</small>`, lv: e, confirm: D ? 'Delete it? Select again' : 'Wear it? Select again',
-    action: () => D ? lvDelete(e) : lvLoad(e), desc: D ? `Deletes this ${escP(e.name)} livery for good. Your other saves stay.` : `Saved ${liveryDate(e)}. It's on the car now: select it twice to keep it${world && garageSwap ? ' (your car stays the same model)' : ''}.` });
-  items.push({ label: 'Save This Livery', action: () => { const e = saveLivery(settings.car, () => { if (lvList && screen === 's-garage') renderSavedLiveries(); }); if (e) { sfx.best(); toast(`Saved <b>${escP(settings.car.teamName || 'Your Team')}</b> as a new livery.${e.dropped ? ` Storage was full, so the ${e.dropped} oldest ${e.dropped === 1 ? 'save was' : 'saves were'} removed (Export keeps copies).` : ''}`, e.dropped ? 7000 : 3500); } else { sfx.error(); toast('There\'s no room left to save it.'); } renderSavedLiveries(); },
+  for (const e of list) { const other = (e.car.chassis || 'custom') !== here, miss = other ? lvMisfit(e) : 0, made = other ? carOf({ chassis: e.car.chassis || 'custom' }).name : '', madeFor = /^your /i.test(made) ? made.toLowerCase() : 'the ' + made;
+    items.push({ label: `${escP(e.name)}<small>#${e.car.number} &middot; ${other ? escP(made) : liveryDate(e)}</small>`, lv: e, confirm: D ? 'Delete it? Select again' : 'Wear it? Select again',
+      action: () => D ? lvDelete(e) : lvLoad(e), desc: D ? `Deletes this ${escP(e.name)} livery for good. Your other saves stay.`
+        : `Saved ${liveryDate(e)}${other ? `, made for ${escP(madeFor)}` : ''}. It's on the car now: select it twice to keep it. Its paint, decals, name and number go on this car; your helmet, suit and crew stay as they are.${miss ? ` ${miss} of its decals ${miss === 1 ? 'has' : 'have'} no place on this car.` : ''}` }); }
+  if (mine && !D) items.push({ label: `Update ${escP(mine.name)}`, confirm: 'Write over it? Select again', action: () => { const e = updateLivery(mine.id, settings.car, () => { if (lvList && screen === 's-garage') renderSavedLiveries(); }); if (e) { sfx.best(); toast(`Updated <b>${escP(e.name)}</b>.`); } else { sfx.error(); toast('There\'s no room left to save it.'); } renderSavedLiveries(); },
+    desc: `Saves the livery on your car over ${escP(mine.name)} (saved ${liveryDate(mine)}).` });
+  items.push({ label: mine ? 'Save As New' : 'Save This Livery', action: () => { const e = saveLivery(settings.car, () => { if (lvList && screen === 's-garage') renderSavedLiveries(); }); if (e) { settings.car.design = e.id; lvList.was.design = e.id; saveSettings(); sfx.best(); toast(`Saved <b>${escP(settings.car.teamName || 'Your Team')}</b> as a new livery.${e.dropped ? ` Storage was full, so the ${e.dropped} oldest ${e.dropped === 1 ? 'save was' : 'saves were'} removed (Export keeps copies).` : ''}`, e.dropped ? 7000 : 3500); } else { sfx.error(); toast('There\'s no room left to save it.'); } renderSavedLiveries(); },
       desc: 'The livery on your car, saved as a new entry. Nothing is written over.' },
     ...(list.length ? [{ label: D ? 'Stop Deleting' : 'Delete Liveries', action: () => { lvList.del = !D; sfx.select(); renderSavedLiveries(); }, desc: D ? 'Back to trying them on.' : 'Pick the ones to delete.' }] : []),
     { label: 'Back', action: () => closeSavedLiveries(), desc: 'Back to the garage, in the livery you had.' });
   m.setItems(items, !first);
-  if (first) { m.i = list.length ? 1 : items.findIndex(it => it.label === 'Save This Livery'); m.render(); }
+  if (first) { m.i = list.length ? 1 : items.findIndex(it => !it.head && !it.disabled); m.render(); }
   lvPreview(m.items[m.i]);
 }
 function lvPreview(it) { if (!lvList) return; lvShow(it && it.lv ? lvCar(it.lv) : settings.car); }

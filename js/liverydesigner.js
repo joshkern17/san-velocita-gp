@@ -6,7 +6,7 @@ import { SPONSOR_LOGOS, logoAsset, parseLogoAsset, logoForName } from './sponsor
 const LOGO_SHORT = { color: 'Color', main: 'Brand', black: 'Black', white: 'White' }; // (a sponsor logo's versions, one word each so the buttons line up)
 import { VectorEditor } from './vectoredit.js';
 import { sfx } from './audio.js';
-import { savedLiveries, saveLivery, deleteLivery, ensureThumb, liveryDate } from './liveries.js';
+import { saveLivery } from './liveries.js';
 import { DEV } from './dev.js';
 
 const $ = (id) => document.getElementById(id);
@@ -453,14 +453,10 @@ export class LiveryDesigner {
   }
   removeKitDecal(i) { const s = this.car.suit; s.decals.splice(i, 1); this.ksel = Math.min(this.ksel, s.decals.length - 1); sfx.back(); this.changed(true); }
 
-  // FILES: saved teams, export / import, modeller tools
-  // (every save its own entry, with a photo: liveries.js)
-  teams() { return savedLiveries(); }
+  // FILES: save this livery (the list is the Garage's Saved Liveries), export / import, modeler tools (DEV)
   tab_files() {
-    const list = this.teams().map((t, i) => { if (!t.thumb) ensureThumb(t.id, () => { if (this.tab === 'files') this.render(); });
-      return `<div class="lv-item" data-i="${i}"><span class="th" style="background:${t.thumb ? `#000 url(${t.thumb}) center/cover` : hex(t.car.main)}"></span><span class="nm">${esc(t.name)}<br><span class="pn">#${t.car.number} · ${esc(liveryDate(t))}</span></span><button data-act="load">Load</button><button data-act="del">${this.delArm === t.id ? 'Sure?' : '&#10005;'}</button></div>`; }).join('');
-    return `<h4>MY LIVERIES</h4>
-      <div class="lv-teams" id="lv-teams">${list || '<p class="muted">No saved liveries yet.</p>'}</div>
+    return `<h4>SAVED LIVERIES</h4>
+      <p class="muted">Your saved liveries are in the Garage, under Saved Liveries: each one tried on the car as you move to it, this car's first. Saving one here adds it there.</p>
       <button class="wide hot" id="lv-save">Save "${esc(this.car.teamName)}" as a new livery</button>
       <h4 style="margin-top:16px">SHARE</h4>
       <p class="muted">A livery file holds the whole design including your images. Send it to a friend, or keep a backup.</p>
@@ -471,14 +467,9 @@ export class LiveryDesigner {
   }
   bind_files() {
     const c = this.car;
-    document.querySelectorAll('#lv-teams .lv-item').forEach(it => it.addEventListener('click', (e) => {
-      const i = +it.dataset.i, list = this.teams(), act = e.target.dataset?.act;
-      if (act === 'del') { const t = list[i]; if (this.delArm !== t.id) { this.delArm = t.id; sfx.select(); return this.render(); } this.delArm = null; deleteLivery(t.id); sfx.back(); this.toast('DELETED ' + t.name.toUpperCase()); return this.render(); }
-      if (act === 'load') { const t = list[i]; Object.keys(c).forEach(k => delete c[k]); Object.assign(c, fillLivery(JSON.parse(JSON.stringify(t.car)))); assets.load(liveryAssetIds(c)).then(() => this.repaint()); this.sel = -1; this.rebuild(); this.toast('LOADED ' + t.name.toUpperCase()); sfx.select(); this.render(); }
-    }));
     $('lv-save').addEventListener('click', () => {
       const name = c.teamName || 'Your Team', e = saveLivery(c, () => { if (this.tab === 'files') this.render(); });
-      if (e) { this.toast(e.dropped ? `SAVED ${name.toUpperCase()} · STORAGE WAS FULL: ${e.dropped} OLDEST REMOVED (EXPORT TO KEEP COPIES)` : 'SAVED ' + name.toUpperCase()); sfx.best(); } else this.toast('COULD NOT SAVE (STORAGE FULL)');
+      if (e) { c.design = e.id; this.save(); this.toast(e.dropped ? `SAVED ${name.toUpperCase()} · STORAGE WAS FULL: ${e.dropped} OLDEST REMOVED (EXPORT TO KEEP COPIES)` : 'SAVED ' + name.toUpperCase()); sfx.best(); } else this.toast('COULD NOT SAVE (STORAGE FULL)');
       this.render();
     });
     $('lv-exp').addEventListener('click', () => {

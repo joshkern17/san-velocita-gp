@@ -38,6 +38,14 @@ export function saveLivery(car, onThumb) {
   thumbOf(e.car).then(t => { if (!t) return; const list = savedLiveries(), x = list.find(y => y.id === e.id); if (x) { x.thumb = t; write(list); if (onThumb) onThumb(); } });
   return e;
 }
+// write over a saved one with the livery as it is now (Update in the Garage's list), its photo made again
+export function updateLivery(id, car, onThumb) {
+  const list = savedLiveries(), e = list.find(x => x.id === id); if (!e) return false;
+  e.car = JSON.parse(JSON.stringify(car)); e.name = car.teamName || e.name; e.saved = Date.now(); e.thumb = null;
+  if (!write([e, ...list.filter(x => x !== e)])) return false;
+  thumbOf(e.car).then(t => { if (!t) return; const l = savedLiveries(), x = l.find(y => y.id === id); if (x) { x.thumb = t; write(l); if (onThumb) onThumb(); } });
+  return e;
+}
 export function deleteLivery(id) { write(savedLiveries().filter(e => e.id !== id)); }
 // (the photo for one without: older saves, made when it's first shown)
 const making = new Set();
