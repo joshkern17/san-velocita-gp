@@ -3822,6 +3822,14 @@ function crashOut(ev) {
   };
   setTimeout(() => { document.body.classList.remove('cine'); el.classList.remove('on'); setTimeout(() => { el.hidden = true; }, 400); out(); }, 5200);
 }
+// Round Complete: the racing license (a clean race is one without an incident you caused: contact that was your fault,
+// forcing someone off, a brake test) and the reputation, as this round left them
+function roundLicRows(w, me, rep0, lic0) {
+  const L = WC.licOf(w), top = WC.LICENSES.length - 1, rep1 = WC.repOf(w);
+  const lic = !me ? '' : L.g > lic0 ? `<div class="row"><span>Racing license</span><span class="ok">Upgraded: ${WC.licName(L.g)}</span></div>`
+    : L.g >= top ? '' : `<div class="row"><span>${L.last ? `Incidents you caused: ${L.last} points` : 'Clean race: no incidents you caused'}</span><span class="${L.last ? 'bad' : 'ok'}">${L.c}/${WC.LICENSES[L.g].need} for ${WC.licName(L.g + 1)}</span></div>`;
+  return lic + (rep1 !== rep0 ? `<div class="row"><span>Reputation</span><span class="${rep1 > rep0 ? 'ok' : 'bad'}">${rep0} &rarr; ${rep1}</span></div>` : '');
+}
 function worldRoundDone(retired = false) {
   const w = world; if (!w || !sim) return;
   let res = sim.results();
@@ -3839,6 +3847,7 @@ function worldRoundDone(retired = false) {
   const hired = res.find(r => r.hired); // (an endurance round: car two, the hired drivers, paid on its own result)
   // (how the race went, for the Wire: retiring from the menu leaves no wreck to record)
   if (retired && sim.story && sim.player && !sim.story.out.some(o => o.pid === 'P')) sim.story.out.push({ pid: 'P', lap: sim.player.lap, why: 'retired', part: null });
+  const rep0 = WC.repOf(w), lic0 = WC.licOf(w).g; // (to say what this round did to them)
   const out = WC.recordPlayerRound(w, res, sim.log || [], wkUse && w.money ? { trackside: wkUse.trackside, laps: wkUse.laps, damage: wkUse.damage, failed: wkUse.failed || null, aidPct: Math.max(0, sim.aidBonus ?? 0), grid: mine.grid ?? null, led: mine.led || 0, blamed, teamTrust: sim.trustDelta || 0, car2, car2Pos: hired ? (hired.clsPos ?? hired.pos) : null, car2Dnf: hired ? !!(hired.dnf || hired.dsq) : false } : null, sim.story || null);
   wkUse = null;
   saveWorld();
@@ -3857,6 +3866,7 @@ function worldRoundDone(retired = false) {
   $('round-info').innerHTML = `<div class="big-pos">${!me || me.dnf ? (me && me.dsq ? 'DSQ' : 'DNF') : 'P' + me.pos}<small>${!me || me.dnf ? 'RETIRED' : 'FINISHED'}</small></div>
     <div class="row"><span>Points</span><span>${me ? '+' + me.pts : 0}</span></div>
     <div class="row"><span>Championship</span><span>${ord(cp)} &middot; ${st[cp - 1]?.pts ?? 0} pts</span></div>
+    ${roundLicRows(w, me, rep0, lic0)}
     ${mr ? `<div class="row"><span>${w.people[mateId].last}</span><span>${mr.dnf ? 'DNF' : 'P' + mr.pos}</span></div>` : ''}
     ${tg ? coopTargetRows(w, scored, tg, 'P') : ''}
     ${out.bill ? deals.map(d => { const got = out.bill.items.some(([t]) => t.startsWith(d.name + ' bonus')); return `<div class="row"><span>${d.name}: ${d.obj.toLowerCase()}</span><span class="${got ? 'ok' : 'bad'}">${got ? 'MET' : 'MISSED'}</span></div>`; }).join('') : ''}
@@ -5455,8 +5465,9 @@ function showLoading(track) {
     .then(v => { if (v && screen === 's-loading') { li.src = v; li.classList.add('on'); } });
 }
 
+let pbBefore = null; // (your best lap on this circuit before this race: the Results say how this one compares)
 function startRace(track, cfg, ret, quick = false) {
-  devPitPending = false;
+  devPitPending = false; pbBefore = bestLaps()[track.name] ?? null;
   if (ret !== 'gig') { gig = null; document.body.classList.remove('gig-on'); }
   clearTimeout(developT);
   raceReturn = ret;
@@ -5712,6 +5723,14 @@ function showResults() {
     if (D.total > prev) { rec[name] = D.total; try { localStorage.setItem('svgp.drift', JSON.stringify(rec)); } catch (e) {} }
     const f = (n) => Math.round(n).toLocaleString('en-US');
     $('results-table').insertAdjacentHTML('afterbegin', `<caption class="drift-res">DRIFT SCORE <b>${f(D.total)}</b> <span>&middot; BEST CHAIN ${f(D.best)} &middot; ${D.chains} DRIFTS &middot; ${D.total > prev ? '<em>NEW TRACK RECORD</em>' : 'RECORD ' + f(prev)}</span></caption>`);
+  }
+  // your best lap here against your personal best on this circuit (as it stood before the race)
+  const my = sim.player && sim.player.best;
+  if (!sim.drift && isFinite(my) && my > 0) {
+    const d = pbBefore != null ? my - pbBefore : null;
+    $('results-table').insertAdjacentHTML('afterbegin', `<caption class="pb-res">${d == null ? `Your best lap <b>${fmtTime(my, 3)}</b> &middot; your first time here`
+      : d < 0 ? `<em>New personal best</em> <b>${fmtTime(my, 3)}</b> <span class="faster">&minus;${(-d).toFixed(3)}</span>`
+      : `Your best lap <b>${fmtTime(my, 3)}</b> &middot; personal best ${fmtTime(pbBefore, 3)} <span class="slower">+${d.toFixed(3)}</span>`}</caption>`);
   }
   sim.setPaused(true);
   show('s-results');

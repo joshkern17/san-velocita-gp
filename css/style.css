@@ -1172,6 +1172,11 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .drift-fly { color: #fff; transform-origin: 0 0; text-shadow: 0 0 18px currentColor; }
 .drift.shake { animation: drift-shake .35s linear; }
 @keyframes drift-shake { 20% { transform: translate(-8px, 3px); } 40% { transform: translate(7px, -4px); } 60% { transform: translate(-5px, 2px); } 80% { transform: translate(3px, -1px); } }
+/* your best lap against your personal best on this circuit (main.js showResults) */
+#results-table caption.pb-res { caption-side: top; text-align: left; padding-bottom: 8px; font: 500 var(--t-label)/1.2 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+#results-table caption.pb-res b { font: 500 22px/1 var(--f-num); color: var(--sv-hot); margin: 0 4px; }
+#results-table caption.pb-res em { font-style: normal; color: var(--sv-best); }
+#results-table caption.pb-res .faster { color: var(--sv-good); } #results-table caption.pb-res .slower { color: var(--sv-bad); }
 #results-table caption.drift-res { caption-side: top; text-align: left; padding-bottom: 8px; font-family: var(--f-ui); letter-spacing: 2px; color: #ffd84a; font-size: 20px; }
 #results-table caption.drift-res b { font-weight: 400; color: #fff; font-size: 28px; margin: 0 6px; }
 #results-table caption.drift-res span { font-family: var(--f-body); font-size: 13px; color: #c6d4ea; letter-spacing: 1px; }
