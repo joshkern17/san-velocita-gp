@@ -232,6 +232,9 @@ const HINTS = {
   's-photo': [['nav', 'Options'], ['cam', 'Orbit'], ['look', 'Look'], ['dolly', 'Distance'], ['zoom', 'Zoom'], ['shoot', 'Take photo'], ['hide', 'Hide menu'], ['back', 'Back']],
   's-results': [['nav', 'Navigate'], ['ok', 'Select'], ['back', 'Main menu']],
   's-welcome': [['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ['back', 'Skip']],
+  's-livery': () => designer.place ? [[device.kind === 'pad' ? 'nav' : 'cam', 'Move'], ['phone', 'Next panel'], ['zoom', 'Size'], ['dolly', 'Turn'], ['ok', 'Drop'], ['back', 'Put back']]
+    : designer.adding ? [['nav', 'Navigate'], ['ok', 'Add it'], ...(device.kind === 'pad' ? [['look', 'Turn car']] : []), ['back', 'Back']]
+    : [['tab', 'Sections'], ['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ...(device.kind === 'pad' ? [['alt', 'Add'], ['phone', 'Delete'], ['look', 'Turn car']] : []), ['back', 'Done']],
 };
 const hintKeys = (g) => (GLYPHS[device.kind] || GLYPHS.kb)[g];
 function renderHints() {
@@ -673,9 +676,14 @@ const designer = new LiveryDesigner({
   getCar: () => settings.car,
   setCar: (car, rebuild) => { if (rebuild || !garage.car) garage.setCar(car); else garage.repaint(car); saveSettingsSoon(); },
   locked: () => !!garageSwap, // (the World Career: the team's name and its title sponsor are set by the career)
+  menu: new Menu($('m-livery'), [], { desc: 'd-livery', onMove: (it) => designer.onRow(it) }),
+  hints: () => { if (screen === 's-livery') renderHints(); }, sponsors: SPONSORS,
   onDone: () => { saveSettings(); clearEdges(); show('s-garage'); menus['s-garage'][0].render(); }, // (clearEdges: the Esc / B that closed it doesn't also leave the Garage)
   save: () => saveSettingsSoon(),
 });
+menus['s-livery'] = [designer.menu];
+backs['s-livery'] = () => designer.back();
+tabbers['s-livery'] = (d) => designer.stepTab(d);
 let saveT = 0;
 const saveSettingsSoon = () => { clearTimeout(saveT); saveT = setTimeout(saveSettings, 400); };
 function openLivery() { fadeTo(() => { show('s-livery'); if (pendingDecal) { designer.pending = pendingDecal; pendingDecal = null; } designer.open(); }, 200); }
@@ -6459,12 +6467,31 @@ function frameBody(now) {
       if (pc.isOpen) { const r = pitGarage.screenRect(); if (r) pc.place(r); if (!pgPcFocus && (pressed('KeyQ') | pressed('GP4'))) pc.flip(-1); if (!pgPcFocus && (pressed('KeyE') | pressed('Tab') | pressed('GP5'))) pc.flip(1); if ((pgPcT += dt) > 1) { pgPcT = 0; pc.render(); } }
       if (pc.idleDirty) { pc.idleDirty = false; pitGarage.refreshScreen(); }
     }
+  } else if (screen === 's-livery' && designer.vec.open) {
+    // the shape editor (a mouse tool): B on a pad steps out the way Esc does (the pen, then the tool, then out)
+    if (pressed('GP1')) window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape' }));
+    clearEdges(); garage.update(dt);
   } else if (screen === 's-livery' && !designer.vec.open && !(document.activeElement && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))) {
-    // the designer on a pad: B a step back (a picked decal, then out), LB / RB the tabs, the right stick round the car
-    if (pressed('GP1')) designer.back();
-    else if (pressed('GP4') || pressed('GP5')) designer.stepTab(pressed('GP5') ? 1 : -1);
+    // the designer: its list on the menu keys; Place mode: the decal on the d-pad, the left stick, WASD or the arrows,
+    // the next panel on Y / P, size on LT RT / Z X, turn on LB RB / Q E, A / Enter drops, B / Esc puts it back
+    if (designer.place) {
+      // (held pad buttons read straight off the pad: input.js only keeps their presses; the triggers by how far they're in)
+      const P = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(g => g && g.connected), hb = (i) => (P && P.buttons[i] ? P.buttons[i].value || (P.buttons[i].pressed ? 1 : 0) : 0);
+      const k = (a, b) => (isDown(a) ? 1 : 0) - (isDown(b) ? 1 : 0), dz = (v) => Math.abs(v) < 0.35 ? 0 : v; // (a dead zone: a drifting stick leaves it be)
+      const [lx, ly] = leftStick().map(dz), pd = (a, b) => (hb(a) > 0.5 ? 1 : 0) - (hb(b) > 0.5 ? 1 : 0);
+      designer.placeTick(dt, { x: pd(15, 14) || lx || k('KeyD', 'KeyA') || k('ArrowRight', 'ArrowLeft'), y: pd(13, 12) || ly || k('KeyS', 'KeyW') || k('ArrowDown', 'ArrowUp'),
+        next: (pressed('GP3') || pressed('KeyP')) ? 1 : 0,
+        size: (hb(7) > 0.1 || hb(6) > 0.1 ? hb(7) - hb(6) : 0) || k('KeyX', 'KeyZ'), rot: pd(5, 4) || k('KeyE', 'KeyQ'),
+        drop: pressed('GP0') || pressed('Enter') || pressed('Space'), cancel: pressed('GP1') || pressed('Escape') || pressed('Backspace') });
+      if (!designer.place) renderHints();
+      clearEdges();
+    } else {
+      if (pressed('GP2') && !designer.adding) designer.openAdd(); // (X: the Add list, from anywhere in the list)
+      else if (pressed('GP3')) designer.deleteSelected(); // (Y: delete the picked one)
+      menuInput();
+    }
     const [rx, ry] = rightStick(); if (rx || ry) { garage.auto = false; garage.yaw += rx * dt * 2.2; garage.pitch = Math.max(-0.05, Math.min(1.35, garage.pitch + ry * dt * 1.2)); }
-    clearEdges();
+    garage.update(dt); // (the turntable's camera: without it nothing you turn shows)
   } else if (screen === 's-garage' || screen === 's-livery') {
     if (screen === 's-garage') { menuInput(); const [rx, ry] = rightStick(); if (rx || ry) { garage.auto = false; garage.yaw += rx * dt * 2.2; garage.pitch = Math.max(-0.05, Math.min(1.35, garage.pitch + ry * dt * 1.2)); } } else clearEdges(); // (the right stick looks round the car, as in Tuning)
     garage.update(dt);

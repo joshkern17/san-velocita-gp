@@ -799,10 +799,11 @@ function viewDepth(m, name, own, pn, [dx, dy, dz], [ax, ay, az, ao, bx, by, bz, 
   return (m.depthMaps[name] = { C, gw, gh, g });
 }
 
-// Text decals tied to the livery (d.bind): the title sponsor's name or the team name, kept up to date
-export const BOUND = { sponsor: 'Title sponsor', team: 'Team name' };
+// Text decals tied to the livery (d.bind): the title sponsor's name, the team name or the race number, kept up to date
+// (the number is each car's own: a teammate in your livery shows theirs in the same spot)
+export const BOUND = { sponsor: 'Title sponsor', team: 'Team name', number: 'Race number' };
 export function boundText(L, bind) {
-  return bind === 'sponsor' ? String(L.sponsor || '').toUpperCase().slice(0, 14) : bind === 'team' ? String(L.teamName || '').toUpperCase().slice(0, 18) : '';
+  return bind === 'sponsor' ? String(L.sponsor || '').toUpperCase().slice(0, 14) : bind === 'team' ? String(L.teamName || '').toUpperCase().slice(0, 18) : bind === 'number' ? (L.number != null ? String(L.number) : '') : '';
 }
 // The built-in sponsor + team name stickers on this model, as decals in the same places (so they can be moved).
 // One decal per mirrored pair (the left one, 'Both sides' on).

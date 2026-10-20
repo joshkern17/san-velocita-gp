@@ -286,10 +286,15 @@
     </div>
   </div>
   <div class="lv-hint" id="lv-hint">Pick a decal, then <b>click the car</b> to place it. Drag on the car to slide it. Drag anywhere else to spin the car, scroll to zoom.</div>
-  <div class="lv-side">
-    <div class="ed-tabs" id="lv-tabs"><button data-tab="team" class="on">Team</button><button data-tab="decals">Decals</button><button data-tab="helmet">Helmet</button><button data-tab="suit">Uniform</button><button data-tab="files">Files</button></div>
-    <div class="ed-tab" id="lv-tab"></div>
+  <!-- the panel: a list of Menu rows (js/liverydesigner.js), tabs on LB / RB; Place mode folds it away -->
+  <div class="lv-side panel">
+    <div class="tabs lv-tabs" id="lv-tabs"></div>
+    <div class="menu lv-menu" id="m-livery"></div>
+    <div class="lv-desc" id="d-livery"></div>
+    <input type="color" id="lv-pick" class="lv-pick" tabindex="-1">
   </div>
+  <div class="lv-place" id="lv-place"></div>
+  <div class="footer-hints"></div>
   <div class="lv-toast" id="lv-toast"></div>
   <input type="file" id="lv-file" accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg" hidden>
   <input type="file" id="lv-import" accept=".json,application/json" hidden>

@@ -1,12 +1,13 @@
-// Livery Designer UI: team colours + pattern, PNG/SVG + text decals placed by clicking on the car,
-// helmet, race suit, saved teams and livery files. Works on the model-independent livery data (livery.js).
+// Livery Designer UI: the car's paint, decals placed on the car (by stick or by dragging), the driver's kit and the
+// crew, saving and sharing. Its panel is a list of the game's Menu rows (main.js passes it in), so a pad, the keyboard
+// and the mouse all work it. Works on the model-independent livery data (livery.js).
 import { MODEL as CLASSIC } from './carmodel.js';
 import { PATTERNS, HELMET_PATTERNS, SUIT_PATTERNS, SUIT_NUMBERS, CREW_STYLES, VISORS, VISOR_STRIPS, FONTS, assets, importImageFile, decalImage, uvToPanel, uvTemplate, liveryAssetIds, fillLivery, stickerDecals, boundText, boundLogo, BOUND, pathD, shapeBounds } from './livery.js';
 import { SPONSOR_LOGOS, logoAsset, parseLogoAsset, logoForName } from './sponsorlogos.js';
 const LOGO_SHORT = { color: 'Color', main: 'Brand', black: 'Black', white: 'White' }; // (a sponsor logo's versions, one word each so the buttons line up)
 import { VectorEditor } from './vectoredit.js';
 import { sfx } from './audio.js';
-import { saveLivery } from './liveries.js';
+import { saveLivery, updateLivery, savedLiveries } from './liveries.js';
 import { DEV } from './dev.js';
 
 const $ = (id) => document.getElementById(id);
@@ -14,46 +15,42 @@ const hex = (c) => '#' + ((c ?? 0) >>> 0).toString(16).padStart(6, '0').slice(-6
 const unhex = (s) => parseInt(String(s).replace('#', ''), 16);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const SWATCH = [0xc8141c, 0xf2f2f2, 0x121214, 0x1d4fb8, 0x0e2a55, 0x1c7a3a, 0xa4e04a, 0xf4c01a, 0xf07a2a, 0x8d2bd8, 0xff5ce1, 0x3ef0ff, 0xb8bcc4, 0xc9a23a, 0x7a3b12, 0x2a2a30];
+const SWATCH_NAMES = ['Red', 'White', 'Black', 'Blue', 'Navy', 'Green', 'Lime', 'Yellow', 'Orange', 'Purple', 'Pink', 'Cyan', 'Silver', 'Gold', 'Brown', 'Charcoal'];
+const swatch = (c) => `<span class="swatch" style="background:${hex(c)}"></span>`;
+const TABS = [['paint', 'Paint'], ['decals', 'Decals'], ['kit', 'Driver &amp; Crew'], ['saved', 'Saved']];
 const KIT_PARTS = { torso: 'Suit', armL: 'Left sleeve', armR: 'Right sleeve', legL: 'Left leg', legR: 'Right leg', helmet: 'Helmet' };
 // where a decal lands when it's moved to a part from the list (his left breast; the outside of a sleeve or leg; the side of the helmet)
 const KIT_START = { torso: [0.09, 0.3], armL: [0.25, 0.25], armR: [0.75, 0.25], legL: [0.25, 0.3], legR: [0.75, 0.3], helmet: [0.25, 0.42] };
 
 
 export class LiveryDesigner {
-  constructor({ garage, getCar, setCar, onDone, save, locked }) {
-    this.locked = locked || (() => false);
+  // menu: the panel's Menu (main.js); hints(): redraw the footer prompts; sponsors: the game's sponsor names
+  constructor({ garage, getCar, setCar, onDone, save, locked, menu, hints, sponsors }) {
+    this.locked = locked || (() => false); this.menu = menu; this.hints = hints || (() => {}); this.sponsors = sponsors || [];
+    this.adding = null; this.place = null;
     this.garage = garage; this.getCar = getCar; this.setCar = setCar; this.onDone = onDone; this.save = save || (() => {});
-    this.tab = 'team'; this.sel = -1; this.ksel = -1; this.dtarget = 'car'; // (ksel: the selected decal on the uniform)
+    this.tab = 'paint'; this.sel = -1; this.ksel = -1; // (ksel: the picked decal on the driver's kit)
     this.vec = new VectorEditor(this); // (the shape editor: js/vectoredit.js)
-    document.querySelectorAll('#lv-tabs button').forEach(b => b.addEventListener('click', () => { if (b.dataset.tab !== 'decals') this.vec.close(); this.tab = b.dataset.tab; sfx.move(); this.render(); }));
     document.querySelectorAll('#lv-views button').forEach(b => b.addEventListener('click', () => { garage.view(b.dataset.v); sfx.move(); }));
     $('lv-done').addEventListener('click', () => this.close());
     $('lv-file').addEventListener('change', (e) => this.importFile(e.target.files[0], e.target.dataset.for));
     $('lv-import').addEventListener('change', (e) => this.importLivery(e.target.files[0]));
     window.addEventListener('keydown', (e) => {
       if (!this.active || this.vec.open || (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName))) return;
-      if ((e.key === 'Delete' || e.key === 'Backspace') && this.tab === 'decals' && this.dtarget === 'driver' && this.ksel >= 0) { e.preventDefault(); this.removeKitDecal(this.ksel); }
-      else if ((e.key === 'Delete' || e.key === 'Backspace') && this.sel >= 0) { e.preventDefault(); this.removeDecal(this.sel); }
-      if (e.key === 'Escape') this.back();
+      if (e.key === 'Delete' && !this.place) { e.preventDefault(); this.deleteSelected(); } // (Esc and the rest: the menu, main.js)
     });
   }
-  // B / Esc: one step out at a time: the shape editor, then a picked decal, then the designer itself
+  // B / Esc (the menu's back): the shape editor first, then out (a placed decal's B is Place mode's, main.js)
   back() {
     if (this.vec.open) { this.vec.close(); this.render(); return; }
-    if (this.sel >= 0 || this.ksel >= 0) { this.sel = -1; this.ksel = -1; sfx.back(); this.render(); return; }
+    if (this.adding) return this.closeAdd();
     this.close();
-  }
-  // LB / RB: the tabs in order
-  stepTab(d) {
-    const tabs = [...document.querySelectorAll('#lv-tabs button')].map(b => b.dataset.tab), k = tabs.indexOf(this.tab);
-    if (this.tab === 'decals') this.vec.close();
-    this.tab = tabs[(k + d + tabs.length) % tabs.length]; sfx.move(); this.render();
   }
   get car() { return this.getCar(); }
   // the livery panel map of whichever car model is on the turntable (classic or your imported one)
   get def() { return (this.garage.car && this.garage.car.def) || CLASSIC; }
   open() {
-    this.active = true; this.sel = -1; this.ksel = -1;
+    this.active = true; this.sel = -1; this.ksel = -1; this.place = null; this.viewNow = null; this.menu.i = 0;
     const c = this.car;
     Object.assign(c, fillLivery(c));
     // the built-in sponsor + team name stickers become decals here (same places), so they move like the rest
@@ -61,20 +58,21 @@ export class LiveryDesigner {
     assets.load(liveryAssetIds(c)).then(() => this.repaint());
     this.garage.shift = -0.13; this.garage.view('three'); this.garage.still = true;
     this.garage.onPick = (hit, phase) => this.onPick(hit, phase);
-    this.render();
+    this.render(); this.firstRow();
     // (World Career: a sponsor's logo, ready to place)
     // (World Career: a sponsor's logo or name, picked out if it's already on the car, else added, ready to place)
     if (this.pending) {
-      const d = this.pending; this.pending = null; this.tab = 'decals'; this.dtarget = 'car';
+      const d = this.pending; this.pending = null; this.tab = 'decals';
       const i = c.decals.findIndex(x => d.bind ? x.bind === d.bind : x.asset === d.asset);
-      if (i >= 0) { this.sel = i; this.render(); this.toast('CLICK OR DRAG ON THE CAR TO MOVE IT'); }
+      if (i >= 0) { this.sel = i; this.render(); this.cursorTo(it => it.dec === i); this.toast('SELECT IT TO PLACE IT'); }
       else if (d.bind) this.addBound(d.bind);
       else assets.load([d.asset]).then(() => this.addDecal({ asset: d.asset, name: d.name, size: 0.45 }));
     }
   }
   close() {
     if (!this.active) return;
-    this.vec.close();
+    this.vec.close(); this.place = null; document.querySelectorAll('.lv-type').forEach(x => x.remove());
+    $('s-livery').classList.remove('placing');
     this.active = false; this.garage.still = false; this.garage.onPick = null; this.garage.pickMode = 'car'; this.garage.showCrew(false); this.garage.shift = 0.14; this.garage.target.set(0.2, 0.55, 0);
     sfx.back(); this.onDone();
   }
@@ -87,12 +85,14 @@ export class LiveryDesigner {
   // ---------- click on the car ----------
   onPick(hit, phase) {
     if (phase === 'up') { if (this.dragged) { this.dragged = false; this.render(); } return true; }
-    if (this.tab === 'decals' && this.dtarget === 'driver') { // clicks land on the racer's kit
+    // (only in Place mode does a drag on the car move the decal; otherwise dragging turns the car)
+    if (!this.place) return false;
+    if (this.tab === 'kit') { // clicks land on the racer's kit
       const d = this.car.suit.decals[this.ksel];
       if (!d || !hit.kit) return false;
       d.part = hit.kit.part; d.u = +hit.kit.u.toFixed(3); d.v = +hit.kit.v.toFixed(3);
       this.dragged = true; this.repaint();
-      if (phase === 'down') this.render(); else this.syncKitFields();
+      if (phase === 'down') this.render();
       return true;
     }
     const d = this.car.decals[this.sel];
@@ -103,179 +103,286 @@ export class LiveryDesigner {
     this.dragged = true;
     this.repaint();
     if (phase === 'down') this.render();
-    else this.syncDecalFields();
     return true;
   }
 
-  // ---------- panels ----------
+  // ---------- the panel: one list of the game's Menu rows (pad, keyboard and mouse alike) ----------
+  // Four tabs on LB / RB: Paint, Decals, Driver & Crew, Saved. Colors are swatch values (‹ ›, Select opens a full
+  // picker); sizes and turns step; text starts from presets (Select types your own). A on a decal: Place mode.
+  setTab(k) { if (k === this.tab) return; if (this.tab === 'decals') this.vec.close(); this.adding = null; this.tab = k; this.menu.i = 0; sfx.move(); this.render(); this.firstRow(); }
+  stepTab(d) { const k = TABS.findIndex(t => t[0] === this.tab); this.setTab(TABS[(k + d + TABS.length) % TABS.length][0]); }
+  // (the cursor on the tab's first row you can use, and the camera where that row wants it)
+  firstRow() { const m = this.menu, k = m.items.findIndex(it => !it.head && !it.disabled && !(it.hide && it.hide())); if (k >= 0) { m.i = k; m.render(); this.onRow(m.items[k]); } }
   render() {
-    document.querySelectorAll('#lv-tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === this.tab));
-    const el = $('lv-tab');
-    el.innerHTML = this['tab_' + this.tab]();
-    this['bind_' + this.tab]();
-    const hint = $('lv-hint');
-    const onDriver = this.tab === 'decals' && this.dtarget === 'driver';
-    hint.style.display = this.tab === 'decals' ? '' : 'none';
-    if (this.vec.open) return;
-    hint.innerHTML = onDriver ? 'Pick a decal, then <b>click the driver</b> to place it: suit, sleeves, legs or helmet. Drag on him to slide it. Drag anywhere else to spin, scroll to zoom.'
-      : 'Pick a decal, then <b>click the car</b> to place it. Drag on the car to slide it. Drag anywhere else to spin the car, scroll to zoom.';
-    this.garage.pickMode = onDriver ? 'racer' : 'car';
-    this.garage.showCrew(this.tab === 'suit');
+    if (!this.active) return;
+    const T = $('lv-tabs');
+    T.innerHTML = TABS.map(([k, n]) => `<span class="${k === this.tab ? 'on' : ''}" data-k="${k}">${n}</span>`).join('');
+    T.querySelectorAll('span').forEach(s => s.onclick = () => this.setTab(s.dataset.k));
+    this.menu.setItems(this.rows(), true);
+    $('s-livery').classList.toggle('placing', !!this.place);
+    const P = this.place, pd = P && this.placeDecal();
+    $('lv-place').innerHTML = pd ? `<b>Placing: ${esc(this.decalName(pd))} &middot; ${esc(P.kind === 'kit' ? KIT_PARTS[pd.part] || pd.part : this.def.panels[pd.panel]?.label || pd.panel)}</b><small>${pd.bind === 'number' ? 'Shows each car\'s own number: a teammate\'s car shows theirs here.' : pd.mirror ? 'Mirrored on the far side.' : 'On this side only.'}</small>` : '';
+    $('lv-hint').style.display = this.vec.open ? '' : 'none'; // (the shape editor's own how-to; the footer has the rest)
+    this.garage.pickMode = this.tab === 'kit' ? 'racer' : 'car';
+    this.garage.showCrew(this.tab === 'kit');
+    this.hints();
   }
-  colour(label, id, val) {
-    return `<div class="lv-col">${label}<input type="color" id="${id}" value="${hex(val)}"><div class="lv-swatches" data-for="${id}">${SWATCH.map(c => `<i style="background:${hex(c)}" data-c="${c}"></i>`).join('')}</div></div>`;
+  // the menu's cursor moved: the decal it's on is the one to edit, and the camera goes where that row is about
+  onRow(it) {
+    if (!it) return;
+    let again = false;
+    if (it.dec != null && it.dec !== this.sel) { this.sel = it.dec; again = true; if (this.vec.open && !this.car.decals[it.dec]?.path) this.vec.close(); }
+    if (it.kdec != null && it.kdec !== this.ksel) { this.ksel = it.kdec; again = true; }
+    const v = it.view || (this.tab === 'kit' ? null : 'three');
+    if (v && v !== this.viewNow) { this.viewNow = v; this.garage.view(v); }
+    if (again) this.render();
   }
-  bindColour(id, set) {
-    const inp = $(id); if (!inp) return;
-    inp.addEventListener('input', () => { set(unhex(inp.value)); this.repaint(); });
-    document.querySelectorAll(`.lv-swatches[data-for="${id}"] i`).forEach(i => i.addEventListener('click', () => { inp.value = hex(+i.dataset.c); set(+i.dataset.c); sfx.move(); this.repaint(); }));
-  }
-  seg(id, opts, cur, cls = '') { return `<div class="fld"><div class="seg ${cls}" id="${id}">${Object.entries(opts).map(([k, v]) => `<button data-v="${k}" class="${String(cur) === k ? 'on' : ''}">${v}</button>`).join('')}</div></div>`; }
-  bindSeg(id, fn) {
-    document.querySelectorAll(`#${id} button`).forEach(b => b.addEventListener('click', () => {
-      document.querySelectorAll(`#${id} button`).forEach(x => x.classList.toggle('on', x === b)); sfx.move(); fn(b.dataset.v);
-    }));
-  }
-  range(label, id, min, max, step, val, unit = '') { return `<div class="fld"><label>${label}<span id="${id}-v">${(+val).toFixed(step < 0.1 ? 2 : step < 1 ? 1 : 0)}${unit}</span></label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"></div>`; }
-  bindRange(id, fn, unit = '', dp = 2) { const r = $(id); if (!r) return; r.addEventListener('input', () => { $(id + '-v').textContent = (+r.value).toFixed(dp) + unit; fn(+r.value); this.repaint(); }); }
-  check(id, label, on) { return `<label class="chk"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}> ${label}</label>`; }
-  bindCheck(id, fn) { const c = $(id); if (c) c.addEventListener('change', () => { fn(c.checked); sfx.move(); this.repaint(); }); }
-  text(id, val, max = 16) { return `<input type="text" id="${id}" value="${esc(val)}" maxlength="${max}" spellcheck="false" autocomplete="off">`; }
-  bindText(id, fn) { const t = $(id); if (!t) return; t.addEventListener('input', () => { fn(t.value); this.repaint(); }); t.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter' || e.key === 'Escape') t.blur(); }); }
-
-  // TEAM
-  tab_team() {
-    const c = this.car;
-    return `<h4>TEAM</h4>
-      ${this.locked() ? `<div class="fld"><label>Team name</label><p class="lv-locked">${esc(c.teamName)}</p></div>` : `<div class="fld"><label>Team name</label>${this.text('lv-team', c.teamName, 22)}</div>`}
-      <div class="lv-row"><div class="fld" style="flex:2"><label>Title sponsor</label>${this.locked() ? `<p class="lv-locked">${esc(c.sponsor)}</p>` : this.text('lv-sp', c.sponsor, 14)}</div><div class="fld"><label>Number</label><input type="number" id="lv-num" min="1" max="99" value="${c.number}"></div></div>
-      <h4>COLORS</h4>
-      <div class="lv-row">${this.colour('Main', 'lv-c1', c.main)}${this.colour('Accent', 'lv-c2', c.accent)}${this.colour('Detail', 'lv-c3', c.third)}</div>
-      ${this.check('lv-wown', 'Own rear wing color', c.wingColor != null)}
-      ${c.wingColor != null ? `<div class="lv-row">${this.colour('Rear wing', 'lv-cw', c.wingColor)}</div>` : ''}
-      <h4>PATTERN</h4>
-      ${this.seg('lv-pat', PATTERNS, c.pattern)}
-      ${this.check('lv-shown', 'Race numbers on the car', c.showNumber)}
-      ${this.locked() ? '<p class="muted">The team name is the one on Form SV-1, and the sponsor is your title sponsor: they change in the career, not here.</p>' : ''}
-      <p class="muted">The sponsor and team name stickers, your own logos and text are in DECALS. Bodywork parts are in the Garage menu.</p>`;
-  }
-  bind_team() {
-    const c = this.car;
-    this.bindText('lv-team', v => c.teamName = v.toUpperCase());
-    this.bindText('lv-sp', v => c.sponsor = v.toUpperCase());
-    const n = $('lv-num'); n.addEventListener('input', () => { c.number = Math.max(1, Math.min(99, parseInt(n.value || '1', 10))); this.repaint(); }); n.addEventListener('keydown', e => e.stopPropagation());
-    this.bindColour('lv-c1', v => c.main = v); this.bindColour('lv-c2', v => c.accent = v); this.bindColour('lv-c3', v => c.third = v);
-    // rear wing: the car's own default (road cars: the main colour, single-seaters: the accent) unless picked here
-    this.bindCheck('lv-wown', v => { c.wingColor = v ? (c.wingColor ?? c.main) : null; this.render(); });
-    this.bindColour('lv-cw', v => c.wingColor = v);
-    this.bindSeg('lv-pat', v => { c.pattern = v; this.repaint(); });
-    this.bindCheck('lv-shown', v => c.showNumber = v);
+  decalName(x) { return x.bind ? BOUND[x.bind] : x.name || x.text || (x.path ? (x.path.closed ? 'Shape' : 'Line') : 'Image'); }
+  rows() { return this.adding ? this.rows_add() : this['rows_' + this.tab](); }
+  // Add: a list of what you can add (not a ‹ › picker: there's a lot of it), sponsor logos a list of their own
+  openAdd(what = this.tab === 'kit' ? 'kit' : 'car') { if (this.tab !== 'kit') this.tab = 'decals'; this.adding = what; this.menu.i = 0; sfx.select(); this.render(); this.firstRow(); }
+  closeAdd() { const was = this.adding; this.adding = was === 'logos' ? 'car' : null; this.menu.i = 0; sfx.back(); this.render(); if (this.adding) this.firstRow(); else this.cursorTo(it => it.addRow); }
+  rows_add() {
+    const T = this, done = (f) => () => { T.adding = null; f(); };
+    if (this.adding === 'logos') return [{ label: 'Sponsor Logos', head: true },
+      ...Object.entries(SPONSOR_LOGOS).sort((a, b) => a[1].localeCompare(b[1])).map(([k, n]) => ({ label: esc(n), action: done(() => T.addLogo(k)), desc: `${esc(n)}'s logo, in full color (Version, once it's on, for its other colors).` })),
+      { label: 'Back', action: () => T.closeAdd() }];
+    if (this.adding === 'kit') return [{ label: 'Add To The Driver', head: true },
+      { label: 'Text', action: done(() => T.addOf('kit')), desc: 'Letters on his chest to start with: place them on the suit, a sleeve, a leg or the helmet.' },
+      { label: 'Image File (mouse)', action: done(() => T.fileFor('kit')), desc: 'A PNG or SVG of your own.' },
+      { label: 'Back', action: () => T.closeAdd() }];
+    return [{ label: 'Add To The Car', head: true },
+      { label: 'Race Number', action: done(() => T.addOf('number')), desc: 'The car\'s race number, as big outlined figures. Each car shows its own: a teammate in your livery gets theirs here.' },
+      { label: 'Team Name', action: done(() => T.addOf('team')), desc: 'Your team\'s name on a bar; it changes when the name does.' },
+      { label: 'Sponsor Name', action: done(() => T.addOf('sponsor')), desc: 'The title sponsor\'s name (or logo, if it has one); it changes with the sponsor.' },
+      { label: 'Text', action: done(() => T.addOf('text')), desc: 'Your own words: pick a preset or type them.' },
+      { label: 'Sponsor Logo &rsaquo;', action: () => { T.adding = 'logos'; T.menu.i = 0; sfx.select(); T.render(); T.firstRow(); }, desc: 'One of the game\'s sponsors\' logos.' },
+      { label: 'Image File (mouse)', action: done(() => T.addOf('image')), desc: 'A PNG or SVG of your own. SVGs stay sharp at any size.' },
+      { label: 'Shape (mouse)', action: done(() => T.addOf('shape')), desc: 'Draw lines and shapes right on the car with the pen, rectangle or ellipse.' },
+      { label: 'Back', action: () => T.closeAdd() }];
   }
 
-  // DECALS
-  // DECALS: on the car, or on the driver (suit, sleeves, legs, helmet). Same list, same click-and-drag
-  tab_decals() {
-    const sw = `<div class="seg" id="lv-dtgt"><button data-v="car" class="${this.dtarget !== 'driver' ? 'on' : ''}">On the car</button><button data-v="driver" class="${this.dtarget === 'driver' ? 'on' : ''}">On the driver</button></div>`;
-    return sw + (this.dtarget === 'driver' ? this.kitDecalsHtml() : this.carDecalsHtml());
+  // -- row makers --
+  // a color: the swatches on ‹ ›, Select opens the full picker (none: 'None' first, for an outline or a fill)
+  colorRow(label, get, set, { none = false, desc = '', view } = {}) {
+    const T = this;
+    return { label, view, desc: desc || `${label}: &lsaquo; &rsaquo; for the swatches, Select for any color.`,
+      get values() { const v = get(), out = [...(none ? [[null, 'None']] : []), ...SWATCH.map((c, k) => [c, `${swatch(c)}${SWATCH_NAMES[k]}`])]; if (v != null && !SWATCH.includes(v)) out.push([v, `${swatch(v)}Custom`]); return out; },
+      get: () => { const v = get(); return v ?? null; }, set: (v) => { set(v); T.changed(true); },
+      action: () => T.pickColor(get() ?? 0xffffff, (v) => { set(v); T.changed(true); }) };
   }
-  bind_decals() {
-    this.bindSeg('lv-dtgt', v => { this.dtarget = v; this.render(); this.garage.view(v === 'driver' ? 'driver' : 'three'); });
-    if (this.dtarget === 'driver') this.bindKitDecals(); else this.bindCarDecals();
+  // a number stepped by ‹ ›, stopping at its ends
+  stepRow(label, get, set, step, min, max, fmt, desc = '', view) {
+    const T = this;
+    return { label, view, desc, values: [[0, '']], get: () => 0, set: () => {}, show: () => fmt(get()),
+      nudge: (d) => { const v = Math.max(min, Math.min(max, +(get() + d * step).toFixed(4))); if (v === get()) return false; set(v); T.changed(true); } };
   }
-  carDecalsHtml() {
-    const c = this.car, d = c.decals[this.sel];
-    const list = c.decals.map((x, i) => {
-      const txt = x.bind ? boundText(c, x.bind) : x.text, bl = x.bind && boundLogo({ ...x, text: txt }), url = assets.get(bl || x.asset);
-      const th = bl ? `<span class="th" style="background-image:url('${url || ''}')"></span>` : x.path ? shapeThumb(x) : txt != null ? `<span class="th" style="color:${hex(x.color)}">${esc(txt.slice(0, 3))}</span>` : `<span class="th" style="background-image:url('${url || ''}')"></span>`;
-      return `<div class="lv-item ${i === this.sel ? 'sel' : ''}" data-i="${i}">${th}<span class="nm">${esc(x.bind ? BOUND[x.bind] : x.name || x.text || (x.path ? (x.path.closed ? 'Shape' : 'Line') : 'Decal'))}<br><span class="pn">${esc(this.def.panels[x.panel]?.label || x.panel)}${x.mirror ? ' · BOTH SIDES' : ''}</span></span>
-        <button data-act="up" title="Draw earlier">&#9650;</button><button data-act="dup" title="Duplicate">+</button><button data-act="del" title="Delete">&#10005;</button></div>`;
-    }).join('');
-    let props = '<p class="muted">Select a decal to edit it.</p>';
+  pickRow(label, map, get, set, desc = '', view) {
+    const T = this;
+    return { label, view, desc, values: Object.entries(map), get: () => String(get()), set: (v) => { set(v); T.changed(true); } };
+  }
+  onOff(label, get, set, desc = '', view) {
+    const T = this;
+    return { label, view, desc, values: [[true, 'On'], [false, 'Off']], get: () => !!get(), set: (v) => { set(v); T.changed(true); } };
+  }
+  // text: presets on ‹ ›, Select to type your own (a keyboard)
+  textRow(label, get, set, max, presets, desc = '', view) {
+    const T = this;
+    return { label, view, desc: desc || 'Pick one with &lsaquo; &rsaquo;, or Select to type your own with a keyboard.',
+      get values() { const v = get(); return [...new Set([v, ...presets].filter(Boolean))].map(x => [x, esc(x)]); },
+      get: () => get(), set: (v) => { set(v); T.changed(true); }, action: () => T.typeText(get(), max, (v) => { set(v); T.changed(true); }) };
+  }
+  info(text) { return { label: `<span class="lv-note">${text}</span>`, disabled: true }; }
+  // the full color picker (the browser's own): a mouse or a keyboard
+  pickColor(c, done) { const p = $('lv-pick'); p.value = hex(c); p.oninput = () => done(unhex(p.value)); p.click(); }
+  // typing over the row the cursor's on (Enter keeps it, Esc leaves it as it was)
+  typeText(val, max, done) {
+    const row = this.menu.el.querySelector('.item.sel'); if (!row) return;
+    const inp = document.createElement('input'); inp.className = 'lv-type'; inp.maxLength = max; inp.value = val || ''; inp.spellcheck = false;
+    inp.style.top = (row.getBoundingClientRect().top - this.menu.el.closest('.lv-side').getBoundingClientRect().top) / (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui')) || 1) + 'px';
+    this.menu.el.closest('.lv-side').appendChild(inp); inp.focus(); inp.select();
+    let over = false; // (Enter, then the blur as it goes: once)
+    const end = (keep) => { if (over) return; over = true; if (keep && inp.value.trim()) done(inp.value.trim().toUpperCase()); inp.remove(); this.render(); };
+    inp.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') end(true); else if (e.key === 'Escape') end(false); };
+    inp.onblur = () => end(true);
+  }
+  fileFor(what) { const f = $('lv-file'); f.dataset.for = what; f.value = ''; f.click(); }
+
+  // -- PAINT: the team on it, its colors and pattern --
+  rows_paint() {
+    const c = this.car, L = this.locked(), T = this;
+    return [
+      { label: 'Team', head: true },
+      L ? { label: `Team Name<small>${esc(c.teamName)}</small>`, disabled: true } : this.textRow('Team Name', () => c.teamName, v => c.teamName = v, 22, [], 'Your team\'s name, on the car and the kit. Select to type it.'),
+      L ? { label: `Title Sponsor<small>${esc(c.sponsor)}</small>`, disabled: true } : this.textRow('Title Sponsor', () => c.sponsor, v => c.sponsor = v, 14, this.sponsors, 'The sponsor sticker\'s name: &lsaquo; &rsaquo; for the game\'s sponsors, Select to type your own.'),
+      this.stepRow('Number', () => c.number, v => c.number = v, 1, 1, 99, v => String(v), 'Your race number. A Race Number decal (Decals) shows it wherever you put it.'),
+      ...(L ? [this.info('In the career the team name is the one on Form SV-1 and the sponsor is your title sponsor.')] : []),
+      { label: 'Colors', head: true },
+      this.colorRow('Main', () => c.main, v => c.main = v), this.colorRow('Accent', () => c.accent, v => c.accent = v), this.colorRow('Detail', () => c.third, v => c.third = v),
+      { label: 'Rear Wing', desc: 'The rear wing in its own color, or the car\'s own (road cars: the main color; single-seaters: the accent).',
+        get values() { return [['auto', 'Car default'], ...SWATCH.map((x, k) => [x, `${swatch(x)}${SWATCH_NAMES[k]}`]), ...(c.wingColor != null && !SWATCH.includes(c.wingColor) ? [[c.wingColor, `${swatch(c.wingColor)}Custom`]] : [])]; },
+        get: () => c.wingColor ?? 'auto', set: (v) => { c.wingColor = v === 'auto' ? null : v; T.changed(true); }, action: () => T.pickColor(c.wingColor ?? c.main, (v) => { c.wingColor = v; T.changed(true); }) },
+      { label: 'Pattern', head: true },
+      this.pickRow('Pattern', PATTERNS, () => c.pattern, v => c.pattern = v, 'How your three colors are laid out on the car.'),
+      this.onOff('Race Numbers', () => c.showNumber, v => c.showNumber = v, 'The car\'s standard number boards. Off if you\'d rather place your own (Decals: Race Number).'),
+    ];
+  }
+
+  // -- DECALS: add one, the list (A: place it), the picked one's settings --
+  addOf(k) {
+    const c = this.car;
+    if (k === 'kit') return this.addKitDecal({ text: c.sponsor || 'SPONSOR', font: 'impact', color: 0xffffff, outline: null, size: 0.07, name: null }); // (X on Driver & Crew)
+    if (k === 'number' || k === 'team' || k === 'sponsor') return this.addBound(k);
+    if (k === 'text') return this.addDecal({ text: c.sponsor || 'SPONSOR', font: 'impact', color: 0xffffff, outline: 0x000000, size: 0.12, name: null });
+    if (k.startsWith('logo:')) return this.addLogo(k.slice(5));
+    if (k === 'image') return this.fileFor('decal');
+    if (k === 'shape') { sfx.select(); if (this.vec.open) return this.vec.close(); this.sel = -1; this.vec.start(this.garageSide(), 'pen'); }
+  }
+  rows_decals() {
+    const c = this.car, T = this, d = c.decals[this.sel];
+    const rows = [
+      { label: 'Add', head: true },
+      { label: 'Add A Decal&hellip;', addRow: true, cls: 'action', action: () => T.openAdd('car'), desc: 'A race number, the team or sponsor name, text, a sponsor logo, an image or a shape (X on a pad, from anywhere in the list).' },
+      { label: `On The Car<small>${c.decals.length}</small>`, head: true },
+      ...(c.decals.length ? [] : [this.info('Nothing on the car yet.')]),
+      ...c.decals.map((x, i) => ({ label: `${esc(this.decalName(x))}<small>${esc(this.def.panels[x.panel]?.label || x.panel)}${x.mirror ? ' &middot; both sides' : ''}</small>`, dec: i, action: () => T.startPlace('car', i),
+        desc: 'Select to move it on the car. Its settings are under the list.' })),
+    ];
+    if (!d) return rows;
+    const lg = parseLogoAsset(d.asset), bl = d.bind === 'sponsor' && logoForName(boundText(c, 'sponsor')), text = d.text != null && !(bl && d.logo !== 'name');
+    rows.push({ label: esc(this.decalName(d)), head: true },
+      { label: 'Move It', cls: 'action primary', action: () => T.startPlace('car', T.sel), desc: 'Move it on the car: the d-pad, the left stick, WASD or the arrows (or drag it with the mouse); Y or P for the next panel; LT RT or Z X for size; LB RB or Q E to turn it. A or Enter when it\'s right.' });
+    if (d.bind) rows.push(this.info(`Reads ${esc(boundText(c, d.bind) || '(nothing yet)')}: it follows the ${d.bind === 'sponsor' ? 'title sponsor' : d.bind === 'number' ? 'car\'s race number (a teammate in your livery shows theirs here)' : 'team name'}.`));
+    if (d.path) rows.push(
+      { label: 'Edit Shape (mouse)', action: () => { sfx.select(); if (T.vec.open) T.vec.setTool('node'); else T.vec.start(d.panel, 'move'); }, desc: 'Its points and curves, in the shape editor.' },
+      this.colorRow('Fill', () => d.fill, v => d.fill = v, { none: true }), this.colorRow('Stroke', () => d.stroke, v => { d.stroke = v; d.sw = d.sw || 0.04; }, { none: true }),
+      this.onOff('Closed', () => d.path.closed, v => { d.path.closed = v && d.path.n.length > 2; }),
+      ...(d.stroke != null ? [this.stepRow('Stroke Width', () => d.sw || 0.04, v => d.sw = v, 0.005, 0.005, 0.3, v => v.toFixed(3) + ' m')] : []));
+    if (lg) rows.push(this.pickRow('Version', LOGO_SHORT, () => lg.v, v => { d.asset = logoAsset(lg.slug, v); }, 'The logo in color, in its brand color, black or white.'));
+    if (bl) rows.push(this.pickRow('Logo', { ...LOGO_SHORT, name: 'Name' }, () => d.logo || 'color', v => { d.logo = v; }, `${esc(SPONSOR_LOGOS[bl])}'s logo, or just its name in letters.`));
+    if (bl && d.logo !== 'name') rows.push(this.onOff('Plate', () => d.bar != null, v => { d.bar = v ? c.third : null; }, 'A plate behind the logo.'));
+    if (text) rows.push(
+      ...(d.bind ? [] : [this.textRow('Text', () => d.text, v => d.text = v, 20, [c.teamName, c.sponsor, 'RACING', 'MOTORSPORT', 'TEAM', 'SAN VELOCITA', 'GP'].filter(Boolean))]),
+      this.pickRow('Font', FONTS, () => d.font || 'impact', v => d.font = v),
+      this.colorRow('Color', () => d.color ?? 0xffffff, v => d.color = v), this.colorRow('Outline', () => d.outline, v => d.outline = v, { none: true }),
+      this.onOff('Background Bar', () => d.bar != null, v => { d.bar = v ? c.third : null; }, 'A bar of the detail color behind the letters.'));
+    rows.push(
+      { label: 'Panel', get values() { return Object.entries(T.def.panels).map(([k, p]) => [k, esc(p.label)]); }, get: () => d.panel, set: (v) => { const q = T.def.panels[v]; d.panel = v; d.x = q.W / 2; d.y = q.H / 2; T.changed(true); }, desc: 'Which part of the car it\'s on.' },
+      this.stepRow(text ? 'Letter Height' : 'Size', () => d.size, v => d.size = v, 0.01, 0.03, 3, v => v.toFixed(2) + ' m'),
+      this.stepRow('Rotation', () => d.rot || 0, v => d.rot = v, 5, -180, 180, v => Math.round(v) + '&deg;'),
+      this.stepRow('Opacity', () => d.opacity ?? 1, v => d.opacity = v, 0.05, 0.1, 1, v => Math.round(v * 100) + '%'),
+      this.onOff('Both Sides', () => d.mirror, v => d.mirror = v, 'Mirrored onto the other side of the car.'),
+      this.onOff('Flip', () => d.flip, v => d.flip = v, 'Flipped left to right.'),
+      { label: 'Bring Forward', action: () => { const i = T.sel; if (i < c.decals.length - 1) { [c.decals[i + 1], c.decals[i]] = [c.decals[i], c.decals[i + 1]]; T.sel = i + 1; T.changed(true); } }, desc: 'Over the decals after it in the list.' },
+      { label: 'Send Back', action: () => { const i = T.sel; if (i > 0) { [c.decals[i - 1], c.decals[i]] = [c.decals[i], c.decals[i - 1]]; T.sel = i - 1; T.changed(true); } }, desc: 'Under the decals before it in the list.' },
+      { label: 'Duplicate', action: () => { const i = T.sel, cp = { ...c.decals[i], id: 'd' + Math.random().toString(36).slice(2, 8) }; if (T.def.panels[cp.panel]) cp.x = Math.min(T.def.panels[cp.panel].W, cp.x + 0.15); c.decals.splice(i + 1, 0, cp); T.sel = i + 1; T.changed(true); } },
+      { label: 'Delete', confirm: 'Delete it? Select again', action: () => T.removeDecal(T.sel) });
+    return rows;
+  }
+
+  // -- DRIVER & CREW: helmet, suit, gloves and boots, the logos on them, the crew; the camera on each --
+  rows_kit() {
+    const c = this.car, h = c.helmetDesign, s = c.suit, cr = c.crew, T = this, d = s.decals[this.ksel];
+    const H = 'helmet', D = 'driver', C = 'crew';
+    const rows = [
+      { label: 'Helmet', head: true },
+      this.colorRow('Base', () => h.base, v => h.base = v, { view: H }), this.colorRow('Design', () => h.accent, v => h.accent = v, { view: H }), this.colorRow('Trim', () => h.third, v => h.third = v, { view: H }),
+      this.pickRow('Pattern', HELMET_PATTERNS, () => h.pattern, v => h.pattern = v, '', H), this.pickRow('Visor', VISORS, () => h.visor, v => h.visor = v, '', H),
+      this.pickRow('Visor Strip', VISOR_STRIPS, () => h.strip || 'team', v => h.strip = v, 'The strip across the top of the visor.', H),
+      this.onOff('Number On The Sides', () => h.number, v => h.number = v, '', H),
+      { label: `Side Logo (mouse)<small>${h.decal ? 'Image' : 'None'}</small>`, view: H, action: () => h.decal ? (h.decal = null, T.changed(true)) : T.fileFor('helmet'), desc: h.decal ? 'Select to take the image off.' : 'An image of your own (PNG or SVG) on both sides of the helmet.' },
+      { label: 'Race Suit', head: true },
+      this.colorRow('Base', () => s.base, v => s.base = v, { view: D }), this.colorRow('Accent', () => s.accent, v => s.accent = v, { view: D }),
+      this.pickRow('Design', SUIT_PATTERNS, () => s.pattern, v => s.pattern = v, '', D),
+      this.pickRow('Chest', { team: 'Team name', sponsor: 'Sponsor', none: 'Nothing' }, () => s.chest, v => s.chest = v, '', D),
+      this.pickRow('Race Number', SUIT_NUMBERS, () => s.number, v => s.number = v, '', D),
+      { label: `Shoulder Patches (mouse)<small>${s.decal ? 'Image' : 'None'}</small>`, view: D, action: () => s.decal ? (s.decal = null, T.changed(true)) : T.fileFor('suit'), desc: s.decal ? 'Select to take the image off.' : 'An image of your own (PNG or SVG) on both shoulders.' },
+      this.colorRow('Gloves', () => s.gloves, v => s.gloves = v, { view: D }), this.colorRow('Boots', () => s.boots, v => s.boots = v, { view: D, desc: 'Boots get a stripe in the suit\'s accent color.' }),
+      { label: `Logos On The Driver<small>${s.decals.length}</small>`, head: true },
+      { label: 'Add A Logo&hellip;', addRow: true, cls: 'action', view: D, action: () => T.openAdd('kit'), desc: 'Text or an image on the suit, a sleeve, a leg or the helmet (X on a pad). Your pit crew wear them too.' },
+      ...s.decals.map((x, i) => ({ label: `${esc(x.name || x.text || 'Image')}<small>${KIT_PARTS[x.part] || x.part}${x.mirror ? ' &middot; both sides' : ''}</small>`, kdec: i, view: x.part === 'helmet' ? H : D,
+        action: () => T.startPlace('kit', i), desc: 'Select to move it on the driver. Its settings are under the list.' })),
+    ];
     if (d) {
-      const p = this.def.panels[d.panel] || Object.values(this.def.panels)[0];
-      const lg = parseLogoAsset(d.asset), bl = d.bind === 'sponsor' && logoForName(boundText(c, 'sponsor'));
-      props = `<h4>SELECTED</h4>
-        ${d.path ? this.shapeProps(d) : ''}
-        ${lg ? `<div class="fld"><label>Version</label></div>${this.seg('lv-dlv', LOGO_SHORT, lg.v)}` : ''}
-        ${bl ? `<div class="fld"><label>Logo</label></div>${this.seg('lv-dlv', { ...LOGO_SHORT, name: 'Name' }, d.logo || 'color')}` : ''}
-        ${bl && d.logo !== 'name' ? `<p class="muted">Shows ${esc(SPONSOR_LOGOS[bl])}'s logo: it follows the title sponsor.</p>${this.check('lv-dbar', 'Background plate', d.bar != null)}` : ''}
-        ${d.text != null && !(bl && d.logo !== 'name') ? `${d.bind ? `<p class="muted">Reads ${esc(boundText(c, d.bind) || '(nothing yet)')}: it follows the ${d.bind === 'sponsor' ? 'title sponsor' : 'team name'}.</p>` : `<div class="fld"><label>Text</label>${this.text('lv-dt', d.text, 20)}</div>`}
-          <div class="fld"><label>Font</label><select id="lv-df">${Object.entries(FONTS).map(([k, v]) => `<option value="${k}" ${d.font === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
-          <div class="lv-row">${this.colour('Color', 'lv-dc', d.color ?? 0xffffff)}${this.colour('Outline', 'lv-do', d.outline ?? 0x000000)}</div>
-          ${this.check('lv-dno', 'Outline', d.outline != null)}${this.check('lv-dbar', 'Background bar', d.bar != null)}` : ''}
-        <div class="fld"><label>Panel</label><select id="lv-dp">${Object.entries(this.def.panels).map(([k, v]) => `<option value="${k}" ${d.panel === k ? 'selected' : ''}>${esc(v.label)}</option>`).join('')}</select></div>
-        ${this.range('Across', 'lv-dx', 0, p.W, 0.01, d.x, ' m')}
-        ${this.range('Up / down', 'lv-dy', 0, p.H, 0.005, d.y, ' m')}
-        ${this.range(d.text != null ? 'Letter height' : 'Width', 'lv-ds', 0.03, Math.max(0.2, Math.min(3, p.W)), 0.01, d.size, ' m')}
-        ${this.range('Rotation', 'lv-dr', -180, 180, 1, d.rot || 0, '°')}
-        ${this.range('Opacity', 'lv-da', 0.1, 1, 0.05, d.opacity ?? 1, '')}
-        ${this.check('lv-dm', 'Both sides (mirror onto the other side)', d.mirror)}
-        ${this.check('lv-dflip', 'Flip horizontally', d.flip)}`;
+      const v = d.part === 'helmet' ? H : D;
+      rows.push({ label: esc(d.name || d.text || 'Image'), head: true },
+        { label: 'Move It', cls: 'action primary', view: v, action: () => T.startPlace('kit', T.ksel), desc: 'Move it on the driver: the d-pad, the left stick, WASD or the arrows (or drag it with the mouse); Y or P for the next part. A or Enter when it\'s right.' });
+      if (d.text != null) rows.push(this.textRow('Text', () => d.text, x => d.text = x, 20, [c.teamName, c.sponsor, 'RACING'].filter(Boolean), '', v),
+        this.pickRow('Font', FONTS, () => d.font || 'impact', x => d.font = x, '', v),
+        this.colorRow('Color', () => d.color ?? 0xffffff, x => d.color = x, { view: v }), this.colorRow('Outline', () => d.outline, x => d.outline = x, { none: true, view: v }));
+      rows.push(
+        { label: 'Part', view: v, values: Object.entries(KIT_PARTS), get: () => d.part, set: (x) => { d.part = x; [d.u, d.v] = KIT_START[x]; T.changed(true); T.garage.view(x === 'helmet' ? H : D); }, desc: 'Where on the driver it goes.' },
+        this.stepRow(d.text != null ? 'Letter Height' : 'Size', () => d.size, x => d.size = x, 0.01, 0.02, 0.6, x => Math.round(x * 100) + '%', '', v),
+        this.stepRow('Rotation', () => d.rot || 0, x => d.rot = x, 5, -180, 180, x => Math.round(x) + '&deg;', '', v),
+        this.stepRow('Opacity', () => d.opacity ?? 1, x => d.opacity = x, 0.05, 0.1, 1, x => Math.round(x * 100) + '%', '', v),
+        this.onOff('Both Sides', () => d.mirror, x => d.mirror = x, '', v), this.onOff('Flip', () => d.flip, x => d.flip = x, '', v),
+        { label: 'Duplicate', view: v, action: () => { const i = T.ksel, cp = { ...s.decals[i], id: 'k' + Math.random().toString(36).slice(2, 8), v: Math.min(1, s.decals[i].v + 0.08) }; s.decals.splice(i + 1, 0, cp); T.ksel = i + 1; T.changed(true); } },
+        { label: 'Delete', view: v, confirm: 'Delete it? Select again', action: () => T.removeKitDecal(T.ksel) });
     }
-    return `<h4>DECALS</h4>
-      <div class="seg"><button id="lv-addimg" class="hot">+ Image (PNG / SVG)</button><button id="lv-addtxt">+ Text</button></div>
-      <div class="seg"><button id="lv-addsp">+ Sponsor name</button><button id="lv-addteam">+ Team name</button></div>
-      <div class="fld"><select id="lv-addlogo"><option value="">+ Sponsor logo&hellip;</option>${Object.entries(SPONSOR_LOGOS).sort((a, b) => a[1].localeCompare(b[1])).map(([k, n]) => `<option value="${k}">${esc(n)}</option>`).join('')}</select></div>
-      <div class="seg"><button id="lv-addshape" class="hot">${this.vec.open ? 'Exit shapes' : '+ Shape (pen, rectangle, ellipse)'}</button></div>
-      <p class="muted">${!this.vec.open ? 'Images you add are kept with your saves. SVGs stay sharp at any size. Shapes are drawn right on the car.' : this.vec.flat ? 'You\'re drawing on a flat view of the car. Pick the side in the bar at the top.' : 'Draw right on the car. Flat View (top bar) gives you a square-on view for exact lines.'}</p>
-      <div class="lv-list" id="lv-list">${list || '<p class="muted">No decals yet.</p>'}</div>
-      <div id="lv-props">${props}</div>`;
+    rows.push({ label: 'Pit Crew', head: true },
+      this.pickRow('Crew Kit', CREW_STYLES, () => cr.style, x => cr.style = x, cr.style === 'classic' ? 'Mechanic\'s coveralls in a color near the team\'s.' : 'Your crew wear the kit with your sponsors, without race numbers.', C),
+      ...(cr.style === 'own' ? [this.colorRow('Crew Base', () => cr.base, x => cr.base = x, { view: C }), this.colorRow('Crew Accent', () => cr.accent, x => cr.accent = x, { view: C })] : []));
+    return rows;
   }
-  bindCarDecals() {
-    const c = this.car;
-    $('lv-addimg').addEventListener('click', () => { const f = $('lv-file'); f.dataset.for = 'decal'; f.value = ''; f.click(); });
-    $('lv-addtxt').addEventListener('click', () => this.addDecal({ text: c.sponsor || 'SPONSOR', font: 'impact', color: 0xffffff, outline: 0x000000, size: 0.12, name: null }));
-    $('lv-addsp').addEventListener('click', () => this.addBound('sponsor')); $('lv-addteam').addEventListener('click', () => this.addBound('team'));
-    $('lv-addlogo').addEventListener('change', (e) => { const k = e.target.value; if (k) this.addLogo(k); });
-    $('lv-addshape').addEventListener('click', () => { sfx.select(); if (this.vec.open) return this.vec.close(); this.sel = -1; this.vec.start(this.garageSide(), 'pen'); });
-    // (the shape editor's undo takes in changes made here too)
-    for (const id of ['lv-list', 'lv-props']) $(id).addEventListener('pointerdown', () => { if (this.vec.open) this.vec.mark(); }, true);
-    document.querySelectorAll('#lv-list .lv-item').forEach(it => it.addEventListener('click', (e) => {
-      const i = +it.dataset.i, act = e.target.dataset?.act;
-      if (act === 'del') return this.removeDecal(i);
-      if (act === 'dup') { const cp = { ...c.decals[i], id: 'd' + Math.random().toString(36).slice(2, 8) }; if (this.def.panels[cp.panel]) cp.x = Math.min(this.def.panels[cp.panel].W, cp.x + 0.15); c.decals.splice(i + 1, 0, cp); this.sel = i + 1; this.changed(true); return; }
-      if (act === 'up') { if (i > 0) { [c.decals[i - 1], c.decals[i]] = [c.decals[i], c.decals[i - 1]]; this.sel = i - 1; this.changed(true); } return; }
-      this.sel = i; sfx.move(); this.render();
-      if (this.vec.open) { const d = c.decals[i]; if (!d.path) this.vec.close(); else if (d.panel !== this.vec.panel) this.vec.setPanel(d.panel); else this.vec.select(i); }
-    }));
-    this.bindDecalProps();
+
+  // -- SAVED: keep it, share it --
+  rows_saved() {
+    const c = this.car, T = this, mine = c.design && savedLiveries().find(e => e.id === c.design);
+    const saved = (e, verb) => { if (!e) { sfx.error(); return T.toast('COULD NOT SAVE (STORAGE FULL)'); } c.design = e.id; T.save(); sfx.best(); T.toast(e.dropped ? `${verb} · STORAGE WAS FULL: ${e.dropped} OLDEST REMOVED (EXPORT TO KEEP COPIES)` : verb); T.render(); };
+    return [
+      { label: 'Save', head: true },
+      ...(mine ? [{ label: `Update ${esc(mine.name)}`, confirm: 'Write over it? Select again', action: () => saved(updateLivery(mine.id, c, () => {}), 'UPDATED ' + mine.name.toUpperCase()), desc: `Saves this livery over ${esc(mine.name)}, the one it came from.` }] : []),
+      { label: mine ? 'Save As New' : `Save ${esc(c.teamName || 'This Livery')}`, cls: 'action primary', action: () => saved(saveLivery(c, () => {}), 'SAVED ' + String(c.teamName || 'Your Team').toUpperCase()),
+        desc: 'Keeps a copy in Saved Liveries (in the Garage), where each one is tried on the car as you move to it. Your car keeps this look anyway: it saves as you go.' },
+      { label: 'Share', head: true },
+      { label: 'Export Livery File', action: () => T.exportLivery(), desc: 'One file with the whole design and your images: send it to a friend, or keep a backup. It goes to your Downloads.' },
+      { label: 'Import Livery File (mouse)', action: () => { const f = $('lv-import'); f.value = ''; f.click(); }, desc: 'A livery file someone sent you, onto this car.' },
+      ...(DEV ? [{ label: 'For 3D Modelers', head: true },
+        { label: 'UV Template (PNG)', action: () => (T.def.template ? T.def.template() : uvTemplate(T.def)).toBlob(b => download(`uv-template-${T.def.id}.png`, b)), desc: 'Liveries are stored per panel, not per model: UV-unwrap a new model so each panel lands where this template has it. See docs/CAR-MODELS.md.' },
+        { label: 'This Livery\'s Texture', action: () => { const cv = T.garage.car?.livery; if (cv) cv.toBlob(b => download(`${(c.teamName || 'livery').replace(/\W+/g, '-')}-texture.png`, b)); } }] : []),
+    ];
   }
-  bindDecalProps() {
-    const d = this.car.decals[this.sel]; if (!d) return;
-    if (d.path) this.bindShapeProps(d);
-    const lg = parseLogoAsset(d.asset);
-    if (lg) this.bindSeg('lv-dlv', v => { d.asset = logoAsset(lg.slug, v); this.changed(true); });
-    if (d.bind === 'sponsor' && logoForName(boundText(this.car, 'sponsor'))) {
-      this.bindSeg('lv-dlv', v => { d.logo = v; this.changed(true); });
-      if (d.logo !== 'name') this.bindCheck('lv-dbar', v => { d.bar = v ? this.car.third : null; });
+  exportLivery() {
+    const c = this.car, data = { svgpLivery: 1, model: this.def.id, car: c, assets: assets.pick(liveryAssetIds(c)) };
+    download(`${(c.teamName || 'livery').replace(/[^\w -]/g, '').trim() || 'livery'}.svgp-livery.json`, new Blob([JSON.stringify(data)], { type: 'application/json' }));
+    this.toast('LIVERY EXPORTED');
+  }
+
+  // ---------- Place mode: the decal on the stick (or WASD); ‹ › the next panel; size, turn; A drops, B puts it back ----------
+  placeDecal() { const P = this.place; return P && (P.kind === 'kit' ? this.car.suit.decals : this.car.decals)[P.i]; }
+  startPlace(kind, i) {
+    const d = (kind === 'kit' ? this.car.suit.decals : this.car.decals)[i]; if (!d) return;
+    this.place = { kind, i, orig: JSON.parse(JSON.stringify(d)), t: 0 };
+    if (kind === 'kit') { this.ksel = i; this.garage.view(d.part === 'helmet' ? 'helmet' : 'driver'); } else this.sel = i;
+    sfx.select(); this.render();
+  }
+  // inp: x, y (-1..1, the stick), next (-1 / 0 / 1), size, rot (-1..1 held), drop, cancel
+  placeTick(dt, inp) {
+    const P = this.place, d = this.placeDecal(); if (!d) { this.place = null; return this.render(); }
+    if (inp.cancel) { const arr = P.kind === 'kit' ? this.car.suit.decals : this.car.decals; arr[P.i] = P.orig; this.place = null; sfx.back(); return this.changed(true); }
+    if (inp.drop) { this.place = null; sfx.select(); return this.changed(true); }
+    let moved = false;
+    if (P.kind === 'kit') {
+      if (inp.next) { const ks = Object.keys(KIT_PARTS), k = (ks.indexOf(d.part) + inp.next + ks.length) % ks.length; d.part = ks[k]; [d.u, d.v] = KIT_START[d.part]; this.garage.view(d.part === 'helmet' ? 'helmet' : 'driver'); sfx.move(); moved = true; this.render(); }
+      if (inp.x || inp.y) { d.u = Math.max(0, Math.min(1, d.u + inp.x * dt * 0.35)); d.v = Math.max(0, Math.min(1, d.v + inp.y * dt * 0.35)); moved = true; }
+      if (inp.size) { d.size = Math.max(0.02, Math.min(0.6, d.size * (1 + inp.size * dt * 0.9))); moved = true; }
+    } else {
+      const ks = Object.keys(this.def.panels);
+      if (inp.next) { const k = (ks.indexOf(d.panel) + inp.next + ks.length) % ks.length, q = this.def.panels[ks[k]]; d.panel = ks[k]; d.x = q.W / 2; d.y = q.H / 2; sfx.move(); moved = true; this.render(); }
+      const p = this.def.panels[d.panel];
+      if (p && (inp.x || inp.y)) { const sp = Math.max(0.5, Math.min(2, p.W * 0.35)); d.x = Math.max(0, Math.min(p.W, d.x + inp.x * dt * sp)); d.y = Math.max(0, Math.min(p.H, d.y + inp.y * dt * sp)); moved = true; }
+      if (inp.size) { d.size = Math.max(0.03, Math.min(3, d.size * (1 + inp.size * dt * 0.9))); moved = true; }
     }
-    if (d.text != null && $('lv-df')) {
-      if (!d.bind) this.bindText('lv-dt', v => { d.text = v; });
-      $('lv-df').addEventListener('change', (e) => { d.font = e.target.value; this.repaint(); });
-      this.bindColour('lv-dc', v => d.color = v); this.bindColour('lv-do', v => { d.outline = v; });
-      this.bindCheck('lv-dno', v => { d.outline = v ? unhex($('lv-do').value) : null; });
-      this.bindCheck('lv-dbar', v => { d.bar = v ? this.car.third : null; });
-    }
-    $('lv-dp').addEventListener('change', (e) => { const q = this.def.panels[e.target.value]; d.panel = e.target.value; d.x = q.W / 2; d.y = q.H / 2; this.changed(true); });
-    this.bindRange('lv-dx', v => d.x = v, ' m'); this.bindRange('lv-dy', v => d.y = v, ' m', 3);
-    this.bindRange('lv-ds', v => d.size = v, ' m'); this.bindRange('lv-dr', v => d.rot = v, '°', 0); this.bindRange('lv-da', v => d.opacity = v, '', 2);
-    this.bindCheck('lv-dm', v => d.mirror = v); this.bindCheck('lv-dflip', v => d.flip = v);
+    if (inp.rot) { let r = (d.rot || 0) + inp.rot * dt * 90; r = ((r + 180) % 360 + 360) % 360 - 180; d.rot = r; moved = true; }
+    // (painting the car is the slow part: at most every 50 ms while it moves)
+    if (moved) { P.t += dt; if (P.t > 0.05 || inp.next) { P.t = 0; this.repaint(); } }
   }
-  // a vector shape's own fields: fill, stroke, open / closed, and the way into the editor
-  shapeProps(d) {
-    return `<button class="wide hot" id="lv-dedit" style="margin:0 0 12px">${this.vec.open ? 'Edit nodes (A)' : 'Edit shape'}</button>
-      <div class="lv-row">${this.colour('Fill', 'lv-dfi', d.fill ?? this.car.accent)}${this.colour('Stroke', 'lv-dst', d.stroke ?? this.car.third)}</div>
-      <div class="lv-row lv-checks">${this.check('lv-dfo', 'Fill', d.fill != null)}${this.check('lv-dso', 'Stroke', d.stroke != null)}${this.check('lv-dcl', 'Closed', d.path.closed)}</div>
-      ${d.stroke != null ? this.range('Stroke width', 'lv-dsw', 0.005, 0.3, 0.005, d.sw || 0.04, ' m') : ''}`;
+  cursorTo(f) { const k = this.menu.items.findIndex(f); if (k >= 0) { this.menu.i = k; this.menu.render(); } }
+  deleteSelected() {
+    if (this.tab === 'decals' && this.car.decals[this.sel]) this.removeDecal(this.sel);
+    else if (this.tab === 'kit' && this.car.suit.decals[this.ksel]) this.removeKitDecal(this.ksel);
   }
-  bindShapeProps(d) {
-    $('lv-dedit').addEventListener('click', () => { sfx.select(); if (this.vec.open) this.vec.setTool('node'); else this.vec.start(d.panel, 'move'); });
-    this.bindColour('lv-dfi', v => { d.fill = v; }); this.bindColour('lv-dst', v => { d.stroke = v; });
-    this.bindCheck('lv-dfo', v => { d.fill = v ? unhex($('lv-dfi').value) : null; });
-    this.bindCheck('lv-dso', v => { d.stroke = v ? unhex($('lv-dst').value) : null; d.sw = d.sw || 0.04; this.render(); });
-    this.bindCheck('lv-dcl', v => { d.path.closed = v && d.path.n.length > 2; this.render(); });
-    this.bindRange('lv-dsw', v => d.sw = v, ' m', 3);
-  }
+
   // the panel facing the camera now (where a new shape starts)
   garageSide() {
     const P = this.def.panels, y = ((this.garage.yaw - this.garage.table.rotation.y) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI), p = this.garage.pitch;
@@ -284,23 +391,20 @@ export class LiveryDesigner {
     if (Math.abs(Math.sin(y)) >= 0.5) return Math.sin(y) > 0 ? pick('sideL', 'podL', this.def.startPanel) : pick('sideR', 'podR', 'sideL');
     return Math.cos(y) > 0 ? pick('front', 'sideL', this.def.startPanel) : pick('rear', 'sideL', this.def.startPanel);
   }
-  syncDecalFields() {
-    const d = this.car.decals[this.sel]; if (!d) return;
-    for (const [id, v, dp] of [['lv-dx', d.x, 2], ['lv-dy', d.y, 3]]) { const r = $(id); if (r) { r.value = v; $(id + '-v').textContent = (+v).toFixed(dp) + ' m'; } }
-  }
   addDecal(d) {
     this.vec.close(); // (images and text are placed on the 3D car the usual way)
     const c = this.car;
     // start on the left sidepod (the most visible spot; the flank on cars without one), mirrored to the right one
     const pn = this.def.startPanel || 'podL', p = this.def.panels[pn];
     c.decals.push({ id: 'd' + Math.random().toString(36).slice(2, 8), panel: pn, x: p.W * 0.5, y: p.H * 0.4, size: 0.5, rot: 0, opacity: 1, mirror: true, flip: false, ...d });
-    this.sel = c.decals.length - 1; this.dtarget = 'car';
-    sfx.select(); this.changed(true);
-    this.toast('ON BOTH SIDES OF THE CAR: DRAG IT TO MOVE IT');
+    this.sel = c.decals.length - 1; this.tab = 'decals';
+    sfx.select(); this.changed(true); this.cursorTo(it => it.label === 'Move It'); // (one press to move it)
+    this.toast('ADDED ON BOTH SIDES: MOVE IT IS UNDER THE LIST');
   }
   // the title sponsor's name / the team name, as a sticker that keeps up with it
   addBound(bind) {
     const c = this.car;
+    if (bind === 'number') return this.addDecal({ bind, text: '', font: 'impact', color: c.accent, outline: c.third, bar: null, size: 0.2, name: null }); // (big and outlined, like a race number)
     this.addDecal({ bind, text: '', font: 'impact', color: c.accent, outline: null, bar: c.third, size: bind === 'sponsor' ? 0.12 : 0.09, name: null });
   }
   // a sponsor's logo (js/sponsorlogos.js) as an image decal, its width set so it's about as tall as a name sticker
@@ -329,177 +433,28 @@ export class LiveryDesigner {
     } catch (e) { this.toast(String(e.message || e).toUpperCase().slice(0, 60)); sfx.error(); }
   }
 
-  // HELMET
-  tab_helmet() {
-    const h = this.car.helmetDesign;
-    return `<h4>HELMET</h4>
-      <div class="lv-row">${this.colour('Base', 'lv-h1', h.base)}${this.colour('Design', 'lv-h2', h.accent)}${this.colour('Trim', 'lv-h3', h.third)}</div>
-      <div class="fld"><label>Design</label></div>${this.seg('lv-hp', HELMET_PATTERNS, h.pattern)}
-      <div class="fld"><label>Visor</label></div>${this.seg('lv-hv', VISORS, h.visor)}
-      <div class="fld"><label>Visor strip</label></div>${this.seg('lv-hs', VISOR_STRIPS, h.strip || 'team')}
-      ${this.check('lv-hn', 'Race number on the sides', h.number)}
-      <div class="fld"><label>Logo on the sides</label></div>
-      <div class="seg"><button id="lv-hlogo">${h.decal ? 'Change image' : 'Add image (PNG / SVG)'}</button>${h.decal ? '<button id="lv-hclr">Remove</button>' : ''}</div>
-      <p class="muted">More logos and text anywhere on the helmet: DECALS → On the driver.</p>
-      <button class="wide" id="lv-hview">Look at the helmet</button>`;
-  }
-  bind_helmet() {
-    const h = this.car.helmetDesign;
-    this.bindColour('lv-h1', v => h.base = v); this.bindColour('lv-h2', v => h.accent = v); this.bindColour('lv-h3', v => h.third = v);
-    this.bindSeg('lv-hp', v => { h.pattern = v; this.repaint(); }); this.bindSeg('lv-hv', v => { h.visor = v; this.repaint(); }); this.bindSeg('lv-hs', v => { h.strip = v; this.repaint(); });
-    this.bindCheck('lv-hn', v => h.number = v);
-    $('lv-hlogo').addEventListener('click', () => { const f = $('lv-file'); f.dataset.for = 'helmet'; f.value = ''; f.click(); });
-    $('lv-hclr') && $('lv-hclr').addEventListener('click', () => { h.decal = null; this.changed(true); });
-    $('lv-hview').addEventListener('click', () => this.garage.view('helmet'));
-    this.garage.view('helmet');
-  }
-
-  // SUIT
-  tab_suit() {
-    const c = this.car, s = c.suit, cr = c.crew;
-    return `<h4>RACE SUIT</h4>
-      <div class="lv-row">${this.colour('Base', 'lv-s1', s.base)}${this.colour('Accent', 'lv-s2', s.accent)}</div>
-      <div class="fld"><label>Design</label></div>${this.seg('lv-sp2', SUIT_PATTERNS, s.pattern, 'grid4')}
-      <div class="fld"><label>Chest</label></div>${this.seg('lv-sc', { team: 'Team name', sponsor: 'Sponsor', none: 'Nothing' }, s.chest)}
-      <div class="fld"><label>Race number</label></div>${this.seg('lv-sn', SUIT_NUMBERS, s.number)}
-      <div class="fld"><label>Shoulder patches</label></div>
-      <div class="seg"><button id="lv-slogo">${s.decal ? 'Change image' : 'Add image (PNG / SVG)'}</button>${s.decal ? '<button id="lv-sclr">Remove</button>' : ''}</div>
-      <h4>GLOVES + BOOTS</h4>
-      <div class="lv-row">${this.colour('Gloves', 'lv-sg', s.gloves)}${this.colour('Boots', 'lv-sb', s.boots)}</div>
-      <p class="muted">Boots get a stripe in the suit's accent color.</p>
-      <p class="muted">Sponsors and logos on the suit and helmet: DECALS → On the driver.</p>
-      <h4>PIT CREW</h4>
-      ${this.seg('lv-cs', CREW_STYLES, cr.style)}
-      ${cr.style === 'own' ? `<div class="lv-row">${this.colour('Base', 'lv-cb', cr.base)}${this.colour('Accent', 'lv-ca', cr.accent)}</div>` : ''}
-      <p class="muted">${cr.style === 'classic' ? 'Your crew wear mechanic\'s coveralls in a color near the team\'s.' : 'Your crew wear the kit with your sponsors, without race numbers.'} </p>
-      <button class="wide" id="lv-crewview">Look at the crew</button>`;
-  }
-  bind_suit() {
-    const c = this.car, s = c.suit;
-    this.bindColour('lv-s1', v => s.base = v); this.bindColour('lv-s2', v => s.accent = v);
-    this.bindSeg('lv-sp2', v => { s.pattern = v; this.repaint(); }); this.bindSeg('lv-sc', v => { s.chest = v; this.repaint(); });
-    this.bindSeg('lv-sn', v => { s.number = v; this.repaint(); });
-    $('lv-slogo').addEventListener('click', () => { const f = $('lv-file'); f.dataset.for = 'suit'; f.value = ''; f.click(); });
-    $('lv-sclr') && $('lv-sclr').addEventListener('click', () => { s.decal = null; this.changed(true); });
-    this.bindColour('lv-sg', v => s.gloves = v); this.bindColour('lv-sb', v => s.boots = v);
-    this.bindSeg('lv-cs', v => { c.crew.style = v; this.changed(true); });
-    this.bindColour('lv-cb', v => c.crew.base = v); this.bindColour('lv-ca', v => c.crew.accent = v);
-    $('lv-crewview').addEventListener('click', () => { this.garage.view('crew'); sfx.move(); });
-    this.garage.view('driver');
-  }
-  kitDecalsHtml() {
-    const s = this.car.suit, d = s.decals[this.ksel];
-    const list = s.decals.map((x, i) => {
-      const url = x.asset && assets.get(x.asset);
-      const th = x.text != null ? `<span class="th" style="color:${hex(x.color)}">${esc(x.text.slice(0, 3))}</span>` : `<span class="th" style="background-image:url('${url || ''}')"></span>`;
-      return `<div class="lv-item ${i === this.ksel ? 'sel' : ''}" data-i="${i}">${th}<span class="nm">${esc(x.name || x.text || 'Decal')}<br><span class="pn">${KIT_PARTS[x.part] || x.part}${x.mirror ? ' · BOTH SIDES' : ''}</span></span>
-        <button data-act="up" title="Draw earlier">&#9650;</button><button data-act="dup" title="Duplicate">+</button><button data-act="del" title="Delete">&#10005;</button></div>`;
-    }).join('');
-    let props = '<p class="muted">Select a decal to edit it.</p>';
-    if (d) props = `<h4>SELECTED</h4>
-        ${d.text != null ? `<div class="fld"><label>Text</label>${this.text('lv-kt', d.text, 20)}</div>
-          <div class="fld"><label>Font</label><select id="lv-kf">${Object.entries(FONTS).map(([k, v]) => `<option value="${k}" ${d.font === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
-          <div class="lv-row">${this.colour('Color', 'lv-kc', d.color ?? 0xffffff)}${this.colour('Outline', 'lv-ko', d.outline ?? 0x000000)}</div>
-          ${this.check('lv-kno', 'Outline', d.outline != null)}` : ''}
-        <div class="fld"><label>Part</label><select id="lv-kp">${Object.entries(KIT_PARTS).map(([k, v]) => `<option value="${k}" ${d.part === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
-        ${this.range('Around', 'lv-ku', 0, 1, 0.005, d.u, '')}
-        ${this.range('Up / down', 'lv-kv', 0, 1, 0.005, d.v, '')}
-        ${this.range(d.text != null ? 'Letter height' : 'Width', 'lv-ks', 0.02, 0.6, 0.01, d.size, '')}
-        ${this.range('Rotation', 'lv-kr', -180, 180, 1, d.rot || 0, '°')}
-        ${this.range('Opacity', 'lv-ka', 0.1, 1, 0.05, d.opacity ?? 1, '')}
-        ${this.check('lv-km', 'Both sides (mirror onto the other side)', d.mirror)}
-        ${this.check('lv-kflip', 'Flip horizontally', d.flip)}`;
-    return `<h4>DECALS ON THE DRIVER</h4>
-      <div class="seg"><button id="lv-kaddimg" class="hot">+ Image (PNG / SVG)</button><button id="lv-kaddtxt">+ Text</button></div>
-      <p class="muted">Click on his suit, a sleeve, a leg or his helmet to place it. Your pit crew wear them too.</p>
-      <div class="lv-list" id="lv-klist">${list || '<p class="muted">No decals on the driver yet.</p>'}</div>
-      <div id="lv-kprops">${props}</div>`;
-  }
-  bindKitDecals() {
-    const c = this.car, s = c.suit;
-    $('lv-kaddimg').addEventListener('click', () => { const f = $('lv-file'); f.dataset.for = 'kit'; f.value = ''; f.click(); });
-    $('lv-kaddtxt').addEventListener('click', () => this.addKitDecal({ text: c.sponsor || 'SPONSOR', font: 'impact', color: 0xffffff, outline: null, size: 0.07, name: null }));
-    document.querySelectorAll('#lv-klist .lv-item').forEach(it => it.addEventListener('click', (e) => {
-      const i = +it.dataset.i, act = e.target.dataset?.act;
-      if (act === 'del') return this.removeKitDecal(i);
-      if (act === 'up') { if (i > 0) { [s.decals[i - 1], s.decals[i]] = [s.decals[i], s.decals[i - 1]]; this.ksel = i - 1; this.changed(true); } return; }
-      if (act === 'dup') { const cp = { ...s.decals[i], id: 'k' + Math.random().toString(36).slice(2, 8), v: Math.min(1, s.decals[i].v + 0.08) }; s.decals.splice(i + 1, 0, cp); this.ksel = i + 1; this.changed(true); return; }
-      this.ksel = i; sfx.move(); this.render();
-      this.garage.view(s.decals[i].part === 'helmet' ? 'helmet' : 'driver');
-    }));
-    const d = s.decals[this.ksel];
-    if (d) {
-      if (d.text != null) {
-        this.bindText('lv-kt', v => { d.text = v; });
-        $('lv-kf').addEventListener('change', (e) => { d.font = e.target.value; this.repaint(); });
-        this.bindColour('lv-kc', v => d.color = v); this.bindColour('lv-ko', v => { d.outline = v; });
-        this.bindCheck('lv-kno', v => { d.outline = v ? unhex($('lv-ko').value) : null; });
-      }
-      $('lv-kp').addEventListener('change', (e) => { d.part = e.target.value; [d.u, d.v] = KIT_START[d.part]; this.changed(true); this.garage.view(d.part === 'helmet' ? 'helmet' : 'driver'); });
-      this.bindRange('lv-ku', v => d.u = v, '', 3); this.bindRange('lv-kv', v => d.v = v, '', 3);
-      this.bindRange('lv-ks', v => d.size = v, ''); this.bindRange('lv-kr', v => d.rot = v, '°', 0); this.bindRange('lv-ka', v => d.opacity = v, '', 2);
-      this.bindCheck('lv-km', v => d.mirror = v); this.bindCheck('lv-kflip', v => d.flip = v);
-    }
-  }
-  syncKitFields() {
-    const d = this.car.suit.decals[this.ksel]; if (!d) return;
-    for (const [id, v] of [['lv-ku', d.u], ['lv-kv', d.v]]) { const r = $(id); if (r) { r.value = v; $(id + '-v').textContent = (+v).toFixed(3); } }
-  }
   addKitDecal(d) {
     const s = this.car.suit;
     // start on his left breast, over the heart
     s.decals.push({ id: 'k' + Math.random().toString(36).slice(2, 8), part: 'torso', u: 0.09, v: 0.3, size: 0.12, rot: 0, opacity: 1, mirror: false, flip: false, ...d });
-    this.ksel = s.decals.length - 1; this.tab = 'decals'; this.dtarget = 'driver';
-    sfx.select(); this.changed(true); this.garage.view('driver');
-    this.toast('NOW CLICK ON THE DRIVER TO PLACE IT');
+    this.ksel = s.decals.length - 1; this.tab = 'kit';
+    sfx.select(); this.changed(true); this.garage.view('driver'); this.cursorTo(it => it.label === 'Move It');
+    this.toast('ADDED ON HIS CHEST: MOVE IT IS UNDER THE LIST');
   }
   removeKitDecal(i) { const s = this.car.suit; s.decals.splice(i, 1); this.ksel = Math.min(this.ksel, s.decals.length - 1); sfx.back(); this.changed(true); }
 
-  // FILES: save this livery (the list is the Garage's Saved Liveries), export / import, modeler tools (DEV)
-  tab_files() {
-    return `<h4>SAVED LIVERIES</h4>
-      <p class="muted">Your saved liveries are in the Garage, under Saved Liveries: each one tried on the car as you move to it, this car's first. Saving one here adds it there.</p>
-      <button class="wide hot" id="lv-save">Save "${esc(this.car.teamName)}" as a new livery</button>
-      <h4 style="margin-top:16px">SHARE</h4>
-      <p class="muted">A livery file holds the whole design including your images. Send it to a friend, or keep a backup.</p>
-      <div class="seg"><button id="lv-exp">Export livery file</button><button id="lv-imp">Import livery file</button></div>
-      ${DEV ? `<h4 style="margin-top:16px">FOR 3D MODELERS</h4>
-      <p class="muted">Liveries are stored per panel, not per model. To make a new car model take every livery: UV-unwrap it so each panel lands in the same area and the same direction as this template. See docs/CAR-MODELS.md.</p>
-      <div class="seg"><button id="lv-uv">UV template (PNG)</button><button id="lv-tex">This livery's texture</button></div>` : ''}`;
-  }
-  bind_files() {
-    const c = this.car;
-    $('lv-save').addEventListener('click', () => {
-      const name = c.teamName || 'Your Team', e = saveLivery(c, () => { if (this.tab === 'files') this.render(); });
-      if (e) { c.design = e.id; this.save(); this.toast(e.dropped ? `SAVED ${name.toUpperCase()} · STORAGE WAS FULL: ${e.dropped} OLDEST REMOVED (EXPORT TO KEEP COPIES)` : 'SAVED ' + name.toUpperCase()); sfx.best(); } else this.toast('COULD NOT SAVE (STORAGE FULL)');
-      this.render();
-    });
-    $('lv-exp').addEventListener('click', () => {
-      const data = { svgpLivery: 1, model: this.def.id, car: c, assets: assets.pick(liveryAssetIds(c)) };
-      download(`${(c.teamName || 'livery').replace(/[^\w -]/g, '').trim() || 'livery'}.svgp-livery.json`, new Blob([JSON.stringify(data)], { type: 'application/json' }));
-      this.toast('LIVERY EXPORTED');
-    });
-    $('lv-imp').addEventListener('click', () => { const f = $('lv-import'); f.value = ''; f.click(); });
-    $('lv-uv')?.addEventListener('click', () => (this.def.template ? this.def.template() : uvTemplate(this.def)).toBlob(b => download(`uv-template-${this.def.id}.png`, b)));
-    $('lv-tex')?.addEventListener('click', () => { const cv = this.garage.car?.livery; if (cv) cv.toBlob(b => download(`${(c.teamName || 'livery').replace(/\W+/g, '-')}-texture.png`, b)); });
-  }
+
   async importLivery(file) {
     if (!file) return;
     try {
       const data = JSON.parse(await file.text());
       if (!data || !data.svgpLivery || !data.car) throw new Error('not a livery file');
       for (const [id, url] of Object.entries(data.assets || {})) await assets.save(id, url);
-      const c = this.car; Object.keys(c).forEach(k => delete c[k]); Object.assign(c, fillLivery(data.car));
+      // (onto this car, the model you're in, and you keep your own helmet, suit and crew)
+      const c = this.car, keep = { chassis: c.chassis, helmet: c.helmet, helmetDesign: c.helmetDesign, suit: c.suit, crew: c.crew }; Object.keys(c).forEach(k => delete c[k]); Object.assign(c, fillLivery({ ...data.car, ...keep }));
       this.sel = -1; this.rebuild(); this.render(); sfx.select(); this.toast('IMPORTED ' + String(c.teamName || '').toUpperCase());
     } catch (e) { sfx.error(); this.toast('THAT IS NOT A LIVERY FILE'); }
   }
-}
-
-// a shape's list thumbnail: its path as a little SVG
-function shapeThumb(d) {
-  const b = shapeBounds(d.path), pad = (d.stroke != null ? d.sw || 0 : 0) / 2 + 0.01, w = b[2] - b[0] + pad * 2, h = b[3] - b[1] + pad * 2;
-  const fill = d.fill != null ? hex(d.fill) : 'none', st = d.stroke != null ? `stroke="${hex(d.stroke)}" stroke-width="${d.sw}" stroke-linejoin="round" stroke-linecap="round"` : '';
-  return `<span class="th"><svg viewBox="${b[0] - pad} ${b[1] - pad} ${w} ${h}" width="34" height="22" style="transform:scaleX(${d.flip ? -1 : 1}) rotate(${d.rot || 0}deg)"><path d="${pathD(d.path)}" fill="${fill}" ${st}/></svg></span>`;
 }
 
 function download(name, blob) {
