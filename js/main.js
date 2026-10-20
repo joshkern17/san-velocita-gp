@@ -115,7 +115,7 @@ applyPadFeel();
 // Each car keeps its own look (settings.liveries, by model): its paint, pattern, decals and stickers, and the F1 car's
 // bodywork. Your team name, number and sponsor and your driver kit (helmet, suit, crew) go with you into every car.
 // settings.car stays the one flat livery everything reads (races, online, the designer); it's kept in step here.
-const CAR_LOOK = ['design', 'pattern', 'main', 'accent', 'third', 'decals', 'stickers', 'showNumber', 'showSponsor', 'sponsorLogo', 'nose', 'fwing', 'pods', 'cover', 'rwing', 'halo', 'rims', 'rimCol'];
+const CAR_LOOK = ['design', 'pattern', 'main', 'accent', 'third', 'wingColor', 'decals', 'stickers', 'showNumber', 'showSponsor', 'sponsorLogo', 'nose', 'fwing', 'pods', 'cover', 'rwing', 'halo', 'rims', 'rimCol'];
 let carLookOff = false; // (the World Career's garage: that's the career's car, not one of yours)
 function keepCarLook() {
   if (carLookOff || !settings.car) return;
@@ -672,6 +672,7 @@ const designer = new LiveryDesigner({
   garage,
   getCar: () => settings.car,
   setCar: (car, rebuild) => { if (rebuild || !garage.car) garage.setCar(car); else garage.repaint(car); saveSettingsSoon(); },
+  locked: () => !!garageSwap, // (the World Career: the team's name and its title sponsor are set by the career)
   onDone: () => { saveSettings(); clearEdges(); show('s-garage'); menus['s-garage'][0].render(); }, // (clearEdges: the Esc / B that closed it doesn't also leave the Garage)
   save: () => saveSettingsSoon(),
 });
@@ -2211,7 +2212,7 @@ const pc = new Computer({
   // Form SV-1 filed: the team takes its name and colours (and your livery starts in them)
   register: (f) => {
     WC.registerTeam(world, f);
-    world.livery = { ...settings.car, main: f.colors[0], accent: f.colors[1], teamName: f.team };
+    world.livery = careerLivery(f);
     settings.driverName = f.name; saveSettings();
     sfx.best(); saveWorld(); renderHub(); phone.buzz();
   },
@@ -2488,7 +2489,7 @@ function openingDone(r) {
   // (Form SV-1 was filed at the registry desk: as if on the computer; then the wizard comes in, not the computer)
   if (r && r.reg) {
     const f = r.reg; WC.registerTeam(world, f);
-    world.livery = { ...settings.car, main: f.colors[0], accent: f.colors[1], teamName: f.team };
+    world.livery = careerLivery(f);
     settings.driverName = f.name; saveSettings(); saveWorld();
     enterHub(); setTimeout(() => { if (screen === 's-hub') openTeamSetup(); }, 900);
     return;
@@ -2971,8 +2972,22 @@ backs['s-circuits'] = () => closeTrackPick();
 
 // ---- the hub: your garage ----
 // this career's car: its own livery (designed from the hub), on the chassis you bought
+// A new career's livery: the colors and team name from Form SV-1, your driver kit (it's still you), and none of the
+// decals your quick-race cars wear (the team's stickers are added for its car)
+function careerLivery(f) {
+  const c = JSON.parse(JSON.stringify(settings.car)); for (const k of CAR_LOOK) delete c[k];
+  return { ...c, pattern: settings.car.pattern, main: f.colors[0], accent: f.colors[1], third: settings.car.third, decals: [], teamName: f.team };
+}
+// the career's car in its own look: each car the team has run keeps its paint and decals (world.liveries, by model), a
+// new one starts in the team's colors with its own stickers
 function worldCar() {
   const c = { ...(world.livery || settings.car) };
+  if (world.car && c.chassis !== world.car.chassis) {
+    if (c.chassis) (world.liveries ||= {})[c.chassis] = JSON.parse(JSON.stringify(Object.fromEntries(CAR_LOOK.filter(k => c[k] !== undefined).map(k => [k, c[k]]))));
+    const L = world.liveries && world.liveries[world.car.chassis];
+    if (L) { for (const k of CAR_LOOK) delete c[k]; Object.assign(c, JSON.parse(JSON.stringify(L))); }
+    else { c.decals = []; delete c.stickers; delete c.design; }
+  }
   if (world.car) c.chassis = world.car.chassis;
   // (this career's team, never the name on the garage car or another save's livery)
   const team = world.teams[world.player.team]; if (team) c.teamName = team.name;

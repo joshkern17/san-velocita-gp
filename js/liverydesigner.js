@@ -20,7 +20,8 @@ const KIT_START = { torso: [0.09, 0.3], armL: [0.25, 0.25], armR: [0.75, 0.25], 
 
 
 export class LiveryDesigner {
-  constructor({ garage, getCar, setCar, onDone, save }) {
+  constructor({ garage, getCar, setCar, onDone, save, locked }) {
+    this.locked = locked || (() => false);
     this.garage = garage; this.getCar = getCar; this.setCar = setCar; this.onDone = onDone; this.save = save || (() => {});
     this.tab = 'team'; this.sel = -1; this.ksel = -1; this.dtarget = 'car'; // (ksel: the selected decal on the uniform)
     this.vec = new VectorEditor(this); // (the shape editor: js/vectoredit.js)
@@ -146,8 +147,8 @@ export class LiveryDesigner {
   tab_team() {
     const c = this.car;
     return `<h4>TEAM</h4>
-      <div class="fld"><label>Team name</label>${this.text('lv-team', c.teamName, 22)}</div>
-      <div class="lv-row"><div class="fld" style="flex:2"><label>Title sponsor</label>${this.text('lv-sp', c.sponsor, 14)}</div><div class="fld"><label>Number</label><input type="number" id="lv-num" min="0" max="99" value="${c.number}"></div></div>
+      ${this.locked() ? `<div class="fld"><label>Team name</label><p class="lv-locked">${esc(c.teamName)}</p></div>` : `<div class="fld"><label>Team name</label>${this.text('lv-team', c.teamName, 22)}</div>`}
+      <div class="lv-row"><div class="fld" style="flex:2"><label>Title sponsor</label>${this.locked() ? `<p class="lv-locked">${esc(c.sponsor)}</p>` : this.text('lv-sp', c.sponsor, 14)}</div><div class="fld"><label>Number</label><input type="number" id="lv-num" min="1" max="99" value="${c.number}"></div></div>
       <h4>COLORS</h4>
       <div class="lv-row">${this.colour('Main', 'lv-c1', c.main)}${this.colour('Accent', 'lv-c2', c.accent)}${this.colour('Detail', 'lv-c3', c.third)}</div>
       ${this.check('lv-wown', 'Own rear wing color', c.wingColor != null)}
@@ -155,13 +156,14 @@ export class LiveryDesigner {
       <h4>PATTERN</h4>
       ${this.seg('lv-pat', PATTERNS, c.pattern)}
       ${this.check('lv-shown', 'Race numbers on the car', c.showNumber)}
+      ${this.locked() ? '<p class="muted">The team name is the one on Form SV-1, and the sponsor is your title sponsor: they change in the career, not here.</p>' : ''}
       <p class="muted">The sponsor and team name stickers, your own logos and text are in DECALS. Bodywork parts are in the Garage menu.</p>`;
   }
   bind_team() {
     const c = this.car;
     this.bindText('lv-team', v => c.teamName = v.toUpperCase());
     this.bindText('lv-sp', v => c.sponsor = v.toUpperCase());
-    const n = $('lv-num'); n.addEventListener('input', () => { c.number = Math.max(0, Math.min(99, parseInt(n.value || '0', 10))); this.repaint(); }); n.addEventListener('keydown', e => e.stopPropagation());
+    const n = $('lv-num'); n.addEventListener('input', () => { c.number = Math.max(1, Math.min(99, parseInt(n.value || '1', 10))); this.repaint(); }); n.addEventListener('keydown', e => e.stopPropagation());
     this.bindColour('lv-c1', v => c.main = v); this.bindColour('lv-c2', v => c.accent = v); this.bindColour('lv-c3', v => c.third = v);
     // rear wing: the car's own default (road cars: the main colour, single-seaters: the accent) unless picked here
     this.bindCheck('lv-wown', v => { c.wingColor = v ? (c.wingColor ?? c.main) : null; this.render(); });
