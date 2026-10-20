@@ -68,6 +68,11 @@
   --m-fast: .08s; --m-med: .18s; --m-slow: .35s; --ease: cubic-bezier(.2, .8, .2, 1);
 }
 
+/* ---- Color Vision: Red-Green Safe (Options > Display). The colors that carry meaning (sector times, faster / slower,
+   the car's condition in js/hud.js) move to the Okabe-Ito palette: sky blue for good, orange for slower, reddish purple
+   for bad. The UI's own colours and real-world ones (flags, tire compounds) stay. ---- */
+:root[data-cv="rg"] { --sv-sec-green: #56b4e9; --sv-sec-yellow: #e69f00; --sv-good: #56b4e9; --sv-bad: #cc79a7; }
+
 /* ---- UI Colour: Blue (Options > Display). The blue takes over everything the red did; the red becomes the accent ---- */
 :root[data-theme="blue"] {
   /* SV blue #2D36F2 carries the type; titles run from a pale tint down into it */

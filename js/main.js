@@ -5,7 +5,7 @@ import { Race, TYRE_FIT, buildScenery, setMirror } from './race.js';
 import { PROGRAMMES, progById, ACCLIM_PASS, MSEC_PASS } from './practice.js';
 import { FX } from './tirefx.js';
 import { realTracks, needsHydrate, hydrateReal, nameCorners } from './realtracks.js';
-import { HUD, fmtTime, RADAR_ZOOMS, readThemeColours, condCol } from './hud.js';
+import { HUD, fmtTime, RADAR_ZOOMS, readThemeColours, condCol, setColorVision } from './hud.js';
 import { Editor } from './editor.js';
 import { initInput, pressed, isDown, clearEdges, pollGamepad, driveControls, gp, device, onDevice, rumble, rightStick, leftStick, padFeel, STEER_CURVES, DEADZONES, STEER_LAGS, wheel, looksLikeWheel } from './input.js';
 import { WheelSetup } from './wheelsetup.js';
@@ -136,7 +136,8 @@ function applyVideo() {
   try { pitGarage.setShadows(settings.shadows); } catch (e) { /* (not made yet: it reads them when it is) */ }
   FX.dirt = (settings.dirtFx ?? 5) / 5; // (dust and thrown dirt: 0 off, 1 as designed, 2 double)
   document.body.classList.toggle('no-scan', !settings.scan);
-  document.documentElement.dataset.theme = settings.uiTheme; readThemeColours(); // (css/sv.css: the blue palette)
+  document.documentElement.dataset.theme = settings.uiTheme; document.documentElement.dataset.cv = settings.colorVision === 'rg' ? 'rg' : '';
+  readThemeColours(); setColorVision(settings.colorVision); // (css/sv.css: the blue palette, the red-green safe colors)
   for (const [k, c] of [['hudTower', 'hud-no-tower'], ['hudStrat', 'hud-no-strat'], ['hudRadar', 'hud-no-radar']]) document.body.classList.toggle(c, settings[k] === 'off');
   setVolume(settings.volume / 10); setMusicVolume(settings.music / 10); setLevel('car', (settings.carVol ?? 10) / 10); setLevel('sfx', (settings.sfxVol ?? 10) / 10); setLevel('voice', (settings.voiceVol ?? 10) / 10); setEngineSound(settings.engineSound);
   hud.units = settings.units; hud.dirtyAir = settings.dirtyAir !== 'off';
@@ -817,6 +818,8 @@ const OPTION_TABS = [
     { label: 'Resolution', values: [['r240', 'PS1 240p'], ['r288', 'PS1 288p'], ['r360', 'Arcade 360p'], ['ps2', 'PS2 448p'], ['hd', 'HD 720p'], ['native', 'Native']], get: () => settings.res, set: v => { settings.res = v; settings.look = 'custom'; applyVideo(); saveSettings(); }, desc: 'The resolution the 3D view renders at. Lower is chunkier and faster. ' + LOOK_DESC },
     { label: 'Upscaling', values: [['sharp', 'Sharp pixels'], ['soft', 'Soft (CRT)']], get: () => settings.filter, set: v => { settings.filter = v; applyVideo(); saveSettings(); }, desc: 'How the low-resolution picture is stretched to your screen.' },
     { label: 'Fullscreen', values: [[false, 'OFF'], [true, 'ON']], get: () => !!document.fullscreenElement, set: () => toggleFullscreen(), desc: 'You can also press F at any time.' },
+    { label: 'Color Vision', values: [['std', 'Standard'], ['rg', 'Red-Green Safe']], get: () => settings.colorVision || 'std', set: v => { settings.colorVision = v; applyVideo(); saveSettings(); },
+      desc: '<b>Red-Green Safe</b>: the colors that tell you something (sector times, faster or slower, the car\'s damage, wear and tire heat) switch to ones that stay apart with red-green color blindness: sky blue for good, orange for slower, purple-pink for bad.' },
     { label: 'HUD', head: true },
     { label: 'Timing Tower', values: [['on', 'On'], ['off', 'Off']], get: () => settings.hudTower || 'on', set: v => { settings.hudTower = v; applyVideo(); saveSettings(); }, desc: 'The running order down the left in a race.' },
     { label: 'Strategy Panel', values: [['on', 'When It Matters'], ['off', 'Off']], get: () => settings.hudStrat || 'on', set: v => { settings.hudStrat = v; applyVideo(); saveSettings(); }, desc: 'Your tires, the pit plan and where a stop would put you, under the lap times. <b>When It Matters</b>: in races of 10 laps or more, or with a stop planned, weather coming or a teammate.' },
@@ -893,7 +896,7 @@ window.addEventListener('gamepadconnected', (e) => {
 const OPTION_DEFAULTS = { ...Object.fromEntries(['uiTheme', 'res', 'filter', 'trails', 'scan', 'dither', 'retro', 'palette', 'psxMat', 'crt', 'grain', 'rays', 'fringe', 'shadows', 'dirtFx', 'look', 'radarMap', 'radarZoom',
   'volume', 'music', 'camera', 'speedFx', 'mirror', 'units', 'aiChassis', 'rules', 'safetyCar', 'aiMistakes', 'racingLine', 'lineStyle', 'gearbox', 'gearHint', 'stickShift'].map(k => [k, DEFAULTS[k]])),
   carVol: 10, sfxVol: 10, voiceVol: 10, engineSound: 'classic', commentary: 'off', engVoice: 'on', ghost: 'best', dirtyAir: 'on',
-  vibration: 'normal', steerCurve: 'normal', deadzone: 'normal', steerSpeed: 'normal', brakeCurve: 'linear', hudTower: 'on', hudStrat: 'on', hudRadar: 'on' };
+  vibration: 'normal', steerCurve: 'normal', deadzone: 'normal', steerSpeed: 'normal', brakeCurve: 'linear', hudTower: 'on', hudStrat: 'on', hudRadar: 'on', colorVision: 'std' };
 function resetOptions() {
   Object.assign(settings, OPTION_DEFAULTS); settings.aids = aidsOf(DEFAULTS);
   document.documentElement.dataset.theme = settings.uiTheme; setMirror(settings.mirror !== 'off');

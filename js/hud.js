@@ -22,6 +22,8 @@ const mixHex = (a, b, t) => { const A = rgbOf(a), B = rgbOf(b), q = Math.max(0, 
 // The car's condition (damage, wear, heat) has a scale of its own, green (fine) through amber to pink (bad), so it
 // never reads as the UI's red and blue (labels, the cursor, "good" times)
 const COND = { ok: '#3ee07a', mid: '#ffc21a', bad: '#ff2d6f', cold: '#4a4a5e' };
+// Options > Display > Color Vision: Red-Green Safe swaps the scale for sky blue -> yellow -> reddish purple (Okabe-Ito)
+export function setColorVision(mode) { Object.assign(COND, mode === 'rg' ? { ok: '#56b4e9', mid: '#f0e442', bad: '#cc79a7' } : { ok: '#3ee07a', mid: '#ffc21a', bad: '#ff2d6f' }); }
 export const condCol = (x) => { x = Math.max(0, Math.min(1, x)); return x < 0.5 ? mixHex(COND.ok, COND.mid, x / 0.5) : mixHex(COND.mid, COND.bad, (x - 0.5) / 0.5); };
 const tempCol = (x) => x < -0.25 ? mixHex(COND.cold, COND.ok, (x + 1) / 0.75) : x < 0.3 ? COND.ok : condCol((x - 0.3) / 0.7);
 const SV = { red: '#ff2b00', hot: '#ff6a1c', amber: '#ffc21a', cyan: '#2d36f2', good: '#2d36f2', blue: '#2d36f2', bad: '#ff2d6f', ink: '#05060c' };
