@@ -390,7 +390,7 @@ export class Editor {
     const t = this.track;
     sfx.select();
     if (a === 'view3d') return this.toggle3d();
-    if (this.v3d) this.close3d();
+    if (this.v3d && ['test', 'race', 'exit'].includes(a)) this.close3d(); // (the rest work on the 3D view too)
     switch (a) {
       case 'new': this.modalList('New', [
         { title: 'Circuit', desc: 'A loop, raced lap after lap. Draw it in one go, back to where you started.', pick: () => this.newBlank(false) },
@@ -987,7 +987,7 @@ export class Editor {
     if (!this.active) return;
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
     if (!$('ed-modal').hidden) { if (e.code === 'Escape') this.closeModal(); return; }
-    if (this.v3d) { if (this.key3d(e)) e.preventDefault(); return; }
+    if (this.v3d && this.key3d(e)) { e.preventDefault(); return; } // (what the 3D view doesn't take goes on: undo, delete, save...)
     if (this.tool === 'paint' && this.paintMode === 'shape' && !(e.ctrlKey || e.metaKey) && this.shapeKey(e)) { e.preventDefault(); return; }
     if (e.code === 'KeyV' && !(e.ctrlKey || e.metaKey)) { this.open3d(); return; }
     const ctrl = e.ctrlKey || e.metaKey;
