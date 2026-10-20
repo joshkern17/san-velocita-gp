@@ -130,6 +130,15 @@ export function placeTrackProps(ctx) {
   if (!props.length) return null;
   const people = [], floods = [], heads = [];
   const frac = (v) => v - Math.floor(v), h01 = (a, b, k) => frac(Math.sin(a * 12.9898 + b * 78.233 + k * 37.719) * 43758.5453);
+  // a line of grandstands on a bank one smooth terrace: each stand's height (its front row on the ground) eased with
+  // its neighbours' along the line, its front never sunk more than 0.4 m (one by one they step like a staircase)
+  const front = (p) => { const a = envAsset(p.type), rot = p.rot || 0, cs = Math.cos(rot), sn = Math.sin(rot), W = a.w * (p.sx || 1) / 2, D = a.d / 2; let y = -Infinity; for (const [lx, lz] of [[-W, D], [W, D], [0, D]]) y = Math.max(y, groundHeight(p.x + lx * cs + lz * sn, p.z - lx * sn + lz * cs)); return y; };
+  const standY = new Map(), lines = new Map();
+  for (const p of props) if (p.ln != null && /^stand/.test((envAsset(p.type) || {}).cls || '')) { if (!lines.has(p.ln)) lines.set(p.ln, []); lines.get(p.ln).push(p); }
+  for (const L of lines.values()) {
+    const f = L.map(front);
+    L.forEach((p, k) => { let s = 0, n = 0; for (let q = Math.max(0, k - 2); q <= Math.min(L.length - 1, k + 2); q++) { s += f[q]; n++; } standY.set(p, Math.max(s / n, f[k] - 0.4)); });
+  }
   for (const p of props) {
     const a = envAsset(p.type), rot = p.rot || 0, cs = Math.cos(rot), sn = Math.sin(rot), sx = p.sx || 1;
     const W = a.w * sx / 2, D = a.d / 2;
@@ -140,6 +149,7 @@ export function placeTrackProps(ctx) {
     let y = -Infinity;
     for (const [lx, lz] of stand ? [[-W, D], [W, D], [0, D]] : [[-W, -D], [W, -D], [-W, D], [W, D], [0, 0]]) y = Math.max(y, groundHeight(p.x + lx * cs + lz * sn, p.z - lx * sn + lz * cs));
     if (a.span) y = groundHeight(p.x, p.z);
+    if (standY.has(p)) y = standY.get(p);
     envPl.push({ id: p.type, x: p.x, y: y - 0.03, z: p.z, rot, s: 1, sx, sy: 1, sz: 1 });
     // fans on the seats
     if (CROWDS && a.seats && p.crowd !== false) a.seats.forEach(([x, py, z], k) => {

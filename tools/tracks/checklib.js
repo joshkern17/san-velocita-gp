@@ -7,7 +7,7 @@
 // round the lap, if it has one), x, z, n (how many), note }.
 // sim: a Race (its T, A, pit, world, track).
 import { solidsAround, treeInto, overlap, standInside, OVERHEAD, TREE_INTO } from '../../js/solids.js';
-import { kerbW } from '../../js/track.js';
+import { kerbW, BARRIER_CLEAR } from '../../js/track.js';
 
 
 export function checkTrack(sim) {
@@ -88,6 +88,10 @@ export function checkTrack(sim) {
     }
     runs(wst, wv, 'warn', 'width step', (v) => `the road widens or narrows ${v.toFixed(2)} m per metre`);
     runs(bst, bvv, 'warn', 'banking step', (v) => `the camber changes ${v.toFixed(1)}° per metre`);
+    // the road's width wandering where it runs straight (more than 1.5 m in 50 m)
+    const wob = new Uint8Array(N), wbv = new Float32Array(N), w25 = Math.max(1, Math.round(25 / ds));
+    for (let i = 0; i < N; i++) { if (!onMain(i, 30) || Math.abs(k10[i]) > 1 / 300) continue; const d = Math.abs(T.W[idx(i + w25)] - T.W[idx(i - w25)]); if (d > 1.5) { wob[i] = 1; wbv[i] = d; } }
+    runs(wob, wbv, 'warn', 'width wanders', (v) => `the road's width changes ${v.toFixed(1)} m in 50 m along a straight`);
     let wmin = Infinity, wi = 0; for (let i = 0; i < N; i++) if (onMain(i) && T.W[i] < wmin) { wmin = T.W[i]; wi = i; }
     if (wmin < 8) add(wmin < 6.5 ? 'fail' : 'warn', 'narrow', { d: Math.round(T.D[wi]), x: Math.round(T.X[wi]), z: Math.round(T.Z[wi]), note: `${wmin.toFixed(1)} m wide` });
   }
@@ -104,6 +108,8 @@ export function checkTrack(sim) {
         const up = T.Y[i] > T.Y[j] ? i : j, lo = up === i ? j : i, gap = T.Y[up] - T.Y[lo];
         const deck = A.BRIDGE && A.BRIDGE[up];
         crossings.push({ up, lo, x: T.X[i], z: T.Z[i] });
+        { const sp = Math.round(100 / ds), base = (T.Y[idx(up - sp)] + T.Y[idx(up + sp)]) / 2;
+          if (T.Y[up] - base > 0.5 && base - T.Y[lo] >= 6) add('warn', 'hump over the crossing', { d: Math.round(T.D[up]), x: Math.round(T.X[up]), z: Math.round(T.Z[up]), note: `the road over rises ${(T.Y[up] - base).toFixed(1)} m to cross, where it'd clear the one below by ${(base - T.Y[lo]).toFixed(1)} m flat` }); }
         if (gap < 0.5) add('warn', 'level crossing', { d: Math.round(T.D[i]), x: Math.round(T.X[i]), z: Math.round(T.Z[i]), note: `the track crosses itself at ${Math.round(T.D[j])} m on the level` });
         else if (gap < 5.5 || !deck) add('fail', 'overpass', { d: Math.round(T.D[up]), x: Math.round(T.X[i]), z: Math.round(T.Z[i]), note: `crosses ${Math.round(T.D[lo])} m ${gap.toFixed(1)} m above it${deck ? '' : ', no bridge deck'}${gap < 5.5 ? ' (a car needs ~5.5 m)' : ''}` });
       }
@@ -177,6 +183,20 @@ export function checkTrack(sim) {
       runs(on, ov, 'fail', `barrier on the track (${nm})`, (v, len) => `the ${nm} barrier stands on another stretch of track for ${len.toFixed(0)} m`);
       runs(close, cv, 'warn', `barrier by another stretch (${nm})`, (v) => `the ${nm} barrier ${(3 - v).toFixed(1)} m from another stretch's edge`, Math.round(6 / ds));
       runs(step, sv, 'warn', `barrier step (${nm})`, (v) => `the ${nm} barrier jumps ${v.toFixed(1)} m in or out`);
+      // right by the road (a circuit's; a street circuit's walls and an oval's concrete stand at the edge), and folding
+      // back on itself (a zig-zag round a hairpin)
+      const tight = new Uint8Array(N), tv = new Float32Array(N), fold = new Uint8Array(N), fv = new Float32Array(N);
+      const circuit = track.env.theme !== 'city' && (track.env.runoff ?? 0) >= 6;
+      for (let i = 0; i < N; i++) {
+        if (!HAS[i] || !onMain(i) || (A.BRIDGE && A.BRIDGE[i]) || (pit && pit.REG[i] >= 0 && side === pit.side)) continue;
+        const g = OFF[i] - T.W[i] / 2 - kerbW(A, i, side), concrete = A.WT && A.WT[side < 0 ? 0 : 1][i] === 1;
+        if (circuit && !concrete && g < BARRIER_CLEAR - 0.2) { tight[i] = 1; tv[i] = BARRIER_CLEAR - g; }
+        const j = idx(i + 1); if (!HAS[j] || i === T.cut) continue;
+        const [ax, az] = at(i, OFF[i], side), [bx, bz] = at(j, OFF[j], side), l = Math.hypot(bx - ax, bz - az);
+        if (l > 1e-6 && ((bx - ax) * T.FX[i] + (bz - az) * T.FZ[i]) / l < 0.3 && Math.abs(OFF[j] - OFF[i]) < 4) { fold[i] = 1; fv[i] = 1; }
+      }
+      runs(tight, tv, 'fail', `barrier by the road (${nm})`, (v) => `the ${nm} barrier ${(BARRIER_CLEAR - v).toFixed(1)} m past the edge or kerb (${BARRIER_CLEAR} m at least on a circuit)`);
+      runs(fold, fv, 'fail', `barrier folds (${nm})`, (v, len) => `the ${nm} barrier runs back on itself for ${len.toFixed(0)} m`);
     }
   }
 

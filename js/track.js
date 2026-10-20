@@ -74,6 +74,7 @@ export const KERB_TYPES = {
   raised: { label: 'Raised' }, flat: { label: 'Flat' }, saw: { label: 'Sawtooth' }, sausage: { label: 'Sausage' },
 };
 export const KERB_W = 1.3, SAUSAGE_H = 0.13;
+export const BARRIER_CLEAR = 3; // m: the least a circuit's barrier stands past the road's edge or kerb (analyzeTrack)
 const WALL_KEYS = Object.keys(WALL_TYPES);
 export const wallTypeAt = (A, i, side, env) => (A.WT && WALL_KEYS[A.WT[side < 0 ? 0 : 1][i] - 1]) || env.barrier;
 // the curb on this side at sample i (its stretch: A.kerbs), or null; its width there (tapered ends: less); its colors
@@ -711,6 +712,52 @@ export function analyzeTrack(T, env, paint = null, osm = null, dress = null) {
     }
   });
   for (let i = 0; i < N; i++) KERB[i] = KW[0][i] > 0.05 || KW[1][i] > 0.05 ? 1 : 0;
+  // (a circuit's own barriers, from its dressing, held inside the same caps the layout's are: on a tight corner's
+  // inside, past its cap a wall folds into a bow tie)
+  if (dress && Array.isArray(dress.barriers)) { unfold(T, BL, -1); unfold(T, BRt, 1); }
+  // No barrier folding back on itself: round the outside of a hairpin a barrier far out sweeps a much longer way than
+  // the road, and where its distance out changes fast as well it runs backwards for a stretch (a zig-zag in the wall).
+  // Wherever a stretch of it would run less than half forward, its further-out end is eased in, until none does
+  for (const [si, O, HAS] of [[0, BL, HAS_L], [1, BRt, HAS_R]]) {
+    const side = si ? 1 : -1;
+    for (let pass = 0; pass < 30; pass++) {
+      let changed = false;
+      for (let i = 0; i < N; i++) {
+        const j = (i + 1) % N; if (i === T.cut || !HAS[i] || !HAS[j] || BR2[i] || BR2[j]) continue;
+        const ax = T.X[i] + T.RX[i] * O[i] * side, az = T.Z[i] + T.RZ[i] * O[i] * side, bx = T.X[j] + T.RX[j] * O[j] * side, bz = T.Z[j] + T.RZ[j] * O[j] * side;
+        const l = Math.hypot(bx - ax, bz - az); if (l < 1e-6) continue;
+        if (((bx - ax) * T.FX[i] + (bz - az) * T.FZ[i]) / l >= 0.5) continue;
+        const [hi, lo] = O[i] > O[j] ? [i, j] : [j, i];
+        O[hi] = Math.max(T.W[hi] / 2 + 0.3, O[lo] + (O[hi] - O[lo]) * 0.7); changed = true;
+      }
+      if (!changed) break;
+    }
+  }
+  // On a circuit a barrier never stands right by the road: at least BARRIER_CLEAR past the edge (or the kerb), whoever
+  // put it there (the map, a reference, the layout). Where a tight corner's inside hasn't the room (its wall would fold
+  // back on itself there: BMAX), there's none, as on a real hairpin's open infield. A street circuit's walls and a
+  // mountain road's rails stand at the edge (city, or runoff under 6 m), and so do the concrete walls a circuit's own
+  // dressing puts there (an oval's, Indianapolis's)
+  if (env.theme !== 'city' && (env.runoff ?? 0) >= 6) for (const [si, O, HAS] of [[0, BL, HAS_L], [1, BRt, HAS_R]]) {
+    for (let i = 0; i < N; i++) {
+      if (!HAS[i] || BR2[i]) continue;
+      if (WT && WT[si][i] === WALL_KEYS.indexOf('concrete') + 1 && dress && Array.isArray(dress.barriers)) continue;
+      const need = T.W[i] / 2 + KW[si][i] + BARRIER_CLEAR;
+      if (O[i] >= need) continue;
+      if (BMAX[si][i] < need) HAS[i] = 0; else O[i] = need;
+    }
+  }
+  // (and no stub of barrier on its own: a run of it under 20 m between gaps - what's left by a hairpin's open inside,
+  // or between two bits of map - reads as debris; on a circuit it goes too)
+  if (env.theme !== 'city' && (env.runoff ?? 0) >= 6) for (const HAS of [HAS_L, HAS_R]) {
+    if (HAS.every(Boolean)) continue;
+    const short = Math.round(20 / T.ds), s0 = HAS.findIndex(v => !v);
+    for (let n = 0; n < N; n++) {
+      const i = (s0 + n) % N; if (!HAS[i] || HAS[(i - 1 + N) % N]) continue;
+      let len = 0; while (len < N && HAS[(i + len) % N]) len++;
+      if (len < short) for (let k = 0; k < len; k++) HAS[(i + k) % N] = 0;
+    }
+  }
   return { hash, BRIDGE: BR2, LIFT, BL, BR: BRt, HAS_L, HAS_R, KERB, KI, KW, kerbs, WT, RZ, BMAX, realWalls: !!RW };
 }
 
@@ -736,28 +783,24 @@ function wallCaps(T, side) {
 }
 function unfold(T, off, side) {
   const N = T.N, cap = wallCaps(T, side);
-  const dent = new Float32Array(N);
   let any = false;
-  for (let i = 0; i < N; i++) if (off[i] > cap[i]) { dent[i] = off[i] - cap[i]; any = true; }
+  for (let i = 0; i < N; i++) if (off[i] > cap[i]) { any = true; break; }
   if (!any) return cap;
-  // spread as a cone (the wall comes in at most 1 m in every 1.7 m along: a big dent swings in from further back),
-  // both ways round (twice round a lap, so it carries over the line), then rounded off
-  const fall = T.ds / 1.7, c = new Float32Array(N), laps = T.cut < 0 ? 2 : 1;
+  // eased in under an envelope of the caps (the wall comes in at most 1 m in every 1.7 m along, so it swings in from
+  // further back to meet a tight one), both ways round (twice round a lap, so it carries over the line): never further
+  // out than its cap allows, and never pulled in further than that (subtracting the spread dents did: it put the wall
+  // on the road at a hairpin's apex)
+  const fall = T.ds / 1.7, E = Float32Array.from(cap), laps = T.cut < 0 ? 2 : 1;
   const sweep = (dir) => {
-    let v = 0;
+    let v = Infinity;
     for (let n = 0; n < N * laps; n++) {
       const i = T.cut < 0 ? ((dir > 0 ? n : -n) % N + N) % N : stepIdx(T, dir > 0 ? T.cut + 1 : T.cut, dir * n);
-      v = (T.cut >= 0 && n === 0) ? dent[i] : Math.max(dent[i], v - fall);
-      c[i] = Math.max(c[i], v);
+      v = (T.cut >= 0 && n === 0) ? E[i] : Math.min(E[i], v + fall);
+      E[i] = v;
     }
   };
   sweep(1); sweep(-1);
-  const w = Math.max(2, Math.round(6 / T.ds)), m = new Float32Array(N);
-  for (let i = 0; i < N; i++) { let v = 0; for (let k = -w; k <= w; k++) v = Math.max(v, c[stepIdx(T, i, k)]); m[i] = v; }
-  for (let i = 0; i < N; i++) {
-    let v = 0; for (let k = -w; k <= w; k++) v += m[stepIdx(T, i, k)];
-    if (v > 0) off[i] = Math.max(T.W[i] / 2 + 0.3, off[i] - v / (2 * w + 1));
-  }
+  for (let i = 0; i < N; i++) if (off[i] > E[i]) off[i] = Math.max(T.W[i] / 2 + 0.3, E[i]);
   return cap;
 }
 

@@ -164,8 +164,65 @@ export function cleanRoad(track, { maxPasses = 80, maxMove = MAX_MOVE, minInner 
     }
     if (!fixed) break;
   }
+  const overpass = flattenOverpass({ ...track, points: P, start: startNow });
+  const widths = smoothWidths(P, open);
   // how far each point moved, for the report (merged points against what they replaced)
   const moved = P.map((p, k) => orig[k] ? Math.hypot(p.x - orig[k][0], p.z - orig[k][1]) : 0);
   const worst = moved.reduce((m, v, k) => v > m[0] ? [v, k] : m, [0, -1]);
-  return { points: P, start: startNow, merged: n0 - P.length, moved: +worst[0].toFixed(2), movedAt: worst[1], dips, report, left: left.length };
+  return { points: P, start: startNow, merged: n0 - P.length, moved: +worst[0].toFixed(2), movedAt: worst[1], dips, overpass, widths, report, left: left.length };
+}
+
+// A road's width changing only as a real one does, gradually: each point's width the middle of its neighbours' over
+// 200 m of road (the map's or a photo fit's noise out), eased over 120 m, and never more than 1 m in 50 m - a straight
+// keeps one width, a wide start straight still widens. Changes P in place; returns the most any point's width moved (m).
+export function smoothWidths(P, open = false) {
+  const n = P.length; if (n < 4) return 0;
+  const d = [0]; for (let k = 1; k < n; k++) d.push(d[k - 1] + Math.hypot(P[k].x - P[k - 1].x, P[k].z - P[k - 1].z));
+  const L = d[n - 1] + (open ? 0 : Math.hypot(P[0].x - P[n - 1].x, P[0].z - P[n - 1].z));
+  const gap = (a, b) => { const g = Math.abs(d[a] - d[b]); return open ? g : Math.min(g, L - g); };
+  const near = (k, r) => { const out = []; for (let q = 0; q < n; q++) if (gap(k, q) <= r) out.push(q); return out; };
+  const w0 = P.map(p => p.w), med = w0.map((_, k) => { const v = near(k, 100).map(q => w0[q]).sort((a, b) => a - b); return v[v.length >> 1]; });
+  const w = med.map((_, k) => { const q = near(k, 60); return q.reduce((s, j) => s + med[j], 0) / q.length; });
+  // (and never faster than 1 m of width in 50 m of road: towards the narrower, both ways round)
+  for (let pass = 0; pass < 2; pass++) for (const dir of [1, -1]) for (let m = 1; m < (open ? n : 2 * n); m++) {
+    const k = dir > 0 ? m % n : (n - 1 - m % n), h = dir > 0 ? (m - 1) % n : (n - m % n) % n;
+    if (open && (dir > 0 ? k === 0 : k === n - 1)) continue;
+    w[k] = Math.min(w[k], w[h] + 0.02 * gap(k, h));
+  }
+  let most = 0;
+  P.forEach((p, k) => { const v = +w[k].toFixed(1); most = Math.max(most, Math.abs(v - p.w)); p.w = v; });
+  return +most.toFixed(2);
+}
+
+// The road over a crossover without a hump: where the circuit crosses itself and the road on top would still clear the
+// one below by OVER_CLEAR without its crest (the scan catching the bridge deck, or a raise to clear it), the crest's
+// points within 100 m either side are put on a straight run between the road's heights either side of it. Changes
+// track.points in place; returns how many crossings were flattened.
+const OVER_CLEAR = 6;
+export function flattenOverpass(track) {
+  const P = track.points, n = P.length, T = sampleTrack(track), N = T.N, ds = T.ds, sep = Math.round(100 / ds);
+  const circ = (a, b) => { const d = Math.abs(a - b); return track.open ? d : Math.min(d, N - d); };
+  let done = 0; const seen = [];
+  for (let i = 0; i < N; i += 2) {
+    for (let j = 0; j < N; j += 2) {
+      if (circ(i, j) < 3 * sep || Math.hypot(T.X[i] - T.X[j], T.Z[i] - T.Z[j]) > (T.W[i] + T.W[j]) / 2 || T.Y[i] < T.Y[j] + 3) continue;
+      if (seen.some(q => circ(q, i) < 2 * sep)) continue;
+      seen.push(i);
+      // (the road either side, 100 m off: the line between is what it'd be without the crest)
+      const a = (i - sep + N) % N, b = (i + sep) % N, base = (T.Y[a] + T.Y[b]) / 2;
+      if (base < T.Y[j] + OVER_CLEAR || T.Y[i] - base < 0.5) continue;
+      const da = T.D[a], db = T.D[b] < da ? T.D[b] + T.L : T.D[b];
+      // (the points between, by where they lie on the lap)
+      let d = 0; const at = [];
+      const s0 = track.open ? 0 : ((track.start || 0) % n + n) % n;
+      for (let q = 0; q < n; q++) { const k = (s0 + q) % n, k2 = (s0 + q + 1) % n; at[k] = d; d += Math.hypot(P[k2].x - P[k].x, P[k2].z - P[k].z); }
+      for (let k = 0; k < n; k++) {
+        let dk = at[k]; if (dk < da && db > T.L) dk += T.L;
+        if (dk <= da || dk >= db) continue;
+        P[k].e = +(T.Y[a] + (T.Y[b] - T.Y[a]) * (dk - da) / (db - da)).toFixed(2);
+      }
+      done++;
+    }
+  }
+  return done;
 }
