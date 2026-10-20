@@ -1,43 +1,76 @@
 // Circuit Designer: 3D VIEW (V). The track as it is right now, in the game's own world and look (the same scenery
 // build and PS2 post as a race), without starting one: fly round it, look at what you just changed, press V to go
 // back to the map. It opens where the mouse is on the map (else the middle of the view), looking down the track.
+// The world is built a few milliseconds a frame (race.js buildScenerySteps), so the map carries on while it's made:
+// V again (or Esc) stops it, and a change made meanwhile starts it again with the change in. rebuild3d() makes a new
+// one under the open view the same way and swaps it in when it's done (the 3D editor's edits, next).
 //   mouse: drag to look, wheel forward / back · W A S D move, Q / E down / up, Shift faster · pad: sticks, triggers
 import * as THREE from 'three';
-import { buildScenery } from './race.js';
+import { buildScenerySteps } from './race.js';
+import { stepFor } from './world.js';
 import { cloneTrack } from './track.js';
 import { loadEnvModels } from './envlib.js';
 import { sfx } from './audio.js';
 
 const $ = (id) => document.getElementById(id);
+const BUDGET = 24; // (ms of building a frame: the map, or the open view, carries on at about 30 a second meanwhile)
 
 export function installView3d(Ed) {
   const P = Ed.prototype;
 
-  P.toggle3d = function () { return this.v3d ? this.close3d() : this.open3d(); };
+  P.toggle3d = function () { return this.v3d || this.job3d ? this.close3d() : this.open3d(); };
+  // a world of the track as it is now, built in steps; done(S) when it's ready (null: stopped, or it failed)
+  P.build3d = function (done) {
+    const job = this.job3d = { j: this.snapshot().j, g: buildScenerySteps(cloneTrack(this.track)), done };
+    const pump = () => {
+      if (this.job3d !== job) return; // (stopped, or a newer one)
+      if (!this.active) { this.job3d = null; return done(null); } // (left the editor)
+      let r;
+      try { r = stepFor(job.g, BUDGET); } catch (e) { console.error(e); this.job3d = null; this.toast('3D VIEW FAILED: ' + e.message); return done(null); }
+      if (!r.done) return requestAnimationFrame(pump);
+      this.job3d = null;
+      if (this.snapshot().j !== job.j && this.active) { r.value.dispose(); return this.build3d(done); } // (changed meanwhile: again, with the change)
+      done(r.value);
+    };
+    requestAnimationFrame(pump);
+  };
+  P.stop3d = function () { const j = this.job3d; if (!j) return; this.job3d = null; try { j.g.return(); } catch (e) {} };
   P.open3d = async function () {
-    if (!this.T || this.v3dBusy) return;
-    this.v3dBusy = true;
-    this.toast('BUILDING THE 3D VIEW…');
+    if (this.job3d) return this.close3d(); // (V again while it's being built: never mind)
+    if (!this.T || this.v3d) return;
+    this.toast('BUILDING THE 3D VIEW… (V: CANCEL)', 60000);
+    const at = this.mouse.inside ? [this.mouse.wx, this.mouse.wz] : [this.view.cx, this.view.cz];
+    this.job3d = { j: null }; // (a placeholder while the models load)
     await loadEnvModels(); // (the scenery's models: usually long loaded)
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); // (the toast paints first)
-    let S = null;
-    try { S = buildScenery(cloneTrack(this.track)); } catch (e) { console.error(e); this.toast('3D VIEW FAILED: ' + e.message); this.v3dBusy = false; return; }
-    this.v3dBusy = false;
-    if (!this.active) { S.dispose(); return; }
-    // where to start: the track under the mouse (or the middle of the view), from 14 m behind and 5 m up
-    const T = S.T, [wx, wz] = this.mouse.inside ? [this.mouse.wx, this.mouse.wz] : [this.view.cx, this.view.cz];
-    let i = 0, bd = Infinity; for (let k = 0; k < T.N; k++) { const d = (T.X[k] - wx) ** 2 + (T.Z[k] - wz) ** 2; if (d < bd) { bd = d; i = k; } }
-    const near = Math.sqrt(bd) < 60, back = 14;
-    const pos = near ? new THREE.Vector3(T.X[i] - T.FX[i] * back, T.Y[i] + 5, T.Z[i] - T.FZ[i] * back) : new THREE.Vector3(wx, S.world.groundHeight(wx, wz) + 30, wz + 40);
-    const cam = new THREE.PerspectiveCamera(60, 16 / 9, 0.3, 6000);
-    S.scene.add(cam);
-    this.v3d = { S, cam, pos, yaw: near ? Math.atan2(-T.FX[i], -T.FZ[i]) : 0, pitch: near ? -0.15 : -0.5, keys: {}, look: null };
-    this.cb.show3d && this.cb.show3d(true);
-    $('s-editor').classList.add('v3d');
-    this.bar3d().hidden = false;
-    sfx.move();
+    if (!this.job3d || !this.active) return;
+    this.build3d((S) => {
+      if (!S) return;
+      if (!this.active) return S.dispose();
+      this.toast('3D VIEW', 900);
+      // where to start: the track under the mouse (or the middle of the view), from 14 m behind and 5 m up
+      const T = S.T, [wx, wz] = at;
+      let i = 0, bd = Infinity; for (let k = 0; k < T.N; k++) { const d = (T.X[k] - wx) ** 2 + (T.Z[k] - wz) ** 2; if (d < bd) { bd = d; i = k; } }
+      const near = Math.sqrt(bd) < 60, back = 14;
+      const pos = near ? new THREE.Vector3(T.X[i] - T.FX[i] * back, T.Y[i] + 5, T.Z[i] - T.FZ[i] * back) : new THREE.Vector3(wx, S.world.groundHeight(wx, wz) + 30, wz + 40);
+      const cam = new THREE.PerspectiveCamera(60, 16 / 9, 0.3, 6000);
+      S.scene.add(cam);
+      this.v3d = { S, cam, pos, yaw: near ? Math.atan2(-T.FX[i], -T.FZ[i]) : 0, pitch: near ? -0.15 : -0.5, keys: {}, look: null };
+      this.cb.show3d && this.cb.show3d(true);
+      $('s-editor').classList.add('v3d');
+      this.bar3d().hidden = false;
+      sfx.move();
+    });
+  };
+  // a new world under the open view, swapped in when it's ready (the camera stays where it is)
+  P.rebuild3d = function () {
+    if (!this.v3d) return;
+    this.build3d((S) => {
+      const v = this.v3d; if (!S) return; if (!v) return S.dispose();
+      const old = v.S; v.S = S; S.scene.add(v.cam); old.dispose();
+    });
   };
   P.close3d = function () {
+    if (this.job3d) { this.stop3d(); if (!this.v3d) { this.toast('3D VIEW CANCELLED', 900); return; } }
     const v = this.v3d; if (!v) return;
     this.v3d = null;
     $('s-editor').classList.remove('v3d');

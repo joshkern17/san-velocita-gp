@@ -1,7 +1,7 @@
 // Race session: world + cars + AI + rules + cameras
 import * as THREE from 'three';
 import { sampleTrack, analyzeTrack, computeRacingLine, computeSpeedProfile, surfaceY, gridSlot, circDist, buildPitLane, OPEN_END_WALL, PIT, kerbOn, kerbW, kerbOf, wallTypeAt, SAUSAGE_H } from './track.js';
-import { buildWorld, walkEdge, walkWidth, KERB_H, WALK_H, WALK_RAMP } from './world.js';
+import { buildWorld, buildWorldSteps, runSteps, walkEdge, walkWidth, KERB_H, WALK_H, WALK_RAMP } from './world.js';
 import { applyRoadsToCircuit, raiseTrackOverRoads } from './roads.js';
 import { runoffKind, groundGrid, groundProfile, profileAt, surfaceGrid, RUN_PAVED, RUN_GRAVEL, RUN_GRASS } from './runoff.js';
 import { Spray } from './weatherfx.js';
@@ -146,13 +146,18 @@ export function setMirror(on) { MIRROR = !!on; }
 const lerpAngle = (a, b, t) => { let d = ((b - a + Math.PI) % (Math.PI * 2)); if (d < 0) d += Math.PI * 2; return a + (d - Math.PI) * t; };
 
 // just the circuit and its world, no cars (for taking pictures of it)
-export function buildScenery(track) {
+export function buildScenery(track) { return runSteps(buildScenerySteps(track)); }
+// the same in steps (world.js stepFor: the Circuit Designer's 3D view builds it a few milliseconds a frame)
+export function* buildScenerySteps(track) {
   const T = sampleTrack(track);
   raiseTrackOverRoads(track, T);
+  yield;
   const A = analyzeTrack(T, track.env, track.paint, track.osm, track.dress);
+  yield;
   A.pit = buildPitLane(T, A, track.env, track.osm && track.osm.pitLane, surfaceGrid(track.osm && track.osm.surface), track.dress && track.dress.pit);
   applyRoadsToCircuit(track, T, A);
-  const world = buildWorld(track, T, A);
+  yield;
+  const world = yield* buildWorldSteps(track, T, A);
   const scene = new THREE.Scene();
   scene.fog = world.fog; scene.add(world.root);
   return { T, A, world, scene, dispose: () => scene.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose()); }) };

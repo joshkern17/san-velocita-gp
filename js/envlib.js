@@ -191,9 +191,12 @@ function frozenMatrices(force) {
   if (this._frozen) return;
   THREE.Object3D.prototype.updateMatrixWorld.call(this, true); this._frozen = true;
 }
-export function addEnvInstances(root, placements, opts = {}) {
+// (a generator: world.js builds in steps, and this stops between batches once opts.slice() says the time's up)
+export function* addEnvInstances(root, placements, opts = {}) {
+  const pause = opts.slice || (() => false);
   const groups = new Map(), cells = new Map(), sizes = new Map();
   for (const p of placements) {
+    if (pause()) yield;
     if (!models.has(p.id)) continue;
     const a0 = byId.get(p.id), far = reachOf(a0, p), whole = a0 && (a0.cat === 'skyline' || a0.w > 60); // (the skyline: one batch each)
     let CH = sizes.get(p.id + far); if (!CH) sizes.set(p.id + far, CH = cellSize(p.id, far));
@@ -226,6 +229,7 @@ export function addEnvInstances(root, placements, opts = {}) {
     for (const part of (look && houseParts(list[0].id, look.w, look.r)) || models.get(list[0].id)) bigR.set(part.mat, Math.max(bigR.get(part.mat) || 0, part.geo.boundingSphere.radius));
   }
   for (const [key, list] of groups) {
+    if (pause()) yield;
     const id = list[0].id, a = byId.get(id), look = list[0].look;
     const parts = (look && houseParts(id, look.w, look.r)) || models.get(id);
     // (ground cover and litter don't cast sun shadows: too small to see in the shadow map, but every one of them
@@ -263,6 +267,7 @@ export function addEnvInstances(root, placements, opts = {}) {
   }
   for (const mg of merges.values()) if (mg.cls) buildArray(mg.cls);
   for (const mg of merges.values()) {
+    if (pause()) yield;
     let g = groupOf.get(mg.cell);
     if (!g) { g = new THREE.Group(); g.name = 'env-cell'; g.updateMatrixWorld = frozenMatrices; root.add(g); groupOf.set(mg.cell, g); }
     g.add(mergedMesh(mg)); draws++;
