@@ -16,6 +16,7 @@ import { loadEnvModels } from './envlib.js';
 import { sfx } from './audio.js';
 import { installEdit3d } from './ed3dedit.js';
 import { installSculpt3d } from './ed3dsculpt.js';
+import { modelFootprint } from './scenery.js';
 
 const $ = (id) => document.getElementById(id);
 const BUDGET = 24; // (ms of building a frame: the map, or the open view, carries on at about 30 a second meanwhile)
@@ -70,6 +71,7 @@ export function installView3d(Ed) {
       const target = near ? new THREE.Vector3(T.X[i], T.Y[i], T.Z[i]) : new THREE.Vector3(wx, S.world.groundHeight(wx, wz), wz);
       const cam = new THREE.PerspectiveCamera(60, 16 / 9, 0.5, 15000);
       S.scene.add(cam);
+      this.view2d = { ...this.view };
       this.v3d = { S, cam, mode: 'orbit', target, dist: 70, yaw: near ? Math.atan2(-T.FX[i], -T.FZ[i]) : 0, pitch: -0.5, pos: new THREE.Vector3(), keys: {}, ptr: null, el: null };
       if (back) Object.assign(this.v3d, { target: back.target.clone(), dist: back.dist, yaw: back.yaw, pitch: back.pitch });
       this.place3d();
@@ -103,6 +105,7 @@ export function installView3d(Ed) {
     this.cb.show3d && this.cb.show3d(false);
     if (v.ov) v.ov.group.removeFromParent();
     v.S.dispose();
+    if (this.view2d) { Object.assign(this.view, this.view2d); this.view2d = null; } // (the map as it was)
     requestAnimationFrame(() => { this.resize(); this.dirty = true; }); // (the map has its room back)
     this.setHint();
   };
@@ -121,7 +124,10 @@ export function installView3d(Ed) {
     const scr = $('s-editor'), inView = (e) => this.v3d && !e.target.closest(UI);
     scr.addEventListener('pointerdown', (e) => {
       if (!inView(e)) return;
-      const v = this.v3d; scr.setPointerCapture(e.pointerId);
+      const v = this.v3d;
+      if (e.button === 0 && !e.shiftKey && v.mode === 'orbit' && this.mapTool3d()) return; // (the map's tool, on its own mouse events)
+      e.preventDefault(); // (no mouse events for the map's tools: this one's the 3D view's)
+      scr.setPointerCapture(e.pointerId);
       if (e.button === 0 && !e.shiftKey && v.mode === 'orbit' && (this.sculpting3d() ? this.sculptDown3d(e) : this.down3d(e))) return;
       // (sculpting: the left button paints, so the right one turns round; else it pans)
       v.ptr = { x: e.clientX, y: e.clientY, pan: e.button === 1 || e.shiftKey || (e.button === 2 && !this.sculpting3d()), moved: false };
@@ -147,9 +153,9 @@ export function installView3d(Ed) {
     });
     scr.addEventListener('contextmenu', (e) => { if (inView(e)) e.preventDefault(); });
     scr.addEventListener('wheel', (e) => {
-      const v = this.v3d; if (!v || !inView(e)) return; e.preventDefault();
+      const v = this.v3d; if (!v || !inView(e)) return; e.preventDefault(); e.stopPropagation(); // (not the map's zoom too)
       if (v.mode === 'fly') this.move3d(-e.deltaY * 0.06, 0, 0); else v.dist = Math.max(4, Math.min(4000, v.dist * Math.exp(e.deltaY * 0.0012)));
-    }, { passive: false });
+    }, { passive: false, capture: true });
     window.addEventListener('keyup', (e) => { if (this.v3d) this.v3d.keys[e.code] = false; });
     return el;
   };
@@ -234,15 +240,63 @@ export function installView3d(Ed) {
     clearTimeout(this.rb3dT);
     if (!this.drag3d) this.rb3dT = setTimeout(() => this.rebuild3d(), 150);
   };
-  // (the map isn't drawn while it's hidden behind the 3D view)
+  // ---- the map's own tools in 3D (stage 4): Trackside (curbs, barriers, runoff, pit lane) and Scenery (props, paint,
+  // zones, streets) work here as they do on the map, because their screen <-> world goes through the 3D camera: a
+  // point on the ground is where it shows, and a point on the screen is the ground under it. The map's canvas stays
+  // on top, clear, with only the open tool's own marks drawn on it (its handles, the picked barrier, the brush) ----
+  P.mapTool3d = function () { return !!this.v3d && this.mode !== 'shape' && this.tool !== 'sculpt' && this.tool !== 'pan'; };
+  const w2s0 = P.w2s, s2w0 = P.s2w;
+  P.w2s = function (x, z) {
+    const v = this.v3d; if (!v || !v.cr) return w2s0.call(this, x, z);
+    const q = (this._w2s3 ||= new THREE.Vector3()).set(x, v.S.world.groundHeight(x, z) + 0.25, z).project(v.cam);
+    if (q.z > 1) return [NaN, NaN]; // (behind the camera: nothing drawn)
+    return [v.gr.left + (q.x + 1) / 2 * v.gr.width - v.cr.left, v.gr.top + (1 - q.y) / 2 * v.gr.height - v.cr.top];
+  };
+  P.s2w = function (x, y) {
+    const v = this.v3d; if (!v || !v.cr) return s2w0.call(this, x, y);
+    const h = this.groundHit3d(x + v.cr.left, y + v.cr.top) || this.rayPlane3d(x + v.cr.left, y + v.cr.top, v.target.y);
+    return h ? [h.x, h.z] : [v.target.x, v.target.z];
+  };
   const draw0 = P.draw;
-  P.draw = function () { if (!this.v3d) draw0.call(this); };
+  P.draw = function () { if (!this.v3d) return draw0.call(this); this.drawOver3d(); };
+  P.drawOver3d = function () {
+    const c = this.ctx; if (!this.W) return;
+    c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0); c.clearRect(0, 0, this.W, this.H);
+    if (!this.v3d.cr || !this.T || !this.mapTool3d()) return;
+    const tool = this.tool;
+    if (tool === 'kerbs') { c.globalAlpha = 0.55; this.drawKerbs(c); c.globalAlpha = 1; }
+    this.drawBarrierEdit(c); this.drawPitEdit(c); this.drawShapeEdit(c);
+    if (tool === 'zones') this.drawZoneLines(c);
+    if (tool === 'roads') { c.globalAlpha = 0.6; this.drawRoads(c); c.globalAlpha = 1; }
+    if (tool === 'props') {
+      this.track.props.forEach((p, i) => { if (i === this.selProp || (p.ln && p.ln === this.selLine)) this.drawProp(c, p, true); });
+      if (this.mouse.inside && !this.drag) { // (where it'll go: a house or building's footprint, facing its road; a prop)
+        const [x, z] = this.snapPt(this.mouse.wx, this.mouse.wz);
+        c.globalAlpha = 0.6;
+        if (this.modelProp()) { const a = this.pendingModel(); if (a) { const f = modelFootprint(a, x, z, this.faceRot(x, z)); c.beginPath(); f.forEach((q, k) => { const [sx, sy] = this.w2s(q[0], q[1]); k ? c.lineTo(sx, sy) : c.moveTo(sx, sy); }); c.closePath(); c.fillStyle = '#ffd66b'; c.fill(); c.globalAlpha = 1; c.strokeStyle = '#ffd66b'; c.lineWidth = 1.5; c.stroke(); } }
+        else { const p = this.propAt(this.propType, x, z); if (p) this.drawProp(c, p, false); }
+        c.globalAlpha = 1;
+      }
+    }
+    if (tool === 'paint' && this.paintMode !== 'shape') { // (the brush, and the stroke being painted)
+      const live = this.drag && this.drag.type === 'paint' ? this.drag.stroke : null, sc = this.view.scale;
+      if (live && live.pts.length) { c.strokeStyle = 'rgba(255,214,107,0.45)'; c.lineWidth = Math.max(2, (live.r || 8) * 2 * sc); c.lineCap = c.lineJoin = 'round'; c.beginPath(); live.pts.forEach((q, k) => { const [sx, sy] = this.w2s(q[0], q[1]); k ? c.lineTo(sx, sy) : c.moveTo(sx, sy); }); c.stroke(); }
+      if (this.mouse.inside) { const [x, y] = this.w2s(this.mouse.wx, this.mouse.wz); c.strokeStyle = '#ffd66b'; c.lineWidth = 1.5; c.setLineDash([5, 4]); c.beginPath(); c.arc(x, y, Math.max(3, (this.brush || 12) * sc), 0, Math.PI * 2); c.stroke(); c.setLineDash([]); }
+    }
+  };
   // the how-to in 3D
   const setHint0 = P.setHint;
   P.setHint = function () {
     setHint0.call(this);
     if (!this.v3d) return;
     const fly = this.v3d.mode === 'fly';
+    if (this.mapTool3d() && !fly) {
+      // (curbs, barriers or a pit lane still the ones worked out for you: say so, so they get looked at)
+      const auto = { kerbs: !this.kerbsOwn() && 'curbs', bars: !this.barsOwn() && 'barriers', pit: !this.pitOwn() && 'pit lane' }[this.tool];
+      $('ed-hint').innerHTML = '<b>3D VIEW</b> &mdash; the tool works as on the map; <b>right-drag</b> to turn round, <b>wheel</b> to zoom, <b>W A S D</b> to pan, <b>V</b>: the map.<br>'
+        + (auto ? `<b>These ${auto} were laid for you:</b> fly round and check them; change any and they're the circuit's own.<br>` : '') + $('ed-hint').innerHTML;
+      return;
+    }
     $('ed-hint').innerHTML = this.tool === 'sculpt' && !fly
       ? '<b>3D VIEW &middot; SCULPT</b> &mdash; <b>hold</b> to paint the land: <b>Raise</b>, <b>Lower</b>, <b>Smooth</b>, <b>Flatten</b> (to the height where you start) or <b>To Track</b> (down to the nearest road\'s height) on the right. The ring dims where the land is the road\'s: the track, its runoff and banks never move. Amber: too steep to stand on. <b>[ ]</b> brush size, <b>Shift [ ]</b> strength. <b>Right-drag</b> to turn round, <b>wheel</b> to zoom, <b>W A S D</b> to pan.'
       : this.mode !== 'shape'
@@ -274,8 +328,12 @@ export function installView3d(Ed) {
     const c = v.cam, el = renderer.domElement;
     c.aspect = el.clientWidth / Math.max(1, el.clientHeight); c.updateProjectionMatrix();
     c.position.copy(v.pos); c.rotation.set(v.pitch, v.yaw, 0, 'YXZ'); c.updateMatrixWorld();
+    v.cr = this.canvas.getBoundingClientRect(); v.gr = el.getBoundingClientRect();
+    { const a = v.target.clone().project(c), b = v.target.clone().add(new THREE.Vector3(Math.cos(v.yaw), 0, -Math.sin(v.yaw))).project(c);
+      const px = Math.hypot((b.x - a.x) * v.gr.width / 2, (b.y - a.y) * v.gr.height / 2); if (px > 0 && isFinite(px)) this.view.scale = Math.max(0.01, Math.min(40, px)); }
     this.ovFrame3d();
     this.sculptFrame3d();
+    if (this.mapTool3d()) this.dirty = true; // (the map's canvas follows the camera: the editor's loop draws it)
     v.S.world.update(dt, c, [], []);
     post.render(v.S.scene, c, { trails: 0, grade: v.S.world.P.grade, look: v.S.look3d });
   };

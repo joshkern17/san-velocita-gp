@@ -659,7 +659,7 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 #s-editor.v3d { background: transparent; }
 /* the 3D view: the game's canvas shows through where the map was; the bar, the panel, the modes and the how-to stay */
 #s-editor.v3d.active { grid-template-rows: 52px 1fr 0; }
-#s-editor.v3d #ed-canvas, #s-editor.v3d .ed-scale, #s-editor.v3d .ed-attr, #s-editor.v3d .ed-viewtools, #s-editor.v3d .ed-profile, #s-editor.v3d .ed-strip [data-tool="draw"] { visibility: hidden; }
+#s-editor.v3d .ed-scale, #s-editor.v3d .ed-attr, #s-editor.v3d .ed-viewtools, #s-editor.v3d .ed-profile, #s-editor.v3d .ed-strip [data-tool="draw"] { visibility: hidden; }
 #s-editor.v3d .ed-canvas-wrap { background: transparent; }
 .ed-v3d { position: absolute; right: 14px; top: 12px; display: flex; align-items: center; gap: 4px; z-index: 3; }
 .ed-v3d button { font-size: 12px !important; padding: 5px 8px !important; background: rgba(5,3,8,.82) !important; }
