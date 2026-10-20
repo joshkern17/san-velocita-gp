@@ -525,21 +525,23 @@ function easeIn(T, O, BR2) {
 }
 
 // ---------- spatial hash ----------
+// (cells keyed by number, not "x,z" strings: the world build queries it millions of times)
+const hashKey = (cx, cz) => (cx + 1048576) * 2097152 + (cz + 1048576);
 export function buildHash(T, cell = 24) {
   const map = new Map();
   for (let i = 0; i < T.N; i++) {
-    const key = Math.floor(T.X[i] / cell) + ',' + Math.floor(T.Z[i] / cell);
+    const key = hashKey(Math.floor(T.X[i] / cell), Math.floor(T.Z[i] / cell));
     let a = map.get(key);
     if (!a) map.set(key, a = []);
     a.push(i);
   }
   return {
-    cell,
+    cell, map, key: hashKey, // (for a hot loop that walks the same cells itself, in the same order, without a callback)
     query(x, z, r, cb) {
       const c0 = Math.floor((x - r) / cell), c1 = Math.floor((x + r) / cell);
       const r0 = Math.floor((z - r) / cell), r1 = Math.floor((z + r) / cell);
       for (let cx = c0; cx <= c1; cx++) for (let cz = r0; cz <= r1; cz++) {
-        const a = map.get(cx + ',' + cz);
+        const a = map.get(hashKey(cx, cz));
         if (a) for (let k = 0; k < a.length; k++) cb(a[k]);
       }
     },

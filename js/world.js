@@ -274,13 +274,23 @@ export function buildWorld(track, T, A, opts = {}) {
     const R = bridge ? half + 3 : inner + slope;
     const i0 = Math.max(0, Math.floor((sx - R - gx0) / step)), i1 = Math.min(nx - 1, Math.ceil((sx + R - gx0) / step));
     const j0 = Math.max(0, Math.floor((sz - R - gz0) / step)), j1 = Math.min(nz - 1, Math.ceil((sz + R - gz0) / step));
+    // (only the cells of this row inside the circle, a cell's margin over; the square root only where it could be
+    // nearer than what's there: the same cells win as testing every one)
+    const RR = (R + 1e-6) * (R + 1e-6), win = T.ds * 0.6;
+    if (bridge) continue; // (a deck: the ground under it is the lower road's)
     for (let j = j0; j <= j1; j++) {
-      const dz = gz0 + j * step - sz;
-      for (let k = i0; k <= i1; k++) {
-        const dx = gx0 + k * step - sx; const d = Math.sqrt(dx * dx + dz * dz);
-        if (d > R) continue;
+      const dz = gz0 + j * step - sz, dz2 = dz * dz;
+      if (dz2 > RR) continue;
+      const hw = Math.sqrt(RR - dz2), k0 = Math.max(i0, Math.floor((sx - hw - gx0) / step) - 1), k1 = Math.min(i1, Math.ceil((sx + hw - gx0) / step) + 1);
+      for (let k = k0; k <= k1; k++) {
+        const dx = gx0 + k * step - sx, d2 = dx * dx + dz2;
+        if (d2 > RR) continue;
         const id = j * nx + k;
-        if (!bridge) {
+        const near = nearD[id], close = d2 <= near * near * (1 + 1e-9);
+        if (!close && Math.abs(dx * T.FX[i] + dz * T.FZ[i]) > win) continue;
+        const d = Math.sqrt(d2);
+        if (d > R) continue;
+        {
           if (d < nearD[id]) { nearD[id] = d; nearI[id] = i; }
           // exact cap: never above the road surface directly over this point
           const along = dx * T.FX[i] + dz * T.FZ[i];

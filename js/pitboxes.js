@@ -122,7 +122,15 @@ export function pitBlockFloor(T, A, pit, reach = 30) {
   if (!pit) return null;
   const L = pitSlots(T, A, pit); if (!L.slots.length) return null;
   const frs = L.slots.map(s => { const F = frameOf(T, A, pit, s), o = F.P(0, 0, 0), t = F.P(1, 0, 0); return { F, o, tx: t[0] - o[0], tz: t[2] - o[2] }; });
+  // (the box round every room, `reach` out: anything outside it is further than that from all of them. The world
+  // asks this for every grid cell, near the garages or not)
+  let bx0 = Infinity, bx1 = -Infinity, bz0 = Infinity, bz1 = -Infinity;
+  for (const { F } of frs) for (const [u, v] of [[F.x0, 0], [F.x1, 0], [F.x0, BOX.depth + 0.6], [F.x1, BOX.depth + 0.6]]) {
+    const p = F.P(u, v, 0); bx0 = Math.min(bx0, p[0]); bx1 = Math.max(bx1, p[0]); bz0 = Math.min(bz0, p[2]); bz1 = Math.max(bz1, p[2]);
+  }
+  bx0 -= reach + 1; bx1 += reach + 1; bz0 -= reach + 1; bz1 += reach + 1;
   return (x, z) => {
+    if (x < bx0 || x > bx1 || z < bz0 || z > bz1) return null;
     let best = null;
     for (const { F, o, tx, tz } of frs) {
       const dx = x - o[0], dz = z - o[2], lx = dx * tx + dz * tz, lz = dx * F.n[0] + dz * F.n[1];
