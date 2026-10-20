@@ -10,7 +10,7 @@ import { trackPropFamilies, trackPropFamily, isTrackProp, LOGOS, logoSheetImage,
 import { thumb } from './propthumbs.js';
 import { SETTINGS, SETTING_KEYS, settingOf, FLORA, FLORA_KEYS, BUILDING_KINDS, randomBuilding, houseAssets, modelFootprint, styleOf, frontTarget, eraseHits, PROP_FLORA, natureModel } from './scenery.js';
 import { envReady, envAsset, envModelsReady, loadEnvModels, HOUSE_WALLS, HOUSE_ROOFS, HOUSE_PAINTS, houseLook, houseSwatch } from './envlib.js';
-import { SCULPT_MODES, SCULPT_MAX, sculptPreview } from './sculpt.js';
+import { SCULPT_MODES, SCULPT_MAX, sculptPreview, trackHeightAt } from './sculpt.js';
 import { TileLayer, MAP_STYLES, searchPlace, myLocation, importOSM } from './geo.js';
 import { realTracks, hydrateReal } from './realtracks.js';
 import { fitStroke, simplifyTrack, lapRemap, remapDress } from './spline.js';
@@ -2132,7 +2132,7 @@ export class Editor {
       <div class="fld"><label>Brush</label><div class="seg" id="sc-mode">${Object.entries(SCULPT_MODES).map(([k, v]) => `<button data-v="${k}" class="${m === k ? 'on' : ''}">${v.label}</button>`).join('')}</div></div>
       ${fld('Brush size', 'sc-r', 8, 150, 1, Math.round(this.sculptR), 'm')}
       ${height ? fld('Height per stroke', 'sc-k', 0.5, SCULPT_MAX, 0.5, this.sculptK, 'm') : fld('Strength', 'sc-s', 0.1, 1, 0.05, this.sculptS, '')}
-      <p class="muted">${{ up: 'Raises the ground under the stroke. Go over it again to build it higher.', down: 'Digs the ground down: valleys, dips, a lake bed.', smooth: 'Rounds off bumps and sharp edges.', flat: 'Levels the ground to the height where the stroke starts. Start on a hilltop to make a plateau.' }[m]}</p>
+      <p class="muted">${{ up: 'Raises the ground under the stroke. Go over it again to build it higher.', down: 'Digs the ground down: valleys, dips, a lake bed.', smooth: 'Rounds off bumps and sharp edges.', flat: 'Levels the ground to the height where the stroke starts. Start on a hilltop to make a plateau.', track: 'Brings the ground down to the height of the nearest road, never below it: cut a hill or a bank back level with the track.' }[m]}</p>
       <p class="muted">The track, its runoff and roads keep their own heights: the ground blends into them. Hills show in the test drive and race. Your own edits sit on top of the location's hills${t.terrain ? ' (here, the real elevation)' : ''}.</p>
       <p class="muted">${t.sculpt.length} stroke${t.sculpt.length === 1 ? '' : 's'}.</p>
       <div class="seg"><button id="sc-undo">Undo Last Stroke</button><button id="sc-clear">Clear Sculpting</button></div>`;
@@ -2750,7 +2750,7 @@ export class Editor {
     if (t.sculpt.length) {
       let V = this.sculptView;
       if (!V || V.src !== t.sculpt || V.n !== t.sculpt.length) {
-        const g = sculptPreview(t.sculpt);
+        const g = sculptPreview(t.sculpt, 4, this.T && this.A ? trackHeightAt(this.T, this.A.hash) : null);
         V = this.sculptView = { src: t.sculpt, n: t.sculpt.length, g, cv: null };
         if (g) {
           const cv = document.createElement('canvas'); cv.width = g.nx; cv.height = g.nz;

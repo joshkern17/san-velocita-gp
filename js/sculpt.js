@@ -9,6 +9,7 @@ export const SCULPT_MODES = {
   down:   { label: 'Lower',   color: '#5a9ad8' },
   smooth: { label: 'Smooth',  color: '#c8c8c8' },
   flat:   { label: 'Flatten', color: '#e8d870' },
+  track:  { label: 'To Track', color: '#c47ae0' },
 };
 export const SCULPT_MAX = 40; // (strength slider, metres)
 
@@ -32,8 +33,22 @@ export function strokeBox(st, pad = 0) {
   return [x0 - r, z0 - r, x1 + r, z1 + r];
 }
 
-// H: Float32Array heights on a grid (nx by nz, origin gx0 / gz0, spacing step). Modified in place.
-export function applySculpt(strokes, H, nx, nz, gx0, gz0, step) {
+// the road's height nearest (x, z), just under its surface (where the ground meets it), or null with no road within
+// ~1 km: for the To Track brush. T: sampleTrack, hash: analyzeTrack's
+export function trackHeightAt(T, hash) {
+  return (x, z) => {
+    for (const r of [40, 160, 640]) {
+      let bj = -1, bd = Infinity;
+      hash.query(x, z, r, (j) => { const d = (x - T.X[j]) ** 2 + (z - T.Z[j]) ** 2; if (d < bd) { bd = d; bj = j; } });
+      if (bj >= 0 && bd <= r * r) return T.Y[bj] - 0.2;
+    }
+    return null;
+  };
+}
+
+// H: Float32Array heights on a grid (nx by nz, origin gx0 / gz0, spacing step). Modified in place. trackY(x, z): the
+// road's height nearest a point (trackHeightAt), for the To Track brush (without it, those strokes do nothing)
+export function applySculpt(strokes, H, nx, nz, gx0, gz0, step, trackY = null) {
   if (!strokes || !strokes.length) return;
   const at = (x, z) => { // bilinear height
     const fx = Math.max(0, Math.min(nx - 1.001, (x - gx0) / step)), fz = Math.max(0, Math.min(nz - 1.001, (z - gz0) / step));
@@ -56,6 +71,14 @@ export function applySculpt(strokes, H, nx, nz, gx0, gz0, step) {
       // level everything under the brush to the height where the stroke began
       const target = at(st.pts[0][0], st.pts[0][1]), s = Math.max(0, Math.min(1, st.k ?? 1));
       for (let j = j0; j <= j1; j++) for (let k = k0; k <= k1; k++) { const c = cov[(j - j0) * W + (k - k0)] * s; if (c > 0) H[j * nx + k] += (target - H[j * nx + k]) * c; }
+    } else if (m === 'track') {
+      // down to the height of the road nearest each point, never below it (a hill cut back level with the track)
+      if (!trackY) continue;
+      const s = Math.max(0, Math.min(1, st.k ?? 1));
+      for (let j = j0; j <= j1; j++) for (let k = k0; k <= k1; k++) {
+        const c = cov[(j - j0) * W + (k - k0)] * s, i = j * nx + k; if (c <= 0) continue;
+        const ty = trackY(gx0 + k * step, gz0 + j * step); if (ty !== null && H[i] > ty) H[i] += (ty - H[i]) * c;
+      }
     } else if (m === 'smooth') {
       // a blur about a third of the brush wide, blended in by the brush cover
       const R = Math.max(1, Math.round((st.r || 10) / 3 / step)), s = Math.max(0, Math.min(1, st.k ?? 0.8));
@@ -71,12 +94,12 @@ export function applySculpt(strokes, H, nx, nz, gx0, gz0, step) {
 }
 
 // the editor's preview: sculpted height (over flat ground) on a grid covering every stroke
-export function sculptPreview(strokes, step = 4) {
+export function sculptPreview(strokes, step = 4, trackY = null) {
   if (!strokes || !strokes.length) return null;
   let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
   for (const st of strokes) { const b = strokeBox(st, 8); x0 = Math.min(x0, b[0]); z0 = Math.min(z0, b[1]); x1 = Math.max(x1, b[2]); z1 = Math.max(z1, b[3]); }
   step = Math.max(step, Math.sqrt((x1 - x0) * (z1 - z0) / 250000)); // (at most ~250k cells)
   const nx = Math.ceil((x1 - x0) / step) + 1, nz = Math.ceil((z1 - z0) / step) + 1, H = new Float32Array(nx * nz);
-  applySculpt(strokes, H, nx, nz, x0, z0, step);
+  applySculpt(strokes, H, nx, nz, x0, z0, step, trackY);
   return { H, nx, nz, x0, z0, step };
 }

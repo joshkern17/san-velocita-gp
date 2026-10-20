@@ -1,12 +1,12 @@
 // Circuit Designer, 3D VIEW: sculpting the land where it is (stage 3 of the 3D editor), with the SCULPT tool (Scenery).
 // The brush is a ring on the ground under the cursor, in its mode's colour, dimmed where the land is the road's (the
 // track, its runoff and embankments always win: world.js fades sculpting out there, and so does the ring). Hold the
-// left button to paint: the ground under the brush rises or falls on a patch drawn over the world as you go (amber
+// left button to paint (Raise, Lower, Smooth, Flatten, or To Track: down to the nearest road's height): the ground under the brush rises or falls on a patch drawn over the world as you go (amber
 // where it's grown too steep to stand on), and on letting go the stroke is the circuit's like any other (the same
 // track.sculpt format as the map's tool, one undo each) and the world behind is built again with it. The right button
 // turns the camera round, the wheel zooms; [ ] the brush size, Shift [ ] its strength.
 import * as THREE from 'three';
-import { SCULPT_MODES, SCULPT_MAX, applySculpt, strokeBox } from './sculpt.js';
+import { SCULPT_MODES, SCULPT_MAX, applySculpt, strokeBox, trackHeightAt } from './sculpt.js';
 import { sfx } from './audio.js';
 
 const smoothstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -103,7 +103,7 @@ export function installSculpt3d(Ed) {
     if (nx * nz > 90000) return; // (a very long stroke: the world shows it when it's built)
     const gh = v.S.world.groundHeight, B = new Float32Array(nx * nz), H = new Float32Array(nx * nz), F = new Float32Array(nx * nz);
     for (let j = 0; j < nz; j++) for (let k = 0; k < nx; k++) { const x = x0 + k * step, z = z0 + j * step, i = j * nx + k; B[i] = H[i] = gh(x, z); F[i] = this.sculptReach3d(x, z); }
-    applySculpt([st], H, nx, nz, x0, z0, step);
+    applySculpt([st], H, nx, nz, x0, z0, step, this.T && this.A ? trackHeightAt(this.T, this.A.hash) : null);
     const pos = new Float32Array(nx * nz * 3), col = new Float32Array(nx * nz * 4), base = new THREE.Color(SCULPT_MODES[st.m].color), steep = new THREE.Color(0xffb020);
     const Y = new Float32Array(nx * nz);
     for (let i = 0; i < nx * nz; i++) Y[i] = B[i] + (H[i] - B[i]) * F[i];

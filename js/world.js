@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { getTextures, getGroundTextures } from './textures.js';
 import { circDist, computeSpeedProfile, OPEN_END_WALL, stepIdx, fenceHeight, kerbOn, kerbW, kerbOf, kerbColors, wallTypeAt, KERB_STYLES, SAUSAGE_H } from './track.js';
 import { gameHeight } from './terrain.js';
-import { applySculpt } from './sculpt.js';
+import { applySculpt, trackHeightAt } from './sculpt.js';
 import { footSamples, rectFoot, makePlots } from './pads.js';
 import { makeVerge } from './verge.js';
 import { placeTrackProps, buildStartGantry, beamCone, beamMaterial, buildCatchFence, CROWDS } from './trackprops.js';
@@ -367,7 +367,7 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
     H[id] = h;
   }
   if (track.sculpt && track.sculpt.length) {
-    const S = H.slice(); applySculpt(track.sculpt, S, nx, nz, gx0, gz0, step);
+    const S = H.slice(); applySculpt(track.sculpt, S, nx, nz, gx0, gz0, step, trackHeightAt(T, A.hash));
     for (let i = 0; i < NV; i++) H[i] += (S[i] - H[i]) * sculptFade[i];
   }
   yield;

@@ -244,7 +244,7 @@ export function installView3d(Ed) {
     if (!this.v3d) return;
     const fly = this.v3d.mode === 'fly';
     $('ed-hint').innerHTML = this.tool === 'sculpt' && !fly
-      ? '<b>3D VIEW &middot; SCULPT</b> &mdash; <b>hold</b> to paint the land: <b>Raise</b>, <b>Lower</b>, <b>Smooth</b> or <b>Flatten</b> (to the height where you start) on the right. The ring dims where the land is the road\'s: the track, its runoff and banks never move. Amber: too steep to stand on. <b>[ ]</b> brush size, <b>Shift [ ]</b> strength. <b>Right-drag</b> to turn round, <b>wheel</b> to zoom, <b>W A S D</b> to pan.'
+      ? '<b>3D VIEW &middot; SCULPT</b> &mdash; <b>hold</b> to paint the land: <b>Raise</b>, <b>Lower</b>, <b>Smooth</b>, <b>Flatten</b> (to the height where you start) or <b>To Track</b> (down to the nearest road\'s height) on the right. The ring dims where the land is the road\'s: the track, its runoff and banks never move. Amber: too steep to stand on. <b>[ ]</b> brush size, <b>Shift [ ]</b> strength. <b>Right-drag</b> to turn round, <b>wheel</b> to zoom, <b>W A S D</b> to pan.'
       : this.mode !== 'shape'
       ? '<b>3D VIEW</b> &mdash; in 3D for now: the <b>Shape</b> mode\'s points, and <b>Sculpt</b> (Scenery). Curbs, barriers and the rest are on the map (<b>V</b>) for now.'
       : fly ? '<b>3D VIEW &middot; FLY</b> &mdash; <b>drag</b> to look, <b>W A S D</b> to fly, <b>Q E</b> down / up, <b>Shift</b> faster. <b>C</b>: back to orbit, to work on the points.'
