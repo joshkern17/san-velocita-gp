@@ -1524,7 +1524,8 @@ export function buildWorld(track, T, A, opts = {}) {
   }
   const roadAt = (x, z) => !!(roadL && roadL.onGroundRoad(x, z, -1.6));
   const roadLines = roadL ? roadL.pieces.map(pc => pc.s.map(q => [q.x, q.z])) : [];
-  return { root, fog, P, update, setWeather, setTimeOfDay, nightK: () => nightK, road: env.surface === 'dirt' ? null : { mat: roadMat }, groundHeight, paintAt, roadAt, streetStep: (x, z) => streetStep(x, z), roadLines, tvCams, startLights, life, boards: distBoards, center: new THREE.Vector3(cx, 0, cz), bounds: { minX, maxX, minZ, maxZ } };
+  return { root, fog, P, update, setWeather, setTimeOfDay, nightK: () => nightK, road: env.surface === 'dirt' ? null : { mat: roadMat }, groundHeight, paintAt, roadAt, streetStep: (x, z) => streetStep(x, z), roadLines, tvCams, startLights, life, boards: distBoards, center: new THREE.Vector3(cx, 0, cz), bounds: { minX, maxX, minZ, maxZ },
+    placed: { models: envPl, footprints: foot, stands, boards } }; // (what stands where: tools/tracks/check.mjs)
 }
 
 // ---------- the runoff's surfaces ----------
