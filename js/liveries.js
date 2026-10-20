@@ -5,12 +5,13 @@ import { carPhoto } from './carphoto.js';
 
 const KEY = 'svgp.teams', MAX = 60;
 const read = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; } };
-// (full storage: the oldest go, photos first, until it fits)
+// (full storage: the oldest go, photos first, until it fits; dropped: how many saves that cost, for the save to say so)
+export let dropped = 0;
 function write(list) {
-  list = list.slice(0, MAX);
+  dropped = Math.max(0, list.length - MAX); list = list.slice(0, MAX);
   for (;;) {
     try { localStorage.setItem(KEY, JSON.stringify(list)); return true; }
-    catch (e) { const k = list.findLastIndex(x => x.thumb); if (k > 0) list[k] = { ...list[k], thumb: null }; else if (list.length > 1) list.pop(); else return false; }
+    catch (e) { const k = list.findLastIndex(x => x.thumb); if (k > 0) list[k] = { ...list[k], thumb: null }; else if (list.length > 1) { list.pop(); dropped++; } else return false; }
   }
 }
 // (saves from before they had ids get one, from when they were made)
@@ -31,8 +32,9 @@ function thumbOf(car) {
 }
 // save the livery as a new entry (its photo follows a moment later); false: no room at all
 export function saveLivery(car, onThumb) {
-  const e = { id: 'lv' + Date.now().toString(36), name: car.teamName || 'My Team', car: JSON.parse(JSON.stringify(car)), saved: Date.now(), thumb: null };
+  const e = { id: 'lv' + Date.now().toString(36), name: car.teamName || 'Your Team', car: JSON.parse(JSON.stringify(car)), saved: Date.now(), thumb: null };
   if (!write([e, ...savedLiveries()])) return false;
+  e.dropped = dropped; // (the oldest saves it cost, when storage was full)
   thumbOf(e.car).then(t => { if (!t) return; const list = savedLiveries(), x = list.find(y => y.id === e.id); if (x) { x.thumb = t; write(list); if (onThumb) onThumb(); } });
   return e;
 }

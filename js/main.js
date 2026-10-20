@@ -57,6 +57,7 @@ const GUEST_OPS = new Set(['buyCar2', 'setCar2Fix', 'buyFit', 'removeFit', 'star
 import { Phone } from './phone.js';
 import { Net, PROTO } from './net.js';
 import { LiveryDesigner } from './liverydesigner.js';
+import { DEV } from './dev.js'; // (developer tools: the Development menu, race-control tests, F8, Sim Rest Of Season, the voice services)
 import { loadCustomCar, customCarStatus } from './glbcar.js';
 import { loadRoadCars } from './roadcar.js';
 import { DriftHUD } from './drifthud.js';
@@ -84,9 +85,6 @@ const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 // ---------------- your saves: restored from saves/ (serve.py) if the browser lost them, then mirrored there ----------------
 const backup = await restoreSaves();
 voiceStatus(); // (character voices: is serve.py here, and is someone signed in with ChatGPT?)
-// developer tools (Development menu, race-control tests, F8, Sim Rest Of Season, the voice services): on while
-// building; off in a release build (tools/build.mjs --release sets window.__SVGP_RELEASE) or with ?release
-const DEV = !window.__SVGP_RELEASE && !new URLSearchParams(location.search).has('release');
 
 // ---------------- settings ----------------
 const DEFAULTS = {
@@ -601,7 +599,7 @@ function renderSavedLiveries(first = false) {
   if (!list.length) items.push({ label: 'None Saved Yet', disabled: true });
   for (const e of list) items.push({ label: `${escP(e.name)}<small>#${e.car.number} &middot; ${liveryDate(e)}</small>`, lv: e, confirm: D ? 'Delete it? Select again' : 'Wear it? Select again',
     action: () => D ? lvDelete(e) : lvLoad(e), desc: D ? `Deletes this ${escP(e.name)} livery for good. Your other saves stay.` : `Saved ${liveryDate(e)}. It's on the car now: select it twice to keep it${world && garageSwap ? ' (your car stays the same model)' : ''}.` });
-  items.push({ label: 'Save This Livery', action: () => { if (saveLivery(settings.car, () => { if (lvList && screen === 's-garage') renderSavedLiveries(); })) { sfx.best(); toast(`Saved <b>${escP(settings.car.teamName || 'My Team')}</b> as a new livery.`); } else { sfx.error(); toast('There\'s no room left to save it.'); } renderSavedLiveries(); },
+  items.push({ label: 'Save This Livery', action: () => { const e = saveLivery(settings.car, () => { if (lvList && screen === 's-garage') renderSavedLiveries(); }); if (e) { sfx.best(); toast(`Saved <b>${escP(settings.car.teamName || 'Your Team')}</b> as a new livery.${e.dropped ? ` Storage was full, so the ${e.dropped} oldest ${e.dropped === 1 ? 'save was' : 'saves were'} removed (Export keeps copies).` : ''}`, e.dropped ? 7000 : 3500); } else { sfx.error(); toast('There\'s no room left to save it.'); } renderSavedLiveries(); },
       desc: 'The livery on your car, saved as a new entry. Nothing is written over.' },
     ...(list.length ? [{ label: D ? 'Stop Deleting' : 'Delete Liveries', action: () => { lvList.del = !D; sfx.select(); renderSavedLiveries(); }, desc: D ? 'Back to trying them on.' : 'Pick the ones to delete.' }] : []),
     { label: 'Back', action: () => closeSavedLiveries(), desc: 'Back to the garage, in the livery you had.' });
@@ -646,7 +644,7 @@ const designer = new LiveryDesigner({
   garage,
   getCar: () => settings.car,
   setCar: (car, rebuild) => { if (rebuild || !garage.car) garage.setCar(car); else garage.repaint(car); saveSettingsSoon(); },
-  onDone: () => { saveSettings(); show('s-garage'); menus['s-garage'][0].render(); },
+  onDone: () => { saveSettings(); clearEdges(); show('s-garage'); menus['s-garage'][0].render(); }, // (clearEdges: the Esc / B that closed it doesn't also leave the Garage)
   save: () => saveSettingsSoon(),
 });
 let saveT = 0;
@@ -6418,6 +6416,12 @@ function frameBody(now) {
       if (pc.isOpen) { const r = pitGarage.screenRect(); if (r) pc.place(r); if (!pgPcFocus && (pressed('KeyQ') | pressed('GP4'))) pc.flip(-1); if (!pgPcFocus && (pressed('KeyE') | pressed('Tab') | pressed('GP5'))) pc.flip(1); if ((pgPcT += dt) > 1) { pgPcT = 0; pc.render(); } }
       if (pc.idleDirty) { pc.idleDirty = false; pitGarage.refreshScreen(); }
     }
+  } else if (screen === 's-livery' && !designer.vec.open && !(document.activeElement && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))) {
+    // the designer on a pad: B a step back (a picked decal, then out), LB / RB the tabs, the right stick round the car
+    if (pressed('GP1')) designer.back();
+    else if (pressed('GP4') || pressed('GP5')) designer.stepTab(pressed('GP5') ? 1 : -1);
+    const [rx, ry] = rightStick(); if (rx || ry) { garage.auto = false; garage.yaw += rx * dt * 2.2; garage.pitch = Math.max(-0.05, Math.min(1.35, garage.pitch + ry * dt * 1.2)); }
+    clearEdges();
   } else if (screen === 's-garage' || screen === 's-livery') {
     if (screen === 's-garage') { menuInput(); const [rx, ry] = rightStick(); if (rx || ry) { garage.auto = false; garage.yaw += rx * dt * 2.2; garage.pitch = Math.max(-0.05, Math.min(1.35, garage.pitch + ry * dt * 1.2)); } } else clearEdges(); // (the right stick looks round the car, as in Tuning)
     garage.update(dt);

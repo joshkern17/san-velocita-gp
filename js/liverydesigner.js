@@ -7,6 +7,7 @@ const LOGO_SHORT = { color: 'Color', main: 'Brand', black: 'Black', white: 'Whit
 import { VectorEditor } from './vectoredit.js';
 import { sfx } from './audio.js';
 import { savedLiveries, saveLivery, deleteLivery, ensureThumb, liveryDate } from './liveries.js';
+import { DEV } from './dev.js';
 
 const $ = (id) => document.getElementById(id);
 const hex = (c) => '#' + ((c ?? 0) >>> 0).toString(16).padStart(6, '0').slice(-6);
@@ -32,8 +33,20 @@ export class LiveryDesigner {
       if (!this.active || this.vec.open || (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName))) return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && this.tab === 'decals' && this.dtarget === 'driver' && this.ksel >= 0) { e.preventDefault(); this.removeKitDecal(this.ksel); }
       else if ((e.key === 'Delete' || e.key === 'Backspace') && this.sel >= 0) { e.preventDefault(); this.removeDecal(this.sel); }
-      if (e.key === 'Escape') this.close();
+      if (e.key === 'Escape') this.back();
     });
+  }
+  // B / Esc: one step out at a time: the shape editor, then a picked decal, then the designer itself
+  back() {
+    if (this.vec.open) { this.vec.close(); this.render(); return; }
+    if (this.sel >= 0 || this.ksel >= 0) { this.sel = -1; this.ksel = -1; sfx.back(); this.render(); return; }
+    this.close();
+  }
+  // LB / RB: the tabs in order
+  stepTab(d) {
+    const tabs = [...document.querySelectorAll('#lv-tabs button')].map(b => b.dataset.tab), k = tabs.indexOf(this.tab);
+    if (this.tab === 'decals') this.vec.close();
+    this.tab = tabs[(k + d + tabs.length) % tabs.length]; sfx.move(); this.render();
   }
   get car() { return this.getCar(); }
   // the livery panel map of whichever car model is on the turntable (classic or your imported one)
@@ -202,7 +215,7 @@ export class LiveryDesigner {
       <div class="seg"><button id="lv-addsp">+ Sponsor name</button><button id="lv-addteam">+ Team name</button></div>
       <div class="fld"><select id="lv-addlogo"><option value="">+ Sponsor logo&hellip;</option>${Object.entries(SPONSOR_LOGOS).sort((a, b) => a[1].localeCompare(b[1])).map(([k, n]) => `<option value="${k}">${esc(n)}</option>`).join('')}</select></div>
       <div class="seg"><button id="lv-addshape" class="hot">${this.vec.open ? 'Exit shapes' : '+ Shape (pen, rectangle, ellipse)'}</button></div>
-      <p class="muted">${!this.vec.open ? 'Images are stored in your browser. SVGs stay sharp at any size. Shapes are drawn right on the car.' : this.vec.flat ? 'You\'re drawing on a flat view of the car. Pick the side in the bar at the top.' : 'Draw right on the car. Flat View (top bar) gives you a square-on view for exact lines.'}</p>
+      <p class="muted">${!this.vec.open ? 'Images you add are kept with your saves. SVGs stay sharp at any size. Shapes are drawn right on the car.' : this.vec.flat ? 'You\'re drawing on a flat view of the car. Pick the side in the bar at the top.' : 'Draw right on the car. Flat View (top bar) gives you a square-on view for exact lines.'}</p>
       <div class="lv-list" id="lv-list">${list || '<p class="muted">No decals yet.</p>'}</div>
       <div id="lv-props">${props}</div>`;
   }
@@ -281,7 +294,7 @@ export class LiveryDesigner {
     c.decals.push({ id: 'd' + Math.random().toString(36).slice(2, 8), panel: pn, x: p.W * 0.5, y: p.H * 0.4, size: 0.5, rot: 0, opacity: 1, mirror: true, flip: false, ...d });
     this.sel = c.decals.length - 1; this.dtarget = 'car';
     sfx.select(); this.changed(true);
-    this.toast('NOW CLICK ON THE CAR TO PLACE IT');
+    this.toast('ON BOTH SIDES OF THE CAR: DRAG IT TO MOVE IT');
   }
   // the title sponsor's name / the team name, as a sticker that keeps up with it
   addBound(bind) {
@@ -452,9 +465,9 @@ export class LiveryDesigner {
       <h4 style="margin-top:16px">SHARE</h4>
       <p class="muted">A livery file holds the whole design including your images. Send it to a friend, or keep a backup.</p>
       <div class="seg"><button id="lv-exp">Export livery file</button><button id="lv-imp">Import livery file</button></div>
-      <h4 style="margin-top:16px">FOR 3D MODELLERS</h4>
+      ${DEV ? `<h4 style="margin-top:16px">FOR 3D MODELERS</h4>
       <p class="muted">Liveries are stored per panel, not per model. To make a new car model take every livery: UV-unwrap it so each panel lands in the same area and the same direction as this template. See docs/CAR-MODELS.md.</p>
-      <div class="seg"><button id="lv-uv">UV template (PNG)</button><button id="lv-tex">This livery's texture</button></div>`;
+      <div class="seg"><button id="lv-uv">UV template (PNG)</button><button id="lv-tex">This livery's texture</button></div>` : ''}`;
   }
   bind_files() {
     const c = this.car;
@@ -464,8 +477,8 @@ export class LiveryDesigner {
       if (act === 'load') { const t = list[i]; Object.keys(c).forEach(k => delete c[k]); Object.assign(c, fillLivery(JSON.parse(JSON.stringify(t.car)))); assets.load(liveryAssetIds(c)).then(() => this.repaint()); this.sel = -1; this.rebuild(); this.toast('LOADED ' + t.name.toUpperCase()); sfx.select(); this.render(); }
     }));
     $('lv-save').addEventListener('click', () => {
-      const name = c.teamName || 'My Team';
-      if (saveLivery(c, () => { if (this.tab === 'files') this.render(); })) { this.toast('SAVED ' + name.toUpperCase()); sfx.best(); } else this.toast('COULD NOT SAVE (STORAGE FULL)');
+      const name = c.teamName || 'Your Team', e = saveLivery(c, () => { if (this.tab === 'files') this.render(); });
+      if (e) { this.toast(e.dropped ? `SAVED ${name.toUpperCase()} · STORAGE WAS FULL: ${e.dropped} OLDEST REMOVED (EXPORT TO KEEP COPIES)` : 'SAVED ' + name.toUpperCase()); sfx.best(); } else this.toast('COULD NOT SAVE (STORAGE FULL)');
       this.render();
     });
     $('lv-exp').addEventListener('click', () => {
@@ -474,8 +487,8 @@ export class LiveryDesigner {
       this.toast('LIVERY EXPORTED');
     });
     $('lv-imp').addEventListener('click', () => { const f = $('lv-import'); f.value = ''; f.click(); });
-    $('lv-uv').addEventListener('click', () => (this.def.template ? this.def.template() : uvTemplate(this.def)).toBlob(b => download(`uv-template-${this.def.id}.png`, b)));
-    $('lv-tex').addEventListener('click', () => { const cv = this.garage.car?.livery; if (cv) cv.toBlob(b => download(`${(c.teamName || 'livery').replace(/\W+/g, '-')}-texture.png`, b)); });
+    $('lv-uv')?.addEventListener('click', () => (this.def.template ? this.def.template() : uvTemplate(this.def)).toBlob(b => download(`uv-template-${this.def.id}.png`, b)));
+    $('lv-tex')?.addEventListener('click', () => { const cv = this.garage.car?.livery; if (cv) cv.toBlob(b => download(`${(c.teamName || 'livery').replace(/\W+/g, '-')}-texture.png`, b)); });
   }
   async importLivery(file) {
     if (!file) return;
