@@ -20,6 +20,8 @@ import { lapShift } from './lapshift.js';
 import { installView3d } from './ed3d.js';
 import { installPitTool } from './edpit.js';
 import { installPaintShapes } from './edpaint.js';
+import { installCheck } from './edcheck.js';
+import { installPad } from './edpad.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -28,6 +30,9 @@ const THEME_BG = { grass: '#142417', desert: '#2a1f14', city: '#16181e', coast: 
 const WALL_COL = ['#9a4a3c', '#e8e6df', '#5c5c5c', '#3f6a6a', '#a8a060', '#a4a29c'];
 const ROOF_COL = ['#4c6450', '#8a3a30', '#6a6e74', '#6e5e50', '#a0624c', '#2e3034'];
 const THEME_RUN = { grass: 'rgba(96,150,70,0.55)', desert: 'rgba(200,150,90,0.5)', city: 'rgba(150,150,150,0.45)', coast: 'rgba(210,190,130,0.45)' };
+
+const MODES = ['shape', 'trackside', 'scenery', 'location'];
+const TOOL_MODE = { draw: 'shape', edit: 'shape', kerbs: 'trackside', bars: 'trackside', runoff: 'trackside', pit: 'trackside', props: 'scenery', paint: 'scenery', zones: 'scenery', roads: 'scenery', sculpt: 'scenery' }; // (pan: any)
 
 export class Editor {
   constructor(cb) {
@@ -74,7 +79,8 @@ export class Editor {
     if (!resume) { this.history = []; this.future = []; this.mine = this.savedList().some(x => x.name === this.track.name && x.saved === this.track.saved) ? this.track.name : null; }
     this.sel.clear(); this.selProp = -1; this.kerbSel = -1; this.barSel = -1; this.barNode = -1; this.pitNode = -1; this.paintSel = -1; this.paintNode = -1; this.shapeDraw = null;
     $('ed-name').value = this.track.name;
-    this.setTool(this.tool);
+    if (!this.mode) this.setMode(TOOL_MODE[this.tool] || 'shape');
+    this.setTool(this.tool); // (its panel and how-to, whichever mode it's in)
     this.recompute(true);
     if (!resume) this.markSaved();
     this.needFit = true;
@@ -154,7 +160,7 @@ export class Editor {
     if (!trackReady(t)) {
       this.T = this.A = this.pit = null; this.chunks = []; this.scen = null; this.lapEst = 0; this.maxY = 10;
       clearTimeout(this.scenT); clearTimeout(this.lapT);
-      this.refreshStats();
+      this.refreshStats(); this.checkTrack();
       if (fit) this.fit();
       return;
     }
@@ -166,7 +172,8 @@ export class Editor {
       this.A.pit = this.pit;
       applyRoadsToCircuit(t, this.T, this.A);
       this.A.run = runoffLayout(this.T, this.A, t);
-    } catch (e) { console.error(e); this.T = this.A = this.pit = null; this.chunks = []; return; }
+    } catch (e) { console.error(e); this.T = this.A = this.pit = null; this.chunks = []; this.checkTrack(); return; }
+    this.checkTrack(); // (what's wrong, and where: edcheck.js)
     // node -> lap distance
     const T = this.T;
     const bestF = new Float32Array(n).fill(1e9);
@@ -247,9 +254,11 @@ export class Editor {
     }).observe($('ed-wrap'));
     new ResizeObserver(() => { if (this.active) this.resize(); }).observe(this.pcan);
     document.querySelectorAll('#s-editor [data-tool]').forEach(b => b.addEventListener('click', () => { this.setTool(b.dataset.tool); sfx.move(); }));
+    document.querySelectorAll('#ed-modes span').forEach(x => x.addEventListener('click', () => { if (x.dataset.m !== this.mode) { this.setMode(x.dataset.m); sfx.move(); } }));
     document.querySelectorAll('#s-editor [data-act]').forEach(b => b.addEventListener('click', () => this.action(b.dataset.act)));
     document.querySelectorAll('.ed-tabs button').forEach(b => b.addEventListener('click', () => this.showTab(b.dataset.tab)));
     $('ed-name').addEventListener('input', (e) => { this.track.name = e.target.value || 'Untitled'; this.saveWork(); });
+    $('ed-check').addEventListener('click', () => this.nextProblem()); // (the status: to each problem in turn, edcheck.js)
     $('ed-file').addEventListener('change', (e) => this.importFile(e.target.files[0]));
 
     loadEnvModels().then(() => { if (this.active) { this.renderNodeTab(); this.scheduleScenery(0); } }); // (house swatches, model sizes)
@@ -279,7 +288,19 @@ export class Editor {
     window.addEventListener('keydown', e => this.onKey(e));
   }
 
+  // Four modes, each its own tools (the dock at the bottom of the map): Shape (the road), Trackside (curbs, barriers,
+  // runoff, the pit lane), Scenery (props, paint, zones, roads, the land), Location (a real map). Tab goes round them.
+  setMode(m, tool = null) {
+    if (!MODES.includes(m)) return;
+    const was = this.mode; this.mode = m;
+    const el = $('s-editor'); MODES.forEach(k => el.classList.toggle('mode-' + k, k === m));
+    document.querySelectorAll('#ed-modes span').forEach(x => x.classList.toggle('on', x.dataset.m === m));
+    if (tool || TOOL_MODE[this.tool] !== m) this.setTool(tool || (m === 'shape' ? (trackReady(this.track) ? 'edit' : 'draw') : m === 'trackside' ? 'kerbs' : m === 'scenery' ? 'props' : 'pan'));
+    if (m === 'location') this.showTab('map');
+    if (was !== m) requestAnimationFrame(() => { this.resize(); this.dirty = true; }); // (the profile comes and goes: the map's size changes)
+  }
   setTool(t) {
+    if (TOOL_MODE[t] && TOOL_MODE[t] !== this.mode) return this.setMode(TOOL_MODE[t], t); // (a tool's key or button takes you to its mode)
     // (RUNOFF: PAINT drawing shapes with the pen)
     if (t === 'runoff') { if (this.tool !== 'paint' || this.paintMode !== 'shape') { this.paintSel = -1; this.paintNode = -1; } this.paintMode = 'shape'; if (!['grass', 'paved', 'gravel'].includes(this.paintKind)) this.paintKind = 'gravel'; t = 'paint'; }
     else if (t === 'paint' && this.tool !== 'paint') this.paintMode = 'brush';
@@ -329,9 +350,9 @@ export class Editor {
     ['node', 'track', 'world', 'map'].forEach(k => $('tab-' + k).hidden = k !== t);
   }
 
-  toast(msg) {
+  toast(msg, ms = 1600) {
     const e = $('ed-toast'); e.textContent = msg; e.classList.add('on');
-    clearTimeout(this.toastT); this.toastT = setTimeout(() => e.classList.remove('on'), 1600);
+    clearTimeout(this.toastT); this.toastT = setTimeout(() => e.classList.remove('on'), ms);
   }
 
   // ---------------- actions ----------------
@@ -358,7 +379,9 @@ export class Editor {
       case 'undo': this.undo(); break;
       case 'redo': this.redo(); break;
       case 'test': if (!this.needTrack('TEST')) break; this.saveWork(); this.cb.onTest(cloneTrack(t)); break;
-      case 'race': if (!this.needTrack('RACE')) break; this.saveWork(); this.cb.onRace(cloneTrack(t)); break;
+      case 'race': if (!this.needTrack('RACE')) break;
+        if (this.blocking().length) { sfx.error(); this.probAt = this.problems.indexOf(this.blocking()[0]) - 1; this.nextProblem(); break; } // (a flat crossing: to it, with what to do)
+        this.saveWork(); this.cb.onRace(cloneTrack(t)); break;
       case 'exit': this.exit(); break;
       case 'smooth': if (!this.needTrack()) break; this.push(); this.smooth(); break;
       case 'simplify': if (!this.needTrack()) break; this.push(); this.simplify(); break;
@@ -970,6 +993,7 @@ export class Editor {
     if (ctrl && e.code === 'KeyY') { e.preventDefault(); this.redo(); return; }
     if (ctrl && e.code === 'KeyS') { e.preventDefault(); this.save(); return; }
     if (ctrl && e.code === 'KeyA' && this.tool === 'edit') { e.preventDefault(); this.track.points.forEach((p, i) => this.sel.add(i)); this.renderPanels(); this.dirty = true; return; }
+    if (e.code === 'Tab') { e.preventDefault(); this.setMode(MODES[(MODES.indexOf(this.mode) + (e.shiftKey ? -1 : 1) + MODES.length) % MODES.length]); sfx.move(); return; }
     if (e.code === 'Digit1') this.setTool('draw');
     if (e.code === 'Digit2') this.setTool('edit');
     if (e.code === 'Digit3') this.setTool('props');
@@ -1556,6 +1580,7 @@ export class Editor {
     this.drawBarrierEdit(c); // (BARRIERS: the picked one's nodes: edbarriers.js)
     this.drawPitEdit(c); // (PIT LANE: its nodes and garages: edpit.js)
     this.drawShapeEdit(c); // (PAINT › Shape: the picked one, the one being drawn: edpaint.js)
+    this.drawProblems(c); // (what's wrong, red where it is: edcheck.js)
 
     // direction arrows
     c.fillStyle = 'rgba(255,255,255,0.75)';
@@ -2964,10 +2989,6 @@ export class Editor {
       return;
     }
     const s = trackStats(this.T);
-    const warns = [];
-    if (s.minRadius < 14) warns.push('Very tight corner (R ' + s.minRadius.toFixed(0) + 'm) — cars may struggle.');
-    if (Array.from(this.A.LIFT).some(v => v > 0)) warns.push('Flat crossing detected. Raise one side 5m+ to build a bridge.');
-    if (s.length < (s.open ? 400 : 800)) warns.push(s.open ? 'Short run — consider a longer road.' : 'Short circuit — consider a longer loop.');
     const bridges = Array.from(this.A.BRIDGE).filter(Boolean).length * this.T.ds;
     $('ed-stats').innerHTML = `
       LENGTH <b>${(s.length / 1000).toFixed(2)} km</b> &middot; CORNERS <b>${s.turns}</b><br>
@@ -2976,8 +2997,7 @@ export class Editor {
       ${this.scen ? `BUILDINGS <b>${this.scen.buildings.length}</b> &middot; TREES <b>${this.scen.trees.length}</b>${this.scen.rejected.length ? ` <span style="color:var(--sv-bad)">(${this.scen.rejected.length} on track, removed)</span>` : ''}<br>` : ''}
       ${this.T.open ? 'POINT-TO-POINT &middot; ONE RUN' : `PIT LANE <b>${this.pit ? Math.round(this.pit.length) + ' m (' + (this.pit.side > 0 ? 'right' : 'left') + ')' : 'none'}</b>`}<br>
       ${this.T.open ? 'EST. RUN' : 'EST. LAP'} <b>${this.lapEst ? fmtTime(this.lapEst) : '…'}</b>
-      ${this.track.env.pits !== false && !this.pit && !this.T.open ? '<div class="warn">! No room for a pit lane near the start line — give the start straight some space, or turn pits off.</div>' : ''}
-      ${warns.map(w => `<div class="warn">! ${w}</div>`).join('')}`;
+      ${(this.problems || []).map((p, k) => `<div class="warn${k === this.probAt ? ' on' : ''}">${k + 1}. ${p.text}</div>`).join('')}`;
   }
 }
 installKerbTool(Editor);
@@ -2985,6 +3005,8 @@ installBarrierTool(Editor);
 installView3d(Editor);
 installPitTool(Editor);
 installPaintShapes(Editor);
+installCheck(Editor);
+installPad(Editor); // (last: it wraps draw() to put the pad's cursor on top)
 
 function fld(label, id, min, max, step, val, unit) {
   return `<div class="fld"><label>${label}<span id="${id}-v">${val}${unit}</span></label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"></div>`;

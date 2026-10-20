@@ -695,6 +695,7 @@
   <div class="ed-top">
     <div class="ed-brand gothic">Circuit Designer</div>
     <input id="ed-name" class="ed-name" spellcheck="false" maxlength="40">
+    <button id="ed-check" class="ed-check none" type="button">No track yet</button>
     <div class="ed-btns">
       <button data-act="new">New</button>
       <button data-act="presets">Presets</button>
@@ -713,34 +714,43 @@
       <button data-act="exit">Exit</button>
     </div>
   </div>
-  <div class="ed-tools" id="ed-tools">
-    <button data-tool="draw" title="Draw (1)"><b>1</b>DRAW</button>
-    <button data-tool="edit" title="Edit nodes (2)"><b>2</b>EDIT</button>
-    <button data-tool="props" title="Props (3)"><b>3</b>PROPS</button>
-    <button data-tool="zones" title="Building zones (4)"><b>4</b>ZONES</button>
-    <button data-tool="paint" title="Paint grass, trees, houses, erase (6)"><b>6</b>PAINT</button>
-    <button data-tool="runoff" title="Draw runoff shapes with a pen: grass, paved, gravel (R)"><b>R</b>RUNOFF</button>
-    <button data-tool="roads" title="Roads (7)"><b>7</b>ROADS</button>
-    <button data-tool="sculpt" title="Sculpt the land (8)"><b>8</b>SCULPT</button>
-    <button data-tool="kerbs" title="Curbs (9)"><b>9</b>CURBS</button>
-    <button data-tool="bars" title="Barriers (0)"><b>0</b>BARRIERS</button>
-    <button data-tool="pit" title="Pit lane (P)"><b>P</b>PIT LANE</button>
-    <button data-tool="pan" title="Pan (5)"><b>5</b>PAN</button>
-    <div class="ed-tool-sep"></div>
-    <button data-act="smooth" title="Smooth all nodes">SMOOTH</button>
-    <button data-act="simplify" title="Remove redundant nodes">SIMPLIFY</button>
-    <button data-act="reverse" title="Reverse direction">REVERSE</button>
-    <button data-act="autobank" title="Bank every corner automatically">AUTO BANK</button>
-    <button data-act="flatten" title="Reset all elevation">FLATTEN</button>
-    <button data-act="fit" title="Frame track (F)">FRAME</button>
-    <button data-act="grid" title="Grid snap (G)" id="ed-grid">SNAP</button>
-    <button data-act="seethru" title="See the map through the track: 100% / 50% / 25% (T)" id="ed-seethru">SEE-THROUGH</button>
-  </div>
   <div class="ed-canvas-wrap" id="ed-wrap">
     <canvas id="ed-canvas"></canvas>
     <div class="ed-hint" id="ed-hint"></div>
     <div class="ed-scale" id="ed-scale"></div>
     <div class="ed-attr" id="ed-attr"></div>
+    <!-- the view: frame it, snap to the grid, see the map through the road, pan -->
+    <div class="ed-viewtools">
+      <button data-act="fit" title="Frame the track (F)">Frame</button>
+      <button data-act="grid" title="Grid snap (G)" id="ed-grid">Snap</button>
+      <button data-act="seethru" title="See the map through the track: 100% / 50% / 25% (T)" id="ed-seethru">See-Through</button>
+      <button data-tool="pan" title="Pan (5)">Pan</button>
+    </div>
+    <!-- four modes along the bottom (Tab), the one open's tools above them -->
+    <div class="ed-dock" id="ed-tools">
+      <div class="ed-strip">
+        <button data-tool="draw" data-mode="shape" title="Draw (1)">Draw<b>1</b></button>
+        <button data-tool="edit" data-mode="shape" title="Edit points (2)">Edit<b>2</b></button>
+        <i class="ed-strip-sep" data-mode="shape"></i>
+        <button data-act="smooth" data-mode="shape" title="Smooth every point">Smooth</button>
+        <button data-act="simplify" data-mode="shape" title="Fewer points, the same road">Simplify</button>
+        <button data-act="reverse" data-mode="shape" title="Race it the other way round">Reverse</button>
+        <button data-act="autobank" data-mode="shape" title="Bank every corner">Auto Bank</button>
+        <button data-act="flatten" data-mode="shape" title="Every point back to ground level">Flatten</button>
+        <button data-tool="kerbs" data-mode="trackside" title="Curbs (9)">Curbs<b>9</b></button>
+        <button data-tool="bars" data-mode="trackside" title="Barriers (0)">Barriers<b>0</b></button>
+        <button data-tool="runoff" data-mode="trackside" title="Runoff: grass, paved or gravel, drawn with a pen (R)">Runoff<b>R</b></button>
+        <button data-tool="pit" data-mode="trackside" title="Pit lane (P)">Pit Lane<b>P</b></button>
+        <button data-tool="props" data-mode="scenery" title="Props (3)">Props<b>3</b></button>
+        <button data-tool="paint" data-mode="scenery" title="Paint grass, trees, houses, a crowd; erase (6)">Paint<b>6</b></button>
+        <button data-tool="zones" data-mode="scenery" title="Lines of buildings (4)">Zones<b>4</b></button>
+        <button data-tool="roads" data-mode="scenery" title="Streets (7)">Roads<b>7</b></button>
+        <button data-tool="sculpt" data-mode="scenery" title="Shape the land (8)">Sculpt<b>8</b></button>
+        <span class="ed-strip-note" data-mode="location">Put the circuit on a real map: the panel on the right.</span>
+      </div>
+      <div class="ed-modes" id="ed-modes"><span data-m="shape">Shape</span><span data-m="trackside">Trackside</span><span data-m="scenery">Scenery</span><span data-m="location">Location</span></div>
+      <div class="ed-padhint">Left stick: cursor &middot; A: click, hold to drag, twice to add a point &middot; X: delete &middot; Y: undo &middot; B: back &middot; LB RB: modes &middot; &#9664; &#9654;: tools &middot; LT RT: zoom &middot; right stick: pan &middot; Start: menu</div>
+    </div>
   </div>
   <div class="ed-side" id="ed-side">
     <div class="ed-tabs">

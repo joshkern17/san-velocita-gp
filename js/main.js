@@ -6522,6 +6522,13 @@ function frameBody(now) {
     menuInput();
     if (sim && sim.mode === 'attract') sim.update(dt, {}, {});
   } else {
+    // the Circuit Designer on a pad (js/edpad.js): the sticks, the triggers by how far in, the buttons' presses
+    const P = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(g => g && g.connected);
+    if (P && !(document.activeElement && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))) {
+      const [lx, ly] = leftStick(), [rx, ry] = rightStick(), hb = (i) => P.buttons[i] ? P.buttons[i].value || (P.buttons[i].pressed ? 1 : 0) : 0;
+      editor.padTick(dt, { lx, ly, rx, ry, lt: hb(6), rt: hb(7), a: hb(0) > 0.5,
+        pressed: { a: pressed('GP0'), b: pressed('GP1'), x: pressed('GP2'), y: pressed('GP3'), lb: pressed('GP4'), rb: pressed('GP5'), view: pressed('GP8'), start: pressed('GP9'), up: pressed('GP12'), down: pressed('GP13'), left: pressed('GP14'), right: pressed('GP15') } });
+    }
     clearEdges();
   }
   // controller vibration: only while you're driving (and a short buzz when you try the setting)
