@@ -698,6 +698,9 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .ed-modal-box .li.padsel { box-shadow: inset 3px 0 0 var(--sv-amber); padding-left: 10px; }
 .ed-padhint { display: none; font: 500 12px/1.3 var(--f-body); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; }
 #s-editor.pad .ed-padhint { display: block; }
+/* the pad in the panel on the right (Y): its control lit, the map's cursor resting */
+#ed-side .padfocus { outline: 2px solid var(--sv-amber); outline-offset: 2px; box-shadow: 0 0 10px color-mix(in srgb, var(--sv-amber) 60%, transparent); }
+#s-editor.pad-panel .ed-side { box-shadow: inset 3px 0 0 var(--sv-amber); }
 #s-editor.pad #ed-canvas { cursor: none; }
 .ed-viewtools { position: absolute; right: 14px; top: 12px; display: flex; gap: 4px; z-index: 2; }
 .ed-viewtools button { font-size: 12px !important; padding: 5px 8px !important; }
@@ -2991,3 +2994,20 @@ span.tsw-face { width: 64px; height: 64px; }
 .bc-cap.win .bc-tag { background: linear-gradient(180deg, #fff3b0 0%, #f2c230 46%, #c48a00 54%, #e0a810 100%); border-color: #fffbe0 #000 #7a5200; }
 .bc-cap.win .bc-tag b { color: #2a1a00; text-shadow: 0 1px 0 rgba(255, 255, 255, .6); }
 #s-hub.no-anim, #s-hub.no-anim * { transition: none !important; }
+
+/* ---------- motion (docs/DESIGN.md: 2005 - wipes and one-way fades; selectors snap in place, never slide; no flicker).
+   (fill: backwards only, so nothing stays clipped once it's played) ---------- */
+@keyframes sv-wipe-in { from { clip-path: inset(-40px 100% -40px -60px); } to { clip-path: inset(-40px -40px -40px -60px); } }
+@keyframes sv-fade-in { from { opacity: 0; } }
+@keyframes sv-drop-in { from { clip-path: inset(-20px -20px 100% -20px); } to { clip-path: inset(-20px -20px -20px -20px); } }
+@keyframes sv-bump { from { filter: brightness(1.9); } }
+.wipe-in { animation: sv-wipe-in .26s var(--ease) backwards; }
+.menu .item .vt.bump { display: inline-block; animation: sv-bump .3s ease-out; }
+.ed-modal:not([hidden]) { animation: sv-fade-in .16s ease-out; }
+.ed-modal:not([hidden]) .ed-modal-box { animation: sv-drop-in .24s var(--ease) backwards; }
+.ed-tab:not([hidden]) { animation: sv-fade-in .18s ease-out; }
+#s-editor .ed-strip.wipe-in { animation-duration: .22s; }
+#s-livery .lv-place { animation: sv-wipe-in .24s var(--ease) backwards; }
+#s-livery:not(.placing) .lv-side { animation: sv-fade-in .2s ease-out; }
+.ed-toast.on, .lv-toast.on { animation: sv-wipe-in .22s var(--ease) backwards; }
+@media (prefers-reduced-motion: reduce) { .wipe-in, .menu .item .vt.bump, .ed-modal, .ed-modal-box, .ed-tab, .lv-place, .lv-side, .ed-toast, .lv-toast { animation: none !important; } }

@@ -285,7 +285,8 @@ class Menu {
   constructor(el, items, opts = {}) { this.el = el; this.items = items; this.i = 0; this.opts = opts; this.active = true; this.descEl = opts.desc ? $(opts.desc) : null; this.render(); }
   setItems(items, keep = false) {
     if (keep) items.forEach((it, k) => { const o = this.items[k]; if (o && o.armed && o.label === it.label) it.armed = true; });
-    this.items = items; if (!keep) this.i = 0; this.i = Math.max(0, Math.min(this.i, items.length - 1)); this.render(); }
+    this.items = items; if (!keep) this.i = 0; this.i = Math.max(0, Math.min(this.i, items.length - 1)); this.render();
+    if (!keep) wipeIn(this.el); }
   valText(it) { if (it.show) return it.show(); const v = it.get(); const o = it.values.find(x => x[0] === v); return o ? o[1] : v; }
   render() {
     this.items.forEach((it, k) => { if (k !== this.i) it.armed = false; });
@@ -341,11 +342,13 @@ class Menu {
   change(d) {
     const it = this.items[this.i]; if (!it || !it.values) return;
     // (a stepped value, the Tuning screen's: nudged a step, stopping at its ends rather than wrapping round)
-    if (it.nudge) { if (it.nudge(d) !== false) { sfx.move(); this.render(); } return; }
+    if (it.nudge) { if (it.nudge(d) !== false) { sfx.move(); this.render(); this.bump(); } return; }
     const vals = it.values.map(v => v[0]);
     let k = vals.indexOf(it.get()); k = (k + d + vals.length) % vals.length;
-    it.set(vals[k]); sfx.move(); this.render(); this.opts.onChange && this.opts.onChange(it);
+    it.set(vals[k]); sfx.move(); this.render(); this.bump(); this.opts.onChange && this.opts.onChange(it);
   }
+  // (the value just changed: lit, then settling back)
+  bump() { const v = this.el.querySelector('.item.sel .vt'); if (v) v.classList.add('bump'); }
   activate() {
     const it = this.items[this.i]; if (!it || it.disabled) return;
     // (a picker with an action: the arrows choose, select does it. okValue: select on a picker does that instead of
@@ -357,6 +360,8 @@ class Menu {
     sfx.select(); it.action && it.action();
   }
 }
+// a list or panel arriving: wiped in left to right, once (2005 motion: a wipe, not a slide; no flicker)
+function wipeIn(el) { if (!el) return; el.classList.remove('wipe-in'); void el.offsetWidth; el.classList.add('wipe-in'); }
 const menus = {};
 const focusIdx = {};
 const backs = {};

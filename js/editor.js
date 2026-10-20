@@ -295,6 +295,7 @@ export class Editor {
     const was = this.mode; this.mode = m;
     const el = $('s-editor'); MODES.forEach(k => el.classList.toggle('mode-' + k, k === m));
     document.querySelectorAll('#ed-modes span').forEach(x => x.classList.toggle('on', x.dataset.m === m));
+    if (was && was !== m) { const st = document.querySelector('#s-editor .ed-strip'); st.classList.remove('wipe-in'); void st.offsetWidth; st.classList.add('wipe-in'); } // (the new mode's tools wipe in)
     if (tool || TOOL_MODE[this.tool] !== m) this.setTool(tool || (m === 'shape' ? (trackReady(this.track) ? 'edit' : 'draw') : m === 'trackside' ? 'kerbs' : m === 'scenery' ? 'props' : 'pan'));
     if (m === 'location') this.showTab('map');
     if (was !== m) requestAnimationFrame(() => { this.resize(); this.dirty = true; }); // (the profile comes and goes: the map's size changes)

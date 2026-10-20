@@ -1,8 +1,8 @@
 // Circuit Designer on a controller: an on-screen cursor the left stick moves (a dead zone for drift, slow and exact on a
 // light push), and A is the mouse button: a click, held for a drag, twice quickly for a double-click. Everything on the
 // map works as it does with a mouse, because it is the mouse: the same events, at the cursor.
-//   left stick: the cursor · A: click / drag / double-click · X: delete · B: back (Esc) · Y: undo
-//   LB RB: the modes · d-pad left right: the open mode's tools · LT RT: zoom at the cursor · right stick: pan
+//   left stick: the cursor · A: click / drag / double-click · X: delete · B: back (Esc) · Y: the panel on the right
+//   (the d-pad through its controls, ← → to change one, A to press, LB RB its tabs, B / Y back to the map) · LB RB: the modes · d-pad left right: the open mode's tools · LT RT: zoom at the cursor · right stick: pan
 //   Start: the menu (test drive, race, save, open...) · View: the 3D view
 // main.js reads the pad and calls padTick(dt, P) while the editor's up.
 import { sfx } from './audio.js';
@@ -19,6 +19,7 @@ export function installPad(Editor) {
       if (!$('ed-modal').hidden) return this.padModal(P.pressed);
       if (this.v3d) { if (P.pressed.view || P.pressed.b) this.toggle3d(); return; } // (the 3D view flies on its own pad controls)
       if (!this.W) return;
+      if (this.panelFocus) return this.padPanel(P.pressed);
       if (!this.pc || !isFinite(this.pc.x)) this.pc = { x: this.W / 2, y: this.H / 2, a: false, lastA: -1, ax: 0, ay: 0 }; // (the middle of the map, once it has a size)
       const C = this.pc, p = P.pressed, lx = dz(P.lx), ly = dz(P.ly);
       let moved = false;
@@ -39,7 +40,7 @@ export function installPad(Editor) {
       } else if (!P.a && C.a) { C.a = false; this.padMouse('mouseup'); }
       if (p.x) this.padKey('Delete');
       if (p.b) this.padKey('Escape');
-      if (p.y) this.undo();
+      if (p.y) return this.padPanelOn(true);
       if (p.lb || p.rb) { const M = ['shape', 'trackside', 'scenery', 'location']; this.setMode(M[(M.indexOf(this.mode) + (p.rb ? 1 : -1) + M.length) % M.length]); sfx.move(); }
       if (p.left || p.right) this.padTool(p.right ? 1 : -1);
       if (p.start) this.padMenu();
@@ -64,6 +65,8 @@ export function installPad(Editor) {
     padMenu() {
       const act = (a) => () => { this.closeModal(); this.action(a); };
       this.modalList('Menu', [
+        { title: 'Undo', desc: 'The last change, taken back.', pick: act('undo') },
+        { title: 'Redo', desc: 'It again.', pick: act('redo') },
         { title: 'Test Drive', desc: 'Drive it now. Back To Editor (pause) brings you back here, undo and all.', pick: act('test') },
         { title: 'Race It', desc: 'Race it: laps, opponents and the conditions next.', pick: act('race') },
         { title: '3D View', desc: 'Fly round it as it will look (View button).', pick: act('view3d') },
@@ -72,9 +75,42 @@ export function installPad(Editor) {
         { title: 'Open', desc: 'One of your circuits.', pick: act('open') },
         { title: 'New', desc: 'A blank circuit or point-to-point road.', pick: act('new') },
         { title: 'Presets', desc: 'The built-in and real circuits, to start from.', pick: act('presets') },
-        { title: 'Redo', desc: 'Y is undo.', pick: act('redo') },
         { title: 'Exit', desc: 'Back to the menu (it asks first if this isn\'t saved).', pick: act('exit') },
       ]);
+    },
+    // ---- the panel on the right (Y): every control in it in turn, whatever the tab - its sliders, buttons, pickers ----
+    panelControls() {
+      return [...document.querySelectorAll('#ed-side .ed-tab:not([hidden]) :is(button, select, input[type=range], input[type=checkbox])')]
+        .filter(x => x.offsetParent && !x.disabled);
+    },
+    padPanelOn(on) {
+      this.panelFocus = on; this.pf = on ? 0 : -1;
+      document.getElementById('s-editor').classList.toggle('pad-panel', on);
+      document.querySelectorAll('#ed-side .padfocus').forEach(x => x.classList.remove('padfocus'));
+      if (on) this.padPanelMark(); sfx.move();
+    },
+    padPanelMark() {
+      const L = this.panelControls(); document.querySelectorAll('#ed-side .padfocus').forEach(x => x.classList.remove('padfocus'));
+      if (!L.length) return; this.pf = Math.max(0, Math.min(L.length - 1, this.pf)); const el = L[this.pf];
+      el.classList.add('padfocus'); el.scrollIntoView({ block: 'nearest' });
+    },
+    padPanel(p) {
+      const L = this.panelControls(), el = L[this.pf];
+      if (p.b || p.y) return this.padPanelOn(false);
+      if (p.lb || p.rb) { // (the panel's tabs: Node / Circuit / World / Map)
+        const T = [...document.querySelectorAll('.ed-tabs button')], k = T.findIndex(b => b.classList.contains('on'));
+        T[(k + (p.rb ? 1 : -1) + T.length) % T.length].click(); this.pf = 0; sfx.move(); return this.padPanelMark();
+      }
+      if (p.up || p.down) { this.pf += p.down ? 1 : -1; sfx.move(); return this.padPanelMark(); }
+      if (!el) return;
+      if (p.left || p.right) {
+        const d = p.right ? 1 : -1;
+        if (el.type === 'range') { const st = +el.step || 1, v = Math.max(+el.min, Math.min(+el.max, +el.value + d * st)); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); sfx.move(); }
+        else if (el.tagName === 'SELECT') { el.selectedIndex = Math.max(0, Math.min(el.options.length - 1, el.selectedIndex + d)); el.dispatchEvent(new Event('change', { bubbles: true })); sfx.move(); }
+        else if (el.closest('.seg')) { const B = [...el.closest('.seg').querySelectorAll('button')], k = B.indexOf(el), nb = B[k + d]; if (nb) { nb.click(); this.pf = Math.max(0, this.panelControls().indexOf(nb)); } }
+        return requestAnimationFrame(() => this.padPanelMark()); // (the panel may have redrawn: the same place in it)
+      }
+      if (p.a) { el.click(); requestAnimationFrame(() => this.padPanelMark()); }
     },
     // a list in the pop-up (Menu, New, Open, Presets, Exit): up / down to pick, A to choose, B to close
     padModal(p) {
