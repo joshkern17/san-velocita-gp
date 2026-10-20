@@ -94,6 +94,8 @@ const DEFAULTS = {
   volume: 7, music: 5, camera: 'chase', mirror: 'on', racingLine: 'full', lineStyle: 'blocks', wear: 'normal', damage: 'normal', startTyre: 'auto', drift: 'off', aiChassis: 'class', rules: 'arcade', safetyCar: 'on', aiMistakes: 'normal', quali: 0, radarMap: 'satellite', radarZoom: 'normal', car: null, difficulty: 'medium', grid: 'back', team: 0, time: 'track', weather: 'track',
 };
 let settings = { ...DEFAULTS };
+// a first launch (no settings saved yet) opens the Welcome screen after the boot; anyone who's played before skips it
+const firstLaunch = (() => { try { return !localStorage.getItem('svgp.settings'); } catch (e) { return false; } })();
 try { settings = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('svgp.settings') || '{}') }; } catch (e) {}
 settings.car = { ...DEFAULT_CAR, ...(settings.car || {}) };
 setMirror(settings.mirror !== 'off');
@@ -124,6 +126,7 @@ renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadow
 const post = new PS2Post(renderer);
 // (2026-10-08: the commentary is shelved for now: off by default, and switched off once for anyone who had it on;
 // Options can still turn it back on)
+if (!firstLaunch) settings.welcomed ??= true;
 if (!settings.commentaryShelved) { settings.commentary = 'off'; settings.commentaryShelved = true; saveSettings(); }
 function applyVideo() {
   setVoiceOn('eng', settings.engVoice !== 'off'); setVoiceOn('booth', settings.commentary !== 'off');
@@ -212,6 +215,7 @@ const HINTS = {
   's-pause': [['nav', 'Navigate'], ['ok', 'Select'], ['back', 'Resume']],
   's-photo': [['nav', 'Options'], ['cam', 'Orbit'], ['look', 'Look'], ['dolly', 'Distance'], ['zoom', 'Zoom'], ['shoot', 'Take photo'], ['hide', 'Hide menu'], ['back', 'Back']],
   's-results': [['nav', 'Navigate'], ['ok', 'Select'], ['back', 'Main menu']],
+  's-welcome': [['nav', 'Navigate'], ['lr', 'Change'], ['ok', 'Select'], ['back', 'Skip']],
 };
 const hintKeys = (g) => (GLYPHS[device.kind] || GLYPHS.kb)[g];
 function renderHints() {
@@ -420,7 +424,7 @@ function boot() {
   const go = () => {
     if (booted) return; booted = true;
     initAudio(); applyVideo(); sfx.select();
-    fadeTo(() => { startAttract(); show('s-main'); });
+    fadeTo(() => { startAttract(); if (!settings.welcomed) { show('s-welcome'); renderHints(); } else show('s-main'); });
   };
   $('s-boot').addEventListener('click', go);
   const press = (k) => { $('boot-press').textContent = k === 'pad' ? 'PRESS A' : 'PRESS ENTER'; }; press(device.kind); onDevice(press);
@@ -742,6 +746,8 @@ const OPTION_TABS = [
     { label: 'Dirty Air Indicator', values: [['on', 'On'], ['off', 'Off']], get: () => settings.dirtyAir, set: v => { settings.dirtyAir = v; applyVideo(); saveSettings(); },
       desc: 'Following close behind another car costs you downforce in the corners: your front end grips less and the car pushes wide. <b>DIRTY AIR</b> lights up above your speed when it\'s happening. Most noticeable in F1 and GT cars; road cars make almost no downforce to lose.' },
     { label: 'Backup', head: true },
+    { label: 'Reset All Options', confirm: 'Reset every option? Select again', action: () => { resetOptions(); toast('Options back to how the game comes.'); },
+      desc: 'Every option on these tabs back to how the game comes: the picture, sound, camera, aids and controller. Your car, your name, your wheel setup and your saves stay as they are.' },
     { label: 'Export Backup', action: () => exportBackup().then(n => toast(`Backup saved to your Downloads: ${n.keys} saves, ${n.assets} images.`)),
       get desc() { return `Everything in one file: tracks, liveries, careers, settings and your images. ${backup.online ? 'Your saves are also kept automatically in the game folder (saves/).' : ''}`; } },
     { label: 'Import Backup', confirm: 'Replace what\'s here with the file? Select again', action: () => importBackup().then(r => { if (!r) return; if (r.error) return toast(r.error); toast(`Restored ${r.keys} saves and ${r.assets} images. Reloading...`); setTimeout(() => location.reload(), 1600); }),
@@ -861,13 +867,13 @@ function applyPsxMaterials(v) {
 }
 // ---------------- wheel setup (Options > Wheel) ----------------
 const wheelSetup = new WheelSetup($('s-wheel'), () => { if (screen === 's-wheel') renderHints(); });
-function openWheelSetup() {
+function openWheelSetup(back = 's-options') {
   sfx.select();
   fadeTo(() => {
     wheelSetup.open((cfg) => {
       if (cfg) { settings.wheel = cfg; settings.wheelOn = true; applyWheel(); saveSettings(); toast(`<b>${cfg.name}</b> is set up.`); }
       sfx[cfg ? 'select' : 'back']();
-      fadeTo(() => { menus['s-options'][0].render(); show('s-options'); }, 200);
+      fadeTo(() => { menus[back][0].render(); show(back); }, 200);
     });
     show('s-wheel');
   }, 200);
@@ -883,6 +889,32 @@ window.addEventListener('gamepadconnected', (e) => {
   const id = e.gamepad && e.gamepad.id;
   if (looksLikeWheel(id) && !(settings.wheel && settings.wheel.id === id)) setTimeout(() => toast('Wheel found. Set it up in <b>Options &rsaquo; Wheel</b>.', 6000), 400);
 });
+// Options > Game > Reset All Options: the keys the Options tabs set, back to how the game comes
+const OPTION_DEFAULTS = { ...Object.fromEntries(['uiTheme', 'res', 'filter', 'trails', 'scan', 'dither', 'retro', 'palette', 'psxMat', 'crt', 'grain', 'rays', 'fringe', 'shadows', 'dirtFx', 'look', 'radarMap', 'radarZoom',
+  'volume', 'music', 'camera', 'speedFx', 'mirror', 'units', 'aiChassis', 'rules', 'safetyCar', 'aiMistakes', 'racingLine', 'lineStyle', 'gearbox', 'gearHint', 'stickShift'].map(k => [k, DEFAULTS[k]])),
+  carVol: 10, sfxVol: 10, voiceVol: 10, engineSound: 'classic', commentary: 'off', engVoice: 'on', ghost: 'best', dirtyAir: 'on',
+  vibration: 'normal', steerCurve: 'normal', deadzone: 'normal', steerSpeed: 'normal', brakeCurve: 'linear', hudTower: 'on', hudStrat: 'on', hudRadar: 'on' };
+function resetOptions() {
+  Object.assign(settings, OPTION_DEFAULTS); settings.aids = aidsOf(DEFAULTS);
+  document.documentElement.dataset.theme = settings.uiTheme; setMirror(settings.mirror !== 'off');
+  applyVideo(); applyPadFeel(); aidsChanged(); saveSettings(); menus['s-options'][0].render();
+}
+// ---------------- welcome (a first launch, after the boot) ----------------
+// The few choices that change a first race, on one screen, each explained where you pick it; everything else waits
+// in Options. B / Esc takes the defaults.
+const WELCOME_UNITS = { label: 'Speed Units', values: [['mph', 'MPH'], ['kmh', 'KM/H']], get: () => settings.units, set: v => { settings.units = v; applyVideo(); saveSettings(); }, desc: 'For the speedometer and every speed the game shows you.' };
+menus['s-welcome'] = [new Menu($('m-welcome'), [
+  { label: 'How You Drive', head: true },
+  presetItem(' Each aid can be set on its own later, in Options \u203a Aids.'),
+  lineItem, gearboxItem,
+  { label: 'Your Setup', head: true },
+  WELCOME_UNITS,
+  { get label() { return `Set Up A Wheel<small>${settings.wheel ? settings.wheel.name : 'Optional'}</small>`; }, action: () => openWheelSetup('s-welcome'),
+    desc: 'Racing with a wheel and pedals? Turn the wheel, press the pedals and the buttons you want, once. A controller or the keyboard needs nothing set up.' },
+  { label: 'Start Racing', cls: 'action primary gap', action: () => welcomeDone(), desc: 'To the main menu. All of this is in Options whenever you want it.' },
+], { desc: 'd-welcome' })];
+function welcomeDone() { settings.welcomed = true; saveSettings(); sfx.select(); fadeTo(() => show('s-main'), 200); }
+backs['s-welcome'] = () => welcomeDone();
 function openOptions(from) { optionsReturn = from; setOptTab(optTab); if (from === 's-pause') show('s-options'); else fadeTo(() => show('s-options'), 200); }
 backs['s-options'] = () => { sfx.back(); if (optionsReturn === 's-pause') show('s-pause'); else fadeTo(() => show(optionsReturn), 200); };
 
