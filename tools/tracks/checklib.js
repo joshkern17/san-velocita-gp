@@ -6,12 +6,9 @@
 // nothing on the road, no stands stacked, no models floating). Every finding: { sev: 'fail' | 'warn', what, d (m
 // round the lap, if it has one), x, z, n (how many), note }.
 // sim: a Race (its T, A, pit, world, track).
-import { envAsset } from '../../js/envlib.js';
+import { solidsAround, treeInto, overlap, OVERHEAD, TREE_INTO } from '../../js/solids.js';
 import { kerbW } from '../../js/track.js';
 
-const SOLID_CATS = new Set(['building', 'landmark', 'trackside', 'skyline', 'vehicle']);
-const SMALL_TRACKSIDE = new Set(['flag', 'lamppost', 'lamppost_plain', 'worklight', 'board', 'fence', 'festoon', 'tire_rack']);
-const OVERHEAD = new Set(['gantry', 'gantry_wide', 'start_gantry', 'arch', 'arch_balloons']); // (they span the road)
 
 export function checkTrack(sim) {
   const T = sim.T, A = sim.A, pit = sim.pit || A.pit, track = sim.track, world = sim.world, N = T.N, ds = T.ds, L = T.L;
@@ -222,70 +219,13 @@ export function checkTrack(sim) {
   // ---------- scenery ----------
   {
     const P = world.placed || { models: [], footprints: [], stands: [], boards: [] };
-    // every solid thing as a convex outline: models (buildings, stands, trackside), the map's building footprints,
-    // the circuit's landmarks; trees as circles
-    const solids = [], trees = [];
-    const rectPoly = (x, z, ux, uz, hw, hd) => { const fx = -uz, fz = ux; return [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(([u, v]) => [x + ux * u + fx * v, z + uz * u + fz * v]); };
-    for (const p of P.models) {
-      const a = envAsset(p.id); if (!a) continue;
-      const sx = p.sx ?? p.s ?? 1, sz = p.sz ?? p.s ?? 1;
-      if (a.cat === 'tree') { trees.push({ x: p.x, z: p.z, r: Math.max(a.w * sx, a.d * sz) / 2, id: p.id }); continue; }
-      if (!SOLID_CATS.has(a.cat) || (a.cat === 'trackside' && SMALL_TRACKSIDE.has(a.cls))) continue;
-      const stand = a.cat === 'trackside' && /^stand/.test(a.cls);
-      // (a stand's outline: the seating, not the roof's overhang: 80% of its depth)
-      solids.push({ poly: rectPoly(p.x, p.z, Math.cos(p.rot || 0), -Math.sin(p.rot || 0), a.w * sx / 2, a.d * sz / 2 * (stand ? 0.8 : 1)), kind: stand ? 'stand' : a.cat, id: p.id, x: p.x, z: p.z, rot: p.rot || 0, y: p.y, a, sx, sz });
-    }
-    for (const b of P.footprints || []) if (b.p && b.p.length >= 3) { const c = b.p.reduce((s, q) => [s[0] + q[0] / b.p.length, s[1] + q[1] / b.p.length], [0, 0]); solids.push({ poly: b.p, kind: 'building', id: 'footprint', x: c[0], z: c[1] }); }
-    for (const L of (track.landmarks && track.landmarks.items) || []) {
-      const c = Math.cos(L.rot || 0), s = Math.sin(L.rot || 0);
-      solids.push({ poly: [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => [L.x + c * u * L.hw - s * v * L.hd, L.z + s * u * L.hw + c * v * L.hd]), kind: 'landmark', lk: L.kind, id: L.key, x: L.x, z: L.z });
-    }
+    // every solid thing as a convex outline (models: buildings, stands, trackside; the map's building footprints;
+    // the circuit's landmarks), trees as circles: as the world itself keeps trees out of them (js/solids.js)
+    const S0 = solidsAround(P.models, P.footprints, (track.landmarks && track.landmarks.items) || []), solids = S0.solids, trees = S0.trees, near = S0.near;
     for (const st of P.stands || []) add('warn', 'default grandstand', { x: Math.round(st.x), z: Math.round(st.z), note: 'the old default grandstand prop: use the pack\'s covered / flags stands' });
-    // a grid of the solids, 32 m cells
-    const G = new Map(), cell = 32, key = (cx, cz) => cx + ',' + cz;
-    solids.forEach((S, k) => {
-      let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity; for (const [x, z] of S.poly) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
-      S.box = [x0, x1, z0, z1];
-      for (let cx = Math.floor(x0 / cell); cx <= Math.floor(x1 / cell); cx++) for (let cz = Math.floor(z0 / cell); cz <= Math.floor(z1 / cell); cz++) { const kk = key(cx, cz); if (!G.has(kk)) G.set(kk, []); G.get(kk).push(k); }
-    });
-    const near = (x0, x1, z0, z1) => { const s = new Set(); for (let cx = Math.floor(x0 / cell); cx <= Math.floor(x1 / cell); cx++) for (let cz = Math.floor(z0 / cell); cz <= Math.floor(z1 / cell); cz++) for (const k of G.get(key(cx, cz)) || []) s.add(k); return s; };
-    // signed distance from a point to a convex outline (negative inside: how deep)
-    const sdPoly = (poly, x, z) => {
-      let inside = true, best = Infinity; const n = poly.length;
-      let area = 0; for (let k = 0; k < n; k++) { const [ax, az] = poly[k], [bx, bz] = poly[(k + 1) % n]; area += ax * bz - bx * az; }
-      const sgn = area > 0 ? 1 : -1;
-      for (let k = 0; k < n; k++) {
-        const [ax, az] = poly[k], [bx, bz] = poly[(k + 1) % n], ex = bx - ax, ez = bz - az, l2 = ex * ex + ez * ez || 1;
-        const u = Math.max(0, Math.min(1, ((x - ax) * ex + (z - az) * ez) / l2));
-        best = Math.min(best, Math.hypot(x - ax - ex * u, z - az - ez * u));
-        if (sgn * (ex * (z - az) - ez * (x - ax)) < 0) inside = false;
-      }
-      return inside ? -best : best;
-    };
-    // how far two convex outlines overlap (0 if apart): the smallest push that parts them (separating axes)
-    const overlap = (A1, B1) => {
-      let least = Infinity;
-      for (const poly of [A1, B1]) for (let k = 0; k < poly.length; k++) {
-        const [ax, az] = poly[k], [bx, bz] = poly[(k + 1) % poly.length], l = Math.hypot(bx - ax, bz - az) || 1, nx = -(bz - az) / l, nz = (bx - ax) / l;
-        let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
-        for (const [x, z] of A1) { const p = x * nx + z * nz; a0 = Math.min(a0, p); a1 = Math.max(a1, p); }
-        for (const [x, z] of B1) { const p = x * nx + z * nz; b0 = Math.min(b0, p); b1 = Math.max(b1, p); }
-        const o = Math.min(a1, b1) - Math.max(a0, b0); if (o <= 0) return 0; least = Math.min(least, o);
-      }
-      return least;
-    };
     // trees through solids
     const tr = { stand: [], building: [], landmark: [], trackside: [], skyline: [], vehicle: [] };
-    for (const t of trees) {
-      const trunk = 0.5, canopy = t.r * 0.7;
-      let worst = null;
-      for (const k of near(t.x - canopy, t.x + canopy, t.z - canopy, t.z + canopy)) {
-        const S = solids[k], d = sdPoly(S.poly, t.x, t.z);
-        const pen = d < trunk ? 99 : canopy - d; // (trunk inside = through it; else how far the canopy reaches in)
-        if (pen > 1.5 && (!worst || pen > worst[0])) worst = [pen, S];
-      }
-      if (worst) (tr[worst[1].kind] || tr.building).push([t, worst]);
-    }
+    for (const t of trees) { const [pen, by] = treeInto(S0, t.x, t.z, t.r); if (pen > TREE_INTO) (tr[by.kind] || tr.building).push([t, [pen, by]]); }
     for (const [kind, list] of Object.entries(tr)) if (list.length) {
       const through = list.filter(([, w]) => w[0] >= 99);
       const ex = list.slice(0, 3).map(([t]) => `${Math.round(t.x)},${Math.round(t.z)}`).join(' ');

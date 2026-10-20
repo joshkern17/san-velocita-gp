@@ -184,7 +184,7 @@ def pagoda():
 # ---------------- the scoring pylon (beside the pit wall, a little past the line) ----------------
 def pylon():
     x, z = -240.0, 222.3   # (the model's, 1.5 m back: its base stood on our road's edge)
-    r = root('pylon', x, z, 4.2, 4.2, kind='tower')
+    r = root('pylon', x, z, 1.3, 4.2, kind='tower')   # (its footprint as it's built: 2.6 m across, the feet 8.4 m along)
     blk(r, 'plinth', x - 1.2, x + 1.2, z - 4.2, z + 4.2, 0, 0.8, concrete)
     for dz in (-3.8, 3.8):   # (the splayed feet)
         for dx in (-0.8, 0.8): rodv(r, 'leg', (x + dx, z + dz, 0.8), (x + dx * 0.6, z + dz * 0.28, 5.2), 0.22, steel, verts=6)
@@ -319,7 +319,8 @@ def towers():
         face(r, 'screen_f', (cx - 4.5, cz - 0.62), (cx + 4.5, cz - 0.62), 13, 19.4, screen_m, (0, -1))
         face(r, 'screen_b', (cx + 4.5, cz + 0.62), (cx - 4.5, cz + 0.62), 13, 19.4, screen_m, (0, 1))
         spin(r, math.radians(-ang))
-    tv = [(-257.9, 93.3), (-161.7, 467.3), (328.8, 555.3), (285.1, 238.6), (68.3, -117.1), (67.8, 122.5), (-65.5, -413.2), (-238.0, 94.4), (-205.1, -481.5)]
+    tv = [(-261.0, 93.3),  # (the first one 3 m out past the oval's wall: its deck hung over the road's edge)
+           (-161.7, 467.3), (328.8, 555.3), (285.1, 238.6), (68.3, -117.1), (67.8, 122.5), (-65.5, -413.2), (-238.0, 94.4), (-205.1, -481.5)]
     for k, (cx, cz) in enumerate(tv):
         r = root(f'tv{k}', cx, cz, 2.2, 1.8, kind='tower')
         for dx in (-1.6, 1.6):

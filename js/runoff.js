@@ -14,6 +14,7 @@ export const RUN_RES = 0.5;            // m per cell, across the runoff
 export const RUN_SD = 4;               // the distances are kept to +-4 m (one byte each: 128 = on the edge)
 export const RUN_NAT = 0, RUN_PAVED = 1, RUN_GRAVEL = 2, RUN_GRASS = 3;
 const MAX_WIDEN = 36, PAINT_REACH = 80, MAX_CELLS = 240;
+export const EDGE_STRIP = 1.5;       // m of paved strip past the white line or the kerb, all the way round
 
 // env.runoffStyle. Auto: a circuit gets the modern mix; a street circuit (its runoff is the city's concrete) or a
 // narrow road (runoff under 6 m: a mountain pass, a road through the country) keeps plain ground beside it.
@@ -21,8 +22,8 @@ export const RUNOFF_STYLES = {
   auto:   { label: 'Auto' },
   mixed:  { label: 'Mixed',  hint: 'Paved off the white line, gravel traps on the outside of the corners, paved runoff on the exits.' },
   paved:  { label: 'Paved',  hint: 'Paved all the way to the barrier, all the way round, with a strip of gravel at the back of the big corners.' },
-  gravel: { label: 'Gravel', hint: 'The classic: grass to the white line, gravel traps on the outside of every corner.' },
-  grass:  { label: 'Grass',  hint: 'Grass to the white line and nothing else, like an old club circuit.' },
+  gravel: { label: 'Gravel', hint: 'The classic: grass from a strip off the white line, gravel traps on the outside of every corner.' },
+  grass:  { label: 'Grass',  hint: 'Grass from a strip off the white line and nothing else, like an old club circuit.' },
   real:   { label: 'Real',   hint: 'As the real circuit: paved, gravel and grass where they really are (aerial photos + the map).', real: true },
 };
 // full: paved out to the barrier everywhere (less the gravel at the back of the corners: entry, a share of the
@@ -413,6 +414,18 @@ export function runoffLayout(T, A, track) {
       // (paved from under the road out to pOut; none at all is a little under the road, so never shows)
       cells[o] = enc(pOut > 0.05 ? pOut - t : -t - 0.5);
       cells[o + 1] = enc(gOut > gIn + 0.02 ? Math.min(t - gIn, gOut - t) : -RUN_SD);
+    }
+  }
+  // a paved strip off the white line (or the kerb) all the way round, whatever the style: a wheel put a little wide
+  // finds tarmac, not grass (on grass a car has ~60% of its grip and it feels like ice); a street circuit's edge is
+  // already the city's concrete
+  if (env.theme !== 'city') for (let s = 0; s < 2; s++) for (let i = 0; i < N; i++) {
+    if (skip(i, s)) continue;
+    const w = Math.min(reach[s][i], (A.KW ? A.KW[s][i] : 0) + EDGE_STRIP);
+    for (let c = 0; c < C; c++) {
+      const t = (c + 0.5) * RUN_RES, o = at(i, s, c), d = w - t; if (d < -RUN_SD) break;
+      cells[o] = enc(Math.max(dec(cells[o]), d));
+      for (let q = 1; q < 3; q++) cells[o + q] = enc(Math.min(dec(cells[o + q]), -d));
     }
   }
   // painted ground over it, in the order it was painted: paved, gravel or grass is added there and taken from the

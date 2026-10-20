@@ -15,6 +15,7 @@ import { getBuildingTextures } from './textures.js';
 import { collectScenery, polyArea, pointInPoly } from './zones.js';
 import { roadLayout } from './roads.js';
 import { addEnvInstances, envModel, envAsset, envModelsReady, houseLook } from './envlib.js';
+import { solidsAround, treeInto, sdPoly, overlap, rectPoly, TREE_INTO } from './solids.js';
 import { settingOf, modelTransform, natureModel, FLORA, PROP_FLORA, fitHouse, randomBuilding, eraser } from './scenery.js';
 import { WetReflections } from './weatherfx.js';
 import { StreetLife } from './lifefx.js';
@@ -1370,6 +1371,24 @@ export function buildWorld(track, T, A, opts = {}) {
   const tpFx = placeTrackProps({ track: { ...track, props: (track.props || []).filter(keepProp) }, T, A, root, envPl, groundHeight, night, lit: nightish || env.time === 'dusk' });
   for (const q of lampModels) envPl.push(q); // (the circuit's banner lamp posts)
   for (let k = envPl.length - 1; k >= 0; k--) if (inBlock(envPl[k].x, envPl[k].z, 2)) envPl.splice(k, 1); // (out of the garages)
+  // never a tree through a stand, a building or a landmark, whatever planted it (the map's trees, a setting's, the
+  // scatter): one with its trunk inside, or its crown more than 1.5 m in, isn't planted; a bush inside one neither
+  // (js/solids.js: the Track Check measures the same)
+  {
+    const S = solidsAround(envPl, foot, track.landmarks && track.landmarks.items || []);
+    // (and no map building into a grandstand: the stand was put there on purpose, the house is the map's)
+    const standOutlines = S.solids.filter(o => o.kind === 'stand');
+    if (standOutlines.length) for (let k = envPl.length - 1; k >= 0; k--) {
+      const p = envPl[k], a = envAsset(p.id); if (!a || a.cat !== 'building') continue;
+      const poly = rectPoly(p.x, p.z, Math.cos(p.rot || 0), -Math.sin(p.rot || 0), a.w * (p.sx ?? p.s ?? 1) / 2, a.d * (p.sz ?? p.s ?? 1) / 2);
+      if ([...S.near(p.x - 30, p.x + 30, p.z - 30, p.z + 30)].some(j => S.solids[j].kind === 'stand' && overlap(S.solids[j].poly, poly) > 1)) envPl.splice(k, 1);
+    }
+    if (S.solids.length) for (let k = envPl.length - 1; k >= 0; k--) {
+      const p = envPl[k], a = envAsset(p.id); if (!a || (a.cat !== 'tree' && a.cat !== 'bush')) continue;
+      const r = Math.max(a.w * (p.sx ?? p.s ?? 1), a.d * (p.sz ?? p.s ?? 1)) / 2;
+      if (a.cat === 'tree' ? treeInto(S, p.x, p.z, r)[0] > TREE_INTO : [...S.near(p.x, p.x, p.z, p.z)].some(j => sdPoly(S.solids[j].poly, p.x, p.z) < 0)) envPl.splice(k, 1);
+    }
+  }
   const envCells = addEnvInstances(root, envPl, { night });
   addContactShadows(root, envPl, groundHeight, night);
   if (real.paving && real.paving.length) buildPaving(root, real.paving, groundHeight, tx);

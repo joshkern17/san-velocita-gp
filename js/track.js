@@ -619,6 +619,17 @@ export function analyzeTrack(T, env, paint = null, osm = null, dress = null) {
       if (v === v) O[i] = O[i] * (1 - wt) + v * wt;
     }
   }
+  // (a real circuit's mapped barriers, smoothed: each side's barrier moves in or out no faster than 0.3 m per metre,
+  // easing in to the nearer of two stretches rather than stepping: where the map switches from a fence by the track to
+  // one far back, or one far back starts or ends, it curves in gently; never further out than it was)
+  if (RW) for (const O of [BL, BRt]) {
+    const r = 0.3 * T.ds, wrap = T.cut < 0;
+    for (let pass = 0; pass < 2; pass++) {
+      for (let n = 1; n < (wrap ? 2 * N : N); n++) { const i = n % N, h = (n - 1) % N; if (!BR2[i] && !BR2[h] && (wrap || i !== T.cut + 1)) O[i] = Math.min(O[i], O[h] + r); }
+      for (let n = (wrap ? 2 * N : N) - 2; n >= 0; n--) { const i = n % N, h = (n + 1) % N; if (!BR2[i] && !BR2[h] && (wrap || i !== T.cut)) O[i] = Math.min(O[i], O[h] + r); }
+    }
+    for (let i = 0; i < N; i++) O[i] = Math.max(O[i], T.W[i] / 2 + 0.3);
+  }
   const BMAX = [unfold(T, BL, -1), unfold(T, BRt, 1)];
   // barrier gaps where the barrier would sit on another section's road/runoff
   const HAS_L = new Uint8Array(N).fill(1), HAS_R = new Uint8Array(N).fill(1);
@@ -993,14 +1004,16 @@ export function buildPitLane(T, A, env, line = null, surf = null, own = null) {
   const N = T.N, ds = T.ds;
   let nRamp;
   const idxAt = (k) => ((k % N) + N) % N;
-  const shifts = [0, 90, -90, 180, -180, 270, -270, 360, -360, 450, -450].map(m => Math.round(m / ds));
+  const shifts = [0]; for (let m = 30; m <= 450; m += 30) shifts.push(m, -m); // (nearest the start line first, every 30 m)
+  for (let k = 0; k < shifts.length; k++) shifts[k] = Math.round(shifts[k] / ds);
   // a long lane first (the garages well down it, so a car coming in quick still stops at the first one), then the
   // old shorter one where a long one doesn't fit
   let nMain, cap;
   // (the wall where the barrier would be; where the lane doesn't fit out there, as close as it can go)
-  for (cap of [PIT.maxGap, PIT.wallGap]) for (const Lmain of [Math.max(330, Math.min(420, T.L * 0.2)), Math.max(160, Math.min(320, T.L * 0.16))]) {
+  // (the wall where the barrier would be, else nearer the track: a lane far out needs a long ramp to reach it)
+  for (cap of [PIT.maxGap, 20, 10, PIT.wallGap]) for (const Lmain of [Math.max(330, Math.min(420, T.L * 0.2)), Math.max(160, Math.min(320, T.L * 0.16)), 200]) {
     nMain = Math.round(Lmain / ds);
-    for (const sh of shifts) for (const ramp of [100, 75]) {
+    for (const sh of shifts) for (const ramp of [170, 130, 100, 75]) {
       nRamp = Math.round(ramp / ds);
       const res = tryPit(sh);
       if (res) return res;
@@ -1029,14 +1042,20 @@ export function buildPitLane(T, A, env, line = null, surf = null, own = null) {
     // (a real circuit's mapped barriers step in and out: the pit wall runs straight, at their usual distance)
     if (A.realWalls) { const m = [...G.subarray(nRamp, k1 - k0 - nRamp + 1)].sort((a, b) => a - b), v = m[m.length >> 1]; if (v === v) G.fill(v, nRamp, k1 - k0 - nRamp + 1); }
     let ok = true;
+    // (each ramp no steeper than about 14°: smoothstep's steepest is 1.5x its mean; the wall right by the track, last resort)
+    if (cap > PIT.wallGap) for (const k of [k0 + nRamp, k1 - nRamp]) { const i = idxAt(k); if (1.5 * (laneC(i) - (T.W[i] / 2 - 2.2)) / (nRamp * ds) > 0.25) ok = false; }
     for (let k = k0; k <= k1 && ok; k++) {
       const i = idxAt(k);
       if (A.BRIDGE[i] || !(sd < 0 ? A.HAS_L[i] : A.HAS_R[i])) { ok = false; break; }
       // no tight corner on the pit side
       if (sd * T.K[i] > 0 && 1 / Math.abs(T.K[i]) < laneC(i) + PIT.width + 25) { ok = false; break; }
+      // the garages along a straight or a gentle bend either way (radius 180 m+, over ~10 m): round the outside of a
+      // hairpin they'd fan out from it
+      if (k - k0 >= nRamp && k1 - k >= nRamp) { const w = Math.max(1, Math.round(5 / ds)); let kk = 0; for (let d = -w; d <= w; d++) kk += T.K[idxAt(k + d)]; if (Math.abs(kk / (2 * w + 1)) > 1 / 180) { ok = false; break; } }
       // the way in (the entry ramp and the start of the wall) on a straight or a gentle bend: a tight corner there,
-      // either way, sends cars running wide on its exit into the pit entry
-      if (k - k0 < nRamp + Math.round(30 / ds) && Math.abs(T.K[i]) > 1 / 120) { ok = false; break; }
+      // either way, sends cars running wide on its exit into the pit entry; the way out the same (a lane rejoining
+      // round a corner cuts across it)
+      if ((k - k0 < nRamp + Math.round(30 / ds) || k1 - k < nRamp + Math.round(20 / ds)) && Math.abs(T.K[i]) > 1 / 120) { ok = false; break; }
       // room: nothing else of the circuit where the lane and garages go
       const out = laneC(i) + PIT.width / 2 + 16;
       for (const o of [laneC(i), out]) {
@@ -1143,7 +1162,63 @@ function realPitLane(T, A, line) {
   }
   const w = Math.max(1, Math.round(10 / ds)), cen = new Float32Array(count + 1);
   for (let pos = 0; pos <= count; pos++) { let v = 0, n = 0; for (let d = -w; d <= w; d++) { const q = pos + d; if (q < 0 || q > count) continue; v += raw[q]; n++; } cen[pos] = v / n; }
-  return pitAlong(T, A, side, k0, count, cen, null, { real: true });
+  return tidyRamps(T, A, side, k0, count, cen);
+}
+
+// A mapped pit lane, tidied: the garages where they really are (the longest stretch the map's lane runs clear of
+// the track along a straight or a gentle bend), and the ways in and out drawn clean rather than traced: each eases
+// out of / back onto the track, no steeper than about 12°, along a stretch of track that's straight or gently curved
+// (a radius over 120 m), with nothing else of the circuit in the way. A map's lane projected onto the track wraps
+// round a hairpin where the real one runs straight on past it (Spa's exit beside La Source), and its ends step in and
+// out as the map's points do. Where there's no such stretch, the lane is made up as for any circuit (buildPitLane).
+function tidyRamps(T, A, side, k0, count, cen) {
+  const N = T.N, ds = T.ds, idxAt = (k) => ((k % N) + N) % N, sep = Math.ceil(60 / ds);
+  const avgK = (i, m) => { const w = Math.max(1, Math.round(m / ds)); let k = 0; for (let d = -w; d <= w; d++) k += T.K[idxAt(i + d)]; return Math.abs(k / (2 * w + 1)); };
+  const clear = (pos) => cen[pos] - PIT.width / 2 >= T.W[idxAt(k0 + pos)] / 2 + 1.5;
+  // the garages: the longest run of the map's lane clear of the track along a straight or a gentle bend (radius 250 m+)
+  let mA = -1, mB = -1;
+  for (let pos = 0, run = -1; pos <= count + 1; pos++) {
+    const ok = pos <= count && clear(pos) && avgK(k0 + pos, 5) < 1 / 250;
+    if (ok && run < 0) run = pos;
+    if (!ok && run >= 0) { if (pos - 1 - run > mB - mA) { mA = run; mB = pos - 1; } run = -1; }
+  }
+  if (mA < 0 || (mB - mA) * ds < 120) return null;
+  // nothing else of the circuit where the lane would be (its middle and outer edge, 2 m clear of another stretch's edge)
+  const free = (i, off) => {
+    let ok = true;
+    for (const o of [off, off + PIT.width / 2]) {
+      const x = T.X[i] + T.RX[i] * o * side, z = T.Z[i] + T.RZ[i] * o * side;
+      A.hash.query(x, z, 30, (j) => { if (ok && circDist(i, j, N) >= sep && Math.hypot(x - T.X[j], z - T.Z[j]) < T.W[j] / 2 + 2) ok = false; });
+    }
+    return ok && !A.BRIDGE[i];
+  };
+  // each way, as long as it needs to be (smoothstep's steepest is 1.5x its mean: 12° = 0.21 m out per m), as far as
+  // the track stays straight or gently bent and the lane fits
+  const need = (from) => Math.round(Math.max(50, Math.min(170, 1.5 * (cen[from] - (T.W[idxAt(k0 + from)] / 2 - 2.2)) / 0.21)) / ds);
+  const ramp = (from, dir) => {
+    let n = 0;
+    while (n + 1 <= need(from)) {
+      const i = idxAt(k0 + from + dir * (n + 1));
+      if (avgK(i, 10) > 1 / 120 || !free(i, cen[from])) break;
+      n++;
+    }
+    return n;
+  };
+  // (where the track bends too soon past the garages, they give up their end to the ramp: it stays on the straight)
+  let nIn = ramp(mA, -1), nOut = ramp(mB, 1);
+  const minMain = Math.round(120 / ds);
+  if (nIn < need(mA)) { const give = Math.min(need(mA) - nIn, mB - mA - minMain); if (give > 0) { mA += give; nIn += give; } }
+  if (nOut < need(mB)) { const give = Math.min(need(mB) - nOut, mB - mA - minMain); if (give > 0) { mB -= give; nOut += give; } }
+  nIn = Math.max(Math.round(30 / ds), nIn); nOut = Math.max(Math.round(30 / ds), nOut);
+  const main = mB - mA, total = nIn + main + nOut;
+  const c2 = new Float32Array(total + 1), e = (f) => f * f * (3 - 2 * f);
+  for (let pos = 0; pos <= total; pos++) {
+    const i = idxAt(k0 + mA - nIn + pos), edge = T.W[i] / 2 - 2.2;
+    if (pos < nIn) c2[pos] = edge + (cen[mA] - edge) * e(pos / nIn);
+    else if (pos > nIn + main) c2[pos] = edge + (cen[mB] - edge) * e((total - pos) / nOut);
+    else c2[pos] = cen[mA + pos - nIn];
+  }
+  return pitAlong(T, A, side, k0 + mA - nIn, total, c2, [nIn, nIn + main], { real: true });
 }
 
 // a pit lane as it is (buildPitLane's) as one to edit by hand (track.dress.pit): its centre line's nodes (as few as

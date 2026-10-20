@@ -131,9 +131,12 @@ export function placeTrackProps(ctx) {
   for (const p of props) {
     const a = envAsset(p.type), rot = p.rot || 0, cs = Math.cos(rot), sn = Math.sin(rot), sx = p.sx || 1;
     const W = a.w * sx / 2, D = a.d / 2;
-    // on the highest ground under it (its legs reach down to the rest); over the track: on the track
+    // on the highest ground under it (its legs reach down to the rest); over the track: on the track. A grandstand
+    // stands on its front (the track side, local +z: the front row's on the ground), its back built into a bank that
+    // rises behind it, as real ones are; on the highest ground it'd hang its front rows in the air
+    const stand = /^stand/.test(a.cls || '');
     let y = -Infinity;
-    for (const [lx, lz] of [[-W, -D], [W, -D], [-W, D], [W, D], [0, 0]]) y = Math.max(y, groundHeight(p.x + lx * cs + lz * sn, p.z - lx * sn + lz * cs));
+    for (const [lx, lz] of stand ? [[-W, D], [W, D], [0, D]] : [[-W, -D], [W, -D], [-W, D], [W, D], [0, 0]]) y = Math.max(y, groundHeight(p.x + lx * cs + lz * sn, p.z - lx * sn + lz * cs));
     if (a.span) y = groundHeight(p.x, p.z);
     envPl.push({ id: p.type, x: p.x, y: y - 0.03, z: p.z, rot, s: 1, sx, sy: 1, sz: 1 });
     // fans on the seats

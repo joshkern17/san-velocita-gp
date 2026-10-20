@@ -26,6 +26,7 @@ await new Promise(r => setTimeout(r, 1200));
 let b = null;
 const launch = async () => { if (b) await b.close().catch(() => {}); b = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] }); };
 const stop = async (code) => { try { if (b) await b.close(); } catch (e) {} server.kill(); process.exit(code); };
+for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => stop(1)); // (stopped: its server and browser go too)
 let watchdog;
 const arm = (s) => { clearTimeout(watchdog); watchdog = setTimeout(() => { console.log(`timed out (${s} s on one circuit)`); stop(1); }, s * 1000); };
 try {

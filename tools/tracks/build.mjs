@@ -392,9 +392,19 @@ try {
     // (its dressing, laid out in the Track Studio: tools/tracks/studio.mjs)
     const df = path.join(OUT, 'dress', c.id + '.json');
     if (!REF && fs.existsSync(df)) track.dress = JSON.parse(fs.readFileSync(df, 'utf8'));
+    // (its ground, coloured from the aerial photos: tools/tracks/ground.mjs)
+    const gf = path.join(OUT, 'ground', c.id + '.json');
+    if (!REF && fs.existsSync(gf)) { const g = JSON.parse(fs.readFileSync(gf, 'utf8')); track.ground = g; if (g.credit) track.real.source += ' · ' + g.credit; }
     // (and what was changed in the editor and made official: tools/tracks/official.mjs)
     const ef = path.join(OUT, 'edits', c.id + '.json');
     if (!REF && fs.existsSync(ef)) Object.assign(track, JSON.parse(fs.readFileSync(ef, 'utf8')));
+    // (the map's glitches out of the road: zig-zags, corners tighter than the road is wide; js/roadclean.js. The
+    // dressing above was laid out on the cleaned road: tools/tracks/cleanroad.mjs)
+    if (!REF) {
+      const r = await page.evaluate(async (t) => (await import('/js/roadclean.js')).cleanRoad(t), { points: track.points, open: !!track.open, start: track.start || 0 });
+      if (r.moved > 0 || r.merged) console.log(`  road cleaned: ${r.merged} points merged, the most any moved ${r.moved} m${r.left ? `, ${r.left} samples still at fault` : ''}`);
+      track.points = r.points; track.start = r.start; track.real.cleaned = true;
+    }
     // (its landmarks, made in the game's style: tools/tracks/landmarks.mjs)
     if (!REF && fs.existsSync(landmarksFile(c.id))) applyLandmarks(track, JSON.parse(fs.readFileSync(landmarksFile(c.id), 'utf8')));
     if (REF) {
