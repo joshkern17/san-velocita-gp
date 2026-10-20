@@ -112,7 +112,24 @@ let ffbTestUntil = 0;
 applyWheel();
 const applyPadFeel = () => { padFeel.curve = STEER_CURVES[settings.steerCurve] ?? 1.6; padFeel.dz = DEADZONES[settings.deadzone] ?? 0.12; padFeel.lag = STEER_LAGS[settings.steerSpeed] ?? 0.05; padFeel.brake = settings.brakeCurve; };
 applyPadFeel();
-const saveSettings = () => { try { localStorage.setItem('svgp.settings', JSON.stringify(settings)); } catch (e) {} };
+// Each car keeps its own look (settings.liveries, by model): its paint, pattern, decals and stickers, and the F1 car's
+// bodywork. Your team name, number and sponsor and your driver kit (helmet, suit, crew) go with you into every car.
+// settings.car stays the one flat livery everything reads (races, online, the designer); it's kept in step here.
+const CAR_LOOK = ['pattern', 'main', 'accent', 'third', 'decals', 'stickers', 'showNumber', 'showSponsor', 'sponsorLogo', 'nose', 'fwing', 'pods', 'cover', 'rwing', 'halo', 'rims', 'rimCol'];
+let carLookOff = false; // (the World Career's garage: that's the career's car, not one of yours)
+function keepCarLook() {
+  if (carLookOff || !settings.car) return;
+  const c = settings.car; (settings.liveries ||= {})[c.chassis || 'custom'] = JSON.parse(JSON.stringify(Object.fromEntries(CAR_LOOK.filter(k => c[k] !== undefined).map(k => [k, c[k]]))));
+}
+// into another car: its own look back, or (never painted) your colors and pattern with this model's standard stickers
+function switchCar(chassis) {
+  keepCarLook();
+  const c = settings.car, L = settings.liveries && settings.liveries[chassis];
+  c.chassis = chassis;
+  if (L) { for (const k of CAR_LOOK) delete c[k]; Object.assign(c, JSON.parse(JSON.stringify(L))); }
+  else { c.decals = []; delete c.stickers; }
+}
+const saveSettings = () => { keepCarLook(); try { localStorage.setItem('svgp.settings', JSON.stringify(settings)); } catch (e) {} };
 if (!settings.lookV3) { settings.lookV2 = settings.lookV3 = true; settings.look = 'arcade'; applyLook('arcade'); saveSettings(); } // new pipeline: start on Arcade Sunset
 
 // ---------------- renderer ----------------
@@ -568,8 +585,8 @@ const paintOpt = (label, key, desc) => ({ label, desc, values: colVals, get: () 
 const BODY_DESC = 'Bodywork parts. These swap on the SVGP Classic F1 car only.';
 menus['s-garage'] = [new Menu($('m-garage'), [
   { label: 'Car', head: true, disabled: true },
-  { label: 'Car', values: CAR_CHOICES, get: () => settings.car.chassis || 'custom', set: v => { settings.car.chassis = v; classicOnly(); garage.setCar(settings.car); },
-    desc: 'The car you drive. You can also switch on the grid before every race. F1 cars and your own models (M1 ProCar, 935, Civic, Skyline) wear your full livery; the others take your main color or keep their own paint.' },
+  { label: 'Car', values: CAR_CHOICES, get: () => settings.car.chassis || 'custom', set: v => { switchCar(v); classicOnly(); garage.setCar(settings.car); saveSettingsSoon(); },
+    desc: 'The car you drive (you can also switch on the grid). Each car keeps its own paint and decals; your team name, number and driver kit go with you. F1 cars and your own models (M1 ProCar, 935, Civic, Skyline) wear a full livery; the others take your main color or keep their own paint.' },
   { label: 'Class', values: Object.entries(CLASSES).map(([k, c]) => [k, c.label]), get: () => carOf(settings.car).cls, set: () => {}, disabled: true },
   { get label() { return `Tuning<small>${activeName(carId(settings.car)) || 'Standard'}</small>`; }, cls: 'action', action: () => openTuning('s-garage', carId(settings.car)),
     get desc() { return `${hasAero(carId(settings.car)) ? 'Wings, springs' : 'Springs'}, anti-roll bars, brakes, the differential and the gearing for this car, with what each change does before you drive it. Saved per car.`; } },
@@ -3014,10 +3031,10 @@ async function uploadLogo(sid) {
 
 // the garage from the hub edits this career's car, not the one in your other modes
 let garageSwap = null;
-function openWorldGarage() { garageSwap = settings.car; settings.car = worldCar(); openGarage('s-hub'); }
+function openWorldGarage() { keepCarLook(); carLookOff = true; garageSwap = settings.car; settings.car = worldCar(); openGarage('s-hub'); }
 function closeWorldGarage() {
   if (!garageSwap) return;
-  world.livery = { ...settings.car }; world.liveryDone = true; settings.car = garageSwap; garageSwap = null;
+  world.livery = { ...settings.car }; world.liveryDone = true; settings.car = garageSwap; garageSwap = null; carLookOff = false;
   updateLogoShown();
   saveSettings(); saveWorld();
 }
@@ -5288,7 +5305,7 @@ function carSelectInput(dt) {
 function confirmCar() {
   if (!csel || screen !== 's-carsel' || csel.busy) return;
   csel.busy = true; sfx.select();
-  settings.car.chassis = chassisKey(csel.id); saveSettings();
+  switchCar(chassisKey(csel.id)); saveSettings();
   if (sim.net && net && netRace) {
     const car = { ...settings.car };
     if (net.isHost) { const p = me(); if (p) p.car = car; net.send({ t: 'car', race: netRace.id, key: 'h:' + net.id, car }); }
