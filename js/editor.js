@@ -22,6 +22,8 @@ import { installPitTool } from './edpit.js';
 import { installPaintShapes } from './edpaint.js';
 import { installCheck } from './edcheck.js';
 import { installPad } from './edpad.js';
+import { installShare } from './edshare.js';
+import { DEV } from './dev.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -220,6 +222,15 @@ export class Editor {
     if (fit) this.fit();
   }
 
+  // mid-drag: the points move with the cursor every frame; the road (everything recompute works out) is redone as often
+  // as it keeps up: at once on a small circuit, a few times a second on a big real one, and exactly on letting go
+  dragRecompute() {
+    const wait = (this.rcCost || 0) * 1.5 - (performance.now() - (this.rcAt || 0));
+    clearTimeout(this.rcT);
+    if (wait > 0) { this.rcT = setTimeout(() => this.dragRecompute(), wait); return; }
+    const a = performance.now(); this.recompute(); this.rcAt = performance.now(); this.rcCost = this.rcAt - a;
+  }
+
   scheduleScenery(ms = 120) {
     clearTimeout(this.scenT);
     const run = () => {
@@ -384,13 +395,14 @@ export class Editor {
         { title: 'Point-to-point', desc: 'A road from a start to a finish, one run. Draw it from start to finish.', pick: () => this.newBlank(true) },
       ], '', this.isSaved() ? '' : 'Your changes stay in Undo, but they aren\'t saved in My Circuits.'); break;
       case 'presets': this.modalList('Presets', [
-        ...realTracks().map(p => ({ title: p.name + ' (real)', desc: p.desc || p.real.country, pick: () => hydrateReal(cloneTrack(p)).then(t => this.load(t), () => this.toast('COULD NOT LOAD THE CIRCUIT DATA')) })),
-        ...presetTracks().map(p => ({ title: p.name, desc: p.desc || `${THEMES[p.env.theme].label} · ${p.env.time} · ${p.env.weather}`, pick: () => this.load(p) })),
-        ...archivedTracks().map(p => ({ title: p.name + ' (archived)', desc: `Old built-in ${p.open ? 'track' : 'circuit'} · ${THEMES[p.env.theme].label} · ${p.env.time} · ${p.env.weather}`, pick: () => this.load(p) })),
+        ...realTracks().map(p => ({ title: p.name + ' (real)', ...this.thumbRow(p, p.real.country), pick: () => hydrateReal(cloneTrack(p)).then(t => this.load(t), () => this.toast('COULD NOT LOAD THE CIRCUIT DATA')) })),
+        ...presetTracks().map(p => ({ title: p.name, ...this.thumbRow(p, `${THEMES[p.env.theme].label} · ${p.env.time} · ${p.env.weather}`), pick: () => this.load(p) })),
+        ...(DEV ? archivedTracks() : []).map(p => ({ title: p.name + ' (archived)', desc: `Old built-in ${p.open ? 'track' : 'circuit'} · ${THEMES[p.env.theme].label} · ${p.env.time} · ${p.env.weather}`, pick: () => this.load(p) })),
       ]); break;
       case 'open': this.openModal(); break;
       case 'save': if (this.needTrack('SAVE')) this.save(); break;
       case 'saveas': if (this.needTrack('SAVE')) this.saveAs(); break;
+      case 'share': this.shareModal(); break;
       case 'export': if (this.needTrack('EXPORT')) this.exportFile(); break;
       case 'import': $('ed-file').value = ''; $('ed-file').click(); break;
       case 'undo': this.undo(); break;
@@ -503,22 +515,14 @@ export class Editor {
     const k = list.findIndex(x => x.name === t.name);
     if (k >= 0) list[k] = t; else list.push(t);
     try { localStorage.setItem('svgp.tracks', JSON.stringify(list)); this.markSaved(); this.mine = t.name; this.saveWork(); this.guideStep('saved'); this.toast('Saved: ' + t.name); return true; }
-    catch (e) { sfx.error(); this.toast(t.osm ? 'Out of storage space. Use Export to save big towns.' : 'Could not save'); return false; }
-  }
-  openModal() {
-    const list = this.savedList();
-    if (!list.length) return this.modalList('My Circuits', [], 'No saved circuits yet. Press SAVE to store the current one.');
-    this.modalList('My Circuits', list.map((p, i) => ({
-      title: p.name, desc: `${THEMES[p.env?.theme || 'grass'].label} · ${new Date(p.saved || 0).toLocaleDateString()}`,
-      pick: () => this.load(p, true),
-      del: () => { const l = this.savedList(); l.splice(i, 1); localStorage.setItem('svgp.tracks', JSON.stringify(l)); this.openModal(); },
-    })));
+    catch (e) { sfx.error(); this.toast(t.osm ? 'Out of storage space. Share › Save As A File keeps big towns.' : 'Could not save'); return false; }
   }
   modalList(title, items, empty = '', note = '') {
     const box = $('ed-modal-box');
-    box.innerHTML = `<h3>${title}</h3>` + (note ? `<p class="muted">${esc(note)}</p>` : '') + (items.length ? items.map((it, i) => `<div class="li" data-i="${i}"><div><div class="t">${esc(it.title)}</div><div class="d">${esc(it.desc)}</div></div>${it.del ? `<button data-del="${i}">Delete</button>` : ''}</div>`).join('') : `<p class="muted">${empty}</p>`) + `<div class="foot"><button data-close>Close</button></div>`;
+    box.innerHTML = `<h3>${title}</h3>` + (note ? `<p class="muted">${esc(note)}</p>` : '') + (items.length ? items.map((it, i) => `<div class="li" data-i="${i}">${it.thumb != null ? `<span class="th">${it.thumb}</span>` : ''}<div class="tx"><div class="t">${esc(it.title)}</div><div class="d">${esc(it.desc)}</div></div>${it.share ? `<button data-share="${i}">Share</button>` : ''}${it.del ? `<button data-del="${i}">Delete</button>` : ''}</div>`).join('') : `<p class="muted">${empty}</p>`) + `<div class="foot"><button data-close>Close</button></div>`;
     $('ed-modal').hidden = false;
-    box.querySelectorAll('.li').forEach(el => el.addEventListener('click', (e) => { if (e.target.dataset.del) return; items[+el.dataset.i].pick(); }));
+    box.querySelectorAll('.li').forEach(el => el.addEventListener('click', (e) => { if (e.target.dataset.del || e.target.dataset.share) return; items[+el.dataset.i].pick(); }));
+    box.querySelectorAll('[data-share]').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation(); items[+el.dataset.share].share(); }));
     box.querySelectorAll('[data-del]').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation();
       if (el.dataset.armed) return items[+el.dataset.del].del();
       el.dataset.armed = 1; el.textContent = 'Delete it?'; sfx.select(); }));
@@ -527,11 +531,11 @@ export class Editor {
   }
   closeModal() { $('ed-modal').hidden = true; }
 
-  exportFile() {
-    const blob = new Blob([JSON.stringify(this.track, null, 1)], { type: 'application/json' });
+  exportFile(t = this.track) {
+    const blob = new Blob([JSON.stringify(t, null, 1)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = (this.track.name || 'circuit').replace(/[^a-z0-9]+/gi, '_') + '.svgp.json';
+    a.download = (t.name || 'circuit').replace(/[^a-z0-9]+/gi, '_') + '.svgp.json';
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     this.toast('EXPORTED');
@@ -838,7 +842,7 @@ export class Editor {
       const other = d.end === 'ho' ? 'hi' : 'ho';
       p[d.end] = h;
       if (cur[other] && !e.shiftKey) { const lh = Math.hypot(...h) || 1, lo = Math.hypot(...cur[other]); p[other] = [+(-h[0] * lo / lh).toFixed(2), +(-h[1] * lo / lh).toFixed(2)]; }
-      this.recompute();
+      this.dragRecompute();
     } else if (d.type === 'nodes') {
       if (!d.moved) { this.push(); d.moved = true; }
       let dx = wx - d.wx, dz = wz - d.wz;
@@ -848,7 +852,7 @@ export class Editor {
         dx = sx2 - a.x; dz = sz2 - a.z;
       }
       for (const o of d.orig) { this.track.points[o.i].x = o.x + dx; this.track.points[o.i].z = o.z + dz; }
-      this.recompute();
+      this.dragRecompute();
     } else if (d.type === 'box') {
       d.ex = sx; d.ey = sy;
     } else if (d.type === 'prop') {
@@ -862,7 +866,7 @@ export class Editor {
   onUp(e) {
     if (!this.active) return;
     const d = this.drag;
-    this.drag = null;
+    this.drag = null; clearTimeout(this.rcT);
     if (this.profileDrag) { this.profileDrag = null; this.changed(true); return; }
     if (!d) return;
     this.canvas.style.cursor = this.tool === 'pan' ? 'grab' : ['draw', 'paint', 'roads', 'sculpt'].includes(this.tool) ? 'crosshair' : 'default';
@@ -1702,7 +1706,7 @@ export class Editor {
         c.fillStyle = s ? '#ffd66b' : h ? '#ffffff' : (t.open ? i === 0 : i === t.start) ? '#6ae04a' : t.open && i === P.length - 1 && P.length > 1 ? '#ff6a5a' : '#d8e6ff';
         c.strokeStyle = '#000'; c.lineWidth = 2;
         c.fillRect(x - r, y - r, r * 2, r * 2); c.strokeRect(x - r, y - r, r * 2, r * 2);
-        if (sc > 1.1 || s) { c.font = '14px VT323'; c.fillStyle = '#fff'; c.fillText(String(i), x + 8, y - 6); }
+        if (s || (DEV && sc > 1.1)) { c.font = '14px VT323'; c.fillStyle = '#fff'; c.fillText(String(i), x + 8, y - 6); } // (every point's number: a development aid)
         if ((s || h) && (p.e || p.b)) { c.font = '14px VT323'; c.fillStyle = '#ffd66b'; c.fillText(`${p.e.toFixed(1)}m ${p.b ? p.b.toFixed(0) + '°' : ''}`, x + 8, y + 12); }
       });
       // the picked node's curve handles (round: filled once they're its own)
@@ -3023,6 +3027,7 @@ installView3d(Editor);
 installPitTool(Editor);
 installPaintShapes(Editor);
 installCheck(Editor);
+installShare(Editor);
 installPad(Editor); // (last: it wraps draw() to put the pad's cursor on top)
 
 function fld(label, id, min, max, step, val, unit) {

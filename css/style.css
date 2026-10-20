@@ -767,6 +767,13 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .ed-modal-box .li:hover .t { color: var(--sv-amber); }
 .ed-modal-box .li .d { font: 500 var(--t-small)/1.4 var(--f-body); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; }
 .ed-modal-box .li button { font-size: 11px !important; padding: 3px 8px !important; }
+.ed-modal-box .li .tx { flex: 1; min-width: 0; }
+.ed-modal-box .li .th { flex: 0 0 52px; height: 52px; display: grid; place-items: center; }
+.ed-modal-box .li .th svg { width: 52px; height: 52px; overflow: visible; }
+.ed-modal-box .li .th path { fill: none; stroke: var(--sv-red); stroke-width: 3.2; stroke-linejoin: round; filter: drop-shadow(0 0 2px var(--sv-red)); transition: stroke var(--m-fast); }
+.ed-modal-box .li .th circle { fill: var(--sv-hot); }
+.ed-modal-box .li:hover .th path, .ed-modal-box .li.padsel .th path { stroke: var(--sv-amber); }
+.ed-modal-box .ed-code { display: block; width: 100%; min-height: 96px; box-sizing: border-box; resize: vertical; margin-bottom: var(--s2); font: 13px/1.35 ui-monospace, Menlo, monospace; word-break: break-all; background: rgba(0,0,0,.5); color: var(--sv-amber); border: 1px solid color-mix(in srgb, var(--sv-red) 45%, transparent); padding: var(--s2); }
 .ed-modal-box .muted { color: var(--sv-red-dim); font: 500 var(--t-small)/1.5 var(--f-body); margin: 0 0 var(--s3); max-width: 480px; }
 .ed-modal-box .ed-saveas { width: 100%; box-sizing: border-box; margin-bottom: var(--s2); }
 .ed-modal-box .foot { margin-top: var(--s4); text-align: right; }

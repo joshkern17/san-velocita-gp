@@ -72,7 +72,8 @@ export function installPad(Editor) {
         { title: '3D View', desc: 'Fly round it as it will look (View button).', pick: act('view3d') },
         { title: 'Save', desc: 'Keep it in My Circuits.', pick: act('save') },
         { title: 'Save As', desc: 'A copy under a new name.', pick: act('saveas') },
-        { title: 'Open', desc: 'One of your circuits.', pick: act('open') },
+        { title: 'Open', desc: 'One of your circuits, or a share code.', pick: act('open') },
+        { title: 'Share', desc: 'A code to send someone, or a file.', pick: act('share') },
         { title: 'New', desc: 'A blank circuit or point-to-point road.', pick: act('new') },
         { title: 'Presets', desc: 'The built-in and real circuits, to start from.', pick: act('presets') },
         { title: 'Exit', desc: 'Back to the menu (it asks first if this isn\'t saved).', pick: act('exit') },
@@ -112,7 +113,8 @@ export function installPad(Editor) {
       }
       if (p.a) { el.click(); requestAnimationFrame(() => this.padPanelMark()); }
     },
-    // a list in the pop-up (Menu, New, Open, Presets, Exit): up / down to pick, A to choose, B to close
+    // a list in the pop-up (Menu, New, Open, Presets, Exit): up / down to pick, A to choose, B to close; on a row of
+    // My Circuits, Y shares it and X deletes it (X twice: it asks first)
     padModal(p) {
       const box = $('ed-modal-box'), items = [...box.querySelectorAll('.li, .foot button, [data-ok]')].filter(x => x.offsetParent);
       if (!items.length) return;
@@ -120,6 +122,8 @@ export function installPad(Editor) {
       if (k < 0) { k = 0; items[0].classList.add('padsel'); }
       if (p.up || p.down) { items[k].classList.remove('padsel'); k = (k + (p.down ? 1 : -1) + items.length) % items.length; items[k].classList.add('padsel'); items[k].scrollIntoView({ block: 'nearest' }); sfx.move(); }
       if (p.a) items[k].click();
+      if (p.y) items[k].querySelector('[data-share]')?.click();
+      if (p.x) items[k].querySelector('[data-del]')?.click();
       if (p.b) this.closeModal();
     },
     // the cursor over everything on the map (a pad in hand)
