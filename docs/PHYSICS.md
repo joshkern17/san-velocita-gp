@@ -153,13 +153,17 @@ F1 dirty air / DRS / ERS, tyre temperatures, learning the AI plans in a Web Work
   (Quick Race setup, online host; `tempMode` 0 / 1 / 2; learning and reference laps run without). Per tyre: heat from
   sliding (|F| x slide speed, per the tyre's load: `HEAT.slide` 0.42) and rolling (speed x sqrt(load / static),
   0.011), cooled toward `ambT` (30 °C dry day, 20 night, 16 rain) by the air (0.004 + 0.0004 v, x3.5 fully wet).
-  Normal: one temperature. Realistic: a surface (3x the sliding heat, fast) over a core (the rolling heat, slow), grip
-  from 65/35. Each compound has its best (`TYRES.opt`: soft 85, medium 95, hard 105, wet 55, dirt 50; the F1 car
-  +20, `tyreT`); grip = 1 - k ((T - best)/win)^2, at most max (`TEMP`: Normal 35 °C / 0.02 / 8%, Realistic 25 / 0.03 /
+  Both modes: a surface (3x the sliding heat, fast) over a core (the rolling heat, slow), grip from 65/35; the mode only
+  sets the window (Normal used to be one temperature cooled like a surface: it settled ~20 °C colder, so tyres never
+  came in, 2026-10-15). Each compound has its best (`TYRES.opt`: soft 85, medium 95, hard 105, wet 55, dirt 50; the F1 car
+  +20, `tyreT`; the Miata and Civic -25 on the dry compounds: club tyres that a light slow car can heat, 55-75 °C); grip = 1 - k ((T - best)/win)^2, at most max (`TEMP`: Normal 35 °C / 0.02 / 8%, Realistic 25 / 0.03 /
   15%), per wheel in the grip (`tempG`). More than 12 °C over: wear x (1 + excess/20). F1 / GT1 fit tyres from warmers
   (best - 12), the rest at the air + 5. The AI's speed target follows the four's mean (`tempGrip`). Calibrated on AI
   laps of Auburn (`.devtest/physics/templap.mjs`, mediums): F1 fronts ~105 rears ~120-135, M1 ~90-110, J-Sport
-  ~80-95; laps 0.1-0.3 s slower than with them off. Road cars from cold reach the window in about a lap.
+  ~80-95; laps 0.1-0.3 s slower than with them off. Road cars from cold reach the window in about a lap. The AI's
+  simulated practice / qualifying laps run the race's temperatures (qualiStart), so their times match their race pace.
+  2026-10-15: a career Miata race at a night circuit had the AI's mediums at 55-60 °C against a best of 95 (grip 93%,
+  its speed target with it): the field raced ~7% under its practice times. Now 98-99% there, 100% by day.
   `.devtest/physics/tyretemp.mjs`: open-plane scenarios. HUD: the car diagram's tyres coloured by temperature (dull
   cold, blue in the window, orange to pink hot), `COLD` / `HOT` after the compound.
 - **Setups / Tuning (2026-10-06, `js/setup.js`, `js/tuning.js`).** A setup is offsets on the car's spec (`applySetup`):

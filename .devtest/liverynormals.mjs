@@ -1,0 +1,5 @@
+import { spawn } from 'child_process'; import { dirname, join } from 'path'; import { fileURLToPath } from 'url';
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..'); const { chromium } = await import(join(ROOT, 'tools/node_modules/playwright-core/index.mjs'));
+const PORT = 9600 + Math.floor(Math.random() * 100), server = spawn('python3', [join(ROOT, 'serve.py'), String(PORT), '--no-browser'], { stdio: 'ignore' }); await new Promise(r => setTimeout(r, 1200));
+const b = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+try { const pg = await b.newPage(); pg.on('pageerror', e => console.log('ERR', e.message)); await pg.goto(`http://127.0.0.1:${PORT}/.devtest/liverynormals.html?cars=${process.argv[2] || 'm1procar,porsche935,capri,f40,m3gtr,r34gt2,r34,civic,miata,f1gtr'}`); await pg.waitForFunction(() => window.done, null, { timeout: 90000 }); console.log((await pg.evaluate(() => window.out)).join('\n')); } finally { await b.close(); server.kill(); }

@@ -1,0 +1,39 @@
+<!doctype html><html><head><meta charset="utf-8"><script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script></head><body><script type="module">
+// dev: probe a livery car's texel map: ?car=r34&box=x0,x1,y0,y1,z0,z1 -> texels in that box (position, normal, panel)
+import { buildF1 } from '../js/carmodel.js';
+import { loadRoadCar } from '../js/roadcar.js';
+const P = new URLSearchParams(location.search), id = P.get('car'); for (const k of (P.get('g') || '').split(',').filter(Boolean)) globalThis[k] = true; if (P.get('flips')) globalThis.FLIPLOG = []; if (P.get('fdbg')) { const b0 = P.get('box').split(',').map(Number); globalThis.FLIPDBG = []; globalThis.FLIPDBG.filter = (f) => f.c && f.c[0] > b0[0] && f.c[0] < b0[1] && f.c[1] > b0[2] && f.c[1] < b0[3] && f.c[2] > b0[4] && f.c[2] < b0[5]; } const t00 = performance.now();
+window.__SVGP_CARS = { [id]: (P.get('dir') || '../models/cars/') + id + '.glb' }; await loadRoadCar(id);
+const m = buildF1({ chassis: id }, {}), d = m.def, T = d.texels(), b = P.get('box').split(',').map(Number), out = { bb: null, rows: [] };
+const names = Object.keys(d.panels); const hist = {};
+for (let n = 0; n < T.list.length; n++) { const x = T.pos[n * 3], y = T.pos[n * 3 + 1], z = T.pos[n * 3 + 2];
+  if (x < b[0] || x > b[1] || y < b[2] || y > b[3] || z < b[4] || z > b[5]) continue;
+  const k = names[T.lp[n] - 1] + ' n=' + [0, 1, 2].map(i => (T.nrm[n * 3 + i] / 127).toFixed(1)).join(','); hist[k] = (hist[k] || 0) + 1; }
+out.rows = Object.entries(hist).sort((a, b) => b[1] - a[1]).slice(0, 25);
+out.panels = Object.fromEntries(Object.entries(d.panels).map(([k, p]) => [k, [p.W.toFixed(2), p.H.toFixed(2)]]));
+if (P.get('comps')) { // connected pieces of the sticker mesh (welded at 1 mm)
+  const M = d.mesh(), tp = M.tp, par = new Int32Array(M.nt * 3).map((_, i) => i), f = (i) => { while (par[i] !== i) i = par[i] = par[par[i]]; return i; }, seen = new Map();
+  for (let v = 0; v < M.nt * 3; v++) { const k = [0, 1, 2].map(a => Math.round(tp[v * 3 + a] * 1000)).join(); if (seen.has(k)) par[f(v)] = f(seen.get(k)); else seen.set(k, v); if (v % 3) par[f(v)] = f(v - v % 3); }
+  const C = {}; for (let t = 0; t < M.nt; t++) { const r = f(t * 3); const c = (C[r] ||= { n: 0, lo: [9, 9, 9], hi: [-9, -9, -9] }); c.n++; for (let k = 0; k < 9; k++) { const a = k % 3, v = tp[t * 9 + k]; c.lo[a] = Math.min(c.lo[a], v); c.hi[a] = Math.max(c.hi[a], v); } }
+  out.comps = Object.values(C).sort((a, b) => b.n - a.n).map(c => `${c.n} tris  x ${c.lo[0].toFixed(2)}..${c.hi[0].toFixed(2)}  y ${c.lo[1].toFixed(2)}..${c.hi[1].toFixed(2)}  z ${c.lo[2].toFixed(2)}..${c.hi[2].toFixed(2)}`);
+  out.count = out.comps.length; out.comps = out.comps.slice(0, 30); delete out.rows;
+}
+if (P.get('float')) { const { drapeSticker } = await import('../js/livery.js'); const M = d.mesh(), pn = d.panels[P.get('float')];
+  globalThis.FLOATDBG = []; drapeSticker(M, pn, pn.W / 2, pn.H * 0.9, 0.5, 0.3); out.main = M.main; out.dbg = globalThis.FLOATDBG; out.floating = Object.fromEntries(Object.entries(M.floating).map(([k, v]) => [k, [...v]]));
+  const sz = {}; for (let t = 0; t < M.nt; t++) sz[M.comp[t]] = (sz[M.comp[t]] || 0) + 1; out.sizes = sz; delete out.rows; }
+if (P.get('parts')) { out.parts = m.body.children.filter(o => o.isMesh).map(o => { o.geometry.computeBoundingBox(); const b = o.geometry.boundingBox; return `${o.geometry.index ? o.geometry.index.count / 3 : o.geometry.attributes.position.count / 3} tris  ${o.material.type} map:${!!o.material.map} side:${o.material.side} vis:${o.visible}  x ${b.min.x.toFixed(2)}..${b.max.x.toFixed(2)} y ${b.min.y.toFixed(2)}..${b.max.y.toFixed(2)} z ${b.min.z.toFixed(2)}..${b.max.z.toFixed(2)}`; }); delete out.rows; }
+if (P.get('fdbg')) { out.fdbg = globalThis.FLIPDBG.map(f => `${f.i} c ${f.c.map(v => v.toFixed(2))} n ${f.n.map(v => v.toFixed(1))} vote ${f.vote} rel ${f.rel} patch ${f.patch} pv ${f.pv.toFixed(4)}`); delete out.rows; }
+if (P.get('flips')) { out.flips = globalThis.FLIPLOG; out.ms = Math.round(performance.now() - t00); delete out.rows; }
+if (P.get('depth')) { // texels in the box vs the drape sheet over them (top panel): what's above the channel?
+  const { drapeSticker } = await import('../js/livery.js'); const M = d.mesh(), pn = d.panels.top, [cx, cy] = P.get('depth').split(':').map(Number);
+  const S = drapeSticker(M, pn, cx, cy, 0.4, 0.3), rows = {};
+  for (let n = 0; n < T.list.length; n++) { const x = T.pos[n * 3], y = T.pos[n * 3 + 1], z = T.pos[n * 3 + 2];
+    if (x < b[0] || x > b[1] || y < b[2] || y > b[3] || z < b[4] || z > b[5]) continue;
+    const [u, v, dz] = S.panel([x, y, z]), sheet = S.depth(u, v), key = `y ${y.toFixed(2)} sheet ${sheet.toFixed(2)} ny ${(T.nrm[n * 3 + 1] / 127).toFixed(1)}`; rows[key] = (rows[key] || 0) + 1; }
+  out.depth = Object.entries(rows).sort((a, b) => b[1] - a[1]).slice(0, 12);
+  // the triangles making the sheet there: highest ones over the box's middle
+  const hits = []; for (let t = 0; t < M.nt; t++) { let x = 0, y = 0, z = 0; for (let k = 0; k < 3; k++) { x += M.tp[t * 9 + k * 3] / 3; y += M.tp[t * 9 + k * 3 + 1] / 3; z += M.tp[t * 9 + k * 3 + 2] / 3; }
+    if (Math.abs(x) < 0.25 && z > b[4] && z < b[5] && M.fn[t * 3 + 1] > 0.05) hits.push([+y.toFixed(2), +z.toFixed(2), M.comp[t] === M.main ? 'main' : M.comp[t], t < d.texels().tri.reduce((a, v) => Math.max(a, v), 0) + 1 ? 'livery' : 'other']); }
+  out.tris = hits.sort((a, b) => b[0] - a[0]).slice(0, 15); delete out.rows; }
+window.out = out; window.done = true;
+</script></body></html>

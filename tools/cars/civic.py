@@ -1,4 +1,5 @@
 # Honda Civic EK: your Blender export -> the game's car. Usage: python3 tools/cars/civic.py models/Civic_Model.glb models/cars/civic.glb
+#   then: node tools/cars/uvrepair.mjs <out.glb>   (livery texels of its own for every face; see docs/CAR-MODELS.md)
 # - real size: the export is ~6% big (4.44 m long, 1.45 m tall); scaled to a real EK hatch's 4.18 m (which also gives
 #   its 1.36 m height), centred on the wheels across (the export sits 2.7 cm to the left)
 # - Light_Front -> Light_Head (the game's lamp name)

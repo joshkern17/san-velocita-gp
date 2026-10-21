@@ -186,7 +186,8 @@ export function renameSetup(id, from, to) {
 const ENV = { mu: 1, extraDrag: 0, gF: 0, gL: 0 }, DT = 1 / 240; // (the game's step: stiff setups need it)
 const AIDS = physAids({ ...PRESETS.standard.aids, stab: 'off' });
 function mk(spec, v = 0, gear = 1) { const p = new CarPhysics(spec); p.setAids(AIDS); p.fitTyres('medium'); p.place(0, 0, 0); p.vz = v; p.gear = gear; return p; }
-function run(p, T, ctl, each) { for (let t = 0; t < T; t += DT) { p.step(DT, { brake: 0, throttle: 0, steer: 0, handbrake: 0, analog: true, pad: true, ...ctl(t, p) }, ENV); if (each && each(t, p) === false) break; } }
+// (steer straight to the wheels, not as a pad: a pad's lock at speed is measured per car, and these sweeps want angles)
+function run(p, T, ctl, each) { for (let t = 0; t < T; t += DT) { p.step(DT, { brake: 0, throttle: 0, steer: 0, handbrake: 0, analog: true, ...ctl(t, p) }, ENV); if (each && each(t, p) === false) break; } }
 function corner(spec, V) {
   let best = 0, bal = 0;
   // (a steering sweep, held 2.5 s each, the grip the car settles at; it stops at a spin: past that the rear's gone)

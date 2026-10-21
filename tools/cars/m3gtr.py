@@ -1,5 +1,6 @@
 # BMW M3 GTR (E46): your Blender export -> the game's car. Usage:
 #   python3 tools/cars/m3gtr.py models/m3gtr_main.glb models/cars/m3gtr.glb
+#   then: node tools/cars/uvrepair.mjs <out.glb>   (livery texels of its own for every face; see docs/CAR-MODELS.md)
 # - already at real size (4.57 m long, 1.85 m wide, 2.74 m wheelbase); centred on the wheels across (the export sits
 #   1.4 mm to the left)
 # - two roof triangles whose uvs slipped onto the bonnet are put back on the roof (see below)

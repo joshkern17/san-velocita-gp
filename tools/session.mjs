@@ -4,6 +4,7 @@
 //   node tools/session.mjs 3            the 3rd newest      (or a path to a .json)
 //   --vs <name|car>                     the AI lap to hold yours against (default: an AI in your car, else the quickest)
 //   --lap <n>                           your lap n instead of your best
+//   --contacts                          every car-to-car hit (default: yours, and the 6 hardest between AI cars)
 // Speeds km/h, distances m. "plan" = the speed the AI learned it can take at that corner in its car (car.lineV), the
 // slowest point of it; if you're quicker than the AI's plan, it's the learned limits that hold it back, not its driving.
 import fs from 'fs';
@@ -13,7 +14,7 @@ import { analyze } from '../js/telemetry.js';
 
 const DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'saves', 'sessions');
 const args = process.argv.slice(2), opt = (k) => { const i = args.indexOf(k); return i >= 0 ? args.splice(i, 2)[1] : null; };
-const vsArg = opt('--vs'), lapArg = opt('--lap');
+const vsArg = opt('--vs'), lapArg = opt('--lap'), allHits = args.includes('--contacts'); if (allHits) args.splice(args.indexOf('--contacts'), 1);
 const files = fs.existsSync(DIR) ? fs.readdirSync(DIR).filter(f => f.endsWith('.json')).sort().reverse() : [];
 if (args.includes('--list')) { files.forEach((f, i) => console.log(String(i + 1).padStart(3), f)); process.exit(0); }
 const pick = args[0];
@@ -49,6 +50,23 @@ if (S.field) {
   const F = S.field.list.slice().sort((x, y) => x.pot - y.pot);
   console.log(`\n  AI (simulated ${se.kind} laps)   car                 potential  vs you   pace  power`);
   for (const e of F) console.log(`  ${pad(e.name, 32)}  ${pad(e.carId, 18)} ${sec(e.pot)}  ${sgn((e.pot / myBest - 1) * 100, 1).padStart(6)}%  ${e.pace?.toFixed(3)}  ${e.power?.toFixed(2)}`);
+}
+
+// ---------- contacts: who hit whom, where, doing what (race.js noteContact; files from 2026-10-21 on) ----------
+if (S.contacts) {
+  const H = S.contacts, mineH = H.filter(e => e.pre.some(p => p.who === 'YOU')), rest = H.filter(e => !mineH.includes(e));
+  console.log(`\nCONTACTS  ${H.length} (${mineH.length} with you)  · closing speed km/h · "behind" = the car further back · slid = most it slid in the 1.5 s after`);
+  const show = (e) => {
+    const r = e.pre[e.behind], f = e.pre[1 - e.behind];
+    console.log(`  ${e.t.toFixed(1)} s lap ${r.lap} · ${e.where || '@' + r.at + ' m'} · ${e.v} km/h${e.n > 1 ? ` (${e.n} touches)` : ''} · ${r.who}'s ${e.parts[e.behind]} into ${f.who}'s ${e.parts[1 - e.behind]} (${e.gap} m apart along the lap)`);
+    for (const k of [e.behind, 1 - e.behind]) {
+      const p = e.pre[k], a = e.after[k], spun = a.slide > 30;
+      console.log(`      ${pad(p.who, 14)} ${pad(p.car, 11)} ${String(p.v).padStart(3)} km/h  thr ${p.thr.toFixed(2)} brk ${p.brk.toFixed(2)} steer ${sgn(p.steer)}  slide ${String(p.slide).padStart(3)}°  ${pad(p.ai ?? '', 26)} → slid ${a.slide}°, down to ${a.vMin} km/h${a.off ? ', off the road' : ''}${spun ? '  SPUN' : ''}`);
+    }
+  };
+  mineH.forEach(show);
+  const ai = allHits ? rest : rest.slice().sort((x, y) => y.v - x.v).slice(0, 6).sort((x, y) => x.t - y.t);
+  if (ai.length) { console.log(allHits ? '  between AI cars:' : '  hardest between AI cars:'); ai.forEach(show); }
 }
 
 // ---------- your lap vs one AI lap, corner by corner ----------

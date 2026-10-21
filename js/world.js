@@ -23,6 +23,7 @@ import { StreetLife } from './lifefx.js';
 import { buildClouds } from './clouds.js';
 import { buildPitBoxes, pitCovered, pitBlockTest, pitBlockFloor } from './pitboxes.js';
 import { applyPSXMaterial } from '../vendor/psx/src/PSXMaterial.js';
+import { setCarSky } from './carsky.js';
 import { loadCrowd, buildCrowd, makeBleachers, bleacherSeats, paintedPeople, BLEACHERS } from './crowd.js';
 
 // ---------- small utils ----------
@@ -246,6 +247,7 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
   if (track.terrain && track.terrain.ground !== false && !P.rain && env.weather !== 'fog') { P.fogNear = Math.max(P.fogNear, 320); P.fogFar = Math.max(P.fogFar, 1750); }
   const fog = new THREE.Fog(P.fog, P.fogNear, P.fogFar);
   const sky = buildSky(P);
+  setCarSky(P.top, P.hor, P.bottom); // (what the cars' paint reflects)
   root.add(sky);
   const clouds = buildClouds(P, env, hashStr(track.name || 'x') % 9973);
   root.add(clouds.mesh);
@@ -1665,6 +1667,7 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
     fog.color.setHex(Q.fog);
     const u = sky.material.uniforms;
     u.top.value.setHex(Q.top); u.hor.value.setHex(Q.hor); u.bottom.value.setHex(Q.bottom); u.sunDir.value.set(...Q.sun).normalize();
+    setCarSky(Q.top, Q.hor, Q.bottom);
     u.sunCol.value.setHex(Q.sunCol); u.cloudCol.value.setHex(Q.cloud); u.night.value = Q.night; u.fogCol.value.setHex(Q.fog);
     if (clouds.setTime) clouds.setTime(Q.tod.a, Q.tod.b, Q.tod.u, Q);
     for (const g of nightGroups) {

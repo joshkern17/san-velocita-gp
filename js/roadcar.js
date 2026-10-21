@@ -9,6 +9,7 @@ import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { CHASSIS, tiltWheels, driverKit, carLights, blobShadow } from './carmodel.js';
 import { fillLivery, paintCar, projectDecals, samplePanel, stickerMesh, wrapDecals } from './livery.js';
 import { CARS } from './cars.js';
+import { carSky } from './carsky.js';
 
 const TPL = {}, loading = {};
 const urlOf = (id) => (typeof window !== 'undefined' && window.__SVGP_CARS && window.__SVGP_CARS[id]) || `models/cars/${id}.glb`;
@@ -22,7 +23,7 @@ export function loadRoadCar(id) {
     .then(g => { TPL[id] = makeTemplate(id, g.scene); return true; })
     .catch(e => { console.warn('car model not loaded:', id, e && e.message); return false; }));
 }
-for (const id of Object.keys(CARS)) if (CARS[id].glb) CHASSIS[id] = { ready: () => !!TPL[id], build: (cfg, opts) => buildRoadCar(id, cfg, opts) };
+for (const id of Object.keys(CARS)) if (CARS[id].glb) CHASSIS[id] = { ready: () => !!TPL[id], build: (cfg, opts) => buildRoadCar(id, cfg, opts), panels: () => TPL[id] && TPL[id].liv && TPL[id].liv.panels };
 
 function makeTemplate(id, scene) {
   scene.updateMatrixWorld(true);
@@ -49,10 +50,12 @@ function makeTemplate(id, scene) {
     let n = o; while (n.parent && n.parent !== scene) n = n.parent;
     const m = o.material;
     const part = { geo, map: m.map || null, color: m.color ? m.color.getHex() : 0xffffff, emissive: m.emissiveMap || null, double: m.side === THREE.DoubleSide,
-      cutoff: m.alphaTest || CARS[id].cutout || 0, blend: !!m.transparent, obj: n.name };
+      cutoff: m.alphaTest || CARS[id].cutout || 0, blend: !!m.transparent, obj: n.name, finish: CARS[id].livery ? finishOf(m) : null };
     const nm = n.name.trim(), c = (nm.match(/^Wheel_(FL|FR|RL|RR)/) || [])[1], lamp = (nm.match(/^Light_(Tail|Head)/i) || [])[1];
     if (c) (T.wheels[c] ||= []).push(part); else if (lamp) T[lamp.toLowerCase()].push(part); else T.body.push(part);
   });
+  // shaded auto smooth, as in Blender (cars.js smooth: the angle)
+  if (CARS[id].smooth) smoothNormals([...T.body, ...Object.values(T.wheels).flat(), ...T.head, ...T.tail], CARS[id].smooth);
   // bounds of the vertices the triangles actually use (pieces split off a mesh keep all of its vertices)
   const box = (list) => {
     const b = new THREE.Box3(), v = new THREE.Vector3();
@@ -174,6 +177,7 @@ function paintIslands(img) {
 // over the photo through its paint mask (whitePaint): glass, lamps, grille and badges stay as photographed, and the
 // photo's greys shade the new paint. Needs a body texture with unique UVs (no mirrored halves).
 const PICK_RES = 1024; // texel map resolution for the designer's click-to-place
+const WRAP_FACE = [0.26, 0.34]; // (decals' facing cut-off: start, full; livery.js wrapDecals)
 function liveryTemplate(id, T, map) {
   const bb = T.bb, zF = bb.max.z + 0.02, zR = bb.min.z - 0.02, top = bb.max.y + 0.02, half = Math.max(bb.max.x, -bb.min.x) + 0.02, len = zF - zR;
   // proj(x, y, z) -> panel metres (x right, y down, as seen from outside)
@@ -191,12 +195,13 @@ function liveryTemplate(id, T, map) {
     // the rest of the body (glass, grille, lamps: not painted, but part of the outer surface a sticker drapes over)
     mesh: () => {
       if (L.mesh) return L.mesh;
-      const pos = [], nrm = [];
+      const pos = [], nrm = [], CN = liveryNormals(L);
       for (const p of [...L.parts, ...T.body.filter(p => !L.parts.includes(p)), ...(T.head || []), ...(T.tail || [])]) {
-        const P = p.geo.attributes.position, N = p.geo.attributes.normal, I = p.geo.index, n = I ? I.count : P.count;
-        for (let t = 0; t < n; t++) { const i = I ? I.getX(t) : t; pos.push(P.getX(i), P.getY(i), P.getZ(i)); nrm.push(N ? N.getX(i) : 0, N ? N.getY(i) : 0, N ? N.getZ(i) : 0); }
+        const P = p.geo.attributes.position, N = p.geo.attributes.normal, I = p.geo.index, n = I ? I.count : P.count, cn = CN[L.parts.indexOf(p)];
+        // (the livery's own faces by their corrected normals: cornerNormals)
+        for (let t = 0; t < n; t++) { const i = I ? I.getX(t) : t; pos.push(P.getX(i), P.getY(i), P.getZ(i)); if (cn) nrm.push(cn[t * 3], cn[t * 3 + 1], cn[t * 3 + 2]); else nrm.push(N ? N.getX(i) : 0, N ? N.getY(i) : 0, N ? N.getZ(i) : 0); }
       }
-      return (L.mesh = stickerMesh(Float32Array.from(pos), Float32Array.from(nrm)));
+      return (L.mesh = stickerMesh(Float32Array.from(pos), Float32Array.from(nrm), true));
     },
     labels: CARS[id].liveryLabels || {},
     projectDecals: true,
@@ -223,6 +228,42 @@ function liveryTemplate(id, T, map) {
   };
   return L;
 }
+// The normals decals are laid by: each triangle corner's, smoothed over the faces that meet there (any part) within
+// CREASE of its own. The models are low-poly and mostly flat-shaded, so by their own normals the facing jumps from
+// facet to facet and a decal's edge round a curve came out as a saw-tooth along the triangles; smoothed, it's a
+// clean line. Real creases (a box arch's corner, a wing's edge, top against underside) stay sharp.
+const CREASE = Math.cos(60 * Math.PI / 180);
+function cornerNormals(parts) {
+  const key = (P, i) => `${Math.round(P.getX(i) * 1000)},${Math.round(P.getY(i) * 1000)},${Math.round(P.getZ(i) * 1000)}`;
+  const faces = [], at = new Map(); // (face normals, area-weighted; corner position -> faces there)
+  for (const p of parts) {
+    const P = p.geo.attributes.position, I = p.geo.index, cnt = I ? I.count : P.count, fs = new Float32Array(cnt);
+    for (let t = 0; t < cnt; t += 3) {
+      const [i0, i1, i2] = [0, 1, 2].map(k => I ? I.getX(t + k) : t + k);
+      const ax = P.getX(i1) - P.getX(i0), ay = P.getY(i1) - P.getY(i0), az = P.getZ(i1) - P.getZ(i0), bx = P.getX(i2) - P.getX(i0), by = P.getY(i2) - P.getY(i0), bz = P.getZ(i2) - P.getZ(i0);
+      const f = faces.length / 3; faces.push(ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx);
+      for (const i of [i0, i1, i2]) { const k = key(P, i); if (!at.has(k)) at.set(k, []); at.get(k).push(f); }
+      fs[t] = f;
+    }
+    p.faceIdx = fs;
+  }
+  const unit = (f) => { const x = faces[f * 3], y = faces[f * 3 + 1], z = faces[f * 3 + 2], l = Math.hypot(x, y, z) || 1; return [x / l, y / l, z / l]; };
+  return parts.map(p => {
+    const P = p.geo.attributes.position, I = p.geo.index, cnt = I ? I.count : P.count, out = new Float32Array(cnt * 3);
+    for (let t = 0; t < cnt; t += 3) {
+      const f = p.faceIdx[t], own = unit(f);
+      for (let k = 0; k < 3; k++) {
+        let sx = 0, sy = 0, sz = 0;
+        for (const g of at.get(key(P, I ? I.getX(t + k) : t + k))) { const u = unit(g); if (u[0] * own[0] + u[1] * own[1] + u[2] * own[2] < CREASE) continue; sx += faces[g * 3]; sy += faces[g * 3 + 1]; sz += faces[g * 3 + 2]; }
+        const l = Math.hypot(sx, sy, sz);
+        out.set(l > 1e-12 ? [sx / l, sy / l, sz / l] : own, (t + k) * 3);
+      }
+    }
+    delete p.faceIdx;
+    return out;
+  });
+}
+const liveryNormals = (L) => L.cn || (L.cn = cornerNormals(L.parts));
 // texture row of a uv's v (glTF textures aren't flipped: v = 0 is the top row)
 const vRow = (L, v) => (L.map.flipY ? 1 - v : v);
 
@@ -245,9 +286,9 @@ function texelMap(L, R) {
   // faces sharing texels (e.g. a nose face unwrapped onto the bonnet's tip in the top photo): the one the photo sees
   // most squarely keeps them, i.e. the least stretched (3D area per texel)
   const stretch = new Float32Array(n).fill(Infinity);
-  const solid = [];
-  for (const p of L.parts) {
-    const g = p.geo, P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv, I = g.index;
+  const solid = [], CN = liveryNormals(L);
+  for (const [pi, p] of L.parts.entries()) {
+    const g = p.geo, P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv, I = g.index, cn = CN[pi];
     const cnt = I ? I.count : P.count;
     for (let t = 0; t < cnt; t += 3) {
       ti++;
@@ -255,8 +296,8 @@ function texelMap(L, R) {
       const us = ids.map(i => U.getX(i) * R), vs = ids.map(i => vRow(L, U.getY(i)) * R);
       const [x0, x1, x2] = us, [y0, y1, y2] = vs;
       const den = (y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2);
-      // collapsed uvs (the face samples one texel or a line of them, e.g. the M1's wing + rear deck): those texels
-      // take the main colour
+      // collapsed uvs (the face samples one texel or a line of them, e.g. a wing on one paint texel): those texels
+      // take the main colour (tools/cars/uvrepair.mjs gives body faces like that texels of their own)
       if (Math.abs(den) < 1e-6) {
         for (const [ax, ay, bx, by] of [[x0, y0, x1, y1], [x1, y1, x2, y2], [x2, y2, x0, y0]]) {
           const steps = Math.ceil(Math.hypot(bx - ax, by - ay) * 2) + 1;
@@ -288,7 +329,8 @@ function texelMap(L, R) {
         // (the 3D spot clamped onto the triangle: a texel a sliver only touches can sit far outside it in barycentric
         // terms, metres off the car)
         const A = Math.max(0, a), B = Math.max(0, b), Cc = Math.max(0, c), sum = A + B + Cc || 1, wa = A / sum, wb = B / sum, wc = Cc / sum;
-        const vx = N.getX(i0) * wa + N.getX(i1) * wb + N.getX(i2) * wc, vy = N.getY(i0) * wa + N.getY(i1) * wb + N.getY(i2) * wc, vz = N.getZ(i0) * wa + N.getZ(i1) * wb + N.getZ(i2) * wc, vl = 127 / (Math.hypot(vx, vy, vz) || 1);
+        // (the smoothed normal: cornerNormals)
+        const vx = cn[t * 3] * wa + cn[t * 3 + 3] * wb + cn[t * 3 + 6] * wc, vy = cn[t * 3 + 1] * wa + cn[t * 3 + 4] * wb + cn[t * 3 + 7] * wc, vz = cn[t * 3 + 2] * wa + cn[t * 3 + 5] * wb + cn[t * 3 + 8] * wc, vl = 127 / (Math.hypot(vx, vy, vz) || 1);
         P3[id * 3] = P.getX(i0) * wa + P.getX(i1) * wb + P.getX(i2) * wc; P3[id * 3 + 1] = P.getY(i0) * wa + P.getY(i1) * wb + P.getY(i2) * wc; P3[id * 3 + 2] = P.getZ(i0) * wa + P.getZ(i1) * wb + P.getZ(i2) * wc; N3[id * 3] = vx * vl; N3[id * 3 + 1] = vy * vl; N3[id * 3 + 2] = vz * vl;
         TRI[id] = ti; B1[id] = wb; B2[id] = wc;
       }
@@ -363,7 +405,9 @@ function paintProjected(L, canvas, cfg, drawPanel, decalLayers) {
   for (let n = 0; n < cnt; n++) samplePanel(datas[lp[n]], lx[n], ly[n], ppm, col, n * 3);
   m.base = { key, col: col.slice() };
   }
-  if (decalLayers) wrapDecals(L.panels, L.names, decalLayers(ppm), m, col, L.def.mesh());
+  // (cut off where the body turns more than ~73 degrees from the sticker's side, the slope the drape stops measuring
+  // as surface at, rather than smeared on down to edge-on: a decal wider than the bonnet ends at the shoulder line)
+  if (decalLayers) wrapDecals(L.panels, L.names, decalLayers(ppm), m, col, L.def.mesh(), WRAP_FACE);
   const ctx = canvas.getContext('2d'), out = ctx.createImageData(R, R), o = out.data;
   o.set(photo); // everything that isn't paint stays as photographed
   for (let n = 0; n < cnt; n++) {
@@ -415,6 +459,41 @@ function orient(geo) {
   const g = geo.index ? geo.toNonIndexed() : geo;
   if (g !== geo) { for (const k of Object.keys(g.attributes)) geo.setAttribute(k, g.attributes[k]); geo.setIndex(null); }
   geo.computeVertexNormals();
+}
+// Auto smooth: each corner's normal averaged (by area) over the faces of its piece that meet there within the angle
+// of its own face; sharper edges stay flat. Corners are matched by position, so uv seams don't split the shading.
+function smoothNormals(parts, deg) {
+  const lim = Math.cos(deg * Math.PI / 180), byObj = new Map();
+  for (const p of parts) {
+    if (p.geo.index) p.geo = p.geo.toNonIndexed();
+    (byObj.get(p.obj) || byObj.set(p.obj, []).get(p.obj)).push(p);
+  }
+  const key = (P, i) => `${Math.round(P.getX(i) * 2000)},${Math.round(P.getY(i) * 2000)},${Math.round(P.getZ(i) * 2000)}`;
+  for (const list of byObj.values()) {
+    const faces = [], at = new Map(), keys = [];
+    for (const p of list) {
+      const P = p.geo.attributes.position, ks = [];
+      for (let t = 0; t < P.count; t += 3) {
+        const ax = P.getX(t + 1) - P.getX(t), ay = P.getY(t + 1) - P.getY(t), az = P.getZ(t + 1) - P.getZ(t);
+        const bx = P.getX(t + 2) - P.getX(t), by = P.getY(t + 2) - P.getY(t), bz = P.getZ(t + 2) - P.getZ(t);
+        const f = faces.length; faces.push([ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx]);
+        for (let k = 0; k < 3; k++) { const s = key(P, t + k); ks.push(s); (at.get(s) || at.set(s, []).get(s)).push(f); }
+      }
+      keys.push(ks);
+    }
+    const unit = faces.map(([x, y, z]) => { const l = Math.hypot(x, y, z) || 1; return [x / l, y / l, z / l]; });
+    let f0 = 0;
+    list.forEach((p, pi) => {
+      const N = p.geo.attributes.normal, ks = keys[pi];
+      for (let c = 0; c < ks.length; c++) {
+        const f = f0 + Math.floor(c / 3), u = unit[f]; let sx = 0, sy = 0, sz = 0;
+        for (const g of at.get(ks[c])) { const v = unit[g]; if (v[0] * u[0] + v[1] * u[1] + v[2] * u[2] < lim) continue; sx += faces[g][0]; sy += faces[g][1]; sz += faces[g][2]; }
+        const l = Math.hypot(sx, sy, sz);
+        if (l > 1e-12) N.setXYZ(c, sx / l, sy / l, sz / l); else N.setXYZ(c, u[0], u[1], u[2]);
+      }
+      N.needsUpdate = true; f0 += ks.length / 3;
+    });
+  }
 }
 function fixWinding(geo) {
   const P = geo.attributes.position, N = geo.attributes.normal;
@@ -477,14 +556,38 @@ function paintedTexture(T, colour) {
   return (T.textures[key] = t);
 }
 
+// The custom (livery) cars' finish by their Blender material. Their bodies are exported at roughness 1 / specular 0
+// (right for the texture bake, matt in the game), so the material only says what the part is: rubber (tyres), trim
+// (black, carbon, rims: an explicit roughness) or paint (the photo-textured body)
+function finishOf(m) {
+  if (/tyre|tire|rubber/i.test(m.name) || m.roughness >= 0.9 && !m.map) return 'rubber';
+  return m.map ? 'paint' : 'trim';
+}
+// clear coat: the sky (carsky.js) reflected on top of the paint (added, so the colours stay), faint face-on and strong at grazing angles (Fresnel), as real paint
+const FINISH = {
+  paint: { specular: 0x808080, shininess: 140, reflect: 0.45 },
+  trim: { specular: 0x505050, shininess: 80, reflect: 0.25 },
+  rubber: { specular: 0x141414, shininess: 12, reflect: 0 },
+};
+function clearCoat(sh) {
+  sh.fragmentShader = sh.fragmentShader.replace('#include <envmap_fragment>', `
+    float carFres = 0.12 + 0.88 * pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 4.0);
+    ` + THREE.ShaderChunk.envmap_fragment.replace(/specularStrength \* reflectivity/g, 'specularStrength * reflectivity * carFres'));
+}
+
 const shared = new Map();
 // bodywork gets a glossy clear-coat look (like the F1 car's paint); tyres / wheels stay matt
 function matFor(p, map, shiny = true, cache = true) {
-  const key = (map ? map.uuid : 'none') + p.color + p.double + p.cutoff + p.blend + shiny + (p.emissive ? p.emissive.uuid : '');
+  const fin = p.finish && FINISH[shiny ? p.finish : 'rubber'];
+  const key = (map ? map.uuid : 'none') + p.color + p.double + p.cutoff + p.blend + shiny + (p.emissive ? p.emissive.uuid : '') + (fin ? p.finish : '');
   if (cache && shared.has(key)) return shared.get(key);
   // (the colour multiplies the texture, as in glTF: e.g. the Kaze's interior is a white texture tinted black)
   const m = new THREE.MeshPhongMaterial({ map, color: p.color, side: p.double ? THREE.DoubleSide : THREE.FrontSide, transparent: p.blend, alphaTest: p.cutoff,
-    specular: shiny ? 0x4a4a4a : 0x111111, shininess: shiny ? 70 : 10 });
+    specular: fin ? fin.specular : shiny ? 0x4a4a4a : 0x111111, shininess: fin ? fin.shininess : shiny ? 70 : 10 });
+  if (fin && fin.reflect && carSky) {
+    m.envMap = carSky; m.combine = THREE.AddOperation; m.reflectivity = fin.reflect;
+    m.onBeforeCompile = clearCoat; m.customProgramCacheKey = () => 'carcoat';
+  }
   if (p.emissive) { m.emissiveMap = p.emissive; m.emissive = new THREE.Color(0xffffff); }
   if (cache) shared.set(key, m);
   return m;

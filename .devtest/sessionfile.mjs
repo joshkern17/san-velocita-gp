@@ -1,5 +1,5 @@
 // dev: a short autopilot race (you on the AI too), then the session file js/session.js would save → .devtest/out/session.json
-//   node .devtest/sessionfile.mjs [car] [laps]     then: node tools/session.mjs .devtest/out/session.json
+//   node .devtest/sessionfile.mjs [car] [laps]     TRK=/tracks/real/roadatlanta.json OPP=11     then: node tools/session.mjs .devtest/out/session.json
 import { spawn } from 'child_process';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -16,11 +16,11 @@ try {
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
   await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1500);
-  await pg.evaluate(async ([id, laps]) => {
-    const t = await (await fetch('/.devtest/auburn2.json')).json(); t.env.weather = 'clear';
+  await pg.evaluate(async ([id, laps, trk, opp]) => {
+    const t = await (await fetch(trk)).json(); t.env.weather = 'clear';
     const S = window.__svgp.settings; S.car = { ...S.car, chassis: id }; S.difficulty = 'alien'; S.grid = 'back';
-    window.__svgp.startRace(t, { mode: 'race', laps, opponents: 5, aiChassis: 'class', car: S.car }, 'menu');
-  }, [id, laps]);
+    window.__svgp.startRace(t, { mode: 'race', laps, opponents: opp, aiChassis: 'class', car: S.car }, 'menu');
+  }, [id, laps, process.env.TRK || '/.devtest/auburn2.json', +(process.env.OPP || 5)]);
   await pg.waitForFunction(() => window.__svgp.sim && window.__svgp.sim.cars && window.__svgp.sim.cars.length > 0 && window.__svgp.sim.lineV, null, { timeout: 120000 });
   const t0 = Date.now();
   const f = await pg.evaluate(async () => {

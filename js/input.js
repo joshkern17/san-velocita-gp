@@ -99,6 +99,43 @@ export function rightStick(dz = 0.18) {
   return [f(p.axes[2] || 0), f(p.axes[3] || 0)];
 }
 
+// Right-stick shifting (manual gearbox): flick the stick up to shift up, down to shift down. A flick is the stick out
+// past FLICK.out anywhere within FLICK.cone of straight up or down (so a sloppy diagonal still counts; a sideways push
+// doesn't), and it re-arms once the stick is back inside FLICK.back. The stick's read on a fast timer as well as every
+// frame, so a quick flick between two frames still counts and a run of quick ones (5th to 2nd) each count. For
+// FLICK.bounce ms after a flicked stick is back in the centre, a flick the other way is ignored: a stick let go springs
+// back past the centre.
+// main.js turns it on (stickShift.on) while you drive with a manual box, and takes the counts each frame (takeFlicks).
+const FLICK = { out: 0.6, back: 0.32, cone: 62 * Math.PI / 180, bounce: 50, every: 8 };
+export const stickShift = { on: false, up: 0, down: 0 };
+let flickArmed = true, flickDir = 0, flickBack = 0;
+function sampleFlick() {
+  if (!stickShift.on) return;
+  const p = pad(); if (!p) return;
+  const x = p.axes[2] || 0, y = p.axes[3] || 0, r = Math.hypot(x, y), now = performance.now();
+  if (r < FLICK.back) { if (!flickArmed) { flickArmed = true; flickBack = now; } return; }
+  if (!flickArmed || r < FLICK.out) return;
+  if (Math.atan2(Math.abs(x), Math.abs(y)) > FLICK.cone) return; // (0 = straight up / down)
+  const d = y < 0 ? 1 : -1;
+  flickArmed = false;
+  if (d !== flickDir && now - flickBack < FLICK.bounce) return; // (the spring-back from the last one)
+  flickDir = d;
+  if (d > 0) stickShift.up++; else stickShift.down++;
+  useDevice('pad');
+}
+setInterval(sampleFlick, FLICK.every);
+export function setStickShift(on) {
+  if (on === stickShift.on) return;
+  stickShift.on = on; stickShift.up = stickShift.down = 0; flickArmed = false; // (a stick held when it turns on waits for the centre)
+}
+// the flicks since last asked: { up, down }
+export function takeFlicks() {
+  sampleFlick();
+  const r = { up: stickShift.up, down: stickShift.down };
+  stickShift.up = stickShift.down = 0;
+  return r;
+}
+
 // virtual gamepad buttons become edge codes: GP0..GP15
 export function pollGamepad() {
   const p = pad();

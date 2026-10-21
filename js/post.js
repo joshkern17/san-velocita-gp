@@ -1,6 +1,6 @@
 // Post processing, built on pmndrs/postprocessing (the one render owner: a single EffectComposer).
 //
-//   render → [trails] → [depth of field: photo mode only] → PSX Fog (threejs-psx-shader FogEffect: depth fog with drifting noise)
+//   render → [trails] → [depth of field: photo mode only] → [speed blur] → PSX Fog (threejs-psx-shader FogEffect: depth fog with drifting noise)
 //   → sun glow + violet distance tint + god rays (pmndrs GodRaysEffect) + bloom (mipmap) + grade (lookup table)
 //   + [vignette] + fade → [colour fringe] → retro stage: PSX Pixelation (colour crush) + PSX Dithering (the PS1 GPU
 //   kernel), or RetroPass (the library's class) → PSX CRT (the CRT, and/or its grain and scanlines) → screen.
@@ -115,6 +115,39 @@ class FinishEffect extends Effect {
   }
 }
 
+// ---------- speed blur: the picture smears out from where you're heading, more towards the edges ----------
+// (a zoom blur towards the vanishing point of the car's travel; the centre stays clear, and the car itself (rect:
+// its box on screen, near: how far away it is) neither blurs nor bleeds onto the scenery behind it)
+class SpeedBlurEffect extends Effect {
+  constructor() {
+    super('SpeedBlurEffect', /* glsl */ `
+      uniform vec2 focus; uniform vec4 rect; uniform float amount, aspect, near;
+      void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth, out vec4 outputColor) {
+        outputColor = inputColor;
+        if (amount < 0.001) return;
+        vec2 d = uv - focus; d.x *= aspect;
+        float own = -getViewZ(depth);
+        vec2 inR = smoothstep(rect.xy - 0.02, rect.xy + 0.02, uv) * (1.0 - smoothstep(rect.zw - 0.02, rect.zw + 0.02, uv));
+        float onCar = inR.x * inR.y * (1.0 - smoothstep(near, near + 3.0, own));
+        float s = amount * smoothstep(0.16, 0.8, length(d)) * (1.0 - onCar) * 0.09;
+        if (s < 0.0004) return;
+        vec3 acc = inputColor.rgb; float w = 1.0;
+        for (int i = 1; i <= 10; i++) {
+          float t = float(i) / 10.0;
+          vec2 su = uv - (uv - focus) * s * t;
+          float sd = -getViewZ(readDepth(su));
+          float k = (sd < own - 4.0 && sd < near + 3.0) ? 0.0 : 1.0 - t * 0.5;
+          acc += texture2D(inputBuffer, su).rgb * k; w += k;
+        }
+        outputColor = vec4(acc / w, inputColor.a);
+      }`, {
+      attributes: EffectAttribute.DEPTH | EffectAttribute.CONVOLUTION,
+      uniforms: new Map([['focus', new THREE.Uniform(new THREE.Vector2(0.5, 0.5))], ['rect', new THREE.Uniform(new THREE.Vector4(0, 0, 0, 0))],
+        ['amount', new THREE.Uniform(0)], ['aspect', new THREE.Uniform(1.6)], ['near', new THREE.Uniform(0)]]),
+    });
+  }
+}
+
 // ---------- trails: the previous frame lingers a little (PS2 motion "trails") ----------
 class TrailsPass extends Pass {
   constructor() {
@@ -218,7 +251,8 @@ function buildLUT(L, grade = [1, 1, 1]) {
 export class PS2Post {
   constructor(renderer) {
     this.r = renderer;
-    this.cfg = { mode: 'r360', filter: 'sharp', scanlines: false, trails: true, retro: 'psx', grain: 'off', rays: true, fringe: false, palette: 128, bypass: false, crt: 'off' };
+    this.cfg = { mode: 'r360', filter: 'sharp', scanlines: false, trails: true, retro: 'psx', grain: 'off', rays: true, fringe: false, palette: 128, bypass: false, crt: 'off', speedFx: true };
+    this.speedBlur = new SpeedBlurEffect();
     this.composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType, multisampling: 0 });
     this.renderPass = new RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera());
     this.trails = new TrailsPass();
@@ -265,6 +299,7 @@ export class PS2Post {
     if (o.palette !== undefined && o.palette !== c.palette) { c.palette = o.palette; this.retroPass.colorPalette = ARCADE_PALETTE(o.palette); }
     if (o.bypass !== undefined) c.bypass = !!o.bypass;
     if (o.crt !== undefined) c.crt = o.crt;
+    if (o.speedFx !== undefined) c.speedFx = !!o.speedFx;
     // CRT (library): flat or curved; it then does the scanlines, vignette and colour fringe itself
     // the PSX CRTEffect: the CRT itself (flat / curved, with its vignette and fringe), and also the film grain and
     // scanlines on their own when the CRT filter is off (then it's a flat, clean screen with just those)
@@ -291,6 +326,7 @@ export class PS2Post {
     if (c.bypass) { comp.addPass(new EffectPass(cam, this.finish)); return; }
     if (c.trails) comp.addPass(this.trails);
     if (this.dofOn) comp.addPass(new EffectPass(cam, this.dof));
+    if (c.speedFx) comp.addPass(new EffectPass(cam, this.speedBlur));
     comp.addPass(this.fogPass = lib([this.psxFog], false));                                  // PSX Fog (linear)
     comp.addPass(new EffectPass(cam, ...[this.atmos, c.rays ? this.godRays : null, this.bloom, this.lutEffect, crt ? null : this.vignette, this.finish].filter(Boolean)));
     if (c.fringe && !crt) comp.addPass(new EffectPass(cam, this.fringe));
@@ -322,13 +358,16 @@ export class PS2Post {
     this.size = [w, h];
   }
 
-  // p: { trails, grade, fade, sat, look } (look: see NEUTRAL_LOOK / world.js lookFor)
+  // p: { trails, grade, fade, sat, look, speed } (speed: { amount, focus: [u, v], rect: [u0, v0, u1, v1], near }, js/race.js) (look: see NEUTRAL_LOOK / world.js lookFor)
   render(scene, camera, p = {}) {
     if (!this.size) this.resize();
     const L = p.look || NEUTRAL_LOOK, H = L.haze || NEUTRAL_LOOK.haze, t = performance.now() / 1000;
     this.renderPass.mainScene = scene; this.renderPass.mainCamera = camera;
     for (const pass of this.composer.passes) if (pass !== this.renderPass && 'mainCamera' in pass) pass.mainCamera = camera;
     this.trails.k = p.trails ?? 0.3;
+    { const b = this.speedBlur.uniforms, sp = p.speed;
+      b.get('amount').value = sp ? sp.amount : 0;
+      if (sp) { b.get('focus').value.set(...sp.focus); b.get('rect').value.set(...(sp.rect || [0, 0, 0, 0])); b.get('near').value = sp.near || 0; b.get('aspect').value = this.size[0] / this.size[1]; } }
     // atmosphere
     const u = this.atmos.uniforms, set = (k, v) => { u.get(k).value = v; };
     camera.updateMatrixWorld();

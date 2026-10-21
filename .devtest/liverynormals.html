@@ -1,0 +1,18 @@
+<!doctype html><html><head><meta charset="utf-8"><script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script></head><body><script type="module">
+// dev: how faceted each livery car's painted normals are (vertex normal vs its face's normal)
+import * as THREE from 'three';
+import { loadRoadCar } from '../js/roadcar.js';
+import { buildF1 } from '../js/carmodel.js';
+const ids = new URLSearchParams(location.search).get('cars').split(','); const out = [];
+for (const id of ids) {
+  window.__SVGP_CARS = { ...(window.__SVGP_CARS || {}), [id]: '../models/cars/' + id + '.glb' };
+  await loadRoadCar(id); const m = buildF1({ chassis: id }, {});
+  let n = 0, off = 0, tris = 0;
+  m.body.children.forEach(o => { if (!o.isMesh || o.material.map !== m.livTex) return; const g = o.geometry, P = g.attributes.position, N = g.attributes.normal, I = g.index, c = I ? I.count : P.count;
+    const a = new THREE.Vector3(), b = new THREE.Vector3(), cc = new THREE.Vector3(), v = new THREE.Vector3();
+    for (let t = 0; t < c; t += 3) { const ii = [0,1,2].map(k => I ? I.getX(t+k) : t+k); a.fromBufferAttribute(P, ii[0]); b.fromBufferAttribute(P, ii[1]).sub(a); cc.fromBufferAttribute(P, ii[2]).sub(a); const f = b.cross(cc).normalize(); tris++;
+      for (const i of ii) { v.fromBufferAttribute(N, i).normalize(); n++; if (Math.abs(v.dot(f)) < 0.996) off++; } } });
+  out.push(`${id}: ${tris} livery tris, ${(100 * off / n).toFixed(0)}% corners smooth (>5deg off face)`);
+}
+window.out = out; window.done = true;
+</script></body></html>

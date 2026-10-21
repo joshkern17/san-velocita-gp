@@ -7,7 +7,7 @@ import { FX } from './tirefx.js';
 import { realTracks, needsHydrate, hydrateReal, nameCorners } from './realtracks.js';
 import { HUD, fmtTime, RADAR_ZOOMS, readThemeColours, condCol, setColorVision } from './hud.js';
 import { Editor } from './editor.js';
-import { initInput, pressed, isDown, clearEdges, pollGamepad, driveControls, gp, device, onDevice, rumble, rightStick, leftStick, padFeel, STEER_CURVES, DEADZONES, STEER_LAGS, wheel, looksLikeWheel } from './input.js';
+import { initInput, pressed, isDown, clearEdges, pollGamepad, driveControls, gp, device, onDevice, rumble, rightStick, leftStick, setStickShift, takeFlicks, padFeel, STEER_CURVES, DEADZONES, STEER_LAGS, wheel, looksLikeWheel } from './input.js';
 import { WheelSetup } from './wheelsetup.js';
 import { ffb, ffbSend } from './ffb.js';
 import { lapKey, lapsFor, loadPB, referenceLap, analyze } from './telemetry.js';
@@ -16,7 +16,7 @@ import { saveSession } from './session.js';
 import { drawChart, drawMap, notesHtml, fmtGap, fmtSpeed, drawLineMap, lineMapHit, lineMapZoom, lineMapPan, chartHit, popHtml, boardZones, lineRange, setScramble, tipText } from './lapreview.js';
 import { garbleTree } from './garble.js';
 import { AIDS, AID_KEYS, PRESETS, PRESET_VALS, aidsOf, presetOf, applyPreset, aidBonus, AID_RULES, AID_RULE_DESC, limitAids } from './aids.js';
-import { initAudio, sfx, setVolume, setLevel, setMusicVolume, setMusicScene, updateMusic, setEngineSound } from './audio.js';
+import { initAudio, sfx, setVolume, setLevel, setMusicVolume, setMusicScene, updateMusic, setEngineSound, setSqueal } from './audio.js';
 import { engSay, engSeq, lineText, preload as voPreload, voStopAll, setVoiceOn, boothSay, boothSequence, stopBooth, boothLines, voBusy, pbpSay, lineSet, voReload } from './vo.js';
 import { NICKNAMES, slugName } from './broadcast.js';
 import { presetTracks, sampleTrack, trackStats, THEMES, cloneTrack } from './track.js';
@@ -56,7 +56,7 @@ const GUEST_OPS = new Set(['buyCar2', 'setCar2Fix', 'buyFit', 'removeFit', 'star
   'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan', 'coopAnswer']);
 import { Phone } from './phone.js';
 import { Net, PROTO } from './net.js';
-import { LiveryDesigner } from './liverydesigner.js';
+import { LiveryDesigner, saveRows } from './liverydesigner.js';
 import { DEV } from './dev.js'; // (developer tools: the Development menu, race-control tests, F8, Sim Rest Of Season, the voice services)
 import { loadCustomCar, customCarStatus } from './glbcar.js';
 import { loadRoadCars } from './roadcar.js';
@@ -68,7 +68,7 @@ import { activeName, activeSetup, stanceOf, hasAero } from './setup.js';
 import { assets, liveryAssetIds, importImageFile, fillLivery } from './livery.js';
 import { classicCrewLook } from './characters.js';
 import { LOGO_VERSIONS, logoAsset, logoForName, parseLogoAsset } from './sponsorlogos.js';
-import { savedLiveries, saveLivery, updateLivery, deleteLivery, liveryDate } from './liveries.js';
+import { savedLiveries, deleteLivery, deleteVersion, liveryDate, findLivery, liveryCars, liveryOn, liveryStart, liveryPort, chassisOf, CAR_LOOK } from './liveries.js';
 import { loadEnvCatalog, loadEnvModels, envCatalog } from './envlib.js';
 import { setWorldOptions } from './world.js';
 import { TeamSetup } from './teamsetup.js';
@@ -89,7 +89,7 @@ voiceStatus(); // (character voices: is serve.py here, and is someone signed in 
 // ---------------- settings ----------------
 const DEFAULTS = {
   uiTheme: 'red', res: 'ps2', filter: 'soft', trails: true, scan: false, dither: true, retro: 'psx', palette: 128, psxMat: 'strong', crt: 'flat', grain: 'light', rays: true, fringe: true, shadows: true, dirtFx: 5, look: 'arcade', units: /^en-(US|LR|MM)$/i.test(navigator.language || '') ? 'mph' : 'kmh', gearbox: 'auto', tc: true,
-  volume: 7, music: 5, camera: 'chase', mirror: 'on', racingLine: 'full', lineStyle: 'blocks', wear: 'normal', damage: 'normal', startTyre: 'auto', drift: 'off', aiChassis: 'class', rules: 'arcade', safetyCar: 'on', aiMistakes: 'normal', quali: 0, radarMap: 'satellite', radarZoom: 'normal', car: null, difficulty: 'medium', grid: 'back', team: 0, time: 'track', weather: 'track',
+  volume: 7, music: 5, camera: 'chase', speedFx: 'normal', mirror: 'on', racingLine: 'full', lineStyle: 'blocks', gearHint: 'off', stickShift: 'on', wear: 'normal', damage: 'normal', startTyre: 'auto', drift: 'off', aiChassis: 'class', rules: 'arcade', safetyCar: 'on', aiMistakes: 'normal', quali: 0, radarMap: 'satellite', radarZoom: 'normal', car: null, difficulty: 'medium', grid: 'back', team: 0, time: 'track', weather: 'track',
 };
 let settings = { ...DEFAULTS };
 // a first launch (no settings saved yet) opens the Welcome screen after the boot; anyone who's played before skips it
@@ -115,17 +115,23 @@ applyPadFeel();
 // Each car keeps its own look (settings.liveries, by model): its paint, pattern, decals and stickers, and the F1 car's
 // bodywork. Your team name, number and sponsor and your driver kit (helmet, suit, crew) go with you into every car.
 // settings.car stays the one flat livery everything reads (races, online, the designer); it's kept in step here.
-const CAR_LOOK = ['design', 'pattern', 'main', 'accent', 'third', 'wingColor', 'decals', 'stickers', 'showNumber', 'showSponsor', 'sponsorLogo', 'nose', 'fwing', 'pods', 'cover', 'rwing', 'halo', 'rims', 'rimCol'];
+// (CAR_LOOK, what's a car's own: liveries.js)
 let carLookOff = false; // (the World Career's garage: that's the career's car, not one of yours)
 function keepCarLook() {
   if (carLookOff || !settings.car) return;
   const c = settings.car; (settings.liveries ||= {})[c.chassis || 'custom'] = JSON.parse(JSON.stringify(Object.fromEntries(CAR_LOOK.filter(k => c[k] !== undefined).map(k => [k, c[k]]))));
 }
-// into another car: its own look back, or (never painted) your colors and pattern with this model's standard stickers
+// (a team livery's start on a car carries no bodywork: the car keeps what it had, else the standard parts)
+const BODY_KEYS = ['nose', 'fwing', 'pods', 'cover', 'rwing', 'halo', 'rims', 'rimCol'];
+function keepBody(c, L) { for (const k of BODY_KEYS) if (c[k] === undefined) c[k] = (L && L[k]) ?? DEFAULT_CAR[k]; return c; }
+// into another car: in a saved team livery (liveries.js), that car's version of it (what you last had on that car, when
+// it was in the same livery, unsaved changes and all; never had one: a start in the livery's colors); otherwise its own
+// look back, or (never painted) your colors and pattern with this model's standard stickers
 function switchCar(chassis) {
   keepCarLook();
-  const c = settings.car, L = settings.liveries && settings.liveries[chassis];
+  const c = settings.car, L = settings.liveries && settings.liveries[chassis], team = findLivery(c.design);
   c.chassis = chassis;
+  if (team && !(L && L.design === team.id)) { for (const k of CAR_LOOK) delete c[k]; Object.assign(c, liveryOn(team, chassis) || liveryStart(team, chassis), { chassis }); keepBody(c, L); return; }
   if (L) { for (const k of CAR_LOOK) delete c[k]; Object.assign(c, JSON.parse(JSON.stringify(L))); }
   else { c.decals = []; delete c.stickers; delete c.design; }
 }
@@ -145,7 +151,7 @@ if (!firstLaunch) settings.welcomed ??= true;
 if (!settings.commentaryShelved) { settings.commentary = 'off'; settings.commentaryShelved = true; saveSettings(); }
 function applyVideo() {
   setVoiceOn('eng', settings.engVoice !== 'off'); setVoiceOn('booth', settings.commentary !== 'off');
-  post.configure({ crt: settings.crt, mode: settings.res, filter: settings.filter, scanlines: settings.scan, trails: settings.trails, retro: settings.retro, palette: settings.palette, grain: settings.grain, rays: settings.rays, fringe: settings.fringe, bypass: settings.look === 'off' });
+  post.configure({ crt: settings.crt, mode: settings.res, filter: settings.filter, scanlines: settings.scan, trails: settings.trails, retro: settings.retro, palette: settings.palette, grain: settings.grain, rays: settings.rays, fringe: settings.fringe, speedFx: settings.speedFx !== 'off', bypass: settings.look === 'off' });
   applyPsxMaterials(settings.psxMat);
   setWorldOptions({ shadows: settings.shadows });
   try { pitGarage.setShadows(settings.shadows); } catch (e) { /* (not made yet: it reads them when it is) */ }
@@ -154,7 +160,7 @@ function applyVideo() {
   document.documentElement.dataset.theme = settings.uiTheme; document.documentElement.dataset.cv = settings.colorVision === 'rg' ? 'rg' : '';
   readThemeColours(); setColorVision(settings.colorVision); // (css/sv.css: the blue palette, the red-green safe colors)
   for (const [k, c] of [['hudTower', 'hud-no-tower'], ['hudStrat', 'hud-no-strat'], ['hudRadar', 'hud-no-radar']]) document.body.classList.toggle(c, settings[k] === 'off');
-  setVolume(settings.volume / 10); setMusicVolume(settings.music / 10); setLevel('car', (settings.carVol ?? 10) / 10); setLevel('sfx', (settings.sfxVol ?? 10) / 10); setLevel('voice', (settings.voiceVol ?? 10) / 10); setEngineSound(settings.engineSound);
+  setVolume(settings.volume / 10); setMusicVolume(settings.music / 10); setLevel('car', (settings.carVol ?? 10) / 10); setLevel('sfx', (settings.sfxVol ?? 10) / 10); setLevel('voice', (settings.voiceVol ?? 10) / 10); setEngineSound(settings.engineSound); setSqueal(settings.squeal);
   hud.units = settings.units; hud.dirtyAir = settings.dirtyAir !== 'off';
   hud.radarMap = settings.radarMap; hud.radarZoom = settings.radarZoom;
 }
@@ -380,6 +386,9 @@ function tabRow(el, names, cur, pick) {
 // ---------------- simulation ----------------
 let sim = null;
 let attractTrackIdx = Math.floor(Math.random() * 4);
+// who races behind the menus: your Blender-built cars, one class at a time (each in its rival teams' liveries)
+const ATTRACT_CASTS = [['m1procar', 'porsche935', 'capri', 'f40'], ['m3gtr', 'r34gt2', 'f1gtr'], ['r34', 'civic']];
+let attractCastIdx = Math.floor(Math.random() * ATTRACT_CASTS.length);
 function startAttract() {
   if (sim && sim.mode === 'attract') return;
   disposeSim();
@@ -393,7 +402,7 @@ function startAttract() {
   const want = attractTrackIdx;
   loadEnvModels().then(() => {
     if (want !== attractTrackIdx || sim) return; // (a race was started meanwhile: leave it alone)
-    sim = new Race(t, { mode: 'attract', difficulty: 'hard', units: settings.units }, renderer);
+    sim = new Race(t, { mode: 'attract', difficulty: 'hard', units: settings.units, cast: ATTRACT_CASTS[attractCastIdx++ % ATTRACT_CASTS.length] }, renderer);
   });
 }
 // what the announcer calls you (broadcast.js): your surname if it's one he has recorded, else the nickname you picked
@@ -594,7 +603,7 @@ const BODY_DESC = 'Bodywork parts. These swap on the SVGP Classic F1 car only.';
 menus['s-garage'] = [new Menu($('m-garage'), [
   { label: 'Car', head: true, disabled: true },
   { label: 'Car', values: CAR_CHOICES, get: () => settings.car.chassis || 'custom', set: v => { switchCar(v); classicOnly(); garage.setCar(settings.car); saveSettingsSoon(); },
-    desc: 'The car you drive (you can also switch on the grid). Each car keeps its own paint and decals; your team name, number and driver kit go with you. F1 cars and your own models (M1 ProCar, 935, Civic, Skyline) wear a full livery; the others take your main color or keep their own paint.' },
+    desc: 'The car you drive (you can also switch on the grid). Each car keeps its own paint and decals; in a saved team livery, each car wears its own version of it. Your team name, number and driver kit go with you. F1 cars and your own models (M1 ProCar, 935, Civic, Skyline) wear a full livery; the others take your main color or keep their own paint.' },
   { label: 'Class', values: Object.entries(CLASSES).map(([k, c]) => [k, c.label]), get: () => carOf(settings.car).cls, set: () => {}, disabled: true },
   { get label() { return `Tuning<small>${activeName(carId(settings.car)) || 'Standard'}</small>`; }, cls: 'action', action: () => openTuning('s-garage', carId(settings.car)),
     get desc() { return `${hasAero(carId(settings.car)) ? 'Wings, springs' : 'Springs'}, anti-roll bars, brakes, the differential and the gearing for this car, with what each change does before you drive it. Saved per car.`; } },
@@ -603,7 +612,7 @@ menus['s-garage'] = [new Menu($('m-garage'), [
   part('Wheels', 'rims', true, BODY_DESC), part('Rim Color', 'rimCol', true, 'Color of the wheel rims.'),
   { label: 'Livery', head: true, disabled: true },
   { label: 'Livery Designer', cls: 'action', action: () => openLivery(), desc: 'Place decals (your own PNG or SVG too), design the helmet and suit, and save whole team liveries.' },
-  { get label() { return `Saved Liveries<small>${savedLiveries().length}</small>`; }, cls: 'action', action: () => openSavedLiveries(), desc: 'Every livery you\'ve saved, each one tried on the car as you move to it. Load one, save this one as a new entry, or delete old ones.' },
+  { get label() { return `Saved Liveries<small>${savedLiveries().length}</small>`; }, cls: 'action', action: () => openSavedLiveries(), desc: 'Your team liveries, each with a version per car, tried on as you move to them. Wear one, save this car\'s version into it, start a new one, rename or delete.' },
   part('Pattern', 'pattern', false, 'The paint pattern your three colors are laid out in.'), paintOpt('Main', 'main', 'The main body color.'), paintOpt('Accent', 'accent', 'The second color of the pattern.'), paintOpt('Detail', 'third', 'Stripes, pinstripes and small details.'),
   { label: 'Number', values: Array.from({ length: 99 }, (_, i) => [i + 1, String(i + 1)]), get: () => settings.car.number, set: v => { settings.car.number = v; garage.repaint(settings.car); }, desc: 'Your race number.' },
   { label: 'Sponsor', values: SPONSORS.map(s => [s, s]), get: () => settings.car.sponsor, set: v => { settings.car.sponsor = v; garage.repaint(settings.car); }, desc: 'The title sponsor sticker. Move it or take it off in the Livery Designer (Decals).' },
@@ -611,37 +620,46 @@ menus['s-garage'] = [new Menu($('m-garage'), [
     desc: 'How the title sponsor sticker looks: its logo in full color, in its brand color, black or white, or just its name in letters.' },
 ], { desc: 'd-garage' })];
 menus['s-garage'][0].i = 1;
-// ---- saved liveries (liveries.js) in the garage: the list in place of the menu, each one on the car as you move to it;
-// loading keeps the car you're in (in the World Career, the car you bought). Back puts your livery back.
+// ---- saved team liveries (liveries.js) in the garage: the list in place of the menu, each one on the car as you move to
+// it (this car's version, or the start of one in its colors); loading keeps the car you're in (in the World Career, the
+// car you bought). Back puts your livery back. The save rows are the Designer's (saveRows).
 const GARAGE_ITEMS = menus['s-garage'][0].items;
 let lvList = null; // { was: the livery before the list opened, del: deleting }
-// a design on the car you're in: its look (paint, pattern, decals, stickers) and the team on it (name, number, sponsor);
-// your driver kit (helmet, suit, crew) stays yours
-const DESIGN_KEYS = [...CAR_LOOK, 'teamName', 'number', 'sponsor'];
-const lvCar = (e) => { const d = fillLivery(JSON.parse(JSON.stringify(e.car))), c = JSON.parse(JSON.stringify(lvList.was)); for (const k of CAR_LOOK) delete c[k]; for (const k of DESIGN_KEYS) if (d[k] !== undefined) c[k] = d[k]; c.design = e.id; return c; };
-// decals in a design made for another model that this one has no panel for (they're kept, just not shown)
-const lvMisfit = (e) => { const P = garage.car && garage.car.def && garage.car.def.panels; return P ? (e.car.decals || []).filter(d => d.panel && !P[d.panel] && !d.part).length : 0; };
+// a team livery on the car you're in: this car's version (paint, pattern, decals, stickers) and the team (name, number,
+// sponsor); your driver kit (helmet, suit, crew) stays yours
+const lvCar = (e) => { const here = chassisOf(settings.car), c = JSON.parse(JSON.stringify(lvList.was)); for (const k of CAR_LOOK) delete c[k]; return keepBody(Object.assign(c, liveryOn(e, here) || liveryStart(e, here), { chassis: c.chassis }), lvList.was); };
 function lvShow(c) { garage.setCar(c); assets.load(liveryAssetIds(c)).then(() => { if (lvList && screen === 's-garage') garage.repaint(c); }).catch(() => {}); }
 function openSavedLiveries() { lvList = { was: JSON.parse(JSON.stringify(settings.car)), del: false }; sfx.select(); renderSavedLiveries(true); }
+const lvCarName = (ch) => (carOf({ chassis: ch }) || { name: ch }).name;
 function renderSavedLiveries(first = false) {
-  const here = settings.car.chassis || 'custom', all = savedLiveries(), m = menus['s-garage'][0], D = lvList.del;
-  const list = [...all.filter(e => (e.car.chassis || 'custom') === here), ...all.filter(e => (e.car.chassis || 'custom') !== here)]; // (this car's first)
-  const mine = all.find(e => e.id === settings.car.design); // (the one this livery came from or was last saved as)
+  if (!lvList) return;
+  const here = chassisOf(settings.car), all = savedLiveries(), m = menus['s-garage'][0], D = lvList.del, hereName = lvCarName(here);
+  const list = [...all.filter(e => e.cars[here]), ...all.filter(e => !e.cars[here])]; // (the ones with a version for this car first)
+  const mine = findLivery(settings.car.design);
   const items = [{ label: `Saved Liveries<small>${all.length}</small>`, head: true }];
   if (!list.length) items.push({ label: 'None Saved Yet', disabled: true });
-  for (const e of list) { const other = (e.car.chassis || 'custom') !== here, miss = other ? lvMisfit(e) : 0, made = other ? carOf({ chassis: e.car.chassis || 'custom' }).name : '', madeFor = /^your /i.test(made) ? made.toLowerCase() : 'the ' + made;
-    items.push({ label: `${escP(e.name)}<small>#${e.car.number} &middot; ${other ? escP(made) : liveryDate(e)}</small>`, lv: e, confirm: D ? 'Delete it? Select again' : 'Wear it? Select again',
-      action: () => D ? lvDelete(e) : lvLoad(e), desc: D ? `Deletes this ${escP(e.name)} livery for good. Your other saves stay.`
-        : `Saved ${liveryDate(e)}${other ? `, made for ${escP(madeFor)}` : ''}. It's on the car now: select it twice to keep it. Its paint, decals, name and number go on this car; your helmet, suit and crew stay as they are.${miss ? ` ${miss} of its decals ${miss === 1 ? 'has' : 'have'} no place on this car.` : ''}` }); }
-  if (mine && !D) items.push({ label: `Update ${escP(mine.name)}`, confirm: 'Write over it? Select again', action: () => { const e = updateLivery(mine.id, settings.car, () => { if (lvList && screen === 's-garage') renderSavedLiveries(); }); if (e) { sfx.best(); toast(`Updated <b>${escP(e.name)}</b>.`); } else { sfx.error(); toast('There\'s no room left to save it.'); } renderSavedLiveries(); },
-    desc: `Saves the livery on your car over ${escP(mine.name)} (saved ${liveryDate(mine)}).` });
-  items.push({ label: mine ? 'Save As New' : 'Save This Livery', action: () => { const e = saveLivery(settings.car, () => { if (lvList && screen === 's-garage') renderSavedLiveries(); }); if (e) { settings.car.design = e.id; lvList.was.design = e.id; saveSettings(); sfx.best(); toast(`Saved <b>${escP(settings.car.teamName || 'Your Team')}</b> as a new livery.${e.dropped ? ` Storage was full, so the ${e.dropped} oldest ${e.dropped === 1 ? 'save was' : 'saves were'} removed (Export keeps copies).` : ''}`, e.dropped ? 7000 : 3500); } else { sfx.error(); toast('There\'s no room left to save it.'); } renderSavedLiveries(); },
-      desc: 'The livery on your car, saved as a new entry. Nothing is written over.' },
-    ...(list.length ? [{ label: D ? 'Stop Deleting' : 'Delete Liveries', action: () => { lvList.del = !D; sfx.select(); renderSavedLiveries(); }, desc: D ? 'Back to trying them on.' : 'Pick the ones to delete.' }] : []),
+  for (const e of list) { const cars = liveryCars(e), has = !!e.cars[here], names = cars.map(lvCarName).join(', ');
+    items.push({ label: `${escP(e.name)}<small>${has ? '' : 'New here &middot; '}${cars.length} ${cars.length === 1 ? 'car' : 'cars'}</small>`, lv: e, confirm: D ? 'Delete it? Select again' : 'Wear it? Select again',
+      action: () => D ? lvDelete(e) : lvLoad(e), desc: D ? `Deletes ${escP(e.name)} for good, every car's version (${escP(names)}). Your other saves stay.`
+        : has ? `Saved ${liveryDate(e)}, for the ${escP(names)}. This is its ${escP(hereName)} version: select it twice to wear it. Your helmet, suit and crew stay as they are.`
+        : lvStartDesc(e, here, names) }); }
+  if (D && mine && mine.cars[here] && liveryCars(mine).length > 1) items.push({ label: `Delete Its ${escP(hereName)} Version`, confirm: 'Delete it? Select again',
+    action: () => { deleteVersion(mine.id, here); sfx.back(); toast(`Deleted the ${escP(hereName)} version of <b>${escP(mine.name)}</b>.`); renderSavedLiveries(); },
+    desc: `Takes the ${escP(hereName)} out of ${escP(mine.name)}. Its other cars' versions stay.` });
+  if (!D) items.push(...saveRows({ car: () => settings.car, menu: m, toast: (t) => toast(escP(t), 4000),
+    done: () => { if (!lvList) return; lvList.was = JSON.parse(JSON.stringify(settings.car)); saveSettings(); renderSavedLiveries(); },
+    onNew: () => { closeSavedLiveries(true); openLivery(); } }));
+  items.push(...(list.length ? [{ label: D ? 'Stop Deleting' : 'Delete Liveries', action: () => { lvList.del = !D; sfx.select(); renderSavedLiveries(); }, desc: D ? 'Back to trying them on.' : 'Pick the ones to delete.' }] : []),
     { label: 'Back', action: () => closeSavedLiveries(), desc: 'Back to the garage, in the livery you had.' });
   m.setItems(items, !first);
   if (first) { m.i = list.length ? 1 : items.findIndex(it => !it.head && !it.disabled); m.render(); }
   lvPreview(m.items[m.i]);
+}
+// (a livery without a version for this car: what wearing it starts from)
+function lvStartDesc(e, here, names) {
+  const P = liveryPort(e, here), from = P.from ? escP(lvCarName(P.from)) : '';
+  const got = !P.total ? 'in its colors' : P.placed === P.total ? `with all ${P.total} of its decals moved across` : P.placed ? `with ${P.placed} of its ${P.total} decals moved across (the rest have nowhere to go on this car)` : 'in its colors (its decals have nowhere to go on this car)';
+  return `For the ${escP(names)}; nothing for this car yet. Wearing it starts one from its ${from} version, ${got}: check them in the Livery Designer, then Save To ${escP(e.name)} adds it.`;
 }
 function lvPreview(it) { if (!lvList) return; lvShow(it && it.lv ? lvCar(it.lv) : settings.car); }
 function lvLoad(e) {
@@ -752,8 +770,8 @@ const presetLabel = () => { const k = presetOf(settings); return k === 'custom' 
 function noteAidBonus() { if (sim && sim.player && sim.mode !== 'attract') sim.aidBonus = Math.min(sim.aidBonus ?? Infinity, bonusNow()); }
 function aidsChanged() {
   saveSettings();
-  if (sim && sim.player && sim.mode !== 'attract') { sim.setPlayerAids(aidsNow(), settings.gearbox); if (sim.lineMesh) { sim.lineMode = settings.racingLine; sim.lineStyle = settings.lineStyle; } noteAidBonus(); }
-  for (const id of ['s-options', 's-raceset', 's-paddock']) menus[id]?.[0]?.render();
+  if (sim && sim.player && sim.mode !== 'attract') { sim.setPlayerAids(aidsNow(), settings.gearbox); if (sim.lineMesh) { sim.lineMode = settings.racingLine; sim.lineStyle = settings.lineStyle; sim.gearHint = settings.gearHint; } noteAidBonus(); }
+  for (const id of ['s-options', 's-raceset', 's-paddock', 's-welcome']) menus[id]?.[0]?.render();
 }
 const lockedByHost = (k) => raceAidRule === 'sim' || (raceAidRule === 'noassist' && (k === 'brake' || k === 'steer'));
 const presetItem = (extra = '') => ({ label: 'Driver Aids', values: PRESET_VALS.filter(v => v[0] !== 'custom'), show: presetLabel, get: () => presetOf(settings),
@@ -768,7 +786,10 @@ const lineStyleItem = { label: 'Line Style', values: [['blocks', '3D Blocks'], [
   get disabled() { return settings.racingLine === 'off'; },
   desc: '<b>3D Blocks</b>: tiles along the line that go from green to red, and the braking ones lift up off the road to face you, then lay flat and fade as you reach them. <b>Flat</b>: a thin line painted on the road.' };
 const gearboxItem = { label: 'Gearbox', values: [['auto', 'Automatic'], ['manual', 'Manual']], get: () => settings.gearbox, set: v => { settings.gearbox = v; aidsChanged(); },
-  get desc() { return 'Manual: shift with E / Q or RB / LB. The rev bar turns gold when it is time to shift.' + bonusTxt(); } };
+  get desc() { return `Manual: shift with E / Q or RB / LB${settings.stickShift !== 'off' ? ', or flick the right stick up / down' : ''}. The rev bar turns gold when it is time to shift.` + bonusTxt(); } };
+const gearHintItem = { label: 'Suggested Gear', values: [['off', 'Off'], ['on', 'On']], get: () => settings.gearHint || 'off', set: v => { settings.gearHint = v; aidsChanged(); },
+  get disabled() { return settings.gearbox !== 'manual'; },
+  desc: 'With the manual gearbox: a board over the racing line where you start to slow for a corner shows the gear to take it in. It lights green once you\'re in that gear. Shown whether the line is on or not.' };
 const TEMPS_VALS = [['off', 'Off'], ['normal', 'Normal'], ['realistic', 'Realistic']];
 const TEMPS_DESC = 'Tires grip best when they\'re warm. They heat up when you push and cool down when you don\'t: cold out of the pits, too hot if you slide around a lot. The car diagram shows each one: dull is cold, blue is right, orange to pink is too hot. <b>Normal</b>: a wide window, a small penalty either side. <b>Realistic</b>: a narrower window, more grip lost outside it, and a slide heats the surface in an instant. Race cars start on tire warmers, road cars start cold.';
 const GHOST_VALS = [['best', 'Your Best'], ['ref', 'Reference'], ['off', 'Off']];
@@ -778,6 +799,8 @@ let vibeTestUntil = 0;
 const OPTION_TABS = [
   ['Game', [
     { label: 'Camera', values: [['chase', 'Chase'], ['far', 'Far Chase'], ['tcam', 'T-Cam'], ['bumper', 'Nose']], get: () => settings.camera, set: v => { settings.camera = v; saveSettings(); }, desc: 'The view you start races in. Press C (or Y) while driving to switch.' },
+    { label: 'Speed FX', values: [['off', 'Off'], ['subtle', 'Subtle'], ['normal', 'Normal'], ['strong', 'Strong']], get: () => settings.speedFx, set: v => { settings.speedFx = v; applyVideo(); saveSettings(); },
+      desc: 'Sells the speed: the picture blurs out towards the edges, the lens widens, and the camera closes in as you brake and drops back as you accelerate.' },
     { label: 'Rear-View Mirror', values: [['on', 'On'], ['off', 'Off']], get: () => settings.mirror, set: v => { settings.mirror = v; setMirror(v !== 'off'); saveSettings(); }, desc: 'A mirror at the top of the screen, with your lap time under it.' },
     { label: 'AI Cars', values: [['class', 'Same Class As You'], ['same', 'Same Car As You'], ['multi', 'All Classes Mixed'], ['custom', 'F1: Your Model'], ['mixed', 'F1: Mixed Models'], ['svgp', 'F1: SVGP Classic']], get: () => settings.aiChassis, set: v => { settings.aiChassis = v; saveSettings(); }, desc: 'Which cars your opponents drive. <b>Same Class As You</b>: a mix of your class, each one tuned so it races as hard at your level as your own car would. <b>Same Car As You</b>: everyone in your model, so it comes down to the drivers.' },
     { label: 'Ghost Car', values: GHOST_VALS, get: () => settings.ghost, set: v => { settings.ghost = v; saveSettings(); if (sim && sim.setGhostMode) sim.setGhostMode(v); }, desc: GHOST_DESC },
@@ -806,6 +829,7 @@ const OPTION_TABS = [
     { label: 'Master Volume', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'MUTE']), get: () => settings.volume, set: v => { settings.volume = v; applyVideo(); saveSettings(); }, desc: 'Everything at once. The sliders under it set each part against the others.' },
     { label: 'Music', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'OFF']), get: () => settings.music, set: v => { settings.music = v; applyVideo(); saveSettings(); }, desc: 'Soundtrack volume. The eight tracks play in order and loop: fuller in the menus, quietly in the background on track.' },
     { label: 'Cars', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'OFF']), get: () => settings.carVol ?? 10, set: v => { settings.carVol = v; applyVideo(); saveSettings(); }, desc: 'Engines, tires, wind and the bumps: yours and everyone else\'s.' },
+    { label: 'Tire Squeal', values: [['off', 'Off'], ['low', 'Low'], ['normal', 'Normal'], ['high', 'High']], get: () => settings.squeal || 'normal', set: v => { settings.squeal = v; applyVideo(); saveSettings(); }, desc: 'How loud the tires squeal when you slide past the grip limit, lock a wheel or spin them. The road and the ground under them stay.' },
     { label: 'Effects & Menus', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'OFF']), get: () => settings.sfxVol ?? 10, set: v => { settings.sfxVol = v; applyVideo(); saveSettings(); sfx.select(); }, desc: 'Menu sounds, the lights, crashes and the pit lane.' },
     { label: 'Voices', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'OFF']), get: () => settings.voiceVol ?? 10, set: v => { settings.voiceVol = v; applyVideo(); saveSettings(); }, desc: 'Your engineer on the radio, the commentary booth and the people in the World Career.' },
     { label: 'Engine Sound', values: [['classic', 'Classic'], ['crisp', 'Crisp']], get: () => settings.engineSound || 'classic', set: v => { settings.engineSound = v; applyVideo(); saveSettings(); }, desc: '<b>Classic</b>: the original engine mix. <b>Crisp</b>: the same tone with punchier firing pulses and a touch more top end, no louder. Changes straight away, engine running.' },
@@ -819,7 +843,7 @@ const OPTION_TABS = [
   ['Aids', [
     presetItem(' Pick a preset, or set each aid below.'),
     ...AID_KEYS.map(aidItem),
-    lineItem, lineStyleItem, gearboxItem,
+    lineItem, lineStyleItem, gearboxItem, gearHintItem,
   ]],
   ['Controller', [
     { label: 'Vibration', values: [['off', 'Off'], ['low', 'Low'], ['normal', 'Normal'], ['strong', 'Strong']], get: () => settings.vibration, set: v => { settings.vibration = v; saveSettings(); if (VIBES[v]) { vibeTestUntil = performance.now() + 300; rumble(0.6 * VIBES[v], 0.5 * VIBES[v]); } },
@@ -832,6 +856,8 @@ const OPTION_TABS = [
       desc: 'How fast the wheels follow the stick. <b>Smooth</b> takes the twitch out of quick thumb movements.' },
     { label: 'Brake Response', values: [['linear', 'Linear'], ['progressive', 'Progressive']], get: () => settings.brakeCurve, set: v => { settings.brakeCurve = v; applyPadFeel(); saveSettings(); },
       desc: 'How the brake trigger maps to the brakes. <b>Progressive</b>: the last part before the tires lock is spread over more of the trigger, so it\'s easier to brake hard without locking up with ABS off. A full pull is still full brake.' },
+    { label: 'Right Stick Shifting', values: [['on', 'On'], ['off', 'Off']], get: () => settings.stickShift || 'on', set: v => { settings.stickShift = v; saveSettings(); },
+      desc: 'With the manual gearbox: flick the right stick up to shift up, down to shift down. It doesn\'t need to be straight, and quick flicks in a row each take a gear. RB / LB still work.' },
   ]],
   ['Wheel', [
     { get label() { return `Set Up Wheel<small>${settings.wheel ? settings.wheel.name : 'NOT SET UP'}</small>`; }, cls: 'action primary', action: () => openWheelSetup(),
@@ -935,7 +961,7 @@ window.addEventListener('gamepadconnected', (e) => {
 // Options > Game > Reset All Options: the keys the Options tabs set, back to how the game comes
 const OPTION_DEFAULTS = { ...Object.fromEntries(['uiTheme', 'res', 'filter', 'trails', 'scan', 'dither', 'retro', 'palette', 'psxMat', 'crt', 'grain', 'rays', 'fringe', 'shadows', 'dirtFx', 'look', 'radarMap', 'radarZoom',
   'volume', 'music', 'camera', 'speedFx', 'mirror', 'units', 'aiChassis', 'rules', 'safetyCar', 'aiMistakes', 'racingLine', 'lineStyle', 'gearbox', 'gearHint', 'stickShift'].map(k => [k, DEFAULTS[k]])),
-  carVol: 10, sfxVol: 10, voiceVol: 10, engineSound: 'classic', commentary: 'off', engVoice: 'on', ghost: 'best', dirtyAir: 'on',
+  carVol: 10, sfxVol: 10, voiceVol: 10, squeal: 'normal', engineSound: 'classic', commentary: 'off', engVoice: 'on', ghost: 'best', dirtyAir: 'on',
   vibration: 'normal', steerCurve: 'normal', deadzone: 'normal', steerSpeed: 'normal', brakeCurve: 'linear', hudTower: 'on', hudStrat: 'on', hudRadar: 'on', colorVision: 'std' };
 function resetOptions() {
   Object.assign(settings, OPTION_DEFAULTS); settings.aids = aidsOf(DEFAULTS);
@@ -5487,7 +5513,7 @@ const TIPS = [
   'Press C (Y on a pad) to cycle cameras. The T-Cam gives the purest sense of speed.',
   'In the Track Editor, raise one side of a crossover 5m or more and a bridge is built for you.',
   'Try Legend difficulty once you can lap consistently. The AI will not wait for you.',
-  'Manual gearbox? E shifts up, Q shifts down. Watch the rev bar turn gold.',
+  'Manual gearbox? E shifts up, Q shifts down (on a pad: RB / LB, or flick the right stick). Watch the rev bar turn gold.',
   'Road and GT cars drift: flick the handbrake (SPACE / A) into a corner, then hold the angle with the throttle.',
   'Downforce grows with speed: fast corners hold more grip than you think.',
   'Learning a circuit? The Easy driver aids brake for you. Turn aids off one at a time as you get quicker: each one pays a Career bonus.',
@@ -5543,7 +5569,7 @@ function startRace(track, cfg, ret, quick = false) {
       const r = new Race(track, {
         mode: cfg.mode, laps: cfg.laps || track.env.laps || 3, opponents: cfg.opponents ?? track.env.opponents ?? 7, qualiTime: cfg.qualiTime, practiceTime: cfg.practiceTime,
         difficulty: settings.difficulty, grid: settings.grid, team: settings.team, gearbox: settings.gearbox, aids: aidsNow(), ghost: settings.ghost,
-        units: settings.units, camera: settings.camera, racingLine: settings.racingLine, lineStyle: settings.lineStyle, car: settings.car,
+        units: settings.units, camera: settings.camera, racingLine: settings.racingLine, lineStyle: settings.lineStyle, gearHint: settings.gearHint, car: settings.car,
         wear: settings.wear, temps: settings.temps, damage: settings.damage, rules: settings.rules, safetyCar: settings.safetyCar !== 'off', aiMistakes: settings.aiMistakes, startTyre: settings.startTyre, aiChassis: settings.aiChassis, drift: raceReturn === 'setup' ? settings.drift : 'off',
         pickCar: !!cfg.pick && !quick, pitWall: settings.pitWall !== 'off', commentary: settings.commentary || 'off', ...commentaryName(),
         ...(cfg.mode === 'race' && !raceBefore() ? { introKind: 'debut' } : {}), // (your first race ever: the broadcast says so; cfg.extra's own wins below)
@@ -6340,15 +6366,19 @@ function askInput(pl, dt) {
 function frameBody(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   const pad = pollGamepad();
+  // right-stick shifting: only while you're driving with a manual box (input.js reads the stick between frames too)
+  setStickShift(!!(screen === 'hud' && sim && !sim.paused && sim.player && settings.gearbox === 'manual' && settings.stickShift !== 'off'));
   if (walkSat && (screen !== 's-hub' || !pcSeat)) dropWalk(); // (gone somewhere else from the computer: nobody left in the chair)
   if (screen !== hubWas) { if (hubWas === 's-hub' && screen !== 's-hub' && world) walkEntry = /^s-(main|career|worlds?|boot)$/.test(screen) ? null : 'door'; hubWas = screen; }
   if (walkHeld && screen !== 's-hub') { walkHeld = false; walk.stop(); }
   if (walk.active && screen !== 's-hub' && screen !== 's-homeview' && screen !== 's-pitgarage') { walk.stop(); walkPaused = false; drawWalkTags(null); document.querySelectorAll('.screen.walking').forEach(e => e.classList.remove('walking')); } // (out the door: a race, a gig)
   if (screen === 'hud' && sim && !sim.paused) {
     const ctl = window.__autopilot && sim.player ? sim.aiControlsFor(sim.player, dt) : driveControls(pad);
+    const flicks = takeFlicks();
     const press = {
       camera: pressed('KeyC') || pressed('GP3'), reset: pressed('KeyR') || pressed('GP8'), line: pressed('KeyL') || (!askUI && !(sim.player && sim.player.pitting && sim.player.pitPhase === 'in') && pressed('GP12')), // (d-pad up: the radio menu's or the pit menu's while they're open)
-      shiftUp: pressed('KeyE') || pressed('GP5'), shiftDown: pressed('KeyQ') || pressed('GP4'),
+      // (counts: the right stick's flicks can come several to a frame)
+      shiftUp: (pressed('KeyE') || pressed('GP5') ? 1 : 0) + flicks.up, shiftDown: (pressed('KeyQ') || pressed('GP4') ? 1 : 0) + flicks.down,
       skip: pressed('Enter') || pressed('GP0'),
     };
     const pl = sim.player;
@@ -6577,4 +6607,4 @@ requestAnimationFrame(frame);
 // debug handle
 window.__svgp = { get world() { return world; }, get photo() { return photo; }, get hud() { return hud; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, handleRaceEvents, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { get carPush() { return carPush; }, startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), goToPoster: () => goToPoster(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); }, openHomeView: () => openHomeView(), startWalk: () => startWalk(), startPitWalk: () => startPitWalk(), get walk() { return walk; }, homeView: (o) => { Object.assign(hv, o); hvApply(); }, get hv() { return hv; }, devWalkGarage: (p) => devWalkGarage(p) } };
+  dbg: { switchCar: (k) => { switchCar(k); if (screen === 's-garage') { garage.setCar(settings.car); classicOnly(); } }, get carPush() { return carPush; }, startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), goToPoster: () => goToPoster(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); }, openHomeView: () => openHomeView(), startWalk: () => startWalk(), startPitWalk: () => startPitWalk(), get walk() { return walk; }, homeView: (o) => { Object.assign(hv, o); hvApply(); }, get hv() { return hv; }, devWalkGarage: (p) => devWalkGarage(p) } };

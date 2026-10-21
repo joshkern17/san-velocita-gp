@@ -1,5 +1,6 @@
 # Mazda MX-5 Miata NA: a ready-made low-poly model (Sketchfab "low poly mazda mx-5 miata NA") -> the game's car.
 #   Blender -b -P tools/cars/miata.py -- <src.glb> <out.blend>      (then export_game.py on the blend)
+#   then: node tools/cars/uvrepair.mjs <the exported glb>   (livery texels of its own for every face; see docs/CAR-MODELS.md)
 # - real size: the model is 5.74 m long; a real NA is 3.97 m (that also gives its 1.18 m height, 1.68 m width)
 # - centred across and along on the wheels, tyres on the ground
 # - the four wheels (one mesh) split into Wheel_FL/FR/RL/RR; the lamp lenses split off as Light_Head / Light_Tail

@@ -1,0 +1,314 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>UV repair</title>
+<script type="importmap">{ "imports": { "three": "../../vendor/three.module.min.js" } }</script>
+</head><body>
+<script type="module">
+// Gives the livery faces of a livery car (models/cars/<id>.glb) texels of their own, without changing how it looks.
+// Driven by tools/cars/uvrepair.mjs: window.repair(glbBytes) -> { glb, report }.
+//
+// The game paints a livery texel by texel, each texel knowing where it sits on the car (js/roadcar.js). That breaks
+// down where the hand-projected body texture has
+//   shared texels: two surfaces far apart reading the same spot of the picture (a whale tail's flank and the deck it
+//                  was projected from): only one of them can have its own paint, the other shows that one's
+//   stretched faces: a sliver of the picture smeared over a big face (a flank seen almost edge-on from the view it
+//                  was projected from): a few texels for the whole face, so a decal's edge there is a blur of blocks
+// Those faces are moved to a strip added under the picture, unwrapped flat at the body's usual texel density, and the
+// strip is filled with exactly what they showed before (read through their old uvs). Everything else keeps its texels
+// (its uvs only rescaled for the taller picture). Inside-out faces are turned the right way out (outside(), below).
+// Faces with collapsed uvs (a wing that takes one paint texel, the
+// livery's wing colour) are left as they are. Running it again on its own output finds nothing to do.
+import * as THREE from 'three';
+
+const MIN_AREA = 3e-4, MIN_STRETCH = 2e-3; // (m²: smaller smears don't show, and sit on the line between runs)
+const SHARE_D = 0.03, SHARE_K = 0.3, STRETCH_K = 4, PAD = 6, PROBE = 1024;
+
+function parseGlb(buf) {
+  const dv = new DataView(buf), jl = dv.getUint32(12, true), json = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 20, jl)));
+  const bo = 20 + jl + 8, bin = new Uint8Array(buf, bo, dv.getUint32(20 + jl, true));
+  const views = json.bufferViews.map(v => bin.slice(v.byteOffset || 0, (v.byteOffset || 0) + v.byteLength));
+  return { json, views };
+}
+function writeGlb({ json, views }) {
+  let len = 0; const parts = [];
+  json.bufferViews.forEach((bv, i) => { const pad = (4 - len % 4) % 4; if (pad) { parts.push(new Uint8Array(pad)); len += pad; } bv.byteOffset = len; bv.byteLength = views[i].length; parts.push(views[i]); len += views[i].length; });
+  const pad = (4 - len % 4) % 4; if (pad) { parts.push(new Uint8Array(pad)); len += pad; }
+  json.buffers = [{ byteLength: len }];
+  let js = new TextEncoder().encode(JSON.stringify(json)); const jp = (4 - js.length % 4) % 4; if (jp) { const t = new Uint8Array(js.length + jp).fill(0x20); t.set(js); js = t; }
+  const out = new Uint8Array(28 + js.length + len), dv = new DataView(out.buffer);
+  dv.setUint32(0, 0x46546C67, true); dv.setUint32(4, 2, true); dv.setUint32(8, out.length, true);
+  dv.setUint32(12, js.length, true); dv.setUint32(16, 0x4E4F534A, true); out.set(js, 20);
+  dv.setUint32(20 + js.length, len, true); dv.setUint32(24 + js.length, 0x004E4942, true);
+  let o = 28 + js.length; for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+}
+const NC = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 };
+const CT = { 5120: Int8Array, 5121: Uint8Array, 5122: Int16Array, 5123: Uint16Array, 5125: Uint32Array, 5126: Float32Array };
+const NORM = { 5120: 127, 5121: 255, 5122: 32767, 5123: 65535 };
+function readAcc(g, i) { // -> Float32Array (normalized ints expanded) or the index array
+  const a = g.json.accessors[i], n = NC[a.type], bv = g.json.bufferViews[a.bufferView], v = g.views[a.bufferView], T = CT[a.componentType], es = T.BYTES_PER_ELEMENT;
+  const stride = bv.byteStride || n * es, off = a.byteOffset || 0, out = new (a.componentType === 5126 || a.normalized ? Float32Array : T)(a.count * n), d = new DataView(v.buffer, v.byteOffset, v.byteLength);
+  const get = { 5120: 'getInt8', 5121: 'getUint8', 5122: 'getInt16', 5123: 'getUint16', 5125: 'getUint32', 5126: 'getFloat32' }[a.componentType];
+  for (let k = 0; k < a.count; k++) for (let c = 0; c < n; c++) { let x = d[get](off + k * stride + c * es, true); if (a.normalized) x = Math.max(-1, x / NORM[a.componentType]); out[k * n + c] = x; }
+  return out;
+}
+function addAcc(g, arr, type, extra = {}) { // a new tightly packed accessor
+  g.views.push(new Uint8Array(arr.buffer.slice(arr.byteOffset, arr.byteOffset + arr.byteLength)));
+  g.json.bufferViews.push({ buffer: 0, byteLength: arr.byteLength, ...(type === 'SCALAR' ? { target: 34963 } : { target: 34962 }) });
+  const n = NC[type], a = { bufferView: g.json.bufferViews.length - 1, componentType: arr instanceof Uint32Array ? 5125 : 5126, count: arr.length / n, type, ...extra };
+  if (type !== 'SCALAR') { a.min = []; a.max = []; for (let c = 0; c < n; c++) { let lo = Infinity, hi = -Infinity; for (let k = c; k < arr.length; k += n) { lo = Math.min(lo, arr[k]); hi = Math.max(hi, arr[k]); } a.min.push(lo); a.max.push(hi); } }
+  g.json.accessors.push(a); return g.json.accessors.length - 1;
+}
+// Inside-out faces: some are modelled facing in (the M1's front bumper, part of the 935's rear deck, a spoiler made as
+// two sheets). They still draw (the materials are double-sided), but the livery painter skips faces turned away from
+// a decal. Faces joined edge to edge (an edge two faces share, no more) are made into patches wound one way; each face
+// looks out both ways along a fan of six rays (its facing and five 45 degrees round it) and the side more of them get
+// clear of the body from is its outside; a patch goes the way its faces say, by area (one face alone misjudges under a
+// wing: up is blocked, down is open under the car; a deck goes with the body round it). Sets t.out = 1 / -1 (wound
+// outward / inward) on every triangle; returns how many are wound inward. extra: other meshes that block rays (lamps).
+function outside(T, extra) {
+  const tri = [];
+  for (const t of T) for (const p of t.p) tri.push(...p);
+  const v = new THREE.Vector3();
+  for (const { P, I, M } of extra) { const n = I ? I.length : P.length / 3; for (let k = 0; k < n; k++) { const i = I ? I[k] : k; tri.push(...v.set(P[i * 3], P[i * 3 + 1], P[i * 3 + 2]).applyMatrix4(M).toArray()); } }
+  const nt = tri.length / 9;
+  const hit = (o, d) => {
+    for (let t = 0; t < nt; t++) {
+      const q = t * 9, e1x = tri[q + 3] - tri[q], e1y = tri[q + 4] - tri[q + 1], e1z = tri[q + 5] - tri[q + 2], e2x = tri[q + 6] - tri[q], e2y = tri[q + 7] - tri[q + 1], e2z = tri[q + 8] - tri[q + 2];
+      const px = d[1] * e2z - d[2] * e2y, py = d[2] * e2x - d[0] * e2z, pz = d[0] * e2y - d[1] * e2x, det = e1x * px + e1y * py + e1z * pz; if (Math.abs(det) < 1e-12) continue;
+      const inv = 1 / det, sx = o[0] - tri[q], sy = o[1] - tri[q + 1], sz = o[2] - tri[q + 2], u = (sx * px + sy * py + sz * pz) * inv; if (u < 0 || u > 1) continue;
+      const qx = sy * e1z - sz * e1y, qy = sz * e1x - sx * e1z, qz = sx * e1y - sy * e1x, w = (d[0] * qx + d[1] * qy + d[2] * qz) * inv; if (w < 0 || u + w > 1) continue;
+      if ((e2x * qx + e2y * qy + e2z * qz) * inv > 0.002) return true;
+    }
+    return false;
+  };
+  const fan = (n) => { const a = Math.abs(n[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0], u = [a[1] * n[2] - a[2] * n[1], a[2] * n[0] - a[0] * n[2], a[0] * n[1] - a[1] * n[0]], ul = Math.hypot(...u) || 1, w = [n[1] * u[2] - n[2] * u[1], n[2] * u[0] - n[0] * u[2], n[0] * u[1] - n[1] * u[0]];
+    return [n, ...[0, 1, 2, 3, 4].map(k => { const c = Math.cos(k * 1.2566), sn = Math.sin(k * 1.2566); return [0, 1, 2].map(i => 0.7071 * n[i] + 0.7071 * (c * u[i] / ul + sn * w[i] / ul)); })]; };
+  const key = (p) => p.map(x => Math.round(x * 1000)).join();
+  const F = T.map(t => {
+    const e1 = t.p[1].map((v, i) => v - t.p[0][i]), e2 = t.p[2].map((v, i) => v - t.p[0][i]), n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]], l = Math.hypot(...n);
+    const f = { k: t.p.map(key), area: l / 2, vote: 0 };
+    if (l > 1e-9) { const nn = n.map(x => x / l), c = [0, 1, 2].map(a => (t.p[0][a] + t.p[1][a] + t.p[2][a]) / 3), clear = (s) => fan(nn.map(x => x * s)).filter(d => !hit(c.map((x, i) => x + d[i] * 0.003), d)).length; f.vote = clear(1) - clear(-1); }
+    return f;
+  });
+  const edges = new Map();
+  F.forEach((fc, i) => { for (let e = 0; e < 3; e++) { const a = fc.k[e], b = fc.k[(e + 1) % 3]; if (a === b) continue; const ek = a < b ? a + '|' + b : b + '|' + a; (edges.get(ek) || edges.set(ek, []).get(ek)).push([i, a < b]); } });
+  const rel = new Int8Array(F.length), patch = new Int32Array(F.length).fill(-1), votes = [];
+  for (let s0 = 0; s0 < F.length; s0++) {
+    if (patch[s0] >= 0) continue;
+    const pid = votes.length, stack = [s0]; patch[s0] = pid; rel[s0] = 1; let vote = 0;
+    while (stack.length) {
+      const i = stack.pop(); vote += F[i].vote * F[i].area * rel[i];
+      for (let e = 0; e < 3; e++) {
+        const a = F[i].k[e], b = F[i].k[(e + 1) % 3]; if (a === b) continue;
+        const list = edges.get(a < b ? a + '|' + b : b + '|' + a); if (list.length !== 2) continue;
+        const [j, fwd] = list[0][0] === i ? list[1] : list[0];
+        if (patch[j] >= 0) continue;
+        patch[j] = pid; rel[j] = fwd !== (a < b) ? rel[i] : -rel[i]; stack.push(j); // (wound alike, two faces run their shared edge opposite ways)
+      }
+    }
+    votes.push(vote);
+  }
+  let n = 0; T.forEach((t, i) => { t.out = rel[i] * Math.sign(votes[patch[i]] || 1); if (t.out < 0) n++; });
+  return n;
+}
+// drop the accessors and buffer views nothing uses any more (the ones replaced above)
+function prune(g) {
+  const J = g.json, useA = new Set(), useV = new Set();
+  for (const m of J.meshes) for (const p of m.primitives) { Object.values(p.attributes).forEach(a => useA.add(a)); if (p.indices != null) useA.add(p.indices); (p.targets || []).forEach(t => Object.values(t).forEach(a => useA.add(a))); }
+  (J.skins || []).forEach(s => s.inverseBindMatrices != null && useA.add(s.inverseBindMatrices));
+  (J.animations || []).forEach(an => an.samplers.forEach(s => { useA.add(s.input); useA.add(s.output); }));
+  const amap = new Map(), accs = []; J.accessors.forEach((a, i) => { if (useA.has(i)) { amap.set(i, accs.length); accs.push(a); if (a.bufferView != null) useV.add(a.bufferView); } });
+  (J.images || []).forEach(im => im.bufferView != null && useV.add(im.bufferView));
+  const vmap = new Map(), bvs = [], views = []; J.bufferViews.forEach((v, i) => { if (useV.has(i)) { vmap.set(i, bvs.length); bvs.push(v); views.push(g.views[i]); } });
+  accs.forEach(a => { if (a.bufferView != null) a.bufferView = vmap.get(a.bufferView); });
+  (J.images || []).forEach(im => { if (im.bufferView != null) im.bufferView = vmap.get(im.bufferView); });
+  for (const m of J.meshes) for (const p of m.primitives) { for (const k of Object.keys(p.attributes)) p.attributes[k] = amap.get(p.attributes[k]); if (p.indices != null) p.indices = amap.get(p.indices); (p.targets || []).forEach(t => { for (const k of Object.keys(t)) t[k] = amap.get(t[k]); }); }
+  (J.skins || []).forEach(s => { if (s.inverseBindMatrices != null) s.inverseBindMatrices = amap.get(s.inverseBindMatrices); });
+  (J.animations || []).forEach(an => an.samplers.forEach(s => { s.input = amap.get(s.input); s.output = amap.get(s.output); }));
+  J.accessors = accs; J.bufferViews = bvs; g.views = views;
+}
+async function decode(bytes, mime) {
+  const bmp = await createImageBitmap(new Blob([bytes], { type: mime }));
+  const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height; const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(bmp, 0, 0);
+  return g.getImageData(0, 0, c.width, c.height);
+}
+async function encode(img, mime) {
+  const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; c.getContext('2d').putImageData(img, 0, 0);
+  const blob = await new Promise(r => c.toBlob(r, mime, 0.95));
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
+window.repair = async (b64) => {
+  const buf = Uint8Array.from(atob(b64), ch => ch.charCodeAt(0)).buffer, g = parseGlb(buf), J = g.json;
+  // world matrices
+  const world = new Array(J.nodes.length), parent = {};
+  J.nodes.forEach((n, i) => (n.children || []).forEach(c => parent[c] = i));
+  const local = (n) => n.matrix ? new THREE.Matrix4().fromArray(n.matrix) : new THREE.Matrix4().compose(new THREE.Vector3(...(n.translation || [0, 0, 0])), new THREE.Quaternion(...(n.rotation || [0, 0, 0, 1])), new THREE.Vector3(...(n.scale || [1, 1, 1])));
+  const wm = (i) => world[i] || (world[i] = parent[i] != null ? wm(parent[i]).clone().multiply(local(J.nodes[i])) : local(J.nodes[i]));
+  // the body picture: the one the first body part wears (as js/roadcar.js picks it); top = the node under the scene
+  const top = (i) => { while (parent[i] != null) i = parent[i]; return J.nodes[i].name || ''; };
+  const texOf = (p) => { const m = J.materials[p.material]; const t = m && m.pbrMetallicRoughness && m.pbrMetallicRoughness.baseColorTexture; return t ? J.textures[t.index].source : null; };
+  const prims = []; // { node, prim, body }
+  J.nodes.forEach((n, i) => { if (n.mesh == null) return; for (const p of J.meshes[n.mesh].primitives) prims.push({ i, p, body: !/^(Wheel_|Light_)/.test(top(i).trim()) }); });
+  const bodyPrim = prims.find(q => q.body && texOf(q.p) != null); if (!bodyPrim) return { report: 'no textured body' };
+  const imgIdx = texOf(bodyPrim.p), im = J.images[imgIdx], mime = im.mimeType || 'image/png';
+  const src = await decode(g.views[im.bufferView], mime), W = src.width, H = src.height;
+  // the paint's triangles (body parts on that picture): 3D corners, uv corners (pixels)
+  const users = prims.filter(q => texOf(q.p) === imgIdx), T = [];
+  for (const q of users) {
+    if (!q.body) continue;
+    const P = readAcc(g, q.p.attributes.POSITION), U = readAcc(g, q.p.attributes.TEXCOORD_0), I = q.p.indices != null ? readAcc(g, q.p.indices) : null, M = wm(q.i), v = new THREE.Vector3();
+    q.P = P; q.U = U; q.I = I;
+    const cnt = I ? I.length : P.length / 3;
+    for (let t = 0; t < cnt; t += 3) {
+      const ids = [0, 1, 2].map(k => I ? I[t + k] : t + k);
+      T.push({ q, t, ids, p: ids.map(k => v.set(P[k * 3], P[k * 3 + 1], P[k * 3 + 2]).applyMatrix4(M).toArray()), uv: ids.map(k => [U[k * 2] * W, U[k * 2 + 1] * H]) });
+    }
+  }
+  // inside-out faces (see outside()): each face's outward facing, by winding (out) and by its normals (nOk)
+  for (const q of users) if (q.body) q.N = q.p.attributes.NORMAL != null ? readAcc(g, q.p.attributes.NORMAL) : null;
+  const flipped = outside(T, users.filter(q => !q.body).map(q => ({ P: readAcc(g, q.p.attributes.POSITION), I: q.p.indices != null ? readAcc(g, q.p.indices) : null, M: wm(q.i) })));
+  for (const t of T) {
+    const N = t.q.N; if (!N) { t.fixN = false; continue; }
+    const e1 = t.p[1].map((v, i) => v - t.p[0][i]), e2 = t.p[2].map((v, i) => v - t.p[0][i]), w = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]].map(v => v * t.out);
+    const nm = new THREE.Matrix3().getNormalMatrix(wm(t.q.i)), n = new THREE.Vector3();
+    t.badN = t.ids.map(k => n.set(N[k * 3], N[k * 3 + 1], N[k * 3 + 2]).applyMatrix3(nm).dot(new THREE.Vector3(...w)) < 0);
+  }
+  const fix = T.filter(t => t.out < 0 || (t.badN && t.badN.some(Boolean)));
+
+  // (one probe density for the picture's own pixels, set by its width: a taller picture after a repair doesn't squeeze
+  // neighbouring islands into each other's probe texels)
+  const sx = Math.min(1, PROBE / W), sy = sx, PW = Math.ceil(W * sx), PH = Math.ceil(H * sy), owners = new Map();
+  for (const [k, tr] of T.entries()) {
+    const [[x0, y0], [x1, y1], [x2, y2]] = tr.uv.map(([x, y]) => [x * sx, y * sy]), den = (y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2);
+    const e1 = tr.p[1].map((v, i) => v - tr.p[0][i]), e2 = tr.p[2].map((v, i) => v - tr.p[0][i]);
+    tr.area = Math.hypot(e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]) / 2;
+    tr.px = Math.abs(den) / 2; tr.n = 0; tr.lost = 0;
+    if (Math.abs(den) < 1e-6) continue;
+    for (let py = Math.max(0, Math.floor(Math.min(y0, y1, y2))); py <= Math.min(PH - 1, Math.ceil(Math.max(y0, y1, y2))); py++)
+      for (let px = Math.max(0, Math.floor(Math.min(x0, x1, x2))); px <= Math.min(PW - 1, Math.ceil(Math.max(x0, x1, x2))); px++) {
+        const cx = px + 0.5, cy = py + 0.5, a = ((y1 - y2) * (cx - x2) + (x2 - x1) * (cy - y2)) / den, b = ((y2 - y0) * (cx - x2) + (x0 - x2) * (cy - y2)) / den, c = 1 - a - b;
+        if (a < 0 || b < 0 || c < 0) continue;
+        tr.n++; const key = py * PW + px; (owners.get(key) || owners.set(key, []).get(key)).push([k, [0, 1, 2].map(i => tr.p[0][i] * a + tr.p[1][i] * b + tr.p[2][i] * c)]);
+      }
+  }
+  // (who keeps a shared texel: the least stretched face reading it, as js/roadcar.js decides; the others lose it)
+  for (const list of owners.values()) {
+    if (list.length < 2) continue;
+    let own = list[0]; for (const e of list) if (T[e[0]].area / T[e[0]].px < T[own[0]].area / T[own[0]].px) own = e;
+    for (const [k, q] of list) if (k !== own[0] && Math.hypot(q[0] - own[1][0], q[1] - own[1][1], q[2] - own[1][2]) > SHARE_D) T[k].lost++;
+  }
+  const dens = T.filter(t => t.px > 0.5).map(t => t.area / t.px).sort((a, b) => a - b), med = dens[dens.length >> 1];
+  // (and in the picture's own pixels, for the unwrap: the probe squashes a wide picture more across than down)
+  const srcPx = (t) => { const [[x0, y0], [x1, y1], [x2, y2]] = t.uv; return Math.abs((x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)) / 2; };
+  // (the yardstick is kept in the picture's extras: a repaired car is judged again by the one it was repaired by, so
+  // faces on the line don't move back and forth between runs)
+  const densSrc = T.filter(t => srcPx(t) > 0.5).map(t => t.area / srcPx(t)).sort((a, b) => a - b), medSrc = im.extras?.svgpUvRepair?.density || densSrc[densSrc.length >> 1];
+  im.extras = { ...(im.extras || {}), svgpUvRepair: { density: medSrc } };
+  // the body's connected pieces (corners welded at 1 mm): collapsed faces on the main body (a rear deck squeezed onto a
+  // line of the picture) get texels too, filled with the one colour they show (as in Blender: white is paint, so they
+  // take the livery and its decals); on a piece of their own (a wing, louvres) they're left collapsed, and keep the
+  // livery's wing colour (js/roadcar.js SOLID)
+  const vkey = (p) => p.map(x => Math.round(x * 1000)).join(), par = T.map((_, i) => i), find = (i) => { while (par[i] !== i) i = par[i] = par[par[i]]; return i; }, firstAt = new Map();
+  T.forEach((t, i) => t.p.forEach(p => { const k = vkey(p); if (firstAt.has(k)) { const a = find(i), b = find(firstAt.get(k)); if (a !== b) par[a] = b; } else firstAt.set(k, i); }));
+  const csize = new Map(); T.forEach((t, i) => csize.set(find(i), (csize.get(find(i)) || 0) + 1));
+  let mainC = -1; for (const [c, n] of csize) if (mainC < 0 || n > csize.get(mainC)) mainC = c;
+  // (needles under 3 cm² aren't worth a texel: too thin to show paint, and they'd come out collapsed again)
+  T.forEach((t, i) => { t.plain = t.px <= 0.5 && t.area > MIN_AREA && find(i) === mainC; });
+  const move = T.filter(t => t.plain || (t.px > 0.5 && t.n && t.area > MIN_AREA && (t.lost / t.n > SHARE_K || (t.area / srcPx(t) > STRETCH_K * medSrc && t.area > MIN_STRETCH))));
+  const report = { insideOut: flipped, fixed: fix.length, tris: T.length, shared: move.filter(t => !t.plain && t.lost / t.n > SHARE_K).length, stretched: move.filter(t => !t.plain && !(t.lost / t.n > SHARE_K)).length, plain: move.filter(t => t.plain).length, area: +move.reduce((a, t) => a + t.area, 0).toFixed(3) };
+  if (!move.length && !fix.length) return { report: { ...report, changed: false } };
+  // islands: moved faces joined edge to edge, facing within 50 degrees of the island's first face (unwrapped flat
+  // along their average facing; one that would fold over itself is split back into single faces)
+  const nrm = (t) => { const e1 = t.p[1].map((v, i) => v - t.p[0][i]), e2 = t.p[2].map((v, i) => v - t.p[0][i]), n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]], l = Math.hypot(...n) || 1; return n.map(x => x / l); };
+  const key = (p) => p.map(x => Math.round(x * 1000)).join();
+  const byEdge = new Map(); move.forEach((t, k) => { t.nn = nrm(t); for (let e = 0; e < 3; e++) { const a = key(t.p[e]), b = key(t.p[(e + 1) % 3]), ek = a < b ? a + '|' + b : b + '|' + a; (byEdge.get(ek) || byEdge.set(ek, []).get(ek)).push(k); } });
+  const done = new Uint8Array(move.length), islands = [];
+  for (let s = 0; s < move.length; s++) {
+    if (done[s]) continue;
+    const isl = [s], n0 = move[s].nn; done[s] = 1;
+    for (let h = 0; h < isl.length; h++) { const t = move[isl[h]];
+      for (let e = 0; e < 3; e++) { const a = key(t.p[e]), b = key(t.p[(e + 1) % 3]); for (const o of byEdge.get(a < b ? a + '|' + b : b + '|' + a)) if (!done[o] && move[o].nn[0] * n0[0] + move[o].nn[1] * n0[1] + move[o].nn[2] * n0[2] > Math.cos(50 * Math.PI / 180)) { done[o] = 1; isl.push(o); } } }
+    islands.push(isl);
+  }
+  const k = 1 / Math.sqrt(medSrc); // (px per metre: the body's median texel density, in the picture's own pixels)
+  const flat = (isl) => { // -> [{ tri, uv: [[x, y] x3] }] in px from the island's corner, w, h
+    const n = [0, 0, 0]; for (const i of isl) { const t = move[i]; for (let c = 0; c < 3; c++) n[c] += t.nn[c] * t.area; }
+    const nl = Math.hypot(...n) || 1; n.forEach((v, c) => n[c] = v / nl);
+    const ax = Math.abs(n[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0], u = [ax[1] * n[2] - ax[2] * n[1], ax[2] * n[0] - ax[0] * n[2], ax[0] * n[1] - ax[1] * n[0]], ul = Math.hypot(...u); u.forEach((v, c) => u[c] = v / ul);
+    const v = [n[1] * u[2] - n[2] * u[1], n[2] * u[0] - n[0] * u[2], n[0] * u[1] - n[1] * u[0]];
+    let out = isl.map(i => ({ tri: move[i], uv: move[i].p.map(p => [(p[0] * u[0] + p[1] * u[1] + p[2] * u[2]) * k, (p[0] * v[0] + p[1] * v[1] + p[2] * v[2]) * k]) }));
+    // (folds: a face turned over, or squashed below a third of its size, in this flattening)
+    const bad = out.some(f => { const [[x0, y0], [x1, y1], [x2, y2]] = f.uv, a = ((x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)) / 2; return a * Math.sign(((out[0].uv[1][0] - out[0].uv[0][0]) * (out[0].uv[2][1] - out[0].uv[0][1]) - (out[0].uv[2][0] - out[0].uv[0][0]) * (out[0].uv[1][1] - out[0].uv[0][1]))) <= 0 || Math.abs(a) < f.tri.area * k * k / 3; });
+    if (bad && isl.length > 1) return null;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const f of out) for (const [x, y] of f.uv) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+    for (const f of out) f.uv = f.uv.map(([x, y]) => [x - x0 + PAD, y - y0 + PAD]);
+    return { faces: out, w: Math.ceil(x1 - x0 + 2 * PAD), h: Math.ceil(y1 - y0 + 2 * PAD) };
+  };
+  let flats = []; for (const isl of islands) { const f = flat(isl); if (f) flats.push(f); else for (const i of isl) flats.push(flat([i])); }
+  // pack: tallest first, in shelves across the picture's width
+  flats.sort((a, b) => b.h - a.h);
+  let x = 0, y = 0, shelf = 0;
+  for (const f of flats) { if (f.w > W) { const s = W / f.w; f.faces.forEach(q => q.uv = q.uv.map(([a, b]) => [a * s, b * s])); f.w = W; f.h = Math.ceil(f.h * s); } if (x + f.w > W) { x = 0; y += shelf; shelf = 0; } f.x = x; f.y = y; x += f.w; shelf = Math.max(shelf, f.h); }
+  const strip = move.length ? Math.ceil((y + shelf) / 8) * 8 : 0, H2 = H + strip;
+  // the new picture: the old one, then the strip filled through each moved face's old uvs
+  const out = new ImageData(W, H2); out.data.set(src.data);
+  const fillOf = new Int32Array(W * strip).fill(-1);
+  const sample = (u, v, o) => { // bilinear, old picture (px)
+    const fx = Math.max(0, Math.min(W - 1.001, u - 0.5)), fy = Math.max(0, Math.min(H - 1.001, v - 0.5)), ix = fx | 0, iy = fy | 0, tx = fx - ix, ty = fy - iy, d = src.data;
+    for (let c = 0; c < 4; c++) out.data[o + c] = (d[(iy * W + ix) * 4 + c] * (1 - tx) + d[(iy * W + ix + 1) * 4 + c] * tx) * (1 - ty) + (d[((iy + 1) * W + ix) * 4 + c] * (1 - tx) + d[((iy + 1) * W + ix + 1) * 4 + c] * tx) * ty;
+  };
+  for (const f of flats) for (const face of f.faces) {
+    face.uv = face.uv.map(([a, b]) => [a + f.x, b + f.y]);
+    const [[x0, y0], [x1, y1], [x2, y2]] = face.uv, den = (y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2), e = -1.5 / Math.max(1, Math.abs(den) ** 0.5); // (and a texel or so past its edges)
+    for (let py = Math.max(0, Math.floor(Math.min(y0, y1, y2)) - 2); py <= Math.min(strip - 1, Math.ceil(Math.max(y0, y1, y2)) + 2); py++)
+      for (let px = Math.max(0, Math.floor(Math.min(x0, x1, x2)) - 2); px <= Math.min(W - 1, Math.ceil(Math.max(x0, x1, x2)) + 2); px++) {
+        const cx = px + 0.5, cy = py + 0.5, a = ((y1 - y2) * (cx - x2) + (x2 - x1) * (cy - y2)) / den, b = ((y2 - y0) * (cx - x2) + (x0 - x2) * (cy - y2)) / den, c = 1 - a - b;
+        if (a < e || b < e || c < e) continue;
+        const inside = a >= 0 && b >= 0 && c >= 0; if (!inside && fillOf[py * W + px] >= 0) continue;
+        const A = Math.max(0, a), B = Math.max(0, b), C = Math.max(0, c), s = A + B + C, o = face.tri.uv;
+        if (face.tri.plain) { sample((o[0][0] + o[1][0] + o[2][0]) / 3, (o[0][1] + o[1][1] + o[2][1]) / 3, ((H + py) * W + px) * 4); fillOf[py * W + px] = inside ? 1 : 0; continue; } // (the one colour it shows)
+        sample((o[0][0] * A + o[1][0] * B + o[2][0] * C) / s, (o[0][1] * A + o[1][1] * B + o[2][1] * C) / s, ((H + py) * W + px) * 4);
+        fillOf[py * W + px] = inside ? 1 : 0;
+      }
+  }
+  // the rest of the strip: grown out from the islands (no seams under filtering, and the paint stays one patch)
+  for (let pass = 0, left = true; left && pass < 400; pass++) {
+    left = false; const prev = fillOf.slice();
+    for (let py = 0; py < strip; py++) for (let px = 0; px < W; px++) {
+      if (prev[py * W + px] >= 0) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const qx = px + dx, qy = py + dy; if (qx < 0 || qy < 0 || qx >= W || qy >= strip || prev[qy * W + qx] < 0) continue; out.data.copyWithin(((H + py) * W + px) * 4, ((H + qy) * W + qx) * 4, ((H + qy) * W + qx) * 4 + 4); fillOf[py * W + px] = 0; break; }
+      if (fillOf[py * W + px] < 0) left = true;
+    }
+  }
+  // uvs: everything rescaled to the taller picture; the moved faces get their own corners (new vertices) on the strip
+  const moved = new Map(); for (const f of flats) for (const face of f.faces) moved.set(face.tri, face.uv);
+  const seen = new Set();
+  for (const q of users) {
+    if (seen.has(q.p)) continue; seen.add(q.p); // (a mesh used by two nodes: once)
+    const P = q.P || readAcc(g, q.p.attributes.POSITION), U = q.U || readAcc(g, q.p.attributes.TEXCOORD_0), I = q.I !== undefined ? q.I : (q.p.indices != null ? readAcc(g, q.p.indices) : null);
+    const extra = T.filter(t => t.q === q && (moved.has(t) || t.out < 0 || (t.badN && t.badN.some(Boolean)))), nv = P.length / 3, add = extra.length * 3;
+    const attrs = {};
+    for (const [name, ai] of Object.entries(q.p.attributes)) { const a = readAcc(g, ai), n = NC[J.accessors[ai].type], o = new Float32Array((nv + add) * n); o.set(a); attrs[name] = { o, n }; }
+    const UV = attrs.TEXCOORD_0.o; for (let i = 0; i < nv; i++) UV[i * 2 + 1] = UV[i * 2 + 1] * H / H2;
+    const idx = I ? Uint32Array.from(I) : Uint32Array.from({ length: nv }, (_, i) => i);
+    extra.forEach((t, e) => {
+      const uv = moved.get(t);
+      for (let c = 0; c < 3; c++) {
+        const ni = nv + e * 3 + c, old = t.ids[c];
+        for (const { o, n } of Object.values(attrs)) for (let d = 0; d < n; d++) o[ni * n + d] = o[old * n + d];
+        if (uv) { UV[ni * 2] = uv[c][0] / W; UV[ni * 2 + 1] = (H + uv[c][1]) / H2; }
+        // (its normals turned out where they point in; its winding turned round if it's wound inside-out)
+        if (t.badN && t.badN[c] && attrs.NORMAL) for (let d = 0; d < 3; d++) attrs.NORMAL.o[ni * 3 + d] *= -1;
+        idx[t.t + (t.out < 0 ? [0, 2, 1][c] : c)] = ni;
+      }
+    });
+    for (const [name, { o }] of Object.entries(attrs)) q.p.attributes[name] = addAcc(g, o, J.accessors[q.p.attributes[name]].type);
+    q.p.indices = addAcc(g, idx, 'SCALAR');
+  }
+  if (move.length) g.views[im.bufferView] = await encode(out, mime);
+  prune(g);
+  return { glb: btoa(Array.from(writeGlb(g), ch => String.fromCharCode(ch)).join('')), report: { ...report, changed: true, islands: flats.length, size: [W, H], strip } };
+};
+window.ready = true;
+</script></body></html>

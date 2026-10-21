@@ -1,0 +1,113 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Livery check</title>
+<style>body{margin:0;background:#111}canvas{display:block}</style>
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script>
+</head><body>
+<script type="module">
+// dev: measures how cleanly decals lie across a livery car's body (see .devtest/liverycheck.mjs). ?car=civic[&tests=a,b]
+// Each test decal (solid magenta) is painted alone and rendered unlit from seven sides; in each picture:
+//   spatter: decal pixels in fragments cut off from the decal's main pieces (shreds round corners, specks)
+//   ragged:  decal edge pixels a 2 px open + close changes (saw-tooth edges along the mesh's facets)
+//   holes:   white paint inside the decal's outline that it missed (pinholes, slits along seams)
+// window.result = { car, tests: { name: { views: { view: { area, spatter, ragged, holes } } } } }, window.shots = data
+// URLs of the marked pictures (decal magenta, spatter yellow, ragged cyan, holes red).
+import * as THREE from 'three';
+import { buildF1 } from '../js/carmodel.js';
+import { loadRoadCar } from '../js/roadcar.js';
+const P = new URLSearchParams(location.search), id = P.get('car') || 'civic';
+for (const k of (P.get('g') || '').split(',').filter(Boolean)) globalThis[k] = true; // (dev switches: NOSHEAR, NOFLOAT, NOTILT...)
+if (P.get('face')) globalThis.WRAPFACE = P.get('face').split(',').map(Number); // (dev: try other facing cut-offs)
+window.__SVGP_CARS = { [id]: (P.get('dir') || '../models/cars/') + id + '.glb' }; // (dir: try other builds of the car)
+await loadRoadCar(id);
+const MAG = 0xff00ff;
+const rect = (w, h) => ({ w, closed: true, n: [[-w / 2, -h / 2, 0, 0, 0, 0], [w / 2, -h / 2, 0, 0, 0, 0], [w / 2, h / 2, 0, 0, 0, 0], [-w / 2, h / 2, 0, 0, 0, 0]] });
+const shape = (panel, x, y, w, h, rot = 0, mirror = true) => ({ id: 'd' + Math.random(), panel, x, y, size: w, rot, opacity: 1, mirror, flip: false, path: rect(w, h), fill: MAG, stroke: null, sw: 0 });
+const probe = buildF1({ chassis: id, main: 0xf2f2f2 }, {}), pn = probe.def.panels, S = pn.sideL, T = pn.top, F = pn.front, R = pn.rear;
+const TESTS = {
+  sideBand:  shape('sideL', S.W * 0.5, S.H * 0.62, S.W * 1.05, 0.14),  // through the arches, off both ends
+  sideHigh:  shape('sideL', S.W * 0.5, S.H * 0.36, S.W * 1.05, 0.08),  // along the shoulder
+  slashF:    shape('sideL', S.W * 0.3, S.H * 0.3, 0.25, 1.4, 35),      // up over the front fender onto the bonnet
+  slashR:    shape('sideL', S.W * 0.74, S.H * 0.42, 0.3, 1.6, -20),    // up over the rear quarter onto the roof / deck
+  topStripe: shape('top', T.W * 0.5, T.H * 0.5, 0.36, T.H * 1.05, 0, false), // nose to tail, over the wing
+  topBonnet: shape('top', T.W * 0.5, T.H * 0.16, T.W * 1.05, 0.5, 0, false), // the bonnet's full width, down the fenders
+  topDeck:   shape('top', T.W * 0.5, T.H * 0.9, T.W * 1.05, 0.5, 0, false),  // the rear deck / wing, full width
+  frontBlock: shape('front', F.W * 0.5, F.H * 0.65, F.W * 1.05, 0.25, 0, false), // the nose, wrapping onto the fenders
+  rearBlock:  shape('rear', R.W * 0.5, R.H * 0.62, R.W * 1.05, 0.25, 0, false),
+};
+const tests = P.get('tests') ? P.get('tests').split(',') : Object.keys(TESTS);
+const base = { main: 0xf2f2f2, accent: 0xf2f2f2, third: 0x222222, pattern: 'solid', showNumber: false, showSponsor: false };
+const VIEWS = { fl: [4.2, 1.7, 4.6], side: [6.5, 1.0, 0], right: [-6.5, 1.0, 0], top: [0.01, 8, 0], rl: [4.2, 1.9, -4.6], front: [0, 1.1, 6.5], rear: [0, 1.3, -6.5] };
+const TW = 720, TH = 450;
+const Rd = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+Rd.setSize(TW, TH); Rd.outputColorSpace = THREE.SRGBColorSpace; document.body.appendChild(Rd.domElement);
+const gl = Rd.getContext();
+function shoot(cfg) {
+  const scene = new THREE.Scene(), m = buildF1({ chassis: id, ...cfg }, { texSize: 2048 });
+  m.body.traverse(o => { if (o.isMesh && o.material.map) o.material = new THREE.MeshBasicMaterial({ map: o.material.map, side: o.material.side, alphaTest: o.material.alphaTest, transparent: o.material.transparent }); });
+  scene.add(new THREE.AmbientLight(0xffffff, 2)); scene.add(m.group);
+  const bb = new THREE.Box3().setFromObject(m.body), ctr = bb.getCenter(new THREE.Vector3()), size = bb.getSize(new THREE.Vector3()), out = {};
+  for (const [v, p] of Object.entries(VIEWS)) {
+    const top = v === 'top', cam = top ? new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 50) : new THREE.PerspectiveCamera(28, TW / TH, 0.1, 100);
+    cam.position.set(ctr.x + p[0], p[1] * 0.9, ctr.z + p[2]);
+    if (top) { const a = TW / TH, h = size.z * 0.56; cam.left = -h * a; cam.right = h * a; cam.top = h; cam.bottom = -h; cam.up.set(1, 0, 0); cam.updateProjectionMatrix(); }
+    cam.lookAt(ctr.x, top ? 0 : size.y * 0.42, ctr.z);
+    Rd.setClearColor(0x30343c); Rd.clear(); Rd.render(scene, cam);
+    const px = new Uint8Array(TW * TH * 4); gl.readPixels(0, 0, TW, TH, gl.RGBA, gl.UNSIGNED_BYTE, px); out[v] = px;
+  }
+  return out;
+}
+// binary image helpers (TW x TH, 1 = set)
+const N = TW * TH;
+function morph(a, r, grow) { // square structuring element, separable
+  const t = new Uint8Array(N), o = new Uint8Array(N);
+  for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) { let v = grow ? 0 : 1; for (let k = -r; k <= r; k++) { const q = x + k; const s = q < 0 || q >= TW ? (grow ? 0 : 1) : a[y * TW + q]; if (grow ? s : !s) { v = grow ? 1 : 0; break; } } t[y * TW + x] = v; }
+  for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) { let v = grow ? 0 : 1; for (let k = -r; k <= r; k++) { const q = y + k; const s = q < 0 || q >= TH ? (grow ? 0 : 1) : t[q * TW + x]; if (grow ? s : !s) { v = grow ? 1 : 0; break; } } o[y * TW + x] = v; }
+  return o;
+}
+const close = (a, r) => morph(morph(a, r, true), r, false), open = (a, r) => morph(morph(a, r, false), r, true);
+function components(a) { // 8-connected: label per pixel, sizes
+  const lab = new Int32Array(N).fill(-1), sizes = [], st = new Int32Array(N);
+  for (let s = 0; s < N; s++) { if (!a[s] || lab[s] >= 0) continue; const L = sizes.length; let top = 0, n = 0; st[top++] = s; lab[s] = L;
+    while (top) { const i = st[--top], x = i % TW, y = i / TW | 0; n++;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const qx = x + dx, qy = y + dy; if (qx < 0 || qy < 0 || qx >= TW || qy >= TH) continue; const q = qy * TW + qx; if (a[q] && lab[q] < 0) { lab[q] = L; st[top++] = q; } } }
+    sizes.push(n); }
+  return { lab, sizes };
+}
+const isMag = (d, i) => { const r = d[i], g = d[i + 1], b = d[i + 2]; return r > 50 && b > 50 && g < 0.6 * Math.min(r, b) && Math.abs(r - b) < 0.4 * Math.max(r, b); };
+const isPaint = (d, i) => { const r = d[i], g = d[i + 1], b = d[i + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b); return mx - mn < 28 && mx > 140; };
+function measure(px, bpx) {
+  const mag = new Uint8Array(N), paint = new Uint8Array(N);
+  for (let i = 0; i < N; i++) { mag[i] = isMag(px, i * 4) ? 1 : 0; paint[i] = isPaint(bpx, i * 4) ? 1 : 0; }
+  let area = 0; for (let i = 0; i < N; i++) area += mag[i];
+  const res = { area, spatter: 0, ragged: 0, holes: 0 }, mark = new Uint8Array(N);
+  if (area < 40) return { res, mag, mark };
+  // spatter: pieces small next to the decal's big ones, and not just a sliver beside a big piece (a few px off it)
+  const { lab, sizes } = components(mag), big = Math.max(...sizes), near = morph(mag.map((v, i) => v && sizes[lab[i]] >= Math.max(60, big * 0.04) ? 1 : 0), 3, true);
+  for (let i = 0; i < N; i++) if (mag[i] && sizes[lab[i]] < Math.max(60, big * 0.04) && !near[i]) { res.spatter++; mark[i] = 1; }
+  // ragged: what a 2 px open + close changes, on the decal's own pieces
+  const sm = close(open(mag, 2), 2);
+  for (let i = 0; i < N; i++) if (mag[i] !== sm[i] && !mark[i]) { res.ragged++; mark[i] = 2; }
+  // holes: paint inside the decal's 5 px closing that it didn't cover
+  const cl = close(mag, 5);
+  for (let i = 0; i < N; i++) if (cl[i] && !mag[i] && paint[i]) { res.holes++; mark[i] = 3; }
+  return { res, mag, mark };
+}
+function picture(px, mark) { // the render with the marks over it, as a data URL (flipped upright)
+  const c = document.createElement('canvas'); c.width = TW; c.height = TH; const g = c.getContext('2d'), im = g.createImageData(TW, TH);
+  const C = [null, [255, 230, 0], [0, 230, 255], [255, 30, 30]];
+  for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) { const s = ((TH - 1 - y) * TW + x), o = (y * TW + x) * 4, k = mark[s];
+    if (k) im.data.set([...C[k], 255], o); else { im.data.set([px[s * 4], px[s * 4 + 1], px[s * 4 + 2], 255], o); } }
+  g.putImageData(im, 0, 0); return c.toDataURL('image/png');
+}
+const result = { car: id, tests: {} }, shots = {};
+const B = shoot(base);
+for (const t of tests) {
+  const shotsT = shoot({ ...base, decals: [TESTS[t]] }), views = {};
+  for (const v of Object.keys(VIEWS)) {
+    const { res, mark } = measure(shotsT[v], B[v]); views[v] = res;
+    if (P.get('pics') !== '0' && (res.spatter + res.ragged + res.holes) > 0) shots[`${t}_${v}`] = picture(shotsT[v], mark);
+  }
+  result.tests[t] = { views };
+}
+window.result = result; window.shots = shots; window.done = true;
+</script></body></html>

@@ -1,0 +1,78 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Uniform lab</title>
+<style>body{margin:0;background:#111}canvas{display:block}</style>
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script>
+</head><body>
+<script type="module">
+// dev: stress-test decals on the racer's kit (js/characters.js), from eight sides. ?set=grid,stripe,team
+// One row per test kit, one column per view. window.done when drawn.
+import * as THREE from 'three';
+window.__SVGP_CHARACTERS_GLB = '../models/characters.glb';
+const { loadCharacters, makeCharacter } = await import('../js/characters.js');
+const { assets, decalImage } = await import('../js/livery.js');
+const P = new URLSearchParams(location.search), sets = (P.get('set') || 'grid,stripe,team').split(',');
+await loadCharacters();
+const KITS_BASE = { main: 0xf2f2f2, accent: 0xf2f2f2, third: 0x222222 };
+function gridImage(cols, rows) {
+  const c = document.createElement('canvas'), k = 48; c.width = cols * k; c.height = rows * k; const g = c.getContext('2d');
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) { g.fillStyle = `hsl(${i / cols * 300},85%,${(i + j) % 2 ? 45 : 62}%)`; g.fillRect(i * k, j * k, k, k); }
+  g.strokeStyle = '#000'; g.lineWidth = 4; for (let i = 0; i <= cols; i++) { g.beginPath(); g.moveTo(i * k, 0); g.lineTo(i * k, c.height); g.stroke(); } for (let j = 0; j <= rows; j++) { g.beginPath(); g.moveTo(0, j * k); g.lineTo(c.width, j * k); g.stroke(); }
+  return c.toDataURL();
+}
+const solid = (w, h, col) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.fillStyle = col; g.fillRect(0, 0, w, h); return c.toDataURL(); };
+assets.put('gridW', gridImage(16, 8)); assets.put('gridS', gridImage(8, 8));
+assets.put('barH', solid(400, 40, '#d01020')); assets.put('barV', solid(40, 400, '#1040d0')); assets.put('barG', solid(400, 30, '#10a040'));
+if (P.get('uvdump')) { // the part's texel map: position as colour, rings (cu) and columns (cv) every 5 cm as lines
+  const { _kitMap } = await import('../js/characters.js'); makeCharacter({ look: 'racer', livery: KITS_BASE });
+  const out = [];
+  for (const name of P.get('uvdump').split(',')) {
+    const m = _kitMap(name), c = document.createElement('canvas'); c.width = m.W; c.height = m.H; const g = c.getContext('2d'), im = g.createImageData(m.W, m.H);
+    let lo = [9, 9, 9], hi = [-9, -9, -9]; for (let k = 0; k < m.W * m.H; k++) if (m.ok[k]) for (let j = 0; j < 3; j++) { lo[j] = Math.min(lo[j], m.pos[k * 3 + j]); hi[j] = Math.max(hi[j], m.pos[k * 3 + j]); }
+    for (let k = 0; k < m.W * m.H; k++) { const o = k * 4; if (!m.ok[k]) { im.data.set([20, 20, 24, 255], o); continue; }
+      const col = [0, 1, 2].map(j => 60 + 160 * (m.pos[k * 3 + j] - lo[j]) / (hi[j] - lo[j] || 1));
+      const line = (Math.floor(m.cum.cu[k] / 0.05) !== Math.floor(m.cum.cu[k + 1 < m.W * m.H ? k + 1 : k] / 0.05)) || (k + m.W < m.W * m.H && Math.floor(m.cum.cv[k] / 0.05) !== Math.floor(m.cum.cv[k + m.W] / 0.05));
+      im.data.set(line ? [0, 0, 0, 255] : [...col, 255], o); }
+    g.putImageData(im, 0, 0); out.push([name, m.W, m.H, c.toDataURL()]);
+  }
+  window.dump = out; window.done = true;
+} else {
+for (const k of ['gridW', 'gridS', 'barH', 'barV', 'barG']) await new Promise(r => { if (decalImage(k, r)) r(); });
+const dec = (part, u, v, size, asset, rot = 0, mirror = false) => ({ id: 'k' + Math.random(), part, u, v, size, rot, opacity: 1, mirror, flip: false, asset });
+const base = { main: 0xf2f2f2, accent: 0xf2f2f2, third: 0x222222, number: 27, teamName: 'Test', sponsor: 'Velo' };
+const KITS = {
+  grid: { ...base, suit: { base: 0xf2f2f2, accent: 0xf2f2f2, pattern: 'solid', chest: 'none', number: 'none', decals: [
+    dec('torso', 0, 0.38, 0.9, 'gridW'), dec('torso', 0.5, 0.4, 0.9, 'gridW'), dec('helmet', 0.25, 0.4, 0.5, 'gridS', 0, true), dec('helmet', 0.5, 0.3, 0.5, 'gridS')] },
+    helmetDesign: { base: 0xf2f2f2, accent: 0xf2f2f2, pattern: 'solid', number: false, strip: 'off' } },
+  stripe: { ...base, suit: { base: 0xf2f2f2, accent: 0xf2f2f2, pattern: 'solid', chest: 'none', number: 'none', decals: [
+    // (an image decal's size is its width, x 0.75 m)
+    dec('torso', 0.25, 0.5, 0.09, 'barV', 0, true),  // down the side, onto the leg (7 cm x 68 cm)
+    dec('torso', 0, 0.3, 1.2, 'barH'),               // across the chest, round onto the sleeves
+    dec('armL', 0.25, 0.4, 0.5, 'barG', 90, true),   // along the sleeve
+    dec('torso', 0.06, 0.6, 0.1, 'barV', 30),        // a slash across the front, over the hip
+    dec('helmet', 0, 0.12, 0.08, 'barV')] },         // over the crown, front to back
+    helmetDesign: { base: 0xf2f2f2, accent: 0xf2f2f2, pattern: 'solid', number: false, strip: 'off' } },
+  team: { main: 0x1a2a6c, accent: 0xd01020, third: 0xf2f2f2, number: 27, teamName: 'Test Racing', sponsor: 'Velo', suit: { pattern: 'sides', chest: 'sponsor', number: 'back', decals: [] } },
+};
+const views = { front: [0, 1.2, 3.2], fl: [2.3, 1.4, 2.3], left: [3.2, 1.2, 0], back: [0, 1.2, -3.2], bl: [-2.3, 1.4, -2.3], right: [-3.2, 1.2, 0], helmetF: [0.5, 1.95, 1.0], helmetS: [1.1, 1.95, -0.2], chestF: [0.3, 1.35, 1.5], chestS: [1.5, 1.3, 0.2], chestB: [-0.4, 1.35, -1.5], hipS: [1.4, 0.95, 0.4], backTop: [-0.2, 1.75, -1.1], shoulderL: [1.0, 1.6, 0.6] };
+const LOOK = { backTop: 1.38, shoulderL: 1.35, chestF: 1.2, chestS: 1.15, chestB: 1.2, hipS: 0.9 };
+const vk = (P.get('views') || Object.keys(views).join(',')).split(',');
+const TW = +(P.get('tw') || 360), TH = +(P.get('th') || 480), W = TW * vk.length, H = TH * sets.length;
+const Rd = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+Rd.setSize(W, H); Rd.outputColorSpace = THREE.SRGBColorSpace; document.body.appendChild(Rd.domElement); Rd.setScissorTest(true);
+for (const [row, s] of sets.entries()) {
+  const scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x808080, 2.2)); const sun = new THREE.DirectionalLight(0xffffff, 1.2); sun.position.set(2, 4, 3); scene.add(sun);
+  const guy = makeCharacter({ look: 'racer', clip: P.get('clip') || 'idle', livery: KITS[s] });
+  scene.add(guy.object); guy.update(0.001);
+  await new Promise(r => setTimeout(r, 200)); guy.update(0.001);
+  scene.updateMatrixWorld(true);
+  vk.forEach((v, col) => {
+    const p = views[v], cam = new THREE.PerspectiveCamera(v.startsWith('helmet') ? 30 : 34, TW / TH, 0.05, 50);
+    cam.position.set(...p); cam.lookAt(0, LOOK[v] ?? (v.startsWith('helmet') ? 1.65 : 1.0), 0);
+    const x = col * TW, y = H - (row + 1) * TH;
+    Rd.setViewport(x, y, TW, TH); Rd.setScissor(x, y, TW, TH); Rd.setClearColor(0x30343c); Rd.clear(); Rd.render(scene, cam);
+  });
+}
+}
+ window.done = true;
+</script></body></html>

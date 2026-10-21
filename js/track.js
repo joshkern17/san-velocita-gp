@@ -1029,7 +1029,10 @@ export function shortestLine(T, margin = 1.6, iters = 260) {
 }
 
 // margin: m from each edge, or a per-sample array of them (race.js lineMargins: less at the kerbs)
-export function minCurvatureLine(T, margin = 1.6, spacing = 8) {
+// side -1 / +1: the smoothest line kept to the left / right of the road, `gap` m short of the other edge's limit (race.js
+// sideLines: the lines a car drives off the racing line on, each with its own speeds, so a car following, passing or
+// defending wide of the line drives a line that fits the road instead of the racing line moved over)
+export function minCurvatureLine(T, margin = 1.6, spacing = 8, side = 0, gap = 3) {
   const mAt = typeof margin === 'number' ? () => margin : (i) => margin[i];
   // Quadratic program: minimise sum |second difference of the line|^2 over the lateral offsets,
   // with the track edges as box limits. Solved exactly (dense Cholesky + active set) on nodes
@@ -1042,7 +1045,7 @@ export function minCurvatureLine(T, margin = 1.6, spacing = 8) {
     // (point-to-point: nodes run from the back of the grid to the end of the run-off, both ends included)
     const i = open ? (T.cut + 1 + Math.round((j * (N - 1)) / (M - 1))) % N : Math.min(N - 1, Math.round((j * N) / M)); idx[j] = i;
     cx[j] = T.X[i]; cz[j] = T.Z[i]; nx[j] = T.RX[i]; nz[j] = T.RZ[i];
-    const lim = Math.max(0, T.W[i] / 2 - mAt(i)); lo[j] = -lim; hi[j] = lim;
+    const lim = Math.max(0, T.W[i] / 2 - mAt(i)); lo[j] = side > 0 ? Math.min(lim, gap - lim) : -lim; hi[j] = side < 0 ? Math.max(-lim, lim - gap) : lim;
   }
   const w = (j) => ((j % M) + M) % M;
   // D2'D2: the sum of (second difference)^2 over every run of three nodes (a loop wraps; an open road doesn't)

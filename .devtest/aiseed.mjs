@@ -22,12 +22,17 @@ try {
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
   await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1500);
-  await pg.evaluate(async ([id, laps, diff, extra, SEEDRNG]) => {
-    const t = await (await fetch('/.devtest/auburn2.json')).json(); t.env.weather = 'clear';
+  await pg.evaluate(async ([id, laps, diff, extra, SEEDRNG, trk]) => {
+    const t = await (await fetch(trk)).json(); t.env.weather = 'clear';
     const S = window.__svgp.settings; S.car = { ...S.car, chassis: id }; S.damage = 'high'; S.rules = 'arcade'; S.difficulty = diff; S.grid = 'back';
     (0, eval)(SEEDRNG);
+    // (the build waits on frames - loading the track, between its slow steps - and the menu uses Math.random in them a
+    // varying number of times: seeded again as the build starts (the teams' shuffle) and as the field's drawn (grid,
+    // each car's spread), so neither depends on how many frames ran. .devtest/seedcheck.mjs: same seed, same race)
+    const R = (await import('/js/race.js')).Race;
+    if (!R.prototype.__seedHook) { for (const k of ['prepare', 'finish']) { const f = R.prototype[k]; R.prototype[k] = function (...a) { (0, eval)(SEEDRNG); return f.apply(this, a); }; } R.prototype.__seedHook = 1; }
     window.__svgp.startRace(t, { mode: 'race', laps, opponents: +(extra.__opp ?? 11), aiChassis: 'class', car: S.car, extra }, 'menu');
-  }, [id, laps, process.env.DIFF || 'alien', JSON.parse(process.env.EXTRA || '{}'), SEEDRNG]);
+  }, [id, laps, process.env.DIFF || 'alien', JSON.parse(process.env.EXTRA || '{}'), SEEDRNG, process.env.TRK || '/.devtest/auburn2.json']);
   await pg.waitForFunction(() => window.__svgp.sim && window.__svgp.sim.cars && window.__svgp.sim.cars.length > 0 && window.__svgp.sim.lineV, null, { timeout: 120000 });
   const r = await pg.evaluate(([SEEDRNG, nC, LOGON]) => {
     const sim = window.__svgp.sim; sim.setPaused(true); sim.paused = false; window.__svgp.sim = null;
@@ -52,6 +57,8 @@ try {
     while ((sim.state === 'racing' || lone && f < 60 * 60 * 8 && !sim.cars.find(c => !c.isPlayer).finished) && f < 60 * 60 * 8) {
       sim.update(1 / 60, { steer: 0, throttle: 0, brake: 0, handbrake: 0 }, {}); f++;
       if (!win && sim.cars.some(c => c.finished)) win = sim.raceTime;
+      if (f % 30 === 0) { const l1 = sim.cars.filter(c => c.ai && !c.isPlayer && !c.gone && !c.wreck && c.lap === 1).sort((x, y) => y.progress - x.progress);
+        for (let k = 1; k < l1.length; k++) { BT.n1 = (BT.n1 || 0) + 1; if (l1[k - 1].progress - l1[k].progress < 6 && Math.abs(l1[k - 1].s - l1[k].s) > 1.6) BT.al1 = (BT.al1 || 0) + 1; } }
       if (f % 30 === 0) { const ais = sim.cars.filter(c => c.ai && !c.isPlayer && !c.gone && !c.wreck && !c.finished && !c.pitting && c.lap >= 2).sort((x, y) => y.progress - x.progress).map(c => c.name);
         if (ord) { const was = new Map(ord.map((n, k) => [n, k])); for (let k = 0; k < ais.length; k++) for (let m = k + 1; m < ais.length; m++) if (was.has(ais[k]) && was.has(ais[m]) && was.get(ais[k]) > was.get(ais[m])) swaps++; }
         // battles (lap 2 on): each AI car against the one just ahead: within 1 s / 0.5 s, alongside, pulling alongside
@@ -63,7 +70,7 @@ try {
         ord = ais; }
       // (a lap with a safety car or VSC out in any of it isn't racing pace: left out)
       const sc = sim.rc && sim.rc.vscOn();
-      for (const c of sim.cars) { const m = lapAt.get(c); if (sc) m.sc = true; if (c.lap !== m.lap) { if (m.lap >= 2 && !m.sc) m.laps.push(sim.raceTime - m.t); m.lap = c.lap; m.t = sim.raceTime; m.sc = sc; } }
+      for (const c of sim.cars) { const m = lapAt.get(c); if (sc) m.sc = true; if (c.lap !== m.lap) { if (m.lap === 1 && c.ai && !c.isPlayer) (BT.l1 ||= []).push(sim.raceTime); if (m.lap >= 2 && !m.sc) m.laps.push(sim.raceTime - m.t); m.lap = c.lap; m.t = sim.raceTime; m.sc = sc; } }
       if (LOGON) for (const c of sim.cars) if (c.wreck && !c._wl) { c._wl = 1; LOG.push(`t${sim.raceTime.toFixed(1)} @${(c.idx * T.ds).toFixed(0)}m WRECK ${c.name} ${c.wreck.kind}`); }
       for (const c of sim.cars) {
         if (c.gone || c.finished || c.isPlayer) continue; // (you're on the autopilot, without the AI's level boosts: not counted)
@@ -91,7 +98,7 @@ try {
       return (med(lapAt.get(c).laps) / clean[c.carId] - 1) * 100;
     });
     const avg = (a) => a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN;
-    return { bal: sim.balance ? Object.entries(sim.balance).filter(e => e[0] !== '__t').map(([k, v]) => `${k} g${v.grip} p${v.power}`).join(', ') : null, log: LOGON ? LOG : null, t: Math.round(f / 60), win: +win.toFixed(1), ...st, wrecks: sim.cars.filter(c => c.wreck).length, you: (() => { const pl = sim.cars.find(c => c.isPlayer); if (!pl) return null; const ord = sim.cars.filter(c => !c.gone).sort((x, y) => (y.finished - x.finished) || (x.finished ? x.finishTime - y.finishTime : y.progress - x.progress)); return ord.indexOf(pl) + 1; })(), plog: sim.passLog.slice(0, 150).map(e => `${e.t} ${e.a}->${e.b} ${e.kind} ${e.ev} g${e.g} dv${e.dv}`) , offS: +st.offT.toFixed(1), offLong: +st.offMax.toFixed(1), battle1s: +(BT.s1 / BT.n * 100).toFixed(0), battle05: +(BT.s05 / BT.n * 100).toFixed(0), alongPct: +(BT.along / BT.n * 100).toFixed(1), alongside: BT.att, repass: BT.repass,
+    return { bal: sim.balance ? Object.entries(sim.balance).filter(e => e[0] !== '__t').map(([k, v]) => `${k} g${v.grip} p${v.power}`).join(', ') : null, log: LOGON ? LOG : null, t: Math.round(f / 60), win: +win.toFixed(1), ...st, wrecks: sim.cars.filter(c => c.wreck).length, you: (() => { const pl = sim.cars.find(c => c.isPlayer); if (!pl) return null; const ord = sim.cars.filter(c => !c.gone).sort((x, y) => (y.finished - x.finished) || (x.finished ? x.finishTime - y.finishTime : y.progress - x.progress)); return ord.indexOf(pl) + 1; })(), plog: sim.passLog.slice(0, 150).map(e => `${e.t} ${e.a}->${e.b} ${e.kind} ${e.ev} g${e.g} dv${e.dv}`) , offS: +st.offT.toFixed(1), offLong: +st.offMax.toFixed(1), battle1s: +(BT.s1 / BT.n * 100).toFixed(0), battle05: +(BT.s05 / BT.n * 100).toFixed(0), alongPct: +(BT.along / BT.n * 100).toFixed(1), along1: +((BT.al1 || 0) / (BT.n1 || 1) * 100).toFixed(1), lap1: BT.l1 ? +med(BT.l1).toFixed(2) : null, alongside: BT.att, repass: BT.repass,
       plan: (() => { const L = sim.passLog.filter(e => e.lap >= 2), n = (f) => L.filter(f).length; const kinds = {}; for (const e of L) if (e.ev === 'done') kinds[e.kind] = (kinds[e.kind] || 0) + 1; return { tries: n(e => e.ev === 'try'), own: n(e => e.ev === 'own'), yield: n(e => e.ev === 'yield' || e.ev === 'shut'), lunge: n(e => e.ev === 'lunge'), backout: n(e => e.ev === 'backout'), done: kinds }; })(), pack: +med(packs).toFixed(1), packBest: +Math.min(...packs).toFixed(1), loss: +med(losses).toFixed(1), swaps, lossMax: +Math.max(...losses).toFixed(1),
       shape: C.map((c, k) => `T${k + 1} ${c.dir > 0 ? 'L' : 'R'} ${(c.entry * T.ds).toFixed(0)}-${(c.exit * T.ds).toFixed(0)}m`).join(' '), corners: zone.map((z, k) => `T${k + 1} best ${best[k].toFixed(2)} L1 +${(avg(z.t1) - best[k]).toFixed(2)} later +${(avg(z.t2) - best[k]).toFixed(2)}`).join(' | ') };
   }, [SEEDRNG, +(process.env.CORNERS || 4), !!process.env.LOG]);

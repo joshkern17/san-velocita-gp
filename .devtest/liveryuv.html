@@ -1,0 +1,76 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Livery UV audit</title>
+<style>body{margin:0;background:#111}canvas{display:block}</style>
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script>
+</head><body>
+<script type="module">
+// dev: the livery texture's layout on a livery car (?car=r34), triangle by triangle, as the painter sees it at 1024 px:
+//   red    shares its texels with another surface over 3 cm away: one of them shows the other's paint
+//   orange stretched: over 6x the body's median 3D area per texel (a sliver of the picture smeared over the face)
+//   green  fine;  grey: not paint (no livery texture)
+// window.result = { tris, area, shared, stretched } (areas in m², the paint's triangles only)
+import * as THREE from 'three';
+import { buildF1 } from '../js/carmodel.js';
+import { loadRoadCar } from '../js/roadcar.js';
+const P = new URLSearchParams(location.search), id = P.get('car') || 'r34', R = 1024;
+if (P.get('flips')) globalThis.FLIPSET = new Set(); // (?flips=1: show the faces js/roadcar.js turns round as inside-out, blue)
+window.__SVGP_CARS = { [id]: (P.get('dir') || '../models/cars/') + id + '.glb' }; // (dir: try other builds of the car)
+await loadRoadCar(id);
+const m = buildF1({ chassis: id, main: 0xf2f2f2 }, { texSize: 1024 }), flipY = m.livTex.flipY;
+const parts = m.body.children.filter(o => o.isMesh && o.material.map === m.livTex);
+// every triangle: 3D corners + texel corners
+const T = [];
+for (const o of parts) {
+  const g = o.geometry, Ps = g.attributes.position, U = g.attributes.uv, I = g.index, n = I ? I.count : Ps.count;
+  for (let t = 0; t < n; t += 3) { const ids = [0, 1, 2].map(k => I ? I.getX(t + k) : t + k);
+    T.push({ o, t, p: ids.map(i => [Ps.getX(i), Ps.getY(i), Ps.getZ(i)]), uv: ids.map(i => [U.getX(i) * R, (flipY ? 1 - U.getY(i) : U.getY(i)) * R]) }); }
+}
+// rasterise: per texel, the triangles on it and the 3D spot each puts there
+const owners = new Map();
+T.forEach((tr, k) => {
+  const [[x0, y0], [x1, y1], [x2, y2]] = tr.uv, den = (y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2);
+  const e1 = tr.p[1].map((v, i) => v - tr.p[0][i]), e2 = tr.p[2].map((v, i) => v - tr.p[0][i]);
+  tr.area = Math.hypot(e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]) / 2;
+  tr.texels = Math.abs(den) / 2; tr.n = 0; tr.shared = 0;
+  if (Math.abs(den) < 1e-6) return;
+  for (let py = Math.max(0, Math.floor(Math.min(y0, y1, y2))); py <= Math.min(R - 1, Math.ceil(Math.max(y0, y1, y2))); py++)
+    for (let px = Math.max(0, Math.floor(Math.min(x0, x1, x2))); px <= Math.min(R - 1, Math.ceil(Math.max(x0, x1, x2))); px++) {
+      const cx = px + 0.5, cy = py + 0.5, a = ((y1 - y2) * (cx - x2) + (x2 - x1) * (cy - y2)) / den, b = ((y2 - y0) * (cx - x2) + (x0 - x2) * (cy - y2)) / den, c = 1 - a - b;
+      if (a < 0 || b < 0 || c < 0) continue;
+      const q = [0, 1, 2].map(i => tr.p[0][i] * a + tr.p[1][i] * b + tr.p[2][i] * c), key = py * R + px;
+      tr.n++; (owners.get(key) || owners.set(key, []).get(key)).push([k, q]);
+    }
+});
+for (const list of owners.values()) if (list.length > 1) for (const [k, q] of list) if (list.some(([k2, q2]) => k2 !== k && Math.hypot(q[0] - q2[0], q[1] - q2[1], q[2] - q2[2]) > 0.03)) T[k].shared++;
+const dens = T.filter(t => t.texels > 0.5).map(t => t.area / t.texels).sort((a, b) => a - b), med = dens[dens.length >> 1];
+const res = { tris: T.length, area: 0, shared: 0, stretched: 0, worst: [] };
+for (const t of T) {
+  t.kind = t.texels < 0.5 ? 'collapsed' : t.n && t.shared / t.n > 0.3 ? 'shared' : t.area / t.texels > 6 * med ? 'stretched' : 'ok';
+  res.area += t.area; if (t.kind === 'shared') res.shared += t.area; if (t.kind === 'stretched' || t.kind === 'collapsed') res.stretched += t.area;
+}
+// colour the car by it
+T.forEach((t, i) => { if (globalThis.FLIPSET && globalThis.FLIPSET.has(i)) t.kind = 'flip'; });
+const COL = { flip: [0.2, 0.35, 1], ok: [0.25, 0.75, 0.35], shared: [0.95, 0.15, 0.15], stretched: [1, 0.55, 0.05], collapsed: [1, 0.55, 0.05] };
+const scene = new THREE.Scene(), grey = new THREE.MeshBasicMaterial({ color: 0x55585e });
+m.body.traverse(o => { if (o.isMesh && !parts.includes(o)) o.material = grey; });
+for (const o of parts) {
+  const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone(), C = new Float32Array(g.attributes.position.count * 3);
+  for (const t of T) if (t.o === o) for (let k = 0; k < 3; k++) C.set(COL[t.kind].map((v, i) => v * (0.75 + 0.25 * ((t.t / 3) % 2))), (t.t + k) * 3);
+  g.setAttribute('color', new THREE.BufferAttribute(C, 3)); o.geometry = g; o.material = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide });
+}
+m.wheels.forEach(w => w.pivot.visible = false);
+scene.add(m.group);
+const VIEWS = { fl: [4.2, 1.7, 4.6], side: [6.5, 1.0, 0], top: [0.01, 8, 0], rl: [4.2, 1.9, -4.6], front: [0, 1.1, 6.5], rear: [0, 1.3, -6.5], right: [-6.5, 1.0, 0], rr: [-4.2, 1.9, -4.6] };
+const TW = 560, TH = 350, vk = Object.keys(VIEWS), W = TW * 4, H = TH * 2;
+const Rd = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); Rd.setSize(W, H); document.body.appendChild(Rd.domElement); Rd.setScissorTest(true);
+const bb = new THREE.Box3().setFromObject(m.body), ctr = bb.getCenter(new THREE.Vector3()), size = bb.getSize(new THREE.Vector3());
+vk.forEach((v, k) => {
+  const p = VIEWS[v], top = v === 'top', cam = top ? new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 50) : new THREE.PerspectiveCamera(28, TW / TH, 0.1, 100);
+  cam.position.set(ctr.x + p[0], p[1] * 0.9, ctr.z + p[2]);
+  if (top) { const a = TW / TH, h = size.z * 0.56; cam.left = -h * a; cam.right = h * a; cam.top = h; cam.bottom = -h; cam.up.set(1, 0, 0); cam.updateProjectionMatrix(); }
+  cam.lookAt(ctr.x, top ? 0 : size.y * 0.42, ctr.z);
+  const x = (k % 4) * TW, y = H - ((k / 4 | 0) + 1) * TH;
+  Rd.setViewport(x, y, TW, TH); Rd.setScissor(x, y, TW, TH); Rd.setClearColor(0x22252b); Rd.clear(); Rd.render(scene, cam);
+});
+window.result = res; window.done = true;
+</script></body></html>

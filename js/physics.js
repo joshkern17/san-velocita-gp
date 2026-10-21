@@ -102,6 +102,40 @@ function tyreForce(cap, C, B, CX, BX, sx, sy) {
   const F = cap * (fY * (1 - wx) + fX * wx) / s; TF[0] = F * sx; TF[1] = -F * sy;
 }
 
+// A pad's steering lock at speed, per car: the wheel angle where it corners hardest at each speed (a slow steering
+// ramp, speed held, on its own copy of the car), so full stick can be put just past it (see step). Measured once per
+// spec (a setup is a new spec), 40-90 ms: at the grid (CarPhysics.warmPad), or else the first time a pad steers it.
+// [m/s, rad] pairs.
+const PAD_V = [15, 25, 35, 50, 65, 80, 95], padCals = new WeakMap();
+function padCal(spec) {
+  let cal = padCals.get(spec);
+  if (cal) return cal;
+  cal = [];
+  const DT = 1 / 120, ENV = { mu: 1, extraDrag: 0, gF: 0, gL: 0 };
+  for (const vt of PAD_V) {
+    const c = new CarPhysics(spec); c.fitTyres('medium'); c.place(0, 0, 0);
+    let t = 0;
+    for (; t < 30 && c.speed < vt; t += DT) c.step(DT, { throttle: 1, brake: 0, steer: 0, handbrake: 0, analog: true }, ENV);
+    if (c.speed < vt - 1) break; // (past its top speed: the last angle carries on)
+    let best = 0, at = 0;
+    for (let k = 0; k < 3 / DT; k++) {
+      const e = vt - c.speed;
+      c.step(DT, { throttle: Math.max(0, Math.min(1, e * 0.8)), brake: Math.max(0, Math.min(1, -e * 0.5)), steer: k * DT / 3, handbrake: 0, analog: true }, ENV);
+      if (Math.abs(c.beta) > 0.15) break;
+      if (Math.abs(c.latG) > best) { best = Math.abs(c.latG); at = Math.abs(c.delta); }
+    }
+    cal.push([vt, at]);
+  }
+  padCals.set(spec, cal);
+  return cal;
+}
+const padLock = (cal, u) => {
+  if (!cal.length) return Infinity;
+  if (u <= cal[0][0]) return cal[0][1];
+  for (let i = 1; i < cal.length; i++) if (u <= cal[i][0]) { const [v0, a0] = cal[i - 1], [v1, a1] = cal[i]; return a0 + (a1 - a0) * (u - v0) / (v1 - v0); }
+  return cal[cal.length - 1][1];
+};
+
 export class CarPhysics {
   constructor(spec = CARSPEC) {
     this.p = spec;
@@ -312,6 +346,7 @@ export class CarPhysics {
     this.wakeLoss = wk > 0.01 ? D * wk * (aF * W[0] + (1 - aF) * W[1]) / (P.mass * G + D) : 0;
   }
 
+  warmPad() { padCal(this.p); }
   setAids(a) { this.aidBase = { ...a }; this.aid = { ...a }; }
   get tc() { return this.aid.stab; }
   set tc(v) { this.aid = v ? { ...this.aidBase } : { ...this.aidBase, tc: 0, stab: false }; }
@@ -484,6 +519,17 @@ export class CarPhysics {
     const csBase = !A.cs ? 0 : A.cs === 2 ? 1.2 : drifty ? 0.3 : A.stab ? 0.35 : 0.15;
     const csK = csBase * slideW * (1 - selfCatch);
     if (csK * Math.abs(zeroSlip) > 0.02) aT.cs = 0.25;
+    // a pad at speed: full stick = just past the angle where this car corners hardest at this speed (padCal). The flat
+    // speed lock above left the F1 at its peak by half stick at 250 km/h: the whole corner squeezed into a thumb's few
+    // mm (twitchy, weaving on the straights) and the top half of the stick only scrubbing wide (understeer). Faded in
+    // from 45 to 90 km/h (hairpins and turning round keep the full lock), and out in a slide, where counter-steer needs it
+    if (ctl.pad && ctl.steer && slideW < 1 && !globalThis.__padOld) { // (__padOld: dev, the old mapping, for .devtest/physics/padweave.mjs)
+      // (plus, mid-S with the car still turning the other way, however far the fronts are rolling that way: the
+      // calibrated angle is a settled corner's, and capping a change of direction at it made fast esses go dead)
+      const zs = -Math.sign(ctl.steer) * zeroSlip, win = padLock(padCal(P), Math.abs(u)) * 1.15 + Math.max(0, zs);
+      const w = Math.min(1, Math.max(0, (Math.abs(u) - 12.5) / 12.5)) * (1 - slideW);
+      if (win < maxLock) maxLock += (win - maxLock) * w;
+    }
     let target = -ctl.steer * maxLock + csK * zeroSlip - (this.bentOn ? 0 : this.dmg.ch) * 0.006 * this.pull;
     // steering assist: never turn the fronts past their peak grip (past it they only scrub and push wide). Not in a
     // slide, where the wheels need to go wherever the counter-steer takes them.
@@ -494,8 +540,13 @@ export class CarPhysics {
     const rate = (Math.abs(target) < Math.abs(this.delta) ? 5.5 : 3.2) * P.maxSteer;
     const d = target - this.delta;
     // analog: straight to the stick (AI), or through a short smoothing for a pad (ctl.lag s, default 50 ms), so a flick
-    // of the thumb doesn't slam the wheels across in one frame. Keys: rate-limited.
-    if (ctl.pad) this.delta += d * Math.min(1, dt / (ctl.lag || 0.05));
+    // of the thumb doesn't slam the wheels across in one frame; up to 2.4x that from 110 to 250 km/h for small moves,
+    // where a twitch of the thumb weaved the car down the straights. A big move (a fast S, a catch) goes through at the
+    // normal 50 ms: the extra smoothing slowed a change of direction as much as a twitch. Keys: rate-limited.
+    if (ctl.pad) {
+      const small = 1 - Math.min(1, Math.abs(d) / (0.4 * maxLock)), slow = Math.min(1, Math.max(0, (speed - 30) / 40));
+      this.delta += d * Math.min(1, dt / ((ctl.lag || 0.05) * (globalThis.__padOld ? 1 : 1 + 1.4 * slow * small)));
+    }
     else if (ctl.analog) this.delta = target;
     else this.delta += Math.max(-rate * dt, Math.min(rate * dt, d));
     const delta = this.delta;
@@ -563,7 +614,13 @@ export class CarPhysics {
         let f = Math.min(P.maxForce, (P.power * this.powerMul * this.engK * (1 - 0.06 * dm.ch)) / Math.max(wheelV, 1));
         const x = (this.rpm - P.idle) / (P.redline - P.idle);
         f *= P.torque ? torqueAt(P.torque, x) : 0.85 + 0.15 * Math.sin(Math.min(1, Math.max(0, x)) * Math.PI);
-        if (!this.auto) f *= Math.min(1, Math.max(0.35, this.rpm / 7000));
+        if (!this.auto) {
+          // (a manual launch: in first the clutch slips, holding the engine up to where it pulls with the throttle until
+          // the wheels catch up; without it a standing start sat at idle, bogged to 35%)
+          const bogR = 0.56 * P.redline;
+          if (this.gear === this.gbNext(0, 1)) this.rpm = Math.max(this.rpm, P.idle + thr * (bogR - P.idle));
+          f *= Math.min(1, Math.max(0.35, this.rpm / bogR)); // (manual, bogged down low in the revs: was a fixed 7000 rpm, the F1's 56%, so a road car on manual never got its full pull)
+        }
         if (this.rpm >= P.redline) f *= 0.1;
         if (this.shiftT > 0) f *= 0.25;
         if (this.missT > 0) f = 0; // (a missed shift: nothing driving for a moment)
@@ -708,6 +765,11 @@ export class CarPhysics {
       // the tyres can take instead of cutting and restoring it several times a second: that pulsing, through a
       // limited-slip diff whose lock follows the torque, kicked the rear from side to side)
       tcK = tcOn && e > 0 ? Math.max(0.05, tcK - h * 30 * e) : Math.min(1, tcK + h * (tcOn ? 6 * Math.min(1, -e * 2) : 50));
+      // (and eases off as the slip climbs toward the target, before it's past it: with only the above, a light car on a
+      // short gear (the Capri, the F1 in 1st and 2nd) spun up past the peak before the cut caught it, cut too far, got
+      // its power back and spun up again, 3-4 times a second: the tires screeching on and off)
+      const de = e - (this.tcE ?? e); this.tcE = e;
+      if (tcOn && de > 0 && e > -0.3) tcK = Math.max(0.05, tcK - 2 * de);
       let TdF = drF, TdR = drR;
       if (tcOn) { const lF = tcK * limF, lR = tcK * limR; if (TdF > lF) { TdF = lF; tcAct = true; } if (TdR > lR) { TdR = lR; tcAct = true; } }
       // tyre forces from each wheel's slip

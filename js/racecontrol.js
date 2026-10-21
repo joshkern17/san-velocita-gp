@@ -179,12 +179,13 @@ export class RaceControl {
     if (inPit) { st.hold = 0; return null; }
     const onTrack = as < half + 1;
     const dot = Math.sin(p.h) * T.FX[car.idx] + Math.cos(p.h) * T.FZ[car.idx];
-    st.off = as > half + 2.5 ? st.off + dt : 0;
+    if (as > half + 2.5) { if (!st.off) st.offV = p.speed; st.off += dt; } else st.off = 0;
     let s = 0, why = '';
     st.stopT = p.speed < 6 && onTrack ? (st.stopT || 0) + dt : 0;
     if (p.speed < 6) { s = onTrack ? 2 : 1; why = 'stopped'; }
     else if (dot < 0.3) { s = onTrack ? 2 : 1; why = 'spun'; }
-    else if (st.off > 0.8) { s = 1; why = 'off'; }
+    // off: a run wide that keeps its speed and comes back is nobody's danger; beached (slowed right down) or out there a while is
+    else if (st.off > 0.8 && (p.speed < st.offV * 0.5 || st.off > 4)) { s = 1; why = 'off'; }
     if (car.crashT && now - car.crashT < 1.5 && car.crashV > 16) { s = Math.max(s, car.crashV > 24 ? 2 : 1); why = why || 'crashed'; }
     if (s) { st.sev = Math.max(st.hold > 0 ? st.sev : 0, s); st.why = why || st.why; st.hold = 3; st.last = now; }
     else st.hold -= dt;
@@ -364,6 +365,12 @@ export class RaceControl {
           if (gap > 0 && gap < (quicker ? 55 : 70) && (!by || gap < by.gap)) by = { car: f, gap, cls: quicker && !(f.lap - c.lap >= 1 && lead >= L * 0.5) };
         }
       }
+      // how fast they're closing (smoothed): the flag comes out once they're right there, or coming at us quickly; a car
+      // sat 50 m back at our pace isn't being held up
+      if (by && c.blueBy === by.car && dt > 0) c.blueClose += ((c.blueGap - by.gap) / dt - c.blueClose) * Math.min(1, dt * 2);
+      else c.blueClose = 0;
+      c.blueBy = by ? by.car : null; c.blueGap = by ? by.gap : 999;
+      if (by && !(by.gap < 30 || (by.gap < 70 && c.blueClose > 3) || (c.blue === by.car && by.gap < 45))) by = null;
       if (by) { c.blue = by.car; c.blueCls = by.cls; c.blueHold = 1; }
       else if (c.blue) { c.blueHold -= dt; if (c.blueHold <= 0) { c.blue = null; c.blueCls = false; } }
     }
@@ -371,8 +378,10 @@ export class RaceControl {
   // holding up the leaders: warnings, then a penalty
   blueRules(car, dt) {
     const R = this.R;
-    if (!car.blue || car.pitting) { car.blueT = Math.max(0, (car.blueT || 0) - dt * 0.5); if (!car.blueT) car.blueWarned = false; return; }
-    car.blueT = (car.blueT || 0) + dt;
+    if (!car.blue || car.pitting) { car.blueT = Math.max(0, (car.blueT || 0) - dt); if (!car.blueT) car.blueWarned = false; return; }
+    // the clock only runs while they're stuck right behind us (not dropping back): that's holding them up
+    const stuck = car.blueGap < 20 && car.blueClose > -1;
+    car.blueT = stuck ? (car.blueT || 0) + dt : Math.max(0, (car.blueT || 0) - dt * 0.5);
     if (car.isPlayer && !car.blueWarned && car.blueT > R.blueWarn * (car.blueCls ? 1.5 : 1)) { car.blueWarned = true; this.say(`Blue flags · let ${car.blue.name} through`, { me: true, cls: 'blue' }); }
     // (a quicker class in the mirrors: hold your line and let them by; it's on them to get past, no penalty)
     if (car.blueT > R.bluePen && !car.blueCls) { car.blueT = 0; car.blueWarned = false; this.penalise(car, PEN, 'ignored blue flags'); }

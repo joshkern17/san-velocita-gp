@@ -7,7 +7,8 @@ import { SPONSOR_LOGOS, logoAsset, parseLogoAsset, logoForName } from './sponsor
 const LOGO_SHORT = { color: 'Color', main: 'Brand', black: 'Black', white: 'White' }; // (a sponsor logo's versions, one word each so the buttons line up)
 import { VectorEditor } from './vectoredit.js';
 import { sfx } from './audio.js';
-import { saveLivery, updateLivery, savedLiveries } from './liveries.js';
+import { saveLivery, updateLivery, addLivery, findLivery, renameLivery, liveryCars, liveryChanged, liveryOn, liveryStart, liveryLooks, chassisOf } from './liveries.js';
+import { carOf } from './cars.js';
 import { DEV } from './dev.js';
 
 const $ = (id) => document.getElementById(id);
@@ -39,6 +40,32 @@ export class LiveryDesigner {
       if (!this.active || this.vec.open || (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName))) return;
       if (e.key === 'Delete' && !this.place) { e.preventDefault(); this.deleteSelected(); } // (Esc and the rest: the menu, main.js)
     });
+    window.addEventListener('paste', (e) => this.onPaste(e));
+    // Place mode's sliders: a drag moves the decal (painted at most once a frame); let go and the pad / keys have it back
+    const S = $('lv-sliders');
+    S.addEventListener('input', (e) => { const f = this.sliderFields()[e.target.dataset.k]; if (!f) return; f.set(+e.target.value); this.syncSliders(e.target); if (!this.sraf) this.sraf = requestAnimationFrame(() => { this.sraf = 0; this.repaint(); }); });
+    S.addEventListener('change', (e) => e.target.blur());
+    S.addEventListener('pointerup', () => setTimeout(() => document.activeElement?.blur?.(), 0));
+    S.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || !this.place) return; b.blur();
+      const a = b.dataset.a; this.placeTick(0, a === 'drop' ? { drop: true } : a === 'back' ? { cancel: true } : { next: +a }); });
+  }
+  // Cmd/Ctrl+V: an SVG (Figma's Copy as SVG, or any SVG code) or a copied image goes on as a decal, like an imported file
+  onPaste(e) {
+    if (!this.active || this.vec.open || (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName))) return;
+    const cd = e.clipboardData; if (!cd) return;
+    const target = this.tab === 'kit' ? 'kit' : 'decal';
+    const img = [...cd.files].find(f => /^image\//.test(f.type));
+    const text = cd.getData('text/plain') || '', html = cd.getData('text/html') || '';
+    const svg = (text.match(/<svg[\s\S]*<\/svg>/i) || html.match(/<svg[\s\S]*<\/svg>/i) || [])[0];
+    if (svg) {
+      e.preventDefault();
+      // (its name: the layer's id Figma writes on the first group, else just "Pasted")
+      const name = ((svg.match(/<(?:g|path|rect)[^>]*\sid="([^"]+)"/i) || [])[1] || 'Pasted').replace(/_\d+$/, '').replace(/[_-]+/g, ' ');
+      return this.importFile(new File([svg], name + '.svg', { type: 'image/svg+xml' }), target);
+    }
+    if (img) { e.preventDefault(); return this.importFile(img, target); }
+    // (Figma's plain Cmd+C copies its own data, not a picture)
+    if (/\(figm(a|eta)\)/.test(html)) { e.preventDefault(); sfx.error(); this.toast('IN FIGMA: RIGHT-CLICK › COPY/PASTE AS › COPY AS SVG, THEN PASTE', 4500); }
   }
   // B / Esc (the menu's back): the shape editor first, then out (a placed decal's B is Place mode's, main.js)
   back() {
@@ -76,7 +103,7 @@ export class LiveryDesigner {
     this.active = false; this.garage.still = false; this.garage.onPick = null; this.garage.pickMode = 'car'; this.garage.showCrew(false); this.garage.shift = 0.14; this.garage.target.set(0.2, 0.55, 0);
     sfx.back(); this.onDone();
   }
-  toast(msg) { const t = $('lv-toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(this.tt); this.tt = setTimeout(() => t.classList.remove('on'), 1600); }
+  toast(msg, ms = 1600) { const t = $('lv-toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(this.tt); this.tt = setTimeout(() => t.classList.remove('on'), ms); }
   // (while the shape editor is open the car is painted without the shapes being edited: it redraws them itself)
   repaint() { if (this.vec.open) return this.vec.changedFromPanel(); this.setCar(this.car, false); }
   rebuild() { this.setCar(this.car, true); }
@@ -91,7 +118,7 @@ export class LiveryDesigner {
       const d = this.car.suit.decals[this.ksel];
       if (!d || !hit.kit) return false;
       d.part = hit.kit.part; d.u = +hit.kit.u.toFixed(3); d.v = +hit.kit.v.toFixed(3);
-      this.dragged = true; this.repaint();
+      this.dragged = true; this.repaint(); this.syncSliders();
       if (phase === 'down') this.render();
       return true;
     }
@@ -101,7 +128,7 @@ export class LiveryDesigner {
     if (!p) return false;
     d.panel = p.panel; d.x = +p.x.toFixed(3); d.y = +p.y.toFixed(3);
     this.dragged = true;
-    this.repaint();
+    this.repaint(); this.syncSliders();
     if (phase === 'down') this.render();
     return true;
   }
@@ -122,6 +149,7 @@ export class LiveryDesigner {
     $('s-livery').classList.toggle('placing', !!this.place);
     const P = this.place, pd = P && this.placeDecal();
     $('lv-place').innerHTML = pd ? `<b>Placing: ${esc(this.decalName(pd))} &middot; ${esc(P.kind === 'kit' ? KIT_PARTS[pd.part] || pd.part : this.def.panels[pd.panel]?.label || pd.panel)}</b><small>${pd.bind === 'number' ? 'Shows each car\'s own number: a teammate\'s car shows theirs here.' : pd.mirror ? 'Mirrored on the far side.' : 'On this side only.'}</small>` : '';
+    this.placeSliders();
     $('lv-hint').style.display = this.vec.open ? '' : 'none'; // (the shape editor's own how-to; the footer has the rest)
     this.garage.pickMode = this.tab === 'kit' ? 'racer' : 'car';
     this.garage.showCrew(this.tab === 'kit');
@@ -149,7 +177,7 @@ export class LiveryDesigner {
       { label: 'Back', action: () => T.closeAdd() }];
     if (this.adding === 'kit') return [{ label: 'Add To The Driver', head: true },
       { label: 'Text', action: done(() => T.addOf('kit')), desc: 'Letters on his chest to start with: place them on the suit, a sleeve, a leg or the helmet.' },
-      { label: 'Image File (mouse)', action: done(() => T.fileFor('kit')), desc: 'A PNG or SVG of your own.' },
+      { label: 'Image File (mouse)', action: done(() => T.fileFor('kit')), desc: 'A PNG or SVG of your own. Or just paste one (Cmd/Ctrl+V): Figma\'s Copy As SVG works.' },
       { label: 'Back', action: () => T.closeAdd() }];
     return [{ label: 'Add To The Car', head: true },
       { label: 'Race Number', action: done(() => T.addOf('number')), desc: 'The car\'s race number, as big outlined figures. Each car shows its own: a teammate in your livery gets theirs here.' },
@@ -157,7 +185,7 @@ export class LiveryDesigner {
       { label: 'Sponsor Name', action: done(() => T.addOf('sponsor')), desc: 'The title sponsor\'s name (or logo, if it has one); it changes with the sponsor.' },
       { label: 'Text', action: done(() => T.addOf('text')), desc: 'Your own words: pick a preset or type them.' },
       { label: 'Sponsor Logo &rsaquo;', action: () => { T.adding = 'logos'; T.menu.i = 0; sfx.select(); T.render(); T.firstRow(); }, desc: 'One of the game\'s sponsors\' logos.' },
-      { label: 'Image File (mouse)', action: done(() => T.addOf('image')), desc: 'A PNG or SVG of your own. SVGs stay sharp at any size.' },
+      { label: 'Image File (mouse)', action: done(() => T.addOf('image')), desc: 'A PNG or SVG of your own. SVGs stay sharp at any size. Or just paste one (Cmd/Ctrl+V) anywhere in the designer: Figma\'s Copy As SVG works.' },
       { label: 'Shape (mouse)', action: done(() => T.addOf('shape')), desc: 'Draw lines and shapes right on the car with the pen, rectangle or ellipse.' },
       { label: 'Back', action: () => T.closeAdd() }];
   }
@@ -196,16 +224,7 @@ export class LiveryDesigner {
   // the full color picker (the browser's own): a mouse or a keyboard
   pickColor(c, done) { const p = $('lv-pick'); p.value = hex(c); p.oninput = () => done(unhex(p.value)); p.click(); }
   // typing over the row the cursor's on (Enter keeps it, Esc leaves it as it was)
-  typeText(val, max, done) {
-    const row = this.menu.el.querySelector('.item.sel'); if (!row) return;
-    const inp = document.createElement('input'); inp.className = 'lv-type'; inp.maxLength = max; inp.value = val || ''; inp.spellcheck = false;
-    inp.style.top = (row.getBoundingClientRect().top - this.menu.el.closest('.lv-side').getBoundingClientRect().top) / (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui')) || 1) + 'px';
-    this.menu.el.closest('.lv-side').appendChild(inp); inp.focus(); inp.select();
-    let over = false; // (Enter, then the blur as it goes: once)
-    const end = (keep) => { if (over) return; over = true; if (keep && inp.value.trim()) done(inp.value.trim().toUpperCase()); inp.remove(); this.render(); };
-    inp.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') end(true); else if (e.key === 'Escape') end(false); };
-    inp.onblur = () => end(true);
-  }
+  typeText(val, max, done) { typeOver(this.menu, val, max, done, () => this.render()); }
   fileFor(what) { const f = $('lv-file'); f.dataset.for = what; f.value = ''; f.click(); }
 
   // -- PAINT: the team on it, its colors and pattern --
@@ -251,7 +270,7 @@ export class LiveryDesigner {
     if (!d) return rows;
     const lg = parseLogoAsset(d.asset), bl = d.bind === 'sponsor' && logoForName(boundText(c, 'sponsor')), text = d.text != null && !(bl && d.logo !== 'name');
     rows.push({ label: esc(this.decalName(d)), head: true },
-      { label: 'Move It', cls: 'action primary', action: () => T.startPlace('car', T.sel), desc: 'Move it on the car: the d-pad, the left stick, WASD or the arrows (or drag it with the mouse); Y or P for the next panel; LT RT or Z X for size; LB RB or Q E to turn it. A or Enter when it\'s right.' });
+      { label: 'Move It', cls: 'action primary', action: () => T.startPlace('car', T.sel), desc: 'Move it on the car: the d-pad, the left stick, WASD or the arrows (or drag it with the mouse, or use the sliders beside the car); Y or P for the next panel; LT RT or Z X for size; LB RB or Q E to turn it. A or Enter when it\'s right.' });
     if (d.bind) rows.push(this.info(`Reads ${esc(boundText(c, d.bind) || '(nothing yet)')}: it follows the ${d.bind === 'sponsor' ? 'title sponsor' : d.bind === 'number' ? 'car\'s race number (a teammate in your livery shows theirs here)' : 'team name'}.`));
     if (d.path) rows.push(
       { label: 'Edit Shape (mouse)', action: () => { sfx.select(); if (T.vec.open) T.vec.setTool('node'); else T.vec.start(d.panel, 'move'); }, desc: 'Its points and curves, in the shape editor.' },
@@ -306,7 +325,7 @@ export class LiveryDesigner {
     if (d) {
       const v = d.part === 'helmet' ? H : D;
       rows.push({ label: esc(d.name || d.text || 'Image'), head: true },
-        { label: 'Move It', cls: 'action primary', view: v, action: () => T.startPlace('kit', T.ksel), desc: 'Move it on the driver: the d-pad, the left stick, WASD or the arrows (or drag it with the mouse); Y or P for the next part. A or Enter when it\'s right.' });
+        { label: 'Move It', cls: 'action primary', view: v, action: () => T.startPlace('kit', T.ksel), desc: 'Move it on the driver: the d-pad, the left stick, WASD or the arrows (or drag it with the mouse, or use the sliders beside the car); Y or P for the next part. A or Enter when it\'s right.' });
       if (d.text != null) rows.push(this.textRow('Text', () => d.text, x => d.text = x, 20, [c.teamName, c.sponsor, 'RACING'].filter(Boolean), '', v),
         this.pickRow('Font', FONTS, () => d.font || 'impact', x => d.font = x, '', v),
         this.colorRow('Color', () => d.color ?? 0xffffff, x => d.color = x, { view: v }), this.colorRow('Outline', () => d.outline, x => d.outline = x, { none: true, view: v }));
@@ -325,26 +344,26 @@ export class LiveryDesigner {
     return rows;
   }
 
-  // -- SAVED: keep it, share it --
+  // -- SAVED: keep it (the team livery this car's version belongs to), share it --
   rows_saved() {
-    const c = this.car, T = this, mine = c.design && savedLiveries().find(e => e.id === c.design);
-    const saved = (e, verb) => { if (!e) { sfx.error(); return T.toast('COULD NOT SAVE (STORAGE FULL)'); } c.design = e.id; T.save(); sfx.best(); T.toast(e.dropped ? `${verb} · STORAGE WAS FULL: ${e.dropped} OLDEST REMOVED (EXPORT TO KEEP COPIES)` : verb); T.render(); };
+    const T = this, c = this.car;
     return [
-      { label: 'Save', head: true },
-      ...(mine ? [{ label: `Update ${esc(mine.name)}`, confirm: 'Write over it? Select again', action: () => saved(updateLivery(mine.id, c, () => {}), 'UPDATED ' + mine.name.toUpperCase()), desc: `Saves this livery over ${esc(mine.name)}, the one it came from.` }] : []),
-      { label: mine ? 'Save As New' : `Save ${esc(c.teamName || 'This Livery')}`, cls: 'action primary', action: () => saved(saveLivery(c, () => {}), 'SAVED ' + String(c.teamName || 'Your Team').toUpperCase()),
-        desc: 'Keeps a copy in Saved Liveries (in the Garage), where each one is tried on the car as you move to it. Your car keeps this look anyway: it saves as you go.' },
+      ...saveRows({ car: () => T.car, menu: T.menu, toast: (m) => T.toast(m.toUpperCase(), 3000), done: () => { T.save(); T.render(); },
+        fresh: () => { if (c.showSponsor) c.decals.unshift(...stickerDecals(c, T.def)); c.stickers = 'decals'; T.rebuild(); } }),
       { label: 'Share', head: true },
-      { label: 'Export Livery File', action: () => T.exportLivery(), desc: 'One file with the whole design and your images: send it to a friend, or keep a backup. It goes to your Downloads.' },
+      { label: 'Export Livery File', action: () => T.exportLivery(), desc: 'One file with the whole team livery (every car\'s version) and your images: send it to a friend, or keep a backup. It goes to your Downloads.' },
       { label: 'Import Livery File (mouse)', action: () => { const f = $('lv-import'); f.value = ''; f.click(); }, desc: 'A livery file someone sent you, onto this car.' },
       ...(DEV ? [{ label: 'For 3D Modelers', head: true },
         { label: 'UV Template (PNG)', action: () => (T.def.template ? T.def.template() : uvTemplate(T.def)).toBlob(b => download(`uv-template-${T.def.id}.png`, b)), desc: 'Liveries are stored per panel, not per model: UV-unwrap a new model so each panel lands where this template has it. See docs/CAR-MODELS.md.' },
         { label: 'This Livery\'s Texture', action: () => { const cv = T.garage.car?.livery; if (cv) cv.toBlob(b => download(`${(c.teamName || 'livery').replace(/\W+/g, '-')}-texture.png`, b)); } }] : []),
     ];
   }
+  // the file: this car's livery, and the whole team livery it belongs to (every car's version), with their images
   exportLivery() {
-    const c = this.car, data = { svgpLivery: 1, model: this.def.id, car: c, assets: assets.pick(liveryAssetIds(c)) };
-    download(`${(c.teamName || 'livery').replace(/[^\w -]/g, '').trim() || 'livery'}.svgp-livery.json`, new Blob([JSON.stringify(data)], { type: 'application/json' }));
+    const c = this.car, team = findLivery(c.design);
+    const ids = [...new Set([...liveryAssetIds(c), ...(team ? liveryLooks(team).flatMap(liveryAssetIds) : [])])];
+    const data = { svgpLivery: 2, model: this.def.id, car: c, livery: team ? { ...team, thumb: null } : null, assets: assets.pick(ids) };
+    download(`${((team && team.name) || c.teamName || 'livery').replace(/[^\w -]/g, '').trim() || 'livery'}.svgp-livery.json`, new Blob([JSON.stringify(data)], { type: 'application/json' }));
     this.toast('LIVERY EXPORTED');
   }
 
@@ -374,8 +393,39 @@ export class LiveryDesigner {
       if (inp.size) { d.size = Math.max(0.03, Math.min(3, d.size * (1 + inp.size * dt * 0.9))); moved = true; }
     }
     if (inp.rot) { let r = (d.rot || 0) + inp.rot * dt * 90; r = ((r + 180) % 360 + 360) % 360 - 180; d.rot = r; moved = true; }
+    if (moved) this.syncSliders();
     // (painting the car is the slow part: at most every 50 ms while it moves)
     if (moved) { P.t += dt; if (P.t > 0.05 || inp.next) { P.t = 0; this.repaint(); } }
+  }
+  // the sliders' fields for the decal being placed: [label, min, max, step, get, set, readout] (size on a log scale, so small ones get fine steps)
+  sliderFields() {
+    const P = this.place, d = this.placeDecal(); if (!d) return {};
+    const lg = (lo, hi, f) => [Math.log(lo), Math.log(hi), 0.001, () => Math.log(d.size), v => d.size = +Math.exp(v).toFixed(4), f], kit = P.kind === 'kit';
+    const pct = v => Math.round(v * 100) + '%', p = !kit && this.def.panels[d.panel];
+    const turn = { rot: ['Rotation', -180, 180, 1, () => d.rot || 0, v => d.rot = v, v => Math.round(v) + '&deg;'], opacity: ['Opacity', 0.1, 1, 0.01, () => d.opacity ?? 1, v => d.opacity = v, pct] };
+    const wrap = (o) => Object.fromEntries(Object.entries(o).map(([k, [label, min, max, step, get, set, fmt]]) => [k, { label, min, max, step, get, set, fmt }]));
+    // (Up / Down reads the other way round to the panel's y, so the slider's right end is up)
+    if (kit) return wrap({ x: ['Left / Right', 0, 1, 0.001, () => d.u, v => d.u = v, pct], y: ['Up / Down', -1, 0, 0.001, () => -d.v, v => d.v = -v, v => pct(1 + v)],
+      size: [d.text != null ? 'Letter Height' : 'Size', ...lg(0.02, 0.6, v => pct(Math.exp(v)))], ...turn });
+    if (!p) return {};
+    return wrap({ x: ['Left / Right', 0, p.W, 0.005, () => d.x, v => d.x = v, v => v.toFixed(2) + ' m'], y: ['Up / Down', -p.H, 0, 0.005, () => -d.y, v => d.y = -v, v => (p.H + v).toFixed(2) + ' m'],
+      size: [d.text != null ? 'Letter Height' : 'Size', ...lg(0.03, 3, v => Math.exp(v).toFixed(2) + ' m')], ...turn });
+  }
+  // the panel of sliders beside the car in Place mode (built on render; syncSliders keeps it up with the stick)
+  placeSliders() {
+    const S = $('lv-sliders'), P = this.place, d = this.placeDecal();
+    if (!d) { S.innerHTML = ''; return; }
+    const F = this.sliderFields(), where = P.kind === 'kit' ? KIT_PARTS[d.part] || d.part : this.def.panels[d.panel]?.label || d.panel;
+    S.innerHTML = `<h4>Move It</h4>
+      <div class="lv-pn"><button data-a="-1" title="The ${P.kind === 'kit' ? 'part' : 'panel'} before">&lsaquo;</button><b>${esc(where)}</b><button data-a="1" title="The next ${P.kind === 'kit' ? 'part' : 'panel'}">&rsaquo;</button></div>
+      ${Object.entries(F).map(([k, f]) => `<div class="fld"><label>${f.label}<span data-v="${k}"></span></label><input type="range" data-k="${k}" min="${f.min}" max="${f.max}" step="${f.step}"></div>`).join('')}
+      <div class="lv-btns"><button data-a="back">Put Back</button><button data-a="drop">Drop It</button></div>`;
+    this.syncSliders();
+  }
+  // the sliders and their readouts to the decal's values now (not the one being dragged: it's already there)
+  syncSliders(skip) {
+    const S = $('lv-sliders'), F = this.sliderFields();
+    S.querySelectorAll('input[data-k]').forEach(el => { const f = F[el.dataset.k]; if (!f) return; const v = f.get(); if (el !== skip) el.value = v; S.querySelector(`[data-v="${el.dataset.k}"]`).innerHTML = f.fmt(v); });
   }
   cursorTo(f) { const k = this.menu.items.findIndex(f); if (k >= 0) { this.menu.i = k; this.menu.render(); } }
   deleteSelected() {
@@ -450,8 +500,12 @@ export class LiveryDesigner {
       const data = JSON.parse(await file.text());
       if (!data || !data.svgpLivery || !data.car) throw new Error('not a livery file');
       for (const [id, url] of Object.entries(data.assets || {})) await assets.save(id, url);
-      // (onto this car, the model you're in, and you keep your own helmet, suit and crew)
-      const c = this.car, keep = { chassis: c.chassis, helmet: c.helmet, helmetDesign: c.helmetDesign, suit: c.suit, crew: c.crew }; Object.keys(c).forEach(k => delete c[k]); Object.assign(c, fillLivery({ ...data.car, ...keep }));
+      // (onto this car, the model you're in, and you keep your own helmet, suit and crew); a team livery goes in
+      // Saved Liveries too, and this car wears its version of it (or starts one in its colors)
+      const c = this.car, keep = { chassis: c.chassis, helmet: c.helmet, helmetDesign: c.helmetDesign, suit: c.suit, crew: c.crew };
+      const team = data.livery && addLivery(data.livery), ch = chassisOf(c);
+      const look = team ? (liveryOn(team, ch) || liveryStart(team, ch)) : { ...data.car, design: undefined };
+      Object.keys(c).forEach(k => delete c[k]); Object.assign(c, fillLivery({ ...look, ...keep }));
       this.sel = -1; this.rebuild(); this.render(); sfx.select(); this.toast('IMPORTED ' + String(c.teamName || '').toUpperCase());
     } catch (e) { sfx.error(); this.toast('THAT IS NOT A LIVERY FILE'); }
   }
@@ -460,4 +514,46 @@ export class LiveryDesigner {
 function download(name, blob) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+
+// typing over the menu row the cursor's on, in its panel (Enter keeps it, Esc leaves it as it was); the Garage uses it too
+export function typeOver(menu, val, max, done, after = () => {}) {
+  const row = menu.el.querySelector('.item.sel'); if (!row) return;
+  const box = row.closest('.panel') || menu.el.parentElement;
+  const inp = document.createElement('input'); inp.className = 'lv-type'; inp.maxLength = max; inp.value = val || ''; inp.spellcheck = false;
+  inp.style.top = (row.getBoundingClientRect().top - box.getBoundingClientRect().top) / (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui')) || 1) + 'px';
+  box.appendChild(inp); inp.focus(); inp.select();
+  let over = false; // (Enter, then the blur as it goes: once)
+  const end = (keep) => { if (over) return; over = true; inp.remove(); if (keep && inp.value.trim()) done(inp.value.trim().toUpperCase()); after(); };
+  inp.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') end(true); else if (e.key === 'Escape') end(false); };
+  inp.onblur = () => end(true);
+}
+
+// The save rows, the same in the Designer's Saved tab and the Garage's Saved Liveries: the team livery this car's look
+// belongs to (car.design) gets this car's version (Save To), or a new one is made from it (Save As New), or a new one
+// starts from nothing on this car (New Livery). Names are typed over the row.
+// o: car(), menu, toast(text), done() (saved: keep settings, redraw), fresh() (New Livery's car, before it's saved), onNew()
+const carName = (ch) => (carOf({ chassis: ch }) || { name: ch }).name;
+const theCar = (ch) => { const n = carName(ch); return /^your /i.test(n) ? 'your ' + n.slice(5) : 'the ' + n; }; // ("your F1 Car", "the Porsche 935")
+export function saveRows(o) {
+  const c = o.car(), ch = chassisOf(c), mine = findLivery(c.design), has = !!(mine && mine.cars[ch]), changed = !!mine && liveryChanged(mine, c);
+  const others = mine ? liveryCars(mine).filter(k => k !== ch).map(carName) : [];
+  const full = (e, msg) => { if (!e) { sfx.error(); o.toast('There\'s no room left to save it.'); return false; } sfx.best(); o.toast(e.dropped ? `${msg}. Storage was full: the ${e.dropped} oldest removed (Export keeps copies)` : msg); return true; };
+  const asNew = (name) => { const e = saveLivery(c, () => {}, name); if (full(e, `Saved ${name}`)) c.design = e.id; o.done(); };
+  const rows = [{ label: 'Save', head: true }];
+  if (mine) rows.push({ label: `Save To ${esc(mine.name)}<small>${has ? (changed ? 'Unsaved' : 'Saved') : 'New car'}</small>`, cls: 'action primary', confirm: has && changed ? 'Write over it? Select again' : undefined,
+    action: () => { if (has && !changed) { sfx.move(); return o.toast(`${mine.name} is saved`); } const e = updateLivery(mine.id, c, () => {}); full(e, e && e.added ? `Added the ${carName(ch)} to ${mine.name}` : `Saved ${mine.name}`); o.done(); },
+    desc: has ? `Saves ${esc(theCar(ch))}'s version of ${esc(mine.name)}.${others.length ? ` Its ${esc(others.join(', '))} ${others.length === 1 ? 'version stays' : 'versions stay'} as they are; the team name, number and sponsor go on every car.` : ''}`
+      : `Adds ${esc(theCar(ch))}'s version to ${esc(mine.name)}, next to its ${esc(others.join(', '))}. The team name, number and sponsor go on every car.` });
+  rows.push({ label: mine ? 'Save As New Livery' : 'Save This Livery', cls: mine ? 'action' : 'action primary', action: () => typeOver(o.menu, c.teamName || 'MY LIVERY', 24, asNew, () => o.done()),
+    desc: mine ? `Keeps this look as a team livery of its own (type its name). ${esc(mine.name)} stays as it was saved.` : 'Keeps this look as a team livery (type its name). Put it on your other cars from Saved Liveries, then save each one\'s version into it.' });
+  rows.push({ label: 'New Livery', cls: 'action', confirm: (mine ? changed : (c.decals || []).length) ? 'Unsaved changes go. Select again' : undefined,
+    action: () => typeOver(o.menu, 'NEW LIVERY', 24, (name) => {
+      for (const k of ['decals', 'stickers', 'wingColor']) delete c[k]; c.decals = []; c.pattern = 'solid';
+      if (o.fresh) o.fresh();
+      const e = saveLivery(c, () => {}, name); if (full(e, `Started ${name}`)) c.design = e.id; o.done(); if (e && o.onNew) o.onNew();
+    }, () => o.done()),
+    desc: 'Starts a new team livery on this car: your colors on a plain body with the standard stickers. Type its name, then design it.' });
+  if (mine) rows.push({ label: `Rename<small>${esc(mine.name)}</small>`, cls: 'action', action: () => typeOver(o.menu, mine.name, 24, (n) => { renameLivery(mine.id, n); sfx.select(); o.toast(`Now called ${n}`); }, () => o.done()), desc: 'Type a new name for this team livery.' });
+  return rows;
 }

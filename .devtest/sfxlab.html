@@ -1,0 +1,69 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Sound Lab</title>
+<base href="/"><!-- (the game's asset paths, assets/sfx/..., are from the root) -->
+<!-- dev: the tire and curb sounds (audio.js TyreVoice, CurbVoice) rendered offline, scenario by
+     scenario, three times each: the engine alone, the new sounds alone, then the mix. window.result: per scenario the
+     engine's typical level, the new sounds' loudest and their peak (dBFS), and the mix as a WAV (base64).
+     .devtest/sfxlab.mjs writes the WAVs and prints the table. ?only=name,name -->
+<body style="background:#111;color:#ccc;font:13px monospace"><pre id="log">rendering...</pre>
+<script type="module">
+import { initAudio, EngineVoice, TyreVoice, CurbVoice } from '/js/audio.js';
+const SR = 48000, FPS = 60;
+const lerp = (a, b, f) => a + (b - a) * Math.max(0, Math.min(1, f));
+// t -> the frame: e (engine), y (curbs)
+const R4 = ['road', 'road', 'road', 'road'];
+const E = (rpm, th, idle = 1000, red = 7200) => ({ rpm, throttle: th, idle, redline: red });
+const SC = {
+  corner_limit: { dur: 7, eng: 'i6', f: t => ({ e: E(5500, 0.6), y: { speed: 32, gripF: t < 1 ? 0.6 : t < 3 ? lerp(0.6, 1.1, (t - 1) / 2) : t < 4.5 ? lerp(1.1, 1.5, t - 3) : 0.7, gripR: 0.6, wheels: R4 } }) },
+  drift: { dur: 8, eng: 'v8cross', f: t => ({ e: E(6200, 0.9, 900, 7000), y: { speed: 22, gripF: 0.7, gripR: t < 1 ? 0.7 : t < 7 ? 1.5 : 0.7, wheels: R4 } }) },
+  lockup: { dur: 4, eng: 'v8flat', f: t => ({ e: E(lerp(7500, 4000, t / 2), 0, 1000, 8500), y: { speed: lerp(60, 15, t / 2.5), gripF: 0.9, gripR: 0.8, lockF: t > 0.5 && t < 2.3, wheels: R4 } }) },
+  launch_spin: { dur: 4, eng: 'i4turbo', f: t => ({ e: E(t < 0.5 ? 1000 : lerp(3000, 7000, (t - 0.5) * 2), t < 0.5 ? 0 : 1, 900, 7500), y: { speed: t < 0.5 ? 0 : lerp(1, 18, (t - 0.5) / 3), gripR: 0.8, gripF: 0.5, spin: t > 0.5 && t < 2.2 ? 0.3 : 0, wheels: R4 } }) },
+  road: { dur: 8, eng: 'f1v6', f: t => ({ e: E(lerp(5000, 12000, (t % 4) / 4), 1, 4000, 12500), y: { speed: lerp(0, 80, (t % 4) / 4), gripF: 0.5, gripR: 0.5, wheels: t > 4 ? ['concrete', 'concrete', 'concrete', 'concrete'] : R4 } }) },
+  offroad: { dur: 7, eng: 'i6', f: t => { const k = t < 0.5 ? 'road' : t < 2 ? 'grass' : t < 3.5 ? 'gravel' : t < 5 ? 'sand' : 'dirt'; return { e: E(4500, 0.3), y: { speed: 28, gripF: 0.5, gripR: 0.5, wheels: [k, k, k, k] } }; } },
+  wet: { dur: 6, eng: 'v10', f: t => ({ e: E(13000, 0.9, 4000, 18000), y: { speed: 55, wet: 1, gripF: 0.7, gripR: t > 3 && t < 5 ? 1.4 : 0.7, wheels: R4 } }) },
+  curbs: { dur: 7, eng: 'i6', f: t => ({ e: E(6000, 0.7), y: { speed: 38, kerbN: (t > 0.5 && t < 1.5) || (t > 2 && t < 3) || (t > 3.5 && t < 4) || (t > 4.5 && t < 5.5) ? 2 : 0,
+    kerbType: t < 1.75 ? 'raised' : t < 3.25 ? 'saw' : t < 4.25 ? 'sausage' : 'flat' } }) },
+};
+function wav(L, R) {
+  const n = L.length, b = new ArrayBuffer(44 + n * 4), v = new DataView(b), w = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 4, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 2, true);
+  v.setUint32(24, SR, true); v.setUint32(28, SR * 4, true); v.setUint16(32, 4, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 4, true);
+  for (let i = 0; i < n; i++) { v.setInt16(44 + i * 4, Math.max(-1, Math.min(1, L[i])) * 32767, true); v.setInt16(46 + i * 4, Math.max(-1, Math.min(1, R[i])) * 32767, true); }
+  let s = ''; const u = new Uint8Array(b); for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+const db = (x) => x > 0 ? +(20 * Math.log10(x)).toFixed(1) : -120;
+// short-term (100 ms) RMS of both channels: [median, loudest], and the peak
+function stats(buf) {
+  const L = buf.getChannelData(0), R = buf.getChannelData(1), W = SR / 10, rms = [];
+  let pk = 0;
+  for (let i = 0; i + W <= L.length; i += W) { let s = 0; for (let j = i; j < i + W; j++) { s += L[j] * L[j] + R[j] * R[j]; pk = Math.max(pk, Math.abs(L[j]), Math.abs(R[j])); } rms.push(Math.sqrt(s / (2 * W))); }
+  const srt = [...rms].sort((a, b) => a - b);
+  const half = []; for (let i = 0; i < rms.length; i += 5) half.push(db(Math.max(...rms.slice(i, i + 5))));
+  return { med: db(srt[srt.length >> 1]), max: db(srt[srt.length - 1]), peak: db(pk), half };
+}
+async function render(name, sc, part) { // part: 'eng', 'fx' or 'mix'
+  const ctx = new OfflineAudioContext(2, SR * sc.dur, SR);
+  initAudio(ctx);
+  const ev = new EngineVoice(true, sc.eng), ty = new TyreVoice(true), cv = new CurbVoice();
+  await new Promise(r => setTimeout(r, 1200)); // (the engine worklet and the tire loops loading)
+  const step = (t) => {
+    const F = sc.f(t);
+    ev.update({ engine: sc.eng, ...F.e, speed: F.y.speed, gain: part === 'fx' ? 0 : 1 });
+    cv.update({ ...F.y, gain: part === 'eng' ? 0 : 1 });
+    ty.update({ ...F.y, gain: part === 'eng' ? 0 : 1 });
+  };
+  for (let k = 0; k < sc.dur * FPS - 1; k++) { const t = k / FPS; ctx.suspend(t).then(() => { step(t); ctx.resume(); }); }
+  return ctx.startRendering();
+}
+const only = new URLSearchParams(location.search).get('only');
+const out = {};
+for (const [name, sc] of Object.entries(SC)) {
+  if (only && !only.split(',').includes(name)) continue;
+  const eng = stats(await render(name, sc, 'eng')), fxB = await render(name, sc, 'fx'), fx = stats(fxB), mixB = await render(name, sc, 'mix'), mix = stats(mixB);
+  out[name] = { eng, fx, mix, wav: wav(mixB.getChannelData(0), mixB.getChannelData(1)), alone: wav(fxB.getChannelData(0), fxB.getChannelData(1)) };
+  document.getElementById('log').textContent += `\n${name}: engine ${eng.med} dB, new sounds loudest ${fx.max} peak ${fx.peak}, mix peak ${mix.peak}`;
+}
+window.result = out; window.done = 1;
+</script>

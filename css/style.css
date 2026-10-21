@@ -1073,6 +1073,16 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 #s-livery.placing .lv-side { display: none; }
 .lv-place { position: absolute; left: 50%; top: 76px; transform: translateX(-50%); display: none; text-align: center; padding: 10px 22px; background: rgba(5,3,8,.8); }
 #s-livery.placing .lv-place { display: block; }
+/* (and a panel of sliders where the list was: position, size, turn, opacity, the panel; Drop / Put Back) */
+.lv-sliders { position: absolute; right: 0; top: 52px; width: 400px; box-sizing: border-box; display: none; padding: 20px 24px 22px; background: linear-gradient(90deg, rgba(4,3,8,.82), rgba(4,3,8,.94)); pointer-events: auto; }
+#s-livery.placing .lv-sliders { display: block; }
+.lv-sliders h4 { font: 500 var(--t-caption)/1 var(--f-ui); letter-spacing: var(--track-caption); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; margin: 0 0 16px; }
+.lv-sliders .fld { margin-bottom: 16px; }
+.lv-sliders .lv-pn { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+.lv-sliders .lv-pn b { flex: 1; text-align: center; font: 500 16px/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-hot); }
+.lv-sliders .lv-pn button { width: 34px; font-size: 15px !important; padding: 5px 0 !important; }
+.lv-sliders .lv-btns { display: flex; gap: 8px; margin-top: 22px; }
+.lv-sliders .lv-btns button { flex: 1; font-size: 14px !important; padding: 8px 0 !important; }
 .lv-place b { display: block; font: 500 22px/1.2 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-amber); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
 .lv-place small { display: block; margin-top: 4px; font: 500 13px/1.4 var(--f-body); color: var(--sv-red); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; }
 #s-livery .footer-hints { pointer-events: auto; }

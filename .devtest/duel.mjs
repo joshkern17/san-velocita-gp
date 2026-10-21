@@ -27,8 +27,9 @@ try {
     window.__svgp.startRace(t, { mode: 'race', laps: 99, opponents: 2, aiChassis: 'same', car: S.car, extra }, 'menu');
   }, [id, JSON.parse(process.env.EXTRA || '{}')]);
   await pg.waitForFunction(() => window.__svgp.sim && window.__svgp.sim.cars && window.__svgp.sim.cars.length > 2 && window.__svgp.sim.lineV, null, { timeout: 180000 });
-  let { out: r, rear } = await pg.evaluate(([GAP, AGG, DEF, LEADPACE]) => {
-    const sim = window.__svgp.sim; sim.setPaused(true); sim.paused = false; window.__svgp.sim = null;
+  let { out: r, rear, LOGS } = await pg.evaluate(async ([GAP, AGG, DEF, LEADPACE, TR]) => {
+    const { nextCorner } = await import('/js/racecraft.js');
+    const sim = window.__svgp.sim; sim.passDbgNC = (car) => { const nc = nextCorner(sim, car.idx, car.lineV || sim.lineV); return nc ? `${nc.dB.toFixed(0)}/${nc.dA.toFixed(0)}` : null; }; sim.setPaused(true); sim.paused = false; window.__svgp.sim = null;
     let a = 7 * 2654435761 >>> 0; Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
     sim.removeCar(sim.player);
     sim.state = 'racing'; sim.stateT = 0; sim.mistakeP = 0; sim.damageK = 0; sim.raceTime = 60;
@@ -54,12 +55,14 @@ try {
         sim.update(1 / 60, { steer: 0, throttle: 0, brake: 0, handbrake: 0 }, {});
         const o = !A.onRoad; if (o && !wasOff) off++; wasOff = o; if (!D.onRoad && f > 60) offD = 1;
         ahead = (((A.progress - D.progress) % T.L) + T.L * 1.5) % T.L - T.L / 2; if (f === 180) minG = -ahead;
+        if (TR && c.n === TR && f % 6 === 0) LOGS.push(`${(f / 60).toFixed(1)}s ${A.ai.pass ? A.ai.pass.stage + (A.ai.pass.own ? '!' : '') + (A.ai.pass.late ? 'L' : '') : '-'} g${(-ahead).toFixed(1)} uA${(A.phys.u * 3.6).toFixed(0)} uD${(D.phys.u * 3.6).toFixed(0)} sA${A.s.toFixed(1)} sD${D.s.toFixed(1)} bA${(A.ctl.brake || 0).toFixed(2)} bD${(D.ctl.brake || 0).toFixed(2)} dB${(() => { const nc = sim.passDbgNC ? sim.passDbgNC(A) : null; return nc; })()} @${(A.idx * T.ds).toFixed(0)}`);
       }
       const ev = sim.passLog.map(e => e.kind === "dbg" ? "[" + e.ev + "]" : `${e.ev}${e.ev === 'try' ? ':' + e.kind : ''}`).join(' ');
       out.push({ c: c.n, ag, df, void: minG > 25, offD, g3: +minG.toFixed(1), passed: ahead > 3, end: +ahead.toFixed(1), contacts: contacts - c0, off, ev });
     }
-    return { out, rear };
-  }, [GAP, AGG, DEF, +(process.env.LEADPACE || 1)]);
+    return { out, rear, LOGS };
+  }, [GAP, AGG, DEF, +(process.env.LEADPACE || 1), +(process.env.TRACE || 0)]);
+  if (LOGS && LOGS.length) console.log(LOGS.join('\n'));
   for (const t of r) if (process.env.LOG) console.log(`T${t.c} att${t.ag} def${t.df} ${t.void ? 'void  ' : t.passed ? 'PASSED' : '      '}${t.offD ? ' Doff' : '     '} g3s${t.g3} end${t.end} hit${t.contacts} off${t.off}  ${t.ev}`);
   const V = r.filter(t => !t.void), n = V.length, P = V.filter(t => t.passed).length;
   const r0 = r; r = V; const _n = n, H = r.reduce((s, t) => s + t.contacts, 0), O = r.reduce((s, t) => s + t.off, 0);

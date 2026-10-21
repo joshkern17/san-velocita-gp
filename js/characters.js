@@ -23,7 +23,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { applyPSXMaterial } from '../vendor/psx/src/PSXMaterial.js';
-import { fillLivery, paintHelmet, paintSuit, paintBoots, decalRaster, VISOR_COL, decalImage } from './livery.js';
+import { fillLivery, paintHelmet, paintSuit, paintBoots, decalRaster, VISOR_COL, decalImage, drapeSticker, stickerMesh } from './livery.js';
 import { logoAsset, logoForName } from './sponsorlogos.js';
 
 export const LOOKS = [
@@ -514,7 +514,10 @@ function texelMap(name) {
     for (const [k, kk] of add) { for (let j = 0; j < 3; j++) { pos[k * 3 + j] = pos[kk * 3 + j]; nrm[k * 3 + j] = nrm[kk * 3 + j]; } ok[k] = 2; }
     for (const [k] of add) ok[k] = 1;
   }
-  const map = { W, H, pos, nrm, ok };
+  // (and the mesh itself, for the helmet's stickers: livery.js drapeSticker)
+  const tp = new Float32Array(idx.length * 3), tn = new Float32Array(idx.length * 3);
+  for (let t = 0; t < idx.length; t++) for (let j = 0; j < 3; j++) { tp[t * 3 + j] = vp[idx[t] * 3 + j]; tn[t * 3 + j] = vn[idx[t] * 3 + j]; }
+  const map = { W, H, pos, nrm, ok, tp, tn, torso: name === 'SuitTorso' };
   MAPS.set(name, map);
   return map;
 }
@@ -567,6 +570,69 @@ function tangentsAt(m, k) {
   const u = diff(1, 0), v = diff(0, 1);
   return u && v ? { u, v } : null;
 }
+// The suit: each part is a tube (a row of texels is a ring round the torso, a leg or a sleeve), and a decal is laid in
+// the part's own surface: across = the distance round the rings from its anchor (the short way), down = the distance
+// along the columns, both measured over the body (surfaceOf), so it wraps a curve like vinyl and can go all the way
+// round. It carries on onto the parts that meet its own (the chest onto a sleeve, the side down a leg): where the two
+// meet, each texel of the other part takes the decal's place at the nearest texel of this one, and one rigid move of
+// the other part's own surface (turned and shifted to fit those, least squares) lays the decal on the rest of it, so
+// it runs on without a seam. (Each ring pinned on its own, as before, came out in steps and shreds near the arm holes.)
+// The helmet: draped over the shell from the side it faces, like a car's sticker (livery.js drapeSticker), ending
+// cleanly where the shell turns more than ~73 degrees away instead of smearing round to the visor.
+const JOIN = 0.03, FACE_CUT = [0.26, 0.34];
+const wrapTo = (s, C) => (C > 0 ? s - Math.round(s / C) * C : s);
+// A part's surface coordinates from texel k0: (k) -> [round it, along it] (m). Sleeves and legs are clean tubes in
+// their uvs (a row of texels is a ring), so it's distances along their rows and columns (surfaceOf). The torso's
+// unwrap isn't (arm holes in the middle, the chest fanned out round them), so the torso goes by its shape instead:
+// a cylinder round the body's upright axis (torsoGrid), distances measured over the surface round each slice and
+// up each meridian, whatever its uvs do.
+function surfFrom(m, k0) {
+  if (m.torso) {
+    const G = torsoGrid(m), [h0, t0] = G.cell(k0), { NH, NT, DH, R } = G, X = new Float32Array(NH * NT), Y = new Float32Array(NH * NT);
+    for (let i = 0; i < NH; i++) for (const dir of [1, -1]) { let acc = 0; for (let n = 1; n <= NT / 2; n++) { const a = (t0 + (n - 1) * dir + NT) % NT, b = (t0 + n * dir + NT) % NT, ra = R[i * NT + a], rb = R[i * NT + b]; acc += step((ra + rb) / 2 * 2 * Math.PI / NT, rb - ra); X[i * NT + b] = acc * dir; } }
+    // (up the meridians from the anchor's slice, then each slice's own distance round added on from there)
+    const Yc = new Float32Array(NH * NT);
+    for (let j = 0; j < NT; j++) for (const dir of [1, -1]) { let acc = 0; for (let i = h0 + dir; i >= 0 && i < NH; i += dir) { const ra = R[(i - dir) * NT + j], rb = R[i * NT + j]; acc += step(DH, rb - ra); Yc[i * NT + j] = acc * dir; } }
+    for (let i = 0; i < NH; i++) for (let j = 0; j < NT; j++) Y[i * NT + j] = Yc[i * NT + j];
+    const look = ([hi, tj, fh, ft]) => { const at = (A, i, j) => A[Math.min(NH - 1, i) * NT + (j % NT)];
+      const lerp = (A) => { let a = at(A, hi, tj), b = at(A, hi, tj + 1), c = at(A, hi + 1, tj), d = at(A, hi + 1, tj + 1); if (A === X) { const fix = (v) => Math.abs(v - a) > 0.5 ? a : v; b = fix(b); c = fix(c); d = fix(d); } return (a * (1 - ft) + b * ft) * (1 - fh) + (c * (1 - ft) + d * ft) * fh; };
+      return [lerp(X), lerp(Y)]; };
+    const f = (k) => look(G.cell(k, true));
+    f.atPos = (px, py, pz) => look(G.at(px, py, pz, true)); // (any point near the torso: a raglan sleeve's top, a leg's)
+    f.off = G.off;
+    return f;
+  }
+  const { cu, cv, C } = surfaceOf(m), x0 = k0 % m.W, y0 = (k0 / m.W) | 0;
+  return (k) => { const x = k % m.W, y = (k / m.W) | 0; return [wrapTo(cu[k] - cu[y * m.W + x0], C[y]), cv[k] - cv[y0 * m.W + x]]; };
+}
+// a step of d across the surface rising dz: its length over the surface up to slopes of 4 to 1; steeper than that it's a
+// step between surfaces (the shoulders flaring out of the back), eased back to d by 8 to 1, as livery.js measures a
+// car's stickers (measured straight, the jump pushed everything past it off the decal: wedges cut into the upper back)
+function step(d, dz) {
+  const sl = Math.abs(dz) / d, top = Math.sqrt(17);
+  return d * (sl <= 4 ? Math.sqrt(1 + sl * sl) : sl >= 8 ? 1 : top + (1 - top) * (sl - 4) / 4);
+}
+// the torso as a cylinder: its outer radius over height (1.5 cm slices, up = +) and angle round the upright axis
+function torsoGrid(m) {
+  if (m.cyl) return m.cyl;
+  const n = m.W * m.H, NT = 180, DH = 0.015; let cx = 0, cz = 0, c = 0, y0 = Infinity, y1 = -Infinity;
+  for (let k = 0; k < n; k++) if (m.ok[k]) { cx += m.pos[k * 3]; cz += m.pos[k * 3 + 2]; c++; y0 = Math.min(y0, m.pos[k * 3 + 1]); y1 = Math.max(y1, m.pos[k * 3 + 1]); }
+  cx /= c; cz /= c; const NH = Math.ceil((y1 - y0) / DH) + 2, R = new Float32Array(NH * NT).fill(-1);
+  const at = (px, py, pz, frac) => { const x = px - cx, z = pz - cz, fh = Math.max(0, (y1 - py) / DH), ft = ((Math.atan2(z, x) / (2 * Math.PI)) + 1) % 1 * NT;
+    const hi = Math.min(NH - 1, fh | 0), tj = (ft | 0) % NT; return frac ? [hi, tj, fh - hi, ft - (ft | 0)] : [Math.min(NH - 1, Math.round(fh)), Math.round(ft) % NT]; };
+  const cell = (k, frac) => at(m.pos[k * 3], m.pos[k * 3 + 1], m.pos[k * 3 + 2], frac);
+  for (let k = 0; k < n; k++) if (m.ok[k]) { const [i, j] = cell(k), r = Math.hypot(m.pos[k * 3] - cx, m.pos[k * 3 + 2] - cz); if (r > R[i * NT + j]) R[i * NT + j] = r; }
+  // (gaps: across each slice from the radius either side, round the circle; empty slices from the nearest full one)
+  for (let i = 0; i < NH; i++) {
+    const row = R.subarray(i * NT, (i + 1) * NT), has = [...row.keys()].filter(j => row[j] > 0); if (!has.length) continue;
+    for (let j = 0; j < NT; j++) { if (row[j] > 0) continue; let a = j, b = j; while (row[(a + NT) % NT] <= 0) a--; while (row[b % NT] <= 0) b++; const ra = row[(a + NT) % NT], rb = row[b % NT]; row[j] = ra + (rb - ra) * (j - a) / (b - a); }
+  }
+  for (let pass = 0; pass < NH; pass++) { let left = false; for (let i = 0; i < NH; i++) if (R[i * NT] <= 0) { const s = i > 0 && R[(i - 1) * NT] > 0 ? i - 1 : i + 1 < NH && R[(i + 1) * NT] > 0 ? i + 1 : -1; if (s >= 0) R.copyWithin(i * NT, s * NT, (s + 1) * NT); else left = true; } if (!left) break; }
+  // (how far a point stands off the torso's outer surface there, m: 0 on it)
+  const off = (px, py, pz) => { const [i, j] = at(px, py, pz); return Math.hypot(px - cx, pz - cz) - R[i * NT + j]; };
+  return (m.cyl = { NH, NT, DH, R, cell, at, off });
+}
+export const _kitMap = (name) => { const m = texelMap(name); if (m) surfaceOf(m); return m; }; // (dev: .devtest/uniformlab.html ?uvdump)
 function projectDecals(decals, targets, onReady) {
   if (!decals.length) return;
   for (const t of targets) t.map = texelMap(t.name.replace(/\.\d+$/, ''));
@@ -580,71 +646,123 @@ function projectDecals(decals, targets, onReady) {
     const up = Math.abs(N.y) > 0.95 ? new THREE.Vector3(0, 0, -Math.sign(N.y)) : new THREE.Vector3(0, 1, 0);
     const U = up.sub(N.clone().multiplyScalar(up.dot(N))).normalize(), R = new THREE.Vector3().crossVectors(U, N);
     const c = Math.cos((d.rot || 0) * Math.PI / 180), sn = Math.sin((d.rot || 0) * Math.PI / 180);
-    const put = (o, q, x, y, fade) => { // decal plane coords (x right, y up, metres) -> blend its pixel in
+    const put = (o, q, x, y, fade) => { // decal plane coords (x right, y up, metres) -> blend its pixel in (bilinear)
       const xr = x * c - y * sn, yr = y * c + x * sn;
       let iu = xr / w + 0.5; const iv = 0.5 - yr / h;
       if (iu < 0 || iu >= 1 || iv < 0 || iv >= 1) return;
       if (d.flip) iu = 1 - iu;
-      const s = (Math.floor(iv * r.H) * r.W + Math.floor(iu * r.W)) * 4, al = r.data[s + 3] / 255 * op * fade;
-      if (al <= 0) return;
-      o[q] += (r.data[s] - o[q]) * al; o[q + 1] += (r.data[s + 1] - o[q + 1]) * al; o[q + 2] += (r.data[s + 2] - o[q + 2]) * al;
+      const fx = Math.max(0, Math.min(r.W - 1.001, iu * r.W - 0.5)), fy = Math.max(0, Math.min(r.H - 1.001, iv * r.H - 0.5)), ix = fx | 0, iy = fy | 0, tx = fx - ix, ty = fy - iy;
+      let A = 0, cr = 0, cg = 0, cb = 0;
+      for (const [qx, qy, wt] of [[ix, iy, (1 - tx) * (1 - ty)], [ix + 1, iy, tx * (1 - ty)], [ix, iy + 1, (1 - tx) * ty], [ix + 1, iy + 1, tx * ty]]) {
+        const sI = (qy * r.W + qx) * 4, wa = wt * r.data[sI + 3]; if (!wa) continue; A += wa; cr += wa * r.data[sI]; cg += wa * r.data[sI + 1]; cb += wa * r.data[sI + 2];
+      }
+      const al = A / 255 * op * fade; if (al <= 0) return;
+      o[q] += (cr / A - o[q]) * al; o[q + 1] += (cg / A - o[q + 1]) * al; o[q + 2] += (cb / A - o[q + 2]) * al;
     };
+    if (d.part === 'helmet') { for (const t of targets) if (t.map === a.map) helmetSticker(t.map, t.data, P, N, R, U, reach, put); continue; }
+    // this part: the surface's directions at the anchor, round the rings and along the columns, as decal plane axes
+    // (the torso's are its cylinder's: round the upright axis, and straight down; see surfFrom)
+    let TA;
+    if (a.map.torso) { const G = torsoGrid(a.map), [, tj] = G.cell(a.k), th = (tj / G.NT) * 2 * Math.PI; TA = { u: new THREE.Vector3(-Math.sin(th), 0, Math.cos(th)), v: new THREE.Vector3(0, -1, 0) }; }
+    else TA = tangentsAt(a.map, a.k);
+    if (!TA) continue;
+    let es = [TA.u.dot(R), TA.u.dot(U)]; const el = Math.hypot(...es); if (el < 1e-3) continue; es = es.map(v => v / el);
+    const along = TA.v.dot(R) * -es[1] + TA.v.dot(U) * es[0], et = along >= 0 ? [-es[1], es[0]] : [es[1], -es[0]];
+    const coords = new Map(); // map -> Float32Array of plane coords per texel (NaN: off it)
+    const sfA = surfFrom(a.map, a.k), toPlane = (s, t) => [s * es[0] + t * et[0], s * es[1] + t * et[1]];
+    { const m = a.map, n = m.W * m.H, XY = new Float32Array(n * 2).fill(NaN), sf = sfA;
+      for (let k = 0; k < n; k++) { if (!m.ok[k]) continue; const [s, t] = sf(k); if (Math.abs(s) > reach + 0.1 || Math.abs(t) > reach + 0.1) continue; XY[k * 2] = s * es[0] + t * et[0]; XY[k * 2 + 1] = s * es[1] + t * et[1]; }
+      coords.set(m, XY); }
+    // the parts that meet it, where the decal reaches the join
+    const A = a.map, XA = coords.get(A), cell = (p) => `${Math.floor(p[0] / JOIN)},${Math.floor(p[1] / JOIN)},${Math.floor(p[2] / JOIN)}`, grid = new Map();
+    for (let k = 0; k < A.W * A.H; k++) if (A.ok[k] === 1 && !Number.isNaN(XA[k * 2]) && Math.hypot(XA[k * 2], XA[k * 2 + 1]) < reach) { const key = cell([A.pos[k * 3], A.pos[k * 3 + 1], A.pos[k * 3 + 2]]); (grid.get(key) || grid.set(key, []).get(key)).push(k); }
     for (const t of targets) {
-      const m = t.map; if (!m) continue;
-      const o = t.data, n = m.W * m.H;
-      if (d.part === 'helmet') { // the helmet: projected flat like a sticker (it's round; fades where it turns away)
-        for (let k = 0; k < n; k++) {
-          if (!m.ok[k]) continue;
-          const dx = m.pos[k * 3] - P.x, dy = m.pos[k * 3 + 1] - P.y, dz = m.pos[k * 3 + 2] - P.z;
-          if (dx * dx + dy * dy + dz * dz > reach * reach + DECAL_DEPTH * DECAL_DEPTH) continue;
-          const z = dx * N.x + dy * N.y + dz * N.z, face = m.nrm[k * 3] * N.x + m.nrm[k * 3 + 1] * N.y + m.nrm[k * 3 + 2] * N.z;
-          if (Math.abs(z) > DECAL_DEPTH || face < 0.05) continue;
-          put(o, k * 4, dx * R.x + dy * R.y + dz * R.z, dx * U.x + dy * U.y + dz * U.z, Math.min(1, (face - 0.05) / 0.3) * Math.min(1, (DECAL_DEPTH - Math.abs(z)) / 0.04));
-        }
-        continue;
-      }
-      // The suit: projected flat like the helmet, except that distances ROUND each part (a row of texels is a ring
-      // round the torso, a leg or a sleeve) are measured over the surface, like vinyl wrapping a curve. Each ring is
-      // pinned where the flat projection puts the decal's centre line, so the decal runs on unbroken from part to part;
-      // rings its centre doesn't reach (the other leg) are left alone.
-      let rep = -1, best = reach * reach;
-      if (m === a.map) rep = a.k;
-      else for (let k = 0; k < n; k++) {
+      const m = t.map; if (!m || m === A || coords.has(m) || t.name.startsWith('Helmet')) continue;
+
+      const pairs = []; // [texel on m, the decal plane coords there]
+      // (the join is at the open end of the other part's tube, its first or last rows: a sleeve hanging by the torso
+      // touches its flank all the way down, and those aren't where the decal carries on)
+      const END = 4;
+      for (let k = 0; k < m.W * m.H; k++) {
         if (m.ok[k] !== 1) continue;
-        const kx = k % m.W, ky = (k / m.W) | 0; // (a texel with neighbours all round: the surface's direction is known there)
-        if (ky < 2 || ky > m.H - 3 || !m.ok[ky * m.W + (kx + 2) % m.W] || !m.ok[ky * m.W + (kx - 2 + m.W) % m.W] || !m.ok[k - 2 * m.W] || !m.ok[k + 2 * m.W]) continue;
-        const dx = m.pos[k * 3] - P.x, dy = m.pos[k * 3 + 1] - P.y, dz = m.pos[k * 3 + 2] - P.z, d2 = dx * dx + dy * dy + dz * dz;
-        if (d2 < best && m.nrm[k * 3] * N.x + m.nrm[k * 3 + 1] * N.y + m.nrm[k * 3 + 2] * N.z > 0.2) { best = d2; rep = k; }
-      }
-      if (rep < 0) continue;
-      const T = tangentsAt(m, rep); if (!T) continue;
-      // the rings' direction in the decal's plane, and how far the decal reaches that way
-      let rx = T.u.dot(R), ry = T.u.dot(U); const rl = Math.hypot(rx, ry); if (rl < 1e-3) continue; rx /= rl; ry /= rl;
-      // onto another part only where its rings cross the decal's length (a stripe down the body carries on down a leg;
-      // a band round the chest carries on round a sleeve; a stripe never runs along a sleeve's rings)
-      if (m !== a.map) { const lx = h >= w ? -sn : c, ly = h >= w ? c : sn; if (Math.abs(rx * lx + ry * ly) > 0.7) continue; }
-      const half = (Math.abs(rx * c + ry * sn) * w + Math.abs(ry * c - rx * sn) * h) / 2; // (the rotated decal's extent along the rings)
-      const { cu, C } = surfaceOf(m);
-      for (let y = 0; y < m.H; y++) {
-        // this ring's crossing: the front-facing texel the flat projection puts nearest the centre line
-        let cx = -1, ct = Infinity, cxp = 0, cyp = 0;
-        for (let x = 0; x < m.W; x++) {
-          const k = y * m.W + x; if (!m.ok[k]) continue;
-          if (m.nrm[k * 3] * N.x + m.nrm[k * 3 + 1] * N.y + m.nrm[k * 3 + 2] * N.z < 0.1) continue;
-          const dx = m.pos[k * 3] - P.x, dy = m.pos[k * 3 + 1] - P.y, dz = m.pos[k * 3 + 2] - P.z;
-          if (Math.abs(dx * N.x + dy * N.y + dz * N.z) > DECAL_DEPTH) continue;
-          const xp = dx * R.x + dy * R.y + dz * R.z, yp = dx * U.x + dy * U.y + dz * U.z, t = Math.abs(xp * rx + yp * ry);
-          if (t < ct) { ct = t; cx = x; cxp = xp; cyp = yp; }
+        const ky = (k / m.W) | 0; if (ky >= END && ky < m.H - END) continue;
+        const p = [m.pos[k * 3], m.pos[k * 3 + 1], m.pos[k * 3 + 2]], g0 = p.map(v => Math.floor(v / JOIN));
+        let best = JOIN * JOIN, bk = -1;
+        for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (let l = -1; l <= 1; l++) for (const ka of grid.get(`${g0[0] + i},${g0[1] + j},${g0[2] + l}`) || []) {
+          const d2 = (A.pos[ka * 3] - p[0]) ** 2 + (A.pos[ka * 3 + 1] - p[1]) ** 2 + (A.pos[ka * 3 + 2] - p[2]) ** 2; if (d2 < best) { best = d2; bk = ka; }
         }
-        if (cx < 0 || ct > half) continue;
-        const c0 = cu[y * m.W + cx], Cy = C[y];
-        for (let x = 0; x < m.W; x++) {
-          const k = y * m.W + x; if (!m.ok[k]) continue;
-          let s = cu[k] - c0; if (Cy > 0) s -= Math.round(s / Cy) * Cy; // round the ring, the short way (metres)
-          put(o, k * 4, cxp + rx * s, cyp + ry * s, 1);
-        }
+        if (bk < 0) continue;
+        // (only where the decal itself crosses the join: an arm hole is a loop round the torso's surface but a straight
+        // ring on the sleeve, so the join as a whole has no one fit, the stretch the decal crosses does)
+        const x = XA[bk * 2], y = XA[bk * 2 + 1], xr = x * c - y * sn, yr = y * c + x * sn;
+        if (Math.abs(xr) < w / 2 + 0.04 && Math.abs(yr) < h / 2 + 0.04) pairs.push([k, x, y]);
       }
+      const near = sfA.atPos ? onTorso(m, sfA, P, R, U, toPlane) : null; // (from the torso: see onTorso)
+      if (pairs.length < 6) { if (near) coords.set(m, near); continue; }
+      // its own surface coordinates from the join texel nearest the decal's middle, then the rigid move onto the pairs
+      let k0 = pairs[0][0], bd = Infinity; for (const [k, x, y] of pairs) if (x * x + y * y < bd) { bd = x * x + y * y; k0 = k; }
+      const sf = surfFrom(m, k0), src = pairs.map(([k]) => sf(k)), dst = pairs.map(([, x, y]) => [x, y]);
+      const fit = rigid(src, dst); if (!fit || fit.err > 0.025) { if (near) coords.set(m, near); continue; }
+      // (and only where it would be seen from the decal's own side too: within 8 cm of where a flat projection from its
+      // anchor puts it. Past the join a sleeve bends away, and "on across the seam" would run a chest band down the arm)
+      const n = m.W * m.H, XY = new Float32Array(n * 2).fill(NaN), FLAT = 0.08;
+      for (let k = 0; k < n; k++) {
+        if (!m.ok[k]) continue; const [s, tt] = sf(k); if (Math.abs(s) > 2 * reach + 0.2 || Math.abs(tt) > 2 * reach + 0.2) continue;
+        const [x, y] = fit.apply(s, tt), dx = m.pos[k * 3] - P.x, dy = m.pos[k * 3 + 1] - P.y, dz = m.pos[k * 3 + 2] - P.z;
+        if (Math.abs(dx * R.x + dy * R.y + dz * R.z - x) > FLAT || Math.abs(dx * U.x + dy * U.y + dz * U.z - y) > FLAT) continue;
+        XY[k * 2] = x; XY[k * 2 + 1] = y;
+      }
+      if (near) for (let k = 0; k < n; k++) if (!Number.isNaN(near[k * 2])) { XY[k * 2] = near[k * 2]; XY[k * 2 + 1] = near[k * 2 + 1]; }
+      coords.set(m, XY);
     }
+    for (const t of targets) {
+      const XY = coords.get(t.map); if (!XY) continue;
+      for (let k = 0; k < t.map.W * t.map.H; k++) if (!Number.isNaN(XY[k * 2])) put(t.data, k * 4, XY[k * 2], XY[k * 2 + 1], 1);
+    }
+  }
+}
+// From the torso, its coordinates go by position, so they carry on as they are over another part's texels lying on
+// the torso's own surface (within 3 cm: a raglan sleeve's top across the back), where the decal would be seen from its
+// side too. Not a sleeve hanging beside it: that's at the same height and angle, but off its surface.
+function onTorso(m, sf, P, R, U, toPlane) {
+  const n = m.W * m.H, XY = new Float32Array(n * 2).fill(NaN); let any = false;
+  for (let k = 0; k < n; k++) {
+    if (!m.ok[k]) continue;
+    const px = m.pos[k * 3], py = m.pos[k * 3 + 1], pz = m.pos[k * 3 + 2]; if (Math.abs(sf.off(px, py, pz)) > 0.03) continue;
+    const [x, y] = toPlane(...sf.atPos(px, py, pz)), dx = px - P.x, dy = py - P.y, dz = pz - P.z;
+    if (Math.abs(dx * R.x + dy * R.y + dz * R.z - x) > 0.08 || Math.abs(dx * U.x + dy * U.y + dz * U.z - y) > 0.08) continue;
+    XY[k * 2] = x; XY[k * 2 + 1] = y; any = true;
+  }
+  return any ? XY : null;
+}
+// the turn (or turn and flip) + shift taking points src onto dst best (least squares): { apply(x, y), err (rms, m) }
+function rigid(src, dst) {
+  const n = src.length; if (n < 3) return null;
+  const ms = [0, 0], md = [0, 0]; for (let i = 0; i < n; i++) { ms[0] += src[i][0] / n; ms[1] += src[i][1] / n; md[0] += dst[i][0] / n; md[1] += dst[i][1] / n; }
+  let best = null;
+  for (const f of [1, -1]) { // (the other part's rings may run the other way round)
+    let sxx = 0, sxy = 0;
+    for (let i = 0; i < n; i++) { const ax = src[i][0] - ms[0], ay = (src[i][1] - ms[1]) * f, bx = dst[i][0] - md[0], by = dst[i][1] - md[1]; sxx += ax * bx + ay * by; sxy += ax * by - ay * bx; }
+    const th = Math.atan2(sxy, sxx), c = Math.cos(th), s = Math.sin(th);
+    const apply = (x, y) => { const ax = x - ms[0], ay = (y - ms[1]) * f; return [md[0] + ax * c - ay * s, md[1] + ax * s + ay * c]; };
+    let e = 0; for (let i = 0; i < n; i++) { const [x, y] = apply(src[i][0], src[i][1]); e += (x - dst[i][0]) ** 2 + (y - dst[i][1]) ** 2; }
+    e = Math.sqrt(e / n); if (!best || e < best.err) best = { apply, err: e };
+  }
+  return best;
+}
+// a sticker on the helmet: draped over its shell from the anchor's side (the shell's own mesh, from texelMap)
+function helmetSticker(m, o, P, N, R, U, reach, put) {
+  const M = m.sticker || (m.sticker = stickerMesh(m.tp, m.tn, true));
+  const proj = (x, y, z) => [x * R.x + y * R.y + z * R.z, -(x * U.x + y * U.y + z * U.z)];
+  const pn = { dir: [N.x, N.y, N.z], proj, label: 'helmet ' + [N.x, N.y, N.z].map(v => v.toFixed(3)).join() };
+  const [cx, cy] = proj(P.x, P.y, P.z), S = drapeSticker(M, pn, cx, cy, reach, reach, 0.05); if (!S) return;
+  for (let k = 0; k < m.W * m.H; k++) {
+    if (!m.ok[k]) continue;
+    const f = m.nrm[k * 3] * N.x + m.nrm[k * 3 + 1] * N.y + m.nrm[k * 3 + 2] * N.z; if (f <= FACE_CUT[0]) continue;
+    const [u, v, z] = S.panel([m.pos[k * 3], m.pos[k * 3 + 1], m.pos[k * 3 + 2]]);
+    if (u < S.u0 || u > S.uMax || v < S.v0 || v > S.vMax || z < S.depth(u, v) - 0.03) continue; // (the outer shell only)
+    const [X, Y] = S.at(u, v);
+    put(o, k * 4, X, -Y, Math.min(1, (f - FACE_CUT[0]) / (FACE_CUT[1] - FACE_CUT[0])));
   }
 }
 

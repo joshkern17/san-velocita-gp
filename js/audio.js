@@ -9,12 +9,13 @@ let engineModel = 'phys';
 export function setEngineModel(m) { engineModel = m; }
 let volume = 0.7;
 
-export function initAudio() {
-  startMusic();
-  if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+// (dev: `offline`, an OfflineAudioContext to render into instead: .devtest/sfxlab.html; no music)
+export function initAudio(offline) {
+  if (!offline) startMusic();
+  if (ctx && !offline) { if (ctx.state === 'suspended') ctx.resume(); return; }
   const AC = window.AudioContext || window.webkitAudioContext;
-  if (!AC) return;
-  ctx = new AC();
+  if (!AC && !offline) return;
+  ctx = offline || new AC(); sfxBufs = {};
   master = ctx.createGain(); master.gain.value = volume;
   const comp = ctx.createDynamicsCompressor();
   comp.threshold.value = -14; comp.ratio.value = 4;
@@ -97,7 +98,7 @@ function noiseSrc() { const s = ctx.createBufferSource(); s.buffer = noiseBuf; s
 // ---------- engines ----------
 // One voice = one engine: its pulse loops (engines.js) at the rpm, cross-faded on/off throttle, through the profile's
 // distortion, exhaust resonances and a throttle-opened lowpass; plus intake roar, turbo whistle + blow-off, overrun
-// crackle and (F1) hybrid whine. The player's voice also carries the tyres, wind and gravel.
+// crackle and (F1) hybrid whine. The player's voice also carries the wind (the tires and the ground: TyreVoice).
 const engineBufs = {};
 function engineBuffer(id, mode) {
   const key = id + ':' + mode;
@@ -163,23 +164,12 @@ export class EngineVoice {
     this.load = 0; this.boost = 0; this.prevThr = 0; this.liftT = -9; this.lastT = ctx.currentTime;
     this.setProfile(profile);
     if (player) {
-      // tyre squeal
-      this.sq = noiseSrc();
-      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1500; bp.Q.value = 4;
-      this.sqGain = ctx.createGain(); this.sqGain.gain.value = 0;
-      this.sq.connect(bp); bp.connect(this.sqGain); this.sqGain.connect(carBus); this.sq.start();
-      this.sqBp = bp;
-      // wind / road
+      // wind (the tires and the ground: TyreVoice)
       this.wind = noiseSrc();
       const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 500;
       this.windGain = ctx.createGain(); this.windGain.gain.value = 0;
       this.wind.connect(lp); lp.connect(this.windGain); this.windGain.connect(carBus); this.wind.start();
       this.windLp = lp;
-      // gravel rumble
-      this.rum = noiseSrc();
-      const rl = ctx.createBiquadFilter(); rl.type = 'lowpass'; rl.frequency.value = 180;
-      this.rumGain = ctx.createGain(); this.rumGain.gain.value = 0;
-      this.rum.connect(rl); rl.connect(this.rumGain); this.rumGain.connect(carBus); this.rum.start();
     }
   }
   // switch engine (the AI voices follow whichever cars are nearest)
@@ -272,13 +262,9 @@ export class EngineVoice {
     else this.whG.gain.setTargetAtTime(0, t, 0.05);
     this.prevThr = thr;
     if (this.player) {
-      const sq = Math.max(0, Math.min(1, (p.slip - 0.1) * 3)) * Math.min(1, p.speed / 12);
-      this.sqGain.gain.setTargetAtTime(sq * 0.14 * (p.onRoad ? 1 : 0.2), t, 0.05);
-      this.sqBp.frequency.setTargetAtTime(1200 + sq * 800, t, 0.1);
       const w = Math.min(1, p.speed / 90);
       this.windGain.gain.setTargetAtTime(w * w * 0.22, t, 0.1);
       this.windLp.frequency.setTargetAtTime(300 + w * 1200, t, 0.1);
-      this.rumGain.gain.setTargetAtTime((p.offRoad ? 0.35 : 0) * Math.min(1, p.speed / 20) + (p.kerb ? 0.25 : 0), t, 0.04);
     }
   }
   // pssh (with flutter: the compressor chattering against a closed throttle)
@@ -305,15 +291,147 @@ export class EngineVoice {
     if (!this.out) return;
     const t = ctx.currentTime;
     this.out.gain.setTargetAtTime(0, t, 0.05);
-    if (this.sqGain) { this.sqGain.gain.setTargetAtTime(0, t, 0.05); this.windGain.gain.setTargetAtTime(0, t, 0.05); this.rumGain.gain.setTargetAtTime(0, t, 0.05); }
+    if (this.windGain) this.windGain.gain.setTargetAtTime(0, t, 0.05);
   }
   stop() {
     if (!this.out) return;
     this.out.gain.setTargetAtTime(0, ctx.currentTime, 0.05);
     if (this.core) setTimeout(() => { try { this.core.port.postMessage('stop'); this.core.disconnect(); } catch (e) {} this.core = null; }, 300);
-    const nodes = [this.srcOn, this.srcOff, this.ind, this.tw, this.wh, this.sq, this.wind, this.rum].filter(Boolean);
+    const nodes = [this.srcOn, this.srcOff, this.ind, this.tw, this.wh, this.wind].filter(Boolean);
     setTimeout(() => nodes.forEach(n => { try { n.stop(); } catch (e) {} }), 300);
   }
+}
+
+// ---------- tires (recorded: assets/sfx/tires, made by tools/sfx/tires.mjs) ----------
+// The squeal is the tire saying it's past its grip, and it easily turns into a constant whine, so it's held back: it
+// starts a little past the limit and stops a little under it (no flicker at the edge); a light slide is quiet and only
+// a big one is loud (q^1.5); it's eased in and out (the grip numbers jump frame to frame); and a squeal that goes on
+// tires, down to -6 dB over ~3 s (you know already), until it rests or a much bigger slide starts. It fades under
+// walking pace (wheelspin aside), mostly goes in the wet, and the AI's squeal only on real slides. Options > Sound >
+// Tire Squeal scales the squeal, lockups and wheelspin. Yours also has the road under the tires: a loop per surface by
+// its share of the wheels, louder and faster with speed.
+const SFX_DIR = 'assets/sfx/';
+let sfxBufs = {};
+// a recorded effect, decoded (null if it's missing). Single-file build: inline in window.__SVGP_SFX { name: base64 }
+function sfxBuffer(name) {
+  if (!sfxBufs[name]) {
+    const E = typeof window !== 'undefined' && window.__SVGP_SFX;
+    const bytes = E ? (E[name] ? Promise.resolve(Uint8Array.from(atob(E[name]), c => c.charCodeAt(0)).buffer) : Promise.reject(new Error(name)))
+      : fetch(SFX_DIR + name).then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(name))));
+    sfxBufs[name] = bytes.then(b => ctx.decodeAudioData(b)).catch(() => null);
+  }
+  return sfxBufs[name];
+}
+let squealK = 1;
+export function setSqueal(m) { squealK = { off: 0, low: 0.5, normal: 1, high: 1.4 }[m] ?? 1; }
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+// the road under the tires (race.js wheelGround names each wheel's), and how loud each is at speed (files: -20 dBFS)
+const SURF = { road: 0.4, road_rough: 0.5, concrete: 0.5, wet: 0.45, grass: 0.8, gravel: 1.3, sand: 0.8, dirt: 0.8 };
+const TARMAC = new Set(['road', 'road_rough', 'concrete']);
+
+export class TyreVoice {
+  constructor(player = true) {
+    if (!ctx) return;
+    this.player = player;
+    this.out = gn(0); this.pan = ctx.createStereoPanner ? ctx.createStereoPanner() : gn(1); this.pan.connect(this.out); this.out.connect(carBus);
+    this.loops = {};
+    for (const n of ['squeal', 'squeal_rough', 'spin', 'lock', ...(player ? Object.keys(SURF) : [])]) {
+      const L = this.loops[n] = { g: gn(0), src: null };
+      L.g.connect(this.pan);
+      sfxBuffer('tires/' + n + '.flac').then(b => {
+        if (!b || this.stopped) return;
+        const s = ctx.createBufferSource(); s.buffer = b; s.loop = true; s.connect(L.g); s.start(0, Math.random() * b.duration); L.src = s;
+      });
+    }
+    this.q = 0; this.on = false; this.tired = 0; this.avg = 0; this.wob = 0; this.lastT = ctx.currentTime;
+  }
+  // s: { speed, gripF, gripR (each end's slip over its peak: 1 = the limit), lockF, lockR, spin, wet 0..1, wheels: the
+  // four wheels' surfaces (SURF keys), gain, pan }
+  update(s) {
+    if (!this.out) return;
+    const t = ctx.currentTime, dt = Math.min(0.1, Math.max(0, t - this.lastT)); this.lastT = t;
+    const L = this.loops, sp = s.speed || 0, wet = s.wet || 0, W = s.wheels || [];
+    const set = (n, v, tc = 0.05) => L[n].g.gain.setTargetAtTime(v, t, tc);
+    const rate = (n, r) => L[n].src && L[n].src.playbackRate.setTargetAtTime(r, t, 0.1);
+    // the end that's sliding more (the fronts a touch lower in pitch: understeer)
+    const gF = (s.gripF || 0) * 0.92, gR = s.gripR || 0, g = Math.max(gF, gR);
+    if (!this.on && g > 1.03) this.on = true; else if (this.on && g < 0.97) this.on = false;
+    let want = this.on ? clamp01((g - 0.97) / 0.5) : 0;
+    if (!this.player) want = clamp01((want - 0.25) / 0.75);
+    this.q += (want - this.q) * (1 - Math.exp(-dt / (want > this.q ? 0.06 : 0.2)));
+    const lvl = this.q * Math.sqrt(this.q);
+    if (lvl > this.avg + 0.25) this.tired *= 0.3; // (a much bigger slide than it's been: fresh)
+    this.tired = lvl > 0.15 ? Math.min(1, this.tired + dt / 3) : Math.max(0, this.tired - dt / 1.5);
+    this.avg += (lvl - this.avg) * Math.min(1, dt / 1.5);
+    const tar = W.length ? W.filter(k => TARMAC.has(k)).length / W.length : 1, dry = 1 - 0.8 * wet;
+    const lk = (s.lockF || s.lockR) && sp > 3, base = squealK * tar * dry;
+    const sq = base * lvl * clamp01((sp - 3) / 12) * (1 - 0.5 * this.tired) * (lk ? 0 : 1), rough = clamp01((this.q - 0.4) / 0.4);
+    set('squeal', 0.5 * sq * (1 - 0.6 * rough)); set('squeal_rough', 0.5 * sq * rough);
+    this.wob += ((Math.random() - 0.5) * 2 - this.wob) * Math.min(1, dt * 0.5);
+    const r = (0.95 + 0.1 * this.q + 0.02 * this.wob) * (gF > gR ? 0.93 : 1);
+    rate('squeal', r); rate('squeal_rough', r);
+    set('lock', lk ? 0.45 * base * clamp01(sp / 25) : 0, lk ? 0.03 : 0.12); rate('lock', 0.9 + sp / 200);
+    const spK = clamp01((s.spin || 0) * 4) * (sp > 0.3 ? 1 : 0);
+    set('spin', 0.7 * base * spK); rate('spin', 0.95 + 0.1 * spK);
+    if (this.player) {
+      // (on tarmac, the wet takes over as it gets wet)
+      const lv = clamp01(sp / 45) ** 1.2, pr = 0.75 + 0.5 * clamp01(sp / 60), share = {};
+      for (const k of W) share[k] = (share[k] || 0) + 1 / W.length;
+      for (const n in SURF) {
+        const v = n === 'wet' ? tar * wet : (share[n] || 0) * (TARMAC.has(n) ? 1 - 0.7 * wet : 1);
+        set(n, 0.5 * v * lv * SURF[n], 0.08); rate(n, pr);
+      }
+    }
+    this.out.gain.setTargetAtTime(s.gain ?? 1, t, 0.05);
+    if (this.pan.pan) this.pan.pan.setTargetAtTime(s.pan || 0, t, 0.05);
+  }
+  silence() { if (this.out) this.out.gain.setTargetAtTime(0, ctx.currentTime, 0.05); }
+  stop() {
+    if (!this.out) return;
+    this.silence(); this.stopped = true;
+    const L = Object.values(this.loops);
+    setTimeout(() => L.forEach(l => { try { l.src && l.src.stop(); } catch (e) {} }), 300);
+  }
+}
+
+// ---------- curbs ----------
+// One per car you can hear (yours + the two nearest): a curb drums at its ridges' spacing (kerbZ in race.js: raised
+// and flat every 2 m, sawtooth every metre), a saw at the ridge rate (the drum) and a band of noise chopped by it (the
+// rattle); onto one, a thump (a sausage: a big one)
+const bq = (type, f, Q = 1) => { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = Q; return b; };
+const gn = (v = 0) => { const g = ctx.createGain(); g.gain.value = v; return g; };
+// a curb's ridges: m apart, and how loud
+const CURB = { raised: [2, 1], flat: [2, 0.25], saw: [1, 1.5], sausage: [0, 0] };
+export class CurbVoice {
+  constructor() {
+    if (!ctx) return;
+    this.out = gn(0); this.pan = ctx.createStereoPanner ? ctx.createStereoPanner() : gn(1); this.pan.connect(this.out); this.out.connect(carBus);
+    this.osc = ctx.createOscillator(); this.osc.type = 'sawtooth'; this.osc.frequency.value = 20; this.osc.start();
+    const lp = bq('lowpass', 220, 0.7); this.drum = gn(0); this.osc.connect(lp); lp.connect(this.drum); this.drum.connect(this.pan);
+    this.noise = noiseSrc(); this.noise.start(0, Math.random() * 2);
+    const bp = bq('bandpass', 450, 1), am = gn(0.5), dep = gn(0.5); this.rattle = gn(0);
+    this.osc.connect(dep); dep.connect(am.gain); this.noise.connect(bp); bp.connect(am); am.connect(this.rattle); this.rattle.connect(this.pan);
+    this.was = 0;
+  }
+  // s: { speed, kerbN wheels on a curb, kerbType, gain, pan }
+  update(s) {
+    if (!this.out) return;
+    const t = ctx.currentTime, sp = s.speed || 0, C = CURB[s.kerbType] || CURB.raised, cv = Math.min(1, (s.kerbN || 0) / 2) * Math.min(1, sp / 15);
+    if (C[0]) { this.osc.frequency.setTargetAtTime(Math.max(4, sp / C[0]), t, 0.03); this.drum.gain.setTargetAtTime(0.35 * C[1] * cv, t, 0.03); this.rattle.gain.setTargetAtTime(0.25 * C[1] * cv, t, 0.03); }
+    else { this.drum.gain.setTargetAtTime(0, t, 0.03); this.rattle.gain.setTargetAtTime(0, t, 0.03); }
+    if (s.kerbN && !this.was && sp > 6) this.bump(s.kerbType === 'sausage' ? 1 : 0.35 * C[1], Math.min(1, sp / 25));
+    this.was = s.kerbN || 0;
+    this.out.gain.setTargetAtTime((s.gain ?? 1) * 0.5, t, 0.05);
+    if (this.pan.pan) this.pan.pan.setTargetAtTime(s.pan || 0, t, 0.05);
+  }
+  bump(k, vk) {
+    const t = ctx.currentTime, o = ctx.createOscillator(), g = gn(0);
+    o.type = 'sine'; o.frequency.setValueAtTime(70, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.18);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.001, 0.9 * k * vk), t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+    o.connect(g); g.connect(this.pan); o.start(t); o.stop(t + 0.25);
+  }
+  silence() { if (this.out) this.out.gain.setTargetAtTime(0, ctx.currentTime, 0.05); }
+  stop() { if (!this.out) return; this.silence(); const n = [this.osc, this.noise]; setTimeout(() => n.forEach(x => { try { x.stop(); } catch (e) {} }), 300); }
 }
 
 function tone(freq, dur, type = 'square', vol = 0.12, slide = 0, delay = 0) {

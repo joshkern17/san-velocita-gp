@@ -20,6 +20,8 @@ try {
       axes: [window.__pad.steer, 0, 0, 0], buttons: Array.from({ length: 17 }, (_, i) => btn(i === 7 ? window.__pad.thr : i === 6 ? window.__pad.brk : 0)) }];
   });
   if (process.env.AIDS) await pg.addInitScript((a) => { window.__aids = JSON.parse(a); }, process.env.AIDS);
+  if (process.env.NOISE) await pg.addInitScript((n) => { window.__noise = +n; }, process.env.NOISE);
+  if (process.env.OLD) await pg.addInitScript(() => { globalThis.__padOld = 1; });
   if (process.env.TR) await pg.addInitScript(() => { window.__TR = 1; });
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
@@ -39,13 +41,15 @@ try {
     // (on the straights only: the track's heading changes < 4° over the next 80 m)
     let sT = 0, sB2 = 0, sMax = 0, sSw = 0, sLast = 0;
     const hd = (k) => Math.atan2(T.X[(k + 1) % T.N] - T.X[k], T.Z[(k + 1) % T.N] - T.Z[k]);
-    const st = { lag: 0.05, curve: 1.6, dz: 0.12 };
+    const st = { lag: 0.05, curve: 1.6, dz: 0.12 }; let nz = 0;
     for (let f = 0; f < secs * 60; f++) {
       const t = f / 60, i = car.idx, la = (i + Math.round((8 + p.speed * 0.35) / T.ds)) % T.N, off = sim.line[la];
       const tx = T.X[la] + T.RX[la] * off, tz = T.Z[la] + T.RZ[la] * off, dx = tx - p.x, dz = tz - p.z;
       const left = dx * Math.cos(p.h) - dz * Math.sin(p.h), fwd = dx * Math.sin(p.h) + dz * Math.cos(p.h);
       // a pad driver: steers for the line ahead (and counter-steers what it sees), floors it below the plan, brakes over
-      let sx = Math.max(-1, Math.min(1, -Math.atan2(left, fwd) * 2.5 + (p.beta || 0) * 1.2));
+      // (NOISE=x: a thumb's wobble on top, ±x of stick, smoothed to a few Hz)
+      nz += ((Math.random() * 2 - 1) * (window.__noise || 0) - nz) * 0.15;
+      let sx = Math.max(-1, Math.min(1, -Math.atan2(left, fwd) * 2.5 + (p.beta || 0) * 1.2 + nz));
       const steer = Math.sign(sx) * Math.pow(Math.abs(sx), st.curve);
       const vt = sim.lineV[i] * 0.97, la2 = (i + Math.round(25 / T.ds)) % T.N, vt2 = sim.lineV[la2] * 0.97;
       const thr = p.speed < Math.min(vt, vt2 + 6) ? 1 : 0, brk = p.speed > Math.min(vt, vt2 + 6) + 2 ? 1 : 0;

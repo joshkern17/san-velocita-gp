@@ -102,11 +102,17 @@ if (fs.existsSync(path.join(voiceDir, 'manifest.json'))) {
   for (const sec of Object.values(manifest)) for (const m of Object.values(sec)) delete m.text; // (the game only needs the files)
   voiceTag = inlineScript(`window.__SVGP_VOICE = ${JSON.stringify({ manifest, files })};`);
 }
+// the recorded sound effects (assets/sfx: the tires, tools/sfx/tires.mjs), read from window.__SVGP_SFX (js/audio.js),
+// inline for the same reason as the voices (FLAC as it is: lossless, so the loops stay seamless)
+const sfxDir = path.join(root, 'assets/sfx'), sfxFiles = {};
+const sfxWalk = (d) => { if (fs.existsSync(d)) for (const f of fs.readdirSync(d)) { const p = path.join(d, f); if (fs.statSync(p).isDirectory()) sfxWalk(p); else if (f.endsWith('.flac')) sfxFiles[path.relative(sfxDir, p)] = fs.readFileSync(p).toString('base64'); } };
+sfxWalk(sfxDir);
+const sfxTag = inlineScript(`window.__SVGP_SFX = ${JSON.stringify(sfxFiles)};`);
 // the soundtrack is too big to inline: it goes in a music/ folder beside the HTML (js/audio.js reads __SVGP_MUSIC_DIR)
 const musicTag = inlineScript(`window.__SVGP_MUSIC_DIR = 'music/';`);
 // --release: a player build, with the developer tools hidden (main.js DEV)
 const relTag = process.argv.includes('--release') ? inlineScript('window.__SVGP_RELEASE = true;') : '';
-swap('<script type="module" src="js/main.js"></script>', relTag + glbTag + garageTag + phoneTag + charsTag + blTag + ppTag + pbTag + envTag + carsTag + kitTag + realTag + texTag + spTag + voiceTag + musicTag + inlineScript(js, 'module'));
+swap('<script type="module" src="js/main.js"></script>', relTag + glbTag + garageTag + phoneTag + charsTag + blTag + ppTag + pbTag + envTag + carsTag + kitTag + realTag + texTag + spTag + voiceTag + sfxTag + musicTag + inlineScript(js, 'module'));
 
 fs.mkdirSync(dist, { recursive: true });
 const name = 'San Velocita GP.html';

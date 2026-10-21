@@ -208,6 +208,9 @@ export const paintLivery = (canvas, L) => paintCar(canvas, L, MODEL);
 // If the chosen one isn't available (file missing / still loading) the procedural SVGP car is built instead.
 export const CHASSIS = {};
 export const chassisReady = (k) => !!(CHASSIS[k] && CHASSIS[k].ready());
+// a model's livery panels (W, H in metres, role, nose...), for porting a design from one car to another; null: it takes no
+// livery. (Models load at start-up: the F1 car falls back to the classic's panels until then.)
+export const liveryPanels = (k) => k === 'svgp' ? MODEL.panels : (CHASSIS[k] && CHASSIS[k].panels && CHASSIS[k].panels()) || (k === 'custom' ? MODEL.panels : null);
 
 // shared bits other chassis reuse: carbon texture, rim colours, the driver (helmet, visor, shoulders + suit)
 export { carbonTex, RIMCOL, canvasTex };

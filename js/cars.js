@@ -92,12 +92,12 @@ const street = (o) => ({
 });
 
 // id -> { name, cls, sound (engine profile in engines.js), chassis (model builder key), spec, paint: can it be repainted,
-//        credit id (models/cars/cars.json) }
+//        credit id (models/cars/cars.json), smooth: shade auto smooth at this angle (roadcar.js) }
 export const CARS = {
   f1:     { name: 'Your F1 Car', cls: 'f1', sound: 'f1v6', chassis: 'custom', spec: CARSPEC, paint: true },
   svgp:   { name: 'SVGP Classic', cls: 'f1', sound: 'v10', chassis: 'svgp', spec: CARSPEC, paint: true },
 
-  m1procar: { name: 'Bavaria M1 ProCar ’79', cls: 'gt1', sound: 'i6', glb: true, paint: true, livery: true, // your Blender model: white photo, wears your full livery (see roadcar.js) + Light_* lamps
+  m1procar: { name: 'Bavaria M1 ProCar ’79', cls: 'gt1', sound: 'i6', glb: true, paint: true, livery: true, smooth: 30, // your Blender model: white photo, wears your full livery (see roadcar.js) + Light_* lamps
     liveryLabels: { topNumber: [0.78, 0.5], sideNumber: [0.55, 0.5], sideSponsor: [0.55, 0.8] },
     spec: gt({ body: [2.21, 2.16, 0.89], gears: [0, 28, 43, 57, 71, 88], box: 'manual', shift: 0.14, mass: 1020, power: 400000, kd: 0.75, drag: 0.45, torque: NA, redline: 9000, a: 1.3, b: 1.13, rearGrip: 1.07, brakeF: 0.62 }) },
   // your Blender model (Group 5, '78 long tail): white photo, wears your full livery. The M1's opposite at the same pace:
@@ -118,10 +118,11 @@ export const CARS = {
   // sheet, full livery): the twin-turbo flat-plane V8 behind the driver, a five-speed manual and turbos that arrive all
   // at once. The real LM made up to ~530 kW on full boost; here it's held to 470 kW, as BPR GT1 restrictors held the
   // F40 GTE, so it's mid-field. Weight over the rear (42/58) puts the power down well but lets it rotate on a lift; the
-  // long rear overhang and big wing keep it steady at speed
-  f40: { name: 'Ferrari F40 LM', cls: 'gt1', sound: 'v8flat', glb: true, paint: true, livery: true,
+  // long rear overhang and big wing keep it steady at speed (aeroF 0.38: the wing's share over the rear. On the class's
+  // 0.42, the same split as its weight, the rear let go on a quick turn-in flat out and spun it with the aids off)
+  f40: { name: 'Ferrari F40 LM', cls: 'gt1', sound: 'v8flat', glb: true, paint: true, livery: true, rev: 2,
     liveryLabels: { topNumber: [0.8, 0.5], sideNumber: [0.52, 0.57], sideSponsor: [0.52, 0.82] },
-    spec: gt({ body: [2.57, 1.91, 1.05], gears: [0, 31, 48, 64, 79, 93], box: 'manual', shift: 0.15, mass: 1060, power: 470000, kd: 0.9, drag: 0.44, torque: TURBO, redline: 7800, a: 1.43, b: 1.03, brakeF: 0.58 }) },
+    spec: gt({ body: [2.57, 1.91, 1.05], gears: [0, 31, 48, 64, 79, 93], box: 'manual', shift: 0.15, mass: 1060, power: 470000, kd: 0.9, drag: 0.44, aeroF: 0.38, torque: TURBO, redline: 7800, a: 1.43, b: 1.03, brakeF: 0.58 }) },
 
   // ---- GT2 ----
   // your Blender model (E46 M3 GTR, white photo, full livery): the 2001 ALMS GT car, back in its own class (it was
@@ -144,6 +145,14 @@ export const CARS = {
     liveryLabels: { topNumber: [0.42, 0.5], sideNumber: [0.5, 0.55], sideSponsor: [0.5, 0.8] },
     spec: gt2({ body: [2.28, 2.32, 0.9], mass: 1250, power: 340000, kd: 0.57, drag: 0.43, torque: TURBO, a: 1.2, b: 1.465, cgh: 0.42, drive: 0.2,
       maxForce: 13500, track: 1.52, brakeF: 0.66, redline: 8000 }) },
+
+  // your Blender model (McLaren F1 GTR '95, modelled by hand over the white reference sheet, full livery, its own black
+  // wing). In period it was a GT1 car (it won Le Mans outright in '95); here it's restricted to GT2 numbers like the
+  // others: the BMW S70 V12 held to ~310 kW on the restrictor, ballasted to 1100 kg, a six-speed sequential. Engine
+  // behind the driver (42/58): it puts the power down well and turns in sharply, the short wheelbase keeps it lively
+  f1gtr: { name: 'McLaren F1 GTR', cls: 'gt2', sound: 'flat12', glb: true, paint: true, livery: true,
+    liveryLabels: { topNumber: [0.8, 0.5], sideNumber: [0.52, 0.57], sideSponsor: [0.52, 0.82] },
+    spec: gt2({ body: [2.58, 1.67, 0.91], mass: 1100, power: 310000, kd: 0.6, drag: 0.42, torque: NA, a: 1.545, b: 1.119, redline: 7500 }) },
 
   testarossa: { name: 'Testa Rossa', cls: 'street', sound: 'flat12', glb: true, paint: true,
     spec: street({ body: [2.24, 2.27, 1.0], lsd: [50, 0.4, 0.2], mass: 1510, power: 290000, cgh: 0.44, a: 1.4, b: 1.15, mu: 1.35, kd: 0.18, redline: 7400, gears: [0, 20, 34, 48, 63, 80], torque: NA }) },

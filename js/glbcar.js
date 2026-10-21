@@ -28,7 +28,7 @@ export function loadCustomCar() {
 }
 export const customCarStatus = () => (TPL ? 'ready' : loadError ? 'missing' : 'loading');
 
-CHASSIS.custom = { ready: () => !!TPL, build: (cfg, opts) => buildCar(cfg, opts) };
+CHASSIS.custom = { ready: () => !!TPL, build: (cfg, opts) => buildCar(cfg, opts), panels: () => TPL && TPL.panels };
 
 // ---------------- panels (projections onto the car) ----------------
 // proj(x, y, z) -> panel metres (x right, y down, as seen from outside). W/H = panel size in metres.

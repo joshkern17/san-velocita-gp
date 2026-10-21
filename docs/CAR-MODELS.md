@@ -95,8 +95,34 @@ colour. The M1 ProCar does. What the model needs:
 - **A white body photo/texture.** White texels are the paint; everything coloured or dark (glass, lamps, grille,
   badges, black trim) is kept as photographed, and the photo's greys shade the new paint.
 - **Unique UVs on the painted surfaces:** left and right must not share texels (a mirrored unwrap would put a
-  door number on both doors, one backwards). Faces whose UVs collapse to a point or a line are fine; they take
-  the main colour (the M1's wing and rear deck are like that).
+  door number on both doors, one backwards). A wing (a piece of its own) whose UVs collapse to a point takes the
+  livery's wing colour.
+
+**After every export, run the repair** (it never changes how the car looks, only where its faces keep their texels):
+
+```
+node tools/cars/uvrepair.mjs models/cars/<id>.glb          # in place; safe to run again
+node tools/cars/uvrepair.mjs --check models/cars/*.glb     # exit 1 if any car still needs it
+```
+
+It gives the livery its own texels wherever the hand-projected texture can't hold one: faces that share texels with
+another surface (a whale tail's flank and the deck it was projected from), faces smeared from a sliver of the
+picture, body faces squeezed onto a line (the M1's rear deck took no decals at all). They move to a strip added under
+the picture, filled with exactly what they showed. It also turns inside-out faces the right way out (the M1's front
+bumper: double-sided, so it drew fine, but decals skip a face turned away from them).
+
+**Then check the decals** (each takes about half a minute for all the livery cars):
+
+```
+node .devtest/liverycheck.mjs <out> [car,...] [--base=<earlier out>]   # stress decals, 7 views: spatter / ragged / holes
+node .devtest/liveryuv.mjs <out> [car,...]                             # the texture layout: shared (red) / stretched (orange)
+node .devtest/liverylab.mjs <out> [car,...] grid,stripe,team           # picture sheets to look at
+```
+
+Decals drape over the body from their panel's side and carry on round curves, steps and ledges; they stop cleanly
+where the body turns more than ~73 degrees away at its silhouette (a bonnet decal ends at the shoulder line rather
+than smearing down the flank). Parts that float over the body (a rear wing, louvres) don't hide the deck under them:
+a stripe runs over the deck and on along the wing above it.
 
 Then set `paint: true, livery: true` in `js/cars.js`. The panels are fixed for every GT car: **Bonnet, roof +
 wing** (seen from above), **Left / Right side**, **Nose**, **Tail**. `liveryLabels` places the race number on

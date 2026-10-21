@@ -35,7 +35,7 @@ export function sessionFile(sim) {
   if (sim.quali && sim.quali.field && sim.quali.field.length) {
     const F = sim.quali.field, q = F.reduce((b, e) => (!b || e.pot < b.pot ? e : b), null);
     let lap = null;
-    try { const rec = new LapRecorder(T); sim.simLap(q.id, { pace: q.pace, power: q.power, grip: sim.edgeFor(q.id).grip, tyre: 'soft', rec }); lap = rec.lap; } catch (e) {}
+    try { const rec = new LapRecorder(T); sim.simLap(q.id, { pace: q.pace, power: q.power, grip: sim.edgeFor(q.id).grip, tyre: 'soft', temps: sim.tempMode, rec }); lap = rec.lap; } catch (e) {}
     field = { list: F.map(e => ({ name: e.name, team: e.team && e.team.name, carId: e.id, pace: e.pace, power: e.power, pot: e.pot, best: isFinite(e.best) ? e.best : null, runs: e.plan.map(r => r.time) })),
       quickest: { name: q.name, carId: q.id, pace: q.pace, power: q.power, techCost: q.tf ? q.tf.cost : 0, grip: sim.edgeFor(q.id).grip, lap: packLap(lap, n) } };
   }
@@ -47,6 +47,9 @@ export function sessionFile(sim) {
       input: wheelPad() ? 'wheel' : device.kind },
     player: { ...carOf(pl), plan: round(pl.lineV, n, 2), lapsData: sim.sessLaps.map(l => packLap(l, n)) },
     ai, field,
+    // every car-to-car hit (race.js noteContact): v = closing speed km/h, behind = which of the two was behind, pre = each
+    // car just before, after = the next 1.5 s (most it slid, slowest it got, off the road)
+    contacts: (sim.contactLog || []).map(({ cars, last, ...e }) => e),
   };
 }
 

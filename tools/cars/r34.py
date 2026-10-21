@@ -1,5 +1,6 @@
 # Nissan Skyline GT-R (R34): your Blender export -> the game's car. Usage:
 #   python3 tools/cars/r34.py models/R34-Skyline_002.glb models/cars/r34.glb
+#   then: node tools/cars/uvrepair.mjs <out.glb>   (livery texels of its own for every face; see docs/CAR-MODELS.md)
 # - already at real size (4.60 m long, 1.79 m wide, 2.67 m wheelbase, as the real car); centred on the wheels across
 #   (the export sits 3 mm to the left)
 # - the rear wing: its material had no texture (a flat white), so it couldn't take the paint. It gets the body texture,
