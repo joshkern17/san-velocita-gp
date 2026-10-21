@@ -110,7 +110,7 @@ export function paintedPeople(track, ok = () => true) {
       discs.push(pts[i]);
       if (i + 1 < pts.length) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], L = Math.hypot(x1 - x0, z1 - z0), n = Math.floor(L / (r * 0.5)); for (let k = 1; k < n; k++) discs.push([x0 + (x1 - x0) * k / n, z0 + (z1 - z0) * k / n]); }
     }
-    const later = strokes.slice(si + 1).filter(e => e.kind === 'erase');
+    const later = strokes.slice(si + 1).filter(e => e.kind === 'erase' && (!e.v || (e.what || '').includes('c'))); // (scenery.js eraseHits 'c')
     const grid = new Map(), cell = 0.75, near = (x, z) => { const cx = Math.floor(x / cell), cz = Math.floor(z / cell); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (const q of grid.get((cx + a) + ',' + (cz + b)) || []) if (Math.hypot(q[0] - x, q[1] - z) < 0.62) return true; return false; };
     for (const [cx, cz] of discs) {
       const n = Math.round(Math.PI * r * r * per * 0.55);

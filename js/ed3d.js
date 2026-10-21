@@ -280,8 +280,17 @@ export function installView3d(Ed) {
     }
     if (tool === 'paint' && this.paintMode !== 'shape') { // (the brush, and the stroke being painted)
       const live = this.drag && this.drag.type === 'paint' ? this.drag.stroke : null, sc = this.view.scale;
-      if (live && live.pts.length) { c.strokeStyle = 'rgba(255,214,107,0.45)'; c.lineWidth = Math.max(2, (live.r || 8) * 2 * sc); c.lineCap = c.lineJoin = 'round'; c.beginPath(); live.pts.forEach((q, k) => { const [sx, sy] = this.w2s(q[0], q[1]); k ? c.lineTo(sx, sy) : c.moveTo(sx, sy); }); c.stroke(); }
-      if (this.mouse.inside) { const [x, y] = this.w2s(this.mouse.wx, this.mouse.wz); c.strokeStyle = '#ffd66b'; c.lineWidth = 1.5; c.setLineDash([5, 4]); c.beginPath(); c.arc(x, y, Math.max(3, (this.brush || 12) * sc), 0, Math.PI * 2); c.stroke(); c.setLineDash([]); }
+      // (both laid on the ground, as the sculpt ring is: each a ring of points on the land, seen through the camera)
+      const ring = (path, x, z, r, n = 48) => { let on = false; for (let k = 0; k <= n; k++) { const a = k / n * Math.PI * 2, [sx, sy] = this.w2s(x + Math.cos(a) * r, z + Math.sin(a) * r); if (sx !== sx) { on = false; continue; } on ? path.lineTo(sx, sy) : path.moveTo(sx, sy); on = true; } };
+      if (live && live.pts.length) {
+        const r = live.r || 8, P = new Path2D(), pts = live.pts;
+        for (let k = 0; k < pts.length; k++) {
+          const a = pts[k], b = pts[Math.min(pts.length - 1, k + 1)], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / (r * 0.4)));
+          for (let q = 0; q < (k + 1 < pts.length ? n : 1); q++) { const t = q / n; ring(P, a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, r, 24); P.closePath(); }
+        }
+        c.fillStyle = 'rgba(255,214,107,0.3)'; c.fill(P, 'nonzero');
+      }
+      if (this.mouse.inside) { const P = new Path2D(); ring(P, this.mouse.wx, this.mouse.wz, this.brush || 12); c.strokeStyle = 'rgba(0,0,0,0.5)'; c.lineWidth = 3.5; c.stroke(P); c.strokeStyle = '#ffd66b'; c.lineWidth = 1.5; c.setLineDash([5, 4]); c.stroke(P); c.setLineDash([]); }
     }
   };
   // the how-to in 3D

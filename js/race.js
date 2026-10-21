@@ -1808,6 +1808,7 @@ export class Race {
     if (rk === RUN_PAVED) return 'runoff';
     if (rk === RUN_GRAVEL) return 'gravel';
     if (rk === RUN_GRASS) return 'grass';
+    const rp = this.world.runPatchAt && this.world.runPatchAt(x, z); if (rp) return rp; // (paved / gravel painted past the runoff's rows: world.js buildRunPatches)
     if (this.world.paintAt(x, z) > 0.5) return 'grass'; // painted grass
     if (env.theme === 'city') return 'city';
     if (env.theme === 'desert') return 'sand';

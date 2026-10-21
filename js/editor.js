@@ -351,7 +351,7 @@ export class Editor {
       pan: '<b>PAN</b> &mdash; drag to move the map. Scroll to zoom. (Right-drag pans in every tool.)',
       roads: '<b>ROADS</b> &mdash; drag to draw a street. Click a road to select it: drag its <b>nodes</b> to reshape it, <b>double-click</b> the road to add a node, <b>DEL</b> removes the picked node (or the road). Drag the road itself to move it.',
       runoff: '<b>RUNOFF</b> &mdash; draw grass, paved or gravel runoff with a pen: <b>click</b> for a sharp corner, <b>click and drag</b> for a smooth curve, round the area; click the first node, double-click or press <b>Enter</b> to finish. <b>Click</b> a shape to pick it: drag its nodes, the round <b>handles</b> to bend it (<b>Shift</b>: one alone), or the shape to move it. Press <b>T</b> to see the map through the track.',
-      paint: '<b>PAINT</b> &mdash; <b>Shape</b> (on the right): click round an area, point by point, for grass, paved or gravel exactly there; click one later to reshape or repaint it. <b>Brush</b>: drag to paint <b>grass</b>, <b>paved</b> runoff or <b>gravel</b> (past the barrier, it moves back), <b>Nature</b> (trees and plants), a street of <b>Houses</b> or a <b>Crowd</b> of spectators. <b>Erase</b> removes anything under it: grass, every tree and plant (painted or from the World tab) and buildings. <b>[ ]</b> brush size.',
+      paint: '<b>PAINT</b> &mdash; <b>Shape</b> (on the right): click round an area, point by point, for grass, paved or gravel exactly there; click one later to reshape or repaint it. <b>Brush</b>: drag to paint <b>grass</b>, <b>paved</b> runoff or <b>gravel</b> (past the barrier, it moves back), <b>Nature</b> (trees and plants), a street of <b>Houses</b> or a <b>Crowd</b> of spectators. <b>Erase Ground</b> takes painted runoff back to the circuit\'s own; <b>Erase Scenery</b> removes trees, plants, buildings or crowds and leaves the runoff alone. <b>[ ]</b> brush size.',
       kerbs: '<b>CURBS</b> &mdash; <b>drag</b> along a track edge to lay a curb with the settings on the right. <b>Click</b> a curb to change its colors, type, width and tapered ends; drag its <b>end squares</b> to stretch it, or the curb itself to slide it along. <b>DEL</b> removes it.',
       bars: '<b>BARRIERS</b> &mdash; put them anywhere. <b>Drag</b> on open ground to draw one, or <b>click</b> node by node (<b>Enter</b> finishes). <b>Click</b> a barrier to pick it: drag a <b>node</b> anywhere, drag the <b>line</b> to bend it, <b>Shift</b>+drag to move it all. Drop an end on another end to <b>join</b> them. <b>Double-click</b> a node for a sharp corner, <b>X</b> opens a gap where you point, <b>DEL</b> removes. <b>Outline The Track</b> (right) puts one all the way round.',
       pit: '<b>PIT LANE</b> &mdash; drag the lane\'s <b>nodes</b> to put it exactly where you want it, or the lane itself to move it in or out. Drag the blue <b>diamonds</b> to set where the garages start and end, the <b>white dots</b> where the pit wall does (it runs on beside the lane to where it meets the track). <b>Double-click</b> the lane for another node, <b>DEL</b> removes the picked one. No pit lane? <b>Drag</b> beside the track to lay one.',
@@ -720,9 +720,9 @@ export class Editor {
     }
     if (this.tool === 'paint' && this.paintMode === 'shape') { this.shapeDown(wx, wz, sx, sy); return; }
     if (this.tool === 'paint') {
-      const kind = this.paintKind || 'grass', stroke = { kind, r: this.brush || 12, pts: [[+wx.toFixed(1), +wz.toFixed(1)]] };
+      const pk = this.paintKind || 'grass', kind = pk === 'eraseS' ? 'erase' : pk, stroke = { kind, r: this.brush || 12, pts: [[+wx.toFixed(1), +wz.toFixed(1)]] };
       if (kind === 'flora') Object.assign(stroke, { mix: this.floraMix || 'blossom', d: this.floraDens ?? 0.6, seed: 1 + Math.floor(Math.random() * 1e6) });
-      if (kind === 'erase') stroke.what = this.eraseWhat || 'gnb';
+      if (kind === 'erase') Object.assign(stroke, { what: pk === 'eraseS' ? this.eraseScen || 'nbc' : 'g', v: 2 }); // (v 2: crowds only go with 'c')
       if (kind === 'crowd') Object.assign(stroke, { d: this.crowdDens ?? 0.5, seed: 1 + Math.floor(Math.random() * 1e6) });
       this.drag = { type: 'paint', stroke };
       this.dirty = true;
@@ -1506,19 +1506,31 @@ export class Editor {
     };
     for (let s = 0; s < 2; s++) {
       const side = s ? 1 : -1, R = L.reach[s];
+      const rows = new Map(), rowRuns = (i) => { // (a row's runs: [{ k (paved 0, gravel 1, grass 2), a, b (m out) }])
+        let out = rows.get(i); if (out) return out; out = [];
+        let run = -1, c0 = 0;
+        for (let c = 0; c <= C; c++) {
+          const k = c < C ? runoffCell(L, i, s, c) - 1 : -1;
+          if (k === run) continue;
+          if (run >= 0) out.push({ k: run, a: c0 * RUN_RES, b: c * RUN_RES });
+          run = k; c0 = c;
+        }
+        rows.set(i, out); return out;
+      };
       for (let i = 0; i < N; i++) {
         if (i === T.cut || A.BRIDGE[i]) continue;
         const j = (i + 1) % N;
         quad(P.ground, i, j, side, 0, R[i], 0, R[j]);
-        // (each run of cells where one surface covers most)
-        let run = -1, c0 = 0;
-        for (let c = 0; c <= C; c++) {
-          let k = -1;
-          if (c < C) k = runoffCell(L, i, s, c) - 1; // (paved 0, gravel 1, grass 2; the ground -1)
-          if (k === run) continue;
-          if (run >= 0) quad(P.kinds[run], i, j, side, c0 * RUN_RES, c * RUN_RES, c0 * RUN_RES, c * RUN_RES);
-          run = k; c0 = c;
+        // (each run of cells where one surface covers most, joined to the same surface's run on the next row: an edge
+        // across the rows runs straight from one to the next instead of stepping; a run with none to join tapers out)
+        const A0 = rowRuns(i), B0 = rowRuns(j), used = new Uint8Array(B0.length);
+        for (const r of A0) {
+          let best = -1, bo = 0;
+          B0.forEach((q, n) => { if (q.k !== r.k) return; const o = Math.min(r.b, q.b) - Math.max(r.a, q.a); if (o > bo) { bo = o; best = n; } });
+          if (best >= 0) { used[best] = 1; quad(P.kinds[r.k], i, j, side, r.a, r.b, B0[best].a, B0[best].b); }
+          else { const m = (r.a + r.b) / 2; quad(P.kinds[r.k], i, j, side, r.a, r.b, m, m); }
         }
+        B0.forEach((q, n) => { if (!used[n]) { const m = (q.a + q.b) / 2; quad(P.kinds[q.k], i, j, side, m, m, q.a, q.b); } });
       }
     }
     return (this.runP = P);
@@ -2087,14 +2099,15 @@ export class Editor {
   renderPaintTab() {
     const el = $('tab-node'), t = this.track, kind = this.paintKind || 'grass', r = this.brush || 12;
     const area = t.paint.filter(s => PAINTS[s.kind]).length, nat = t.paint.filter(s => s.kind === 'flora').length, er = t.paint.filter(s => s.kind === 'erase').length, cr = t.paint.filter(s => s.kind === 'crowd').length;
-    const mix = this.floraMix || 'blossom', dens = this.floraDens ?? 0.6, what = this.eraseWhat || 'gnb';
+    const mix = this.floraMix || 'blossom', dens = this.floraDens ?? 0.6, scen = this.eraseScen || 'nbc';
     // (Brush: strokes as before; Shape: runoff drawn point by point and picked to change later: edpaint.js)
     const modeHtml = `<div class="fld"><label>Paint With</label><div class="seg" id="p-mode"><button data-v="brush" class="${this.paintMode !== 'shape' ? 'on' : ''}">Brush</button><button data-v="shape" class="${this.paintMode === 'shape' ? 'on' : ''}">Shape</button></div></div>`;
     if (this.paintMode === 'shape') return this.renderShapePanel(modeHtml);
     el.innerHTML = `
       <h4>PAINT</h4>
       ${modeHtml}
-      <div class="fld"><label>Brush</label><div class="seg" id="p-kind">${[...Object.entries(PAINTS).map(([k, v]) => [k, v.label]), ['flora', 'Nature'], ['houses', 'Houses'], ['crowd', 'Crowd'], ['erase', 'Erase']].map(([k, l]) => `<button data-v="${k}" class="${kind === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <div class="fld"><label>Ground</label><div class="seg p-kind">${[...Object.entries(PAINTS).map(([k, v]) => [k, v.label]), ['erase', 'Erase Ground']].map(([k, l]) => `<button data-v="${k}" class="${kind === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <div class="fld"><label>Scenery</label><div class="seg p-kind">${[['flora', 'Nature'], ['houses', 'Houses'], ['crowd', 'Crowd'], ['eraseS', 'Erase Scenery']].map(([k, l]) => `<button data-v="${k}" class="${kind === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
       ${kind === 'flora' ? `
       <div class="fld"><label>Mix</label><div class="seg" id="p-mix">${FLORA_KEYS.filter(k => k !== 'auto').map(k => `<button data-v="${k}" class="${mix === k ? 'on' : ''}"><i style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;background:${FLORA[k].color}"></i>${FLORA[k].label}</button>`).join('')}</div></div>
       ${fld('Density', 'p-d', 0.05, 1, 0.05, dens, '')}` : ''}
@@ -2102,17 +2115,18 @@ export class Editor {
       <p class="muted">Spectators on their feet, cheering and waving at the cars, turned toward the track. They keep off the track, its runoff, the roads and the pit lane. An eraser stroke clears them.</p>` : ''}
       ${kind === 'houses' ? `${fld('Gap between houses', 'p-gap', 0, 20, 0.5, this.houseGap ?? 4, 'm')}
       <p class="muted">A wide brush (16 m or more) lays a row each side of your stroke, facing each other across it like a street. A narrow one lays a single row facing the nearest road or the track. Houses never land on the track or roads, and use the look set in PROPS &rsaquo; Houses (${this.housePaint.random ? 'random' : 'your chosen paint'}).</p>` : ''}
-      ${PAINTS[kind] && PAINTS[kind].runoff ? `<p class="muted">Lays ${kind === 'paved' ? 'paved runoff' : 'a gravel trap'} beside the track. Paint out past the barrier and the barrier moves back to take it in, up to 80 m from the track. Grass paints over it; Erase &rsaquo; Ground puts the circuit's own runoff back.</p>` : ''}
-      ${kind === 'erase' ? `<div class="fld"><label>Erase</label><div class="seg" id="p-what">${[['g', 'Ground'], ['n', 'Trees &amp; plants'], ['b', 'Buildings']].map(([k, l]) => `<button data-v="${k}" class="${what.includes(k) ? 'on' : ''}">${l}</button>`).join('')}</div></div>
-      <p class="muted">Removes everything you pick under the brush: painted grass, paved and gravel, every tree and plant (painted, from the World tab setting, zone tree lines, the map or placed with PROPS) and buildings of any kind.</p>` : ''}
+      ${PAINTS[kind] && PAINTS[kind].runoff ? `<p class="muted">Lays ${kind === 'paved' ? 'paved runoff' : 'a gravel trap'} beside the track. Paint out past the barrier and the barrier moves back to take it in, up to 80 m from the track. Grass paints over it; Erase Ground puts the circuit's own runoff back.</p>` : ''}
+      ${kind === 'erase' ? `<p class="muted">Takes painted grass, paved and gravel back to the circuit's own runoff. Trees, plants, buildings and crowds are left alone.</p>` : ''}
+      ${kind === 'eraseS' ? `<div class="fld"><label>Erase</label><div class="seg" id="p-what">${[['n', 'Trees &amp; Plants'], ['b', 'Buildings'], ['c', 'Crowds']].map(([k, l]) => `<button data-v="${k}" class="${scen.includes(k) ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <p class="muted">Removes what you pick under the brush: trees and plants (painted, from the World tab, zone tree lines, the map or placed with PROPS), buildings of any kind, crowds. The runoff you painted stays.</p>` : ''}
       ${fld('Brush size', 'p-r', 0.5, 80, 0.5, r, 'm')}
       <p class="muted">${area} ground, ${nat} nature, ${cr} crowd and ${er} eraser stroke${er === 1 ? '' : 's'}. Painted ground grips (and slows you) like the real thing when you run wide.${envReady() ? '' : ' (Scenery models are still loading.)'}</p>
       <div class="seg"><button id="p-undo">Undo Last Stroke</button><button id="p-clear">Clear All Paint</button></div>`;
-    document.querySelectorAll('#p-kind button').forEach(b => b.addEventListener('click', () => { this.paintKind = b.dataset.v; sfx.move(); this.renderPaintTab(); this.dirty = true; }));
+    document.querySelectorAll('.p-kind button').forEach(b => b.addEventListener('click', () => { this.paintKind = b.dataset.v; sfx.move(); this.renderPaintTab(); this.dirty = true; }));
     document.querySelectorAll('#p-mix button').forEach(b => b.addEventListener('click', () => { this.floraMix = b.dataset.v; sfx.move(); this.renderPaintTab(); }));
     document.querySelectorAll('#p-what button').forEach(b => b.addEventListener('click', () => {
-      const set = new Set(this.eraseWhat || 'gnb'); if (set.has(b.dataset.v)) { if (set.size > 1) set.delete(b.dataset.v); } else set.add(b.dataset.v);
-      this.eraseWhat = ['g', 'n', 'b'].filter(k => set.has(k)).join(''); sfx.move(); this.renderPaintTab();
+      const set = new Set(this.eraseScen || 'nbc'); if (set.has(b.dataset.v)) { if (set.size > 1) set.delete(b.dataset.v); } else set.add(b.dataset.v);
+      this.eraseScen = ['n', 'b', 'c'].filter(k => set.has(k)).join(''); sfx.move(); this.renderPaintTab();
     }));
     const pd = $('p-d'); if (pd) pd.addEventListener('input', () => { this.floraDens = +pd.value; $('p-d-v').textContent = (+pd.value).toFixed(2); });
     const pcd = $('p-cd'); if (pcd) pcd.addEventListener('input', () => { this.crowdDens = +pcd.value; $('p-cd-v').textContent = (+pcd.value).toFixed(2); });
@@ -2817,10 +2831,16 @@ export class Editor {
     const L = this.paintLayer, W = Math.round(this.W * this.dpr), H = Math.round(this.H * this.dpr);
     if (L.width !== W || L.height !== H) { L.width = W; L.height = H; }
     const g = L.getContext('2d');
-    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
+    // (two layers: the ground (grass, paved, gravel) with the ground eraser's cuts, then the scenery (nature, houses,
+    // crowds) with the scenery eraser's: an eraser cuts only what it erases)
+    const onGround = (s) => s.area || PAINTS[s.kind] || (s.kind === 'erase' && eraseHits(s, 'g'));
+    const onScenery = (s) => (s.kind === 'flora' || s.kind === 'houses' || s.kind === 'crowd') || (s.kind === 'erase' && (eraseHits(s, 'n') || eraseHits(s, 'b') || eraseHits(s, 'c')));
+    for (const layer of [onGround, onScenery]) {
+    g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, W, H);
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     g.lineCap = g.lineJoin = 'round';
     for (const s of list) {
+      if (!layer(s)) continue;
       if (s.area) { // (a shape: filled inside its outline)
         if (s.pts.length < 3) continue;
         g.globalCompositeOperation = 'source-over'; g.fillStyle = (PAINTS[s.kind] || PAINTS.grass).color.replace(/[\d.]+\)$/, '1)');
@@ -2837,10 +2857,11 @@ export class Editor {
     }
     g.globalCompositeOperation = 'source-over';
     c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 0.62; c.drawImage(L, 0, 0); c.restore();
+    }
     // brush outline under the mouse
     if (this.tool === 'paint' && this.paintMode !== 'shape' && this.mouse.inside) {
       const [x, y] = this.w2s(this.mouse.wx, this.mouse.wz);
-      c.strokeStyle = (this.paintKind || 'grass') === 'erase' ? '#ff8a5a' : this.paintKind === 'houses' ? '#e0a060' : this.paintKind === 'crowd' ? '#ff9ab8' : this.paintKind === 'flora' ? (FLORA[this.floraMix || 'blossom'] || FLORA.mixed).color : this.paintKind === 'paved' ? '#d4d6dc' : this.paintKind === 'gravel' ? '#f0d49a' : '#bfff9a'; c.lineWidth = 1.5; c.setLineDash([4, 3]);
+      c.strokeStyle = (this.paintKind || 'grass') === 'erase' || this.paintKind === 'eraseS' ? '#ff8a5a' : this.paintKind === 'houses' ? '#e0a060' : this.paintKind === 'crowd' ? '#ff9ab8' : this.paintKind === 'flora' ? (FLORA[this.floraMix || 'blossom'] || FLORA.mixed).color : this.paintKind === 'paved' ? '#d4d6dc' : this.paintKind === 'gravel' ? '#f0d49a' : '#bfff9a'; c.lineWidth = 1.5; c.setLineDash([4, 3]);
       c.beginPath(); c.arc(x, y, (this.brush || 12) * this.view.scale, 0, Math.PI * 2); c.stroke(); c.setLineDash([]);
     }
   }

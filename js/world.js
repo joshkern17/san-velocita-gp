@@ -1142,6 +1142,9 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
   }
 
   yield;
+  // painted paved and gravel past where the runoff's rows reach (round the outside of a hairpin, out to a far barrier)
+  const runPatch = RUN ? buildRunPatches(root, T, A, track, groundHeight, RUN, tx, theme) : null;
+  yield;
   // barriers
   if (walls) buildBarriers(root, T, A, env, surfY, groundHeight, tx, night, verge);
   if (walls && A.free) buildFreeBarriers(root, T, A, env, groundHeight, tx);
@@ -1676,7 +1679,7 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
   }
   const roadAt = (x, z) => !!(roadL && roadL.onGroundRoad(x, z, -1.6));
   const roadLines = roadL ? roadL.pieces.map(pc => pc.s.map(q => [q.x, q.z])) : [];
-  return { root, fog, P, update, setWeather, setTimeOfDay, nightK: () => nightK, road: env.surface === 'dirt' ? null : { mat: roadMat }, groundHeight, paintAt, roadAt, streetStep: (x, z) => streetStep(x, z), roadLines, tvCams, startLights, life, boards: distBoards, center: new THREE.Vector3(cx, 0, cz), bounds: { minX, maxX, minZ, maxZ },
+  return { root, fog, P, update, setWeather, setTimeOfDay, nightK: () => nightK, road: env.surface === 'dirt' ? null : { mat: roadMat }, groundHeight, paintAt, runPatchAt: (x, z) => (runPatch ? runPatch.at(x, z) : null), roadAt, streetStep: (x, z) => streetStep(x, z), roadLines, tvCams, startLights, life, boards: distBoards, center: new THREE.Vector3(cx, 0, cz), bounds: { minX, maxX, minZ, maxZ },
     placed: { models: envPl, footprints: foot, stands, boards } }; // (what stands where: tools/tracks/check.mjs)
 }
 
@@ -2338,6 +2341,86 @@ function buildFreeBarriers(root, T, A, env, groundHeight, tx) {
     posts.forEach((p, k) => { m.makeScale(1, p[3], 1); m.setPosition(p[0], p[1] + p[3] / 2, p[2]); im.setMatrixAt(k, m); });
     root.add(im);
   }
+}
+
+// Painted runoff the runoff's rows don't reach. The runoff is laid in rows straight out from the road (runoff.js), so
+// ground no row reaches - round the outside of a tight hairpin, past the last row out to a barrier far away - never
+// showed the paved or gravel painted there. Here the paint is laid on the ground itself wherever no row covers it, on
+// a grid (1 m, coarser for a lot of paint), in the order it was painted (grass and the ground eraser take it away), in
+// the runoff's own textures. at(x, z): 'runoff' (paved), 'gravel' or null, for the cars (race.js surfaceKind).
+function buildRunPatches(root, T, A, track, groundHeight, RUN, tx, theme) {
+  const all = (track.paint || []).filter(st => (st.pts || []).length && (isRunoffPaint(st) || st.kind === 'grass' || (st.kind === 'erase' && (st.what || 'gn').includes('g'))));
+  if (!all.some(isRunoffPaint)) return null;
+  let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+  for (const st of all) if (isRunoffPaint(st)) { const b = strokeBox(st, 2); x0 = Math.min(x0, b[0]); z0 = Math.min(z0, b[1]); x1 = Math.max(x1, b[2]); z1 = Math.max(z1, b[3]); }
+  const step = Math.max(1, Math.max(x1 - x0, z1 - z0) / 700), nx = Math.ceil((x1 - x0) / step) + 1, nz = Math.ceil((z1 - z0) / step) + 1, NV = nx * nz;
+  const PV = new Float32Array(NV), GV = new Float32Array(NV);
+  for (const st of all) {
+    const r = st.r || 8, b = strokeBox(st, 2), kind = st.kind;
+    const k0 = Math.max(0, Math.floor((b[0] - x0) / step)), k1 = Math.min(nx - 1, Math.ceil((b[2] - x0) / step));
+    const j0 = Math.max(0, Math.floor((b[1] - z0) / step)), j1 = Math.min(nz - 1, Math.ceil((b[3] - z0) / step));
+    for (let j = j0; j <= j1; j++) for (let k = k0; k <= k1; k++) {
+      const c = 1 - smoothstep(r - Math.min(1.5, step), r + 0.5, strokeDist(st, x0 + k * step, z0 + j * step));
+      if (c <= 0) continue;
+      const id = j * nx + k;
+      if (kind === 'paved') { PV[id] = Math.max(PV[id], c); GV[id] *= 1 - c; }
+      else if (kind === 'gravel') { GV[id] = Math.max(GV[id], c); PV[id] *= 1 - c; }
+      else { PV[id] *= 1 - c; GV[id] *= 1 - c; }
+    }
+  }
+  // (where the runoff's rows reach: each row's quad, from the road's edge out to its reach, marked off)
+  const COV = new Uint8Array(NV), N = T.N;
+  for (let s = 0; s < 2; s++) {
+    const side = s ? 1 : -1, R = RUN.reach[s];
+    for (let i = 0; i < N; i++) {
+      if (i === T.cut || A.BRIDGE[i]) continue;
+      const j = (i + 1) % N, hi = T.W[i] / 2, hj = T.W[j] / 2;
+      const q = [[hi, i], [hj, j], [hj + R[j], j], [hi + R[i], i]].map(([o, n]) => [T.X[n] + T.RX[n] * side * o, T.Z[n] + T.RZ[n] * side * o]);
+      const bx0 = Math.min(...q.map(p => p[0])), bx1 = Math.max(...q.map(p => p[0])), bz0 = Math.min(...q.map(p => p[1])), bz1 = Math.max(...q.map(p => p[1]));
+      if (bx1 < x0 || bx0 > x1 || bz1 < z0 || bz0 > z1) continue;
+      const k0 = Math.max(0, Math.floor((bx0 - x0) / step)), k1 = Math.min(nx - 1, Math.ceil((bx1 - x0) / step));
+      const j0 = Math.max(0, Math.floor((bz0 - z0) / step)), j1 = Math.min(nz - 1, Math.ceil((bz1 - z0) / step));
+      for (let jj = j0; jj <= j1; jj++) for (let k = k0; k <= k1; k++) {
+        const x = x0 + k * step, z = z0 + jj * step; let inside = false;
+        for (let a = 0, b = 3; a < 4; b = a++) { const [ax, az] = q[a], [bx, bz] = q[b]; if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) inside = !inside; }
+        if (inside) COV[jj * nx + k] = 1;
+      }
+    }
+  }
+  // (and the road itself, any stretch: nothing painted on it)
+  for (let id = 0; id < NV; id++) {
+    if (COV[id] || (PV[id] <= 0 && GV[id] <= 0)) continue;
+    const x = x0 + (id % nx) * step, z = z0 + Math.floor(id / nx) * step;
+    A.hash.query(x, z, 30, (q) => { if (Math.hypot(x - T.X[q], z - T.Z[q]) < T.W[q] / 2 + 0.5) COV[id] = 1; });
+  }
+  const tint = theme === 'desert' ? [1.3, 1.1, 0.92] : theme === 'coast' ? [1.25, 1.22, 1.16] : [1.18, 1.14, 1.04];
+  for (const [V, map, scale, col] of [[PV, tx.runoffAsphalt, 6, [1, 1, 1]], [GV, tx.gravel, 2.5, tint]]) {
+    const pos = new Float32Array(NV * 3), uv = new Float32Array(NV * 2), rgba = new Float32Array(NV * 4), idx = [];
+    for (let j = 0; j < nz; j++) for (let k = 0; k < nx; k++) {
+      const id = j * nx + k, x = x0 + k * step, z = z0 + j * step;
+      pos[id * 3] = x; pos[id * 3 + 1] = groundHeight(x, z) + 0.05; pos[id * 3 + 2] = z;
+      uv[id * 2] = x / scale; uv[id * 2 + 1] = z / scale;
+      rgba.set([col[0], col[1], col[2], COV[id] ? 0 : Math.min(1, V[id] * 1.4)], id * 4);
+    }
+    for (let j = 0; j + 1 < nz; j++) for (let k = 0; k + 1 < nx; k++) {
+      const a = j * nx + k, q = [a, a + 1, a + nx, a + nx + 1];
+      if (q.every(v => rgba[v * 4 + 3] <= 0)) continue;
+      idx.push(a, a + nx, a + 1, a + 1, a + nx, a + nx + 1);
+    }
+    if (!idx.length) continue;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.BufferAttribute(rgba, 4));
+    g.setIndex(idx); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map, vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    m.name = 'runPatch'; m.renderOrder = 1; root.add(m);
+  }
+  const at = (x, z) => {
+    const k = Math.round((x - x0) / step), j = Math.round((z - z0) / step);
+    if (k < 0 || j < 0 || k >= nx || j >= nz) return null;
+    const id = j * nx + k; if (COV[id]) return null;
+    return PV[id] > 0.5 ? 'runoff' : GV[id] > 0.5 ? 'gravel' : null;
+  };
+  return { at };
 }
 
 // ---------- instanced vegetation etc ----------

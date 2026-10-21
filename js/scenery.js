@@ -145,7 +145,8 @@ const nearStroke = (st, x, z) => {
 // The PAINT tool's Erase brush. what: letters for what it removes, g grass paint, n trees & plants, b buildings
 // (older strokes have none: grass and plants). Things the world made (a setting's woods, zone tree lines, map
 // trees and buildings) go wherever any eraser touches them; Nature strokes painted after an eraser still grow.
-export const eraseHits = (st, letter) => (st.what || 'gn').includes(letter);
+// (crowds: an eraser from before it had its own Crowds choice took them whatever it was set to)
+export const eraseHits = (st, letter) => (letter === 'c' && !st.v) || (st.what || 'gn').includes(letter);
 export function eraser(track, letter) {
   const list = (track.paint || []).filter(st => st.kind === 'erase' && eraseHits(st, letter) && (st.pts || []).length)
     .map(st => { let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity; for (const [x, z] of st.pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); } const r = st.r || 8; return { st, b: [x0 - r, z0 - r, x1 + r, z1 + r] }; });
