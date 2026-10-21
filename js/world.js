@@ -4,6 +4,7 @@ import { getTextures, getGroundTextures } from './textures.js';
 import { circDist, computeSpeedProfile, OPEN_END_WALL, stepIdx, fenceHeight, kerbOn, kerbW, kerbOf, kerbColors, wallTypeAt, KERB_STYLES, SAUSAGE_H } from './track.js';
 import { gameHeight } from './terrain.js';
 import { applySculpt, trackHeightAt } from './sculpt.js';
+import { freeRay } from './freebar.js';
 import { footSamples, rectFoot, makePlots } from './pads.js';
 import { makeVerge } from './verge.js';
 import { placeTrackProps, buildStartGantry, beamCone, beamMaterial, buildCatchFence, CROWDS } from './trackprops.js';
@@ -2387,11 +2388,18 @@ function buildRunPatches(root, T, A, track, groundHeight, RUN, tx, theme) {
       }
     }
   }
-  // (and the road itself, any stretch: nothing painted on it)
+  // (and the road itself, any stretch: nothing painted on it; nor past a barrier, as seen from the nearest road)
   for (let id = 0; id < NV; id++) {
     if (COV[id] || (PV[id] <= 0 && GV[id] <= 0)) continue;
     const x = x0 + (id % nx) * step, z = z0 + Math.floor(id / nx) * step;
-    A.hash.query(x, z, 30, (q) => { if (Math.hypot(x - T.X[q], z - T.Z[q]) < T.W[q] / 2 + 0.5) COV[id] = 1; });
+    let bq = -1, bd = Infinity;
+    A.hash.query(x, z, 120, (q) => { const d = Math.hypot(x - T.X[q], z - T.Z[q]); if (d < T.W[q] / 2 + 0.5) COV[id] = 1; if (d - T.W[q] / 2 < bd) { bd = d - T.W[q] / 2; bq = q; } });
+    if (COV[id] || bq < 0) continue;
+    const lat = (x - T.X[bq]) * T.RX[bq] + (z - T.Z[bq]) * T.RZ[bq], side = lat < 0 ? -1 : 1;
+    if (A.free) {
+      const h = T.W[bq] / 2, ex = T.X[bq] + T.RX[bq] * side * h, ez = T.Z[bq] + T.RZ[bq] * side * h, dx = x - ex, dz = z - ez, L = Math.hypot(dx, dz);
+      if (L > 0.1 && freeRay(A.free, ex, ez, dx / L, dz / L, L)) COV[id] = 1;
+    } else if ((side < 0 ? A.HAS_L : A.HAS_R)[bq] && Math.abs(lat) > (side < 0 ? A.BL : A.BR)[bq]) COV[id] = 1;
   }
   const tint = theme === 'desert' ? [1.3, 1.1, 0.92] : theme === 'coast' ? [1.25, 1.22, 1.16] : [1.18, 1.14, 1.04];
   for (const [V, map, scale, col] of [[PV, tx.runoffAsphalt, 6, [1, 1, 1]], [GV, tx.gravel, 2.5, tint]]) {
