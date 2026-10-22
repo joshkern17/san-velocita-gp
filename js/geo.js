@@ -1,6 +1,7 @@
 // Real-world maps: projection, map tiles, place search and OpenStreetMap import.
 // Local track coordinates are metres: +x = east, +z = south, origin = track.geo.
 import { polyArea, pointInPoly, orientedRect } from './zones.js';
+import { OSM_ROAD_QUERY, osmWays } from './osmroads.js';
 
 const M_LAT = 110574;
 const mLon = (lat) => 111320 * Math.cos(lat * Math.PI / 180);
@@ -112,30 +113,71 @@ const DEFAULT_H = { house: 6, shop: 7, apartment: 15, office: 24, tower: 70, war
 
 function num(v) { if (v == null) return NaN; const m = String(v).match(/[\d.]+/); return m ? parseFloat(m[0]) : NaN; }
 
-export async function importOSM(geo, bboxLocal, opts, onStatus) {
-  const [x0, z0, x1, z1] = bboxLocal;
-  const [n, w] = toLatLon(geo, x0, z0), [s, e] = toLatLon(geo, x1, z1);
-  const bb = `${s.toFixed(6)},${w.toFixed(6)},${n.toFixed(6)},${e.toFixed(6)}`;
-  const parts = [];
-  if (opts.buildings) parts.push(`way["building"](${bb});`);
-  if (opts.trees) parts.push(`node["natural"="tree"](${bb});`, `way["natural"="wood"](${bb});`, `way["landuse"="forest"](${bb});`, `way["natural"="tree_row"](${bb});`);
-  const q = `[out:json][timeout:90];(${parts.join('')});out geom qt;`;
-  let data = null, lastErr = null;
-  for (let k = 0; k < ENDPOINTS.length && !data; k++) {
-    const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), 35000);
+// opts: { buildings, trees, roads, driveways, line: [[x, z], ...] + margin (only the ground that close to the line: a long
+// point-to-point track's bounding box is mostly empty hills), rank (see parseOSM) }
+// Along a line the area is a row of squares (CELL m) that reach the strip, all in one request (one bbox query per square
+// is fast for the server; an "around" the whole line wasn't). The public servers are slow at busy times (a minute in the
+// queue for a tiny query), so a request gets WAIT seconds, and one that fails is split in two and tried again.
+// Streets come back whole (out geom), however far they run past the square that found them.
+const CELL = 900, WAIT = 150;
+async function fetchOverpass(q, label, onStatus) {
+  let lastErr = null;
+  for (let k = 0; k < ENDPOINTS.length; k++) {
+    const ctl = new AbortController(), t0 = Date.now();
+    const timer = setTimeout(() => ctl.abort(), (k ? 60 : WAIT) * 1000); // (the main server gets the long wait, backups a minute)
+    const tick = setInterval(() => onStatus && onStatus(`${label} ${Math.round((Date.now() - t0) / 1000)} s${k ? ` (backup server ${k})` : ''}`), 1000);
     try {
-      onStatus && onStatus(k === 0 ? 'Downloading map data…' : `Server busy — trying backup ${k}/${ENDPOINTS.length - 1}…`);
+      onStatus && onStatus(label + (k ? ` (backup server ${k})` : ''));
       const r = await fetch(ENDPOINTS[k], { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: ctl.signal });
       if (!r.ok) throw new Error(r.status === 429 ? 'Map servers are busy — try again in a minute' : 'Map server error ' + r.status);
-      onStatus && onStatus('Reading map data…');
-      data = await r.json();
-    } catch (err) { lastErr = err.name === 'AbortError' ? new Error('Map servers timed out — try a smaller area or try again') : err; }
-    clearTimeout(timer);
+      const data = await r.json();
+      if (data.remark && /timed out|out of memory/i.test(data.remark)) throw new Error('Map server ran out of time');
+      clearTimeout(timer); clearInterval(tick); return data;
+    } catch (err) { lastErr = err.name === 'AbortError' ? new Error('Map servers timed out — they are busy, try again in a minute') : err; }
+    clearTimeout(timer); clearInterval(tick);
   }
-  if (!data) throw lastErr || new Error('Could not reach the map server');
+  throw lastErr || new Error('Could not reach the map server');
+}
+export async function importOSM(geo, bboxLocal, opts, onStatus) {
+  const [x0, z0, x1, z1] = bboxLocal, m = opts.margin || 250;
+  const llb = (a, b, c, d) => { const [n, w] = toLatLon(geo, a, b), [s, e] = toLatLon(geo, c, d); return `${s.toFixed(6)},${w.toFixed(6)},${n.toFixed(6)},${e.toFixed(6)}`; };
+  const clauses = (bb) => {
+    const parts = [];
+    if (opts.roads) parts.push(OSM_ROAD_QUERY(bb));
+    if (opts.buildings) parts.push(`way["building"](${bb});`);
+    if (opts.trees) parts.push(`node["natural"="tree"](${bb});`, `way["natural"="wood"](${bb});`, `way["landuse"="forest"](${bb});`, `way["natural"="tree_row"](${bb});`);
+    return parts.join('');
+  };
+  // the squares: those whose nearest point to the line is within the margin
+  const cells = [];
+  if (opts.line) {
+    const near = (a, b, c, d) => opts.line.some(([x, z]) => Math.hypot(Math.max(a - x, 0, x - c), Math.max(b - z, 0, z - d)) < m + 30);
+    for (let a = x0; a < x1; a += CELL) for (let b = z0; b < z1; b += CELL) { const c = Math.min(x1, a + CELL), d = Math.min(z1, b + CELL); if (near(a, b, c, d)) cells.push([a, b, c, d]); }
+  } else cells.push([x0, z0, x1, z1]);
+  const seen = new Set(), data = { elements: [] };
+  const todo = [cells]; let done = 0;
+  while (todo.length) {
+    const batch = todo.shift();
+    const q = `[out:json][timeout:${WAIT - 10}];(${batch.map(c => clauses(llb(...c))).join('')});out geom qt;`;
+    const label = cells.length > batch.length ? `Downloading map data (${done + batch.length} / ${cells.length} squares)…` : 'Downloading map data…';
+    let part;
+    try { part = await fetchOverpass(q, label, onStatus); }
+    catch (err) { // (too much for the server in one go: in two halves; anything else (no answer, busy) is final)
+      if (batch.length < 2 || !/ran out of time|error 50[34]/.test(err.message)) throw err;
+      const h = Math.ceil(batch.length / 2); todo.unshift(batch.slice(0, h), batch.slice(h)); continue;
+    }
+    done += batch.length;
+    for (const el of part.elements || []) { const id = el.type + el.id; if (!seen.has(id)) { seen.add(id); data.elements.push(el); } }
+  }
   onStatus && onStatus('Building the neighbourhood…');
-  return parseOSM(geo, data, bboxLocal);
+  const res = parseOSM(geo, data, bboxLocal, opts.rank ? { rank: opts.rank } : {});
+  if (opts.line && opts.rank) { // (the squares' corners reach past the strip: buildings and trees only inside it)
+    const r2 = (m + 15) ** 2, cen = (p) => { let x = 0, z = 0; for (const q of p) { x += q[0]; z += q[1]; } return [x / p.length, z / p.length]; };
+    res.buildings = res.buildings.filter(b => opts.rank(...cen(b.p)) < r2);
+    res.trees = res.trees.filter(t => opts.rank(t[0], t[1]) < r2);
+  }
+  if (opts.roads) res.ways = osmWays(data, geo, { driveways: !!opts.driveways });
+  return res;
 }
 
 // Overpass JSON (out geom) -> the track's imported scenery { buildings, trees, bbox }

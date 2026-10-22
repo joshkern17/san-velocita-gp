@@ -47,7 +47,9 @@ export const PLOT = { margin: 2.2, bankK: 1.6, bankMin: 4, bankMax: 30 };
 // feet: footprints. ground(x, z): the natural ground. fadeAt(x, z): 0..1, how much the plots may change the ground
 // there (0 on the circuit and roads). Returns null if nothing needs shaping, else
 // { list (each with bb: [x0, z0, x1, z1], the area it changes), delta(x, z): the change in ground height there }
-export function makePlots(feet, ground, fadeAt) {
+// cuts: [{ p, y }] ground dug down to y over p (and banked back up to the hillside round it, as plots are), never
+// built up: what a grandstand on a hillside needs (js/gstands.js; where the ground falls away it has a podium)
+export function makePlots(feet, ground, fadeAt, cuts = []) {
   const list = [];
   for (const p of feet) {
     if (!p || p.length < 3) continue;
@@ -64,6 +66,18 @@ export function makePlots(feet, ground, fadeAt) {
     const reach = PLOT.margin + bank;
     list.push({ p, y: sum / n, lo, hi, reach, bb: [x0 - reach, z0 - reach, x1 + reach, z1 + reach] });
   }
+  // the cuts: only where the ground is above the level somewhere near
+  const cutList = [];
+  for (const c of cuts) {
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const q of c.p) { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); z0 = Math.min(z0, q[1]); z1 = Math.max(z1, q[1]); }
+    let hi = -Infinity; const N = Math.max(2, Math.ceil(Math.max(x1 - x0, z1 - z0) / 3));
+    for (let a = -1; a <= N + 1; a++) for (let b = -1; b <= N + 1; b++) hi = Math.max(hi, ground(x0 + (x1 - x0) * a / N, z0 + (z1 - z0) * b / N));
+    if (hi < c.y + 0.1) continue;
+    const reach = PLOT.margin + Math.max(PLOT.bankMin, Math.min(PLOT.bankMax * 2, (hi - c.y) * PLOT.bankK + 2));
+    const m = { p: c.p, y: c.y, cut: true, reach, bb: [x0 - reach, z0 - reach, x1 + reach, z1 + reach] };
+    cutList.push(m); list.push(m);
+  }
   if (!list.length) return null;
   const C = 24, cells = new Map();
   for (const m of list) for (let i = Math.floor(m.bb[0] / C); i <= Math.floor(m.bb[2] / C); i++) for (let j = Math.floor(m.bb[1] / C); j <= Math.floor(m.bb[3] / C); j++) {
@@ -73,16 +87,24 @@ export function makePlots(feet, ground, fadeAt) {
     const a = cells.get(Math.floor(x / C) + ',' + Math.floor(z / C)); if (!a) return 0;
     let sw = 0, st = 0, mw = 0;
     for (const m of a) {
-      if (x < m.bb[0] || x > m.bb[2] || z < m.bb[1] || z > m.bb[3]) continue;
+      if (m.cut || x < m.bb[0] || x > m.bb[2] || z < m.bb[1] || z > m.bb[3]) continue;
       const d = polyDist(x, z, m.p); if (d > m.reach) continue;
       const w = d <= PLOT.margin ? 1 : 1 - smoothstep(PLOT.margin, m.reach, d);
       if (w <= 0) continue;
       const wa = w / Math.pow(0.4 + d, 4); // (the nearer plot wins: terraces down a hill)
       sw += wa; st += wa * m.y; if (w > mw) mw = w;
     }
-    if (!mw) return 0;
     const f = fadeAt(x, z); if (f <= 0) return 0;
-    return (st / sw - ground(x, z)) * mw * f;
+    const g0 = ground(x, z);
+    let dlt = mw ? (st / sw - g0) * mw * f : 0;
+    // cuts: down to the level over the stand and a margin, the hillside banked back up beyond (1 in bankK)
+    for (const m of a) {
+      if (!m.cut || x < m.bb[0] || x > m.bb[2] || z < m.bb[1] || z > m.bb[3]) continue;
+      const d = polyDist(x, z, m.p); if (d > m.reach) continue;
+      const allowed = m.y + Math.max(0, d - PLOT.margin) / PLOT.bankK;
+      const g = g0 + dlt; if (g > allowed) dlt -= (g - allowed) * f;
+    }
+    return dlt;
   };
   return { list, delta };
 }

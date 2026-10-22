@@ -46,8 +46,11 @@ function convertMaterial(m) {
   return out;
 }
 // geometry out of a (quantised) glTF mesh, baked into the piece's space, attributes as plain floats
-function bakeGeometry(mesh) {
+function bakeGeometry(mesh, keepColor) {
   const src = mesh.geometry, g = new THREE.BufferGeometry();
+  // (keepColor: the model's own baked shading, COLOR_0, as plain rgb)
+  const ca = keepColor && src.getAttribute('color');
+  if (ca) { const f = new Float32Array(ca.count * 3); for (let i = 0; i < ca.count; i++) { f[i * 3] = ca.getX(i); f[i * 3 + 1] = ca.getY(i); f[i * 3 + 2] = ca.getZ(i); } g.setAttribute('color', new THREE.BufferAttribute(f, 3)); }
   for (const name of ['position', 'normal', 'uv']) {
     const a = src.getAttribute(name); if (!a) continue;
     const n = a.itemSize, f = new Float32Array(a.count * n);
@@ -106,16 +109,16 @@ export function loadEnvModels() {
         gl.scene.updateMatrixWorld(true);
         const mats = new Map();
         for (const node of gl.scene.children) {
-          const parts = [];
+          const parts = [], meta = byId.get(node.name) || {};
           node.traverse(o => {
             if (!o.isMesh) return;
             let m = mats.get(o.material); if (!m) mats.set(o.material, m = convertMaterial(o.material));
-            parts.push({ geo: bakeGeometry(o), mat: m });
+            parts.push({ geo: bakeGeometry(o, meta.ao), mat: m });
           });
           if (parts.length) {
-            const meta = byId.get(node.name) || {};
             if (meta.cat === 'tree' || meta.cat === 'bush' || meta.cat === 'grass') foliageNormals(parts);
-            bakeAO(parts, meta.cat);
+            // (meta.ao: shading baked into the model, ambient occlusion from Blender: kept, not the gradient)
+            if (!(meta.ao && parts.every(p => p.geo.getAttribute('color')))) bakeAO(parts, meta.cat);
             // litter lies flat on the road / pavement: always draw it on top of the surface under it
             if (meta.cls === 'litter' || meta.cls === 'junk') for (const pt of parts) { const m2 = pt.mat.clone(); m2.polygonOffset = true; m2.polygonOffsetFactor = -8; m2.polygonOffsetUnits = -8; pt.mat = m2; }
             models.set(node.name, parts);

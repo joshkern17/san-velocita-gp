@@ -1,12 +1,13 @@
 // Builds the 3D environment for a track
 import * as THREE from 'three';
-import { getTextures, getGroundTextures } from './textures.js';
+import { streetAsphalt, getTextures, getGroundTextures } from './textures.js';
 import { circDist, computeSpeedProfile, OPEN_END_WALL, stepIdx, fenceHeight, kerbOn, kerbW, kerbOf, kerbColors, wallTypeAt, KERB_STYLES, SAUSAGE_H } from './track.js';
 import { gameHeight } from './terrain.js';
 import { applySculpt, trackHeightAt } from './sculpt.js';
 import { freeRay } from './freebar.js';
 import { footSamples, rectFoot, makePlots } from './pads.js';
 import { makeVerge } from './verge.js';
+import { kitStands, kitCuts, buildPodiums } from './gstands.js';
 import { placeTrackProps, buildStartGantry, beamCone, beamMaterial, buildCatchFence, CROWDS } from './trackprops.js';
 import { runoffLayout, isRunoffPaint, strokeDist, strokeBox, RUN_RES, RUN_SD } from './runoff.js';
 import { buildCourthouse, buildBusiness } from './landmarks.js';
@@ -21,7 +22,7 @@ import { settingOf, modelTransform, natureModel, FLORA, PROP_FLORA, fitHouse, ra
 import { WetReflections } from './weatherfx.js';
 import { StreetLife } from './lifefx.js';
 import { buildClouds } from './clouds.js';
-import { buildPitBoxes, pitCovered, pitBlockTest, pitBlockFloor } from './pitboxes.js';
+import { buildPitBoxes, pitCovered, pitBlockTest, pitBlockFloor, pitStyleReady, pitSlots } from './pitboxes.js';
 import { applyPSXMaterial } from '../vendor/psx/src/PSXMaterial.js';
 import { setCarSky } from './carsky.js';
 import { loadCrowd, buildCrowd, makeBleachers, bleacherSeats, paintedPeople, BLEACHERS } from './crowd.js';
@@ -376,6 +377,7 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
   yield;
   // every building's footprint: each gets a level plot cut into / built up from the hillside (pads.js, below)
   const padFeet = [];
+  let kitStandList = []; // (the modular grandstands: gstands.js kitStands, made with the terrain below)
   {
     const feet = padFeet; feet.push(...real.buildings.filter(b => !b.far && b.p && b.p.length >= 3).map(b => b.p));
     for (const p of track.props || []) {
@@ -642,7 +644,9 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
       A.hash.query(x, z, 60, (j) => { const need = Math.max(A.BL[j], A.BR[j], T.W[j] / 2 + runoff) + 1, d = Math.hypot(x - T.X[j], z - T.Z[j]); if (d < need + 6) f = Math.min(f, smoothstep(need, need + 6, d)); });
       return roadL && roadL.onRoad(x, z, 3.5) ? f * 0.4 : f;
     };
-    const plots = makePlots(padFeet, terrainHeight, plotAvoid);
+    // the modular grandstands (gstands.js): each level, at its front's ground; the hillside above that cut away
+    kitStandList = kitStands((track.props || []).filter(p => !inPitZone(p.x, p.z)), terrainHeight);
+    const plots = makePlots(padFeet, terrainHeight, plotAvoid, kitCuts(kitStandList));
     const cellMask = new Uint8Array((nx - 1) * (nz - 1));
     if (plots) for (const m of plots.list) {
       const k0 = Math.max(0, Math.floor((m.bb[0] - gx0) / step)), k1 = Math.min(nx - 2, Math.floor((m.bb[2] - gx0) / step));
@@ -926,7 +930,7 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
   yield;
   // ---- road ----
   const roadMat = new THREE.MeshPhongMaterial({
-    map: env.surface === 'dirt' ? tx.dirt : theme === 'city' ? tx.asphaltCity : tx.asphalt, vertexColors: true,
+    map: env.surface === 'dirt' ? tx.dirt : env.markings === 'street' ? streetAsphalt() : theme === 'city' ? tx.asphaltCity : tx.asphalt, vertexColors: true,
     // (dirt: mud in the rain, darker and only a little shiny)
     color: P.rain ? (env.surface === 'dirt' ? 0x7a6e66 : 0x9a9aa4) : 0xffffff, specular: P.rain ? (env.surface === 'dirt' ? 0x3a3530 : 0x7a7a88) : env.surface === 'dirt' ? 0x080604 : 0x1a1a1a, shininess: P.rain ? (env.surface === 'dirt' ? 30 : 90) : 8,
     polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
@@ -965,6 +969,7 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
     g.setAttribute('aRub', new THREE.BufferAttribute(rub, 4));
     g.setIndex(idx); g.computeVertexNormals();
     root.add(new THREE.Mesh(g, roadMat));
+    if (env.markings === 'street' && env.surface !== 'dirt') streetMarkings(root, T, A, env, roadL, surfY);
 
     // skirts / bridge undersides
     const sp = [], su = [];
@@ -1435,6 +1440,10 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
   for (const b of real.buildings) {
     if (slice()) yield;
     if (b.biz && BUSINESSES[b.biz]) { placeLandmark(buildBusiness(b.biz, night), b.c[0], b.c[1], b.face, BUSINESSES[b.biz].w / 2, BUSINESSES[b.biz].d / 2); continue; }
+    if (b.lot) { // (a house the import put on an empty lot: not on ground too steep for a house, where a real one wouldn't be)
+      let lo = Infinity, hi = -Infinity; for (const q of footSamples(b.p)) { const g = groundHeight(q[0], q[1]); lo = Math.min(lo, g); hi = Math.max(hi, g); }
+      if (hi - lo > 2.2) continue;
+    }
     if (b.m && envModel(b.m)) { // a PS1-style model: sits on the lowest corner of its footprint so it never floats
       const t = modelTransform(b);
       if (t) {
@@ -1495,7 +1504,9 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
   }
   yield;
   // the race-track pack's props (PROPS > Trackside): models with the rest, fans in their stands, floodlights at night
-  const tpFx = placeTrackProps({ track: { ...track, props: (track.props || []).filter(keepProp) }, T, A, root, envPl, groundHeight, night, lit: nightish || env.time === 'dusk' });
+  if (!kitStandList.length) kitStandList = kitStands((track.props || []).filter(p => !inPitZone(p.x, p.z)), groundHeight); // (no terrain pass: on the ground as it is)
+  const tpFx = placeTrackProps({ track: { ...track, props: (track.props || []).filter(keepProp) }, T, A, root, envPl, groundHeight, night, lit: nightish || env.time === 'dusk', kits: kitStandList });
+  if (kitStandList.length) buildPodiums(root, kitStandList, groundHeight); // (and where the ground falls away, a podium under them)
   for (const q of lampModels) envPl.push(q); // (the circuit's banner lamp posts)
   for (let k = envPl.length - 1; k >= 0; k--) if (inBlock(envPl[k].x, envPl[k].z, 2)) envPl.splice(k, 1); // (out of the garages)
   yield;
@@ -1881,7 +1892,7 @@ function buildPitLane(root, T, pit, surfY, tx, night, env, A) {
     buf.p.push(...a, ...b, ...c, ...b, ...d, ...c);
     buf.u.push(ua, va, ub, va, ua, vb, ub, va, ub, vb, ua, vb);
   };
-  const flip = sd > 0, covered = pitCovered(T, A, pit);
+  const flip = sd > 0, covered = pitCovered(T, A, pit), styled = pitStyleReady(env.pitStyle) && pitSlots(T, A, pit).slots.length > 0;
   const face = (buf, a, b, c, d, ua, ub, va, vb) => flip ? quad(buf, b, a, d, c, ub, ua, va, vb) : quad(buf, a, b, c, d, ua, ub, va, vb);
   for (let k = 0; k < idx.length - 1; k++) {
     const i = idx[k], j = idx[k + 1];
@@ -1905,7 +1916,7 @@ function buildPitLane(root, T, pit, surfY, tx, night, env, A) {
       const fin = T.open ? T.finish : 0;
       if (Math.min(circDist(i, fin, N), circDist(j, fin, N)) * T.ds > 0.7) fence.push({ a: at(i, wi, 1.1), b: at(j, wj, 1.1), nx: -T.RX[i] * sd, nz: -T.RZ[i] * sd });
     }
-    if (isMain(i) && isMain(j)) {
+    if (isMain(i) && isMain(j) && !(styled && covered(i, j))) { // (a pit building style brings its own roof, back and ends)
       // garages
       const gi = oi + 0.6, gj = oj + 0.6, depth = 16, hgt = 7.5;
       if (!covered(i, j)) face(gar, at(i, gi), at(j, gj), at(i, gi, hgt), at(j, gj, hgt), T.D[i] / 7.5, T.D[i] / 7.5 + T.ds / 7.5, 0, 1); // (the boxes have fronts of their own: js/pitboxes.js)
@@ -1916,7 +1927,7 @@ function buildPitLane(root, T, pit, surfY, tx, night, env, A) {
   // end caps of the garage block
   const main = idx.filter(isMain), walls = idx.filter(i => !isNaN(pit.WALL[i]));
   for (const [i, dir] of [[main[0], 1], [main[main.length - 1], -1]]) {
-    if (i === undefined) continue;
+    if (i === undefined || styled) continue;
     const g0 = pit.CEN[i] + pit.width / 2 + 0.6;
     const q = [at(i, g0), at(i, g0 + 16), at(i, g0, 7.5), at(i, g0 + 16, 7.5)];
     (dir > 0) === flip ? quad(gar, q[0], q[1], q[2], q[3], 0, 0.1, 0.9, 0.95) : quad(gar, q[1], q[0], q[3], q[2], 0, 0.1, 0.9, 0.95);
@@ -1978,7 +1989,7 @@ function buildPitLane(root, T, pit, surfY, tx, night, env, A) {
   const garMat = night ? new THREE.MeshLambertMaterial({ map: garageTexture(), emissive: 0xffffff, emissiveMap: garageTexture(true), emissiveIntensity: 0.8, color: 0x8890a0, side: THREE.DoubleSide })
     : new THREE.MeshLambertMaterial({ map: garageTexture(), side: THREE.DoubleSide });
   mk(gar, garMat);
-  buildPitBoxes(root, T, A, pit, { mat: garMat });
+  buildPitBoxes(root, T, A, pit, { mat: garMat, style: env.pitStyle, night });
   mk(roof, new THREE.MeshLambertMaterial({ map: tx.concrete, color: 0xe4e2dc, side: THREE.DoubleSide }));
   const mm = mk(marks, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }));
   if (mm) mm.renderOrder = 1;
@@ -2097,6 +2108,9 @@ function buildCornerBoards(root, T, A, env, surfY, groundHeight, roadL, night) {
       let sd = side;
       const blocked = (s2) => (A.pit && A.pit.side === s2 && A.pit.REG[i] >= 0) || (A.OVERPASS && A.OVERPASS[i]);
       if (blocked(sd)) { sd = -sd; if (blocked(sd)) continue; }
+      // (never over a street that meets the track here: the other side, else no board)
+      const spot = (s2) => { const o = (s2 < 0 ? A.BL : A.BR)[i], r2 = T.W[i] / 2 + 2; return roadL && [r2, (r2 + o) / 2, o].some(d => roadL.onRoad(T.X[i] + T.RX[i] * s2 * d, T.Z[i] + T.RZ[i] * s2 * d, 0.5)); };
+      if (spot(sd)) { sd = -sd; if (blocked(sd) || spot(sd)) continue; }
       const has = (sd < 0 ? A.HAS_L : A.HAS_R)[i] && !((sd < 0 ? A.GATE_L : A.GATE_R) || [])[i];
       const fx = T.FX[i], fz = T.FZ[i], rx = T.RX[i] * sd, rz = T.RZ[i] * sd;
       let bx, bz, by, mount;
@@ -3093,12 +3107,17 @@ function buildRoads(root, L, tx, lamps, step, theme, gh, T, A, env) {
       });
       flush();
     }
-    // stop line where the road meets the circuit
-    if (pc.lines !== 'none') for (const k of [0, S.length - 1]) {
+    // stop line where the road meets the circuit; on a street track (env.markings 'street') a crosswalk in front of it,
+    // white bars across the street, so each junction reads as an intersection
+    const xwalk = env.markings === 'street';
+    if (pc.lines !== 'none' || xwalk) for (const k of [0, S.length - 1]) {
       if (!S[k].jend) continue;
       const q = S[k], dir = k === 0 ? 1 : -1, back = (o, b) => { const p = at(k, o, 0.055); return [p[0] + q.tx * dir * b, p[1], p[2] + q.tz * dir * b]; };
       const e = hw - (walk > 0 ? GUT : 0.3);
-      quad(ST, back(-e, 0.6), back(e, 0.6), back(-e, 1.1), back(e, 1.1));
+      if (xwalk) {
+        for (let o = -e + 0.25; o + 0.5 <= e - 0.1; o += 1.0) quad(ST, back(o, 0.8), back(o + 0.5, 0.8), back(o, 3.8), back(o + 0.5, 3.8));
+        quad(ST, back(-e, 4.6), back(e, 4.6), back(-e, 5.1), back(e, 5.1));
+      } else quad(ST, back(-e, 0.6), back(e, 0.6), back(-e, 1.1), back(e, 1.1));
     }
     // pillars under raised sections (never on the circuit itself: spans over it are unsupported)
     for (let i = 2, last = -99; i < S.length - 2; i++) {
@@ -3177,6 +3196,40 @@ function buildRoads(root, L, tx, lamps, step, theme, gh, T, A, env) {
     PIL.forEach(([x, y, z, h], k) => { m.makeScale(1, h, 1); m.setPosition(x, y + h / 2, z); im.setMatrixAt(k, m); });
     root.add(im);
   }
+}
+
+// A street track's road lines (env.markings 'street'), painted on the track: a white edge line each side, broken
+// across the mouth of every street that joins it, and a centre line (env.centre: 'double' yellow, or 'dash' yellow).
+// The intersections' own lines (stop lines, crosswalks) are the streets': buildRoads.
+const STREET_EDGE = 0.35, STREET_LINE = 0.16; // (thinner breaks up into dots in the distance at the game's resolution)
+function streetMarkings(root, T, A, env, roadL, surfY) {
+  const N = T.N, gapL = new Uint8Array(N), gapR = new Uint8Array(N);
+  for (const jn of (roadL && roadL.junctions) || []) // (a metre's clearance either side of the mouth)
+    for (let k = Math.floor(jn.f0) - Math.ceil(1.5 / T.ds); k <= Math.ceil(jn.f0 + jn.span) + Math.ceil(1.5 / T.ds); k++) (jn.side < 0 ? gapL : gapR)[((k % N) + N) % N] = 1;
+  const P = [], C = [], white = new THREE.Color(0xe8e8e2), yellow = new THREE.Color(0xe8c43a);
+  const strip = (i, j, s0, s1, col) => {
+    const pt = (k, s) => [T.X[k] + T.RX[k] * s, surfY(k, s) + 0.012, T.Z[k] + T.RZ[k] * s];
+    const a = pt(i, s0), b = pt(i, s1), c = pt(j, s0), d = pt(j, s1);
+    P.push(...a, ...b, ...c, ...b, ...d, ...c); for (let q = 0; q < 6; q++) C.push(col.r, col.g, col.b);
+  };
+  const dash = env.centre === 'dash', dl = 3, period = 9; // (dashes 3 m on, 6 m off)
+  for (let i = 0; i < N; i++) {
+    const j = (i + 1) % N; if (i === T.cut) continue; // (point-to-point: nothing from the run-off's end to the grid's back)
+    const wi = T.W[i] / 2, wj = T.W[j] / 2;
+    // edges (not across a junction's mouth, nor the pit lane's: its own lines take over there)
+    const pitAt = (k, sd) => A.pit && A.pit.side === sd && A.pit.REG[k] >= 0;
+    if (!gapL[i] && !gapL[j] && !pitAt(i, -1)) strip(i, j, -wi + STREET_EDGE, -wi + STREET_EDGE + STREET_LINE, white);
+    if (!gapR[i] && !gapR[j] && !pitAt(i, 1)) strip(i, j, wi - STREET_EDGE - STREET_LINE, wi - STREET_EDGE, white);
+    // centre
+    if (dash) { if ((T.D[i] % period) < dl) strip(i, j, -STREET_LINE / 2, STREET_LINE / 2, yellow); }
+    else { strip(i, j, -0.24, -0.24 + STREET_LINE, yellow); strip(i, j, 0.24 - STREET_LINE, 0.24, yellow); }
+  }
+  if (!P.length) return;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
+  g.computeVertexNormals();
+  const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
+  m.renderOrder = 1; m.name = 'streetMarkings'; root.add(m);
 }
 
 // sidewalk inner edge (metres from the centre line) for a sample, or -1 if none there

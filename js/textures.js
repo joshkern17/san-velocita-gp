@@ -90,6 +90,10 @@ function tilePhoto(g, im, w, h, base, lift = 0) {
 }
 const burn = (n) => { for (let k = 0; k < n; k++) rnd(); }; // (random numbers a replaced canvas used, so the textures after keep theirs)
 
+// a street track's asphalt: the circuit's, with no painted edges (its lines are drawn on top: world.js streetMarkings)
+let _street = null;
+export function streetAsphalt() { return _street || (_street = photoTex(128, 128, ['asphalt_01'], (g, P) => tilePhoto(g, P('asphalt_01'), 128, 128, '#4a4a4e', 14))); }
+
 const cache = {};
 export function getTextures() {
   if (cache.asphalt) return cache;

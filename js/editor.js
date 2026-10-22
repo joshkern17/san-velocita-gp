@@ -6,6 +6,9 @@ import { bigGet, bigSet } from './backup.js';
 import { fmtTime } from './hud.js';
 import { ZONE_TYPES, STYLE_COLORS, newZone, collectScenery, BUSINESSES, BUSINESS_KEYS, pointInPoly, centroid, buildingClear } from './zones.js';
 import { ROAD_TYPES, MEET, newRoad, roadLayout, applyRoadsToCircuit, raiseTrackOverRoads } from './roads.js';
+import { fitOsmRoads, fillLots, setOsmSidewalks } from './osmroads.js';
+import { kitLineProps } from './gstands.js';
+import { PIT_STYLES } from './pitboxes.js';
 import { runoffLayout, runoffStyle, runoffCell, surfaceGrid, RUNOFF_STYLES, RUN_RES } from './runoff.js';
 import { trackPropFamilies, trackPropFamily, isTrackProp, LOGOS, logoSheetImage, drawLogo, LIGHT_FAMILIES } from './trackprops.js';
 import { thumb } from './propthumbs.js';
@@ -1184,12 +1187,18 @@ export class Editor {
       <h4 style="margin-top:14px">GROUND FROM PHOTO</h4>
       ${this.groundHtml()}
       <h4 style="margin-top:14px">REAL-WORLD SCENERY</h4>
-      <p class="muted">Pull real buildings and trees from OpenStreetMap around your circuit. Houses get pitched roofs, heights come from the map data where available. Anything on the track or runoff is removed automatically.</p>
-      <div class="fld"><div class="seg" id="map-what"><button data-v="b" class="${this.impB !== false ? 'on' : ''}">Buildings</button><button data-v="t" class="${this.impT !== false ? 'on' : ''}">Trees & Woods</button></div></div>
+      <p class="muted">Pull real streets, buildings and trees from OpenStreetMap along your circuit. Streets join the track with proper junctions wherever they meet it; the stretches your circuit drives on become the track. Houses face their street and sit on the ground; trees keep clear of them. Anything on the track or runoff is removed automatically.</p>
+      <div class="fld"><div class="seg" id="map-what"><button data-v="r" class="${this.impR !== false ? 'on' : ''}">Roads</button><button data-v="b" class="${this.impB !== false ? 'on' : ''}">Buildings</button><button data-v="t" class="${this.impT !== false ? 'on' : ''}">Trees & Woods</button></div></div>
       ${fld('Area around circuit', 'map-margin', 50, 600, 25, this.impMargin || 250, 'm')}
+      <div class="fld"><label>Sidewalks</label><div class="seg" id="map-walk">${[['map', 'From Map'], ['on', 'On'], ['off', 'Off']].map(([k, l]) => `<button data-v="${k}" class="${(this.impWalk || 'map') === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <div class="fld"><label>Where streets meet the track</label><div class="seg" id="map-meet">${[['barrier', 'Closed'], ['open', 'Open']].map(([k, l]) => `<button data-v="${k}" class="${(this.impMeet || 'barrier') === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <div class="fld"><label>Driveways &amp; car parks</label><div class="seg" id="map-drive">${[['0', 'Leave Out'], ['1', 'Bring In']].map(([k, l]) => `<button data-v="${k}" class="${(this.impDrive ? '1' : '0') === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <div class="fld"><label>Empty lots on streets</label><div class="seg" id="map-fill">${[['0', 'Leave Empty'], ['1', 'Fill With Houses']].map(([k, l]) => `<button data-v="${k}" class="${(this.impFill !== false ? '1' : '0') === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <p class="muted">The map often misses houses in quiet areas: Fill With Houses lines the imported residential streets wherever there's room (never on the track, a road, a slope too steep to build on, or another building).</p>
       <button id="map-import" class="hot wide" ${g ? '' : 'disabled'}>Import Around Circuit</button>
-      <div class="map-status" id="map-status">${osm ? `Imported <b>${osm.buildings.length}</b> buildings and <b>${osm.trees.length}</b> trees.` : ''}</div>
+      <div class="map-status" id="map-status">${this.importSummary()}</div>
       ${osm ? '<button id="map-clear" class="wide">Clear Imported Scenery</button>' : ''}
+      ${(t.roads || []).some(r => r.osm) ? '<button id="map-clear-roads" class="wide">Remove Imported Roads</button>' : ''}
       <p class="muted" style="margin-top:12px">Tip: use DRAW to trace real streets over the map, then import. Re-import after big changes so new areas are filled in. Map data © OpenStreetMap contributors.</p>`;
     const q = $('map-q');
     const showResults = () => {
@@ -1225,8 +1234,19 @@ export class Editor {
     op.addEventListener('input', () => { t.map.opacity = +op.value; $('map-op-v').textContent = op.value; this.dirty = true; });
     op.addEventListener('change', () => this.saveWork());
     document.querySelectorAll('#map-what button').forEach(b => b.addEventListener('click', () => {
-      b.classList.toggle('on'); if (b.dataset.v === 'b') this.impB = b.classList.contains('on'); else this.impT = b.classList.contains('on'); sfx.move();
+      b.classList.toggle('on'); const on = b.classList.contains('on');
+      if (b.dataset.v === 'b') this.impB = on; else if (b.dataset.v === 'r') this.impR = on; else this.impT = on; sfx.move();
     }));
+    // (sidewalks and junctions change the roads already imported too, straight away)
+    const osmRoads = () => (t.roads || []).filter(r => r.osm);
+    segBind('map-walk', v => { this.impWalk = v; if (osmRoads().length) { this.push(); setOsmSidewalks(t.roads, v); this.roadsDirty = true; this.changed(); this.scheduleScenery(0); } });
+    segBind('map-meet', v => { this.impMeet = v; if (osmRoads().length) { this.push(); for (const r of osmRoads()) if (r.kind !== 'freeway') r.meet = v; this.roadsDirty = true; this.changed(); this.scheduleScenery(0); } });
+    segBind('map-drive', v => { this.impDrive = v === '1'; });
+    segBind('map-fill', v => { this.impFill = v === '1'; });
+    $('map-clear-roads') && $('map-clear-roads').addEventListener('click', () => {
+      this.push(); t.roads = t.roads.filter(r => !r.osm); if (t.osm) t.osm.buildings = t.osm.buildings.filter(b => !b.lot);
+      this.selRoad = -1; this.roadsDirty = true; this.changed(true); this.scheduleScenery(0); this.renderMapTab(); this.toast('IMPORTED ROADS REMOVED');
+    });
     const mg = $('map-margin');
     mg.addEventListener('input', () => { this.impMargin = +mg.value; $('map-margin-v').textContent = mg.value + 'm'; });
     $('map-import').addEventListener('click', () => this.doImport());
@@ -1390,25 +1410,49 @@ export class Editor {
     let a = Infinity, b = -Infinity, c = Infinity, d = -Infinity;
     for (let i = 0; i < this.T.N; i++) { a = Math.min(a, this.T.X[i]); b = Math.max(b, this.T.X[i]); c = Math.min(c, this.T.Z[i]); d = Math.max(d, this.T.Z[i]); }
     const box = [a - m, c - m, b + m, d + m];
-    const km2 = (box[2] - box[0]) * (box[3] - box[1]) / 1e6;
-    if (km2 > 30) { st.className = 'map-status err'; st.textContent = `That area is ${km2.toFixed(0)} km² — too big. Reduce the area or make the circuit smaller.`; return; }
-    if (this.impB === false && this.impT === false) { st.className = 'map-status err'; st.textContent = 'Pick buildings and/or trees first.'; return; }
+    // only a strip along the circuit is fetched (its line every ~60 m, that wide either side)
+    const T = this.T, line = [];
+    for (let k = 0; k < T.N; k += Math.max(1, Math.round(60 / T.ds))) { const i = T.cut >= 0 ? (T.cut + 1 + k) % T.N : k; line.push([T.X[i], T.Z[i]]); }
+    if (T.cut >= 0) line.push([T.X[T.cut], T.Z[T.cut]]); else line.push(line[0]);
+    const km2 = T.L * 2 * m / 1e6;
+    if (km2 > 30) { st.className = 'map-status err'; st.textContent = `That strip is ${km2.toFixed(0)} km² — too big. Reduce the area around the circuit.`; return; }
+    const wantR = this.impR !== false, wantB = this.impB !== false, wantT = this.impT !== false;
+    if (!wantR && !wantB && !wantT) { st.className = 'map-status err'; st.textContent = 'Pick roads, buildings and/or trees first.'; return; }
     const btn = $('map-import'); btn.disabled = true;
     st.className = 'map-status';
     try {
-      const res = await importOSM(t.geo, box, { buildings: this.impB !== false, trees: this.impT !== false }, (msg) => { st.textContent = msg; });
+      const A = this.A, rank = (x, z) => { let bd = Infinity; A.hash.query(x, z, m + 60, (j) => { bd = Math.min(bd, (x - T.X[j]) ** 2 + (z - T.Z[j]) ** 2); }); return bd; };
+      const res = await importOSM(t.geo, box, { buildings: wantB, trees: wantT, roads: wantR, driveways: !!this.impDrive, line, margin: m, rank }, (msg) => { st.textContent = msg; });
       this.push();
-      t.osm = res;
+      const old = t.osm;
+      // (what wasn't asked for this time stays as it was)
+      t.osm = { ...res, buildings: wantB ? res.buildings : (old ? old.buildings.filter(b => !b.lot) : []), trees: wantT ? res.trees : (old ? old.trees : []) };
+      delete t.osm.ways;
+      if (wantR) {
+        st.textContent = 'Joining the streets to the track…'; await new Promise(r => setTimeout(r, 30)); // (shown before the work starts)
+        t.roads = (t.roads || []).filter(r => !r.osm).concat(fitOsmRoads(res.ways || [], T, A, { meet: this.impMeet || 'barrier', walks: this.impWalk || 'map', touch: m }));
+      }
+      if (this.impFill !== false && (t.roads || []).some(r => r.osm)) t.osm.buildings.push(...fillLots(t, T, A, t.osm.buildings, 7, m + 100));
+      this.selRoad = -1; this.roadsDirty = true;
       this.changed(true);
       this.scheduleScenery(0);
       sfx.select();
-      this.toast(`IMPORTED ${res.buildings.length} BUILDINGS · ${res.trees.length} TREES`);
-      if (!res.buildings.length && !res.trees.length) { $('map-status').textContent = 'No mapped buildings or trees here — try the ZONES tool to add your own.'; }
+      const nR = (t.roads || []).filter(r => r.osm).length, nL = t.osm.buildings.filter(b => b.lot).length;
+      this.toast(`IMPORTED ${nR} ROADS · ${t.osm.buildings.length - nL} BUILDINGS${nL ? ' + ' + nL + ' HOUSES' : ''} · ${t.osm.trees.length} TREES`);
+      this.renderMapTab();
+      if (!nR && !t.osm.buildings.length && !t.osm.trees.length) { $('map-status').textContent = 'No mapped streets, buildings or trees here — try the ROADS and ZONES tools to add your own.'; }
     } catch (e) {
       sfx.error();
       st.className = 'map-status err'; st.textContent = e.message;
       btn.disabled = false;
     }
+  }
+
+  importSummary() {
+    const t = this.track, o = t.osm, nR = (t.roads || []).filter(r => r.osm).length;
+    if (!o && !nR) return '';
+    const nL = o ? o.buildings.filter(b => b.lot).length : 0;
+    return `Imported <b>${nR}</b> streets, <b>${o ? o.buildings.length - nL : 0}</b> buildings${nL ? ` (+ <b>${nL}</b> houses on empty lots)` : ''} and <b>${o ? o.trees.length : 0}</b> trees.`;
   }
 
   // ---------------- profile ----------------
@@ -1920,7 +1964,7 @@ export class Editor {
   // how far apart a line of them goes: the slider, or by default the prop's width and a little room
   lineGapFor(type) {
     if (this.lineGap != null) return this.lineGap;
-    if (type.startsWith('tp:')) { const f = this.tpFam(type); return f ? +(f.w + f.gap).toFixed(1) : 8; }
+    if (type.startsWith('tp:')) { const f = this.tpFam(type); return f ? (f.kit ? 12 : +(f.w + f.gap).toFixed(1)) : 8; }
     const def = PROP_TYPES[type]; if (!def) return 8;
     return def.w ? def.w + (def.back ? 0.2 : 1) : Math.max(2, (def.r || 2) * 2.2); // (bleachers: side by side)
   }
@@ -1931,7 +1975,12 @@ export class Editor {
   }
   // a click: one prop; a drag: a line of them, kept as a line (it can be moved, reshaped and re-spaced after)
   finishPropLine(d) {
-    const len = Math.hypot(d.x1 - d.x0, d.z1 - d.z0), t = this.track;
+    let len = Math.hypot(d.x1 - d.x0, d.z1 - d.z0); const t = this.track;
+    const kf = this.propType.startsWith('tp:') && this.tpFam(this.propType);
+    if (kf && kf.kit && len < 2.5 && this.T) { // (a click: a three-bay stand there, along the track)
+      const ns = this.nearestSample(d.x0, d.z0), i = ns.i, fx = this.T.FX[i], fz = this.T.FZ[i];
+      d = { ...d, x0: d.x0 - fx * 18, z0: d.z0 - fz * 18, x1: d.x0 + fx * 18, z1: d.z0 + fz * 18 }; len = 36;
+    }
     if (len < 2.5) {
       const p = this.propAt(this.propType, d.x0, d.z0); if (!p) return;
       const { over, ...q } = p;
@@ -1967,6 +2016,9 @@ export class Editor {
       if (this.T) { const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, ns = this.nearestSample(mx, mz); if ((this.T.X[ns.i] - mx) * nx + (this.T.Z[ns.i] - mz) * nz < 0) { nx = -nx; nz = -nz; } }
       return L.flip ? [-nx, -nz] : [nx, nz];
     });
+    // a modular grandstand: one stand a straight stretch, its pieces end to end (js/gstands.js)
+    const kf = L.type.startsWith('tp:') && this.tpFam(L.type);
+    if (kf && kf.kit) return kitLineProps(L, kf.cls, segs, side);
     const out = [];
     for (let k = 0; k < 300; k++) {
       const s = k * gap; if (s > tot + 1e-6) break;
@@ -2020,11 +2072,12 @@ export class Editor {
     let len = 0; for (let i = 0; i + 1 < L.pts.length; i++) len += Math.hypot(L.pts[i + 1][0] - L.pts[i][0], L.pts[i + 1][1] - L.pts[i][1]);
     const stand = fam ? fam.cls.startsWith('stand') : L.type === 'bleachers', light = fam && LIGHT_FAMILIES.includes(fam.cls);
     const faces = !!fam || ['grandstand', 'billboard', 'bleachers'].includes(L.type);
-    el.innerHTML = `<h4>LINE OF ${esc(label).toUpperCase()}</h4>
-      ${this.cardHtml(L.type, label, `${n} along ${Math.round(len)} m`)}
-      <p class="muted">Drag the line (or any of them) to move it all, a square to reshape it. Double-click the line to add a corner; right-click a corner to take it out.</p>
-      ${fld('Spacing', 'ln-gap', 0.5, 60, 0.5, L.gap, 'm')}
-      ${fam && fam.ids.length > 1 ? `<div class="fld"><label>Look</label><div class="seg" id="ln-look"><button data-v="" class="${!L.look ? 'on' : ''}">Mixed</button>${fam.ids.map((id, k) => `<button data-v="${id}" class="${L.look === id ? 'on' : ''}">${k + 1}</button>`).join('')}</div></div>` : ''}
+    const kit = !!(fam && fam.kit), bays = kit ? t.props.filter(p => p.ln === L.id && /_(bay|tunnel)$/.test(p.type)).length : 0;
+    el.innerHTML = `<h4>${kit ? esc(label).toUpperCase() : 'LINE OF ' + esc(label).toUpperCase()}</h4>
+      ${this.cardHtml(L.type, label, kit ? `${bays} bay${bays === 1 ? '' : 's'} · ${bays * 12} m of seats` : `${n} along ${Math.round(len)} m`)}
+      <p class="muted">${kit ? 'The line is the front of the stand (the track side). Drag it to move the stand, a square to make it longer or shorter: a bay every 12 m, tunnels in the middle, an end with a stair tower each side. A corner starts a second stand. On a hill it stays level, at its front\'s ground: cut into the hill behind, on a concrete podium where the ground falls away.' : 'Drag the line (or any of them) to move it all, a square to reshape it. Double-click the line to add a corner; right-click a corner to take it out.'}</p>
+      ${kit ? '' : fld('Spacing', 'ln-gap', 0.5, 60, 0.5, L.gap, 'm')}
+      ${fam && !kit && fam.ids.length > 1 ? `<div class="fld"><label>Look</label><div class="seg" id="ln-look"><button data-v="" class="${!L.look ? 'on' : ''}">Mixed</button>${fam.ids.map((id, k) => `<button data-v="${id}" class="${L.look === id ? 'on' : ''}">${k + 1}</button>`).join('')}</div></div>` : ''}
       ${faces ? `<div class="fld"><label>Facing</label><div class="seg" id="ln-flip"><button data-v="0" class="${!L.flip ? 'on' : ''}">The track</button><button data-v="1" class="${L.flip ? 'on' : ''}">Away</button></div></div>` : ''}
       ${stand ? `<div class="fld"><label>Crowd</label><div class="seg" id="ln-crowd"><button data-v="1" class="${L.crowd !== false ? 'on' : ''}">People</button><button data-v="0" class="${L.crowd === false ? 'on' : ''}">Empty</button></div></div>
       ${L.crowd !== false ? fld('How full', 'ln-fill', 0.1, 1, 0.05, L.fill ?? 0.8, '') : ''}` : ''}
@@ -2048,8 +2101,8 @@ export class Editor {
   // (the track side) in white, fans in a stand, a lamp's glow
   drawTrackProp(c, p, sel) {
     const f = trackPropFamily(p.type); if (!f) return;
-    const sc = this.view.scale, [x, y] = this.w2s(p.x, p.z);
-    const w = Math.max(4, f.w * (p.sx || 1) * sc), d = Math.max(3, f.d * sc);
+    const sc = this.view.scale, [x, y] = this.w2s(p.x, p.z), a = envAsset(p.type) || f; // (each piece its own size: a stand's ends aren't its bays)
+    const w = Math.max(4, a.w * (p.sx || 1) * sc), d = Math.max(3, a.d * sc);
     c.save(); c.translate(x, y); c.rotate(-(p.rot || 0));
     c.fillStyle = f.color; c.fillRect(-w / 2, -d / 2, w, d);
     c.lineWidth = 2; c.strokeStyle = sel ? '#ffd66b' : '#000'; c.strokeRect(-w / 2, -d / 2, w, d);
@@ -2490,7 +2543,7 @@ export class Editor {
       const fams = envReady() ? trackPropFamilies() : [], have = new Set(fams.map(f => f.cls));
       const fam = (...cls) => cls.filter(c => have.has(c)).map(c => ['tp:' + c, fams.find(f => f.cls === c).label]);
       const classic = (...ks) => ks.map(k => [k, PROP_TYPES[k].label]);
-      groups.push(['Stands', [...fam('stand_roof', 'stand_flags'), ...classic('bleachers', 'grandstand')]]);
+      groups.push(['Stands', [...fam('gs_S', 'gs_M', 'gs_L', 'stand_roof', 'stand_flags'), ...classic('bleachers', 'grandstand')]]); // (gs_: the modular ones, js/gstands.js)
       groups.push(['Sponsors and signs', [...fam('board', 'flag', 'adtower', 'lamppost'), ...classic('billboard')]]);
       groups.push(['Over the track', fam('gantry', 'gantry_wide', 'arch', 'arch_balloons')]);
       groups.push(['Lights', [...fam('floodmast', 'stadium_light', 'worklight', 'lamppost_plain', 'festoon'), ...classic('lamp')]]);
@@ -2617,7 +2670,7 @@ export class Editor {
     el.innerHTML = `<h4>${esc((f ? f.label : p.type)).toUpperCase()}</h4>
       ${this.cardHtml(p.type, f ? f.label : p.type, 'Drag it on the map to move it.' + (f && f.span ? ' Drop it on the track and it spans it.' : ''))}
       ${light ? fld('Light strength', 'pp-light', 0.2, 2, 0.05, p.light ?? 1, '×') : ''}
-      ${fam && fam.ids.length > 1 ? `<div class="fld"><label>Look</label><div class="seg" id="tp-look">${fam.ids.map((id, k) => `<button data-v="${id}" class="${p.type === id ? 'on' : ''}">${k + 1}</button>`).join('')}</div></div>` : ''}
+      ${fam && !kit && fam.ids.length > 1 ? `<div class="fld"><label>Look</label><div class="seg" id="tp-look">${fam.ids.map((id, k) => `<button data-v="${id}" class="${p.type === id ? 'on' : ''}">${k + 1}</button>`).join('')}</div></div>` : ''}
       ${stand ? `<div class="fld"><label>Crowd</label><div class="seg" id="pp-crowd"><button data-v="1" class="${p.crowd !== false ? 'on' : ''}">People</button><button data-v="0" class="${p.crowd === false ? 'on' : ''}">Empty</button></div></div>
       ${p.crowd !== false ? fld('How full', 'pp-fill', 0.1, 1, 0.05, p.fill ?? 0.8, '') : ''}` : ''}
       <div class="seg"><button id="pp-l">&#10226; Turn 15&deg;</button><button id="pp-r">Turn 15&deg; &#10227;</button></div>
@@ -2946,12 +2999,17 @@ export class Editor {
       <div class="fld"><label>Circuit lights</label><div class="seg" id="t-lights">${[['masts', 'Lamp posts'], ['banners', 'Banner posts'], ['off', 'Off']].map(([v, l]) => `<button data-v="${v}" class="${(env.circuitLights || 'masts') === v ? 'on' : ''}">${l}</button>`).join('')}</div></div>
       <p class="muted" style="margin-top:-4px">${{ masts: 'Tall lamps along the circuit, lit at night.', banners: 'Lamp posts with sponsor banners along the circuit (your logos too), lit at night.', off: 'No lamps along the circuit: just your own lights and floodlights.' }[env.circuitLights || 'masts']}</p>
       ${open ? '' : `<div class="fld"><label>Pit lane</label><div class="seg" id="t-pit">${[['1', 'On'], ['0', 'Off']].map(([v, l]) => `<button data-v="${v}" class="${(env.pits !== false) === (v === '1') ? 'on' : ''}">${l}</button>`).join('')}</div></div>
-      <div class="fld"><label>Pit side</label><div class="seg" id="t-pitside">${['auto', 'left', 'right'].map(v => `<button data-v="${v}" class="${(env.pitSide || 'auto') === v ? 'on' : ''}">${v}</button>`).join('')}</div></div>`}
+      <div class="fld"><label>Pit side</label><div class="seg" id="t-pitside">${['auto', 'left', 'right'].map(v => `<button data-v="${v}" class="${(env.pitSide || 'auto') === v ? 'on' : ''}">${v}</button>`).join('')}</div></div>
+      <div class="fld"><label>Pit building</label><div class="seg pitstyle" id="t-pitstyle">${Object.entries(PIT_STYLES).map(([k, l]) => `<button data-v="${k}" class="${(env.pitStyle || 'classic') === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <p class="muted" style="margin-top:-4px">${{ classic: 'The painted block: windows along the top, a roller door each garage.', modern: 'Glass hospitality floor with a balcony over the lane, offices behind louvres, a canopy roof out over the cars.', heritage: 'Painted render and brick piers, timing-room windows, a spectators\' terrace on the roof with flags.', shed: 'Steel club sheds: a barrel-vault roof over each garage, skylight gables.', terrace: 'A grandstand on the roof: seven rows of seats facing the track under a canopy.' }[env.pitStyle || 'classic']} The garages, their doors and the teams' signs stay the same.</p>`}
       <div class="fld"><label>Sidewalks</label><div class="seg" id="t-walk"><button data-v="1" class="${env.walks ? 'on' : ''}">On</button><button data-v="0" class="${!env.walks ? 'on' : ''}">Off</button></div></div>
       ${env.walks ? fld('Sidewalk width', 't-walkw', 1.5, 5, 0.25, env.walkW || 2.5, 'm') : ''}
       <div class="fld"><label>Surface</label><div class="seg" id="t-surf"><button data-v="asphalt" class="${env.surface !== 'dirt' ? 'on' : ''}">Asphalt</button><button data-v="dirt" class="${env.surface === 'dirt' ? 'on' : ''}">Dirt</button></div></div>
       ${env.surface === 'dirt' ? '<p class="muted" style="margin-top:-4px">Loose dirt: about two thirds of the grip, slides and dust. No kerbs. The pit lane and paved runoff stay paved.</p>' : ''}
       ${env.surface === 'dirt' ? '' : `<div class="fld"><label>Curbs</label><div class="seg" id="t-kerb"><button data-v="1" class="${env.kerbs !== false ? 'on' : ''}">On</button><button data-v="0" class="${env.kerbs === false ? 'on' : ''}">Off</button></div></div>`}
+      ${env.surface === 'dirt' ? '' : `<div class="fld"><label>Road lines</label><div class="seg" id="t-marks"><button data-v="circuit" class="${env.markings !== 'street' ? 'on' : ''}">Circuit</button><button data-v="street" class="${env.markings === 'street' ? 'on' : ''}">Street</button></div></div>
+      ${env.markings === 'street' ? `<div class="fld"><label>Center line</label><div class="seg" id="t-centre"><button data-v="double" class="${env.centre !== 'dash' ? 'on' : ''}">Double Yellow</button><button data-v="dash" class="${env.centre === 'dash' ? 'on' : ''}">Dashed</button></div></div>
+      <p class="muted" style="margin-top:-4px">A public road: white edge lines, a yellow center line, and a stop line and crosswalk on every street that meets it. Edge lines break where streets join. ${env.kerbs !== false ? 'Real streets have no race curbs: turn Curbs off for the full look.' : ''}</p>` : ''}`}
       ${fld('Draw width', 't-dw', 8, 22, 0.5, this.defaultWidth, 'm')}
       <div class="seg"><button id="t-allw">Apply Width To All Nodes</button></div>
       <p class="muted" style="margin-top:12px">Draw width is used for new ${open ? 'tracks' : 'circuits'} sketched with the DRAW tool.</p>`;
@@ -2972,12 +3030,15 @@ export class Editor {
     segBind('t-lights', v => { this.push(); if (v === 'masts') delete env.circuitLights; else env.circuitLights = v; this.changed(true); });
     segBind('t-rstyle', v => { this.push(); if (v === 'auto') delete env.runoffStyle; else env.runoffStyle = v; this.changed(true); });
     segBind('t-kerb', v => { this.push(); env.kerbs = v === '1'; this.changed(true); });
+    segBind('t-marks', v => { this.push(); if (v === 'street') env.markings = 'street'; else delete env.markings; this.changed(true); this.renderTrackTab(); });
+    segBind('t-centre', v => { this.push(); if (v === 'dash') env.centre = 'dash'; else delete env.centre; this.changed(true); });
     segBind('t-surf', v => { this.push(); if (v === 'dirt') env.surface = 'dirt'; else delete env.surface; this.changed(true); this.renderTrackTab(); });
     segBind('t-walk', v => { this.push(); env.walks = v === '1'; this.changed(true); });
     const ww = $('t-walkw');
     if (ww) { ww.addEventListener('pointerdown', () => this.push()); ww.addEventListener('input', () => { env.walkW = +ww.value; $('t-walkw-v').textContent = ww.value + 'm'; }); ww.addEventListener('change', () => this.changed(true)); }
     segBind('t-pit', v => { this.push(); env.pits = v === '1'; this.changed(true); });
     segBind('t-pitside', v => { this.push(); env.pitSide = v; this.changed(true); });
+    segBind('t-pitstyle', v => { this.push(); if (v === 'classic') delete env.pitStyle; else env.pitStyle = v; this.changed(true); this.renderTrackTab(); });
     $('t-allw').addEventListener('click', () => { this.push(); this.track.points.forEach(p => p.w = this.defaultWidth); this.changed(true); this.toast('WIDTH APPLIED'); });
   }
 

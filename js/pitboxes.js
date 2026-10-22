@@ -12,6 +12,7 @@
 // front, 0 in the middle; z in from the front; y up from the lane) and is straight: its front is a chord of the
 // garage line, so a bending pit lane gets a row of straight garages, like a real one.
 import * as THREE from 'three';
+import { envModel } from './envlib.js';
 
 export const BOX = { doorW: 11, doorH: 4.0, depth: 14, ceil: 4.6, frontT: 0.4, wallIn: 0.15, hgt: 7.5, pitch: 15, floor: 0.06 };
 // (floor: the garages' floor, a step up from the lane: level with it, the lane's tarmac run in under the doors fought it)
@@ -225,9 +226,10 @@ const GLOW = () => new THREE.MeshBasicMaterial({ color: 0xf4f8ff, toneMapped: fa
 
 // ---------- the block: fronts for every slot, rooms behind the boxes' open doors ----------
 // mat: the facade's own material (js/world.js garageTexture: windows up top, a shutter in the door)
-export function buildPitBoxes(root, T, A, pit, { mat } = {}) {
+export function buildPitBoxes(root, T, A, pit, { mat, style = null, night = false } = {}) {
   const L = pitSlots(T, A, pit), { slots } = L;
   if (!slots.length) return null;
+  const styled = style && pitStyleReady(style);
   // (shutters: the facade's paint, never its night glow: that's the lit garages it used to paint)
   const shutMat = mat && mat.emissiveMap ? Object.assign(mat.clone(), { emissiveMap: null, emissive: new THREE.Color(0) }) : mat;
   const g = new THREE.Group(); g.name = 'PitBoxes'; g.userData.mat = shutMat; // (js/pitlife.js shuts empty boxes with it)
@@ -238,8 +240,10 @@ export function buildPitBoxes(root, T, A, pit, { mat } = {}) {
     buf.uv.push(u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1);
   };
   const up = (p, y) => [p[0], p[1] + y, p[2]];
+  // a pit building style (tools/props/pitstyles.py): its modelled pieces along the line instead of the painted front
+  if (styled) g.add(...styledFront(T, A, pit, L, style, night));
   // plain wall where there's no garage: windows up top as along the rest of the block, the wall's paint below
-  for (const w of L.walls) {
+  if (!styled) for (const w of L.walls) {
     const pts = [w.s0, ...L.S.filter(x => x > w.s0 + 0.05 && x < w.s1 - 0.05), w.s1];
     for (let q = 0; q < pts.length - 1; q++) {
       const a = lineAt(L, pts[q]), b = lineAt(L, pts[q + 1]);
@@ -251,9 +255,11 @@ export function buildPitBoxes(root, T, A, pit, { mat } = {}) {
     const F = frameOf(T, A, pit, s), { x0, x1, dw, wx } = F, open = s.k >= 0, doorW = 2 * dw;
     const fq = (xa, xb, ya, yb, u0, u1, v0, v1, buf = front) => quad(buf, F.P(xa, 0, ya), F.P(xb, 0, ya), F.P(xb, 0, yb), F.P(xa, 0, yb), u0, u1, v0, v1);
     const U = (x) => (s.s0 + x - x0) / 7.5;
-    fq(x0, x1, doorH, hgt, U(x0), U(x1), VD, 1);                     // over the door: the windows and the roof band
-    fq(x0, -dw, 0, doorH, 0.02, 0.07, 0.05, 0.45);                   // the pillars (plain wall)
-    fq(dw, x1, 0, doorH, 0.02, 0.07, 0.05, 0.45);
+    if (!styled) {
+      fq(x0, x1, doorH, hgt, U(x0), U(x1), VD, 1);                   // over the door: the windows and the roof band
+      fq(x0, -dw, 0, doorH, 0.02, 0.07, 0.05, 0.45);                 // the pillars (plain wall)
+      fq(dw, x1, 0, doorH, 0.02, 0.07, 0.05, 0.45);
+    }
     if (!open) { fq(-dw, dw, 0, doorH, 6 / 64, 58 / 64, 0, VD - 0.01, shut); continue; } // shutter down
     const r = roomMeshes(F, s.k); inside.push(...r.inside); glow.push(r.glow);
   }
@@ -268,6 +274,66 @@ export function buildPitBoxes(root, T, A, pit, { mat } = {}) {
   for (const m of [...inside, ...glow]) if (m) { m.matrixAutoUpdate = false; g.add(m); }
   root.add(g);
   return g;
+}
+
+// ---------- pit building styles ----------
+// The pieces (assets/env/pitstyles.glb, ids ps_<style>_<bay|pier|endL|endR>) are made with the garage line at their
+// origin, the lane's level at y = 0, their front (the lane side) to +z, a bay 14 m wide and a pier 1.5 m: here each bay
+// is stretched over a garage (or a stretch of plain wall), a pier over the wall each side of its door, an end at each
+// end of the block, all merged into one mesh a material.
+export const PIT_STYLES = { classic: 'Classic', modern: 'Modern', heritage: 'Heritage', shed: 'Club Shed', terrace: 'Pit Grandstand' };
+export const pitStyleReady = (style) => style && style !== 'classic' && !!envModel('ps_' + style + '_bay');
+function styledFront(T, A, pit, L, style, night) {
+  const byMat = new Map();
+  // a piece into frame F: its x scaled by kx and moved to cx (frame x), its z (out of the front) into the room's in
+  const place = (id, F, cx, kx) => {
+    const parts = envModel(id); if (!parts) return;
+    const o = F.P(0, 0, 0), ex = F.P(1, 0, 0).map((v, i) => v - o[i]), ez = F.P(0, 1, 0).map((v, i) => v - o[i]);
+    const exl = Math.hypot(ex[0], ex[2]) || 1, ezl = Math.hypot(ez[0], ez[2]) || 1;
+    for (const { geo, mat } of parts) {
+      let B = byMat.get(mat); if (!B) byMat.set(mat, B = { p: [], n: [], uv: [], c: [] });
+      const P = geo.getAttribute('position'), Nn = geo.getAttribute('normal'), U = geo.getAttribute('uv'), C = geo.getAttribute('color'), idx = geo.index;
+      const n = idx ? idx.count : P.count;
+      for (let q = 0; q < n; q++) {
+        const i = idx ? idx.getX(q) : q;
+        const w = F.P(cx + P.getX(i) * kx, -P.getZ(i), P.getY(i)); B.p.push(w[0], w[1], w[2]);
+        const nx = Nn.getX(i) / kx, ny = Nn.getY(i), nz = -Nn.getZ(i);
+        const vx = ex[0] / exl * nx + ez[0] / ezl * nz, vz = ex[2] / exl * nx + ez[2] / ezl * nz, l = Math.hypot(vx, ny, vz) || 1;
+        B.n.push(vx / l, ny / l, vz / l);
+        if (U) B.uv.push(U.getX(i), U.getY(i)); else B.uv.push(0, 0);
+        if (C) B.c.push(C.getX(i), C.getY(i), C.getZ(i)); else B.c.push(1, 1, 1);
+      }
+    }
+  };
+  const bay = 'ps_' + style + '_bay', pier = 'ps_' + style + '_pier';
+  const elems = [];
+  for (const s of L.slots) {
+    const F = frameOf(T, A, pit, s), w = F.x1 - F.x0;
+    place(bay, F, 0, w / 14);
+    const pw = F.x1 - F.dw; // (the wall each side of the door)
+    place(pier, F, -(F.dw + pw / 2), pw / 1.5); place(pier, F, F.dw + pw / 2, pw / 1.5);
+    elems.push({ F, s0: s.s0, s1: s.s1 });
+  }
+  for (const wl of L.walls) {
+    if (wl.s1 - wl.s0 < 0.3) continue;
+    const F = frameOf(T, A, pit, { s0: wl.s0, s1: wl.s1, k: -1 }), w = F.x1 - F.x0;
+    place(bay, F, 0, w / 14); place(pier, F, 0, w / 1.5);
+    elems.push({ F, s0: wl.s0, s1: wl.s1 });
+  }
+  elems.sort((a, b) => a.s0 - b.s0);
+  if (elems.length) { const a = elems[0], b = elems[elems.length - 1]; place('ps_' + style + '_endL', a.F, a.F.x0, 1); place('ps_' + style + '_endR', b.F, b.F.x1, 1); }
+  const out = [];
+  for (const [mat, B] of byMat) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(B.p, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(B.n, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(B.uv, 2)); geo.setAttribute('color', new THREE.Float32BufferAttribute(B.c, 3));
+    let m = mat;
+    // at night the lamps and the lit floors glow (each its own copy: the library's material is shared)
+    if (night && /LampLens/.test(mat.name)) { m = mat.clone(); m.emissive = new THREE.Color(0xfff0d0); m.emissiveIntensity = 1; }
+    else if (night && /GS_Glass/.test(mat.name)) { m = mat.clone(); m.emissive = new THREE.Color(0x8a7450); m.emissiveIntensity = 0.7; }
+    const mesh = new THREE.Mesh(geo, m); mesh.name = 'PitStyle'; mesh.castShadow = true; mesh.receiveShadow = true; out.push(mesh);
+  }
+  return out;
 }
 
 // a box's room (its floor, walls, ceiling and strip lights) in frame F; k: the box (on the meshes, for js/pitlife.js)

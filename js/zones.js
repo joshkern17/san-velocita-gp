@@ -1,6 +1,7 @@
 // Building zones, imported real-world data and footprint utilities.
 import { roadLayout } from './roads.js';
 import { generateSetting, fitModels, settingOf, paintFlora, natureModel, eraser, isNature } from './scenery.js';
+import { envAsset } from './envlib.js';
 // Shared by the editor preview and the 3D world so both show exactly the same buildings.
 
 export const STYLE_COLORS = {
@@ -168,24 +169,76 @@ export function collectScenery(track, T, A) {
   }
   // PS1-style models onto the zone / imported buildings, then the chosen setting (town, city, forest...) around it all
   fitModels(keep, track, T, A, roads);
+  dropClashes(keep, (b) => onRoad(b) || !buildingClear(b.p, T, A));
   const gen = generateSetting(track, T, A, roads, keep);
   const seed = settingOf(track.env).seed;
-  gen.buildings.forEach((b, k) => { const key = 'g' + seed + '_' + k; if (!hidden.has(key) && !(eraseB && eraseB(...centroid(b.p)))) keep.push({ ...b, from: 'gen', key }); });
+  // (the setting's buildings never on top of yours, the map's or the zones')
+  const kept = keep.map(b => { let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity; for (const q of b.p) { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); z0 = Math.min(z0, q[1]); z1 = Math.max(z1, q[1]); } return [x0, z0, x1, z1, b.p]; });
+  const onKept = (p) => { let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity; for (const q of p) { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); z0 = Math.min(z0, q[1]); z1 = Math.max(z1, q[1]); } return kept.some(k => k[0] < x1 && k[2] > x0 && k[1] < z1 && k[3] > z0 && polysOverlap(p, k[4])); };
+  gen.buildings.forEach((b, k) => { const key = 'g' + seed + '_' + k; if (!hidden.has(key) && !(eraseB && eraseB(...centroid(b.p))) && !(b.p && b.p.length > 2 && onKept(b.p))) keep.push({ ...b, from: 'gen', key }); });
   const grid = buildingGrid(keep);
   // (trees the world made - map, zone lines, the setting's woods - go wherever you've erased nature)
-  const treeKeep = trees.filter(t => pointClear(t[0], t[1], 2.5, T, A) && !grid.hits(t[0], t[1], 2) && !(roads && roads.onRoad(t[0], t[1])) && !(eraseN && eraseN(t[0], t[1])))
+  const treeKeep = trees.filter(t => pointClear(t[0], t[1], 2.5, T, A) && !(roads && roads.onRoad(t[0], t[1])) && !(eraseN && eraseN(t[0], t[1])))
     .map(t => { // zone tree lines / map trees: a model from the track's tree mix (the same one every time for that spot)
       if (t[2]) return t;
       const m = natureModel('tree', mulberry(Math.floor(t[0] * 73.13) ^ Math.floor(t[1] * 91.7)), track.env, true);
       return m ? [t[0], t[1], m.id, m.s] : t;
-    });
-  for (const t of gen.trees) if (!grid.hits(t[0], t[1], 1) && !(eraseN && eraseN(t[0], t[1]))) treeKeep.push(t);
+    }).filter(t => !grid.hits(t[0], t[1], canopy(t, 2)));
+  for (const t of gen.trees) if (!grid.hits(t[0], t[1], canopy(t, 1)) && !(eraseN && eraseN(t[0], t[1]))) treeKeep.push(t);
   // the PAINT tool's Nature brush
   const fl = paintFlora(track, T, A, roads);
-  for (const t of fl.trees) if (!grid.hits(t[0], t[1], 1)) treeKeep.push(t);
+  for (const t of fl.trees) if (!grid.hits(t[0], t[1], canopy(t, 1))) treeKeep.push(t);
   const genProps = eraseN ? gen.props.filter(q => !(isNature(q.id) && eraseN(q.x, q.z))) : gen.props;
   const props = fl.props.length ? [...genProps, ...fl.props.filter(q => !grid.hits(q.x, q.z, 0))] : genProps;
   return { buildings: keep, rejected, trees: treeKeep, props, paving: gen.paving || [], life: { glows: gen.glows || [], spots: gen.spots || [], vents: gen.vents || [] }, grid };
+}
+
+// how far a tree's crown reaches (m): the model's half width at its scale (so a big oak keeps its branches out of the
+// roof, not just its trunk out of the walls), at least `min`
+function canopy(t, min) {
+  const a = t[2] && envAsset(t[2]);
+  return a ? Math.max(min, (Math.max(a.w, a.d) / 2) * (t[3] || 1) * 0.85) : min;
+}
+
+// After the models are fitted (a PSX house's footprint is the model's, a little bigger or smaller than the map's): a
+// house that now reaches a road or the circuit, or overlaps a building kept before it, goes (other buildings keep
+// the map's own footprint, touching neighbours and all). Yours (custom) always stay and come first,
+// then the map's own, then the empty lots filled in on import (b.lot)
+function dropClashes(list, blocked) {
+  const rank = (b) => b.from === 'custom' ? 0 : b.lot ? 2 : 1;
+  const order = list.map((b, i) => i).sort((i, k) => rank(list[i]) - rank(list[k]) || i - k);
+  const cell = 24, grid = new Map(), out = new Set();
+  const bb = (p) => { let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity; for (const q of p) { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); z0 = Math.min(z0, q[1]); z1 = Math.max(z1, q[1]); } return [x0, z0, x1, z1]; };
+  for (const i of order) {
+    const b = list[i]; if (!b.p || b.p.length < 3) continue;
+    let box = bb(b.p);
+    if (b.from !== 'custom' && b.m && b.s === 'house') { // (houses: the PSX house's footprint replaced the map's)
+      const clash = () => {
+        if (blocked(b)) return true;
+        for (let cx = Math.floor(box[0] / cell); cx <= Math.floor(box[2] / cell); cx++) for (let cz = Math.floor(box[1] / cell); cz <= Math.floor(box[3] / cell); cz++)
+          for (const k of grid.get(cx + ',' + cz) || []) { const o = list[k]; if (o._cb[0] < box[2] && o._cb[2] > box[0] && o._cb[1] < box[3] && o._cb[3] > box[1] && polysOverlap(b.p, o.p)) return true; }
+        return false;
+      };
+      // too big for its plot: a smaller house (down to 75%), else none
+      const [cx0, cz0] = centroid(b.p), p0 = b.p, h0 = b.h;
+      let k = 1;
+      while (clash() && k > 0.76) { k -= 0.08; b.p = p0.map(q => [cx0 + (q[0] - cx0) * k, cz0 + (q[1] - cz0) * k]); b.h = +(h0 * k).toFixed(2); box = bb(b.p); }
+      if (k < 0.76) { out.add(i); continue; }
+    }
+    b._cb = box;
+    for (let cx = Math.floor(box[0] / cell); cx <= Math.floor(box[2] / cell); cx++) for (let cz = Math.floor(box[1] / cell); cz <= Math.floor(box[3] / cell); cz++) (grid.get(cx + ',' + cz) || grid.set(cx + ',' + cz, []).get(cx + ',' + cz)).push(i);
+  }
+  for (let i = list.length - 1; i >= 0; i--) { delete list[i]._cb; if (out.has(i)) list.splice(i, 1); }
+}
+// do two footprints overlap (edges crossing, or one inside the other)?
+export function polysOverlap(a, b) {
+  const cross = (p, q, r, s) => {
+    const d = (q[0] - p[0]) * (s[1] - r[1]) - (q[1] - p[1]) * (s[0] - r[0]); if (Math.abs(d) < 1e-9) return false;
+    const t = ((r[0] - p[0]) * (s[1] - r[1]) - (r[1] - p[1]) * (s[0] - r[0])) / d, u = ((r[0] - p[0]) * (q[1] - p[1]) - (r[1] - p[1]) * (q[0] - p[0])) / d;
+    return t > 0 && t < 1 && u > 0 && u < 1;
+  };
+  for (let i = 0; i < a.length; i++) for (let k = 0; k < b.length; k++) if (cross(a[i], a[(i + 1) % a.length], b[k], b[(k + 1) % b.length])) return true;
+  return pointInPoly(a[0][0], a[0][1], b) || pointInPoly(b[0][0], b[0][1], a);
 }
 
 // spatial lookup so auto-scenery and trees don't spawn inside real buildings

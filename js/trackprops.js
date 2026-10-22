@@ -13,11 +13,15 @@ import * as THREE from 'three';
 import { envAssets, envAsset, envModel } from './envlib.js';
 import { loadCrowd, buildCrowd } from './crowd.js';
 
-export const isTrackProp = (type) => typeof type === 'string' && type.startsWith('tp_') && !!envAsset(type);
+export const isTrackProp = (type) => typeof type === 'string' && /^(tp|gs)_/.test(type) && !!envAsset(type); // (gs_: the modular grandstands, js/gstands.js)
 
 // ---------------- the editor's families ----------------
 // (in the order the tiles go in; colour on the map; how far apart on a line by default: their width plus gap)
 const FAMILY = {
+  // the modular grandstands (js/gstands.js): a line is a stand, end to end, 12 m bays
+  gs_S: { color: '#5a8ab8', gap: 0, kit: true, sub: 'Modular · 10 rows on a steel frame, any length' },
+  gs_M: { color: '#4a6ab0', gap: 0, kit: true, sub: 'Modular · 18 rows under a cantilever roof' },
+  gs_L: { color: '#3a4a98', gap: 0, kit: true, sub: 'Modular · two decks, hospitality glass, 27 m roof' },
   stand_roof: { color: '#5a7ab8', gap: 0.4, sub: '90 seats, with fans' },
   stand_flags: { color: '#b85a5a', gap: 0.4, sub: '90 seats, with fans' },
   adtower: { color: '#d8b43a', gap: 3, sub: 'Spotlights aimed at the track, lit at night' },
@@ -133,6 +137,7 @@ export function placeTrackProps(ctx) {
   // a line of grandstands on a bank one smooth terrace: each stand's height (its front row on the ground) eased with
   // its neighbours' along the line, its front never sunk more than 0.4 m (one by one they step like a staircase)
   const front = (p) => { const a = envAsset(p.type), rot = p.rot || 0, cs = Math.cos(rot), sn = Math.sin(rot), W = a.w * (p.sx || 1) / 2, D = a.d / 2; let y = -Infinity; for (const [lx, lz] of [[-W, D], [W, D], [0, D]]) y = Math.max(y, groundHeight(p.x + lx * cs + lz * sn, p.z - lx * sn + lz * cs)); return y; };
+  const kitOf = new Map(); for (const st of ctx.kits || []) for (const pc of st.pieces) kitOf.set(pc.p, st);
   const standY = new Map(), lines = new Map();
   for (const p of props) if (p.ln != null && /^stand/.test((envAsset(p.type) || {}).cls || '')) { if (!lines.has(p.ln)) lines.set(p.ln, []); lines.get(p.ln).push(p); }
   for (const L of lines.values()) {
@@ -150,6 +155,7 @@ export function placeTrackProps(ctx) {
     for (const [lx, lz] of stand ? [[-W, D], [W, D], [0, D]] : [[-W, -D], [W, -D], [-W, D], [W, D], [0, 0]]) y = Math.max(y, groundHeight(p.x + lx * cs + lz * sn, p.z - lx * sn + lz * cs));
     if (a.span) y = groundHeight(p.x, p.z);
     if (standY.has(p)) y = standY.get(p);
+    if (p.kit !== undefined || /^gs_/.test(p.type)) { const st = kitOf.get(p); if (st) y = st.level; } // (a modular stand: all its pieces level)
     envPl.push({ id: p.type, x: p.x, y: y - 0.03, z: p.z, rot, s: 1, sx, sy: 1, sz: 1 });
     // fans on the seats
     if (CROWDS && a.seats && p.crowd !== false) a.seats.forEach(([x, py, z], k) => {

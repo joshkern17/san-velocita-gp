@@ -25,7 +25,7 @@ export function solidsAround(placements = [], footprints = [], landmarks = []) {
     const sx = p.sx ?? p.s ?? 1, sz = p.sz ?? p.s ?? 1;
     if (a.cat === 'tree') { trees.push({ x: p.x, z: p.z, r: Math.max(a.w * sx, a.d * sz) / 2, id: p.id, k }); return; }
     if (!SOLID_CATS.has(a.cat) || (a.cat === 'trackside' && SMALL_TRACKSIDE.has(a.cls))) return;
-    const stand = a.cat === 'trackside' && /^stand/.test(a.cls);
+    const stand = a.cat === 'trackside' && /^(stand|gs_)/.test(a.cls); // (the pack's stands, and the modular ones: js/gstands.js)
     // (a stand's outline: the seating, not the roof's overhang: 80% of its depth)
     solids.push({ poly: rectPoly(p.x, p.z, Math.cos(p.rot || 0), -Math.sin(p.rot || 0), a.w * sx / 2, a.d * sz / 2 * (stand ? 0.8 : 1)), kind: stand ? 'stand' : a.cat, id: p.id, x: p.x, z: p.z, rot: p.rot || 0, y: p.y, a });
   });

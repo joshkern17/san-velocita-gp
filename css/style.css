@@ -762,6 +762,7 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .seg { display: flex; gap: 4px; flex-wrap: wrap; }
 .seg button { flex: 1; font-size: 12px !important; padding: 5px 4px !important; }
 .seg.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); } /* (eight options: two even rows) */
+.seg.pitstyle { display: grid; grid-template-columns: 1fr 1fr; } .seg.pitstyle button:first-child { grid-column: 1 / -1; } /* (Classic across the top, the four styles in two even rows) */
 .ed-stats { border-top: 1px solid var(--sv-red-faint); padding: 10px 16px; font: 500 12px/1.75 var(--f-body); color: var(--sv-red-dim); background: var(--sv-ink); }
 .ed-stats b { color: var(--sv-hot); font-weight: 500; }
 .ed-stats .warn { color: var(--sv-bad); }
