@@ -29,6 +29,7 @@ export const CLASSES = {
 const NA = [[0, 0.62], [0.35, 0.86], [0.7, 1], [0.9, 0.97], [1, 0.9]];        // high-revving naturally aspirated
 const TURBO = [[0, 0.45], [0.25, 0.62], [0.4, 1], [0.75, 1], [1, 0.86]];    // lag, then a big mid-range
 const V8 = [[0, 0.82], [0.3, 0.97], [0.6, 1], [0.85, 0.93], [1, 0.84]];      // flat, torquey
+const BIGV10 = [[0, 0.6], [0.2, 0.9], [0.4, 1], [0.85, 0.96], [1, 0.88]]; // a big lazy V10: torque from low down, but the slicks limit a standing start like the rest
 const BIGTURBO = [[0, 0.42], [0.35, 0.6], [0.5, 0.95], [0.6, 1], [0.9, 1], [1, 0.94]]; // one big turbo: late boost, held to redline
 const DIESEL = [[0, 0.7], [0.25, 1], [0.6, 0.95], [1, 0.7]];
 
@@ -159,9 +160,9 @@ export const CARS = {
   // held to ~345 kW on the restrictor, 1250 kg, a six-speed sequential. Engine in front but behind the axle (50/50):
   // torque everywhere, so it drives out of slow corners on the throttle; the heaviest in the class with the R34, and
   // the long nose and wide brick body cost it on the straights
-  viper: { name: 'Dodge Viper GTS-R', cls: 'gt2', sound: 'v10big', glb: true, paint: true, livery: true,
+  viper: { name: 'Dodge Viper GTS-R', cls: 'gt2', sound: 'v10big', glb: true, paint: true, livery: true, rev: 1,
     liveryLabels: { topNumber: [0.42, 0.5], sideNumber: [0.45, 0.55], sideSponsor: [0.45, 0.8] },
-    spec: gt2({ body: [2.16, 2.23, 0.94], mass: 1250, power: 355000, kd: 0.6, drag: 0.45, torque: V8, a: 1.238, b: 1.238, cgh: 0.4,
+    spec: gt2({ body: [2.16, 2.23, 0.94], mass: 1250, power: 355000, kd: 0.6, drag: 0.45, torque: BIGV10, a: 1.238, b: 1.238, cgh: 0.4,
       track: 1.55, maxForce: 13500, brakeF: 0.62, redline: 6500, idle: 1000, gears: [0, 27, 39, 51, 63, 74, 84] }) },
 
   testarossa: { name: 'Testa Rossa', cls: 'street', sound: 'flat12', glb: true, paint: true,
