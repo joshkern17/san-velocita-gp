@@ -355,5 +355,22 @@
    1.14,
    4.25
   ]
+ },
+ "viper": {
+  "title": "Dodge Viper GTS-R (custom, made in Blender)",
+  "author": "you",
+  "license": "own work",
+  "source": "",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   1.88,
+   1.13,
+   4.38
+  ]
  }
 }

@@ -154,6 +154,16 @@ export const CARS = {
     liveryLabels: { topNumber: [0.8, 0.5], sideNumber: [0.52, 0.57], sideSponsor: [0.52, 0.82] },
     spec: gt2({ body: [2.58, 1.67, 0.91], mass: 1100, power: 310000, kd: 0.6, drag: 0.42, torque: NA, a: 1.545, b: 1.119, redline: 7500 }) },
 
+  // your Blender model (Dodge Viper GTS-R, '98-'00 Le Mans GTS class winner, modelled by hand over the white reference
+  // sheet, full livery, a simplified copy of its curved wing on two stands and its finned diffuser). The 8.0 pushrod V10
+  // held to ~345 kW on the restrictor, 1250 kg, a six-speed sequential. Engine in front but behind the axle (50/50):
+  // torque everywhere, so it drives out of slow corners on the throttle; the heaviest in the class with the R34, and
+  // the long nose and wide brick body cost it on the straights
+  viper: { name: 'Dodge Viper GTS-R', cls: 'gt2', sound: 'v10big', glb: true, paint: true, livery: true,
+    liveryLabels: { topNumber: [0.42, 0.5], sideNumber: [0.45, 0.55], sideSponsor: [0.45, 0.8] },
+    spec: gt2({ body: [2.16, 2.23, 0.94], mass: 1250, power: 355000, kd: 0.6, drag: 0.45, torque: V8, a: 1.238, b: 1.238, cgh: 0.4,
+      track: 1.55, maxForce: 13500, brakeF: 0.62, redline: 6500, idle: 1000, gears: [0, 27, 39, 51, 63, 74, 84] }) },
+
   testarossa: { name: 'Testa Rossa', cls: 'street', sound: 'flat12', glb: true, paint: true,
     spec: street({ body: [2.24, 2.27, 1.0], lsd: [50, 0.4, 0.2], mass: 1510, power: 290000, cgh: 0.44, a: 1.4, b: 1.15, mu: 1.35, kd: 0.18, redline: 7400, gears: [0, 20, 34, 48, 63, 80], torque: NA }) },
   jsport:  { name: 'Kaze Sports Coupe', cls: 'street', sound: 'i4turbo', glb: true, paint: false,

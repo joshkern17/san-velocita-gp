@@ -5262,7 +5262,7 @@ $('bi-name').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key
 $('bi-name').addEventListener('blur', () => clearEdges());
 
 // ---------------- car select (on the grid, before the strategy) ----------------
-const ENGINE_NAME = { f1v6: '1.6 V6 turbo hybrid', v10: '3.0 V10', v8flat: 'Flat-plane V8', v8cross: 'V8', v8truck: 'Big-block V8', i6: 'Straight six',
+const ENGINE_NAME = { f1v6: '1.6 V6 turbo hybrid', v10: '3.0 V10', v10big: '8.0 V10', v8flat: 'Flat-plane V8', v8cross: 'V8', v8truck: 'Big-block V8', i6: 'Straight six',
   i6turbo: 'Twin-turbo straight six', v6turbo: 'Twin-turbo V6', v6na: 'V6', flat6: 'Flat six', flat6turbo: 'Turbo flat six', flat12: 'Flat twelve', i4turbo: 'Turbo four', diesel: 'Turbo diesel' };
 const CLASS_COL = { f1: '#e1261c', gt1: '#2a7fd0', gt2: '#7a4fc0', street: '#e8b13a', club: '#2fa59a', shitbox: '#a8743a', fun: '#4f9a3c' };
 let csel = null; // { cls, id, shownId, t, blip }

@@ -47,6 +47,9 @@ export const ENGINES = {
   // V6 NA, high revving (90s Japanese GT): sharp and eager
   v6na: { cyl: 6, fire: even(6), bank: alt(6), ring: 980, ring2: 1.05, decay: 0.0015, thump: 0.4, rasp: 0.35, jitter: 0.025,
     bankAmp: 0.9, drive: 6, formants: [[350, 4, 1], [1800, 4, 1.5]], lp: [1200, 8000], turbo: 0, pops: 0.5, whine: 0, gain: 0.95 },
+  // 8.0 pushrod V10 (Viper GTS-R): big, lazy and loud, a low buzzy rumble out of short side pipes, not a scream
+  v10big: { cyl: 10, fire: even(10), bank: alt(10), ring: 520, ring2: 1.06, decay: 0.0026, thump: 0.85, rasp: 0.4, jitter: 0.05,
+    bankAmp: 0.85, drive: 7, formants: [[120, 6, 0.9], [700, 4, 1.2], [1900, 2, 1.6]], lp: [800, 6000], turbo: 0, pops: 0.5, whine: 0, gain: 1 },
   // flat six (air-cooled 911): the boxer's hollow, raspy growl
   flat6: { cyl: 6, fire: even(6), bank: alt(6), ring: 760, ring2: 1.09, decay: 0.002, thump: 0.6, rasp: 0.45, jitter: 0.04,
     bankAmp: 0.8, drive: 6, formants: [[240, 5, 1.1], [900, 4, 1.4], [2400, 2, 2]], lp: [950, 6500], turbo: 0, pops: 0.55, whine: 0, gain: 1 },
@@ -122,6 +125,7 @@ export const PHYS = {
   orig: { cyl: 4, gain: 0.352, extractors: [100] }, // the original demo engine, for reference
   f1v6: { cyl: 6, gain: 0.5, phases: evenPh(6), extractors: [60, 64], intake: 70, exhaust: 70, straight: 70, muffler: [6, 9, 12, 15], action: 0.05, ignition: 0.012, mix: [0.6, 0.5, 1.2] },
   v10: { cyl: 10, gain: 0.513, phases: evenPh(10), extractors: [55, 58], intake: 60, exhaust: 60, straight: 60, muffler: [5, 8, 11, 14], action: 0.03, ignition: 0.01, mix: [0.7, 0.4, 1.2] },
+  v10big: { cyl: 10, gain: 0.373, phases: evenPh(10), extractors: [95, 110], intake: 100, exhaust: 100, straight: 70, muffler: [8, 12, 16, 20], action: 0.06, ignition: 0.016, mix: [0.6, 1.1, 1.2] },
   v8flat: { cyl: 8, gain: 0.409, phases: evenPh(8), extractors: [85, 90], straight: 100, muffler: [8, 12, 16, 20], action: 0.06, ignition: 0.014, mix: [0.8, 0.8, 1.1] },
   v8cross: { cyl: 8, gain: 0.37, phases: evenPh(8), extractors: CROSS(100, 150), straight: 170, muffler: [20, 30, 40, 50], action: 0.15, ignition: 0.018, mix: [0.6, 1.2, 1] },
   v8truck: { cyl: 8, gain: 0.347, phases: evenPh(8), extractors: CROSS(130, 195), intake: 130, exhaust: 130, straight: 230, muffler: [30, 45, 60, 75], action: 0.2, ignition: 0.022, mix: [0.4, 1.4, 0.8] },
