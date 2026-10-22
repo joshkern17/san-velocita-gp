@@ -2969,12 +2969,18 @@ export class Race {
     // (how hard it can brake here: the dry-tarmac figures, less in the wet and on dirt, where the tyres can't stop the
     // car that quickly and it would slide past the speed line and the box)
     const gk = Math.max(0.4, Math.min(1, this.rainGrip || 1) * (this.dirt ? 0.6 : 1)), decL = 11 * gk, decB = 8 * gk;
-    if (pos < 0) { // approaching the entry
+    // off the limiter: the speed the car would drive on a racing lap, read ahead like the AI does (its plan cut for the
+    // grip it has now: wet, cold or worn tyres, damage). The bare plan at the car was up to 120 km/h too quick into a
+    // pit entry in a corner in the wet (Summit Point): no braking for the corner, and wide across the track
+    const la = (car.idx + Math.round((6 + u * 0.3) / T.ds)) % N, la2 = (la + Math.round(15 / T.ds)) % N;
+    const SV = this.drivenPlan(car, car.lineV || this.lineV, (car.ai?.pace ?? 1) * this.aiGripK(car, la));
+    const planV = Math.min(SV[la], SV[la2] + 8);
+    if (pos < 0) { // approaching the entry (off the racing line, over to the pit side: a little under it)
       const d = ((pit.start - car.idx + N) % N) * T.ds + limitAt * T.ds;
-      vt = Math.min((car.lineV || this.lineV)[car.idx] * 0.95, Math.sqrt(pit.speed ** 2 + 2 * decL * d));
-    } else if (pos < limitAt) vt = Math.sqrt(pit.speed ** 2 + 2 * decL * (limitAt - pos) * T.ds);
+      vt = Math.min(planV * 0.95, Math.sqrt(pit.speed ** 2 + 2 * decL * d));
+    } else if (pos < limitAt) vt = Math.min(planV * 0.95, Math.sqrt(pit.speed ** 2 + 2 * decL * (limitAt - pos) * T.ds));
     else if (pos <= limitEnd) vt = pit.speed * 0.97;
-    else vt = (car.lineV || this.lineV)[car.idx];
+    else vt = planV;
     const through = car.pitReq && car.pitReq.dt; // (a drive-through: past the box at the limiter)
     if (car.pitPhase === 'in' && toBox < 200 && !through) vt = Math.min(vt, Math.sqrt(2 * decB * Math.max(0, toBox - 0.3)));
     if (car.pitPhase === 'in' && fromBox < 40 && !through) vt = 0; // rolled past the box: stop, the crew will come to you
@@ -3498,10 +3504,7 @@ export class Race {
     // (and in a car's dirty air, like a driver feeling the front go light: what it's costing the car right now. With the
     // per-axle reckoning below this counts it twice, on paper; taken out, seeded F1 races went from 0-2 contacts and 2
     // wall hits to 12-20 and 13-17: the axle reckoning alone under-reads it, so both stay)
-    const gk = Math.sqrt(p.gripNow() / (this.refGrip || 1) * (1 - 0.4 * Math.max(p.dmg.fw, p.dmg.rw)) * (1 - 0.1 * p.dmg.ch) * (this.opts.aiWake === false ? 1 : 1 - (p.wakeLoss || 0))
-      * (this.dirtTrack ? this.dirtTrack.mu(la, car.s) / this.dirtTrack.mu0 : 1) // (dirt: the groove slicking off, the cushion)
-      * (this.rubber && car.rub ? this.rubber.grip(la, car.s) : 1) // (the rubber laid since the session began; slick in the wet)
-      * p.tempGrip); // (tyres off their best temperature: cold out of the pits, or overheated)
+    const gk = this.aiGripK(car, la);
     const LV = car.lineV || this.lineV, SV = this.opts.paceScale === 'old' ? null : this.drivenPlan(car, LV, ai.pace * gk);
     let vt = SV ? SV[la] : LV[la] * ai.pace * gk;
     const la2 = (la + Math.round(15 * (1 - 0.65 * lb) / T.ds)) % N, vt2 = SV ? SV[la2] : LV[la2] * ai.pace * gk;
@@ -3673,6 +3676,14 @@ export class Race {
   // pace under 1, under its own top speed: lifting through kinks you're flat through, ~4 km/h down at the end of a
   // straight, and a field 3% slower in the race than the fresh-tyre laps practice and qualifying simulate, 2026-10-17.
   // opts.paceScale 'old': as before)
+  // how much of the grip its plan was learned with the car has right now, at sample la (a square root: a speed figure)
+  aiGripK(car, la) {
+    const p = car.phys;
+    return Math.sqrt(p.gripNow() / (this.refGrip || 1) * (1 - 0.4 * Math.max(p.dmg.fw, p.dmg.rw)) * (1 - 0.1 * p.dmg.ch) * (this.opts.aiWake === false ? 1 : 1 - (p.wakeLoss || 0))
+      * (this.dirtTrack ? this.dirtTrack.mu(la, car.s) / this.dirtTrack.mu0 : 1) // (dirt: the groove slicking off, the cushion)
+      * (this.rubber && car.rub ? this.rubber.grip(la, car.s) : 1) // (the rubber laid since the session began; slick in the wet)
+      * p.tempGrip); // (tyres off their best temperature: cold out of the pits, or overheated)
+  }
   drivenPlan(car, LV, s, slot = '') {
     const c = car['_sv' + slot];
     if (c && c.LV === LV && Math.abs(c.s - s) < 0.002) return c.V;
