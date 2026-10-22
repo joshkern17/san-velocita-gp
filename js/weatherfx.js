@@ -39,7 +39,7 @@ export class WetReflections {
     const cx = camera.position.x, cz = camera.position.z, cy = camera.position.y;
     const all = [];
     for (const l of this.fixed) { const d = Math.hypot(l.x - cx, l.z - cz); if (d < 170) all.push([d, l]); }
-    for (const l of moving) { const d = Math.hypot(l.x - cx, l.z - cz); if (d < 120) all.push([d, l]); }
+    for (const l of moving || []) { const d = Math.hypot(l.x - cx, l.z - cz); if (d < 120) all.push([d, l]); } // (null while a changeable race is dry)
     all.sort((a, b) => a[0] - b[0]);
     let n = 0;
     for (const [d, l] of all) {
