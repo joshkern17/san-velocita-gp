@@ -17,6 +17,7 @@ import { CARSPEC } from './physics.js';
 // (col: the class's colour, on the car select's tabs and a multiclass race's timing tower)
 export const CLASSES = {
   f1:     { label: 'Formula',  short: 'F1', col: '#e1261c' },
+  groupc: { label: 'Group C', short: 'GPC', col: '#2fb8c8' },
   gt1:    { label: 'GT1 ’90s', short: 'GT1', col: '#2a7fd0' },
   gt2:    { label: 'GT2 ’90s', short: 'GT2', col: '#7a4fc0' },
   street: { label: 'Street',  short: 'ST', col: '#e8b13a' },
@@ -79,6 +80,13 @@ const gt = (o) => ({
 const gt2 = (o) => gt({ mass: 1150, power: 310000, mu: 1.5, kd: 0.55, drag: 0.42, maxForce: 12000, rideHz: [2.2, 2.4], rollGrad: 1.4,
   gears: [0, 26, 38, 50, 62, 73, 82], redline: 8000, ...o });
 
+// a Group C prototype ('82-'92 sports car racing): a light ground-effect car, the floor making most of its downforce,
+// with the power of the GT1 cars and a lot less weight: between GT1 and the Formula cars on pace. Stiff and low, so the
+// ride height matters (aeroH) and it loses grip sooner when sliding (aeroYaw); a five-speed manual
+const gc = (o) => gt({ mass: 880, power: 510000, mu: 1.66, kd: 1.6, aeroF: 0.42, drag: 0.6, maxForce: 14000, cgh: 0.32,
+  rideHz: [3.2, 3.5], rollGrad: 0.8, travel: [0.06, 0.045], aeroH: [0.035, 0.018], aeroYaw: 3.5, wake: [0.25, 0.1],
+  gears: [0, 33, 49, 64, 79, 95], box: 'manual', shift: 0.14, redline: 8200, ...o });
+
 const street = (o) => ({
   mass: 1450, a: 1.3, b: 1.4, cgh: 0.48, mu: 1.33, rearGrip: 1.03, kd: 0.14, aeroF: 0.45,
   drag: 0.4, roll: 22, power: 300000, maxForce: 11500, maxSteer: 0.48,
@@ -99,32 +107,65 @@ export const CARS = {
   f1:     { name: 'Your F1 Car', cls: 'f1', sound: 'f1v6', chassis: 'custom', spec: CARSPEC, paint: true },
   svgp:   { name: 'SVGP Classic', cls: 'f1', sound: 'v10', chassis: 'svgp', spec: CARSPEC, paint: true },
 
-  m1procar: { name: 'Bavaria M1 ProCar ’79', cls: 'gt1', sound: 'i6', glb: true, paint: true, livery: true, smooth: 30, // your Blender model: white photo, wears your full livery (see roadcar.js) + Light_* lamps
+  // The GT1 cars are detailed Sketchfab models (placeholders until remodelled: see models/cars/cars.json for each
+  // source + licence) put in the game by tools/cars/hdcar.py: the bodywork painted white on its own unwrap (material
+  // Livery, ambient occlusion baked in) so it takes full liveries; trim, glass, wheels and cockpit keep their own
+  // textures. Where a low-poly car came before, the model's axles sit on its axles and the spec is unchanged (the
+  // low-poly cars: ARCHIVED *_lp). 150k-700k triangles each.
+  // The M1: a high-revving straight six, a short five-speed, light and nimble. 450 kW (the Group 5 M1s ran far more:
+  // on 400 and the least downforce it was the class's slowest by 3%)
+  m1procar: { name: 'BMW M1 Turbo', cls: 'gt1', sound: 'i6', glb: true, paint: true, livery: true, smooth: 30, rev: 1,
     liveryLabels: { topNumber: [0.78, 0.5], sideNumber: [0.55, 0.5], sideSponsor: [0.55, 0.8] },
-    spec: gt({ body: [2.21, 2.16, 0.89], gears: [0, 28, 43, 57, 71, 88], box: 'manual', shift: 0.14, mass: 1020, power: 400000, kd: 0.75, drag: 0.45, torque: NA, redline: 9000, a: 1.3, b: 1.13, rearGrip: 1.07, brakeF: 0.62 }) },
-  // your Blender model (Group 5, '78 long tail): white photo, wears your full livery. The M1's opposite at the same pace:
-  // one big turbo (late boost, held to redline), a long slow 4-speed, the engine out back (pushes in, can step out on a
-  // lift), a slippery long tail under a big wing: fast on the straights, harder work out of slow corners
-  porsche935: { name: 'Porsche 935', cls: 'gt1', sound: 'flat6turbo', glb: true, paint: true, livery: true,
+    spec: gt({ body: [2.21, 2.16, 0.89], gears: [0, 28, 43, 57, 71, 88], box: 'manual', shift: 0.14, mass: 1020, power: 450000, kd: 0.85, drag: 0.45, torque: NA, redline: 9000, a: 1.3, b: 1.13, rearGrip: 1.07, brakeF: 0.62 }) },
+  // The 935 K3 (Group 5 long tail): the M1's opposite at the same pace: one big turbo (late boost, held to redline), a
+  // long slow 4-speed, the engine out back (pushes in, can step out on a lift), a slippery long tail under a big wing:
+  // fast on the straights, harder work out of slow corners (510 kW: the real K3 made ~600; the long gears cost it on a
+  // tight road like Sakura Pass and win it back on the fast ones)
+  porsche935: { name: 'Porsche 935 K3', cls: 'gt1', sound: 'flat6turbo', glb: true, paint: true, livery: true, smooth: 30, rev: 1,
     liveryLabels: { topNumber: [0.78, 0.5], sideNumber: [0.55, 0.5], sideSponsor: [0.55, 0.8] },
-    spec: gt({ body: [2.32, 2.52, 0.99], gears: [0, 33, 53, 73, 93], box: 'manual', shift: 0.18, mass: 1030, power: 480000, kd: 0.9, drag: 0.43, torque: BIGTURBO, redline: 7800, a: 1.44, b: 0.96, rearGrip: 1.1, brakeF: 0.56 }) },
-
-  // your Blender model (Zakspeed Ford Capri Turbo, Group 5, white photo, full livery): built from a high-poly model with
-  // the low-poly pipeline (output/hd-lowpoly). A short, light front-engined car with a tiny turbo four that's all
-  // or nothing: the lightest of the GT1 cars, a late, violent boost and a short wheelbase that turns in hard but
-  // wants a gentle right foot out of slow corners
-  capri: { name: 'Ford Capri Turbo', cls: 'gt1', sound: 'i4turbo', glb: true, paint: true, livery: true,
+    spec: gt({ body: [2.32, 2.52, 0.99], gears: [0, 33, 53, 73, 93], box: 'manual', shift: 0.18, mass: 1030, power: 510000, kd: 0.9, drag: 0.43, torque: BIGTURBO, redline: 7800, a: 1.44, b: 0.96, rearGrip: 1.1, brakeF: 0.56 }) },
+  // The Capri: a short, light front-engined car with a tiny turbo four that's all or nothing: the lightest of the GT1
+  // cars, a late, violent boost and a short wheelbase that turns in hard but wants a gentle right foot out of slow corners.
+  // Built like the Group 5 Capris: the engine set back (49% on the rear) and much wider rear tyres than fronts
+  // (rearGrip 1.12), traction capped at 12.5 kN. (At 47% / 1.06 / 13.5 kN it had the most drive per kg on its rears of
+  // any car: it spun ~2 s on every start and sat on the edge of grip even on a gentle exit)
+  capri: { name: 'Ford Capri Group B', cls: 'gt1', sound: 'i4turbo', glb: true, paint: true, livery: true, smooth: 30, rev: 1,
     liveryLabels: { topNumber: [0.7, 0.5], sideNumber: [0.5, 0.5], sideSponsor: [0.5, 0.8] },
-    spec: gt({ body: [2.38, 2.47, 1.04], gears: [0, 30, 45, 59, 72, 85], box: 'manual', shift: 0.16, mass: 960, power: 440000, kd: 0.9, drag: 0.46, torque: BIGTURBO, redline: 9000, a: 1.2, b: 1.38, rearGrip: 1.06, brakeF: 0.6 }) },
-  // your Blender model (Ferrari F40 LM, the racing F40, with the LB-Works kit, modelled by hand over the white reference
-  // sheet, full livery): the twin-turbo flat-plane V8 behind the driver, a five-speed manual and turbos that arrive all
-  // at once. The real LM made up to ~530 kW on full boost; here it's held to 470 kW, as BPR GT1 restrictors held the
-  // F40 GTE, so it's mid-field. Weight over the rear (42/58) puts the power down well but lets it rotate on a lift; the
-  // long rear overhang and big wing keep it steady at speed (aeroF 0.38: the wing's share over the rear. On the class's
-  // 0.42, the same split as its weight, the rear let go on a quick turn-in flat out and spun it with the aids off)
-  f40: { name: 'Ferrari F40 LM', cls: 'gt1', sound: 'v8flat', glb: true, paint: true, livery: true, rev: 2,
+    spec: gt({ body: [2.38, 2.47, 1.04], gears: [0, 30, 45, 59, 72, 85], box: 'manual', shift: 0.16, mass: 960, power: 425000, kd: 0.9, drag: 0.46, torque: BIGTURBO, redline: 9000, a: 1.26, b: 1.32, rearGrip: 1.12, maxForce: 12500, brakeF: 0.6 }) },
+  // The F40 (LM, LB-Works kit): the twin-turbo flat-plane V8 behind the driver, a five-speed manual and turbos that
+  // arrive all at once. The real LM made up to ~530 kW on full boost; here 520 kW and the LB wing's extra downforce
+  // (on 470 it was a class's-worth slow), so it's mid-field. Weight over the rear (42/58) puts the power down well but lets it rotate on a
+  // lift; the long rear overhang and big wing keep it steady at speed (aeroF 0.38: the wing's share over the rear. On
+  // the class's 0.42, the same split as its weight, the rear let go on a quick turn-in flat out and spun it with the aids off)
+  f40: { name: 'Ferrari F40 LB-Works', cls: 'gt1', sound: 'v8flat', glb: true, paint: true, livery: true, smooth: 30, rev: 3,
     liveryLabels: { topNumber: [0.8, 0.5], sideNumber: [0.52, 0.57], sideSponsor: [0.52, 0.82] },
-    spec: gt({ body: [2.57, 1.91, 1.05], gears: [0, 31, 48, 64, 79, 93], box: 'manual', shift: 0.15, mass: 1060, power: 470000, kd: 0.9, drag: 0.44, aeroF: 0.38, torque: TURBO, redline: 7800, a: 1.43, b: 1.03, brakeF: 0.58 }) },
+    spec: gt({ body: [2.57, 1.91, 1.05], gears: [0, 31, 48, 64, 79, 93], box: 'manual', shift: 0.15, mass: 1060, power: 520000, kd: 0.95, drag: 0.44, aeroF: 0.38, torque: TURBO, redline: 7800, a: 1.43, b: 1.03, brakeF: 0.58 }) },
+  // The '97 CLK GTR: the purpose-built one, a 6.0 V12 (~440 kW, its real ~600 hp) behind the driver, a six-speed
+  // sequential and the most downforce in the class: the long wheelbase (2.67 m) and 44/56 weight make it planted and
+  // quick through fast corners rather than nimble in slow ones. Body / a / b measured off the model (hdcar.py, CG 0.56).
+  // (On 470 kW and kd 1.05, with the only quick-shifting box in the class, it was quickest on every circuit by 1.5%)
+  clkgtr: { name: 'Mercedes CLK GTR', cls: 'gt1', sound: 'flat12', glb: true, paint: true, livery: true, smooth: 30, rev: 1,
+    liveryLabels: { topNumber: [0.78, 0.5], sideNumber: [0.45, 0.66], sideSponsor: [0.45, 0.85] }, // (lower than the others: the antenna makes the side panel 1.5 m tall)
+    spec: gt({ body: [2.63, 2.26, 1.0], gears: [0, 30, 43, 55, 67, 78, 88], box: 'sequential', shift: 0.06, mass: 1050, power: 440000, kd: 1.0, drag: 0.46, aeroF: 0.4, torque: NA, redline: 8000, a: 1.495, b: 1.175, rearGrip: 1.08, brakeF: 0.58 }) },
+
+  // ---- Group C ----
+  // Sketchfab models through tools/cars/hdcar.py like the GT1 cars (white Livery body, unseen parts culled); body / a / b
+  // measured off each model (CG = the share of the wheelbase behind the front axle)
+  // The 962C: the class's benchmark, the 2.8 flat six's turbo (late boost) and a long tail: quick on the straights
+  p962c: { name: 'Porsche 962C', cls: 'groupc', sound: 'flat6turbo', glb: true, paint: true, livery: true, smooth: 30,
+    liveryLabels: { topNumber: [0.75, 0.5], sideNumber: [0.5, 0.6], sideSponsor: [0.5, 0.85] },
+    spec: gc({ body: [2.4, 2.37, 1.01], a: 1.578, b: 1.19, mass: 900, power: 500000, torque: TURBO, rearGrip: 1.08, brakeF: 0.56 }) }, // (CG 0.57)
+  // The 787B: the four-rotor (no turbo: power everywhere, revs to 9000) in the lightest car; less top speed. (Its sound
+  // for now the flat-plane V8's: a four-rotor fires as often as an eight)
+  mazda787b: { name: 'Mazda 787B', cls: 'groupc', sound: 'v8flat', glb: true, paint: true, livery: true, smooth: 30,
+    liveryLabels: { topNumber: [0.75, 0.5], sideNumber: [0.5, 0.6], sideSponsor: [0.5, 0.85] },
+    spec: gc({ body: [2.46, 2.32, 1.03], a: 1.503, b: 1.181, mass: 845, power: 480000, torque: NA, redline: 9000, gears: [0, 32, 47, 61, 75, 91], rearGrip: 1.07, brakeF: 0.57 }) }, // (CG 0.56)
+  // The XJR-9: the 7.0 V12, torque from nowhere and the most power, the heaviest and the longest: a long-legged car
+  // for fast circuits. (Traction capped at 12.5 kN: the V12's low-down torque spun the rears off the line past traction
+  // control's reach)
+  xjr9: { name: 'Jaguar XJR-9', cls: 'groupc', sound: 'flat12', glb: true, paint: true, livery: true, smooth: 30, rev: 1,
+    liveryLabels: { topNumber: [0.75, 0.5], sideNumber: [0.5, 0.6], sideSponsor: [0.5, 0.85] },
+    spec: gc({ body: [2.67, 2.24, 1.02], a: 1.588, b: 1.198, mass: 910, power: 530000, maxForce: 12500, torque: V8, redline: 7200, gears: [0, 34, 51, 67, 82, 97], rearGrip: 1.08, brakeF: 0.56 }) }, // (CG 0.57)
 
   // ---- GT2 ----
   // your Blender model (E46 M3 GTR, white photo, full livery): the 2001 ALMS GT car, back in its own class (it was
@@ -240,6 +281,11 @@ export const ARCHIVED = {
   rmx:     { name: 'Kineto RM-X ’94', cls: 'gt1', sound: 'i6turbo', glb: true, paint: false, bodyWheels: 'drop',
     spec: gt({ body: [2.2, 2.22, 1.0], mass: 1180, power: 500000, kd: 0.7, drag: 0.43, torque: TURBO, drive: 0.2, redline: 8000, a: 1.4, b: 1.32, rearGrip: 1.02 }) },
 };
+// archived (2026-10-22): the low-poly GT1 cars (your Blender models, the white-photo pipeline), replaced by the detailed
+// models under the same ids (so saved liveries, careers and the AI's learned lines carry over). Same specs; to bring one
+// back, give it its own id in CARS
+for (const [id, name] of [['m1procar', 'Bavaria M1 ProCar ’79'], ['porsche935', 'Porsche 935'], ['capri', 'Ford Capri Turbo'], ['f40', 'Ferrari F40 LM']])
+  ARCHIVED[id + '_lp'] = { ...CARS[id], name, smooth: id === 'm1procar' ? 30 : undefined };
 // every spec gets its wheelbase + yaw inertia filled in
 for (const c of [...Object.values(CARS), ...Object.values(ARCHIVED)]) {
   const s = c.spec;
@@ -262,6 +308,46 @@ export const chassisKey = (id) => (id === 'f1' ? 'custom' : id);
 
 // model credits (Sketchfab; the CC BY licences ask for attribution) - shown on the Credits screen
 export const CAR_CREDITS = {
+ "p962c": {
+  "title": "Porsche 962C",
+  "author": "JUST GAME",
+  "license": "CC-BY-4.0"
+ },
+ "mazda787b": {
+  "title": "Mazda 787B | www.vecarz.com",
+  "author": "vecarz",
+  "license": "CC-BY-4.0"
+ },
+ "xjr9": {
+  "title": "Jaguar XJR-9 LM (updated)",
+  "author": "JUST GAME",
+  "license": "CC-BY-4.0"
+ },
+ "porsche935": {
+  "title": "Porsche Kremer Racing 935 K3 Midpoly",
+  "author": "yarzav",
+  "license": "CC-BY-NC-SA-4.0"
+ },
+ "m1procar": {
+  "title": "BMW M1 Turbo",
+  "author": "VTX",
+  "license": "CC-BY-NC-SA-4.0"
+ },
+ "f40": {
+  "title": "LB-Works Ferrari F40 | www.vecarz.com",
+  "author": "vecarz",
+  "license": "CC-BY-NC-SA-4.0"
+ },
+ "capri": {
+  "title": "Ford Capri Group B",
+  "author": "Tiaan.Pretorius",
+  "license": "CC-BY-4.0"
+ },
+ "clkgtr": {
+  "title": "1997 Mercedes CLK GTR GT1",
+  "author": "Dave Love SketchFab",
+  "license": "CC-BY-4.0"
+ },
  "aventus": {
   "title": "PS1 GT1-Style Model - 1992 Emery Aventus",
   "author": "Aike",

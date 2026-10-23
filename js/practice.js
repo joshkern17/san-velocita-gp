@@ -32,7 +32,7 @@ export const PROGRAMMES = [
 // deviation), so it's a range, not the answer
 export const QSIM_NOISE = 0.0035;
 // the margin on a mini-sector's target (a fraction of the reference lap's time through it), by class and difficulty
-const MSEC_TOL = { shitbox: 0.06, club: 0.05, street: 0.05, fun: 0.05, sprint: 0.05, gt: 0.04, gt1: 0.04, gt2: 0.04, f1: 0.035 };
+const MSEC_TOL = { shitbox: 0.06, club: 0.05, street: 0.05, fun: 0.05, sprint: 0.05, gt: 0.04, gt1: 0.04, gt2: 0.04, groupc: 0.04, f1: 0.035 };
 export const msecTol = (cls, diff) => (MSEC_TOL[cls] ?? 0.04) * (TOL_DIFF[diff] ?? 1.25);
 
 // Where the mini-sectors split: halfway between one corner's apex and the next (corners closer than 120 m share one),

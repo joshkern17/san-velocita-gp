@@ -25,7 +25,7 @@ import { bodyBox } from './contact.js';
 const fwd = (T, a, b) => ((b - a + T.N) % T.N) * T.ds; // (m forward from sample a to b)
 // how hard a hunting driver pushes, by class: an F1 runs out of grip a step past its plan (slid 4-5x as often at the
 // street car's push), a GT1 car shrugs it off (as aiskill.js's TECH_SCALE)
-const PUSH = { street: 1, gt2: 1.15, gt1: 1.3, f1: 0.35 };
+const PUSH = { street: 1, gt2: 1.15, gt1: 1.3, groupc: 0.8, f1: 0.35 };
 
 // where the braking for corner c starts on a speed plan V: back from the apex while the plan keeps rising
 const BP = new WeakMap();

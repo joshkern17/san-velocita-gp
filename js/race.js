@@ -253,7 +253,7 @@ const ALL_TEAMS = [...TEAMS, ...Object.entries(TEAM_LIVERIES).filter(([n]) => !T
   .map(([name, l], k) => ({ name, main: l.main, accent: l.accent, helmet: l.accent, driver: MORE_DRIVERS[k % MORE_DRIVERS.length] }))];
 const WHEEL_SPOTS = [[0.8, 1.4, true], [-0.8, 1.4, true], [0.8, -1.4, false], [-0.8, -1.4, false]];
 // classes whose tyres come out of warmers (tyre temperatures); the rest start at the air's temperature
-const BLANKETS = new Set(['f1', 'gt1', 'gt2']);
+const BLANKETS = new Set(['f1', 'groupc', 'gt1', 'gt2']);
 // the tire sound's surfaces (audio.js TyreVoice) by surface kind (the rest: road)
 const WHEEL_SND = { walk: 'road_rough', runoff: 'road_rough', public: 'concrete', city: 'concrete', grass: 'grass', gravel: 'gravel', sand: 'sand' };
 const SURFACES = { road: [1, 0], kerb: [0.96, 0], walk: [0.92, 10], public: [0.95, 15], city: [0.85, 30], runoff: [0.9, 6], grass: [0.58, 120], gravel: [0.5, 260], sand: [0.55, 190],
@@ -1362,7 +1362,7 @@ export class Race {
     const ok = ids.filter(id => memo[id] && isFinite(memo[id].t));
     if (ok.length < 2) { this.bopTrim = {}; return; }
     const ts = ok.map(id => memo[id].t).sort((a, b) => a - b), mid = ts[Math.floor(ts.length / 2)];
-    const E = { street: 0.45, gt2: 0.4, gt1: 0.35, f1: 0.6 }[CARS[ok[0]].cls] || 0.45; // (a percent of grip in lap time, about: .devtest/lapk.mjs)
+    const E = { street: 0.45, gt2: 0.4, gt1: 0.35, groupc: 0.45, f1: 0.6 }[CARS[ok[0]].cls] || 0.45; // (a percent of grip in lap time, about: .devtest/lapk.mjs)
     const trim = {};
     for (const id of ok) { const d = memo[id].t / mid - 1; trim[id] = +Math.max(0.92, Math.min(1.08, 1 + (2 / 3) * d / E)).toFixed(4); memo[id].want = mid * (1 + d / 3); }
     memo.trim = trim; memo.mid = mid; this.bopTrim = trim;
@@ -1374,7 +1374,7 @@ export class Race {
     const g0 = memo[id].grip, t0 = memo[id].t, tr = memo.trim[id], g1 = +(g0 * tr).toFixed(4), want = memo[id].want;
     const t1 = Math.abs(tr - 1) > 1e-4 ? this.simLap(id, { pace: 1, power: this.diff.power * this.opts.bop[id][0], grip: g1, tyre: 'soft', laps: 2 }) : t0;
     if (!isFinite(t1) || Math.abs(t1 / want - 1) < 0.0015) return;
-    const E = { street: 0.45, gt2: 0.4, gt1: 0.35, f1: 0.6 }[CARS[id].cls] || 0.45;
+    const E = { street: 0.45, gt2: 0.4, gt1: 0.35, groupc: 0.45, f1: 0.6 }[CARS[id].cls] || 0.45;
     let k = Math.abs(g1 - g0) > 1e-4 ? Math.log(t1 / t0) / Math.log(g1 / g0) : -E;
     if (!(k < -0.15 && k > -1.2)) k = -E; // (noise can make grip look worthless, or worse: then the usual sensitivity)
     const step = Math.pow(want / t1, 1 / k), first = Math.abs(Math.log(tr)) || 0.01; // (and no more than twice the first step's size)

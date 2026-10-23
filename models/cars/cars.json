@@ -170,37 +170,27 @@
   ]
  },
  "m1procar": {
-  "title": "BMW M1 ProCar (custom, made in Blender)",
-  "author": "you",
-  "license": "own work",
-  "source": "",
+  "title": "BMW M1 Turbo (placeholder: to be remodelled)",
+  "author": "VTX",
+  "license": "CC-BY-NC-SA-4.0",
+  "source": "https://sketchfab.com/3d-models/bmw-m1-turbo-b3247a86c55d4424b11f1d301ff8d756",
   "wheels": [
    "FL",
    "FR",
    "RL",
    "RR"
-  ],
-  "size": [
-   1.78,
-   1.18,
-   4.36
   ]
  },
  "porsche935": {
-  "title": "Porsche 935 (custom, made in Blender)",
-  "author": "you",
-  "license": "own work",
-  "source": "",
+  "title": "Porsche Kremer Racing 935 K3 Midpoly (placeholder: to be remodelled)",
+  "author": "yarzav",
+  "license": "CC-BY-NC-SA-4.0",
+  "source": "https://sketchfab.com/3d-models/porsche-kremer-racing-935-k3-midpoly-bb289f35c8eb4d898700863212a541eb",
   "wheels": [
    "FL",
    "FR",
    "RL",
    "RR"
-  ],
-  "size": [
-   1.98,
-   1.34,
-   4.86
   ]
  },
  "civic": {
@@ -255,37 +245,27 @@
   ]
  },
  "capri": {
-  "title": "Ford Capri Turbo Group 5 (custom, made in Blender)",
-  "author": "you",
-  "license": "own work",
-  "source": "",
+  "title": "Ford Capri Group B",
+  "author": "Tiaan.Pretorius",
+  "license": "CC-BY-4.0",
+  "source": "https://sketchfab.com/3d-models/ford-capri-group-b-a8821371a98a4ccbad0beee12fd4f3e9",
   "wheels": [
    "FL",
    "FR",
    "RL",
    "RR"
-  ],
-  "size": [
-   2.08,
-   1.21,
-   4.84
   ]
  },
  "f40": {
-  "title": "Ferrari F40 LM, LB-Works kit (custom, made in Blender)",
-  "author": "you",
-  "license": "own work",
-  "source": "",
+  "title": "LB-Works Ferrari F40 | www.vecarz.com (placeholder: to be remodelled)",
+  "author": "vecarz",
+  "license": "CC-BY-NC-SA-4.0",
+  "source": "https://sketchfab.com/3d-models/lb-works-ferrari-f40-wwwvecarzcom-011cad3526e945799d6e98dde6390182",
   "wheels": [
    "FL",
    "FR",
    "RL",
    "RR"
-  ],
-  "size": [
-   2.09,
-   1.13,
-   4.48
   ]
  },
  "miata": {
@@ -388,6 +368,122 @@
    2.08,
    2.67,
    3.32
+  ]
+ },
+ "m1procar_lp": {
+  "title": "BMW M1 ProCar (custom, made in Blender)",
+  "author": "you",
+  "license": "own work",
+  "source": "",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   1.78,
+   1.18,
+   4.36
+  ]
+ },
+ "porsche935_lp": {
+  "title": "Porsche 935 (custom, made in Blender)",
+  "author": "you",
+  "license": "own work",
+  "source": "",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   1.98,
+   1.34,
+   4.86
+  ]
+ },
+ "capri_lp": {
+  "title": "Ford Capri Turbo Group 5 (custom, made in Blender)",
+  "author": "you",
+  "license": "own work",
+  "source": "",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   2.08,
+   1.21,
+   4.84
+  ]
+ },
+ "f40_lp": {
+  "title": "Ferrari F40 LM, LB-Works kit (custom, made in Blender)",
+  "author": "you",
+  "license": "own work",
+  "source": "",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   2.09,
+   1.13,
+   4.48
+  ]
+ },
+ "clkgtr": {
+  "title": "1997 Mercedes CLK GTR GT1",
+  "author": "Dave Love SketchFab",
+  "license": "CC-BY-4.0",
+  "source": "https://sketchfab.com/3d-models/1997-mercedes-clk-gtr-gt1-a5f9b0310baa4acda6a36c71f2960f8c",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ]
+ },
+ "p962c": {
+  "title": "Porsche 962C",
+  "author": "JUST GAME",
+  "license": "CC-BY-4.0",
+  "source": "https://sketchfab.com/3d-models/porsche-962c-69d38a72391549da91ab4d5787998611",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ]
+ },
+ "mazda787b": {
+  "title": "Mazda 787B | www.vecarz.com",
+  "author": "vecarz",
+  "license": "CC-BY-4.0",
+  "source": "https://sketchfab.com/3d-models/mazda-787b-wwwvecarzcom-bdcfed4f59f54afebc817960312612c6",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ]
+ },
+ "xjr9": {
+  "title": "Jaguar XJR-9 LM (updated) (placeholder: materials suggest a game rip)",
+  "author": "JUST GAME",
+  "license": "CC-BY-4.0",
+  "source": "https://sketchfab.com/3d-models/jaguar-xjr-9-lm-updated-53b6db301db74cd782fef79d6a164b89",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
   ]
  }
 }

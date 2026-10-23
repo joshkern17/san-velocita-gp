@@ -53,7 +53,7 @@ function makeTemplate(id, scene) {
     let n = o; while (n.parent && n.parent !== scene) n = n.parent;
     const m = o.material;
     const part = { geo, map: m.map || null, color: m.color ? m.color.getHex() : 0xffffff, emissive: m.emissiveMap || null, double: m.side === THREE.DoubleSide,
-      cutoff: m.alphaTest || CARS[id].cutout || 0, blend: !!m.transparent, obj: n.name, finish: CARS[id].livery ? finishOf(m) : null };
+      cutoff: m.alphaTest || CARS[id].cutout || 0, blend: !!m.transparent, obj: n.name, mat: m.name, finish: CARS[id].livery ? finishOf(m) : null };
     const nm = n.name.trim(), c = (nm.match(/^Wheel_(FL|FR|RL|RR)/) || [])[1], lamp = (nm.match(/^Light_(Tail|Head)/i) || [])[1];
     if (nm === 'SteeringWheel' && n.userData.steer_axis) {
       const [ax, ay, az] = n.userData.steer_axis;                       // Blender (x, y, z) -> car space (x, z, -y)
@@ -130,7 +130,8 @@ function makeTemplate(id, scene) {
   T.tailSpots = lampSpots(T.tail, -1); T.headSpots = lampSpots(T.head, 1);
   // the paintable hue: the most common strongly coloured hue in the body texture
   T.paintHue = null;
-  const bodyMap = T.body.map(p => p.map).find(Boolean);
+  // (a material named Livery is the paint: the HD cars, tools/cars/hdcar.py, keep their trim's own textures too)
+  const bodyMap = (T.body.find(p => p.map && p.mat === 'Livery') || T.body.find(p => p.map) || {}).map;
   if (bodyMap && CARS[id].paint) {
     const img = bodyMap.image, c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
     const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0);

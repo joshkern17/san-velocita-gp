@@ -13,7 +13,7 @@ import { physAids, PRESETS } from './aids.js';
 
 // the standard alignment per class (° camber, - = the top leaning in; ° toe, + = in): what the car is built with
 const ALIGN = {
-  f1: { cam: [-3.2, -1.8], toe: [-0.05, 0.2] }, gt1: { cam: [-3, -2], toe: [0, 0.15] }, gt2: { cam: [-2.8, -1.9], toe: [0, 0.15] },
+  f1: { cam: [-3.2, -1.8], toe: [-0.05, 0.2] }, gt1: { cam: [-3, -2], toe: [0, 0.15] }, groupc: { cam: [-3.1, -1.9], toe: [-0.02, 0.18] }, gt2: { cam: [-2.8, -1.9], toe: [0, 0.15] },
   street: { cam: [-1.2, -1], toe: [0, 0.1] }, shitbox: { cam: [-0.6, -0.5], toe: [0.05, 0.1] }, club: { cam: [-2.5, -1.8], toe: [0, 0.1] }, fun: { cam: [-1, -0.8], toe: [0, 0.1] },
   sprint: { cam: [-1.5, 0], toe: [0, 0] }, // (a solid rear axle: no camber at the back)
 };
