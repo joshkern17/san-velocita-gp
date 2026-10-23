@@ -3384,7 +3384,11 @@ export class Race {
         // follow it like a driver: expect it to slow for what's coming (its own speed plan a little ahead, or the speed
         // it's doing now if that's lower), keep a gap that grows with speed (~0.2 s), and brake no harder than it can
         // (the launch: it's pulling away, so expect the speed it'll have in half a second, not the speed it has now)
-        const OV = o.lineV || this.lineV, vNow = o.phys.u + (ai.lane && this.raceTime < 6 ? Math.max(0, o.acc || 0) * 0.5 : 0);
+        // (the launch's following: not over at 6 s while the car ahead is still pulling away. Cut off there, mid-run to the
+        // first corner, every follower in the queue found itself too close at once and they all braked together on the
+        // straight, from the middle of the grid back: the back of the grid lost ~0.8 s by turn 1. opts.packFollow false: 6 s)
+        const lch = ai.lane && (this.raceTime < 6 || this.opts.packFollow !== false && car.lap <= 1 && (o.acc || 0) > 1);
+        const OV = o.lineV || this.lineV, vNow = o.phys.u + (lch ? Math.max(0, o.acc || 0) * 0.5 : 0);
         // (one off its line, defending the inside or alongside someone, slows for the corner more than its plan says: offK)
         const oi = (o.idx + Math.round((8 + o.phys.u * 0.5) / T.ds)) % N, oSV = o.ai && o._sv && this.opts.paceScale !== 'old' ? o._sv.V : null; // (its plan as it drives it: drivenPlan)
         // (hunting it - in its tow, or lunging down the inside - a racer follows what the car ahead is doing, not what it
@@ -3407,7 +3411,7 @@ export class Race {
         // (and with the braking point over a second away, right up to its gearbox: the slingshot needs the speed the tow gives)
         // (pulling out of it: past its gearbox, not braking to drop back to a following gap and losing the run)
         const sling = tow && pp.tb > 1.2 || pp && pp.o === o && pp.stage === 'out' && Math.abs(ds) > 1.2;
-        const room = Math.max(0, gap - (sling ? 1.5 : calm ? 5 : tow || hunt ? 4 : 6) - len - u * (ai.lane && this.raceTime < 6 ? 0.08 : sling ? 0.01 : calm ? Math.max(pp.hw, 0.12) : tow || hunt ? pp.hw : this.opts.followH ?? 0.2));
+        const room = Math.max(0, gap - (sling ? 1.5 : calm ? 5 : tow || hunt ? 4 : 6) - len - u * (lch ? 0.08 : sling ? 0.01 : calm ? Math.max(pp.hw, 0.12) : tow || hunt ? pp.hw : this.opts.followH ?? 0.2));
         // (braking no harder than this car really can, 85% of its grip and downforce, not a flat 13 m/s², which a street
         // car can't do and a GT1 car beats; and if the car ahead is braking harder than that right now, braking earlier
         // for it: a player braking before the AI's own plan would was being driven into from behind. Capped at 13, GT1
