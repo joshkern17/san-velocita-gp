@@ -29,10 +29,13 @@ export const CLASSES = {
 
 // torque shapes (fraction of redline -> multiplier on the power-limited force)
 const NA = [[0, 0.62], [0.35, 0.86], [0.7, 1], [0.9, 0.97], [1, 0.9]];        // high-revving naturally aspirated
-const TURBO = [[0, 0.45], [0.25, 0.62], [0.4, 1], [0.75, 1], [1, 0.86]];    // lag, then a big mid-range
+// (a turbo engine's bottom point, 0.62 like an atmospheric one's: only a standing start reads it (the torque is taken at
+// the wheels' revs), and at 0.42-0.45 the turbo cars pulled away at two thirds of the M1's force and were ~40 m behind
+// it after 10 s; the lag is the dip above it, where a lap's slow corners are)
+const TURBO = [[0, 0.62], [0.25, 0.62], [0.4, 1], [0.75, 1], [1, 0.86]];    // lag, then a big mid-range
 const V8 = [[0, 0.82], [0.3, 0.97], [0.6, 1], [0.85, 0.93], [1, 0.84]];      // flat, torquey
 const BIGV10 = [[0, 0.6], [0.2, 0.9], [0.4, 1], [0.85, 0.96], [1, 0.88]]; // a big lazy V10: torque from low down, but the slicks limit a standing start like the rest
-const BIGTURBO = [[0, 0.42], [0.35, 0.6], [0.5, 0.95], [0.6, 1], [0.9, 1], [1, 0.94]]; // one big turbo: late boost, held to redline
+const BIGTURBO = [[0, 0.62], [0.35, 0.6], [0.5, 0.95], [0.6, 1], [0.9, 1], [1, 0.94]]; // one big turbo: late boost, held to redline
 const DIESEL = [[0, 0.7], [0.25, 1], [0.6, 0.95], [1, 0.7]];
 
 // Handling (see CarPhysics.step): slipPeak / slipFall = front tyre curve (the slip angle of peak grip, and how much is
@@ -155,7 +158,7 @@ export const CARS = {
   // The 962C: the class's benchmark, the 2.8 flat six's turbo (late boost) and a long tail: quick on the straights
   p962c: { name: 'Porsche 962C', cls: 'groupc', sound: 'flat6turbo', glb: true, paint: true, livery: true, smooth: 30,
     liveryLabels: { topNumber: [0.75, 0.5], sideNumber: [0.5, 0.6], sideSponsor: [0.5, 0.85] },
-    spec: gc({ body: [2.4, 2.37, 1.01], a: 1.578, b: 1.19, mass: 900, power: 500000, torque: TURBO, rearGrip: 1.08, brakeF: 0.56 }) }, // (CG 0.57)
+    spec: gc({ body: [2.4, 2.37, 1.01], a: 1.578, b: 1.19, mass: 900, power: 500000, torque: TURBO, maxForce: 12500, rearGrip: 1.08, brakeF: 0.56 }) }, // (CG 0.57; traction capped at 12.5 kN: on the class's 14 its launch set traction control hunting)
   // The 787B: the four-rotor (no turbo: power everywhere, revs to 9000) in the lightest car; less top speed. (Its sound
   // for now the flat-plane V8's: a four-rotor fires as often as an eight)
   mazda787b: { name: 'Mazda 787B', cls: 'groupc', sound: 'v8flat', glb: true, paint: true, livery: true, smooth: 30,
