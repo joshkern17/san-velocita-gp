@@ -183,7 +183,8 @@ function cloneLook(look) {
 const rnd = (seed) => { let s = (seed * 2654435761) >>> 0 || 1; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); };
 
 export class Character {
-  constructor({ look, group, clip = 'idle', seed = Math.random() * 1e9, timeScale = 1, livery = null, crew = false, face = null, helmet = true } = {}) {
+  // tick: false = not in the list updateCharacters() ticks (a car's driver: posed by its car, gone with it)
+  constructor({ look, group, clip = 'idle', seed = Math.random() * 1e9, timeScale = 1, livery = null, crew = false, face = null, helmet = true, tick = true } = {}) {
     if (!TPL) throw new Error('characters: call loadCharacters() first');
     const r = rnd(seed);
     const pool = group ? LOOK_GROUPS[group] : LOOKS;
@@ -197,7 +198,7 @@ export class Character {
     if (this.look === 'racer') this.setLivery(livery || {});
     if (face != null || !helmet) this.setHead({ face, helmet });
     if (clip) this.play(clip, { fade: 0, offset: r() }); // random phase so crowds don't move in lockstep
-    live.add(this);
+    if (tick) live.add(this);
   }
   // play(name, { fade = 0.3 s, once, then: clip to return to after a once, speed = 1, offset: 0..1 of the clip })
   play(name, { fade = 0.3, once = false, then = null, speed = 1, offset = 0 } = {}) {

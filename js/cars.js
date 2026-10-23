@@ -23,6 +23,7 @@ export const CLASSES = {
   club:   { label: 'Club',    short: 'CL', col: '#2fa59a' },
   shitbox: { label: 'Shitbox', short: 'SB', col: '#a8743a' },
   fun:    { label: 'Utility', short: 'UT', col: '#4f9a3c' },
+  sprint: { label: 'Sprint Car', short: 'SPR', col: '#d4582a' },
 };
 
 // torque shapes (fraction of redline -> multiplier on the power-limited force)
@@ -209,6 +210,18 @@ export const CARS = {
     spec: street({ body: [2.4, 2.43, 1.05], lsd: [0, 0, 0], mass: 1950, power: 95000, torque: DIESEL, drive: 0, cgh: 0.8, track: 1.7, rideHz: [1.3, 1.5], travel: [0.15, 0.14], solidR: true, damp: 0.45, rollGrad: 5, unsprung: 55, rcH: 0.12, antiDive: 0.15, antiSquat: 0.15, mu: 1.05, kd: 0, drag: 0.62, a: 1.55, b: 1.45, maxSteer: 0.5, redline: 4600, idle: 800, shift: 0.22, gears: [0, 13, 22, 32, 41, 50] }) },
   hearse:  { name: 'Caprice Hearse', cls: 'fun', sound: 'v8truck', glb: true, paint: false,
     spec: street({ body: [2.8, 2.83, 1.0], lsd: [0, 0, 0], mass: 2250, power: 150000, torque: V8, cgh: 0.62, rideHz: [1.2, 1.4], travel: [0.15, 0.14], solidR: true, damp: 0.45, rollGrad: 5.5, unsprung: 50, rcH: 0.12, antiDive: 0.15, antiSquat: 0.15, mu: 1.16, kd: 0, drag: 0.5, a: 1.6, b: 1.75, redline: 5200, idle: 700, gears: [0, 15, 27, 40, 55], box: 'automatic', shift: 0.3 }) },
+  // your Blender model (tools/cars/sprintcar.py, built from scratch): a winged 410 sprint car. Tube frame and cage,
+  // tin body, the big cupped top wing (the game can slide it along its rails and offset it left: Wing_Top's extras)
+  // and the nose wing, staggered rear tyres. ~650 kg with the driver, the 410 alcohol V8 at ~560 kW through a direct
+  // drive (one gear, an in/out box), a locked rear end. The top wing's drag holds it near the real ~150 mph and its
+  // downforce works sideways too (low aeroYaw). Open cockpit: the racer sits in it, hands on the wheel (cockpit:
+  // hip / pedal in car space, wheelR = the wheel's rim, ratio = steering wheel turns per road-wheel angle).
+  // Its own class (a series of its own, on the dirt ovals, to come)
+  sprint410: { name: 'Winged 410 Sprint Car', cls: 'sprint', sound: 'v8cross', glb: true, paint: true, livery: true,
+    cockpit: { hip: [0, 0.38, -0.18], recline: 12, pedal: [0.11, 0.40, 0.50], wheelR: 0.165, ratio: 3 },
+    spec: gt({ body: [1.82, 1.50, 1.04], mass: 650, power: 560000, torque: V8, kd: 1.2, aeroF: 0.3, aeroYaw: 0.6, aeroH: [0, 0],
+      drag: 1.3, a: 1.2, b: 0.934, cgh: 0.42, track: 1.55, wheelR: 0.4, gears: [0, 70], box: 'sequential', redline: 8000, idle: 2200,
+      maxSteer: 0.5, mu: 1.45, rideHz: [2.0, 2.2], travel: [0.09, 0.07], solidR: true, lsd: [400, 0.9, 0.9], brakeF: 0.35, floorH: 0.2 }) },
 };
 // archived (2026-10-12): the GT1 cars that aren't our own models. Out of every menu, grid and career; their specs and
 // models/cars/*.glb are kept so they can come back (move an entry back into CARS and out of RETIRED)

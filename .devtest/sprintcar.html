@@ -1,0 +1,50 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Sprint car</title>
+<base href="../">
+<style>body{margin:0;background:#223}canvas{display:block}</style>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head><body>
+<script type="module">
+// dev: the sprint car in the game's own model code (js/roadcar.js + js/cockpitdriver.js): the racer seated, the
+// steering wheel turned left / straight / right, and how far each hand is from its grip on the rim
+import * as THREE from 'three';
+import { buildF1 } from './js/carmodel.js';
+import { loadRoadCar } from './js/roadcar.js';
+import { CARS } from './js/cars.js';
+window.report = {};
+try {
+  await loadRoadCar('sprint410');
+  const scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xb8c8ff, 0x302820, 1.2));
+  const sun = new THREE.DirectionalLight(0xfff0dc, 1.8); sun.position.set(4, 7, 5); scene.add(sun);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshLambertMaterial({ color: 0x6a5240 })); ground.rotation.x = -Math.PI / 2; scene.add(ground);
+  const m = buildF1({ chassis: 'sprint410', main: 0xe0601a, second: 0x1d3f9a }, { texSize: 1024 });
+  scene.add(m.group);
+  for (let i = 0; i < 300 && !m.cockpitDriver(); i++) await new Promise(r => setTimeout(r, 50));
+  const d = m.cockpitDriver(); window.report.driver = !!d;
+  const W = 1500, H = 900, R = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  R.setSize(W, H); R.outputColorSpace = THREE.SRGBColorSpace; document.body.appendChild(R.domElement); R.setScissorTest(true);
+  const steers = [0.45, 0, -0.45], views = [[3.2, 2.3, 2.2], [0.9, 1.9, 2.4]];   // (front 3/4, close over the cowl)
+  const cp = CARS.sprint410.cockpit, tw = W / steers.length, th = H / views.length;
+  window.report.hands = [];
+  steers.forEach((st, k) => {
+    m.animate({ steer: st }); m.group.updateMatrixWorld(true);
+    if (d) {
+      const ch = d.character, a = st * cp.ratio;
+      const sw = m.steeringWheel, hand = (n) => ch.bone(n).getWorldPosition(new THREE.Vector3());
+      // where the grips are: the rim at 9 / 3 o'clock in the wheel's own (turned) frame
+      const gl = sw.localToWorld(new THREE.Vector3(cp.wheelR, 0, 0)), gr = sw.localToWorld(new THREE.Vector3(-cp.wheelR, 0, 0));
+      window.report.hands.push({ steer: st, wheelTurnDeg: +(a * 180 / Math.PI).toFixed(1),
+        leftHandToRim: +hand('LeftHand').distanceTo(gl).toFixed(3), rightHandToRim: +hand('RightHand').distanceTo(gr).toFixed(3),
+        leftHand: hand('LeftHand').toArray().map(x => +x.toFixed(3)), rightHand: hand('RightHand').toArray().map(x => +x.toFixed(3)) });
+    }
+    views.forEach((v, j) => {
+      const cam = new THREE.PerspectiveCamera(j ? 40 : 34, tw / th, 0.05, 100); cam.position.set(...v); cam.lookAt(0, j ? 0.85 : 0.9, j ? -0.05 : 0);
+      const x = k * tw, y = H - (j + 1) * th;
+      R.setViewport(x, y, tw, th); R.setScissor(x, y, tw, th); R.setClearColor(0x8aa0b8); R.clear(); R.render(scene, cam);
+    });
+  });
+  window.report.liveryPanels = !!(m.livery);
+} catch (e) { window.report.error = String(e && e.stack || e); }
+window.done = true;
+</script></body></html>

@@ -4,12 +4,15 @@
 // (the texture's dominant hue is re-tinted, greys / glass / lights are left alone).
 // Optional top-level objects Light_Tail* / Light_Head* are the car's own lamps: drawn unlit in their own texture,
 // brighter when braking / at night, with a glow on each (left / right halves of one object get one glow each).
+// An open-cockpit car (cars.js cockpit) has a top-level SteeringWheel (pivot at its centre, glTF extras steer_axis in
+// Blender's axes): it turns with the steering, and the driver (js/cockpitdriver.js) keeps his hands on it.
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
 import { CHASSIS, tiltWheels, driverKit, carLights, blobShadow } from './carmodel.js';
 import { fillLivery, paintCar, projectDecals, samplePanel, stickerMesh, wrapDecals } from './livery.js';
 import { CARS } from './cars.js';
 import { carSky } from './carsky.js';
+import { seatDriver } from './cockpitdriver.js';
 
 const TPL = {}, loading = {};
 const urlOf = (id) => (typeof window !== 'undefined' && window.__SVGP_CARS && window.__SVGP_CARS[id]) || `models/cars/${id}.glb`;
@@ -52,7 +55,11 @@ function makeTemplate(id, scene) {
     const part = { geo, map: m.map || null, color: m.color ? m.color.getHex() : 0xffffff, emissive: m.emissiveMap || null, double: m.side === THREE.DoubleSide,
       cutoff: m.alphaTest || CARS[id].cutout || 0, blend: !!m.transparent, obj: n.name, finish: CARS[id].livery ? finishOf(m) : null };
     const nm = n.name.trim(), c = (nm.match(/^Wheel_(FL|FR|RL|RR)/) || [])[1], lamp = (nm.match(/^Light_(Tail|Head)/i) || [])[1];
-    if (c) (T.wheels[c] ||= []).push(part); else if (lamp) T[lamp.toLowerCase()].push(part); else T.body.push(part);
+    if (nm === 'SteeringWheel' && n.userData.steer_axis) {
+      const [ax, ay, az] = n.userData.steer_axis;                       // Blender (x, y, z) -> car space (x, z, -y)
+      T.steerWheel = { ctr: n.getWorldPosition(new THREE.Vector3()).toArray(), axis: [ax, az, -ay] };
+      (T.steerParts ||= []).push(part);
+    } else if (c) (T.wheels[c] ||= []).push(part); else if (lamp) T[lamp.toLowerCase()].push(part); else T.body.push(part);
   });
   // shaded auto smooth, as in Blender (cars.js smooth: the angle)
   if (CARS[id].smooth) smoothNormals([...T.body, ...Object.values(T.wheels).flat(), ...T.head, ...T.tail], CARS[id].smooth);
@@ -628,8 +635,23 @@ function buildRoadCar(id, cfg, opts = {}) {
     for (const p of list) spin.add(new THREE.Mesh(p.geo, matFor(p, p.map, false)));
     wheels.push({ pivot, mesh: spin, r: info.r, front: c[0] === 'F', baseY: info.ctr.y, corner: c });
   }
-  // (the driver kit isn't placed in the car: closed cockpits. The garage still uses it for the driver figure.)
+  // the steering wheel (open cockpits): its own pivot, turned about its axis by the steering times the ratio
+  let wheelPivot = null, wheelAxis = null, driver = null, steerShown = 0;
+  const cockpit = CARS[id].cockpit;
+  if (T.steerParts) {
+    wheelPivot = new THREE.Group(); wheelPivot.position.fromArray(T.steerWheel.ctr); body.add(wheelPivot);
+    wheelAxis = new THREE.Vector3(...T.steerWheel.axis).normalize();
+    for (const p of T.steerParts) { const g = p.geo.clone(); g.translate(...T.steerWheel.ctr.map(x => -x)); wheelPivot.add(new THREE.Mesh(g, matFor(p, p.map))); }
+  }
+  // (the driver kit isn't placed in closed cockpits; the garage still uses it for the driver figure. An open cockpit
+  // gets the real racer, hands on the wheel)
   const kit = driverKit(cfg, { low: true });
+  let gone = false;
+  if (cockpit && T.steerWheel) seatDriver(body, cockpit, { ...T.steerWheel, r: cockpit.wheelR }, cfg).then(d => {
+    if (!d) return;
+    if (gone) { d.dispose(); return; }
+    driver = d; driver.steer(steerShown);
+  });
   kit.repaint(cfg, () => {});
   // lamps: the car's own (Light_* objects) or the generic centre rain light
   const own = T.tail.length > 0 || T.head.length > 0;
@@ -671,6 +693,7 @@ function buildRoadCar(id, cfg, opts = {}) {
   model.repaint = (L) => {
     if (L && L !== model.cfg) Object.assign(model.cfg, fillLivery(L));
     kit.repaint(model.cfg, () => {});
+    if (driver) driver.setLivery(model.cfg);
     if (!T.paintHue) return;
     if (T.liv && cfg.paint !== 'stock') paintLiv();
     body.children.forEach((m, k) => { const p = T.body[k]; if (p && p.map) m.material = skin(p); });
@@ -684,7 +707,16 @@ function buildRoadCar(id, cfg, opts = {}) {
       w.pivot.position.y = w.baseY + (bump[k] || 0);
     });
     tiltWheels(wheels, roll * 1.8, solidR);
+    // the steering wheel (+ left: anticlockwise as the driver sees it) and the driver's hands on it
+    const a = steer * (cockpit?.ratio ?? 3);
+    if (wheelPivot && Math.abs(a - steerShown) > 1e-4) {
+      steerShown = a; wheelPivot.quaternion.setFromAxisAngle(wheelAxis, a);
+      if (driver) driver.steer(a);
+    }
   };
+  // (a car taken off the screen: its driver goes too)
+  model.dispose = () => { gone = true; if (driver) { driver.dispose(); driver = null; } };
+  model.cockpitDriver = () => driver; model.steeringWheel = wheelPivot; // (dev checks: .devtest/sprintcar.html)
   group.updateMatrixWorld(true);
   return model;
 }

@@ -32,7 +32,7 @@ export const PROGRAMMES = [
 // deviation), so it's a range, not the answer
 export const QSIM_NOISE = 0.0035;
 // the margin on a mini-sector's target (a fraction of the reference lap's time through it), by class and difficulty
-const MSEC_TOL = { shitbox: 0.06, club: 0.05, street: 0.05, fun: 0.05, gt: 0.04, gt1: 0.04, gt2: 0.04, f1: 0.035 };
+const MSEC_TOL = { shitbox: 0.06, club: 0.05, street: 0.05, fun: 0.05, sprint: 0.05, gt: 0.04, gt1: 0.04, gt2: 0.04, f1: 0.035 };
 export const msecTol = (cls, diff) => (MSEC_TOL[cls] ?? 0.04) * (TOL_DIFF[diff] ?? 1.25);
 
 // Where the mini-sectors split: halfway between one corner's apex and the next (corners closer than 120 m share one),
@@ -60,7 +60,7 @@ const KIND_COL = { brake: [0.91, 0.2, 0.16], apex: [0.95, 0.82, 0.23], exit: [0.
 const KIND_CSS = { brake: '#e8331f', apex: '#f2d13a', exit: '#3ddb4a' };
 // how close to the speed: perfect / good, as a fraction of it (a gate taken slower is let off a little more than one
 // taken faster). Looser in the slower, looser cars.
-const TOL = { shitbox: [0.08, 0.16], club: [0.07, 0.14], street: [0.07, 0.14], fun: [0.07, 0.14], gt: [0.06, 0.12], f1: [0.05, 0.1] };
+const TOL = { shitbox: [0.08, 0.16], club: [0.07, 0.14], street: [0.07, 0.14], fun: [0.07, 0.14], sprint: [0.07, 0.14], gt: [0.06, 0.12], f1: [0.05, 0.1] };
 const SLOW_K = 1.3;
 
 const GLOW = 1.25; // (a touch over 1: into the bloom, still its color)

@@ -372,5 +372,22 @@
    1.13,
    4.38
   ]
+ },
+ "sprint410": {
+  "title": "Winged 410 Sprint Car (custom, made in Blender)",
+  "author": "you",
+  "license": "own work",
+  "source": "",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ],
+  "size": [
+   2.08,
+   2.67,
+   3.32
+  ]
  }
 }
