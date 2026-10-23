@@ -10,7 +10,8 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { CarPhysics } from '../../js/physics.js';
-import { CARS } from '../../js/cars.js';
+import { CARS as LIVE, ARCHIVED } from '../../js/cars.js';
+const CARS = { ...ARCHIVED, ...LIVE }; // (the suite's cars include ones since retired: their specs are kept)
 import { physAids, PRESETS } from '../../js/aids.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));

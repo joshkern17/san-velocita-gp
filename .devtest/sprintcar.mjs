@@ -11,7 +11,7 @@ const b = await chromium.launch({ channel: 'chrome', headless: true, args: ['--u
 try {
   const pg = await b.newPage({ viewport: { width: 1500, height: 900 } });
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message)); pg.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') console.log('console:', m.text()); });
-  await pg.goto(`http://127.0.0.1:${PORT}/.devtest/sprintcar.html`); await pg.waitForFunction(() => window.done, null, { timeout: 90000 });
+  await pg.goto(`http://127.0.0.1:${PORT}/.devtest/sprintcar.html${process.env.WING ? '?wing=1' : ''}`); await pg.waitForFunction(() => window.done, null, { timeout: 90000 });
   console.log(JSON.stringify(await pg.evaluate(() => window.report), null, 1));
   await (await pg.$('canvas'))?.screenshot({ path: out });
 } finally { await b.close(); server.kill(); }

@@ -210,18 +210,25 @@ export const CARS = {
     spec: street({ body: [2.4, 2.43, 1.05], lsd: [0, 0, 0], mass: 1950, power: 95000, torque: DIESEL, drive: 0, cgh: 0.8, track: 1.7, rideHz: [1.3, 1.5], travel: [0.15, 0.14], solidR: true, damp: 0.45, rollGrad: 5, unsprung: 55, rcH: 0.12, antiDive: 0.15, antiSquat: 0.15, mu: 1.05, kd: 0, drag: 0.62, a: 1.55, b: 1.45, maxSteer: 0.5, redline: 4600, idle: 800, shift: 0.22, gears: [0, 13, 22, 32, 41, 50] }) },
   hearse:  { name: 'Caprice Hearse', cls: 'fun', sound: 'v8truck', glb: true, paint: false,
     spec: street({ body: [2.8, 2.83, 1.0], lsd: [0, 0, 0], mass: 2250, power: 150000, torque: V8, cgh: 0.62, rideHz: [1.2, 1.4], travel: [0.15, 0.14], solidR: true, damp: 0.45, rollGrad: 5.5, unsprung: 50, rcH: 0.12, antiDive: 0.15, antiSquat: 0.15, mu: 1.16, kd: 0, drag: 0.5, a: 1.6, b: 1.75, redline: 5200, idle: 700, gears: [0, 15, 27, 40, 55], box: 'automatic', shift: 0.3 }) },
-  // your Blender model (tools/cars/sprintcar.py, built from scratch): a winged 410 sprint car. Tube frame and cage,
-  // tin body, the big cupped top wing (the game can slide it along its rails and offset it left: Wing_Top's extras)
-  // and the nose wing, staggered rear tyres. ~650 kg with the driver, the 410 alcohol V8 at ~560 kW through a direct
-  // drive (one gear, an in/out box), a locked rear end. The top wing's drag holds it near the real ~150 mph and its
-  // downforce works sideways too (low aeroYaw). Open cockpit: the racer sits in it, hands on the wheel (cockpit:
-  // hip / pedal in car space, wheelR = the wheel's rim, ratio = steering wheel turns per road-wheel angle).
-  // Its own class (a series of its own, on the dirt ovals, to come)
+  // your Blender model (tools/cars/sprintcar.py, built from scratch): a winged 410 sprint car, from the real thing
+  // (World of Outlaws / Knoxville rules, Hoosier sizes): 1,425 lb with the driver, the 410 methanol V8 at ~900 hp
+  // (8-9k rpm) through a direct drive (an in/out box: one gear, ~5.5:1 overall), a spool (both rears locked together),
+  // right rear 105" round, left rear ~95" (stagger 10": the car wants to turn left), fronts 85". 57% of the weight on
+  // the rear and 57% on the left (the chassis is offset left: cgY). The top wing (25 sq ft at ~28°: ~1,250 lb at
+  // 140 mph, three quarters of it on the rear) also drags hard (CdA ~2 m²: top speed ~150 mph) and keeps working
+  // sideways (low aeroYaw); its boards push the car toward the inside of a slide (sideK, behind the CG: sideX).
+  // Dirt tyres peak at a bigger slip angle and fall away gently (it's driven sideways). No right-front brake.
+  // Open cockpit: the racer sits in it, hands on the wheel (cockpit: hip / pedal in car space, wheelR = the wheel's
+  // rim, ratio = steering wheel turns per road-wheel angle). Its own class (a series of its own on the dirt ovals to come)
   sprint410: { name: 'Winged 410 Sprint Car', cls: 'sprint', sound: 'v8cross', glb: true, paint: true, livery: true,
     cockpit: { hip: [0, 0.38, -0.18], recline: 12, pedal: [0.11, 0.40, 0.50], wheelR: 0.165, ratio: 3 },
-    spec: gt({ body: [1.82, 1.50, 1.04], mass: 650, power: 560000, torque: V8, kd: 1.2, aeroF: 0.3, aeroYaw: 0.6, aeroH: [0, 0],
-      drag: 1.3, a: 1.2, b: 0.934, cgh: 0.42, track: 1.55, wheelR: 0.4, gears: [0, 70], box: 'sequential', redline: 8000, idle: 2200,
-      maxSteer: 0.5, mu: 1.45, rideHz: [2.0, 2.2], travel: [0.09, 0.07], solidR: true, lsd: [400, 0.9, 0.9], brakeF: 0.35, floorH: 0.2 }) },
+    spec: gt({ body: [1.82, 1.50, 1.04], mass: 650, inertia: 700, power: 670000, torque: V8, maxForce: 14000,
+      redline: 8800, idle: 2500, gears: [0, 68], box: 'sequential', shift: 0.06,
+      a: 1.216, b: 0.918, cgh: 0.45, cgY: 0.11, track: 1.6, wheelR: 0.4075, wheelRF: 0.344, stagger: 0.1524, wheelI: 4,
+      lsd: [20000, 1, 1], brakeF: 0.35, brakeRF: 0, maxSteer: 0.55,
+      kd: 1.45, aeroF: 0.4, aeroYaw: 0.6, aeroH: [0, 0], aeroY: 0.04, drag: 1.2, sideK: 2.0, sideX: -0.55, slideOK: 0.3,
+      mu: 1.6, dirtGrip: 1.31, rearGrip: 1.45, slipPeak: 0.14, slipFall: 1.25, slipPeakR: 0.16, slipFallR: 1.15, kappaPeak: 0.15,
+      rideHz: [1.8, 2.0], damp: 0.5, rollGrad: 2.0, travel: [0.1, 0.08], solidR: true, floorH: 0.2 }) },
 };
 // archived (2026-10-12): the GT1 cars that aren't our own models. Out of every menu, grid and career; their specs and
 // models/cars/*.glb are kept so they can come back (move an entry back into CARS and out of RETIRED)

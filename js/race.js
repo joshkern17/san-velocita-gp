@@ -284,6 +284,9 @@ export class Race {
     this.wet = this.rain ? 1 : 0; this.rainK = this.rain ? 1 : 0;
     this.dirt = track.env.surface === 'dirt'; // a dirt track: its road (and kerb-less edges) drive as dirt
     this.dirtTrack = this.dirt ? new DirtTrack(T, A, this.world.root, this.rain) : null; // (and it changes as the race goes on)
+    // which way the lap goes round: a sprint car's stagger, offset chassis and offset wing are built for left turns, so on
+    // a track that turns right they're mirrored (forTrack)
+    { let turn = 0; for (let i = 0; i < T.N; i++) { const j = (i + 1) % T.N, a = Math.atan2(T.FX[i], T.FZ[i]), b = Math.atan2(T.FX[j], T.FZ[j]); turn += Math.atan2(Math.sin(b - a), Math.cos(b - a)); } this.turnsRight = turn < 0; }
     const racey = this.mode !== 'attract';
     this.wearK = racey ? ({ off: 0, normal: 1, fast: 2.5 }[opts.wear || 'normal'] ?? 1) : 0;
     // tyre temperatures: 0 off, 1 Normal, 2 Realistic; what the tyres cool toward (°C: the air + the road), from the weather
@@ -638,7 +641,7 @@ export class Race {
   tryLine(id, O) {
     const savedCars = this.cars, savedLine = this.line;
     this.cars = this.cars || []; this.line = O; this.limits = {};
-    const V = this.learnLimits(CARS[id].spec, 1), meta = { w: this.wearPerM, g: this.refGrip }, rounds = this.learnRounds;
+    const V = this.learnLimits(this.forTrack(CARS[id].spec), 1), meta = { w: this.wearPerM, g: this.refGrip }, rounds = this.learnRounds;
     this.limits[id] = V; (this.limitMeta ||= {})[id] = meta;
     const t = this.simLap(id, { tyre: this.condTyre() });
     this.cars = savedCars; this.line = savedLine;
@@ -697,7 +700,7 @@ export class Race {
       else if (!hit && (hit = loadPlan(key))) LIMITS_CACHE.set(key, hit);
       if (hit) { this.limits[lk] = hit.V; if (grip === 1 || !(this.limitMeta || {})[id]) (this.limitMeta ||= {})[id] = hit.meta; this.learnRounds = hit.rounds; return hit.V; }
       const prev = this.lineV, w = this.wearPerM, rg = this.refGrip;
-      this.limits[lk] = this.learnLimits(CARS[id].spec, grip);
+      this.limits[lk] = this.learnLimits(this.forTrack(CARS[id].spec), grip);
       const meta = { w: this.wearPerM, g: this.refGrip }; // (tyre use / grip of this car here: for its strategy)
       if (grip === 1 || !(this.limitMeta || {})[id]) (this.limitMeta ||= {})[id] = meta;
       const fresh = { V: this.limits[lk], meta, rounds: this.learnRounds };
@@ -716,7 +719,7 @@ export class Race {
     return `${this.track.name}|${T.N}|${h}|${this.rain ? 1 : 0}${this.dirt ? 'd' : ''}|${rv(id)}${this.opts.lineKind === 'old' ? '' : `|l${LINE_VERSION}${this.opts.kerbMargin === false ? 'nk' : this.opts.kerbMargin != null ? 'k' + this.opts.kerbMargin : ''}|on${rv(owner)}`}|cs`; // (cs: plans capped at the speed seen, learnLimits)
   }
   learnLimits(spec = CARSPEC, gripEdge = 1) {
-    const T = this.T, N = T.N, grip = (this.rain ? 0.97 : 1) * (this.dirt ? SURFACES.dirt[0] : 1);
+    const T = this.T, N = T.N, grip = (this.rain ? 0.97 : 1) * (this.dirt ? SURFACES.dirt[0] * (spec.dirtGrip ?? 1) : 1); // (dirtGrip: physics.js)
     const vmax = Math.min(95, spec.gears[spec.gears.length - 1] * 0.99);
     const base = computeSpeedProfile(T, this.line, { mu: spec.mu * 1.36 * grip, kdm: spec.kd / spec.mass, vmax, brake: 1.05 }).V;
     // scale: how far this car can go past (or must stay under) the textbook speed at each point. It's learned both ways:
@@ -778,7 +781,7 @@ export class Race {
         const heading = Math.sin(p.h) * T.FX[car.idx] + Math.cos(p.h) * T.FZ[car.idx];
         // (also: running wide, far off the line and within a car's width of the edge = understeering)
         const wide = Math.abs(car.s) > T.W[car.idx] / 2 - 1.2 && Math.abs(car.s - this.line[car.idx]) > 3;
-        const bad = !car.onRoad || wide || p.slipR > 0.3 || heading < 0.8 || Math.abs(car.s) > T.W[car.idx] / 2 + 1.1;
+        const bad = !car.onRoad || wide || p.slipR > 0.3 + 0.4 * (p.p.slideOK ?? 0) || heading < 0.8 || Math.abs(car.s) > T.W[car.idx] / 2 + 1.1; // (slideOK: a car driven sideways, a sprint car's slide is its cornering: past ~24° it's still too far)
         if (cool > 0) cool--;
         else if (bad) { hits.push(car.idx); cool = 90; }
         if (bad && p.speed < 6) flying((car.idx + 10) % N);
@@ -887,18 +890,25 @@ export class Race {
     const P = car.phys.p, B = bodyBox(P);
     return { open: CARS[car.carId]?.cls === 'f1', aero: (P.kdRef ?? P.kd) >= 0.3, f: B.f, r: B.r, w: B.w, a: P.a, b: P.b, tw: car.phys.susp.tw, wr: P.wheelR ?? 0.33 };
   }
+  // a car's spec for this track: a car built to turn left (stagger, cgY, aeroY: a sprint car) mirrored where the lap turns right
+  forTrack(spec) {
+    if (!this.turnsRight || !(spec.stagger || spec.cgY || spec.aeroY)) return spec;
+    const M = this._mirror ||= new WeakMap();
+    if (!M.has(spec)) M.set(spec, { ...spec, stagger: -(spec.stagger || 0), cgY: -(spec.cgY || 0), aeroY: -(spec.aeroY || 0) });
+    return M.get(spec);
+  }
   // your car's setup changed (the Tuning screen, from the pit garage): its physics takes the active setup from now on
   // (the car's standing in the box, so its suspension simply starts again from rest)
   applySetup(car) {
     const id = car.carId; if (!id || this.opts.setups === false) return;
-    const st = activeSetup(id); car.phys.p = applySetup(CARS[id].spec, st, id); car.phys.setupSuspension(); setStance(car.model, stanceOf(st, id));
+    const st = activeSetup(id); car.phys.p = this.forTrack(applySetup(CARS[id].spec, st, id)); car.phys.setupSuspension(); setStance(car.model, stanceOf(st, id));
   }
   simLap(id, { pace = 1, power = 1, grip = 1, tyre = 'soft', rec = null, skill = null, tc = null, laps = 1, temps = 0, cold = false, probe = null } = {}) {
     const T = this.T, N = T.N, spec = CARS[id].spec, V = this.limitsFor(id, grip);
     const saved = { state: this.state, dmg: this.damageK, laps: this.laps, err: this.mistakeP, rc: this.rc };
     this.state = 'racing'; this.damageK = 0; this.laps = Infinity; this.mistakeP = 0; this.rc = null;
     const car = {
-      phys: new CarPhysics(spec), lineV: V, idx: 0, i: 0, f: 0, s: 0, y: 0, lap: 1, cpNext: 1, surface: 'road', onRoad: true, progress: 0, hitCd: 1e9, lapTimes: [], best: Infinity, lapStart: 0,
+      phys: new CarPhysics(this.forTrack(spec)), lineV: V, idx: 0, i: 0, f: 0, s: 0, y: 0, lap: 1, cpNext: 1, surface: 'road', onRoad: true, progress: 0, hitCd: 1e9, lapTimes: [], best: Infinity, lapStart: 0,
       ai: { pace, bias: 0, over: 0, stuckT: 0, react: 0, errCd: 1e9, skill }, isPlayer: false, model: { group: { position: new THREE.Vector3() }, setDamage() {} },
     };
     const p = car.phys;
@@ -972,7 +982,7 @@ export class Race {
     // (your car, and an online player's own: the setup they race this car with, setup.js; the AI the standard one.
     // opts.setups false: none, for benches)
     const mine = (isPlayer || (extra.human && !extra.remote)) && this.opts.setups !== false, setup = mine ? activeSetup(id) : null;
-    const phys = new CarPhysics(setup ? applySetup(CARS[id].spec, setup, id) : CARS[id].spec);
+    const phys = new CarPhysics(this.forTrack(setup ? applySetup(CARS[id].spec, setup, id) : CARS[id].spec));
     phys.place(g.x, g.z, g.heading);
     const mods = isPlayer ? this.opts.mods : null;
     if (isPlayer || (extra.human && !extra.remote)) phys.warmPad(); // (the pad's steering lock, measured now rather than mid-race)
@@ -3583,10 +3593,12 @@ export class Race {
     const err = vt - p.u;
     let throttle = err > 0 ? Math.min(1, 0.3 + err * 0.35) : 0;
     let brake = err < -0.6 ? Math.min(1, -err * (0.4 + 0.6 * lb)) : 0;
-    if (p.slipR > 0.14) throttle *= 0.6;
+    // (a car built to be driven sideways, spec slideOK rad: a sprint car's slide is how it corners, so these count from there)
+    const okS = p.p.slideOK ?? 0, okG = okS / (p.p.slipPeakR ?? p.p.slipPeak ?? 0.169);
+    if (p.slipR > 0.14 + 0.6 * okS) throttle *= 0.6;
     // like a driver feeling the rear: when the rears are at their limit and working harder than the fronts (power
     // oversteer on the way, in a fast sweeper or out of a slow corner), ease the throttle until they hook up
-    const rearOver = p.gripR - Math.max(0.9, p.gripF);
+    const rearOver = p.gripR - okG - Math.max(0.9, p.gripF);
     if (rearOver > 0) throttle *= Math.max(0.25, 1 - rearOver * 4);
     // ...and the front: when the fronts are at their limit, the car is turning less than the line needs and it's ending
     // up outside its line, near the edge (pushing wide on the power, which a locked diff makes worse), ease off (all the way, if need be: lifting puts weight on the
@@ -3653,7 +3665,7 @@ export class Race {
   sidePlan(car, side) {
     const LV = car.lineV || this.lineV, SL = this.sideLines(), c = car._sidePlan ||= {};
     if (c[side] && c[side].LV === LV && c[side].line === this.line) return c[side].V;
-    const T = this.T, N = T.N, spec = car.phys.p, grip = (this.rain ? 0.97 : 1) * (this.dirt ? SURFACES.dirt[0] : 1);
+    const T = this.T, N = T.N, spec = car.phys.p, grip = (this.rain ? 0.97 : 1) * (this.dirt ? SURFACES.dirt[0] * (spec.dirtGrip ?? 1) : 1);
     const vmax = Math.min(95, spec.gears[spec.gears.length - 1] * 0.99), kdm = spec.kd / spec.mass, prm = { mu: spec.mu * 1.36 * grip, kdm, vmax, brake: 1.05 };
     const B = SL.base[car.carId] ||= { main: computeSpeedProfile(T, this.line, prm).V, [-1]: computeSpeedProfile(T, SL[-1], prm).V, [1]: computeSpeedProfile(T, SL[1], prm).V };
     const K = SL.K ||= { main: this.curvOf(this.line), [-1]: this.curvOf(SL[-1]), [1]: this.curvOf(SL[1]) };

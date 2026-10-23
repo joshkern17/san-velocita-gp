@@ -1,5 +1,5 @@
 // dev: drive the real game with a fake controller and log the player's car (slide angle, yaw, aids)
-//   node .devtest/padrun.mjs [car] [seconds]   (Auburn, Standard aids; AIDS='{"tc":0}' to change them, TR=1 to trace,
+//   node .devtest/padrun.mjs [car] [seconds]   (Auburn or TRK=/path.json, Standard aids; AIDS='{"tc":0}' to change them, TR=1 to trace,
 //   ROOT=<another checkout> to drive that one: e.g. a worktree of an older commit, to compare)
 import { spawn } from 'child_process';
 import { dirname, join } from 'path';
@@ -26,11 +26,11 @@ try {
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
   await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1500);
-  await pg.evaluate(async (id) => {
-    const t = await (await fetch('/.devtest/auburn2.json')).json(); t.env.weather = 'clear';
+  await pg.evaluate(async ([id, trk]) => {
+    const t = await (await fetch(trk)).json(); t.env.weather = 'clear';
     window.__svgp.settings.car = { ...window.__svgp.settings.car, chassis: id };
     window.__svgp.startRace(t, { mode: 'test', laps: 3, opponents: 0, car: window.__svgp.settings.car }, 'menu');
-  }, id);
+  }, [id, process.env.TRK || '/.devtest/auburn2.json']);
   await pg.waitForFunction(() => window.__svgp.screen === 'hud' && window.__svgp.sim && window.__svgp.sim.state === 'racing', null, { timeout: 60000 }).catch(e => console.log('wait', e.message));
   const log = await pg.evaluate((secs) => {
     // (stepped here, synchronously, with no rendering: the race at real speed whatever the machine)

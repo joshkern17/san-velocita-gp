@@ -45,6 +45,15 @@ try {
     });
   });
   window.report.liveryPanels = !!(m.livery);
+  // ?wing=1: the top wing at the standard setup, slid back 6" + offset 6" left, and forward 6" + centred (setup.js stanceOf)
+  if (new URLSearchParams(location.search).get('wing')) {
+    R.setScissorTest(false); R.setSize(W, H / 2); R.setScissorTest(true);
+    [null, [0.1524, 0.1524], [-0.1524, 0]].forEach((wg, k) => {
+      m.stance = wg ? { dy: 0, pitch: 0, cam: [0, 0], wing: wg } : null; m.animate({ steer: 0 }); m.group.updateMatrixWorld(true);
+      const cam = new THREE.PerspectiveCamera(42, tw / (H / 2), 0.05, 100); cam.position.set(1.6, 2.2, -2.6); cam.lookAt(0, 1.45, 0.1);
+      const x = k * tw; R.setViewport(x, 0, tw, H / 2); R.setScissor(x, 0, tw, H / 2); R.setClearColor(0x8aa0b8); R.clear(); R.render(scene, cam);
+    });
+  }
 } catch (e) { window.report.error = String(e && e.stack || e); }
 window.done = true;
 </script></body></html>

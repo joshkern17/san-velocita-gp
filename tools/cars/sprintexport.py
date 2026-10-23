@@ -42,7 +42,8 @@ with bpy.context.temp_override(window=win, area=area, region=reg):
   bpy.context.view_layer.objects.active = car[0]
   bpy.ops.export_scene.gltf(filepath=OUT, export_format='GLB', use_selection=True, export_apply=True, export_extras=True,
                             export_yup=True, export_texcoords=True, export_normals=True, export_materials='EXPORT',
-                            export_animations=False, export_skins=False, export_morph=False)
+                            export_animations=False, export_skins=False, export_morph=False,
+                            export_vertex_color='NAME', export_vertex_color_name='wing_follow')   # (the strut tops that follow the wing)
   bpy.ops.object.select_all(action='DESELECT')
 
 xs = [(o.matrix_world @ v.co) for o in car for v in o.data.vertices]

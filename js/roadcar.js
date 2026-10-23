@@ -59,7 +59,13 @@ function makeTemplate(id, scene) {
       const [ax, ay, az] = n.userData.steer_axis;                       // Blender (x, y, z) -> car space (x, z, -y)
       T.steerWheel = { ctr: n.getWorldPosition(new THREE.Vector3()).toArray(), axis: [ax, az, -ay] };
       (T.steerParts ||= []).push(part);
-    } else if (c) (T.wheels[c] ||= []).push(part); else if (lamp) T[lamp.toLowerCase()].push(part); else T.body.push(part);
+    } else if (c) (T.wheels[c] ||= []).push(part); else if (lamp) T[lamp.toLowerCase()].push(part); else {
+      // a sprint car's top wing (Wing_Top, its slide_axis in the extras) moves with the setup, and its struts' tops
+      // (WingPosts, the vertex colour = how much each follows it) with it. Still body parts: the livery projects onto them
+      if (nm === 'Wing_Top' && n.userData.slide_axis) { const [ax, ay, az] = n.userData.slide_axis; T.wingAxis = [ax, az, -ay]; part.wing = true; }
+      if (nm === 'WingPosts' && geo.attributes.color) part.follow = true;
+      T.body.push(part);
+    }
   });
   // shaded auto smooth, as in Blender (cars.js smooth: the angle)
   if (CARS[id].smooth) smoothNormals([...T.body, ...Object.values(T.wheels).flat(), ...T.head, ...T.tail], CARS[id].smooth);
@@ -626,7 +632,14 @@ function buildRoadCar(id, cfg, opts = {}) {
     if (!livMats.has(p)) livMats.set(p, matFor(p, livTex, true, false));
     return livMats.get(p);
   };
-  for (const p of T.body) body.add(new THREE.Mesh(p.geo, skin(p)));
+  // (the top wing and its struts in their own group, so the setup can slide / offset the wing: setWing)
+  const wingG = T.wingAxis ? new THREE.Group() : null, follow = [];
+  if (wingG) body.add(wingG);
+  const bodyMeshes = T.body.map(p => {
+    let g = p.geo;
+    if (p.follow && wingG) { g = g.clone(); const C = g.attributes.color; follow.push({ g, base: g.attributes.position.array.slice(), w: Float32Array.from({ length: C.count }, (_, i) => C.getX(i)) }); }
+    const m = new THREE.Mesh(g, skin(p)); (p.wing && wingG ? wingG : body).add(m); return m; // (the struts stay on the body: only their tops move)
+  });
   const wheels = [];
   for (const c of ['FL', 'FR', 'RL', 'RR']) {
     const info = T.wheelInfo[c], list = T.wheels[c]; if (!info) continue;
@@ -696,7 +709,7 @@ function buildRoadCar(id, cfg, opts = {}) {
     if (driver) driver.setLivery(model.cfg);
     if (!T.paintHue) return;
     if (T.liv && cfg.paint !== 'stock') paintLiv();
-    body.children.forEach((m, k) => { const p = T.body[k]; if (p && p.map) m.material = skin(p); });
+    bodyMeshes.forEach((m, k) => { const p = T.body[k]; if (p && p.map) m.material = skin(p); });
   };
   // road cars are softer: more roll and pitch than the F1 car
   model.animate = ({ steer = 0, spin = 0, pitch = 0, roll = 0, heave = 0, bump = [0, 0, 0, 0], solidR = false } = {}) => {
@@ -707,6 +720,7 @@ function buildRoadCar(id, cfg, opts = {}) {
       w.pivot.position.y = w.baseY + (bump[k] || 0);
     });
     tiltWheels(wheels, roll * 1.8, solidR);
+    if (wingG) setWing(...(model.stance?.wing || wingStd)); // (the setup's slide / offset: setup.js stanceOf)
     // the steering wheel (+ left: anticlockwise as the driver sees it) and the driver's hands on it
     const a = steer * (cockpit?.ratio ?? 3);
     if (wheelPivot && Math.abs(a - steerShown) > 1e-4) {
@@ -714,6 +728,17 @@ function buildRoadCar(id, cfg, opts = {}) {
       if (driver) driver.steer(a);
     }
   };
+  // the top wing slid along its rails (m, + back) and offset to the left (m), the struts' tops going with it
+  let wingShown = null;
+  const wingStd = [0, (CARS[id].spec.aeroY ?? 0) / 0.8]; // (setup.js: the standard offset; its top wing carries 0.8 of the downforce)
+  const setWing = (slide, off) => {
+    if (!wingG || (wingShown && wingShown[0] === slide && wingShown[1] === off)) return;
+    wingShown = [slide, off];
+    const d = new THREE.Vector3(...T.wingAxis).multiplyScalar(slide); d.x += off; wingG.position.copy(d);
+    for (const f of follow) { const P = f.g.attributes.position; for (let i = 0; i < P.count; i++) P.setXYZ(i, f.base[i * 3] + d.x * f.w[i], f.base[i * 3 + 1] + d.y * f.w[i], f.base[i * 3 + 2] + d.z * f.w[i]); P.needsUpdate = true; f.g.computeBoundingSphere(); }
+  };
+  setWing(...wingStd);
+  model.setWing = setWing;
   // (a car taken off the screen: its driver goes too)
   model.dispose = () => { gone = true; if (driver) { driver.dispose(); driver = null; } };
   model.cockpitDriver = () => driver; model.steeringWheel = wheelPivot; // (dev checks: .devtest/sprintcar.html)

@@ -455,9 +455,11 @@ for s in (1, -1):
   strut((0.24 * s, 0.44, ROOF_R), 0.44, -0.24 * s, 0.007, 'Black')                    # thin braces: an X across the rear hoop, up to the wing over the other foot
 Ps.finish('WingPosts', angle=65)
 wp = bpy.data.objects['WingPosts']
-att = wp.data.attributes.new('wing_follow', 'FLOAT', 'POINT')
+# (a colour attribute, so it goes out in the glTF as the vertices' colour: sprintexport.py, read by js/roadcar.js)
+att = wp.data.color_attributes.new('wing_follow', 'FLOAT_COLOR', 'POINT')
 for v in wp.data.vertices:
-  att.data[v.index].value = 1.0 if any((v.co - t).length < r * 2.5 for t, r in TOPS) else 0.0
+  w = 1.0 if any((v.co - t).length < r * 2.5 for t, r in TOPS) else 0.0
+  att.data[v.index].color = (w, w, w, 1.0)
 MOUNT = []
 
 N = Mesh()

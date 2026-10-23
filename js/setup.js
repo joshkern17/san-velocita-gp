@@ -31,8 +31,13 @@ export function defaultSetup(id) {
     camF: A.cam[0], camR: A.cam[1], toeF: A.toe[0], toeR: A.toe[1],
     bias: S.brakeF ?? 0.66, bp: 1, pre: L[0], pow: L[1], coast: L[2],
     final: 0, gears: Array(gearsOf(id)).fill(1),
+    // a sprint car (spec.stagger): the stagger (in), the top wing's slider (in back of standard) and its offset to the left (in)
+    ...(isSprint(id) ? { stg: Math.round(S.stagger / 0.0254 * 2) / 2, wSlide: 0, wOff: Math.round((S.aeroY ?? 0) / (0.0254 * TOPW) * 2) / 2 } : {}),
   };
 }
+// a sprint car: staggered rears on a spool, a top wing that slides and sits offset (cars.js: spec.stagger)
+export const isSprint = (id) => CARS[id]?.spec.stagger != null;
+const TOPW = 0.8; // (the top wing's share of a sprint car's downforce: its slider and offset move that much of it)
 
 // ---------- what each adjustment does to the spec ----------
 export function applySetup(spec, st, id) {
@@ -48,7 +53,14 @@ export function applySetup(spec, st, id) {
   P.arbK = [1 + 0.12 * st.arbF, 1 + 0.12 * st.arbR]; // (each step ±12% of that axle's roll stiffness: physics.js)
   P.camber = [st.camF, st.camR]; P.camber0 = A.cam; P.toe = [st.toeF, st.toeR]; P.toe0 = A.toe;
   P.brakeF = st.bias; P.brakeP = st.bp;
-  P[diffKey(spec)] = [st.pre, st.pow, st.coast];
+  if (spec.stagger == null) P[diffKey(spec)] = [st.pre, st.pow, st.coast]; // (a sprint car's spool stays locked)
+  else if (st.stg != null) {
+    // the stagger; the top wing slid back (its downforce moves back: less on the front) and offset to the left (it leans
+    // on the left tyres: physics.js aeroY)
+    P.stagger = st.stg * 0.0254;
+    P.aeroF = (P.aeroF ?? aF) - (st.wSlide || 0) * 0.0254 * TOPW / spec.L;
+    P.aeroY = (st.wOff || 0) * 0.0254 * TOPW;
+  }
   const fin = 1 + 0.025 * st.final;
   P.gearsRef = spec.gears; P.gears = spec.gears.map((g, i) => i ? g * fin * (st.gears[i - 1] ?? 1) : g);
   return P;
@@ -59,8 +71,10 @@ export function applySetup(spec, st, id) {
 export function stanceOf(st, id) {
   if (!st) return null;
   const S = CARS[id].spec, A = alignOf(id), L = S.L ?? (S.a + S.b), d = Math.PI / 180;
-  const out = { dy: (st.rhF + st.rhR) / 2000, pitch: -((st.rhF - st.rhR) / 1000) / L, cam: [(st.camF - A.cam[0]) * d, (st.camR - A.cam[1]) * d] };
-  return out.dy || out.pitch || out.cam[0] || out.cam[1] ? out : null;
+  // (a sprint car: its top wing's slide and offset, m, on the model)
+  const wing = isSprint(id) && st.wSlide != null ? [st.wSlide * 0.0254, st.wOff * 0.0254] : null;
+  const out = { dy: (st.rhF + st.rhR) / 2000, pitch: -((st.rhF - st.rhR) / 1000) / L, cam: [(st.camF - A.cam[0]) * d, (st.camR - A.cam[1]) * d], wing };
+  return out.dy || out.pitch || out.cam[0] || out.cam[1] || wing ? out : null;
 }
 
 // ---------- the controls ----------
@@ -76,6 +90,9 @@ const avg = (a, b) => (a + b) / 2;
 // (a speed in the player's units: set by the screen)
 export const units = { mph: false };
 const spd = (ms) => units.mph ? Math.round(ms * 2.23694) + ' MPH' : Math.round(ms * 3.6) + ' KM/H';
+// (a sprint car's: inches, as the pits talk about them)
+const STG = (v) => v.toFixed(1) + '"', WSLIDE = (v) => v ? Math.abs(v) + '" ' + (v > 0 ? 'BACK' : 'FORWARD') : 'STANDARD', WOFF = (v) => v ? v.toFixed(1) + '" LEFT' : 'CENTERED';
+const STG_NOTE = 'Stagger: how much bigger around the right rear tire is than the left rear. On a track that turns right, it is mirrored for you.';
 const topOf = (id, st) => { const G = applySetup(CARS[id].spec, st, id).gears; return G[G.length - 1]; };
 
 export const TABS = [['aero', 'Aero'], ['susp', 'Suspension'], ['align', 'Alignment'], ['brakes', 'Brakes & Diff'], ['gears', 'Gearing']];
@@ -94,9 +111,15 @@ export function simpleFields(id) {
   f.push({ k: 'handling', label: 'Handling', min: -4, max: 4, step: 1, get: s => (s.arbR - s.arbF) / 2, set: (s, v) => { const c = avg(s.arbF, s.arbR); s.arbF = clamp(c - v, -5, 5); s.arbR = clamp(c + v, -5, 5); },
     fmt: v => v > 0 ? `+${v} AGILE` : v < 0 ? `−${-v} STABLE` : 'NEUTRAL',
     more: 'Agile: turns in harder, the rear more willing to slide.', less: 'Stable: the rear stays planted, the front pushes wide sooner.' });
-  f.push({ k: 'bias', label: 'Brake Bias', min: 0.5, max: 0.8, step: 0.01, get: s => s.bias, set: (s, v) => { s.bias = v; }, fmt: v => pct(v) + ' FRONT',
+  const spr = isSprint(id);
+  f.push({ k: 'bias', label: 'Brake Bias', min: spr ? 0.2 : 0.5, max: spr ? 0.6 : 0.8, step: 0.01, get: s => s.bias, set: (s, v) => { s.bias = v; }, fmt: v => pct(v) + ' FRONT',
     more: 'More braking on the front: stable, but the fronts lock first.', less: 'More on the rear: the car turns in on the brakes, the rear can step out.' });
-  f.push({ k: 'pow', label: 'Diff Lock', min: 0, max: 0.8, step: 0.05, get: s => s.pow, set: (s, v) => { s.pow = v; }, fmt: pct,
+  if (spr) {
+    f.push({ k: 'stg', label: 'Stagger', min: 2, max: 12, step: 0.5, get: s => s.stg, set: (s, v) => { s.stg = v; }, fmt: STG, note: STG_NOTE,
+      more: 'More stagger: the car turns left on its own more easily, but it gets looser (the rear steps out sooner).', less: 'Less: steadier down the straights, but it has to be steered round the turns.' });
+    f.push({ k: 'wSlide', label: 'Wing Slider', min: -6, max: 6, step: 1, get: s => s.wSlide, set: (s, v) => { s.wSlide = v; }, fmt: WSLIDE,
+      more: 'Wing back: more grip at the rear, the car tightens up and pushes more.', less: 'Wing forward: the front bites, the car frees up and turns more.' });
+  } else f.push({ k: 'pow', label: 'Diff Lock', min: 0, max: 0.8, step: 0.05, get: s => s.pow, set: (s, v) => { s.pow = v; }, fmt: pct,
     more: 'Both driven wheels pushed together: better traction out of corners, but it pushes wide on the power.', less: 'Freer: turns better on the power, the inside wheel spins up sooner.' });
   f.push({ k: 'final', label: 'Gearing', min: -5, max: 5, step: 1, get: s => s.final, set: (s, v) => { s.final = v; }, fmt: (v, s) => spd(topOf(id, s)),
     more: 'Longer: a higher top speed, slower to get going.', less: 'Shorter: quicker acceleration, tops out sooner.', note: 'This speed is where top gear runs out of revs. Drag can hold the car below it: Top Speed, above, is what it actually reaches.' });
@@ -108,9 +131,14 @@ export function realisticFields(id) {
   const kN = (k) => { const P = new CarPhysics(applySetup(S, null, id)); return k ? P.susp.kR : P.susp.kF; };
   const k0 = [kN(0), kN(1)]; // (the standard springs, N/m: shown in N/mm)
   const add = (tab, k, label, min, max, step, fmt, more, less, extra = {}) => f.push({ tab, k, label, min, max, step, fmt, more, less, get: s => s[k], set: (s, v) => { s[k] = v; }, ...extra });
+  const spr = isSprint(id);
   if (aero) {
-    add('aero', 'fw', 'Front Wing', -5, 5, 0.5, lvl, 'More front downforce: sharper turn-in at speed, a little more drag.', 'Less front downforce: the car understeers more in fast corners.');
-    add('aero', 'rw', 'Rear Wing', -5, 5, 0.5, lvl, 'More rear downforce: planted in fast corners, much more drag.', 'Less: faster on the straights, the rear lighter in fast corners.');
+    add('aero', 'fw', spr ? 'Nose Wing' : 'Front Wing', -5, 5, 0.5, lvl, 'More front downforce: sharper turn-in at speed, a little more drag.', 'Less front downforce: the car understeers more in fast corners.');
+    add('aero', 'rw', spr ? 'Top Wing Angle' : 'Rear Wing', -5, 5, 0.5, lvl, spr ? 'More angle: more grip all the way round, a lower top speed.' : 'More rear downforce: planted in fast corners, much more drag.', spr ? 'Less angle: faster down the straights, less grip in the turns.' : 'Less: faster on the straights, the rear lighter in fast corners.');
+  }
+  if (spr) {
+    add('aero', 'wSlide', 'Wing Slider', -6, 6, 1, WSLIDE, 'Wing back: more grip at the rear, the car tightens up and pushes more.', 'Wing forward: the front bites, the car frees up and turns more.');
+    add('aero', 'wOff', 'Wing Offset', 0, 6, 0.5, WOFF, 'Further left: the wing leans on the left-side tires, more grip in the turns.', 'Centered: the same on both sides.');
   }
   add('aero', 'rhF', 'Ride Height Front', -12, 12, 2, v => sgn(v) + ' MM', 'Higher: more room over curbs, less ground effect.', 'Lower: more downforce' + (aero ? '' : ' (what little there is)') + ', a lower center of mass. Too low and it bottoms out.');
   add('aero', 'rhR', 'Ride Height Rear', -12, 12, 2, v => sgn(v) + ' MM', 'Higher: more room over curbs, the nose pitched down (more front downforce on wing cars).', 'Lower: more rear grip from the floor. Too low and it bottoms out.');
@@ -123,11 +151,14 @@ export function realisticFields(id) {
   add('align', 'camR', 'Rear Camber', -4, 0, 0.1, deg, 'Less negative: better traction out of slow corners.', 'More negative: more rear grip in corners, less traction.');
   add('align', 'toeF', 'Front Toe', -0.4, 0.4, 0.05, toeTxt, 'Toe-in: steadier on the straights, lazier turn-in.', 'Toe-out: sharper turn-in, a bit nervous on the straights. Either way more scrub and tire heat.');
   add('align', 'toeR', 'Rear Toe', -0.2, 0.6, 0.05, toeTxt, 'Toe-in: a planted rear, more stable everywhere.', 'Less toe-in: the rear rotates more freely. Toe-out is unstable.');
-  add('brakes', 'bias', 'Brake Bias', 0.5, 0.8, 0.01, v => pct(v) + ' FRONT', 'More on the front: stable, but the fronts lock first.', 'More on the rear: the car turns in on the brakes, the rear can step out.');
+  if (spr) add('align', 'stg', 'Stagger', 2, 12, 0.5, STG, 'More stagger: the car turns left on its own more easily, but it gets looser (the rear steps out sooner).', 'Less: steadier down the straights, but it has to be steered round the turns.', { note: STG_NOTE });
+  add('brakes', 'bias', 'Brake Bias', spr ? 0.2 : 0.5, spr ? 0.6 : 0.8, 0.01, v => pct(v) + ' FRONT', 'More on the front: stable, but the fronts lock first.', 'More on the rear: the car turns in on the brakes, the rear can step out.', spr ? { note: 'A sprint car has no right-front brake: the front share is all on the left front.' } : {});
   add('brakes', 'bp', 'Brake Pressure', 0.8, 1.1, 0.02, pct, 'Harder: shorter stops, easier to lock up.', 'Softer: easier to brake at the limit, longer stops.');
-  add('brakes', 'pre', 'Diff Preload', 0, 200, 10, v => Math.round(v) + ' NM', 'More: the driven wheels held together everywhere: stable, slower to turn in.', 'Less: turns in easily, the inside wheel spins up sooner.');
-  add('brakes', 'pow', 'Diff Power Lock', 0, 0.8, 0.05, pct, 'More: better traction out of corners, pushes wide on the power.', 'Less: turns better on the power, more wheelspin.');
-  add('brakes', 'coast', 'Diff Coast Lock', 0, 0.8, 0.05, pct, 'More: stable off the throttle into corners.', 'Less: rotates more as you lift and turn in.');
+  if (!spr) { // (a sprint car's rears are on a spool: locked together, nothing to set)
+    add('brakes', 'pre', 'Diff Preload', 0, 200, 10, v => Math.round(v) + ' NM', 'More: the driven wheels held together everywhere: stable, slower to turn in.', 'Less: turns in easily, the inside wheel spins up sooner.');
+    add('brakes', 'pow', 'Diff Power Lock', 0, 0.8, 0.05, pct, 'More: better traction out of corners, pushes wide on the power.', 'Less: turns better on the power, more wheelspin.');
+    add('brakes', 'coast', 'Diff Coast Lock', 0, 0.8, 0.05, pct, 'More: stable off the throttle into corners.', 'Less: rotates more as you lift and turn in.');
+  }
   f.push({ tab: 'gears', k: 'final', label: 'Final Drive', min: -5, max: 5, step: 1, get: s => s.final, set: (s, v) => { s.final = v; }, fmt: (v, s) => spd(topOf(id, s)),
     more: 'Longer: every gear longer, a higher top speed.', less: 'Shorter: every gear shorter, quicker acceleration.', note: 'This speed is where top gear runs out of revs. Drag can hold the car below it: Top Speed, above, is what it actually reaches.' });
   for (let g = 1; g <= n; g++) f.push({ tab: 'gears', k: 'g' + g, label: `Gear ${g}`, min: 0.8, max: 1.2, step: 0.02, get: s => s.gears[g - 1], set: (s, v) => { s.gears[g - 1] = v; },
