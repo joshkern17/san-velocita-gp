@@ -127,11 +127,12 @@ export const CARS = {
   // The Capri: a short, light front-engined car with a tiny turbo four that's all or nothing: the lightest of the GT1
   // cars, a late, violent boost and a short wheelbase that turns in hard but wants a gentle right foot out of slow corners.
   // Built like the Group 5 Capris: the engine set back (49% on the rear) and much wider rear tyres than fronts
-  // (rearGrip 1.12), traction capped at 12.5 kN. (At 47% / 1.06 / 13.5 kN it had the most drive per kg on its rears of
-  // any car: it spun ~2 s on every start and sat on the edge of grip even on a gentle exit)
-  capri: { name: 'Ford Capri Group B', cls: 'gt1', sound: 'i4turbo', glb: true, paint: true, livery: true, smooth: 30, rev: 1,
+  // (rearGrip 1.16), traction capped at 12 kN. (At 47% / 1.06 / 13.5 kN it had the most drive per kg on its rears of
+  // any car: it spun ~2 s on every start and sat on the edge of grip even on a gentle exit; at 1.12 / 12.5 kN it still
+  // ran its rears at 86% of their grip late in first and went past it, to 139%, just after the change into second)
+  capri: { name: 'Ford Capri Group B', cls: 'gt1', sound: 'i4turbo', glb: true, paint: true, livery: true, smooth: 30, rev: 2,
     liveryLabels: { topNumber: [0.7, 0.5], sideNumber: [0.5, 0.5], sideSponsor: [0.5, 0.8] },
-    spec: gt({ body: [2.38, 2.47, 1.04], gears: [0, 30, 45, 59, 72, 85], box: 'manual', shift: 0.16, mass: 960, power: 425000, kd: 0.9, drag: 0.46, torque: BIGTURBO, redline: 9000, a: 1.26, b: 1.32, rearGrip: 1.12, maxForce: 12500, brakeF: 0.6 }) },
+    spec: gt({ body: [2.38, 2.47, 1.04], gears: [0, 30, 45, 59, 72, 85], box: 'manual', shift: 0.16, mass: 960, power: 425000, kd: 0.9, drag: 0.46, torque: BIGTURBO, redline: 9000, a: 1.26, b: 1.32, rearGrip: 1.16, maxForce: 12000, brakeF: 0.6 }) },
   // The F40 (LM, LB-Works kit): the twin-turbo flat-plane V8 behind the driver, a five-speed manual and turbos that
   // arrive all at once. The real LM made up to ~530 kW on full boost; here 520 kW and the LB wing's extra downforce
   // (on 470 it was a class's-worth slow), so it's mid-field. Weight over the rear (42/58) puts the power down well but lets it rotate on a
