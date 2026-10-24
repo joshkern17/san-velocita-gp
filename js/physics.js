@@ -780,7 +780,13 @@ export class CarPhysics {
       // (a locked rear axle, a spool, spins up as one: its mean slip, or a staggered pair's permanent difference reads as
       // wheelspin and the power never comes back)
       const kdw = fd >= 1 ? Math.max(KS[0] * sgnU, KS[1] * sgnU) : fd > 0 ? Math.max(KS[0] * sgnU, KS[1] * sgnU, KS[2] * sgnU, KS[3] * sgnU) : spool ? (KS[2] + KS[3]) / 2 * sgnU : Math.max(KS[2] * sgnU, KS[3] * sgnU);
-      const e = (kdw - tcT) / kp;
+      // (at walking pace a slip ratio is a small wheel-speed difference over a tiny road speed: noisy, flipping sign as
+      // the tyre winds up. Read as it is, traction control cut to 5% and back several times a second on a straight
+      // standing start - the F1s, 787B, XJR-9 and sprint car at 5-8 km/h after 1 s, a CLK on Spa's sloping grid - so
+      // it's judged in absolute terms there, as a real system's wheel-speed difference: 30% of it at rest, all of it from
+      // ~4 m/s. tcLowOff: as before)
+      const lowK = this.tcLowOff ? 1 : Math.min(1, 0.3 + au / 5.7);
+      const e = (kdw * lowK - tcT) / kp;
       // (the power comes back as the slip falls under the target, slower the closer it is, so it settles at the torque
       // the tyres can take instead of cutting and restoring it several times a second: that pulsing, through a
       // limited-slip diff whose lock follows the torque, kicked the rear from side to side)

@@ -3451,6 +3451,7 @@ export class Race {
     else { const SL = this.sideLines(), L = this.line[j]; off = Math.max(Math.min(L, SL[-1][j]) - 0.3, Math.min(Math.max(L, SL[1][j]) + 0.3, this.sideAt(j, base - L) + ai.pOff)); }
     off = Math.max(-lim, Math.min(lim, off));
     // squeezed between cars: take the middle, and ease off only if one of them is ahead (else it's theirs to give)
+    const slowF = slowTo; // (dev, aiDbg: the follow rule's limit before the squeeze below)
     if (minOff > maxOff) { off = (minOff + maxOff) / 2; if (alongAhead || !fix) slowTo = Math.min(slowTo, Math.max(12, u - (ai.lane ? 0.3 : 1))); } // (the launch: just off the throttle, no brakes)
     else off = Math.max(minOff, Math.min(maxOff, off));
     off = Math.max(-lim - 0.6, Math.min(lim + 0.6, off));
@@ -3621,7 +3622,7 @@ export class Race {
     ai.brk = brake < (ai.brk || 0) ? Math.max(brake, (ai.brk || 0) - dt * 5) : brake;
     throttle = ai.thr; brake = ai.brk;
     if (brake > 0.05) throttle = 0;
-    if (this.aiDbg) this.aiDbg(car, { vt, slowTo, gk, gkF, temp: p.tempGrip, offK: ai.offK, sideT: ai.sideT, want: err > 0 ? Math.min(1, 0.3 + err * 0.35) : 0, thr: throttle, brk: brake, slipR: p.slipR, rearOver, push, wide, room }); // (dev: .devtest/out/fastprobe.mjs)
+    if (this.aiDbg) this.aiDbg(car, { vt, slowTo, slowF, sq: minOff > maxOff, alongAhead, hemmed: isFinite(minOff) || isFinite(maxOff), gk, gkF, temp: p.tempGrip, offK: ai.offK, sideT: ai.sideT, want: err > 0 ? Math.min(1, 0.3 + err * 0.35) : 0, thr: throttle, brk: brake, slipR: p.slipR, rearOver, push, wide, room }); // (dev: .devtest/out/fastprobe.mjs)
     // stuck recovery
     if (this.state === 'racing' && p.speed < 2 && !car.pitting && !(T.open && car.lap > 1)) { ai.stuckT += dt; if (ai.stuckT > 3) { this.resetCar(car); ai.stuckT = 0; } }
     else ai.stuckT = 0;
