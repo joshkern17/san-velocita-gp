@@ -57,6 +57,7 @@ export class Launch {
   async placeSet() {
     const pg0 = this.src.pg; if (pg0.roomLoading) await pg0.roomLoading.catch(() => {});   // (the garage may still be loading: the set goes in its room)
     const pg = pg0, kit = pg.kit, at = kit && EVENT_AT.launch[kit.shell];
+    this.wasShot = pg.shot === 'cine' ? 'room' : pg.shot;   // (the garage's shot to go back to: the computer's seat, the room)
     if (!at) { console.warn('launch: no room for the set', kit ? kit.shell : 'no kit'); return null; }
     const set = await loadPiece('event_launch'); if (!set) { console.warn('launch: no event_launch.glb'); return null; }
     const room = kit.group.children[0]; set.position.set(at[0], 0, -at[1]); set.rotation.y = at[2]; room.add(set); set.updateMatrixWorld(true);
@@ -298,6 +299,7 @@ export class Launch {
   }
   input({ left, right, ok }) {
     if (!this.isOpen) return false;
+    if (this.closing) return true;
     if (this.phase === 'load') return true;
     if (this.phase === 'choose' && (left || right)) { const s = Math.max(0, Math.min(2, this.sel + (right ? 1 : -1))); if (s !== this.sel) { this.sel = s; this.sfx('move'); this.place(); } }
     else if (ok) this.next();
@@ -332,9 +334,10 @@ export class Launch {
   }
 
   close() {
-    if (!this.isOpen) return;
-    this.isOpen = false; this.el.classList.add('leave');
-    setTimeout(() => { this.teardown(); this.el.hidden = true; this.el.innerHTML = ''; this.el.classList.remove('leave'); this.src.done(); }, 300);
+    if (!this.isOpen || this.closing) return;
+    this.closing = true; this.el.classList.add('leave');
+    // (open till the set's down: walking picks up the moment this closes, and takes what's solid in the room as it is)
+    setTimeout(() => { this.teardown(); this.isOpen = this.closing = false; this.el.hidden = true; this.el.innerHTML = ''; this.el.classList.remove('leave'); this.src.done(); }, 300);
   }
   teardown() {
     const pg = this.src.pg;
@@ -343,5 +346,6 @@ export class Launch {
     if (this.set) { this.set.removeFromParent(); this.set.traverse(o => { if (o.geometry) o.geometry.dispose(); }); this.set = null; }
     if (this.was) { pg.showCar(!this.was.carOff); pg.hideParked = this.was.hideParked; this.was = null; }
     if (pg.homeCrew) pg.homeCrew.root.visible = true;
+    if (pg.shot === 'cine') pg.setView(this.wasShot || 'room');   // (the camera's the garage's again)
   }
 }

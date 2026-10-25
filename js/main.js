@@ -3163,7 +3163,7 @@ function hubCar() {
 function homeKit(w) {
   const t = w.teams[w.player.team], c2 = w.car && WC.car2Of(w), car = hubCar();
   return { premises: PREMISES[WC.facLevel(t, 'base')] || PREMISES[0], stations: WC.FAC_KEYS.flatMap(k => stationKeys(k, WC.facLevel(t, k))),
-    car2: c2 ? { ...car, number: (car.number || 7) % 99 + 1 } : null };
+    car2: c2 ? (w.coop ? coopCar() : car2Look({ ...car, number: (car.number || 7) % 99 + 1 })) : null };   // (on its own model when it has one: co-op, the co-owner's pick)
 }
 // your people at home (js/homecrew.js): your staff and your teammate, dressed for the job. The chief mechanic in the
 // team's kit (or stock coveralls near its colour), the engineer and the manager in a polo in the team's colour (Danny in
