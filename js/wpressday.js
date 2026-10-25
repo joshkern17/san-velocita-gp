@@ -65,3 +65,53 @@ export function promiseText(p) {
   return { finish: p.pos === 1 ? 'Win the championship' : `Finish the championship in the top ${p.pos}`, podiums: `${p.n} podiums this season`, podium_at: `A podium at ${p.track}`,
     beat_mate: 'Finish ahead of your teammate', beat_team: `Finish ahead of ${p.team}`, win: 'Win a race this season' }[p.kind] || '';
 }
+
+// The media pen, after every race: one reporter, one question about what just happened, three answers (the press
+// day's tones and effects), answered by whoever runs the team (co-op: the Team Principal). What it's about, the first
+// that applies: the two cars hitting each other, a win, your driver taking someone out, a failure, a podium, a DNF,
+// the teammate ahead, else the result.
+//   penQuestion(c) -> { id, who, q, answers }   c: from wcareer.js penOf (names and the race's facts)
+export function penQuestion(c) {
+  const [name, outlet] = OUTLETS[(c.round * 2 + 1) % OUTLETS.length], who = { name, outlet, woman: !!OUTLETS[(c.round * 2 + 1) % OUTLETS.length][2] };
+  const Q = (id, q, answers) => ({ id, who, q, answers });
+  if (c.teamHit) return Q('teamhit', `${c.you} and ${c.mate} made contact at ${c.track}. Team orders from now on?`, [
+    { tone: 'Straight', text: `Racing incident. They'll talk it through, and that's the end of it.`, fx: { rep: 1, mate: 3 } },
+    { tone: 'Bold', text: `Whoever caused it knows. It won't happen twice.`, fx: { press: 2, mate: -5, drep: -1 } },
+    { tone: 'Cheeky', text: `They're sharing a hotel room until they sort it out.`, fx: { press: 3, mate: 1 } },
+  ]);
+  if (c.pos === 1) return Q('win', `A win at ${c.track}. Where does ${c.team} go from here?`, [
+    { tone: 'Straight', text: `It's one race. We'll enjoy tonight and start again on Monday.`, fx: { rep: 2, press: 1, sponsor: 1 } },
+    { tone: 'Bold', text: `The front. Everyone else had better get used to it.`, fx: { press: 3, rep: 1, drep: -1, rival: 1 } },
+    { tone: 'Cheeky', text: `The bar. We're going to the bar.`, fx: { press: 3 } },
+  ]);
+  if (c.hit) return Q('crash', `Contact with ${c.hit} ended ${c.hitWhose} race. Your driver's fault?`, [
+    { tone: 'Straight', text: `Ours. We'll own it, and ${c.you} will apologize.`, fx: { rep: 1, drep: 2 } },
+    { tone: 'Bold', text: `${c.hit} left the door open. We went through it.`, fx: { press: 2, drep: -2 } },
+    { tone: 'Cheeky', text: `The car's fine. Mostly. The steering wheel's fine.`, fx: { press: 2, rep: -1 } },
+  ]);
+  if (c.part) return Q('broke', `The ${c.part} let go at ${c.track}. Is the car up to this?`, [
+    { tone: 'Straight', text: `It wasn't today. We'll find out why before the next one.`, fx: { rep: 1, sponsor: 1 } },
+    { tone: 'Bold', text: `That part's been replaced. So has the supplier.`, fx: { press: 2, rep: 1 } },
+    { tone: 'Cheeky', text: `It's a race car. They do that. Not usually in front of the sponsors.`, fx: { press: 3, sponsor: c.sponsor ? -1 : 0 } },
+  ]);
+  if (c.pos && c.pos <= 3) return Q('podium', `P${c.pos} at ${c.track}. Happy, or does it sting not to win?`, [
+    { tone: 'Straight', text: `A podium's a podium. We'll take it.`, fx: { rep: 1, press: 1, sponsor: 1 } },
+    { tone: 'Bold', text: `It stings. Next time it's the top step.`, fx: { press: 2, rep: 1 } },
+    { tone: 'Cheeky', text: `The trophy's bigger than the one for winning. We checked.`, fx: { press: 3 } },
+  ]);
+  if (c.dnf) return Q('dnf', `Nothing to show from ${c.track}. What happened?`, [
+    { tone: 'Straight', text: `A bad day. We'll be back in two weeks.`, fx: { rep: 1 } },
+    { tone: 'Bold', text: `We were quick enough to win until we weren't.`, fx: { press: 2 } },
+    { tone: 'Cheeky', text: `We wanted to give everyone else a chance.`, fx: { press: 3, rep: -1, sponsor: c.sponsor ? -1 : 0 } },
+  ]);
+  if (c.mateAhead) return Q('mate', `${c.mate} finished ahead of ${c.you}. Who's the number one at ${c.team}?`, [
+    { tone: 'Straight', text: `Both of them. That's how it works here.`, fx: { rep: 1, mate: 3 } },
+    { tone: 'Bold', text: `Whoever's ahead at the end of the year. Right now, that's ${c.mate}.`, fx: { press: 2, mate: 2, drep: -1 } },
+    { tone: 'Cheeky', text: `The one who buys lunch. ${c.you}'s been avoiding the bill.`, fx: { press: 3, mate: 1 } },
+  ]);
+  return Q('mid', `P${c.pos} at ${c.track}. Is that where this team is?`, [
+    { tone: 'Straight', text: `It's where we are today. It isn't where we'll stay.`, fx: { rep: 1 } },
+    { tone: 'Bold', text: `Give us three races. Then ask again.`, fx: { press: 2, rep: 1 } },
+    { tone: 'Cheeky', text: `P${c.pos} sounds better if you say it quickly.`, fx: { press: 3, rep: -1 } },
+  ]);
+}

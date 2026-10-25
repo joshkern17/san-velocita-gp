@@ -1,5 +1,5 @@
 import { roundPress, digestRace } from './wpress.js';
-import { pressQuestions, promiseText } from './wpressday.js';
+import { pressQuestions, promiseText, penQuestion } from './wpressday.js';
 // World Career: a persistent motorsport world that keeps going whether or not you race in it.
 // Three series (Street Cup -> GT Championship -> Formula SV), six teams of two in each, every driver a person with
 // an age, stats that grow and fade, a career history and a record against you. Your races are real; the other series'
@@ -280,7 +280,7 @@ export const COOP_ROLES = {
   tech: { name: 'Technical Director', short: 'Technical', does: ['The cars: buying and selling them', 'Parts, repairs and rebuilds', 'Development projects', 'Tires', 'Race-day strategy'] },
 };
 const OP_ROLES = {
-  boss: ['buildFacility', 'sellFacility', 'hireStaff', 'fireStaff', 'payBack', 'setPay', 'applyLoan', 'sellAnnuity', 'offerDriver', 'extendMate', 'setMatePay',
+  boss: ['answerPen', 'buildFacility', 'sellFacility', 'hireStaff', 'fireStaff', 'payBack', 'setPay', 'applyLoan', 'sellAnnuity', 'offerDriver', 'extendMate', 'setMatePay',
     'answerSponsor', 'answerWorks', 'answerInvestor', 'answerBuyout', 'answerPoach', 'answerGent', 'answerOffer', 'rsvpEvent'],
   tech: ['acquireCar', 'buyCar', 'sellCar', 'buyCar2', 'buyCar2Model', 'sellCar2', 'setCar2Fix', 'buyFit', 'removeFit', 'newPart', 'rebuildPart', 'startProject', 'workOnProject', 'orderTyres', 'removeGrey'],
 };
@@ -959,6 +959,7 @@ export function recordPlayerRound(w, res, log = [], use = null, story = null) {
     if (!me.dnf && me.pos <= 3 && rng(w) < 0.4) react(w, 'ex', facts);
   }
   listRound(w, me, use);
+  if (me && use && !w.pre) { penNoComment(w); w.pen = penOf(w, me, use, log); }   // (the media pen: a question about this race; last race's, unanswered, is no comment)
   return { ...afterRound(w, me), bill };
 }
 // testing: your race simulated too (you as a mid-field driver)
@@ -3490,16 +3491,44 @@ export function pressFxTags(w, a) {
   if (a.promise) out.push({ text: `Promise: ${promiseText(a.promise)}`, promise: true });
   return out;
 }
-export function answerPress(w, qi, ai) {
-  const D = pressDayOf(w), q = D.qs[qi], a = q && q.answers[ai]; if (!a || D.answers[qi] != null) return null;
-  D.answers[qi] = ai; D.quotes[qi] = a.text;
-  const f = a.fx || {};
+// what saying it does (a press day's answer, the media pen's)
+function pressFx(w, f = {}) {
   if (f.rep) w.rep = clamp(repOf(w) + f.rep, 0, 100);
   if (f.press) w.press = pressOf(w) + f.press;
   if (f.sponsor) { const d = dealsOf(w).find(x => x.slot === 'title') || dealsOf(w)[0]; if (d) d.patience = clamp(patienceOf(d) + f.sponsor, 1, 9); }
   if (f.mate) { const m = mateOf(w); if (m) m.morale = clamp((m.morale ?? 65) + f.mate, 0, 100); }
   if (f.drep) w.drep = clamp(drepOf(w) + f.drep, 0, 100);
   if (f.rival && w.rival) w.rival.heat = (w.rival.heat || 0) + f.rival;
+}
+// ---------------- the media pen: one question after every race ----------------
+// w.pen = { y, round, track, q (penQuestion), ans: null | index, by } for the round just raced; answered on the
+// results screen by whoever runs the team (co-op: the Team Principal: answerPen is the Principal's call); no answer
+// by the next round is "no comment" (and the press notice)
+function penOf(w, me, use, log) {
+  const sid = w.player.series, R = w.series[sid].cal[w.round], mid = teammateOf(w), mate = w.people[mid], res = w.series[sid].results.at(-1), mr = res && res.rows.find(r => r.pid === mid);
+  const you = w.player.name.split(' ')[0], name = (pid) => pid === 'P' ? you : w.people[pid]?.first || '';
+  const teamHit = log.some(e => e.type === 'contact' && ((e.a === 'P' && e.b === mid) || (e.b === 'P' && e.a === mid)));
+  const hitE = log.find(e => e.type === 'contact' && e.a === 'P' && e.blame && e.b !== mid && w.people[e.b]);
+  const c = { round: w.round, track: R.name, team: myTeam(w).name, you, mate: mate ? mate.first : '', pos: me.dnf ? 0 : me.pos, dnf: !!me.dnf, teamHit,
+    hit: hitE ? `${w.people[hitE.b].first} ${w.people[hitE.b].last}` : '', hitWhose: me.dnf ? `${you}'s` : 'their', part: use.failed ? PARTS[use.failed]?.name.toLowerCase() || '' : '',
+    mateAhead: !!(mr && !mr.dnf && (me.dnf || mr.pos < me.pos)), sponsor: !!dealsOf(w).length };
+  if (c.pos === 1 && use.failed) c.part = ''; // (a win's the story)
+  return { y: w.year, round: w.round, track: R.name, q: penQuestion(c), ans: null };
+}
+export const penOpen = (w) => w.pen && w.pen.ans == null && w.pen.y === w.year ? w.pen : null;
+export function answerPen(w, ai) {
+  const P = penOpen(w), a = P && P.q.answers[ai]; if (!a) return null;
+  P.ans = ai; pressFx(w, a.fx);
+  const T = myTeam(w), who = roleOf(w, 'P') === 'tech' && coopPerson(w) ? nameOf(coopPerson(w)) : w.player.name;
+  news(w, `${T.name.toUpperCase()} AFTER ${P.track.toUpperCase()}: "${a.text.toUpperCase().replace(/\.$/, '')}"`, `${who}, in the media pen after round ${P.round + 1}, asked by ${P.q.who.name} (${P.q.who.outlet}): "${P.q.q}"`);
+  return { quote: a.text, tags: pressFxTags(w, a) };
+}
+// (unanswered by the time the next race starts: no comment)
+export function penNoComment(w) { const P = penOpen(w); if (!P) return; P.ans = -1; w.press = pressOf(w) - 1; }
+export function answerPress(w, qi, ai) {
+  const D = pressDayOf(w), q = D.qs[qi], a = q && q.answers[ai]; if (!a || D.answers[qi] != null) return null;
+  D.answers[qi] = ai; D.quotes[qi] = a.text;
+  pressFx(w, a.fx);
   if (a.promise) (w.promises ??= []).push({ ...a.promise, year: w.year, said: a.text, by: q.to, done: null });
   return { quote: a.text, tags: pressFxTags(w, a) };
 }
@@ -5353,5 +5382,5 @@ export function loadWorld(id) {
 }
 export function deleteWorld(id) { localStorage.removeItem(slot(id)); localStorage.setItem(INDEX, JSON.stringify(readIndex().filter(e => e.id !== id))); }
 // (the actions a suggestion can be, by name, for approveProp)
-const OPS_RUN = { buildFacility, sellFacility, hireStaff, fireStaff, payBack, setPay, applyLoan, sellAnnuity, offerDriver, extendMate, setMatePay, answerSponsor, answerWorks, answerInvestor, answerBuyout, answerPoach, answerGent, answerOffer, rsvpEvent,
+const OPS_RUN = { answerPen, buildFacility, sellFacility, hireStaff, fireStaff, payBack, setPay, applyLoan, sellAnnuity, offerDriver, extendMate, setMatePay, answerSponsor, answerWorks, answerInvestor, answerBuyout, answerPoach, answerGent, answerOffer, rsvpEvent,
   acquireCar, buyCar, sellCar, buyCar2, buyCar2Model, sellCar2, setCar2Fix, buyFit, removeFit, newPart, rebuildPart, startProject, workOnProject, orderTyres, removeGrey };

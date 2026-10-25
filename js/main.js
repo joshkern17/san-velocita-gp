@@ -43,7 +43,7 @@ import * as WCX from './wcareer.js';
 const WC_OPS = new Set(['acquireCar', 'buyCar', 'buyCar2', 'buyCar2Model', 'buyFit', 'newPart', 'rebuildPart', 'rebuildSelf', 'startProject', 'workOnProject', 'buildFacility', 'sellFacility', 'sellCar',
   'orderTyres', 'hireStaff', 'fireStaff', 'payBack', 'setPay', 'applyLoan', 'sellAnnuity', 'offerDriver', 'extendMate', 'setMatePay', 'setCar2Fix', 'removeFit', 'removeGrey',
   'answerSponsor', 'answerWorks', 'answerInvestor', 'answerBuyout', 'answerPoach', 'answerGent', 'answerStory', 'answerOffer', 'rsvpEvent', 'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan', 'coopAnswer', 'sellCar2',
-  'propose', 'approveProp', 'declineProp', 'roleDay']);
+  'propose', 'approveProp', 'declineProp', 'roleDay', 'answerPen']);
 const WC = new Proxy(WCX, { get(m, k) {
   const f = m[k]; if (typeof f !== 'function' || !WC_OPS.has(k)) return f;
   return (...a) => {
@@ -3522,6 +3522,7 @@ function stepItems(w) {
   const off = w.player.offer, offerMail = off && !off.answer && (w.mail || []).find(m => m.offer && !m.answer);
   const claim = w.money && !w.money.choice && (w.mail || []).find(m => m.lottery && !m.answer);
   const F = w.founding || {};
+  if (WC.penOpen(w) && penMine(w)) items.push({ label: 'The Media Pen', cls: 'action primary', action: () => { penSub = true; sfx.select(); renderHubMenu(); }, desc: `${escP(w.pen.q.who.name)} (${escP(w.pen.q.who.outlet)}) wants a word about ${escP(w.pen.track)}: "${escP(w.pen.q.q)}" Answer before the next race, or it's no comment.` });
   if (!F.reg) items.push({ label: 'Register The Team', cls: 'action primary', action: () => sitDown('registry'), desc: 'Form SV-1, on the computer.' });
   else if (claim) items.push({ label: 'Claim Your Winnings', cls: 'action primary', action: () => sitDown('mail', claim.id), desc: 'The State Lottery needs to know how you want your money. It\'s waiting in your email.' });
   else if (!WC.setupDone(w)) items.push(WC.setupKind(w) === 'season'
@@ -3565,6 +3566,7 @@ function renderHubMenu() {
   if (walk.active && walkPaused) return renderPauseMenu();
   const w = world, sid = w.player.series, n = WC.unreadChats(w), nm = WC.unreadMail(w);
   const items = [];
+  if (penSub) { const L = penSubItems(w); if (L) { menus['s-hub'][0].setItems(L, true); return; } }
   const sub = w.coop ? propItems(w) : null; if (sub && propSub) { menus['s-hub'][0].setItems(sub, true); return; }
   if (sub) items.push(...sub);
   const steps = stepItems(w), offerMail = w.player.offer && !w.player.offer.answer && (w.mail || []).find(m => m.offer && !m.answer);
@@ -4064,9 +4066,11 @@ function worldRoundDone(retired = false) {
     ${out.bill ? `<div class="row"><span>The weekend</span><span class="${out.bill.net < 0 ? 'bad' : 'ok'}">${out.bill.net > 0 ? '+' : ''}${WC.money$(out.bill.net)}</span></div><div class="row"><span>Bank balance</span><span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span></div>` : ''}
     ${WC.listFresh(w).filter(k => WC.RUNGS[k] && w.list.done[k]?.r >= round && w.list.done[k]?.y === w.year).map(k => `<div class="row"><span>Crossed off the list</span><span class="ok">${WC.RUNGS[k].text(w)}</span></div>`).join('')}
     ${promiseRows(w, round)}
-    ${n ? `<div class="row"><span>Phone</span><span>${n} new</span></div>` : ''}`;
+    ${n ? `<div class="row"><span>Phone</span><span>${n} new</span></div>` : ''}${penBlock(w)}`;
   if (coop && coop.host && coop.peer && sim.net) coop.net.sendTo(coop.peer, { t: 'cround', round, tg, res: res.map(r => ({ ...slimRow(r), pid: r.isPlayer ? 'P' : r.pid || null })), net: out.bill ? out.bill.net : null, w });
-  menus['s-round'][0].setItems([{ label: out.over ? 'Season Review' : 'Continue', cls: 'action primary', action: () => openHub() }]);
+  { const cont = { label: out.over ? 'Season Review' : 'Continue', cls: 'action primary', action: () => openHub() }, info = $('round-info').innerHTML;
+    const set = () => { const pen = penItems(w, () => { $('round-info').innerHTML = info.replace(/<div class="rd-pen">[\s\S]*$/, penBlock(w)); set(); }); menus['s-round'][0].setItems(pen.length ? [...pen, { ...cont, cls: 'action', label: `${cont.label}<small>ANSWER LATER</small>` }] : [cont]); };
+    set(); }
   // (co-op: the podium first, as offline; it was skipped while the race went on)
   if (!(sim.net && openPodium(() => show('s-round'), true))) show('s-round');
   if (me && !me.dnf && me.pos <= 3) sfx.finish();
@@ -4382,9 +4386,11 @@ function renderGuestMenu() {
     return;
   }
   const keep = m.items[m.i]?.label?.replace(/<small>.*$/, '');
+  if (penSub) { const L = penSubItems(w); if (L) { m.setItems(L, true); return; } }
   const sub = propItems(w); if (sub && propSub) { m.setItems(sub, true); return; }
+  const penIt = WC.penOpen(w) && penMine(w) ? [{ label: 'The Media Pen', cls: 'action primary', action: () => { penSub = true; sfx.select(); renderHubMenu(); }, desc: `"${escP(w.pen.q.q)}" Answer before the next race, or it's no comment.` }] : [];
   const wk = WC.coopWeek(w), ask = wk.ask && wk.ask.from === 'P' ? WC.COOP_TOGETHER[wk.ask.what] : null;
-  const items = [...(sub || []),
+  const items = [...penIt, ...(sub || []),
     ...(R && wk.left > 0 ? [{ label: `Plan ${DAY_FULL[WC.DAY_NAMES[wk.used]] || 'Today'}<small>${ask ? `${host.toUpperCase()} ASKS` : `${wk.left} DAY${wk.left === 1 ? '' : 'S'} LEFT`}</small>`, cls: 'action primary day', action: () => openDayPlan(false),
       desc: `<span class="dh">How you spend the day</span>${coopDayChoices(w).map(c => `${c.short}${c.tag ? ` <span class="dk">${c.tag}</span>` : ''}`).join(' &middot; ')}` }] : []),
     R ? { label: `Round ${w.round + 1}: Race Day`, cls: wk.left > 0 ? '' : 'action primary', values: [[true, 'READY'], [false, 'NOT READY']], get: () => !!coop.ready, set: v => { coop.ready = v; net.send({ t: 'ready', ready: v }); renderHub(); },
@@ -5029,6 +5035,22 @@ function coopUnref(a) {
 function coopSend(fn, args) { if (net && coop && !coop.host) net.send({ t: 'op', fn, args }); }
 // (the other co-owner's here to answer a suggestion: the host has the co-owner online; the co-owner always has the host)
 const otherHere = () => !!(coop && (coop.host ? coop.peer : true));
+// ---- the media pen (WC.penOpen): the question after a race, on the results screen and in the garage's menu ----
+// (whose to answer: solo, yours; co-op, the Team Principal's, or yours if they're not here)
+const penMine = (w) => !w.coop || WCX.opOwner(w, 'answerPen') === (coopGuest() ? 'C' : 'P') || !otherHere();
+function penBlock(w) {
+  const P = w.pen && w.pen.y === w.year ? w.pen : null; if (!P || !P.q) return '';
+  const a = P.ans != null && P.ans >= 0 ? P.q.answers[P.ans] : null, R = w.coop && WCX.COOP_ROLES[WC.roleOf(w, WCX.opOwner(w, 'answerPen'))];
+  const them = w.coop && !penMine(w) ? (WCX.opOwner(w, 'answerPen') === 'C' ? WC.coopPerson(w)?.first : w.player.name.split(' ')[0]) : null;
+  return `<div class="rd-pen"><small>The media pen &middot; ${escP(P.q.who.name)}, ${escP(P.q.who.outlet)}</small><p>${escP(P.q.q)}</p>${a ? `<b>&ldquo;${escP(a.text)}&rdquo;</b>` : P.ans === -1 ? '<b>No comment.</b>' : them ? `<em>${escP(them)} answers this one, as ${R ? R.name : 'the boss'}.</em>` : '<em>Your answer, below.</em>'}</div>`;
+}
+// the answers as menu items (then: done), the tags each would earn in its line
+function penItems(w, done) {
+  const P = WC.penOpen(w); if (!P || !penMine(w)) return [];
+  return [{ label: 'The Media Pen', head: true }, ...P.q.answers.map((a, i) => ({ label: `${a.tone}<small>ANSWER</small>`, cls: i === 0 ? 'action primary' : 'action',
+    desc: `&ldquo;${escP(a.text)}&rdquo; ${WC.pressFxTags(w, a).map(t => `<span class="dk">${escP(t.text)}</span>`).join(' ')}`,
+    action: () => { const r = WC.answerPen(w, i); saveWorld(); sfx.select(); if (r) toast(`&ldquo;${escP(r.quote)}&rdquo; It's in the Wire.`, 4000); done(); } }))];
+}
 // something in the other one's role: put to them as a suggestion (WC.propose), in words they'll understand
 function suggest(fn, args) {
   const me = coopGuest() ? 'C' : 'P', what = propText(fn, args), who = me === 'P' ? WC.coopPerson(world)?.first : world.player.name.split(' ')[0];
@@ -5077,7 +5099,9 @@ function propText(fn, a) {
   return fn.replace(/([A-Z])/g, ' $1').replace(/^\w/, c => c.toUpperCase());
 }
 // suggestions waiting for you, at the top of the garage's menu; picked: answer it (yes, no)
-let propSub = null;
+let propSub = null, penSub = false;
+// (the media pen, from the garage's menu: the question's answers, then back)
+function penSubItems(w) { const back = () => { penSub = false; renderHub(); }, L = penItems(w, back); if (!L.length) { penSub = false; return null; } return [...L, { label: 'Back', action: back, desc: 'Answer later: before the next race.' }]; }
 function propItems(w) {
   const me = coopGuest() ? 'C' : 'P', them = me === 'P' ? WC.coopPerson(w)?.first : w.player.name.split(' ')[0], mine = WC.propsFor(w, me);
   if (propSub) {
@@ -5348,7 +5372,10 @@ function coopGuestRound(m) {
     ${you ? `<div class="row"><span>${w.player.name.split(' ').pop()}</span><span>${you.dnf ? 'DNF' : 'P' + you.pos}</span></div>` : ''}
     ${m.tg && scored ? coopTargetRows(w, scored, m.tg, 'C') : ''}
     ${m.net != null ? `<div class="row"><span>The weekend</span><span class="${m.net < 0 ? 'bad' : 'ok'}">${m.net > 0 ? '+' : ''}${WC.money$(m.net)}</span></div><div class="row"><span>Bank balance</span><span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span></div>` : ''}`;
-  menus['s-round'][0].setItems([{ label: 'Continue', cls: 'action primary', action: () => { if (coop) coop.race = null; openHub(); } }]);
+  { const cont = { label: 'Continue', cls: 'action primary', action: () => { if (coop) coop.race = null; openHub(); } };
+    $('round-info').insertAdjacentHTML('beforeend', penBlock(w));
+    const set = () => { const pen = penItems(w, () => { $('round-info').querySelector('.rd-pen')?.remove(); $('round-info').insertAdjacentHTML('beforeend', penBlock(w)); set(); }); menus['s-round'][0].setItems(pen.length ? [...pen, { ...cont, cls: 'action', label: 'Continue<small>ANSWER LATER</small>' }] : [cont]); };
+    set(); }
   if (!openPodium(() => show('s-round'), true)) show('s-round'); // (the podium first)
   if (mine && !mine.dnf && mine.pos <= 3) sfx.finish();
 }

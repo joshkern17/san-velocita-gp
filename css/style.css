@@ -236,6 +236,10 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 #results-table td.p { font-family: var(--f-ui); font-weight: 400; }
 #results-table { font-size: 15px; }
 .result-card .row, #round-info .row { display: flex; justify-content: space-between; align-items: baseline; font: 500 var(--t-label)/2.1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; background: linear-gradient(0deg, color-mix(in srgb, var(--sv-red) 40%, transparent) 0 1px, transparent 1px); }
+#round-info .rd-pen { margin-top: 14px; padding: 10px 0 2px; border-top: 2px solid color-mix(in srgb, var(--sv-red) 60%, transparent); } /* (the media pen: the question after the race, and what was said) */
+#round-info .rd-pen small { display: block; font: 500 var(--t-caption)/1.2 var(--f-ui); letter-spacing: var(--track-caption); text-transform: uppercase; color: var(--sv-amber); }
+#round-info .rd-pen p { margin: 6px 0; font: 500 var(--t-body)/1.35 var(--f-ui); letter-spacing: var(--track); color: var(--sv-hot); }
+#round-info .rd-pen b, #round-info .rd-pen em { display: block; font: 500 var(--t-label)/1.35 var(--f-ui); letter-spacing: var(--track); font-style: normal; color: var(--sv-red); }
 .result-card .row span:last-child { color: var(--sv-hot); font: 500 18px var(--f-num); }
 .result-card:empty { display: none; }
 .pause-wrap { position: absolute; left: 5%; top: 19%; display: grid; grid-template-columns: 360px 440px; gap: 22px; align-items: start; }
@@ -788,6 +792,75 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .ed-modal-box .li .th circle { fill: var(--sv-hot); }
 .ed-modal-box .li:hover .th path, .ed-modal-box .li.padsel .th path { stroke: var(--sv-amber); }
 .ed-modal-box .ed-code { display: block; width: 100%; min-height: 96px; box-sizing: border-box; resize: vertical; margin-bottom: var(--s2); font: 13px/1.35 ui-monospace, Menlo, monospace; word-break: break-all; background: rgba(0,0,0,.5); color: var(--sv-amber); border: 1px solid color-mix(in srgb, var(--sv-red) 45%, transparent); padding: var(--s2); }
+/* ---------- making a track, one step at a time (js/edflow.js) ---------- */
+/* the steps: the bar across the top says where you are; everything but the map and Draw / Edit is put away */
+.ed-flow { display: none; }
+#s-editor.flow .ed-flow { display: flex; flex: 1; align-items: center; gap: 18px; min-width: 0; }
+#s-editor.flow .ed-name, #s-editor.flow .ed-btns, #s-editor.flow .ed-side, #s-editor.flow .ed-profile, #s-editor.flow .ed-modes,
+#s-editor.flow .ed-guide, #s-editor.flow .ed-v3d, #s-editor.flow .ed-viewtools [data-act="grid"], #s-editor.flow .ed-viewtools [data-act="seethru"],
+#s-editor.flow .ed-viewtools [data-tool="pan"], #s-editor.flow .ed-strip > :not([data-tool="draw"]):not([data-tool="edit"]) { display: none !important; }
+#s-editor.flow.active { grid-template-columns: 1fr 0; grid-template-rows: 52px 1fr 0; }
+#s-editor.flow:not(.flow-draw) .ed-dock, #s-editor.flow:not(.flow-draw) .ed-hint, #s-editor.flow:not(.flow-draw) .ed-viewtools, #s-editor.flow:not(.flow-draw) .ed-check { display: none; }
+#s-editor.flow .ed-dock { padding-bottom: 10px; }
+.nt-steps { display: flex; gap: 16px; flex: none; }
+.nt-steps span { font: 500 16px/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; white-space: nowrap; color: var(--sv-red-dim); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+.nt-steps span.on { color: var(--sv-amber); }
+.nt-steps span.done { color: var(--sv-red); }
+.nt-say { flex: 1; min-width: 0; text-align: center; font: 500 14px/1.3 var(--f-body); color: var(--sv-red); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nt-btns { display: flex; gap: 6px; align-items: center; flex: none; }
+.nt-btns .sep { width: 8px; }
+#s-editor .nt-btns button.off { opacity: .4; }
+@media (max-width: 1360px) { .nt-steps { gap: 10px; } .nt-steps span { font-size: 14px; } }
+
+/* the card over the map: how to start, where it is, its name */
+.ed-flowcard { position: fixed; inset: 52px 0 0 0; z-index: 25; display: flex; align-items: center; justify-content: center; background: rgba(4,3,8,.8); animation: nt-fade var(--m-med) ease-out; }
+.ed-flowcard[hidden] { display: none; }
+.nt-box { position: relative; background: rgba(5,3,8,.94); padding: var(--s6) var(--s6) var(--s5); max-width: calc(100vw - 48px); max-height: calc(100vh - 100px); overflow-y: auto; scrollbar-width: thin; }
+.nt-box::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--sv-red); box-shadow: var(--sv-glow-line); }
+.nt-box h3 { margin: 0 0 var(--s5); text-align: center; font: 700 44px/.86 var(--f-display); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-hot); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+.ed-flowcard .muted { color: var(--sv-red-dim); font: 500 var(--t-small)/1.5 var(--f-body); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; }
+.nt-box > .muted { text-align: center; margin: calc(-1 * var(--s3)) 0 var(--s5); }
+@keyframes nt-fade { from { opacity: 0; } }
+@keyframes nt-in { from { opacity: 0; } }
+
+/* the cards: outlined; the one under the mouse (or the pad's) amber, in place */
+#s-editor .nt-card, #s-editor .nt-place { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 0; text-align: left; text-transform: none; padding: 0; background: rgba(5,3,8,.82); color: var(--sv-red); border: 1.5px solid var(--sv-red); box-shadow: 0 0 2px var(--sv-red), 0 0 4px var(--sv-red); text-shadow: none; -webkit-text-fill-color: currentColor; animation: nt-in var(--m-slow) ease-out both; animation-delay: calc(var(--i) * 50ms); }
+#s-editor .nt-card:hover, #s-editor .nt-card.padsel, #s-editor .nt-place:hover, #s-editor .nt-place.padsel, #s-editor .nt-place.on { background: rgba(5,3,8,.82); color: var(--sv-amber); border-color: var(--sv-amber); box-shadow: 0 0 3px var(--sv-amber), 0 0 10px var(--sv-amber); -webkit-text-fill-color: currentColor; }
+.nt-cards { display: grid; grid-template-columns: repeat(4, 240px); gap: 20px; }
+.nt-card { min-height: 268px; padding-bottom: 18px !important; }
+.nt-card .art { display: grid; place-items: center; height: 150px; border-bottom: 1px solid color-mix(in srgb, currentColor 45%, transparent); }
+.nt-card .art svg { width: 176px; height: 110px; overflow: visible; }
+.nt-card .art path, .nt-card .art rect { fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linejoin: round; stroke-linecap: round; filter: drop-shadow(0 0 2px currentColor); }
+.nt-card .art .dim { opacity: .35; stroke-width: 1.6; }
+.nt-card .art .sheet { fill: rgba(5,3,8,.95); }
+.nt-card .art .pen { fill: currentColor; stroke-width: 1; }
+.nt-card .art circle { fill: var(--sv-hot); }
+.nt-card .art .pick { fill: currentColor; }
+.nt-card .art svg[viewBox="-30 0 160 100"] path { stroke-width: 3.2; }
+.nt-card .t, .nt-place .t { display: block; padding: 16px 18px 8px; font: 700 30px/.92 var(--f-display); letter-spacing: var(--track); text-transform: uppercase; color: inherit; text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+.nt-card .d, .nt-place .d { display: block; padding: 0 18px; font: 500 var(--t-small)/1.45 var(--f-body); color: var(--sv-red); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; }
+.nt-foot { display: flex; flex-direction: column; align-items: center; gap: var(--s3); margin-top: var(--s5); }
+.nt-foot:has(> [data-ok]) { flex-direction: row; justify-content: center; }
+
+/* where: ten settings, a picture each */
+.nt-where { display: grid; grid-template-columns: repeat(5, 196px); gap: 14px; }
+.nt-place { height: 206px; overflow: hidden; }
+.nt-place .pic { display: block; height: 110px; background: center / cover no-repeat var(--sv-plate); border-bottom: 1px solid color-mix(in srgb, currentColor 45%, transparent); }
+.nt-place .t { padding: 12px 14px 6px; font-size: 24px; }
+.nt-place .d { padding: 0 14px; }
+.nt-opts { display: flex; align-items: flex-end; justify-content: center; gap: 28px; margin-top: var(--s5); }
+.nt-opt label { display: block; margin-bottom: 6px; font: 500 var(--t-small)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red-dim); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+.nt-opt .seg { flex-wrap: nowrap; }
+.nt-opt .seg button { font-size: 14px !important; padding: 7px 14px !important; }
+#s-editor .nt-opts [data-next] { padding: 8px 28px 7px; font-size: 18px; }
+@media (max-width: 1240px) { .nt-where { grid-template-columns: repeat(5, 160px); } .nt-place { height: 190px; } .nt-place .pic { height: 90px; } .nt-place .t { font-size: 20px; } }
+
+/* name it; then what next */
+.is-save .nt-box { width: 520px; }
+.nt-save .ed-saveas { display: block; width: 100%; box-sizing: border-box; font-size: 28px; padding: 10px 14px 8px; }
+.nt-done { display: flex; justify-content: center; gap: 10px; }
+#s-editor .nt-done button { padding: 9px 20px 8px; font-size: 18px; }
+#ed-flowcard .padsel:not(.nt-card):not(.nt-place) { outline: 2px solid var(--sv-amber); outline-offset: 3px; }
 .ed-modal-box .muted { color: var(--sv-red-dim); font: 500 var(--t-small)/1.5 var(--f-body); margin: 0 0 var(--s3); max-width: 480px; }
 .ed-modal-box .ed-saveas { width: 100%; box-sizing: border-box; margin-bottom: var(--s2); }
 .ed-modal-box .foot { margin-top: var(--s4); text-align: right; }
