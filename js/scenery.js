@@ -90,6 +90,7 @@ export const FLORA = {
   autumn:  { label: 'Autumn', color: '#d8872c', trees: { autumn: 6, bare: 0.6, pine: 0.8 }, under: { grass: 1.2, bush: 0.5, rock: 0.3 }, ground: true },
   park:    { label: 'Park', color: '#7cc050', trees: { broad: 3, birch: 1, blossom: 0.8, willow: 0.5 }, under: { grass: 1, flower: 0.6, bush: 1 }, ground: true },
   palms:   { label: 'Palms', color: '#9ccc3a', trees: { palm: 1 }, under: { bush: 0.6, grass: 0.8 }, ground: true },
+  subtropic: { label: 'Pines & Palms', color: '#6fa040', trees: { pine: 2, broad: 2, palm: 1.1 }, under: { grass: 2, bush: 1, rock: 0.1 }, ground: true }, // (Florida: longleaf pines, live oaks, sabal palms)
   desert:  { label: 'Desert Scrub', color: '#c9a060', trees: { desert: 1 }, under: { rock: 2, grass: 0.3 } },
   winter:  { label: 'Winter', color: '#b8c4cc', trees: { bare: 4, pine: 1.2 }, under: { rock: 0.5 } },
   meadow:  { label: 'Meadow', brush: true, color: '#b4dc6a', trees: { broad: 1, blossom: 0.3 }, treeK: 0.12, under: { grass: 4, flower: 2, bush: 0.5 }, underK: 2.2, ground: true },

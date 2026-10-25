@@ -1,6 +1,6 @@
 // Builds the 3D environment for a track
 import * as THREE from 'three';
-import { streetAsphalt, bandAsphalt, paintGrain, getTextures, getGroundTextures } from './textures.js';
+import { streetAsphalt, bandAsphalt, paintGrain, concreteRoad, getTextures, getGroundTextures } from './textures.js';
 import { circDist, computeSpeedProfile, OPEN_END_WALL, stepIdx, fenceHeight, kerbOn, kerbW, kerbOf, kerbColors, wallTypeAt, KERB_STYLES, SAUSAGE_H, EDGE_BAND_COLOR } from './track.js';
 import { gameHeight } from './terrain.js';
 import { applySculpt, trackHeightAt } from './sculpt.js';
@@ -955,6 +955,7 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
   {
     const cols = 5, rows = N + 1;
     const pos = new Float32Array(rows * cols * 3), uv = new Float32Array(rows * cols * 2), col = new Float32Array(rows * cols * 3), rub = new Float32Array(rows * cols * 4);
+    const conc = concreteAlong(track, T, env), cv = conc ? new Float32Array(rows * cols) : null;
     for (let r = 0; r < rows; r++) {
       if (slice()) yield;
       const i = r % N, d = r === N ? T.L : T.D[i];
@@ -966,6 +967,7 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
         pos[id * 3] = T.X[i] + T.RX[i] * s; pos[id * 3 + 1] = surfY(i, s); pos[id * 3 + 2] = T.Z[i] + T.RZ[i] * s;
         uv[id * 2] = c / (cols - 1); uv[id * 2 + 1] = d / 14;
         rub[id * 4] = c / (cols - 1); rub[id * 4 + 1] = r / N; rub[id * 4 + 2] = d; rub[id * 4 + 3] = w; // (the rubber: rubber.js)
+        if (cv) cv[id] = conc[i];
         const edge = (c === 0 || c === cols - 1) && env.surface !== 'dirt' ? 0.9 : 1; // (dirt: no dark edge, its edge blends into the runoff)
         const n = 0.93 + vnoise(d / 30, c) * 0.1;
         col[id * 3] = col[id * 3 + 1] = col[id * 3 + 2] = edge * n;
@@ -983,6 +985,7 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
     g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     g.setAttribute('aRub', new THREE.BufferAttribute(rub, 4));
+    if (cv) { g.setAttribute('aConc', new THREE.BufferAttribute(cv, 1)); concreteRoadMat(roadMat); }
     g.setIndex(idx); g.computeVertexNormals();
     root.add(new THREE.Mesh(g, roadMat));
     if (env.markings === 'street' && env.surface !== 'dirt') streetMarkings(root, T, A, env, roadL, surfY);
@@ -1833,6 +1836,29 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
 const RUN_ROWS = 8192; // (texture rows: a longer circuit is packed in blocks side by side)
 // dirt: a dirt track's colour (dirtTint), for its edges, where the runoff shows through the dirt (DIRT_EDGE)
 const DIRT_EDGE = 2.2;
+// An old airfield's concrete on the track (track.dress.concrete: [[from, to] lap m], Sebring's runway slabs): per
+// sample how much of the road is concrete, 0-1, eased over 4 m at each end, or null if none (or a dirt road)
+function concreteAlong(track, T, env) {
+  const R = track.dress && track.dress.concrete; if (!R || !R.length || env.surface === 'dirt') return null;
+  const out = new Float32Array(T.N), E = 4;
+  for (let i = 0; i < T.N; i++) {
+    const d = T.D[i]; let v = 0;
+    for (const [a, b] of R) { const L = (b - a + T.L) % T.L, t = (d - a + T.L) % T.L; if (t <= L) v = Math.max(v, Math.min(1, t / E, (L - t) / E)); }
+    out[i] = v;
+  }
+  return out;
+}
+// the road's material drawing the concrete where aConc says (the rubber's shader keeps this one: rubber.js patchRoad)
+function concreteRoadMat(mat) {
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.concMap = { value: concreteRoad() };
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aConc;\nvarying float vConc;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvConc = aConc;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D concMap; varying float vConc;')
+      .replace('#include <map_fragment>', '#ifdef USE_MAP\n  diffuseColor *= mix(texture2D(map, vMapUv), texture2D(concMap, vMapUv), vConc);\n#endif');
+  };
+  mat.customProgramCacheKey = () => 'concrete-road';
+}
 // Paint on the road (the start line, grid slots, the pit lane's and the streets' lines): the asphalt's grain shows
 // through it, in world space so it lines up with the road's own (6.5 m a photo, as the road's uv), its deepest pits
 // bare, and a slow fade over tens of metres where it's worn more or less. In the shader, after the paint's own color

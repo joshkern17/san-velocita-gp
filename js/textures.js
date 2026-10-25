@@ -126,6 +126,29 @@ export function paintGrain() {
 // a street track's asphalt: the circuit's, with no painted edges (its lines are drawn on top: world.js streetMarkings)
 let _street = null;
 export function streetAsphalt() { return _street || (_street = photoTex(128, 128, ['asphalt_01'], (g, P) => tilePhoto(g, P('asphalt_01'), 128, 128, '#4a4a4e', 14))); }
+// an old airfield's concrete runway as a road (track.dress.concrete: Sebring's Sunset Bend and front straight), the
+// texture as the road's: u across the whole width, 14 m along. Pale concrete in slabs, its joints filled with dark tar
+// (along the middle, across every 7 m), the odd tar-sealed crack, oil darker down the middle; the circuit's white
+// edge lines on it, worn
+let _conc = null;
+export function concreteRoad() {
+  return _conc || (_conc = photoTex(128, 128, ['concrete_01'], (g, P) => {
+    tilePhoto(g, P('concrete_01'), 128, 128, '#8f8c86');
+    g.fillStyle = 'rgba(205,200,188,0.28)'; g.fillRect(0, 0, 128, 128); // (pale, sun-bleached)
+    const sh = g.createLinearGradient(0, 0, 128, 0); sh.addColorStop(0.25, 'rgba(40,36,30,0)'); sh.addColorStop(0.5, 'rgba(40,36,30,0.16)'); sh.addColorStop(0.75, 'rgba(40,36,30,0)');
+    g.fillStyle = sh; g.fillRect(0, 0, 128, 128);
+    g.fillStyle = 'rgba(28,26,24,0.85)'; g.fillRect(63, 0, 2, 128); g.fillRect(0, 0, 128, 2); g.fillRect(0, 64, 128, 2); // (the joints)
+    // tar-sealed cracks: a few wandering lines (the same every time: a hash, not the textures' random numbers)
+    const h = (n) => ((Math.sin(n * 127.1 + 311.7) * 43758.5453) % 1 + 1) % 1;
+    g.strokeStyle = 'rgba(30,28,26,0.32)'; g.lineWidth = 1; // (faint, few and short: the texture repeats every 14 m)
+    for (let k = 0; k < 3; k++) {
+      let x = 14 + h(k) * 100, y = h(k + 9) * 110; g.beginPath(); g.moveTo(x, y);
+      for (let q = 0; q < 3; q++) { x += (h(k * 7 + q) - 0.5) * 8; y += 3 + h(k * 13 + q) * 5; g.lineTo(x, y); }
+      g.stroke();
+    }
+    paintOn(g, [[3, 0, 3, 128], [122, 0, 3, 128]], [232, 232, 224]);
+  }));
+}
 // a circuit with a painted edge band (env.edgeLine 'band'): its white lines right on the edge, where the band's color
 // starts (the band itself is painted on the runoff: world.js runoffMaterial)
 let _band = null;

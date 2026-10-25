@@ -16,6 +16,7 @@ import { loadPitBox, fitBoxes } from './pitbox.js';
 import { BoxCrew } from './pitcrew.js';
 import { buildF1, teamCar } from './carmodel.js';
 import { driverLivery, driverFace, driverHelmet, teamSuit } from './drivers.js';
+const _v = new THREE.Vector3(); // (scratch: the camera from a box door)
 
 const _q = new THREE.Quaternion(), _x = new THREE.Vector3(1, 0, 0), _z = new THREE.Vector3(0, 0, 1);
 const turn = (b, axis, a) => { if (b && a) b.quaternion.multiply(_q.setFromAxisAngle(axis, a)); };
@@ -498,11 +499,14 @@ export class PitLife {
     if (this.wall) this.wall.update(dt, cam);
     // what's inside the boxes, their rooms and all that's in them: only seen through the doors, so not drawn from
     // across the circuit (a hundred and fifty-odd draws for dark specks)
+    // (and only from the doors' side: from behind the block, a road or straight past its back wall, they can't be seen)
     if (!this.laneBB) {
       this.laneBB = new THREE.Box3(); for (const b of this.boxes) if (b.F) this.laneBB.expandByPoint(new THREE.Vector3().fromArray(b.F.P(0, 7, 0))); this.laneBB.expandByScalar(20);
       this.rooms = []; race.scene.getObjectByName('PitBoxes')?.traverse(o => { if (o.userData.room) this.rooms.push(o); });
+      this.doors = this.boxes.filter(b => b.F).map(b => { const a = new THREE.Vector3().fromArray(b.F.P(0, 0, 0)), f = new THREE.Vector3().fromArray(b.F.P(0, 7, 0)).sub(a).normalize(); return { a, f }; });
     }
-    const inside = this.laneBB.isEmpty() || this.laneBB.distanceToPoint(cam) < 250;
+    const front = !this.doors.length || this.doors.some(({ a, f }) => _v.copy(cam).sub(a).dot(f) > -2 || a.distanceTo(cam) < 40);
+    const inside = this.laneBB.isEmpty() || (this.laneBB.distanceToPoint(cam) < 250 && front);
     if (inside !== this.inside) { this.inside = inside; for (const o of this.rooms) o.visible = inside; }
     for (const g of this.root.children) if (g.name === 'BoxDress' || g.name === 'PitProps') g.visible = inside;
     for (const b of this.boxes) {

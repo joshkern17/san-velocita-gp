@@ -5,7 +5,7 @@
 //   wallonia: Service public de Wallonie, MNT 2021-2022 LiDAR, 0.5 m (Belgium: Spa)
 //   ign:      IGN RGE ALTI, 1 m (France + Monaco)
 //   gsi:      Geospatial Information Authority of Japan, 5 m laser DEM (dem5a), 10 m fallback
-//   usgs:     USGS 3DEP via the Elevation Point Query Service, 1-10 m (USA)
+//   usgs:     USGS 3DEP via its image service in ~440 m tiles, 1-10 m (USA)
 //   ahn:      Actueel Hoogtebestand Nederland, AHN4 0.5 m ground model (DTM), via the AHN viewer's image service (Netherlands)
 import fs from 'node:fs';
 import path from 'node:path';
@@ -34,7 +34,7 @@ async function getJSON(url, tries = 4) {
 }
 async function pool(items, n, fn) { let i = 0; await Promise.all(Array.from({ length: n }, async () => { while (i < items.length) { const k = i++; await fn(items[k], k); } })); }
 
-const SOURCES = {
+export const SOURCES = { // (exported for checks)
   async ign(pts) {
     const out = [];
     for (let a = 0; a < pts.length; a += 40) {
@@ -63,12 +63,29 @@ const SOURCES = {
     return out;
   },
   async usgs(pts) {
-    const out = new Array(pts.length).fill(null);
-    // (the service has off moments under load: a point that keeps failing comes back undefined, not cached, and a
-    // rerun fetches it again)
-    await pool(pts, 12, async (p, k) => {
-      let j; try { j = await getJSON(`https://epqs.nationalmap.gov/v1/json?x=${p.lon}&y=${p.lat}&units=Meters&wkid=4326`); } catch (e) { out[k] = undefined; return; }
-      const v = parseFloat(j.value); out[k] = isFinite(v) && v > -1000 ? v : null;
+    // The 3DEP image service in tiles (the point service answers one point a request, 5-20 s each under load: an
+    // hour for a circuit's few thousand): 0.004 deg square (~440 m), 256 px (~1.7 m), as the game's LiDAR tiles get
+    // it (js/lidar.js), each point read off its tile bilinearly. (A tile that keeps failing: its points come back
+    // undefined, not cached, and a rerun fetches them again)
+    const D = 0.004, PX = 256, out = new Array(pts.length).fill(null), tiles = new Map();
+    pts.forEach((p, k) => { const t = Math.floor(p.lat / D) + ',' + Math.floor(p.lon / D); if (!tiles.has(t)) tiles.set(t, []); tiles.get(t).push(k); });
+    await pool([...tiles.entries()], 6, async ([t, ks]) => {
+      const [a, b] = t.split(',').map(Number), S = a * D, W = b * D, N = S + D, E = W + D, px = D / PX;
+      const url = `https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?bbox=${W},${S},${E},${N}&bboxSR=4326&imageSR=4326&size=${PX},${PX}&format=bsq&pixelType=F32&noData=-9999&interpolation=RSP_BilinearInterpolation&f=image`;
+      let f = null;
+      for (let k = 0; k < 5 && !f; k++) {
+        try { const r = await fetch(url, { headers: { 'User-Agent': 'SanVelocitaGP-track-importer/1.0' } }); if (!r.ok) throw new Error('HTTP ' + r.status);
+          const buf = Buffer.from(await r.arrayBuffer()); if (buf.length < PX * PX * 4) throw new Error('short tile');
+          f = new Float32Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + PX * PX * 4)); }
+        catch (e) { await new Promise(res => setTimeout(res, 1000 * 2 ** k)); }
+      }
+      for (const k of ks) {
+        if (!f) { out[k] = undefined; continue; }
+        const p = pts[k], c = Math.max(0, Math.min(PX - 1.001, (p.lon - W) / px - 0.5)), r = Math.max(0, Math.min(PX - 1.001, (N - p.lat) / px - 0.5));
+        const c0 = Math.floor(c), r0 = Math.floor(r), fc = c - c0, fr = r - r0, v = (i, j) => f[(r0 + j) * PX + c0 + i];
+        const q = [v(0, 0), v(1, 0), v(0, 1), v(1, 1)];
+        out[k] = q.some(x => !(x > -1000)) ? (q.find(x => x > -1000) ?? null) : (q[0] * (1 - fc) + q[1] * fc) * (1 - fr) + (q[2] * (1 - fc) + q[3] * fc) * fr;
+      }
     });
     return out;
   },

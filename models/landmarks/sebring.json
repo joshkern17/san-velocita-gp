@@ -1,0 +1,48 @@
+{
+"url": "models/landmarks/sebring.glb",
+"grounds": [
+-820,
+640,
+-720,
+560
+],
+"items": [
+{
+"key": "hotel_e",
+"x": -636.5,
+"z": 57.0,
+"hw": 21.1,
+"hd": 9.5,
+"rot": -0.2392,
+"kind": "building"
+},
+{
+"key": "hotel_w",
+"x": -681.0,
+"z": 47.5,
+"hw": 28.04,
+"hd": 9.5,
+"rot": -2.5981,
+"kind": "building"
+},
+{
+"key": "hotel_tower",
+"x": -657.0,
+"z": 61.0,
+"hw": 5.0,
+"hd": 5.0,
+"rot": 0.0,
+"kind": "building"
+},
+{
+"key": "ctower",
+"x": 581.3,
+"z": -601.7,
+"hw": 4.4,
+"hd": 4.4,
+"rot": 0.0,
+"kind": "building"
+}
+],
+"standLines": []
+}

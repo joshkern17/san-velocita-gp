@@ -142,6 +142,19 @@ export const CATALOG = [
     scatter: { mix: 'meadow', r: 90, d: 0.12 },
   },
   {
+    // the 12 Hours circuit (17 turns), on the old Hendricks Field airfield, clockwise from the start line by the pits:
+    // Turn 1's kink, Gurney Bend, the Hairpin, Fangio, Cunningham, Collier, Tower Turn, Bishop and Gendebien bends,
+    // the Le Mans Curve, the Ullman Straight and Sunset Bend (Turn 17) back onto the front straight. Waypoints from
+    // the map's raceway chain (its ways tagged concrete: the runway slabs)
+    id: 'sebring', name: 'Sebring International Raceway', country: 'USA', category: 'classic',
+    dem: 'usgs',
+    desc: 'Classic · Florida\'s old airfield: bumpy runway concrete, the Hairpin, Cunningham and Tower Turn, then the long, fast Sunset Bend onto the front straight',
+    guide: { points: [[27.45023, -81.35214], [27.45256, -81.34871], [27.45409, -81.35138], [27.45263, -81.35623], [27.45512, -81.35528], [27.45639, -81.35105], [27.45479, -81.34788], [27.45062, -81.34613], [27.44828, -81.35519], [27.45022, -81.35518]] },
+    roads: RACEWAY, skip: /pit|club|short|kart|paddock/i, skipIds: [1041888711, 1041893718, 1041893719, 1041893720, 1041893721, 1315957542, 1315190275], width: 14,
+    env: { theme: 'grass', time: 'day', weather: 'clear', laps: 3, opponents: 11, pitStyle: 'classic', barrier: 'concrete', fenceH: 2.8, setting: { kind: 'none', flora: 'subtropic', seed: 1950 } },
+    scatter: { mix: 'subtropic', r: 80, d: 0.1 },
+  },
+  {
     id: 'madring', name: 'Madring', country: 'Spain', category: 'street',
     desc: 'Street · Madrid\'s new circuit round IFEMA and Valdebebas, with the banked La Monumental',
     guide: { f1: 'Circuito de Madring' }, outline: true, roads: STREETS, skip: /pit|parking|car park|aparcamiento/i, width: 12, maxSnap: 40,

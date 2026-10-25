@@ -32,6 +32,9 @@ can go, and the scan has to exist before the kit stands clear trees out of it.
 | 10 | Drive it | shots, AI, perf (below) | |
 
 Step 2 needs `-m 7000` because the guard adds up every Chrome process and a bake goes past its 3000 MB default.
+The US road heights come from the 3DEP image service in ~440 m tiles (`tools/tracks/dem.mjs` usgs). The old point
+service took 5-20 s a point under load, about an hour a circuit; the tiles match it to a median 9 mm (max 6 cm over
+283 COTA points). If a build sits on "ground heights" for minutes, look at the service, not the track.
 
 ### 1-2. Catalog + build
 - `guide: { f1: '<name in f1-circuits.json>' }` picks the right layout among the map's many. `skip` takes the pit
@@ -114,7 +117,8 @@ Copy `tools/tracks/landmarks/cota.py`; the API is in the header of `lmkit.py`.
 - **Chase shots by lap metre, plus a probe of anything standing on the road:**
   `.devtest/guard.sh -m 7000 -t 300 node .claude/skills/real-track/scripts/shots.mjs <id> <outdir> --probe d150 d450 d850 t1:-200,30,600,-220,0,660`.
   Check.mjs also shoots every 500 m (`--every=250` for more). Read every picture.
-- **Seeded AI:** `TRK=/tracks/real/<id>.json node .devtest/aibatch.mjs <car> 1 2` for a Civic, a CLK GTR and an F1.
+- **Seeded AI:** `TRK=/tracks/real/<id>.json .devtest/guard.sh -m 7000 -t 1200 node .devtest/aibatch.mjs <car> 1-1 2` for `civic`, `clkgtr` and `f1`.
+  The seeds are a range (`1-1`): a bare `1` runs nothing and prints NaN.
   Use at least 2 laps (1 lap crashes on `bestMed toFixed`), and `OFFMAP=1` shows where they went off. Expect 0 walls
   and 0 wrecks. GT1 cars run off while racing in a train, which is a known racecraft issue, not the track's fault.
 - **Performance:** `node .devtest/perfmap.mjs tracks/real/<id>.json 100`. The worst frame should be under ~16 ms

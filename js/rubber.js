@@ -138,8 +138,9 @@ export class Rubber {
 // different, finer up close; faded to an even tone where they'd shimmer in the distance), and it's polished:
 // a little shine in the dry, a lot in the wet.
 export function patchRoad(mat, tex) {
-  const uniforms = { rubTex: { value: tex }, rubWet: { value: 0 } };
-  mat.onBeforeCompile = (sh) => {
+  const uniforms = { rubTex: { value: tex }, rubWet: { value: 0 } }, prev = mat.onBeforeCompile; // (the world's own: the road's concrete)
+  mat.onBeforeCompile = (sh, r) => {
+    if (prev !== THREE.Material.prototype.onBeforeCompile) prev(sh, r);
     Object.assign(sh.uniforms, uniforms);
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nattribute vec4 aRub;\nvarying vec4 vRub;')
@@ -167,7 +168,7 @@ float rubN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f
 }`)
       .replace('#include <specularmap_fragment>', '#include <specularmap_fragment>\nspecularStrength *= 1.0 + rubAmt * (0.25 + 2.2 * rubWet);');
   };
-  mat.customProgramCacheKey = () => 'rubber-road';
+  const key = mat.customProgramCacheKey.bind(mat); mat.customProgramCacheKey = () => 'rubber-road' + key();
   mat.needsUpdate = true;
   return uniforms;
 }
