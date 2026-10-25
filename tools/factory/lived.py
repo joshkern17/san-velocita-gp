@@ -393,8 +393,11 @@ pcol = grime(pcol, np.clip(1 - wz / 0.12, 0, 1) * 0.25 + scuff * 0.3 * (wz < 0.9
 wall_panel = mat_img('FA_WallPanel', save('fa_wall_panel', np.clip(pcol, 0, 1)), 0.45)
 # which faces: the ground floor's wall pieces (their names from the plan), each face by the room in front of it
 import re as _re
-WALLS = _re.compile(r'^(Wall_(L|R|Back)|TireBay_(Front_[LR]|Lintel|Atrium)|Machine_(Front|Dado|End)|Tunnel_(AtriumA|AtriumDado|AtriumHead|AtriumB|HallBack)|Back_(Front|Side)|Atrium_ToolWall|Dyno_Split)')
-def zone(x, y): return 'blvd' if y < GY else 'atr' if (AX0 < x < AX1 and GY < y < AY1) else 'work'
+WALLS = _re.compile(r'^(Wall_(L|R|Back)|TireBay_(Front_[LR]|Lintel|Atrium)|Machine_(Front|Dado|End)|Tunnel_(AtriumA|AtriumDado|AtriumHead|AtriumB|HallBack)|Back_(Front|Side)|Atrium_ToolWall|Dyno_Split|Office_Back|Sim_(Front|Side))')
+def zone(x, y, z):
+    if z > UZ - 0.3:   # (upstairs: the panels, the offices' and the walkway's; the cafe's for the diner, later; the sim suite's dark inside)
+        return 'keep' if y > CY1 else 'up'
+    return 'blvd' if y < GY else 'atr' if (AX0 < x < AX1 and GY < y < AY1) else 'work'
 nf = {'work': 0, 'atr': 0}
 for o in list(B.objects):
     if o.type != 'MESH' or not WALLS.match(o.name): continue
@@ -404,11 +407,118 @@ for o in list(B.objects):
     for f in me.polygons:
         n = (nm3 @ f.normal).normalized()
         if abs(n.z) > 0.5: continue
-        c = mw @ f.center + n * 0.3; z_ = zone(c.x, c.y)
-        if z_ == 'blvd': continue
-        f.material_index = base_n + (0 if z_ == 'work' else 1); nf[z_] += 1
+        c = mw @ f.center + n * 0.3; z_ = zone(c.x, c.y, min((mw @ me.vertices[vi].co).z for vi in f.vertices))   # (by its foot: a tall wall's middle is up past the upper floor)
+        if z_ in ('blvd', 'keep'): continue
+        f.material_index = base_n + (0 if z_ == 'work' else 1); nf['work' if z_ == 'work' else 'atr'] += 1
+        z0_ = UZ if z_ == 'up' else 0.0   # (upstairs: the kick plate at its own floor)
         along_x = abs(n.y) >= abs(n.x)
         for li in f.loop_indices:
             p = mw @ me.vertices[me.loops[li].vertex_index].co
-            uv.data[li].uv = ((p.x if along_x else p.y) / WU, p.z / WV)
+            uv.data[li].uv = ((p.x if along_x else p.y) / WU, (p.z - z0_) / WV)
 print(f'lived: walls ({nf["work"]} faces of blockwork, {nf["atr"]} of panels) in {time.time() - _t0:.0f} s')
+
+# ---------------------------------------------------------------------------------------------------------------------
+# the walls say what they are: the rooms' names painted on (worn), the whiteboard by the tunnel hall's door, the great
+# liveries framed along the walkway, the team's graphic over the atrium on the sim suite's wall (the team's colours:
+# TeamMain/TeamAccent, coloured by the game), two banners down from the roof, and over the front lane your car hung on
+# its cables (the game hangs it at HANG_car, in your livery: js/pitgarage.js). The dim rooms lit a little more
+import subprocess
+ART_LV = os.path.join(SRC, 'factory_art', 'lived')
+if not os.path.exists(os.path.join(ART_LV, 'fa_lv_roundel.png')):
+    py = '/usr/local/bin/python3' if os.path.exists('/usr/local/bin/python3') else 'python3'   # (needs Pillow)
+    subprocess.run([py, os.path.join(FA, 'art_lived.py'), ART_LV], check=True)
+LV = lambda n: os.path.join(ART_LV, 'fa_lv_' + n + '.png')
+for k, (x, y, z, w, rz) in {'tire': (-13.5, -0.104, 2.85, 3.2, 0.0), 'machine': (-13.5, 0.104, 2.8, 3.2, math.pi), 'dock': (-15.6, CY1 + 0.104, 2.75, 3.4, math.pi),
+                            'comp': (3.2, CY1 + 0.104, 2.75, 3.0, math.pi), 'dyno1': (10.4, CY1 + 0.104, 2.75, 2.6, math.pi), 'dyno2': (15.8, CY1 + 0.104, 2.75, 2.6, math.pi),
+                            'tunnel': (15.5, AY1 - 0.104, 2.95, 3.4, 0.0)}.items():
+    cd(f'Fl_RoomName_{k}', FL, w, w * 200 / 1024, (x, y, z), art_cutout(f'Fl_RoomName_{k}', LV('name_' + k)), rotz=rz)
+# the whiteboard: its aluminium frame, the board, the marker tray, three markers and the eraser
+WBX, WBY = AX1 - 0.1, 4.6
+bbox('Fl_WB_Frame', FL, (0.03, 1.88, 1.28), (WBX - 0.015, WBY, 1.55), silver, bev=0.008)
+cd('Fl_WB_Board', FL, 1.8, 1.2, (WBX - 0.032, WBY, 0.95), art_mat('Fl_WB_Board', LV('whiteboard'), dirt=0.03, rough=0.3), rotz=-D90)
+bx('Fl_WB_Tray', FL, (0.07, 1.5, 0.018), (WBX - 0.065, WBY, 0.9), silver)
+for k, (dy, c) in enumerate(((-0.4, blk), (-0.28, blue), (0.1, redp))): rd(f'Fl_WB_Marker{k}', FL, (WBX - 0.06, WBY + dy, 0.92), (WBX - 0.06, WBY + dy + 0.13, 0.92), 0.009, c, verts=6)
+bbox('Fl_WB_Eraser', FL, (0.05, 0.13, 0.035), (WBX - 0.06, WBY + 0.45, 0.927), lacg, bev=0.006)
+# the great liveries, framed along the walkway (the sim suite's wall, past the graphic)
+for i, k in enumerate(('gulf', 'jps', 'martini', 'rothmans')):
+    x = 11.2 + 2.0 * i
+    bbox(f'Fl_Great{k}_Frame', FL, (1.58, 0.035, 1.02), (x, CY1 - 0.118, UZ + 1.2), blk, bev=0.006)
+    cd(f'Fl_Great{k}_Print', FL, 1.48, 0.92, (x, CY1 - 0.137, UZ + 0.74), art_mat(f'Fl_Great_{k}', LV('great_' + k), dirt=0.02, rough=0.4))
+# the team's graphic: a field of the team's main colour, two accent slashes, a fine dark line, the roundel
+tmw = plain_mat('TeamMain_FlWall', (0.86, 0.86, 0.86), dirt=0.02, rough=0.5); taw = plain_mat('TeamAccent_FlWall', (0.88, 0.88, 0.88), dirt=0.02, rough=0.5)
+def wface(name, pts, mat, y):   # a flat shape on a wall at y, facing -Y (toward the atrium): pts [(x, z)]
+    me = bpy.data.meshes.new(name); me.from_pydata([Vector((a, y, b)) for a, b in pts], [], [tuple(range(len(pts)))])
+    if me.polygons[0].normal.y > 0: me.flip_normals()
+    uv = me.uv_layers.new()
+    for li in me.polygons[0].loop_indices: v = me.vertices[me.loops[li].vertex_index].co; uv.data[li].uv = (v.x * 0.5, v.z * 0.5)
+    o = bpy.data.objects.new(name, me); FL.objects.link(o); me.materials.append(mat); return mk(o)
+GY_W = CY1 - 0.104
+wface('Fl_TeamWall_Field', [(4.3, UZ + 0.25), (9.7, UZ + 0.25), (9.7, UZ + 2.55), (4.3, UZ + 2.55)], tmw, GY_W)
+wface('Fl_TeamWall_Slash1', [(4.3, UZ + 0.25), (5.7, UZ + 0.25), (7.3, UZ + 2.55), (5.9, UZ + 2.55)], taw, GY_W - 0.004)
+wface('Fl_TeamWall_Slash2', [(6.0, UZ + 0.25), (6.4, UZ + 0.25), (8.0, UZ + 2.55), (7.6, UZ + 2.55)], taw, GY_W - 0.004)
+wface('Fl_TeamWall_Line', [(4.3, UZ + 0.25), (9.7, UZ + 0.25), (9.7, UZ + 0.3), (4.3, UZ + 0.3)], blk, GY_W - 0.006)
+cd('Fl_TeamWall_Roundel', FL, 1.7, 1.7, (8.55, GY_W - 0.008, UZ + 0.55), art_cutout('Fl_Roundel', LV('roundel')))
+# the banners: down from the roof at the atrium's front corners, the team's colours, the roundel, a weighted hem
+tmb = plain_mat('TeamMain_FlBanner', (0.86, 0.86, 0.86), dirt=0.02, fleck=0.06, rough=0.9); tab = plain_mat('TeamAccent_FlBanner', (0.88, 0.88, 0.88), dirt=0.02, fleck=0.06, rough=0.9)
+for k, x in enumerate((-6.6, 8.8)):   # (the front corners, facing in: at the back they hid the team's wall)
+    y = GY + 0.55
+    bx(f'Fl_Banner{k}_Cloth', FL, (1.6, 0.012, 3.6), (x, y, 6.05), tmb)
+    for z in (4.45, 7.65): bx(f'Fl_Banner{k}_Band{z:.0f}', FL, (1.6, 0.016, 0.16), (x, y, z), tab)
+    cd(f'Fl_Banner{k}_Roundel', FL, 1.15, 1.15, (x, y + 0.012, 5.9), art_cutout('Fl_Roundel', LV('roundel')), rotz=math.pi)
+    for z in (4.22, 7.88): rd(f'Fl_Banner{k}_Bar{z:.0f}', FL, (x - 0.84, y, z), (x + 0.84, y, z), 0.016, silver, verts=8)
+    for s_ in (-1, 1): rd(f'Fl_Banner{k}_Cable{s_}', FL, (x + s_ * 0.8, y, 7.88), (x + s_ * 0.8, y, H - 0.02), 0.005, steel, verts=4)
+# your car, hung over the front lane: the hook (the game puts the car there), its four cables to the roof
+HC = empty('HANG_car', hooks, (1.0, -4.6, 5.45), kind='ARROWS', size=0.6); HC.rotation_euler = (0.12, 0.0, D90 + 0.1)
+bpy.context.view_layer.update(); HM = HC.matrix_world.copy()
+for k, p in enumerate(((-0.7, -1.7, 0.45), (0.7, -1.7, 0.45), (-0.7, 1.9, 0.95), (0.7, 1.9, 0.95))):
+    a = HM @ Vector(p); rd(f'Fl_HangCable{k}', FL, a, (a.x, a.y, H - 0.02), 0.006, steel, verts=4)
+    bx(f'Fl_HangPlate{k}', FL, (0.14, 0.14, 0.02), (a.x, a.y, H - 0.02), steel); cy(f'Fl_HangShackle{k}', FL, 0.025, 0.05, (a.x, a.y, a.z + 0.04), silver, verts=6)
+for n_, w in (('Light_Room_2', 750), ('Light_Room_7', 650)):
+    L = bpy.data.objects.get(n_)
+    if L: L.data.energy = w
+
+# ---------------------------------------------------------------------------------------------------------------------
+# upstairs: the carpet tiles worn where everyone walks (the walkway, to the doors), flattened round the desks' chairs,
+# the shadow under what stands on it (32 px a metre; the cafe's floor left for the diner)
+_t0 = time.time()
+PPM = 32; FY0 = GY - WALK_W - 0.2
+fw, fh = int((X1 - X0) * PPM), int((Y1 - FY0) * PPM)
+yy, xx = np.mgrid[0:fh, 0:fw].astype(np.float32); wx, wy = xx / PPM + X0 + 0.5 / PPM, yy / PPM + FY0 + 0.5 / PPM
+br = vnoise(fh, fw, 10) * 0.6 + 0.4
+ucol = np.ones((fh, fw, 3), np.float32) * np.array([0.26, 0.28, 0.32], np.float32)
+sim_ = (wx > 2.0) & (wy > CY1); ucol = np.where(sim_[..., None], np.array([0.16, 0.17, 0.2], np.float32), ucol)
+tx_, ty_ = np.floor(wx / 0.5), np.floor(wy / 0.5); hsh = np.sin(tx_ * 12.9898 + ty_ * 78.233) * 43758.5453
+ucol *= (1 + ((hsh - np.floor(hsh)) - 0.5) * 0.08 + ((tx_ + ty_) % 2) * 0.03)[..., None]   # (each tile its own, laid quarter-turned)
+ucol *= (1 + (rng_ := np.random.default_rng(9)).random((fh, fw))[..., None] * 0.06 - 0.03)
+seam = (np.minimum(np.mod(wx, 0.5), 0.5 - np.mod(wx, 0.5)) < 0.012) | (np.minimum(np.mod(wy, 0.5), 0.5 - np.mod(wy, 0.5)) < 0.012)
+ucol *= np.where(seam, 0.9, 1.0)[..., None]
+UPW = [([(-9.8, -7.25), (18.8, -7.25)], 1.0, 0.18), ([(-9.0, -6.5), (-9.0, 6.75)], 0.9, 0.16), ([(-9.8, 6.75), (18.8, 6.75)], 1.0, 0.16),
+       ([(-8.0, 2.0), (-8.8, 2.6), (-9.0, 3.2)], 0.8, 0.16), ([(-10.0, -2.95), (-12.0, -2.2), (-14.5, -1.2)], 0.8, 0.14), ([(-10.0, 2.25), (-12.5, 3.2), (-14.5, 5.6)], 0.8, 0.14),
+       ([(-8.4, 7.5), (-8.4, 6.75)], 0.8, 0.12), ([(3.55, 7.5), (3.55, 6.75)], 0.8, 0.12), ([(3.55, 7.5), (5.5, 11.5)], 0.7, 0.1), ([(10.85, -6.5), (10.85, -7.25)], 0.8, 0.12), ([(10.85, -6.5), (13.5, -4.8)], 0.7, 0.1)]
+uw = np.zeros((fh, fw), np.float32)
+for pts, w, k in UPW: uw = np.maximum(uw, k * np.clip(1 - path_d(pts) / (w / 2), 0, 1) ** 0.8)
+uw = np.maximum(uw, blobs(fh, fw, [((x - X0) * PPM, (y - FY0) * PPM, r_, k) for x, y, r_, k in ((-14.5, -1.0, 0.7, 0.2), (-14.5, 6.0, 0.9, 0.2), (-12.6, 5.9, 0.6, 0.16), (6.0, 12.6, 0.7, 0.15), (12.5, 12.6, 0.7, 0.15), (14.5, -5.0, 0.8, 0.15))], PPM))
+uw *= br
+stain = blobs(fh, fw, [((x - X0) * PPM, (y - FY0) * PPM, r_, k) for x, y, r_, k in ((-8.2, 6.9, 0.14, 0.35), (-8.9, 7.1, 0.08, 0.3), (-14.2, -1.3, 0.1, 0.3))], PPM)
+foot = np.zeros((fh, fw), np.float32)
+for o in shell.all_objects:
+    if o.type != 'MESH' or o.name.startswith(SKIPN) or any(m and m.surface_render_method == 'BLENDED' for m in o.data.materials): continue
+    cs = [o.matrix_world @ Vector(c) for c in o.bound_box]; z0, z1 = min(c.z for c in cs), max(c.z for c in cs)
+    if not (UZ - 0.02 < z0 < UZ + 0.12) or z1 - z0 < 0.025: continue
+    k = float(np.clip((z1 - z0) / 0.6, 0.35, 1.0))
+    i0, i1 = max(0, int((min(c.x for c in cs) - X0) * PPM)), min(fw, int((max(c.x for c in cs) - X0) * PPM) + 1)
+    j0, j1 = max(0, int((min(c.y for c in cs) - FY0) * PPM)), min(fh, int((max(c.y for c in cs) - FY0) * PPM) + 1)
+    if i1 > i0 and j1 > j0: foot[j0:j1, i0:i1] = np.maximum(foot[j0:j1, i0:i1], k)
+ushade = np.clip(blur(foot, 3) * 0.2 + blur(foot, 9) * 0.18, 0, 0.3)
+ucol = ucol * ((1 + uw * 0.55) * (1 - uw * 0.15))[..., None] + np.array([0.06, 0.06, 0.06], np.float32) * uw[..., None]   # (worn carpet: flattened, a lighter grey)
+ucol = grime(ucol, stain, np.array([0.2, 0.12, 0.06], np.float32)); ucol *= (1 - ushade)[..., None]
+up_worn = mat_img('FA_FloorUpWorn', save('fa_floor_up_worn', np.clip(ucol, 0, 1)), 0.9)
+n = 0
+for o in list(B.objects):
+    if o.type != 'MESH' or not (o.name.startswith('WALK_Up_') or o.name == 'WALK_Landing') or o.name == 'WALK_Up_Cafe': continue
+    me = o.data; me.materials.clear(); me.materials.append(up_worn); uv = me.uv_layers[0]
+    for poly_ in me.polygons:
+        for li in poly_.loop_indices:
+            v = o.matrix_world @ me.vertices[me.loops[li].vertex_index].co; uv.data[li].uv = ((v.x - X0) / (X1 - X0), (v.y - FY0) / (Y1 - FY0))
+    n += 1
+print(f'lived: upstairs floor ({fw}x{fh}) on {n} floors in {time.time() - _t0:.0f} s')

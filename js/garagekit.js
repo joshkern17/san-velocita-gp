@@ -11,6 +11,7 @@
 //   kit.stands     STAND_<role> (userData.clip: what they're doing there, userData.role)
 //   kit.interacts  INTERACT_<what> (userData.label)
 //   kit.tires      TIRES: where your tire stacks start (null without one)
+//   kit.hangs      HANG_<what>: a car hung from the roof, its underside there (the factory's atrium: yours)
 //   kit.stations   { tools: Object3D, ... } the stations set down, by facility
 //   kit.shell      the premises whose shell it is (a smaller one than asked for, when yours isn't made yet)
 //   kit.setBusy(['dyno', ...])   the stations in use: their BUSY_<key>... shown, IDLE_<key>... hidden (and the other way)
@@ -144,6 +145,7 @@ export async function loadKit(premises, stations = []) {
   const trophies = named('TROPHY_').filter(o => /^TROPHY_\d+$/.test(o.name)).sort(byName);
   const photos = named('PHOTO_').filter(o => /^PHOTO_\d+$/.test(o.name)).sort(byName).map(o => ({ pic: o, parts: named(o.name) }));
   return { group, setBusy, shell: used, bays, spawn: named('SPAWN')[0] || null, nav, stands: named('STAND_'), interacts: named('INTERACT_'), tires: named('TIRES')[0] || null, stations: set,
+    hangs: named('HANG_'), // (the factory's: your car hung from the roof, HANG_car)
     trophies, trophyNote: named('TROPHY_NOTE'), photos, scalePads: named('SCALEPAD_'), scaleReadout: named('SCALE_READOUT')[0] || null,
     // the factory's Boulevard: PLINTH_nn where a car of your career stands, PLINTH_nn_Plaque its printed plaque
     plinths: named('PLINTH_').filter(o => /^PLINTH_\d+$/.test(o.name)).sort(byName).map(o => ({ at: o, plaque: named(o.name + '_Plaque')[0] || null })) };

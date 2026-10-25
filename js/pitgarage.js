@@ -771,6 +771,13 @@ export class PitGarage {
         p.plaque.material = new THREE.MeshBasicMaterial({ map: tex, color: 0xd8d8d8 }); p.plaque.material.userData.honors = true;
       }
     });
+    // (the factory's atrium: your car hung from the roof on its cables, in your livery; the cables are the shell's)
+    for (const h of k.hangs || []) {
+      const car = buildF1({ ...base }, { texSize: 512 }), g = car.group;
+      h.getWorldPosition(g.position); h.getWorldQuaternion(q); g.quaternion.copy(q); g.updateMatrixWorld(true);
+      if (car.shadow) car.shadow.visible = false;
+      G.add(g);
+    }
     const seasons = (m && m.seasons) || [];
     (k.photos || []).forEach((ph, i) => {
       const s = seasons[i]; for (const o of ph.parts) o.visible = !!s;
