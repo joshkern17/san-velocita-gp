@@ -1,0 +1,27 @@
+<!doctype html><meta charset="utf-8"><base href="/"><title>launch set probe</title>
+<script type="importmap">{ "imports": { "three": "/vendor/three.module.min.js", "postprocessing": "/vendor/postprocessing/index.js" } }</script>
+<pre id="out">running</pre>
+<script type="module">
+// dev: the season launch's set placed into the unit's kit with stand-ins for the garage and the career (no renderer,
+// no game): what Launch.place() finds and does.   open via serve.py: /.devtest/launch/setprobe.html
+const log = []; const out = (s) => { log.push(s); document.getElementById('out').textContent = log.join('\n'); };
+window.addEventListener('error', e => out('ERROR ' + e.message));
+try {
+  const THREE = await import('three');
+  const GK = await import('/js/garagekit.js');
+  const kit = await GK.loadKit('unit', []); out('kit ' + (kit ? kit.shell : 'null'));
+  const { Launch } = await import('/js/launch.js');
+  const w = { year: 2027, player: { series: 'street', team: 'T', name: 'Joshua Shuttleworth' }, teams: { T: { name: 'Shuttlecock Motors', drivers: ['P'] } }, deals: [], series: {} };
+  const pg = { kit, scene: new THREE.Scene(), carOff: false, showCar(on) { this.carOff = !on; out('showCar ' + on); }, homeCrew: null, cine(p) { out('cine ' + p.fov); } };
+  const L = new Launch(document.createElement('div'), { world: () => w, pg, team: () => ({ name: 'Shuttlecock Motors', main: 0x5c4638, accent: 0xf4ecd6 }),
+    me: () => ({ name: 'J. Shuttleworth', first: 'Joshua', role: 'Owner / Driver' }), mate: () => null, sfx() {}, save() {}, done() {} });
+  out('EVENT_AT ' + JSON.stringify(GK.EVENT_AT) + ' shell ' + kit.shell);
+  const raw = await GK.loadPiece('event_launch'); out('loadPiece -> ' + (raw ? raw.type + ' children ' + raw.children.length : String(raw)));
+  out('launch.js has warn: ' + /no room for the set/.test(await (await fetch('/js/launch.js')).text()));
+  const set = await L.placeSet(); out('set ' + !!set);
+  if (set) { const H = L.hooks; out('hooks ' + Object.keys(H).filter(k => /^(LAUNCH|CAM)_/.test(k)).length + ': ' + Object.keys(H).filter(k => /^CAM_/.test(k)).join(' '));
+    const c = H.CAM_launch_qa; out('qa cam userData ' + JSON.stringify(c && c.userData)); const p = new THREE.Vector3(); H.LAUNCH_CAR.getWorldPosition(p); out('car spot ' + p.toArray().map(v => v.toFixed(2)).join(','));
+    let lights = 0; set.traverse(o => { if (o.isLight) lights++; }); out('lights ' + lights); }
+} catch (e) { out('THROWN ' + (e.stack || e)); }
+out('DONE');
+</script>

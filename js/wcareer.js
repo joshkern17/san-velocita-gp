@@ -1,4 +1,5 @@
 import { roundPress, digestRace } from './wpress.js';
+import { pressQuestions, promiseText } from './wpressday.js';
 // World Career: a persistent motorsport world that keeps going whether or not you race in it.
 // Three series (Street Cup -> GT Championship -> Formula SV), six teams of two in each, every driver a person with
 // an age, stats that grow and fade, a career history and a record against you. Your races are real; the other series'
@@ -848,6 +849,7 @@ function afterRound(w, me) {
   for (const s of SERIES) if (s.id !== w.player.series) { const rows = simRace(w, s.id); scoreRound(w, s.id, rows); }
   roundNews(w, me);
   ballastRound(w, me);
+  settlePromises(w, me);
   w.round++;
   if (w.round >= w.opts.len) seasonEnd(w);
   return { me, over: w.round >= w.opts.len };
@@ -877,6 +879,7 @@ function seasonEnd(w) {
     });
   }
   w.seasons.push(summary);
+  settlePromises(w, null, true);
   // the prize funds, the drivers' and the teams', by championship position: one email from the series office
   const S0 = seriesById(w.player.series), fund = fundOf(w, w.player.series), me = summary.you;
   const tpos = teamStandings(w, w.player.series).findIndex(e => e.tid === w.player.team) + 1, tfund = teamFundOf(w, w.player.series);
@@ -1465,6 +1468,7 @@ export function setupBudget(w) {
 }
 // do it all: the entry, the car, the sponsor, the driver, then the Wire hears about it
 export function setupApply(w) {
+  if (w.setup) w.setup.newCar = setupKind(w) !== 'season' || w.setup.picks.car != null; // (for press day: a new car under the sheet)
   if (setupKind(w) === 'season') return seasonApply(w);
   const S = w.setup, P = S.picks; if (!S || S.done) return { ok: false, why: 'Already done.' };
   if (!P.entry || (P.entry === 'fresh' && !P.car && !w.car) || P.sponsor == null || !P.mate) return { ok: false, why: 'Something is still to choose.' };
@@ -3293,6 +3297,90 @@ function adviser(w) {
   else if (r < 5) say('r5', [`Just keeping an eye on things. You're spending about ${money$(roundBurn(w))} a round more than comes in, which gives you around ${Math.floor(r)} rounds.`, `Let me know if you want to talk about a budget.`, `Gerald`]);
 }
 export const pressOf = (w) => w.press || 0;
+
+// ---------------- press day: the season launch (js/wpressday.js has the questions) ----------------
+// At the start of every season, once the setup's signed: three questions in front of the press in your garage, and the
+// car's reveal after (js/launch.js). w.pressDay: { year, qs, answers: [answer index], quotes, done }. What an answer
+// does is shown on it before you choose (pressFxTags); a promise goes in w.promises and the Wire holds you to it
+// (settlePromises: after each round, and at the season's end).
+const COOP_STAKE = { car: ['sold your car to buy in', 'car money'], house: ['remortgaged your house for this', 'house'], boss: ['got your boss to back you', 'job'] };
+function pressContext(w) {
+  const S = seriesById(w.player.series), last = w.seasons.at(-1), you = last && last.you && last.you.y === w.year - 1 ? last.you : null;
+  const cal = w.series[w.player.series].cal, hr = Math.min(cal.length - 1, Math.floor(cal.length / 2)), title = dealsOf(w).find(d => d.slot === 'title'), sp = title && sponsorById(title.sid);
+  const field = w.series[w.player.series].teams.reduce((a, t) => a + w.teams[t].drivers.length, 0) || 12;
+  const rv = w.coop ? null : rivalOwner(w), C = w.coop && coopPerson(w), stake = w.coop ? COOP_STAKE[w.coop.kind] || ['bought in with what the paperwork calls talent', 'reputation'] : null;
+  return { series: S.name, movedUp: !!(you && you.s !== w.player.series), fromSeries: you ? seriesById(you.s)?.name : '', lastPos: you ? you.pos : 0, topHalf: Math.ceil(field / 2),
+    newCar: !!w.setup?.newCar, car: w.car?.name || 'car', homeRound: hr, homeTrack: cal[hr]?.name || 'the next round',
+    coop: !!C, coopFirst: C?.first, coopStake: stake?.[0], coopStakeThing: stake?.[1], youFirst: w.player.name.split(' ')[0],
+    rivalName: rv ? rv.name.join(' ') : '', rivalTeam: rv ? w.teams[rv.tid]?.name : '', rivalTid: rv?.tid,
+    sponsor: sp?.name || '', sponsorWantsResults: !!(sp && sp.wants.some(k => k === 'top' || k === 'lead')) };
+}
+export const pressDue = (w) => !!(w.founding?.reg && setupDone(w) && w.car && !w.over && w.round === 0 && !w.preview && !(w.pressDay && w.pressDay.year === w.year && w.pressDay.done));
+export function pressDayOf(w) {
+  if (!w.pressDay || w.pressDay.year !== w.year) w.pressDay = { year: w.year, qs: pressQuestions(pressContext(w)), answers: [], quotes: [], done: false, crowd: pressCrowd(w) };
+  return w.pressDay;
+}
+// what saying it does, as the tags on the answer: [{ text, good }]
+export function pressFxTags(w, a) {
+  const f = a.fx || {}, out = [], sg = (v) => (v > 0 ? '+' : '−') + Math.abs(v);
+  const title = dealsOf(w).find(d => d.slot === 'title') || dealsOf(w)[0], spn = title ? sponsorName(title.sid) : '';
+  if (f.rep) out.push({ text: `Reputation ${sg(f.rep)}`, good: f.rep > 0 });
+  if (f.press) out.push({ text: `Press ${sg(f.press)}`, good: f.press > 0 });
+  if (f.sponsor && spn) out.push({ text: f.sponsor > 0 ? `${spn} likes this` : `${spn} won't like it`, good: f.sponsor > 0 });
+  if (f.mate && mateOf(w)) out.push({ text: `${w.people[mateOf(w).pid]?.first || 'Teammate'} ${f.mate > 0 ? 'likes this' : 'takes it personally'}`, good: f.mate > 0 });
+  if (f.drep) out.push({ text: 'Drivers hear about it', good: false });
+  if (f.rival && w.rival) out.push({ text: `${w.rival.name[0]} ${w.rival.name[1]} will reply`, good: false });
+  if (a.promise) out.push({ text: `Promise: ${promiseText(a.promise)}`, promise: true });
+  return out;
+}
+export function answerPress(w, qi, ai) {
+  const D = pressDayOf(w), q = D.qs[qi], a = q && q.answers[ai]; if (!a || D.answers[qi] != null) return null;
+  D.answers[qi] = ai; D.quotes[qi] = a.text;
+  const f = a.fx || {};
+  if (f.rep) w.rep = clamp(repOf(w) + f.rep, 0, 100);
+  if (f.press) w.press = pressOf(w) + f.press;
+  if (f.sponsor) { const d = dealsOf(w).find(x => x.slot === 'title') || dealsOf(w)[0]; if (d) d.patience = clamp(patienceOf(d) + f.sponsor, 1, 9); }
+  if (f.mate) { const m = mateOf(w); if (m) m.morale = clamp((m.morale ?? 65) + f.mate, 0, 100); }
+  if (f.drep) w.drep = clamp(drepOf(w) + f.drep, 0, 100);
+  if (f.rival && w.rival) w.rival.heat = (w.rival.heat || 0) + f.rival;
+  if (a.promise) (w.promises ??= []).push({ ...a.promise, year: w.year, said: a.text, by: q.to, done: null });
+  return { quote: a.text, tags: pressFxTags(w, a) };
+}
+// the day done (pressDayDone): the Wire runs it (the boldest thing said is the headline), and the rival owner answers back
+export function pressDayDone(w) {
+  const D = pressDayOf(w); if (D.done) return; D.done = true;
+  const T = myTeam(w), pick = D.qs.map((q, i) => ({ q, a: q.answers[D.answers[i]] })).filter(x => x.a);
+  const lead = pick.find(x => x.a.promise) || pick.find(x => x.a.tone === 'Cheeky') || pick[0];
+  if (lead) news(w, `${T.name.toUpperCase()}: "${lead.a.text.toUpperCase().replace(/\.$/, '')}"`, `${lead.q.to === 'C' && coopPerson(w) ? nameOf(coopPerson(w)) : w.player.name} said it at the team's season launch, in front of ${D.crowd || pressCrowd(w)} members of the press and a box of donuts.${pick.filter(x => x !== lead).slice(0, 1).map(x => ` Also said: "${x.a.text}"`).join('')}`);
+  if (w.rival && w.rival.heat > 0 && w.teams[w.rival.tid]) mail(w, w.rival.name.join(' '), rivalAddr(w), 'Your little press conference',
+    [`I read the Wire this morning. Twice, to be sure I understood.`, w.rival.heat > 1 ? `Charming. I'll have it framed for the garage, next to our trophies. There's room, unlike yours.` : `Brave words. We'll see where they leave you in October.`, w.rival.name[0]]);
+}
+// how many came: a club team gets the local paper and a man with a camera; it grows with the team's name
+export const pressCrowd = (w) => clamp(Math.round(3 + pressOf(w) * 0.4 + repOf(w) / 12 + (seriesById(w.player.series)?.tier || 1)), 4, 18);
+// promises, kept or broken: a podium at a round (that round), podiums and a win (the moment they happen, or not by the
+// season's end), the championship and the head-to-heads (at the season's end)
+function settlePromises(w, me, end = false) {
+  const open = (w.promises || []).filter(p => p.year === w.year && p.done == null); if (!open.length) return;
+  const sid = w.player.series, st = standings(w, sid), pos = (pid) => st.findIndex(e => e.pid === pid) + 1, my = st.find(e => e.pid === 'P');
+  const T = myTeam(w).name.toUpperCase();
+  const settle = (p, kept) => {
+    p.done = kept ? 'kept' : 'broken';
+    w.rep = clamp(repOf(w) + (kept ? 3 : -2), 0, 100); w.press = pressOf(w) + (kept ? 2 : -1);
+    news(w, kept ? `${T} KEPT ITS WORD` : `${T}: SO MUCH FOR THAT`, kept ? `At the launch it was "${p.said}" ${promiseText(p)}: done.` : `At the launch it was "${p.said}" The Wire would like to remind everyone it wrote that down.`);
+  };
+  for (const p of open) {
+    if (p.kind === 'podium_at' && !end && w.round === p.round) settle(p, !!(me && !me.dnf && me.pos <= 3));
+    else if (p.kind === 'podiums' && my && my.pods >= p.n) settle(p, true);
+    else if (p.kind === 'win' && my && my.wins > 0) settle(p, true);
+    else if (end) {
+      if (p.kind === 'finish') settle(p, pos('P') > 0 && pos('P') <= p.pos);
+      else if (p.kind === 'beat_mate') { const c = w.coop?.pid; settle(p, !!c && pos(c) > 0 && pos(c) < pos('P')); }
+      else if (p.kind === 'beat_team') { const ts = teamStandings(w, sid).map(e => e.tid); settle(p, ts.indexOf(w.player.team) >= 0 && ts.indexOf(w.player.team) < ts.indexOf(p.tid)); }
+      else settle(p, false);   // (podiums, a win, the round that's gone: not done)
+    }
+  }
+}
+export const promisesOf = (w) => (w.promises || []).filter(p => p.year === w.year);
 // the old-money owner of a rival team: one per career, made when first needed
 function rivalOwner(w) {
   if (w.rival && w.teams[w.rival.tid]?.series === w.player.series) return w.rival;

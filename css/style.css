@@ -3045,3 +3045,38 @@ span.tsw-face { width: 64px; height: 64px; }
 #s-livery:not(.placing) .lv-side { animation: sv-fade-in .2s ease-out; }
 .ed-toast.on, .lv-toast.on { animation: sv-wipe-in .22s var(--ease) backwards; }
 @media (prefers-reduced-motion: reduce) { .wipe-in, .menu .item .vt.bump, .ed-modal, .ed-modal-box, .ed-tab, .lv-place, .lv-side, .ed-toast, .lv-toast { animation: none !important; } }
+
+/* ---------- press day (js/launch.js): the season launch over the garage; the scene shows through ---------- */
+.tsw.pd { z-index: 2; }
+.pd-vig { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(4,3,8,.7) 0, rgba(4,3,8,0) 22%, rgba(4,3,8,0) 48%, rgba(4,3,8,.86) 100%); }
+.pd-head h1 { font-size: 64px; }
+.pd-count { position: absolute; right: var(--edge); top: calc(4% + 10px); font: 500 var(--t-caption)/1 var(--f-ui); letter-spacing: var(--track-caption); text-transform: uppercase; font-variant-numeric: tabular-nums; text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+/* the question: a lower third, the reporter over it */
+.pd-q { position: absolute; left: var(--edge); right: var(--edge); bottom: calc(96px + 31% + 22px); }   /* (over the answers, however many lines it runs to) */
+.pd-q[hidden], .pd-ans[hidden], .pd-say[hidden], .pd-wire[hidden] { display: none; }
+.pd-q small { display: block; font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red-dim); margin-bottom: var(--s3); }
+.pd-q h2 { max-width: 30em; font: 500 34px/1.12 var(--f-ui); letter-spacing: var(--track); color: var(--sv-hot); }
+/* the three answers: columns, a bracket on the one you're on (it fades across, never slides) */
+.pd-ans { position: absolute; left: var(--edge); right: var(--edge); bottom: 96px; height: 31%; display: grid; grid-template-columns: repeat(3, 1fr); background: var(--sv-plate); }
+.pd-a { position: relative; display: flex; flex-direction: column; gap: var(--s3); padding: 20px 26px 16px 28px; min-width: 0; cursor: pointer; opacity: .55; transition: opacity var(--m-med); }
+.pd-a + .pd-a::before { content: ''; position: absolute; left: 0; top: 18px; bottom: 18px; width: 1px; background: var(--sv-red-faint); }
+.pd-a.on { opacity: 1; }
+.pd-a p { font: 500 22px/1.2 var(--f-ui); letter-spacing: var(--track); color: var(--sv-red); }
+.pd-a.on p { color: var(--sv-amber); }
+.pd-tags { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: auto; }
+.tsw-tag.pd-promise { color: var(--sv-amber); }
+/* what was said: a subtitle, who said it over it, what it did under it */
+.pd-say { position: absolute; left: var(--edge); right: var(--edge); bottom: 112px; text-align: center; }
+.pd-say small { display: block; font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red-dim); margin-bottom: var(--s3); }
+.pd-say p { max-width: 34em; margin: 0 auto; font: 500 30px/1.18 var(--f-ui); letter-spacing: var(--track); color: var(--sv-paper); text-shadow: var(--sv-glow-ink), var(--sv-glow); -webkit-text-fill-color: currentColor; }
+.pd-say .pd-tags { justify-content: center; margin-top: var(--s4); }
+/* the Wire's headline */
+.pd-wire { position: absolute; left: var(--edge); right: var(--edge); bottom: 112px; padding: 22px 28px; background: var(--sv-plate); border-top: 2px solid var(--sv-red); }
+.pd-wire small { display: block; font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; margin-bottom: var(--s3); }
+.pd-wire h2 { font: 700 34px/1.05 var(--f-display); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-hot); }
+.pd-wire p { margin-top: var(--s3); max-width: 60em; font: 500 var(--t-body)/1.45 var(--f-ui); color: var(--sv-red); }
+.pd-foot { position: absolute; right: var(--edge); bottom: 0; height: 76px; display: flex; align-items: center; }
+.pd-hint { font: 500 var(--t-caption)/1 var(--f-ui); letter-spacing: var(--track-caption); text-transform: uppercase; }
+.pd-hint b { color: var(--sv-amber); }
+.pd-wipe { animation: tsw-wipe .5s var(--ease) both; }
+@media (prefers-reduced-motion: reduce) { .pd-wipe { animation: none; } }
