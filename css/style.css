@@ -2087,6 +2087,7 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .wk-map { flex: none; width: 108px; height: 79px; }
 .wk-tg .br-row span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wk-tg .br-row.story b { color: var(--sv-amber); } /* (a storyline: who it's about) */
+.wk-tg .br-row.promise b { color: var(--sv-amber); } /* (something you said at the season launch) */
 .wk-tg { flex: 1; min-width: 0; }
 .wk-track { font: 700 26px/1 var(--f-display); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-hot); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wk-cond { margin: 5px 0 var(--s2); font: 500 var(--t-small)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-cyan); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }

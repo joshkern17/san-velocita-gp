@@ -536,7 +536,12 @@ export class Computer {
     const rows = wk.rows.map(r => `<tr class="${r.isPlayer ? 'wk-me' : r.name && mateName && r.name.toUpperCase().includes(mateName.toUpperCase()) ? 'wk-mate' : ''}"><td class="r">${r.pos}</td><td><i class="wk-sw" style="background:${hex(r.color)}"></i>${esc(r.isPlayer ? w.player.name : r.name)}</td><td>${esc(r.isPlayer ? w.teams[w.player.team].name : r.team || '')}</td><td class="r">${this.lapT(r.best)}</td><td class="r">${r.pos === 1 || !isFinite(r.best) ? '' : '+' + r.gap.toFixed(3)}</td></tr>`).join('');
     return `<div class="tm tx-page">${pageHead('overview', wk.kind === 'practice' ? 'Practice' : 'Qualifying', wk.kind === 'practice' ? 'Find the setup, learn the place. Qualifying is next.' : 'Your best lap sets your grid slot.')}
       <div class="tx-kpis">${kpi('Position', me ? `${me.pos}<small>/${wk.rows.length}</small>` : '&mdash;')}${kpi('Best lap', me ? this.lapT(me.best) : '&mdash;')}${kpi(wk.kind === 'practice' ? 'To the fastest' : 'To pole', me && me.pos > 1 && isFinite(me.best) ? '+' + me.gap.toFixed(3) : '&mdash;')}${kpi('Spent this weekend', WC.money$(wk.spend || 0), 'fuel, tires, repairs')}</div>
-      ${panel('Timing', `<table class="pc-tbl wk-tbl"><tr><th class="r">POS</th><th>DRIVER</th><th>TEAM</th><th class="r">BEST</th><th class="r">GAP</th></tr>${rows}</table>`, 'live')}</div>`;
+      ${panel('Timing', `<table class="pc-tbl wk-tbl"><tr><th class="r">POS</th><th>DRIVER</th><th>TEAM</th><th class="r">BEST</th><th class="r">GAP</th></tr>${rows}</table>`, 'live')}${this.wkPromises()}</div>`;
+  }
+  // what was said at the season launch, and where it stands (this weekend's on top)
+  wkPromises() {
+    const pr = WC.promisesOf(this.w).map(p => WC.promiseNow(this.w, p)).sort((a, b) => !!b.here - !!a.here); if (!pr.length) return '';
+    return panel('At the launch', pr.map(n => `<div class="tx-tg"><div><small>${esc(n.who ? `${n.who} promised` : 'You promised')}</small><span>${esc(n.text)}</span></div><b class="${n.state === 'kept' ? 'pos' : n.state === 'broken' || n.state === 'off' ? 'neg' : ''}">${esc(n.now)}</b></div>`).join(''), 'the Wire wrote it down');
   }
   wk_weather(wk, R) {
     const w = this.w, fc = WC.forecastOf(w, R), wets = WC.stockOf(w).wet, c = fc && fc.chance || 0;

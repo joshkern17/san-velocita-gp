@@ -3404,7 +3404,9 @@ function renderWeekStrip() {
   }).join('');
   // (the storyline that's live in this race, first, in a line: the targets make room for it)
   const SL = WC.storyLine(w), sl = SL ? `<div class="br-row tg story"><span><b>${SL.who}:</b> ${SL.text}</span></div>` : '';
-  const B = WC.briefing(w), tg = sl + B.targets.slice(0, SL ? 2 : 3).map(t => `<div class="br-row tg"><span><b>${t.who}:</b> ${t.text.charAt(0).toLowerCase() + t.text.slice(1)}</span>${t.amt ? `<em>+${WC.money$(t.amt)}</em>` : ''}</div>`).join('');
+  // (and one thing you promised at the launch, always: this weekend's, else one you're behind on, else the first)
+  const B = WC.briefing(w), prs = B.targets.filter(t => t.promise), pr = prs.find((t, i) => i === 0 && B.targets[0] === t) || prs.find(t => t.off) || prs[0];
+  const tg = sl + [...(pr ? [pr] : []), ...B.targets.filter(t => !t.promise).slice(0, (SL ? 2 : 3) - (pr ? 1 : 0))].map(t => `<div class="br-row tg${t.promise ? ' promise' : ''}"><span><b>${t.who}:</b> ${t.text.charAt(0).toLowerCase() + t.text.slice(1)}</span>${t.amt ? `<em>+${WC.money$(t.amt)}</em>` : ''}</div>`).join('');
   const tr = findCalTrack(R.name), T = tr ? hubTrackT(tr) : null, km = T ? (trackStats(T).length / 1000).toFixed(1) : null;
   el.innerHTML = `<div class="wk-head"><span>The week before round ${w.round + 1} of ${w.opts.len}</span><b>${left ? `${left} day${left === 1 ? '' : 's'} left${wk.booked ? `, ${wk.booked} booked` : ''}` : 'Race day next'}</b></div>
     <div class="wk-days">${days}<div class="wk-day race"><small>Sat</small><b>Race</b><em>Round ${w.round + 1}</em></div></div>
@@ -4028,6 +4030,7 @@ function worldRoundDone(retired = false) {
     ${goal ? (() => { const met = me && !me.dnf && scored.rows.filter(r => WC.teamOfPid(w, r.pid) === goal.tid).every(r => r.dnf || r.pos > me.pos); return `<div class="row"><span>${goal.text}</span><span class="${met ? 'ok' : 'bad'}">${met ? 'DONE' : 'NOT DONE'}</span></div>`; })() : ''}
     ${out.bill ? `<div class="row"><span>The weekend</span><span class="${out.bill.net < 0 ? 'bad' : 'ok'}">${out.bill.net > 0 ? '+' : ''}${WC.money$(out.bill.net)}</span></div><div class="row"><span>Bank balance</span><span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span></div>` : ''}
     ${WC.listFresh(w).filter(k => WC.RUNGS[k] && w.list.done[k]?.r >= round && w.list.done[k]?.y === w.year).map(k => `<div class="row"><span>Crossed off the list</span><span class="ok">${WC.RUNGS[k].text(w)}</span></div>`).join('')}
+    ${promiseRows(w, round)}
     ${n ? `<div class="row"><span>Phone</span><span>${n} new</span></div>` : ''}`;
   if (coop && coop.host && coop.peer && sim.net) coop.net.sendTo(coop.peer, { t: 'cround', round, tg, res: res.map(r => ({ ...slimRow(r), pid: r.isPlayer ? 'P' : r.pid || null })), net: out.bill ? out.bill.net : null, w });
   menus['s-round'][0].setItems([{ label: out.over ? 'Season Review' : 'Continue', cls: 'action primary', action: () => openHub() }]);
@@ -4185,6 +4188,12 @@ function sitOutItem(w, only) {
   return { label: `Sit Out Round ${w.round + 1}<small>SAVES ${$(q.saves)}</small>`, cls: only ? 'action primary' : '', confirm: 'Sit it out? Select again', action: () => sitOutRound(),
     desc: `${only ? 'No race car. ' : ''}Saves <b>${$(q.saves)}</b> (entry, travel, crew, fuel).${q.loses ? ` Sponsors pay nothing (<b>&minus;${$(q.loses)}</b>) and count a miss.` : ''} No points. Rent, payroll and loans still go out.` };
 }
+// what you promised at the season launch, on a round's results: the ones this round settled (kept, broken), and where
+// the rest stand now (the last round's: the season's verdict on all of them)
+function promiseRows(w, round) {
+  return WC.promisesOf(w).filter(p => !p.done || p.at === round).map(p => { const n = WC.promiseNow(w, p);
+    return `<div class="row promise"><span>${n.who || 'You'} promised: ${n.text.charAt(0).toLowerCase() + n.text.slice(1)}</span><span class="${n.state === 'kept' ? 'ok' : n.state === 'broken' || n.state === 'off' ? 'bad' : ''}">${n.state === 'kept' ? 'KEPT' : n.state === 'broken' ? 'BROKEN' : n.now.toUpperCase()}</span></div>`; }).join('');
+}
 function sitOutRound() {
   const w = world, sid = w.player.series, out = WC.sitOut(w); if (!out) return;
   saveWorld();
@@ -4200,6 +4209,7 @@ function sitOutRound() {
     <div class="row"><span>Championship</span><span>${cp ? `${ord(cp)} &middot; ${st[cp - 1].pts} pts` : '&mdash;'}</span></div>
     <div class="row"><span>The weekend</span><span class="${out.bill.net < 0 ? 'bad' : 'ok'}">${out.bill.net > 0 ? '+' : ''}${WC.money$(out.bill.net)}</span></div>
     <div class="row"><span>Bank balance</span><span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span></div>
+    ${promiseRows(w, out.round)}
     ${n ? `<div class="row"><span>Phone</span><span>${n} new</span></div>` : ''}`;
   menus['s-round'][0].setItems([{ label: out.over ? 'Season Review' : 'Continue', cls: 'action primary', action: () => openHub() }]);
   fadeTo(() => show('s-round'), 200);

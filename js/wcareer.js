@@ -880,6 +880,10 @@ function seasonEnd(w) {
   }
   w.seasons.push(summary);
   settlePromises(w, null, true);
+  // the Wire's report card on what was said at the launch
+  { const pr = promisesOf(w), k = pr.filter(p => p.done === 'kept').length, T = myTeam(w).name;
+    const said = (p) => { const n = promiseNow(w, p); return n.who ? `${n.text} (${n.who})` : n.text; }, K = pr.filter(p => p.done === 'kept').map(said), B = pr.filter(p => p.done !== 'kept').map(said);
+    if (pr.length) news(w, `REPORT CARD: ${T.toUpperCase()} KEPT ${k} OF ${pr.length}`, `What ${T} said it would do at the ${w.year} season launch, and what it did. ${K.length ? `Kept: ${K.join('; ')}.` : ''} ${B.length ? `Broken: ${B.join('; ')}.` : ''} ${k === pr.length ? 'All of it. The Wire is as surprised as you are.' : !k ? 'None of it. The Wire has the tape.' : 'The Wire will be bringing the rest up next year.'}`.replace(/\s+/g, ' ')); }
   // the prize funds, the drivers' and the teams', by championship position: one email from the series office
   const S0 = seriesById(w.player.series), fund = fundOf(w, w.player.series), me = summary.you;
   const tpos = teamStandings(w, w.player.series).findIndex(e => e.tid === w.player.team) + 1, tfund = teamFundOf(w, w.player.series);
@@ -3381,7 +3385,7 @@ function settlePromises(w, me, end = false) {
   const sid = w.player.series, st = standings(w, sid), pos = (pid) => st.findIndex(e => e.pid === pid) + 1, my = st.find(e => e.pid === 'P');
   const T = myTeam(w).name.toUpperCase();
   const settle = (p, kept) => {
-    p.done = kept ? 'kept' : 'broken';
+    p.done = kept ? 'kept' : 'broken'; p.at = end ? w.round - 1 : w.round;   // (the round it was settled after, the last at the season's end: the results screen says so)
     w.rep = clamp(repOf(w) + (kept ? 3 : -2), 0, 100); w.press = pressOf(w) + (kept ? 2 : -1);
     news(w, kept ? `${T} KEPT ITS WORD` : `${T}: SO MUCH FOR THAT`, kept ? `At the launch it was "${p.said}" ${promiseText(p)}: done.` : `At the launch it was "${p.said}" The Wire would like to remind everyone it wrote that down.`);
   };
@@ -3398,6 +3402,25 @@ function settlePromises(w, me, end = false) {
   }
 }
 export const promisesOf = (w) => (w.promises || []).filter(p => p.year === w.year);
+// where a promise stands now, as the garage and the results show it: { text, state: 'kept' | 'broken' | 'on' (on course,
+// or nothing to say yet) | 'off' (behind it), now: the numbers in a few words, here: it's this round's }
+export function promiseNow(w, p) {
+  const co = p.by === 'C' && w.coop && w.people[w.coop.pid], who = co ? co.first : null;   // (the co-owner's own: beating you)
+  const text = co && p.kind === 'beat_mate' ? `Finish ahead of ${w.player.name.split(' ')[0]}` : promiseText(p), r = promiseNow2(w, p, text);
+  return { ...r, who };
+}
+function promiseNow2(w, p, text) {
+  if (p.done) return { text, state: p.done, now: p.done === 'kept' ? 'Kept' : 'Broken' };
+  const sid = w.player.series, st = standings(w, sid), pos = (pid) => st.findIndex(e => e.pid === pid) + 1, my = st.find(e => e.pid === 'P'), raced = w.series[sid].results.length > 0;
+  if (p.kind === 'podium_at') return { text, state: 'on', now: w.round === p.round ? 'This weekend' : `Round ${p.round + 1}`, here: w.round === p.round };
+  if (p.kind === 'podiums') return { text, state: 'on', now: `${my ? my.pods : 0} of ${p.n} so far` };
+  if (p.kind === 'win') return { text, state: 'on', now: 'Not yet' };
+  if (!raced) return { text, state: 'on', now: 'No races yet' };
+  if (p.kind === 'finish') { const n = pos('P'); return { text, state: n > 0 && n <= p.pos ? 'on' : 'off', now: `P${n} now` }; }
+  if (p.kind === 'beat_mate') { const c = w.coop?.pid, a = pos('P'), b = c ? pos(c) : 0; return { text, state: b > 0 && b < a ? 'on' : 'off', now: b > 0 && b < a ? 'Ahead now' : 'Behind now' }; }
+  if (p.kind === 'beat_team') { const ts = teamStandings(w, sid).map(e => e.tid), a = ts.indexOf(w.player.team), b = ts.indexOf(p.tid); return { text, state: a >= 0 && a < b ? 'on' : 'off', now: a >= 0 && a < b ? 'Ahead now' : 'Behind now' }; }
+  return { text, state: 'on', now: '' };
+}
 // the old-money owner of a rival team: one per career, made when first needed
 function rivalOwner(w) {
   if (w.rival && w.teams[w.rival.tid]?.series === w.player.series) return w.rival;
@@ -3583,6 +3606,8 @@ export function briefing(w) {
     if (raced && i > 0) { const gap = st[i - 1].pts - st[i].pts; targets.push({ text: gap ? `Close the ${gap}-point gap to P${i}` : `Get ahead of P${i}: you're level on points`, who: 'Championship' }); }
     else if (raced && i === 0 && st[1]) targets.push({ text: `Stay ahead: P2 is ${st[0].pts - st[1].pts} point${st[0].pts - st[1].pts === 1 ? '' : 's'} behind`, who: 'Championship' });
     for (const x of bookedGigs(w)) targets.push({ text: `Drive the ${GIG_KINDS[x.kind].name.toLowerCase()} you booked`, who: x.client });
+    // (what you said at the launch: the one for this weekend first of all)
+    for (const p of promisesOf(w).filter(p => !p.done)) { const n = promiseNow(w, p), t = { text: `${n.text}${n.now && !n.here ? ` (${n.now})` : ''}`, who: n.who ? `${n.who} promised` : 'You promised', promise: true, off: n.state === 'off' }; if (n.here) targets.unshift(t); else targets.push(t); }
   }
   // what's going wrong (worst first)
   const fz = finances(w), r = fz && fz.net < 0 ? fz.runway : 99, cost = w.over ? 0 : weekendCost(w);
@@ -4911,7 +4936,7 @@ export function storyLine(w) {
   if (tf) { const st = standings(w, sid), a = st[0], b = st[1]; if (a && b) return { who: 'Title fight', text: `${lastName(w, a.pid)} leads ${lastName(w, b.pid)} by ${a.pts - b.pts}`, story: tf.id }; }
   if (live) { const p = w.people[live.pid];
     const rs = S.results.slice(-4), ahead = rs.filter(x => { const a = x.rows.find(y => y.pid === 'P'), b = x.rows.find(y => y.pid === live.pid); return a && b && !b.dnf && (a.dnf || b.pos < a.pos); }).length;
-    return { who: live.kind === 'streak' ? 'Storyline' : p.last, text: { nemesis: `just ahead of you in ${ahead} of the last ${rs.length} races`, revenge: `${live.did || 'hit you'} at ${live.beats[0].track}`, mate: `your teammate, ahead of you in ${ahead} of the last ${rs.length}`, away: `the one you passed on`, two: `car two, ${carLean(w)} upgrades behind yours`, streak: live.beats.at(-1).t }[live.kind] || live.head, story: live.id }; }
+    return { who: live.kind === 'streak' ? 'Storyline' : p.last, text: { nemesis: rs.length ? `just ahead of you in ${ahead} of the last ${rs.length} races` : 'just ahead of you all last season', revenge: `${live.did || 'hit you'} at ${live.beats[0].track}`, mate: rs.length ? `your teammate, ahead of you in ${ahead} of the last ${rs.length}` : 'your teammate, and the one to beat', away: `the one you passed on`, two: `car two, ${carLean(w)} upgrades behind yours`, streak: live.beats.at(-1).t }[live.kind] || live.head, story: live.id }; }
   const been = (w.trackLog || {})[next?.name]?.at(-1);
   if (been && (been.dnf || been.pos === 1)) return { who: next.name, text: been.dnf ? `you didn't finish here in ${been.y}` : `you won here in ${been.y}` };
   return null;
