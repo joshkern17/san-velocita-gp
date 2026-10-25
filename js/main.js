@@ -701,7 +701,7 @@ const designer = new LiveryDesigner({
   locked: () => !!garageSwap, // (the World Career: the team's name and its title sponsor are set by the career)
   menu: new Menu($('m-livery'), [], { desc: 'd-livery', onMove: (it) => designer.onRow(it) }),
   hints: () => { if (screen === 's-livery') renderHints(); }, sponsors: SPONSORS,
-  onDone: () => { saveSettings(); clearEdges(); show('s-garage'); menus['s-garage'][0].render(); }, // (clearEdges: the Esc / B that closed it doesn't also leave the Garage)
+  onDone: () => { saveSettings(); clearEdges(); if (paintSetup) return paintSetupDone(); show('s-garage'); menus['s-garage'][0].render(); }, // (the season setup's livery step: back to the setup) // (clearEdges: the Esc / B that closed it doesn't also leave the Garage)
   save: () => saveSettingsSoon(),
 });
 menus['s-livery'] = [designer.menu];
@@ -2352,6 +2352,8 @@ function warmPortraits(w) {
 // the Team Setup Wizard: game UI over the garage (js/teamsetup.js)
 const tsw = new TeamSetup($('tsw'), {
   world: () => world,
+  paint: (chassis) => paintForSetup(chassis),
+  lookPhoto: (chassis) => { const k = `${chassis}:${lookPhotoV}`; if (!lookPhotos.has(k)) { let src = null; try { src = carPhoto(lookFor(chassis), 7); } catch (e) {} lookPhotos.set(k, src); } return lookPhotos.get(k); },
   sfx: (k) => sfx[k] && sfx[k](),
   toast: (m) => toast(m, 4000),
   save: () => { saveWorld(); renderHints(); },
@@ -2367,6 +2369,29 @@ const tsw = new TeamSetup($('tsw'), {
     return r;
   },
 });
+// the season setup's livery step: the designer on this season's car before it's bought (the look kept under its model,
+// world.liveries, which worldCar() puts on it once it's yours), then back to the setup, a step on
+let paintSetup = null, lookPhotoV = 0; const lookPhotos = new Map();
+function lookFor(chassis) {
+  const c = { ...worldCar() }; if (!chassis || c.chassis === chassis) return c;
+  const L = world.liveries && world.liveries[chassis];
+  if (L) { for (const k of CAR_LOOK) delete c[k]; Object.assign(c, JSON.parse(JSON.stringify(L))); } else { c.decals = []; delete c.stickers; delete c.design; }
+  c.chassis = chassis; return c;
+}
+function paintForSetup(chassis) {
+  if (!world || !chassis) return;
+  keepCarLook(); carLookOff = true; garageSwap = settings.car; settings.car = lookFor(chassis); paintSetup = chassis;
+  tsw.close(); $('s-hub').classList.remove('wizard');
+  fadeTo(() => { disposeSim(); show('s-livery'); garage.open(settings.car); classicOnly(); designer.open(); }, 200);
+}
+function paintSetupDone() {
+  const ch = paintSetup, c = settings.car; paintSetup = null;
+  const look = JSON.parse(JSON.stringify(Object.fromEntries(CAR_LOOK.filter(k => c[k] !== undefined).map(k => [k, c[k]]))));
+  if (world.car && world.car.chassis === ch) world.livery = { ...c }; else (world.liveries ||= {})[ch] = look;
+  world.liveryDone = true; settings.car = garageSwap; garageSwap = null; carLookOff = false; lookPhotoV++;
+  WC.setupMove(world, 1); saveWorld();
+  fadeTo(() => { garage.close(); enterHub(); setTimeout(() => openTeamSetup(), 400); });
+}
 function openTeamSetup() {
   if (!world || WC.setupDone(world) || tsw.isOpen) return;
   holdWalk(); // (it can open just as you get up to walk: you stand still while it's up)
@@ -6624,4 +6649,4 @@ requestAnimationFrame(frame);
 // debug handle
 window.__svgp = { get world() { return world; }, get photo() { return photo; }, get hud() { return hud; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, handleRaceEvents, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { switchCar: (k) => { switchCar(k); if (screen === 's-garage') { garage.setCar(settings.car); classicOnly(); } }, get carPush() { return carPush; }, startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), goToPoster: () => goToPoster(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); }, openHomeView: () => openHomeView(), startWalk: () => startWalk(), startPitWalk: () => startPitWalk(), get walk() { return walk; }, homeView: (o) => { Object.assign(hv, o); hvApply(); }, get hv() { return hv; }, devWalkGarage: (p) => devWalkGarage(p) } };
+  dbg: { worldCar: () => worldCar(), switchCar: (k) => { switchCar(k); if (screen === 's-garage') { garage.setCar(settings.car); classicOnly(); } }, get carPush() { return carPush; }, startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), goToPoster: () => goToPoster(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); }, openHomeView: () => openHomeView(), startWalk: () => startWalk(), startPitWalk: () => startPitWalk(), get walk() { return walk; }, homeView: (o) => { Object.assign(hv, o); hvApply(); }, get hv() { return hv; }, devWalkGarage: (p) => devWalkGarage(p) } };

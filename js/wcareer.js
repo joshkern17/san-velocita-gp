@@ -1441,9 +1441,14 @@ function newSetup(w) {
 // the wizard's steps for the picks so far (an entry that comes with a car skips the car), your picks recorded as you go
 // (Back and Next move freely; nothing's spent until setupApply, from the last step)
 export function setupSteps(w) {
-  if (setupKind(w) === 'season') { const S = w.setup, seats = !!seriesById(w.player.series).seats; return [...(S.cars.length ? ['car'] : []), ...(w.coop ? (car2Models(w).length ? ['car2'] : []) : seats && S.seats.length ? ['seat'] : []), ...(S.sponsors.length ? ['sponsor'] : []), 'ready']; }
+  if (setupKind(w) === 'season') { const S = w.setup, seats = !!seriesById(w.player.series).seats; return [...(S.cars.length ? ['car'] : []), ...(w.coop ? (car2Models(w).length ? ['car2'] : []) : seats && S.seats.length ? ['seat'] : []), ...(S.sponsors.length ? ['sponsor'] : []), ...(setupChassis(w) ? ['livery'] : []), 'ready']; }
   // (a car bought before the setup, in careers from before it was the only way: starting from nothing keeps it)
   const e = w.setup?.picks?.entry; return ['entry', ...((e && e !== 'fresh') || w.car ? [] : ['car']), 'sponsor', ...(w.coop ? [] : ['mate']), 'ready'];
+}
+// the model you'll race this season: the car picked in the season setup (bought when the lights go out), or yours
+export function setupChassis(w) {
+  const S = w.setup, o = S && S.kind === 'season' && S.picks.car != null ? S.cars[S.picks.car] : null;
+  return o ? (o.how === 'ad' ? o.c.chassis : o.c.key || o.c.chassis) : w.car?.chassis || null;
 }
 export function setupPick(w, step, val) { const S = w.setup; if (!S || S.done) return; S.picks[step] = val; if (step === 'entry' && val !== 'fresh') delete S.picks.car; }
 export function setupMove(w, d) { const S = w.setup; if (!S) return; S.at = clamp((S.at || 0) + d, 0, setupSteps(w).length - 1); }
