@@ -10,7 +10,11 @@
 // day picks up from the next question.
 //   const launch = new Launch(el, src); launch.open(); launch.update(dt); launch.input({ left, right, ok, back })
 //   src: { world(), pg (the garage), team() { main, accent, name }, me() / mate() { livery, face, name, role } | null,
-//          sfx(k), save(), done() (the day's over: back to the garage) }
+//          sfx(k), save(), done() (the day's over: back to the garage),
+//          co-op: role() 'P' (the host: runs the day) | 'C' (the co-owner: follows it), live() (the other one's here),
+//          send(msg) (to the other one) }   launch.remote(msg) (what they sent)
+// Co-op: the host's day, played on both screens (the same set, the same people, the host at seat one). A question to
+// the co-owner is theirs to answer, on their screen (the host sees their bracket move); the rest is the host's.
 // The camera cuts between the set's CAM_launch_<shot> marks (2005: cuts and slow pushes, nothing swoops).
 import * as THREE from 'three';
 import { loadPiece, EVENT_AT } from './garagekit.js';
@@ -31,14 +35,16 @@ export class Launch {
 
   async open() {
     if (this.isOpen) return;
-    const w = this.w; this.D = WC.pressDayOf(w); this.qi = this.D.answers.filter(a => a != null).length; this.sel = 0;
+    const w = this.w; this.follow = !!(this.src.role && this.src.role() === 'C'); this.pending = this.pending || null;
+    this.D = WC.pressDayOf(w); this.qi = this.D.answers.filter(a => a != null).length; this.sel = 0;
+    if (!this.follow) this.tell({ ev: 'open', D: this.D });   // (the co-owner's game opens it too)
     this.isOpen = true; this.phase = 'load'; this.t = 0;
     const T = this.src.team(), S = WC.seriesById(w.player.series);
     this.el.innerHTML = `<div class="pd-vig"></div>
       <header class="tsw-head pd-head"><h1>Season Launch</h1><p>${esc(T.name)} &middot; ${esc(S.name)} &middot; ${w.year}</p></header>
       <div class="pd-count"></div>
       <div class="pd-q" hidden><small></small><h2></h2></div>
-      <div class="pd-ans" hidden></div><div class="tsw-focus pd-focus" hidden></div>
+      <div class="pd-ans" hidden></div><div class="tsw-focus pd-focus" hidden></div><div class="pd-wait" hidden></div>
       <div class="pd-say" hidden><small></small><p></p><div class="pd-tags"></div></div>
       <div class="pd-wire" hidden><small>The Paddock Wire</small><h2></h2><p></p></div>
       <div class="pd-card" hidden><div class="pd-car"><small></small><h2></h2><p></p></div><div class="pd-said"><small>Said at the launch</small><ul></ul></div></div>
@@ -48,8 +54,11 @@ export class Launch {
     if (!this.isOpen) return this.teardown();
     await this.cast();
     this.count();
-    // in: the room from the back over the press, the host's welcome, then the first question
-    this.shot('wide'); this.go('intro');
+    // in: the room from the back over the press, the host's welcome, then the first question (following: wherever the
+    // host's got to while the set went up)
+    this.shot('wide');
+    if (this.follow) { const m = this.pending; this.pending = null; if (m) this.remote(m); else this.go('intro'); }
+    else this.go('intro');
   }
 
   // ---------- the set: in the room, dressed in the team's colours and sponsors ----------
@@ -192,8 +201,8 @@ export class Launch {
       for (const [i, p] of (this.press || []).entries()) if (a.tone === 'Cheeky' ? i % 2 === 0 : a.tone === 'Bold' && i % 3 === 0) p.play(a.tone === 'Cheeky' ? 'sit_clap' : 'sit_clap_2', { once: true, then: 'sit_idle' });
       this.shot(a.tone === 'Bold' ? 'qa' : 'wide');
     } else if (phase === 'wire') {
-      WC.pressDayDone(this.w); this.src.save();
-      const n = this.w.news[0]; $('.pd-wire h2').textContent = n ? n.head : ''; $('.pd-wire p').textContent = n ? n.body : ''; $('.pd-wire').hidden = false; this.wipe($('.pd-wire'));
+      if (!this.follow) { WC.pressDayDone(this.w); this.src.save(); }
+      const n = this.follow ? this.wireNews : this.w.news[0]; $('.pd-wire h2').textContent = n ? n.head : ''; $('.pd-wire p').textContent = n ? n.body : ''; $('.pd-wire').hidden = false; this.wipe($('.pd-wire'));
       this.shot('wide'); this.sfx('move');
     } else if (phase === 'reveal') {
       // up to your marks by the car (a cut: you were sat at the table), the car in under the cover, the host's line
@@ -215,7 +224,39 @@ export class Launch {
       this.shot('close'); this.shot('close', 9, 0.18);
       this.seasonCard(); this.sfx('best');
     }
-    this.count(); this.hint();
+    this.count(); this.hint(); this.waitNote();
+    if (!this.follow) this.tell({ ev: 'go', phase, qi: this.qi, sel: this.sel, answers: this.D.answers, promises: WC.promisesOf(this.w), wire: phase === 'wire' && this.w.news[0] ? { head: this.w.news[0].head, body: this.w.news[0].body } : null });
+  }
+  // ---------- co-op: whose answer it is, and what the other one's doing ----------
+  tell(m) { if (this.src.send && this.src.live && this.src.live()) this.src.send(m); }
+  // this question's answer is picked here: the host's own (and the co-owner's too, if they're not here), the co-owner's on their screen
+  mine() {
+    const q = this.D.qs[this.qi], to = (q && q.to) || 'P';
+    return this.follow ? to === 'C' : to !== 'C' || !(this.src.live && this.src.live());
+  }
+  // (the answers show whose they are when they're not yours to pick)
+  waitNote() {
+    const el = this.el.querySelector('.pd-wait'); if (!el) return;
+    const on = this.phase === 'choose' && !this.mine(), q = this.D.qs[this.qi];
+    el.hidden = !on; if (on) el.textContent = q && q.to === 'C' ? `${this.src.mate()?.first || 'Your co-owner'} is answering` : `${this.src.me().first} is answering`;
+  }
+  remote(m) {
+    if (!m || !this.isOpen) return;
+    if (this.phase === 'load') { if (this.follow && m.ev !== 'sel') this.pending = m; return; }   // (the set's still going up)
+    if (this.follow) {
+      if (m.ev === 'go') {
+        if (Array.isArray(m.answers)) this.D.answers = m.answers.slice();
+        if (Array.isArray(m.promises)) { const w = this.w; w.promises = [...(w.promises || []).filter(p => p.year !== w.year), ...m.promises]; }
+        if (m.wire) this.wireNews = m.wire;
+        this.qi = m.qi | 0; this.sel = m.sel | 0; this.go(m.phase);
+      } else if (m.ev === 'sel' && this.phase === 'choose' && !this.mine()) { this.sel = m.sel | 0; this.place(); this.sfx('move'); }
+      else if (m.ev === 'close') this.close();
+      return;
+    }
+    // the host: the co-owner's bracket, and their answer
+    if (this.phase !== 'choose' || this.mine() || (m.qi != null && m.qi !== this.qi)) return;
+    if (m.ev === 'pick') { this.sel = Math.max(0, Math.min(2, m.sel | 0)); this.place(); this.sfx('move'); }
+    else if (m.ev === 'answer') { this.sel = Math.max(0, Math.min(2, m.sel | 0)); this.next(); }
   }
   // this question's reporter up at the mic (their seat empty), or back in their seat
   askerUp(up) {
@@ -290,7 +331,8 @@ export class Launch {
   place(snap = false) {
     const f = this.el.querySelector('.pd-focus'), c = this.el.querySelectorAll('.pd-a')[this.sel]; if (!f || !c) return;
     this.el.querySelectorAll('.pd-a').forEach((x, k) => x.classList.toggle('on', k === this.sel));
-    const move = () => { const a = c.parentElement; f.style.transform = `translate(${a.offsetLeft + c.offsetLeft}px, ${a.offsetTop + c.offsetTop}px)`; f.style.width = c.offsetWidth + 'px'; f.style.height = c.offsetHeight + 'px'; };   // (in the panel's own frame, as the setup's bracket: not the screen's, which the wipe's clip throws off)
+    const move = () => { const a = c.parentElement; if (!a || !c.isConnected) return;   // (the answers changed under it)
+      f.style.transform = `translate(${a.offsetLeft + c.offsetLeft}px, ${a.offsetTop + c.offsetTop}px)`; f.style.width = c.offsetWidth + 'px'; f.style.height = c.offsetHeight + 'px'; };   // (in the panel's own frame, as the setup's bracket: not the screen's, which the wipe's clip throws off)
     if (snap || calm()) return move();
     f.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 90, fill: 'forwards' }).onfinish = () => { move(); f.getAnimations().forEach(a => a.cancel()); f.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 170, easing: 'ease-out' }); };
   }
@@ -314,15 +356,20 @@ export class Launch {
     if (!this.isOpen) return false;
     if (this.closing) return true;
     if (this.phase === 'load') return true;
-    if (this.phase === 'choose' && (left || right)) { const s = Math.max(0, Math.min(2, this.sel + (right ? 1 : -1))); if (s !== this.sel) { this.sel = s; this.sfx('move'); this.place(); } }
-    else if (ok) this.next();
+    if (this.phase === 'choose' && !this.mine()) return true;   // (theirs to answer)
+    if (this.follow && this.phase !== 'choose') return true;    // (the host moves the day on)
+    if (this.phase === 'choose' && (left || right)) { const s = Math.max(0, Math.min(2, this.sel + (right ? 1 : -1))); if (s !== this.sel) { this.sel = s; this.sfx('move'); this.place(); this.picked(); } }
+    else if (ok) { if (this.follow) { this.sfx('select'); this.src.send && this.src.send({ ev: 'answer', qi: this.qi, sel: this.sel }); } else this.next(); }
     return true;
   }
   click(e) {
     const a = e.target.closest('.pd-a');
-    if (a && this.phase === 'choose') { const i = +a.dataset.i; if (i !== this.sel) { this.sel = i; this.place(); this.sfx('move'); } else this.next(); return; }
-    if (this.phase !== 'choose') this.next();
+    if (this.phase === 'choose' && !this.mine()) return;
+    if (a && this.phase === 'choose') { const i = +a.dataset.i; if (i !== this.sel) { this.sel = i; this.place(); this.sfx('move'); this.picked(); } else this.input({ ok: true }); return; }
+    if (this.phase !== 'choose' && !this.follow) this.next();
   }
+  // (the bracket's moved: the other screen shows it)
+  picked() { if (this.follow) this.src.send && this.src.send({ ev: 'pick', qi: this.qi, sel: this.sel }); else this.tell({ ev: 'sel', sel: this.sel }); }
   update(dt) {
     if (!this.isOpen) return;
     this.t += dt;
@@ -331,7 +378,7 @@ export class Launch {
     if (this.phase === 'pull') {
       this.pull = Math.min(1, this.t / (calm() ? 0.01 : 2.1)); this.coverAt(this.pull);
       if (this.pull > 0.55 && Math.random() < dt * 5) this.flashT = 0.07;
-      if (this.pull >= 1 && this.t > 2.5) this.next();
+      if (this.pull >= 1 && this.t > 2.5 && !this.follow) this.next();
     } else if (this.phase === 'car' && this.t < 6 && Math.random() < dt * 3 * (1 - this.t / 6)) this.flashT = 0.07;
     // the flashes: a pop at one of the photographers' cameras
     if (this.flash) {
@@ -345,6 +392,7 @@ export class Launch {
 
   close() {
     if (!this.isOpen || this.closing) return;
+    if (!this.follow) this.tell({ ev: 'close' });
     this.closing = true; this.el.classList.add('leave');
     // (open till the set's down: walking picks up the moment this closes, and takes what's solid in the room as it is)
     setTimeout(() => { this.teardown(); this.isOpen = this.closing = false; this.el.hidden = true; this.el.innerHTML = ''; this.el.classList.remove('leave'); this.src.done(); }, 300);

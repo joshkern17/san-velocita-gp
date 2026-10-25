@@ -270,6 +270,52 @@ const BOSSES = ['Pacific Cold Storage', 'Velocita Mutual Insurance', 'Hartmann O
 export function buyinOf(w, kind) { const b = BUYINS[kind], k = COOP_K[w.player.series] || 1; return b && { ...b, kind, cash: Math.round((b.cash || 0) * k / 500) * 500, per: Math.round((b.per || 0) * k / 50) * 50 }; }
 export const coopOf = (w) => w.coop || null;
 export const coopPerson = (w) => w.coop ? w.people[w.coop.pid] : null;
+// ---------------- co-op roles: who runs what (2026-10-25) ----------------
+// Two co-owners, two jobs: the Team Principal runs the business, the Technical Director runs the cars. Both drive.
+// Each team action belongs to one of them (OP_ROLES); the other one can suggest it (propose), and it waits for the
+// owner to say yes (approveProp: done then, on the host's copy) or no. Their own days, their gigs, are their own.
+export const COOP_ROLES = {
+  boss: { name: 'Team Principal', short: 'Principal', does: ['Sponsors, deals and the email', 'Staff, wages and payroll', 'The money: the bank, loans', 'Facilities', 'The press and the series'] },
+  tech: { name: 'Technical Director', short: 'Technical', does: ['The cars: buying and selling them', 'Parts, repairs and rebuilds', 'Development projects', 'Tires', 'Race-day strategy'] },
+};
+const OP_ROLES = {
+  boss: ['buildFacility', 'sellFacility', 'hireStaff', 'fireStaff', 'payBack', 'setPay', 'applyLoan', 'sellAnnuity', 'offerDriver', 'extendMate', 'setMatePay',
+    'answerSponsor', 'answerWorks', 'answerInvestor', 'answerBuyout', 'answerPoach', 'answerGent', 'answerOffer', 'rsvpEvent'],
+  tech: ['acquireCar', 'buyCar', 'sellCar', 'buyCar2', 'buyCar2Model', 'sellCar2', 'setCar2Fix', 'buyFit', 'removeFit', 'newPart', 'rebuildPart', 'startProject', 'workOnProject', 'orderTyres', 'removeGrey'],
+};
+export const opRole = (fn) => Object.keys(OP_ROLES).find(r => OP_ROLES[r].includes(fn)) || null;
+// a co-owner's role ('P' you, 'C' the co-owner): the host runs the business unless the season setup said otherwise
+export const roleOf = (w, pid) => !w.coop ? null : (w.coop.roles && w.coop.roles[pid]) || (pid === 'P' ? 'boss' : 'tech');
+export const roleOwner = (w, role) => roleOf(w, 'P') === role ? 'P' : 'C';
+// whose call an action is (null: anyone's, or not co-op)
+export const opOwner = (w, fn) => { const r = w.coop && opRole(fn); return r ? roleOwner(w, r) : null; };
+export function setRoles(w, hostRole) { if (w.coop && COOP_ROLES[hostRole]) w.coop.roles = { P: hostRole, C: hostRole === 'boss' ? 'tech' : 'boss' }; }
+// suggestions: { id, by, fn, args (as sent: world things by reference), what, cost, y, r }; the owner's to answer
+export function propose(w, by, fn, args, what, cost = 0) {
+  if (!w.coop || !opRole(fn) || opOwner(w, fn) === by) return null;
+  const p = { id: 'pr' + (w.nextId++), by, fn, args: args || [], what: String(what || fn).slice(0, 90), cost: +cost || 0, y: w.year, r: w.round };
+  (w.props ??= []).push(p); if (w.props.length > 8) w.props.shift();
+  return p;
+}
+export const propsFor = (w, pid) => (w.props || []).filter(p => p.by !== pid);       // (waiting for you to answer)
+export const propsBy = (w, pid) => (w.props || []).filter(p => p.by === pid);        // (yours, waiting for them)
+export const propsAnswered = (w, pid) => (w.propLog || []).filter(p => p.by === pid); // (yours, answered: newest first)
+const unrefArg = (w, a) => {
+  if (!a || typeof a !== 'object' || !a.$ref) return a;
+  const arr = a.$ref.startsWith('week.') ? w.week?.[a.$ref.slice(5)] : w[a.$ref]; if (!Array.isArray(arr)) return null;
+  return (a.id != null ? arr.find(x => x && x.id === a.id) : null) || arr[a.i] || null;
+};
+function answered(w, p, ok, why) { (w.propLog ??= []).unshift({ id: p.id, by: p.by, what: p.what, ok, why: why || '', y: w.year, r: w.round }); if (w.propLog.length > 12) w.propLog.length = 12; }
+// yes: done now, as if the owner had done it themselves (what it returns: { ok, why } where the action says)
+export function approveProp(w, id) {
+  const i = (w.props || []).findIndex(p => p.id === id); if (i < 0) return null;
+  const p = w.props.splice(i, 1)[0], f = OPS_RUN[p.fn]; if (!f) return null;
+  let r; try { r = f(w, ...p.args.map(a => unrefArg(w, a))); } catch (e) { r = { ok: false, why: 'It couldn\'t be done.' }; }
+  const bad = r && typeof r === 'object' && r.ok === false;
+  answered(w, p, !bad, bad ? r.why : '');
+  return r ?? { ok: true };
+}
+export function declineProp(w, id) { const i = (w.props || []).findIndex(p => p.id === id); if (i < 0) return; answered(w, w.props.splice(i, 1)[0], false, 'Not now'); }
 // the friend signs: { first, last, number, kind, token }
 export function coopJoin(w, o) {
   if (w.coop || !BUYINS[o.kind]) return null;
@@ -1456,7 +1502,7 @@ function newSetup(w) {
 // the wizard's steps for the picks so far (an entry that comes with a car skips the car), your picks recorded as you go
 // (Back and Next move freely; nothing's spent until setupApply, from the last step)
 export function setupSteps(w) {
-  if (setupKind(w) === 'season') { const S = w.setup, seats = !!seriesById(w.player.series).seats; return [...(S.cars.length ? ['car'] : []), ...(w.coop ? (car2Models(w).length ? ['car2'] : []) : seats && S.seats.length ? ['seat'] : []), ...(S.sponsors.length ? ['sponsor'] : []), ...(setupChassis(w) ? ['livery'] : []), 'ready']; }
+  if (setupKind(w) === 'season') { const S = w.setup, seats = !!seriesById(w.player.series).seats; return [...(w.coop ? ['roles'] : []), ...(S.cars.length ? ['car'] : []), ...(w.coop ? (car2Models(w).length ? ['car2'] : []) : seats && S.seats.length ? ['seat'] : []), ...(S.sponsors.length ? ['sponsor'] : []), ...(setupChassis(w) ? ['livery'] : []), 'ready']; }
   // (a car bought before the setup, in careers from before it was the only way: starting from nothing keeps it)
   const e = w.setup?.picks?.entry; return ['entry', ...((e && e !== 'fresh') || w.car ? [] : ['car']), 'sponsor', ...(w.coop ? [] : ['mate']), 'ready'];
 }
@@ -1884,7 +1930,7 @@ function seasonApply(w) {
   if (seasonBudgetNow(w).after < 0) return { ok: false, why: `That's more than you have. Go back and change something.` };
   const o = carPickOf(w); if (o && !(o.how === 'ad' ? buyCar(w, o.id, true) : acquireCar(w, o.how, o.id))) return { ok: false, why: 'That car has gone.' };
   if (S.sponsors.length) { S.sponsored = null; const x = S.sponsors[P.sponsor]; dealsOf(w).push({ sid: x.sid, slot: 'title', fee: x.fee, bonus: x.bonus, met: 0, misses: 0, since: w.year, obj: null, patience: x.patience, hosp: x.hosp || undefined }); if (x.signing) pay(w, x.signing, `${sponsorById(x.sid).name}: signing bonus`); }
-  if (w.coop) { if (P.car2) buyCar2Model(w, P.car2); S.done = true; return { ok: true }; } // (the second car is the co-owner's: their pick of model, or the one they had)
+  if (w.coop) { if (P.roles) setRoles(w, P.roles); if (P.car2) buyCar2Model(w, P.car2); S.done = true; return { ok: true }; } // (the second car is the co-owner's: their pick of model, or the one they had)
   if (!seatStep) { S.done = true; return { ok: true }; } // (no market for the seat here: your teammate's contract carries on)
   const was = teammateOf(w); signSeat(w, S.seats[P.seat]);
   passedOn(w, S.seats.filter((d, i) => i !== P.seat && d.kind !== 'gent' && d.kind !== 'share').flatMap(d => d.pids), 'second seat');
@@ -5224,3 +5270,6 @@ export function loadWorld(id) {
   } catch (e) { return null; }
 }
 export function deleteWorld(id) { localStorage.removeItem(slot(id)); localStorage.setItem(INDEX, JSON.stringify(readIndex().filter(e => e.id !== id))); }
+// (the actions a suggestion can be, by name, for approveProp)
+const OPS_RUN = { buildFacility, sellFacility, hireStaff, fireStaff, payBack, setPay, applyLoan, sellAnnuity, offerDriver, extendMate, setMatePay, answerSponsor, answerWorks, answerInvestor, answerBuyout, answerPoach, answerGent, answerOffer, rsvpEvent,
+  acquireCar, buyCar, sellCar, buyCar2, buyCar2Model, sellCar2, setCar2Fix, buyFit, removeFit, newPart, rebuildPart, startProject, workOnProject, orderTyres, removeGrey };

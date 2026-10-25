@@ -42,19 +42,23 @@ import * as WCX from './wcareer.js';
 // sent to the host, whose copy is the career (coopSend / coopHostMessage 'op'); the host's copy comes back a moment later
 const WC_OPS = new Set(['acquireCar', 'buyCar', 'buyCar2', 'buyCar2Model', 'buyFit', 'newPart', 'rebuildPart', 'rebuildSelf', 'startProject', 'workOnProject', 'buildFacility', 'sellFacility', 'sellCar',
   'orderTyres', 'hireStaff', 'fireStaff', 'payBack', 'setPay', 'applyLoan', 'sellAnnuity', 'offerDriver', 'extendMate', 'setMatePay', 'setCar2Fix', 'removeFit', 'removeGrey',
-  'answerSponsor', 'answerWorks', 'answerInvestor', 'answerBuyout', 'answerPoach', 'answerGent', 'answerStory', 'answerOffer', 'rsvpEvent', 'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan', 'coopAnswer', 'sellCar2']);
+  'answerSponsor', 'answerWorks', 'answerInvestor', 'answerBuyout', 'answerPoach', 'answerGent', 'answerStory', 'answerOffer', 'rsvpEvent', 'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan', 'coopAnswer', 'sellCar2',
+  'propose', 'approveProp', 'declineProp']);
 const WC = new Proxy(WCX, { get(m, k) {
   const f = m[k]; if (typeof f !== 'function' || !WC_OPS.has(k)) return f;
   return (...a) => {
     const guest = coop && !coop.host && world && a[0] === world;
-    if (guest && !GUEST_OPS.has(k)) { coopNotYours(); return undefined; }
+    // (co-op roles: the other one's call, with them here, is a suggestion to them, not done; WC.opOwner)
+    const own = world && a[0] === world && world.coop ? WCX.opOwner(world, k) : null;
+    if (own && own !== (guest ? 'C' : 'P') && otherHere()) { suggest(k, a.slice(1)); return undefined; }
+    if (guest && !guestMay(world, k)) { coopNotYours(); return undefined; }
     const send = guest ? a.slice(1).map(coopRef) : null; const r = f(...a); if (send) coopSend(k, send); return r;
   };
 } });
-// (what the co-owner may do on their own: their car, the cars' upgrades, repairs and development, the tyres, their own
-// days; the team's business (staff, facilities, money, sponsors, the season) is the host's)
-const GUEST_OPS = new Set(['buyCar2', 'buyCar2Model', 'setCar2Fix', 'buyFit', 'removeFit', 'startProject', 'workOnProject', 'orderTyres', 'rebuildPart', 'newPart', 'rebuildSelf', 'sellCar2',
-  'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan', 'coopAnswer']);
+// (what the co-owner may do on their own: their own days, their own work on the car, and whatever their role runs
+// (WC.opOwner); the rest they suggest. The season itself, the email that isn't a role's, the host's)
+const GUEST_OPS = new Set(['rebuildSelf', 'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan', 'coopAnswer', 'propose', 'approveProp', 'declineProp']);
+const guestMay = (w, fn) => GUEST_OPS.has(fn) || (w && w.coop && WCX.opOwner(w, fn) === 'C');
 import { Phone } from './phone.js';
 import { Net, PROTO } from './net.js';
 import { LiveryDesigner, saveRows } from './liverydesigner.js';
@@ -2160,7 +2164,7 @@ function phoneInput() {
 const phoneHints = [['nav', 'Scroll'], ['ok', 'Select'], ['back', 'Back'], ['phone', 'Put away']];
 const WALK_HINTS = [['cam', 'Walk'], ['look', 'Look'], ['ok', 'Use'], ['back', 'Stop walking']];
 const WALK_HINTS_HUB = [['cam', 'Walk'], ['look', 'Look'], ['ok', 'Use'], ['phone', 'Phone'], ['back', 'Pause']];
-HINTS['s-hub'] = () => pressDay.isOpen ? (pressDay.phase === 'choose' ? [['lr', 'Choose'], ['ok', 'Answer']] : [['ok', pressDay.phase === 'wire' ? 'Back to the garage' : 'Next']]) : tsw.isOpen ? [['lr', 'Choose'], ['ok', tsw.step === 'ready' ? 'Start the season' : 'Next'], ['back', tsw.at ? 'Back' : 'Garage']] : walk.active && !walkPaused && !dayPlan.isOpen && !phone.isOpen ? WALK_HINTS_HUB : walk.active && walkPaused ? [['nav', 'Navigate'], ['ok', 'Select'], ['back', 'Keep walking']] : ending.isOpen ? { scene: [['back', 'Skip']], wire: [['ok', 'Continue']], record: [['nav', 'Choose'], ['ok', 'Select']] }[ending.stage] || [] : dayPlan.isOpen ? [['nav', 'Choose'], ...(dayPlan.onSubs ? [['lr', 'Ideas']] : []), ['ok', 'Do it'], ['back', 'Garage']] : tsw.isOpen ? [['lr', 'Choose'], ['ok', tsw.step === 'ready' ? 'Start the season' : 'Next'], ['back', tsw.at ? 'Back' : 'Garage']] : pcSeat ? [['nav', 'Move'], ['ok', 'Select'], ...(pc.hasTabs ? [['tab', 'Sections']] : []), ['back', pc.app ? 'Back' : 'Stand up']]
+HINTS['s-hub'] = () => pressDay.isOpen ? (pressDay.phase === 'choose' ? (pressDay.mine() ? [['lr', 'Choose'], ['ok', 'Answer']] : []) : pressDay.follow ? [] : [['ok', pressDay.phase === 'wire' ? 'Back to the garage' : 'Next']]) : tsw.isOpen ? [['lr', 'Choose'], ['ok', tsw.step === 'ready' ? 'Start the season' : 'Next'], ['back', tsw.at ? 'Back' : 'Garage']] : walk.active && !walkPaused && !dayPlan.isOpen && !phone.isOpen ? WALK_HINTS_HUB : walk.active && walkPaused ? [['nav', 'Navigate'], ['ok', 'Select'], ['back', 'Keep walking']] : ending.isOpen ? { scene: [['back', 'Skip']], wire: [['ok', 'Continue']], record: [['nav', 'Choose'], ['ok', 'Select']] }[ending.stage] || [] : dayPlan.isOpen ? [['nav', 'Choose'], ...(dayPlan.onSubs ? [['lr', 'Ideas']] : []), ['ok', 'Do it'], ['back', 'Garage']] : tsw.isOpen ? [['lr', 'Choose'], ['ok', tsw.step === 'ready' ? 'Start the season' : 'Next'], ['back', tsw.at ? 'Back' : 'Garage']] : pcSeat ? [['nav', 'Move'], ['ok', 'Select'], ...(pc.hasTabs ? [['tab', 'Sections']] : []), ['back', pc.app ? 'Back' : 'Stand up']]
   : phone.isOpen ? phoneHints : hubMode === 'car' ? [['nav', 'Part'], ['ok', 'Select'], ['back', 'Back']]
   : hubMode === 'poster' ? [['ok', 'Back'], ['back', 'Garage']]
   : hubMode === 'tires' ? [['nav', 'Choose'], ['ok', 'Buy'], ['back', 'Garage']]
@@ -2402,13 +2406,20 @@ function paintSetupDone() {
 const pressDay = new Launch($('pressday'), {
   world: () => world, pg: pitGarage, sfx: (k) => sfx[k] && sfx[k](), save: () => saveWorld(), hints: () => renderHints(),
   team: () => { const t = world.teams[world.player.team], c = worldCar(); return { name: t.name, main: c.main ?? t.main, accent: c.accent ?? t.accent }; },
-  me: () => { const m = coopMe(), n = world.player.name.split(' '); return { ...m, name: `${n[0][0]}. ${n.slice(1).join(' ')}`, first: n[0], role: world.coop ? 'Co-owner / Driver' : 'Owner / Driver' }; },
+  // (seat one is the host's on both screens: on the co-owner's, the host's look is coopThem and their own coopMe)
+  me: () => { const m = coopGuest() ? coopThem() : coopMe(), n = world.player.name.split(' '); return { ...m, name: `${n[0][0]}. ${n.slice(1).join(' ')}`, first: n[0], role: world.coop ? 'Co-owner / Driver' : 'Owner / Driver' }; },
   mate: () => { const m = WC.mateOf(world), p = m && world.people[m.pid], t = world.teams[world.player.team]; if (!p) return null;
-    return { livery: world.coop ? coopCar() : driverLivery(p.id, t), face: driverFace(p.id), name: `${p.first[0]}. ${p.last}`, first: p.first, role: world.coop ? 'Co-owner / Driver' : 'Driver' }; },
+    const look = world.coop ? (coopGuest() ? coopMe() : coopThem()) : { livery: driverLivery(p.id, t), face: driverFace(p.id) };
+    return { ...look, name: `${p.first[0]}. ${p.last}`, first: p.first, role: world.coop ? 'Co-owner / Driver' : 'Driver' }; },
+  // co-op: the host runs the day, the co-owner's screen follows it and answers the question put to them
+  role: () => coopGuest() ? 'C' : 'P',
+  live: () => !!(world && world.coop && coop && (coop.host ? coop.peer : coop.net)),
+  send: (m) => { if (!coop) return; if (coop.host) { if (coop.peer) coop.net.sendTo(coop.peer, { t: 'cpd', ...m }); } else if (net) net.send({ t: 'cpd', ...m }); },
   done: () => { $('s-hub').classList.remove('wizard'); renderHub(); renderHints(); hubEnter(); maybeList(); },
 });
-function startPressDay() {
-  if (!world || coopGuest() || !WC.pressDue(world) || pressDay.isOpen || tsw.isOpen) return;
+function startPressDay(follow = false) {
+  if (!world || (coopGuest() && !follow) || (!follow && !WC.pressDue(world)) || pressDay.isOpen || tsw.isOpen) return;
+  if (follow) { if (pcSeat) standUp(); if (dayPlan.isOpen) dayPlan.close?.(); }   // (the host's started it: wherever you were in the garage)
   holdWalk(); drawWalkTags(null); phone.close(); phone.hide(); $('s-hub').classList.add('wizard'); sfx.select();
   pressDay.open(); renderHints();
 }
@@ -3550,6 +3561,8 @@ function renderHubMenu() {
   if (walk.active && walkPaused) return renderPauseMenu();
   const w = world, sid = w.player.series, n = WC.unreadChats(w), nm = WC.unreadMail(w);
   const items = [];
+  const sub = w.coop ? propItems(w) : null; if (sub && propSub) { menus['s-hub'][0].setItems(sub, true); return; }
+  if (sub) items.push(...sub);
   const steps = stepItems(w), offerMail = w.player.offer && !w.player.offer.answer && (w.mail || []).find(m => m.offer && !m.answer);
   items.push(...steps);
   if (!steps.length && !w.over) {
@@ -4354,8 +4367,9 @@ function renderGuestMenu() {
     return;
   }
   const keep = m.items[m.i]?.label?.replace(/<small>.*$/, '');
+  const sub = propItems(w); if (sub && propSub) { m.setItems(sub, true); return; }
   const wk = WC.coopWeek(w), ask = wk.ask && wk.ask.from === 'P' ? WC.COOP_TOGETHER[wk.ask.what] : null;
-  const items = [
+  const items = [...(sub || []),
     ...(R && wk.left > 0 ? [{ label: `Plan ${DAY_FULL[WC.DAY_NAMES[wk.used]] || 'Today'}<small>${ask ? `${host.toUpperCase()} ASKS` : `${wk.left} DAY${wk.left === 1 ? '' : 'S'} LEFT`}</small>`, cls: 'action primary day', action: () => openDayPlan(false),
       desc: `<span class="dh">How you spend the day</span>${coopDayChoices(w).map(c => `${c.short}${c.tag ? ` <span class="dk">${c.tag}</span>` : ''}`).join(' &middot; ')}` }] : []),
     R ? { label: `Round ${w.round + 1}: Race Day`, cls: wk.left > 0 ? '' : 'action primary', values: [[true, 'READY'], [false, 'NOT READY']], get: () => !!coop.ready, set: v => { coop.ready = v; net.send({ t: 'ready', ready: v }); renderHub(); },
@@ -4756,7 +4770,7 @@ function clientMessage(m) {
   if (m.t === 'locks') { if (m.race === netRaceId()) { locksOf().ids = new Set(m.ids || []); } return; }
   if (m.t === 'go') { if (sim && sim.net && m.race === netRaceId() && sim.net.goT == null) sim.net.goT = m.at; else if (m.race === netRaceId()) pendingGo = m; return; }
   if (m.t === 'wk') { if (coop) friend.set(m); return; }
-  if (m.t === 'cworld' || m.t === 'cstat' || m.t === 'cstart' || m.t === 'cround' || m.t === 'csess' || m.t === 'cfield' || m.t === 'cqres') { coopClient(m); return; }
+  if (m.t === 'cworld' || m.t === 'cstat' || m.t === 'cstart' || m.t === 'cround' || m.t === 'csess' || m.t === 'cfield' || m.t === 'cqres' || m.t === 'cpd') { coopClient(m); return; }
   if (m.t === 'reject') { leaveOnline(m.reason); return; }
   if (m.t === 'kick') { leaveOnline('You were removed from the room.'); return; }
   if (m.t === 'closed') { leaveOnline('The host closed the room.'); return; }
@@ -4998,6 +5012,70 @@ function coopUnref(a) {
   return (a.id != null ? arr.find(x => x && x.id === a.id) : null) || arr[a.i] || null;
 }
 function coopSend(fn, args) { if (net && coop && !coop.host) net.send({ t: 'op', fn, args }); }
+// (the other co-owner's here to answer a suggestion: the host has the co-owner online; the co-owner always has the host)
+const otherHere = () => !!(coop && (coop.host ? coop.peer : true));
+// something in the other one's role: put to them as a suggestion (WC.propose), in words they'll understand
+function suggest(fn, args) {
+  const me = coopGuest() ? 'C' : 'P', what = propText(fn, args), who = me === 'P' ? WC.coopPerson(world)?.first : world.player.name.split(' ')[0];
+  if (!WC.propose(world, me, fn, args.map(coopRef), what)) return;
+  saveWorld(); sfx.select();
+  toast(`That's <b>${escP(who)}</b>'s call, as ${WCX.COOP_ROLES[WCX.opRole(fn)].name}. Sent them your idea: ${escP(what)}`, 5000);
+  if (screen === 's-hub') { renderHubMenu(); if (pcSeat) pc.render?.(); }
+}
+// what a suggestion says ("Hire Dana Ruiz as team manager"): from the action and what it was done to
+function propText(fn, a) {
+  const w = world, money = (v) => v ? ` (${WC.money$(v)})` : '';
+  try {
+    const job = (id) => [...(w.jobs || []), ...(w.staff || [])].find(x => x.id === id);
+    switch (fn) {
+      case 'hireStaff': { const x = job(a[0]); return x ? `Hire ${x.first} ${x.last} as ${WCX.ROLES[x.role].name.toLowerCase()}` : 'Hire someone'; }
+      case 'fireStaff': { const x = job(a[0]); return x ? `Let ${x.first} ${x.last} go` : 'Let someone go'; }
+      case 'setPay': { const x = job(a[0]); return `Pay ${x ? x.first : 'them'}: ${a[1] === 'full' ? 'on time' : a[1] === 'half' ? 'half' : a[1] === 'hold' ? 'hold it' : a[1]}`; }
+      case 'payBack': { const x = job(a[0]); return `Pay ${x ? x.first : 'them'} what they're owed`; }
+      case 'buildFacility': { const F = WCX.FACILITIES[a[0]]; return F ? `Build: ${F.name.toLowerCase()}, next level` : 'Build a facility'; }
+      case 'sellFacility': { const F = WCX.FACILITIES[a[0]]; return F ? `Sell the ${F.name.toLowerCase()}` : 'Sell a facility'; }
+      case 'applyLoan': return 'Take out a bank loan';
+      case 'sellAnnuity': return 'Sell the lottery annuity';
+      case 'offerDriver': { const p = w.people[a[0]]; return p ? `Offer ${p.first} ${p.last} the second seat` : 'Sign a driver'; }
+      case 'extendMate': return 'Extend the teammate\'s contract';
+      case 'setMatePay': return 'Change how the teammate is paid';
+      case 'answerSponsor': case 'answerPoach': case 'answerGent': return `Answer ${a[0]?.from || 'an email'}: ${String(a[1] || '').replace(/^\w/, c => c.toUpperCase())}`;
+      case 'answerWorks': case 'answerInvestor': case 'answerBuyout': return `Answer the ${fn.slice(6).toLowerCase()} email: ${a[0]}`;
+      case 'answerOffer': return `The SVMA's offer: ${String(a[0]).startsWith('move') ? 'move up' : 'stay'}`;
+      case 'rsvpEvent': return `Sponsor event: ${a[1] === 'yes' ? 'go' : a[1]}`;
+      case 'buyFit': return `Fit ${a[0]?.name || 'a part'}${a[1] === 'mate' ? ' on car two' : ''}${money(a[0]?.price)}`;
+      case 'removeFit': return `Take the ${a[0]} part off`;
+      case 'newPart': return `A new ${WCX.PARTS[a[0]]?.name.toLowerCase() || 'part'}`;
+      case 'rebuildPart': return `Rebuild the ${WCX.PARTS[a[0]]?.name.toLowerCase() || 'part'}`;
+      case 'startProject': { const P = Object.values(WCX.PROJECTS).flat().find(x => x[0] === a[0]); return `Start a project: ${P ? P[2].toLowerCase() : a[0]}${money(P && P[6])}`; }
+      case 'workOnProject': return 'Work on a development project';
+      case 'orderTyres': { const n = Object.values(a[0] || {}).reduce((t, v) => t + (+v || 0), 0); return `Order ${n} set${n === 1 ? '' : 's'} of tires`; }
+      case 'buyCar': case 'acquireCar': return 'Buy a new race car';
+      case 'sellCar': return 'Sell the race car';
+      case 'buyCar2': return `Car two: ${a[0]}`;
+      case 'buyCar2Model': return `A new car two: ${CARS[a[0]]?.name || a[0]}`;
+      case 'sellCar2': return 'Sell car two';
+      case 'setCar2Fix': return `Car two's repairs: ${a[0]}`;
+      case 'removeGrey': return 'Take the grey-area parts off';
+    }
+  } catch (e) {}
+  return fn.replace(/([A-Z])/g, ' $1').replace(/^\w/, c => c.toUpperCase());
+}
+// suggestions waiting for you, at the top of the garage's menu; picked: answer it (yes, no)
+let propSub = null;
+function propItems(w) {
+  const me = coopGuest() ? 'C' : 'P', them = me === 'P' ? WC.coopPerson(w)?.first : w.player.name.split(' ')[0], mine = WC.propsFor(w, me);
+  if (propSub) {
+    const p = mine.find(x => x.id === propSub); if (!p) { propSub = null; return null; }
+    const back = () => { propSub = null; renderHubMenu(); };
+    return [{ label: `${escP(them)}'s idea`, head: true },
+      { label: 'Yes, Do It', cls: 'action primary', action: () => { const r = WC.approveProp(w, p.id); propSub = null; saveWorld(); sfx[r && r.ok === false ? 'error' : 'select'](); if (r && r.ok === false && r.why) toast(escP(r.why), 4000); renderHub(); if (pcSeat) pc.render?.(); }, desc: `${escP(p.what)}. Done now, from the team's account, as if you'd done it.` },
+      { label: 'No', action: () => { WC.declineProp(w, p.id); propSub = null; saveWorld(); sfx.back(); renderHub(); }, desc: `${escP(them)} gets told no.` },
+      { label: 'Back', action: back, desc: 'Decide later. It waits here.' }];
+  }
+  return mine.map(p => ({ label: `${escP(them)} Suggests<small>${WCX.COOP_ROLES[WCX.opRole(p.fn)]?.short.toUpperCase() || ''}</small>`, cls: 'action primary', action: () => { propSub = p.id; sfx.select(); renderHubMenu(); },
+    desc: `${escP(p.what)}. It's your call: you run that side of the team.` }));
+}
 function coopNotYours() { sfx.error(); toast(`That's ${world.player.name.split(' ')[0]}'s call: the team's business is theirs.`, 3500); }
 // the host's copy, on the friend's: swapped in place (the screens hold on to the same object), then redrawn
 function coopTakeWorld(nw) {
@@ -5071,16 +5149,21 @@ function coopHostMessage(m, from) {
     toast(`<b>${nm.first} ${nm.last}</b> bought ${r.stake}% of the team${r.cash ? ` for ${WC.money$(r.cash)}` : ''}. Car two is theirs.`, 6000); sfx.best();
     if (screen === 's-hub') { renderHub(); if (optSub) renderOptMenu(); }
   } else if (m.t === 'op') {
-    if (!w.coop || !GUEST_OPS.has(m.fn) || typeof WCX[m.fn] !== 'function') return;
+    if (!w.coop || !guestMay(w, m.fn) || typeof WCX[m.fn] !== 'function') return;
+    if ((m.fn === 'approveProp' || m.fn === 'declineProp') && !(w.props || []).some(p => p.id === m.args?.[0] && p.by === 'P')) return; // (theirs to answer: the host's ideas)
+    const propN = (w.propLog || []).length;
     const before = w.money ? w.money.balance : 0, tx0 = w.money ? w.money.tx[0] : null;
     try { WCX[m.fn](w, ...(m.args || []).map(coopUnref)); } catch (e) { console.error('co-op', m.fn, e); }
     saveWorld();
     const spent = w.money ? w.money.balance - before : 0, tx = w.money && w.money.tx[0] !== tx0 ? w.money.tx[0] : null;
     const who = WC.coopPerson(w).first, ask = w.week?.co?.ask;
-    if (m.fn === 'coopAsk' && ask) toast(`<b>${who}</b> asks: ${WC.COOP_TOGETHER[ask.what].name.toLowerCase()}. Say yes in your day planner.`, 6000);
+    if (m.fn === 'propose') { const p = (w.props || []).at(-1); if (p && p.by === 'C') { toast(`<b>${who}</b> suggests: ${escP(p.what)}. It's your call: it's at the top of your menu.`, 6000); sfx.select(); } }
+    else if ((m.fn === 'approveProp' || m.fn === 'declineProp') && (w.propLog || []).length > propN) { const p = w.propLog[0]; toast(`<b>${who}</b> ${p.ok ? 'said yes' : 'said no'}: ${escP(p.what)}${p.ok ? '' : p.why && p.why !== 'Not now' ? ` (${escP(p.why)})` : ''}`, 5000); }
+    else if (m.fn === 'coopAsk' && ask) toast(`<b>${who}</b> asks: ${WC.COOP_TOGETHER[ask.what].name.toLowerCase()}. Say yes in your day planner.`, 6000);
     else if (m.fn === 'coopTogether') toast(`<b>${who}</b> said yes: a day together. It's in both your weeks.`, 5000);
     else if (spent && tx) toast(`<b>${who}</b>: ${escP(tx.what)} <b>${WC.money$(spent)}</b>`, 5000);
     if (screen === 's-hub') { renderHub(); if (pcSeat) pc.render?.(); if (dayPlan.isOpen && !dayPlan.busy) dayPlan.render(); }
+  } else if (m.t === 'cpd') { pressDay.remote(m);   // (the season launch: the co-owner's answer)
   } else if (m.t === 'lock') { hostLocked(from, m.race);
   } else if (m.t === 'cuse') { if (coop.race && m.race === coop.race.id) coop.race.use = { sets: (m.sets || []).filter(c => typeof c === 'string').slice(0, 8), laps: Math.max(0, Math.min(500, m.laps | 0)), damage: Math.max(0, Math.min(1, +m.damage || 0)) };
   } else if (m.t === 'wk') { friend.set(m);
@@ -5316,7 +5399,12 @@ function coopClient(m) {
   if (m.t === 'cworld') {
     const first = !coop;
     if (first) coop = { net, host: false, ready: false, race: null };
-    const was = world && world.week?.co?.ask; coopTakeWorld(m.w); coop.doing = m.doing;
+    const was = world && world.week?.co?.ask, pr0 = world && new Set((world.props || []).map(p => p.id)), pl0 = world && new Set((world.propLog || []).map(p => p.id));
+    coopTakeWorld(m.w); coop.doing = m.doing;
+    // (the host's ideas for you, and their answers to yours)
+    if (pr0 && world.coop) { const host = world.player.name.split(' ')[0];
+      for (const p of world.props || []) if (p.by === 'P' && !pr0.has(p.id)) { toast(`<b>${escP(host)}</b> suggests: ${escP(p.what)}. It's your call: it's at the top of your menu.`, 6000); sfx.select(); }
+      for (const p of world.propLog || []) if (p.by === 'C' && !pl0.has(p.id)) toast(`<b>${escP(host)}</b> ${p.ok ? 'said yes' : 'said no'}: ${escP(p.what)}${!p.ok && p.why && p.why !== 'Not now' ? ` (${escP(p.why)})` : ''}`, 5000); }
     { const a = world.week?.co?.ask; if (a && a.from === 'P' && !(was && was.from === 'P' && was.what === a.what) && world.coop) setTimeout(() => toast(`<b>${world.player.name.split(' ')[0]}</b> asks: ${WC.COOP_TOGETHER[a.what].name.toLowerCase()}. Say yes in your day planner.`, 6000), 300); }
     if (dayPlan.isOpen && !dayPlan.busy && !coop.race) dayPlan.render();
     if (coop.race) return; // (racing: the hub catches up after the round)
@@ -5330,6 +5418,17 @@ function coopClient(m) {
   else if (m.t === 'cfield') { if (coop && coop.race && m.race === coop.race.id) { coop.race.field = m.field; if (sim && sim.quali && !sim.quali.netField) sim.netField(m.field); } }
   else if (m.t === 'cqres') { if (coop && coop.race && m.race === coop.race.id) { coop.race.done = true; coop.race.qOver = true; showCoopQuali(m.rows); } }
   else if (m.t === 'cround') { if (coop) coopGuestRound(m); }
+  else if (m.t === 'cpd') coopPressDay(m);
+}
+// the season launch, the host's: opened here when they open it (or when it's already going), followed step by step
+function coopPressDay(m) {
+  if (!coop || !world || !world.coop) return;
+  if (pressDay.isOpen) return pressDay.remote(m);
+  if (m.ev === 'close' || coop.race || screen !== 's-hub') return;
+  if (m.ev === 'open' && m.D) world.pressDay = m.D;
+  if (!world.pressDay || world.pressDay.year !== world.year) return;
+  if (m.ev === 'go') pressDay.pending = m;   // (joined halfway: from where the host is)
+  startPressDay(true);
 }
 // the agreement: how they buy in, their number, their name
 const buyin = { kind: 'car', number: 0 };

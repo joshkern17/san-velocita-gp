@@ -13,7 +13,7 @@ import { faceHTML } from './drivers.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hex = (c) => '#' + ((c ?? 0x888888) >>> 0).toString(16).padStart(6, '0');
-const NAME = { entry: 'How you get in', car: 'The car', car2: 'Car two', livery: 'Livery', sponsor: 'Title sponsor', mate: 'Second driver', seat: 'Second seat', ready: 'Ready' };
+const NAME = { roles: 'Who runs what', entry: 'How you get in', car: 'The car', car2: 'Car two', livery: 'Livery', sponsor: 'Title sponsor', mate: 'Second driver', seat: 'Second seat', ready: 'Ready' };
 // (what each kind of second-seat deal asks of you, in a line each)
 const SEAT_COSTS = {
   gent: ['A day of your week each round, coaching', 'Crashes: you pay car 2\'s repairs', 'Might walk after a big one'],
@@ -119,6 +119,7 @@ export class TeamSetup {
   // ---------- what's on offer at this step: [{ val, dis, html }] ----------
   options() {
     const w = this.w, S = w.setup, step = this.step;
+    if (step === 'roles') return ['boss', 'tech'].map(k => ({ val: k, after: WC.setupBudget(w).after, dis: false })); // (co-op: the host's role; the co-owner has the other)
     if (step === 'entry') return WC.setupEntries(w).map(e => ({ val: e.key, ...this.leaves(step, e.key) }));
     if (step === 'car' && this.season) return S.cars.map((o, i) => ({ val: i, ...this.leaves(step, i) }));
     if (step === 'seat') return S.seats.map((d, i) => ({ val: i, ...this.leaves(step, i) }));
@@ -139,7 +140,7 @@ export class TeamSetup {
   // ---------- drawing ----------
   render(dir) {
     const w = this.w, S = w.setup, step = this.step, opts = this.options();
-    const was = opts.findIndex(o => o.val === S.picks[step]);
+    const was = opts.findIndex(o => o.val === (step === 'roles' ? S.picks.roles || WC.roleOf(w, 'P') : S.picks[step]));
     this.sel = was >= 0 ? was : Math.max(0, opts.findIndex(o => !o.dis));
     this.rail(); this.purse();
     const [q, sub] = this.question(step);
@@ -148,7 +149,7 @@ export class TeamSetup {
       qel.querySelector('h2').textContent = q; qel.querySelector('p').textContent = sub;
       cols.className = `tsw-cols n${step === 'ready' ? 0 : opts.length}${opts.length > 4 ? ' strip' : ''}`;
       cols.innerHTML = step === 'ready' ? this.ready() : opts.map((o, i) => `<div class="tsw-col${i === this.sel ? ' on' : ''}${o.dis ? ' dis' : ''}" data-i="${i}"><i class="tsw-cur"></i>${this.card(step, o, i)}
-        ${step === 'seat' ? '' : `<div class="tsw-left"><small>Leaves you</small><b class="${o.dis ? 'neg' : ''}">${o.dis ? 'More than you have' : WC.money$(o.after)}</b></div>`}</div>`).join(''); // (a seat deal costs nothing today: its money is on the card)
+        ${step === 'seat' || step === 'roles' ? '' : `<div class="tsw-left"><small>Leaves you</small><b class="${o.dis ? 'neg' : ''}">${o.dis ? 'More than you have' : WC.money$(o.after)}</b></div>`}</div>`).join(''); // (a seat deal costs nothing today: its money is on the card)
       cols.scrollLeft = 0; this.reveal(); this.place(true); this.edges(); this.foot();
       // in: the question wipes on, the columns rise one after another (from the side you're heading)
       if (calm()) return;
@@ -169,6 +170,7 @@ export class TeamSetup {
       car: S.cars[0]?.how === 'ad' ? ['Pick a car', `Your old car isn't eligible for the ${sn}. These are off the classifieds; the dealer takes the old one in part exchange. A tired car is down on power.`]
         : ['Pick a car', `Cars must be homologated for the ${sn}. A lease is a deposit now and a payment every round; buying is all of it now. Your old car is traded in.`],
       livery: ['How does it look?', `The ${this.src.carInfo(WC.setupChassis(this.w))?.name || 'car'} in your colors. Paint it now, before the press see it.`],
+      roles: ['Who runs what?', `You both drive. Off the track, one of you runs the business and the other runs the cars. Whatever's the other one's call, you can suggest: they say yes or no.`],
       car2: [`${WC.coopPerson(this.w)?.first || 'Your co-owner'}'s car`, `Car two doesn't have to be a car like yours. Any car homologated for the ${sn}, bought from the team account.`],
       seat: ['Who pays for the second car?', 'Every deal pays its way differently: money now, or a driver whose prize money pays later. Pace is what decides where car 2 finishes.'],
       sponsor: ['Choose a title sponsor', `Bigger companies follow the ${sn}. The one you choose sets a target for every race.`],
@@ -193,6 +195,11 @@ export class TeamSetup {
         ${x.how === 'lease' ? `<div class="tsw-kpis"><div><small>A round</small><b>${$(c.perRound)}</b></div><div><small>Season</small><b>${$(c.deposit + c.perRound * w.opts.len)}</b></div></div>` : ''}
         ${c.hp ? stat('Power', `${c.hp} hp`, c.hp / 700) + stat('Weight', `${c.kg} kg`, 1 - (c.kg - 900) / 600) : ''}${x.how === 'used' ? stat('Condition', `${Math.round(c.cond * 100)}%`, c.cond) : ''}
         ${works || `<p class="tsw-blurb">${esc(x.how === 'used' ? `From ${c.team}, a season old.` : c.note || '')}</p>`}<p class="tsw-seller">${esc(c.prog || '')}</p>`;
+    }
+    if (step === 'roles') {
+      const me = this.w.player.name.split(' ')[0], co = WC.coopPerson(this.w)?.first || 'Your co-owner', R = WC.COOP_ROLES, other = o.val === 'boss' ? 'tech' : 'boss';
+      const half = (who, k) => `<div class="tsw-role"><small>${esc(who)}</small><b>${esc(R[k].name)}</b><ul class="tsw-gets">${R[k].does.map(g => `<li>${esc(g)}</li>`).join('')}</ul></div>`;
+      return `<div class="tsw-top">${WC.roleOf(this.w, 'P') === o.val ? tag('As now', 'dim') : ''}</div><h3>${esc(o.val === 'boss' ? `${me} runs the team` : `${co} runs the team`)}</h3>${half(`${me} (you)`, o.val)}${half(co, other)}`;
     }
     if (step === 'livery') {
       const ch = WC.setupChassis(w), ph = this.src.lookPhoto(ch), paint = o.val === 'paint';
@@ -272,6 +279,7 @@ export class TeamSetup {
         <p>${esc(WC.seriesById(w.player.series).name)} ${w.year}</p>${sp && this.src.logo(sp.sid) ? `<img class="tsw-logo" src="${this.src.logo(sp.sid)}">` : ''}</div>
       <div class="tsw-rows">
         ${row('Car', esc(car))}${sp ? row('Title sponsor', esc(WC.sponsorInfo(sp.sid).name)) : ''}${row('Car 1', `${esc(w.player.name)} (you)`)}${row('Car 2', w.coop ? esc(`${WC.coopPerson(w)?.first || ''}: ${P.car2 ? WC.car2Models(w).find(m => m.key === P.car2)?.name || '' : WC.car2Of(w)?.name || ''}`) : d ? `${esc(q.first)} ${esc(q.last)}${d.pids.length > 1 ? ` / ${esc(w.people[d.pids[1]].last)}` : ''} &middot; ${esc(WC.SEAT_KINDS[d.kind].name)}` : '')}
+        ${w.coop ? (() => { const hr = w.setup.picks.roles || WC.roleOf(w, 'P'), me = w.player.name.split(' ')[0], co = WC.coopPerson(w)?.first || ''; return row('Team Principal', esc(hr === 'boss' ? me : co)) + row('Technical Director', esc(hr === 'boss' ? co : me)); })() : ''}
         <i class="tsw-rule"></i>${row('In the bank', $(w.money.balance))}${B.rows.map(([k, v]) => row(esc(k), sign(v), v < 0 ? 'out' : 'in')).join('')}${row('Money after', $(B.after), 'tot' + (B.after < 0 ? ' neg' : ''))}
         <i class="tsw-rule"></i>${row('The season, before prize money', sign(B.season.net), 'out')}</div></div>`; // (prize money: what your racing decides)
   }

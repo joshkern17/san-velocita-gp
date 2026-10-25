@@ -2576,6 +2576,9 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .tsw-seller { margin-top: -6px; font: 500 var(--t-small)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red-dim); }
 .tsw-gets { list-style: none; display: flex; flex-direction: column; gap: 5px; }
 .tsw-gets li { position: relative; padding-left: 16px; font: 500 var(--t-label)/1.15 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); }
+.tsw-role { display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid var(--sv-line, rgba(255,43,0,.25)); } /* (co-op roles: one half of the team each) */
+.tsw-role small { font: 500 var(--t-caption)/1 var(--f-ui); letter-spacing: var(--track-caption); text-transform: uppercase; color: var(--sv-amber); }
+.tsw-role b { font: 500 22px/1.1 var(--f-ui); letter-spacing: var(--track); color: var(--sv-hot); }
 .tsw-gets li::before { content: ''; position: absolute; left: 0; top: .42em; width: 6px; height: 2px; background: var(--sv-red); box-shadow: var(--sv-glow-line); }
 /* where your money ends up: the same slot at the foot of every column */
 .tsw-left { margin-top: auto; display: flex; justify-content: space-between; align-items: baseline; padding-top: 12px; border-top: 1px solid var(--sv-red-faint); }
@@ -3064,6 +3067,9 @@ span.tsw-face { width: 64px; height: 64px; }
 .pd-q h2 { max-width: 30em; font: 500 34px/1.12 var(--f-ui); letter-spacing: var(--track); color: var(--sv-hot); }
 /* the three answers: columns, a bracket on the one you're on (it fades across, never slides) */
 .pd-ans { position: absolute; left: var(--edge); right: var(--edge); bottom: 96px; height: 31%; display: grid; grid-template-columns: repeat(3, 1fr); background: var(--sv-plate); }
+.pd-wait { position: absolute; right: var(--edge); bottom: calc(96px + 31% + 12px); font: 500 var(--t-caption)/1 var(--f-ui); letter-spacing: var(--track-caption); text-transform: uppercase; color: var(--sv-amber); text-shadow: var(--sv-glow); animation: pd-blink 1.2s steps(2, jump-none) infinite; } /* (co-op: the other one is picking this answer) */
+@keyframes pd-blink { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .pd-wait { animation: none; } }
 .pd-a { position: relative; display: flex; flex-direction: column; gap: var(--s3); padding: 20px 26px 16px 28px; min-width: 0; cursor: pointer; opacity: .55; transition: opacity var(--m-med); }
 .pd-a + .pd-a::before { content: ''; position: absolute; left: 0; top: 18px; bottom: 18px; width: 1px; background: var(--sv-red-faint); }
 .pd-a.on { opacity: 1; }
