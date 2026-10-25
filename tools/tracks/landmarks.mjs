@@ -25,6 +25,16 @@ export function applyLandmarks(track, lm, log = console.log) {
   if (o.buildings) o.buildings = o.buildings.filter(b => !(b.p && (b.p.some(([x, z]) => at(x, z, 2)) || at(b.p.reduce((a, q) => a + q[0], 0) / b.p.length, b.p.reduce((a, q) => a + q[1], 0) / b.p.length, 4))));
   if (o.trees) o.trees = o.trees.filter(([x, z]) => !at(x, z, 4));
   if (track.props) track.props = track.props.filter(p => !at(p.x, p.z, 3));
+  // (and the laser scan's real buildings and trees: tools/tracks/realscan.mjs)
+  let scanned = 0;
+  if (track.scan) {
+    const S = track.scan, h0 = S.houses.length;
+    S.houses = S.houses.filter(b => !(b.p.some(([x, z]) => at(x, z, 2)) || at(b.p.reduce((a, q) => a + q[0], 0) / b.p.length, b.p.reduce((a, q) => a + q[1], 0) / b.p.length, 4)));
+    const raw = Buffer.from(S.trees || '', 'base64'), keep = [];
+    for (let i = 0; i + 5 <= raw.length; i += 5) if (!at(raw.readInt16LE(i) / 2, raw.readInt16LE(i + 2) / 2, 4)) keep.push(raw.subarray(i, i + 5));
+    scanned = h0 - S.houses.length + (raw.length / 5 - keep.length);
+    track.scan = { ...S, trees: Buffer.concat(keep).toString('base64') };
+  }
   if (track.propLines) { const live = new Set(track.props.map(p => p.ln)); track.propLines = track.propLines.filter(l => live.has(l.id)); }
   const cleared = np - (track.props || []).length;
   // (the map's other buildings on the circuit's grounds are its sheds, offices and stores, not homes: flat-roofed
@@ -35,6 +45,10 @@ export function applyLandmarks(track, lm, log = console.log) {
     for (const b of o.buildings) {
       const cx = b.p.reduce((a, q) => a + q[0], 0) / b.p.length, cz = b.p.reduce((a, q) => a + q[1], 0) / b.p.length;
       if (cx > x0 && cx < x1 && cz > z0 && cz < z1 && b.s !== 'warehouse') { b.s = 'warehouse'; b.r = 'flat'; delete b.m; retyped++; }
+    }
+    for (const b of (track.scan && track.scan.houses) || []) { // (the scan's too: zones.js femaKind makes a utility one a shed)
+      const cx = b.p.reduce((a, q) => a + q[0], 0) / b.p.length, cz = b.p.reduce((a, q) => a + q[1], 0) / b.p.length;
+      if (cx > x0 && cx < x1 && cz > z0 && cz < z1 && b.k !== 'utility') { b.k = 'utility'; retyped++; }
     }
   }
   // (the grandstands where the real ones are: curved lines of the trackside pack's covered / flags stands, a stand
@@ -77,7 +91,7 @@ export function applyLandmarks(track, lm, log = console.log) {
   track.landmarks = { url: lm.url, items };
   // (and the world's scattered trees kept out of the stands: world.js inLandmark)
   track.landmarks.stands = (track.props || []).filter(p => /^tp_stand_/.test(p.type)).map(p => [p.x, p.z, p.rot]);
-  log(`  landmarks: ${items.length} of the circuit's own (${lm.url}); cleared under them ${nb - (o.buildings || []).length} map buildings, ${nt - (o.trees || []).length} trees, ${cleared} stands${retyped ? `; ${retyped} map buildings on the grounds made utility buildings` : ''}${added ? `; ${added} grandstands on curved lines where the real ones are (${replaced} of the map's straight ones replaced)` : ''}${stacked ? `; ${stacked} stacked stands dropped` : ''}${inStands ? `; ${inStands} map trees / buildings in the stands cleared` : ''}`);
+  log(`  landmarks: ${items.length} of the circuit's own (${lm.url}); cleared under them ${nb - (o.buildings || []).length} map buildings, ${nt - (o.trees || []).length} trees, ${cleared} stands${scanned ? `, ${scanned} scanned buildings / trees` : ''}${retyped ? `; ${retyped} map buildings on the grounds made utility buildings` : ''}${added ? `; ${added} grandstands on curved lines where the real ones are (${replaced} of the map's straight ones replaced)` : ''}${stacked ? `; ${stacked} stacked stands dropped` : ''}${inStands ? `; ${inStands} map trees / buildings in the stands cleared` : ''}`);
   return track;
 }
 
@@ -88,7 +102,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   fs.writeFileSync(f, JSON.stringify(t));
   // (and its entry in the index the game reads: the props live there, build.mjs's light copy)
   const xf = path.join(ROOT, 'tracks', 'real', 'index.json'), index = JSON.parse(fs.readFileSync(xf, 'utf8'));
-  const { osm, terrain, dress, ground, ...light } = t, k = index.findIndex(e => e.file === id + '.json');
+  const { osm, terrain, dress, ground, scan, ...light } = t, k = index.findIndex(e => e.file === id + '.json');
   if (k >= 0) { index[k] = { ...light, file: id + '.json' }; fs.writeFileSync(xf, JSON.stringify(index)); }
   console.log('  ->', path.relative(ROOT, f), k >= 0 ? '+ index' : '');
 }

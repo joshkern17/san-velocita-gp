@@ -44,6 +44,7 @@ export async function hydrateReal(t) {
   if (f.refModel) t.refModel = f.refModel;
   if (f.landmarks) t.landmarks = f.landmarks; // (its landmarks, made in the game's style: models/landmarks)
   if (f.dress) t.dress = f.dress; // (its curbs and barriers as the real one has them: the Track Studio's)
+  if (f.scan) t.scan = f.scan; // (its real buildings and trees, from the laser scans: scan.js, tools/tracks/realscan.mjs)
   return t;
 }
 

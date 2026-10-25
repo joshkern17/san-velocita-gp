@@ -8,7 +8,9 @@ import { barrierLine, trackFrame } from './track.js';
 
 // T = sampleTrack(track), A = analyzeTrack(...) (for its bridges): { barriers, stats }
 // wide: how much further out the barrier stands on the outside of a corner (1: up to ~70% more at a tight one, 0: even)
-export function evenBarriers(T, A, env, { dist = env.runoff || 14, tol = 0.5, type = null, wide = 1 } = {}) {
+// dists: { '-1': [...], '1': [...] } how far out on each side at every sample instead (a real circuit's barriers, their
+// distance eased: tools/tracks/barriers.mjs --mapped); still brought in where it doesn't fit
+export function evenBarriers(T, A, env, { dist = env.runoff || 14, tol = 0.5, type = null, wide = 1, dists = null } = {}) {
   const N = T.N, DIST = dist, TOL = tol;
   const wrap = T.open ? (i) => Math.max(0, Math.min(N - 1, i)) : (i) => ((i % N) + N) % N; // (a point-to-point run doesn't wrap)
 
@@ -40,7 +42,7 @@ export function evenBarriers(T, A, env, { dist = env.runoff || 14, tol = 0.5, ty
   };
   function offsets(side) {
     const raw = new Float32Array(N), ex = extra(side);
-    for (let i = 0; i < N; i++) { let s = DIST + ex[i]; while (s > 1 && !fits(i, side, s)) s -= 0.5; raw[i] = s; }
+    for (let i = 0; i < N; i++) { let s = dists ? dists[side][i] : DIST + ex[i]; while (s > 1 && !fits(i, side, s)) s -= 0.5; raw[i] = s; }
     // smooth: the lowest within 20 m either side, then averaged over 30 m twice (never further out than it fits)
     const w = Math.round(20 / T.ds), m = Math.round(15 / T.ds);
     let o = Float32Array.from(raw, (_, i) => { let v = Infinity; for (let k = -w; k <= w; k++) v = Math.min(v, raw[wrap(i + k)]); return v; });

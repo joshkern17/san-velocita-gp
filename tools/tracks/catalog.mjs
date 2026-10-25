@@ -132,6 +132,16 @@ export const CATALOG = [
     scatter: { mix: 'meadow', r: 50, d: 0.2 },
   },
   {
+    // the full Grand Prix circuit (2012), anticlockwise: the climb to Turn 1, the esses, the long back straight, the
+    // stadium section and the triple-apex Turn 16-18 round the observation tower. Tilke's paved runoff all round.
+    id: 'cota', name: 'Circuit of the Americas', country: 'USA', category: 'gp',
+    dem: 'usgs',
+    desc: 'Grand Prix · Austin, Texas: up the wall to the Turn 1 hairpin, the fast esses, the long back straight and the triple-apex right round the tower',
+    guide: { f1: 'Circuit of the Americas' }, roads: RACEWAY, skip: PIT, width: 15,
+    env: { theme: 'grass', time: 'day', weather: 'clear', laps: 3, opponents: 11, runoffStyle: 'paved', pitStyle: 'modern', barrier: 'armco', fenceH: 2.8, setting: { kind: 'none', flora: 'mixed', seed: 2012 } },
+    scatter: { mix: 'meadow', r: 90, d: 0.12 },
+  },
+  {
     id: 'madring', name: 'Madring', country: 'Spain', category: 'street',
     desc: 'Street · Madrid\'s new circuit round IFEMA and Valdebebas, with the banked La Monumental',
     guide: { f1: 'Circuito de Madring' }, outline: true, roads: STREETS, skip: /pit|parking|car park|aparcamiento/i, width: 12, maxSnap: 40,

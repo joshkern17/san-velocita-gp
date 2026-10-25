@@ -10,6 +10,7 @@ import { CATALOG } from './catalog.mjs';
 import { groundHeights, DEM_CREDITS } from './dem.mjs';
 import { surfaceMap, ORTHO_CREDITS } from './surface.mjs';
 import { applyLandmarks, landmarksFile } from './landmarks.mjs';
+import { applyKitStands, kitFile } from './kitstands.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../..');
@@ -395,6 +396,9 @@ try {
     // (its ground, coloured from the aerial photos: tools/tracks/ground.mjs)
     const gf = path.join(OUT, 'ground', c.id + '.json');
     if (!REF && fs.existsSync(gf)) { const g = JSON.parse(fs.readFileSync(gf, 'utf8')); track.ground = g; if (g.credit) track.real.source += ' · ' + g.credit; }
+    // (its LiDAR ground and real buildings and trees, from the laser scans: tools/tracks/realscan.mjs)
+    const sf = path.join(OUT, 'scan', c.id + '.json');
+    if (!REF && fs.existsSync(sf)) { const s = JSON.parse(fs.readFileSync(sf, 'utf8')); if (s.fine) track.terrain.fine = s.fine; if (s.scan) track.scan = s.scan; if (s.credit) track.real.source += ' · ' + s.credit; }
     // (and what was changed in the editor and made official: tools/tracks/official.mjs)
     const ef = path.join(OUT, 'edits', c.id + '.json');
     if (!REF && fs.existsSync(ef)) Object.assign(track, JSON.parse(fs.readFileSync(ef, 'utf8')));
@@ -407,6 +411,8 @@ try {
     }
     // (its landmarks, made in the game's style: tools/tracks/landmarks.mjs)
     if (!REF && fs.existsSync(landmarksFile(c.id))) applyLandmarks(track, JSON.parse(fs.readFileSync(landmarksFile(c.id), 'utf8')));
+    // (its grandstands from the modular kit, where the real ones are: tools/tracks/kitstands.mjs)
+    if (!REF && fs.existsSync(kitFile(c.id))) await applyKitStands(track, JSON.parse(fs.readFileSync(kitFile(c.id), 'utf8')));
     // (its grandstands behind the barriers: js/standsbehind.js)
     if (!REF && (track.props || []).some(p => /^tp_stand_/.test(p.type))) {
       const r = await page.evaluate(async (t) => { const S = await import('/js/standsbehind.js'), r = S.standsBehind(t); return { r, props: t.props, propLines: t.propLines, dress: t.dress, stands: t.landmarks && t.landmarks.stands }; }, track);
@@ -439,7 +445,7 @@ const index = [];
 for (const c of CATALOG) {
   const f = path.join(OUT, c.id + '.json'); if (!fs.existsSync(f)) continue;
   const t = JSON.parse(fs.readFileSync(f, 'utf8'));
-  const { osm, terrain, dress, ground, ...light } = t;
+  const { osm, terrain, dress, ground, scan, ...light } = t;
   index.push({ ...light, file: c.id + '.json' });
 }
 fs.writeFileSync(path.join(OUT, 'index.json'), JSON.stringify(index));
