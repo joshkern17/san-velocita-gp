@@ -87,7 +87,10 @@ function savePlan(key, hit) {
 }
 // fitted racing lines (raceline.js), like the plans: kept for the session, the most recent 30 saved in the browser.
 // LINE_VERSION: bump when the line fitting changes (old lines, and the AI plans learned on them, are then redone)
-const LINES_CACHE = new Map(), LINES_KEY = 'svgp.aiLines', LINE_VERSION = 2; // (2: lines use the kerbs, lineMargins)
+const LINES_CACHE = new Map(), LINES_KEY = 'svgp.aiLines', LINE_VERSION = 3; // (2: lines use the kerbs, lineMargins; 3: out to the edges, LINE_EDGE)
+// the line's margins kept to the room (lineMargins), for the fit that doesn't go out over the white lines (checkLine)
+const roomOnly = (mg) => typeof mg.room === 'number' ? { margin: mg.room } : { margins: mg.room };
+const LINE_EDGE = 0.3; // m: the racing line's centre inside the white line (a car's ~0.9 m half width: two wheels over; 0.1 was 0.3 s a lap quicker again, but half as many offs again on the line, Road Atlanta 2026-10-25)
 function loadLine(key, N) {
   try { const e = JSON.parse(localStorage.getItem(LINES_KEY) || '{}')[key]; return e && e.o.length === N ? Float32Array.from(e.o, x => x / 100) : null; } catch (err) { return null; }
 }
@@ -596,8 +599,8 @@ export class Race {
     return K;
   }
   // the racing line for a car here: the smoothest line (track.js), then fitted to the car's grip, power, drag and
-  // downforce (raceline.js: 1-3 s a lap quicker for the AI, and a line worth following). Street and fun cars (heavier,
-  // looser) keep 2 m from the edges, the racing classes 1.6. Kept for the play session and saved in the browser (the 30
+  // downforce (raceline.js: 1-3 s a lap quicker for the AI, and a line worth following), out to the edges with two
+  // wheels over the white line (lineMargins). Kept for the play session and saved in the browser (the 30
   // most recent circuit + car combinations, ~10 KB each). (lineKind 'old': the smoothest line, for dev benches)
   lineFor(id) {
     if (!CARS[id]) id = 'f1';
@@ -613,7 +616,7 @@ export class Race {
     if (!O) {
       const lc = lineCar(CARS[id].spec); if (this.opts.lineComb) lc.comb = this.opts.lineComb;
       O = fastLine(this.T, base, lc, mg).O;
-      if (this.opts.lineCheck !== false) O = this.checkLine(id, base, O);
+      if (this.opts.lineCheck !== false) O = this.checkLine(id, base, O, mg.room !== mg.margin && mg.room !== mg.margins ? fastLine(this.T, base, lc, roomOnly(mg)).O : null);
       saveLine(key, O);
     }
     LINES_CACHE.set(key, O);
@@ -624,10 +627,15 @@ export class Race {
   // the kerb, as a driver uses them to straighten a chicane or an S; eased in over ~15 m either side so the line doesn't
   // kink where they start). opts.kerbMargin false: the plain margin everywhere, as before. Also sets this.edgeM, how
   // close the AI may steer to each edge (1.3 m in, or the kerb's margin less 0.1).
+  // That's the room (room: the side lines a car racing another drives, sideLines). The racing line itself goes further,
+  // its centre LINE_EDGE m inside the white line - two wheels over it, as a driver straightens an S or opens a long
+  // corner (all four over is track limits, racecontrol.js). Held 2 m in, a street car gave ~3 m a side away: a player
+  // using the width lapped Road Atlanta 2.5% under Phantom, 30+ km/h quicker through the Esses (2026-10-25).
+  // opts.lineEdge false: the room's margins for the line too, as before.
   lineMargins(id) {
     const T = this.T, N = T.N, KB = this.A.KERB, street = ['street', 'shitbox', 'fun'].includes(CARS[id]?.cls);
-    const m0 = this.opts.lineMargin ?? (street ? 2 : 1.6), mkO = this.opts.kerbMargin;
-    if (mkO === false || !KB) { this.edgeM = null; return { margin: m0 }; }
+    const m0 = this.opts.lineMargin ?? (street ? 2 : 1.6), mkO = this.opts.kerbMargin, le = this.opts.lineEdge ?? LINE_EDGE;
+    if (mkO === false || !KB) { this.edgeM = null; return { margin: le === false ? m0 : Math.min(m0, le), room: m0 }; }
     const mk = Math.min(m0, mkO ?? (street ? 0.9 : 0.6)), r = Math.max(1, Math.round(15 / T.ds));
     const M = new Float32Array(N), E = new Float32Array(N);
     for (let i = 0; i < N; i++) {
@@ -635,12 +643,15 @@ export class Race {
       M[i] = m0 - (m0 - mk) * k; E[i] = Math.min(1.3, M[i] - 0.1);
     }
     this.edgeM = E;
-    return { margins: M };
+    return { margins: le === false ? M : M.map(m => Math.min(m, le)), room: M };
   }
   // The model behind the fitted line is simple: on a few circuits (Monaco's walls and hairpins) the real car is slower
   // on it. So the first time, the AI learns both lines in the real physics and does a clean lap on each: the quicker
-  // one is kept (and its learned plan with it, so the race doesn't learn it again).
-  checkLine(id, base, fit) { return this.pickLine(id, [this.tryLine(id, base), this.tryLine(id, fit)]); }
+  // one is kept (and its learned plan with it, so the race doesn't learn it again). And the fit kept to the room's
+  // margins too (fitRoom), the line as it was before it went out over the white lines: the edge is quicker for most
+  // cars (Road Atlanta: RX-7 1.4 s, F1 0.8, 962C 1.2 for the middle of the field) but not all of them (M1 0.7 s slower:
+  // two wheels over isn't always kerb), so each car takes the edges only where it's quicker on them.
+  checkLine(id, base, fit, fitRoom) { return this.pickLine(id, [this.tryLine(id, base), this.tryLine(id, fit), ...(fitRoom ? [this.tryLine(id, fitRoom)] : [])]); }
   // the AI learns a line in the real physics and does a clean lap on it
   tryLine(id, O) {
     const savedCars = this.cars, savedLine = this.line;
@@ -651,13 +662,13 @@ export class Race {
     this.cars = savedCars; this.line = savedLine;
     return { O, V, meta, rounds, t };
   }
-  // the quicker of the tries (smooth, fitted), and its plan kept so the race doesn't learn it again
+  // the quickest of the tries (smooth, fitted, fitted to the room), and its plan kept so the race doesn't learn it again
   pickLine(id, tries) {
-    const win = tries[1].t < tries[0].t ? tries[1] : tries[0];
+    const win = tries.reduce((a, b) => b.t < a.t ? b : a);
     this.limits = { [id]: win.V }; this.limitMeta[id] = win.meta; this.learnRounds = win.rounds;
     const key = this.limitsKey(id, id), hit = { V: win.V, meta: win.meta, rounds: win.rounds }; // (its own line: it's the main car)
     if (!this.opts.freshPlans) { LIMITS_CACHE.set(key, hit); savePlan(key, hit); }
-    this.lineCheckT = tries.map(x => x.t); // (dev benches: smooth vs fitted)
+    this.lineCheckT = tries.map(x => x.t); // (dev benches: smooth vs fitted vs fitted to the room)
     return win.O;
   }
   // lineFor as steps ([label, fn]: the fit a stage at a time, then each check), for a build that keeps the page
@@ -671,16 +682,21 @@ export class Race {
     const key = this.lineKey(id);
     if (LINES_CACHE.get(key) || loadLine(key, this.T.N)) return [['Building the circuit', set]];
     const base = computeRacingLine(this.T, this.opts.kerbBase ? mg.margins || mg.margin : 1.6), lc = lineCar(CARS[id].spec); if (this.opts.lineComb) lc.comb = this.opts.lineComb;
-    const gen = fastLineSteps(this.T, base, lc, mg), job = { fit: null, tries: [] };
+    const check = this.opts.lineCheck !== false, room = check && mg.room !== mg.margin && mg.room !== mg.margins; // (fitRoom: checkLine)
+    const fits = [['fit', fastLineSteps(this.T, base, lc, mg)], ...(room ? [['fitRoom', fastLineSteps(this.T, base, lc, roomOnly(mg))]] : [])], job = { fit: null, fitRoom: null, tries: [] };
     const steps = [];
-    for (let k = 0; k < 6; k++) steps.push(['Fitting the racing line to your car', () => { for (let n = 0; n < 4 && !job.fit; n++) { const r = gen.next(); if (r.done) job.fit = r.value.O; } }]);
-    steps.push(['Fitting the racing line to your car', () => { while (!job.fit) { const r = gen.next(); if (r.done) job.fit = r.value.O; } }]);
-    if (this.opts.lineCheck !== false) {
-      steps.push(['Testing the line in your car (1 of 2)', () => job.tries.push(this.tryLine(id, base))]);
-      steps.push(['Testing the line in your car (2 of 2)', () => job.tries.push(this.tryLine(id, job.fit))]);
+    for (const [k, gen] of fits) {
+      for (let n = 0; n < 6; n++) steps.push(['Fitting the racing line to your car', () => { for (let i = 0; i < 4 && !job[k]; i++) { const r = gen.next(); if (r.done) job[k] = r.value.O; } }]);
+      steps.push(['Fitting the racing line to your car', () => { while (!job[k]) { const r = gen.next(); if (r.done) job[k] = r.value.O; } }]);
     }
-    steps.push(['Testing the line in your car (2 of 2)', () => {
-      const O = job.tries.length === 2 ? this.pickLine(id, job.tries) : job.fit;
+    const n = room ? 3 : 2;
+    if (check) {
+      steps.push([`Testing the line in your car (1 of ${n})`, () => job.tries.push(this.tryLine(id, base))]);
+      steps.push([`Testing the line in your car (2 of ${n})`, () => job.tries.push(this.tryLine(id, job.fit))]);
+      if (room) steps.push([`Testing the line in your car (3 of ${n})`, () => job.tries.push(this.tryLine(id, job.fitRoom))]);
+    }
+    steps.push([`Testing the line in your car (${n} of ${n})`, () => {
+      const O = job.tries.length >= 2 ? this.pickLine(id, job.tries) : job.fit;
       saveLine(key, O); LINES_CACHE.set(key, O); set();
     }]);
     return steps;
@@ -689,7 +705,7 @@ export class Race {
   lineKey(id) {
     const T = this.T; let h = 0;
     for (let i = 0; i < T.N; i += 7) h = (h * 31 + Math.round(T.X[i] * 10) * 7 + Math.round(T.Z[i] * 10) + Math.round(T.W[i] * 10)) | 0;
-    return `${this.track.name}|${T.N}|${h}|${id}|${LINE_VERSION}${this.opts.lineMargin ? `|m${this.opts.lineMargin}` : ""}${this.opts.lineComb ? `|c${this.opts.lineComb}` : ""}${this.opts.kerbMargin === false ? '|nokerb' : this.opts.kerbMargin != null ? `|k${this.opts.kerbMargin}` : ''}${this.opts.kerbBase ? '|kb1' : ''}`;
+    return `${this.track.name}|${T.N}|${h}|${id}|${LINE_VERSION}${this.opts.lineMargin ? `|m${this.opts.lineMargin}` : ""}${this.opts.lineComb ? `|c${this.opts.lineComb}` : ""}${this.opts.kerbMargin === false ? '|nokerb' : this.opts.kerbMargin != null ? `|k${this.opts.kerbMargin}` : ''}${this.opts.kerbBase ? '|kb1' : ''}${this.opts.lineEdge != null ? `|e${this.opts.lineEdge}` : ''}`;
   }
   // grip: the AI's grip edge from the difficulty (DIFF.grip): learned with it, so the plan uses it
   limitsFor(id, grip = 1) {
@@ -720,7 +736,7 @@ export class Race {
     // (the plan is learned on a line fitted to the race's main car: whose line it is is part of the key)
     // (a car whose spec was reworked carries a rev: what was learned for it before is no use now)
     const rv = (k) => CARS[k]?.rev ? `${k}r${CARS[k].rev}` : k;
-    return `${this.track.name}|${T.N}|${h}|${this.rain ? 1 : 0}${this.dirt ? 'd' : ''}|${rv(id)}${this.opts.lineKind === 'old' ? '' : `|l${LINE_VERSION}${this.opts.kerbMargin === false ? 'nk' : this.opts.kerbMargin != null ? 'k' + this.opts.kerbMargin : ''}|on${rv(owner)}`}|cs`; // (cs: plans capped at the speed seen, learnLimits)
+    return `${this.track.name}|${T.N}|${h}|${this.rain ? 1 : 0}${this.dirt ? 'd' : ''}|${rv(id)}${this.opts.lineKind === 'old' ? '' : `|l${LINE_VERSION}${this.opts.kerbMargin === false ? 'nk' : this.opts.kerbMargin != null ? 'k' + this.opts.kerbMargin : ''}${this.opts.lineEdge != null ? `e${this.opts.lineEdge}` : ''}|on${rv(owner)}`}|cs`; // (cs: plans capped at the speed seen, learnLimits)
   }
   learnLimits(spec = CARSPEC, gripEdge = 1) {
     const T = this.T, N = T.N, grip = (this.rain ? 0.97 : 1) * (this.dirt ? SURFACES.dirt[0] * (spec.dirtGrip ?? 1) : 1); // (dirtGrip: physics.js)
@@ -785,7 +801,9 @@ export class Race {
         const heading = Math.sin(p.h) * T.FX[car.idx] + Math.cos(p.h) * T.FZ[car.idx];
         // (also: running wide, far off the line and within a car's width of the edge = understeering)
         const wide = Math.abs(car.s) > T.W[car.idx] / 2 - 1.2 && Math.abs(car.s - this.line[car.idx]) > 3;
-        const bad = !car.onRoad || wide || p.slipR > 0.3 + 0.4 * (p.p.slideOK ?? 0) || heading < 0.8 || Math.abs(car.s) > T.W[car.idx] / 2 + 1.1; // (slideOK: a car driven sideways, a sprint car's slide is its cornering: past ~24° it's still too far)
+        // (and the centre 0.6 m past the white line: the line runs two wheels over it, but nearly all four is a run wide -
+        // 0.95 m is track limits, racecontrol.js. It was 1.1 m, never reached while the line kept 2 m in)
+        const bad = !car.onRoad || wide || p.slipR > 0.3 + 0.4 * (p.p.slideOK ?? 0) || heading < 0.8 || Math.abs(car.s) > T.W[car.idx] / 2 + (this.opts.lineEdge === false ? 1.1 : 0.6); // (slideOK: a car driven sideways, a sprint car's slide is its cornering: past ~24° it's still too far)
         if (cool > 0) cool--;
         else if (bad) { hits.push(car.idx); cool = 90; }
         if (bad && p.speed < 6) flying((car.idx + 10) % N);
@@ -3438,7 +3456,9 @@ export class Race {
     const vsYou = threat && threat.o.isPlayer && ai.trust != null, fights = yieldTo || by ? false : vsYou ? ai.trust < 30 || (ai.trust < 55 && ai.aggr > 0.45) : threat && (ai.aggr > 0.45 || threat.o.isPlayer && car.story && car.story.hard); // (and one with a score to settle with you always does)
     if (this.opts.defend === 'old') this.defendOld(car, dt, threat, fights);
     else this.defend(car, dt, threat, fights, j);
-    const lim = T.W[j] / 2 - (this.edgeM ? this.edgeM[j] : 1.3); // (at a kerb, two wheels on it: lineMargins)
+    // (at a kerb, two wheels on it: lineMargins; and never inside the racing line where it runs out over the white line -
+    // a car off its line, racing someone, keeps the room's margin)
+    const lim = Math.max(T.W[j] / 2 - (this.edgeM ? this.edgeM[j] : 1.3), Math.abs(this.line[j]));
     // a driver's technique (car.ai.skill: aiskill.js, techFor; none = the clean, quick AI):
     // wander: a less precise driver's line drifts by up to this many metres, a new error every 120-240 m
     const sk = ai.skill;
@@ -3622,7 +3642,12 @@ export class Race {
     const kNow = p.r / Math.max(Math.abs(p.u), 5), push = kap * kNow > 0 && Math.abs(kap) > 0.004 ? 1 - Math.abs(kNow / kap) : 0;
     const out = Math.sign(p.delta), wide = (car.s - (this.line[car.idx] + ai.bias + ai.over + (ai.def || 0) + (ai.pOff || 0))) * out; // (m outside its line)
     const room = T.W[car.idx] / 2 - car.s * out; // (m to the outside edge)
-    if (p.gripF > 0.9 && push > 0.1 && wide > 0.5 && room < 2) throttle *= Math.max(0, 1 - (push - 0.1) * 4 * Math.min(1, wide - 0.5));
+    // (or sooner, when at the rate it's closing on the edge it'll have all four wheels over in 0.6 s: a car 4 m wide with
+    // 4.6 m left, closing at 10 m/s, was still flat out - the edge only counted inside 2 m - and ran off out of Road
+    // Atlanta's T12, more so on a line out at the edge, 2026-10-25. opts.pushRoom false: as before)
+    const closing = ai.roomT != null ? Math.max(0, (ai.roomT - room) / Math.max(dt, 1e-3)) : 0; ai.roomT = room;
+    const soon = this.opts.pushRoom !== false && room - closing * 0.6 < -0.95;
+    if (p.gripF > 0.9 && push > 0.1 && wide > 0.5 && (room < 2 || soon)) throttle *= Math.max(0, 1 - (push - 0.1) * 4 * Math.min(1, wide - 0.5));
     // impatience (0-1): on the power before the car is ready, ignoring that much of what the car is saying (a sliding
     // rear, fronts washing wide)
     if (sk && sk.imp && err > 0) throttle += sk.imp * (Math.min(1, 0.3 + err * 0.35) - throttle);
@@ -3667,7 +3692,7 @@ export class Race {
   static SIDE_GAP = 3;
   sideLines() {
     if (this._side && this._side.line === this.line) return this._side;
-    const mg = this.lineMargins(this.lineOwner || this.mainCarId()), m = mg.margins || mg.margin;
+    const mg = this.lineMargins(this.lineOwner || this.mainCarId()), m = mg.room; // (the room, not the line's edge: lineMargins)
     return (this._side = { line: this.line, [-1]: minCurvatureLine(this.T, m, 8, -1, Race.SIDE_GAP), [1]: minCurvatureLine(this.T, m, 8, 1, Race.SIDE_GAP), base: {} });
   }
   // where a car d m off the racing line at sample j drives: that share of the way to the side line (all of it at
