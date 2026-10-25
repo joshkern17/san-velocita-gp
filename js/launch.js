@@ -15,7 +15,7 @@
 import * as THREE from 'three';
 import { loadPiece, EVENT_AT } from './garagekit.js';
 import { BULB_SCALE } from './pitgarage.js';
-import { makeCharacter, loadCharacters } from './characters.js';
+import { makeCharacter, loadCharacters, femaleFace } from './characters.js';
 import { logoForName, logoUrl } from './sponsorlogos.js';
 import * as WC from './wcareer.js';
 import { promiseText } from './wpressday.js';
@@ -24,7 +24,6 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<':
 const hex = (c) => '#' + ((c ?? 0x888888) >>> 0).toString(16).padStart(6, '0');
 const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const PRESS_LOOKS = ['polo_navy', 'tee_white', 'polo_beige', 'tee_blue', 'polo_maroon', 'tee_beige', 'polo_white', 'tee_maroon'];
-const SAY_FOR = 3.2;   // (seconds a line stays up; A moves it on)
 
 export class Launch {
   constructor(el, src) { this.el = el; this.src = src; this.isOpen = false; this.chars = []; this.set = null; el.addEventListener('click', (e) => this.click(e)); }
@@ -81,7 +80,7 @@ export class Launch {
     print('LAUNCH_NAME_1', this.nameArt(me)); if (mate) print('LAUNCH_NAME_2', this.nameArt(mate)); else if (hooks.LAUNCH_NAME_2) hooks.LAUNCH_NAME_2.visible = false;
     // the cars: under the cover (yours), out of the way (car two); your crew are off watching from somewhere else
     this.was = { carOff: pg.carOff, hideParked: pg.hideParked }; pg.showCar(false); pg.hideParked = true;   // (and you, as you were walking about: you're at the table)
-    if (pg.homeCrew) pg.homeCrew.root.visible = false;
+    if (pg.homeCrew) pg.homeCrew.root.visible = false; pg.eventOn = true;   // (and anyone else about the room: the teammate by the car, the co-owner walking about)
     // the cover: its cloth as built, to drag off at the reveal; the photographers' flash (in from the start, dark: a
     // light added later would have every material in the room recompile mid-reveal)
     const cv = hooks.LAUNCH_COVER; this.cover = null;
@@ -145,12 +144,21 @@ export class Launch {
     // the press: front rows first, from the aisle out (the 18 seats: rows of six, across)
     const n = this.D.crowd || WC.pressCrowd(this.w), order = [];
     for (let r = 0; r < 3; r++) for (const c of [2, 3, 1, 4, 0, 5]) order.push(r * 6 + c);
-    this.press = order.slice(0, n).map((k, i) => put(makeCharacter({ look: PRESS_LOOKS[(i * 5 + k) % PRESS_LOOKS.length], clip: 'sit_idle', seed: 100 + k }), `LAUNCH_PRESS_${String(k).padStart(2, '0')}`)).filter(Boolean);
+    const looks = order.slice(0, n).map((k, i) => ({ look: PRESS_LOOKS[(i * 5 + k) % PRESS_LOOKS.length], seed: 100 + k }));
+    // (the ones who'll ask: a different seat each question, looking like who the card says, Nadia a woman)
+    const askSeat = this.D.qs.map((q, i) => looks.length ? [0, 3, 1, 4, 2][i % 5] % looks.length : -1);
+    this.D.qs.forEach((q, i) => { const k = askSeat[i], f = q.who && q.who.woman ? femaleFace(i * 7 + q.who.name.length) : null; if (k >= 0 && f != null) looks[k] = { ...looks[k], face: f, helmet: false }; });
+    this.press = order.slice(0, n).map((k, i) => put(makeCharacter({ ...looks[i], clip: 'sit_idle' }), `LAUNCH_PRESS_${String(k).padStart(2, '0')}`)).filter(Boolean);
     this.photo = [];
     for (let k = 1; k <= Math.min(4, Math.max(1, Math.floor(n / 4))); k++) this.photo.push(put(makeCharacter({ look: PRESS_LOOKS[k % PRESS_LOOKS.length], clip: k % 2 ? 'idle_look' : 'point_fwd', seed: 300 + k }), `LAUNCH_PHOTO_${String(k).padStart(2, '0')}`));
     this.photo = this.photo.filter(Boolean);
-    // whoever's asking stands at the aisle mic
-    this.asker = put(makeCharacter({ look: 'polo_white', clip: 'idle', seed: 77 }), 'LAUNCH_ASK'); if (this.asker) this.asker.object.visible = false;
+    // whoever's asking gets up and goes to the aisle mic: a different one of them each question (their seat empty while
+    // they're up), the same clothes and face as in the seat
+    this.askers = this.D.qs.map((q, i) => {
+      const k = askSeat[i], spec = k >= 0 ? looks[k] : { look: 'polo_white', seed: 77 + i };
+      const ch = put(makeCharacter({ ...spec, clip: 'idle' }), 'LAUNCH_ASK'); if (ch) ch.object.visible = false;
+      return ch && { ch, seat: k >= 0 ? this.press[k] : null };
+    });
   }
 
   // ---------- the camera: the set's marks ----------
@@ -170,15 +178,15 @@ export class Launch {
     if (phase === 'intro') { this.say('Host', `Thanks for coming, everyone. ${this.src.team().name}, the ${this.w.year} season. We've got time for three questions.`); if (this.host) this.host.play('talk'); }
     else if (phase === 'ask') {
       if (this.host) this.host.play('idle');
-      if (this.asker) { this.asker.object.visible = true; this.asker.play('talk'); }
+      this.askerUp(true); if (this.asker) this.asker.play('talk');
       this.shot('ask'); this.sfx('move');
       $('.pd-q small').textContent = `${q.who.name} · ${q.who.outlet}${q.to === 'C' ? ' · to ' + (this.src.mate()?.first || 'your co-owner') : ''}`; $('.pd-q h2').textContent = q.q; $('.pd-q').hidden = false; this.wipe($('.pd-q'));
     } else if (phase === 'choose') {
-      if (this.asker) this.asker.object.visible = false;   // (sat back down: the TV camera looks down the aisle past the mic)
+      this.askerUp(false);   // (sat back down: the TV camera looks down the aisle past the mic)
       this.shot('qa'); this.sel = Math.min(this.sel, 2);   // (a cut: a move from the floor to the back would go through the crowd)
       $('.pd-q').hidden = false; this.answers(); $('.pd-ans').hidden = false; $('.pd-focus').hidden = false; this.place(true);
     } else if (phase === 'said') {
-      if (this.asker) this.asker.object.visible = false;
+      this.askerUp(false);
       const a = q.answers[this.D.answers[this.qi]], who = q.to === 'C' ? (this.src.mate()?.first || 'Co-owner') : this.src.me().first;
       this.say(who, a.text, WC.pressFxTags(this.w, a));
       for (const [i, p] of (this.press || []).entries()) if (a.tone === 'Cheeky' ? i % 2 === 0 : a.tone === 'Bold' && i % 3 === 0) p.play(a.tone === 'Cheeky' ? 'sit_clap' : 'sit_clap_2', { once: true, then: 'sit_idle' });
@@ -208,6 +216,11 @@ export class Launch {
       this.seasonCard(); this.sfx('best');
     }
     this.count(); this.hint();
+  }
+  // this question's reporter up at the mic (their seat empty), or back in their seat
+  askerUp(up) {
+    for (const [i, a] of (this.askers || []).entries()) if (a) { const on = up && i === this.qi; a.ch.object.visible = on; if (a.seat) a.seat.object.visible = !on; }
+    this.asker = up && this.askers && this.askers[this.qi] ? this.askers[this.qi].ch : null;
   }
   say(who, text, tags = []) {
     const el = this.el.querySelector('.pd-say'); el.querySelector('small').textContent = who; el.querySelector('p').textContent = `“${text}”`;
@@ -314,11 +327,8 @@ export class Launch {
     if (!this.isOpen) return;
     this.t += dt;
     for (const ch of this.chars) ch.update(dt);   // (the garage ticks only its own people)
-    // (the lines move themselves on after a while; the answers wait for you)
-    if ((this.phase === 'intro' || this.phase === 'said') && this.t > SAY_FOR + (this.phase === 'said' ? 1.2 : 0)) this.next();
-    else if (this.phase === 'ask' && this.t > 2.6) this.next();
-    else if (this.phase === 'reveal' && this.t > SAY_FOR + 0.6) this.next();
-    else if (this.phase === 'pull') {
+    // (every line waits for A / Enter; only the cloth coming off runs on by itself)
+    if (this.phase === 'pull') {
       this.pull = Math.min(1, this.t / (calm() ? 0.01 : 2.1)); this.coverAt(this.pull);
       if (this.pull > 0.55 && Math.random() < dt * 5) this.flashT = 0.07;
       if (this.pull >= 1 && this.t > 2.5) this.next();
@@ -341,11 +351,11 @@ export class Launch {
   }
   teardown() {
     const pg = this.src.pg;
-    for (const ch of this.chars) { ch.object.removeFromParent(); ch.dispose(); } this.chars = []; this.press = []; this.host = this.asker = null;
+    for (const ch of this.chars) { ch.object.removeFromParent(); ch.dispose(); } this.chars = []; this.press = []; this.host = this.asker = null; this.askers = [];
     this.carBack(); if (this.flash) { this.flash.removeFromParent(); this.flash = null; } this.cover = null; this.drivers = []; this.photo = [];
     if (this.set) { this.set.removeFromParent(); this.set.traverse(o => { if (o.geometry) o.geometry.dispose(); }); this.set = null; }
     if (this.was) { pg.showCar(!this.was.carOff); pg.hideParked = this.was.hideParked; this.was = null; }
-    if (pg.homeCrew) pg.homeCrew.root.visible = true;
+    if (pg.homeCrew) pg.homeCrew.root.visible = true; pg.eventOn = false;
     if (pg.shot === 'cine') pg.setView(this.wasShot || 'room');   // (the camera's the garage's again)
   }
 }

@@ -4,14 +4,14 @@
 // it): fx { rep, press, sponsor: +/- a missed target's patience for the title sponsor, mate: teammate morale, drep:
 // drivers' view of you, rival: their grudge }, and a promise (a season target the Wire holds you to: wcareer.js
 // settlePromises). The questions are the reporters'; what's said is short, the way it'd be printed.
-//   pressQuestions(c) -> [{ id, who: { name, outlet }, to: 'P' | 'C', q, answers: [{ tone, text, fx, promise? }] }]
+//   pressQuestions(c) -> [{ id, who: { name, outlet, woman }, to: 'P' | 'C', q, answers: [{ tone, text, fx, promise? }] }]
 //   c: the context from wcareer.js pressContext (names, numbers, flags): no world in here, no randomness but c.rnd
 
-const OUTLETS = [['Nadia Okafor', 'The Paddock Wire'], ['Dale Brucker', 'Velocita Sun-Herald'], ['Kim Arroyo', 'SVTV Motorsport Tonight'], ['Gus Pelham', 'Grid Magazine'], ['Teri Vance', 'WSVR 101.3 Morning Zoo']];
+const OUTLETS = [['Nadia Okafor', 'The Paddock Wire', 1], ['Dale Brucker', 'Velocita Sun-Herald'], ['Kim Arroyo', 'SVTV Motorsport Tonight', 1], ['Gus Pelham', 'Grid Magazine'], ['Teri Vance', 'WSVR 101.3 Morning Zoo', 1]];   // (1: a woman, for who's seen asking)
 const ord = (n) => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
 
 export function pressQuestions(c) {
-  const who = (k) => { const [name, outlet] = OUTLETS[k % OUTLETS.length]; return { name, outlet }; };
+  const who = (k) => { const [name, outlet, woman] = OUTLETS[k % OUTLETS.length]; return { name, outlet, woman: !!woman }; };
   const qs = [];
   // 1. the season: moving up, defending a title, or what's different after a bad one
   if (c.movedUp) qs.push({ id: 'up', who: who(0), to: 'P', q: `First season in the ${c.series}. Last year you were racing in the ${c.fromSeries}. Is this team ready?`, answers: [

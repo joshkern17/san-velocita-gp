@@ -1241,6 +1241,7 @@ export class PitGarage {
     if (this.memGroup) this.memGroup.visible = this.mode === 'home';
     if (this.noticeMesh) { if (this.noticeOn && this.noticeRoom !== this.custom) this.placeNotice(); this.noticeMesh.visible = this.noticeOn && this.mode === 'home'; }
     for (const ch of this.people || []) {
+      ch.object.visible = !this.eventOn;   // (an event's set up in the room (js/launch.js): it has its own people)
       // (turned to the camera once it's settled: a little to one side, not straight down the lens)
       if (!ch.faced && this.settled) {
         // at home: between the car and the desk, off to the left of the line between them (in the shot, beside the car)
@@ -1254,7 +1255,7 @@ export class PitGarage {
     this.flickTick(dt);
     this.crewTick(dt);
     this.padTick(dt);
-    if (this.friend) this.friend.update(dt); // (co-op: the other one of you, js/coopwalk.js)
+    if (this.friend) { this.friend.update(dt); if (this.eventOn && this.friend.ch) this.friend.ch.object.visible = false; } // (co-op: the other one of you, js/coopwalk.js; at an event they're on the set)
     // walking round (js/garagewalk.js): you and the camera behind you
     if (this.walker && this.walker.active) {
       this.walker.update(dt); this.shiftNow = this.walker.shift || 0;

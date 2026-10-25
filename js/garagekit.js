@@ -38,7 +38,7 @@ function piece(name) {
 // an event's set (models/garage/event_<key>.glb: the season launch's stage and press, tools/garage-launch.py), and where
 // each premises has room for it, in the shell's Blender frame ([x, y, turn]: the set's back, its front down -Y). A
 // premises not listed has no room for it (the launch happens without the set)
-export const EVENT_AT = { launch: { unit: [3.8, 3.1, 0] } };
+export const EVENT_AT = { launch: { unit: [3.1, 3.1, 0] } };   // (unit: clear of the stairs up the right wall, x 6.7 on)
 export const loadPiece = (name) => piece(name).then(s => s && cloneLit(s));
 // a copy of a piece, its spot lights still aimed (a copied spot keeps pointing at the original's target, which isn't in
 // the scene: it'd light the world's origin)
