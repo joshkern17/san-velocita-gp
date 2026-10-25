@@ -43,7 +43,7 @@ import * as WCX from './wcareer.js';
 const WC_OPS = new Set(['acquireCar', 'buyCar', 'buyCar2', 'buyCar2Model', 'buyFit', 'newPart', 'rebuildPart', 'rebuildSelf', 'startProject', 'workOnProject', 'buildFacility', 'sellFacility', 'sellCar',
   'orderTyres', 'hireStaff', 'fireStaff', 'payBack', 'setPay', 'applyLoan', 'sellAnnuity', 'offerDriver', 'extendMate', 'setMatePay', 'setCar2Fix', 'removeFit', 'removeGrey',
   'answerSponsor', 'answerWorks', 'answerInvestor', 'answerBuyout', 'answerPoach', 'answerGent', 'answerStory', 'answerOffer', 'rsvpEvent', 'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan', 'coopAnswer', 'sellCar2',
-  'propose', 'approveProp', 'declineProp']);
+  'propose', 'approveProp', 'declineProp', 'roleDay']);
 const WC = new Proxy(WCX, { get(m, k) {
   const f = m[k]; if (typeof f !== 'function' || !WC_OPS.has(k)) return f;
   return (...a) => {
@@ -57,7 +57,7 @@ const WC = new Proxy(WCX, { get(m, k) {
 } });
 // (what the co-owner may do on their own: their own days, their own work on the car, and whatever their role runs
 // (WC.opOwner); the rest they suggest. The season itself, the email that isn't a role's, the host's)
-const GUEST_OPS = new Set(['rebuildSelf', 'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan', 'coopAnswer', 'propose', 'approveProp', 'declineProp']);
+const GUEST_OPS = new Set(['roleDay', 'rebuildSelf', 'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan', 'coopAnswer', 'propose', 'approveProp', 'declineProp']);
 const guestMay = (w, fn) => GUEST_OPS.has(fn) || (w && w.coop && WCX.opOwner(w, fn) === 'C');
 import { Phone } from './phone.js';
 import { Net, PROTO } from './net.js';
@@ -4099,7 +4099,7 @@ function dayChoices(w, canRace) {
     run: () => WC.doPlan(w, p.id) || { line: 'No days left' } }));
   // (every day left is spoken for: only what's booked)
   if (WC.freeDays(w) <= 0 && booked.length + plans.length) return [...booked, ...plans];
-  const out = [...booked, ...plans, { key: 'work', short: 'Day job', tag: `+${$(job.pay)}`, mcls: 'gain', head: job.name, desc: `A day's pay for a day of your week.${job.sale ? ' Sell a car and there\'s commission on top.' : ''}`,
+  const out = [...booked, ...plans, ...roleChoices(w, 'P'), { key: 'work', short: 'Day job', tag: `+${$(job.pay)}`, mcls: 'gain', head: job.name, desc: `A day's pay for a day of your week.${job.sale ? ' Sell a car and there\'s commission on top.' : ''}`,
     money: `+${$(job.pay)}${job.sale ? '<small> + commission</small>' : ''}`, effect: 'Pays the bills',
     run: () => { const r = WC.workDay(w); return { amt: r.amt, line: job.name, note: r.note || '' }; } }];
   const gr = WC.gigRating(w);
@@ -4151,6 +4151,16 @@ function dayChoices(w, canRace) {
     money: 'Prize money', time: `Skips ${left} day${left === 1 ? '' : 's'}`, effect: `${R.name}`, vis: map, go: true, goLabel: 'Go racing', confirm: 'Race now? Select again', run: () => startWorldRound() }); }
   return out;
 }
+// your role's days (co-op): the Principal's and the Technical Director's own (WC.roleDays), one of each a week
+function roleChoices(w, me) {
+  if (!w.coop) return [];
+  const R = WCX.COOP_ROLES[WC.roleOf(w, me)], ICON = { pitch: 'work', haggle: 'work', meeting: 'mate', media: 'work', dyno: 'test', data: 'sim', tunnel: 'proj' };
+  // (one row, its jobs side by side in the pane, as a day with your teammate's ideas)
+  const role = WC.roleOf(w, me), L = WC.roleDays(w, me).filter(o => !o.done); if (!L.length) return [];
+  return [{ key: 'role' + role, icon: role === 'boss' ? 'work' : 'test', short: role === 'boss' ? 'Principal' : 'Technical', tag: `${L.length} job${L.length === 1 ? '' : 's'}`,
+    subs: L.map(o => ({ pick: o.short, price: o.money, mcls: /^−/.test(o.money) ? 'neg' : '', star: '', head: o.name, desc: `${o.desc} <i>The ${R.name}'s job: only you can do it. One a week each.</i>`,
+      money: o.money, effect: o.effect, icon: ICON[o.key], run: () => WC.roleDay(w, me, o.key) || { line: 'No days left' } })) }];
+}
 // days together (co-op): what the other's asked for, to say yes to; or asking them (it waits in their planner)
 function togetherChoices(w, me) {
   if (!w.coop || !(coopGuest() || coopLive())) return [];
@@ -4178,6 +4188,7 @@ function coopDayChoices(w) {
   for (const p of WC.coopPlans(w)) out.push({ key: 'pl' + p.id, icon: 'work', short: p.tag, tag: 'Booked', head: p.what, desc: p.fx === 'press' ? 'Nadia from The Paddock Wire spends the day with you and the team. You said yes by email.' : 'You said yes to it.',
     money: 'Free', time: 'Booked: doing it uses the day', effect: p.fx === 'press' ? '+2 reputation, the piece runs this week' : 'You turn up', run: () => WC.coopDoPlan(w, p.id) || { line: 'No days left' } });
   out.push(...togetherChoices(w, 'C').filter(o => o.key === 'yes'));
+  out.push(...roleChoices(w, 'C'));
   out.push({ key: 'work', short: 'Work', tag: `+${$(j.pay)}`, mcls: 'gain', head: j.name, desc: `Your pay goes in the team account.${w.coop.boss ? ` ${w.coop.boss} sponsors you: turn up for at least one shift a week, or they pay the team half.` : ''}`,
     money: `+${$(j.pay)}`, effect: w.coop.boss ? 'Pays, and keeps your boss sweet' : 'Pays the team', run: day('work') });
   if (WC.car2Owned(c2) && c2.cond < 0.99) out.push({ key: 'fix', short: 'Your car', tag: `−${$(WC.coopCarCost(w))}`, mcls: 'neg', head: 'Work on your car', desc: 'Parts from the team account, and your day. Car two gets better for the weekend.',
@@ -4275,7 +4286,7 @@ function openDayPlan(canRace, where = null) {
 // where each of the day's choices is done, walking round: the car's work at the car, a sim session at the sim rig,
 // everything else out the door
 // (co-op: working on the cars together is at the car too: asking, or saying yes)
-const DAY_AT = (k) => k === 'fix' || k === 'proj' || k === 'projs' || k === 'askgarage' || ((k === 'yes' || k === 'asked') && world?.week?.co?.ask?.what === 'garage') ? 'car' : k === 'sim' ? 'sim' : 'door';
+const DAY_AT = (k) => k === 'fix' || k === 'proj' || k === 'projs' || k === 'askgarage' || k === 'roletech' || ((k === 'yes' || k === 'asked') && world?.week?.co?.ask?.what === 'garage') ? 'car' : k === 'sim' ? 'sim' : 'door';
 let dayWhere = null;
 function dayInput() {
   if (!dayPlan.isOpen) return false;
@@ -5155,6 +5166,7 @@ function coopHostMessage(m, from) {
   } else if (m.t === 'op') {
     if (!w.coop || !guestMay(w, m.fn) || typeof WCX[m.fn] !== 'function') return;
     if ((m.fn === 'approveProp' || m.fn === 'declineProp') && !(w.props || []).some(p => p.id === m.args?.[0] && p.by === 'P')) return; // (theirs to answer: the host's ideas)
+    if (m.fn === 'roleDay' && m.args?.[0] !== 'C') return; // (their own days only)
     const propN = (w.propLog || []).length;
     const before = w.money ? w.money.balance : 0, tx0 = w.money ? w.money.tx[0] : null;
     try { WCX[m.fn](w, ...(m.args || []).map(coopUnref)); } catch (e) { console.error('co-op', m.fn, e); }

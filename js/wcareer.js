@@ -316,6 +316,54 @@ export function approveProp(w, id) {
   answered(w, p, !bad, bad ? r.why : '');
   return r ?? { ok: true };
 }
+// what only the one in a role does with a day (co-op): the Principal works the business (a sponsor pitch, haggling the
+// weekend down, a team meeting, the media), the Technical Director the cars (the dyno, the data, the wind tunnel). One
+// of each a week; what they do counts this weekend (w.roleWk, this round's)
+const roleWk = (w) => { const k = `${w.year}-${w.round}`; if (!w.roleWk || w.roleWk.key !== k) w.roleWk = { key: k, done: {} }; return w.roleWk; };
+export const roleWeek = (w) => (w.roleWk && w.roleWk.key === `${w.year}-${w.round}` ? w.roleWk : { done: {} });
+export function roleDays(w, pid) {
+  const role = roleOf(w, pid); if (!role || w.over) return [];
+  const R = roleWeek(w), t = myTeam(w), S = w.series[w.player.series], deals = dealsOf(w), c = COSTS[w.player.series], out = [];
+  const day = (key, o) => out.push({ key, role, done: !!R.done[key], ...o });
+  if (role === 'boss') {
+    const free = SPONSOR_SLOTS.length - deals.length, title = deals.find(d => d.slot === 'title'), sp = title && sponsorById(title.sid);
+    day('pitch', free ? { name: 'Sponsor pitch', short: 'Pitch', desc: 'Print the deck, put on the good shirt and do the rounds of the business park. Somebody wants their name on a race car. They just don\'t know it yet.', effect: 'A sponsor offer by email', money: 'Free' }
+      : { name: `Lunch with ${sp ? sp.name : 'the sponsors'}`, short: 'Sponsors', desc: 'Remind them why they signed. Pick up the bill. Laugh at the joke about the marketing budget.', effect: title && title.misses ? 'A missed target forgiven' : '+1 reputation', money: `−${money$(roleLunch(w))}` });
+    day('haggle', { name: 'Haggle the weekend down', short: 'Haggle', desc: 'The series office, the freight company, the hotel by the circuit. Every one of them has a discount if you stay on the phone long enough.', effect: `About ${money$(roleHaggle(w))} off this weekend's bill`, money: 'Free' });
+    if ((w.staff || []).length) day('meeting', { name: 'Team meeting', short: 'Meeting', desc: 'Pizza, a whiteboard, and everyone says what\'s bothering them. It\'s mostly the coffee machine.', effect: 'Your staff happier: they work better', money: `−${money$(150)}` });
+    day('media', { name: 'Media rounds', short: 'Media', desc: 'Local radio at 6 am, the paper at noon, a podcast in somebody\'s garage at 8 pm.', effect: '+2 press, +1 reputation', money: 'Free' });
+  } else {
+    if (facLevel(t, 'dyno')) day('dyno', { name: 'Dyno session', short: 'Dyno', desc: 'The engine on the dyno all day: every sensor checked, the tired bits found before the race finds them.', effect: 'Engine and gearbox far less likely to fail this weekend', money: 'Free' });
+    if (S.results.length) day('data', { name: 'Data day', short: 'Data', desc: `Last race's data, lap by lap, both cars. ${facLevel(t, 'data') ? 'The data room makes short work of it.' : 'On a laptop, at the kitchen table.'}`, effect: 'Some of the setup found for this weekend', money: 'Free' });
+    const aero = (w.projects || []).find(x => !x.done && !x.shop && x.area === 'aero');
+    if (facLevel(t, 'tunnel') && aero) day('tunnel', { name: `Wind tunnel: ${aero.name}`, short: 'Tunnel', desc: 'A day in the tunnel with the model, smoke and a clipboard. Two days of guessing, settled in one.', effect: `${(aero.prog || 0).toFixed(1)} → ${Math.min(aero.days, (aero.prog || 0) + 2).toFixed(1)} of ${aero.days} days`, money: 'Free' });
+  }
+  return out;
+}
+const roleLunch = (w) => Math.round(120 * (PRICE_K[w.player.series] || 1) / 10) * 10;
+const roleHaggle = (w) => { const c = COSTS[w.player.series]; return Math.round((c.entry + c.travel) * 0.25 / 50) * 50; };
+// the haggled discount, if there is one this weekend (settleRound takes it off the bill)
+export const roleDiscount = (w) => roleWeek(w).done.haggle ? roleHaggle(w) : 0;
+// do it: the day goes from whoever's doing it (pid), { amt, line, note } or null
+export function roleDay(w, pid, key) {
+  const o = roleDays(w, pid).find(x => x.key === key); if (!o || o.done) return null;
+  if (pid === 'C' ? coopDaysLeft(w) <= 0 : daysLeft(w) <= 0) return null;
+  const R = roleWk(w), t = myTeam(w), use = (amt = 0) => pid === 'C' ? coopUse(w, o.name, amt, o.short) : useDay(w, o.name, amt, o.short);
+  let amt = 0, note = '';
+  if (key === 'pitch') {
+    const free = SPONSOR_SLOTS.length - dealsOf(w).length;
+    if (free) { const n = (w.mail || []).length; sponsorOffers(w, true); note = (w.mail || []).length > n ? `${w.mail[0].from} want to talk. It's in the email.` : 'Lots of business cards. Nobody bit. This time.'; }
+    else { const d = dealsOf(w).find(x => x.slot === 'title'); amt = -roleLunch(w); pay(w, amt, 'Sponsor lunch');
+      if (d && d.misses) { d.misses--; note = 'They\'ll overlook last time. They said so twice.'; } else { w.rep = clamp(repOf(w) + 1, 0, 100); note = 'They ordered the lobster.'; } }
+  } else if (key === 'haggle') note = `${money$(roleHaggle(w))} off this weekend. The freight company threw in a calendar.`;
+  else if (key === 'meeting') { amt = -150; pay(w, amt, 'Team meeting (pizza)'); for (const x of w.staff || []) x.morale = clamp((x.morale ?? 60) + 12, 0, 100); note = 'They fixed the coffee machine. Morale up.'; }
+  else if (key === 'media') { w.press = pressOf(w) + 2; w.rep = clamp(repOf(w) + 1, 0, 100); note = pickLine(w, ['The radio host called the car "the little red one". It isn\'t red.', 'The podcast has eleven listeners. Nine of them are sponsors now.']); }
+  else if (key === 'dyno') note = 'Found a tired bearing and a loose connector. Not any more.';
+  else if (key === 'data') note = 'Braking too early into the hairpin. Both of you.';
+  else if (key === 'tunnel') { const x = (w.projects || []).find(p => !p.done && !p.shop && p.area === 'aero'); if (!x) return null; x.prog = (x.prog || 0) + 2; if (x.prog >= x.days) finishProject(w, x); note = x.done ? 'Finished.' : `${Math.min(x.days, x.prog).toFixed(1)} of ${x.days} days of work done`; }
+  R.done[key] = pid; use(amt);
+  return { amt, line: o.name, note };
+}
 export function declineProp(w, id) { const i = (w.props || []).findIndex(p => p.id === id); if (i < 0) return; answered(w, w.props.splice(i, 1)[0], false, 'Not now'); }
 // the friend signs: { first, last, number, kind, token }
 export function coopJoin(w, o) {
@@ -2334,6 +2382,7 @@ export function settleRound(w, use, me) {
   const items = [
     ['Entry fee', -c.entry], [home ? 'Travel (home race: you drove)' : 'Travel and freight', home ? 0 : -Math.round(c.travel * fx.travel * (facLevel(myTeam(w), 'truck') ? 0.65 : 1))], ['Pit crew (contract)', -c.crew],
     ['Premises and facilities', -facUpkeep(myTeam(w))],
+    ...(roleDiscount(w) ? [['Haggled down (the Principal)', roleDiscount(w)]] : []),
     [`Tires bought trackside (${use.trackside || 0} set${use.trackside === 1 ? '' : 's'})`, -Math.round((use.trackside || 0) * c.tyre * TRACKSIDE)],
     [`Fuel (${use.laps} lap${use.laps === 1 ? '' : 's'})`, -Math.round(use.laps * c.fuelLap * (bg.fuel || 1))],
   ];
@@ -3675,7 +3724,7 @@ export function weekendCost(w) {
   const c = COSTS[w.player.series], R = w.series[w.player.series].cal[w.round], m = mateOf(w);
   const need = tyreNeeds(w), st = stockOf(w), shortSets = staffOf(w, 'manager') ? 0 : ['soft', 'medium'].reduce((a, k) => a + Math.max(0, Math.min(need[k], 1) - st[k]), 0);
   return c.entry + (isHome(w, R) ? 0 : Math.round(c.travel * staffEffects(w).travel)) + c.crew + Math.round(c.fuelLap * 14 * (bgOf(w).fuel || 1)) + shortSets * Math.round(c.tyre * TRACKSIDE)
-    + payrollDue(w) + (m && m.wage && m.pay !== 'hold' ? m.wage : 0) + (w.loans || []).filter(l => !l.paid && !l.shark).reduce((a, l) => a + l.per, 0);
+    + payrollDue(w) + (m && m.wage && m.pay !== 'hold' ? m.wage : 0) + (w.loans || []).filter(l => !l.paid && !l.shark).reduce((a, l) => a + l.per, 0) - roleDiscount(w);
 }
 export function briefing(w) {
   const sid = w.player.series, S = w.series[sid], c = COSTS[sid], targets = [], watch = [], goals = [];
@@ -4320,6 +4369,7 @@ export function carBreakdown(w, car = 'me') {
   for (const stat of ['power', 'grip', 'downforce', 'brake']) if (D[stat]) put(stat, 'dev', `${AREA[stat]} development`, D[stat], lvl >= 1 || (stat === 'power' && dyno) ? {} : { shown: 0, how: 'unknown' });
   // this week: a test day found the setup, or the sim rig some of it
   const wk = w.week && w.week.key === weekKey(w) ? w.week : null;
+  if (roleWeek(w).done.data) put('grip', 'week', 'Data day setup', 0.005);   // (co-op: the Technical Director's data day)
   if (wk && wk.setup) put('grip', 'week', 'Test day setup', 0.012); else if (wk && (wk.sim || wk.brief)) put('grip', 'week', wk.sim ? 'Sim rig setup' : 'Your teammate\'s notes', 0.004 * ((wk.sim || 0) + (wk.brief || 0)));
   // car 2: its condition, and an older or hired car's deficit (car2Of)
   if (car === 'mate') { const c2 = car2Mods(w); if (c2.power !== 1) put('power', 'wear', c2.label, c2.power - 1); if (c2.grip !== 1) put('grip', 'wear', c2.label, c2.grip - 1); }
@@ -4347,7 +4397,8 @@ const mechFactor = (w) => { const m = staffOf(w, 'mechanic'); return m ? (1.2 - 
 // the chance each part fails this race (0..1)
 export function failOdds(w) {
   const P = carParts(w), out = {}; if (!P) return out;
-  for (const k of PART_KEYS) { const p = PARTS[k]; if (!p.fail) continue; out[k] = clamp(p.fail * (1 - P[k].cond) ** 2 * (P[k].fits.length ? 1.6 - Math.min(...P[k].fits.map(f => f.q ?? 1)) : 1) * mechFactor(w) * (w.car.rel || 1) * (1 - (w.car.dev?.rel || 0)), 0, 0.5); }
+  const dyno = roleWeek(w).done.dyno ? 0.4 : 1;   // (co-op: the Technical Director's dyno day: the engine and gearbox checked)
+  for (const k of PART_KEYS) { const p = PARTS[k]; if (!p.fail) continue; out[k] = clamp((k === 'engine' || k === 'gearbox' ? dyno : 1) * p.fail * (1 - P[k].cond) ** 2 * (P[k].fits.length ? 1.6 - Math.min(...P[k].fits.map(f => f.q ?? 1)) : 1) * mechFactor(w) * (w.car.rel || 1) * (1 - (w.car.dev?.rel || 0)), 0, 0.5); }
   return out;
 }
 export const failRisk = (w) => 1 - Object.values(failOdds(w)).reduce((a, p) => a * (1 - p), 1);
