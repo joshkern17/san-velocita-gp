@@ -18,6 +18,7 @@
 // get up at nav.spawn, nav.push keeps you in, and you walk in the garage's own frame (its room, in the track's scene).
 import * as THREE from 'three';
 import { loadCharacters, makeCharacter, alignedClip, CLIP_INFO } from './characters.js';
+import { solidBoxes } from './garagekit.js';
 
 const R = 0.28;            // your radius (m): how close you get to things
 const WALK = CLIP_INFO.walk.speed, RUN = 2.3, SPRINT = 4.6; // m/s (walking pace; the trigger all the way in: a jog, a bit quicker than the clip's stride; out in the pit lane, a run)
@@ -115,11 +116,11 @@ export class GarageWalk {
     pg.room.traverse(o => {
       if (!o.isMesh || (!shown(o) && !/^COL_/.test(o.name))) return;
       if (named(o, /^(NAV|WALK)_/)) return;                                  // (what you walk on: the floors, stairs, a deck)
-      const b = new THREE.Box3().setFromObject(o);
-      if (b.isEmpty()) return;
-      const w = b.max.x - b.min.x, d = b.max.z - b.min.z;
-      if (w * d > 8 && w > 0.3 && d > 0.3) return;                           // (a big L of walls: its box is the room)
-      boxes.push(b);
+      for (const b of solidBoxes(o)) {
+        const w = b.max.x - b.min.x, d = b.max.z - b.min.z;
+        if (w * d > 8 && w > 0.3 && d > 0.3) continue;                       // (a big L of walls: its box is the room)
+        boxes.push(b);
+      }
     });
     for (const c of [pg.car, pg.car2]) if (c && c.group.parent && c.group.visible) {
       const b = new THREE.Box3(); c.group.updateMatrixWorld(true);

@@ -34,7 +34,8 @@ import { Computer } from './computer.js';
 import { restoreSaves, exportBackup, importBackup, bigGet } from './backup.js';
 import { voiceState, voiceStatus, voiceSignIn, voiceSignOut, voiceReacts, converse, pressAnswer, pitchAnswer, voiceStories, TALK_INTENTS } from './voice.js';
 import { carPhoto } from './carphoto.js';
-import { PARTS, DEFAULT_CAR, chassisReady, setStance } from './carmodel.js';
+import { PARTS, DEFAULT_CAR, chassisReady, setStance, teamCar } from './carmodel.js';
+import { TEAM_LIVERIES } from './teamliveries.js';
 import * as CAREER from './career.js';
 import * as WCX from './wcareer.js';
 // co-op: on the friend's copy every change to the career (WC_OPS) runs there at once, so the screens answer, and is
@@ -2884,7 +2885,20 @@ addEventListener('mousemove', (e) => { if (walk.active && (e.buttons & 1)) { wal
 
 // ---- the home garage, previewed (main menu): the World Career garage built from its kit (js/garagekit.js) with the
 // premises, facilities and second car you pick; your Garage car in bay one. Nothing is saved ----
-const hv = { premises: 'lockup', fac: {}, car2: true, look: 'room', crew: true, busy: true };
+const hv = { premises: 'lockup', fac: {}, car2: true, look: 'room', crew: true, busy: true, blvd: 'mine' };
+// the Boulevard in the dev view (the factory's plinths): your career's cars, or the GT1 cars (the HD models), shuffled,
+// each in a rival team's livery (a new draw each time it's picked). Waits for the models: a car not loaded yet would be
+// built as the F1 car
+async function hvBoulevard() {
+  if (hv.blvd !== 'gt1') { pitGarage.setMemories(null); return; }
+  const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const ids = shuffle(carsInClass('gt1').filter(id => CARS[id].livery)), teams = shuffle(Object.keys(TEAM_LIVERIES)), draw = hv.blvdDraw = {};
+  for (let k = 0; k < 100 && !ids.every(id => chassisReady(chassisKey(id))); k++) await new Promise(r => setTimeout(r, 100));
+  if (hv.blvdDraw !== draw || hv.blvd !== 'gt1') return;
+  const cars = ids.map((id, i) => { const t = TEAM_LIVERIES[teams[i % teams.length]], name = teams[i % teams.length];
+    return { chassis: id, name: CARS[id].name, years: [1994 + i], series: 'GT1', result: name, cfg: { ...teamCar({ name, main: t.main, accent: t.accent, helmet: 0xf4f4f2 }, i), chassis: chassisKey(id) } }; });
+  pitGarage.setMemories({ ...DEV_HONORS, cars });
+}
 const hvCar = () => ({ ...settings.car });
 // the stations a facility at level n puts in the room: its own (tools) and one a level above the first (tools2: the lift,
 // tools3: the machine shop), each a station_<key>.glb at the shell's SLOT_<key>
@@ -2907,14 +2921,14 @@ function openHomeView() {
     const c = hvCar();
     pitGarage.openHome(c, { main: c.main, accent: c.accent, name: c.teamName || 'Your Team' }, hvHome()); pitGarage.setTyres({ soft: 3, medium: 1, hard: 1, wet: 2 }); // (a week's worth, to see)
     pitGarage.showCar(true); pitGarage.setPeople([]); pitGarage.setNotice(false); pitGarage.setMemories(null);
-    hv.look = 'room'; show('s-homeview'); hvApply();
+    hv.look = 'room'; hv.blvdOn = false; show('s-homeview'); hvApply();
   }, 200);
 }
 // (something changed: the room catches up, then the menu says what's in it)
 function hvApply() {
   const h = hvHome(); pitGarage.pickRoom(h); pitGarage.setCar2(h.car2); pitGarage.setCrew(hvCrew(), hvBusy());
   renderHomeView();
-  pitGarage.roomReady().then(() => { if (screen !== 's-homeview') return; if (!hvLooks().some(([k]) => k === hv.look)) hv.look = 'room'; hvLook(); renderHomeView(); });
+  pitGarage.roomReady().then(() => { if (screen !== 's-homeview') return; if (!hvLooks().some(([k]) => k === hv.look)) hv.look = 'room'; hvLook(); renderHomeView(); if (hv.blvd === 'gt1' && !hv.blvdOn) { hv.blvdOn = true; hvBoulevard(); } });
 }
 // where you can look: the room, car two, each station that's in it
 function hvLooks() {
@@ -2947,6 +2961,8 @@ function renderHomeView() {
       desc: `The second car, in BAY_2.${hv.car2 && k && !k.bays[1] ? ' <b>This shell has no second bay.</b>' : ''}` },
     { label: 'Crew', values: [[true, 'At Work'], [false, 'None']], get: () => hv.crew, set: v => { hv.crew = v; hvApply(); }, desc: 'Your people about the garage, doing their jobs: a mechanic or two, the engineer, the manager and your teammate (js/homecrew.js).' },
     { label: 'Stations', values: [[true, 'In Use'], [false, 'Idle']], get: () => hv.busy, set: v => { hv.busy = v; hvApply(); }, desc: 'In use: an engine on the dyno and the lift, a frame on the welding table, the data room\'s screens on (BUSY_ and IDLE_ pieces).' },
+    { label: 'Boulevard', values: [['mine', 'Your Cars'], ['gt1', 'Random GT1']], get: () => hv.blvd, set: v => { hv.blvd = v; hv.blvdOn = v === 'gt1'; hvBoulevard(); renderHomeView(); },
+      desc: `The factory's plinths. Your Cars: your career's (none here, it's a preview). Random GT1: the GT1 cars shuffled, each in a rival team's livery; pick it again for a new draw.${k && !(k.plinths || []).length ? ' <b>This shell has no plinths.</b>' : ''}` },
     WALK_ITEM(),
     { label: 'Look At', values: hvLooks(), get: () => hv.look, set: v => { hv.look = v; hvLook(); }, desc: 'Move the camera to the room, car two or a station.', cls: 'gap' },
     { label: 'Back', action: () => backs['s-homeview'](), desc: 'Back to the main menu.' },

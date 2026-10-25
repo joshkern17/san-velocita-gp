@@ -18,6 +18,7 @@
 // The single-file build carries the pieces in window.__SVGP_KIT ({ shell_lockup: 'data:...', ... }).
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/addons/loaders/GLTFLoader.js';
+import { mergeGeometries } from '../vendor/addons/utils/BufferGeometryUtils.js';
 
 export const PREMISES = ['lockup', 'unit', 'workshop', 'factory']; // (wcareer.js FACILITIES.base levels, in order)
 
@@ -48,6 +49,61 @@ function cloneLit(src) {
   return c;
 }
 
+// the shell's plain pieces (walls, shelves, the cafe's tables: thousands of them in the factory, one draw call each and
+// three again for the spot lights' shadows) merged into one mesh per material per 8 m of floor, so it still culls and
+// a ray still tests only what's near. What the game finds by name (KEEP) stays its own mesh; what's shown, hidden or
+// set down on its own (OWN: a station on its slot, its BUSY_/IDLE_ parts, a WITHOUT_ pile) is merged inside itself,
+// never into what's round it (a set's loose pieces merge together, named for the set). Each merged mesh keeps its pieces' boxes in userData.solids (its own frame): what you walk
+// into is still each piece (solidBoxes), not the merged mesh's box. A door's pieces merge apart, still named a door
+// (the crew's way through it, pitgarage's walls without it)
+const KEEP = /^(NAV|COL|SPAWN|STAND|INTERACT|TIRES|TROPHY|PHOTO|SCALE|PLINTH|POSTER|PC_|TV_|Team|ListNote|Crt|GUIDE)|chair|screen|picture/i;
+const OWN = /^(SLOT|BUSY|IDLE|WITHOUT|station)_/i;
+function mergeStatic(root) {
+  root.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(root.matrixWorld).invert(), groups = new Map(), inner = [], rel = new THREE.Matrix4(), c = new THREE.Vector3();
+  const take = (o, tag) => {
+    const M = o.material;
+    if (Array.isArray(M) || (M.transparent && M.depthWrite) || /^(Tyre|Team)/.test(M.name || '')) return; // (glass that writes depth: a pane drawn before the one behind it would hide it)
+    if (!o.visible || o.isSkinnedMesh || o.isInstancedMesh || o.renderOrder || Object.keys(o.geometry.morphAttributes).length) return;
+    rel.multiplyMatrices(inv, o.matrixWorld); if (rel.determinant() < 0) return; // (a mirrored piece: baked, it'd turn inside out)
+    const g = o.geometry; if (!g.boundingBox) g.computeBoundingBox();
+    const box = g.boundingBox.clone().applyMatrix4(rel); box.getCenter(c);
+    const sig = Object.keys(g.attributes).sort().map(k => k + g.attributes[k].itemSize + g.attributes[k].normalized + g.attributes[k].array.constructor.name).join();
+    const key = `${M.uuid}|${sig}|${!!g.index}|${tag}|${Math.floor(c.x / 8)},${Math.floor(c.z / 8)}`;
+    if (!groups.has(key)) groups.set(key, { mat: M, tag, list: [] });
+    groups.get(key).list.push({ o, m: rel.clone(), box });
+  };
+  const visit = (o, tag) => {
+    for (const k of o.children) {
+      const n = k.name || '';
+      const set = /^(BUSY|IDLE|WITHOUT)_[a-z0-9]+/i.exec(n); // (a piece shown or hidden with the rest of its set: merged with them, by the set's name)
+      if (OWN.test(n) && !(set && k.isMesh && !k.children.length)) { inner.push(k); continue; }
+      if (KEEP.test(n) || k.isLight) continue;
+      const t = set ? set[0] : tag || (/^WALK_/.test(n) ? 'WALK' : /door/i.test(n) ? 'Door' : '');
+      if (k.isMesh) take(k, t);
+      visit(k, t);
+    }
+  };
+  visit(root, '');
+  for (const { mat, tag, list } of groups.values()) {
+    if (list.length < 2) continue;
+    const geo = mergeGeometries(list.map(p => p.o.geometry.clone().applyMatrix4(p.m)));
+    if (!geo) continue;
+    const m = new THREE.Mesh(geo, mat); m.name = (tag ? tag + '_' : '') + 'merged';
+    m.castShadow = list.some(p => p.o.castShadow); m.receiveShadow = list.some(p => p.o.receiveShadow);
+    if (tag !== 'WALK') m.userData.solids = list.map(p => p.box);
+    for (const p of list) p.o.removeFromParent();
+    root.add(m);
+  }
+  for (const k of inner) mergeStatic(k);
+  root.updateMatrixWorld(true);
+}
+// what you can walk into of a mesh, in the world: a merged mesh's pieces, one box each; anything else, its own box
+export function solidBoxes(o) {
+  if (o.userData.solids) return o.userData.solids.map(b => b.clone().applyMatrix4(o.matrixWorld));
+  const b = new THREE.Box3().setFromObject(o); return b.isEmpty() ? [] : [b];
+}
+
 export async function loadKit(premises, stations = []) {
   // the shell: yours, or the next one down that exists
   let shell = null, used = null;
@@ -67,6 +123,7 @@ export async function loadKit(premises, stations = []) {
   // the junk where a facility will go (WITHOUT_<facility>...): cleared out once you have it
   room.traverse(o => { const m = /^WITHOUT_([a-z0-9]+)/i.exec(o.name || ''); if (m && stations.includes(m[1])) o.visible = false; });
   room.updateMatrixWorld(true);
+  if (!(typeof window !== 'undefined' && window.__SVGP_NOMERGE)) mergeStatic(room); // (dev: __SVGP_NOMERGE, the pieces as built)
   const bays = named('BAY_').sort((a, b) => a.name.localeCompare(b.name));
   // BAY_1 at the origin, turned straight: the rest of the game puts the car there
   if (bays[0]) {

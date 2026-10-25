@@ -760,7 +760,7 @@ export class PitGarage {
     const cars = (m && m.cars) || [], base = this.carCfg || {};
     (k.plinths || []).forEach((p, i) => {
       const c = cars[i]; if (!c) return;
-      const car = buildF1({ ...base, chassis: c.chassis }, { texSize: 512 }), g = car.group;
+      const car = buildF1(c.cfg || { ...base, chassis: c.chassis }, { texSize: 512 }), g = car.group;   // (c.cfg: a whole car of its own, a rival team's livery: the dev view's Boulevard)
       p.at.getWorldPosition(g.position); p.at.getWorldQuaternion(q); g.quaternion.copy(q);
       g.rotateY(Math.PI / 2 - 0.08); g.updateMatrixWorld(true);   // (along its plinth, the nose a touch to the walkway: faced at it, an F1 car hung over the rope)
       if (car.shadow) car.shadow.visible = false;

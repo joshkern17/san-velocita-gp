@@ -13,8 +13,10 @@
 // in cells, less what stands on it (as the walker sees it, js/garagewalk.js), one grid per floor.
 import * as THREE from 'three';
 import { makeCharacter, loadCharacters, hasClip } from './characters.js';
+import { solidBoxes } from './garagekit.js';
 
 const CELL = 0.25, SPEED = 1.3, PAD = 0.26;
+const SEAM = [[0.2, 0], [-0.2, 0], [0, 0.2], [0, -0.2]]; // (floorAt: either side of a seam in the floor)
 const TALK = ['talk', 'talk_2', 'talk_3', 'talk_4'], LISTEN = ['nod', 'idle', 'nod_think', 'idle_look', 'nod_long', 'nod_sarcastic'];
 // which spots each job goes to (the spot's role), and how keen (busy stations count four times over)
 const GOES = {
@@ -83,9 +85,7 @@ export class HomeCrew {
       const nm = o.name || '', pn = (o.parent && o.parent.name) || '';
       if (/^(NAV|WALK)_/.test(nm) || /^(NAV|WALK)_/.test(pn)) return;
       if (/door/i.test(nm) || /door/i.test(pn)) return;   // (a doorway's frame, its open leaf, the glass beside it: padded, they shut the way through)
-      const b = new THREE.Box3().setFromObject(o); if (b.isEmpty()) return;
-      const w = b.max.x - b.min.x, d = b.max.z - b.min.z; if (w * d > 8 && w > 0.3 && d > 0.3) return;
-      boxes.push(b);
+      for (const b of solidBoxes(o)) { const w = b.max.x - b.min.x, d = b.max.z - b.min.z; if (!(w * d > 8 && w > 0.3 && d > 0.3)) boxes.push(b); }
     });
     this.carBoxes = [];
     for (const c of [pg.car, pg.car2]) if (c && c.group.parent && c.group.visible) {
@@ -197,8 +197,15 @@ export class HomeCrew {
     return [...this.pathOn(La, a, [p.x, p.z]), [q.x, q.z], ...this.pathOn(Lb, [q.x, q.z], b)];
   }
   floorAt(x, y, z) {
-    _ray.set(_v.set(x, y + 1.0, z), _down); _ray.far = 9;   // (down to the floor from the factory's upper floor, 4.2 m: at 3.5 m someone stepping off the stairs part way up never found it, and hung there)
-    const h = _ray.intersectObjects(this.navMeshes, false)[0]; return h ? h.point.y : y;
+    // (down to the floor from the factory's upper floor, 4.2 m: at 3.5 m someone stepping off the stairs part way up never found it, and hung there)
+    const at = (px, pz) => { _ray.set(_v.set(px, y + 1.0, pz), _down); _ray.far = 9; const h = _ray.intersectObjects(this.navMeshes, false)[0]; return h ? h.point.y : null; };
+    const g = at(x, z); if (g != null && g > y - 0.5) return g;
+    // (nothing just under the feet: a seam between two pieces of floor, not a drop. The factory's stairs stop 5 cm short
+    // of the landing, and everyone reaching the top fell through the gap to the floor below, and walked about under the
+    // upstairs. The floor either side of the seam, if it's there; else down to whatever's below)
+    let near = null;
+    for (const [ox, oz] of SEAM) { const s = at(x + ox, z + oz); if (s != null && s > y - 0.5 && (near == null || s > near)) near = s; }
+    return near ?? g ?? y;
   }
 
   // ---------- the people ----------
