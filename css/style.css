@@ -3075,6 +3075,17 @@ span.tsw-face { width: 64px; height: 64px; }
 .pd-wire small { display: block; font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; margin-bottom: var(--s3); }
 .pd-wire h2 { font: 700 34px/1.05 var(--f-display); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-hot); }
 .pd-wire p { margin-top: var(--s3); max-width: 60em; font: 500 var(--t-body)/1.45 var(--f-ui); color: var(--sv-red); }
+/* the season's card, as the car's shown: the car on the left, what was promised on the right (as the answers' columns) */
+.pd-card { position: absolute; left: var(--edge); right: var(--edge); bottom: 112px; display: grid; grid-template-columns: 1fr 1fr; background: var(--sv-plate); border-top: 2px solid var(--sv-red); }
+.pd-card[hidden] { display: none; }
+.pd-car, .pd-said { position: relative; padding: 22px 28px; min-width: 0; }
+.pd-said::before { content: ''; position: absolute; left: 0; top: 18px; bottom: 18px; width: 1px; background: var(--sv-red-faint); }
+.pd-card small { display: block; font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red-dim); margin-bottom: var(--s3); }
+.pd-car h2 { font: 700 40px/1.02 var(--f-display); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-hot); }
+.pd-car p { margin-top: var(--s3); font: 500 var(--t-body)/1.45 var(--f-ui); color: var(--sv-red); }
+.pd-said ul { list-style: none; display: flex; flex-direction: column; gap: var(--s3); }
+.pd-said li { display: flex; align-items: center; gap: var(--s3); font: 500 22px/1.2 var(--f-ui); letter-spacing: var(--track); color: var(--sv-amber); }
+.pd-said li.none { color: var(--sv-red); }
 .pd-foot { position: absolute; right: var(--edge); bottom: 0; height: 76px; display: flex; align-items: center; }
 .pd-hint { font: 500 var(--t-caption)/1 var(--f-ui); letter-spacing: var(--track-caption); text-transform: uppercase; }
 .pd-hint b { color: var(--sv-amber); }

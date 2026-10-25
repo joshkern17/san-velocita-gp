@@ -171,7 +171,7 @@ lathe('Balloon', LA, [(0, 0), (0.06, 0.02), (0.15, 0.12), (0.17, 0.24), (0.14, 0
 sweep('Balloon_String', LA, [P(-TX - 0.21, TY - 0.33, 2.14), P(-TX - 0.12, TY - 0.2, 1.9), P(-TX - 0.15, TY - 0.15, 1.6)], 0.003, string, segs=3, per_m=8)
 
 # ================= the car, under its cover =================
-CAR = Vector((-0.4, -1.5, SH)); CROT = math.radians(80)   # (nose down the empty's -Y: turned 80°, it points stage right and a little at the press)
+CAR = Vector((-0.4, -1.5, SH)); CROT = math.radians(-80)   # (nose down the empty's -Y: turned -80°, it points stage left and a little at the press, its tail behind the top table: the front's what the room sees)
 empty('LAUNCH_CAR', LA, tuple(CAR), rotz=CROT, kind='SINGLE_ARROW', size=0.8)
 def cover(name, L=4.45, W=1.86, H=1.27, hem=0.07):
     # a fitted car cover: sections along the car (its length on -Y, as a car's), each an arch from hem to hem over the
@@ -272,7 +272,7 @@ for k, (x, y) in enumerate(SEATS):
     for o in [o for o in LA.objects if o.name.startswith(f'Table_Chair_{k}')]: o.location.z += SH
     empty(f'LAUNCH_SEAT_{k + 1}', LA, P(x, y, SH), rotz=0.0, kind='SINGLE_ARROW', size=0.5, clip='sit_idle', role='driver')
 # spike marks: white tape crosses where you stand for the reveal (beside the car)
-for k, (x, y) in enumerate(((1.75, -2.75), (-2.6, -2.85))):
+for k, (x, y) in enumerate(((1.75, -2.75), (-2.0, -0.35))):   # (you by the tail, with the cord; car two's driver behind the nose, over it to the room)
     for a in (0.785, -0.785): bx(f'Stage_Spike_{k}_{a:+.1f}', LA, (0.16, 0.03, 0.003), P(x, y, SH + 0.003), tape_w, rot=(0, 0, a))
     empty(f'LAUNCH_REVEAL_{k + 1}', LA, P(x, y, SH), rotz=-0.38 if k == 0 else 0.38, kind='SINGLE_ARROW', size=0.5, clip='idle', role='driver')
 # gaffer over the mic cables where they cross the stage
@@ -394,8 +394,8 @@ def cam(name, at, look, fov):
 cam('wide', (2.6, -9.4, 2.4), (0.0, -2.2, 0.9), 52)          # (from the back corner, over the press: the whole room)
 cam('qa', (0.12, -7.9, 1.45), (TBX - 0.1, TBY, TTZ + 0.25), 30)  # (the TV camera's view of the top table)
 cam('ask', (1.0, -3.6, 1.35), (-0.38, -5.4, 1.3), 40)           # (a question from the floor)
-cam('reveal', (-3.1, -7.2, 1.25), tuple(CAR + Vector((0.3, 0, 0.55))), 46)   # (low, three-quarter on the car, the table out of the way)
-cam('close', (3.85, -3.1, 1.15), tuple(CAR + Vector((1.7, -0.3, 0.45))), 50)  # (stage right, on the nose as the cover comes off)
+cam('reveal', (-1.2, -8.4, 2.3), tuple(CAR + Vector((-0.4, -0.2, 0.45))), 34)   # (the TV camera down the aisle, over the press: the car in front of everybody)
+cam('close', (-4.3, -3.0, 1.05), tuple(CAR + Vector((-1.2, 0.25, 0.45))), 48)  # (low off the stage's end, on the nose: the photographers and the host out of it)
 
 if '--noao' not in args:
     print('AO baked on', bake_ao(LA, skip=(lens_on, redlight), wall=False), 'objects')

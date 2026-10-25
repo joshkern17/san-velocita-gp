@@ -4365,6 +4365,7 @@ function renderOptMenu() {
         : [{ label: `Circuits<small>${n} CHOSEN</small>`, disabled: true, desc: 'You can change the circuits before a season\'s first race, or once it\'s over.' }]; })(),
     ...(!w.over && w.series[w.player.series].cal[w.round] ? [{ label: `Season Calendar<small>${w.series[w.player.series].cal.length - w.round} TO GO</small>`, action: () => { calSub = 'list'; sfx.select(); renderOptMenu(); },
       desc: `This season's rounds in ${seriesName(w.player.series)}. Pick any that's still to come to put a different circuit on it, or to change its circuit in the Track Editor.` }] : []),
+    ...(DEV && w.pressDay && w.pressDay.year === w.year && w.round === 0 && !coopGuest() ? [{ label: 'Replay Season Launch', action: () => { WC.pressDayReplay(w); saveWorld(); optSub = false; renderHubMenu(); startPressDay(); }, desc: 'For testing: press day and the car reveal again, from the start. What the answers changed is put back first.' }] : []),
     ...(!w.over && DEV ? [{ label: 'Sim Rest Of Season', confirm: 'Simulate it all? Select again', action: () => simWorldSeason(), desc: 'For testing: simulates every remaining round, your races too (you as a mid-field driver).' }] : []),
     ...coopItems(w),
     { label: 'Save & Quit', action: () => { optSub = false; saveWorld(); pitGarage.close(); quitToMenu(); }, desc: `Your career is saved. Continue it from the main menu.${coop ? ' The co-op room closes.' : ''}` },

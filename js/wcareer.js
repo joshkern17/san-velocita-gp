@@ -3317,8 +3317,25 @@ function pressContext(w) {
 }
 export const pressDue = (w) => !!(w.founding?.reg && setupDone(w) && w.car && !w.over && w.round === 0 && !w.preview && !(w.pressDay && w.pressDay.year === w.year && w.pressDay.done));
 export function pressDayOf(w) {
-  if (!w.pressDay || w.pressDay.year !== w.year) w.pressDay = { year: w.year, qs: pressQuestions(pressContext(w)), answers: [], quotes: [], done: false, crowd: pressCrowd(w) };
+  if (!w.pressDay || w.pressDay.year !== w.year) w.pressDay = { year: w.year, qs: pressQuestions(pressContext(w)), answers: [], quotes: [], done: false, crowd: pressCrowd(w), before: pressBefore(w) };
   return w.pressDay;
+}
+// what the answers can change, as it was before the day (pressDayReplay puts it back: the Development menu's replay)
+const pressBefore = (w) => ({ rep: repOf(w), press: pressOf(w), drep: drepOf(w), heat: w.rival ? w.rival.heat || 0 : 0, morale: mateOf(w)?.morale ?? null,
+  patience: dealsOf(w).map(d => patienceOf(d)) });
+export function pressDayReplay(w) {
+  const D = w.pressDay; if (!D || D.year !== w.year) return false;
+  const b = D.before;
+  if (b) {
+    w.rep = b.rep; w.press = b.press; w.drep = b.drep; if (w.rival) w.rival.heat = b.heat;
+    const m = mateOf(w); if (m && b.morale != null) m.morale = b.morale;
+    dealsOf(w).forEach((d, i) => { if (b.patience[i] != null) d.patience = b.patience[i]; });
+  }
+  if (D.head) w.news = w.news.filter(n => !(n.y === w.year && n.head === D.head));   // (the Wire's headline, and the rival's reply)
+  w.mail = (w.mail || []).filter(m => !(m.y === w.year && m.subj === 'Your little press conference'));
+  w.promises = (w.promises || []).filter(p => !(p.year === w.year && D.quotes.includes(p.said)));
+  w.pressDay = null;
+  return true;
 }
 // what saying it does, as the tags on the answer: [{ text, good }]
 export function pressFxTags(w, a) {
@@ -3351,7 +3368,7 @@ export function pressDayDone(w) {
   const D = pressDayOf(w); if (D.done) return; D.done = true;
   const T = myTeam(w), pick = D.qs.map((q, i) => ({ q, a: q.answers[D.answers[i]] })).filter(x => x.a);
   const lead = pick.find(x => x.a.promise) || pick.find(x => x.a.tone === 'Cheeky') || pick[0];
-  if (lead) news(w, `${T.name.toUpperCase()}: "${lead.a.text.toUpperCase().replace(/\.$/, '')}"`, `${lead.q.to === 'C' && coopPerson(w) ? nameOf(coopPerson(w)) : w.player.name} said it at the team's season launch, in front of ${D.crowd || pressCrowd(w)} members of the press and a box of donuts.${pick.filter(x => x !== lead).slice(0, 1).map(x => ` Also said: "${x.a.text}"`).join('')}`);
+  if (lead) news(w, D.head = `${T.name.toUpperCase()}: "${lead.a.text.toUpperCase().replace(/\.$/, '')}"`, `${lead.q.to === 'C' && coopPerson(w) ? nameOf(coopPerson(w)) : w.player.name} said it at the team's season launch, in front of ${D.crowd || pressCrowd(w)} members of the press and a box of donuts.${pick.filter(x => x !== lead).slice(0, 1).map(x => ` Also said: "${x.a.text}"`).join('')}`);
   if (w.rival && w.rival.heat > 0 && w.teams[w.rival.tid]) mail(w, w.rival.name.join(' '), rivalAddr(w), 'Your little press conference',
     [`I read the Wire this morning. Twice, to be sure I understood.`, w.rival.heat > 1 ? `Charming. I'll have it framed for the garage, next to our trophies. There's room, unlike yours.` : `Brave words. We'll see where they leave you in October.`, w.rival.name[0]]);
 }
