@@ -57,7 +57,8 @@ const GUEST_OPS = new Set(['buyCar2', 'buyCar2Model', 'setCar2Fix', 'buyFit', 'r
 import { Phone } from './phone.js';
 import { Net, PROTO } from './net.js';
 import { LiveryDesigner, saveRows } from './liverydesigner.js';
-import { DEV } from './dev.js'; // (developer tools: the Development menu, race-control tests, F8, Sim Rest Of Season, the voice services)
+import { DEV } from './dev.js';
+import { hitch } from './hitch.js'; // (dev: the freeze log, saves/storage/svgp.hitchLog.txt) // (developer tools: the Development menu, race-control tests, F8, Sim Rest Of Season, the voice services)
 import { loadCustomCar, customCarStatus } from './glbcar.js';
 import { loadRoadCars } from './roadcar.js';
 import { DriftHUD } from './drifthud.js';
@@ -193,6 +194,7 @@ fitScreen();
 // ---------------- screens ----------------
 let screen = null;
 function show(id) {
+  hitch.note('show ' + id);
   if (id === 's-main') buildMainMenu();
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id));
   screen = id;
@@ -203,6 +205,7 @@ function show(id) {
 }
 const fading = () => $('fade').classList.contains('on');
 function fadeTo(fn, ms = 320) {
+  hitch.note('fade');
   const f = $('fade'); f.classList.add('on');
   setTimeout(() => { Promise.resolve(fn()).catch(e => console.warn(e)).then(() => requestAnimationFrame(() => f.classList.remove('on'))); }, ms); // (fn can be async: it stays dark till it's done)
 }
@@ -492,6 +495,7 @@ const MAIN_ITEMS = [
 ];
 // Development: previews and quick tests, in place of the main menu's list (B / Back: the main menu again)
 const DEV_ITEMS = [
+  { label: 'Clear Freeze Log', action: () => { hitch.clear(); toast('Freeze log cleared.'); }, desc: 'Every frame over 100 ms is written down with what was slow (saves/storage/svgp.hitchLog.txt). Clear it before a session you want measured.' },
   { label: 'Pit Stop', action: () => devPitView(), desc: 'A race at Pinewood Sprint, your car boxing as soon as it goes green: watch the crew work. In any race, F8 does the same.' },
   { label: 'The Opening', action: () => openOpening(), desc: 'Preview: how a World Career begins. The trailer, the pile on the side table, the lottery draw, the claim office. Look around with the mouse or a stick.' },
   { label: 'The Ending', action: () => openEndingPreview(), desc: 'Preview: how a World Career ends when the money runs out. The garage at night, the car going, the list off the wall, the Wire, the record. A made-up career: nothing is saved.' },
@@ -2095,7 +2099,7 @@ function calTrack(R) {
   return base;
 }
 let coop = null; // (co-op World Career: see coopHost)
-const saveWorld = () => { if (coop && !coop.host) return; if (world && !world.preview) WC.saveWorld(world); coopPush(); }; // (a preview career is never saved; a co-op friend's copy neither: the host's is sent to them)
+const saveWorld = () => { if (coop && !coop.host) return; if (world && !world.preview) hitch.time('saveWorld', () => WC.saveWorld(world)); coopPush(); }; // (a preview career is never saved; a co-op friend's copy neither: the host's is sent to them)
 const seriesName = (sid) => WC.seriesById(sid).name;
 const ord = (p) => p + (['th', 'st', 'nd', 'rd'][(p % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][p % 100] || 'th');
 
@@ -6392,6 +6396,7 @@ let resultsT = 0;
 // logged, shown once with what it was, kept (svgp.lastError: the message and where), and the next frame goes on
 let frameErr = null;
 function frame(now) {
+  hitch.frame(now);
   try { frameBody(now); }
   catch (e) {
     console.error('frame', e);
@@ -6687,6 +6692,23 @@ if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) setInterval(() => fetc
 requestAnimationFrame(frame);
 
 // debug handle
+// dev: the freeze log (js/hitch.js): what was slow when the picture stopped
+if (DEV) {
+  hitch.start(() => [screen, walk.active && 'walking', pcSeat && 'computer', tsw.isOpen && 'setup:' + tsw.step, pressDay.isOpen && 'pressday:' + pressDay.phase, dayPlan.isOpen && 'dayplan', phone.isOpen && 'phone', fading() && 'fade'].filter(Boolean).join(' '));
+  hitch.wrap(renderer, 'render', 'render');
+  for (const k of ['setCar', 'setCar2', 'pickRoom', 'compile', 'setCrew', 'setPeople', 'open', 'setTeam', 'setTyres', 'refreshScreen']) hitch.wrap(pitGarage, k, 'garage.' + k);
+  for (const k of ['buildColliders', 'start', 'unpark']) hitch.wrap(walk, k, 'walk.' + k);
+  for (const k of ['open', 'render']) { hitch.wrap(pc, k, 'computer.' + k); hitch.wrap(phone, k, 'phone.' + k); }
+  for (const k of ['open', 'placeSet', 'cast']) hitch.wrap(pressDay, k, 'pressday.' + k);
+  for (const k of ['open', 'render']) hitch.wrap(tsw, k, 'setup.' + k);
+  // (the main screens' steps: these are function bindings, wrapped in place)
+  renderHub = hitchFn(renderHub, 'renderHub'); openHub = hitchFn(openHub, 'openHub'); enterHub = hitchFn(enterHub, 'enterHub'); syncHome = hitchFn(syncHome, 'syncHome');
+  worldRoundDone = hitchFn(worldRoundDone, 'worldRoundDone'); beginNextSeason = hitchFn(beginNextSeason, 'beginNextSeason'); startWorldRound = hitchFn(startWorldRound, 'startWorldRound');
+  startWeekend = hitchFn(startWeekend, 'startWeekend'); startRace = hitchFn(startRace, 'startRace'); showResults = hitchFn(showResults, 'showResults'); showSeasonEnd = hitchFn(showSeasonEnd, 'showSeasonEnd');
+  openTeamSetup = hitchFn(openTeamSetup, 'openTeamSetup'); startPressDay = hitchFn(startPressDay, 'startPressDay'); sitDown = hitchFn(sitDown, 'sitDown'); startWalk = hitchFn(startWalk, 'startWalk');
+  goToCar = hitchFn(goToCar, 'goToCar'); goToList = hitchFn(goToList, 'goToList'); openDayPlan = hitchFn(openDayPlan, 'openDayPlan'); openWorldGarage = hitchFn(openWorldGarage, 'openWorldGarage'); renderWalkHud = hitchFn(renderWalkHud, 'renderWalkHud');
+}
+function hitchFn(f, label) { return function (...a) { hitch.note(label); return hitch.time(label, () => f.apply(this, a)); }; }
 window.__svgp = { get world() { return world; }, get photo() { return photo; }, get hud() { return hud; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, handleRaceEvents, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
   dbg: { worldCar: () => worldCar(), startPressDay: () => startPressDay(), get pressDay() { return pressDay; }, switchCar: (k) => { switchCar(k); if (screen === 's-garage') { garage.setCar(settings.car); classicOnly(); } }, get carPush() { return carPush; }, startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), goToPoster: () => goToPoster(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); }, openHomeView: () => openHomeView(), startWalk: () => startWalk(), startPitWalk: () => startPitWalk(), get walk() { return walk; }, homeView: (o) => { Object.assign(hv, o); hvApply(); }, get hv() { return hv; }, devWalkGarage: (p) => devWalkGarage(p) } };
