@@ -483,7 +483,7 @@ function openOpening(then = null, extra = {}) {
 // ---------------- main menu ----------------
 const MAIN_ITEMS = [
   { label: 'Quick Race', action: () => { fromEditor = false; openSetup(); }, desc: 'Any circuit, your rules. Race the AI or set a time trial.' },
-  { label: 'Career', action: () => openCareer(), desc: 'World Career: win the lottery, start a team in your garage and climb from club racing to Formula SV. Or a Challenge season, or a straight Grand Prix.' },
+  { label: 'Career', action: () => openCareer(), desc: 'World Career: win the lottery, start a team in your garage and climb from club racing to Group C. Or a Challenge season, or a straight Grand Prix.' },
   { label: 'Online', action: () => openOnline(), desc: 'Host a room or join a friend with a room code. Up to 8 drivers.' },
   { label: 'Garage', action: () => openGarage(), desc: 'Choose your car, build your F1 car and design its livery, helmet and suit.' },
   { label: 'Development', hide: () => !DEV, action: () => mainDev(true), desc: 'Previews and quick tests: a pit stop, the World Career opening and ending, the home garage, walking round each garage.' },
@@ -2558,7 +2558,7 @@ function worldInfo() {
   const el = $('career-info');
   const feat = (ico, t, d) => `<div class="feat"><i>${ico}</i><div><b>${t}</b><span>${d}</span></div></div>`;
   el.innerHTML = `<h3>WORLD CAREER</h3><p class="lead">You won the lottery, got divorced, and decided to start a racing team. Run it from your garage for as long as the money lasts, and then some.</p>
-    ${feat('&#9873;', 'A ladder to climb', 'Spec Miata Club, Street Cup, the GT2 Championship, the GT Championship and, at the top, Formula SV. Finish top three (or your team top two), hold the racing license the series asks for, and every series on the next rung offers you an entry. If you can afford it.')}
+    ${feat('&#9873;', 'A ladder to climb', 'Spec Miata Club, Street Cup, the GT2 Championship, the GT Championship and, at the top, the Group C Championship. Finish top three (or your team top two), hold the racing license the series asks for, and every series on the next rung offers you an entry. If you can afford it.')}
     ${feat('&#36;', 'Every lap costs', 'Entry, travel, the crew, tires, fuel and repairs. Prize money comes back. The bank is watching.')}
     ${feat('&#9636;', 'The computer', 'Email, the news, the classifieds, the bank. Most of the story happens on a screen in your garage.')}`;
 }
@@ -3267,7 +3267,7 @@ function endRecord(w) {
 // the cars of each class, for the customer racing programmes (World Career: moving up)
 function carCatalog() { // (from the specs, not the loaded models: a new career's is made before they've loaded)
   const of = (cls) => (cls === 'f1' ? carsOfClass(cls) : carsInClass(cls)).filter(id => cls !== 'f1' || id === 'f1').map(id => { const st = carStats(id); return { key: chassisKey(id), name: id === 'f1' ? 'SV-F spec chassis' : CARS[id].name, hp: Math.round(st.power), kg: Math.round(st.weight) }; });
-  return { club: of('club'), gt2: of('gt2'), gt1: of('gt1'), f1: of('f1') };
+  return { club: of('club'), gt2: of('gt2'), gt1: of('gt1'), groupc: of('groupc'), f1: of('f1') };
 }
 function openHub(first = false) {
   if (world) WC.setCarCatalog(world, carCatalog());
