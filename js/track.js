@@ -58,6 +58,9 @@ export const PAINTS = {
 //   barriers: [{ side, type, pts: [[d, off], ...] }]  every barrier the track has (with this, there are no others):
 //          nodes in lap order, d m along the lap (it may run across the line), off m out from the track edge; straight
 //          between them. Edited in the Circuit Designer (BARRIERS); a track's automatic ones turned into these: autoBarriers
+// a circuit's edge as a painted band (env.edgeLine 'band'): its color env.edgeColor, these the editor's swatches
+// (COTA red, blue, green, yellow, orange; any other from the picker); drawn by world.js (edgeBand)
+export const EDGE_BAND_COLOR = '#c8102e', EDGE_COLORS = ['#c8102e', '#1f4e9c', '#1e7a3c', '#e8b400', '#e8641c'];
 export const KERB_STYLES = {
   rw: { label: 'Red / White', c: ['#c3221f', '#e9e6df'] },
   bw: { label: 'Blue / White', c: ['#1f48a8', '#e9e6df'] },

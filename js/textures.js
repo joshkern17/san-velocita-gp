@@ -93,6 +93,15 @@ const burn = (n) => { for (let k = 0; k < n; k++) rnd(); }; // (random numbers a
 // a street track's asphalt: the circuit's, with no painted edges (its lines are drawn on top: world.js streetMarkings)
 let _street = null;
 export function streetAsphalt() { return _street || (_street = photoTex(128, 128, ['asphalt_01'], (g, P) => tilePhoto(g, P('asphalt_01'), 128, 128, '#4a4a4e', 14))); }
+// a circuit with a painted edge band (env.edgeLine 'band'): its white lines right on the edge, where the band's color
+// starts (the band itself is painted on the runoff: world.js runoffMaterial)
+let _band = null;
+export function bandAsphalt() {
+  return _band || (_band = photoTex(128, 128, ['asphalt_01'], (g, P) => {
+    tilePhoto(g, P('asphalt_01'), 128, 128, '#4a4a4e', 14);
+    g.fillStyle = '#e8e8e0'; g.fillRect(0, 0, 3, 128); g.fillRect(125, 0, 3, 128);
+  }));
+}
 
 const cache = {};
 export function getTextures() {

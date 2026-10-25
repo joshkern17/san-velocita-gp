@@ -1,7 +1,7 @@
 // Builds the 3D environment for a track
 import * as THREE from 'three';
-import { streetAsphalt, getTextures, getGroundTextures } from './textures.js';
-import { circDist, computeSpeedProfile, OPEN_END_WALL, stepIdx, fenceHeight, kerbOn, kerbW, kerbOf, kerbColors, wallTypeAt, KERB_STYLES, SAUSAGE_H } from './track.js';
+import { streetAsphalt, bandAsphalt, getTextures, getGroundTextures } from './textures.js';
+import { circDist, computeSpeedProfile, OPEN_END_WALL, stepIdx, fenceHeight, kerbOn, kerbW, kerbOf, kerbColors, wallTypeAt, KERB_STYLES, SAUSAGE_H, EDGE_BAND_COLOR } from './track.js';
 import { gameHeight } from './terrain.js';
 import { applySculpt, trackHeightAt } from './sculpt.js';
 import { freeRay } from './freebar.js';
@@ -762,6 +762,7 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
       root.add(pm);
       if (plots) plotDelta = plots.delta;
     }
+    const band = edgeBand(env);
     // the runoff itself: a strip each side from just under the road edge out to its reach, flat at the track edge,
     // in the ground's own colours, with its paved, gravel and painted grass on top (runoffMaterial). run: per vertex
     // the sample (unwrapped, so a loop's last row interpolates into its first), m from the track edge, side, and 1
@@ -778,9 +779,10 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
           if (T.open && k === T.cut + 1) prev = null; // (nothing joins the end of the run-off to the back of the grid)
           if (!EXT[k]) { prev = null; continue; }
           const half = T.W[k] / 2, e = EXT[k], cols = [half - 0.4, Math.min(e, half + 1.6), (Math.min(e, half + 1.6) + e) / 2, e];
+          const kw = band && env.kerbs !== false ? kerbW(A, k, side) : 0; // (the edge band starts past the curb)
           const row = cols.map(t => {
             const x = T.X[k] + T.RX[k] * side * t, z = T.Z[k] + T.RZ[k] * side * t, c = colAt(x, z);
-            P.push(x, AY[k], z); Cc.push(c[0], c[1], c[2]); Uv.push(x / 10, z / 10); Rn.push(i, t - half, sd, 1); return P.length / 3 - 1;
+            P.push(x, AY[k], z); Cc.push(c[0], c[1], c[2]); Uv.push(x / 10, z / 10); Rn.push(i, t - half, sd, 1 + kw); return P.length / 3 - 1;
           });
           // an earth skirt down the outer edge, wherever the ground beyond falls away below the runoff
           { const x = T.X[k] + T.RX[k] * side * (e + 0.05), z = T.Z[k] + T.RZ[k] * side * (e + 0.05);
@@ -800,7 +802,7 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
         vg.setAttribute('uv', new THREE.Float32BufferAttribute(Uv, 2));
         vg.setAttribute('run', new THREE.Float32BufferAttribute(Rn, 4));
         vg.setIndex(I); vg.computeVertexNormals();
-        const vm = new THREE.Mesh(vg, runoffMaterial(groundMaterial(theme, groundTex), RUN, theme, dirtTint)); vm.material.side = THREE.DoubleSide; vm.name = 'verge';
+        const vm = new THREE.Mesh(vg, runoffMaterial(groundMaterial(theme, groundTex), RUN, theme, dirtTint, band)); vm.material.side = THREE.DoubleSide; vm.name = 'verge';
         vm.material.polygonOffset = true; vm.material.polygonOffsetFactor = -1; vm.material.polygonOffsetUnits = -1;
         root.add(vm);
       }
@@ -944,7 +946,7 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
   yield;
   // ---- road ----
   const roadMat = new THREE.MeshPhongMaterial({
-    map: env.surface === 'dirt' ? tx.dirt : env.markings === 'street' ? streetAsphalt() : theme === 'city' ? tx.asphaltCity : tx.asphalt, vertexColors: true,
+    map: env.surface === 'dirt' ? tx.dirt : env.markings === 'street' ? streetAsphalt() : edgeBand(env) ? bandAsphalt() : theme === 'city' ? tx.asphaltCity : tx.asphalt, vertexColors: true,
     // (dirt: mud in the rain, darker and only a little shiny)
     color: P.rain ? (env.surface === 'dirt' ? 0x7a6e66 : 0x9a9aa4) : 0xffffff, specular: P.rain ? (env.surface === 'dirt' ? 0x3a3530 : 0x7a7a88) : env.surface === 'dirt' ? 0x080604 : 0x1a1a1a, shininess: P.rain ? (env.surface === 'dirt' ? 30 : 90) : 8,
     polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
@@ -1488,7 +1490,12 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
     }
   }
   if (toShop.length) {
-    try { buildShops(root, toShop, seat, { shadows: shadowsOn, night, envPl }); }
+    // (a shop's things out front: never inside the barriers, on the side of the track they're on, nor in the pit block)
+    const clear = (x, z, r) => { let ok = !inBlock(x, z, r);
+      if (ok) A.hash.query(x, z, r + 60, (j) => { if (!ok) return; const dx = x - T.X[j], dz = z - T.Z[j], side = dx * T.RX[j] + dz * T.RZ[j];
+        if (Math.abs(dx * T.FX[j] + dz * T.FZ[j]) < T.ds && Math.abs(side) < (side < 0 ? A.BL[j] : A.BR[j]) + 1 + r) ok = false; });
+      return ok; };
+    try { buildShops(root, toShop, seat, { shadows: shadowsOn, night, envPl, clear }); }
     catch (e) { console.warn('shop builder failed, plain blocks instead:', e); for (const { b } of toShop) { b.keepBlock = 1; foot.push(b); } }
   }
   buildFootprints(root, foot, night, groundHeight, rng);
@@ -1826,7 +1833,11 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
 const RUN_ROWS = 8192; // (texture rows: a longer circuit is packed in blocks side by side)
 // dirt: a dirt track's colour (dirtTint), for its edges, where the runoff shows through the dirt (DIRT_EDGE)
 const DIRT_EDGE = 2.2;
-function runoffMaterial(mat, RUN, theme, dirt = null) {
+// The circuit's edge as a painted band (env.edgeLine 'band', its color env.edgeColor), the way COTA's is: the white
+// line on the track's edge, then the color, then a white line, past the curb where there is one (run.w - 1: its width)
+export const EDGE_BAND = 1.5, EDGE_BAND_LINE = 0.22; // (m: the band, its outer white line; on the paved strip, runoff.js EDGE_STRIP)
+export const edgeBand = (env) => env.edgeLine === 'band' && env.surface !== 'dirt' && env.markings !== 'street' ? new THREE.Color(env.edgeColor || EDGE_BAND_COLOR) : null;
+function runoffMaterial(mat, RUN, theme, dirt = null, band = null) {
   if (!RUN) return mat;
   const { C, N, cells } = RUN, B = Math.ceil(N / RUN_ROWS), H = Math.ceil(N / B), W = 2 * C * B;
   if (!RUN.tex) { // (made once: a dirt track's edges share it)
@@ -1848,13 +1859,14 @@ function runoffMaterial(mat, RUN, theme, dirt = null) {
       runMap: { value: map }, runInfo: { value: new THREE.Vector4(C, N, H, RUN_RES) }, runSD: { value: RUN_SD },
       runPaved: { value: tx.runoffAsphalt }, runGravel: { value: tx.gravel }, runTint: { value: new THREE.Vector3(...tint) },
       runClay: { value: getGroundTextures().clay }, runDirt: { value: new THREE.Vector4(...(dirt ? [dirt.r, dirt.g, dirt.b, 1] : [1, 1, 1, 0])) },
+      runBand: { value: new THREE.Vector4(...(band ? [band.r, band.g, band.b, 1] : [1, 1, 1, 0])) },
     });
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nattribute vec4 run;\nvarying vec4 vRun;\nvarying vec2 vRunXZ;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRun = run; vRunXZ = position.xz;');
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-uniform highp sampler2D runMap; uniform vec4 runInfo; uniform float runSD; uniform sampler2D runPaved, runGravel, runClay; uniform vec3 runTint; uniform vec4 runDirt;
+uniform highp sampler2D runMap; uniform vec4 runInfo; uniform float runSD; uniform sampler2D runPaved, runGravel, runClay; uniform vec3 runTint; uniform vec4 runDirt, runBand;
 varying vec4 vRun; varying vec2 vRunXZ;
 vec3 runCell(float row, float side, float c) {
   float N = runInfo.y, C = runInfo.x, H = runInfo.z;
@@ -1882,6 +1894,14 @@ if (vRun.w > 0.5) {
   vec3 gravel = texture(runGravel, vRunXZ / 2.5).rgb * runTint * mix(0.82, 1.0, smoothstep(0.0, 0.6, W.y));
   vec3 grass = groundColor(vec3(0.27, 0.47, 0.18), vMapUv);
   diffuseColor.rgb = diffuseColor.rgb * a.w + paved * a.x + gravel * a.y + grass * a.z;
+  if (runBand.w > 0.5) {
+    // the edge band: its color from the line (or the curb) out, its white line at the far side; worn like the asphalt
+    float t = vRun.y - (vRun.w - 1.0), aa = max(fwidth(t), 1e-3);
+    float inB = clamp(0.5 + t / aa, 0.0, 1.0) * clamp(0.5 + (${EDGE_BAND.toFixed(2)} - t) / aa, 0.0, 1.0);
+    float wl = clamp(0.5 + (t - ${(EDGE_BAND - EDGE_BAND_LINE).toFixed(2)}) / aa, 0.0, 1.0);
+    vec3 bc = mix(runBand.rgb, vec3(0.8, 0.8, 0.76), wl) * (0.8 + 0.45 * dot(paved, vec3(0.333)));
+    diffuseColor.rgb = mix(diffuseColor.rgb, bc, inB);
+  }
   if (runDirt.w > 0.5 && vRun.y < 0.0) {
     // a dirt track's edge (on the track): the runoff's surface (the cell at the edge) scattered through the dirt,
     // from none DIRT_EDGE in to solid at the edge, dusted with the dirt the further in it is. Each 12 cm square takes

@@ -1,5 +1,5 @@
 // Top-down circuit designer
-import { sampleTrack, analyzeTrack, buildPitLane, computeRacingLine, computeSpeedProfile, trackStats, cloneTrack, newTrack, presetTracks, archivedTracks, THEMES, PROP_TYPES, PAINTS, defaultEnv, trackReady, minNodes, fenceHeight, kerbOn, wallTypeAt, nodeHandles, densePath, trackFrame, trackProject } from './track.js';
+import { sampleTrack, analyzeTrack, buildPitLane, computeRacingLine, computeSpeedProfile, trackStats, cloneTrack, newTrack, presetTracks, archivedTracks, THEMES, PROP_TYPES, PAINTS, defaultEnv, trackReady, minNodes, fenceHeight, kerbOn, wallTypeAt, nodeHandles, densePath, trackFrame, trackProject, EDGE_BAND_COLOR, EDGE_COLORS } from './track.js';
 import { CARSPEC } from './car.js';
 import { sfx } from './audio.js';
 import { bigGet, bigSet } from './backup.js';
@@ -3220,7 +3220,12 @@ export class Editor {
       ${env.surface === 'dirt' ? '' : `<div class="fld"><label>Curbs</label><div class="seg" id="t-kerb"><button data-v="1" class="${env.kerbs !== false ? 'on' : ''}">On</button><button data-v="0" class="${env.kerbs === false ? 'on' : ''}">Off</button></div></div>`}
       ${env.surface === 'dirt' ? '' : `<div class="fld"><label>Road lines</label><div class="seg" id="t-marks"><button data-v="circuit" class="${env.markings !== 'street' ? 'on' : ''}">Circuit</button><button data-v="street" class="${env.markings === 'street' ? 'on' : ''}">Street</button></div></div>
       ${env.markings === 'street' ? `<div class="fld"><label>Center line</label><div class="seg" id="t-centre"><button data-v="double" class="${env.centre !== 'dash' ? 'on' : ''}">Double Yellow</button><button data-v="dash" class="${env.centre === 'dash' ? 'on' : ''}">Dashed</button></div></div>
-      <p class="muted" style="margin-top:-4px">A public road: white edge lines, a yellow center line, and a stop line and crosswalk on every street that meets it. Edge lines break where streets join. ${env.kerbs !== false ? 'Real streets have no race curbs: turn Curbs off for the full look.' : ''}</p>` : ''}`}
+      <p class="muted" style="margin-top:-4px">A public road: white edge lines, a yellow center line, and a stop line and crosswalk on every street that meets it. Edge lines break where streets join. ${env.kerbs !== false ? 'Real streets have no race curbs: turn Curbs off for the full look.' : ''}</p>` : `<div class="fld"><label>Edge line</label><div class="seg" id="t-edge"><button data-v="line" class="${env.edgeLine !== 'band' ? 'on' : ''}">White</button><button data-v="band" class="${env.edgeLine === 'band' ? 'on' : ''}">White · Color · White</button></div></div>
+      ${env.edgeLine === 'band' ? (() => { const c = env.edgeColor || EDGE_BAND_COLOR, own = !EDGE_COLORS.includes(c); return `<div class="fld"><label>Band color<span>${c.toUpperCase()}</span></label><div class="sw" id="t-edgec">
+        ${EDGE_COLORS.map(p => `<button data-v="${p}" class="${c === p ? 'on' : ''}" title="${p}"><i style="background:${p}"></i></button>`).join('')}
+        <span class="pick ${own ? 'on' : ''}" title="Any color"><i style="background:${own ? c : 'conic-gradient(#f55,#fd5,#5f8,#5cf,#a6f,#f55)'}"></i><input type="color" id="t-edgecc" value="${c}"></span>
+      </div></div>`; })() : ''}
+      <p class="muted" style="margin-top:-4px">${env.edgeLine === 'band' ? 'A painted band along both edges, as at COTA: the white line, the color, then a white line, out past the curbs.' : 'A plain white line along both edges.'}</p>`}`}
       ${fld('Draw width', 't-dw', 8, 22, 0.5, this.defaultWidth, 'm')}
       <div class="seg"><button id="t-allw">Apply Width To All Nodes</button></div>
       <p class="muted" style="margin-top:12px">Draw width is used for new ${open ? 'tracks' : 'circuits'} sketched with the DRAW tool.</p>`;
@@ -3242,6 +3247,10 @@ export class Editor {
     segBind('t-rstyle', v => { this.push(); if (v === 'auto') delete env.runoffStyle; else env.runoffStyle = v; this.changed(true); });
     segBind('t-kerb', v => { this.push(); env.kerbs = v === '1'; this.changed(true); });
     segBind('t-marks', v => { this.push(); if (v === 'street') env.markings = 'street'; else delete env.markings; this.changed(true); this.renderTrackTab(); });
+    segBind('t-edge', v => { this.push(); if (v === 'band') env.edgeLine = 'band'; else { delete env.edgeLine; delete env.edgeColor; } this.changed(true); this.renderTrackTab(); });
+    const edgeC = (c) => { this.push(); env.edgeColor = c; this.changed(true); this.renderTrackTab(); };
+    document.querySelectorAll('#t-edgec button').forEach(b => b.addEventListener('click', () => { sfx.move(); edgeC(b.dataset.v); }));
+    if ($('t-edgecc')) $('t-edgecc').addEventListener('change', (e) => edgeC(e.target.value));
     segBind('t-centre', v => { this.push(); if (v === 'dash') env.centre = 'dash'; else delete env.centre; this.changed(true); });
     segBind('t-surf', v => { this.push(); if (v === 'dirt') env.surface = 'dirt'; else delete env.surface; this.changed(true); this.renderTrackTab(); });
     segBind('t-walk', v => { this.push(); env.walks = v === '1'; this.changed(true); });

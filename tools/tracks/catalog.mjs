@@ -138,7 +138,7 @@ export const CATALOG = [
     dem: 'usgs',
     desc: 'Grand Prix · Austin, Texas: up the wall to the Turn 1 hairpin, the fast esses, the long back straight and the triple-apex right round the tower',
     guide: { f1: 'Circuit of the Americas' }, roads: RACEWAY, skip: PIT, width: 15,
-    env: { theme: 'grass', time: 'day', weather: 'clear', laps: 3, opponents: 11, runoffStyle: 'paved', pitStyle: 'modern', barrier: 'armco', fenceH: 2.8, setting: { kind: 'none', flora: 'mixed', seed: 2012 } },
+    env: { theme: 'grass', time: 'day', weather: 'clear', laps: 3, opponents: 11, runoffStyle: 'paved', edgeLine: 'band', edgeColor: '#c8102e', pitStyle: 'modern', barrier: 'armco', fenceH: 2.8, setting: { kind: 'none', flora: 'mixed', seed: 2012 } },
     scatter: { mix: 'meadow', r: 90, d: 0.12 },
   },
   {

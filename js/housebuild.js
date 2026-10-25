@@ -238,7 +238,7 @@ export function buildShops(root, list, seat, opts = {}) {
     // builder draws only the rest of the building round them
     let skip = new Set();
     if (opts.envPl && envAsset('sm_unit_a') && KIT_KINDS.has(kind)) {
-      const r = layoutKit({ b, kind, entry, ring, fronts, toW, y0: y0 + 0.35, H, rng, envPl: opts.envPl, wings, tint: tintHex,
+      const r = layoutKit({ b, kind, entry, ring, fronts, toW, y0: y0 + 0.35, H, rng, envPl: opts.envPl, wings, tint: tintHex, clear: opts.clear,
         sign: (rect, nm) => { const row = nm ? named.indexOf(nm) : -1; if (row < 0) return; quadWorld(SIGN, rect, sheet.row(row)); } });
       if (r.whole) { built++; continue; }
       skip = r.edges; if (r.H) Hk = r.H;
@@ -304,9 +304,11 @@ function quadWorld(S, rect, r) {
 }
 // Lays the kit along a building's street side(s). Returns { edges: the walls it made (the builder skips them), H: the
 // height the builder's shell should top out at (the pieces' own), whole: the kit made all of it (a church) }.
-function layoutKit({ b, kind, entry, ring, fronts, toW, y0, H, rng, envPl, wings, tint, sign }) {
+function layoutKit({ b, kind, entry, ring, fronts, toW, y0, H, rng, envPl, wings, tint, sign, clear }) {
   let k = 0; const R = () => { k++; return ((Math.sin((rng * 1000 + k) * 12.9898) * 43758.5453) % 1 + 1) % 1; };
-  const put = (id, x, z, rot, extra = {}) => { if (envAsset(id)) envPl.push({ id, x, y: y0, z, rot, ...extra }); };
+  // (what stands out in front of the walls, never inside the circuit's barriers: opts.clear(x, z, r) says where it may go)
+  const OUT = /^(sm_shrubs|sm_icebox|sm_bikerack|sm_bench|sm_trash|sm_planter|sm_newsbox|sp_carts|gs_)/;
+  const put = (id, x, z, rot, extra = {}) => { const a = envAsset(id); if (!a || (clear && OUT.test(id) && !clear(x, z, Math.max(a.w, a.d) / 2))) return false; envPl.push({ id, x, y: y0, z, rot, ...extra }); return true; };
   const edges = new Set();
   // one front edge, as world vectors: A (start), E (along), N (out), its length
   const edgeW = (i) => { const a = ring[i], c = ring[(i + 1) % ring.length], du = c[0] - a[0], dv = c[1] - a[1], l = Math.hypot(du, dv);
@@ -384,9 +386,9 @@ function layoutKit({ b, kind, entry, ring, fronts, toW, y0, H, rng, envPl, wings
   if (fuel && mainEdge) {
     const { A, E, N, l } = mainEdge, rot = Math.atan2(N[0], N[1]), mx = A[0] + E[0] * l / 2, mz = A[1] + E[1] * l / 2, cz = 11;
     const cp = { x: mx + N[0] * cz, z: mz + N[1] * cz }, ca = envAsset('gs_canopy');
-    put('gs_canopy', cp.x, cp.z, rot, { tint }); if (ca) signAt(cp, ca, rot, 1, 1, entry.name || names[0]);
+    if (put('gs_canopy', cp.x, cp.z, rot, { tint }) && ca) signAt(cp, ca, rot, 1, 1, entry.name || names[0]);
     const tg = entry.tg; const ps = tg ? { x: tg[0] - N[0] * 5 + E[0] * 8, z: tg[1] - N[1] * 5 + E[1] * 8 } : { x: mx + N[0] * 24 + E[0] * (l / 2 + 4), z: mz + N[1] * 24 + E[1] * (l / 2 + 4) };
-    put('gs_price', ps.x, ps.z, rot); const pa = envAsset('gs_price'); if (pa) signAt(ps, pa, rot, 1, 1, entry.name || names[0]);
+    const pa = envAsset('gs_price'); if (put('gs_price', ps.x, ps.z, rot) && pa) signAt(ps, pa, rot, 1, 1, entry.name || names[0]);
     put('gs_air', mx + E[0] * (l / 2 + 2.5) + N[0] * 3, mz + E[1] * (l / 2 + 2.5) + N[1] * 3, rot);
   }
   return { edges, H: Hs };

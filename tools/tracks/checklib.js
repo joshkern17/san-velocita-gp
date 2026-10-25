@@ -8,6 +8,7 @@
 // sim: a Race (its T, A, pit, world, track).
 import { solidsAround, treeInto, overlap, standInside, OVERHEAD, TREE_INTO } from '../../js/solids.js';
 import { kerbW, BARRIER_CLEAR } from '../../js/track.js';
+import { envAsset } from '../../js/envlib.js';
 
 
 export function checkTrack(sim) {
@@ -282,6 +283,18 @@ export function checkTrack(sim) {
     }
     for (const t of trees) { const [g, j] = roadGap(t.x, t.z); if (g < 1) onRoad.push([{ kind: 'tree', id: t.id, x: t.x, z: t.z }, g, j]); }
     if (onRoad.length) add('fail', 'scenery on the road', { n: onRoad.length, d: onRoad[0][2] >= 0 ? Math.round(T.D[onRoad[0][2]]) : undefined, x: Math.round(onRoad[0][0].x), z: Math.round(onRoad[0][0].z), note: onRoad.slice(0, 4).map(([S, g, j]) => `${S.kind} ${S.id} at ${j >= 0 ? Math.round(T.D[j]) + ' m' : '?'}`).join('; ') });
+    // the town's things (buildings and what stands out front of them: a shop's price sign, an ice box, a bench) never
+    // between the barrier and the track (stands: their own check above; trackside props may stand in the runoff)
+    // (from the placements themselves: solidsAround leaves the small pieces out)
+    const TOWN = new Set(['building', 'shopkit', 'sign', 'prop', 'vehicle', 'street']), inTown = [];
+    const town = [...solids.filter(S => S.kind === 'building' && !S.a && S.lk !== 'bridge'),
+      ...P.models.map(p => [p, envAsset(p.id)]).filter(([, a]) => a && TOWN.has(a.cat) && !OVERHEAD.has(a.cls))
+        .map(([p, a]) => ({ kind: a.cat, id: p.id, x: p.x, z: p.z, poly: [[p.x, p.z]] }))];
+    for (const S of town) {
+      let worst = 0; for (const [x, z] of [...S.poly, [S.x, S.z]]) worst = Math.max(worst, standInside(T, A, x, z, 0, 0));
+      if (worst > 0.5) inTown.push([S, worst]);
+    }
+    if (inTown.length) { inTown.sort((a, b) => b[1] - a[1]); add(inTown.some(([S]) => S.kind !== 'building') ? 'fail' : 'warn', 'scenery inside the barrier', { n: inTown.length, x: Math.round(inTown[0][0].x), z: Math.round(inTown[0][0].z), note: inTown.slice(0, 4).map(([S, v]) => `${S.kind} ${S.id} ${v.toFixed(1)} m inside`).join('; ') }); }
     // models floating over the ground at a corner (not trees: their trunks reach down)
     const floating = [];
     for (const S of solids) {
