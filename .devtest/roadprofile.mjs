@@ -15,7 +15,7 @@ try {
   const pg = await b.newPage();
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 });
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 });
   const r = await pg.evaluate(async (id) => {
     const R = await import('./js/realtracks.js'); await R.realTracksReady();
     const t = await R.hydrateReal(JSON.parse(JSON.stringify(R.realTracks().find(t => t.real.id === id))));

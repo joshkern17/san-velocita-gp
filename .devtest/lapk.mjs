@@ -20,7 +20,7 @@ try {
   const pg = await b.newPage(); await pg.setViewportSize({ width: 320, height: 180 });
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1500);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1500);
   const ids = await pg.evaluate(async ([cls, n]) => { const { CARS } = await import('/js/cars.js'); return Object.keys(CARS).filter(k => CARS[k].cls === cls && CARS[k].spec).slice(0, n); }, [cls, nCars]);
   console.log(cls, 'cars:', ids.join(', '));
   const acc = Object.fromEntries(VARS.map(v => [v[0], []]));

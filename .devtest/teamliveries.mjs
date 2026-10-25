@@ -18,7 +18,7 @@ try {
   pg.on('pageerror', e => { console.log('PAGE ERROR', e.message); fails++; });
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(800);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(800);
   const teams = process.argv[3] ? process.argv[3].split(',') : await pg.evaluate(async () => Object.keys((await import('./js/teamliveries.js')).TEAM_LIVERIES));
   const cars = (process.argv[4] || 'custom,m1procar,porsche935,civic').split(',');
   await pg.evaluate(() => window.__svgp.open.garage()); await pg.waitForTimeout(2500);

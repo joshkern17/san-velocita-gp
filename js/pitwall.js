@@ -53,6 +53,19 @@ export class PitWall {
   }
   // all of it in a few draws: the meshes merged by material (the groups stay, for the people to sit in)
   merge() {
+    // (a box with a material per face is six draws: a mesh per face first, so its plain faces merge with the rest)
+    const multi = []; this.root.traverse(o => { if (o.isMesh && Array.isArray(o.material) && o.geometry.index) multi.push(o); });
+    for (const o of multi) {
+      const src = o.geometry;
+      for (const gr of src.groups) {
+        const g = new THREE.BufferGeometry();
+        for (const k of Object.keys(src.attributes)) g.setAttribute(k, src.attributes[k]);
+        g.setIndex(Array.from(src.index.array.slice(gr.start, gr.start + gr.count)));
+        const m = new THREE.Mesh(g, o.material[gr.materialIndex]); m.position.copy(o.position); m.quaternion.copy(o.quaternion); m.scale.copy(o.scale);
+        o.parent.add(m);
+      }
+      o.parent.remove(o);
+    }
     this.root.updateMatrixWorld(true);
     const inv = this.root.matrixWorld.clone().invert(), by = new Map(), m = new THREE.Matrix4();
     this.root.traverse(o => { if (o.isMesh && !Array.isArray(o.material)) (by.get(o.material) || by.set(o.material, []).get(o.material)).push(o); });
@@ -360,11 +373,13 @@ export class PitWall {
         pos.needsUpdate = true;
       }
     }
-    // only animate who's near enough to see
+    // only animate who's near enough to see, and further off not draw them at all (a seated engineer at 150 m: a few
+    // pixels, but ten draws each and their shadows: a couple of hundred down the pit wall, seen from across the circuit)
     const v = new THREE.Vector3();
     for (const m of this.people) {
       m.g.getWorldPosition(v);
       const d = v.distanceTo(cam);
+      m.ch.object.visible = d <= 150;
       if (d > 150) continue;
       // now and then an engineer turns to watch a screen or gestures
       if (m.t !== undefined && (m.t -= dt) < 0) {

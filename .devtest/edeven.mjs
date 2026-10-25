@@ -18,7 +18,7 @@ try {
   pg.on('pageerror', e => { console.log('PAGE ERROR', e.message); fails++; });
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(800);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(800);
   await pg.evaluate((t) => window.__svgp.openEditor(t), JSON.parse(readFileSync(file, 'utf8')));
   await pg.waitForTimeout(2500);
   const ev = (fn, a) => pg.evaluate(fn, a);

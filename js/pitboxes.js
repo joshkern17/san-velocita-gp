@@ -271,7 +271,7 @@ export function buildPitBoxes(root, T, A, pit, { mat, style = null, night = fals
     fg.computeVertexNormals();
     g.add(new THREE.Mesh(fg, m));
   }
-  for (const m of [...inside, ...glow]) if (m) { m.matrixAutoUpdate = false; g.add(m); }
+  for (const m of [...inside, ...glow]) if (m) { m.matrixAutoUpdate = false; m.userData.room = true; g.add(m); } // (room: js/pitlife.js hides them from afar)
   root.add(g);
   return g;
 }

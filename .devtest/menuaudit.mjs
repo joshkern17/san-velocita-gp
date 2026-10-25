@@ -13,7 +13,7 @@ try {
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 60000 }); await pg.waitForTimeout(1500);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 60000, polling: 200 }); await pg.waitForTimeout(1500);
   const audit = () => pg.evaluate(() => {
     const s = document.querySelector('.screen.active'), out = [s.id];
     for (const m of s.querySelectorAll('.menu')) {

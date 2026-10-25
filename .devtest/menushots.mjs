@@ -15,7 +15,7 @@ try {
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   pg.on('pageerror', e => console.log('PAGE ERROR', e.stack));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 });
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 });
   await pg.waitForTimeout(1500); await pg.click('#s-boot'); await pg.waitForTimeout(1500); await pg.evaluate(() => window.__svgp.show('s-main'));
   for (let k = 0; k < 6; k++) { await pg.waitForTimeout(5000); console.log(await pg.evaluate(() => { const s = window.__svgp.sim; return JSON.stringify({ scr: window.__svgp.screen, mode: s?.mode, state: s?.state, n: s?.cars?.length, mc: !!s?.menuCam, v: s?.cars?.map(c => Math.round(Math.hypot(c.phys.vx, c.phys.vz))) }); })); }
   await pg.waitForFunction(() => { const s = window.__svgp.sim; return s && s.mode === 'attract' && s.menuCam && s.cars.some(c => Math.hypot(c.phys.vx, c.phys.vz) > 20); }, null, { timeout: 90000 });

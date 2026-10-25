@@ -16,7 +16,7 @@ try {
   pg.on('pageerror', e => { console.log('PAGE ERROR', e.message); bad++; });
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1000);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1000);
   // the cut on its own
   const cut = await pg.evaluate(async () => {
     const { towerCut } = await import('/js/hud.js'), R = (n, me) => Array.from({ length: n }, (_, k) => ({ pos: k + 1, isPlayer: k === me }));

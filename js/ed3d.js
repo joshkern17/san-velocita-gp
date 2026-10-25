@@ -69,7 +69,7 @@ export function installView3d(Ed) {
       let i = 0, bd = Infinity; for (let k = 0; k < T.N; k++) { const d = (T.X[k] - wx) ** 2 + (T.Z[k] - wz) ** 2; if (d < bd) { bd = d; i = k; } }
       const near = Math.sqrt(bd) < 80;
       const target = near ? new THREE.Vector3(T.X[i], T.Y[i], T.Z[i]) : new THREE.Vector3(wx, S.world.groundHeight(wx, wz), wz);
-      const cam = new THREE.PerspectiveCamera(60, 16 / 9, 0.5, 15000);
+      const cam = new THREE.PerspectiveCamera(60, 16 / 9, 0.5, 40000); // (the backdrop's mountains: js/backdrop.js)
       S.scene.add(cam);
       this.view2d = { ...this.view };
       this.v3d = { S, cam, mode: 'orbit', target, dist: 70, yaw: near ? Math.atan2(-T.FX[i], -T.FZ[i]) : 0, pitch: -0.5, pos: new THREE.Vector3(), keys: {}, ptr: null, el: null };

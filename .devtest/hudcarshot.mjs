@@ -14,7 +14,7 @@ try {
     const pg = await b.newPage(); await pg.setViewportSize({ width: 1600, height: 900 });
     pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
     await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-    await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(800);
+    await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(800);
     await pg.evaluate(async (c) => { const S = window.__svgp.settings; S.damage = 'high'; S.temps = 'normal'; S.wear = 'normal'; S.car = { ...S.car, chassis: c === 'f1' ? 'custom' : c };
       const t = await (await fetch('/.devtest/auburn2.json')).json(); t.env.weather = 'clear';
       window.__svgp.startRace(t, { mode: 'test', laps: 3, opponents: 0, car: S.car }, 'menu'); }, CAR);

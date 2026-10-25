@@ -25,7 +25,7 @@ try {
   await pg.route(/overpass|interpreter/, (r) => { query = decodeURIComponent((r.request().postData() || '').replace(/^data=/, '')); r.fulfill({ status: 200, contentType: 'application/json', body: data }); });
   await pg.route(/tile\.openstreetmap|arcgisonline/, (r) => r.abort());
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(800);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(800);
   await pg.evaluate((t) => window.__svgp.openEditor(t), track);
   await pg.waitForTimeout(2500);
   await pg.evaluate(() => window.__svgp.editor.showTab('map'));

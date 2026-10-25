@@ -12,7 +12,7 @@ try {
   const pg = await b.newPage(); await pg.setViewportSize({ width: 480, height: 270 });
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(800);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(800);
   await pg.evaluate(async ([name, ch]) => { const { presetTracks } = await import('/js/track.js'); const t = presetTracks().find(t => t.name === name); t.env.weather = 'clear';
     if (ch) window.__svgp.settings.car = { ...window.__svgp.settings.car, chassis: ch };
     window.__svgp.startRace(t, { mode: 'race', laps: 20, opponents: 5, car: window.__svgp.settings.car }, 'menu'); }, [process.argv[2] || 'Maple Ridge GP', process.argv[4] || '']);

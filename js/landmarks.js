@@ -152,8 +152,10 @@ export function buildCourthouse(night = false) {
   add(new THREE.CylinderGeometry(0.1, 0.14, 4.2, 6), dark, W / 2 + run + 1.5, 2.1, D / 2 + 2.2);
   add(new THREE.SphereGeometry(0.35, 8, 6), new THREE.MeshBasicMaterial({ color: night ? 0xfff0c0 : 0xf4f4f0 }), W / 2 + run + 1.5, 4.4, D / 2 + 2.2);
 
-  G.traverse(o => { if (o.isMesh) { o.castShadow = false; o.matrixAutoUpdate = false; o.updateMatrix(); } });
-  return G;
+  // (a draw per material, not per column and rib: it was over a hundred, seen from across the town)
+  const merged = mergeByMaterial(G);
+  merged.traverse(o => { if (o.isMesh) { o.castShadow = false; o.matrixAutoUpdate = false; o.updateMatrix(); } });
+  return merged;
 }
 
 function statue(parent, x, y, z, mat) {

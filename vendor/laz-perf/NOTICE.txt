@@ -1,0 +1,4 @@
+laz-perf 0.0.7 (https://github.com/hobuinc/laz-perf), browser build (lib/web) unchanged.
+Copyright Hobu, Inc. and contributors. Licensed under the Apache License, Version 2.0:
+http://www.apache.org/licenses/LICENSE-2.0
+Used by js/scan.js to decode USGS 3DEP point cloud (LAZ) chunks.

@@ -1,5 +1,5 @@
 // dev: the livery cars lit (.devtest/carshine.html), before (old=1) and after: node .devtest/carshine.mjs <outdir> [car,car,...]
-// writes <outdir>/before.png + after.png
+// writes <outdir>/before.png + after.png (GLOSS=0,1: at those livery glosses)
 import { spawn } from 'child_process';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -17,7 +17,10 @@ try {
   for (const mode of ['before', 'after']) {
     const pg = await b.newPage(); await pg.setViewportSize({ width: 1680, height: 700 });
     pg.on('console', m => m.type() === 'error' && console.log(mode, m.text().slice(0, 300))); pg.on('pageerror', e => { console.log(mode, 'PAGE ERROR', e.message); fails++; pg.evaluate(() => window.__err = 1).catch(() => {}); });
-    await pg.goto(`http://127.0.0.1:${PORT}/.devtest/carshine.html?cars=${cars}${mode === 'before' ? '&old=1' : ''}`);
+    // (GLOSS=a,b: before / after at those livery glosses instead of old / new)
+    const G = process.env.GLOSS && process.env.GLOSS.split(','), q = G ? '&gloss=' + G[mode === 'before' ? 0 : 1] : mode === 'before' ? '&old=1' : '';
+    const lq = process.env.LIGHTS ? '&lights=1' : ''; // (LIGHTS=1: brake + headlights on)
+    await pg.goto(`http://127.0.0.1:${PORT}/.devtest/carshine.html?cars=${cars}${q}${lq}`);
     await pg.waitForFunction(() => window.done || window.__err, null, { timeout: 120000 });
     await pg.locator('canvas').screenshot({ path: join(out, mode + '.png') });
     console.log('wrote', join(out, mode + '.png'));

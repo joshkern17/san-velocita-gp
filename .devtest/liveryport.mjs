@@ -17,7 +17,7 @@ try {
   await pg.addInitScript(() => { navigator.getGamepads = () => []; if (!sessionStorage.s) { sessionStorage.s = 1; localStorage.removeItem('svgp.teams'); } });
   pg.on('pageerror', e => { console.log('PAGE ERROR', e.message); fails++; });
   await pg.goto(`http://127.0.0.1:${PORT}/`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 });
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 });
   await pg.waitForTimeout(800);
   await pg.evaluate(() => { window.__svgp.dbg.switchCar('m1procar'); window.__svgp.open.garage(); });
   await pg.waitForFunction(() => window.__svgp.screen === 's-garage' && window.__svgp.garage.car?.def, null, { timeout: 30000 });

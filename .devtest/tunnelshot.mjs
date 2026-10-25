@@ -25,7 +25,7 @@ try {
   pg.on('pageerror', e => console.log('PAGE ERROR', e.stack));
   pg.on('console', m => { if (m.type() === 'error') console.log('console:', m.text()); });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1500);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1500);
   for (let k = 0; k < 6 && await pg.evaluate(() => window.__svgp.screen) === 's-boot'; k++) { await pg.keyboard.press('Enter'); await pg.waitForTimeout(800); }   // (past the title screen)
   // the main menu's Home Garage (nothing saved): the unit, with what's bought
   await pg.evaluate((fac) => { const d = window.__svgp.dbg; d.openHomeView(); d.homeView({ premises: 'factory', fac: { ...Object.fromEntries(fac.map(k => [k, k === 'tools' && fac.length > 4 ? 2 : 1])), tunnel: 2 }, car2: true, busy: true }); }, FAC[0] === 'all' ? ['tools', 'sim', 'dyno', 'fab', 'data'] : FAC);

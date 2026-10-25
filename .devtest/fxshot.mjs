@@ -14,7 +14,7 @@ try {
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   pg.on('console', m => { if (m.type() === 'error') console.log('CONSOLE', m.text()); });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1000);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1000);
   await pg.evaluate(async (mode) => { const t = await (await fetch('/.devtest/auburn2.json')).json(); t.env.weather = mode === 'wetdirt' ? 'rain' : 'clear'; t.env.time = mode.endsWith('dusk') ? 'dusk' : 'day';
     if (mode.includes('dirt')) t.env.surface = 'dirt';
     window.__svgp.startRace(t, { mode: 'race', laps: 3, opponents: 3, grid: 'back', car: window.__svgp.settings.car }, 'menu'); }, mode);

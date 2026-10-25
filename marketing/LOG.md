@@ -3,6 +3,43 @@
 One entry per run, newest at the top: what it looked at, what it made, what it's waiting on. The next run starts by
 reading the top entry.
 
+## 2026-10-22 (later) · Engagement research, playbook, pre-registered tests (read this first)
+- **Research (sourced):** `research/platform-signals.md` (what the feeds weigh, bait rules, AI labels, papers, native
+  A/B tools), `research/indie-engagement-2026.md` (AI backlash, tactics with proof, Reddit, outreach) and
+  `research/tools-and-skills.md` (APIs, schedulers, MCPs, stats).
+- **New rules:** `PLAYBOOK.md`. The biggest change is that the AI narrator is the plan's biggest risk (players are hostile
+  to AI voices), so the voice is test E1 and AI voices are always disclosed up front.
+- **Tests:** `EXPERIMENTS.md` (E1 voice → E2 hook type + E3 closing question → E4 length, E5 search phrase).
+  - Arms are assigned across videos by coin flip; nothing is posted twice with one change (TikTok's reused-content
+    rule).
+  - Scored by `abtest.py` on `ledger.csv`: beta-binomial on hold, viewers capped at 500 per post, win at P > 0.95 with
+    6+ posts per arm, tie at 12.
+- **Dashboard:** new Tests tab; the ledger now carries test, arm, hold, sends, comments and AI-accusation comments.
+- **Waiting on the dev:**
+  - the E1 arms (their own voice? keep the AI arm?);
+  - accounts: Instagram Creator, TikTok business profile, Buffer free, the YouTube Analytics sign-in;
+  - the handles.
+- **Stack to build next:**
+  1. a YouTube Analytics pull script;
+  2. Buffer + its MCP (the dev approves each post);
+  3. an Instagram dev-mode app;
+  4. a weekly TikTok Studio export;
+  5. the Steam UTM links and wishlist API once the page is live.
+
+## 2026-10-22 · Video types bank + SV Marketing HQ dashboard (read this first)
+- **Dashboard:** https://claude.ai/artifact/XLHJdTWzkBpFTrbJoBjqLC ("SV Marketing HQ"), with tabs Overview, Video types
+  (each type expands to show its scripts and finished videos, linked by type_id), Ready to post and Ledger. Its data is in uploaded files (video_types, scripts, queue, phase0, posts.csv,
+  funnel.csv); each run re-uploads whichever changed. posts.csv and funnel.csv are header-only until the first post.
+- **New video types (proposed, need the dev's OK):** V06 "I made a game where…" (series), V07 draw it in the
+  comments, V08 the PS1 frame, V09 before/after, V10 beat my lap, V11 shitbox to F1 diary, V12 satisfying loop.
+  Bank first: V06, V07, V08. The research is sourced in the dashboard's cards.
+- **The dev's real why (memory project-dev-why):** draw a track AND drive it seriously (main); missing the old racers;
+  building a team in co-op with the people in their life (not racing against them).
+  S3 is the co-op career over garage footage. Scripts S1-S6 are drafts built only on these.
+- **Voice:** Narrator 001 reads the dev's words in first person, the hook is also on screen, the AI-voice label stays
+  on, and S1 gets an A/B in the dev's own voice.
+- Steam: the dev is waiting on tax approval (Oct 22).
+
 ## 2026-10-19 · Steam store page kit + the strategy the dev agreed (read this first)
 - **The dev committed to the Coming Soon page.** They're paying the $100 Steam Direct fee themselves. I submit
   nothing; the kit is for them to paste.

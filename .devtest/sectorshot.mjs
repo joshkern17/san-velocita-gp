@@ -17,7 +17,7 @@ try {
   await pg.addInitScript(() => { navigator.getGamepads = () => []; try { localStorage.removeItem('svgp.sectorBests'); } catch (e) {} });
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1000);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1000);
   await pg.evaluate(({ track, id }) => { window.__svgp.settings.car = { ...window.__svgp.settings.car, chassis: id }; window.__svgp.startRace(track, { mode: 'test', laps: 3, opponents: 0, car: window.__svgp.settings.car }, 'menu'); }, { track, id });
   await pg.waitForFunction(() => window.__svgp.screen === 'hud' && window.__svgp.sim && window.__svgp.sim.state === 'racing', null, { timeout: 90000 });
   // drive: lap 1, then lap 2 to just past the second split

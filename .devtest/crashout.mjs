@@ -15,7 +15,7 @@ try {
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   pg.on('console', m => { if (m.type() === 'error') console.log('CONSOLE', m.text()); });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1500);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1500);
   await pg.evaluate(async (id) => {
     const t = await (await fetch('/.devtest/auburn2.json')).json(); t.env.weather = 'clear';
     window.__svgp.settings.car = { ...window.__svgp.settings.car, chassis: id }; window.__svgp.settings.damage = 'high'; window.__svgp.settings.rules = 'arcade';

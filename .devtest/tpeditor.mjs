@@ -13,7 +13,7 @@ try {
   const pg = await b.newPage(); await pg.setViewportSize({ width: 1400, height: 900 });
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(800);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(800);
   await pg.evaluate(async () => { const { presetTracks } = await import('/js/track.js'); window.__svgp.openEditor(presetTracks().find(t => t.name === 'Maple Ridge GP')); });
   await pg.waitForTimeout(2500);
   // (the scenery models: the logo sheet for the panel)

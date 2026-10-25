@@ -20,7 +20,7 @@ try {
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 });
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 });
   res = await pg.evaluate(async (ids) => {
     const { cloneTrack } = await import('/js/track.js'); const R = await import('/js/realtracks.js'); const { buildScenery } = await import('/js/race.js');
     const { loadEnvModels } = await import('/js/envlib.js'); await loadEnvModels(); await R.realTracksReady();

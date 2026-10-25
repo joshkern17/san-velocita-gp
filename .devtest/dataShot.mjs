@@ -18,7 +18,7 @@ try {
     for (const kv of swap.split(',')) { const [a, c] = kv.split('='); m[a] = `models/garage/${c}.glb`; } window.__SVGP_KIT = m; }, process.env.KIT);
   pg.on('pageerror', e => console.log('PAGE ERROR', e.stack));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(800);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(800);
   await pg.evaluate(() => { const d = window.__svgp.dbg; d.openHomeView(); d.homeView({ premises: 'unit', fac: { tools: 2, dyno: 1, fab: 1, sim: 1, data: 1 }, car2: true, crew: false, busy: true }); });
   await pg.waitForFunction(() => { const k = window.__svgp.dbg.pitGarage.kit; return !!(k && k.stations && k.stations.data); }, null, { timeout: 60000, polling: 500 });
   await pg.waitForTimeout(3000);

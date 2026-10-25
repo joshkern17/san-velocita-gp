@@ -24,7 +24,7 @@ try { for (const id of CARS) {
   });
   pg.on('pageerror', e => { console.log('PAGE ERROR', e.message, (e.stack || '').slice(0, 300)); fail++; }); pg.on('console', m => m.type() === 'error' && console.log('CONSOLE', m.text().slice(0, 300)));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1000);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1000);
 
   // ---- in a race, per car: flicks shift the box, the rev bar spans the car's range, the boards ----
   {

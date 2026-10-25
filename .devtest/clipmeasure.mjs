@@ -13,7 +13,7 @@ const b = await chromium.launch({ channel: 'chrome', headless: true, args: ['--u
 try {
   const pg = await b.newPage();
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 });
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 });
   const out = await pg.evaluate(async ([CLIPS, STEP]) => {
     const THREE = await import('three'), C = await import('/js/characters.js');
     await C.loadCharacters();

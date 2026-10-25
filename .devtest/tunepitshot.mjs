@@ -14,7 +14,7 @@ try {
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1000);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1000);
   await pg.evaluate(async (c) => { const S = window.__svgp.settings; S.car = { ...S.car, chassis: c };
     const t = await (await fetch('/.devtest/auburn2.json')).json(); t.env.weather = 'clear';
     window.__svgp.startRace(t, { mode: 'practice', practiceTime: 900, opponents: 5, car: S.car, pick: false }, 'menu'); }, CAR);

@@ -15,7 +15,7 @@ try {
   const pg = await b.newPage(); await pg.setViewportSize({ width: 960, height: 540 });
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 60000 }); await pg.waitForTimeout(1000);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 60000, polling: 200 }); await pg.waitForTimeout(1000);
   await pg.evaluate(async (id) => {
     const t = await (await fetch('/.devtest/auburn2.json')).json(); t.env.weather = 'clear'; t.env.time = 'day'; t.env.barrier = 'wall';
     window.__svgp.settings.car = { ...window.__svgp.settings.car, chassis: id };

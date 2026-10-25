@@ -16,7 +16,7 @@ try {
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   pg.on('pageerror', e => console.log('PAGE ERROR', e.stack));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(800);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(800);
   const S = (o) => pg.evaluate(o);
   // a brand new career: on your feet before anything's done; the computer says what's next
   await pg.evaluate(() => window.__svgp.dbg.startWorld(false));

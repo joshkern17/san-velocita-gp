@@ -496,6 +496,15 @@ export class PitLife {
     const signs = this.signT > 0.25; if (signs) this.signT = 0;
     const n = this.pit.boxes.length;
     if (this.wall) this.wall.update(dt, cam);
+    // what's inside the boxes, their rooms and all that's in them: only seen through the doors, so not drawn from
+    // across the circuit (a hundred and fifty-odd draws for dark specks)
+    if (!this.laneBB) {
+      this.laneBB = new THREE.Box3(); for (const b of this.boxes) if (b.F) this.laneBB.expandByPoint(new THREE.Vector3().fromArray(b.F.P(0, 7, 0))); this.laneBB.expandByScalar(20);
+      this.rooms = []; race.scene.getObjectByName('PitBoxes')?.traverse(o => { if (o.userData.room) this.rooms.push(o); });
+    }
+    const inside = this.laneBB.isEmpty() || this.laneBB.distanceToPoint(cam) < 250;
+    if (inside !== this.inside) { this.inside = inside; for (const o of this.rooms) o.visible = inside; }
+    for (const g of this.root.children) if (g.name === 'BoxDress' || g.name === 'PitProps') g.visible = inside;
     for (const b of this.boxes) {
       b.cars = race.cars.filter(c => race.boxSlot(c.teamIdx) === b.k); // (online, cars come and go)
       if (signs) this.refreshSign(b);

@@ -5,7 +5,7 @@
 </head><body>
 <script type="module">
 // dev: the livery cars lit as on a day track (world.js's day lights + carsky.js reflections), three views per car.
-// ?cars=m1procar,civic&old=1 (old = the previous matt Phong and no auto smooth, for before / after). window.done when drawn.
+// ?cars=m1procar,civic&old=1 (old = the previous matt Phong and no auto smooth, for before / after; gloss=0..1 repaints at that livery gloss). window.done when drawn.
 import * as THREE from 'three';
 import { buildF1 } from '../js/carmodel.js';
 import { loadRoadCar } from '../js/roadcar.js';
@@ -24,6 +24,8 @@ ids.forEach((id, row) => {
   scene.add(new THREE.HemisphereLight(0xb8d4f4, 0x5e5238, 0.68));
   const sun = new THREE.DirectionalLight(0xfff0d6, 1.7); sun.position.set(45, 75, 35); scene.add(sun);
   const m = buildF1({ chassis: id, ...LIV }, { texSize: 1024 });
+  if (P.get('lights') && m.setLights) m.setLights({ brake: true, night: true }); // (?lights=1: brake + headlights on)
+  if (P.has('gloss')) m.repaint({ chassis: id, ...LIV, gloss: +P.get('gloss') }); // (the designer's live path)
   if (old) m.group.traverse(o => { if (o.isMesh && o.material.envMap) { const a = o.material, b = new THREE.MeshPhongMaterial({ map: a.map, color: a.color, side: a.side, alphaTest: a.alphaTest, transparent: a.transparent, specular: 0x4a4a4a, shininess: 70 }); o.material = b; } });
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshLambertMaterial({ color: 0x55585c })); ground.rotation.x = -Math.PI / 2; scene.add(ground);
   scene.add(m.group);

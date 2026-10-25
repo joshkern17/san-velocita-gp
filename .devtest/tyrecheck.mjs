@@ -18,7 +18,7 @@ try {
   const pg = await b.newPage(); await pg.setViewportSize({ width: 960, height: 540 });
   pg.on('pageerror', e => { errs++; console.log('PAGE ERROR', e.message); });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1000);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1000);
   await pg.evaluate(async (id) => {
     (await import('/js/audio.js')).initAudio();
     const t = await (await fetch('/.devtest/auburn2.json')).json(); t.env.weather = 'clear';

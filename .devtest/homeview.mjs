@@ -15,7 +15,7 @@ try {
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   pg.on('pageerror', e => console.log('PAGE ERROR', e.stack));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(800);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(800);
   // from the main menu, as a player would
   const ok = await pg.evaluate(() => { const el = [...document.querySelectorAll('#s-main .item')].find(e => /Home Garage/.test(e.textContent)); if (el) el.click(); return !!el; });
   if (!ok) throw new Error('no Home Garage on the main menu');

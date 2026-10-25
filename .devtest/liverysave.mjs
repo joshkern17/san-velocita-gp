@@ -17,7 +17,7 @@ try {
     localStorage.setItem('svgp.teams', JSON.stringify([{ name: 'OLD GULF', car: { chassis: 'm1procar', teamName: 'OLD GULF', number: 7, sponsor: 'VOLTA', main: 0x88bbee, accent: 0xf07a1a, third: 0x14306a, pattern: 'stripe', decals: [] }, saved: 5 }])); } });
   pg.on('pageerror', e => { console.log('PAGE ERROR', e.message); fails++; });
   await pg.goto(`http://127.0.0.1:${PORT}/`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 });
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 });
   await pg.waitForTimeout(800);
   await pg.evaluate(() => window.__svgp.open.garage());
   await pg.waitForFunction(() => window.__svgp.screen === 's-garage', null, { timeout: 30000 });

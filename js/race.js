@@ -29,6 +29,7 @@ import { activeSetup, applySetup, stanceOf } from './setup.js';
 import { TireFX, SMOKE, DUST, FX } from './tirefx.js';
 import { TEAM_LIVERIES } from './teamliveries.js';
 import { Broadcast } from './broadcast.js';
+import { Headlights } from './headlights.js';
 import { MenuCam } from './menucam.js';
 import { Acclimatization, MiniSectors, QualiSim, BrakeMarkers, ACCLIM_PASS, MSEC_PASS, QSIM_NOISE, planMinis } from './practice.js';
 
@@ -297,7 +298,7 @@ export class Race {
     this.scene.fog = this.world.fog;
     this.scene.add(this.world.root);
     if (this.rain) this.spray = new Spray(this.scene);
-    this.camera = new THREE.PerspectiveCamera(64, 16 / 9, 0.3, 5000);
+    this.camera = new THREE.PerspectiveCamera(64, 16 / 9, 0.3, 40000); // (40 km: the mountains round the circuit, js/backdrop.js)
     this.scene.add(this.camera);
 
     this.renderer = renderer;
@@ -444,6 +445,9 @@ export class Race {
     this.rainGrip = this.world.P.grip;
     this.night = this.world.P.night > 0;
     if (this.tod0 != null) this.night = this.world.nightK() > 0.45;
+    // (headlights that light the road: any race that's dark, or gets dark, or is a dusk one)
+    const tm = (this.track.env || {}).time;
+    if (this.world.P.night > 0 || this.tod0 != null || tm === 'dusk' || tm === 'dawn') this.heads = new Headlights(this.scene);
 
     this.skids = new SkidMarks(this.scene);
     this.particles = new Particles(this.scene);
@@ -1791,6 +1795,13 @@ export class Race {
   // A see-through copy of your car driving a recorded lap alongside you: your best (today's, or your best ever here if
   // that's quicker) or the Lap Review's reference. It sets off with you at the start of every timed lap, hides while
   // you're in the garage or the pits, and fades as you get close so it never hides the road.
+  // how much the headlights show: full at night, a little at dusk / dawn (more in the rain), faded in with an
+  // endurance race's clock
+  headK() {
+    const nk = this.tod0 != null ? this.world.nightK() : this.world.P.night;
+    const k = Math.min(1, Math.max(0, (nk - 0.15) / 0.55)), tm = (this.track.env || {}).time;
+    return Math.max(k, this.tod0 == null && (tm === 'dusk' || tm === 'dawn') ? (this.rain ? 0.25 : 0.12) : 0);
+  }
   ghostOn() { return !!this.player && (this.mode === 'test' || !!this.quali) && (this.opts.ghost || 'best') !== 'off'; }
   setGhostMode(m) { this.opts.ghost = m; this.ghostFor = null; }
   pickGhost() {
@@ -4100,6 +4111,7 @@ export class Race {
     if (this.rec) this.updateGhost(dt);
     this.updateCamera(dt);
     if (this.camBlend) this.blendCamera(dt);
+    if (this.heads) this.heads.update(this.cars, this.focus, this.camera, this.headK());
     this.world.update(dt, this.camera, this.rain ? this.wetLights() : null, this.cars.filter(c => !c.gone && c.phys).map(c => ({ x: c.phys.x, z: c.phys.z, speed: c.phys.speed || 0, vx: c.phys.vx, vz: c.phys.vz })));
     setCrowdCars(this.cars.filter(c => !c.gone && c.phys).map(c => ({ x: c.phys.x, y: c.y, z: c.phys.z })), this.camera.position, this.camera.fov); // (the spectators watch them; the far ones aren't drawn)
     if (this.spray) this.updateSpray(dt);
@@ -5424,6 +5436,7 @@ export class Race {
 
   dispose() {
     setCrowdCars([]);
+    if (this.heads) { this.heads.dispose(); this.heads = null; }
     if (this.mirrorRT) { this.mirrorRT.dispose(); this.mirrorQuad.children[0].geometry.dispose(); this.mirrorQuad.children[0].material.dispose(); }
     if (this.mirrorHud) this.mirrorHud.classList.remove('mirror');
     if (this.voice) this.voice.stop();

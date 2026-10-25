@@ -12,7 +12,7 @@ try {
   const pg = await b.newPage(); await pg.setViewportSize({ width: 1400, height: 860 });
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(800);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(800);
   await pg.evaluate(async ([name, paint]) => { const { presetTracks, cloneTrack } = await import('/js/track.js'); let t = presetTracks().find(t => t.name === name);
     if (!t) { const R = await import('/js/realtracks.js'); t = await R.hydrateReal(cloneTrack(R.realTracks().find(p => p.real.id === name || p.name === name))); }
     if (paint) t.paint = JSON.parse(paint); window.__svgp.openEditor(t); }, [process.argv[3] || 'Maple Ridge GP', process.env.PAINT || '']);

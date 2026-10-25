@@ -15,7 +15,7 @@ try {
   pg.on('pageerror', e => { console.log('PAGE ERROR', e.message); bad++; });
   await pg.addInitScript(() => { navigator.getGamepads = () => []; localStorage.setItem('svgp.settings', JSON.stringify({ raceFormat: 'laps' })); });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 60000 }); await pg.waitForTimeout(1500);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 60000, polling: 200 }); await pg.waitForTimeout(1500);
   await pg.evaluate(() => __svgp.open.setup()); await pg.waitForTimeout(1500);
   await pg.keyboard.press('Enter'); await pg.waitForFunction(() => __svgp.screen === 's-raceset', null, { timeout: 20000 }); await pg.waitForTimeout(800);
   // (one key a frame or two: the menus read keys once a frame, and headless frames are slow)

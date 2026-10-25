@@ -14,7 +14,7 @@ try {
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message)); 
   await pg.addInitScript(() => { navigator.getGamepads = () => []; try { if (!sessionStorage.getItem('x')) { localStorage.removeItem('svgp.setups'); sessionStorage.setItem('x', 1); } } catch (e) {} });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 60000 }); await pg.waitForTimeout(1500);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 60000, polling: 200 }); await pg.waitForTimeout(1500);
   await pg.evaluate((c) => { window.__svgp.settings.car.chassis = c; window.__svgp.open.garage(); }, CAR); await pg.waitForTimeout(2500);
   // (held a moment: headless frames are slow, a quick tap can fall between two of them)
   const key = async (k, n = 1) => { for (let i = 0; i < n; i++) { await pg.keyboard.down(k); await pg.waitForTimeout(110); await pg.keyboard.up(k); await pg.waitForTimeout(140); } };

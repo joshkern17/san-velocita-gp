@@ -546,7 +546,7 @@ export function sampleTrack(track) {
   }
   easeY(T);
   finishFrames(T);
-  fitWidths(T, n, track.osm || track.real ? 1.5 : 3.5); // (a drawn circuit's: room for a curb and a barrier inside too)
+  fitWidths(T, n, track.osm || track.real || track.pick ? 1.5 : 3.5); // (a drawn circuit's: room for a curb and a barrier inside too; real streets' (pick: js/roadpick.js) keep their real corners)
   return T;
 }
 

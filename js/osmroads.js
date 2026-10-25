@@ -24,6 +24,13 @@ const CLASS = {
 };
 export const OSM_ROAD_QUERY = (around) => `way["highway"~"^(${Object.keys(CLASS).join('|')})$"]["area"!="yes"](${around});`;
 const num = (v) => { const m = v != null && String(v).match(/[\d.]+/); return m ? parseFloat(m[0]) : NaN; };
+// a street's kind ('freeway' | 'avenue' | 'street' | 'alley') and its width (m): the map's own, else from its lanes, else
+// what that class of road usually is
+export const osmKind = (hw) => CLASS[hw] ? CLASS[hw][0] : null;
+export function osmWidth(hw, tags) {
+  const [kind, w0] = CLASS[hw], lanes = num(tags.lanes), wid = num(tags.width);
+  return isFinite(wid) && wid > 3 ? Math.min(30, wid) : isFinite(lanes) ? Math.max(5, Math.min(30, lanes * 3.4 + (kind === 'street' ? 0.8 : 1.2))) : w0;
+}
 
 export function osmWays(data, geo, { driveways = false } = {}) {
   const out = [];
@@ -124,9 +131,8 @@ export function fitOsmRoads(ways, T, A, opts = {}) {
   const joined = joinWays(ways);
   const all = [];
   for (const w of joined) {
-    const [kind, w0, walk0, lines] = CLASS[w.hw];
-    const lanes = num(w.tags.lanes), wid = num(w.tags.width);
-    const width = isFinite(wid) && wid > 3 ? Math.min(30, wid) : isFinite(lanes) ? Math.max(5, Math.min(30, lanes * 3.4 + (kind === 'street' ? 0.8 : 1.2))) : w0;
+    const [kind, , walk0, lines] = CLASS[w.hw];
+    const width = osmWidth(w.hw, w.tags);
     const swTag = w.tags.sidewalk || w.tags['sidewalk:both'];
     const walkMap = swTag ? (/^(no|none|separate)$/.test(swTag) ? 0 : 2.2) : walk0;
     // samples every 2 m: what each is to the circuit. 'own' = the circuit drives along this street here (close and

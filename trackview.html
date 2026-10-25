@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Track Viewer</title>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+<style>
+  :root { --bg: #15161a; --panel: #1d1f25; --line: #2e3139; --text: #e6e6e8; --muted: #8b8f99; --accent: #ff2b00; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.4 -apple-system, "Helvetica Neue", Arial, sans-serif; overflow: hidden; }
+  #side { position: absolute; left: 0; top: 0; bottom: 0; width: 280px; background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 14px; z-index: 2; }
+  #view { position: absolute; left: 280px; top: 0; right: 0; bottom: 0; }
+  #view canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  #view.measure canvas { cursor: crosshair; }
+  h1 { font-size: 15px; margin: 0 0 12px; letter-spacing: .02em; }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 18px 0 8px; }
+  select, button { font: inherit; color: var(--text); background: #262930; border: 1px solid var(--line); border-radius: 4px; padding: 6px 9px; }
+  select { width: 100%; }
+  button { cursor: pointer; }
+  button:hover { border-color: #4a4e58; }
+  button.on { border-color: var(--accent); background: #34201c; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .row button { flex: 1 1 auto; }
+  .muted { color: var(--muted); font-size: 12px; }
+  #status { margin-top: 10px; min-height: 18px; color: var(--muted); }
+  #status.err { color: #ff7a5c; }
+  #hud { position: absolute; left: 292px; bottom: 10px; color: #fff; font: 12px/1.3 Menlo, monospace; text-shadow: 0 1px 2px #000; pointer-events: none; z-index: 2; }
+  #meas { position: absolute; right: 12px; top: 12px; background: rgba(0,0,0,.65); border: 1px solid var(--line); border-radius: 4px; padding: 8px 11px; font: 13px/1.5 Menlo, monospace; display: none; z-index: 2; }
+  #drop { position: absolute; inset: 0; border: 3px dashed var(--accent); display: none; z-index: 5; pointer-events: none; }
+  kbd { background: #262930; border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; font: 11px Menlo, monospace; }
+  ul { margin: 0; padding-left: 16px; } li { margin: 3px 0; }
+</style>
+</head>
+<body>
+<div id="side">
+  <h1>TRACK VIEWER</h1>
+  <select id="pick">
+    <option value="">Choose a model…</option>
+    <option value="models/tracks/zandvoort_ref.glb">Zandvoort (reference)</option>
+    <option value="models/tracks/suzuka_ref.glb">Suzuka (reference)</option>
+    <option value="models/tracks/spa_ref.glb">Spa (reference)</option>
+    <option value="models/tracks/indy_ref.glb">Indianapolis (reference)</option>
+    <option value="models/tracks/madring_ref.glb">Madring (reference)</option>
+  </select>
+  <div class="row" style="margin-top:6px"><button id="open">Open A .glb File…</button></div>
+  <input type="file" id="file" accept=".glb,.gltf" hidden>
+  <div id="status" class="muted">Or drop a .glb file anywhere on the page.</div>
+
+  <h2>Look</h2>
+  <div class="row"><button id="tex" class="on">Textures</button><button id="clay">Clay</button><button id="wire">Wireframe</button></div>
+  <div class="row" style="margin-top:6px"><button id="top">Overhead</button><button id="eye">Driver Height</button></div>
+
+  <h2>Measure</h2>
+  <div class="row"><button id="mbtn">Measure (M)</button></div>
+  <p class="muted">Click two points on the model: the distance, how far across and how much it climbs.</p>
+
+  <h2>Controls</h2>
+  <ul class="muted">
+    <li><b>Drag</b> to look around</li>
+    <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>Q</kbd>/<kbd>E</kbd> down / up</li>
+    <li><kbd>Shift</kbd> fast · <kbd>Alt</kbd> slow</li>
+    <li><b>Wheel</b>: flying speed</li>
+    <li><b>Double-click</b> a spot: go there, at driver height</li>
+    <li><kbd>F</kbd> overhead view of it all</li>
+    <li>Controller: left stick moves, right stick looks, triggers down / up, L3 fast</li>
+  </ul>
+  <p class="muted" style="margin-top:14px">The reference models are for looking only: they're likely ripped from other games, so nothing from them goes in ours.</p>
+</div>
+<div id="view"></div>
+<div id="hud"></div>
+<div id="meas"></div>
+<div id="drop"></div>
+<script type="module" src="./js/trackview.js"></script>
+</body>
+</html>

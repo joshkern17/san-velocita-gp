@@ -42,6 +42,7 @@ function convertMaterial(m) {
   if (out.map) { out.map.magFilter = THREE.NearestFilter; out.map.anisotropy = 4; }
   out.name = m.name || '';
   const slot = /^(Wall|Roof)_(\d+)$/.exec(out.name); if (slot) out.userData.slot = slot[1].toLowerCase(); // (PSX houses: swappable)
+  if (/^shop_Stucco/.test(out.name)) out.userData.slot = 'wall'; // (the shop kit's stucco: a building's tint goes on it alone)
   out.userData.lit = !!m.emissiveMap; // skyline windows: glow at night only
   return out;
 }
@@ -165,6 +166,13 @@ function houseParts(id, w, r) {
   houseCache.set(key, parts);
   return parts;
 }
+// the PSX house pack's own materials for a look (js/housebuild.js builds houses from real outlines with them): its
+// wall and roof (1..6) and the atlas the windows, doors and garage doors are on
+export function houseMats(w, r) {
+  const sw = (kind, n) => { const s = models.get('_psxh_' + kind + '_' + n); return s && s[0].mat; };
+  const base = models.get('psxh_1'), atlas = base && (base.find(pt => !pt.mat.userData.slot) || {}).mat;
+  return { wall: sw('wall', w), roof: sw('roof', r), atlas };
+}
 // a house's wall / roof textures as small images, for the editor's paint swatches
 export function houseSwatch(kind, n) {
   const s = models.get('_psxh_' + kind + '_' + n), img = s && s[0].mat.map && s[0].mat.map.image;
@@ -178,16 +186,21 @@ export function houseSwatch(kind, n) {
 // more than a few hundred triangles, so the cells are sized by how heavy the model is (a 30-triangle tree: one batch
 // per km square, a 2,000-triangle building: per 160 m). The cells are groups that update(camera) shows or hides as a
 // whole. Small things also have a draw distance: past it they'd be a few pixels tall (a 1 m flower at 200 m is under
-// 3 pixels at 448p), so ground cover and street clutter far off are skipped. Returns stats + update.
+// 3 pixels at 448p), so ground cover and street clutter far off are skipped. A town's houses, shops and lamps go too
+// past a kilometre or so (an 8 m house at 1 km: 3 pixels, most of the way into the fog), where a dense town was
+// hundreds of draws of specks; trees, landmarks, the skyline and trackside stay to the horizon. Returns stats + update.
 const REACH = [[1.3, 200], [4, 480]]; // [size up to (m), drawn up to (m)]; bigger: to the horizon
+const TOWN_REACH = [[10, 1000], [22, 1500]], TOWN = new Set(['building', 'lamp', 'prop', 'sign', 'fence', 'vehicle']);
 const reachOf = (a, p) => {
   if (!a) return Infinity;
   const s = Math.max(a.h * (p.sy ?? p.s ?? 1), 0.5 * Math.max(a.w * (p.sx ?? p.s ?? 1), a.d * (p.sz ?? p.s ?? 1)));
   for (const [size, far] of REACH) if (s <= size) return far;
+  if (TOWN.has(a.cat)) for (const [size, far] of TOWN_REACH) if (s <= size) return far;
   return Infinity;
 };
 const trisOf = (id) => { let n = 0; for (const p of models.get(id)) n += (p.geo.index ? p.geo.index.count : p.geo.attributes.position.count) / 3; return n; };
-const cellSize = (id, far) => { if (far < Infinity) return 160; const n = trisOf(id); return n <= 150 ? 960 : n <= 600 ? 480 : n <= 3000 ? 320 : 160; };
+// (only the ground cover on 160 m squares: street clutter and the town's far tiers on 320 m, the merge's own grid)
+const cellSize = (id, far) => { if (far < Infinity) return far <= 200 ? 160 : 320; const n = trisOf(id); return n <= 150 ? 960 : n <= 600 ? 480 : n <= 3000 ? 320 : 160; };
 // The scenery never moves (loose rubbish moves inside its batch), but three.js re-walks and re-multiplies every
 // object's matrix each frame: thousands of batches on a well-decorated map. A cell works its matrices out once.
 function frozenMatrices(force) {
@@ -244,21 +257,24 @@ export function* addEnvInstances(root, placements, opts = {}) {
     const merge = !list.some(p => p.mv) && (list.length <= 3 || list.length * trisOf(id) <= MERGE_TRIS);
     for (const part of parts) {
       // paint: a house's colour goes on its walls; a tint on any other building colours all of it
-      const painted = list.some(p => p.paint || (p.look && p.look.c)) && (look ? part.mat.userData.slot === 'wall' : true);
+      // (tint: a colour for the walls alone, the shop kit's stucco: not its glass, its signs, its tile)
+      const painted = list.some(p => p.paint || (p.look && p.look.c) || p.tint) && (look || list[0].tint ? part.mat.userData.slot === 'wall' : true);
       if (merge) {
-        // (what has no draw distance goes on one 320 m grid, whatever its own batches' cells; the rest keep theirs)
+        // (what has no draw distance goes on one 320 m grid, whatever its own batches' cells; the rest keep theirs. Trees
+        // on a 960 m one: a few hundred triangles a tree, and a draw per species per square was a hundred-odd far off)
         const mat = matFor(part.mat), cls = bigR.get(part.mat) <= 40 ? arrayClass(mat) : null, inf = list.cell.startsWith('Infinity|');
+        const MG = a && a.cat === 'tree' ? 960 : 320;
         for (const p of list) {
-          const cell = inf ? 'm|' + Math.floor(p.x / 320) + ',' + Math.floor(p.z / 320) : list.cell, mk = cell + '|' + (cls ? cls.key : mat.uuid) + '|' + shadow;
+          const cell = inf ? 'm' + MG + '|' + Math.floor(p.x / MG) + ',' + Math.floor(p.z / MG) : list.cell, mk = cell + '|' + (cls ? cls.key : mat.uuid) + '|' + shadow;
           let mg = merges.get(mk); if (!mg) merges.set(mk, mg = { cell, mat: cls ? cls.mat : mat, cls, shadow, items: [] });
-          mg.items.push({ geo: part.geo, p, a, mat, paint: painted ? (p.look && p.look.c) || p.paint || '#ffffff' : null });
+          mg.items.push({ geo: part.geo, p, a, mat, paint: painted ? (p.look && p.look.c) || p.tint || p.paint || '#ffffff' : null });
         }
         continue;
       }
       const im = new THREE.InstancedMesh(part.geo, matFor(part.mat), list.length); im.name = id;
       list.forEach((p, k) => {
         im.setMatrixAt(k, envMatrix(p, a, m4));
-        if (painted) im.setColorAt(k, _col.set((p.look && p.look.c) || p.paint || '#ffffff'));
+        if (painted) im.setColorAt(k, _col.set((p.look && p.look.c) || p.tint || p.paint || '#ffffff'));
         if (p.mv) (p._h ||= []).push([im, k]); // things that move later (rolling cans, blowing bags) keep their slots
       });
       im.computeBoundingSphere();
@@ -319,6 +335,7 @@ function mergedMesh({ mat, cls, shadow, items }) {
   if (layer) g.setAttribute('envLayer', new THREE.BufferAttribute(layer, 1));
   g.setIndex(new THREE.BufferAttribute(idx, 1)); g.computeBoundingSphere();
   const mesh = new THREE.Mesh(g, mat); mesh.name = 'env-merged'; mesh.castShadow = shadow; mesh.userData.partR = partR;
+  mesh.userData.cat = items[0].a ? items[0].a.cat : ''; // (what it is, for .devtest/perfmap.mjs)
   if (cls && cls.depth) mesh.customDepthMaterial = cls.depth; // (cut-out leaves: shadows with the holes in)
   return mesh;
 }

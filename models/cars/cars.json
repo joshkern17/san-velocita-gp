@@ -182,10 +182,10 @@
   ]
  },
  "porsche935": {
-  "title": "Porsche Kremer Racing 935 K3 Midpoly (placeholder: to be remodelled)",
-  "author": "yarzav",
-  "license": "CC-BY-NC-SA-4.0",
-  "source": "https://sketchfab.com/3d-models/porsche-kremer-racing-935-k3-midpoly-bb289f35c8eb4d898700863212a541eb",
+  "title": "Porsche racing 935 k3 1979 (placeholder: to be remodelled)",
+  "author": "emojidream",
+  "license": "CC-BY-4.0",
+  "source": "https://sketchfab.com/3d-models/porsche-racing-935-k3-1979-ccaa874a457d412c8faeb94e1c5cf29b",
   "wheels": [
    "FL",
    "FR",
@@ -257,10 +257,10 @@
   ]
  },
  "f40": {
-  "title": "LB-Works Ferrari F40 | www.vecarz.com (placeholder: to be remodelled)",
-  "author": "vecarz",
-  "license": "CC-BY-NC-SA-4.0",
-  "source": "https://sketchfab.com/3d-models/lb-works-ferrari-f40-wwwvecarzcom-011cad3526e945799d6e98dde6390182",
+  "title": "LB Works Ferrari F40 (placeholder: to be remodelled)",
+  "author": "DRIVER-FIRE",
+  "license": "CC-BY-4.0",
+  "source": "https://sketchfab.com/3d-models/lb-works-ferrari-f40-d205399d60a94da39d7010e2b961836b",
   "wheels": [
    "FL",
    "FR",
@@ -479,6 +479,78 @@
   "author": "JUST GAME",
   "license": "CC-BY-4.0",
   "source": "https://sketchfab.com/3d-models/jaguar-xjr-9-lm-updated-53b6db301db74cd782fef79d6a164b89",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ]
+ },
+ "gtone": {
+  "title": "toyota gt-one road car (placeholder: to be remodelled)",
+  "author": "amogusstrikesback2",
+  "license": "CC-BY-4.0",
+  "source": "https://sketchfab.com/3d-models/toyota-gt-one-road-car-63deb30951ea4b51ba7d7202943c6bc3",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ]
+ },
+ "supra": {
+  "title": "Toyota Supra Mk4 Supra 1997 (placeholder: to be remodelled)",
+  "author": "Jean-llace cars",
+  "license": "CC-BY-4.0",
+  "source": "https://sketchfab.com/3d-models/toyota-supra-mk4-supra-1997-53eada7b8103489caa6fe5dd43f27cee",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ]
+ },
+ "nsx": {
+  "title": "Honda NSX 1990 (placeholder: to be remodelled)",
+  "author": "Lexyc16",
+  "license": "CC-BY-4.0",
+  "source": "https://sketchfab.com/3d-models/honda-nsx-1990-1cc15628a00a4739a6b6c01128927c8d",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ]
+ },
+ "rx7fd": {
+  "title": "Mazda RX-7 FD (placeholder: to be remodelled)",
+  "author": "Lexyc16",
+  "license": "CC-BY-4.0",
+  "source": "https://sketchfab.com/3d-models/mazda-rx-7-fd-d35ff630df614771b82e7b2f59035b1e",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ]
+ },
+ "corvettec4": {
+  "title": "Chevrolet Corvette C4 (placeholder: to be remodelled)",
+  "author": "Randomness",
+  "license": "CC-BY-4.0",
+  "source": "https://sketchfab.com/3d-models/chevrolet-corvette-c4-944ec751e0334d58b249cb983147e7e9",
+  "wheels": [
+   "FL",
+   "FR",
+   "RL",
+   "RR"
+  ]
+ },
+ "p944turbo": {
+  "title": "1991 Porsche 944 Turbo (placeholder: to be remodelled)",
+  "author": "RBLXSupercars",
+  "license": "CC-BY-4.0",
+  "source": "https://sketchfab.com/3d-models/1991-porsche-944-turbo-ea247e5fd2ce41999d342e3e8bfc6e9d",
   "wheels": [
    "FL",
    "FR",

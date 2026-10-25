@@ -23,6 +23,14 @@ The plan (what's next) and the ledger (every post and how it did). The head of m
 | 0.8 | Marketing Desk page (review queue) | build | todo |
 | 0.9 | First batch: 6 clips × 3 hooks, ready the day the Steam page goes live | HoM | todo |
 
+## Phase 1: playtest (Dec 2026, with the demo push)
+| # | Task | Owner | Status |
+|---|---|---|---|
+| 1.1 | Package the game for Steam: a desktop wrapper (Electron or Tauri) around the browser build, Steamworks upload | build | todo, after the Steamworks app exists |
+| 1.2 | Steam Playtest set up on the store page (Join the Playtest next to Wishlist) | dev + HoM | todo |
+| 1.3 | A playtest build the dev is happy for strangers to play: pit lanes fixed or avoided, first 20 min polished | dev | todo |
+| 1.4 | Instagram comment-to-DM automation on the official API, no follow gate (EXPERIMENTS E6) | HoM, dev signs up | todo |
+
 ## Posting plan (updated 2026-10-19: 5 posts a week per platform, STRATEGY §4)
 - **Weekly shape:**
   - **3 new videos** (Mon / Wed / Fri): 1 narrated explainer plus 2 quick broad formats.

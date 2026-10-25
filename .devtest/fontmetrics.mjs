@@ -11,7 +11,7 @@ const b = await chromium.launch({ channel: 'chrome', headless: true });
 try {
   const pg = await b.newPage();
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 60000 }); await document_fonts(pg);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 60000, polling: 200 }); await document_fonts(pg);
   await pg.evaluate(() => Promise.all(['SV UI', 'SV Body', 'SV Display', 'SV Num'].map(f => document.fonts.load(`500 100px '${f}'`))));
   console.log(await pg.evaluate(() => ['SV UI', 'SV Body', 'SV Display', 'SV Num'].map(f => {
     const c = document.createElement('canvas').getContext('2d'); c.font = `500 100px '${f}'`;

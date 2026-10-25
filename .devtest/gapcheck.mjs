@@ -18,7 +18,7 @@ try {
   const pg = await b.newPage(); await pg.setViewportSize({ width: 320, height: 180 });
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1500);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1500);
   const r = await pg.evaluate(async ([name, car, diff]) => {
     const RT = await import('/js/realtracks.js'), { presetTracks } = await import('/js/track.js'), A = await import('/js/aiskill.js');
     await RT.realTracksReady();

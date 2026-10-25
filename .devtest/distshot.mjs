@@ -13,7 +13,7 @@ try {
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 60000 }); await pg.waitForTimeout(1500);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 60000, polling: 200 }); await pg.waitForTimeout(1500);
   await pg.evaluate(() => __svgp.open.career()); await pg.waitForTimeout(1200);
   for (let i = 0; i < 12; i++) {
     const t = await pg.evaluate(() => document.querySelector('#s-career .item.sel .lbl')?.textContent || '');

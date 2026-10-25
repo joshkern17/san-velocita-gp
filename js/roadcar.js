@@ -579,13 +579,13 @@ function finishOf(m) {
 }
 // clear coat: the sky (carsky.js) reflected on top of the paint (added, so the colours stay), faint face-on and strong at grazing angles (Fresnel), as real paint
 const FINISH = {
-  paint: { specular: 0x808080, shininess: 140, reflect: 0.45 },
-  trim: { specular: 0x505050, shininess: 80, reflect: 0.25 },
+  paint: { specular: 0x4a4a4a, shininess: 70, reflect: 0.18 },
+  trim: { specular: 0x343434, shininess: 50, reflect: 0.08 },
   rubber: { specular: 0x141414, shininess: 12, reflect: 0 },
 };
 function clearCoat(sh) {
   sh.fragmentShader = sh.fragmentShader.replace('#include <envmap_fragment>', `
-    float carFres = 0.12 + 0.88 * pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 4.0);
+    float carFres = 0.05 + 0.6 * pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 5.0);
     ` + THREE.ShaderChunk.envmap_fragment.replace(/specularStrength \* reflectivity/g, 'specularStrength * reflectivity * carFres'));
 }
 
@@ -605,6 +605,12 @@ function matFor(p, map, shiny = true, cache = true) {
   if (p.emissive) { m.emissiveMap = p.emissive; m.emissive = new THREE.Color(0xffffff); }
   if (cache) shared.set(key, m);
   return m;
+}
+// a livery's own gloss (cfg.gloss, the designer's Paint tab: 0 matt .. 1 wet look) on its paint; GLOSS is FINISH.paint's
+export const GLOSS = 0.45;
+function setGloss(m, g = GLOSS) {
+  g = Math.max(0, Math.min(1, g));
+  m.specular.setScalar(0.06 + g * 0.5); m.shininess = 20 + g * 110; m.reflectivity = g * 0.4;
 }
 
 function buildRoadCar(id, cfg, opts = {}) {
@@ -631,7 +637,9 @@ function buildRoadCar(id, cfg, opts = {}) {
     if (p.map !== T.liv.map) return matFor(p, p.map);
     // (not in the shared cache: the texture belongs to this car)
     if (!livMats.has(p)) livMats.set(p, matFor(p, livTex, true, false));
-    return livMats.get(p);
+    const m = livMats.get(p);
+    if (p.finish === 'paint' && m.envMap) setGloss(m, cfg.gloss);
+    return m;
   };
   // (the top wing and its struts in their own group, so the setup can slide / offset the wing: setWing)
   const wingG = T.wingAxis ? new THREE.Group() : null, follow = [];
@@ -670,7 +678,7 @@ function buildRoadCar(id, cfg, opts = {}) {
   // lamps: the car's own (Light_* objects) or the generic centre rain light
   const own = T.tail.length > 0 || T.head.length > 0;
   const lights = carLights(own ? new THREE.Group() : body, 0, Math.max(0.45, T.bb.min.y + 0.55), T.bb.min.z - 0.01);
-  let setLights = () => {};
+  let setLights = () => {}, headCoronaRef = null;
   if (own) {
     const lampMats = (list) => list.map(p => {
       const m = new THREE.MeshBasicMaterial({ map: p.map, color: p.color, side: p.double ? THREE.DoubleSide : THREE.FrontSide, transparent: p.blend, alphaTest: p.cutoff });
@@ -679,7 +687,7 @@ function buildRoadCar(id, cfg, opts = {}) {
       return m;
     });
     const tailMats = lampMats(T.tail), headMats = lampMats(T.head);
-    const headCorona = lights.coronaMat.clone(); headCorona.color.set(0xfff2d8); headCorona.opacity = 0;
+    const headCorona = lights.coronaMat.clone(); headCorona.color.set(0xfff2d8); headCorona.opacity = 0; headCoronaRef = headCorona;
     const glow = (spots, mat, s) => spots.forEach(c => { const sp = new THREE.Sprite(mat); sp.position.copy(c); sp.scale.set(s, s, 1); body.add(sp); });
     glow(T.tailSpots, lights.coronaMat, 0.42);
     glow(T.headSpots, headCorona, 0.7);
@@ -703,6 +711,8 @@ function buildRoadCar(id, cfg, opts = {}) {
     cfg, road: true, livery: livCanvas, livTex, def: T.liv ? T.liv.def : undefined, helmet: kit.helmet, visorMat: kit.visorMat, suitTex: kit.suitTex, limbTex: kit.limbTex, armTex: kit.armTex, helTex: kit.helTex, helCanvas: kit.helCanvas };
   model.setCompound = () => {};
   model.setLights = setLights;
+  // (js/headlights.js: where its beams come from, and the lamps' glow it fades by which way they face)
+  model.headSpots = T.headSpots; model.headCorona = headCoronaRef;
   model.setDamage = (d) => { body.rotation.z = (d.ch || 0) * 0.03 * (model.pull || 1); };
   model.repaint = (L) => {
     if (L && L !== model.cfg) Object.assign(model.cfg, fillLivery(L));

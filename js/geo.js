@@ -2,6 +2,8 @@
 // Local track coordinates are metres: +x = east, +z = south, origin = track.geo.
 import { polyArea, pointInPoly, orientedRect } from './zones.js';
 import { OSM_ROAD_QUERY, osmWays } from './osmroads.js';
+import { WATER_QUERY, waterPolys } from './water.js';
+import { STREET_QUERY, streetFeatures } from './streetdata.js';
 
 const M_LAT = 110574;
 const mLon = (lat) => 111320 * Math.cos(lat * Math.PI / 180);
@@ -113,7 +115,7 @@ const DEFAULT_H = { house: 6, shop: 7, apartment: 15, office: 24, tower: 70, war
 
 function num(v) { if (v == null) return NaN; const m = String(v).match(/[\d.]+/); return m ? parseFloat(m[0]) : NaN; }
 
-// opts: { buildings, trees, roads, driveways, line: [[x, z], ...] + margin (only the ground that close to the line: a long
+// opts: { buildings, trees, roads, water, driveways, line: [[x, z], ...] + margin (only the ground that close to the line: a long
 // point-to-point track's bounding box is mostly empty hills), rank (see parseOSM) }
 // Along a line the area is a row of squares (CELL m) that reach the strip, all in one request (one bbox query per square
 // is fast for the server; an "around" the whole line wasn't). The public servers are slow at busy times (a minute in the
@@ -145,6 +147,8 @@ export async function importOSM(geo, bboxLocal, opts, onStatus) {
     const parts = [];
     if (opts.roads) parts.push(OSM_ROAD_QUERY(bb));
     if (opts.buildings) parts.push(`way["building"](${bb});`);
+    if (opts.water) parts.push(WATER_QUERY(bb));
+    if (opts.street) parts.push(STREET_QUERY(bb));
     if (opts.trees) parts.push(`node["natural"="tree"](${bb});`, `way["natural"="wood"](${bb});`, `way["landuse"="forest"](${bb});`, `way["natural"="tree_row"](${bb});`);
     return parts.join('');
   };
@@ -177,6 +181,12 @@ export async function importOSM(geo, bboxLocal, opts, onStatus) {
     res.trees = res.trees.filter(t => opts.rank(t[0], t[1]) < r2);
   }
   if (opts.roads) res.ways = osmWays(data, geo, { driveways: !!opts.driveways });
+  if (opts.water) res.water = waterPolys(data.elements, geo, bboxLocal); // (lakes come whole: their full shoreline, however far it runs)
+  if (opts.street) { // (signs, poles, lines... streetdata.js: the points within the strip, the lines whole)
+    const st = streetFeatures(data.elements, geo), r2 = opts.rank ? (m + 15) ** 2 : Infinity, near = (p) => !opts.rank || opts.rank(p[0], p[1]) < r2;
+    for (const k of Object.keys(st)) st[k] = st[k].filter(f => f.pts ? f.pts.some(near) : near(f));
+    res.street = st;
+  }
   return res;
 }
 
@@ -207,7 +217,7 @@ export function parseOSM(geo, data, bboxLocal, { rank = null, maxTrees = 8000, s
       const levels = num(tags['building:levels']);
       const lv = isFinite(levels) ? levels : 0;
       const style = classify(tags, area, lv);
-      let h = num(tags.height);
+      let h = num(tags.height); const hk = isFinite(h) || lv > 0 ? 1 : 0; // (hk: the map says how tall it is)
       if (!isFinite(h)) h = lv ? lv * 3.2 + (style === 'house' ? 0 : 1) : DEFAULT_H[style] * (0.8 + Math.random() * 0.4);
       h = Math.max(3, Math.min(400, h));
       // pitched roof for small, rectangular houses
@@ -217,7 +227,9 @@ export function parseOSM(geo, data, bboxLocal, { rank = null, maxTrees = 8000, s
         if (rect && area / rect.area > 0.82 && rect.len < 30) { roof = 'gable'; p = rect.corners.map(c => [R(c[0]), R(c[1])]); }
       }
       if (p.length > 40) p = p.filter((_, i) => i % Math.ceil(p.length / 40) === 0);
-      buildings.push({ p, h: Math.round(h * 10) / 10, s: style, r: roof });
+      // (u: what it's for, from the map: a supermarket, a fuel station, a church... for the models of common places)
+      const u = tags.shop || tags.amenity || tags.leisure || (tags.building !== 'yes' && tags.building) || undefined;
+      buildings.push({ p, h: Math.round(h * 10) / 10, s: style, r: roof, ...(hk ? { hk } : {}), ...(u ? { u } : {}) });
     } else if (tags.natural === 'wood' || tags.landuse === 'forest') woods.push(pts);
   }
   // scatter trees inside woods

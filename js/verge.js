@@ -8,22 +8,7 @@
 // standing there separates them). Every apron stops at roads crossing the runoff, under bridge decks and at the pit
 // lane (they have surfaces of their own); along the garages it runs up to the pit wall.
 
-import { sameStretch } from './track.js';
-
-// how far out on `side` each sample's row can reach before it crosses its neighbour's (track.js wallCaps, with only a
-// 10 cm margin: the strip is flat ground, not a wall that needs room)
-function foldCap(T, side) {
-  const N = T.N, M = 0.1, cap = new Float32Array(N).fill(1e9);
-  for (let i = 0; i < N; i++) {
-    if (i === T.cut) continue;
-    const j = (i + 1) % N, dx = T.X[j] - T.X[i], dz = T.Z[j] - T.Z[i];
-    const a = -side * (T.RX[j] * T.FX[i] + T.RZ[j] * T.FZ[i]);
-    if (a > 1e-4) cap[j] = Math.min(cap[j], (dx * T.FX[i] + dz * T.FZ[i] - M) / a);
-    const b = side * (T.RX[i] * T.FX[j] + T.RZ[i] * T.FZ[j]);
-    if (b > 1e-4) cap[i] = Math.min(cap[i], (dx * T.FX[j] + dz * T.FZ[j] - M) / b);
-  }
-  return cap;
-}
+import { sameStretch, wallCaps } from './track.js';
 
 // how deep each kind of barrier is (the runoff runs on under it, so the ground behind can't show in front)
 export const WALL_DEPTH = { tires: 1.0, armco: 0.6, concrete: 0.5 };
@@ -121,7 +106,7 @@ export function makeVerge(T, A, env, roadL) {
     // (inside a tight corner, never past where this side's rows cross the next sample's: past it the strip folded
     // back over itself, a fan of slivers across the infield. Where not even a sliver fits, none: the infield's ground
     // meets the road edge there)
-    const cap = foldCap(T, side);
+    const cap = wallCaps(T, side, 0.1); // (only a 10 cm margin: the strip is flat ground, not a wall that needs room)
     for (let i = 0; i < N; i++) if (EXT[s][i] > cap[i]) EXT[s][i] = cap[i] >= T.W[i] / 2 + 0.6 ? cap[i] : 0;
   }
   // the apron at (x, z): { y, i, s } or null (the nearer section's, within its reach)

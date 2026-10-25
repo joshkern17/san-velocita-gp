@@ -35,7 +35,7 @@ async function start(ctx, seed, extra, opp, car = id) {
   if (process.env.TB && opp) { await pg.addInitScript(() => { window.__TB = 1; }); pg.on('console', m => { if (m.text().startsWith('t')) console.log('   ' + m.text()); }); }
   if (process.env.SLT && opp) { await pg.addInitScript(() => { window.__SLT = 1; }); pg.on('console', m => { if (m.text().startsWith('t')) console.log('   ' + m.text()); }); }
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(800);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(800);
   const SEEDRNG = rng(seed);
   await pg.evaluate(async ([id, extra, SEEDRNG, trk, opp]) => {
     const t = await (await fetch(trk)).json(); t.env = { ...(t.env || {}), weather: 'clear' };

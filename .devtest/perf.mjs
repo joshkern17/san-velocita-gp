@@ -26,7 +26,7 @@ try {
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 });
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 });
   await pg.waitForTimeout(1500);
   const t0 = Date.now();
   await pg.evaluate(async ({ track, car, set }) => {

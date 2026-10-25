@@ -152,6 +152,16 @@ export const CARS = {
     liveryLabels: { topNumber: [0.78, 0.5], sideNumber: [0.45, 0.66], sideSponsor: [0.45, 0.85] }, // (lower than the others: the antenna makes the side panel 1.5 m tall)
     spec: gt({ body: [2.63, 2.26, 1.0], gears: [0, 30, 43, 55, 67, 78, 88], box: 'sequential', shift: 0.06, mass: 1050, power: 440000, kd: 1.0, drag: 0.46, aeroF: 0.4, torque: NA, redline: 8000, a: 1.495, b: 1.175, rearGrip: 1.08, brakeF: 0.58 }) },
 
+  // The GT-One (TS020 road car body: real size, so no counterpart; tools/cars/gtone_prep.py first): Toyota's '98 Le
+  // Mans GT1, the most prototype-like car in the class: the 3.6 twin-turbo V8 behind the driver, a six-speed sequential,
+  // a long 2.85 m wheelbase and a big wing. Body / a / b measured off the model (hdcar.py, CG 0.57; half width 1.0: the
+  // model's 1.14 is its mirrors). Held to 415 kW / 1050 kg / kd 0.92 (at 450 / 1000 / 1.0 it was 1.4% clear of the
+  // class); the wing's share over the rear (aeroF 0.37), wide rears and a 12.5 kN traction cap tame the turbo's surge
+  // (it fishtailed out of slow corners twice as often as the CLK)
+  gtone: { name: 'Toyota GT-One', cls: 'gt1', sound: 'v8flat', glb: true, paint: true, livery: true, smooth: 30, rev: 1,
+    liveryLabels: { topNumber: [0.8, 0.5], sideNumber: [0.52, 0.57], sideSponsor: [0.52, 0.82] },
+    spec: gt({ body: [2.66, 2.19, 1.0], gears: [0, 30, 43, 55, 67, 78, 88], box: 'sequential', shift: 0.06, mass: 1050, power: 415000, kd: 0.92, drag: 0.45, aeroF: 0.37, torque: TURBO, redline: 8000, a: 1.626, b: 1.226, rearGrip: 1.12, maxForce: 12500, track: 1.65, brakeF: 0.58 }) },
+
   // ---- Group C ----
   // Sketchfab models through tools/cars/hdcar.py like the GT1 cars (white Livery body, unseen parts culled); body / a / b
   // measured off each model (CG = the share of the wheelbase behind the front axle)
@@ -213,12 +223,8 @@ export const CARS = {
 
   testarossa: { name: 'Testa Rossa', cls: 'street', sound: 'flat12', glb: true, paint: true,
     spec: street({ body: [2.24, 2.27, 1.0], lsd: [50, 0.4, 0.2], mass: 1510, power: 290000, cgh: 0.44, a: 1.4, b: 1.15, mu: 1.35, kd: 0.18, redline: 7400, gears: [0, 20, 34, 48, 63, 80], torque: NA }) },
-  jsport:  { name: 'Kaze Sports Coupe', cls: 'street', sound: 'i4turbo', glb: true, paint: false,
-    spec: street({ body: [2.22, 2.25, 1.0], lsd: [80, 0.45, 0.3], mass: 1400, power: 280000, torque: TURBO, a: 1.3, b: 1.3, redline: 7000, gears: [0, 19, 32, 45, 60, 78] }) },
   rs964:   { name: 'Porsche 911 Carrera RS (964)', cls: 'street', sound: 'flat6', glb: true, paint: true,
     spec: street({ body: [2.12, 2.15, 0.92], lsd: [60, 0.4, 0.4], mass: 1220, power: 195000, a: 1.5, b: 0.8, rearGrip: 1.08, cgh: 0.45, drag: 0.37, brakeF: 0.56, redline: 6900, gears: [0, 18, 30, 42, 55, 72] }) },
-  mustang: { name: 'Pony GT 5.0', cls: 'street', sound: 'v8cross', glb: true, paint: true, bodyWheels: 'move', wheelW: 0.3,
-    spec: street({ body: [2.4, 2.42, 1.0], lsd: [20, 0.43, 0.43], mass: 1690, power: 320000, torque: V8, a: 1.36, b: 1.36, mu: 1.28, rearGrip: 1.0, redline: 7000, gears: [0, 18, 29, 40, 52, 64, 76] }) },
   m5:      { name: 'Bavaria M5 E39', cls: 'street', sound: 'v8cross', glb: true, paint: false, straighten: true, // CC BY-NC-ND: shown unmodified, never repainted
     spec: street({ body: [2.39, 2.42, 0.96], lsd: [40, 0.25, 0.25], mass: 1720, power: 294000, torque: V8, a: 1.4, b: 1.44, cgh: 0.5, drag: 0.38, redline: 7000, gears: [0, 17, 28, 40, 52, 64, 78] }) },
   // your Blender model (R34 GT-R V-Spec, white photo, full livery). RB26DETT twin-turbo six: "280 PS" on paper, ~330 in
@@ -230,6 +236,41 @@ export const CARS = {
     spec: street({ body: [2.28, 2.32, 0.9], mass: 1560, a: 1.2, b: 1.465, cgh: 0.47, power: 245000, maxForce: 14000, torque: TURBO, drive: 0.2,
       lsd: [60, 0.35, 0.25], lsdF: [0, 0, 0], mu: 1.35, rearGrip: 1.06, kd: 0.18, drag: 0.39, track: 1.485, rollGrad: 1.9, brakeF: 0.72,
       redline: 8000, gears: [0, 18, 30, 42, 54, 65, 75] }) },
+
+  // ---- Street: detailed Sketchfab models through tools/cars/hdcar.py (white Livery body; real length LEN, CG = the
+  // share of the wheelbase behind the front axle; body / a / b measured off each model; half widths without mirrors).
+  // Sources prepared by tools/cars/hdprep.py where the tires needed it (models/cars/cars.json: each source + licence)
+  // The Supra RZ (Mk4): the 2JZ twin-turbo six (~240 kW: the "280 PS" agreement again), 1510 kg, 53% on the nose, the
+  // Getrag six-speed, a Torsen diff: a heavy, stable GT that wants the boost up before it pulls
+  supra: { name: 'Toyota Supra Mk4', cls: 'street', sound: 'i6turbo', glb: true, paint: true, livery: true, smooth: 30, rev: 1,
+    liveryLabels: { topNumber: [0.42, 0.5], sideNumber: [0.5, 0.55], sideSponsor: [0.5, 0.8] },
+    spec: street({ body: [2.14, 2.38, 0.91], mass: 1510, a: 1.205, b: 1.359, cgh: 0.47, power: 240000, torque: TURBO, lsd: [50, 0.35, 0.25],
+      mu: 1.35, rearGrip: 1.04, kd: 0.14, drag: 0.38, track: 1.52, redline: 6800, gears: [0, 17, 29, 41, 53, 66, 78] }) },
+  // The NSX (NA1): the 3.0 VTEC V6 behind the driver (~200 kW, revs to 8000), 1370 kg, 42/58: sharp, light, wide
+  // rears; a five-speed. Down on power to the turbo cars, quick where it can carry speed
+  nsx: { name: 'Honda NSX', cls: 'street', sound: 'v6na', glb: true, paint: true, livery: true, smooth: 30, rev: 1,
+    liveryLabels: { topNumber: [0.8, 0.5], sideNumber: [0.52, 0.57], sideSponsor: [0.52, 0.82] },
+    spec: street({ body: [2.37, 2.03, 0.91], mass: 1370, a: 1.465, b: 1.061, cgh: 0.44, power: 205000, torque: NA, lsd: [40, 0.3, 0.2],
+      mu: 1.37, rearGrip: 1.08, kd: 0.14, drag: 0.37, track: 1.52, brakeF: 0.62, redline: 8000, gears: [0, 19, 32, 46, 60, 75] }) },
+  // The RX-7 (FD3S): the 13B twin-rotor with sequential twin turbos (~206 kW, revs to 8000), 1280 kg, 50/50, a short
+  // wheelbase: the lightest and most nervous of the turbo cars. (Its sound for now the turbo four's: a twin-rotor
+  // fires as often as a four-cylinder)
+  rx7fd: { name: 'Mazda RX-7 FD', cls: 'street', sound: 'i4turbo', glb: true, paint: true, livery: true, smooth: 30, rev: 1,
+    liveryLabels: { topNumber: [0.42, 0.5], sideNumber: [0.5, 0.55], sideSponsor: [0.5, 0.8] },
+    spec: street({ body: [2.07, 2.23, 0.88], mass: 1280, a: 1.221, b: 1.221, cgh: 0.44, power: 206000, torque: TURBO, lsd: [50, 0.35, 0.25],
+      mu: 1.36, rearGrip: 1.04, kd: 0.14, drag: 0.38, track: 1.46, redline: 8000, gears: [0, 18, 31, 44, 57, 71] }) },
+  // The Corvette ZR-1 (C4; the model is a plain C4: the ZR-1's wider tail to come): the Lotus-designed LT5 V8
+  // (~280 kW), 1590 kg, the ZF six-speed, huge rear tires: torque everywhere, heavy on the brakes
+  corvettec4: { name: 'Chevrolet Corvette ZR-1 (C4)', cls: 'street', sound: 'v8cross', glb: true, paint: true, livery: true, smooth: 30, rev: 1,
+    liveryLabels: { topNumber: [0.42, 0.5], sideNumber: [0.5, 0.55], sideSponsor: [0.5, 0.8] },
+    spec: street({ body: [2.25, 2.23, 0.92], mass: 1590, a: 1.168, b: 1.215, cgh: 0.46, power: 280000, torque: V8, lsd: [40, 0.3, 0.2],
+      mu: 1.33, rearGrip: 1.07, kd: 0.12, drag: 0.4, track: 1.56, redline: 7000, gears: [0, 17, 29, 41, 54, 67, 80] }) },
+  // The 944 Turbo Cup ('86-'90 one-make series): the 2.5 turbo four (~184 kW), stripped to 1200 kg, the transaxle
+  // giving it 50/50, a five-speed: the lightest car in the class, balanced and easy to trust, short on top speed
+  p944turbo: { name: 'Porsche 944 Turbo Cup', cls: 'street', sound: 'i4turbo', glb: true, paint: true, livery: true, smooth: 30, rev: 1,
+    liveryLabels: { topNumber: [0.42, 0.5], sideNumber: [0.5, 0.55], sideSponsor: [0.5, 0.8] },
+    spec: street({ body: [2.06, 2.17, 0.88], mass: 1200, a: 1.173, b: 1.22, cgh: 0.45, power: 184000, torque: TURBO, lsd: [60, 0.4, 0.3],
+      mu: 1.38, rearGrip: 1.04, kd: 0.14, drag: 0.36, track: 1.48, redline: 6600, gears: [0, 17, 29, 42, 55, 70] }) },
 
   // your Blender model (EK hatch, white photo, full livery). A tired base car, not the Type R in the photo: ~120 hp
   // D16 on its third owner, front-wheel drive with an open diff (the inside front spins up out of slow corners), 61%
@@ -278,6 +319,11 @@ export const CARS = {
 // archived (2026-10-12): the GT1 cars that aren't our own models. Out of every menu, grid and career; their specs and
 // models/cars/*.glb are kept so they can come back (move an entry back into CARS and out of RETIRED)
 export const ARCHIVED = {
+  // (2026-10-24: the Street stand-ins replaced by the real cars: the Kaze by the Supra, the Pony GT by the Corvette)
+  jsport:  { name: 'Kaze Sports Coupe', cls: 'street', sound: 'i4turbo', glb: true, paint: false,
+    spec: street({ body: [2.22, 2.25, 1.0], lsd: [80, 0.45, 0.3], mass: 1400, power: 280000, torque: TURBO, a: 1.3, b: 1.3, redline: 7000, gears: [0, 19, 32, 45, 60, 78] }) },
+  mustang: { name: 'Pony GT 5.0', cls: 'street', sound: 'v8cross', glb: true, paint: true, bodyWheels: 'move', wheelW: 0.3,
+    spec: street({ body: [2.4, 2.42, 1.0], lsd: [20, 0.43, 0.43], mass: 1690, power: 320000, torque: V8, a: 1.36, b: 1.36, mu: 1.28, rearGrip: 1.0, redline: 7000, gears: [0, 18, 29, 40, 52, 64, 76] }) },
   aventus: { name: 'Emery Aventus ’92', cls: 'gt1', sound: 'v8flat', glb: true, paint: true,
     spec: gt({ body: [2.4, 2.42, 0.98], mass: 1120, power: 470000, kd: 0.8, drag: 0.44, torque: V8, a: 1.45, b: 1.3 }) },
   bx300:   { name: 'Horai BX300 ’96', cls: 'gt1', sound: 'v6na', glb: true, paint: true,
@@ -302,7 +348,7 @@ for (const c of [...Object.values(CARS), ...Object.values(ARCHIVED)]) {
 // cars taken out of the game -> the car that replaced them (saved settings and careers that still name them)
 // (the archived GT1 cars go to the custom car nearest in character: the Aventus' V8 to the F40, the light revvy BX300
 // to the M1, the turbo RM-X to the 935)
-export const RETIRED = { gtr: 'm3gtr', aventus: 'f40', bx300: 'm1procar', rmx: 'porsche935' };
+export const RETIRED = { gtr: 'm3gtr', aventus: 'f40', bx300: 'm1procar', rmx: 'porsche935', jsport: 'supra', mustang: 'corvettec4' };
 export const carId = (cfg) => { const c = (cfg && cfg.chassis) || 'custom', k = RETIRED[c] || c; return k === 'custom' ? 'f1' : CARS[k] ? k : 'f1'; };
 export const carOf = (cfg) => CARS[carId(cfg)];
 export const classOf = (cfg) => carOf(cfg).cls;
@@ -312,6 +358,36 @@ export const chassisKey = (id) => (id === 'f1' ? 'custom' : id);
 
 // model credits (Sketchfab; the CC BY licences ask for attribution) - shown on the Credits screen
 export const CAR_CREDITS = {
+ "supra": {
+  "title": "Toyota Supra Mk4 Supra 1997",
+  "author": "Jean-llace cars",
+  "license": "CC-BY-4.0"
+ },
+ "nsx": {
+  "title": "Honda NSX 1990",
+  "author": "Lexyc16",
+  "license": "CC-BY-4.0"
+ },
+ "rx7fd": {
+  "title": "Mazda RX-7 FD",
+  "author": "Lexyc16",
+  "license": "CC-BY-4.0"
+ },
+ "corvettec4": {
+  "title": "Chevrolet Corvette C4",
+  "author": "Randomness",
+  "license": "CC-BY-4.0"
+ },
+ "p944turbo": {
+  "title": "1991 Porsche 944 Turbo",
+  "author": "RBLXSupercars",
+  "license": "CC-BY-4.0"
+ },
+ "gtone": {
+  "title": "toyota gt-one road car",
+  "author": "amogusstrikesback2",
+  "license": "CC-BY-4.0"
+ },
  "p962c": {
   "title": "Porsche 962C",
   "author": "JUST GAME",
@@ -328,9 +404,9 @@ export const CAR_CREDITS = {
   "license": "CC-BY-4.0"
  },
  "porsche935": {
-  "title": "Porsche Kremer Racing 935 K3 Midpoly",
-  "author": "yarzav",
-  "license": "CC-BY-NC-SA-4.0"
+  "title": "Porsche racing 935 k3 1979",
+  "author": "emojidream",
+  "license": "CC-BY-4.0"
  },
  "m1procar": {
   "title": "BMW M1 Turbo",
@@ -338,9 +414,9 @@ export const CAR_CREDITS = {
   "license": "CC-BY-NC-SA-4.0"
  },
  "f40": {
-  "title": "LB-Works Ferrari F40 | www.vecarz.com",
-  "author": "vecarz",
-  "license": "CC-BY-NC-SA-4.0"
+  "title": "LB Works Ferrari F40",
+  "author": "DRIVER-FIRE",
+  "license": "CC-BY-4.0"
  },
  "capri": {
   "title": "Ford Capri Group B",

@@ -2,6 +2,9 @@
 import { roadLayout } from './roads.js';
 import { generateSetting, fitModels, settingOf, paintFlora, natureModel, eraser, isNature } from './scenery.js';
 import { envAsset } from './envlib.js';
+import { inWater } from './water.js';
+import { inScanBand, scanTrees } from './scan.js';
+import { assignPlaces } from './places.js';
 // Shared by the editor preview and the 3D world so both show exactly the same buildings.
 
 export const STYLE_COLORS = {
@@ -132,6 +135,19 @@ export function generateZone(z) {
   return out;
 }
 
+// A FEMA building's kind (scan.js k: its use class, use: its primary use) as the scenery's styles: what model it can
+// be. A duplex or a small condo block is a house here (the foothills' "multi-family" is two storeys of siding, not a
+// tower); only a big, tall one is an apartment building. Worship, schools, shops, workshops and barns as themselves.
+export function femaKind(k, use, area, h) {
+  if (k === 'house') return /multi|apartment|condo/i.test(use) && area > 500 && h > 8 ? 'apartment' : 'house';
+  if (/relig/i.test(use)) return 'church';
+  if (k === 'school' || /school|education|college/i.test(use)) return 'school';
+  if (k === 'shop') return /wholesale|warehouse|storage/i.test(use) ? 'warehouse' : 'shop';
+  if (k === 'warehouse' || k === 'barn' || k === 'utility') return 'warehouse';
+  if (k === 'civic' || k === 'hall') return area > 900 && h > 12 ? 'office' : 'civic';
+  return area < 250 ? 'house' : undefined; // (small and of no known use: a house, a garage, a shed)
+}
+
 // ---------- collect every building / tree for a track and drop anything on the circuit ----------
 export function collectScenery(track, T, A) {
   const src = [];
@@ -140,9 +156,30 @@ export function collectScenery(track, T, A) {
   // buildings you moved / rotated / deleted individually: their originals are hidden (by key),
   // edited ones live on in track.buildings as independent "custom" buildings
   const hidden = new Set(track.hidden || []);
+  // Real Houses & Trees (js/scan.js): inside its strip the real buildings and trees replace the made-up ones (the
+  // houses the import put on empty lots, the map's tree scatter, below the setting's woods and buildings)
+  const scan = track.scan && track.scan.houses ? track.scan : null, inScan = scan ? inScanBand(track) : null;
+  const scanned = (x, z) => !!(inScan && inScan(x, z));
   if (osm) {
-    (osm.buildings || []).forEach((b, i) => { const key = 'o' + i; if (!hidden.has(key)) src.push({ ...b, from: 'osm', key }); });
-    for (const t of osm.trees || []) trees.push(t);
+    (osm.buildings || []).forEach((b, i) => { const key = 'o' + i; if (!hidden.has(key) && !(b.lot && scanned(...centroid(b.p)))) src.push({ ...b, from: 'osm', key }); });
+    for (const t of osm.trees || []) if (!scanned(t[0], t[1])) trees.push(t);
+  }
+  if (scan) {
+    // (a real building the map has too: the map's, with its tags; FEMA's outline otherwise)
+    const osmB = src.filter(b => b.from === 'osm' && !b.lot), og = buildingGrid(osmB);
+    scan.houses.forEach((b, i) => {
+      const key = 's' + i; if (hidden.has(key)) return;
+      const [cx, cz] = centroid(b.p);
+      if (og.hits(cx, cz, 0)) { // (the map has it too: the map's, with its tags, at the laser's height)
+        if (b.h) for (const o of osmB) if (!o.hk && pointInPoly(cx, cz, o.p)) { o.h = b.h; o.hk = 1; }
+        return;
+      }
+      const area = Math.abs(polyArea(b.p)), use = b.use || '', s = femaKind(b.k, use, area, b.h || 0);
+      // (a house's laser height kept to what a house is: 3.5-12 m. Older scans counted a crown over the roof, or the
+      //  ground beside a low one)
+      const h = b.h ? (s === 'house' ? Math.max(3.5, Math.min(12, b.h)) : b.h) : (s === 'house' ? 5.5 : 7);
+      src.push({ p: b.p.map(q => q.slice()), h, hk: b.h ? 1 : 0, s, r: 'flat', from: 'scan', key, use: use || undefined });
+    });
   }
   (track.zones || []).forEach((z, zi) => {
     const g = generateZone(z);
@@ -150,6 +187,9 @@ export function collectScenery(track, T, A) {
     for (const t of g.trees) trees.push(t);
   });
   (track.buildings || []).forEach((b, ci) => src.push({ ...b, p: b.p.map(q => q.slice()), from: 'custom', ci }));
+  // what the real ones are for (a supermarket, a gas station, a church...: places.js), from the map's shop / amenity
+  // points in them and their own tags
+  try { assignPlaces(src.filter(b => b.from === 'osm' || b.from === 'scan'), osm && osm.street && osm.street.places); } catch (e) { console.warn('places left out:', e); }
   const roads = A.roadL || ((track.roads || []).length ? roadLayout(track, T, A) : null);
   const onRoad = (b) => roads && (b.p.some(q => roads.onRoad(q[0], q[1])) || roads.onRoad(...centroid(b.p)));
   const keep = [], rejected = [];
@@ -175,7 +215,7 @@ export function collectScenery(track, T, A) {
   // (the setting's buildings never on top of yours, the map's or the zones')
   const kept = keep.map(b => { let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity; for (const q of b.p) { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); z0 = Math.min(z0, q[1]); z1 = Math.max(z1, q[1]); } return [x0, z0, x1, z1, b.p]; });
   const onKept = (p) => { let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity; for (const q of p) { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); z0 = Math.min(z0, q[1]); z1 = Math.max(z1, q[1]); } return kept.some(k => k[0] < x1 && k[2] > x0 && k[1] < z1 && k[3] > z0 && polysOverlap(p, k[4])); };
-  gen.buildings.forEach((b, k) => { const key = 'g' + seed + '_' + k; if (!hidden.has(key) && !(eraseB && eraseB(...centroid(b.p))) && !(b.p && b.p.length > 2 && onKept(b.p))) keep.push({ ...b, from: 'gen', key }); });
+  gen.buildings.forEach((b, k) => { const key = 'g' + seed + '_' + k; if (!hidden.has(key) && !(eraseB && eraseB(...centroid(b.p))) && !(b.p && b.p.length > 2 && (onKept(b.p) || scanned(...centroid(b.p))))) keep.push({ ...b, from: 'gen', key }); });
   const grid = buildingGrid(keep);
   // (trees the world made - map, zone lines, the setting's woods - go wherever you've erased nature)
   const treeKeep = trees.filter(t => pointClear(t[0], t[1], 2.5, T, A) && !(roads && roads.onRoad(t[0], t[1])) && !(eraseN && eraseN(t[0], t[1])))
@@ -184,12 +224,28 @@ export function collectScenery(track, T, A) {
       const m = natureModel('tree', mulberry(Math.floor(t[0] * 73.13) ^ Math.floor(t[1] * 91.7)), track.env, true);
       return m ? [t[0], t[1], m.id, m.s] : t;
     }).filter(t => !grid.hits(t[0], t[1], canopy(t, 2)));
-  for (const t of gen.trees) if (!grid.hits(t[0], t[1], canopy(t, 1)) && !(eraseN && eraseN(t[0], t[1]))) treeKeep.push(t);
+  for (const t of gen.trees) if (!grid.hits(t[0], t[1], canopy(t, 1)) && !(eraseN && eraseN(t[0], t[1])) && !scanned(t[0], t[1])) treeKeep.push(t);
+  // the real trees: a model from the track's tree mix, sized to the tree's measured height (the crown may reach
+  // over a roof, as real ones do: only the trunk is kept out of the walls)
+  if (scan) for (const [x, z, h] of scanTrees(scan)) {
+    if (!pointClear(x, z, 2.5, T, A) || (roads && roads.onRoad(x, z)) || (eraseN && eraseN(x, z)) || grid.hits(x, z, 0.8)) continue;
+    const m = natureModel('tree', mulberry(Math.floor(x * 73.13) ^ Math.floor(z * 91.7)), track.env, true), a = m && envAsset(m.id);
+    if (a) treeKeep.push([x, z, m.id, +Math.max(0.35, Math.min(2.2, h / (a.h || 10))).toFixed(2)]);
+  }
   // the PAINT tool's Nature brush
   const fl = paintFlora(track, T, A, roads);
   for (const t of fl.trees) if (!grid.hits(t[0], t[1], canopy(t, 1))) treeKeep.push(t);
   const genProps = eraseN ? gen.props.filter(q => !(isNature(q.id) && eraseN(q.x, q.z))) : gen.props;
-  const props = fl.props.length ? [...genProps, ...fl.props.filter(q => !grid.hits(q.x, q.z, 0))] : genProps;
+  const props = fl.props.length ? [...genProps, ...fl.props.filter(q => !grid.hits(q.x, q.z, 0))] : genProps.slice();
+  // nothing standing in a lake (water.js): trees, the setting's houses and props, painted nature. A building the map
+  // itself puts on the water (a boathouse on stilts, a dock) stays.
+  const W = osm && osm.water && osm.water.length ? osm.water : null;
+  if (W) {
+    const wet = (x, z, pad) => !!inWater(W, x, z, pad);
+    for (let i = keep.length - 1; i >= 0; i--) if (keep[i].from !== 'osm' && keep[i].from !== 'custom' && keep[i].p && keep[i].p.some(q => wet(q[0], q[1], -1))) keep.splice(i, 1);
+    for (let i = treeKeep.length - 1; i >= 0; i--) if (wet(treeKeep[i][0], treeKeep[i][1], -1.5)) treeKeep.splice(i, 1);
+    for (let i = props.length - 1; i >= 0; i--) if (wet(props[i].x, props[i].z, -0.5)) props.splice(i, 1);
+  }
   return { buildings: keep, rejected, trees: treeKeep, props, paving: gen.paving || [], life: { glows: gen.glows || [], spots: gen.spots || [], vents: gen.vents || [] }, grid };
 }
 

@@ -9,6 +9,7 @@ import { VectorEditor } from './vectoredit.js';
 import { sfx } from './audio.js';
 import { saveLivery, updateLivery, addLivery, findLivery, renameLivery, liveryCars, liveryChanged, liveryOn, liveryStart, liveryLooks, chassisOf } from './liveries.js';
 import { carOf } from './cars.js';
+import { GLOSS } from './roadcar.js';
 import { DEV } from './dev.js';
 
 const $ = (id) => document.getElementById(id);
@@ -241,6 +242,7 @@ export class LiveryDesigner {
       { label: 'Rear Wing', desc: 'The rear wing in its own color, or the car\'s own (road cars: the main color; single-seaters: the accent).',
         get values() { return [['auto', 'Car default'], ...SWATCH.map((x, k) => [x, `${swatch(x)}${SWATCH_NAMES[k]}`]), ...(c.wingColor != null && !SWATCH.includes(c.wingColor) ? [[c.wingColor, `${swatch(c.wingColor)}Custom`]] : [])]; },
         get: () => c.wingColor ?? 'auto', set: (v) => { c.wingColor = v === 'auto' ? null : v; T.changed(true); }, action: () => T.pickColor(c.wingColor ?? c.main, (v) => { c.wingColor = v; T.changed(true); }) },
+      ...(carOf(c)?.livery ? [this.stepRow('Gloss', () => c.gloss ?? GLOSS, v => c.gloss = v, 0.05, 0, 1, v => `${Math.round(v * 100)}%`, 'How shiny the paint is: 0% satin-matt, 100% a fresh wet-look clear coat.')] : []),
       { label: 'Pattern', head: true },
       this.pickRow('Pattern', PATTERNS, () => c.pattern, v => c.pattern = v, 'How your three colors are laid out on the car.'),
       this.onOff('Race Numbers', () => c.showNumber, v => c.showNumber = v, 'The car\'s standard number boards. Off if you\'d rather place your own (Decals: Race Number).'),

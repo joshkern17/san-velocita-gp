@@ -19,7 +19,7 @@ try {
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   pg.on('pageerror', e => { console.log('PAGE ERROR', e.message); fails++; });
   await pg.goto(`http://127.0.0.1:${PORT}/`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 });
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 });
   await pg.mouse.click(320, 180);
   await pg.evaluate((track) => { const S = window.__svgp.settings; S.commentary = 'full'; window.__svgp.startRace(track, { mode: 'race', laps: 1, opponents: 3, car: S.car }, 'menu'); }, track);
   await pg.waitForFunction(() => window.__svgp.sim && window.__svgp.sim.lineV && ['strategy', 'intro', 'carselect'].includes(window.__svgp.sim.state), null, { timeout: 120000 });

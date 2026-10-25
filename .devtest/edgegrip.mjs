@@ -13,7 +13,7 @@ const kill = setTimeout(() => { b.close(); server.kill(); process.exit(1); }, 90
 try {
   const pg = await b.newPage();
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 });
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 });
   for (const f of process.argv.slice(2)) {
     const r = await pg.evaluate(async (f) => {
       const t = await (await fetch('/' + f)).json();

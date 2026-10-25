@@ -11,7 +11,7 @@ const b = await chromium.launch({ channel: 'chrome', headless: true, args: ['--u
 try {
   const pg = await b.newPage(); await pg.setViewportSize({ width: 640, height: 360 });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1500);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1500);
   await pg.evaluate(async () => { const t = await (await fetch('/.devtest/auburn2.json')).json(); window.__svgp.startRace(t, { mode: 'race', laps: 10, opponents: 11, strategy: false, car: window.__svgp.settings.car }, 'menu'); });
   await pg.waitForFunction(() => window.__svgp.sim && window.__svgp.sim.pitLife && window.__svgp.sim.pitLife.boxes.some(b => b.crew.length), null, { timeout: 120000 });
   console.log(await pg.evaluate(() => {

@@ -616,15 +616,14 @@ export function generateSetting(track, T, A, roads, taken) {
   // ---- vegetation ----
   const treeW = Object.entries((FL ? FL.trees : S.trees) || {}).filter(([k]) => treePool(k).length);
   const bushes = envAssets({ cat: 'bush' });
-  let bx0 = Infinity, bx1 = -Infinity, bz0 = Infinity, bz1 = -Infinity;
-  for (let i = 0; i < N; i++) { bx0 = Math.min(bx0, T.X[i]); bx1 = Math.max(bx1, T.X[i]); bz0 = Math.min(bz0, T.Z[i]); bz1 = Math.max(bz1, T.Z[i]); }
-  const M = S.forest ? 380 : 320; bx0 -= M; bx1 += M; bz0 -= M; bz1 += M;
-  const area = (bx1 - bx0) * (bz1 - bz0);
+  // (within M of the track only: a long point-to-point road's bounding box is mostly far-off hills nobody drives past,
+  //  78% of Joeger 2's. The strip as 20 m cells, a spot = a random cell then a random point in it)
+  const M = S.forest ? 380 : 320, area = nearCells(T, M), rndAt = () => area.at(rng(), rng(), rng());
   const vn = (x, z) => { const s = Math.sin(x * 0.013 + st.seed) * Math.cos(z * 0.011 - st.seed * 0.7) + Math.sin((x + z) * 0.0071 + st.seed * 1.3) * 0.6; return s; };
-  const nT = Math.round(area / 1e6 * (S.forest ? 2600 : 700) * green);
+  const nT = Math.round(area.m2 / 1e6 * (S.forest ? 2600 : 700) * green);
   const treeOk = (x, z, r) => occ.freePt(x, z) && pointClear(x, z, r, T, A) && !onRoad(x, z, 1.5) && !nearPit(x, z, 4);
   for (let k = 0, tries = 0; k < nT && treeW.length && tries < nT * 4; tries++) {
-    const x = lerp(bx0, bx1, rng()), z = lerp(bz0, bz1, rng());
+    const [x, z] = rndAt();
     // clumps and clearings
     const nv = vn(x, z);
     if (S.forest ? nv < -0.55 : nv < 0.1 && rng() < 0.8) continue;
@@ -637,7 +636,7 @@ export function generateSetting(track, T, A, roads, taken) {
   // (a tree mix brings its own ground cover: grass tufts, flowers, shrubs, rocks)
   const nB = Math.round(nT * (FL ? (S.forest ? 0.5 : 1) : S.forest ? 0.35 : 0.6));
   for (let k = 0, tries = 0; k < nB && bushes.length && tries < nB * 4; tries++) {
-    const x = lerp(bx0, bx1, rng()), z = lerp(bz0, bz1, rng());
+    const [x, z] = rndAt();
     if (vn(x, z) < -0.2 || !treeOk(x, z, 1.5)) continue;
     const kind = FL && pickKind(rng, FL.under), [s0, s1] = FLORA_SCALE[kind] || [0.8, 1.4];
     const id = kind ? pickAsset(rng, floraPool(kind)).id : bushes[Math.floor(rng() * bushes.length)].id;
@@ -646,7 +645,7 @@ export function generateSetting(track, T, A, roads, taken) {
   // hedgerows / tree lines across the fields (countryside)
   if (S.hedges) {
     for (let h = 0; h < 10 * green + 2; h++) {
-      let x = lerp(bx0, bx1, rng()), z = lerp(bz0, bz1, rng()); const ang = rng() * Math.PI, len = 60 + rng() * 160;
+      let [x, z] = rndAt(); const ang = rng() * Math.PI, len = 60 + rng() * 160;
       for (let s = 0; s < len; s += 4 + rng() * 3) {
         const px = x + Math.cos(ang) * s, pz = z + Math.sin(ang) * s;
         if (!treeOk(px, pz, 2)) continue;
@@ -657,6 +656,22 @@ export function generateSetting(track, T, A, roads, taken) {
     }
   }
   return out;
+}
+
+// The ground within M of the track: 20 m cells whose middle is that close to it. { m2: its area, at(u, v, w): a point
+// in it from three 0..1 randoms (the cell, then where in the cell) }.
+export function nearCells(T, M, C = 20) {
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (let i = 0; i < T.N; i++) { x0 = Math.min(x0, T.X[i]); x1 = Math.max(x1, T.X[i]); z0 = Math.min(z0, T.Z[i]); z1 = Math.max(z1, T.Z[i]); }
+  x0 -= M; z0 -= M; x1 += M; z1 += M;
+  const nx = Math.ceil((x1 - x0) / C), nz = Math.ceil((z1 - z0) / C), g = new Uint8Array(nx * nz), r = Math.ceil(M / C);
+  for (let s = 0, every = Math.max(1, Math.round(C / 2 / T.ds)); s < T.N; s += every) {
+    const ci = Math.floor((T.X[s] - x0) / C), cj = Math.floor((T.Z[s] - z0) / C);
+    for (let j = Math.max(0, cj - r); j <= Math.min(nz - 1, cj + r); j++) for (let i = Math.max(0, ci - r); i <= Math.min(nx - 1, ci + r); i++)
+      if (!g[j * nx + i] && Math.hypot(x0 + (i + 0.5) * C - T.X[s], z0 + (j + 0.5) * C - T.Z[s]) < M) g[j * nx + i] = 1;
+  }
+  const cells = []; for (let q = 0; q < g.length; q++) if (g[q]) cells.push(q);
+  return { m2: cells.length * C * C, at: (u, v, w) => { const q = cells[Math.min(cells.length - 1, Math.floor(u * cells.length))]; return [x0 + (q % nx + v) * C, z0 + (Math.floor(q / nx) + w) * C]; } };
 }
 
 // ---------------- town streets ----------------
@@ -750,11 +765,14 @@ export function fitHouse(b, rng, roads, T, A) {
   let ax = dirs[0], best = -Infinity;
   for (const [ux, uz] of dirs) { const s = tgt ? (tgt[0] - cx) * -uz + (tgt[1] - cz) * ux : rng(); if (s > best) { best = s; ax = [ux, uz]; } }
   const along = Math.abs(ax[0] * r.ux + ax[1] * r.uz) > 0.5, W = along ? r.len : r.wid, D = along ? r.wid : r.len;
+  // (its real height known: the one nearest it in height too, then stood at it, 0.6-1.3x the model's own: a wide
+  //  one-storey ranch house is lower than any of the models)
+  const hr = b.hk && b.h > 2 ? b.h : 0; if (hr) b.hReal = hr;
   let a = null, bs = Infinity;
-  for (const c of list) { const sc = Math.abs(Math.log(W / c.w)) + Math.abs(Math.log(D / c.d)) + rng() * 0.5; if (sc < bs) { bs = sc; a = c; } }
+  for (const c of list) { const sc = Math.abs(Math.log(W / c.w)) + Math.abs(Math.log(D / c.d)) + (hr ? Math.abs(Math.log(hr / c.h)) * 1.2 : 0) + rng() * 0.5; if (sc < bs) { bs = sc; a = c; } }
   const s = Math.max(0.8, Math.min(1.2, Math.sqrt((W * D) / (a.w * a.d))));
   b.p = corners(rect(cx, cz, ax[0], ax[1], a.w * s / 2, a.d * s / 2));
-  b.m = a.id; b.h = +(a.h * s).toFixed(2); b.s = 'house'; b.r = 'flat';
+  b.m = a.id; b.h = +(hr ? Math.max(a.h * s * 0.6, Math.min(a.h * s * 1.3, hr)) : a.h * s).toFixed(2); b.s = 'house'; b.r = 'flat';
   return true;
 }
 // a random building model for the PROPS tool: kind shop | apartment | office | tower | warehouse | house | any
@@ -777,6 +795,7 @@ export function randomBuilding(kind, rng = Math.random) {
 export function modelFootprint(a, x, z, rot, s = 1) {
   return corners(rect(x, z, Math.cos(rot), -Math.sin(rot), a.w * s / 2, a.d * s / 2));
 }
+const SHOP_KINDS = new Set(['strip', 'supermarket', 'bank', 'postoffice', 'autoshop', 'school', 'civic', 'church']);
 export function fitModels(buildings, track, T, A, roads) {
   const st = settingOf(track.env);
   if (!envReady()) return;
@@ -787,21 +806,34 @@ export function fitModels(buildings, track, T, A, roads) {
   for (const b of buildings) {
     if (force && b.biz && b.from !== 'custom') delete b.biz; // (zone businesses too)
     if (b.m || b.biz || !b.p || b.p.length < 3) continue;
-    // houses (zone, map and your own): always a PSX house
+    // a real shop, bank, school...: built to its outline as what it is (js/housebuild.js buildShops; places.js)
+    if ((b.from === 'scan' || b.from === 'osm') && !b.lot) {
+      const P = b.place === 'fuel' ? 'strip' : b.place, a2 = Math.abs(polyArea(b.p));
+      const kind = P && SHOP_KINDS.has(P) ? P : b.s === 'shop' ? (a2 > 2500 ? 'supermarket' : 'strip') : b.s === 'school' || b.s === 'civic' || b.s === 'church' ? b.s : null;
+      if (kind) { b.buildShop = kind; delete b.keepBlock; continue; }
+    }
+    // a real house's own outline (the laser scan's FEMA outline, or the map's): built to it (js/housebuild.js), at its
+    // real size, shape and height, in the house pack's textures
+    if ((b.from === 'scan' || (b.from === 'osm' && !b.lot)) && (b.s === 'house' || (b.r === 'gable' && !b.s))) { b.build = 1; b.s = 'house'; continue; }
+    // houses (zones, the empty lots filled in, your own): always a PSX house
     if (b.s === 'house' || (b.r === 'gable' && !b.s)) { if (fitHouse(b, rng, roads, T, A)) continue; }
     if (!st.models) continue;
     const r = orientedRect(b.p); if (!r) continue;
     const area = Math.abs(polyArea(b.p));
     if (!force && area / r.area < 0.72) continue; // L-shapes etc.: keep the exact footprint
     const L = Math.max(r.len, r.wid), Wd = Math.min(r.len, r.wid), h = b.h || 8;
+    // (its real height known, from the laser or the map: a model only if it'd be stretched to it by 0.6-1.5x, and the
+    //  tall kinds only for buildings that tall; none fits: its own outline at its own height, a plain block)
+    const hk = !!b.hk; if (hk) b.hReal = h; const tallOK = (a) => !hk || ((a.cls !== 'tower' || h > 25) && (a.cls !== 'highrise' || h > 14) && (a.cls !== 'midrise' || (h > 8 && area > 350)) && h / a.h >= 0.6 && h / a.h <= 1.5);
+    if (b.s === 'church' || b.s === 'school' || b.s === 'civic') { b.keepBlock = 1; continue; } // (their own models: to come)
     const cls = b.s === 'warehouse' ? ['warehouse', 'industrial'] : b.s === 'office' ? ['highrise', 'midrise'] : b.s === 'tower' ? ['tower', 'highrise'] : b.s === 'apartment' ? ['midrise', 'highrise']
       : b.s === 'shop' ? ['shop', 'kiosk', 'midrise'] : area > 1500 && h < 15 ? ['warehouse', 'industrial'] : h > 60 ? ['tower', 'highrise'] : h > 22 ? ['highrise', 'midrise'] : h > 9 ? ['midrise', 'shop'] : area < 140 ? ['kiosk', 'house', 'shop'] : ['shop', 'kiosk', 'house'];
     const clsL = cls;
     // small, low unlabelled buildings (most OpenStreetMap homes): a house
     if (clsL.includes('house') && area < 260 && h < 10 && fitHouse(b, rng, roads, T, A)) continue;
-    let cands = all.filter(a => clsL.includes(a.cls) && a.cls !== 'house' && (!tags || (a.tags || []).some(t => tags.includes(t))));
-    if (!cands.length) cands = all.filter(a => clsL.includes(a.cls) && a.cls !== 'house');
-    if (force && cands.length < 3) cands = cands.concat(all.filter(a => ['shop', 'kiosk', 'midrise'].includes(a.cls)));
+    let cands = all.filter(a => clsL.includes(a.cls) && a.cls !== 'house' && tallOK(a) && (!tags || (a.tags || []).some(t => tags.includes(t))));
+    if (!cands.length) cands = all.filter(a => clsL.includes(a.cls) && a.cls !== 'house' && tallOK(a));
+    if (force && cands.length < 3) cands = cands.concat(all.filter(a => ['shop', 'kiosk', 'midrise'].includes(a.cls) && tallOK(a)));
     let best = null, bs = Infinity;
     const lim = force ? [0.4, 2.5] : [0.65, 1.5];
     for (const a of cands) for (const flip of [false, true]) {
@@ -812,7 +844,8 @@ export function fitModels(buildings, track, T, A, roads) {
       const score = Math.abs(Math.log(sx)) + Math.abs(Math.log(sz)) + Math.abs(Math.log(Math.max(0.3, sy))) * 0.6 + rng() * 0.25;
       if (score < bs) { bs = score; best = a; }
     }
-    if (!best && force) { let bd2 = Infinity; for (const a of all) { if (a.cls === 'house') continue; const d2 = Math.abs(Math.log(L * Wd / (a.w * a.d))) + Math.abs(Math.log(Math.max(0.3, h / a.h))) * 0.5; if (d2 < bd2) { bd2 = d2; best = a; } } }
+    if (!best && hk) { b.keepBlock = 1; continue; } // (nothing its size and height: its own outline, not a tower)
+    if (!best && force) { let bd2 = Infinity; for (const a of all) { if (a.cls === 'house' || a.cls === 'tower' || a.cls === 'highrise') continue; const d2 = Math.abs(Math.log(L * Wd / (a.w * a.d))) + Math.abs(Math.log(Math.max(0.3, h / a.h))) * 0.5; if (d2 < bd2) { bd2 = d2; best = a; } } }
     if (!best) continue;
     // which way is the front? towards the nearest road, else the circuit
     const [cx, cz] = centroid(r.corners), tgt = frontTarget(cx, cz, roads, T, A);
@@ -829,7 +862,7 @@ export function fitModels(buildings, track, T, A, roads) {
     const hw = (Math.abs(ax[0] * r.ux + ax[1] * r.uz) > 0.5 ? r.len : r.wid) / 2, hd = (Math.abs(ax[0] * r.ux + ax[1] * r.uz) > 0.5 ? r.wid : r.len) / 2;
     b.p = corners(rect(cx, cz, ax[0], ax[1], hw, hd));
     b.m = best.id;
-    b.h = Math.max(best.h * 0.75, Math.min(best.h * 1.35, h));
+    b.h = hk ? Math.max(best.h * 0.6, Math.min(best.h * 1.5, h)) : Math.max(best.h * 0.75, Math.min(best.h * 1.35, h));
   }
 }
 

@@ -24,7 +24,7 @@ try {
   pg.on('pageerror', e => console.log('PAGE ERROR', e.stack));
   pg.on('console', m => { if (m.type() === 'error') console.log('console:', m.text()); });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(800);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(800);
   await pg.evaluate(() => window.__svgp.dbg.startWorld(false));
   await pg.waitForFunction(() => window.__svgp.screen === 's-hub' && window.__svgp.world, null, { timeout: 60000 });
   await pg.evaluate(() => { const d = window.__svgp.dbg; if (d.tsw && d.tsw.isOpen) d.tsw.close(); d.openHub(); });

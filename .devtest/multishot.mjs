@@ -15,7 +15,7 @@ try {
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1000);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1000);
   await pg.evaluate(async () => {
     const t = (await import('/js/track.js')).presetTracks().find(t => t.name === 'Maple Ridge GP'); t.env.weather = 'clear';
     window.__autopilot = true; window.__svgp.settings.car = { ...window.__svgp.settings.car, chassis: 'm3gtr' };

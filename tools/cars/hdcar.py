@@ -5,7 +5,9 @@
 # Without a counterpart ('-'): kept at the model's own size (LEN=<m> scales it to that length) with the centre of mass
 # CG=<share of the wheelbase behind the front axle, default 0.55> at the origin; it prints the a / b / body numbers for
 # the car's spec in js/cars.js. Env: PAINT, DROP (material names to leave out, e.g. fake motion-blur rim discs);
-# '=name' matches a material name exactly, anything else as a substring.
+# '=name' matches a material name exactly, anything else as a substring. NOSE=-y|+y: which end of the source is the front
+# (default: the end with the narrower tires). Sources whose tires share a material with other parts, or sit in two
+# materials: tools/cars/hdprep.py first.
 #
 # Normalizes the source into car space (metres, nose -Y in Blender = +Z in the game, ground at the tire bottom), finds
 # its four wheels (the tires by material, then every loose part inside a tire's cylinder spins with it; calipers and
@@ -64,6 +66,9 @@ gz = min(v.z for v in vs)
 width = lambda sel: (max(v.x for v in sel) - min(v.x for v in sel)) if sel else 0
 front = [v for v in vs if v.y < cy and v.x > cx]; rear = [v for v in vs if v.y > cy and v.x > cx]
 rot = 0 if width(rear) >= width(front) else math.pi
+# (NOSE=-y / +y: the source's nose end, for cars with the same tires all round, where the width test is a coin toss:
+# the GT-One came out backwards)
+if os.environ.get('NOSE'): rot = 0 if os.environ['NOSE'] == '-y' else math.pi
 M = Matrix.Rotation(rot, 4, 'Z') @ Matrix.Translation((-cx, -cy, -gz))
 for o in obs: o.data.transform(M)
 
@@ -139,10 +144,11 @@ def lamp_of(m, y):
 # end of the car and facing out of it; not paint, unless the box has a fifth value 1 (lamps drawn on the paint's
 # texture: the 787B's tail strips; keep that box tight round the lamp)
 BOXES = json.loads(os.environ.get('LAMPBOX', '{}'))
+REACH = float(os.environ.get('LAMP_REACH', 0.9)) # (how far back from the car's end a lamp face can be, m: the 944's pop-ups sit further back)
 YLO = min(v.co.y for o in obs for v in o.data.vertices); YHI = max(v.co.y for o in obs for v in o.data.vertices)
 def lamp_box(p, m):
     c, n, paint = p.center, p.normal, matches(m, PAINT)
-    for kind, ok in (('tail', n.y > 0.3 and c.y > YHI - 0.9), ('head', n.y < -0.3 and c.y < YLO + 0.9)):
+    for kind, ok in (('tail', n.y > 0.3 and c.y > YHI - REACH), ('head', n.y < -0.3 and c.y < YLO + REACH)):
         if ok and any(b[0] <= abs(c.x) <= b[1] and b[2] <= c.z <= b[3] and (not paint or (len(b) > 4 and b[4])) for b in BOXES.get(kind, [])): return 'Light_' + kind.title()
     return None
 
@@ -209,8 +215,21 @@ for m in bpy.data.materials:
 
 # tail lamps: red. The game draws them unlit in their own texture (and brightens it on the brakes), so a clear lens
 # (the F40's) or an unlit black strip (the 787B's) read white or black: each tail material gets a copy whose texture
-# is the same in shades of red (the lens detail kept), on a copy of the material so other parts sharing it keep theirs
+# is the same in shades of red (the lens detail kept), on a copy of the material so other parts sharing it keep theirs.
+# A texture that already has the lamp's reds in it (a cluster with amber indicators and white reversing lights: the
+# 944's, the Corvette's) is left as it is; so is a plain colour that's already red, and a plain colour that isn't keeps
+# its light and dark (a reflector behind a lens) as light and dark red
 import numpy as np
+def upstream_image(node, seen=0):
+    # the image a base colour comes from, through mix / multiply nodes (vertex colours, tints)
+    if node is None or seen > 6: return None
+    if node.type == 'TEX_IMAGE': return node
+    for inp in node.inputs:
+        for l in inp.links:
+            r = upstream_image(l.from_node, seen + 1)
+            if r: return r
+    return None
+reddish = lambda r, g, b: (r > 0.25) & (r > g * 1.6) & (r > b * 1.6)
 tail = bpy.data.objects.get('Light_Tail')
 if tail and os.environ.get('TAIL_RED', '1') != '0':
     for i, m in enumerate(tail.data.materials):
@@ -218,16 +237,24 @@ if tail and os.environ.get('TAIL_RED', '1') != '0':
         m2 = m.copy(); m2.name = m.name + '_tail'; tail.data.materials[i] = m2
         bsdf = next((x for x in m2.node_tree.nodes if x.type == 'BSDF_PRINCIPLED'), None)
         if not bsdf: continue
-        src = bsdf.inputs['Base Color'].links[0].from_node if bsdf.inputs['Base Color'].is_linked else None
-        if src and src.type == 'TEX_IMAGE' and src.image and src.image.has_data:
+        src = upstream_image(bsdf.inputs['Base Color'].links[0].from_node) if bsdf.inputs['Base Color'].is_linked else None
+        # (an image packed in the glTF isn't loaded until its pixels are read: has_data was False for the GT-One's and
+        # NSX's lamps, and they lost their texture to a flat red)
+        if src and src.image and len(src.image.pixels):
+            px = np.empty(len(src.image.pixels), dtype=np.float32); src.image.pixels.foreach_get(px); px = px.reshape(-1, 4)
+            seen = px[px[:, 3] > 0.1]
+            share = float(np.mean(reddish(seen[:, 0], seen[:, 1], seen[:, 2]))) if len(seen) else 0
+            if share > 0.08: print('HD tail texture kept', m.name, round(share, 2)); continue
             im = src.image.copy(); im.name = src.image.name + '_tail'
-            px = np.empty(len(im.pixels), dtype=np.float32); im.pixels.foreach_get(px); px = px.reshape(-1, 4)
             l = px[:, 0] * 0.3 + px[:, 1] * 0.59 + px[:, 2] * 0.11
             px[:, 0] = 0.35 + 0.65 * l; px[:, 1] = 0.02 + 0.1 * l; px[:, 2] = 0.02 + 0.08 * l
             im.pixels.foreach_set(px.ravel()); im.update(); im.pack(); src.image = im
         else:
+            c = bsdf.inputs['Base Color'].default_value
+            if reddish(c[0], c[1], c[2]): continue
             for l in list(bsdf.inputs['Base Color'].links): m2.node_tree.links.remove(l)
-            bsdf.inputs['Base Color'].default_value = (0.6, 0.02, 0.02, 1)
+            k = c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11
+            bsdf.inputs['Base Color'].default_value = (0.25 + 0.5 * k, 0.02, 0.02, 1)
     print('HD tail lamps red', len(tail.data.materials), 'materials')
 
 # cull (CULL=0 skips): body faces no ray from outside reaches (cockpit, engine bay, the panels' inner skins, hidden

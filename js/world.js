@@ -8,17 +8,22 @@ import { freeRay } from './freebar.js';
 import { footSamples, rectFoot, makePlots } from './pads.js';
 import { makeVerge } from './verge.js';
 import { kitStands, kitCuts, buildPodiums } from './gstands.js';
+import { backdropKind, buildBackdrop } from './backdrop.js';
+import { buildGrass, grassMask, GRASS_COLORS } from './grass.js';
 import { placeTrackProps, buildStartGantry, beamCone, beamMaterial, buildCatchFence, CROWDS } from './trackprops.js';
-import { runoffLayout, isRunoffPaint, strokeDist, strokeBox, RUN_RES, RUN_SD } from './runoff.js';
+import { runoffLayout, isRunoffPaint, strokeDist, strokeBox, RUN_RES, RUN_SD, runoffKind, RUN_NAT, RUN_GRASS, RUN_PAVED, EDGE_STRIP } from './runoff.js';
 import { buildCourthouse, buildBusiness } from './landmarks.js';
-import { addRealWorld } from './realworld.js';
+import { addRealWorld, addWater, addStreams } from './realworld.js';
+import { waterLevel, carveWater, inWater, carveStreams } from './water.js';
 import { BUSINESSES } from './zones.js';
 import { getBuildingTextures } from './textures.js';
-import { collectScenery, polyArea, pointInPoly } from './zones.js';
+import { collectScenery, polyArea, pointInPoly, pointClear } from './zones.js';
 import { roadLayout } from './roads.js';
-import { addEnvInstances, envModel, envAsset, envModelsReady, houseLook } from './envlib.js';
+import { addEnvInstances, envModel, envAsset, envAssets, envModelsReady, houseLook } from './envlib.js';
+import { placeStreet, buildStreetExtras } from './streetkit.js';
 import { solidsAround, treeInto, sdPoly, overlap, rectPoly, TREE_INTO } from './solids.js';
-import { settingOf, modelTransform, natureModel, FLORA, PROP_FLORA, fitHouse, randomBuilding, eraser } from './scenery.js';
+import { settingOf, modelTransform, natureModel, FLORA, PROP_FLORA, fitHouse, randomBuilding, eraser, frontTarget } from './scenery.js';
+import { buildHouses, buildShops } from './housebuild.js';
 import { WetReflections } from './weatherfx.js';
 import { StreetLife } from './lifefx.js';
 import { buildClouds } from './clouds.js';
@@ -174,7 +179,7 @@ function buildSky(P) {
 }
 
 // options the game sets from its Options menu (so race.js doesn't have to pass them)
-const WORLD_OPTS = { shadows: true };
+const WORLD_OPTS = { shadows: true, grass: 'lush' }; // (grass: off | short | lush, js/grass.js)
 export function setWorldOptions(o) { Object.assign(WORLD_OPTS, o); }
 
 // ---------- main build ----------
@@ -374,6 +379,14 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
     const S = H.slice(); applySculpt(track.sculpt, S, nx, nz, gx0, gz0, step, trackHeightAt(T, A.hash));
     for (let i = 0; i < NV; i++) H[i] += (S[i] - H[i]) * sculptFade[i];
   }
+  // water from the map (lakes, ponds, rivers: water.js): level at the low end of its shore, the ground under it a lake
+  // bed (the circuit's own embankments and runoff are left as they are)
+  const waterL = ((track.osm && track.osm.water) || []).map(w => ({ w, y: waterLevel(w, (x, z) => baseH(x, z, 1e4)) }));
+  carveWater(H, nx, nz, gx0, gz0, step, waterL, (i) => 1 - sculptFade[i]);
+  // streams, ditches, canals and rivers mapped as lines (MAP › Street Details): their beds (water.js carveStreams)
+  let streams = [];
+  try { const sw = track.osm && track.osm.street && track.osm.street.water; if (sw && sw.length) streams = carveStreams(H, nx, nz, gx0, gz0, step, sw, (x, z) => baseH(x, z, 1e4), (i) => 1 - sculptFade[i]); }
+  catch (e) { console.warn('streams left out:', e); streams = []; }
   yield;
   // every building's footprint: each gets a level plot cut into / built up from the hillside (pads.js, below)
   const padFeet = [];
@@ -699,6 +712,7 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
     if (PG) g.setAttribute('gpaint', new THREE.BufferAttribute(PG, 1));
     g.setIndex(new THREE.BufferAttribute(idx.subarray(0, q), 1));
     g.computeVertexNormals();
+    GOLDEN = (env.hillside && env.hillside !== 'auto' ? env.hillside : theme === 'desert' ? 'golden' : 'green') === 'golden';
     const terrMat = groundMaterial(theme, groundTex);
     const m = new THREE.Mesh(g, terrMat);
     root.add(m);
@@ -1437,8 +1451,15 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
       foot.splice(i, 1); real.buildings.push(b);
     }
   }
+  const toBuild = [], toShop = []; // (real houses and shops built to their outlines: housebuild.js, after the loop)
   for (const b of real.buildings) {
     if (slice()) yield;
+    if (b.buildShop && !b.m) { let cx = 0, cz = 0; for (const q of b.p) { cx += q[0]; cz += q[1]; } cx /= b.p.length; cz /= b.p.length;
+      const tg = frontTarget(cx, cz, roadL, T, A), l = tg ? Math.hypot(tg[0] - cx, tg[1] - cz) || 1 : 1;
+      toShop.push({ b, kind: b.buildShop, name: b.pname, names: b.pnames, place: b.place, tg, front: tg ? [(tg[0] - cx) / l, (tg[1] - cz) / l] : [0, 1] }); continue; }
+    if (b.build && !b.m) { let cx = 0, cz = 0; for (const q of b.p) { cx += q[0]; cz += q[1]; } cx /= b.p.length; cz /= b.p.length;
+      const tg = frontTarget(cx, cz, roadL, T, A), l = tg ? Math.hypot(tg[0] - cx, tg[1] - cz) || 1 : 1;
+      toBuild.push({ b, look: houseLook(b.hv, cx, cz), front: tg ? [(tg[0] - cx) / l, (tg[1] - cz) / l] : [0, 1] }); continue; }
     if (b.biz && BUSINESSES[b.biz]) { placeLandmark(buildBusiness(b.biz, night), b.c[0], b.c[1], b.face, BUSINESSES[b.biz].w / 2, BUSINESSES[b.biz].d / 2); continue; }
     if (b.lot) { // (a house the import put on an empty lot: not on ground too steep for a house, where a real one wouldn't be)
       let lo = Infinity, hi = -Infinity; for (const q of footSamples(b.p)) { const g = groundHeight(q[0], q[1]); lo = Math.min(lo, g); hi = Math.max(hi, g); }
@@ -1455,12 +1476,28 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
     }
     const gh = groundHeight(b.p[0][0], b.p[0][1]);
     if (theme === 'coast' && gh < -0.3) continue;
-    if (setOn) continue; // a setting is on: only the PS1 models
+    if (setOn && !b.keepBlock) continue; // a setting is on: only the PS1 models (but a real building no model fits stays: its own outline and height)
     foot.push(b);
+  }
+  if (toBuild.length) {
+    try { buildHouses(root, toBuild, seat, { shadows: shadowsOn }); }
+    catch (e) { // (anything wrong in there: those houses as the fitted PSX models instead, never none)
+      console.warn('house builder failed, fitted models instead:', e);
+      const hr2 = mulberry(9133);
+      for (const { b, look } of toBuild) { if (!fitHouse(b, hr2, roadL, T, A)) continue; const t2 = modelTransform(b); if (t2) envPl.push({ id: b.m, x: t2.x, z: t2.z, y: seat(b.p) - 0.02, rot: t2.rot, sx: t2.sx, sy: t2.sy, sz: t2.sz, look }); }
+    }
+  }
+  if (toShop.length) {
+    try { buildShops(root, toShop, seat, { shadows: shadowsOn, night, envPl }); }
+    catch (e) { console.warn('shop builder failed, plain blocks instead:', e); for (const { b } of toShop) { b.keepBlock = 1; foot.push(b); } }
   }
   buildFootprints(root, foot, night, groundHeight, rng);
   if (plinths.length) buildPlinths(root, plinths, tx);
-  const realW = track.real ? addRealWorld(root, track, T, { groundHeight, night }) : null; // real circuits: sea, lakes, tunnels, Ferris wheels
+  const realW = track.real ? addRealWorld(root, track, T, { groundHeight, night }) : null; // real circuits: sea, tunnels, Ferris wheels
+  const waterW = waterL.length ? addWater(root, waterL, night) : null; // lakes, ponds, rivers (any track with them imported)
+  let streamW = null; // (the streams' water: not over a road or the track, where they run through a culvert)
+  try { if (streams.length) streamW = addStreams(root, streams, groundHeight, (x, z, h) => (roadL && roadL.onRoad(x, z, h + 1)) || !pointClear(x, z, h + 1, T, A), night); }
+  catch (e) { console.warn('stream water left out:', e); }
   yield;
   // street surfaces (road deck and raised sidewalks) for things lying on them
   const rGrid = new Map(), RC = 12;
@@ -1528,6 +1565,77 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
       if (a.cat === 'tree' ? treeInto(S, p.x, p.z, r)[0] > TREE_INTO : [...S.near(p.x, p.x, p.z, p.z)].some(j => sdPoly(S.solids[j].poly, p.x, p.z) < 0)) envPl.splice(k, 1);
     }
   }
+  // long grass (grass.js): where it grows (none on the track, inside its barriers, on roads, in the pit lane, under
+  // buildings and stands; short just past the barrier), the ground grid's heights, the colour of the hillsides
+  let grass = null;
+  if (WORLD_OPTS.grass && WORLD_OPTS.grass !== 'off' && theme !== 'city' && env.surface !== 'snow' && env.grass !== false) {
+    const gx1 = gx0 + (nx - 1) * step, gz1 = gz0 + (nz - 1) * step, rect = [gx0, gz0, gx1, gz1];
+    const heights = new Float32Array(nx * nz);
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) heights[j * nx + i] = groundHeight(gx0 + i * step, gz0 + j * step);
+    // (the grid's height as the grass reads it, bilinear: the runoff's own surface sits above it, the ground tucked under)
+    const gridAt = (x, z) => { const u = Math.max(0, Math.min(nx - 1.001, (x - gx0) / step)), v = Math.max(0, Math.min(nz - 1.001, (z - gz0) / step)), i0 = Math.floor(u), j0 = Math.floor(v), fu = u - i0, fv = v - j0, H = (a, c) => heights[c * nx + a];
+      return (H(i0, j0) * (1 - fu) + H(i0 + 1, j0) * fu) * (1 - fv) + (H(i0, j0 + 1) * (1 - fu) + H(i0 + 1, j0 + 1) * fu) * fv; };
+    // The map's red is how much grass grows; its green, the height of the surface it grows on over the grid's (0.025 m a
+    // step, 40 = level): only the runoff's differs
+    const C = (r, gOff = 0) => `rgb(${Math.round(r * 255)},${Math.max(0, Math.min(255, Math.round(40 + gOff * 40)))},0)`;
+    const mask = grassMask(rect, (g, P, k) => { // (1 m a pixel where it fits: the runoff's tufts are only metres wide)
+      const band = (out, col) => { // the track's ribbon out to `out` m past each barrier (its own BL / BR)
+        g.fillStyle = col;
+        for (let i = 0; i < N; i++) {
+          if (i === T.cut) continue; const j = (i + 1) % N;
+          const L = (q, o) => P(T.X[q] - T.RX[q] * (A.BL[q] + o), T.Z[q] - T.RZ[q] * (A.BL[q] + o)), R = (q, o) => P(T.X[q] + T.RX[q] * (A.BR[q] + o), T.Z[q] + T.RZ[q] * (A.BR[q] + o));
+          const a = L(i, out), b = R(i, out), c = R(j, out), d = L(j, out);
+          g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.lineTo(...c); g.lineTo(...d); g.closePath(); g.fill();
+        }
+      };
+      band(6, C(0.33)); band(0.6, C(0));
+      // inside the barriers: short, sparse tufts creeping in on the grass and dirt runoff (never the paved or gravel),
+      // from just past the curbs, thinning out towards the track
+      if (RUN) for (let i = 0; i < N; i++) for (let s2 = 0; s2 < 2; s2++) {
+        if (A.pit && A.pit.REG[i] >= 0 && A.pit.side === (s2 ? 1 : -1)) continue;
+        const sd = s2 ? 1 : -1, half = T.W[i] / 2, bar = (s2 ? A.BR[i] : A.BL[i]) - half - 0.8, t0 = kerbOn(A, i, sd) ? kerbW(A, i, sd) + 0.4 : 0.3;
+        for (let tt = t0; tt < bar; tt += tt < EDGE_STRIP + 0.5 ? 0.75 : 1.5) {
+          const kind = runoffKind(RUN, i, s2, tt), edge = kind === RUN_PAVED && tt < EDGE_STRIP + 0.3; // (the strip past the line: a few tufts over its dirt)
+          if (kind !== RUN_NAT && kind !== RUN_GRASS && !edge) continue;
+          const o = (half + tt) * sd, x = T.X[i] + T.RX[i] * o, z = T.Z[i] + T.RZ[i] * o;
+          const v = edge ? 0.17 + 0.09 * Math.min(1, tt / EDGE_STRIP) : 0.28 + 0.24 * Math.min(1, (tt - t0) / 4);
+          g.fillStyle = C(v, surfY(i, sd * half) - gridAt(x, z)); g.beginPath(); g.arc(...P(x, z), (edge ? 0.8 : 1.3) * k, 0, Math.PI * 2); g.fill();
+        }
+      }
+      g.fillStyle = C(0); g.strokeStyle = C(0); g.lineJoin = 'round'; g.lineCap = 'round';
+      if (roadL) {
+        for (const pc of roadL.pieces) { g.lineWidth = (pc.w + 2 * (pc.walk || 0) + 1.5) * k; g.beginPath(); pc.s.forEach((q, m) => m ? g.lineTo(...P(q.x, q.z)) : g.moveTo(...P(q.x, q.z))); g.stroke(); }
+        for (const jn of roadL.junctions) { g.beginPath(); jn.poly.forEach((q, m) => m ? g.lineTo(...P(q.x, q.z)) : g.moveTo(...P(q.x, q.z))); g.closePath(); g.fill(); }
+      }
+      if (A.pit) for (let i = 0; i < N; i++) { // the pit lane and its garages
+        if (A.pit.REG[i] < 0) continue; const j = (i + 1) % N, sd = A.pit.side, o0 = T.W[i] / 2, o1 = A.pit.CEN[i] + A.pit.width / 2 + 18;
+        const q = (k2, o) => P(T.X[k2] + T.RX[k2] * o * sd, T.Z[k2] + T.RZ[k2] * o * sd);
+        g.beginPath(); g.moveTo(...q(i, o0)); g.lineTo(...q(i, o1)); g.lineTo(...q(j, o1)); g.lineTo(...q(j, o0)); g.closePath(); g.fill();
+      }
+      g.lineWidth = 2.5 * k;
+      for (const b of real.buildings) if (b.p && b.p.length > 2) { g.beginPath(); b.p.forEach((q, m) => m ? g.lineTo(...P(q[0], q[1])) : g.moveTo(...P(q[0], q[1]))); g.closePath(); g.fill(); g.stroke(); }
+      for (const e of envPl) { // the models standing on the ground (buildings, stands, trackside structures)
+        const a = envAsset(e.id); if (!a || !(a.cat === 'building' || a.cat === 'trackside' || a.cat === 'landmark')) continue;
+        const cs = Math.cos(e.rot || 0), sn = Math.sin(e.rot || 0), hw = a.w * (e.sx ?? e.s ?? 1) / 2 + 1, hd = a.d * (e.sz ?? e.s ?? 1) / 2 + 1;
+        g.beginPath(); [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].forEach(([u, v], m) => { const w = P(e.x + u * cs + v * sn, e.z - u * sn + v * cs); m ? g.lineTo(...w) : g.moveTo(...w); }); g.closePath(); g.fill();
+      }
+      for (const st of kitStandList) { g.beginPath(); st.outline.forEach((q, m) => m ? g.lineTo(...P(q[0], q[1])) : g.moveTo(...P(q[0], q[1]))); g.closePath(); g.fill(); }
+    });
+    const side = env.hillside && env.hillside !== 'auto' ? env.hillside : theme === 'desert' ? 'golden' : 'green';
+    grass = buildGrass({ quality: WORLD_OPTS.grass, colors: GRASS_COLORS[side] || GRASS_COLORS.green, rect, grid: [gx0, gz0, step, nx, nz], heights, mask, sun: P.sun, night });
+    if (grass) root.add(grass.mesh);
+  }
+  // the map's street details (MAP › Street Details): signs, signals, poles and their wires, gates, rail, barriers
+  // (streetkit.js). Anything going wrong in there leaves them out, never the rest of the world
+  if (track.osm && track.osm.street && envModelsReady()) {
+    try {
+      const hedge = (envAssets({ cat: 'bush' })[0] || {}).id;
+      const sk = placeStreet(track, T, A, roadL, groundHeight, { hedge });
+      for (const p of sk.pl) envPl.push(p);
+      buildStreetExtras(root, sk, (x, z, ti) => ti >= 0 ? T.Y[ti] + A.LIFT[ti] : groundHeight(x, z), tx.concrete);
+    } catch (e) { console.warn('street details left out:', e); }
+  }
+  yield;
   const envCells = yield* addEnvInstances(root, envPl, { night, slice });
   yield* addContactShadows(root, envPl, groundHeight, night);
   if (real.paving && real.paving.length) buildPaving(root, real.paving, groundHeight, tx);
@@ -1554,8 +1662,16 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
   }
 
   yield;
-  // distant ring
-  root.add(buildHorizon(theme, P, cx, cz, Math.max(maxX - minX, maxZ - minZ) / 2 + 1500, rng, tx, night));
+  // the land beyond: hills / mountains all round (backdrop.js), else the painted horizon band
+  const bk = backdropKind(env, theme);
+  if (bk) {
+    // (its foot at the ground's height round the grid's edge: the median of it)
+    const gx1 = gx0 + (nx - 1) * step, gz1 = gz0 + (nz - 1) * step, edge = [];
+    for (let k = 0; k <= 40; k++) { const f = k / 40; edge.push(groundHeight(gx0 + (gx1 - gx0) * f, gz0), groundHeight(gx0 + (gx1 - gx0) * f, gz1), groundHeight(gx0, gz0 + (gz1 - gz0) * f), groundHeight(gx1, gz0 + (gz1 - gz0) * f)); }
+    edge.sort((a, b) => a - b);
+    root.add(buildBackdrop(bk, { env, P, rect: [gx0, gz0, gx1, gz1], base: edge[edge.length >> 1], seed: Math.floor(Math.abs(cx * 7 + cz * 13)) + 17, night, theme,
+      ground: terr ? (x, z) => terrainHeight(x, z) : null })); // (a real place: the ring starts on its real ground all round)
+  } else root.add(buildHorizon(theme, P, cx, cz, Math.max(maxX - minX, maxZ - minZ) / 2 + 1500, rng, tx, night));
 
   yield;
   // rain (a race whose weather may change has it too, hidden till it's needed: setWeather)
@@ -1622,11 +1738,14 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
       sun.target.updateMatrixWorld();
     }
     if (wet) wet.update(camera, moving);
+    if (grass) grass.update(t, camera, cars && cars.map ? cars.map(c => c.phys ? { x: c.phys.x, y: c.y, z: c.phys.z } : c) : []);
     if (life) life.update(dt, t, camera, cars, fog);
     sky.position.copy(camera.position);
     sky.material.uniforms.time.value = t;
     if (water) water.material.map.offset.set(t * 0.003, t * 0.002);
     if (realW) realW.update(t);
+    if (waterW) waterW.update(t);
+    if (streamW) streamW.update(t);
     if (rain) {
       rain.position.set(camera.position.x, camera.position.y - 15, camera.position.z);
       const p = rain.geometry.attributes.position.array;
@@ -1694,7 +1813,7 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
   }
   const roadAt = (x, z) => !!(roadL && roadL.onGroundRoad(x, z, -1.6));
   const roadLines = roadL ? roadL.pieces.map(pc => pc.s.map(q => [q.x, q.z])) : [];
-  return { root, fog, P, update, setWeather, setTimeOfDay, nightK: () => nightK, road: env.surface === 'dirt' ? null : { mat: roadMat }, groundHeight, paintAt, runPatchAt: (x, z) => (runPatch ? runPatch.at(x, z) : null), roadAt, streetStep: (x, z) => streetStep(x, z), roadLines, tvCams, startLights, life, boards: distBoards, center: new THREE.Vector3(cx, 0, cz), bounds: { minX, maxX, minZ, maxZ },
+  return { root, fog, P, update, grass, setWeather, setTimeOfDay, nightK: () => nightK, road: env.surface === 'dirt' ? null : { mat: roadMat }, groundHeight, paintAt, runPatchAt: (x, z) => (runPatch ? runPatch.at(x, z) : null), roadAt, streetStep: (x, z) => streetStep(x, z), roadLines, tvCams, startLights, life, boards: distBoards, center: new THREE.Vector3(cx, 0, cz), bounds: { minX, maxX, minZ, maxZ },
     placed: { models: envPl, footprints: foot, stands, boards } }; // (what stands where: tools/tracks/check.mjs)
 }
 
@@ -1791,17 +1910,20 @@ if (vRun.w > 0.5) {
 // On the runoff it fades in from 12 to 22 m off the track edge (gTintK): at 2 m a texel the photo's asphalt bleeds into
 // the verge, and what the runoff is made of is the runoff layout's to say (runoff.js).
 const GROUND_LINE = 'diffuseColor.rgb = groundColor(groundTint(vColor.rgb, vMapUv, gTintK), vMapUv);'; // (the runoff draws its surfaces after it)
+// golden: the hillsides' dry summer grass (env.hillside, auto on the desert circuits): the grass is the dry texture,
+// warmed to the long grass's straw (js/grass.js), so the ground between the blades and on the runoff matches them
+let GOLDEN = false;
 function groundMaterial(theme, tint = null) {
   const G = getGroundTextures();
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true, map: detailTexture() });
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, {
-      gGrass: { value: G.grass }, gDry: { value: G.dry }, gSand: { value: theme === 'desert' ? G.desert : G.beach }, gEarth: { value: G.earth },
+      gGrass: { value: GOLDEN ? G.dry : G.grass }, gDry: { value: G.dry }, gGrassK: { value: GOLDEN ? new THREE.Vector3(1.32, 1.08, 0.62) : new THREE.Vector3(1, 1, 1) }, gSand: { value: theme === 'desert' ? G.desert : G.beach }, gEarth: { value: G.earth },
       gTint: { value: tint ? tint.tex : null }, gTintBox: { value: tint ? tint.box : new THREE.Vector4(0, 0, 1, 1) },
     });
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <map_pars_fragment>', `#include <map_pars_fragment>
-uniform sampler2D gGrass, gDry, gSand, gEarth;
+uniform sampler2D gGrass, gDry, gSand, gEarth; uniform vec3 gGrassK;
 vec3 groundShade(vec3 v, vec3 usual) { vec3 k = v / usual; return mix(vec3(dot(k, vec3(0.3, 0.55, 0.15))), k, 0.4); }
 ${tint ? `uniform sampler2D gTint; uniform vec4 gTintBox;
 vec3 groundTint(vec3 v, vec2 uv, float k) {
@@ -1813,7 +1935,7 @@ vec3 groundColor(vec3 v, vec2 uv) {
   float G = v.g - v.r, lum = dot(v, vec3(0.3, 0.55, 0.15)), chroma = max(max(v.r, v.g), v.b) - min(min(v.r, v.g), v.b);
   float wGrass = smoothstep(0.03, 0.11, G), wDry = (1.0 - wGrass) * smoothstep(-0.09, -0.02, G);
   float bare = 1.0 - wGrass - wDry, wSand = bare * smoothstep(0.42, 0.58, lum), wEarth = bare - wSand;
-  vec3 c = texture(gGrass, uv).rgb * groundShade(v, vec3(0.36, 0.51, 0.2)) * wGrass
+  vec3 c = texture(gGrass, uv).rgb * gGrassK * groundShade(v, vec3(0.36, 0.51, 0.2)) * wGrass
          + texture(gDry, uv).rgb * groundShade(v, vec3(0.46, 0.48, 0.26)) * wDry
          + texture(gSand, uv).rgb * groundShade(v, vec3(0.82, 0.64, 0.42)) * wSand
          + texture(gEarth, uv).rgb * groundShade(v, vec3(0.38, 0.3, 0.2)) * wEarth;
@@ -2167,6 +2289,7 @@ function buildCornerBoards(root, T, A, env, surfY, groundHeight, roadL, night) {
   return placed;
 }
 
+const WALL_MIN = 0.25, COPE = 0.45; // (a retaining wall goes in where the bank behind the barrier is this high; its concrete top this wide)
 function buildBarriers(root, T, A, env, surfY, groundHeight, tx, night, verge) {
   const inBlk = pitBlockTest(T, A, A.pit);
   const N = T.N;
@@ -2177,9 +2300,9 @@ function buildBarriers(root, T, A, env, surfY, groundHeight, tx, night, verge) {
     buf.p.push(...a, ...b, ...c, ...b, ...d, ...c);
     buf.u.push(u0, v0, u1, v0, u0, v1, u1, v0, u1, v1, u0, v1);
   };
-  const posts = [], gate = { p: [], u: [] }, gatePosts = [], retain = { p: [], u: [] };
+  const posts = [], gate = { p: [], u: [] }, gatePosts = [], retain = { p: [], u: [] }, fill = { p: [], u: [] };
   for (const side of [-1, 1]) {
-    const has = side < 0 ? A.HAS_L : A.HAS_R;
+    const has = side < 0 ? A.HAS_L : A.HAS_R, mouth = side < 0 ? A.NOWALK_L : A.NOWALK_R;
     const off = side < 0 ? A.BL : A.BR, cap = A.BMAX && A.BMAX[side < 0 ? 0 : 1];
     // Where the barrier stands: its foot reaches down to the ground (never floating over a drop) and it rises from
     // the higher of the track edge and the ground at / just behind it (never buried in a bank). Where the ground
@@ -2194,10 +2317,14 @@ function buildBarriers(root, T, A, env, surfY, groundHeight, tx, night, verge) {
       const g = Math.max(groundHeight(x, z), groundHeight(x + T.RX[k] * side * bk, z + T.RZ[k] * side * bk));
       FOOT[k] = Math.min(edge, g + 0.05) - 0.1;
       LVL[k] = Math.max(edge - 0.1, Math.min(g + 0.05, edge + 4)) - (edge - 0.1); // (above the track edge)
+      if (mouth && mouth[k]) LVL[k] = 0; // (across a street's mouth: behind the barrier is the street, not a bank to hold back)
     }
     {
-      const w = Math.max(2, Math.round(10 / T.ds)), mx = new Float32Array(N);
-      for (let k = 0; k < N; k++) { let v = 0; for (let q = -w; q <= w; q++) v = Math.max(v, LVL[stepIdx(T, k, q)]); mx[k] = v; }
+      // (the ground it holds back over ~20 m: the high quarter of it, not its one highest point. With the highest, a
+      // single bump - a street climbing away from its mouth, a curb - stood a wall and a 4 m concrete top 40 m along
+      // the barrier, where there's no bank)
+      const w = Math.max(2, Math.round(10 / T.ds)), mx = new Float32Array(N), win = new Float32Array(2 * w + 1), qk = Math.floor((2 * w + 1) * 0.25);
+      for (let k = 0; k < N; k++) { for (let q = -w; q <= w; q++) win[q + w] = LVL[stepIdx(T, k, q)]; win.sort(); mx[k] = win[win.length - 1 - qk]; }
       for (let k = 0; k < N; k++) { let v = 0; for (let q = -w; q <= w; q++) v += mx[stepIdx(T, k, q)]; LVL[k] = v / (2 * w + 1) + surfY(k, side * T.W[k] / 2) - 0.1; }
       for (let k = 0; k < N; k++) if (A.BRIDGE[k]) LVL[k] = FOOT[k];
       // (never more than the most a wall here needs: 4 m over the track edge)
@@ -2221,19 +2348,30 @@ function buildBarriers(root, T, A, env, surfY, groundHeight, tx, night, verge) {
         return [T.X[k] + T.RX[k] * s, (k === i ? la : lb)[1], T.Z[k] + T.RZ[k] * s];
       };
       const a = P(i), b = P(j);
-      if (la[1] - la[0] > 0.12 || lb[1] - lb[0] > 0.12) { // the retaining wall (both faces, a little proud of the barrier line)
+      if (la[1] - la[0] > WALL_MIN || lb[1] - lb[0] > WALL_MIN) { // the retaining wall (both faces, a little proud of the barrier line)
         const ra = [a[0], la[0], a[2]], rb = [b[0], lb[0], b[2]];
         retain.p.push(ra[0], ra[1], ra[2], rb[0], rb[1], rb[2], a[0], a[1], a[2], rb[0], rb[1], rb[2], b[0], b[1], b[2], a[0], a[1], a[2]);
         const ua0 = T.D[i] / 4, ub0 = (j === 0 ? T.L : T.D[j]) / 4;
         retain.u.push(ua0, la[0] / 4, ub0, lb[0] / 4, ua0, la[1] / 4, ub0, lb[0] / 4, ub0, lb[1] / 4, ua0, la[1] / 4);
         // its top: back over the tuck behind the wall, level with the ground it holds back
         if (verge) {
-          const si = side < 0 ? 0 : 1, wa = verge.EXT[si][i] - off[i] + verge.trenchW, wb = verge.EXT[si][j] - off[j] + verge.trenchW;
+          // (back from the wall, never in over the runoff: where the verge ends short of the barrier this came out
+          // negative and the top lay inside the barrier, a paved band between it and the track)
+          const si = side < 0 ? 0 : 1, wa = Math.max(COPE, verge.EXT[si][i] - off[i] + verge.trenchW), wb = Math.max(COPE, verge.EXT[si][j] - off[j] + verge.trenchW);
           const a2 = P(i, wa), b2 = P(j, wb); a2[1] = la[1] + 0.04; b2[1] = lb[1] + 0.04; const a1 = [a[0], la[1] + 0.04, a[2]], b1 = [b[0], lb[1] + 0.04, b[2]];
           const across = (u, t) => [0, 2].map(c => ((1 - u) * a1[c] + u * b1[c]) * (1 - t) + ((1 - u) * a2[c] + u * b2[c]) * t);
           if (!(inBlk && [0, 0.5, 1].some(u => [0.25, 0.5, 0.75, 1].some(t => { const q = across(u, t); return inBlk(q[0], q[1], 0.3); })))) { // (not reaching back into a garage)
-            retain.p.push(...a1, ...b1, ...a2, ...b1, ...b2, ...a2);
-            retain.u.push(0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1);
+            // a concrete coping along the wall, then earth back to the ground it holds back (all concrete, it read as
+            // a paved strip behind the barrier)
+            const ca = Math.min(1, COPE / Math.max(0.01, wa)), cb = Math.min(1, COPE / Math.max(0.01, wb));
+            const lerp3 = (p, q, t) => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t];
+            const a3 = lerp3(a1, a2, ca), b3 = lerp3(b1, b2, cb);
+            retain.p.push(...a1, ...b1, ...a3, ...b1, ...b3, ...a3);
+            retain.u.push(0, 0, 1, 0, 0, 0.1, 1, 0, 1, 0.1, 0, 0.1);
+            if (ca < 1 || cb < 1) {
+              if (env.theme === 'city') { retain.p.push(...a3, ...b3, ...a2, ...b3, ...b2, ...a2); retain.u.push(0, 0.1, 1, 0.1, 0, 1, 1, 0.1, 1, 1, 0, 1); } // (a city's walls hold back streets and yards: paved)
+              else { fill.p.push(...a3, ...b3, ...a2, ...b3, ...b2, ...a2); for (const q of [a3, b3, a2, b3, b2, a2]) fill.u.push(q[0] / 10, q[2] / 10); }
+            }
           }
         }
       }
@@ -2283,6 +2421,12 @@ function buildBarriers(root, T, A, env, surfY, groundHeight, tx, night, verge) {
     mk(tops[type], new THREE.MeshLambertMaterial({ color: type === 'tires' ? 0x1a1a1a : 0xa8a49c, side: THREE.DoubleSide }));
   }
   mk(retain, new THREE.MeshLambertMaterial({ map: tx.concrete, color: 0xb8b4aa, side: THREE.DoubleSide }));
+  if (fill.p.length) { // (the earth behind a retaining wall: the ground's own grass, as the terrain draws it)
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(fill.p, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(fill.u, 2));
+    const col = new Float32Array(fill.p.length); for (let q = 0; q < col.length; q += 3) { col[q] = 0.36; col[q + 1] = 0.51; col[q + 2] = 0.2; }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, groundMaterial(env.theme)); m.material.side = THREE.DoubleSide; m.name = 'wallFill'; root.add(m);
+  }
   if (gate.p.length) {
     mk(gate, new THREE.MeshLambertMaterial({ map: gateTexture(), transparent: true, alphaTest: 0.3, side: THREE.DoubleSide }));
     for (const p of gatePosts) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.6, 0.22), new THREE.MeshLambertMaterial({ color: 0xd8d4c8 })); m.position.set(p[0], p[1] + 1.3, p[2]); root.add(m); }

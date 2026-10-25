@@ -13,7 +13,7 @@ try {
     const pg = await b.newPage(); await pg.setViewportSize({ width: 640, height: 360 });
     pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
     await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-    await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1000);
+    await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1000);
     await pg.evaluate(async (id) => { const t = await (await fetch('/.devtest/auburn2.json')).json(); window.__svgp.settings.car = { ...window.__svgp.settings.car, chassis: id };
       window.__svgp.startRace(t, { mode: 'race', laps: 3, opponents: 0, car: window.__svgp.settings.car }, 'menu'); }, id);
     await pg.waitForFunction(() => window.__svgp.sim && window.__svgp.sim.player, null, { timeout: 120000 }); await pg.waitForTimeout(4000);

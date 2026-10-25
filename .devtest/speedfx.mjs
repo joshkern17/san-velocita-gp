@@ -12,7 +12,7 @@ try {
   const pg = await b.newPage(); await pg.setViewportSize({ width: 800, height: 450 });
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1000);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1000);
   await pg.evaluate(async (id) => { const t = await (await fetch('/.devtest/auburn2.json')).json(); t.env.weather = 'clear'; const S = window.__svgp.settings; S.car = { ...S.car, chassis: id }; S.speedFx = 'strong';
     window.__svgp.startRace(t, { mode: 'race', laps: 3, opponents: 1, grid: 'front', car: S.car }, 'menu'); }, id);
   await pg.waitForFunction(() => window.__svgp.sim && window.__svgp.sim.cars && window.__svgp.sim.cars.length > 1 && window.__svgp.sim.lineV, null, { timeout: 120000 }).catch(e => console.log('wait', e.message));

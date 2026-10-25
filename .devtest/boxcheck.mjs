@@ -18,7 +18,7 @@ try {
   pg.on('console', m => console.log(m.text()));
   if (process.env.V) await pg.addInitScript(() => { window.__V = 1; });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 });
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 });
   const res = await pg.evaluate(async ([only, SCENERY]) => {
     const M = await import('/js/track.js'), R = await import('/js/realtracks.js'), RO = await import('/js/runoff.js'), PB = await import('/js/pitboxes.js'), W = SCENERY ? await import('/js/world.js') : null, THREE = await import('three');
     const list = [...M.presetTracks()];

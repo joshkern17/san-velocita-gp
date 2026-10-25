@@ -7,8 +7,10 @@ import { fmtTime } from './hud.js';
 import { ZONE_TYPES, STYLE_COLORS, newZone, collectScenery, BUSINESSES, BUSINESS_KEYS, pointInPoly, centroid, buildingClear } from './zones.js';
 import { ROAD_TYPES, MEET, newRoad, roadLayout, applyRoadsToCircuit, raiseTrackOverRoads } from './roads.js';
 import { fitOsmRoads, fillLots, setOsmSidewalks } from './osmroads.js';
+import { inWater } from './water.js';
 import { kitLineProps } from './gstands.js';
 import { PIT_STYLES } from './pitboxes.js';
+import { BACKDROPS, HILLSIDES } from './backdrop.js';
 import { runoffLayout, runoffStyle, runoffCell, surfaceGrid, RUNOFF_STYLES, RUN_RES } from './runoff.js';
 import { trackPropFamilies, trackPropFamily, isTrackProp, LOGOS, logoSheetImage, drawLogo, LIGHT_FAMILIES } from './trackprops.js';
 import { thumb } from './propthumbs.js';
@@ -16,15 +18,19 @@ import { SETTINGS, SETTING_KEYS, settingOf, FLORA, FLORA_KEYS, BUILDING_KINDS, r
 import { envReady, envAsset, envModelsReady, loadEnvModels, HOUSE_WALLS, HOUSE_ROOFS, HOUSE_PAINTS, houseLook, houseSwatch } from './envlib.js';
 import { SCULPT_MODES, SCULPT_MAX, sculptPreview, trackHeightAt } from './sculpt.js';
 import { TileLayer, MAP_STYLES, searchPlace, myLocation, importOSM } from './geo.js';
+import { streetCounts } from './streetdata.js';
 import { realTracks, hydrateReal } from './realtracks.js';
 import { fitStroke, simplifyTrack, lapRemap, remapDress } from './spline.js';
 import { fetchElevation, packTerrain, projectOntoTrack, rawHeight, inGrid, EXAG_MAX, TERRAIN_ATTR } from './terrain.js';
+import { lidarCovers, fetchLidar, lidarStats, tilesNear, LIDAR_ATTR, TILE_M } from './lidar.js';
+import { fetchScan, scanStats, scanCovers, scanDrift, SCAN_ATTR, SCAN_BAND } from './scan.js';
 import { groundMap, groundSource, GROUND_MARGIN } from './groundmap.js';
 import { installKerbTool } from './edkerbs.js';
 import { installFreeBarrierTool } from './edfree.js';
 import { lapShift } from './lapshift.js';
 import { installView3d } from './ed3d.js';
 import { installPitTool } from './edpit.js';
+import { installPickTool } from './edpick.js';
 import { installPaintShapes } from './edpaint.js';
 import { installCheck } from './edcheck.js';
 import { installPad } from './edpad.js';
@@ -40,7 +46,7 @@ const ROOF_COL = ['#4c6450', '#8a3a30', '#6a6e74', '#6e5e50', '#a0624c', '#2e303
 const THEME_RUN = { grass: 'rgba(96,150,70,0.55)', desert: 'rgba(200,150,90,0.5)', city: 'rgba(150,150,150,0.45)', coast: 'rgba(210,190,130,0.45)' };
 
 const MODES = ['shape', 'trackside', 'scenery', 'location'];
-const TOOL_MODE = { draw: 'shape', edit: 'shape', kerbs: 'trackside', bars: 'trackside', runoff: 'trackside', pit: 'trackside', props: 'scenery', paint: 'scenery', zones: 'scenery', roads: 'scenery', sculpt: 'scenery' }; // (pan: any)
+const TOOL_MODE = { draw: 'shape', edit: 'shape', kerbs: 'trackside', bars: 'trackside', runoff: 'trackside', pit: 'trackside', props: 'scenery', paint: 'scenery', zones: 'scenery', roads: 'scenery', sculpt: 'scenery', pick: 'location' }; // (pan: any)
 
 export class Editor {
   constructor(cb) {
@@ -83,7 +89,7 @@ export class Editor {
   open(track, { resume = false } = {}) {
     this.active = true;
     const fresh = !track && !this.loadWork(); // (nothing to carry on with: the start screen)
-    this.track = cloneTrack(track || this.loadWork() || presetTracks()[0]);
+    this.track = cloneTrack(track || this.loadWork() || presetTracks()[0]); this.pz = null;
     this.normalize(this.track);
     if (!resume) { this.history = []; this.future = []; this.mine = this.savedList().some(x => x.name === this.track.name && x.saved === this.track.saved) ? this.track.name : null; }
     this.sel.clear(); this.selProp = -1; this.kerbSel = -1; this.barSel = -1; this.barNode = -1; this.pitNode = -1; this.paintSel = -1; this.paintNode = -1; this.shapeDraw = null;
@@ -308,12 +314,16 @@ export class Editor {
       const [nx, nz] = this.s2w(e.offsetX, e.offsetY);
       this.view.cx += wx - nx; this.view.cz += wz - nz;
       this.dirty = true;
+      if (this.tool === 'pick') this.pickViewMoved();
     }, { passive: false });
     cv.addEventListener('mouseleave', () => { this.mouse.inside = false; this.dirty = true; });
 
     const pc = this.pcan;
     pc.addEventListener('mousedown', e => this.onProfileDown(e));
     pc.addEventListener('mousemove', e => this.onProfileHover(e));
+    pc.addEventListener('wheel', e => this.onProfileWheel(e), { passive: false });
+    pc.addEventListener('dblclick', () => { this.pz = null; this.dirty = true; });
+    pc.addEventListener('contextmenu', e => e.preventDefault());
     pc.addEventListener('mouseleave', () => { this.hoverSample = -1; this.dirty = true; });
 
     window.addEventListener('keydown', e => this.onKey(e));
@@ -327,8 +337,8 @@ export class Editor {
     const el = $('s-editor'); MODES.forEach(k => el.classList.toggle('mode-' + k, k === m));
     document.querySelectorAll('#ed-modes span').forEach(x => x.classList.toggle('on', x.dataset.m === m));
     if (was && was !== m) { const st = document.querySelector('#s-editor .ed-strip'); st.classList.remove('wipe-in'); void st.offsetWidth; st.classList.add('wipe-in'); } // (the new mode's tools wipe in)
-    if (tool || TOOL_MODE[this.tool] !== m) this.setTool(tool || (m === 'shape' ? (trackReady(this.track) ? 'edit' : 'draw') : m === 'trackside' ? 'kerbs' : m === 'scenery' ? 'props' : 'pan'));
-    if (m === 'location') this.showTab('map');
+    if (tool || TOOL_MODE[this.tool] !== m) this.setTool(tool || (m === 'shape' ? (trackReady(this.track) ? 'edit' : 'draw') : m === 'trackside' ? 'kerbs' : m === 'scenery' ? 'props' : this.track && this.track.geo ? 'pick' : 'pan'));
+    if (m === 'location' && this.tool !== 'pick') this.showTab('map');
     if (was !== m) requestAnimationFrame(() => { this.resize(); this.dirty = true; }); // (the profile comes and goes: the map's size changes)
   }
   setTool(t) {
@@ -342,8 +352,8 @@ export class Editor {
     this.placing = false;
     this.toolButtons();
     const nb = document.querySelector('.ed-tabs [data-tab="node"]');
-    if (nb) nb.textContent = t === 'zones' ? 'ZONE' : t === 'paint' ? 'PAINT' : t === 'roads' ? 'ROAD' : t === 'props' ? 'PROPS' : t === 'sculpt' ? 'SCULPT' : t === 'kerbs' ? 'CURBS' : t === 'bars' ? 'BARRIERS' : t === 'pit' ? 'PIT LANE' : 'NODE';
-    if (t === 'zones' || t === 'paint' || t === 'roads' || t === 'props' || t === 'sculpt' || t === 'kerbs' || t === 'bars' || t === 'pit') { this.showTab('node'); }
+    if (nb) nb.textContent = t === 'zones' ? 'ZONE' : t === 'paint' ? 'PAINT' : t === 'roads' ? 'ROAD' : t === 'props' ? 'PROPS' : t === 'sculpt' ? 'SCULPT' : t === 'kerbs' ? 'CURBS' : t === 'bars' ? 'BARRIERS' : t === 'pit' ? 'PIT LANE' : t === 'pick' ? 'ROUTE' : 'NODE';
+    if (t === 'zones' || t === 'paint' || t === 'roads' || t === 'props' || t === 'sculpt' || t === 'kerbs' || t === 'bars' || t === 'pit' || t === 'pick') { this.showTab('node'); }
     if (this.track) this.renderNodeTab();
     this.updatePalette();
     const hints = {
@@ -358,6 +368,7 @@ export class Editor {
       kerbs: '<b>CURBS</b> &mdash; <b>drag</b> along a track edge to lay a curb with the settings on the right. <b>Click</b> a curb to change its colors, type, width and tapered ends; drag its <b>end squares</b> to stretch it, or the curb itself to slide it along. <b>DEL</b> removes it.',
       bars: '<b>BARRIERS</b> &mdash; put them anywhere. <b>Drag</b> on open ground to draw one, or <b>click</b> node by node (<b>Enter</b> finishes). <b>Click</b> a barrier to pick it: drag a <b>node</b> anywhere, drag the <b>line</b> to bend it, <b>Shift</b>+drag to move it all. Drop an end on another end to <b>join</b> them. <b>Double-click</b> a node for a sharp corner, <b>X</b> opens a gap where you point, <b>DEL</b> removes. <b>Outline The Track</b> (right) puts one all the way round.',
       pit: '<b>PIT LANE</b> &mdash; drag the lane\'s <b>nodes</b> to put it exactly where you want it, or the lane itself to move it in or out. Drag the blue <b>diamonds</b> to set where the garages start and end, the <b>white dots</b> where the pit wall does (it runs on beside the lane to where it meets the track). <b>Double-click</b> the lane for another node, <b>DEL</b> removes the picked one. No pit lane? <b>Drag</b> beside the track to lay one.',
+      pick: '<b>PICK ROADS</b> &mdash; <b>click</b> a street to start, then the next street you want to drive: the track follows the real roads between your clicks. Click just past a junction to turn there. <b>Click the first point</b> to close a loop. Drag a point (or the route) to change it, <b>Backspace</b> takes the last one back, <b>Enter</b> makes the track.',
       zones: '<b>ZONES</b> &mdash; draw a line and buildings spawn along it. Pick the type, height, spacing and side on the right. Click a zone line to select it, drag to move it, <b>DEL</b> removes.',
     };
     if (this.track && this.track.open) {
@@ -366,7 +377,8 @@ export class Editor {
     }
     this.hints = hints;
     this.setHint();
-    this.canvas.style.cursor = t === 'pan' ? 'grab' : t === 'draw' || t === 'paint' || t === 'roads' || t === 'sculpt' || t === 'kerbs' || t === 'bars' || t === 'pit' ? 'crosshair' : 'default';
+    this.canvas.style.cursor = t === 'pan' ? 'grab' : t === 'draw' || t === 'paint' || t === 'roads' || t === 'sculpt' || t === 'kerbs' || t === 'bars' || t === 'pit' || t === 'pick' ? 'crosshair' : 'default';
+    if (t === 'pick' && this.track && this.W) this.pickEnter();
     this.dirty = true;
   }
   setHint() {
@@ -448,7 +460,7 @@ export class Editor {
 
   load(track, fromSaves = false) {
     this.push();
-    this.track = cloneTrack(track);
+    this.track = cloneTrack(track); this._pk = null; this.pz = null;
     this.normalize(this.track);
     $('ed-name').value = this.track.name;
     this.sel.clear(); this.selProp = -1;
@@ -462,7 +474,7 @@ export class Editor {
     const env = this.track.env, n = newTrack('New Circuit');
     n.env = { ...defaultEnv(env.theme), time: env.time, weather: env.weather };
     n.points = []; if (open) n.open = true;
-    this.track = n; this.normalize(n);
+    this.track = n; this._pk = null; this.normalize(n);
     $('ed-name').value = n.name; this.sel.clear(); this.selProp = -1;
     this.changed(true); this.markSaved(); this.mine = null;
     if (this.W) { this.view.cx = 0; this.view.cz = 0; this.view.scale = clamp(Math.min(this.W / 1400, this.H / 1000), 0.05, 6); }
@@ -673,6 +685,7 @@ export class Editor {
     if (this.tool === 'kerbs') { if (this.T) this.kerbDown(wx, wz, sx, sy); return; }
     if (this.tool === 'bars') { if (this.T) this.barDown(wx, wz, sx, sy); return; }
     if (this.tool === 'pit') { if (this.T) this.pitDown(wx, wz, sx, sy); return; }
+    if (this.tool === 'pick') { this.pickDown(sx, sy); return; }
     if (this.tool === 'draw') {
       this.drag = { type: 'draw', pts: [[wx, wz]] };
       return;
@@ -788,7 +801,10 @@ export class Editor {
     this.mouse.wx = wx; this.mouse.wz = wz;
     const d = this.drag;
     if (this.profileDrag) return this.onProfileDrag(e);
+    if (this.profilePan) return this.onProfilePan(e);
     if (!d && this.tool === 'bars') this.barHover(sx, sy);
+    if (!d && this.tool === 'pick') this.pickHover(sx, sy);
+    if (d && d.type === 'pickpt') { this.pickDrag(sx, sy); return; }
     if (!d) { this.hoverNode = this.tool === 'edit' ? this.hitNode(sx, sy) : -1; this.hoverBld = this.tool === 'props' && (this.hitProp(wx, wz) >= 0 || !!this.hitBuilding(wx, wz)); this.dirty = true; return; }
     if (d.type === 'pan') {
       this.view.cx = d.cx - (sx - d.sx) / this.view.scale;
@@ -876,11 +892,14 @@ export class Editor {
     const d = this.drag;
     this.drag = null; clearTimeout(this.rcT);
     if (this.profileDrag) { this.profileDrag = null; this.changed(true); return; }
+    if (this.profilePan) { this.profilePan = null; this.pcan.style.cursor = ''; return; }
     if (!d) return;
     this.canvas.style.cursor = this.tool === 'pan' ? 'grab' : ['draw', 'paint', 'roads', 'sculpt'].includes(this.tool) ? 'crosshair' : 'default';
     if (d.type === 'kerb') this.kerbUp(d);
     else if (d.type === 'bar') this.barUp(d);
     else if (d.type === 'pit') this.pitUp(d);
+    else if (d.type === 'pickpt') this.pickUp(d);
+    else if (d.type === 'pan' && this.tool === 'pick') this.pickViewMoved(); // (moved past the streets downloaded: those too)
     else if (d.type === 'shape') this.shapeUp(d);
     else if (d.type === 'rdraw') this.finishRoad(d.pts);
     else if ((d.type === 'rmove' || d.type === 'rnode') && d.moved) { this.changed(); this.scheduleScenery(0); }
@@ -997,6 +1016,7 @@ export class Editor {
     if (this.v3d && this.key3d(e)) { e.preventDefault(); return; } // (what the 3D view doesn't take goes on: undo, delete, save...)
     if (this.tool === 'paint' && this.paintMode === 'shape' && !(e.ctrlKey || e.metaKey) && this.shapeKey(e)) { e.preventDefault(); return; }
     if (this.tool === 'bars' && !(e.ctrlKey || e.metaKey) && this.barKey(e)) { e.preventDefault(); return; }
+    if (this.tool === 'pick' && !(e.ctrlKey || e.metaKey) && this.pickKey(e)) { e.preventDefault(); return; }
     if (e.code === 'KeyV' && !(e.ctrlKey || e.metaKey)) { this.open3d(); return; }
     const ctrl = e.ctrlKey || e.metaKey;
     if (ctrl && e.code === 'KeyZ') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); return; }
@@ -1016,6 +1036,7 @@ export class Editor {
     if (e.code === 'Digit0') this.setTool('bars');
     if (e.code === 'KeyP' && !(e.ctrlKey || e.metaKey)) this.setTool('pit');
     if (e.code === 'KeyR' && !(e.ctrlKey || e.metaKey)) this.setTool('runoff');
+    if (e.code === 'KeyK' && !(e.ctrlKey || e.metaKey)) this.setTool('pick');
     if (this.tool === 'paint' && (e.code === 'BracketLeft' || e.code === 'BracketRight')) { this.brush = Math.max(0.5, Math.min(80, (this.brush || 12) * (e.code === 'BracketRight' ? 1.25 : 0.8))); this.renderNodeTab(); this.dirty = true; }
     if (this.tool === 'sculpt' && (e.code === 'BracketLeft' || e.code === 'BracketRight')) { this.sculptR = Math.max(8, Math.min(150, this.sculptR * (e.code === 'BracketRight' ? 1.25 : 0.8))); this.renderNodeTab(); this.dirty = true; }
     if (e.code === 'KeyF') this.fit();
@@ -1184,11 +1205,13 @@ export class Editor {
       ${fld('Map opacity', 'map-op', 0.1, 1, 0.05, t.map.opacity, '')}
       <h4 style="margin-top:14px">REAL ELEVATION</h4>
       ${this.elevHtml()}
+      <h4 style="margin-top:14px">REAL HOUSES &amp; TREES</h4>
+      ${this.scanHtml()}
       <h4 style="margin-top:14px">GROUND FROM PHOTO</h4>
       ${this.groundHtml()}
       <h4 style="margin-top:14px">REAL-WORLD SCENERY</h4>
-      <p class="muted">Pull real streets, buildings and trees from OpenStreetMap along your circuit. Streets join the track with proper junctions wherever they meet it; the stretches your circuit drives on become the track. Houses face their street and sit on the ground; trees keep clear of them. Anything on the track or runoff is removed automatically.</p>
-      <div class="fld"><div class="seg" id="map-what"><button data-v="r" class="${this.impR !== false ? 'on' : ''}">Roads</button><button data-v="b" class="${this.impB !== false ? 'on' : ''}">Buildings</button><button data-v="t" class="${this.impT !== false ? 'on' : ''}">Trees & Woods</button></div></div>
+      <p class="muted">Pull real streets, buildings, trees and water (lakes, ponds, reservoirs, wide rivers) from OpenStreetMap along your circuit. Streets join the track with proper junctions wherever they meet it; the stretches your circuit drives on become the track. Houses face their street and sit on the ground; trees keep clear of them. Anything on the track or runoff is removed automatically.</p>
+      <div class="fld"><div class="seg" id="map-what"><button data-v="r" class="${this.impR !== false ? 'on' : ''}">Roads</button><button data-v="b" class="${this.impB !== false ? 'on' : ''}">Buildings</button><button data-v="t" class="${this.impT !== false ? 'on' : ''}">Trees & Woods</button><button data-v="w" class="${this.impW !== false ? 'on' : ''}">Water</button><button data-v="s" class="${this.impS !== false ? 'on' : ''}">Street Details</button></div></div>
       ${fld('Area around circuit', 'map-margin', 50, 600, 25, this.impMargin || 250, 'm')}
       <div class="fld"><label>Sidewalks</label><div class="seg" id="map-walk">${[['map', 'From Map'], ['on', 'On'], ['off', 'Off']].map(([k, l]) => `<button data-v="${k}" class="${(this.impWalk || 'map') === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
       <div class="fld"><label>Where streets meet the track</label><div class="seg" id="map-meet">${[['barrier', 'Closed'], ['open', 'Open']].map(([k, l]) => `<button data-v="${k}" class="${(this.impMeet || 'barrier') === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
@@ -1197,6 +1220,7 @@ export class Editor {
       <p class="muted">The map often misses houses in quiet areas: Fill With Houses lines the imported residential streets wherever there's room (never on the track, a road, a slope too steep to build on, or another building).</p>
       <button id="map-import" class="hot wide" ${g ? '' : 'disabled'}>Import Around Circuit</button>
       <div class="map-status" id="map-status">${this.importSummary()}</div>
+      ${g && !(osm && osm.street) ? '<button id="map-street" class="wide">Get Street Details Only</button><p class="muted" style="margin-top:-2px">Stop signs, traffic lights, crosswalks, gates, power poles and lines, rail, streams, driveways and road barriers, without importing the rest again.</p>' : ''}
       ${osm ? '<button id="map-clear" class="wide">Clear Imported Scenery</button>' : ''}
       ${(t.roads || []).some(r => r.osm) ? '<button id="map-clear-roads" class="wide">Remove Imported Roads</button>' : ''}
       <p class="muted" style="margin-top:12px">Tip: use DRAW to trace real streets over the map, then import. Re-import after big changes so new areas are filled in. Map data © OpenStreetMap contributors.</p>`;
@@ -1235,7 +1259,7 @@ export class Editor {
     op.addEventListener('change', () => this.saveWork());
     document.querySelectorAll('#map-what button').forEach(b => b.addEventListener('click', () => {
       b.classList.toggle('on'); const on = b.classList.contains('on');
-      if (b.dataset.v === 'b') this.impB = on; else if (b.dataset.v === 'r') this.impR = on; else this.impT = on; sfx.move();
+      if (b.dataset.v === 'b') this.impB = on; else if (b.dataset.v === 'r') this.impR = on; else if (b.dataset.v === 'w') this.impW = on; else if (b.dataset.v === 's') this.impS = on; else this.impT = on; sfx.move();
     }));
     // (sidewalks and junctions change the roads already imported too, straight away)
     const osmRoads = () => (t.roads || []).filter(r => r.osm);
@@ -1250,14 +1274,16 @@ export class Editor {
     const mg = $('map-margin');
     mg.addEventListener('input', () => { this.impMargin = +mg.value; $('map-margin-v').textContent = mg.value + 'm'; });
     $('map-import').addEventListener('click', () => this.doImport());
+    $('map-street') && $('map-street').addEventListener('click', () => this.doImport('street'));
     this.bindElev();
+    this.bindScan();
     this.bindGround();
     $('map-clear') && $('map-clear').addEventListener('click', () => { this.push(); this.track.osm = null; this.changed(true); this.scheduleScenery(0); this.toast('IMPORTED SCENERY CLEARED'); });
     this.updateAttr();
   }
   updateAttr() {
     const t = this.track, st = t && t.geo && t.map.style !== 'off' ? MAP_STYLES[t.map.style] : null;
-    $('ed-attr').textContent = st ? st.attr : '';
+    $('ed-attr').textContent = (st ? st.attr : '') + (t && t.scan ? (st ? ' · ' : '') + SCAN_ATTR : '');
   }
   setLocation(place) {
     this.push();
@@ -1270,7 +1296,7 @@ export class Editor {
     t.props.forEach(p => { p.x -= ox; p.z -= oz; });
     t.zones.forEach(z => z.pts.forEach(q => { q[0] -= ox; q[1] -= oz; }));
     const moved = !!t.osm;
-    t.osm = null; t.ground = null;
+    t.osm = null; t.ground = null; t.scan = null;
     t.geo = { lat: place.lat, lon: place.lon, label: (place.label || '').split(',').slice(0, 3).join(',') };
     if (t.map.style === 'off') t.map.style = 'satellite';
     if (t.env.theme !== 'city') { t.env.theme = 'city'; t.env.runoff = THEMES.city.runoff; t.env.barrier = THEMES.city.barrier; }
@@ -1278,8 +1304,61 @@ export class Editor {
     this.view.cx = 0; this.view.cz = 0;
     this.view.scale = Math.max(this.view.scale, 0.6);
     sfx.select();
-    this.toast(moved ? 'LOCATION SET · OLD IMPORT CLEARED' : 'LOCATION SET · TRACE THE STREETS WITH DRAW');
-    this.showTab('map');
+    this._pk = null; // (the streets of the old place)
+    this.toast(moved ? 'LOCATION SET · OLD IMPORT CLEARED' : 'LOCATION SET · PICK ROADS (K) TO CLICK YOUR STREETS');
+    if (this.tool === 'pick') { this.showTab('node'); requestAnimationFrame(() => this.pickEnter()); } else this.showTab('map');
+  }
+  // ---------------- real houses & trees (scan.js) ----------------
+  scanHtml() {
+    const t = this.track, sc = t.scan, band = this.scanBand || (sc && sc.band) || SCAN_BAND;
+    if (!t.geo) return '<p class="muted">Set a real location first.</p>';
+    if (!scanCovers(t.geo)) return '<p class="muted">Every real building and tree near the road, from laser scans: the USA only for now.</p>';
+    if (!this.T) return '<p class="muted">Make a track first, then the real houses and trees along it can come in.</p>';
+    const km = (this.T.open ? this.T.finish : this.T.N) * this.T.ds / 1000, mb = Math.max(2, Math.round(km * 4.5 * band / 150));
+    const slider = fld('Distance from the road', 'scan-band', 50, 300, 25, band, 'm');
+    if (sc) {
+      const s = scanStats(sc), sv = sc.src && sc.src.survey, drift = scanDrift(t, this.T);
+      return `<div class="map-cur">Real: <b>${s.houses}</b> buildings and <b>${s.trees}</b> trees within ${sc.band} m of the road${sv ? ` (laser survey ${sv.year})` : ''}, ${s.kb} KB. Further out, the setting fills in.</div>
+        ${drift > 25 ? '<p class="muted" style="color:var(--sv-bad)">The track has moved since: get them again so the new stretch has its real houses and trees.</p>' : ''}
+        ${slider}
+        <div class="seg"><button id="scan-get">Get Again</button><button id="scan-clear">Remove</button></div>
+        <div class="map-status" id="scan-status"></div>`;
+    }
+    return `<p class="muted">Every real building near the road, in its real outline and height, and every real tree, from laser scans. They replace the made-up houses and woods within this distance; further out, the setting fills in.</p>
+      ${slider}
+      <button id="scan-get" class="hot wide">Get Real Houses &amp; Trees</button>
+      <div class="map-status" id="scan-status"></div>
+      <p class="muted">Downloads about ${mb} MB${(t.terrain && (t.terrain.fine || []).some(q => q.v === 2)) ? '' : ' (and the LiDAR ground heights first)'}; it keeps about ${Math.max(20, Math.round(km * 12 * band / 150))} KB in the track. ${SCAN_ATTR}.</p>`;
+  }
+  bindScan() {
+    const b = $('scan-band');
+    if (b) {
+      b.addEventListener('input', () => { this.scanBand = +b.value; $('scan-band-v').textContent = b.value + 'm'; });
+      b.addEventListener('change', () => this.renderMapTab());
+    }
+    $('scan-get') && $('scan-get').addEventListener('click', () => this.getScan());
+    $('scan-clear') && $('scan-clear').addEventListener('click', () => { this.push(); this.track.scan = null; this.changed(true); this.scheduleScenery(0); this.renderMapTab(); this.toast('REAL HOUSES & TREES REMOVED'); });
+  }
+  async getScan() {
+    const t = this.track, btn = $('scan-get');
+    const say = (msg, err) => { const e = $('scan-status'); if (e) { e.className = 'map-status' + (err ? ' err' : ''); e.textContent = msg; } };
+    if (!t.geo || !this.T) return;
+    if (btn) btn.disabled = true;
+    try {
+      // (the roofs and crowns are measured from the LiDAR ground: that first if it isn't there, or is the old kind)
+      if (!t.terrain) { say('Getting the real elevation first…'); await this.getElevation(); if (!t.terrain) throw new Error('No elevation for this place.'); }
+      if (!(t.terrain.fine || []).length || t.terrain.fine.some(q => q.v !== 2)) { await this.addLidar(say); projectOntoTrack(t, sampleTrack); this.changed(false); }
+      if (!(t.terrain.fine || []).length) throw new Error('No LiDAR ground here, so the houses and trees can\'t be measured.');
+      const sc = await fetchScan(t, this.T, { band: this.scanBand || (t.scan && t.scan.band) || SCAN_BAND, onStatus: (m) => say(m) });
+      this.push(); t.scan = sc;
+      this.changed(true); this.scheduleScenery(0); this.saveWork();
+      sfx.select();
+      const s = scanStats(sc); this.toast(`REAL HOUSES & TREES · ${s.houses} BUILDINGS · ${s.trees} TREES`, 2600);
+      this.renderMapTab();
+    } catch (e) {
+      sfx.error(); say(e.message || String(e), true);
+      if (btn) btn.disabled = false;
+    }
   }
   // ---------------- real elevation ----------------
   elevStats() {
@@ -1287,7 +1366,8 @@ export class Editor {
     const T = this.T; let lo = Infinity, hi = -Infinity, grade = 0;
     for (let i = 0; i < T.N; i++) { lo = Math.min(lo, T.Y[i]); hi = Math.max(hi, T.Y[i]); }
     const k = Math.max(1, Math.round(20 / T.ds));
-    for (let i = 0; i < T.N; i++) grade = Math.max(grade, Math.abs(T.Y[(i + k) % T.N] - T.Y[i]) / (k * T.ds));
+    // (point-to-point: not across from the finish back to the start, the whole climb in one step)
+    for (let i = 0; i < T.N; i++) if (!T.open || (i - T.cut - 1 + T.N) % T.N < T.N - k) grade = Math.max(grade, Math.abs(T.Y[(i + k) % T.N] - T.Y[i]) / (k * T.ds));
     return { range: hi - lo, real: (hi - lo) / terr.exag, grade: grade * 100, asl: terr.lo + terr.base };
   }
   elevHtml() {
@@ -1300,9 +1380,30 @@ export class Editor {
         In game: <b>${st.range.toFixed(0)} m</b> &middot; steepest ${st.grade.toFixed(0)}%${st.grade > 22 ? ' <span style="color:var(--sv-bad)">(very steep!)</span>' : ''}</div>
       ${fld('Exaggeration', 'elev-x', 0.25, EXAG_MAX, 0.25, terr.exag, 'x')}
       <div class="fld"><div class="seg" id="elev-ground"><button data-v="1" class="${terr.ground !== false ? 'on' : ''}">Real ground around track</button><button data-v="0" class="${terr.ground === false ? 'on' : ''}">Road only</button></div></div>
+      ${this.lidarHtml()}
       <div class="seg"><button id="elev-reapply">Re-project onto track</button><button id="elev-clear">Remove</button></div>
       <div class="map-status" id="elev-status"></div>
-      <p class="muted">Re-project after moving the circuit (hand-edited heights are replaced). ${TERRAIN_ATTR}.</p>`;
+      <p class="muted">Re-project after moving the circuit (hand-edited heights are replaced). ${TERRAIN_ATTR}${lidarStats(terr) ? '. ' + LIDAR_ATTR : ''}.</p>`;
+  }
+  // the LiDAR ground (lidar.js): what's there, or the button to get it (USA)
+  lidarHtml() {
+    const t = this.track, ls = lidarStats(t.terrain);
+    if (ls && t.terrain.fine.some(q => q.v !== 2)) return `<p class="muted">Ground: LiDAR heights from an older download, which squashed hills north-south (a step where tiles meet). Download them again to fix the road and the land.</p><button id="elev-lidar" class="hot wide">Re-download LiDAR Heights</button>`;
+    if (ls) return `<div class="map-cur">Ground: <b>LiDAR</b> laser-scanned heights near the track (${ls.tiles} tiles${ls.cover < 0.98 ? `, ${Math.round(ls.cover * 100)}% with data` : ''}, ${(ls.kb / 1024).toFixed(1)} MB), the 30 m elevation further out.</div>`;
+    if (!lidarCovers(t.geo)) return '<p class="muted">Ground: 30 m elevation. (Laser-scanned LiDAR heights, accurate to the metre, cover the USA only for now.)</p>';
+    return `<p class="muted">Ground: 30 m elevation, which blurs slopes, cuttings and banks by several metres. Laser-scanned heights fix that: the road, the land and everything on it follow the real ground.</p><button id="elev-lidar" class="hot wide">Get LiDAR Heights</button>`;
+  }
+  // LiDAR tiles for the track as it is now: the missing ones downloaded, the ones it's moved away from dropped
+  // (onStatus: progress). Returns how many tiles came in, or 0 (outside the coverage, or all there).
+  async addLidar(onStatus = () => {}) {
+    const t = this.track;
+    if (!t.terrain || !this.T || !lidarCovers(t.geo)) return 0;
+    const r = await fetchLidar(t, this.T, { onStatus });
+    const keep = new Set(tilesNear(this.T, 500).map(([i, j]) => i + ',' + j));
+    const old = (t.terrain.fine || []).filter(q => q.v === 2 && keep.has(q.i + ',' + q.j)); // (no v: squashed north-south, replaced)
+    if (!r.tiles.length && old.length === (t.terrain.fine || []).length) return 0;
+    t.terrain = { ...t.terrain, fine: [...old, ...r.tiles] }; // (a new object: terrain.js caches decoded tiles by it)
+    return r.tiles.length;
   }
   bindElev() {
     const t = this.track;
@@ -1325,10 +1426,20 @@ export class Editor {
       // re-download if the track moved, or the data only covers the old (smaller) area around it
       for (let i = 0; i < T.N; i += 10) if (!inGrid(t.terrain, T.X[i] + 1400, T.Z[i]) || !inGrid(t.terrain, T.X[i] - 1400, T.Z[i]) || !inGrid(t.terrain, T.X[i], T.Z[i] + 1400) || !inGrid(t.terrain, T.X[i], T.Z[i] - 1400)) { out = true; break; }
       if (out) return this.getElevation();
-      this.push(); const added = projectOntoTrack(t, sampleTrack); this.changed(true); this.showTab('map');
-      this.toast(added ? `ELEVATION RE-PROJECTED · ${added} NODES ADDED` : 'ELEVATION RE-PROJECTED');
+      this.push(); this.reprojectWithLidar('ELEVATION RE-PROJECTED');
     });
+    $('elev-lidar') && $('elev-lidar').addEventListener('click', () => { $('elev-lidar').disabled = true; this.push(); this.reprojectWithLidar('LIDAR GROUND'); });
     $('elev-clear') && $('elev-clear').addEventListener('click', () => { this.push(); t.terrain = null; this.changed(true); this.showTab('map'); this.toast('REAL ELEVATION REMOVED'); });
+  }
+  // the track's heights again from the real ground, LiDAR tiles fetched first for anywhere new (push() before)
+  async reprojectWithLidar(label) {
+    const t = this.track, say = (msg) => { const e = $('elev-status'); if (e) { e.className = 'map-status'; e.textContent = msg; } };
+    let note = '';
+    try { const n = await this.addLidar(say); if (n) note = ` · ${n} LIDAR TILE${n > 1 ? 'S' : ''}`; } catch (e) { note = ' · LIDAR UNAVAILABLE'; }
+    const added = projectOntoTrack(t, sampleTrack);
+    this.changed(true); this.scheduleScenery(0);
+    if (this.mode === 'location' && this.tool !== 'pick') this.showTab('map');
+    this.toast(`${label}${note}${added ? ` · ${added} NODES ADDED` : ''}`);
   }
   async getElevation() {
     const t = this.track; if (!t.geo || !this.T) return;
@@ -1340,17 +1451,22 @@ export class Editor {
     const area = (box[2] - box[0]) * (box[3] - box[1]);
     const step = Math.max(16, Math.ceil(Math.sqrt(area / 30000))); // keep the grid ~30k points
     try {
-      const g = await fetchElevation(t.geo, box, step, (msg) => { if (st) { st.className = 'map-status'; st.textContent = msg; } });
+      const say = (msg) => { const e = $('elev-status'); if (e) { e.className = 'map-status'; e.textContent = msg; } };
+      const g = await fetchElevation(t.geo, box, step, say);
       this.push();
       const old = t.terrain;
       t.terrain = packTerrain(g);
-      if (old) { t.terrain.exag = old.exag; t.terrain.ground = old.ground; }
+      if (old) { t.terrain.exag = old.exag; t.terrain.ground = old.ground; if (old.fine) t.terrain.fine = old.fine; }
+      // (in the USA, the laser-scanned ground near the track too: lidar.js. If it doesn't come, the 30 m one stands.)
+      let lidar = '';
+      try { if (await this.addLidar(say)) lidar = ' · LIDAR GROUND'; } catch (e) { lidar = ' · LIDAR UNAVAILABLE, 30 M GROUND'; }
       const added = projectOntoTrack(t, sampleTrack);
       this.changed(true);
       this.showTab('map');
       const s2 = this.elevStats();
       sfx.select();
-      this.toast(`REAL ELEVATION · ${s2.real.toFixed(0)} M CLIMB${added ? ` · ${added} NODE${added > 1 ? "S" : ""} ADDED` : ''}`);
+      this.toast(`REAL ELEVATION · ${s2.real.toFixed(0)} M CLIMB${lidar}${added ? ` · ${added} NODE${added > 1 ? "S" : ""} ADDED` : ''}`, 2400);
+      this.scheduleScenery(0); // (the streets, houses and trees stand on the new ground)
     } catch (e) {
       sfx.error();
       const s3 = $('elev-status'); if (s3) { s3.className = 'map-status err'; s3.textContent = e.message; }
@@ -1401,7 +1517,7 @@ export class Editor {
     }
   }
 
-  async doImport() {
+  async doImport(only) {
     const t = this.track;
     if (!t.geo) return;
     if (!this.T) { this.needTrack('IMPORT'); return; }
@@ -1416,31 +1532,38 @@ export class Editor {
     if (T.cut >= 0) line.push([T.X[T.cut], T.Z[T.cut]]); else line.push(line[0]);
     const km2 = T.L * 2 * m / 1e6;
     if (km2 > 30) { st.className = 'map-status err'; st.textContent = `That strip is ${km2.toFixed(0)} km² — too big. Reduce the area around the circuit.`; return; }
-    const wantR = this.impR !== false, wantB = this.impB !== false, wantT = this.impT !== false;
-    if (!wantR && !wantB && !wantT) { st.className = 'map-status err'; st.textContent = 'Pick roads, buildings and/or trees first.'; return; }
-    const btn = $('map-import'); btn.disabled = true;
+    // (only: 'street' = just the street details, for a track imported before they came in: the rest stays as it is)
+    const all = only !== 'street', wantR = all && this.impR !== false, wantB = all && this.impB !== false, wantT = all && this.impT !== false, wantW = all && this.impW !== false, wantS = !all || this.impS !== false;
+    if (!wantR && !wantB && !wantT && !wantW && !wantS) { st.className = 'map-status err'; st.textContent = 'Pick roads, buildings, trees and/or water first.'; return; }
+    const btn = $(all ? 'map-import' : 'map-street') || $('map-import'); btn.disabled = true;
     st.className = 'map-status';
     try {
       const A = this.A, rank = (x, z) => { let bd = Infinity; A.hash.query(x, z, m + 60, (j) => { bd = Math.min(bd, (x - T.X[j]) ** 2 + (z - T.Z[j]) ** 2); }); return bd; };
-      const res = await importOSM(t.geo, box, { buildings: wantB, trees: wantT, roads: wantR, driveways: !!this.impDrive, line, margin: m, rank }, (msg) => { st.textContent = msg; });
+      const res = await importOSM(t.geo, box, { buildings: wantB, trees: wantT, roads: wantR, water: wantW, street: wantS, driveways: !!this.impDrive, line, margin: m, rank }, (msg) => { st.textContent = msg; });
       this.push();
       const old = t.osm;
       // (what wasn't asked for this time stays as it was)
-      t.osm = { ...res, buildings: wantB ? res.buildings : (old ? old.buildings.filter(b => !b.lot) : []), trees: wantT ? res.trees : (old ? old.trees : []) };
+      t.osm = { ...(all ? res : old || { bbox: res.bbox, date: res.date }), buildings: wantB ? res.buildings : (old ? (all ? old.buildings.filter(b => !b.lot) : old.buildings) : []), trees: wantT ? res.trees : (old ? old.trees : []), water: wantW ? res.water || [] : (old && old.water) || [], street: wantS ? res.street : (old && old.street) || null };
+      if (!t.osm.street) delete t.osm.street;
       delete t.osm.ways;
+      // (no trees standing in a lake: the map's woods often run to the middle of one)
+      if (t.osm.water.length) t.osm.trees = t.osm.trees.filter(q => !inWater(t.osm.water, q[0], q[1], -1.5));
       if (wantR) {
         st.textContent = 'Joining the streets to the track…'; await new Promise(r => setTimeout(r, 30)); // (shown before the work starts)
         t.roads = (t.roads || []).filter(r => !r.osm).concat(fitOsmRoads(res.ways || [], T, A, { meet: this.impMeet || 'barrier', walks: this.impWalk || 'map', touch: m }));
       }
-      if (this.impFill !== false && (t.roads || []).some(r => r.osm)) t.osm.buildings.push(...fillLots(t, T, A, t.osm.buildings, 7, m + 100));
+      if (all && this.impFill !== false && (t.roads || []).some(r => r.osm)) t.osm.buildings.push(...fillLots(t, T, A, t.osm.buildings, 7, m + 100).filter(b => !b.p.some(q => inWater(t.osm.water, q[0], q[1], -2)))); // (an empty lot by the lake isn't in it)
       this.selRoad = -1; this.roadsDirty = true;
       this.changed(true);
       this.scheduleScenery(0);
       sfx.select();
       const nR = (t.roads || []).filter(r => r.osm).length, nL = t.osm.buildings.filter(b => b.lot).length;
-      this.toast(`IMPORTED ${nR} ROADS · ${t.osm.buildings.length - nL} BUILDINGS${nL ? ' + ' + nL + ' HOUSES' : ''} · ${t.osm.trees.length} TREES`);
+      const nW = t.osm.water.length;
+      const sc = streetCounts(t.osm.street), nSt = sc ? sc.stop + sc.yield + sc.signals + sc.crossings + sc.gates + sc.poles + sc.towers + sc.bollards : 0;
+      if (!all) this.toast(`STREET DETAILS · ${nSt} SIGNS, SIGNALS, GATES & POLES${sc && sc.power ? ` · ${sc.power} POWER LINES` : ''}${sc && sc.water ? ` · ${sc.water} STREAMS` : ''}`);
+      else this.toast(`IMPORTED ${nR} ROADS · ${t.osm.buildings.length - nL} BUILDINGS${nL ? ' + ' + nL + ' HOUSES' : ''} · ${t.osm.trees.length} TREES${nW ? ` · ${nW} WATER` : ''}${nSt ? ` · ${nSt} STREET DETAILS` : ''}`);
       this.renderMapTab();
-      if (!nR && !t.osm.buildings.length && !t.osm.trees.length) { $('map-status').textContent = 'No mapped streets, buildings or trees here — try the ROADS and ZONES tools to add your own.'; }
+      if (!nR && !t.osm.buildings.length && !t.osm.trees.length && !nW) { $('map-status').textContent = 'No mapped streets, buildings or trees here — try the ROADS and ZONES tools to add your own.'; }
     } catch (e) {
       sfx.error();
       st.className = 'map-status err'; st.textContent = e.message;
@@ -1452,16 +1575,60 @@ export class Editor {
     const t = this.track, o = t.osm, nR = (t.roads || []).filter(r => r.osm).length;
     if (!o && !nR) return '';
     const nL = o ? o.buildings.filter(b => b.lot).length : 0;
-    return `Imported <b>${nR}</b> streets, <b>${o ? o.buildings.length - nL : 0}</b> buildings${nL ? ` (+ <b>${nL}</b> houses on empty lots)` : ''} and <b>${o ? o.trees.length : 0}</b> trees.`;
+    const nW = o && o.water ? o.water.length : 0;
+    return `Imported <b>${nR}</b> streets, <b>${o ? o.buildings.length - nL : 0}</b> buildings${nL ? ` (+ <b>${nL}</b> houses on empty lots)` : ''}, <b>${o ? o.trees.length : 0}</b> trees${nW ? ` and <b>${nW}</b> lake${nW > 1 ? 's, ponds or rivers' : ', pond or river'}` : ''}.`;
   }
 
   // ---------------- profile ----------------
+  // the profile's view window: distance d0..d1 along the lap, height e0..e1 (null = the whole lap, 0 to the top)
   profLen() { return this.T.open ? this.T.raceL : this.T.L; }
-  profileX(d) { return 40 + (d / this.profLen()) * (this.PW - 60); }
-  profileY(e) { const top = 28, bot = this.PH - 18; return bot - (e / this.profileMax) * (bot - top); }
-  profileE(y) { const top = 28, bot = this.PH - 18; return ((bot - y) / (bot - top)) * this.profileMax; }
+  profView() {
+    const PL = this.profLen(), M = this.profileMax || 20, z = this.pz;
+    if (!z) return { d0: 0, d1: PL, e0: 0, e1: M };
+    const dw = Math.min(PL, z.d1 - z.d0), d0 = clamp(z.d0, 0, PL - dw);
+    const ew = Math.min(M, z.e1 - z.e0), e0 = clamp(z.e0, 0, M - ew);
+    return { d0, d1: d0 + dw, e0, e1: e0 + ew };
+  }
+  profileX(d) { const v = this.profView(); return 40 + ((d - v.d0) / (v.d1 - v.d0)) * (this.PW - 60); }
+  profileD(x) { const v = this.profView(); return v.d0 + ((x - 40) / (this.PW - 60)) * (v.d1 - v.d0); }
+  profileY(e) { const top = 28, bot = this.PH - 18, v = this.profView(); return bot - ((e - v.e0) / (v.e1 - v.e0)) * (bot - top); }
+  profileE(y) { const top = 28, bot = this.PH - 18, v = this.profView(); return v.e0 + ((bot - y) / (bot - top)) * (v.e1 - v.e0); }
+  // wheel / pinch zooms the distance round the cursor, Alt + wheel the height, Shift + wheel (or a sideways swipe) pans
+  onProfileWheel(e) {
+    if (!this.T) return;
+    e.preventDefault();
+    const v = this.profView(), PL = this.profLen(), M = this.profileMax;
+    const x = e.offsetX, y = e.offsetY;
+    if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+      const dd = ((e.shiftKey ? e.deltaY || e.deltaX : e.deltaX) / (this.PW - 60)) * (v.d1 - v.d0);
+      this.pz = { ...v, d0: v.d0 + dd, d1: v.d1 + dd };
+    } else {
+      const f = Math.exp(clamp(e.deltaY, -60, 60) * 0.006);
+      if (e.altKey) {
+        const ec = this.profileE(y), w = clamp((v.e1 - v.e0) * f, 2, M);
+        const e0 = ec - (ec - v.e0) * (w / (v.e1 - v.e0));
+        this.pz = { ...v, e0, e1: e0 + w };
+      } else {
+        const dc = this.profileD(x), w = clamp((v.d1 - v.d0) * f, Math.min(PL, 60), PL);
+        const d0 = dc - (dc - v.d0) * (w / (v.d1 - v.d0));
+        this.pz = { ...v, d0, d1: d0 + w };
+      }
+    }
+    this.pz = this.profView(); // (clamped into the lap)
+    if (this.pz.d1 - this.pz.d0 >= PL - 0.01 && this.pz.e1 - this.pz.e0 >= M - 0.01) this.pz = null;
+    this.dirty = true;
+  }
+  onProfilePan(e) {
+    const p = this.profilePan, v = p.v;
+    const dd = -((e.clientX - p.x) / (this.PW - 60)) * (v.d1 - v.d0);
+    const de = ((e.clientY - p.y) / (this.PH - 46)) * (v.e1 - v.e0);
+    this.pz = { d0: v.d0 + dd, d1: v.d1 + dd, e0: v.e0 + de, e1: v.e1 + de };
+    this.pz = this.profView();
+    this.dirty = true;
+  }
   onProfileDown(e) {
     if (!this.T) return;
+    if (e.button === 1 || e.button === 2) { e.preventDefault(); this.profilePan = { x: e.clientX, y: e.clientY, v: this.profView() }; this.pcan.style.cursor = 'grabbing'; return; }
     const x = e.offsetX, y = e.offsetY;
     const P = this.track.points;
     let best = -1, bd = 14;
@@ -1480,7 +1647,7 @@ export class Editor {
   onProfileDrag(e) {
     const r = this.pcan.getBoundingClientRect();
     const y = e.clientY - r.top;
-    const v = Math.round(clamp(this.profileE(y), 0, 40) * 2) / 2;
+    const v = Math.round(clamp(this.profileE(y), 0, Math.max(40, this.profileMax)) * 2) / 2; // (hills over 40 m keep their height)
     this.track.points[this.profileDrag.i].e = v;
     this.recompute();
     this.dirty = true;
@@ -1488,7 +1655,7 @@ export class Editor {
   }
   onProfileHover(e) {
     if (!this.T) return;
-    const d = ((e.offsetX - 40) / (this.PW - 60)) * this.profLen();
+    const d = this.profileD(e.offsetX);
     this.hoverSample = d < 0 || d > this.profLen() ? -1 : Math.floor(d / this.T.ds) % this.T.N;
     this.dirty = true;
   }
@@ -1501,15 +1668,19 @@ export class Editor {
     if (!T) { c.font = '16px VT323'; c.fillStyle = '#56627e'; c.fillText('No track yet', 40, this.PH / 2 + 5); return; }
     const PL = this.profLen(), last = T.open ? T.finish : T.N; // (point-to-point: start to finish)
     this.profileMax = Math.max(20, Math.ceil((this.maxY + 5) / 5) * 5);
+    const v = this.profView(), step = (span, px, opts) => opts.find(o => (o / span) * px >= 34) || opts[opts.length - 1];
+    const es = step(v.e1 - v.e0, this.PH - 46, [0.5, 1, 2, 5, 10, 20, 50, 100]), ds = step(v.d1 - v.d0, this.PW - 60, [10, 25, 50, 100, 250, 500, 1000, 2000]);
     c.font = '14px VT323'; c.fillStyle = '#56627e'; c.strokeStyle = '#141c30'; c.lineWidth = 1;
-    for (let e = 0; e <= this.profileMax; e += 5) {
+    for (let e = Math.ceil(v.e0 / es) * es; e <= v.e1 + 1e-6; e += es) {
       const y = this.profileY(e);
       c.beginPath(); c.moveTo(40, y); c.lineTo(this.PW - 20, y); c.stroke();
-      c.fillText(e + 'm', 8, y + 4);
+      c.fillText(+e.toFixed(1) + 'm', 8, y + 4);
     }
-    for (let d = 0; d <= PL; d += 500) { const x = this.profileX(d); c.beginPath(); c.moveTo(x, 28); c.lineTo(x, this.PH - 18); c.stroke(); c.fillText((d / 1000).toFixed(1) + 'km', x - 10, this.PH - 4); }
+    for (let d = Math.ceil(v.d0 / ds) * ds; d <= v.d1 + 1e-6; d += ds) { const x = this.profileX(d); c.beginPath(); c.moveTo(x, 28); c.lineTo(x, this.PH - 18); c.stroke(); c.fillText(ds < 100 ? Math.round(d) + 'm' : (d / 1000).toFixed(ds < 1000 ? 2 : 1) + 'km', x - 10, this.PH - 4); }
+    if (this.pz) { c.fillStyle = '#8a96b4'; c.textAlign = 'right'; c.fillText(`ZOOM ${((PL / (v.d1 - v.d0))).toFixed(1)}x \u00b7 double-click to fit`, this.PW - 20, 18); c.textAlign = 'left'; }
+    c.save(); c.beginPath(); c.rect(40, 24, this.PW - 60, this.PH - 42); c.clip();
     // fill
-    const g = c.createLinearGradient(0, this.profileY(this.profileMax), 0, this.profileY(0));
+    const g = c.createLinearGradient(0, this.profileY(this.profileMax), 0, this.profileY(0)); // (in lap heights: the colour stays put as you zoom)
     g.addColorStop(0, 'rgba(232,177,58,0.55)'); g.addColorStop(1, 'rgba(134,167,216,0.15)');
     c.beginPath(); c.moveTo(this.profileX(0), this.profileY(0));
     for (let i = 0; i <= last; i++) { const k = i % T.N; c.lineTo(this.profileX(i === T.N ? T.L : T.D[k]), this.profileY(T.Y[k])); }
@@ -1519,7 +1690,7 @@ export class Editor {
     c.strokeStyle = '#e8b13a'; c.lineWidth = 2; c.stroke();
     // bridges
     c.fillStyle = 'rgba(255,255,255,0.12)';
-    for (let i = 0; i < last; i++) if (this.A.BRIDGE[i]) c.fillRect(this.profileX(T.D[i]), 28, this.profileX(T.ds) - 40 + 1, this.PH - 46);
+    for (let i = 0; i < last; i++) if (this.A.BRIDGE[i]) c.fillRect(this.profileX(T.D[i]), 28, this.profileX(T.D[i] + T.ds) - this.profileX(T.D[i]) + 1, this.PH - 46);
     // hover
     if (this.hoverSample >= 0 && this.hoverSample <= last) {
       const x = this.profileX(T.D[this.hoverSample]);
@@ -1534,6 +1705,7 @@ export class Editor {
       c.fillStyle = s ? '#ffd66b' : '#d8e6ff'; c.strokeStyle = '#000'; c.lineWidth = 2;
       c.fillRect(x - (s ? 5 : 4), y - (s ? 5 : 4), s ? 10 : 8, s ? 10 : 8); c.strokeRect(x - (s ? 5 : 4), y - (s ? 5 : 4), s ? 10 : 8, s ? 10 : 8);
     });
+    c.restore();
   }
 
   // the runoff each side, out to the barrier, with its paved, gravel and painted grass (runoff.js), as quads from
@@ -1793,8 +1965,9 @@ export class Editor {
       }
     }
 
+    this.drawPickEdit(c); // (PICK ROADS: the streets, the route, its points: edpick.js)
     // nodes
-    if (this.tool !== 'props') {
+    if (this.tool !== 'props' && this.tool !== 'pick') {
       const P = t.points;
       // control polygon
       const bare = !T; // no road yet: make the node chain easy to see
@@ -1841,12 +2014,45 @@ export class Editor {
     $('ed-scale').textContent = `${Math.round(this.mouse.wx)}, ${Math.round(this.mouse.wz)}  ·  100m = ${Math.round(m)}px`;
   }
 
+  // the map's street details (MAP › Street Details, streetdata.js): streams, rail, power lines and barriers as lines,
+  // signs, signals, gates, poles as small marks (zoomed in)
+  drawStreet(c, vis) {
+    const st = this.track.osm && this.track.osm.street; if (!st) return;
+    const sc = this.view.scale;
+    const line = (pts, col, w, dash) => { c.strokeStyle = col; c.lineWidth = w; c.setLineDash(dash || []); c.beginPath(); pts.forEach((q, k) => { const [x, y] = this.w2s(q[0], q[1]); k ? c.lineTo(x, y) : c.moveTo(x, y); }); c.stroke(); };
+    for (const w of st.water || []) line(w.pts, 'rgba(70,130,200,0.85)', Math.max(1.5, w.w * sc));
+    for (const r of st.rail || []) line(r.pts, 'rgba(120,100,90,0.95)', Math.max(1.5, 3 * sc), [6, 4]);
+    for (const b of st.barriers || []) line(b.pts, b.k === 'hedge' ? 'rgba(60,120,50,0.9)' : b.k === 'fence' ? 'rgba(170,160,140,0.8)' : 'rgba(200,200,205,0.9)', Math.max(1, 0.8 * sc));
+    if (sc > 0.5) for (const p of st.power || []) line(p.pts, p.k === 'line' ? 'rgba(40,40,40,0.75)' : 'rgba(60,50,40,0.6)', 1, [2, 3]);
+    c.setLineDash([]);
+    if (sc < 0.8) return;
+    const r = Math.max(2, 1.6 * sc), dot = (list, col, shape) => {
+      c.fillStyle = col;
+      for (const q of list || []) { if (!vis(q)) continue; const [x, y] = this.w2s(q[0], q[1]); c.beginPath();
+        if (shape === 'oct') { for (let k = 0; k < 8; k++) { const a = Math.PI / 8 + k * Math.PI / 4; c.lineTo(x + Math.cos(a) * r * 1.3, y + Math.sin(a) * r * 1.3); } }
+        else if (shape === 'tri') { c.moveTo(x, y + r * 1.3); c.lineTo(x - r * 1.2, y - r); c.lineTo(x + r * 1.2, y - r); }
+        else c.arc(x, y, r, 0, Math.PI * 2);
+        c.closePath(); c.fill(); }
+    };
+    dot(st.stop, '#d42a1f', 'oct'); dot(st.yield, '#f0f0f0', 'tri'); dot(st.signals, '#f2c230'); dot(st.poles, '#7a5a3a'); dot(st.towers, '#555a60'); dot(st.bollards, '#e8e0c0');
+    c.strokeStyle = '#eee'; c.lineWidth = Math.max(1, 0.5 * sc);
+    for (const q of st.crossings || []) { if (!vis(q)) continue; const [x, y] = this.w2s(q[0], q[1]); c.strokeRect(x - r, y - r, r * 2, r * 2); }
+    c.strokeStyle = '#c9a36a'; c.lineWidth = Math.max(1.5, 0.6 * sc);
+    for (const q of st.gates || []) { if (!vis(q) || q.length < 4) continue; const [x, y] = this.w2s(q[0], q[1]), h = 2 * sc; c.beginPath(); c.moveTo(x - q[3] * h, y + q[2] * h); c.lineTo(x + q[3] * h, y - q[2] * h); c.stroke(); }
+  }
   drawScenery(c) {
     const S = this.scen; if (!S) return;
     const sc = this.view.scale;
     const [vx0, vz0] = this.s2w(-40, -40), [vx1, vz1] = this.s2w(this.W + 40, this.H + 40);
     const vis = (q) => q[0] > vx0 && q[0] < vx1 && q[1] > vz0 && q[1] < vz1;
     const poly = (p) => { c.beginPath(); p.forEach((q, k) => { const [x, y] = this.w2s(q[0], q[1]); k ? c.lineTo(x, y) : c.moveTo(x, y); }); c.closePath(); };
+    // water (lakes, ponds, rivers: MAP › Water), under everything else
+    const W = this.track.osm && this.track.osm.water;
+    if (W && W.length) {
+      c.fillStyle = 'rgba(52,104,160,0.82)'; c.strokeStyle = 'rgba(140,190,235,0.7)'; c.lineWidth = 1;
+      for (const w of W) { c.beginPath(); for (const ring of [w.p, ...(w.h || [])]) ring.forEach((q, k) => { const [x, y] = this.w2s(q[0], q[1]); k ? c.lineTo(x, y) : c.moveTo(x, y); }); c.fill('evenodd'); c.stroke(); }
+    }
+    this.drawStreet(c, vis);
     // a setting's street props / bushes (zoomed in)
     if (S.props && sc > 1.2) {
       c.fillStyle = 'rgba(200,196,180,0.8)';
@@ -2548,6 +2754,10 @@ export class Editor {
       groups.push(['Over the track', fam('gantry', 'gantry_wide', 'arch', 'arch_balloons')]);
       groups.push(['Lights', [...fam('floodmast', 'stadium_light', 'worklight', 'lamppost_plain', 'festoon'), ...classic('lamp')]]);
       groups.push(['Barriers and pit', [...classic('tires', 'cones'), ...fam('fence', 'tire_rack', 'camera_tower', 'pit_building')]]);
+      // (the street kit: what a real town's roads have, tools/props/streetkit.py)
+      groups.push(['Street signs and signals', fam('sk_stop', 'sk_yield', 'sk_signal', 'sk_signal_s', 'sk_signal_post', 'sk_xing')]);
+      groups.push(['Power and rail', fam('sk_pole', 'sk_pole_tx', 'sk_pole_lv', 'sk_tower', 'sk_rail')]);
+      groups.push(['Road barriers, walls and gates', fam('sk_guardrail', 'sk_jersey', 'sk_bollard', 'sk_fence_wood', 'sk_wall_cmu', 'sk_gate_ranch', 'sk_gate_iron')]);
       extra = this.logoHtml();
     }
     const hiddenN = t.hidden.length;
@@ -2928,6 +3138,7 @@ export class Editor {
     if (this.tool === 'sculpt') return this.renderSculptTab();
     if (this.tool === 'roads') return this.renderRoadTab();
     if (this.tool === 'props') return this.renderItemTab();
+    if (this.tool === 'pick') return this.renderPickTab();
     const el = $('tab-node');
     const P = this.track.points;
     const sel = [...this.sel].filter(i => i < P.length);
@@ -3064,6 +3275,10 @@ export class Editor {
       <div class="fld"><div class="seg" id="w-time">${['day', 'dusk', 'night'].map(k => `<button data-v="${k}" class="${env.time === k ? 'on' : ''}">${k}</button>`).join('')}</div></div>
       <h4>WEATHER</h4>
       <div class="fld"><div class="seg" id="w-weather">${['clear', 'overcast', 'rain', 'fog'].map(k => `<button data-v="${k}" class="${env.weather === k ? 'on' : ''}">${k}</button>`).join('')}</div></div>
+      <h4>DISTANT LAND</h4>
+      <div class="fld"><label>Backdrop</label><div class="seg lead" id="w-backdrop">${Object.entries(BACKDROPS).map(([k, l]) => `<button data-v="${k}" class="${(env.backdrop || 'auto') === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <div class="fld"><label>Hillsides</label><div class="seg lead" id="w-hillside">${Object.entries(HILLSIDES).map(([k, l]) => `<button data-v="${k}" class="${(env.hillside || 'auto') === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      <p class="muted" style="margin-top:-4px">${{ auto: 'Auto: rolling hills round grass, forest and desert circuits (golden in the desert); the painted horizon for city and coast.', flat: 'Open country to the horizon: barely a rise.', hills: 'Wooded hills all round, layered into the haze.', mountains: 'Ridges climbing to big peaks 10 km out, snow on the highest.', alps: 'Tall snowy ranges close in on every side.' }[env.backdrop || 'auto']} Golden is dry summer grass (Willow Springs, Laguna Seca); Autumn turns the broadleaf woods red and gold; Red Rock is desert stone.</p>
       <h4>SETTING</h4>
       ${envReady() ? `<div class="seg set-cards" id="w-set">${SETTING_KEYS.map(k => `<button data-v="${k}" class="${st.kind === k ? 'on' : ''}">${SETTINGS[k].label}</button>`).join('')}</div>
       <p class="muted">${SETTINGS[st.kind].desc}</p>
@@ -3100,6 +3315,8 @@ export class Editor {
       this.changed(true); this.toast(THEMES[v].label.toUpperCase() + ' · RUNOFF & BARRIERS UPDATED');
     });
     segBind('w-time', v => { this.push(); env.time = v; this.changed(true); });
+    segBind('w-backdrop', v => { this.push(); if (v === 'auto') delete env.backdrop; else env.backdrop = v; this.changed(true); this.renderWorldTab(); });
+    segBind('w-hillside', v => { this.push(); if (v === 'auto') delete env.hillside; else env.hillside = v; this.changed(true); });
     segBind('w-weather', v => { this.push(); env.weather = v; this.changed(true); });
     const d = $('w-den');
     d.addEventListener('pointerdown', () => this.push());
@@ -3152,6 +3369,7 @@ installKerbTool(Editor);
 installFreeBarrierTool(Editor);
 installView3d(Editor);
 installPitTool(Editor);
+installPickTool(Editor);
 installPaintShapes(Editor);
 installCheck(Editor);
 installShare(Editor);

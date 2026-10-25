@@ -18,7 +18,7 @@ try {
   pg.on('response', r => { if (/assets\/sponsors/.test(r.url()) && r.status() >= 400) { console.log('MISSING', r.url()); fails++; } });
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(800);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(800);
   const ev = (fn, a) => pg.evaluate(fn, a);
 
   // every logo, every version, decodes

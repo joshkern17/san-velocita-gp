@@ -1644,7 +1644,11 @@ const kgOf = (f) => Math.round((1 - f) / 0.0006 / 5) * 5;
 const BOP_BASE = {
   // (measured 2026-10-06 on the six preset circuits: 4.5% from first to last before, 1.1% after, each car quickest
   // somewhere. Remeasure when a street car is added or its spec changes)
-  street: { testarossa: [0.93, 0.977], jsport: [0.988, 0.99], rs964: [1.1, 1.04], mustang: [1.1, 1.05], m5: [1.012, 1], r34: [0.943, 0.982] },
+  street: { testarossa: [0.93, 0.977], jsport: [0.988, 0.99], rs964: [1.1, 1.04], mustang: [1.1, 1.05], m5: [1.012, 1], r34: [0.943, 0.982],
+    // (2026-10-24, the five real street cars: unbalanced they were +1.3 to +1.9% off the quickest, the M5's band (+1.9,
+    // near neutral), so near-neutral figures, the pricier a shade quicker; the per-circuit trim does the rest. The Kaze
+    // and Pony GT are retired, their figures kept for saves partway through a season)
+    supra: [1.012, 1], nsx: [1.01, 1], rx7fd: [1, 1], corvettec4: [0.995, 1], p944turbo: [0.985, 0.997] },
 };
 const BOP_V = 2; // (2: the season's figures plus a trim at each circuit, race.js trimBop)
 const bopKg = (g) => Math.round((1 - g) / 0.0004 / 5) * 5; // (1% of grip written as 25 kg: about what the weight costs these cars)
@@ -3830,7 +3834,8 @@ const AD_BLURBS = [
   ['Selling for a friend, don\'t know much about it.', 0.66], ['Price is firm.', 0.82],
 ];
 // the years each car was made (more or less), for the listings
-const AD_YEARS = { testarossa: [1984, 1991], jsport: [1993, 2002], rs964: [1989, 1994], mustang: [1987, 1993], m5: [1998, 2003], r34: [1999, 2002], miata: [1990, 1997] };
+const AD_YEARS = { testarossa: [1984, 1991], jsport: [1993, 2002], rs964: [1989, 1994], mustang: [1987, 1993], m5: [1998, 2003], r34: [1999, 2002], miata: [1990, 1997],
+  supra: [1993, 1998], nsx: [1990, 1997], rx7fd: [1992, 2002], corvettec4: [1990, 1995], p944turbo: [1986, 1991] };
 const adYear = (w, key) => (([a, b]) => a + Math.floor(rng(w) * (b - a + 1)))(AD_YEARS[key] || [1986, 2003]);
 // club racers selling their race cars (a one-make series: the car's the same, the history isn't)
 const AD_BLURBS_CLUB = [

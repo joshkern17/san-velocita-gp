@@ -19,7 +19,7 @@ try {
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   if (process.env.GLB) await pg.addInitScript((u) => { window.__SVGP_PITBOX_GLB = u; }, process.env.GLB);
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1500);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1500);
   await pg.evaluate(async (TRACK) => {
     const real = (await (await fetch('/tracks/real/index.json')).json()).find(q => q.name === TRACK);
     real.env.weather = 'clear'; real.env.time = 'day';

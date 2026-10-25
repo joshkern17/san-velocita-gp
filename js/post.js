@@ -55,7 +55,7 @@ class AtmosEffect extends Effect {
           // (the fog itself is the PSX FogEffect) aerial tint: distance goes violet, and glows warm towards the sun
           float k = smoothstep(60.0, farDist, dist);
           float s = pow(max(dot(rd, sunDir), 0.0), 6.0) * sunAmt;
-          c = mix(c, farColor + sunCol * s * 0.6, k * 0.45);
+          c = mix(c, farColor + sunCol * s * 0.6, k * (depth > 0.99999 ? 0.18 : 0.45)); // (the backdrop's mountains sit at that depth: js/backdrop.js hazes them itself)
         }
         outputColor = vec4(c, inputColor.a);
       }`, {
@@ -262,6 +262,9 @@ export class PS2Post {
     // direction every frame); the scene's depth occludes it, so buildings and trees cut the shafts
     this.sun = new THREE.Mesh(new THREE.SphereGeometry(55, 16, 8), new THREE.MeshBasicMaterial({ color: 0xffc080, fog: false, transparent: true, depthWrite: false }));
     this.sun.frustumCulled = false;
+    // (its depth just behind the backdrop's mountains, js/backdrop.js, which sit in a band at the very back: placed 4.5 km
+    // out it was in front of them, and the sun shone through the ridges. Only the empty sky, at the far plane, is behind it)
+    this.sun.material.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace(/}\s*$/, '  gl_FragDepth = 0.9999996;\n}'); };
     this.godRays = new GodRaysEffect(this.renderPass.mainCamera, this.sun, { blendFunction: BlendFunction.SCREEN, samples: 48, density: 0.94, decay: 0.93, weight: 0.5, exposure: 0.55, clampMax: 1, blur: true, kernelSize: KernelSize.SMALL, resolutionScale: 0.5 });
     this.lutEffect = new LUT3DEffect(buildLUT(NEUTRAL_LOOK), { tetrahedralInterpolation: true });
     this.vignette = new VignetteEffect({ offset: 0.3, darkness: 0.42 });

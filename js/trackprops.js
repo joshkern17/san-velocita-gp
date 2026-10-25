@@ -13,7 +13,7 @@ import * as THREE from 'three';
 import { envAssets, envAsset, envModel } from './envlib.js';
 import { loadCrowd, buildCrowd } from './crowd.js';
 
-export const isTrackProp = (type) => typeof type === 'string' && /^(tp|gs)_/.test(type) && !!envAsset(type); // (gs_: the modular grandstands, js/gstands.js)
+export const isTrackProp = (type) => typeof type === 'string' && /^(tp|gs|sk)_/.test(type) && !!envAsset(type); // (gs_: the modular grandstands, js/gstands.js; sk_: the street kit)
 
 // ---------------- the editor's families ----------------
 // (in the order the tiles go in; colour on the map; how far apart on a line by default: their width plus gap)
@@ -42,6 +42,17 @@ const FAMILY = {
   tire_rack: { color: '#303030', gap: 1 },
   pit_building: { color: '#6a8aa8', gap: 1 },
 };
+// the street kit (tools/props/streetkit.py, cat 'street'): a tile each (the stop sign's two faces one tile); the line
+// pieces drawn as a line, end to end
+const STREET = {
+  sk_stop: { color: '#d42a1f', gap: 3 }, sk_yield: { color: '#f0f0f0', gap: 3 },
+  sk_signal: { color: '#f2c230', gap: 10, sub: 'Its arm reaches over the road' }, sk_signal_s: { color: '#f2c230', gap: 10 }, sk_signal_post: { color: '#f2c230', gap: 6 },
+  sk_pole: { color: '#7a5a3a', gap: 45 }, sk_pole_tx: { color: '#7a5a3a', gap: 45 }, sk_pole_lv: { color: '#7a5a3a', gap: 40 }, sk_tower: { color: '#555a60', gap: 300 },
+  sk_gate_ranch: { color: '#c9a36a', gap: 1 }, sk_gate_iron: { color: '#2a2a2a', gap: 1 }, sk_xing: { color: '#ffffff', gap: 6 },
+  sk_rail: { color: '#7a6450', gap: 0, sub: 'Draw a line of it' }, sk_guardrail: { color: '#a8adb2', gap: 0, sub: 'Draw a line of it' },
+  sk_jersey: { color: '#b8b4aa', gap: 0, sub: 'Draw a line of them' }, sk_bollard: { color: '#e0b020', gap: 1.5 },
+  sk_fence_wood: { color: '#8a6a4a', gap: 0, sub: 'Draw a line of it' }, sk_wall_cmu: { color: '#9a968e', gap: 0, sub: 'Draw a line of it' },
+};
 export function trackPropFamilies() {
   const all = envAssets({ cat: 'trackside' }).filter(a => !a.hidden), out = [];
   for (const cls of Object.keys(FAMILY)) {
@@ -50,11 +61,18 @@ export function trackPropFamilies() {
     const a = ids[0];
     out.push({ cls, label: a.label, ids: ids.map(q => q.id), span: !!a.span, w: a.w, d: a.d, h: a.h, ...FAMILY[cls] });
   }
+  const st = envAssets({ cat: 'street' });
+  for (const key of Object.keys(STREET)) {
+    const ids = st.filter(a => a.id === key || a.id === key + '_a' || a.id === key + '_b');
+    if (!ids.length) continue;
+    const a = ids[0];
+    out.push({ cls: key, label: a.label, ids: ids.map(q => q.id), span: false, w: a.w, d: a.d, h: a.h, street: 1, ...STREET[key] });
+  }
   return out;
 }
 // the families that light up at night (and have a light strength)
 export const LIGHT_FAMILIES = ['floodmast', 'stadium_light', 'worklight', 'adtower'];
-export const trackPropFamily = (id) => { const a = envAsset(id); return a ? { ...FAMILY[a.cls], cls: a.cls, label: a.label, span: !!a.span, w: a.w, d: a.d } : null; };
+export const trackPropFamily = (id) => { const a = envAsset(id); if (!a) return null; const sk = a.cat === 'street' && id.replace(/_[ab]$/, ''); return sk && STREET[sk] ? { ...STREET[sk], cls: sk, label: a.label, span: false, w: a.w, d: a.d, street: 1 } : { ...FAMILY[a.cls], cls: a.cls, label: a.label, span: !!a.span, w: a.w, d: a.d }; };
 
 // ---------------- the logo sheet ----------------
 // Where each logo sits on the pack's sheet (0..1 from the top left: x, y, w, h). A track can put its own image over

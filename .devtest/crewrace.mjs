@@ -17,7 +17,7 @@ try {
   const pg = await b.newPage(); await pg.setViewportSize({ width: 640, height: 360 });
   pg.on('pageerror', e => { console.log('PAGE ERROR', e.message); fails++; });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1500);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1500);
   await pg.evaluate(async ([secs, K, NAME]) => {
     const t = (await import('/js/track.js')).presetTracks().find(t => t.name === NAME); t.env.weather = 'clear';
     window.__svgp.startRace(t, { mode: 'race', laps: 3, opponents: 7, car: window.__svgp.settings.car, extra: { duration: secs, clockK: K, startHour: 12, strategy: false, codriver: { name: 'Ana Silva', paceK: 0.96, aggr: 0.4 } } }, 'menu');

@@ -4,7 +4,7 @@
 // other); the rest are warnings. Test Drive always goes.
 import { sfx } from './audio.js';
 
-const TIGHT = 14, STEEP = 0.2, NARROW = 7;
+const TIGHT = 14, TIGHT_STREET = 8, STEEP = 0.2, NARROW = 7;
 
 // track, T (sampleTrack), A (analyzeTrack), pit (buildPitLane): [{ kind, block, a, b (sample run, b may pass N on a
 // loop), i (its middle), whole (no one place), text }]
@@ -19,9 +19,12 @@ export function findProblems(track, T, A, pit) {
   };
   for (const [a, b] of runs(i => A.LIFT[i] > 0))
     out.push({ kind: 'cross', block: true, a, b, text: 'Two stretches of road cross on the flat: cars would drive through each other. Raise one 5 m or more in the elevation profile for a bridge, or move them apart.' });
-  for (const [a, b] of runs(i => Math.abs(T.K[i]) > 1 / TIGHT, 2)) {
+  // (a track made from real streets (Pick Roads: track.pick) keeps each junction's own corner, ~10-14 m round the
+  // middle of the road: tight, but what the street is. Only a corner tighter than any street corner is a problem.)
+  const tight = track.pick ? TIGHT_STREET : TIGHT;
+  for (const [a, b] of runs(i => Math.abs(T.K[i]) > 1 / tight, 2)) {
     let r = Infinity; for (let k = a; k <= b; k++) r = Math.min(r, 1 / Math.abs(T.K[k % N]));
-    out.push({ kind: 'tight', a, b, text: `A corner with a ${Math.round(r)} m radius: tighter than ${TIGHT} m, most cars can't get round it. Spread its points or open out its curve handles.` });
+    out.push({ kind: 'tight', a, b, text: `A corner with a ${Math.round(r)} m radius: tighter than ${tight} m, most cars can't get round it. Spread its points or open out its curve handles.` });
   }
   const w = Math.max(1, Math.round(10 / T.ds));
   for (const [a, b] of runs(i => Math.abs(T.Y[(i + w) % N] - T.Y[i]) / (w * T.ds) > STEEP, 2))

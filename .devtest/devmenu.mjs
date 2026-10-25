@@ -17,7 +17,7 @@ try {
   pg.on('pageerror', e => { console.log('PAGE ERROR', e.message); fails++; });
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 60000 }); await pg.waitForTimeout(2500);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 60000, polling: 200 }); await pg.waitForTimeout(2500);
   console.log('screen', await pg.evaluate(() => window.__svgp.screen));
   for (let k = 0; k < 6 && (await pg.evaluate(() => window.__svgp.screen)) !== 's-main'; k++) { await pg.keyboard.press('Enter'); await pg.waitForTimeout(1500); }
   const items = () => pg.evaluate(() => [...document.querySelectorAll('#m-main .item')].map(e => e.textContent.trim().split('\n')[0].trim()));

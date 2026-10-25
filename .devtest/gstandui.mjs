@@ -18,7 +18,7 @@ try {
   pg.on('pageerror', e => fail('page error ' + e.message));
   await pg.route(/tile\.openstreetmap|arcgisonline/, (r) => r.abort());
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(800);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(800);
   await pg.evaluate((t) => window.__svgp.openEditor(t), track); await pg.waitForTimeout(3000);
   await pg.evaluate(() => { const e = window.__svgp.editor; e.setTool('props'); });
   await pg.waitForTimeout(500);

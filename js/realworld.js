@@ -38,6 +38,56 @@ export function altitudeY(track, asl) {
   return (asl - t.lo - (t.base || 0)) * (t.exag || 1);
 }
 
+// Lakes, ponds, reservoirs, wide rivers (track.osm.water: water.js), on any track: flat at their level (list:
+// [{ w, y }], world.js works it out before it lowers the ground under them). Returns update(t): the ripples drift.
+export function addWater(root, list, night = false) {
+  const out = new THREE.Group(); out.name = 'water';
+  const anim = [];
+  for (const { w, y } of list) {
+    if (!w.p || w.p.length < 3) continue;
+    const contour = w.p.map(q => new THREE.Vector2(q[0], q[1]));
+    const holes = (w.h || []).map(h => h.map(q => new THREE.Vector2(q[0], q[1])));
+    let tris; try { tris = THREE.ShapeUtils.triangulateShape(contour, holes); } catch (e) { continue; }
+    const all = [...contour, ...holes.flat()], pos = new Float32Array(all.length * 3);
+    all.forEach((v, i) => { pos[i * 3] = v.x; pos[i * 3 + 1] = y; pos[i * 3 + 2] = v.y; });
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    // (triangulateShape winds them for a y-up shape; seen from above in x/z they face down, so flip)
+    g.setIndex(tris.flatMap(t => [t[0], t[2], t[1]])); g.computeVertexNormals(); planarUV(g);
+    const m = new THREE.Mesh(g, waterMat(night)); m.receiveShadow = true; out.add(m); anim.push(m.material.map);
+  }
+  root.add(out);
+  return { update(t) { for (const a of anim) a.offset.set(t * 0.004, t * 0.0025); } };
+}
+
+// the water in the streams, ditches, canals and rivers mapped as lines (their beds: water.js carveStreams): a strip as
+// wide as the water along each, part way up its bed (and never under the ground the grid left in the middle), left out
+// where skip(x, z) says (a road over it, the track: the culvert under them)
+export function addStreams(root, list, groundHeight, skip, night = false) {
+  const out = new THREE.Group(); out.name = 'streams'; const anim = [];
+  for (const s of list) {
+    const P = s.pts, n = P.length, half = s.w / 2, fill = { river: 0.55, canal: 0.7 }[s.k] || 0.5;
+    const runs = []; let run = [];
+    for (let i = 0; i < n; i++) { if (skip(P[i][0], P[i][1], half)) { if (run.length > 1) runs.push(run); run = []; } else run.push(i); }
+    if (run.length > 1) runs.push(run);
+    for (const R of runs) {
+      const pos = [], idx = [];
+      R.forEach((i, k) => {
+        const a = P[Math.max(0, i - 1)], b = P[Math.min(n - 1, i + 1)]; let dx = b[0] - a[0], dz = b[1] - a[1]; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
+        const x = P[i][0], z = P[i][1], depth = { river: 2.0, canal: 1.2, stream: 0.9 }[s.k] || 0.5;
+        const y = Math.max(s.bed[i] + depth * fill, groundHeight(x, z) + 0.05);
+        pos.push(x - dz * half, y, z + dx * half, x + dz * half, y, z - dx * half);
+        if (k) { const v = k * 2; idx.push(v - 2, v - 1, v, v - 1, v + 1, v); }
+      });
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+      if (g.attributes.normal.array[1] < 0) { g.setIndex(idx.map((_, j) => idx[j - (j % 3) + [0, 2, 1][j % 3]])); g.computeVertexNormals(); } // (facing up)
+      planarUV(g);
+      const m = new THREE.Mesh(g, waterMat(night)); m.receiveShadow = true; out.add(m); anim.push(m.material.map);
+    }
+  }
+  root.add(out);
+  return { update(t) { for (const a of anim) a.offset.set(t * 0.012, t * 0.006); } }; // (a little quicker than a lake: it runs)
+}
+
 export function addRealWorld(root, track, T, { groundHeight, night = false } = {}) {
   const o = track.osm || {}, real = track.real || {};
   const out = new THREE.Group(); out.name = 'realworld';
@@ -48,22 +98,6 @@ export function addRealWorld(root, track, T, { groundHeight, night = false } = {
     const y = altitudeY(track, 0.4);
     let cx = 0, cz = 0; for (let i = 0; i < T.N; i++) { cx += T.X[i]; cz += T.Z[i]; } cx /= T.N; cz /= T.N;
     const g = new THREE.PlaneGeometry(16000, 16000, 1, 1); g.rotateX(-Math.PI / 2); g.translate(cx, y, cz); planarUV(g);
-    const m = new THREE.Mesh(g, waterMat(night)); m.receiveShadow = true; out.add(m); anim.push(m.material.map);
-  }
-
-  // ---- lakes / harbours / rivers: flat polygons at the level of their shoreline ----
-  for (const w of o.water || []) {
-    if (!w.p || w.p.length < 3) continue;
-    const hs = w.p.map(q => groundHeight(q[0], q[1])).sort((a, b) => a - b);
-    const y = (w.y != null ? w.y : hs[Math.floor(hs.length * 0.2)]) + 0.12;
-    const contour = w.p.map(q => new THREE.Vector2(q[0], q[1]));
-    const holes = (w.h || []).map(h => h.map(q => new THREE.Vector2(q[0], q[1])));
-    let tris; try { tris = THREE.ShapeUtils.triangulateShape(contour, holes); } catch (e) { continue; }
-    const all = [...contour, ...holes.flat()], pos = new Float32Array(all.length * 3);
-    all.forEach((v, i) => { pos[i * 3] = v.x; pos[i * 3 + 1] = y; pos[i * 3 + 2] = v.y; });
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    // (triangulateShape winds them for a y-up shape; seen from above in x/z they face down, so flip)
-    g.setIndex(tris.flatMap(t => [t[0], t[2], t[1]])); g.computeVertexNormals(); planarUV(g);
     const m = new THREE.Mesh(g, waterMat(night)); m.receiveShadow = true; out.add(m); anim.push(m.material.map);
   }
 

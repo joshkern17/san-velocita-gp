@@ -19,7 +19,7 @@ try {
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   pg.on('pageerror', e => { console.log('PAGE ERROR', e.message); fails++; });
   await pg.goto(`http://127.0.0.1:${PORT}/`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 });
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 });
   await pg.mouse.click(640, 360); // (a click: the audio starts)
   await pg.evaluate((track) => window.__svgp.startRace(track, { mode: 'test', laps: 3, opponents: 0, car: window.__svgp.settings.car }, 'menu'), track);
   await pg.waitForFunction(() => window.__svgp.screen === 'hud' && window.__svgp.sim, null, { timeout: 90000 });

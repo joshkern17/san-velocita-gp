@@ -13,7 +13,7 @@ try {
   const pg = await b.newPage(); await pg.setViewportSize({ width: 320, height: 180 });
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(800);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(800);
   await pg.evaluate(async ([name, OWNOUT]) => { const { presetTracks, archivedTracks, cloneTrack } = await import('/js/track.js'); let t = [...presetTracks(), ...archivedTracks()].find(t => t.name === name);
     if (!t) { const R = await import('/js/realtracks.js'); t = await R.hydrateReal(cloneTrack(R.realTracks().find(p => p.real.id === name))); }
     // (OWNOUT=m: its pit lane placed by hand instead, as the Circuit Designer's PIT LANE tool keeps it, its middle moved m further out)

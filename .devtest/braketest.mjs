@@ -16,7 +16,7 @@ try {
   if (process.env.BT) await pg.addInitScript(() => { window.__BT = 1; });
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1500);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1500);
   await pg.evaluate(async ({ id, laps }) => {
     const t = await (await fetch('/.devtest/auburn2.json')).json(); t.env.weather = 'clear';
     window.__svgp.settings.car = { ...window.__svgp.settings.car, chassis: id };

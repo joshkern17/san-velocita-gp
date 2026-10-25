@@ -20,7 +20,7 @@ try {
   });
   pg.on('pageerror', e => console.log('PAGE ERROR', e.stack));
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(800);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(800);
   await pg.evaluate(() => window.__svgp.dbg.openHomeView());
   await pg.waitForFunction(() => window.__svgp.screen === 's-homeview' && /^home:/.test(String(window.__svgp.dbg.pitGarage.custom)), null, { timeout: 20000 }); await pg.waitForTimeout(1500);
   await pg.evaluate(() => window.__svgp.dbg.startWalk());

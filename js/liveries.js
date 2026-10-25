@@ -6,7 +6,7 @@ import { carPhoto } from './carphoto.js';
 import { liveryPanels } from './carmodel.js';
 
 // what's a car's own in a livery (each model has its own version) and what the team carries into every car
-export const CAR_LOOK = ['design', 'pattern', 'main', 'accent', 'third', 'wingColor', 'decals', 'stickers', 'showNumber', 'showSponsor', 'sponsorLogo', 'nose', 'fwing', 'pods', 'cover', 'rwing', 'halo', 'rims', 'rimCol'];
+export const CAR_LOOK = ['design', 'pattern', 'main', 'accent', 'third', 'wingColor', 'decals', 'stickers', 'showNumber', 'showSponsor', 'sponsorLogo', 'gloss', 'nose', 'fwing', 'pods', 'cover', 'rwing', 'halo', 'rims', 'rimCol'];
 export const TEAM_KEYS = ['teamName', 'number', 'sponsor'];
 const clone = (x) => JSON.parse(JSON.stringify(x));
 const pick = (c, keys) => clone(Object.fromEntries(keys.filter(k => c[k] !== undefined && k !== 'design').map(k => [k, c[k]])));
@@ -98,7 +98,7 @@ export function liveryPort(e, chassis) {
   const cars = liveryCars(e), to = liveryPanels(chassis);
   const src = cars.find(k => (e.cars[k].look.decals || []).length && liveryPanels(k)) || cars[0];
   const L = src ? e.cars[src].look : {};
-  const look = Object.fromEntries(['pattern', 'main', 'accent', 'third', 'wingColor', 'showNumber', 'showSponsor', 'sponsorLogo'].filter(k => L[k] !== undefined).map(k => [k, L[k]]));
+  const look = Object.fromEntries(['pattern', 'main', 'accent', 'third', 'wingColor', 'showNumber', 'showSponsor', 'sponsorLogo', 'gloss'].filter(k => L[k] !== undefined).map(k => [k, L[k]]));
   const from = src && liveryPanels(src), P = from && to ? portDecals(L.decals, from, to) : { decals: [], placed: 0, total: (L.decals || []).length };
   if (P.decals.length && L.stickers === 'decals') look.stickers = 'decals'; // (its standard stickers came across as decals)
   return { look: { ...clone(e.team), ...clone(look), decals: P.decals, chassis, design: e.id }, from: src, placed: P.placed, total: P.total };

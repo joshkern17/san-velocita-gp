@@ -33,7 +33,7 @@ try {
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   await pg.goto(`http://127.0.0.1:${PORT}/`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1000);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1000);
   await pg.evaluate(({ track, id }) => { window.__svgp.settings.car = { ...window.__svgp.settings.car, chassis: id }; window.__svgp.dbg.startWeekend(track, { mode: 'race', laps: 3, opponents: 5, pick: false, extra: { car: window.__svgp.settings.car } }, 'setup', 'full', [1800, 600]); }, { track, id });
   await pg.waitForFunction(() => window.__svgp.screen === 's-pitgarage', null, { timeout: 120000 });
   await pg.evaluate(() => window.__svgp.sim.setProgramme('msec'));

@@ -14,7 +14,7 @@ try {
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message)); pg.on('console', m => m.type() === 'error' && !/404/.test(m.text()) && console.log('ERR', m.text()));
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 60000 }); await W(1000);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 60000, polling: 200 }); await W(1000);
   await pg.evaluate(() => __svgp.dbg.openOpening());
   await pg.waitForFunction(() => __svgp.dbg.opening.stage === 'prologue', null, { timeout: 120000 });
   const O = (f, a) => pg.evaluate(f, a);

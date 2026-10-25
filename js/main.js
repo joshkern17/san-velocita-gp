@@ -153,7 +153,7 @@ function applyVideo() {
   setVoiceOn('eng', settings.engVoice !== 'off'); setVoiceOn('booth', settings.commentary !== 'off');
   post.configure({ crt: settings.crt, mode: settings.res, filter: settings.filter, scanlines: settings.scan, trails: settings.trails, retro: settings.retro, palette: settings.palette, grain: settings.grain, rays: settings.rays, fringe: settings.fringe, speedFx: settings.speedFx !== 'off', bypass: settings.look === 'off' });
   applyPsxMaterials(settings.psxMat);
-  setWorldOptions({ shadows: settings.shadows });
+  setWorldOptions({ shadows: settings.shadows, grass: settings.grass || 'lush' });
   try { pitGarage.setShadows(settings.shadows); } catch (e) { /* (not made yet: it reads them when it is) */ }
   FX.dirt = (settings.dirtFx ?? 5) / 5; // (dust and thrown dirt: 0 off, 1 as designed, 2 double)
   document.body.classList.toggle('no-scan', !settings.scan);
@@ -900,6 +900,7 @@ const OPTION_TABS = [
     { label: 'CRT Filter', values: [['off', 'Off'], ['flat', 'Flat'], ['curved', 'Curved']], get: () => settings.crt, set: v => { settings.crt = v; settings.look = 'custom'; applyVideo(); saveSettings(); }, desc: 'Makes the picture look like an old TV. ' + LOOK_DESC },
     { label: 'Scanlines', values: onOff, get: () => settings.scan, set: v => { settings.scan = v; applyVideo(); saveSettings(); }, desc: 'Dark lines across the whole screen, menus included.' },
     { label: 'Shadows', values: onOff, get: () => settings.shadows, set: v => { settings.shadows = v; applyVideo(); saveSettings(); }, desc: 'Real-time shadows. Turn off for speed.' },
+    { label: 'Grass', values: [['off', 'Off'], ['short', 'Short'], ['lush', 'Lush']], get: () => settings.grass || 'lush', set: v => { settings.grass = v; applyVideo(); saveSettings(); }, desc: 'Long grass that moves in the wind, round the circuit and out into the fields. <b>Short</b> draws less of it, closer to you; <b>Off</b> for speed. Changes from the next session.' },
     { label: 'Dirt & Dust', values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => [v, v ? meter(v) : 'OFF']), get: () => settings.dirtFx ?? 5, set: v => { settings.dirtFx = v; applyVideo(); saveSettings(); },
       desc: 'How much dust and dirt the tires throw up on dirt tracks, gravel, grass and sand. <b>Lower</b> it if the dust makes the cars ahead hard to see. Tire smoke on tarmac stays as it is.' },
     { label: 'Light Shafts', values: onOff, get: () => settings.rays, set: v => { settings.rays = v; applyVideo(); saveSettings(); }, desc: 'Sun rays through buildings and trees.' },
@@ -923,7 +924,7 @@ function applyLook(v) {
     retro: { res: 'r288', crt: 'off',  filter: 'sharp', scan: false, retro: 'palette', palette: 128, grain: 'off', fringe: false, psxMat: 'subtle', rays: true, shadows: true },
     crt: { crt: 'flat', res: 'ps2', filter: 'soft', scan: true, retro: 'psx', grain: 'off', fringe: false, psxMat: 'off' },
     film: { res: 'hd', crt: 'off',  filter: 'soft', scan: false, retro: 'off', grain: 'medium', fringe: true, psxMat: 'off' },
-    light: { res: 'r288', crt: 'off',  filter: 'sharp', scan: false, retro: 'psx', grain: 'off', fringe: false, psxMat: 'subtle', rays: false, shadows: false, trails: false },
+    light: { res: 'r288', crt: 'off',  filter: 'sharp', scan: false, retro: 'psx', grain: 'off', fringe: false, psxMat: 'subtle', rays: false, shadows: false, trails: false, grass: 'short' },
     off: { res: 'native', crt: 'off',  filter: 'sharp', scan: false, retro: 'off', grain: 'off', fringe: false, psxMat: 'off' },
   }[v];
   if (L) Object.assign(settings, L);
@@ -2907,10 +2908,10 @@ const endPreviewDone = () => { if (world && world.preview) { world = endPreviewW
 
 // ---- the drive home (js/drivehome.js): the opening's road from the 6twelve to the trailer park, at night ----
 // In 'test' mode (no lights, no timing), the HUD hidden; past the end of the road, back to the opening (the trailer).
-// Your own car if the career has one; otherwise an old Pony GT.
+// Your own car if the career has one; otherwise an old Corvette.
 let drive = null;
 function startDriveHome(back) {
-  const plain = CARS.mustang ? 'mustang' : carsOfClass('street')[0]; // (a Pony GT, not something with a wing)
+  const plain = CARS.corvettec4 ? 'corvettec4' : carsOfClass('street')[0]; // (an old Corvette, not something with a wing)
   const car = world && world.car ? worldCar() : { ...settings.car, chassis: chassisKey(plain) };
   drive = { back, parked: false, done: false };
   startRace(driveHomeTrack(), { mode: 'test', pick: false, extra: { car, ghost: 'off', strategy: false, racingLine: 'off' } }, 'drivehome');

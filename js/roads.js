@@ -131,7 +131,7 @@ function extendToTrack(ss, T, A) {
 // its kerbs sweeping round in curves (fillets) onto the track edge, like a real side street.
 // ss[a] = last sample clear of the racing surface, dir = +1/-1 = which way along the road leads into the track.
 // Marks the samples it replaces (.drop) and the ones that ease their height into the track edge (.blend).
-function makeJunction(ss, a, dir, r, T, A) {
+function makeJunction(ss, a, dir, r, T, A, flareK = 1) {
   const N = T.N, qa = ss[a], qb = ss[a + dir];
   const fa = trackFrame(qa.x, qa.z, T, A), fb = trackFrame(qb.x, qb.z, T, A);
   if (!fa || !fb || fa.gap <= 0) return null;
@@ -147,7 +147,7 @@ function makeJunction(ss, a, dir, r, T, A) {
   const ci = Math.round(fc.f) % N, nox = T.RX[ci] * side, noz = T.RZ[ci] * side; // outward from the track
   const dn = dx * nox + dz * noz;
   if (dn > -0.22) return null; // too shallow (road nearly alongside the track): no sensible corner
-  const hw = r.w / 2, R = Math.max(flareRadius(r.w), (r.walk || 0) + 2), mx = -dz, mz = dx; // (the sidewalk rounds the inside of the curve)
+  const hw = r.w / 2, R = Math.max(flareRadius(r.w), (r.walk || 0) + 2) * flareK, mx = -dz, mz = dx; // (the sidewalk rounds the inside of the curve)
   const corners = [1, -1].map(sg => {
     const px = C[0] + sg * hw * mx, pz = C[1] + sg * hw * mz;
     // where this road edge meets the track edge (straight-edge guess, then refined on the real, curving edge)
@@ -209,6 +209,45 @@ function makeJunction(ss, a, dir, r, T, A) {
   const fE = f0 + Math.abs(span), jbS = ((Math.ceil(f0) - 1) % N + N) % N, jbE = (Math.floor(fE) + 1) % N;
   walks.forEach((w, k) => { w.jb = (k === 0) === (span > 0) ? jbS : jbE; });
   return { side, poly, walks, E, dir, hw, gapE, f0, span: Math.abs(span), n: Math.ceil(Math.abs(span)) + 1, ti: ci, x: C[0], z: C[1] };
+}
+
+// does a closed outline cross itself
+function polyFolds(P) {
+  const n = P.length;
+  const X = (p, q, r, s) => { const d = (q.x - p.x) * (s.z - r.z) - (q.z - p.z) * (s.x - r.x); if (Math.abs(d) < 1e-9) return false; const u = ((r.x - p.x) * (s.z - r.z) - (r.z - p.z) * (s.x - r.x)) / d, v = ((r.x - p.x) * (q.z - p.z) - (r.z - p.z) * (q.x - p.x)) / d; return u > 1e-3 && u < 1 - 1e-3 && v > 1e-3 && v < 1 - 1e-3; };
+  for (let a = 0; a < n; a++) for (let b = a + 2; b < n; b++) if ((b + 1) % n !== a && X(P[a], P[(a + 1) % n], P[b], P[(b + 1) % n])) return true;
+  return false;
+}
+
+// Streets meeting the track at the same spot (an intersection the track turns through: its other arms all reach the
+// track at the corner) are one mouth, as the real intersection is: one paved area over all of them (the hull of
+// their aprons), the curved sidewalk corners only at its two outside ends, the track's edge line broken across the
+// lot. Apart, each street's sidewalk corners ran across the next street's mouth in spikes.
+function mergeMouths(J, T) {
+  const N = T.N, GAP = 1.5; // (m between two mouths that still makes them one)
+  const lo = (j) => j.f0, hi = (j) => j.f0 + j.span;
+  for (const side of [-1, 1]) {
+    const list = J.filter(j => j.side === side).sort((a, b) => a.f0 - b.f0);
+    for (let k = 0; k + 1 < list.length; k++) {
+      const a = list[k], b = list[k + 1], walk = Math.max(a.walk || 0, b.walk || 0);
+      if (wrapD(lo(b) - hi(a), N) * T.ds > GAP + walk * 2 || a.merged || b.merged) continue;
+      // b goes into a: the hull of both aprons (each vertex keeps its own height tag), a's start-side corner and
+      // b's end-side corner, a mouth from a's start to b's end
+      const pts = [...a.poly, ...b.poly], hull = hullXZ(pts);
+      const startW = a.walks.filter(w => w.jb === ((Math.ceil(a.f0) - 1) % N + N) % N), endW = b.walks.filter(w => w.jb === (Math.floor(b.f0 + b.span) + 1) % N);
+      const f0 = a.f0, span = Math.max(a.span, wrapD(hi(b) - a.f0, N));
+      Object.assign(a, { poly: hull, walks: [...startW, ...endW], span, n: Math.ceil(span) + 1, x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 });
+      b.merged = a; list[k + 1] = a; list.splice(k, 1); k--;
+    }
+  }
+  for (let i = J.length - 1; i >= 0; i--) if (J[i].merged) J.splice(i, 1);
+}
+function hullXZ(P) { // (monotone chain; keeps the original vertex objects)
+  const p = P.slice().sort((a, b) => a.x - b.x || a.z - b.z), cr = (o, a, b) => (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x);
+  const lower = [], upper = [];
+  for (const q of p) { while (lower.length > 1 && cr(lower[lower.length - 2], lower[lower.length - 1], q) <= 0) lower.pop(); lower.push(q); }
+  for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (upper.length > 1 && cr(upper[upper.length - 2], upper[upper.length - 1], q) <= 0) upper.pop(); upper.push(q); }
+  return lower.slice(0, -1).concat(upper.slice(0, -1));
 }
 
 const pointInPoly = (x, z, P) => {
@@ -280,7 +319,15 @@ export function roadLayout(track, T, A) {
         }
         for (let q = lo; q <= hi; q++) if (ss[q].on) ss[q].drop = true;
         for (const [a, dir] of contacts) {
-          const jn = makeJunction(ss, a, dir, r, T, A);
+          // (a mouth whose outline crosses itself - its curved corner swung past the point of a sharp track corner, a
+          // fold of paving and sidewalk - is made again with tighter corners: the road's samples put back each time)
+          const keep = ss.map(q => [q.drop, q.blend, q.jend]);
+          let jn = null;
+          for (const k of [1, 0.6, 0.35, 0.15]) {
+            ss.forEach((q, i) => { [q.drop, q.blend, q.jend] = keep[i]; });
+            jn = makeJunction(ss, a, dir, r, T, A, k);
+            if (!jn || !polyFolds(jn.poly)) break;
+          }
           if (!jn) continue;
           Object.assign(jn, { road: ri, kind: r.kind, w: r.w, walk: r.walk || 0, lines: r.lines, gate: m === 'gate', closed: m === 'barrier' });
           junctions.push(jn);
@@ -297,6 +344,7 @@ export function roadLayout(track, T, A) {
     }
     if (cur && cur.s.length >= 2) pieces.push(cur);
   });
+  mergeMouths(junctions, T);
   for (const jn of junctions) { // bounding boxes for hit tests
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
     for (const p of jn.poly) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); }

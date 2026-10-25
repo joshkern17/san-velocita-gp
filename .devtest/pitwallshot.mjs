@@ -15,7 +15,7 @@ try {
   pg.on('pageerror', e => console.log('PAGE ERROR', e.message));
   pg.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') console.log(m.type(), m.text().slice(0, 200)); });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1500);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1500);
   await pg.evaluate(async ([TIME, FH, TRACK]) => {
     const { presetTracks } = await import('/js/track.js');
     const t = TRACK ? presetTracks().find(q => q.name === TRACK) : await (await fetch('/.devtest/auburn2.json')).json(); t.env.weather = 'clear'; t.env.time = TIME; t.env.barrier = 'concrete';

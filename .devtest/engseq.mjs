@@ -15,7 +15,7 @@ try {
   const pg = await b.newPage();
   pg.on('pageerror', e => { bad++; console.log('PAGE ERROR', e.message); });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForFunction(() => window.__svgp.sim && window.__svgp.sim.mode === 'attract', null, { timeout: 60000 }).catch(() => console.log('(no menu background race: going on)')); await pg.waitForTimeout(1500); // (the menu's background race starting stops any voice: after it)
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForFunction(() => window.__svgp.sim && window.__svgp.sim.mode === 'attract', null, { timeout: 60000 }).catch(() => console.log('(no menu background race: going on)')); await pg.waitForTimeout(1500); // (the menu's background race starting stops any voice: after it)
   const r = await pg.evaluate(async () => {
     const vo = await import('/js/vo.js'), au = await import('/js/audio.js'); await vo.voReady();
     au.initAudio();

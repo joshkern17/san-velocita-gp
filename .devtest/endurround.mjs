@@ -19,7 +19,7 @@ try {
   pg.on('pageerror', e => { console.log('PAGE ERROR', e.message); fails++; });
   await pg.addInitScript(() => { navigator.getGamepads = () => []; });
   await pg.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await pg.waitForFunction(() => window.__svgp, null, { timeout: 30000 }); await pg.waitForTimeout(1000);
+  await pg.waitForFunction(() => window.__svgp && window.__svgp.screen, null, { timeout: 30000, polling: 200 }); await pg.waitForTimeout(1000);
   const pre = await pg.evaluate(([w, PER24]) => {
     const S = w.series[w.player.series], k = S.cal.findIndex(c => c.endur);
     w.round = k; S.cal[k].name = 'Maple Ridge GP'; S.cal[k].weather = 'clear'; w.opts.weekend = 'race'; w.opts.endur = PER24;

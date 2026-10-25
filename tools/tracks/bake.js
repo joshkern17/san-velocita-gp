@@ -7,6 +7,7 @@ import { parseOSM, toLocal } from '../../js/geo.js';
 import { orientedRect, polyArea } from '../../js/zones.js';
 import { standLine, straightStands, STAND_GAP } from '../../js/standlines.js';
 import { pitStraightStart } from '../../js/startline.js';
+import { waterPolys, isWater } from '../../js/water.js';
 
 const BRIDGE_CLEAR = 8.5;   // deck over the road below (m)
 const RAMP_GRADE = 0.07;    // how steeply a lifted bridge ramps back to the ground
@@ -119,7 +120,6 @@ export async function bake(inp, log = () => {}) {
   const elements = inp.osm || [];
   const stands = [], rest = [], water = [], wheels = [];
   const isStand = (t) => t.building === 'grandstand' || t.building === 'stadium' || t.leisure === 'stadium' || (t.building && /grandstand|tribune|tribüne|stand\b|スタンド/i.test(t.name || ''));
-  const isWater = (t) => t.natural === 'water' || t.waterway === 'riverbank' || t.landuse === 'reservoir' || t.leisure === 'marina' || (t.water && t.natural !== 'wetland');
   for (const el of elements) {
     const t = el.tags || {};
     if (t.attraction === 'big_wheel') wheels.push(el);
@@ -392,38 +392,6 @@ function standsToProps(stands, geo, T) {
   return { props, lines };
 }
 
-// water ways + multipolygon relations -> [{ p: outer ring, h: [holes] }] in local metres (big areas clipped to the box)
-function waterPolys(els, geo, box) {
-  const out = [], L = (g) => g.map(q => { const [x, z] = toLocal(geo, q.lat, q.lon); return [r1(x), r1(z)]; });
-  const inBox = (p) => p.some(q => q[0] > box[0] - 2000 && q[0] < box[2] + 2000 && q[1] > box[1] - 2000 && q[1] < box[3] + 2000);
-  const thin = (p) => { const o = [p[0]]; for (const q of p) { const l = o[o.length - 1]; if (Math.hypot(q[0] - l[0], q[1] - l[1]) > 3) o.push(q); } return o; };
-  for (const el of els) {
-    if (el.type === 'way' && el.geometry && el.geometry.length > 3) {
-      const p = thin(L(el.geometry)); if (p.length > 3 && inBox(p) && Math.abs(polyArea(p)) > 150) out.push({ p });
-    } else if (el.type === 'relation' && el.members) {
-      const rings = (role) => joinRings(el.members.filter(m => m.type === 'way' && m.role === role && m.geometry).map(m => L(m.geometry)));
-      const holes = rings('inner').map(thin);
-      for (const p0 of rings('outer')) { const p = thin(p0); if (p.length > 3 && inBox(p) && Math.abs(polyArea(p)) > 150) out.push({ p, h: holes.filter(h => h.length > 3) }); }
-    }
-  }
-  return out;
-}
-// chain way pieces end to end into closed rings
-function joinRings(parts) {
-  const rings = [], left = parts.map(p => p.slice());
-  const same = (a, b) => Math.abs(a[0] - b[0]) < 0.5 && Math.abs(a[1] - b[1]) < 0.5;
-  while (left.length) {
-    let ring = left.shift();
-    for (let guard = 0; guard < 500 && !same(ring[0], ring[ring.length - 1]); guard++) {
-      const k = left.findIndex(p => same(p[0], ring[ring.length - 1]) || same(p[p.length - 1], ring[ring.length - 1]));
-      if (k < 0) break;
-      let p = left.splice(k, 1)[0]; if (!same(p[0], ring[ring.length - 1])) p = p.reverse();
-      ring = ring.concat(p.slice(1));
-    }
-    if (ring.length > 3) rings.push(ring.slice(0, -1));
-  }
-  return rings;
-}
 function wheelOf(el, geo, T) {
   let lat, lon, D = parseFloat(el.tags.height) || 0;
   if (el.type === 'node') { lat = el.lat; lon = el.lon; }
