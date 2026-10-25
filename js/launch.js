@@ -15,7 +15,7 @@
 import * as THREE from 'three';
 import { loadPiece, EVENT_AT } from './garagekit.js';
 import { BULB_SCALE } from './pitgarage.js';
-import { makeCharacter, loadCharacters, femaleFace } from './characters.js';
+import { makeCharacter, loadCharacters, femaleFace, faceCount } from './characters.js';
 import { logoForName, logoUrl } from './sponsorlogos.js';
 import * as WC from './wcareer.js';
 import { promiseText } from './wpressday.js';
@@ -139,7 +139,7 @@ export class Launch {
     };
     const me = this.src.me(), mate = this.src.mate();
     this.drivers = [put(makeCharacter({ look: 'racer', clip: 'sit_idle', livery: me.livery, face: me.face, helmet: false, seed: 11 }), 'LAUNCH_SEAT_1'),
-      mate ? put(makeCharacter({ look: 'racer', clip: 'sit_idle', livery: mate.livery, face: mate.face, helmet: false, seed: 23 }), 'LAUNCH_SEAT_2') : null];
+      mate ? put(makeCharacter({ look: 'racer', clip: 'sit_idle', livery: mate.livery, face: (mate.face ?? 0) === (me.face ?? 0) ? ((me.face ?? 0) + 3) % faceCount() : mate.face, helmet: false, seed: 23 }), 'LAUNCH_SEAT_2') : null];   // (never twins at the table)
     this.host = put(makeCharacter({ look: 'polo_navy', clip: 'idle', seed: 5 }), 'LAUNCH_HOST');
     // the press: front rows first, from the aisle out (the 18 seats: rows of six, across)
     const n = this.D.crowd || WC.pressCrowd(this.w), order = [];
