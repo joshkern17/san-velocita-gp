@@ -87,7 +87,7 @@ function savePlan(key, hit) {
 }
 // fitted racing lines (raceline.js), like the plans: kept for the session, the most recent 30 saved in the browser.
 // LINE_VERSION: bump when the line fitting changes (old lines, and the AI plans learned on them, are then redone)
-const LINES_CACHE = new Map(), LINES_KEY = 'svgp.aiLines', LINE_VERSION = 3; // (2: lines use the kerbs, lineMargins; 3: out to the edges, LINE_EDGE)
+const LINES_CACHE = new Map(), LINES_KEY = 'svgp.aiLines', LINE_VERSION = 4; // (2: lines use the kerbs, lineMargins; 3: out to the edges, LINE_EDGE; 4: checked at the AI's grip, tryLine)
 // the line's margins kept to the room (lineMargins), for the fit that doesn't go out over the white lines (checkLine)
 const roomOnly = (mg) => typeof mg.room === 'number' ? { margin: mg.room } : { margins: mg.room };
 const LINE_EDGE = 0.3; // m: the racing line's centre inside the white line (a car's ~0.9 m half width: two wheels over; 0.1 was 0.3 s a lap quicker again, but half as many offs again on the line, Road Atlanta 2026-10-25)
@@ -652,21 +652,24 @@ export class Race {
   // cars (Road Atlanta: RX-7 1.4 s, F1 0.8, 962C 1.2 for the middle of the field) but not all of them (M1 0.7 s slower:
   // two wheels over isn't always kerb), so each car takes the edges only where it's quicker on them.
   checkLine(id, base, fit, fitRoom) { return this.pickLine(id, [this.tryLine(id, base), this.tryLine(id, fit), ...(fitRoom ? [this.tryLine(id, fitRoom)] : [])]); }
-  // the AI learns a line in the real physics and does a clean lap on it
+  // the AI learns a line in the real physics and does a clean lap on it, at the grip and power it races with (the
+  // level's edge, lineGrip): the line is the AI's. At the player's grip the M1's line out to the edge was 0.3 s quicker
+  // at Road Atlanta and at Phantom's (grip 1.09, power 1.06) 0.4 s slower, the race 0.6 (2026-10-25)
+  lineGrip() { return this.mode === 'test' || !this.diff ? { grip: 1, power: 1 } : { grip: this.diff.grip, power: this.diff.power }; }
   tryLine(id, O) {
-    const savedCars = this.cars, savedLine = this.line;
+    const savedCars = this.cars, savedLine = this.line, { grip, power } = this.lineGrip(), lk = grip === 1 ? id : `${id}|g${grip}`;
     this.cars = this.cars || []; this.line = O; this.limits = {};
-    const V = this.learnLimits(this.forTrack(CARS[id].spec), 1), meta = { w: this.wearPerM, g: this.refGrip }, rounds = this.learnRounds;
-    this.limits[id] = V; (this.limitMeta ||= {})[id] = meta;
-    const t = this.simLap(id, { tyre: this.condTyre() });
+    const V = this.learnLimits(this.forTrack(CARS[id].spec), grip), meta = { w: this.wearPerM, g: this.refGrip }, rounds = this.learnRounds;
+    this.limits[lk] = V; (this.limitMeta ||= {})[id] = meta;
+    const t = this.simLap(id, { tyre: this.condTyre(), grip, power });
     this.cars = savedCars; this.line = savedLine;
     return { O, V, meta, rounds, t };
   }
   // the quickest of the tries (smooth, fitted, fitted to the room), and its plan kept so the race doesn't learn it again
   pickLine(id, tries) {
-    const win = tries.reduce((a, b) => b.t < a.t ? b : a);
-    this.limits = { [id]: win.V }; this.limitMeta[id] = win.meta; this.learnRounds = win.rounds;
-    const key = this.limitsKey(id, id), hit = { V: win.V, meta: win.meta, rounds: win.rounds }; // (its own line: it's the main car)
+    const win = tries.reduce((a, b) => b.t < a.t ? b : a), { grip } = this.lineGrip();
+    this.limits = { [grip === 1 ? id : `${id}|g${grip}`]: win.V }; this.limitMeta[id] = win.meta; this.learnRounds = win.rounds;
+    const key = this.limitsKey(id, id) + (grip === 1 ? '' : `|g${grip}`), hit = { V: win.V, meta: win.meta, rounds: win.rounds }; // (its own line: it's the main car)
     if (!this.opts.freshPlans) { LIMITS_CACHE.set(key, hit); savePlan(key, hit); }
     this.lineCheckT = tries.map(x => x.t); // (dev benches: smooth vs fitted vs fitted to the room)
     return win.O;
