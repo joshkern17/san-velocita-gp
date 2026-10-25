@@ -39,7 +39,7 @@ import * as CAREER from './career.js';
 import * as WCX from './wcareer.js';
 // co-op: on the friend's copy every change to the career (WC_OPS) runs there at once, so the screens answer, and is
 // sent to the host, whose copy is the career (coopSend / coopHostMessage 'op'); the host's copy comes back a moment later
-const WC_OPS = new Set(['acquireCar', 'buyCar', 'buyCar2', 'buyFit', 'newPart', 'rebuildPart', 'rebuildSelf', 'startProject', 'workOnProject', 'buildFacility', 'sellFacility', 'sellCar',
+const WC_OPS = new Set(['acquireCar', 'buyCar', 'buyCar2', 'buyCar2Model', 'buyFit', 'newPart', 'rebuildPart', 'rebuildSelf', 'startProject', 'workOnProject', 'buildFacility', 'sellFacility', 'sellCar',
   'orderTyres', 'hireStaff', 'fireStaff', 'payBack', 'setPay', 'applyLoan', 'sellAnnuity', 'offerDriver', 'extendMate', 'setMatePay', 'setCar2Fix', 'removeFit', 'removeGrey',
   'answerSponsor', 'answerWorks', 'answerInvestor', 'answerBuyout', 'answerPoach', 'answerGent', 'answerStory', 'answerOffer', 'rsvpEvent', 'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan', 'coopAnswer', 'sellCar2']);
 const WC = new Proxy(WCX, { get(m, k) {
@@ -52,7 +52,7 @@ const WC = new Proxy(WCX, { get(m, k) {
 } });
 // (what the co-owner may do on their own: their car, the cars' upgrades, repairs and development, the tyres, their own
 // days; the team's business (staff, facilities, money, sponsors, the season) is the host's)
-const GUEST_OPS = new Set(['buyCar2', 'setCar2Fix', 'buyFit', 'removeFit', 'startProject', 'workOnProject', 'orderTyres', 'rebuildPart', 'newPart', 'rebuildSelf', 'sellCar2',
+const GUEST_OPS = new Set(['buyCar2', 'buyCar2Model', 'setCar2Fix', 'buyFit', 'removeFit', 'startProject', 'workOnProject', 'orderTyres', 'rebuildPart', 'newPart', 'rebuildSelf', 'sellCar2',
   'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan', 'coopAnswer']);
 import { Phone } from './phone.js';
 import { Net, PROTO } from './net.js';
@@ -2280,6 +2280,7 @@ const pc = new Computer({
   drivers: (what, arg) => {
     if (what === 'c2fix') { WC.setCar2Fix(world, arg); saveWorld(); return; }
     if (what === 'c2buy') { if (WC.buyCar2(world, arg)) sfx.best(); else sfx.error(); saveWorld(); renderHub(); return; }
+    if (what === 'c2own') { if (WC.buyCar2Model(world, arg)) sfx.best(); else { sfx.error(); toast('Not enough in the team account.'); } saveWorld(); renderHub(); return; }
     if (what === 'pay') WC.setMatePay(world, arg);
     else if (what === 'mextend') { WC.extendMate(world); sfx.best(); }
     else { const r = WC.offerDriver(world, arg, what === 'dlow'); if (!r.ok) { toast(r.why, 5000); sfx.back(); } else { sfx.best(); renderHub(); } }
@@ -3107,7 +3108,9 @@ function closeWorldGarage() {
 // the car in the bay is your car for this series; the room is your garage model
 function hubCar() {
   const cls = WC.seriesById(world.player.series).cls, car = worldCar();
-  return CARS[carId(car)]?.cls === cls ? car : { ...car, chassis: chassisKey(carsOfClass(cls)[0]) };
+  // (the car you own, even when it isn't eligible here (just moved up: the old one until you buy); the class's first
+  // car only when there's nothing of yours to show)
+  return CARS[carId(car)]?.cls === cls || (world.car && CARS[carId(car)]) ? car : { ...car, chassis: chassisKey(carsOfClass(cls)[0]) };
 }
 // what's in the garage at home (js/garagekit.js): your premises, the facilities you've bought (each one a station in the
 // room) and car two in the second bay
@@ -3446,7 +3449,7 @@ function renderHubMenu() {
   if (!F.reg) items.push({ label: 'Register The Team', cls: 'action primary', action: () => sitDown('registry'), desc: 'Form SV-1, on the computer.' });
   else if (claim) items.push({ label: 'Claim Your Winnings', cls: 'action primary', action: () => sitDown('mail', claim.id), desc: 'The State Lottery needs to know how you want your money. It\'s waiting in your email.' });
   else if (!WC.setupDone(w)) items.push(WC.setupKind(w) === 'season'
-    ? { label: 'Set Up The Season', cls: 'action primary', action: () => openTeamSetup(), desc: `${WC.needsCar(w) ? 'A car for the ' + seriesName(sid) + ', ' : ''}who pays for the second car${w.setup.sponsors.length ? ', a title sponsor' : ''}, and the season's money. Nothing is spent until you start the season.` }
+    ? { label: 'Set Up The Season', cls: 'action primary', action: () => openTeamSetup(), desc: `${[WC.needsCar(w) && 'a car for the ' + seriesName(sid), WC.setupSteps(w).includes('car2') && `${WC.coopPerson(w)?.first || 'your co-owner'}'s car`, WC.setupSteps(w).includes('seat') && 'who pays for the second car', w.setup.sponsors.length && 'a title sponsor'].filter(Boolean).concat(["the season's money"]).join(', ').replace(/^./, c => c.toUpperCase()).replace(/, ([^,]+)$/, ' and $1')}. Nothing is spent until you start the season.` }
     : { label: 'Set Up The Team', cls: 'action primary', action: () => openTeamSetup(), desc: 'How you get in, the car, a title sponsor and your second driver. Nothing is spent until you start the season.' });
   else if (!F.car) items.push({ label: 'Buy A Car', cls: 'action primary', action: () => sitDown('classifieds'), desc: 'Danny sent you some listings. They\'re on the computer.' });
   else if (!w.over && WC.payrollShort(w)) items.push({ label: 'Sort Out Payroll', cls: 'action primary', action: () => sitDown('staff'), desc: `Payroll is ${WC.money$(WC.payrollDue(w))} and you have ${WC.money$(w.money.balance)}. Decide who gets paid (Team, on the computer: the Staff tab).` });
@@ -3823,6 +3826,7 @@ function startWorldRound() {
   for (const e of Object.values(ent.entries)) if (e.mate) e.livery = { ...wc, number: (wc.number || 7) % 99 + 1 };
   const clsCars = carsOfClass(WC.seriesById(sid).cls);
   for (const e of Object.values(ent.entries)) e.chassis = WC.seriesById(sid).cls === 'f1' ? 'custom' : WC.teamChassis(w, e.tid, clsCars.map(chassisKey));
+  { const ch = WC.car2Chassis(w); for (const e of Object.values(ent.entries)) if (e.mate && ch && clsCars.some(c => chassisKey(c) === ch) && ch !== e.chassis) { e.chassis = ch; e.livery = car2Look({ ...e.livery }); } } // (car two on its own model: co-op, the co-owner's pick)
   // race only: the grid in championship order after round 1 (pid -> slot)
   let gridOrder = null;
   if (w.round > 0 && w.opts.weekend === 'race') {
@@ -3913,6 +3917,9 @@ function roundLicRows(w, me, rep0, lic0) {
 }
 function worldRoundDone(retired = false) {
   const w = world; if (!w || !sim) return;
+  // (a race is scored once: co-op's End Race Now stayed on the results menu after the round was scored, and each press
+  // scored the same race again as the next round, to the end of the season)
+  if (sim.scored || w.over || !w.series[w.player.series].cal[w.round]) return; sim.scored = true;
   let res = sim.results();
   if (retired) { const me = res.find(r => r.isPlayer); res = res.filter(r => !r.isPlayer).concat([{ ...me, gap: 'DNF', time: null, dnf: true }]); res.forEach((r, k) => r.pos = k + 1); }
   const sid = w.player.series, round = w.round, trackName = w.series[sid].cal[round].name;
@@ -4070,10 +4077,10 @@ function coopDayChoices(w) {
   out.push(...togetherChoices(w, 'C').filter(o => o.key === 'yes'));
   out.push({ key: 'work', short: 'Work', tag: `+${$(j.pay)}`, mcls: 'gain', head: j.name, desc: `Your pay goes in the team account.${w.coop.boss ? ` ${w.coop.boss} sponsors you: turn up for at least one shift a week, or they pay the team half.` : ''}`,
     money: `+${$(j.pay)}`, effect: w.coop.boss ? 'Pays, and keeps your boss sweet' : 'Pays the team', run: day('work') });
-  if (c2 && ['match', 'old'].includes(c2.kind) && c2.cond < 0.99) out.push({ key: 'fix', short: 'Your car', tag: `−${$(WC.coopCarCost(w))}`, mcls: 'neg', head: 'Work on your car', desc: 'Parts from the team account, and your day. Car two gets better for the weekend.',
+  if (WC.car2Owned(c2) && c2.cond < 0.99) out.push({ key: 'fix', short: 'Your car', tag: `−${$(WC.coopCarCost(w))}`, mcls: 'neg', head: 'Work on your car', desc: 'Parts from the team account, and your day. Car two gets better for the weekend.',
     money: `−${$(WC.coopCarCost(w))}`, mcls: 'neg', effect: `Car two ${Math.round(c2.cond * 100)}% &rarr; ${Math.round(Math.min(1, c2.cond + 0.15) * 100)}%`,
     vis: { type: 'bar', label: 'Car two', from: c2.cond, to: Math.min(1, c2.cond + 0.15), text: `${Math.round(c2.cond * 100)}% → ${Math.round(Math.min(1, c2.cond + 0.15) * 100)}%` }, run: day('car') });
-  else if (c2 && !['match', 'old'].includes(c2.kind)) out.push({ key: 'buy', icon: 'fix', short: 'Your car', tag: 'Computer', head: 'Buy your own car', desc: `You race ${c2.kind === 'lease' ? 'a leased car' : WC.car2Hire(w)}. Buy one on the computer (Team, Drivers: car two), and then you can work on it yourself.`,
+  else if (c2 && !WC.car2Owned(c2)) out.push({ key: 'buy', icon: 'fix', short: 'Your car', tag: 'Computer', head: 'Buy your own car', desc: `You race ${c2.kind === 'lease' ? 'a leased car' : WC.car2Hire(w)}. Buy one on the computer (Team, Drivers: car two), and then you can work on it yourself.`,
     money: 'On the computer', time: 'Doesn\'t use the day', effect: 'Opens the computer', go: true, goLabel: 'To the computer', run: () => sitDown('drivers') });
   if (x) { const pg = x.prog || 0, add = 1 + WC.facLevel(WC.myTeam(w), 'tools') * 0.25;
     out.push({ key: 'proj', short: 'Car work', tag: `${Math.round(pg / x.days * 100)}%`, head: `Work on: ${x.name}`, desc: 'A day on the team\'s development project.', money: 'Free', effect: `${pg.toFixed(1)} &rarr; ${Math.min(x.days, pg + add).toFixed(1)} of ${x.days} days`,
@@ -4905,9 +4912,18 @@ function coopTakeWorld(nw) {
   Object.assign(world, nw);
 }
 function coopRedraw() { if (screen !== 's-hub' || !world) return; renderHub(); if (pcSeat) pc.render?.(); }
-// the friend's car: the team's, with their number (and their boss's name on it, if that's how they bought in)
+// car two's look: the team's livery, on its own model if it has one (co-op: the co-owner's pick, WC.car2Chassis) with
+// that model's saved livery (no decals until it has one: they're drawn for another body)
+function car2Look(c) {
+  const ch = WC.car2Chassis(world); if (!ch || c.chassis === ch) return c;
+  const L = world.liveries && world.liveries[ch];
+  if (L) { for (const k of CAR_LOOK) delete c[k]; Object.assign(c, JSON.parse(JSON.stringify(L))); } else { c.decals = []; delete c.stickers; delete c.design; }
+  c.chassis = ch; return c;
+}
+// the friend's car: the team's (or the model they picked for car two), with their number (and their boss's name on
+// it, if that's how they bought in)
 function coopCar() {
-  const w = world, c = { ...worldCar(), number: w.coop.number };
+  const w = world, c = car2Look({ ...worldCar(), number: w.coop.number });
   if (w.coop.boss) { let n = ''; for (const wd of w.coop.boss.toUpperCase().split(' ')) { if ((n + ' ' + wd).trim().length > 14) break; n = (n + ' ' + wd).trim(); } c.sponsor = n; }
   return c;
 }
@@ -5162,7 +5178,7 @@ function renderCoopLive() {
   const other = sim.cars.find(c => c.human && c !== sim.player), out = !other || other.finished || other.gone;
   $('results-table').insertAdjacentHTML('afterbegin', `<caption class="live">${!out ? `Race in progress &middot; waiting for ${other.name} to finish&hellip;` : coop.host ? 'Scoring the round&hellip;' : `Waiting for ${world.player.name.split(' ')[0]} to score the round&hellip;`}</caption>`);
   const items = coop.host
-    ? [{ label: 'End Race Now', confirm: 'End it for both of you? Select again', action: () => { const r = coop.race && coop.race.wait; if (coop.race) coop.race.wait = null; worldRoundDone(!!(r && r.retired)); }, desc: 'Score the round now: anyone still running is classified where they are.' }]
+    ? [{ label: 'End Race Now', confirm: 'End it for both of you? Select again', action: () => { if (!coop.race || coop.race.done) return; const r = coop.race.wait; coop.race.wait = null; worldRoundDone(!!(r && r.retired)); }, desc: 'Score the round now: anyone still running is classified where they are.' }]
     : [{ label: 'Leave Session', confirm: 'Leave? Select again', action: () => leaveOnline(), desc: 'Leave the career and go back to the main menu.' }];
   const mm = menus['s-results'][0], i = mm.i; mm.setItems(items); mm.i = Math.min(i, items.length - 1); mm.render();
 }

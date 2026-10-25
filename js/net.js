@@ -2,7 +2,7 @@
 // Star topology: the host's browser is the hub. Every client simulates its own car and
 // streams its state; the host also runs the AI cars and relays everyone's state.
 // The public PeerJS broker is only used to introduce the two browsers (room code -> peer).
-export const PROTO = 29; // 4: point-to-point tracks, 5: tree mixes / Nature brush / new tree models, 6: GT / street / utility cars online, 7: race control (flags, penalties), 8: car pick on the grid + drift scores, 9: VSC / drive-throughs / black flags, 10: handling rework (tyres, braking, drift control), 11: steering kept under braking (absF), 12: driver aids + host aid rule, 13: longer pit lane (garages further in, entry line at the wall), 14: braking pitch tapers at high speed (GT cars no longer swap ends braking into fast kinks), 15: spinning wheels (slip ratio, real ABS / TC, lock-ups, engine braking), 16: full weight transfer under power, stability control engine cut, 17: four tyres on a sprung body (suspension, per-wheel kerbs / grass), stability control braking, 18: suspension geometry (roll centres, anti-dive / squat), firmer damping, tyre enveloping, lower sidewalks, 19: aero map + limited-slip diffs, drift carve / push and AI carve removed, 20: smoother traction control, GT diffs without power lock + softer rear bar (fishtailing fix), 21: pit entries kept off tight corners (Pinewood's pit lane moved), 22: real-world circuits (sent light, scenery loaded from each player's copy), 23: rigid-body contact (car boxes, mass, spin from where a car is hit; walls the same), 24: runoff surfaces (paved runoff, gravel traps, wider runoff at fast corners, painted runoff), 25: combined-slip tyres read each direction's own curve under the peak (no weaving on the straights under power), 26: dirty air (following closely costs downforce), 27: the track rubbers in (grip on the line grows through a session; slick in the wet), 28: tyre temperatures (host setting), 29: the start waits for everyone to lock in (no timers); co-op World Career
+export const PROTO = 30; // 4: point-to-point tracks, 5: tree mixes / Nature brush / new tree models, 6: GT / street / utility cars online, 7: race control (flags, penalties), 8: car pick on the grid + drift scores, 9: VSC / drive-throughs / black flags, 10: handling rework (tyres, braking, drift control), 11: steering kept under braking (absF), 12: driver aids + host aid rule, 13: longer pit lane (garages further in, entry line at the wall), 14: braking pitch tapers at high speed (GT cars no longer swap ends braking into fast kinks), 15: spinning wheels (slip ratio, real ABS / TC, lock-ups, engine braking), 16: full weight transfer under power, stability control engine cut, 17: four tyres on a sprung body (suspension, per-wheel kerbs / grass), stability control braking, 18: suspension geometry (roll centres, anti-dive / squat), firmer damping, tyre enveloping, lower sidewalks, 19: aero map + limited-slip diffs, drift carve / push and AI carve removed, 20: smoother traction control, GT diffs without power lock + softer rear bar (fishtailing fix), 21: pit entries kept off tight corners (Pinewood's pit lane moved), 22: real-world circuits (sent light, scenery loaded from each player's copy), 23: rigid-body contact (car boxes, mass, spin from where a car is hit; walls the same), 24: runoff surfaces (paved runoff, gravel traps, wider runoff at fast corners, painted runoff), 25: combined-slip tyres read each direction's own curve under the peak (no weaving on the straights under power), 26: dirty air (following closely costs downforce), 27: the track rubbers in (grip on the line grows through a session; slick in the wet), 28: tyre temperatures (host setting), 29: the start waits for everyone to lock in (no timers); co-op World Career, 30: Infinity sent as a marker on the reliable channel (no "Invalid integer")
 const PREFIX = 'svgp-gp1-';
 const ICE = [
   { urls: 'stun:stun.l.google.com:19302' },
@@ -86,6 +86,7 @@ export class Net {
     if (c.label === 'fast') e.fast = c; else e.rel = c;
     c.on('data', (m) => {
       if (!m || typeof m !== 'object') return;
+      if (c.label !== 'fast') unInf(m);
       if (m.t === 'ping') { this.sendTo(pid, { t: 'pong', c: m.c, h: performance.now() }); e.rtt = m.rtt || e.rtt; return; }
       if (m.t === 'st') { // relay car state to everybody else
         for (const [id, o] of this.conns) if (id !== pid) sendFast(o, m);
@@ -132,6 +133,7 @@ export class Net {
         rel.on('open', ready); fast.on('open', ready);
         const onData = (m) => {
           if (!m || typeof m !== 'object') return;
+          unInf(m);
           if (m.t === 'pong') return this.onPong(m);
           if (m.t === 'st') return this.emit('state', m, m.from);
           this.emit('message', m, hostId);
@@ -160,10 +162,11 @@ export class Net {
 
   // ---------------- sending ----------------
   send(m) { // reliable: host -> everyone, client -> host
+    m = inf(m);
     if (this.isHost) { for (const [, o] of this.conns) if (o.rel && o.rel.open) o.rel.send(m); }
     else if (this.rel && this.rel.open) this.rel.send(m);
   }
-  sendTo(pid, m) { const o = this.conns.get(pid); if (o && o.rel && o.rel.open) o.rel.send(m); }
+  sendTo(pid, m) { const o = this.conns.get(pid); if (o && o.rel && o.rel.open) o.rel.send(inf(m)); }
   sendState(m) { // unreliable, fire and forget
     m.from = this.id;
     if (this.isHost) { for (const [, o] of this.conns) sendFast(o, m); }
@@ -182,8 +185,31 @@ export class Net {
 
 function sendFast(o, m) {
   const c = o.fast && o.fast.open ? o.fast : o.rel && o.rel.open ? o.rel : null;
-  if (c) try { c.send(m); } catch (e) {}
+  if (c) try { c.send(c === o.rel ? inf(m) : m); } catch (e) {}
 }
+// The reliable channel packs binary (PeerJS BinaryPack), which throws "Invalid integer" on Infinity (a lap or sector
+// time nobody's set yet, a 'when' never): those go as a marker and come back as Infinity on the other side (inf /
+// unInf). The fast channel is JSON (Infinity arrives as null), as it always was.
+const P_INF = '\u0000+inf', N_INF = '\u0000-inf';
+const bin = (o) => o instanceof ArrayBuffer || ArrayBuffer.isView(o) || (typeof Blob !== 'undefined' && o instanceof Blob);
+function hasInf(o) {
+  if (typeof o === 'number') return o === Infinity || o === -Infinity;
+  if (!o || typeof o !== 'object' || bin(o)) return false;
+  for (const k in o) if (hasInf(o[k])) return true;
+  return false;
+}
+function encInf(o) {
+  if (o === Infinity) return P_INF; if (o === -Infinity) return N_INF;
+  if (!o || typeof o !== 'object' || bin(o)) return o;
+  if (Array.isArray(o)) return o.map(encInf);
+  const r = {}; for (const k in o) r[k] = encInf(o[k]); return r;
+}
+const inf = (m) => hasInf(m) ? encInf(m) : m; // (a copy only when there's something to change)
+function unInf(o) {
+  if (!o || typeof o !== 'object' || bin(o)) return;
+  for (const k in o) { const v = o[k]; if (v === P_INF) o[k] = Infinity; else if (v === N_INF) o[k] = -Infinity; else if (v && typeof v === 'object') unInf(v); }
+}
+export const _netInf = { inf, unInf }; // (for .devtest)
 function errText(e) {
   const t = e && e.type;
   if (t === 'peer-unavailable') return 'No room with that code. Check it with your friend (codes are 5 characters).';

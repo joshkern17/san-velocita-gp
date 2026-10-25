@@ -13,7 +13,7 @@ import { faceHTML } from './drivers.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hex = (c) => '#' + ((c ?? 0x888888) >>> 0).toString(16).padStart(6, '0');
-const NAME = { entry: 'How you get in', car: 'The car', sponsor: 'Title sponsor', mate: 'Second driver', seat: 'Second seat', ready: 'Ready' };
+const NAME = { entry: 'How you get in', car: 'The car', car2: 'Car two', sponsor: 'Title sponsor', mate: 'Second driver', seat: 'Second seat', ready: 'Ready' };
 // (what each kind of second-seat deal asks of you, in a line each)
 const SEAT_COSTS = {
   gent: ['A day of your week each round, coaching', 'Crashes: you pay car 2\'s repairs', 'Might walk after a big one'],
@@ -63,7 +63,8 @@ export class TeamSetup {
     setTimeout(() => this.el.classList.remove('enter'), 1400);
     this.render(0);
     // (the classifieds' photos take a moment to render: do them now, while you read the first step)
-    if (!this.season) setTimeout(() => { if (this.isOpen) (w.ads || []).forEach(a => this.src.photo(a)); }, 1500);
+    const ads = this.season ? (w.setup.cars || []).filter(x => x.how === 'ad').map(x => x.c) : (w.ads || []);
+    setTimeout(() => { if (this.isOpen) ads.forEach(a => this.src.photo(a)); }, 1500);
   }
   close(done = false) {
     if (!this.isOpen) return;
@@ -119,6 +120,7 @@ export class TeamSetup {
     if (step === 'entry') return WC.setupEntries(w).map(e => ({ val: e.key, ...this.leaves(step, e.key) }));
     if (step === 'car' && this.season) return S.cars.map((o, i) => ({ val: i, ...this.leaves(step, i) }));
     if (step === 'seat') return S.seats.map((d, i) => ({ val: i, ...this.leaves(step, i) }));
+    if (step === 'car2') return ['', ...WC.car2Models(w).map(m => m.key)].map(k => ({ val: k, ...this.leaves(step, k) })); // (co-op: keep car two, or the co-owner's pick)
     if (step === 'car') return (w.ads || []).map(a => ({ val: a.id, ...this.leaves(step, a.id) }));
     if (step === 'sponsor') return S.sponsors.map((o, i) => ({ val: i, ...this.leaves(step, i) }));
     if (step === 'mate') return S.drivers.filter(pid => w.people[pid]).map(pid => ({ val: pid, ...this.leaves(step, pid) }));
@@ -161,7 +163,9 @@ export class TeamSetup {
   question(step) {
     const kept = this.w.setup.picks.entry === 'takeover', S = this.w.setup, sn = WC.seriesById(this.w.player.series).name;
     if (this.season) return {
-      car: ['Pick a car', `Cars must be homologated for the ${sn}. A lease is a deposit now and a payment every round; buying is all of it now. Your old car is traded in.`],
+      car: S.cars[0]?.how === 'ad' ? ['Pick a car', `Your old car isn't eligible for the ${sn}. These are off the classifieds; the dealer takes the old one in part exchange. A tired car is down on power.`]
+        : ['Pick a car', `Cars must be homologated for the ${sn}. A lease is a deposit now and a payment every round; buying is all of it now. Your old car is traded in.`],
+      car2: [`${WC.coopPerson(this.w)?.first || 'Your co-owner'}'s car`, `Car two doesn't have to be a car like yours. Any car homologated for the ${sn}, bought from the team account.`],
       seat: ['Who pays for the second car?', 'Every deal pays its way differently: money now, or a driver whose prize money pays later. Pace is what decides where car 2 finishes.'],
       sponsor: ['Choose a title sponsor', `Bigger companies follow the ${sn}. The one you choose sets a target for every race.`],
       ready: [`Ready for the ${this.w.year} season`, 'Check it over. Nothing is bought or signed until the lights go out.'],
@@ -176,6 +180,7 @@ export class TeamSetup {
   }
   card(step, o, i) {
     const w = this.w, S = w.setup, $ = WC.money$;
+    if (this.season && step === 'car' && S.cars[i].how === 'ad') return this.adCard(S.cars[i].c);
     if (this.season && step === 'car') {
       const x = S.cars[i], c = x.c, how = { lease: 'Lease', used: 'Last year\'s, ex-works', buy: 'New' }[x.how];
       // (backed by a maker: which cars keep the support, which end it)
@@ -184,6 +189,14 @@ export class TeamSetup {
         ${x.how === 'lease' ? `<div class="tsw-kpis"><div><small>A round</small><b>${$(c.perRound)}</b></div><div><small>Season</small><b>${$(c.deposit + c.perRound * w.opts.len)}</b></div></div>` : ''}
         ${c.hp ? stat('Power', `${c.hp} hp`, c.hp / 700) + stat('Weight', `${c.kg} kg`, 1 - (c.kg - 900) / 600) : ''}${x.how === 'used' ? stat('Condition', `${Math.round(c.cond * 100)}%`, c.cond) : ''}
         ${works || `<p class="tsw-blurb">${esc(x.how === 'used' ? `From ${c.team}, a season old.` : c.note || '')}</p>`}<p class="tsw-seller">${esc(c.prog || '')}</p>`;
+    }
+    if (step === 'car2') {
+      // (laid out like a classifieds card: the photo, name and price on one line, the numbers, a line under)
+      const m = o.val && WC.car2Models(w).find(x => x.key === o.val), c2 = WC.car2Of(w), key = m ? m.key : c2?.kind === 'own' ? c2.chassis : null;
+      const c = key && this.src.carInfo(key), ph = key && this.src.photo({ id: `c2${9000 + i}`, chassis: key, color: WC.myTeam(w)?.main });
+      return `${ph ? `<img class="tsw-photo" src="${ph}">` : '<div class="tsw-photo none"></div>'}<div class="tsw-hrow"><h3>${esc(m ? m.name : c2 ? c2.name : '')}</h3><div class="tsw-price">${$(m ? m.price : 0)}</div></div>
+        ${c ? stat('Power', `${c.hp} hp`, c.hp / 450) + stat('Weight', `${c.kg} kg`, 1 - (c.kg - 1100) / 700) : ''}
+        <p class="tsw-blurb">${!m ? 'Keep car two as it is.' : WC.car2Sale(w) ? `The car two you have now sells for ${$(WC.car2Sale(w))}.` : 'Theirs to race, the team\'s to pay for.'}</p><p class="tsw-seller">${m ? `${esc(WC.coopPerson(w)?.first || '')}'s pick` : 'Keep'}</p>`;
     }
     if (step === 'seat') {
       const d = S.seats[i], K = WC.SEAT_KINDS[d.kind], ps = d.pids.map(pid => w.people[pid]).filter(Boolean), L = w.opts.len;
@@ -200,13 +213,7 @@ export class TeamSetup {
       return `<div class="tsw-top">${tag(e.level, e.key === 'fresh' ? 'bad' : e.key === 'running' ? 'good' : '')}</div><h3>${esc(e.name)}</h3><div class="tsw-price">${e.cost ? $(e.cost) : 'Free'}</div>
         <p class="tsw-blurb">${esc(e.blurb)}</p><ul class="tsw-gets">${e.gets.map(g => `<li>${esc(g)}</li>`).join('')}</ul>`;
     }
-    if (step === 'car') {
-      const ad = (w.ads || [])[i], c = this.src.carInfo(ad.chassis), ph = this.src.photo(ad);
-      return `${ph ? `<img class="tsw-photo" src="${ph}">` : '<div class="tsw-photo none"></div>'}<div class="tsw-hrow"><h3>${ad.year} ${esc(ad.name)}</h3><div class="tsw-price">${$(ad.price)}</div></div>
-        ${stat('Condition', esc(WC.condName(ad.cond)), ad.cond)}${c ? stat('Power', `${c.hp} hp`, c.hp / 450) + stat('Weight', `${c.kg} kg`, 1 - (c.kg - 1100) / 700) : ''}
-        <p class="tsw-blurb q" title="${esc(ad.blurb)}">&ldquo;${esc(ad.blurb)}&rdquo;</p><p class="tsw-seller">${esc(ad.seller)}${ad.tip ? ` &middot; <b class="tsw-danny">Danny: &ldquo;${esc(ad.tip)}&rdquo;</b>` : ''}</p>`;
-    }
-    if (step === 'sponsor') {
+    if (step === 'car') return this.adCard((w.ads || [])[i]);    if (step === 'sponsor') {
       const x = S.sponsors[i], sp = WC.sponsorInfo(x.sid), logo = this.src.logo(x.sid);
       return `<div class="tsw-top">${tag(esc(x.tag), x.hosp ? '' : i === 0 ? 'bad' : i === 2 ? 'good' : '')}</div>${logo ? `<img class="tsw-logo" src="${logo}">` : ''}<h3>${esc(sp.name)}</h3>
         <div class="tsw-kpis"><div><small>A round</small><b>${$(x.fee)}</b></div><div><small>Target bonus</small><b>${$(x.bonus)}</b></div><div><small>Signing</small><b>${x.signing ? $(x.signing) : '&mdash;'}</b></div></div>
@@ -222,6 +229,13 @@ export class TeamSetup {
       ${st('Pace', p.pace)}${st('Consistency', p.cons)}${st('Racecraft', p.craft)}${st('Wet', p.wet)}${st('Aggression', p.aggr)}
       <div class="tsw-pot"><span>Potential</span><i><b style="left:${lo}%;width:${Math.max(3, hi - lo)}%"></b><u style="left:${p.pace}%"></u></i><em>${lo}&ndash;${hi}</em></div>
       <div class="tsw-cost"><span>${a.fee ? 'Seat money' : 'Wage'}</span><span class="tsw-pay">${cost}</span></div>`;
+  }
+  // a car off the classifieds: its photo, the price, how tired it is, the seller's pitch (and Danny's word on it)
+  adCard(ad) {
+    const $ = WC.money$, c = this.src.carInfo(ad.chassis), ph = this.src.photo(ad);
+    return `${ph ? `<img class="tsw-photo" src="${ph}">` : '<div class="tsw-photo none"></div>'}<div class="tsw-hrow"><h3>${ad.year} ${esc(ad.name)}</h3><div class="tsw-price">${$(ad.price)}</div></div>
+        ${stat('Condition', esc(WC.condName(ad.cond)), ad.cond)}${c ? stat('Power', `${c.hp} hp`, c.hp / 450) + stat('Weight', `${c.kg} kg`, 1 - (c.kg - 1100) / 700) : ''}
+        <p class="tsw-blurb q" title="${esc(ad.blurb)}">&ldquo;${esc(ad.blurb)}&rdquo;</p><p class="tsw-seller">${esc(ad.seller)}${ad.tip ? ` &middot; <b class="tsw-danny">Danny: &ldquo;${esc(ad.tip)}&rdquo;</b>` : ''}</p>`;
   }
   // the last step: the team, and every number
   ready() {
@@ -248,7 +262,7 @@ export class TeamSetup {
       <div class="tsw-team"><div class="tsw-sw"><i style="background:${hex(t.main)}"></i><i style="background:${hex(t.accent)}"></i></div><h4>${esc(t.name)}</h4>
         <p>${esc(WC.seriesById(w.player.series).name)} ${w.year}</p>${sp && this.src.logo(sp.sid) ? `<img class="tsw-logo" src="${this.src.logo(sp.sid)}">` : ''}</div>
       <div class="tsw-rows">
-        ${row('Car', esc(car))}${sp ? row('Title sponsor', esc(WC.sponsorInfo(sp.sid).name)) : ''}${row('Car 1', `${esc(w.player.name)} (you)`)}${row('Car 2', d ? `${esc(q.first)} ${esc(q.last)}${d.pids.length > 1 ? ` / ${esc(w.people[d.pids[1]].last)}` : ''} &middot; ${esc(WC.SEAT_KINDS[d.kind].name)}` : '')}
+        ${row('Car', esc(car))}${sp ? row('Title sponsor', esc(WC.sponsorInfo(sp.sid).name)) : ''}${row('Car 1', `${esc(w.player.name)} (you)`)}${row('Car 2', w.coop ? esc(`${WC.coopPerson(w)?.first || ''}: ${P.car2 ? WC.car2Models(w).find(m => m.key === P.car2)?.name || '' : WC.car2Of(w)?.name || ''}`) : d ? `${esc(q.first)} ${esc(q.last)}${d.pids.length > 1 ? ` / ${esc(w.people[d.pids[1]].last)}` : ''} &middot; ${esc(WC.SEAT_KINDS[d.kind].name)}` : '')}
         <i class="tsw-rule"></i>${row('In the bank', $(w.money.balance))}${B.rows.map(([k, v]) => row(esc(k), sign(v), v < 0 ? 'out' : 'in')).join('')}${row('Money after', $(B.after), 'tot' + (B.after < 0 ? ' neg' : ''))}
         <i class="tsw-rule"></i>${row('The season, before prize money', sign(B.season.net), 'out')}</div></div>`; // (prize money: what your racing decides)
   }
@@ -257,8 +271,9 @@ export class TeamSetup {
     const w = this.w, S = w.setup, P = S.picks, steps = this.steps, at = this.at;
     const said = (k) => {
       if (k === 'entry') return WC.setupEntries(w).find(e => e.key === P.entry)?.name;
-      if (k === 'car' && this.season) return P.car != null && S.cars[P.car].c.name;
+      if (k === 'car' && this.season) return P.car != null && (S.cars[P.car].how === 'ad' ? `${S.cars[P.car].c.year} ${S.cars[P.car].c.name}` : S.cars[P.car].c.name);
       if (k === 'seat') return P.seat != null && WC.SEAT_KINDS[S.seats[P.seat].kind].name;
+      if (k === 'car2') return P.car2 != null && (P.car2 ? WC.car2Models(w).find(m => m.key === P.car2)?.name : 'Keep');
       if (k === 'car') { const a = (w.ads || []).find(x => x.id === P.car); return a && `${a.year} ${a.name}`; }
       if (k === 'sponsor') return P.sponsor != null && WC.sponsorInfo(S.sponsors[P.sponsor].sid).name;
       if (k === 'mate') { const p = w.people[P.mate]; return p && `${p.first} ${p.last}`; }
@@ -327,7 +342,7 @@ export class TeamSetup {
     let next = 'Start the season';
     if (step !== 'ready') {
       const lab = !o ? '' : step === 'seat' ? WC.SEAT_KINDS[w.setup.seats[o.val].kind].name : step === 'car' && this.season ? w.setup.cars[o.val].c.name : step === 'entry' ? WC.setupEntries(w).find(e => e.key === o.val)?.name : step === 'car' ? (w.ads || []).find(a => a.id === o.val)?.name
-        : step === 'sponsor' ? WC.sponsorInfo(w.setup.sponsors[o.val].sid).name : `${w.people[o.val].first} ${w.people[o.val].last}`;
+        : step === 'sponsor' ? WC.sponsorInfo(w.setup.sponsors[o.val].sid).name : step === 'car2' ? (o.val ? WC.car2Models(w).find(m => m.key === o.val)?.name : 'Keep car two') : `${w.people[o.val].first} ${w.people[o.val].last}`;
       next = `Next${lab ? `: ${esc(lab)}` : ''}`;
     }
     this.el.querySelector('.tsw-next').innerHTML = `${next} &rsaquo;`;

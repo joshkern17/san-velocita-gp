@@ -927,6 +927,32 @@ export function answerOffer(w, ans, to) {
 }
 
 // roll on to the next season: age everyone, retire, promote, sign rookies, new cars, new calendars
+// your team into series `to`, in the place of its weakest team (ranked: its teams, best first), which drops to yours
+function swapUp(w, to, ranked) {
+  const from = w.player.series, mine = w.teams[w.player.team];
+  ranked = (ranked || []).filter(t => w.series[to].teams.includes(t));
+  const weakest = ranked.length ? ranked[ranked.length - 1] : w.series[to].teams.at(-1), swap = w.teams[weakest];
+  w.series[to].teams = w.series[to].teams.map(t => t === weakest ? mine.id : t);
+  w.series[from].teams = w.series[from].teams.map(t => t === mine.id ? weakest : t);
+  swap.series = from; mine.series = to; w.player.series = to;
+  for (const pid of swap.drivers) if (w.people[pid]) w.people[pid].series = from;
+  // your teammate comes with you; the new series' level lifts your car a little
+  for (const pid of mine.drivers) if (w.people[pid]) w.people[pid].series = to;
+  devReset(swap);
+}
+// a save repair: the move up a season-end should have offered, made before the first round of the new season (the
+// 2026-10-24 co-op double-scoring bug ended a season early). Where to get a car comes by email, as after a move.
+export function repairMoveUp(w, to) {
+  if (w.round !== 0 || w.over || !seriesById(to) || w.player.series === to) return false;
+  const ranked = teamStandings(w, to).map(e => e.tid);
+  swapUp(w, to, ranked.length ? ranked : w.series[to].teams.slice().sort((a, b) => (w.teams[b].bank || 0) - (w.teams[a].bank || 0)));
+  w.player.offer = null; w.setup = null;
+  keepClip(w, 'up', `${w.player.name.split(' ').pop()} moves up to the ${seriesById(to).name}`); w._mumClip = null;
+  seasonBop(w);
+  if (needsCar(w) && seriesById(to).car === 'classifieds') w.ads = makeAds(w);
+  if (w.founding?.reg) w.setup = newSeasonSetup(w, true); else if (needsCar(w)) carsMail(w);
+  return true;
+}
 export function nextSeason(w, trackPool) {
   const moves = [];
   // last season's team standings, before anyone changes seats (a driver's results stay with the team they drove for)
@@ -1028,19 +1054,7 @@ export function nextSeason(w, trackPool) {
     off.answer = 'stay';
     mail(w, `${seriesById(off.to).name} Entries`, addrOf(seriesById(off.to), 'entries'), `Your entry`, [`We're sorry to say we cannot accept your entry for ${w.year + 1}: entrants must have ${miss.join(' and ')}.`, `The offer will be considered again next year, results permitting.`, `Entries Office, ${seriesById(off.to).name}`]);
   }
-  if (off && off.answer === 'move') {
-    const from = w.player.series, to = off.to, mine = w.teams[w.player.team];
-    const ranked = prevTeams[to].filter(t => w.series[to].teams.includes(t)), weakest = ranked.length ? ranked[ranked.length - 1] : w.series[to].teams.at(-1);
-    const swap = w.teams[weakest];
-    w.series[to].teams = w.series[to].teams.map(t => t === weakest ? mine.id : t);
-    w.series[from].teams = w.series[from].teams.map(t => t === mine.id ? weakest : t);
-    swap.series = from; mine.series = to; w.player.series = to;
-    for (const pid of swap.drivers) if (w.people[pid]) w.people[pid].series = from;
-    // your teammate comes with you; the new series' level lifts your car a little
-    for (const pid of mine.drivers) if (w.people[pid]) w.people[pid].series = to;
-    devReset(swap);
-    moves.push({ kind: 'you-up', to });
-  }
+  if (off && off.answer === 'move') { swapUp(w, off.to, prevTeams[off.to]); moves.push({ kind: 'you-up', to: off.to }); }
   const moved = off && off.answer === 'move';
   if (moved && !w.pre) { keepClip(w, 'up', `${w.player.name.split(' ').pop()} moves up to the ${seriesById(off.to).name}`); w._mumClip = null; }
   w.player.offer = null;
@@ -1049,13 +1063,14 @@ export function nextSeason(w, trackPool) {
   // the new season's paperwork: where to get a car (you've moved up), GT's balance of performance, gentleman drivers
   if (!w.pre && w.money) {
     seasonBop(w);
-    // (a series with seats: the season setup, at the start of every season there; otherwise the car's by email)
-    if (seriesById(w.player.series).seats && w.founding?.reg) w.setup = newSeasonSetup(w, moved);
+    // (the season setup, at the start of every season: the car if you need one (off the classifieds, or a maker's
+    // program), car two, the second seat where there's a market for it, a title sponsor after moving up)
+    if (w.founding?.reg) { if (needsCar(w) && seriesById(w.player.series).car === 'classifieds') w.ads = makeAds(w); w.setup = newSeasonSetup(w, moved); }
     else {
       if (moved && needsCar(w) && seriesById(w.player.series).car === 'classifieds') { w.ads = makeAds(w); adsMail(w); }
       else if (moved && needsCar(w)) carsMail(w);
-      gentOffers(w);
     }
+    if (!seriesById(w.player.series).seats) gentOffers(w);
   }
   if (!w.pre) { topUpFreeAgents(w); paddockSeason(w); }
   seasonOpenNews(w, moves);
@@ -1426,7 +1441,7 @@ function newSetup(w) {
 // the wizard's steps for the picks so far (an entry that comes with a car skips the car), your picks recorded as you go
 // (Back and Next move freely; nothing's spent until setupApply, from the last step)
 export function setupSteps(w) {
-  if (setupKind(w) === 'season') { const S = w.setup; return [...(S.cars.length ? ['car'] : []), ...(w.coop ? [] : ['seat']), ...(S.sponsors.length ? ['sponsor'] : []), 'ready']; }
+  if (setupKind(w) === 'season') { const S = w.setup, seats = !!seriesById(w.player.series).seats; return [...(S.cars.length ? ['car'] : []), ...(w.coop ? (car2Models(w).length ? ['car2'] : []) : seats && S.seats.length ? ['seat'] : []), ...(S.sponsors.length ? ['sponsor'] : []), 'ready']; }
   // (a car bought before the setup, in careers from before it was the only way: starting from nothing keeps it)
   const e = w.setup?.picks?.entry; return ['entry', ...((e && e !== 'fresh') || w.car ? [] : ['car']), 'sponsor', ...(w.coop ? [] : ['mate']), 'ready'];
 }
@@ -1799,7 +1814,9 @@ function seasonSponsors(w) {
 }
 // the cars, when you need one: two leases (the cheapest, the quickest), last year's car from a team, the cheapest to buy
 export function seasonCars(w) {
-  const S = seriesById(w.player.series); if (S.car === 'classifieds') return [];
+  const S = seriesById(w.player.series);
+  // (off the classifieds: every listing, cheapest first; the old car goes in part exchange)
+  if (S.car === 'classifieds') return (w.ads || []).map(a => ({ how: 'ad', id: a.id, c: a }));
   const C = customerCars(w, S), byPrice = C.slice().sort((a, b) => a.price - b.price), quick = C.slice().sort((a, b) => b.hp / b.kg - a.hp / a.kg)[0], X = exWorks(w, S);
   const out = [];
   if (byPrice[0]) out.push({ how: 'lease', id: byPrice[0].key, c: byPrice[0] });
@@ -1817,7 +1834,8 @@ const carPickOf = (w) => { const v = w.setup.picks.car; return v != null ? w.set
 const carToday = (w, o) => o.how === 'lease' ? o.c.deposit : o.c.price;
 function seasonBudgetNow(w) {
   const S = w.setup, P = S.picks, rows = [];
-  const o = carPickOf(w); if (o) { rows.push([`${o.c.name} (${o.how === 'lease' ? 'lease deposit' : o.how === 'used' ? 'ex-works' : 'new'})`, -carToday(w, o)]); const old = w.car && !w.car.lease ? tradeIn(w) : w.car?.lease ? depositBack(w) : 0; if (old) rows.push([w.car.lease ? 'Old lease: deposit back' : `Trade-in: ${w.car.name}`, old]); }
+  const o = carPickOf(w); if (o) { rows.push([o.how === 'ad' ? `${o.c.year} ${o.c.name} (from ${o.c.seller})` : `${o.c.name} (${o.how === 'lease' ? 'lease deposit' : o.how === 'used' ? 'ex-works' : 'new'})`, -carToday(w, o)]); const old = w.car && !w.car.lease ? tradeIn(w) : w.car?.lease ? depositBack(w) : 0; if (old) rows.push([w.car.lease ? 'Old lease: deposit back' : `Trade-in: ${w.car.name}`, old]); }
+  const m2 = P.car2 && car2Models(w).find(c => c.key === P.car2); if (m2) { rows.push([`Car 2: a ${m2.name} (${coopPerson(w).first}'s pick)`, -m2.price]); if (car2Sale(w)) rows.push([`Car 2 sold (${w.car2.name})`, car2Sale(w)]); }
   const sp = P.sponsor != null && S.sponsors[P.sponsor]; if (sp && sp.signing) rows.push([`${sponsorById(sp.sid).name}: signing bonus`, sp.signing]);
   return { rows, after: w.money.balance + rows.reduce((a, r) => a + r[1], 0), season: seasonRoughly(w) };
 }
@@ -1840,11 +1858,13 @@ export function seasonRoughly(w, picks = w.setup?.picks || {}) {
 function seasonApply(w) {
   const S = w.setup, P = S.picks; if (S.done) return { ok: false, why: 'Already done.' };
   if (S.cars.length && P.car == null) return { ok: false, why: 'Pick a car.' };
-  if ((P.seat == null && !w.coop) || (S.sponsors.length && P.sponsor == null)) return { ok: false, why: 'Something is still to choose.' };
+  const seatStep = setupSteps(w).includes('seat');
+  if ((P.seat == null && seatStep) || (S.sponsors.length && P.sponsor == null)) return { ok: false, why: 'Something is still to choose.' };
   if (seasonBudgetNow(w).after < 0) return { ok: false, why: `That's more than you have. Go back and change something.` };
-  const o = carPickOf(w); if (o && !acquireCar(w, o.how, o.id)) return { ok: false, why: 'That car has gone.' };
+  const o = carPickOf(w); if (o && !(o.how === 'ad' ? buyCar(w, o.id, true) : acquireCar(w, o.how, o.id))) return { ok: false, why: 'That car has gone.' };
   if (S.sponsors.length) { S.sponsored = null; const x = S.sponsors[P.sponsor]; dealsOf(w).push({ sid: x.sid, slot: 'title', fee: x.fee, bonus: x.bonus, met: 0, misses: 0, since: w.year, obj: null, patience: x.patience, hosp: x.hosp || undefined }); if (x.signing) pay(w, x.signing, `${sponsorById(x.sid).name}: signing bonus`); }
-  if (w.coop) { S.done = true; return { ok: true }; } // (the second car is the co-owner's)
+  if (w.coop) { if (P.car2) buyCar2Model(w, P.car2); S.done = true; return { ok: true }; } // (the second car is the co-owner's: their pick of model, or the one they had)
+  if (!seatStep) { S.done = true; return { ok: true }; } // (no market for the seat here: your teammate's contract carries on)
   const was = teammateOf(w); signSeat(w, S.seats[P.seat]);
   passedOn(w, S.seats.filter((d, i) => i !== P.seat && d.kind !== 'gent' && d.kind !== 'share').flatMap(d => d.pids), 'second seat');
   S.done = true; mateHello(w, [], teammateOf(w) !== was); // (new in the seat, or another year together)
@@ -2633,7 +2653,7 @@ export function coopDay(w, key) {
   const C = w.people[w.coop.pid], c = coopWk(w);
   if (key === 'work') { const j = coopJob(w); pay(w, j.pay, `${j.name} (${C.first})`); coopUse(w, j.name, j.pay, 'Work'); c.work++;
     return { amt: j.pay, line: j.name, note: w.coop.boss ? pickLine(w, ['Your boss saw you in. That counts for something.', 'Someone asked about the race car. You talked for an hour.']) : pickLine(w, ['Forklift certified. Still.', 'Nobody at work believes you race.']) }; }
-  if (key === 'car') { const c2 = car2Of(w); if (!c2 || !['match', 'old'].includes(c2.kind) || c2.cond >= 0.99) return null;
+  if (key === 'car') { const c2 = car2Of(w); if (!car2Owned(c2) || c2.cond >= 0.99) return null;
     const was = c2.cond, cost = coopCarCost(w); c2.cond = +Math.min(1, c2.cond + 0.15).toFixed(3); pay(w, -cost, `Parts for car 2 (${C.first} fixed it)`); coopUse(w, 'Worked on car two', -cost, 'Car two');
     return { amt: -cost, line: 'Worked on your car', note: `${Math.round(was * 100)}% &rarr; ${Math.round(c2.cond * 100)}%` }; }
   if (key === 'scout') { const L = (w.usedParts || []).filter(x => !x.scouted); if (!L.length) return null;
@@ -2654,7 +2674,7 @@ export function coopTogether(w, by) {
   if (a.what === 'garage') {
     const P = carParts(w), worst = P ? PART_KEYS.slice().sort((x, y) => P[x].cond - P[y].cond)[0] : null, c2 = car2Of(w), x = projOpen(w), bits = [];
     if (worst) { P[worst].cond = +Math.min(1, P[worst].cond + 0.12).toFixed(3); bits.push(`car one's ${PARTS[worst].name.toLowerCase()} ${Math.round(P[worst].cond * 100)}%`); }
-    if (c2 && ['match', 'old'].includes(c2.kind)) { c2.cond = +Math.min(1, c2.cond + 0.12).toFixed(3); bits.push(`car two ${Math.round(c2.cond * 100)}%`); }
+    if (car2Owned(c2)) { c2.cond = +Math.min(1, c2.cond + 0.12).toFixed(3); bits.push(`car two ${Math.round(c2.cond * 100)}%`); }
     if (x) { x.prog = (x.prog || 0) + 2; if (x.prog >= x.days) finishProject(w, x); bits.push(`${x.name} ${x.done ? 'finished' : 'moved on'}`); }
     amt = -coopCarCost(w); pay(w, amt, `Parts: a day on both cars (with ${C.first})`);
     note = bits.length ? bits.join(', ') + '.' : 'Everything got a clean.';
@@ -2895,7 +2915,7 @@ export function gigDone(w, id, r, who = 'P') {
   }
   // your race car paid for it too
   if (GIG_KINDS[g.kind].raceCar && w.car) {
-    if (C) { const c2 = car2Of(w), laps = r.lapTimes ? r.lapTimes.length : g.laps; if (c2 && ['match', 'old'].includes(c2.kind)) c2.cond = +Math.max(0.3, c2.cond - 0.01 * laps - (r.dmg || 0) * 0.6).toFixed(3); if ((r.dmg || 0) > 0.005) add('Repairs (car two)', -repairQuote(w, r.dmg)); }
+    if (C) { const c2 = car2Of(w), laps = r.lapTimes ? r.lapTimes.length : g.laps; if (car2Owned(c2)) c2.cond = +Math.max(0.3, c2.cond - 0.01 * laps - (r.dmg || 0) * 0.6).toFixed(3); if ((r.dmg || 0) > 0.005) add('Repairs (car two)', -repairQuote(w, r.dmg)); }
     else { wearCar(w, r.lapTimes ? r.lapTimes.length : g.laps, r.dmg || 0, null); if ((r.dmg || 0) > 0.005) add('Repairs', -repairQuote(w, r.dmg)); }
   }
   for (const [t, a] of rows) pay(w, a, `${g.client}: ${/^(GigGo|Trust)/.test(t) ? t : t[0].toLowerCase() + t.slice(1)}`);
@@ -3903,7 +3923,8 @@ export const condPower = (cond) => 0.9 + 0.1 * clamp(cond ?? 1, 0.5, 1);
 // seat, a maker's junior) comes with theirs. It wears every race and a DNF damages it; the repairs are on the round's
 // bill: done properly, or patched (cheaper, and it breaks more). Careers from before car 2 had to be bought have one
 // like yours already.
-// w.car2: { kind: 'match' | 'old' | 'hire' | 'lease', name, cond (0..1), paid, perRound, fix: 'full' | 'patch' }
+// w.car2: { kind: 'match' | 'old' | 'hire' | 'lease' | 'own', name, chassis, cond (0..1), paid, perRound, fix: 'full' | 'patch' }
+// (co-op: 'own' is a model the co-owner picked themselves, another car of the class: car2Models / buyCar2Model)
 const CAR2_HIRE = { club: 250, street: 300, gt2: 2500, gt: 6000, formula: 30000 }; // (a round)
 // what the stand-in car two is called: a hire car, or in a one-make series an arrive-and-drive rental of the series' car
 export const car2Hire = (w) => seriesById(w.player.series)?.oneMake ? 'an arrive-and-drive rental' : 'a hire car';
@@ -3933,12 +3954,31 @@ export function buyCar2(w, kind) {
   const c2 = car2Of(w); if (!c2 || c2.kind === 'theirs' || c2.kind === 'lease' || c2.kind === kind) return false;
   const P = car2Price(w), price = kind === 'match' ? P.match : P.old;
   pay(w, -price, `Car 2: ${kind === 'match' ? `a ${w.car.name} like yours` : `an older ${w.car.name}`}`);
-  w.car2 = { kind, name: w.car.name, cond: kind === 'match' ? 1 : 0.78, paid: price, fix: c2.fix || 'full', series: w.player.series };
+  w.car2 = { kind, name: w.car.name, chassis: w.car.chassis, cond: kind === 'match' ? 1 : 0.78, paid: price, fix: c2.fix || 'full', series: w.player.series };
+  return true;
+}
+// a bought car two (one like yours, an older one, or the co-owner's own pick): it wears, it's repaired, it sells
+export const car2Owned = (c) => !!c && ['match', 'old', 'own'].includes(c.kind);
+// the model car two races: its own (co-op: the co-owner's pick), or yours
+export const car2Chassis = (w) => (w.car2 && w.car2.kind === 'own' && w.car2.series === w.player.series && w.car2.chassis) || w.car?.chassis || null;
+// co-op: the other cars of the class the co-owner can pick for car two instead of one like yours (a spec or one-make
+// series: none, everyone's in the same car): [{ key, name, price }], new-ish, from the team's account
+export function car2Models(w) {
+  const S = seriesById(w.player.series); if (!w.coop || !w.car || S.car === 'spec' || S.oneMake) return [];
+  const list = S.car === 'classifieds' ? adCars(w, S).map(c => ({ key: c.key, name: c.name, price: Math.round(c.value * 0.95 * (bgOf(w).cars || 1) / 500) * 500 }))
+    : customerCars(w, S).map(c => ({ key: c.key, name: c.name, price: Math.round(c.price * 0.95 / 500) * 500 }));
+  return list.filter(c => c.key !== w.car.chassis && c.price > 0);
+}
+export function buyCar2Model(w, key) {
+  const c2 = car2Of(w), m = car2Models(w).find(c => c.key === key); if (!c2 || !m || c2.kind === 'theirs' || (c2.kind === 'own' && c2.chassis === key)) return false;
+  if (car2Sale(w)) sellCar2(w); // (the one they had goes, for what it fetches)
+  pay(w, -m.price, `Car 2: a ${m.name} (${coopPerson(w).first}'s pick)`);
+  w.car2 = { kind: 'own', name: m.name, chassis: m.key, cond: 0.95, paid: m.price, fix: c2.fix || 'full', series: w.player.series };
   return true;
 }
 // selling car two (one you bought, not the hire car or a lease): what it fetches, the same as when a move up a series
 // sells it for you; the hire car takes its place
-export const car2Sale = (w) => { const c = w.car2; return c && ['match', 'old'].includes(c.kind) && c.paid ? Math.round(c.paid * 0.4 * c.cond / 500) * 500 : 0; };
+export const car2Sale = (w) => { const c = w.car2; return car2Owned(c) && c.paid ? Math.round(c.paid * 0.4 * c.cond / 500) * 500 : 0; };
 export function sellCar2(w) { const v = car2Sale(w); if (!v) return 0; pay(w, v, `Car 2 sold (${w.car2.name})`); w.car2 = null; return v; }
 export function setCar2Fix(w, fix) { const c = car2Of(w); if (c && c.kind !== 'theirs') c.fix = fix; }
 // what it does to the second car: { power, grip (multipliers), fail (the chance of a DNF, times), label }
@@ -3946,7 +3986,7 @@ export function car2Mods(w) {
   const c = car2Of(w); if (!c) return { power: 1, grip: 1, fail: 1, label: '' };
   const kindK = { old: [0.99, 0.995, 1.35], hire: [0.995, 0.997, 1.1] }[c.kind] || [1, 1, 1];
   return { power: kindK[0] * (0.96 + 0.04 * c.cond), grip: kindK[1], fail: kindK[2] * (1 + (1 - c.cond) * 1.5) * (c.fix === 'patch' ? 1.3 : 1),
-    label: `Car 2 (${{ match: 'like yours', old: 'older', hire: 'hired', lease: 'leased' }[c.kind] || 'theirs'}) at ${Math.round(c.cond * 100)}%` };
+    label: `Car 2 (${{ match: 'like yours', old: 'older', hire: 'hired', lease: 'leased', own: c.name }[c.kind] || 'theirs'}) at ${Math.round(c.cond * 100)}%` };
 }
 // after a round: what it went through, and the bill (the hire or the lease, the repairs)
 // (use.car2.damage: co-op, what the co-owner's car really went through, 0..1 of a write-off, as yours is measured;

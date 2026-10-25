@@ -242,7 +242,7 @@ export class Computer {
     if (a === 'app') { this.stack = []; this.launch(arg); return; }
     if (a === 'profile') { const p = this.w.people[arg]; this.follow('drivers', { db: p?.series || this.w.player.series, pid: arg }); this.src.sfx?.select?.(); return; }
     if (a === 'c2fix') { this.src.drivers?.('c2fix', arg); this.curKey = 'c2fix'; this.render(); this.src.sfx?.move?.(); return; }
-    if (a === 'dsign' || a === 'dlow' || a === 'mextend' || a === 'c2buy') {
+    if (a === 'dsign' || a === 'dlow' || a === 'mextend' || a === 'c2buy' || a === 'c2own') {
       const k = a + ':' + arg; if (this.armed !== k) { this.armed = k; this.curKey = k; this.render(); this.src.sfx?.move?.(); return; }
       this.armed = null; this.src.drivers?.(a, arg); this.curKey = null; this.render(); return;
     }
@@ -833,12 +833,14 @@ export class Computer {
   car2Card() {
     const w = this.w, c = WC.car2Of(w); if (!c) return '';
     const p = WC.people(w)[WC.mateOf(w).pid], P = WC.car2Price(w), cond = c.cond, cc = cond > 0.7 ? 'good' : cond > 0.45 ? 'warn' : 'bad';
-    const what = { hire: `${WC.car2Hire(w).replace(/^a/, 'A')}, ${WC.money$(c.perRound)} a round: a little down on pace, and a little fragile`, lease: `Leased from the series, ${WC.money$(c.perRound)} a round`, match: `A ${esc(c.name)}, like yours`, old: `An older ${esc(c.name)}: cheaper, slower, breaks more`, theirs: `${esc(p.first)} brings their own` }[c.kind];
+    const what = { hire: `${WC.car2Hire(w).replace(/^a/, 'A')}, ${WC.money$(c.perRound)} a round: a little down on pace, and a little fragile`, lease: `Leased from the series, ${WC.money$(c.perRound)} a round`, match: `A ${esc(c.name)}, like yours`, own: `A ${esc(c.name)}: ${esc(p.first)}'s pick`, old: `An older ${esc(c.name)}: cheaper, slower, breaks more`, theirs: `${esc(p.first)} brings their own` }[c.kind];
     const btn = (k, label) => `<button class="pc-btn sm${k === 'match' ? ' pri' : ''}" data-nav data-act="c2buy" data-arg="${k}" data-key="c2buy:${k}">${this.armed === 'c2buy:' + k ? 'Sure? Select again' : label}</button>`;
     const buys = c.kind === 'hire' ? btn('match', `Buy one like yours: ${WC.money$(P.match)}`) + btn('old', `An older one: ${WC.money$(P.old)}`) : c.kind === 'old' ? btn('match', `Buy one like yours: ${WC.money$(P.match)}`) : '';
-    const fix = c.kind === 'match' || c.kind === 'old' ? `<div class="tx-cp"><small>Repairs</small><div class="tm-pay" data-nav data-act="c2fix" data-arg="${c.fix === 'patch' ? 'full' : 'patch'}" data-key="c2fix"><i>&#9664;</i><b>${c.fix === 'patch' ? 'Patched up' : 'Done properly'}</b><i>&#9654;</i></div><small>${c.fix === 'patch' ? 'Less than half the bill. It breaks more.' : 'The full bill, the car as good as new.'}</small></div>` : '';
+    // (co-op: the co-owner can pick another car of the class for car two, bought from the team account)
+    const own = WC.car2Models(w).filter(m => !(c.kind === 'own' && m.key === c.chassis)).map(m => `<button class="pc-btn sm" data-nav data-act="c2own" data-arg="${m.key}" data-key="c2own:${m.key}">${this.armed === 'c2own:' + m.key ? 'Sure? Select again' : `A ${esc(m.name)}: ${WC.money$(m.price)}`}</button>`).join('');
+    const fix = WC.car2Owned(c) ? `<div class="tx-cp"><small>Repairs</small><div class="tm-pay" data-nav data-act="c2fix" data-arg="${c.fix === 'patch' ? 'full' : 'patch'}" data-key="c2fix"><i>&#9664;</i><b>${c.fix === 'patch' ? 'Patched up' : 'Done properly'}</b><i>&#9654;</i></div><small>${c.fix === 'patch' ? 'Less than half the bill. It breaks more.' : 'The full bill, the car as good as new.'}</small></div>` : '';
     return `<div class="tx-card tx-car2"><div class="tx-ci"><b>Car 2</b><small>${what}</small>${c.kind === 'theirs' ? '' : `<div class="tx-cm"><small>Condition</small>${seg(cond, cc, 8)}</div>`}</div>
-      <div class="tm-acts">${fix}${buys}</div></div>`;
+      <div class="tm-acts">${fix}${buys}</div>${own ? `<div class="tm-acts"><small>Or ${esc(p.first)} picks their own${WC.car2Sale(w) ? ` (car two sells for ${WC.money$(WC.car2Sale(w))})` : ''}</small>${own}</div>` : ''}</div>`;
   }
   // the Internet's home page: bookmarks
   homePage() {
