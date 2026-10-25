@@ -317,7 +317,7 @@ for n, (x, y, z, w, rgb) in enumerate(((-14.5, -3.2, UZ + 2.7, 350, (1.0, 0.86, 
 # the detail, a file each (tools/factory/): one that fails is reported and left out, so the rest still builds
 import traceback
 FA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'factory')
-for part in ('structure', 'rooms', 'boulevard', 'lived'):
+for part in ('structure', 'rooms', 'boulevard', 'lived', 'diner'):
     f = os.path.join(FA, part + '.py')
     if not os.path.exists(f): continue
     try: exec(compile(open(f).read(), f, 'exec'), globals())

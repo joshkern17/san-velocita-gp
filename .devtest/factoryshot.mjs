@@ -41,7 +41,10 @@ try {
     ['21-boulevard-cars', g(-14, -8.6, 1.9), g(4, -11.5, 0.6)], ['22-boulevard-back', g(14, -8.4, 1.9), g(-4, -11.5, 0.6)],
     // (the walls' pass: the hung car and the banners from the floor, the team's wall, the whiteboard, the prints upstairs)
     ['23-hung-car', g(4.5, 1.5, 1.7), g(0.5, -4.8, 5.6)], ['24-team-wall', g(4.0, -3.0, 2.2), g(6.8, 7.4, 5.6)], ['25-whiteboard', g(7.3, 3.2, 1.6), g(9.9, 4.6, 1.4)],
-    ['26-prints', g(10.5, 6.6, 5.9), g(16, 7.4, 5.2)], ['27-walkway', g(-9.0, -6.0, 5.9), g(-9.0, 6, 4.4)]];
+    ['26-prints', g(10.5, 6.6, 5.9), g(16, 7.4, 5.2)], ['27-walkway', g(-9.0, -6.0, 5.9), g(-9.0, 6, 4.4)],
+    // (the diner, upstairs in the cafe: in from its door, along the counter, the booths, through the glass from the walkway)
+    ['28-diner-door', g(-8.2, 8.0, 5.8), g(-16, 11.5, 5.0)], ['29-diner-counter', g(-11.0, 10.2, 5.7), g(-17.5, 12.2, 5.1)], ['30-diner-booths', g(-10.5, 10.6, 5.7), g(0.5, 8.4, 4.8)],
+    ['31-diner-back', g(-3.0, 9.0, 5.7), g(-10, 13.9, 5.8)], ['32-diner-glass', g(-4.0, 6.0, 5.9), g(-7, 11, 5.0)]];
   const only = process.env.SHOTS ? process.env.SHOTS.split(',') : null;
   for (const [n, pos, at] of shots.filter(s => !only || only.includes(s[0]))) {
     await pg.evaluate(({ pos, at }) => { const P = window.__svgp.dbg.pitGarage, V = P.camera.position.constructor; P.cine({ pos: new V(pos.x, pos.y, pos.z), at: new V(at.x, at.y, at.z), fov: 62, shift: 0 }, 0); }, { pos, at });

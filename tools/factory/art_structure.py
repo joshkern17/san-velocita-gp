@@ -38,7 +38,7 @@ save(im, 'fa_st_exit')
 im = Image.new('RGB', (128, 32), (236, 236, 232)); d = ImageDraw.Draw(im); d.rectangle((0, 22, 128, 32), fill=(20, 150, 70))
 centered(d, (0, 0, 128, 22), 'EMERGENCY', BOLD(14), (40, 40, 44)); save(im, 'fa_st_emerg')
 # door signs: a frosted white plate, the room's name in the house face, a thin blue line
-for key, text in (('office', 'TEAM PRINCIPAL'), ('ops', 'RACE OPERATIONS'), ('cafe', 'STAFF CAFE'), ('sim', 'SIMULATOR'), ('control', 'TUNNEL CONTROL'),
+for key, text in (('office', 'TEAM PRINCIPAL'), ('ops', 'RACE OPERATIONS'), ('cafe', 'PIT STOP DINER'), ('sim', 'SIMULATOR'), ('control', 'TUNNEL CONTROL'),
                   ('machine', 'MACHINE SHOP'), ('composites', 'COMPOSITES'), ('dyno', 'DYNO CELLS'), ('dock', 'LOADING DOCK'), ('tunnel', 'WIND TUNNEL')):
     im = Image.new('RGB', (384, 96), (232, 236, 240)); d = ImageDraw.Draw(im)
     d.rectangle((0, 84, 384, 96), fill=(40, 120, 220))
