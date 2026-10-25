@@ -209,9 +209,9 @@ function fadeTo(fn, ms = 320) {
 
 // ---------------- button prompts (keyboard keys or pad buttons, whichever you used last) ----------------
 const GLYPHS = {
-  kb: { tune: '<kbd>T</kbd>', nav: '<kbd>&#8593;</kbd><kbd>&#8595;</kbd>', lr: '<kbd>&#8592;</kbd><kbd>&#8594;</kbd>', ok: '<kbd>Enter</kbd>', back: '<kbd>Esc</kbd>', tab: '<kbd>Q</kbd><kbd>E</kbd>', skip: '<kbd>Enter</kbd>', view: '<kbd>V</kbd>', scrub: '<kbd>Z</kbd><kbd>X</kbd>', cls: '<kbd>&#8593;</kbd><kbd>&#8595;</kbd>', phone: '<kbd>P</kbd>', alt: '<kbd>F</kbd>', save: '<kbd>Ctrl</kbd><kbd>S</kbd>',
+  kb: { tune: '<kbd>T</kbd>', nav: '<kbd>&#8593;</kbd><kbd>&#8595;</kbd>', lr: '<kbd>&#8592;</kbd><kbd>&#8594;</kbd>', ok: '<kbd>Enter</kbd>', back: '<kbd>Esc</kbd>', tab: '<kbd>Q</kbd><kbd>E</kbd>', skip: '<kbd>Enter</kbd>', view: '<kbd>V</kbd>', scrub: '<kbd>Z</kbd><kbd>X</kbd>', cls: '<kbd>&#8593;</kbd><kbd>&#8595;</kbd>', phone: '<kbd>P</kbd>', alt: '<kbd>F</kbd>', step: '<kbd>Tab</kbd>', save: '<kbd>Ctrl</kbd><kbd>S</kbd>',
     cam: '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>', look: '<kbd>I</kbd><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd>', dolly: '<kbd>Q</kbd><kbd>E</kbd>', zoom: '<kbd>Z</kbd><kbd>X</kbd>', shoot: '<kbd>Space</kbd>', hide: '<kbd>H</kbd>' },
-  pad: { tune: '<kbd class="pb y">Y</kbd>', nav: '<kbd class="dpad"></kbd>', lr: '<kbd class="dpad h"></kbd>', ok: '<kbd class="pb a">A</kbd>', back: '<kbd class="pb b">B</kbd>', tab: '<kbd class="pl">LB</kbd><kbd class="pl">RB</kbd>', skip: '<kbd class="pb a">A</kbd>', view: '<kbd class="pb y">Y</kbd>', scrub: '<kbd class="pl">LT</kbd><kbd class="pl">RT</kbd>', cls: '<kbd class="pl">LB</kbd><kbd class="pl">RB</kbd>', phone: '<kbd class="pb y">Y</kbd>', alt: '<kbd class="pb x">X</kbd>', save: '<kbd class="pb x">X</kbd>',
+  pad: { tune: '<kbd class="pb y">Y</kbd>', nav: '<kbd class="dpad"></kbd>', lr: '<kbd class="dpad h"></kbd>', ok: '<kbd class="pb a">A</kbd>', back: '<kbd class="pb b">B</kbd>', tab: '<kbd class="pl">LB</kbd><kbd class="pl">RB</kbd>', skip: '<kbd class="pb a">A</kbd>', view: '<kbd class="pb y">Y</kbd>', scrub: '<kbd class="pl">LT</kbd><kbd class="pl">RT</kbd>', cls: '<kbd class="pl">LB</kbd><kbd class="pl">RB</kbd>', phone: '<kbd class="pb y">Y</kbd>', alt: '<kbd class="pb x">X</kbd>', step: '<kbd class="pl">View</kbd>', save: '<kbd class="pb x">X</kbd>',
     cam: '<kbd class="pl">LS</kbd>', look: '<kbd class="pl">RS</kbd>', dolly: '<kbd class="pl">LB</kbd><kbd class="pl">RB</kbd>', zoom: '<kbd class="pl">LT</kbd><kbd class="pl">RT</kbd>', shoot: '<kbd class="pb a">A</kbd>', hide: '<kbd class="pb y">Y</kbd>' },
 };
 // per screen: [glyph, label] pairs; a function for screens whose prompts change
@@ -2747,6 +2747,7 @@ function pauseWalk(on) {
 function renderPauseMenu() {
   menus['s-hub'][0].setItems([
     { label: 'Keep Walking', cls: 'action primary', action: () => pauseWalk(false), desc: 'Back to the garage.' },
+    ...(coopGuest() ? [] : stepItems(world).map(it => ({ ...it, cls: 'action', action: () => { pauseWalk(false); it.action(); } }))),   // (the season's next step, as the garage's menu has it)
     { label: `Career Options<small>${(DIFF_LABEL[world.opts.difficulty] || '').toUpperCase()}</small>`, action: () => { optSub = true; sfx.select(); renderHubMenu(); }, desc: 'Difficulty, driver aids, circuits.' },
     { label: 'Save & Quit', action: () => { walkPaused = false; walk.stop(); saveWorld(); pitGarage.close(); quitToMenu(); }, desc: 'Your career is saved. Continue it from the main menu.' },
   ], true);
@@ -2786,6 +2787,7 @@ function walkInput() {
   if (pressed('Escape') || pressed('GP1') || pressed('Backspace')) { if (screen === 's-hub' && !walk.act) pauseWalk(true); else if (screen === 's-pitgarage') stopPitWalk(pgDesk); else if (screen !== 's-hub') stopWalk(); return; }
   if ((pressed('Enter') || pressed('Space') || pressed('GP0')) && walk.spot && !walk.act) useSpot(walk.spot);
   else if ((pressed('KeyF') || pressed('GP2')) && walk.spot && walk.spot.alt && !walk.act) useAlt(walk.spot);
+  else if ((pressed('Tab') || pressed('GP8')) && screen === 's-hub' && !walk.act && walkStep()) return;
   if (!walk.active || walkPaused || dayPlan.isOpen) return; // (off to what you used: its tags aren't wanted)
   drawWalkTags(walk.act ? null : walk.tags(1 / 60));
   const now = performance.now(); if (walk.speed > 0.05 || walk.act || !walkStill) walkStill = now;
@@ -3413,13 +3415,18 @@ function renderWeekStrip() {
 // walking round your garage: the team at a glance in one line (the team's championship first: you own it; your own
 // standing beside it), the money and how long it lasts, and the one thing that moves the career on. Stand still a
 // moment and the rest fades in (the week's round and targets, the hint)
+// the button under the team while you walk (renderWalkHud): straight to the season's next step
+function walkStep() { const st = world && !coopGuest() && stepItems(world)[0]; if (!st) return false; sfx.select(); st.action(); return true; }
+document.addEventListener('click', (e) => { if (e.target.closest('.wh-step') && screen === 's-hub' && walk.active && !walk.act) walkStep(); });
 function renderWalkHud() {
   const w = world, hud = $('walk-hud'), nx = $('walk-next');
   if (!w || w.ended) { hud.innerHTML = nx.innerHTML = ''; return; }
   // (getting going, and the season's end: just what's next, and where)
-  const su = setupItem();
+  const su = setupItem(), st = coopGuest() ? null : stepItems(w)[0];
+  // (the season's next step, as a button under the team: the setup, the launch, the next season. Tab / View, or click)
+  const stepB = st ? `<button class="wh-step" type="button"><span class="wh-key">${hintKeys('step')}</span>${String(st.label).replace(/<[^>]+>.*$/, '')}</button>` : '';
   if (su || !founded(w) || w.over || !w.money) {
-    hud.innerHTML = '';
+    hud.innerHTML = stepB;
     nx.innerHTML = su ? `<b>Next</b> ${String(su.label).replace(/<[^>]+>.*$/, '')}: at the computer`
       : w.over ? (offerPending(w) ? `<b>Next</b> The SVMA's offer: at the computer` : `<b>Next</b> The ${w.year + 1} season: head out the door`) : '';
     return;
@@ -3433,7 +3440,7 @@ function renderWalkHud() {
     <div class="wh-row"><div class="wh-cell main"><small>Team</small><b>${pos(ti, ts)}</b></div><div class="wh-cell"><small>You</small><b>${pos(di, ds)}</b></div>
     <div class="wh-cell"><small>${rep ? rep.label : 'Reputation'}</small><b>${rep ? rep.value : ''}</b></div>
     <div class="wh-cell ${mc}"><small>Bank</small><b>${WC.money$(bal)}</b>${runs !== null && runs < 6 ? `<em>${Math.max(0, runs)} round${runs === 1 ? '' : 's'} left</em>` : ''}</div></div>
-    <p class="wh-hint">${B.hint || ''}</p>`;
+    <p class="wh-hint">${B.hint || ''}</p>${stepB}`;
   const wk = myWeek(w), R = S.cal[w.round], n = w.round + 1;
   nx.innerHTML = wk.left <= 0 ? `<b>Race day</b> Round ${n}${R.endur ? ', the ' + escP(WC.enduranceName(R)) : ` at ${escP(R.gp ? WC.GP_NAME : R.name)}`}: head out the door`
     : `<b>Next</b> Round ${n}${R.endur ? ', the ' + escP(WC.enduranceName(R)) : ` at ${escP(R.gp ? WC.GP_NAME : R.name)}`}, Saturday &middot; ${wk.left} day${wk.left === 1 ? '' : 's'} to spend`;
@@ -3471,6 +3478,38 @@ function wantOf(key) {
   }
   return (wantC.by[key] = r);
 }
+// the season's big steps, as the garage's menu leads with them (and the pause menu, walking about): getting going, the
+// setup, the launch, payroll, and at the season's end the SVMA's offer and the next season. [] in a normal week
+function stepItems(w) {
+  const sid = w.player.series, items = [];
+  const off = w.player.offer, offerMail = off && !off.answer && (w.mail || []).find(m => m.offer && !m.answer);
+  const claim = w.money && !w.money.choice && (w.mail || []).find(m => m.lottery && !m.answer);
+  const F = w.founding || {};
+  if (!F.reg) items.push({ label: 'Register The Team', cls: 'action primary', action: () => sitDown('registry'), desc: 'Form SV-1, on the computer.' });
+  else if (claim) items.push({ label: 'Claim Your Winnings', cls: 'action primary', action: () => sitDown('mail', claim.id), desc: 'The State Lottery needs to know how you want your money. It\'s waiting in your email.' });
+  else if (!WC.setupDone(w)) items.push(WC.setupKind(w) === 'season'
+    ? { label: 'Set Up The Season', cls: 'action primary', action: () => openTeamSetup(), desc: `${[WC.needsCar(w) && 'a car for the ' + seriesName(sid), WC.setupSteps(w).includes('car2') && `${WC.coopPerson(w)?.first || 'your co-owner'}'s car`, WC.setupSteps(w).includes('seat') && 'who pays for the second car', w.setup.sponsors.length && 'a title sponsor'].filter(Boolean).concat(["the season's money"]).join(', ').replace(/^./, c => c.toUpperCase()).replace(/, ([^,]+)$/, ' and $1')}. Nothing is spent until you start the season.` }
+    : { label: 'Set Up The Team', cls: 'action primary', action: () => openTeamSetup(), desc: 'How you get in, the car, a title sponsor and your second driver. Nothing is spent until you start the season.' });
+  else if (!F.car) items.push({ label: 'Buy A Car', cls: 'action primary', action: () => sitDown('classifieds'), desc: 'Danny sent you some listings. They\'re on the computer.' });
+  else if (WC.pressDue(w) && !coopGuest()) items.push({ label: 'Season Launch', cls: 'action primary', action: () => startPressDay(), desc: `The press are here: three questions, then the car. What you say sets the tone for the ${w.year} season.` });
+  else if (!w.over && WC.payrollShort(w)) items.push({ label: 'Sort Out Payroll', cls: 'action primary', action: () => sitDown('staff'), desc: `Payroll is ${WC.money$(WC.payrollDue(w))} and you have ${WC.money$(w.money.balance)}. Decide who gets paid (Team, on the computer: the Staff tab).` });
+  else if (w.over) {
+    // (the SVMA's offer: answered right here, the same as from the email: each series' line from it as the reason)
+    if (offerMail && offerMail.choices) for (const [key, label] of offerMail.choices) {
+      const id = String(key).startsWith('move:') ? key.slice(5) : null, line = id && (offerMail.body || []).find(b => b.startsWith(seriesName(id) + ':'));
+      items.push({ label: id ? `Move Up: ${seriesName(id)}` : label, cls: id ? 'action primary' : 'action', action: () => { pc.src.answer(offerMail, key); renderHub(); },
+        desc: line ? line.slice(seriesName(id).length + 2) : `Another year in the ${seriesName(sid)}. The offer won't wait for you.` });
+    }
+    items.push({ label: `Start ${w.year + 1} Season`, cls: offerMail ? 'action' : 'action primary', action: () => beginNextSeason(),
+      desc: offerMail ? `First choose: move up, or stay.` : 'Everyone a year older. Retirements, promotions and rookies, then a new calendar.' });
+    if (off && off.answer === 'move') {
+      const miss = WC.seriesMissing(WC.myTeam(w), off.to);
+      if (miss.length) items.push({ label: `${seriesName(off.to)} Requirements<small>MISSING</small>`, action: () => sitDown('facilities'), desc: `The ${seriesName(off.to)} won't take your entry without ${miss.map(([k, n]) => WC.needName(k, n)).join(' and ')}. Build them before you start the season (Team, Facilities), or the entry is withdrawn.` });
+      items.push({ label: `${seriesName(off.to)} Cars`, action: () => sitDown('customer'), desc: `Sort out a car for the ${seriesName(off.to)} now, or when the new season starts (on the computer).` });
+    }
+  }
+  return items;
+}
 function renderHubMenu() {
   if (!world) return;
   syncHome();
@@ -3489,18 +3528,9 @@ function renderHubMenu() {
   if (walk.active && walkPaused) return renderPauseMenu();
   const w = world, sid = w.player.series, n = WC.unreadChats(w), nm = WC.unreadMail(w);
   const items = [];
-  const off = w.player.offer, offerMail = off && !off.answer && (w.mail || []).find(m => m.offer && !m.answer);
-  const claim = w.money && !w.money.choice && (w.mail || []).find(m => m.lottery && !m.answer);
-  const F = w.founding || {};
-  if (!F.reg) items.push({ label: 'Register The Team', cls: 'action primary', action: () => sitDown('registry'), desc: 'Form SV-1, on the computer.' });
-  else if (claim) items.push({ label: 'Claim Your Winnings', cls: 'action primary', action: () => sitDown('mail', claim.id), desc: 'The State Lottery needs to know how you want your money. It\'s waiting in your email.' });
-  else if (!WC.setupDone(w)) items.push(WC.setupKind(w) === 'season'
-    ? { label: 'Set Up The Season', cls: 'action primary', action: () => openTeamSetup(), desc: `${[WC.needsCar(w) && 'a car for the ' + seriesName(sid), WC.setupSteps(w).includes('car2') && `${WC.coopPerson(w)?.first || 'your co-owner'}'s car`, WC.setupSteps(w).includes('seat') && 'who pays for the second car', w.setup.sponsors.length && 'a title sponsor'].filter(Boolean).concat(["the season's money"]).join(', ').replace(/^./, c => c.toUpperCase()).replace(/, ([^,]+)$/, ' and $1')}. Nothing is spent until you start the season.` }
-    : { label: 'Set Up The Team', cls: 'action primary', action: () => openTeamSetup(), desc: 'How you get in, the car, a title sponsor and your second driver. Nothing is spent until you start the season.' });
-  else if (!F.car) items.push({ label: 'Buy A Car', cls: 'action primary', action: () => sitDown('classifieds'), desc: 'Danny sent you some listings. They\'re on the computer.' });
-  else if (WC.pressDue(w) && !coopGuest()) items.push({ label: 'Season Launch', cls: 'action primary', action: () => startPressDay(), desc: `The press are here: three questions, then the car. What you say sets the tone for the ${w.year} season.` });
-  else if (!w.over && WC.payrollShort(w)) items.push({ label: 'Sort Out Payroll', cls: 'action primary', action: () => sitDown('staff'), desc: `Payroll is ${WC.money$(WC.payrollDue(w))} and you have ${WC.money$(w.money.balance)}. Decide who gets paid (Team, on the computer: the Staff tab).` });
-  else if (!w.over) {
+  const steps = stepItems(w), offerMail = w.player.offer && !w.player.offer.answer && (w.mail || []).find(m => m.offer && !m.answer);
+  items.push(...steps);
+  if (!steps.length && !w.over) {
     const r = w.series[sid].cal[w.round];
     const tg = WC.dealsOf(w).map(d => `<b>${WC.sponsorName(d.sid)}</b>: ${WC.objText(w, WC.dealObjective(w, d)).toLowerCase()}`).join(' · ');
     // the week: jobs you've booked, then today (pick what to do with it), then race day
@@ -3513,20 +3543,6 @@ function renderHubMenu() {
     else if (noCar) items.push(sitOutItem(w, true));
     else items.push({ label: `Round ${w.round + 1}: Race`, cls: 'action primary', action: () => startWorldRound(), desc: raceDesc(w) }, sitOutItem(w, false));
     if (noCar) items.push(getCarItem(w));
-  } else {
-    // (the SVMA's offer: answered right here, the same as from the email: each series' line from it as the reason)
-    if (offerMail && offerMail.choices) for (const [key, label] of offerMail.choices) {
-      const id = String(key).startsWith('move:') ? key.slice(5) : null, line = id && (offerMail.body || []).find(b => b.startsWith(seriesName(id) + ':'));
-      items.push({ label: id ? `Move Up: ${seriesName(id)}` : label, cls: id ? 'action primary' : 'action', action: () => { pc.src.answer(offerMail, key); renderHub(); },
-        desc: line ? line.slice(seriesName(id).length + 2) : `Another year in the ${seriesName(sid)}. The offer won't wait for you.` });
-    }
-    items.push({ label: `Start ${w.year + 1} Season`, cls: offerMail ? 'action' : 'action primary', action: () => beginNextSeason(),
-      desc: offerMail ? `First choose: move up, or stay.` : 'Everyone a year older. Retirements, promotions and rookies, then a new calendar.' });
-    if (off && off.answer === 'move') {
-      const miss = WC.seriesMissing(WC.myTeam(w), off.to);
-      if (miss.length) items.push({ label: `${seriesName(off.to)} Requirements<small>MISSING</small>`, action: () => sitDown('facilities'), desc: `The ${seriesName(off.to)} won't take your entry without ${miss.map(([k, n]) => WC.needName(k, n)).join(' and ')}. Build them before you start the season (Team, Facilities), or the entry is withdrawn.` });
-      items.push({ label: `${seriesName(off.to)} Cars`, action: () => sitDown('customer'), desc: `Sort out a car for the ${seriesName(off.to)} now, or when the new season starts (on the computer).` });
-    }
   }
   items.push(
     WALK_ITEM(),

@@ -1787,6 +1787,11 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .wh-cell.bad b, .wh-cell.bad em { color: var(--sv-bad); }
 .wh-hint { margin: var(--s3) 0 0; max-width: 460px; font: 500 var(--t-caption)/1.4 var(--f-body); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; opacity: 0; transition: opacity .4s; }
 #s-hub.walking.still .wh-hint { opacity: 1; }
+/* the season's next step (the setup, the launch, the next season): a button under the team, the way the menu led with it */
+.wh-step { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s4); padding: 10px 18px 10px 12px; background: var(--sv-plate); border: 0; border-left: 2px solid var(--sv-amber); cursor: pointer; pointer-events: auto;
+  font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-amber); text-shadow: var(--sv-glow); transition: background var(--m-med); }
+.wh-step:hover, .wh-step:focus-visible { background: color-mix(in srgb, var(--sv-amber) 14%, var(--sv-plate)); outline: none; }
+.wh-step .wh-key { display: inline-flex; gap: 4px; }
 #s-hub.walking .walk-next { display: block; position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); white-space: nowrap; font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
 .walk-next b { font-weight: 500; color: var(--sv-amber); margin-right: var(--s2); }
 /* the week: walking, the days and the round in a line; stood still, the circuit and the targets (the same place) */
