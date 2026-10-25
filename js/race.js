@@ -4374,15 +4374,26 @@ export class Race {
   // the way. 'flat': the old ribbon painted on the road.
   buildRacingLine() {
     const T = this.T, N = T.N;
-    // reference speed a good human can carry (a touch under the AI limit)
-    const ref = this.refV = new Float32Array(N);
-    for (let i = 0; i < N; i++) ref[i] = this.lineV[i] * 0.94;
+    // reference speed a good human can carry (a touch under the AI limit), and where to lift and brake: an AI lap
+    // driven in your car (drivenSpeeds; at full pace - driven at 94% it lifted in an F1's flat-out Esses). Not the plan itself - that's a ceiling, far over what the car reaches on the straights (253 km/h
+    // ahead of Road Atlanta's T1 in an RX-7 that gets to 190) with dips where the AI once ran wide, and every drop
+    // from it read as a brake point: red on straights the AI takes flat out (2026-10-25)
+    const drv = this.drivenSpeeds(this.player.carId, 1), ref = this.refV = drv.map(x => x * 0.94);
     // how hard each point brakes (0 = throttle, ~0.35 lift, 1 = brake hard), from the decel the speed plan needs there
-    const sev = this.lineBase = new Float32Array(N);
+    // (over the speeds averaged across ~14 m: a gear change on a straight costs the driven lap a little speed for a
+    // moment, which isn't a lift)
+    const sev = this.lineBase = new Float32Array(N), sm = new Float32Array(N), r = Math.max(1, Math.round(7 / T.ds));
+    for (let i = 0; i < N; i++) { let a = 0; for (let k = -r; k <= r; k++) a += drv[(i + k + N) % N]; sm[i] = a / (2 * r + 1); }
     for (let i = 0; i < N; i++) {
-      const a = ref[i], b = ref[(i + 1) % N];
+      const a = sm[i], b = sm[(i + 1) % N];
       const dec = (a * a - b * b) / (2 * T.ds);
       sev[i] = dec < 0.6 ? 0 : dec < 1.2 ? (dec - 0.6) / 0.6 * 0.35 : Math.min(1, 0.35 + (dec - 1.2) / 4.8 * 0.65);
+    }
+    // and a lift shorter than ~8 m is the driven lap's wobble, not one to show
+    for (let i = 0, n = Math.round(8 / T.ds); i < N; i++) {
+      if (sev[i] === 0 || sev[(i - 1 + N) % N] > 0) continue;
+      let j = i, top = 0; while (sev[j % N] > 0 && j - i < N) top = Math.max(top, sev[j++ % N]);
+      if (j - i < n && top < 0.9) for (let k = i; k < j; k++) sev[k % N] = 0;
     }
     // widen braking zones a little so they read clearly
     const s2 = Float32Array.from(sev);
@@ -4411,6 +4422,17 @@ export class Race {
     this.lineCol = col;
     this.buildLineTiles();
     this.buildGearHints();
+  }
+
+  // the speed at each sample of an AI lap in this car at this pace, on the race's line (simLap, the last of two; the plan's speeds
+  // where the lap didn't go, a point-to-point's run-off). The field's cars are parked out of its way.
+  drivenSpeeds(id, pace) {
+    const T = this.T, N = T.N, V = this.lineV, v = new Float32Array(N), seen = new Uint8Array(N), parked = this.cars;
+    this.cars = [];
+    try { this.simLap(id, { pace, tyre: this.condTyre(), laps: T.open ? 1 : 2, probe: (p, t, car) => { v[car.idx] = Math.max(0, p.u); seen[car.idx] = 1; } }); } // (two: the second overwrites the rolling start's run-in, a seam at the line)
+    finally { this.cars = parked; }
+    for (let i = 0; i < N; i++) if (!seen[i]) v[i] = V[i] * pace;
+    return v;
   }
 
   // the tiles: one every LT.pitch samples, each LT.len of the way to the next sample, LT.w wide at the near edge and a
