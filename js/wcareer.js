@@ -28,21 +28,22 @@ export const POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 // A new series is a line here, plus its costs (COSTS, SEASON_FUND, TEAM_FUND) and its cars: the rest builds itself.
 export const SERIES = [
   { id: 'club', name: 'Spec Miata Club', cls: 'club', tier: 1, path: 'sportscar', oneMake: true, base: 44, spread: 14, car: 'classifieds', price: [14000, 14000], ages: [17, 12], inv: 0.4, local: true,
-    tracks: ['Lime Rock Park', 'Summit Point', 'Willow Springs', 'Laguna Seca', 'Thunderhill', 'Maple Ridge GP'] },
+    tracks: ['Lime Rock Park', 'Summit Point', 'Thunderhill', 'Willow Springs', 'Pine Hollow Park', 'Maple Ridge GP', 'Watkins Glen', 'Laguna Seca'] },
   { id: 'street', name: 'Street Cup', cls: 'street', tier: 2, path: 'sportscar', base: 50, spread: 14, car: 'classifieds', bop: true, ages: [18, 9], inv: 0.6, local: true, lic: 2,
-    tracks: ['Laguna Seca', 'Zandvoort', 'Indianapolis', 'Palm Bay Circuit', 'Harborview Streets', 'Road Atlanta', 'Watkins Glen'] },
+    tracks: ['Palm Bay Circuit', 'Lime Rock Park', 'Road Atlanta', 'Harborview Streets', 'Zandvoort', 'Watkins Glen', 'Indianapolis', 'Laguna Seca'] },
   // (the customer GT racers a class below GT1: the cars bought from the maker, balanced with ballast, the second seat
   // sold to a gentleman or a pro; the first rung with a truck to carry the car)
   { id: 'gt2', name: 'GT2 Championship', cls: 'gt2', tier: 3, path: 'sportscar', base: 57, spread: 13, car: 'customer', price: [95000, 140000], ballast: true, gents: true, seats: ['gent', 'pro', 'share', 'junior'], ages: [20, 12], inv: 0.8, pro: true, local: true, lic: 2,
-    tracks: ['Road Atlanta', 'Watkins Glen', 'Lime Rock Park', 'Laguna Seca', 'Zandvoort', 'Indianapolis', 'Sebring', 'Road America'] },
+    tracks: ['Laguna Seca', 'Lime Rock Park', 'Road Atlanta', 'Zandvoort', 'Watkins Glen', 'Circuit of the Americas', 'Indianapolis', 'Sebring International Raceway'] },
   { id: 'gt', name: 'GT Championship', cls: 'gt1', tier: 4, path: 'sportscar', base: 63, spread: 12, car: 'customer', price: [240000, 330000], ballast: true, gents: true, seats: ['gent', 'pro', 'share', 'junior'], works: true, hosp: true, ages: [21, 13], inv: 1, pro: true, local: true, lic: 2,
-    tracks: ['Spa-Francorchamps', 'Suzuka', 'Road America', 'Sebring', 'Watkins Glen', 'Laguna Seca', 'Indianapolis'] },
+    tracks: ['Circuit of the Americas', 'Laguna Seca', 'Road Atlanta', 'Zandvoort', 'Watkins Glen', 'Spa-Francorchamps', 'Sebring International Raceway', 'Suzuka'] },
   // (the top of the ladder, for now: ground-effect prototypes, the 962C, the 787B and the XJR-9, balanced with ballast
   // as GT1 is; the year ends with the San Velocita Grand Prix, theirs)
   { id: 'groupc', name: 'Group C Championship', cls: 'groupc', tier: 5, path: 'sportscar', base: 69, spread: 11, car: 'customer', price: [480000, 650000], ballast: true, gents: true, seats: ['gent', 'pro', 'share', 'junior'], works: true, hosp: true, ages: [22, 14], inv: 1.8, pro: true, gp: true, local: true, lic: 2,
-    tracks: ['Sebring', 'Road Atlanta', 'Watkins Glen', 'Spa-Francorchamps', 'Suzuka', 'Road America', 'Laguna Seca'] },
+    tracks: ['Sebring International Raceway', 'Road Atlanta', 'Laguna Seca', 'Watkins Glen', 'Zandvoort', 'Spa-Francorchamps', 'Suzuka', 'Indianapolis'] },
   // (parked, 2026-10-25: still racing in the world, in the news, but off the ladder: nobody moves up into it)
-  { id: 'formula', name: 'Formula SV', cls: 'f1', tier: 5, path: 'formula', base: 76, spread: 10, car: 'spec', price: [900000, 900000], gents: true, seats: ['gent', 'pro', 'share', 'junior'], hosp: true, ages: [22, 14], inv: 3, pro: true, parked: true, lic: 2 },
+  { id: 'formula', name: 'Formula SV', cls: 'f1', tier: 5, path: 'formula', base: 76, spread: 10, car: 'spec', price: [900000, 900000], gents: true, seats: ['gent', 'pro', 'share', 'junior'], hosp: true, ages: [22, 14], inv: 3, pro: true, parked: true, lic: 2,
+    tracks: ['Madring', 'Monaco', 'Zandvoort', 'Spa-Francorchamps', 'Suzuka', 'Circuit of the Americas', 'Indianapolis'] },
 ];
 export const seriesById = (id) => SERIES.find(s => s.id === id);
 // where a new career starts (the entry you buy); a career keeps its own (w.start: careers from before the club
@@ -487,6 +488,7 @@ export function newCalendars(w, trackPool) {
   w.lapKm = Object.fromEntries(trackPool.filter(t => t.points).map(t => [t.name, lapKmOf(t)]));
   const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng(w) * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   for (const s of SERIES) {
+    if (!w.series[s.id]) continue;   // (a series this world hasn't got yet: addMissingSeries)
     // (its own circuits, those the career has; the rest of the pool fills a short list; then the season's order)
     const own = s.tracks ? names.filter(n => s.tracks.includes(n)) : names;
     const order = shuffle([...shuffle(own.slice()), ...shuffle(names.filter(n => !own.includes(n)))].slice(0, Math.max(own.length, w.opts.len)));
@@ -509,7 +511,7 @@ export function newCalendars(w, trackPool) {
 // calendar has one, else the second last round (the last is the title decider). Its race clock runs the season's
 // endurance length (w.opts.endur: real minutes for 24 hours; a 6 Hours is a quarter of it)
 export const ENDURANCE_HOURS = 6, ENDURANCE_START = 14.5; // (a 2.30 pm start: it finishes under the lights)
-const ENDURANCE_TRACKS = ['Watkins Glen', 'Road Atlanta', 'Sebring', 'Road America', 'Spa-Francorchamps', 'Suzuka', 'Laguna Seca'];
+const ENDURANCE_TRACKS = ['Watkins Glen', 'Road Atlanta', 'Sebring International Raceway', 'Spa-Francorchamps', 'Suzuka', 'Laguna Seca'];
 function enduranceRound(w, s, cal) {
   if (s.path !== 'sportscar' || s.tier < 3 || cal.length < 3) return;
   let k = -1;
@@ -544,13 +546,42 @@ export function enduranceClock(w, R) {
 }
 // the top series ends every year with the San Velocita Grand Prix, always on the same circuit (picked once)
 function gpRound(w, names) {
-  const cal = w.series[gpSeries().id].cal; if (!cal.length) return;
+  const cal = w.series[gpSeries().id]?.cal; if (!cal || !cal.length) return;
   if (!w.gpTrack || (names && !names.includes(w.gpTrack))) w.gpTrack = cal[cal.length - 1].name;
   const last = cal[cal.length - 1], dup = cal.findIndex((c, i) => i < cal.length - 1 && c.name === w.gpTrack);
   if (dup >= 0) cal[dup].name = last.name; // (it's only raced once a year)
   last.name = w.gpTrack; last.gp = true;
 }
 export const isGP = (R) => !!(R && R.gp);
+// a series' recommended calendar (its own circuits, in a season's order, the finale last), of len rounds from the
+// circuits there are (names): the first len - 1 and the finale, or round again if it's longer than the list
+export function recommendedCal(sid, names, len) {
+  const own = (seriesById(sid)?.tracks || []).filter(n => names.includes(n)), list = own.length ? own : names.slice();
+  if (!list.length) return [];
+  if (len <= list.length) return [...list.slice(0, len - 1), list[list.length - 1]];
+  return Array.from({ length: len }, (_, r) => r === len - 1 ? list[list.length - 1] : list[r % (list.length - 1 || 1)]);
+}
+// the season's length and your series' circuits, set in the season setup (before its first race): every series'
+// calendar drawn again at that length (pool: the career's circuits), yours the names given in order (all: every
+// circuit, to look them up); the 6 Hours and the Grand Prix put back on
+export function setSeasonCal(w, pool, all, len, names) {
+  const sid = w.player.series; if (!sid || w.round !== 0 || w.series[sid].results.length) return false;
+  if (SEASON_LENGTHS.includes(len)) w.opts.len = len;
+  newCalendars(w, pool);
+  if (names && names.length) {
+    const s = seriesById(sid), cal = [];
+    for (let r = 0; r < w.opts.len; r++) {
+      const name = names[r % names.length], tr = all.find(t => t.name === name) || pool.find(t => t.name === name);
+      const x = rng(w), time = x < 0.55 ? (tr?.env?.time || 'day') : x < 0.8 ? 'dusk' : 'night';
+      const y = rng(w), weather = y < 0.7 ? 'clear' : y < 0.85 ? 'overcast' : y < 0.95 ? 'rain' : 'fog';
+      cal.push({ name, time, weather, theme: tr?.env?.theme || 'grass', surface: tr?.env?.surface === 'dirt' ? 'dirt' : 'tarmac' });
+      if (tr && tr.points) (w.lapKm ??= {})[name] = lapKmOf(tr);
+    }
+    w.series[sid].cal = cal; enduranceRound(w, s, cal);
+    if (s.gp) { w.gpTrack = names.includes(w.gpTrack) ? w.gpTrack : null; gpRound(w, names); }
+  }
+  return true;
+}
 
 // ---------------- ratings: what makes a driver fast in a race ----------------
 export function rating(w, pid) {
@@ -1502,9 +1533,9 @@ function newSetup(w) {
 // the wizard's steps for the picks so far (an entry that comes with a car skips the car), your picks recorded as you go
 // (Back and Next move freely; nothing's spent until setupApply, from the last step)
 export function setupSteps(w) {
-  if (setupKind(w) === 'season') { const S = w.setup, seats = !!seriesById(w.player.series).seats; return [...(w.coop ? ['roles'] : []), ...(S.cars.length ? ['car'] : []), ...(w.coop ? (car2Models(w).length ? ['car2'] : []) : seats && S.seats.length ? ['seat'] : []), ...(S.sponsors.length ? ['sponsor'] : []), ...(setupChassis(w) ? ['livery'] : []), 'ready']; }
+  if (setupKind(w) === 'season') { const S = w.setup, seats = !!seriesById(w.player.series).seats; return ['len', 'cal', ...(w.coop ? ['roles'] : []), ...(S.cars.length ? ['car'] : []), ...(w.coop ? (car2Models(w).length ? ['car2'] : []) : seats && S.seats.length ? ['seat'] : []), ...(S.sponsors.length ? ['sponsor'] : []), ...(setupChassis(w) ? ['livery'] : []), 'ready']; }
   // (a car bought before the setup, in careers from before it was the only way: starting from nothing keeps it)
-  const e = w.setup?.picks?.entry; return ['entry', ...((e && e !== 'fresh') || w.car ? [] : ['car']), 'sponsor', ...(w.coop ? [] : ['mate']), 'ready'];
+  const e = w.setup?.picks?.entry; return ['len', 'cal', 'entry', ...((e && e !== 'fresh') || w.car ? [] : ['car']), 'sponsor', ...(w.coop ? [] : ['mate']), 'ready'];
 }
 // the model you'll race this season: the car picked in the season setup (bought when the lights go out), or yours
 export function setupChassis(w) {

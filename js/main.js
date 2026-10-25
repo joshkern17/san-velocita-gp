@@ -2369,6 +2369,10 @@ const tsw = new TeamSetup($('tsw'), {
   save: () => { saveWorld(); renderHints(); },
   photo: (ad) => pc.src.photo(ad), carInfo: (c) => pc.src.carInfo(c),
   logo: (sid) => assets.get(logoOf({ sid })),
+  // the season's circuits: the career's (its calendars are drawn from them) and every one there is
+  tracks: () => ({ pool: worldPool(), all: allTracks() }),
+  // pick them yourself: the Circuits screen, in the order you pick them, then back to the setup
+  pickCircuits: (names, done) => { const o = { tracks: [...new Set(names)], len: world.setup?.picks?.len || world.opts.len }; openTrackPick(o, 's-hub', () => done(o.tracks.length ? o.tracks : names)); },
   closed: () => { $('s-hub').classList.remove('wizard'); renderHub(); renderHints(); hubEnter(); maybeList(); },
   // the lights are out: buy it, sign it, and back to the garage
   apply: () => {

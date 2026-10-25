@@ -2580,6 +2580,10 @@ body.cine #hud { opacity: 0; transition: opacity .5s; }
 .tsw-role small { font: 500 var(--t-caption)/1 var(--f-ui); letter-spacing: var(--track-caption); text-transform: uppercase; color: var(--sv-amber); }
 .tsw-role b { font: 500 22px/1.1 var(--f-ui); letter-spacing: var(--track); color: var(--sv-hot); }
 .tsw-gets li::before { content: ''; position: absolute; left: 0; top: .42em; width: 6px; height: 2px; background: var(--sv-red); box-shadow: var(--sv-glow-line); }
+.tsw-cal { list-style: none; display: grid; grid-auto-flow: column; grid-template-rows: repeat(8, auto); gap: 3px 14px; margin-top: 2px; } /* (the season's rounds, in order: a second column past eight) */
+.tsw-cal li { display: flex; align-items: baseline; gap: 8px; min-width: 0; font: 500 var(--t-label)/1.2 var(--f-ui); letter-spacing: var(--track); color: var(--sv-red); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tsw-cal span { flex: none; width: 2.2em; color: var(--sv-red-dim); font-variant-numeric: tabular-nums; }
+.tsw-cal em { flex: none; font-style: normal; font-size: var(--t-caption); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-amber); }
 /* where your money ends up: the same slot at the foot of every column */
 .tsw-left { margin-top: auto; display: flex; justify-content: space-between; align-items: baseline; padding-top: 12px; border-top: 1px solid var(--sv-red-faint); }
 .tsw-left small { font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red-dim); }

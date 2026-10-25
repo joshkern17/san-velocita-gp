@@ -13,7 +13,7 @@ import { faceHTML } from './drivers.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hex = (c) => '#' + ((c ?? 0x888888) >>> 0).toString(16).padStart(6, '0');
-const NAME = { roles: 'Who runs what', entry: 'How you get in', car: 'The car', car2: 'Car two', livery: 'Livery', sponsor: 'Title sponsor', mate: 'Second driver', seat: 'Second seat', ready: 'Ready' };
+const NAME = { len: 'Season length', cal: 'The calendar', roles: 'Who runs what', entry: 'How you get in', car: 'The car', car2: 'Car two', livery: 'Livery', sponsor: 'Title sponsor', mate: 'Second driver', seat: 'Second seat', ready: 'Ready' };
 // (what each kind of second-seat deal asks of you, in a line each)
 const SEAT_COSTS = {
   gent: ['A day of your week each round, coaching', 'Crashes: you pay car 2\'s repairs', 'Might walk after a big one'],
@@ -107,6 +107,12 @@ export class TeamSetup {
     const o = this.options()[this.sel]; if (!o) return;
     if (o.dis) { this.src.sfx('error'); this.src.toast(`That's more than you have (${WC.money$(w.money.balance)}).`); return; }
     // (painting it: off to the livery designer on this season's car; it comes back here, a step on: main.js paintForSetup)
+    // (the season's length and circuits: set as they're picked, so everything after counts the right rounds)
+    if (step === 'len' || step === 'cal') {
+      if (step === 'cal' && o.val === 'pick') { this.src.sfx('select'); this.src.pickCircuits(this.calNames('pick').length ? this.calNames('pick') : this.calNames(this.calNow()), (names) => { WC.setupPick(w, 'calNames', names); WC.setupPick(w, 'cal', 'pick'); this.applyCal(); WC.setupMove(w, 1); this.src.save(); this.render(1); }); return; }
+      WC.setupPick(w, step, o.val); this.applyCal(); WC.setupMove(w, 1);
+      this.src.sfx('select'); this.src.save(); this.render(1); return;
+    }
     if (step === 'livery' && o.val === 'paint') { WC.setupPick(w, step, 'paint'); this.src.sfx('select'); this.src.save(); this.src.paint(WC.setupChassis(w)); return; }
     WC.setupPick(w, step, o.val); WC.setupMove(w, 1);
     this.src.sfx('select'); this.src.save(); this.render(1);
@@ -119,6 +125,8 @@ export class TeamSetup {
   // ---------- what's on offer at this step: [{ val, dis, html }] ----------
   options() {
     const w = this.w, S = w.setup, step = this.step;
+    if (step === 'len') return WC.SEASON_LENGTHS.map(n => ({ val: n, after: WC.setupBudget(w).after, dis: false }));
+    if (step === 'cal') return ['rec', 'now', 'pick'].map(k => ({ val: k, after: WC.setupBudget(w).after, dis: false }));
     if (step === 'roles') return ['boss', 'tech'].map(k => ({ val: k, after: WC.setupBudget(w).after, dis: false })); // (co-op: the host's role; the co-owner has the other)
     if (step === 'entry') return WC.setupEntries(w).map(e => ({ val: e.key, ...this.leaves(step, e.key) }));
     if (step === 'car' && this.season) return S.cars.map((o, i) => ({ val: i, ...this.leaves(step, i) }));
@@ -137,10 +145,21 @@ export class TeamSetup {
     return { after, dis: after < 0 };
   }
 
+  // ---------- the calendar: which list, its rounds, putting it on ----------
+  calNow() { const P = this.w.setup.picks; return P.cal || (this.w.opts.tracks && this.w.opts.tracks.length ? 'now' : 'rec'); }
+  calNames(kind) {
+    const w = this.w, S = w.setup, len = S.picks.len || w.opts.len, T = this.src.tracks(), cyc = (a) => a.length ? Array.from({ length: len }, (_, r) => a[r % a.length]) : [];
+    S.drawn ??= w.series[w.player.series].cal.map(c => c.name);   // (as the season was drawn, before any of this)
+    if (kind === 'rec') return WC.recommendedCal(w.player.series, T.all.map(t => t.name), len);
+    if (kind === 'pick') return cyc(S.picks.calNames || []);
+    return cyc(S.drawn);
+  }
+  applyCal() { const w = this.w, T = this.src.tracks(); WC.setSeasonCal(w, T.pool, T.all, w.setup.picks.len || w.opts.len, this.calNames(this.calNow())); }
+
   // ---------- drawing ----------
   render(dir) {
     const w = this.w, S = w.setup, step = this.step, opts = this.options();
-    const was = opts.findIndex(o => o.val === (step === 'roles' ? S.picks.roles || WC.roleOf(w, 'P') : S.picks[step]));
+    const was = opts.findIndex(o => o.val === (step === 'roles' ? S.picks.roles || WC.roleOf(w, 'P') : step === 'len' ? S.picks.len || w.opts.len : step === 'cal' ? this.calNow() : S.picks[step]));
     this.sel = was >= 0 ? was : Math.max(0, opts.findIndex(o => !o.dis));
     this.rail(); this.purse();
     const [q, sub] = this.question(step);
@@ -149,7 +168,7 @@ export class TeamSetup {
       qel.querySelector('h2').textContent = q; qel.querySelector('p').textContent = sub;
       cols.className = `tsw-cols n${step === 'ready' ? 0 : opts.length}${opts.length > 4 ? ' strip' : ''}`;
       cols.innerHTML = step === 'ready' ? this.ready() : opts.map((o, i) => `<div class="tsw-col${i === this.sel ? ' on' : ''}${o.dis ? ' dis' : ''}" data-i="${i}"><i class="tsw-cur"></i>${this.card(step, o, i)}
-        ${step === 'seat' || step === 'roles' ? '' : `<div class="tsw-left"><small>Leaves you</small><b class="${o.dis ? 'neg' : ''}">${o.dis ? 'More than you have' : WC.money$(o.after)}</b></div>`}</div>`).join(''); // (a seat deal costs nothing today: its money is on the card)
+        ${step === 'seat' || step === 'roles' || step === 'len' || step === 'cal' ? '' : `<div class="tsw-left"><small>Leaves you</small><b class="${o.dis ? 'neg' : ''}">${o.dis ? 'More than you have' : WC.money$(o.after)}</b></div>`}</div>`).join(''); // (a seat deal costs nothing today: its money is on the card)
       cols.scrollLeft = 0; this.reveal(); this.place(true); this.edges(); this.foot();
       // in: the question wipes on, the columns rise one after another (from the side you're heading)
       if (calm()) return;
@@ -170,6 +189,8 @@ export class TeamSetup {
       car: S.cars[0]?.how === 'ad' ? ['Pick a car', `Your old car isn't eligible for the ${sn}. These are off the classifieds; the dealer takes the old one in part exchange. A tired car is down on power.`]
         : ['Pick a car', `Cars must be homologated for the ${sn}. A lease is a deposit now and a payment every round; buying is all of it now. Your old car is traded in.`],
       livery: ['How does it look?', `The ${this.src.carInfo(WC.setupChassis(this.w))?.name || 'car'} in your colors. Paint it now, before the press see it.`],
+      len: ['How long a season?', `Every series runs the same number of rounds. More rounds: more racing, more to pay for, bigger prize funds at the end.`],
+      cal: ['Where do you race?', `The ${sn}'s own circuits, the ones drawn from your circuits, or pick them yourself.`],
       roles: ['Who runs what?', `You both drive. Off the track, one of you runs the business and the other runs the cars. Whatever's the other one's call, you can suggest: they say yes or no.`],
       car2: [`${WC.coopPerson(this.w)?.first || 'Your co-owner'}'s car`, `Car two doesn't have to be a car like yours. Any car homologated for the ${sn}, bought from the team account.`],
       seat: ['Who pays for the second car?', 'Every deal pays its way differently: money now, or a driver whose prize money pays later. Pace is what decides where car 2 finishes.'],
@@ -177,6 +198,8 @@ export class TeamSetup {
       ready: [`Ready for the ${this.w.year} season`, 'Check it over. Nothing is bought or signed until the lights go out.'],
     }[step];
     return {
+      len: ['How long a season?', 'Every series runs the same number of rounds. More rounds: more racing, more to pay for, bigger prize funds at the end.'],
+      cal: ['Where do you race?', `The ${sn}'s own circuits, the ones drawn from your circuits, or pick them yourself.`],
       entry: ['How do you want to get in?', 'Your winnings, and how much of them you spend before your first race. Everything after this is up to you.'],
       car: ['Pick a car', 'Off the classifieds. Danny\'s been through the listings and marked his pick. A tired car is down on power, and its parts are closer to failing.'],
       sponsor: ['Choose a title sponsor', 'Three local businesses want their name on your car. The one you choose sets a target for every race. The others will be watching.'],
@@ -195,6 +218,19 @@ export class TeamSetup {
         ${x.how === 'lease' ? `<div class="tsw-kpis"><div><small>A round</small><b>${$(c.perRound)}</b></div><div><small>Season</small><b>${$(c.deposit + c.perRound * w.opts.len)}</b></div></div>` : ''}
         ${c.hp ? stat('Power', `${c.hp} hp`, c.hp / 700) + stat('Weight', `${c.kg} kg`, 1 - (c.kg - 900) / 600) : ''}${x.how === 'used' ? stat('Condition', `${Math.round(c.cond * 100)}%`, c.cond) : ''}
         ${works || `<p class="tsw-blurb">${esc(x.how === 'used' ? `From ${c.team}, a season old.` : c.note || '')}</p>`}<p class="tsw-seller">${esc(c.prog || '')}</p>`;
+    }
+    if (step === 'len') {
+      const n = o.val, now = this.w.opts.len === n, L0 = this.w.opts.len;
+      return `<div class="tsw-top">${now ? tag('As now', 'dim') : ''}${n === 8 ? tag('A full season', 'good') : n === 4 ? tag('Short', '') : ''}</div><h3>${n} rounds</h3>
+        <p class="tsw-blurb">${{ 4: 'Over quickly: every race matters, one bad weekend and the title\'s gone.', 6: 'A short season. Room for a bad weekend.', 8: 'The usual length. Time to develop the car as it goes.', 12: 'A long one. The car you finish with won\'t be the one you start with.' }[n] || ''}</p>
+        <ul class="tsw-gets"><li>${n} race weekends</li><li>Prize funds ${n === L0 ? 'as now' : `x${(n / L0).toFixed(2).replace(/\.?0+$/, '')}`}</li><li>${n > 8 ? 'Circuits come round twice' : 'Each circuit once'}</li></ul>`;
+    }
+    if (step === 'cal') {
+      const names = this.calNames(o.val), sn = WC.seriesById(this.w.player.series), gp = sn.gp;
+      const title = { rec: `The ${sn.name} calendar`, now: 'From your circuits', pick: 'Pick them yourself' }[o.val];
+      const blurb = { rec: 'The circuits this series is known for, in its usual order. The finale last.', now: 'Drawn from the circuits your career uses (Career Options: Circuits).', pick: names.length ? 'Your own list, in the order you picked them. Select to change it.' : 'Every circuit in the game: the real ones, the presets and yours.' }[o.val];
+      return `<div class="tsw-top">${o.val === 'rec' ? tag('Recommended', 'good') : ''}</div><h3>${esc(title)}</h3><p class="tsw-blurb">${esc(blurb)}</p>
+        ${names.length ? `<ol class="tsw-cal">${names.map((n, r) => `<li><span>R${r + 1}</span>${esc(n)}${r === names.length - 1 ? `<em>${gp ? 'Grand Prix' : 'Finale'}</em>` : ''}</li>`).join('')}</ol>` : ''}`;
     }
     if (step === 'roles') {
       const me = this.w.player.name.split(' ')[0], co = WC.coopPerson(this.w)?.first || 'Your co-owner', R = WC.COOP_ROLES, other = o.val === 'boss' ? 'tech' : 'boss';
@@ -360,7 +396,8 @@ export class TeamSetup {
     let next = 'Start the season';
     if (step !== 'ready') {
       const lab = !o ? '' : step === 'seat' ? WC.SEAT_KINDS[w.setup.seats[o.val].kind].name : step === 'car' && this.season ? w.setup.cars[o.val].c.name : step === 'entry' ? WC.setupEntries(w).find(e => e.key === o.val)?.name : step === 'car' ? (w.ads || []).find(a => a.id === o.val)?.name
-        : step === 'sponsor' ? WC.sponsorInfo(w.setup.sponsors[o.val].sid).name : step === 'car2' ? (o.val ? WC.car2Models(w).find(m => m.key === o.val)?.name : 'Keep car two') : step === 'livery' ? (o.val === 'paint' ? 'Paint it' : 'Keep it') : `${w.people[o.val].first} ${w.people[o.val].last}`;
+        : step === 'sponsor' ? WC.sponsorInfo(w.setup.sponsors[o.val].sid).name : step === 'car2' ? (o.val ? WC.car2Models(w).find(m => m.key === o.val)?.name : 'Keep car two') : step === 'livery' ? (o.val === 'paint' ? 'Paint it' : 'Keep it') : step === 'len' ? `${o.val} rounds` : step === 'cal' ? { rec: 'The recommended calendar', now: 'From your circuits', pick: 'Pick them' }[o.val]
+        : step === 'roles' ? (o.val === 'boss' ? `${w.player.name.split(' ')[0]} runs the team` : `${WC.coopPerson(w)?.first || 'Co-owner'} runs the team`) : w.people[o.val] ? `${w.people[o.val].first} ${w.people[o.val].last}` : '';
       next = `Next${lab ? `: ${esc(lab)}` : ''}`;
     }
     this.el.querySelector('.tsw-next').innerHTML = `${next} &rsaquo;`;
