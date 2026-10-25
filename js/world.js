@@ -1,6 +1,6 @@
 // Builds the 3D environment for a track
 import * as THREE from 'three';
-import { streetAsphalt, bandAsphalt, getTextures, getGroundTextures } from './textures.js';
+import { streetAsphalt, bandAsphalt, paintGrain, getTextures, getGroundTextures } from './textures.js';
 import { circDist, computeSpeedProfile, OPEN_END_WALL, stepIdx, fenceHeight, kerbOn, kerbW, kerbOf, kerbColors, wallTypeAt, KERB_STYLES, SAUSAGE_H, EDGE_BAND_COLOR } from './track.js';
 import { gameHeight } from './terrain.js';
 import { applySculpt, trackHeightAt } from './sculpt.js';
@@ -1098,7 +1098,7 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
     if (bricks) { const bk = { p: [], u: [] }; patch(bk, -0.46, 0.46, -w0 / 2 - 0.3, w0 / 2 + 0.3, 8, (w0 + 0.6) / 2, 1); mesh(bk, new THREE.MeshLambertMaterial({ map: tx.bricks, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, side: THREE.DoubleSide })); }
     else patch(chk, -0.9, 0.9, -w0 / 2, w0 / 2, 8, w0 / 4, 1);
     if (T.open) { const df = T.D[T.finish], wf = T.W[T.finish]; patch(chk, df - 0.9, df + 0.9, -wf / 2, wf / 2, 8, wf / 4, 1); } // (point-to-point: the finish line too)
-    mesh(chk, new THREE.MeshLambertMaterial({ map: tx.checker, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, side: THREE.DoubleSide }));
+    mesh(chk, wornPaint(new THREE.MeshLambertMaterial({ map: tx.checker, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, side: THREE.DoubleSide })));
     const bars = { p: [], u: [] };
     for (let k = 0; k < 16; k++) {
       if (slice()) yield;
@@ -1107,7 +1107,7 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
       const sc = (k % 2 === 0 ? -1 : 1) * T.W[idx] * 0.22;
       patch(bars, -back - 0.12, -back + 0.12, sc - 1.2, sc + 1.2, 2);
     }
-    mesh(bars, new THREE.MeshLambertMaterial({ color: 0xe8e8e0, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, side: THREE.DoubleSide }));
+    mesh(bars, wornPaint(new THREE.MeshLambertMaterial({ color: 0xe8e8e0, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, side: THREE.DoubleSide })));
   }
 
   yield;
@@ -1833,6 +1833,25 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
 const RUN_ROWS = 8192; // (texture rows: a longer circuit is packed in blocks side by side)
 // dirt: a dirt track's colour (dirtTint), for its edges, where the runoff shows through the dirt (DIRT_EDGE)
 const DIRT_EDGE = 2.2;
+// Paint on the road (the start line, grid slots, the pit lane's and the streets' lines): the asphalt's grain shows
+// through it, in world space so it lines up with the road's own (6.5 m a photo, as the road's uv), its deepest pits
+// bare, and a slow fade over tens of metres where it's worn more or less. In the shader, after the paint's own color
+const PAINT_WEAR = `float pwG = texture2D(paintGrain, vPaintXZ / 6.5).r, pwF = texture2D(paintGrain, vPaintXZ / 41.0 + 0.37).r;
+diffuseColor.rgb *= clamp(1.0 + (pwG - 0.5) * 1.3, 0.55, 1.15) * (0.88 + 0.24 * pwF);
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.06, 0.06, 0.065), smoothstep(0.3, 0.2, pwG) * 0.65);`;
+function wornPaint(mat) {
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (sh, r) => {
+    if (prev !== THREE.Material.prototype.onBeforeCompile) prev(sh, r);
+    sh.uniforms.paintGrain = { value: paintGrain() };
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vPaintXZ;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvPaintXZ = (modelMatrix * vec4(position, 1.0)).xz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D paintGrain; varying vec2 vPaintXZ;')
+      .replace('#include <color_fragment>', '#include <color_fragment>\n' + PAINT_WEAR);
+  };
+  mat.customProgramCacheKey = () => 'wornPaint';
+  return mat;
+}
 // The circuit's edge as a painted band (env.edgeLine 'band', its color env.edgeColor), the way COTA's is: the white
 // line on the track's edge, then the color, then a white line, past the curb where there is one (run.w - 1: its width)
 export const EDGE_BAND = 1.5, EDGE_BAND_LINE = 0.22; // (m: the band, its outer white line; on the paved strip, runoff.js EDGE_STRIP)
@@ -1859,14 +1878,14 @@ function runoffMaterial(mat, RUN, theme, dirt = null, band = null) {
       runMap: { value: map }, runInfo: { value: new THREE.Vector4(C, N, H, RUN_RES) }, runSD: { value: RUN_SD },
       runPaved: { value: tx.runoffAsphalt }, runGravel: { value: tx.gravel }, runTint: { value: new THREE.Vector3(...tint) },
       runClay: { value: getGroundTextures().clay }, runDirt: { value: new THREE.Vector4(...(dirt ? [dirt.r, dirt.g, dirt.b, 1] : [1, 1, 1, 0])) },
-      runBand: { value: new THREE.Vector4(...(band ? [band.r, band.g, band.b, 1] : [1, 1, 1, 0])) },
+      runBand: { value: new THREE.Vector4(...(band ? [band.r, band.g, band.b, 1] : [1, 1, 1, 0])) }, paintGrain: { value: paintGrain() },
     });
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nattribute vec4 run;\nvarying vec4 vRun;\nvarying vec2 vRunXZ;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRun = run; vRunXZ = position.xz;');
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-uniform highp sampler2D runMap; uniform vec4 runInfo; uniform float runSD; uniform sampler2D runPaved, runGravel, runClay; uniform vec3 runTint; uniform vec4 runDirt, runBand;
+uniform highp sampler2D runMap; uniform vec4 runInfo; uniform float runSD; uniform sampler2D runPaved, runGravel, runClay; uniform vec3 runTint; uniform vec4 runDirt, runBand; uniform sampler2D paintGrain;
 varying vec4 vRun; varying vec2 vRunXZ;
 vec3 runCell(float row, float side, float c) {
   float N = runInfo.y, C = runInfo.x, H = runInfo.z;
@@ -1899,8 +1918,11 @@ if (vRun.w > 0.5) {
     float t = vRun.y - (vRun.w - 1.0), aa = max(fwidth(t), 1e-3);
     float inB = clamp(0.5 + t / aa, 0.0, 1.0) * clamp(0.5 + (${EDGE_BAND.toFixed(2)} - t) / aa, 0.0, 1.0);
     float wl = clamp(0.5 + (t - ${(EDGE_BAND - EDGE_BAND_LINE).toFixed(2)}) / aa, 0.0, 1.0);
-    vec3 bc = mix(runBand.rgb, vec3(0.8, 0.8, 0.76), wl) * (0.8 + 0.45 * dot(paved, vec3(0.333)));
-    diffuseColor.rgb = mix(diffuseColor.rgb, bc, inB);
+    vec3 base = diffuseColor.rgb;
+    diffuseColor.rgb = mix(runBand.rgb, vec3(0.8, 0.8, 0.76), wl);
+    vec2 vPaintXZ = vRunXZ;
+    ${PAINT_WEAR}
+    diffuseColor.rgb = mix(base, diffuseColor.rgb, inB);
   }
   if (runDirt.w > 0.5 && vRun.y < 0.0) {
     // a dirt track's edge (on the track): the runoff's surface (the cell at the edge) scattered through the dirt,
@@ -2133,7 +2155,7 @@ function buildPitLane(root, T, pit, surfY, tx, night, env, A) {
   mk(gar, garMat);
   buildPitBoxes(root, T, A, pit, { mat: garMat, style: env.pitStyle, night });
   mk(roof, new THREE.MeshLambertMaterial({ map: tx.concrete, color: 0xe4e2dc, side: THREE.DoubleSide }));
-  const mm = mk(marks, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }));
+  const mm = mk(marks, wornPaint(new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 })));
   if (mm) mm.renderOrder = 1;
   // a crash cushion over the pit wall's nose, facing the cars coming at it (over the wall's first 3 m, so it's where
   // the wall is: you hit it as you'd hit the wall)
@@ -3342,7 +3364,7 @@ function buildRoads(root, L, tx, lamps, step, theme, gh, T, A, env) {
   };
   mesh(RD, new THREE.MeshLambertMaterial({ map: tx.roadAsphalt, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }), true);
   for (const [kind, buf] of Object.entries(M)) {
-    const m = mesh(buf, new THREE.MeshLambertMaterial({ map: markingsTexture(kind), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }), true);
+    const m = mesh(buf, wornPaint(new THREE.MeshLambertMaterial({ map: markingsTexture(kind), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 })), true);
     if (m) m.renderOrder = 2;
   }
   const stop = mesh(ST, new THREE.MeshLambertMaterial({ color: 0xe6e6e0, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
@@ -3392,7 +3414,7 @@ function streetMarkings(root, T, A, env, roadL, surfY) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
   g.computeVertexNormals();
-  const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
+  const m = new THREE.Mesh(g, wornPaint(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 })));
   m.renderOrder = 1; m.name = 'streetMarkings'; root.add(m);
 }
 

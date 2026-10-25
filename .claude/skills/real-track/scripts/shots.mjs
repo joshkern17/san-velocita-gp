@@ -1,6 +1,7 @@
 // Pictures of a real circuit in the game (day, clear, no HUD), one browser for all of them. Run under the guard:
 //   .devtest/guard.sh -m 7000 -t 300 node .claude/skills/real-track/scripts/shots.mjs <id> <outdir> <spot>...
 //   spot = d<metres>       chase view: 25 m back along the lap, 3.2 m up, looking 40 m ahead   (d850)
+//        | n<metres>      close-up: low over the right edge, 6 m back, looking 6 m ahead (paint, curbs)  (n1900)
 //        | name:cx,cy,cz,tx,ty,tz   camera and target in world x/z, y metres above the ground there  (t1:-200,30,600,-220,0,660)
 // --probe: also list what stands on the road surface (merged scenery cat + size, lap metres) and the distance boards
 import { spawn } from 'node:child_process';
@@ -47,7 +48,10 @@ try {
     await pg.evaluate((sp) => {
       const sim = window.__svgp.sim, T = sim.T, gh = sim.world.groundHeight;
       sim.camera.far = Math.max(sim.camera.far, 4000); sim.camera.updateProjectionMatrix();
-      if (/^d-?\d/.test(sp)) {
+      if (/^n-?\d/.test(sp)) { // (close to the right edge: the paint, the curb, the band)
+        const at = (m) => ((Math.round(m / T.ds) % T.N) + T.N) % T.N, d = +sp.slice(1), a = at(d - 6), c = at(d + 6), s = T.W[c] / 2 + 0.5;
+        sim.updateCamera = function () { this.camera.position.set(T.X[a] + T.RX[a] * (s - 3), T.Y[a] + 1.3, T.Z[a] + T.RZ[a] * (s - 3)); this.camera.lookAt(T.X[c] + T.RX[c] * s, T.Y[c], T.Z[c] + T.RZ[c] * s); };
+      } else if (/^d-?\d/.test(sp)) {
         const at = (m) => ((Math.round(m / T.ds) % T.N) + T.N) % T.N, d = +sp.slice(1), a = at(d - 25), c = at(d + 40);
         sim.updateCamera = function () { this.camera.position.set(T.X[a], T.Y[a] + 3.2, T.Z[a]); this.camera.lookAt(T.X[c], T.Y[c] + 1, T.Z[c]); };
       } else {

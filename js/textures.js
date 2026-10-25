@@ -89,6 +89,39 @@ function tilePhoto(g, im, w, h, base, lift = 0) {
   if (lift) { g.globalCompositeOperation = 'screen'; g.fillStyle = `rgb(${lift},${lift},${lift})`; g.fillRect(0, 0, w, h); g.globalCompositeOperation = 'source-over'; }
 }
 const burn = (n) => { for (let k = 0; k < n; k++) rnd(); }; // (random numbers a replaced canvas used, so the textures after keep theirs)
+// Paint laid on the asphalt already drawn in g, the way real road paint wears: the photo's grain shows through it
+// (lighter and darker with the stone under it) and its deepest pits stay bare. rgb: the paint, 0-255
+function paintOn(g, rects, rgb, W = 128, H = 128) {
+  const im = g.getImageData(0, 0, W, H), d = im.data, { z } = grainOf(d);
+  for (const [x0, y0, w, h] of rects) for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+    const k = (y * W + x) * 4, zk = z(k);
+    const sh = Math.max(0.6, Math.min(1.12, 1 + 0.2 * zk)), bare = Math.max(0, Math.min(1, (-1.4 - zk) / 0.6)) * 0.65;
+    for (let c = 0; c < 3; c++) d[k + c] = Math.min(255, rgb[c] * sh) * (1 - bare) + d[k + c] * bare;
+  }
+  g.putImageData(im, 0, 0);
+}
+// how far each pixel's lightness is from the picture's average, in standard deviations: z(k) for the pixel at byte k
+function grainOf(d) {
+  const L = (k) => d[k] * 0.3 + d[k + 1] * 0.59 + d[k + 2] * 0.11; let m = 0, v = 0; const n = d.length / 4;
+  for (let k = 0; k < d.length; k += 4) m += L(k); m /= n;
+  for (let k = 0; k < d.length; k += 4) v += (L(k) - m) ** 2; const sd = Math.max(1, Math.sqrt(v / n));
+  return { z: (k) => (L(k) - m) / sd };
+}
+// The asphalt's grain alone, as grey around 0.5 (0.5 = the photo's average, a standard deviation 0.16): the painted lines drawn as meshes and
+// the runoff's edge band read it in world space (world.js wornPaint), so their paint wears like the lines in the road
+let _grain = null;
+export function paintGrain() {
+  if (_grain) return _grain;
+  _grain = photoTex(128, 128, ['asphalt_01'], (g, P) => {
+    tilePhoto(g, P('asphalt_01'), 128, 128, '#4a4a4e');
+    const im = g.getImageData(0, 0, 128, 128), d = im.data, { z } = grainOf(d), Z = new Float32Array(d.length / 4);
+    for (let k = 0; k < d.length; k += 4) Z[k / 4] = z(k); // (all read before any is written)
+    for (let k = 0; k < d.length; k += 4) d[k] = d[k + 1] = d[k + 2] = Math.max(0, Math.min(255, 128 + Z[k / 4] * 40)); // (1 sd = 40 / 255)
+    g.putImageData(im, 0, 0);
+  });
+  _grain.colorSpace = THREE.NoColorSpace; // (data, not a color)
+  return _grain;
+}
 
 // a street track's asphalt: the circuit's, with no painted edges (its lines are drawn on top: world.js streetMarkings)
 let _street = null;
@@ -99,7 +132,7 @@ let _band = null;
 export function bandAsphalt() {
   return _band || (_band = photoTex(128, 128, ['asphalt_01'], (g, P) => {
     tilePhoto(g, P('asphalt_01'), 128, 128, '#4a4a4e', 14);
-    g.fillStyle = '#e8e8e0'; g.fillRect(0, 0, 3, 128); g.fillRect(125, 0, 3, 128);
+    paintOn(g, [[0, 0, 3, 128], [125, 0, 3, 128]], [232, 232, 224]);
   }));
 }
 
@@ -112,14 +145,13 @@ export function getTextures() {
   cache.asphalt = photoTex(128, 128, ['asphalt_01'], (g, P) => {
     tilePhoto(g, P('asphalt_01'), 128, 128, '#4a4a4e', 14);
     // (the racing line's rubber is drawn by the road's shader, where the line really is: rubber.js)
-    g.fillStyle = '#e8e8e0'; g.fillRect(3, 0, 3, 128); g.fillRect(122, 0, 3, 128);
+    paintOn(g, [[3, 0, 3, 128], [122, 0, 3, 128]], [232, 232, 224]);
   });
   burn(128 * 128 + 30 * 14);
   // city asphalt (yellow edges, dashed centre line): cracked_asphalt_01
   cache.asphaltCity = photoTex(128, 128, ['cracked_asphalt_01'], (g, P) => {
     tilePhoto(g, P('cracked_asphalt_01'), 128, 128, '#414147', 8);
-    g.fillStyle = '#d9c85a'; g.fillRect(3, 0, 3, 128); g.fillRect(122, 0, 3, 128);
-    g.fillStyle = 'rgba(230,230,230,0.8)'; g.fillRect(62, 0, 3, 64);
+    paintOn(g, [[3, 0, 3, 128], [122, 0, 3, 128]], [217, 200, 90]); paintOn(g, [[62, 0, 3, 64]], [214, 214, 214]);
   });
   burn(128 * 128 + 26 * 14);
   // kerb red/white
