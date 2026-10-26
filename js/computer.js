@@ -201,14 +201,14 @@ export class Computer {
       : app === 'team' ? { tab: tab || 'overview', file: null }
       : app === 'web' ? { home: 1 }
       : app === 'news' ? { news: 'home', sec: 'all' }
-      : app === 'series' ? { s: w.player.series, tab: 'standings' }
+      : app === 'series' ? { s: w.player.series, tab: w.series[w.player.series].results.length ? 'standings' : 'home' }
       : app === 'bank' ? { bank: 'home' }
       : app === 'classifieds' ? { ad: null }
       : app === 'parts' ? { slot: 'engine' }
       : app === 'jobs' ? { role: 'mechanic' }
       : app === 'registry' ? { reg: 1 }
       : app === 'giggo' ? { gg: 1 }
-      : app === 'customer' ? { cc: null }
+      : app === 'customer' ? { cc: null, s: WC.carSeries(w).id }
       : { db: w.player.series, pid: null };
     if (app === 'mail' && this.page.mail) this.markRead(this.page.mail);
     this.curKey = null; this.render(); this.src.sfx?.select?.();
@@ -275,7 +275,7 @@ export class Computer {
     }
     if (a === 'article') { this.go({ news: +arg }); this.src.sfx?.select?.(); return; }
     if (a === 'nwsec') { this.page = { news: 'home', sec: arg }; this.hist = []; this.curKey = 'sec-' + arg; this.render(); this.src.sfx?.move?.(); return; }
-    if (a === 'site') { this.hist = []; this.page = { s: arg, tab: 'standings' }; this.curKey = null; this.render(); this.src.sfx?.select?.(); return; }
+    if (a === 'site') { this.hist = []; this.page = { s: arg, tab: 'home' }; this.curKey = null; this.render(); this.src.sfx?.select?.(); return; }
     if (a === 'tab') { this.hist = []; this.page = { ...this.page, tab: arg }; this.curKey = 'tab-' + arg; this.render(); this.src.sfx?.select?.(); return; }
     if (a === 'db') { this.page = { db: arg, pid: null }; this.hist = []; this.curKey = 'db-' + arg; this.render(); this.src.sfx?.select?.(); return; }
     if (a === 'driver') { this.go({ pid: arg }); this.src.sfx?.select?.(); return; }
@@ -306,6 +306,8 @@ export class Computer {
     if (a === 'parea') { this.page = { ...this.page, area: arg }; this.armed = null; this.curKey = 'parea-' + arg; this.render(); this.src.sfx?.move?.(); return; }
     if (a === 'proj') { this.curKey = 'proj:' + arg; this.src.team?.(a, arg); return; } // (the same: which car)
     if (a === 'build' || a === 'sellfac') { const k = a + ':' + arg; if (this.armed !== k) { this.armed = k; this.curKey = k; this.render(); this.src.sfx?.move?.(); return; } this.armed = null; this.src.team?.(a, arg); this.curKey = k; this.render(); return; }
+    if (a === 'cars') { this.follow('customer', { s: arg, cc: null }); return; }
+    if (a === 'crs') { this.hist = []; this.page = { s: arg, cc: null }; this.curKey = 'crs-' + arg; this.render(); this.src.sfx?.move?.(); return; }
     if (a === 'cc') { this.go({ cc: arg }); this.armed = null; this.src.sfx?.select?.(); return; }
     if (a === 'getcar') { if (this.armed !== 'getcar:' + arg) { this.armed = 'getcar:' + arg; this.curKey = 'getcar:' + arg; this.render(); this.src.sfx?.move?.(); return; } this.armed = null; const [how, id] = arg.split('|'); this.src.getcar?.(how, id); this.page = { cc: null }; this.hist = []; this.curKey = null; this.render(); return; }
     if (a === 'ad') { this.go({ ad: arg }); this.buyArmed = false; this.src.sfx?.select?.(); return; }
@@ -398,7 +400,7 @@ export class Computer {
     if (this.app === 'registry') return 'www.registry.sv.gov/forms/SV-1.htm';
     if (this.app === 'jobs') return `www.svjobs.sv/motorsport/${p.role}`;
     if (this.app === 'giggo') return 'driver.giggo.sv/jobs';
-    if (this.app === 'customer') return `www.${WC.siteOf(WC.carSeries(this.w))}/homologated` + (p.cc ? '/' + p.cc : '');
+    if (this.app === 'customer') return `www.${WC.siteOf(WC.seriesById(p.s) || WC.carSeries(this.w))}/homologated` + (p.cc ? '/' + p.cc : '');
     if (this.app === 'web') return 'home.svnet.sv';
     if (this.app === 'tyres') return 'trade.vtr.sv/orders';
     if (this.app === 'parts') return `www.speedpartsdirect.sv/${p.slot}`;
@@ -851,7 +853,7 @@ export class Computer {
   }
   // the Internet's home page: bookmarks
   homePage() {
-    const rows = BOOKMARKS.filter(([id]) => id !== 'customer' || WC.carSeries(this.w).car !== 'classifieds').map(([id, name, sub], k) => `<div class="hp-bm" data-nav data-act="bm" data-arg="${id}" data-key="bm-${id}"${k === 0 ? ' data-first' : ''}>${bmIcon(id)}<div><a>${esc(name)}</a><small>${esc(sub)}</small></div></div>`).join('');
+    const rows = BOOKMARKS.map(([id, name, sub], k) => `<div class="hp-bm" data-nav data-act="bm" data-arg="${id}" data-key="bm-${id}"${k === 0 ? ' data-first' : ''}>${bmIcon(id)}<div><a>${esc(name)}</a><small>${esc(sub)}</small></div></div>`).join('');
     return `<div class="hp"><div class="hp-head"><b>SVNet</b><small>Your home on the web &middot; ${esc(this.clock())}</small></div><div class="hp-body"><h2>Bookmarks</h2>${rows}</div></div>`;
   }
 
@@ -922,21 +924,28 @@ export class Computer {
   }
 
   // ---------- customer racing: the cars a series homologates, from the makers' programmes (and last year's, from teams) ----------
+  // (any series' price list: you can look at a 962C from the Street Cup. Buying, only for the one you're entering)
   customerSite() {
-    const w = this.w, S = WC.carSeries(w), p = this.page, L = w.opts.len;
-    const head = `<div class="cr-head"><b>${esc(S.name)}</b><span>Homologated cars</span><small>${S.car === 'spec' ? 'One chassis, leased from the series' : 'Customer racing programs &middot; ex-works cars'}</small></div>`;
-    if (S.car === 'classifieds') return head + '<p class="pc-empty">Customer programs sell to licensed teams only.</p>';
-    const cars = WC.customerCars(w, S), used = WC.exWorks(w, S), mine = w.car && w.car.cls === S.cls ? w.car : null;
-    const can = true, col = w.teams[w.player.team].main;
-    const old = w.car ? (w.car.lease ? `Your ${esc(w.car.name)} goes back to ${esc(w.car.lease.prog)}.` : `Your ${esc(w.car.name)}: <b>${WC.money$(WC.tradeIn(w))}</b> in part exchange.`) : '';
+    const w = this.w, p = this.page, L = w.opts.len, here = WC.carSeries(w), S = WC.seriesById(p.s) || here, ours = S.id === here.id;
+    const tabs = WC.SERIES.filter(x => !x.parked).sort((a, b) => a.tier - b.tier).map(x => `<span class="cr-st${x.id === S.id ? ' on' : ''}" data-nav data-act="crs" data-arg="${x.id}" data-key="crs-${x.id}">${esc(x.name)}</span>`).join('');
+    const head = `<div class="cr-head"><b>${esc(S.name)}</b><span>Homologated cars</span><small>${S.car === 'spec' ? 'One chassis, leased from the series' : S.car === 'classifieds' ? 'Road cars, bought second-hand' : 'Customer racing programs &middot; ex-works cars'}</small></div><div class="cr-sts">${tabs}</div>`;
+    const col = w.teams[w.player.team].main;
+    if (S.car === 'classifieds') {
+      const X = WC.seriesShow(w, S.id, this.src.classKeys?.(S.cls) || []);
+      const rows = X.cars.map((c, k) => `<div class="cr-row"${k === 0 ? ' data-first' : ''}>${this.photo({ id: 'cc' + c.key + col, chassis: c.key, color: col }, 'cr-thumb')}<div><b>${esc(c.name || this.carName(c.key))}</b><small>${c.teams.length ? `Raced by ${c.teams.map(t => esc(w.teams[t].name)).join(', ')}` : 'In the rules, nobody runs one'}</small></div><div class="cr-price">${c.used ? `${WC.money$(Math.round(c.used / 500) * 500)}<small>about, used</small>` : ''}</div></div>`).join('');
+      return head + `<div class="cr-body"><p class="cr-own">No customer programs in the ${esc(S.name)}: the cars are road cars, bought off SVList and built up yourself.</p>${rows}</div>`;
+    }
+    const cars = WC.customerCars(w, S), used = ours ? WC.exWorks(w, S) : [], mine = w.car && w.car.cls === S.cls ? w.car : null;
+    const can = ours, gate = ours ? '' : `<p class="cr-gate">Programs sell to teams with an entry in the ${esc(S.name)}. ${esc(WC.seriesGate(w, S.id))}</p>`;
+    const old = ours && w.car ? (w.car.lease ? `Your ${esc(w.car.name)} goes back to ${esc(w.car.lease.prog)}.` : `Your ${esc(w.car.name)}: <b>${WC.money$(WC.tradeIn(w))}</b> in part exchange.`) : '';
     const btn = (how, id, label, k) => { const key = 'getcar:' + how + '|' + id; return `<button class="pc-btn${k ? '' : ' sm'}" data-nav data-act="getcar" data-arg="${how}|${id}" data-key="${key}"${k === 1 ? ' data-first' : ''}>${this.armed === key ? 'Sure? Select again' : label}</button>`; };
     if (p.cc) {
       const c = cars.find(x => x.key === p.cc) || used.find(x => x.id === p.cc); if (!c) return head + '<p class="pc-empty">That car is no longer available.</p>';
-      const xw = !!c.team, short = (n) => w.money.balance < n ? ' <small class="neg">more than your balance</small>' : '';
+      const xw = !!c.team, short = (n) => can && w.money.balance < n ? ' <small class="neg">more than your balance</small>' : '';
       const deals = xw ? `<div class="cr-deal"><b>${WC.money$(c.price)}</b><small>${esc(c.team)}'s car from ${c.year}. ${WC.condName(c.cond)} (${Math.round(c.cond * 100)}%).</small>${short(c.price)}${can ? btn('used', c.id, `Buy it: ${WC.money$(c.price)}`, 1) : ''}</div>`
         : `<div class="cr-deal"><b>Lease</b><small>${WC.money$(c.deposit)} deposit, then ${WC.money$(c.perRound)} a round (${WC.money$(c.deposit + c.perRound * L)} for a ${L}-round season). The engine and gearbox are rebuilt by the program between rounds.</small>${short(c.deposit)}${can ? btn('lease', c.key, `Lease it: ${WC.money$(c.deposit)} now`, 1) : ''}</div>
            ${c.buy ? `<div class="cr-deal"><b>Buy new</b><small>${WC.money$(c.price)}. Yours to keep, sell, or rebuild.</small>${short(c.price)}${can ? btn('buy', c.key, `Buy it: ${WC.money$(c.price)}`) : ''}</div>` : ''}`;
-      return head + `<div class="cr-page" data-nav data-scroll data-key="crpage"><div class="cr-top">${this.photo({ id: 'cc' + c.key + col, chassis: c.key, color: col }, 'cr-photo')}
+      return head + `<div class="cr-page" data-nav data-scroll data-key="crpage">${gate}<div class="cr-top">${this.photo({ id: 'cc' + c.key + col, chassis: c.key, color: col }, 'cr-photo')}
         <div><h1>${esc(c.name)}</h1><p class="cr-prog">${esc(c.prog)}${xw ? `, ex-${esc(c.team)}` : ''}</p><table class="cl-attrs">${this.specRows(c.key)}</table><p class="cr-note">${esc(cars.find(x => x.key === c.key)?.note || '')}</p></div></div>
         ${old ? `<p class="cr-old">${old}</p>` : ''}${deals}</div>`;
     }
@@ -944,10 +953,10 @@ export class Computer {
     const row = (c, k) => `<div class="cr-row" data-nav data-act="cc" data-arg="${c.id || c.key}" data-key="cc-${c.id || c.key}"${k === 0 ? ' data-first' : ''}>${this.photo({ id: 'cc' + c.key + col, chassis: c.key, color: col }, 'cr-thumb')}
       <div><b>${esc(c.name)}</b><small>${c.team ? `Ex-${esc(c.team)}, ${c.year} &middot; ${WC.condName(c.cond).toLowerCase()}` : `${esc(c.prog)} &middot; ${c.hp} hp, ${c.kg} kg`}</small></div>
       <div class="cr-price">${c.team ? WC.money$(c.price) : `${WC.money$(c.perRound)}<small>a round, leased</small>`}</div></div>`;
-    return head + `<div class="cr-body">${mine ? `<p class="cr-own">Your car: ${esc(mine.name)}${mine.lease ? `, leased from ${esc(mine.lease.prog)} (${WC.money$(mine.lease.perRound)} a round)` : ''}.</p>` : ''}${old && !mine ? `<p class="cr-old">${old}</p>` : ''}
+    return head + `<div class="cr-body">${gate}${mine ? `<p class="cr-own">Your car: ${esc(mine.name)}${mine.lease ? `, leased from ${esc(mine.lease.prog)} (${WC.money$(mine.lease.perRound)} a round)` : ''}.</p>` : ''}${old && !mine ? `<p class="cr-old">${old}</p>` : ''}
       <h2>${S.car === 'spec' ? 'The chassis' : 'New, from the makers'}</h2>${cars.map(row).join('') || '<p class="pc-empty">No cars listed.</p>'}
-      ${used.length ? `<h2>Last season's cars, from teams</h2>${used.map((c, k) => row(c, cars.length + k)).join('')}` : ''}
-      <p class="tr-fine">A season costs about ${WC.money$(b.run)} to run, before the car. Crash damage is the customer's.</p></div>`;
+      ${used.length ? `<h2>Last season's cars, from teams</h2>${used.map((c, k) => row(c, cars.length + k)).join('')}` : ours ? '' : '<p class="tr-fine">Last season\'s cars from teams are listed to entrants.</p>'}
+      <p class="tr-fine">In your colors. A season costs about ${WC.money$(b.run)} to run, before the car. Crash damage is the customer's.</p></div>`;
   }
 
   // ---------- the classifieds: SVList ----------
@@ -1034,12 +1043,33 @@ export class Computer {
     const bits = [`Tier ${r.tier}`, `<b style="color:${r.licCol}">${esc(r.licName)}</b> license`, ...(r.needs.length ? [`needs ${esc(r.needs.join(', '))}`] : []), ...(r.cost ? [`about ${WC.money$(r.cost)} a season to run a car`] : [])];
     return `<div class="ss-entry">${r.you ? '<span class="you">Your series</span> ' : ''}${bits.join(' &middot; ')}</div>`;
   }
+  // an image, or its empty frame while it's being taken
+  shot(src, cls) { return src ? `<img class="${cls}" src="${src}">` : `<div class="${cls} none"></div>`; }
+  carName(key) { return key ? (this.src.carInfo?.(key)?.name || '') : ''; }
+  // a series' home page: its shop window. The team in front, the cars and who races them, the season's circuits, what
+  // the titles pay and who signs here (and nowhere lower), last year's champions; the price list is a link away
+  seriesHome(s) {
+    const w = this.w, X = WC.seriesShow(w, s.id, this.src.classKeys?.(s.cls) || []), S = w.series[s.id], m$ = WC.money$;
+    const ft = w.teams[X.front], fch = WC.teamChassisNow(w, X.front), lead = WC.teamStandings(w, s.id)[0]?.pts > 0;
+    const spons = X.sponsors.length ? `<div class="ss-sp"><small>Only sign at this level and up</small>${X.sponsors.map(sp => `<span><b>${esc(sp.name)}</b> about ${m$(sp.fee)} a round</span>`).join('')}</div>` : '';
+    const hero = `<div class="ss-hero">${this.shot(this.src.teamPhoto?.(X.front), 'ss-hphoto')}<div class="ss-side"><div class="ss-hcap"><small>${lead ? 'Leading the teams' : X.teamChamp?.tid === X.front ? `${X.champ ? X.champ.year : ''} teams' champions` : 'On the grid'}</small><b>${esc(ft.name)}</b><span>${esc(this.carName(fch))}</span></div>
+      <div class="ss-pays"><div><small>Champion's prize</small><b>${m$(X.prize)}</b></div><div><small>Teams' title</small><b>${m$(X.teamPrize)}</b></div>${X.champ ? `<div><small>${X.champ.year} champion</small><b class="ss-nm">${esc(X.champ.name)}</b></div>` : ''}</div>${spons}</div></div>`;
+    const price = (c) => c.used ? `about ${m$(Math.round(c.used / 500) * 500)} used` : c.perRound ? `lease ${m$(c.perRound)} a round${c.buy ? ` &middot; buy ${m$(c.buy)}` : ''}` : '';
+    const col = parseInt((SERIES_COL[s.id] || '#777777').slice(1), 16);
+    const cars = X.cars.map(c => `<div class="ss-car">${c.teams.length ? this.shot(this.src.teamPhoto?.(c.teams[0]), 'ss-cphoto') : this.shot(this.src.photo?.({ id: `sm:${s.id}:${c.key}`, chassis: c.key, color: col }), 'ss-cphoto')}
+      <b>${esc(c.name || this.carName(c.key))}</b><small>${c.hp ? `${c.hp} hp &middot; ${c.kg} kg &middot; ` : ''}${price(c)}</small><small class="ss-by">${c.teams.length ? `Raced by ${c.teams.map(t => esc(w.teams[t].name)).join(', ')}` : 'Nobody runs one this year'}</small></div>`).join('');
+    const cal = S.cal.map((c, k) => `<div class="ss-rd">${this.shot(this.src.trackMap?.(c.name), 'ss-map')}<small>${k + 1}. ${esc(c.endur ? WC.enduranceName(c) : c.name)}</small></div>`).join('');
+    return `<div class="ss-pane" data-nav data-scroll data-key="sshome">${hero}<h3 class="ss-h">The cars</h3><div class="ss-cars">${cars || '<p class="pc-empty">No cars listed.</p>'}</div>
+      <div class="ss-more"><span class="ss-link" data-nav data-act="cars" data-arg="${s.id}" data-key="cars-${s.id}">${s.car === 'classifieds' ? 'Where to find one' : 'The price list: customer programs'} &rarr;</span></div>
+      <h3 class="ss-h">The ${w.year} season</h3><div class="ss-cal">${cal}</div></div>`;
+  }
   seriesSite() {
     const w = this.w, s = WC.seriesById(this.page.s), S = w.series[s.id], tab = this.page.tab;
     const nav = SITE_TABS.map(t => `<span class="ss-tab${t === tab ? ' on' : ''}" data-nav data-act="tab" data-arg="${t}" data-key="tab-${t}"${t === tab ? ' data-first' : ''}>${SITE_TAB_NAME[t]}</span>`).join('');
     const others = WC.SERIES.filter(x => x.id !== s.id).sort((a, b) => a.tier - b.tier).map(x => `<span class="ss-link" data-nav data-act="site" data-arg="${x.id}" data-key="site-${x.id}">${esc(x.name)} &rarr;</span>`).join('');
     let body = '';
-    if (tab === 'standings') {
+    if (tab === 'home') body = this.seriesHome(s);
+    else if (tab === 'standings') {
       const st = WC.seriesStandings(w, s.id);
       body = !S.results.length ? '<p class="pc-empty">The season hasn\'t started.</p>' : `<table class="pc-tbl"><tr><th>POS</th><th>DRIVER</th><th>TEAM</th><th class="r">WINS</th><th class="r">PTS</th></tr>${st.map((e, k) => {
         const t = w.teams[WC.teamOfPid(w, e.pid)];
@@ -1049,9 +1079,9 @@ export class Computer {
       // (where they work and what's in it is public; how quick their car is, your data engineer can estimate)
       const eng = WC.dataLevel(w) >= 1 && s.id === w.player.series, vals = S.teams.map(tid => WC.carValue(w, w.teams[tid])).sort((a, b) => b - a);
       const FAC_SHORT = { tools: 'tools', dyno: 'dyno', fab: 'fab shop', sim: 'sim', data: 'data room', truck: 'transporter', tunnel: 'tunnel' };
-      body = `<table class="pc-tbl"><tr><th>POS</th><th>TEAM</th><th>DRIVERS</th><th>BASE</th>${eng ? '<th>CAR</th>' : ''}<th class="r">WINS</th><th class="r">PTS</th></tr>${list.map((e, k) => {
+      body = `<table class="pc-tbl ss-teams"><tr><th>POS</th><th></th><th>TEAM</th><th>DRIVERS</th><th>BASE</th>${eng ? '<th>CAR</th>' : ''}<th class="r">WINS</th><th class="r">PTS</th></tr>${list.map((e, k) => {
         const t = w.teams[e.tid], kit = Object.keys(FAC_SHORT).filter(f => WC.facLevel(t, f)).map(f => FAC_SHORT[f]).join(', '), rank = vals.indexOf(WC.carValue(w, t));
-        return `<tr class="${t.mine ? 'me' : ''}"><td>${k + 1}</td><td><i class="sw" style="background:${hex(t.main)}"></i>${esc(t.name)}</td><td>${t.drivers.map(d => esc(WC.displayName(w, d))).join(', ')}</td><td>${esc(WC.facName(t, 'base'))}${kit ? `<small class="ss-kit">${esc(kit)}</small>` : ''}</td>${eng ? `<td>${rank < 2 ? 'Quick' : rank < 4 ? 'Average' : 'Slow'}</td>` : ''}<td class="r">${e.wins}</td><td class="r">${e.pts}</td></tr>`; }).join('')}</table>
+        return `<tr class="${t.mine ? 'me' : ''}"><td>${k + 1}</td><td>${this.shot(this.src.teamPhoto?.(e.tid), 'ss-tcar')}</td><td><i class="sw" style="background:${hex(t.main)}"></i>${esc(t.name)}<small class="ss-kit">${esc(this.carName(WC.teamChassisNow(w, e.tid)))}</small></td><td>${t.drivers.map(d => esc(WC.displayName(w, d))).join(', ')}</td><td>${esc(WC.facName(t, 'base'))}${kit ? `<small class="ss-kit">${esc(kit)}</small>` : ''}</td>${eng ? `<td>${rank < 2 ? 'Quick' : rank < 4 ? 'Average' : 'Slow'}</td>` : ''}<td class="r">${e.wins}</td><td class="r">${e.pts}</td></tr>`; }).join('')}</table>
         ${eng ? '' : '<p class="tr-fine">A data engineer could tell you whose car is quick.</p>'}`;
     } else if (tab === 'calendar') {
       body = `<table class="pc-tbl"><tr><th>RD</th><th>CIRCUIT</th><th>CONDITIONS</th><th>WINNER</th></tr>${S.cal.map((c, k) => {
@@ -1208,8 +1238,8 @@ export class Computer {
     this.idleDirty = true;
   }
 }
-const SITE_TABS = ['standings', 'teams', 'calendar', 'champions'];
-const SITE_TAB_NAME = { standings: 'Standings', teams: 'Teams', calendar: 'Calendar', champions: 'Champions' };
+const SITE_TABS = ['home', 'standings', 'teams', 'calendar', 'champions'];
+const SITE_TAB_NAME = { home: 'Home', standings: 'Standings', teams: 'Teams', calendar: 'Calendar', champions: 'Champions' };
 const DB_TABS = [...WC.SERIES.slice().sort((a, b) => a.tier - b.tier).map(s => s.id), 'retired'];
 const SERIES_COL = { club: '#2fa59a', street: '#e0642a', gt2: '#7a4fc0', gt: '#2a8f5a', groupc: '#2fb8c8', formula: '#2a4fa0' };
 // headlines are stored in capitals (for the phone); the news site writes them in title case

@@ -2306,23 +2306,46 @@ const pc = new Computer({
     if (what !== 'pay') sfx.select();
     saveWorld(); renderHubMenu();
   },
+  // a car's photo: a listing's ({ id, chassis, color }), or any car config (ad.cfg, ad.look 'track'). Taken one at a
+  // time, a few ms apart (a page of them doesn't stall the computer), and the screen redrawn as they come in
   photo: (ad) => {
     if (adPhotos.has(ad.id)) return adPhotos.get(ad.id);
-    let src = null;
-    try { src = carPhoto({ ...settings.car, chassis: ad.chassis, main: ad.color, accent: 0xf2f2f2 }, parseInt(ad.id.slice(2), 10) || 1); } catch (e) { console.warn('car photo', e); }
-    adPhotos.set(ad.id, src); return src;
+    if (!photoQ.some(x => x.id === ad.id)) photoQ.push(ad);
+    if (photoQ.length === 1) setTimeout(takePhotos, 0);
+    return null;
   },
+  // a team's car, as it races: the model it runs in this series (keys: its class's cars) in its livery
+  teamPhoto: (tid) => {
+    const t = world.teams[tid], S = WC.seriesById(t.series); if (!S || S.cls === 'f1') return null;
+    const keys = carsOfClass(S.cls).map(chassisKey), ch = WC.teamChassis(world, tid, keys);
+    const cfg = t.mine ? { ...worldCar(), chassis: ch } : { ...teamCar(t, Math.max(0, world.series[t.series].teams.indexOf(tid))), chassis: ch };
+    return pc.src.photo({ id: `tm:${tid}:${ch}:${t.mine ? lookPhotoV : ''}`, cfg, look: 'track' });
+  },
+  classKeys: (cls) => carsOfClass(cls).map(chassisKey),
+  trackMap: (name) => { const t = findCalTrack(name); return t ? tkThumb(t) : null; },
   carInfo: (chassis) => {
     const id = carId({ chassis }), C = CARS[id]; if (!C) return null;
     const st = carStats(id), s = C.spec, mph = settings.units === 'mph';
-    return { hp: Math.round(st.power), kg: Math.round(st.weight), top: mph ? Math.round(st.top / 1.609) + ' mph' : Math.round(st.top) + ' km/h',
+    return { name: C.name, hp: Math.round(st.power), kg: Math.round(st.weight), top: mph ? Math.round(st.top / 1.609) + ' mph' : Math.round(st.top) + ' km/h',
       drive: s.drive >= 0.99 ? 'front-wheel drive' : s.drive > 0.01 ? 'all-wheel drive' : 'rear-wheel drive', box: `${s.gears.length - 1}-speed ${s.box || 'manual'}`, engine: ENGINE_NAME[C.sound] || 'petrol' };
   },
   view: () => { if (screen === 's-hub') renderHints(); },
   sfx: { move: () => sfx.move(), select: () => sfx.select(), back: () => sfx.back() },
 });
 pitGarage.setScreen(pc.idle);
-const adPhotos = new Map(); // (the classifieds' photos: rendered once a session)
+const adPhotos = new Map(), photoQ = []; // (the computer's car photos: rendered once a session)
+let photoT2 = 0;
+function takePhotos() {
+  const ad = photoQ[0]; if (!ad) return;
+  const cfg = ad.cfg || { ...settings.car, chassis: ad.chassis, main: ad.color, accent: 0xf2f2f2 };
+  if (cfg.chassis && CARS[cfg.chassis]?.glb && !chassisReady(cfg.chassis)) { setTimeout(takePhotos, 200); return; } // (its model's still loading)
+  photoQ.shift();
+  let src = null;
+  try { src = carPhoto(cfg, ad.seed || parseInt(String(ad.id).replace(/\D/g, '').slice(0, 6), 10) || 1, ad.look); } catch (e) { console.warn('car photo', e); }
+  adPhotos.set(ad.id, src);
+  clearTimeout(photoT2); photoT2 = setTimeout(() => { if (pc.isOpen) pc.render(); }, photoQ.length ? 400 : 30);
+  if (photoQ.length) setTimeout(takePhotos, 16);
+}
 let pcSeat = false; // sat at the computer (the camera on its way in, or there)
 function sitDown(app, arg) {
   if (pcSeat) return;

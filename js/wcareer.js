@@ -921,6 +921,15 @@ export function ladderNext(w) {
   const miss = seriesMissing(myTeam(w), up.id).map(([k, n]) => needName(k, n));
   return [`Next rung: ${upNames(sid)}. Finish top 3, or your team top 2.`, `${lic}${miss.length ? ` Entrants need ${miss.join(' and ')}.` : ''}`];
 }
+// what getting into a series takes from where you are, in a line (the price lists of the series above yours)
+export function seriesGate(w, sid) {
+  const S = seriesById(sid), here = seriesById(w.player.series), miss = seriesMissing(myTeam(w), sid).map(([k, n]) => needName(k, n));
+  const lic = licOk(w, sid) ? '' : ` A ${licName(licNeed(sid))} license.`, kit = miss.length ? ` ${miss.join(' and ').replace(/^./, c => c.toUpperCase())}.` : '';
+  const way = S.tier < here.tier ? `You've moved up past it.` : S.tier === here.tier ? 'Ask the series for an entry.' : S.tier === here.tier + 1 ? `The way in: finish top 3 in the ${here.name}, or your team top 2.` : `It's ${S.tier - here.tier} rungs above the ${here.name}.`;
+  return way + lic + kit;
+}
+// the model a team races now, if it's picked one (teamChassis picks)
+export const teamChassisNow = (w, tid) => { const t = w.teams[tid]; return t.mine ? w.car?.chassis || null : t.chassis || null; };
 // has the ladder changed since you last looked (a rung opened, the license went up, an offer's waiting): its key
 export const ladderKey = (w) => `${licOf(w).g}|${w.player.series}|${w.player.offer && !w.player.offer.answer ? 1 : 0}`;
 
@@ -1772,6 +1781,25 @@ export function exWorks(w, S = carSeries(w)) {
   }).filter(Boolean);
   w.exWorks = { y: w.year, s: S.id, list };
   return list;
+}
+// a series' shop window (the home page of its website, js/computer.js): the models it races (keys: the class's
+// race-ready cars) with what one costs and who races it, the titles' prize money, the sponsors who sign at this level
+// and no lower, last year's champions, and the team to put on the front page (leading, else the reigning champions)
+export function seriesShow(w, sid, keys) {
+  const S = seriesById(sid), tids = w.series[sid].teams, L = w.opts.len;
+  const runs = Object.fromEntries(keys.map(k => [k, []]));
+  for (const tid of tids) { if (w.teams[tid].mine && !w.car) continue; const k = teamChassis(w, tid, keys); if (runs[k]) runs[k].push(tid); }
+  const deal = S.car === 'classifieds' ? Object.fromEntries(adCars(w, S).map(c => [c.key, { used: c.value }]))
+    : Object.fromEntries(customerCars(w, S).map(c => [c.key, { perRound: c.perRound, deposit: c.deposit, buy: c.buy ? c.price : 0 }]));
+  const info = Object.fromEntries(((w.carCat && w.carCat[S.cls]) || []).map(c => [c.key, c]));
+  const cars = keys.map(k => ({ key: k, name: info[k]?.name || null, hp: info[k]?.hp, kg: info[k]?.kg, ...(deal[k] || {}), teams: runs[k] }))
+    .sort((a, b) => b.teams.length - a.teams.length);
+  const sponsors = SPONSOR_POOL.map((x, i) => sponsorById('sp' + i)).filter(sp => sp.reach === sid)
+    .map(sp => ({ id: sp.id, name: sp.name, fee: Math.round(sp.fee * (SPONSOR_K[sid] || 1) / 100) * 100 }));
+  const last = w.seasons.at(-1), champ = last && last.champs[sid], teamChamp = last && last.teamChamps[sid];
+  const st = teamStandings(w, sid), front = (st.length && st[0].pts ? st[0].tid : null) || (teamChamp && tids.includes(teamChamp) ? teamChamp : tids[0]);
+  return { cars, sponsors, prize: fundOf(w, sid)[0], teamPrize: teamFundOf(w, sid)[0], len: L,
+    champ: champ ? { pid: champ, name: displayName(w, champ), year: last.year } : null, teamChamp: teamChamp ? { tid: teamChamp, name: w.teams[teamChamp].name } : null, front };
 }
 // what your car's worth to a dealer (a lease: nothing, it goes back)
 export function tradeIn(w) {
