@@ -2328,6 +2328,12 @@ const pc = new Computer({
   sfx: { move: () => sfx.move(), select: () => sfx.select(), back: () => sfx.back() },
 });
 pitGarage.setScreen(pc.idle);
+// the SVMA poster's photos: each series' car in front (leading the teams, else the reigning champions, else the first)
+pitGarage.posterShot = (sid) => {
+  const w = world, S = w && w.series[sid]; if (!S || !S.teams.length) return null;
+  const st = WC.teamStandings(w, sid), last = w.seasons.at(-1), tc = last && last.teamChamps[sid];
+  return teamShot((st.length && st[0].pts ? st[0].tid : null) || (tc && S.teams.includes(tc) ? tc : S.teams[0]))?.src || null;
+};
 // a team's car as it races: the model it runs in its series (picked from its class's cars) in its livery, in the pit
 // lane. { id, src }: src null until it's taken (then any <img data-ph=id> on screen gets it)
 function teamShot(tid) {
@@ -3386,8 +3392,9 @@ function renderHub() {
     $('hub-card').innerHTML = tyreCard(w);
   } else if (hubMode === 'poster') {
     const [a, b] = WC.ladderNext(w), L = WC.licOf(w);
+    const rs = rungStrip(w);
     $('hub-card').innerHTML = `<div class="panel-title">SVMA PATHWAY</div><div class="ti-name">${escP(WC.seriesById(w.player.series).name)}</div>
-      <p class="hub-note">${escP(a)}</p><p class="hub-note">${escP(b)}</p><p class="hub-note">Your license: <b>${WC.licName(L.g)}</b>. It's on the wall by the list.</p>`;
+      ${rs || `<p class="hub-note">${escP(a)}</p><p class="hub-note">${escP(b)}</p>`}<p class="hub-note">Your license: <b>${WC.licName(L.g)}</b>. It's on the wall by the list.</p>`;
   } else if (hubMode === 'car' && w.car) {
     const risk = WC.failRisk(w), m = WC.staffOf(w, 'mechanic');
     $('hub-card').innerHTML = `<div class="panel-title">THE CAR</div><div class="ti-name">${w.car.year} ${w.car.name}</div>
@@ -6887,7 +6894,7 @@ function frameBody(now) {
   setMusicScene(musicScene()); updateMusic(dt);
   if (PHONE_SCREENS.includes(screen) && world && !pcSeat && !tsw.isOpen && !pressDay.isOpen && !dayPlan.isOpen && !ending.isOpen && !world.ended) phone.show(); else phone.hide();
   // sat at the garage computer: the 3D view at full resolution, so the screen in the scene is readable
-  post.setSharp((screen === 's-hub' && (pcSeat || pitGarage.nearScreen || (walk.active && walk.nearScreen))) || (screen === 's-photo' && photo.sharp));
+  post.setSharp((screen === 's-hub' && (pcSeat || hubMode === 'poster' || pitGarage.nearScreen || (walk.active && walk.nearScreen))) || (screen === 's-photo' && photo.sharp));
   phone.update(dt);
   netTick(dt);
   coopTick(dt);

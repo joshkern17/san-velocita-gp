@@ -658,31 +658,55 @@ export class PitGarage {
   // else it needs and a season's cost; your team's pin on yours, your finishes on the ones you've raced
   posterTex(L) {
     const cv = document.createElement('canvas'); cv.width = 1240; cv.height = 1760; const g = cv.getContext('2d'); g.scale(2, 2); // (drawn at 620 x 880; twice the pixels, for reading up close)
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+    // (each rung's photo: the car in front in that series, js/main.js teamShot. They come in a moment later, so the
+    // poster's drawn now and again as they land, for a while)
+    const imgs = {}, want = L.rungs.filter(r => !r.soon).map(r => r.id);
+    const draw = () => { this.posterDraw(g, L, imgs); t.needsUpdate = true; };
+    let tries = 0;
+    const look = () => {
+      let pending = 0;
+      for (const id of want) {
+        if (imgs[id]) continue;
+        const src = this.posterShot?.(id); if (!src) { pending++; continue; }
+        const im = new Image(); imgs[id] = im; im.onload = draw; im.src = src;
+      }
+      if (pending && tries++ < 30 && t.image === cv) setTimeout(look, 700);
+    };
+    draw(); look();
+    return t;
+  }
+  posterDraw(g, L, imgs) {
     const ink = '#1d1d22', F = (w, px) => `${w} ${px}px Arial, Helvetica, sans-serif`;
+    const COL = { club: '#2fa59a', street: '#e0642a', gt2: '#7a4fc0', gt: '#2a8f5a', groupc: '#2fb8c8', formula: '#2a4fa0' };
     g.fillStyle = '#efece3'; g.fillRect(0, 0, 620, 880);
     g.fillStyle = '#1a2a55'; g.fillRect(0, 0, 620, 128);
     g.fillStyle = '#fff'; g.font = F('bold', 54); g.fillText('SVMA', 30, 70); g.font = F('bold', 26); g.fillText('THE PATHWAY', 214, 62);
     g.font = F('', 16); g.fillStyle = '#c9d2ea'; g.fillText('San Velocita Motorsport Association: the sports car ladder', 30, 106);
-    const rungs = L.rungs.slice().reverse(), top = 150, bottom = 742, rh = (bottom - top) / rungs.length;
+    const rungs = L.rungs.slice().reverse(), top = 146, bottom = 762, rh = (bottom - top) / rungs.length;
     rungs.forEach((r, i) => {
-      const y = top + i * rh, h = rh - 10, branch = r.path !== 'sportscar';
+      const y = top + i * rh, h = rh - 8, branch = r.path !== 'sportscar', im = imgs[r.id], ph = h - 12, pw = Math.round(ph * 400 / 260), tx = 46 + pw + 14;
       g.fillStyle = r.you ? '#fff7d6' : r.soon ? '#e2dfd6' : '#f8f6f0'; g.fillRect(30, y, 560, h);
+      g.fillStyle = r.soon ? '#c9c5bb' : COL[r.id] || '#888'; g.fillRect(30, y, 8, h); // (the series' colour, down the side)
+      // the photo: the car in front there (a grey plate till it lands, or for a rung that isn't running)
+      if (im && im.complete && im.naturalWidth) g.drawImage(im, 46, y + 6, pw, ph);
+      else { g.fillStyle = r.soon ? '#d6d2c8' : '#d9d5cb'; g.fillRect(46, y + 6, pw, ph); }
+      g.strokeStyle = '#8a857a'; g.lineWidth = 1; g.strokeRect(46, y + 6, pw, ph);
       g.strokeStyle = r.you ? '#c8141c' : '#b9b4a8'; g.lineWidth = r.you ? 4 : 1.5; g.strokeRect(30, y, 560, h);
-      g.fillStyle = r.soon ? '#9a958a' : ink; g.font = F('bold', 15); g.fillText(`TIER ${r.tier}${branch ? ' \u00b7 FORMULA PATH' : ''}`, 44, y + 24);
-      g.font = F('bold', 25); g.fillText(r.name.toUpperCase(), 44, y + 54);
+      g.fillStyle = r.soon ? '#9a958a' : ink; g.font = F('bold', 13); g.fillText(`TIER ${r.tier}${branch ? ' \u00b7 FORMULA PATH' : ''}`, tx, y + 20);
+      { let px = 22; g.font = F('bold', px); while (g.measureText(r.name.toUpperCase()).width > 576 - 126 - tx && px > 14) g.font = F('bold', --px); g.fillText(r.name.toUpperCase(), tx, y + 45); }
       g.fillStyle = '#55524b';
-      { const t = r.soon ? 'Not running yet.' : [r.cost ? `About $${Math.round(r.cost / 1000)}k a season to run a car` : '', r.needs.length ? `Needs ${r.needs.join(', ')}` : ''].filter(Boolean).join('  \u00b7  ');
-        let px = 14; g.font = F('', px); while (g.measureText(t).width > 530 && px > 9) g.font = F('', --px); g.fillText(t, 44, y + 78); } // (a long line: smaller, never off the edge)
-      if (r.licName) { g.fillStyle = r.licCol; g.fillRect(456, y + 10, 120, 30); g.fillStyle = r.lic === 0 ? ink : '#fff'; g.font = F('bold', 15); g.textAlign = 'center'; g.fillText(r.licName.toUpperCase(), 516, y + 31); g.textAlign = 'left'; }
-      if (r.been.length) { const b = r.been.slice(-3).map(x => `${x.y} P${x.pos}`).join(', '); g.fillStyle = '#1d3f9a'; g.font = F('bold', 14); g.textAlign = 'right'; g.fillText(b, 576, y + h - 12); g.textAlign = 'left'; }
+      { const t = r.soon ? 'Not running yet.' : [r.cost ? `About $${Math.round(r.cost / 1000)}k a season` : '', r.needs.length ? `needs ${r.needs.join(', ')}` : ''].filter(Boolean).join('  \u00b7  ');
+        let px = 13; g.font = F('', px); while (g.measureText(t).width > 584 - tx && px > 9) g.font = F('', --px); g.fillText(t, tx, y + 64); } // (a long line: smaller, never off the edge)
+      if (r.licName) { g.fillStyle = r.licCol; g.fillRect(466, y + 8, 112, 26); g.fillStyle = r.lic === 0 ? ink : '#fff'; g.font = F('bold', 14); g.textAlign = 'center'; g.fillText(r.licName.toUpperCase(), 522, y + 26); g.textAlign = 'left'; }
+      if (r.been.length && !r.you) { const b = r.been.slice(-3).map(x => `${x.y} P${x.pos}`).join(', '); g.fillStyle = '#1d3f9a'; g.font = F('bold', 13); g.textAlign = 'right'; g.fillText(b, 578, y + h - 8); g.textAlign = 'left'; }
       if (r.you) { g.fillStyle = '#c8141c'; g.beginPath(); g.arc(18, y + h / 2, 11, 0, Math.PI * 2); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(18, y + h / 2, 4, 0, Math.PI * 2); g.fill();
-        g.save(); g.translate(440, y + 30); g.rotate(-0.05); g.fillStyle = '#c8141c'; g.font = '600 18px "Bradley Hand", "Segoe Print", cursive'; g.textAlign = 'right'; g.fillText('you are here', 0, 0); g.restore(); g.textAlign = 'left'; }
+        g.save(); g.translate(576, y + 56); g.rotate(-0.05); g.fillStyle = '#c8141c'; g.font = '600 18px "Bradley Hand", "Segoe Print", cursive'; g.textAlign = 'right'; g.fillText('you are here', 0, 0); g.restore(); g.textAlign = 'left'; }
     });
-    g.fillStyle = ink; g.font = F('bold', 15); g.fillText('HOW TO MOVE UP', 30, 772);
-    g.font = F('', 14); const words = L.rule.split(' '); let line = '', y = 794;
-    for (const wd of words) { if (g.measureText(line + wd).width > 560) { g.fillText(line, 30, y); y += 19; line = ''; } line += wd + ' '; } g.fillText(line, 30, y);
-    g.fillStyle = '#8a867c'; g.font = F('', 11); g.fillText('The SVMA reserves the right to add rungs, remove rungs, and redefine the word "ladder".', 30, 862);
-    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+    g.fillStyle = ink; g.font = F('bold', 15); g.fillText('HOW TO MOVE UP', 30, 790);
+    g.font = F('', 13); const words = L.rule.split(' '); let line = '', y = 810;
+    for (const wd of words) { if (g.measureText(line + wd).width > 560) { g.fillText(line, 30, y); y += 17; line = ''; } line += wd + ' '; } g.fillText(line, 30, y);
+    g.fillStyle = '#8a867c'; g.font = F('', 11); g.fillText('The SVMA reserves the right to add rungs, remove rungs, and redefine the word "ladder".', 30, 866);
   }
   strapTex() {
     const cv = document.createElement('canvas'); cv.width = 32; cv.height = 256; const g = cv.getContext('2d');
