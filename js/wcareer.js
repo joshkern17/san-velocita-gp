@@ -1028,7 +1028,7 @@ function afterRound(w, me) {
   roundNews(w, me);
   ballastRound(w, me);
   settlePromises(w, me);
-  w.round++;
+  w.round++; staleTexts(w);
   if (w.round >= w.opts.len) seasonEnd(w);
   return { me, over: w.round >= w.opts.len };
 }
@@ -5033,6 +5033,9 @@ export function text(w, from, body, extra = {}) {
 // ends up on top, and the phone's conversation reads them top to bottom)
 export function texts(w, from, lines, extra = {}) { for (const l of lines) text(w, from, l, extra); }
 export const unread = (w) => w.msgs.filter(m => !m.read).length;
+// texts from weeks gone count as seen: the phone's "new" is this week's and last week's (a question still waiting for
+// an answer stays new). Nothing's lost: the threads keep them all
+export function staleTexts(w) { const now = w.year * 100 + w.round; for (const m of w.msgs || []) if (!m.read && !(m.choices && !m.answer) && m.y * 100 + m.r < now - 1) m.read = true; }
 export const unreadChats = (w) => new Set(w.msgs.filter(m => !m.read).map(m => m.from)).size;
 // ---------------- reactions: someone writes to you about something you just did ----------------
 // Only with character voices on (js/voice.js + ChatGPT): the game decides who reacts and gives them the facts; the

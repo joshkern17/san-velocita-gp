@@ -434,9 +434,14 @@ export class Computer {
     const list = items.map((n, k) => [n, k]).filter(([n]) => inSec(n));
     if (!list.length) return mast + '<p class="pc-empty">Nothing in this section yet.</p>';
     const [lead, lk] = list[0];
+    // up the ladder (the front page only): the latest from the series above yours, with its winner's car
+    let up = '';
+    { const U = WC.nextUp(w.player.series), hit = sec === 'all' && U && items.map((n, k) => [n, k]).find(([n]) => n.s === U.id);
+      if (hit) { const [n, k] = hit, res = n.report && w.series[U.id].results.find(r => r.round === n.report.round), win = res && res.rows.find(r => r.pos === 1 && !r.dnf), tid = win ? WC.teamOfPid(w, win.pid) : null;
+        up = `<div class="nw-up" data-nav data-act="article" data-arg="${k}" data-key="art-${k}">${this.shot(tid ? this.src.teamPhoto?.(tid) : null, 'nw-uph')}<div><span class="nw-kick">Up the ladder &middot; ${esc(U.name)}</span><h2>${esc(cap(n.head))}</h2><p>${esc(paras(n)[0] || '')}</p></div></div>`; } }
     const rest = list.slice(1, 40).map(([n, k]) => `<div class="nw-row" data-nav data-act="article" data-arg="${k}" data-key="art-${k}">${kick(n)}<a>${esc(cap(n.head))}</a><small>${esc(n.when || '')} ${n.y}${n.by && n.by !== 'Wire staff' ? ` &middot; ${esc(n.by)}` : ''}</small></div>`).join('');
     return mast + `<div class="nw-lead" data-nav data-act="article" data-arg="${lk}" data-key="art-${lk}">${kick(lead)}<h1>${esc(cap(lead.head))}</h1><p>${esc(paras(lead)[0] || '')}</p><small>${esc(lead.when || '')} ${lead.y}${lead.by ? ` &middot; By ${esc(lead.by)}` : ''}</small></div>
-      <div class="nw-ad">${esc(NEWS_ADS[(w.round + w.year) % NEWS_ADS.length])}</div><div class="nw-list">${rest}</div>`;
+      ${up}<div class="nw-ad">${esc(NEWS_ADS[(w.round + w.year) % NEWS_ADS.length])}</div><div class="nw-list">${rest}</div>`;
   }
   // ---------- Form SV-1: the San Velocita Business Registry ----------
   get form() {

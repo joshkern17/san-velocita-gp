@@ -1627,6 +1627,10 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .nw-tl-end { margin: 8px 0 0; font-style: italic; color: #555; }
 .nw-more { margin: 0 20px 16px; padding-top: 8px; border-top: 3px double #111; }
 .nw-more > b { display: block; font: bold 12px Arial, sans-serif; text-transform: uppercase; margin-bottom: 4px; }
+.nw-up { display: grid; grid-template-columns: 200px 1fr; gap: 12px; align-items: start; margin: 4px 16px 12px; padding: 10px 0; border-top: 3px double #222; border-bottom: 1px solid #222; font-family: 'Times New Roman', Times, serif; }
+.nw-uph { display: block; width: 200px; height: 130px; object-fit: cover; border: 1px solid #222; filter: grayscale(.35) contrast(1.05); } .nw-uph.none { background: #ddd8cc; }
+.nw-up h2 { margin: 4px 0 4px; font-size: 20px; line-height: 1.15; } .nw-up p { margin: 0; font-size: 14px; color: #333; }
+.nw-up.f { outline: 2px solid #ffd23a; }
 .nw-lead { margin: 12px 16px; padding: 8px; font-family: 'Times New Roman', Times, serif; }
 .nw-lead small, .nw-row small, .nw-date { font: 11px Arial, Helvetica, sans-serif; color: #c23; text-transform: uppercase; }
 .nw-lead h1 { margin: 4px 0 6px; font-size: 28px; line-height: 1.1; }

@@ -3319,6 +3319,7 @@ function syncHome() { if (world && pitGarage.active && pitGarage.mode === 'home'
 function enterHub() {
   disposeSim(); updateLogoShown();
   if (world.viewing && !coop) delete world.viewing; // (a viewing's a visit: back in, you're home)
+  WC.staleTexts(world); // (an old save's pile of unread texts: only the last week or two's are new)
   viewShown = world.viewing ? world.viewing.base : null; pitGarage.away = !!world.viewing;
   const t = world.teams[world.player.team];
   if (world.livery) { t.main = world.livery.main; t.accent = world.livery.accent; }
