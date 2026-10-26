@@ -54,7 +54,18 @@ const DIFF = {
 };
 // the F1 class: its own lower levels (its AI never had the cornering help the road / GT AI lost in stage 3), and the
 // top levels one step of edge below the road / GT table's
-const diffFor = (opts) => { const D = (CARS[opts.cast && !opts.car ? opts.cast[0] : carId(opts.car)] || CARS.f1).cls === 'f1' ? DIFF_F1 : DIFF; return D[opts.difficulty] || D.medium; };
+const diffFor = (opts) => { const D = (CARS[opts.cast && !opts.car ? opts.cast[0] : carId(opts.car)] || CARS.f1).cls === 'f1' ? DIFF_F1 : DIFF; return liftFor(D[opts.difficulty] || D.medium, opts.entries); };
+// World Career: a driver (and car) rated past the limit (entries[t].over: % of a lap quicker than a clean lap at the
+// difficulty, where the gap stops at 0) lifts the limit: the whole field's grip, in LIFT steps (+2% grip, ~LIFT_T % of a
+// lap: one more speed plan per car, learned once and kept), till the best of them is at it; each entry's gap then grows
+// by what the lift made up, less their own over (techFor). So the best of a series is still quickest, by what their
+// rating says, and a top team that keeps developing keeps gaining, instead of all of them waiting at the limit.
+const LIFT = 0.02, LIFT_T = 0.75, LIFT_MAX = 3; // (measured, Summit Point 2026-10-26: +2% grip 0.65-0.9% of a lap; a plan per grip is noisy, +-0.5%, so 1% steps were lost in it)
+function liftFor(D, entries) {
+  const best = Math.max(0, ...Object.values(entries || {}).map(e => +e.over || 0)); if (best < 0.1) return D;
+  const k = Math.min(LIFT_MAX, Math.ceil(best / LIFT_T));
+  return { ...D, grip: +(D.grip * (1 + LIFT * k)).toFixed(4), lift: k * LIFT_T };
+}
 const DIFF_F1 = {
   easy:    { pace: 0.8,  power: 0.94, grip: 0.97, spread: 0.03, rubber: true, tech: 1 },
   medium:  { pace: 0.875, power: 0.97, grip: 0.99, spread: 0.025, rubber: true, tech: 0.5 },
@@ -1280,7 +1291,7 @@ export class Race {
     const pre = this.opts.aiSetup?.[t];
     if (pre && 'tf' in pre) return memo[t] = pre.tf; // (the same driver all weekend)
     const ent = this.opts.entries?.[t];
-    if (ent && (ent.skill || ent.gap)) {
+    if (ent && (ent.skill || ent.gap || this.diff.lift)) {
       // what their flaws really cost in this car here: two laps at full pace with them, against the clean ones the pace
       // curve ran. It can come out negative (an impatient driver on less traction control can be quicker than the
       // careful clean AI in a road car), and then the pace multiplier makes up more; an estimate that assumed flaws
@@ -1289,7 +1300,7 @@ export class Race {
       // limit, where the car is, and nothing below it, so a cost measured at full pace over-slowed exactly those drivers)
       // So it's solved, not estimated: a lap with their flaws at the pace the curve suggests, a second at the pace that
       // corrects it, and the pace between the two that gives their gap; cost is set so techPace lands on it.
-      const curve = this.paceCurve(id), C = curve.C, base = Math.min(1, this.diff.pace), gap = ent.gap || 0, want = curveCost(C, base) + gap;
+      const curve = this.paceCurve(id), C = curve.C, base = Math.min(1, this.diff.pace), gap = Math.max(0, (ent.gap || 0) + (this.diff.lift ? this.diff.lift - (ent.over || 0) : 0)), want = curveCost(C, base) + gap;
       let cost = 0;
       if (ent.skill) {
         const E = this.edgeFor(id), loss = (p) => (this.simLap(id, { pace: p, power: E.power, grip: E.grip, tyre: 'soft', skill: ent.skill, tc: ent.tc ?? 1 }) / curve.t - 1) * 100;

@@ -582,7 +582,7 @@ export function classEntries(w, sid, slot0) {
   for (const tid of S.teams) {
     const t = w.teams[tid], pid = t.drivers.find(d => d !== 'P' && w.people[d]); if (!pid) continue;
     const p = w.people[pid], k = raceKnobs(w, pid, rain, s.cls, med);
-    entries[slot] = { pid, tid, other: sid, teamNo: 100 + S.teams.indexOf(tid), name: shortName(p).replace(/^\w\. /, ''), team: { name: t.name, main: t.main, accent: t.accent, helmet: t.accent, driver: shortName(p) }, aggr: k.aggr, craft: k.craft, mistakes: k.mistakes, gap: k.gap, skill: k.skill, tc: k.tc };
+    entries[slot] = { pid, tid, other: sid, teamNo: 100 + S.teams.indexOf(tid), name: shortName(p).replace(/^\w\. /, ''), team: { name: t.name, main: t.main, accent: t.accent, helmet: t.accent, driver: shortName(p) }, aggr: k.aggr, craft: k.craft, mistakes: k.mistakes, gap: k.gap, over: k.over, skill: k.skill, tc: k.tc };
     teamPace[slot] = k.pace; roster.push(slot++);
   }
   return { entries, teamPace, roster };
@@ -655,20 +655,37 @@ function mateMentored(w, pid) {
 // field, driving and car, into under 1%, which the car models' differences then swamped)
 export const RATING_K = 0.11;
 const SERIES_GAP = { club: 1.7, street: 1.5, gt2: 1.3, gt: 1.1, groupc: 0.9, formula: 0.7 };
+// a rating's car part (carValue at 0.25 a point: CAR_PTS of a lap a point) and the rest, the driver's
+const carPart = (w, pid) => { const t = w.teams[w.people[pid].team]; return (t ? carValue(w, t, pid) : 50) * 0.25; };
+// the series' typical rating, and its typical driver and car parts: { r, d, c }
 function seriesMedian(w, sid) {
-  const rs = w.series[sid].teams.flatMap(t => w.teams[t].drivers).filter(d => d !== 'P' && w.people[d]).map(d => rating(w, d)).sort((a, b) => a - b);
-  return rs.length ? rs[Math.floor(rs.length / 2)] : seriesById(sid).base;
+  const ids = w.series[sid].teams.flatMap(t => w.teams[t].drivers).filter(d => d !== 'P' && w.people[d]);
+  if (!ids.length) { const b = seriesById(sid).base; return { r: b, d: b - 12.5, c: 12.5 }; }
+  const mid = (xs) => xs.sort((a, b) => a - b)[Math.floor(xs.length / 2)], cs = ids.map(d => carPart(w, d));
+  return { r: mid(ids.map(d => rating(w, d))), d: mid(ids.map((d, k) => rating(w, d) - cs[k])), c: mid(cs) };
 }
-export const gapOf = (w, r, sid, med = seriesMedian(w, sid)) => Math.max(0, (SERIES_GAP[tierOf(sid)] ?? 1.5) + (med - r) * RATING_K);
+// Above Legend the difficulty lifts the drivers too, not only the cars (their grip and power, race.js DIFF): the series'
+// level shrinks (FIELD_K[0]: the typical driver nearer the limit) and so does the spread between the drivers
+// (FIELD_K[1]: their part of the rating, not the cars'), so the field closes up and the cars count for more.
+// (Godlike, Street Cup, 2026-10-26: the field ran 0-3% off the limit, the drivers' spread 7% to the cars' 1.5%, and a
+// stock NSX came 3rd: beating weak drivers was worth more than the car)
+const FIELD_K = { alien: [0.8, 0.85], phantom: [0.65, 0.7], godlike: [0.5, 0.55] };
+// % of a lap off a clean lap at the difficulty; below 0 for a driver (and car) rated past it: race.js lifts the limit
+// for them (entries' over, liftFor)
+export function rawGap(w, pid, sid, med = seriesMedian(w, sid)) {
+  const [kL, kD] = FIELD_K[w.opts && w.opts.difficulty] || [1, 1], c = carPart(w, pid), d = rating(w, pid) - c;
+  return (SERIES_GAP[tierOf(sid)] ?? 1.5) * kL + ((med.r - rating(w, pid)) - (1 - kD) * (med.d - d)) * RATING_K; // (kD 1: exactly as before)
+}
+export const gapOf = (w, pid, sid, med) => Math.max(0, rawGap(w, pid, sid, med));
 export function raceKnobs(w, pid, rain, cls = 'gt1', med = null) {
   const p = w.people[pid], r = rating(w, pid), tr = traitsOf(w, p);
   const f = clamp((88 - p.pace) / 40, 0, 1) + (tr.includes('hothead') ? 0.25 : 0);
   const g = clamp((85 - p.cons) / 45, 0, 1) * (tr.includes('metronome') ? 0.5 : 1);
-  const k = knobsFor(cls, gapOf(w, r, w.player.series, med ?? undefined), f, g);
+  const raw = rawGap(w, pid, w.player.series, med ?? undefined), k = knobsFor(cls, Math.max(0, raw), f, g);
   // (on top: the wet, and a mentor in the other seat, as a pace multiplier)
   const pace = (rain ? 1 + (p.wet - 50) * 0.0004 : 1) * (mateMentored(w, pid) ? 1.004 : 1);
   // (the dice-roll mistakes are a little rarer than before: an inconsistent driver's own technique now makes some)
-  return { pace: Math.min(1.01, pace), gap: k.gap, skill: k.skill, tc: k.tc,
+  return { pace: Math.min(1.01, pace), gap: k.gap, over: +Math.max(0, -raw).toFixed(3), skill: k.skill, tc: k.tc,
     aggr: clamp(0.15 + p.aggr / 100 * 0.85 + grudgeOf(w, pid) * 0.06, 0.1, 1), craft: clamp(((p.craft ?? 60) - 20) / 75, 0, 1), mistakes: clamp(1.5 - p.cons / 100 * 1.1, 0.35, 1.3) };
 }
 
@@ -699,7 +716,7 @@ export function raceEntries(w) {
     for (const pid of t.drivers) {
       if (pid === 'P') continue;
       const p = w.people[pid], k = raceKnobs(w, pid, rain, cls, med);
-      entries[slot] = { pid, tid, ...(t.mine ? { mate: true, trust: trustOf(w), owe: m && m.owe === `${w.year}:${w.round - 1}` ? m.oweWhy : null } : {}), ...(stories[pid] ? { story: stories[pid] } : {}), teamNo: S.teams.indexOf(tid), name: shortName(p).replace(/^\w\. /, ''), team: { name: t.name, main: t.main, accent: t.accent, helmet: t.accent, driver: shortName(p) }, aggr: k.aggr, craft: k.craft, mistakes: k.mistakes, gap: k.gap, skill: k.skill, tc: k.tc };
+      entries[slot] = { pid, tid, ...(t.mine ? { mate: true, trust: trustOf(w), owe: m && m.owe === `${w.year}:${w.round - 1}` ? m.oweWhy : null } : {}), ...(stories[pid] ? { story: stories[pid] } : {}), teamNo: S.teams.indexOf(tid), name: shortName(p).replace(/^\w\. /, ''), team: { name: t.name, main: t.main, accent: t.accent, helmet: t.accent, driver: shortName(p) }, aggr: k.aggr, craft: k.craft, mistakes: k.mistakes, gap: k.gap, over: k.over, skill: k.skill, tc: k.tc };
       teamPace[slot] = k.pace;
       roster.push(slot++);
     }
@@ -1005,6 +1022,7 @@ export function recordPlayerRound(w, res, log = [], use = null, story = null) {
     if (w.rival && rng(w) < 0.35) { const theirs = w.series[sid].results.at(-1).rows.filter(r => teamOfPid(w, r.pid) === w.rival.tid); if (theirs.length) react(w, 'rival', `${facts} ${w.teams[w.rival.tid].name}'s cars finished ${theirs.map(r => r.dnf ? 'DNF' : ordinalOf(r.pos)).join(' and ')}.`); }
     if (!me.dnf && me.pos <= 3 && rng(w) < 0.4) react(w, 'ex', facts);
   }
+  wrapRound(w, me, use, log, told);
   listRound(w, me, use);
   if (me && use && !w.pre) { penNoComment(w); w.pen = penOf(w, me, use, log); }   // (the media pen: a question about this race; last race's, unanswered, is no comment)
   return { ...afterRound(w, me), bill };
@@ -1019,6 +1037,7 @@ export function simPlayerRound(w) {
   const me = rows.find(r => r.pid === 'P');
   for (const r of rows) if (r.pid !== 'P') { const h = h2hOf(w, r.pid); h.races++; if (r.dnf && !me.dnf || (!me.dnf && me.pos < r.pos)) h.ahead++; else h.behind++; }
   if (w.money) { const u = { ...simUse(w), failed: f ? f.part : null, grid: me ? clamp(me.pos + Math.round(gauss(w) * 2), 1, 12) : null, blamed: rng(w) < 0.12 }; settleRound(w, u, me); afterParts(w, u); }
+  wrapRound(w, me, null, [], null);
   listRound(w, me, null);
   return afterRound(w, me);
 }
@@ -1096,6 +1115,7 @@ function seasonEnd(w) {
   if (!w.pre && w.money) { ambitionEnd(w, summary); investorSeason(w, summary); worksSeason(w, summary); }
   if (!w.pre) listCheck(w, { season: summary });
   seasonEndNews(w, summary);
+  if (!w.pre) wrapEnd(w, summary, tpos);
 }
 
 // answer a promotion offer: 'move' takes that series' entry (to: its id; careers from before several offers: the one
@@ -2509,6 +2529,7 @@ function pay(w, amt, what) {
   const m = w.money; m.balance += amt;
   m.tx.unshift({ y: w.year, when: whenOf(w), what, amt, bal: m.balance });
   if (m.tx.length > 200) m.tx.length = 200;
+  if (!w.pre && amt) wrapMoney(wrapOf(w), what, amt);
 }
 export function claimLottery(w, choice) {
   const m = w.money; if (m.choice) return;
@@ -2808,7 +2829,7 @@ export const daysLeft = (w) => WEEK_DAYS - weekOf(w).used;
 export const weekOpen = (w) => !!(w.founding?.reg && w.money && w.money.choice && !w.over);
 export const hasRaceCar = (w) => !!w.car && !needsCar(w);
 // (tag: the calendar's short name for the day; gig: a booked drive, filled in when it's driven)
-function useDay(w, what, amt = 0, tag = '', gig = null) { const wk = weekOf(w); wk.log.push({ day: wk.used, what, amt, tag, gig }); wk.used++; if (w.projects && !w.pre) crewDay(w); eventsMissed(w, wk); }
+function useDay(w, what, amt = 0, tag = '', gig = null) { const wk = weekOf(w); wk.log.push({ day: wk.used, what, amt, tag, gig }); wk.used++; if (!w.pre) { const D = wrapOf(w).days, k = tag || what; D[k] = (D[k] || 0) + 1; } if (w.projects && !w.pre) crewDay(w); eventsMissed(w, wk); }
 // (and a day spent on the team: what the week's log shows)
 export function spendDay(w, what, tag = '') { if (daysLeft(w) <= 0) return false; useDay(w, what, 0, tag); return true; }
 // (a day you've said yes to (an interview, a coaching day, a wedding): booked, not spent. It waits in the day planner
@@ -5029,6 +5050,7 @@ const addrOf = (s, who) => `${who}@${siteOf(s)}`;
 export function text(w, from, body, extra = {}) {
   if (w.pre) return;
   w.msgs.unshift({ id: 'm' + (w.nextId++), y: w.year, r: w.round, from, body, read: false, ...extra });
+  { const T = wrapOf(w).texts; T[from] = (T[from] || 0) + 1; }
   if (w.msgs.length > 80) w.msgs.length = 80;
 }
 // a few texts in a row, the way people send them: the first line first (the inbox is newest first, so the last line
@@ -5435,6 +5457,106 @@ function seasonEndNews(w, sum) {
     if (wn) { const p = wn.pid === 'P' ? null : w.people[wn.pid]; news(w, `${p ? p.last.toUpperCase() : w.player.name.split(' ').pop().toUpperCase()} WINS THE ${GP_NAME.toUpperCase()}`, `${p ? nameOf(p) : w.player.name} (${w.teams[teamOfPid(w, wn.pid)]?.name || ''}) wins the ${w.year} ${GP_NAME} at ${R.name}.`); } }
   const you = sum.you;
   if (you) text(w, w.people[teammateOf(w)]?.first || 'Team', you.pos === 1 ? `CHAMPION! I knew it. Tonight we celebrate.` : `P${you.pos} in the championship. Not bad. Next year we go again.`);
+}
+
+// ---------------- the season wrapped (js/wrapped.js) ----------------
+// The season as it goes, kept for its wrap-up: the bank statement and the phone only keep their last 200 / 80, so the
+// money by what it was for, the days of the week, who texted, and each of your races (a race you drove: its own
+// numbers, race.js this.wrap: distance, top speed, flat out, on the brakes, off the road, shifts, resets). At the end
+// of the season, the field as it finished and who you raced most, so an old season's wrap-up still shows (the
+// results are cleared for the next one). w.wraps[year], the last ten.
+export function wrapOf(w, y = w.year) {
+  const W = (w.wraps ??= {});
+  if (!W[y]) { W[y] = { y, sid: w.player.series, rounds: [], money: { in: {}, out: {} }, days: {}, texts: {}, rep0: repOf(w), bal0: w.money ? w.money.balance : null, late: y === w.year && w.round > 0 };
+    for (const k of Object.keys(W).map(Number).sort((a, b) => a - b).slice(0, -10)) delete W[k]; }
+  return W[y];
+}
+// what a payment was for, from its line on the statement
+const MONEY_KINDS = [['lottery', /lottery|annuity/i], ['prize', /prize/i], ['sponsor', /sponsor|associate|bonus|seat money|seat fee|appearance/i],
+  ['payroll', /payroll|wage|back pay|released|labour/i], ['crew', /pit crew|crew/i], ['entry', /entry fee/i], ['travel', /travel|freight|hotel/i], ['fuel', /fuel/i],
+  ['tires', /tyre|tire/i], ['test', /test day|track hire/i], ['premises', /premises|facilit|moved into|rent/i], ['job', /shift|day job|giggo|courier|hearse|track day|coaching|hot laps|street race|fare/i], ['upgrades', /fitting|ported|coilover|clutch|exhaust|upgrade/i], ['mate', /, with [A-Z]|academy|karting/i],
+  ['car', /rebuil|repair|parts|oem|engine|gearbox|classifieds|car 2|trade-in|sold|built|lease|insurance|map|new /i], ['bank', /loan|investment|stake|overdraft|interest|cash \(/i]];
+const moneyKind = (what) => (MONEY_KINDS.find(([, re]) => re.test(what)) || ['other'])[0];
+function wrapMoney(W, what, amt) { let k = moneyKind(what); if (k === 'sponsor' && amt < 0 && /signing/i.test(what)) k = 'payroll'; const M = W.money[amt > 0 ? 'in' : 'out']; M[k] = (M[k] || 0) + Math.abs(amt); }
+// a round: where you started and finished, what the Wire's digest saw, and the driving (live races only)
+const num = (x, d = 1) => Number.isFinite(x) ? Math.round(x * d) / d : 0;
+function driveOf(d) { if (!d || typeof d !== 'object') return null;
+  return { dist: num(d.dist), vmax: num(d.vmax, 10), vLap: d.vLap | 0, t: num(d.t), full: num(d.full), brake: num(d.brake), off: num(d.off), shifts: d.shifts | 0, resets: d.resets | 0, wet: num(d.wet), close: Number.isFinite(d.close) ? num(d.close, 1000) : null }; }
+function wrapRound(w, me, use, log, told) {
+  if (w.pre) return;
+  const sid = w.player.series, R = w.series[sid].cal[w.round], res = w.series[sid].results.at(-1); if (!R || !res) return;
+  const W = wrapOf(w), mine = (pid) => res.rows.find(r => r.pid === pid);
+  const one = (pid, drive, grid) => { const r = mine(pid); if (!r) return null;
+    const out = told && told.out.find(o => o.pid === pid);
+    return { pos: r.pos, dnf: !!r.dnf, dsq: !!r.dsq, pts: r.pts || 0, fl: !!r.fl, best: Number.isFinite(r.best) ? r.best : null, grid: grid ?? (told && told.grid[pid]) ?? null,
+      led: told ? told.lead.filter(x => x.pid === pid).reduce((a, x) => a + x.to - x.from + 1, 0) : 0, why: out ? out.why : null,
+      passed: log.filter(e => e.type === 'pass' && e.a === pid).length, lost: log.filter(e => e.type === 'pass' && e.b === pid).length,
+      hits: log.filter(e => e.type === 'contact' && (e.a === pid || e.b === pid)).length, blamed: log.filter(e => e.type === 'contact' && e.blame && e.a === pid).length,
+      drive: driveOf(drive) }; };
+  const P = one('P', use && use.wrap, use && use.grid);
+  if (P && use && use.led) P.led = Math.max(P.led, use.led);
+  const c = w.coop && w.coop.pid, C = c ? one(c, use && use.car2 && use.car2.wrap) : null;   // (co-op: the co-owner's race in car two, with their driving when their game sent it)
+  W.rounds.push({ r: w.round, track: R.name, gp: !!R.gp, weather: R.weather, laps: told ? told.laps : null, live: !!use, margin: told ? told.margin : null, winner: res.rows.find(r => r.pos === 1 && !r.dnf)?.pid || null, P, ...(C ? { C } : {}) });
+}
+// a season from before the game kept these, pieced back together from what a save still has (the results are cleared
+// each new season): where you finished at each circuit (w.trackLog), the order and weather from the Wire's round
+// reports, passes and contact from the ledger, the field's final table from everyone's history, the money and texts as
+// far back as the statement and the phone go. No driving numbers, grids or days. Not kept: { ...wrap, rebuilt: true }
+export function wrapRebuild(w, y) {
+  const H = w.player.hist.find(h => h.y === y); if (!H) return null;
+  const sid = H.s, S0 = seriesById(sid), W = { y, sid, rounds: [], money: { in: {}, out: {} }, days: {}, texts: {}, rebuilt: true };
+  const mine = Object.entries(w.trackLog || {}).flatMap(([track, L]) => L.filter(e => e.y === y).map(e => ({ track, ...e })));
+  const reps = w.news.filter(n => n.y === y && n.report && n.report.s === sid).sort((a, b) => a.report.round - b.report.round);
+  const used = new Set(), txt = (n) => [n.head, ...(n.body || [])].join(' ');
+  const round = (r, e, n) => { const L = w.ledger.filter(x => x.y === y && x.s === sid && x.r === r), m = n && /winning margin was ([\d.]+)/i.exec(txt(n));
+    return { r, track: e.track, weather: n && /in the rain/i.test(txt(n)) ? 'rain' : 'clear', live: false, margin: m ? +m[1] : null, winner: e.pos === 1 && !e.dnf ? 'P' : null,
+      P: { pos: e.pos, dnf: !!e.dnf, pts: e.dnf ? 0 : POINTS[e.pos - 1] || 0, fl: false, best: null, grid: null, led: 0, why: null,
+        passed: L.filter(x => x.type === 'pass' && x.a === 'P').length, lost: L.filter(x => x.type === 'pass' && x.b === 'P').length,
+        hits: L.filter(x => x.type === 'contact' && (x.a === 'P' || x.b === 'P')).length, blamed: L.filter(x => x.type === 'contact' && x.blame && x.a === 'P').length, drive: null } }; };
+  for (const n of reps) { const e = mine.find(x => !used.has(x) && txt(n).includes(x.track)); if (e) { used.add(e); W.rounds.push(round(n.report.round, e, n)); } }
+  for (const e of mine) if (!used.has(e)) W.rounds.push(round(W.rounds.length, e, null));
+  // the field as it finished: everyone's own history of that season
+  const F = [{ pid: 'P', name: w.player.name, team: H.team, pos: H.pos, pts: H.pts, wins: H.wins, pods: H.pods }];
+  for (const p of Object.values(w.people)) for (const h of p.hist || []) if (h.y === y && h.s === sid) F.push({ pid: p.id, name: nameOf(p), team: h.team, pos: h.pos, pts: h.pts, wins: h.wins, pods: h.pods });
+  W.field = F.sort((a, b) => a.pos - b.pos).map(f => ({ dnf: 0, fl: 0, avg: null, best: null, ...f }));
+  const Hh = {}, h = (pid) => Hh[pid] ||= { pid, youPassed: 0, passedYou: 0, contacts: 0, youHit: 0, hitYou: 0, ahead: 0, behind: 0 };
+  for (const e of w.ledger) { if (e.y !== y || e.s !== sid || !(e.a === 'P' || e.b === 'P')) continue; const o = h(e.a === 'P' ? e.b : e.a);
+    if (e.type === 'pass') { if (e.a === 'P') o.youPassed++; else o.passedYou++; }
+    if (e.type === 'contact') { o.contacts++; if (e.blame) { if (e.a === 'P') o.youHit++; else o.hitYou++; } } }
+  W.h2h = Object.values(Hh).filter(x => w.people[x.pid]).map(x => ({ ...x, name: nameOf(w.people[x.pid]), team: W.field.find(f => f.pid === x.pid)?.team || '' }));
+  W.mate = W.field.find(f => f.pid !== 'P' && f.team === H.team)?.pid || null;
+  W.series = S0 ? S0.name : sid; W.len = W.rounds.length; W.team = H.team; W.car = H.carName || null; W.chassis = H.car || null; W.done = true;
+  if (w.money) for (const t of w.money.tx) if (t.y === y && t.amt) wrapMoney(W, t.what, t.amt);
+  for (const m of w.msgs) if (m.y === y) W.texts[m.from] = (W.texts[m.from] || 0) + 1;
+  return W.rounds.length ? W : null;
+}
+// (for testing: the wrap-up as it stands, mid-season)
+export function wrapSoFar(w) { const tpos = teamStandings(w, w.player.series).findIndex(e => e.tid === w.player.team) + 1; wrapEnd(w, { champs: {} }, tpos); wrapOf(w).done = false; }
+// the season's end: the field as it finished (and each driver's season), who you raced most, how the team did
+function wrapEnd(w, sum, tpos) {
+  const sid = w.player.series, S = w.series[sid], W = wrapOf(w), st = standings(w, sid);
+  // (a season that was under way before the game kept these: its rounds from the results, its money from the
+  // statement and its texts from the phone, as far back as they go)
+  for (const res of S.results) if (!W.rounds.some(x => x.r === res.round)) { const r = res.rows.find(x => x.pid === 'P');
+    W.rounds.push({ r: res.round, track: res.track, weather: res.weather, live: false, winner: res.rows.find(x => x.pos === 1 && !x.dnf)?.pid || null, P: r ? { pos: r.pos, dnf: !!r.dnf, pts: r.pts || 0, fl: !!r.fl, best: null, grid: null, led: 0, passed: 0, lost: 0, hits: 0, blamed: 0, drive: null } : null }); }
+  W.rounds.sort((a, b) => a.r - b.r);
+  if (W.late) { W.late = false;
+    if (w.money) { W.money = { in: {}, out: {} }; for (const t of w.money.tx) if (t.y === w.year && t.amt) wrapMoney(W, t.what, t.amt); }
+    for (const m of w.msgs) if (m.y === w.year && !W.texts[m.from]) W.texts[m.from] = w.msgs.filter(x => x.y === w.year && x.from === m.from).length; }
+  const per = {}; for (const res of S.results) for (const r of res.rows) { const e = per[r.pid] ||= { n: 0, sum: 0, fl: 0, fin: 0 }; e.n++; if (r.fl) e.fl++; if (!r.dnf) { e.fin++; e.sum += r.pos; } }
+  W.sid = sid; W.series = seriesById(sid).name; W.len = S.results.length; W.tpos = tpos; W.nTeams = teamStandings(w, sid).length;
+  W.field = st.map((e, k) => ({ pid: e.pid, name: displayName(w, e.pid), team: w.teams[teamOfPid(w, e.pid)]?.name || '', pos: k + 1, pts: e.pts, wins: e.wins, pods: e.pods, dnf: e.dnf, best: e.best < 99 ? e.best : null, fl: per[e.pid]?.fl || 0, avg: per[e.pid]?.fin ? +(per[e.pid].sum / per[e.pid].fin).toFixed(2) : null }));
+  // (who you raced: this season's passes and contacts with each of them, and who finished ahead when both did)
+  const H = {}, h = (pid) => H[pid] ||= { pid, youPassed: 0, passedYou: 0, contacts: 0, youHit: 0, hitYou: 0, ahead: 0, behind: 0 };
+  for (const e of w.ledger) { if (e.y !== w.year || e.s !== sid || !(e.a === 'P' || e.b === 'P')) continue; const o = h(e.a === 'P' ? e.b : e.a);
+    if (e.type === 'pass') { if (e.a === 'P') o.youPassed++; else o.passedYou++; }
+    if (e.type === 'contact') { o.contacts++; if (e.blame) { if (e.a === 'P') o.youHit++; else o.hitYou++; } } }
+  for (const res of S.results) { const me = res.rows.find(r => r.pid === 'P'); if (!me || me.dnf) continue;
+    for (const r of res.rows) if (r.pid !== 'P' && !r.dnf) { if (me.pos < r.pos) h(r.pid).ahead++; else h(r.pid).behind++; } }
+  W.h2h = Object.values(H).filter(x => w.people[x.pid]).map(x => ({ ...x, name: displayName(w, x.pid), team: w.teams[teamOfPid(w, x.pid)]?.name || '' }));
+  W.mate = teammateOf(w) || null; W.coopPid = w.coop?.pid || null; W.champ = sum.champs[sid] || null;
+  W.team = myTeam(w).name; W.car = w.car ? w.car.name : null; W.chassis = w.car ? w.car.chassis : null;
+  W.rep1 = repOf(w); W.bal1 = w.money ? w.money.balance : null; W.lic = licName(licOf(w).g); W.done = true;
 }
 
 // ---------------- save ----------------
