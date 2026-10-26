@@ -221,12 +221,6 @@ export const CARS = {
     spec: gt2({ body: [2.16, 2.23, 0.94], mass: 1250, power: 355000, kd: 0.6, drag: 0.45, torque: BIGV10, a: 1.238, b: 1.238, cgh: 0.4,
       track: 1.55, maxForce: 13500, brakeF: 0.62, redline: 6500, idle: 1000, gears: [0, 27, 39, 51, 63, 74, 84] }) },
 
-  testarossa: { name: 'Testa Rossa', cls: 'street', sound: 'flat12', glb: true, paint: true,
-    spec: street({ body: [2.24, 2.27, 1.0], lsd: [50, 0.4, 0.2], mass: 1510, power: 290000, cgh: 0.44, a: 1.4, b: 1.15, mu: 1.35, kd: 0.18, redline: 7400, gears: [0, 20, 34, 48, 63, 80], torque: NA }) },
-  rs964:   { name: 'Porsche 911 Carrera RS (964)', cls: 'street', sound: 'flat6', glb: true, paint: true,
-    spec: street({ body: [2.12, 2.15, 0.92], lsd: [60, 0.4, 0.4], mass: 1220, power: 195000, a: 1.5, b: 0.8, rearGrip: 1.08, cgh: 0.45, drag: 0.37, brakeF: 0.56, redline: 6900, gears: [0, 18, 30, 42, 55, 72] }) },
-  m5:      { name: 'Bavaria M5 E39', cls: 'street', sound: 'v8cross', glb: true, paint: false, straighten: true, // CC BY-NC-ND: shown unmodified, never repainted
-    spec: street({ body: [2.39, 2.42, 0.96], lsd: [40, 0.25, 0.25], mass: 1720, power: 294000, torque: V8, a: 1.4, b: 1.44, cgh: 0.5, drag: 0.38, redline: 7000, gears: [0, 17, 28, 40, 52, 64, 78] }) },
   // your Blender model (R34 GT-R V-Spec, white photo, full livery). RB26DETT twin-turbo six: "280 PS" on paper, ~330 in
   // truth (the makers' gentlemen's agreement); 1560 kg, 55% on the nose. ATTESA E-TS: rear-driven until the rears slip,
   // then up to half to the front, so mostly rear with a pull out of slow corners; active rear LSD, a Getrag 6-speed.
@@ -319,6 +313,13 @@ export const CARS = {
 // archived (2026-10-12): the GT1 cars that aren't our own models. Out of every menu, grid and career; their specs and
 // models/cars/*.glb are kept so they can come back (move an entry back into CARS and out of RETIRED)
 export const ARCHIVED = {
+  // (2026-10-25: the last Street stand-ins that aren't our own models: the Testa Rossa, the 911 RS, the M5)
+  testarossa: { name: 'Testa Rossa', cls: 'street', sound: 'flat12', glb: true, paint: true,
+    spec: street({ body: [2.24, 2.27, 1.0], lsd: [50, 0.4, 0.2], mass: 1510, power: 290000, cgh: 0.44, a: 1.4, b: 1.15, mu: 1.35, kd: 0.18, redline: 7400, gears: [0, 20, 34, 48, 63, 80], torque: NA }) },
+  rs964:   { name: 'Porsche 911 Carrera RS (964)', cls: 'street', sound: 'flat6', glb: true, paint: true,
+    spec: street({ body: [2.12, 2.15, 0.92], lsd: [60, 0.4, 0.4], mass: 1220, power: 195000, a: 1.5, b: 0.8, rearGrip: 1.08, cgh: 0.45, drag: 0.37, brakeF: 0.56, redline: 6900, gears: [0, 18, 30, 42, 55, 72] }) },
+  m5:      { name: 'Bavaria M5 E39', cls: 'street', sound: 'v8cross', glb: true, paint: false, straighten: true, // CC BY-NC-ND: shown unmodified, never repainted
+    spec: street({ body: [2.39, 2.42, 0.96], lsd: [40, 0.25, 0.25], mass: 1720, power: 294000, torque: V8, a: 1.4, b: 1.44, cgh: 0.5, drag: 0.38, redline: 7000, gears: [0, 17, 28, 40, 52, 64, 78] }) },
   // (2026-10-24: the Street stand-ins replaced by the real cars: the Kaze by the Supra, the Pony GT by the Corvette)
   jsport:  { name: 'Kaze Sports Coupe', cls: 'street', sound: 'i4turbo', glb: true, paint: false,
     spec: street({ body: [2.22, 2.25, 1.0], lsd: [80, 0.45, 0.3], mass: 1400, power: 280000, torque: TURBO, a: 1.3, b: 1.3, redline: 7000, gears: [0, 19, 32, 45, 60, 78] }) },
@@ -348,7 +349,7 @@ for (const c of [...Object.values(CARS), ...Object.values(ARCHIVED)]) {
 // cars taken out of the game -> the car that replaced them (saved settings and careers that still name them)
 // (the archived GT1 cars go to the custom car nearest in character: the Aventus' V8 to the F40, the light revvy BX300
 // to the M1, the turbo RM-X to the 935)
-export const RETIRED = { gtr: 'm3gtr', aventus: 'f40', bx300: 'm1procar', rmx: 'porsche935', jsport: 'supra', mustang: 'corvettec4' };
+export const RETIRED = { gtr: 'm3gtr', aventus: 'f40', bx300: 'm1procar', rmx: 'porsche935', jsport: 'supra', mustang: 'corvettec4', testarossa: 'corvettec4', rs964: 'p944turbo', m5: 'supra' };
 export const carId = (cfg) => { const c = (cfg && cfg.chassis) || 'custom', k = RETIRED[c] || c; return k === 'custom' ? 'f1' : CARS[k] ? k : 'f1'; };
 export const carOf = (cfg) => CARS[carId(cfg)];
 export const classOf = (cfg) => carOf(cfg).cls;

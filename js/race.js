@@ -2767,11 +2767,11 @@ export class Race {
     const atPit = this.pit ? ((this.pit.start - i + N) % N) * T.ds < 20 : d < 20;
     if (this.rc.sc && this.rc.sc.phase === 'in' && atPit || !this.rc.sc) { if (S.model) S.model.visible = false; this.sc = null; if (this.rc.sc) this.rc.setSc(null); }
   }
-  // its car: a white saloon with a light bar (built once a race)
+  // its car: a white Corvette with a light bar, the era's pace car (built once a race)
   scModel() {
     if (this._scModel !== undefined) return this._scModel;
     try {
-      const m = buildF1({ ...teamCar(this.teamFor(0), 0), chassis: 'm5', main: 0xf2f2f2, accent: 0x1c1c1c }, { texSize: 512, low: true });
+      const m = buildF1({ ...teamCar(this.teamFor(0), 0), chassis: 'corvettec4', main: 0xf2f2f2, accent: 0x1c1c1c }, { texSize: 512, low: true });
       groundCar(m);
       const bar = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.12, 0.28), new THREE.MeshBasicMaterial({ color: 0xffb21a }));
       bar.position.set(0, 1.5, -0.2); m.group.add(bar); m.group.userData.bar = bar;

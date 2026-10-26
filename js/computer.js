@@ -971,7 +971,7 @@ export class Computer {
     const col = w.teams[w.player.team].main;
     if (S.car === 'classifieds') {
       const X = WC.seriesShow(w, S.id, this.src.classKeys?.(S.cls) || []);
-      const rows = X.cars.map((c, k) => `<div class="cr-row"${k === 0 ? ' data-first' : ''}>${this.photo({ id: 'cc' + c.key + col, chassis: c.key, color: col }, 'cr-thumb')}<div><b>${esc(c.name || this.carName(c.key))}</b><small>${c.teams.length ? `Raced by ${c.teams.map(t => esc(w.teams[t].name)).join(', ')}` : 'In the rules, nobody runs one'}</small></div><div class="cr-price">${c.used ? `${WC.money$(Math.round(c.used / 500) * 500)}<small>about, used</small>` : ''}</div></div>`).join('');
+      const rows = X.cars.map((c, k) => `<div class="cr-row"${k === 0 ? ' data-first' : ''}>${this.photo({ id: 'cs' + c.key + col, chassis: c.key, color: col, look: 'studio' }, 'cr-thumb')}<div><b>${esc(c.name || this.carName(c.key))}</b><small>${c.teams.length ? `Raced by ${c.teams.map(t => esc(w.teams[t].name)).join(', ')}` : 'In the rules, nobody runs one'}</small></div><div class="cr-price">${c.used ? `${WC.money$(Math.round(c.used / 500) * 500)}<small>about, used</small>` : ''}</div></div>`).join('');
       return head + `<div class="cr-body"><p class="cr-own">No customer programs in the ${esc(S.name)}: the cars are road cars, bought off SVList and built up yourself.</p>${rows}</div>`;
     }
     const cars = WC.customerCars(w, S), used = ours ? WC.exWorks(w, S) : [], mine = w.car && w.car.cls === S.cls ? w.car : null;
@@ -984,12 +984,12 @@ export class Computer {
       const deals = xw ? `<div class="cr-deal"><b>${WC.money$(c.price)}</b><small>${esc(c.team)}'s car from ${c.year}. ${WC.condName(c.cond)} (${Math.round(c.cond * 100)}%).</small>${short(c.price)}${can ? btn('used', c.id, `Buy it: ${WC.money$(c.price)}`, 1) : ''}</div>`
         : `<div class="cr-deal"><b>Lease</b><small>${WC.money$(c.deposit)} deposit, then ${WC.money$(c.perRound)} a round (${WC.money$(c.deposit + c.perRound * L)} for a ${L}-round season). The engine and gearbox are rebuilt by the program between rounds.</small>${short(c.deposit)}${can ? btn('lease', c.key, `Lease it: ${WC.money$(c.deposit)} now`, 1) : ''}</div>
            ${c.buy ? `<div class="cr-deal"><b>Buy new</b><small>${WC.money$(c.price)}. Yours to keep, sell, or rebuild.</small>${short(c.price)}${can ? btn('buy', c.key, `Buy it: ${WC.money$(c.price)}`) : ''}</div>` : ''}`;
-      return head + `<div class="cr-page" data-nav data-scroll data-key="crpage">${gate}<div class="cr-top">${this.photo({ id: 'cc' + c.key + col, chassis: c.key, color: col }, 'cr-photo')}
+      return head + `<div class="cr-page" data-nav data-scroll data-key="crpage">${gate}<div class="cr-top">${this.photo({ id: 'cs' + c.key + col, chassis: c.key, color: col, look: 'studio' }, 'cr-photo')}
         <div><h1>${esc(c.name)}</h1><p class="cr-prog">${esc(c.prog)}${xw ? `, ex-${esc(c.team)}` : ''}</p><table class="cl-attrs">${this.specRows(c.key)}</table><p class="cr-note">${esc(cars.find(x => x.key === c.key)?.note || '')}</p></div></div>
         ${old ? `<p class="cr-old">${old}</p>` : ''}${deals}</div>`;
     }
     const b = WC.seasonBudget(w, S);
-    const row = (c, k) => `<div class="cr-row" data-nav data-act="cc" data-arg="${c.id || c.key}" data-key="cc-${c.id || c.key}"${k === 0 ? ' data-first' : ''}>${this.photo({ id: 'cc' + c.key + col, chassis: c.key, color: col }, 'cr-thumb')}
+    const row = (c, k) => `<div class="cr-row" data-nav data-act="cc" data-arg="${c.id || c.key}" data-key="cc-${c.id || c.key}"${k === 0 ? ' data-first' : ''}>${this.photo({ id: 'cs' + c.key + col, chassis: c.key, color: col, look: 'studio' }, 'cr-thumb')}
       <div><b>${esc(c.name)}</b><small>${c.team ? `Ex-${esc(c.team)}, ${c.year} &middot; ${WC.condName(c.cond).toLowerCase()}` : `${esc(c.prog)} &middot; ${c.hp} hp, ${c.kg} kg`}</small></div>
       <div class="cr-price">${c.team ? WC.money$(c.price) : `${WC.money$(c.perRound)}<small>a round, leased</small>`}</div></div>`;
     return head + `<div class="cr-body">${gate}${mine ? `<p class="cr-own">Your car: ${esc(mine.name)}${mine.lease ? `, leased from ${esc(mine.lease.prog)} (${WC.money$(mine.lease.perRound)} a round)` : ''}.</p>` : ''}${old && !mine ? `<p class="cr-old">${old}</p>` : ''}
@@ -1095,7 +1095,7 @@ export class Computer {
       <div class="ss-pays"><div><small>Champion's prize</small><b>${m$(X.prize)}</b></div><div><small>Teams' title</small><b>${m$(X.teamPrize)}</b></div>${X.champ ? `<div><small>${X.champ.year} champion</small><b class="ss-nm">${esc(X.champ.name)}</b></div>` : ''}</div>${spons}</div></div>`;
     const price = (c) => c.used ? `about ${m$(Math.round(c.used / 500) * 500)} used` : c.perRound ? `lease ${m$(c.perRound)} a round${c.buy ? ` &middot; buy ${m$(c.buy)}` : ''}` : '';
     const col = parseInt((SERIES_COL[s.id] || '#777777').slice(1), 16);
-    const cars = X.cars.map(c => `<div class="ss-car">${c.teams.length ? this.shot(this.src.teamPhoto?.(c.teams[0]), 'ss-cphoto') : this.shot(this.src.photo?.({ id: `sm:${s.id}:${c.key}`, chassis: c.key, color: col }), 'ss-cphoto')}
+    const cars = X.cars.map(c => `<div class="ss-car">${c.teams.length ? this.shot(this.src.teamPhoto?.(c.teams[0]), 'ss-cphoto') : this.shot(this.src.photo?.({ id: `sm2:${s.id}:${c.key}`, chassis: c.key, color: col, look: 'studio' }), 'ss-cphoto')}
       <b>${esc(c.name || this.carName(c.key))}</b><small>${c.hp ? `${c.hp} hp &middot; ${c.kg} kg &middot; ` : ''}${price(c)}</small><small class="ss-by">${c.teams.length ? `Raced by ${c.teams.map(t => esc(w.teams[t].name)).join(', ')}` : 'Nobody runs one this year'}</small></div>`).join('');
     const cal = S.cal.map((c, k) => `<div class="ss-rd">${this.shot(this.src.trackMap?.(c.name), 'ss-map')}<small>${k + 1}. ${esc(c.endur ? WC.enduranceName(c) : c.name)}</small></div>`).join('');
     return `<div class="ss-pane" data-nav data-scroll data-key="sshome">${hero}<h3 class="ss-h">The cars</h3><div class="ss-cars">${cars || '<p class="pc-empty">No cars listed.</p>'}</div>

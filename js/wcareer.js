@@ -5509,6 +5509,7 @@ function retireCars(w) {
     for (const v of Object.values(o)) if (v && typeof v === 'object') swap(v);
   };
   for (const k of ['car', 'prevCar', 'ads', 'streetCars', 'carCat', 'bop']) swap(w[k]);
+  if (Array.isArray(w.streetCars)) w.streetCars = w.streetCars.filter((c, i, a) => a.findIndex(x => x.key === c.key) === i); // (two retired into one: listed once)
   for (const t of Object.values(w.teams || {})) if (t && RETIRED[t.chassis]) t.chassis = RETIRED[t.chassis]; // (an AI team's model: teamChassis)
 }
 // (the BMW M3 GTR raced in GT1 until GT2 existed, 2026-10-13: a GT1 entry that owns one gets a GT1 car in exchange,

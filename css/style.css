@@ -1864,6 +1864,11 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 #s-hub.walking .wk-line { display: block; }
 #s-hub.walking .wk-targets { opacity: 0; pointer-events: none; }
 #s-hub.walking.still .wk-targets { opacity: 1; }
+/* the next rung, under the week (main.js rungStrip): off the hub card, so the menu keeps its height; on your feet it's
+   in the walking HUD instead */
+.wk-rung { margin-top: var(--s3); padding: var(--s3) var(--s4); background: rgba(6,4,10,.78); }
+.wk-rung .hub-rung { margin-top: 0; padding-top: 0; border-top: 0; max-width: none; }
+#s-hub.walking .wk-rung { display: none; }
 #s-hub.walking.still .wk-line { opacity: 0; }
 .walk-tag b.alt { margin-left: 10px; }
 .walk-tag { position: fixed; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; transition: opacity .25s; }

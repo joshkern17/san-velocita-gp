@@ -2342,8 +2342,8 @@ function teamShot(tid) {
   const t = world.teams[tid], S = t && WC.seriesById(t.series); if (!S || S.cls === 'f1') return null;
   const keys = carsOfClass(S.cls).map(chassisKey), ch = WC.teamChassis(world, tid, keys);
   const cfg = t.mine ? { ...worldCar(), chassis: ch } : { ...teamCar(t, Math.max(0, world.series[t.series].teams.indexOf(tid))), chassis: ch };
-  const id = `tm:${tid}:${ch}:${t.mine ? lookPhotoV : ''}`;
-  return { id, src: pc.src.photo({ id, cfg, look: 'track' }) };
+  const id = `tm2:${tid}:${ch}:${t.mine ? lookPhotoV : ''}`;
+  return { id, src: pc.src.photo({ id, cfg, look: 'studio' }) };
 }
 const adPhotos = new Map(), photoQ = []; // (the computer's car photos: rendered once a session)
 let photoT2 = 0;
@@ -3456,7 +3456,7 @@ function renderHub() {
     $('hub-card').innerHTML = `<div class="panel-title">The team</div>
       <div class="ti-grid three br-goals">${cell(gc, cp ? `${ord(cp)}<small> ${st[cp - 1].pts} PTS</small>` : '&mdash;')}${cell(gr, gr.value.length > 9 ? `<span class="br-long">${gr.value}</span>` : gr.value)}${cell(gm, `<span class="hub-roll ${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span>`)}</div>
       <p class="br-hint">${B.hint}</p>
-      <div class="panel-title br-att">Needs attention</div>${wt || '<div class="br-none">Nothing on fire.</div>'}${rungStrip(w)}`;
+      <div class="panel-title br-att">Needs attention</div>${wt || '<div class="br-none">Nothing on fire.</div>'}`;
   } else {
     const sum = w.seasons.at(-1), you = sum && sum.you, off = w.player.offer;
     $('hub-card').innerHTML = `<div class="panel-title">${w.year} &middot; SEASON COMPLETE</div><div class="season-pips">${pips}</div>
@@ -3533,7 +3533,7 @@ function renderWeekStrip() {
     <div class="wk-more"><div class="wk-line"><b>${R.gp ? WC.GP_NAME : R.endur ? WC.enduranceName(R) : R.name}</b>${tr ? ` &middot; ${THEMES[tr.env.theme].label}` : ''}${km ? ` &middot; ${km} km` : ''} &middot; ${R.time}, ${R.weather}</div>
     <div class="wk-targets"><canvas class="wk-map" width="180" height="132"></canvas><div class="wk-tg">
       <div class="wk-track">${R.gp ? WC.GP_NAME : R.endur ? WC.enduranceName(R) : R.name}</div><div class="wk-cond">${R.gp ? `${R.name} &middot; ` : ''}${tr ? THEMES[tr.env.theme].label : ''}${km ? ` &middot; ${km} km, ${T.open ? 'point to point' : R.endur ? `${R.endur.hours} hours on the clock (${Math.round(WC.enduranceClock(w, R).duration / 60)} minutes), sharing your car with your teammate` : `${WC.raceLaps(w, T.L / 1000, false)} laps`}` : ''} &middot; ${R.endur ? 'afternoon into night' : R.time}, ${R.weather}</div>
-      ${tg || '<div class="br-none">No targets set. Race well.</div>'}</div></div></div>`;
+      ${tg || '<div class="br-none">No targets set. Race well.</div>'}</div></div></div>${(() => { const r = rungStrip(w); return r ? `<div class="wk-rung">${r}</div>` : ''; })()}`;
   if (T) drawTrackMap(T, el.querySelector('.wk-map'));
   wkStamp = -1;
   renderWalkHud();
