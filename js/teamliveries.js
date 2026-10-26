@@ -354,6 +354,8 @@ export const TEAM_LIVERIES = {
   'Ridgeway GT': { scheme: 'silkcut', main: 0x5a1a8a, accent: 0xf4f4f2, sponsor: 'CLOUD NINE VAPOR' },
   'Crown Point Racing': { scheme: 'bmw', main: 0xf4f4f2, accent: 0x2a2a8a, sponsor: 'SVGP' },
   'Old Mill Garage': { scheme: 'cobra', main: 0x5a3a22, accent: 0xf0e0b0, sponsor: 'MAX HARDWARE' },
+  'Silverlake Racing': { scheme: 'jps', main: 0x111114, accent: 0xc9a23a, sponsor: 'TRITON WATCHES' },
+  'Sunrise Endurance': { scheme: 'martini', main: 0xf4f4f2, accent: 0x1450b4, sponsor: 'SUNRISE INSURANCE' },
 };
 
 // a team with its livery's colours (its suits, its cars), whatever colours an older save gave it

@@ -82,6 +82,7 @@ const TEAM_POOL = [
   ['Gulfstream Racing', 0x8fc8e8, 0xf07a1a], ['Stonebridge Competition', 0xb8bcc4, 0x00a19b], ['Apex Customer Racing', 0xd81e2a, 0xf4f4f2],
   ['Blackwater Engineering', 0x101418, 0x00d2be], ['Lakeside Motorsport', 0xf2d21a, 0x14306a], ['Ridgeway GT', 0x5a1a8a, 0xf4f4f2],
   ['Crown Point Racing', 0xf4f4f2, 0x2a2a8a], ['Old Mill Garage', 0x5a3a22, 0xf0e0b0],
+  ['Silverlake Racing', 0x111114, 0xc9a23a], ['Sunrise Endurance', 0xf4f4f2, 0x1450b4],
 ];
 const NATS = {
   ITA: { f: ['Luca', 'Marco', 'Giulia', 'Matteo', 'Sofia', 'Andrea', 'Elena'], l: ['Rossi', 'Bianchi', 'Moretti', 'Ferraro', 'Conti', 'Greco', 'Marino', 'Rinaldi'] },
@@ -1237,13 +1238,8 @@ export const LAP_KS = {
 };
 export const lapKOf = (sid) => LAP_KS[tierOf(sid)] || LAP_KS.street;
 const CAR_PTS = 1 / 0.000275; // (a team's car rating point: 0.0275% of a lap)
-const DEV_REF = { club: 0.002, street: 0.0053, gt2: 0.0015, gt: 0.0009, groupc: 0.001, formula: 0.0062 }; // (the development a typical team carries: a car rating of the series' base)
 const DEV_FADE = 0.8;
 const COND_TYP = -0.0065; // (what parts at about 80% cost a car in lap time: the condition a car is usually raced in. Was 1.2% when power was thought worth three times as much: LAP_KS)
-// how much quicker a typical team's car is than an undeveloped one in fair condition (lap time): where a new arrival in
-// a series starts (behind), and what developing the car has to make up. The difficulty is set against the typical car,
-// so a driver matched to the field finishes mid-pack once their car's caught up, behind it before
-const AI_AHEAD = 0.004;
 const DEV_STATS = ['power', 'grip', 'downforce', 'brake', 'rel'];
 const devZero = () => ({ power: 0, grip: 0, downforce: 0, brake: 0, rel: 0 });
 const lapGain = (d, sid) => Object.entries(lapKOf(sid)).reduce((a, [k, v]) => a + (d[k] || 0) * v, 0);
@@ -1360,7 +1356,9 @@ export function carValue(w, t, pid = null) {
     const [bp, bg] = w.car ? bopFor(w, w.car.chassis) : [1, 1], gb = g - ((bp - 1) * K.power + (bg - 1) * K.grip);
     return base + (gb - COND_TYP) * CAR_PTS; // (yours, undeveloped and in fair condition, is a typical car: what the difficulty is set against)
   }
-  return base + (lapGain(devOf(w, t), t.series) - DEV_REF[tierOf(t.series)] + AI_AHEAD) * CAR_PTS;
+  // (an AI team's car is on the same scale as yours: the same development and parts, the same speed. How far ahead of a
+  // new arrival the field is comes from what the teams have spent: AI_DEVB, measured with simcareer)
+  return base + (lapGain(devOf(w, t), t.series) + lapGain(aiKitOf(t), t.series)) * CAR_PTS;
 }
 // how likely a project is to work, and how well: who's doing it (your days and your mechanic, or a shop), the tools,
 // the facility for that kind of work, the data room
@@ -1460,6 +1458,37 @@ function aiInit(w, t) {
   for (const [k, n] of Object.entries(SERIES_NEEDS[t.series] || {})) t.fac[k] = Math.max(t.fac[k] || 0, n); // (a team in a series has what it asks for)
   t.dev = devZero(); t.bank = Math.round(AI_OWNER[tierOf(t.series)] * t.wealth * 0.5); t.active = [];
 }
+// An AI team's development money: the owner sets a budget for the season (by how rich they are, less when the team's
+// in debt) and the team spends it through the season, whatever's in the bank; a team whose car is behind yours spends
+// faster, to catch up (the development race: build a quicker car and they come after you).
+// t.devB { y, sid, budget, spent }; t.kit: the catalogue parts fitted ([name]), lost when the team changes series
+const AI_KIT_KEEP = 0.4;
+const AI_DEVB = { club: 2600, street: 6000, gt2: 16000, gt: 32000, groupc: 55000, formula: 100000 }; // (a season, an owner of average wealth)
+function aiBudget(w, t, sid) {
+  if (t.devB && t.devB.y === w.year && t.devB.sid === sid) return t.devB;
+  const owner = AI_OWNER[tierOf(sid)], debt = t.bank < -owner * 0.5 ? 0.5 : 1;
+  return (t.devB = { y: w.year, sid, budget: Math.round(AI_DEVB[tierOf(sid)] * (0.1 + 0.9 * t.wealth) * debt / 100) * 100, spent: 0 });
+}
+// the parts an AI team can buy (yours: catalogue())
+const aiCatalogue = (sid) => { const own = KIT[sid], k = own ? 1 : PRICE_K[sid] || 1; return (own || KIT.street).map(([slot, name, gains, q, price]) => ({ slot, name, gains, q, price: Math.round(price * k) })); };
+// what an AI team's fitted parts give (gains: { stat: fraction }, as made: q)
+function aiKitOf(t) {
+  const out = {}; if (!t.kit || !t.kit.length || !t.series) return out;
+  for (const x of aiCatalogue(t.series)) if (t.kit.includes(x.name)) for (const [k, v] of Object.entries(x.gains)) out[k] = (out[k] || 0) + v * x.q;
+  return out;
+}
+// how far behind your car an AI team's is (% of a lap; 0: level or ahead, or you're not in its series)
+function aiBehind(w, sid, t) {
+  if (w.pre || !w.car || w.player.series !== sid) return 0;
+  return Math.max(0, (carValue(w, myTeam(w)) - carValue(w, t)) / CAR_PTS * 100);
+}
+// a team buried in debt is sold: a new owner, the debt written off (the team, its people and its car carry on)
+function aiTakeover(w, t) {
+  const owner = AI_OWNER[tierOf(t.series)]; if (t.bank > -owner * 1.5) return false;
+  t.wealth = +(0.7 + rng(w) * 0.9).toFixed(2); t.bank = Math.round(owner * t.wealth * 0.5); t.devB = null;
+  if (!w.pre && t.series === w.player.series) news(w, `${t.name.toUpperCase()} UNDER NEW OWNERSHIP`, `${t.name} has been sold. The new owner says the team's debts are "behind us" and that there will be "investment", which the team's suppliers will believe when they see it.`);
+  return true;
+}
 // a round for an AI team: money in (prize money, sponsors), money out (running the cars, the facilities), and the
 // development work: its crew's days go into projects it can afford
 function aiRound(w, sid, rows) {
@@ -1471,23 +1500,33 @@ function aiRound(w, sid, rows) {
     const run = c.entry + c.travel * (facLevel(t, 'truck') ? 0.65 : 1) + c.crew + c.tyre * 3 + c.fuelLap * 30 + facUpkeep(t) + (t.crew.mech + t.crew.eng) * 600 * (WAGE_K[sid] || 1)
       + t.drivers.reduce((a, d) => a + (w.people[d] ? DRIVER_WAGE(w.people[d].pace) * (WAGE_K[sid] || 1) : 0), 0); // (and the drivers' wages)
     t.bank += prize + AI_SPONSOR[sid] * (0.5 + rep) - run;
-    // projects: keep a reserve of a few rounds' running costs
-    const reserve = run * (t.style === 'develop' ? 1.5 : 3);
+    // development: the season's budget, spent at the season's pace (faster when the car's behind yours)
+    if (t.devB == null) aiTakeover(w, t); // (a team from an older save, deep in debt: sold now, not at the season's end)
+    const B = aiBudget(w, t, sid), behind = aiBehind(w, sid, t), push = 1 + clamp(behind / 0.5, 0, 1) * 1.5;
+    const room = () => Math.min(B.budget * push, B.budget * push * (w.round + 1.5) / w.opts.len) - B.spent;
+    const spend = (c) => { t.bank -= c; B.spent += c; };
     t.active = (t.active || []).filter(Boolean);
     const cap = 2 + t.crew.mech * 0.8 + facLevel(t, 'tools') * 0.4;
     const jok = (t.jokers && t.jokers.y === w.year) ? t.jokers.n : 0;
     while (t.active.length < 1 + Math.min(2, facLevel(t, 'base'))) {
       const opts = projOf(sid).filter(P => !t.active.some(a => a.key === P.key) && !(P.needs && Object.entries(P.needs).some(([k, l]) => facLevel(t, k) < l)) && !(P.joker && jok >= JOKERS));
       const P = opts.sort((a, b) => projGain(w, t, b) * LAP_K_OF(b, sid) / projCost(t, b) - projGain(w, t, a) * LAP_K_OF(a, sid) / projCost(t, a) + (rng(w) - 0.5) * 1e-6)[0];
-      if (!P || t.bank - projCost(t, P) < reserve) break;
-      t.bank -= projCost(t, P); t.active.push({ key: P.key, prog: 0 });
+      if (!P || projCost(t, P) > room()) break;
+      spend(projCost(t, P)); t.active.push({ key: P.key, prog: 0 });
       if (P.joker) t.jokers = { y: w.year, n: jok + 1 };
     }
+    // a part from the catalogue (one a round: the most lap time for the money)
+    { const K = lapKOf(sid), worth = (x) => Object.entries(x.gains).reduce((a, [k, v]) => a + (K[k] || 0) * v, 0) * x.q;
+      const x = aiCatalogue(sid).filter(x => !(t.kit || []).includes(x.name) && worth(x) > 0).sort((a, b) => worth(b) / b.price - worth(a) / a.price)[0];
+      if (x && x.price <= room()) { spend(x.price); (t.kit ??= []).push(x.name); } }
     let left = cap;
     for (const a of t.active) {
       const P = projOf(sid).find(p => p.key === a.key); if (!P) { a.done = true; continue; }
       const put = Math.min(left, P.days - a.prog); a.prog += put; left -= put;
-      if (a.prog >= P.days) { a.done = true; const o = projOdds(w, t, P, false); if (rng(w) < o.chance) t.dev[P.stat] = +((t.dev[P.stat] || 0) + projGain(w, t, P) * o.q * (0.8 + rng(w) * 0.4)).toFixed(4); }
+      if (a.prog >= P.days) { a.done = true; const o = projOdds(w, t, P, false);
+        if (rng(w) < o.chance) { const g = projGain(w, t, P) * o.q * (0.8 + rng(w) * 0.4); t.dev[P.stat] = +((t.dev[P.stat] || 0) + g).toFixed(4);
+          // (the paddock notices a team catching up: an update, in the news)
+          if (!w.pre && sid === w.player.series && behind > 0.3 && g * (LAP_K_OF(P, sid)) > 0.0008 && rng(w) < 0.5) news(w, `${t.name.toUpperCase()} BRINGS AN UPDATE`, `${t.name} arrives at ${w.series[sid].cal[Math.min(w.round + 1, w.series[sid].cal.length - 1)]?.name || 'the next round'} with ${P.name.toLowerCase().replace(/ \(a joker\)/, '')}. "We know where we are," says the team. "We know where we want to be."`); } }
     }
     t.active = t.active.filter(a => !a.done);
   }
@@ -1498,6 +1537,7 @@ function aiSeason(w) {
   for (const t of Object.values(w.teams)) {
     if (t.mine || !t.series) continue; aiInit(w, t);
     for (const k of DEV_STATS) t.dev[k] = +(t.dev[k] * DEV_FADE).toFixed(4);
+    if (t.kit) t.kit = t.kit.filter(() => rng(w) < AI_KIT_KEEP); // (parts wear out, get sold on, go missing over the winter)
     t.bank += AI_OWNER[tierOf(t.series)] * t.wealth * (t.bank > AI_OWNER[tierOf(t.series)] * 2 ? 0.3 : 1); // (an owner with money in the bank puts less in)
     t.wealth = clamp(t.wealth + gauss(w) * 0.08, 0.2, 2.2);
     // build: the first thing on its list it can afford (facilities first for builders)
@@ -1513,7 +1553,7 @@ function aiSeason(w) {
     // the crew: rich teams hire better people; good people get better
     const flush = t.bank > AI_OWNER[tierOf(t.series)] * 0.5;
     for (const r of ['mech', 'eng']) if (rng(w) < 0.3) t.crew[r] = clamp(t.crew[r] + (flush ? 1 : t.bank < 0 ? -1 : 0), 1, 5);
-    if (t.bank < 0) t.bank = Math.round(t.bank * 0.5); // (the owner pays off half the debt)
+    if (!aiTakeover(w, t) && t.bank < 0) t.bank = Math.round(t.bank * 0.5); // (the owner pays off half the debt)
   }
 }
 // your staff over the winter: some get better (good tools, a data room, being happy help), and the good ones get offers
@@ -1549,7 +1589,7 @@ export function simDay(w) {
   return true;
 }
 // a team changes series (and so cars): the development starts again
-function devReset(t) { if (t.dev) t.dev = devZero(); t.active = []; }
+function devReset(t) { if (t.dev) t.dev = devZero(); t.active = []; t.kit = []; t.devB = null; }
 
 // ---------------- starting the team: the setup wizard (on the computer, after Form SV-1 and the lottery) ----------------
 // Four choices, F1 My Team style: how you get in (the entry: a story-shaped difficulty), the car (unless the entry
