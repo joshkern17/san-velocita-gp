@@ -225,6 +225,7 @@ function career(P, s) {
     }
     if (out.broke != null) break;
     out.bal.push(w.money.balance); out.pos.push(w.seasons.at(-1)?.you?.pos ?? null);
+    (out.base ||= []).push(WC.facLevel(WC.myTeam(w), 'base')); (out.facs ||= []).push(WC.FAC_KEYS.reduce((a, k) => a + (k === 'base' ? 0 : WC.facLevel(WC.myTeam(w), k)), 0));
     // (your car against the median AI team's in the series, % of a lap: + = yours is quicker)
     { const sid = w.player.series, vs = w.series[sid].teams.filter(t => !w.teams[t].mine).map(t => WC.carValue(w, w.teams[t])).sort((a, b) => a - b);
       if (args.includes('--carwhy') && w.car) { const B = WC.carBreakdown(w), K = WC.lapKOf(w.player.series), by = {}; for (const ch of Object.keys(K)) for (const x of (B[ch] || [])) { const k = x.src + ':' + x.label.replace(/\(.*\)/, '').trim(); by[k] = (by[k] || 0) + (x.v || 0) * K[ch] * 100; } (globalThis.CARWHY ||= []).push([w.year, by]); }
@@ -281,6 +282,8 @@ for (const [name, P] of Object.entries(POLICIES)) {
   if (globalThis.DEVREF) { console.log('  median AI team car vs the series base (% of a lap): ' + Object.entries(DEVREF).map(([k, a]) => { const b = a.slice().sort((x, y) => x - y); return `${k} ${b[Math.floor(b.length / 2)].toFixed(2)}`; }).join(', ')); globalThis.DEVREF = null; }
   if (globalThis.CARWHY) { const ys = [...new Set(CARWHY.map(x => x[0]))].sort(); for (const y of ys) { const rows = CARWHY.filter(x => x[0] === y), sum = {}; for (const [, by] of rows) for (const [k, v] of Object.entries(by)) sum[k] = (sum[k] || 0) + v / rows.length; console.log(`  ${y}: ` + Object.entries(sum).filter(([, v]) => Math.abs(v) > 0.02).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v > 0 ? '+' : ''}${v.toFixed(2)}`).join(', ')); } CARWHY.length = 0; }
   const byS = (k) => [...Array(SEASONS).keys()].map(i => { const v = med(runs.map(r => r[k]?.[i] ?? null)); return v == null ? '-' : (v > 0 ? '+' : '') + v.toFixed(2); }).join(' / ');
+  { const lv = (k) => [...Array(SEASONS).keys()].map(i => { const a = runs.filter(r => r[k]?.[i] != null); return a.length ? (a.reduce((s, r) => s + r[k][i], 0) / a.length).toFixed(1) : '-'; }).join(' / ');
+    console.log(`          premises (0 lock-up, 1 unit, 2 workshop, 3 factory), average at each season's end: ${lv('base')}; other facility levels: ${lv('facs')}`); }
   if (globalThis.AINEWS) { const a = (i) => (AINEWS.reduce((s, r) => s + r[i], 0) / AINEWS.length).toFixed(1); console.log(`          rivals in the Wire, a season: ${a(0)} updates, ${a(1)} takeovers`); globalThis.AINEWS = null; }
   if (globalThis.FIELD0) { const c = (i) => med(FIELD0.map(r => r[i])); console.log(`          the field you join, vs your undeveloped car (% of a lap): median ${c(0)}, best ${c(1)}, slowest ${c(2)}`); globalThis.FIELD0 = null; }
   console.log(`          car vs the median team (% of a lap, end of each season): ${byS('car')}; vs the best team: ${byS('best')}`);

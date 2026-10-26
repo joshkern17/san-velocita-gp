@@ -1283,14 +1283,14 @@ const projOf = (sid) => (PROJECTS[tierOf(sid)] || PROJECTS.street).map(([key, ar
 // facilities: a base (where you work: each step up has room for more) and what's in it. Each level: [name, cost,
 // upkeep a round, the base it needs]
 export const FACILITIES = {
-  base:   { name: 'Premises', levels: [['Rented lock-up', 0, 300, 0], ['Industrial unit', 8000, 900, 0], ['Race workshop', 40000, 2500, 1], ['Factory', 250000, 9000, 2]], what: 'Where you work. Bigger premises have room for more.' },
-  tools:  { name: 'Tools', levels: [['Proper tools', 3000, 0, 0], ['Lift and engine hoist', 9000, 50, 1], ['Machine shop', 45000, 500, 2]], what: 'Projects go better and rebuilds cost less.' },
-  dyno:   { name: 'Engine dyno', levels: [['Engine dyno', 18000, 300, 1]], what: 'Engine projects go better, and you know exactly what they gained.' },
-  fab:    { name: 'Fabrication', levels: [['Fabrication bay', 12000, 200, 1], ['Composites shop', 80000, 1200, 2]], what: 'Chassis and aero projects go better; the composites shop makes them cheaper too.' },
-  sim:    { name: 'Simulator', levels: [['Sim rig', 6000, 50, 0], ['Pro simulator', 120000, 1500, 2]], what: 'A day on the sim learns the next circuit (a setup worth having on the weekend).' },
-  data:   { name: 'Data room', levels: [['Data room', 25000, 400, 1]], what: 'Your data engineer gets more out of it, and projects go a little better.' },
-  truck:  { name: 'Transporter', levels: [['Transporter', 30000, 500, 1]], what: 'Travel costs a third less. The GT Championship requires one.' },
-  tunnel: { name: 'Wind tunnel', levels: [['Wind tunnel time', 150000, 6000, 2], ['Own wind tunnel', 1500000, 20000, 3]], what: 'Formula aero development needs one.' },
+  base:   { name: 'Premises', levels: [['Rented lock-up', 0, 300, 0], ['Industrial unit', 30000, 1300, 0], ['Race workshop', 150000, 3800, 1], ['Factory', 900000, 13500, 2]], what: 'Where you work. Bigger premises have room for more.' },
+  tools:  { name: 'Tools', levels: [['Proper tools', 4000, 0, 0], ['Lift and engine hoist', 18000, 75, 1], ['Machine shop', 90000, 750, 2]], what: 'Projects go better and rebuilds cost less.' },
+  dyno:   { name: 'Engine dyno', levels: [['Engine dyno', 40000, 450, 1]], what: 'Engine projects go better, and you know exactly what they gained.' },
+  fab:    { name: 'Fabrication', levels: [['Fabrication bay', 30000, 300, 1], ['Composites shop', 200000, 1800, 2]], what: 'Chassis and aero projects go better; the composites shop makes them cheaper too.' },
+  sim:    { name: 'Simulator', levels: [['Sim rig', 12000, 75, 0], ['Pro simulator', 250000, 2250, 2]], what: 'A day on the sim learns the next circuit (a setup worth having on the weekend).' },
+  data:   { name: 'Data room', levels: [['Data room', 55000, 600, 1]], what: 'Your data engineer gets more out of it, and projects go a little better.' },
+  truck:  { name: 'Transporter', levels: [['Transporter', 60000, 750, 1]], what: 'Travel costs a third less. The GT Championship requires one.' },
+  tunnel: { name: 'Wind tunnel', levels: [['Wind tunnel time', 300000, 9000, 2], ['Own wind tunnel', 3000000, 30000, 3]], what: 'Formula aero development needs one.' },
 };
 export const FAC_KEYS = Object.keys(FACILITIES);
 // what a facility gives at a level, in the numbers the game uses: each perk a template ({} is the number) and the
