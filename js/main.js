@@ -2220,6 +2220,7 @@ const pc = new Computer({
     if (m.appear && key === 'go' && !WC.appear(world, m.appear)) { m.answer = null; toast('You have no days left this week.'); }
     if (m.event) { WC.rsvpEvent(world, m.event, key); if (key === 'yes') toast('It\'s in your week: plan the day it\'s on.', 3500); }
     if (m.worksOffer) { if (WC.answerWorks(world, key) === 'signed') { sfx.best(); renderHub(); } }
+    if (m.guestOffer) { const r = WC.answerGuest(world, key); if (r === 'booked') { sfx.best(); toast('Booked: it\'s in your day planner, before race day. It takes a day.', 4000); } else if (r === 'late') toast('That test day has been and gone.'); renderHub(); }
     if (m.invOffer) { if (WC.answerInvestor(world, key) === 'in') { sfx.best(); renderHub(); } }
     if (m.invOut) { const r = WC.answerBuyout(world, key); if (r && r.err) { m.answer = null; sfx.error(); toast(r.err); } else if (r && r.msg) { toast(r.msg, 4000); renderHub(); } }
     if (m.dayJob && key === 'go') { if (WC.takeDayJob(world, m)) { sfx.best(); toast('It\'s in your week: do it from the day planner.', 3500); } else { m.answer = null; toast('Every day left this week is spoken for.'); } }
@@ -4201,6 +4202,10 @@ function dayChoices(w, canRace) {
   const booked = WC.bookedGigs(w).map(g => { const K = WC.GIG_KINDS[g.kind];
     return { key: 'bk' + g.id, icon: 'gig', short: K.tag, tag: 'Booked', head: `Drive: ${K.name}`, desc: gigDesc(g), money: g.pay ? `${g.kind === 'rides' ? `${$(g.pay)} a ride` : `Up to ${$(g.pay)}`}` : 'Prizes', mcls: 'gain',
       time: 'Booked: driving it uses the day', effect: 'You drive it now', go: true, goLabel: 'Drive it', run: () => startGig(g) }; });
+  // a guest drive you said yes to: an afternoon in a car from the rung above (it takes the day)
+  const gd = WC.guestDue(w); if (gd) booked.push({ key: 'guest', icon: 'gig', short: 'Guest drive', tag: 'Booked', head: `Guest drive: ${gd.team}'s ${gd.car}`,
+    desc: `An afternoon at ${gd.track} in a ${WC.seriesById(gd.sid).name} car. No charge, no promises. Five clean laps and they'll remember the name.`, money: 'Free', mcls: 'gain',
+    time: 'Booked: driving it uses the day', effect: 'You drive it now', go: true, goLabel: 'Drive it', run: () => startGuestDrive() });
   // days you said yes to by email: the same, done here
   const plans = WC.plansOf(w).map(p => ({ key: 'pl' + p.id, icon: p.fx === 'seat' ? 'mate' : p.fx === 'wedding' ? 'off' : 'work', short: p.tag, tag: 'Booked', head: p.what, mcls: p.pay ? 'gain' : '',
     desc: p.fx === 'press' ? 'Nadia from The Paddock Wire spends the day with the team. You said yes by email.' : p.fx === 'wedding' ? 'You said you\'d come.' : p.pay ? 'A day\'s coaching. You said yes by email.' : 'You said yes to it.',
@@ -4707,6 +4712,23 @@ function startTestDay() {
   phone.hide();
   startRace(track, { mode: 'test', pick: false, brief: `<b>TEST DAY &middot; ${R.name.toUpperCase()}</b><br>Five laps or more finds a setup for the race. The acclimatization gates are out: nail the red ones and your brake points are marked for the weekend. Pause to end the day.`,
     extra: { car: worldCar(), mods: WC.carMods(w), trackData: WC.weekOf(w).trackData || null, programme: 'acclim' } }, 'testday');
+}
+// a guest drive (WC.guestStart): their car, in their livery, at their circuit; the test day's mode, laps as you like
+function startGuestDrive() {
+  const w = world, g = WC.guestStart(w); if (!g) { sfx.error(); return; }
+  saveWorld();
+  const base = findCalTrack(g.track) || calTrack(w.series[w.player.series].cal[w.round]), track = cloneTrack(base);
+  const t = w.teams[g.tid], car = { ...teamCar(t, Math.max(0, w.series[g.sid].teams.indexOf(g.tid))), chassis: chassisKey(g.chassis), number: 99 };
+  phone.hide();
+  startRace(track, { mode: 'test', pick: false, brief: `<b>GUEST DRIVE &middot; ${escP(g.team.toUpperCase())}</b><br>Their ${escP(g.car)} at ${escP(track.name)}. Five clean laps and they'll remember the name. Pause to hand it back.`,
+    extra: { car, mods: null, trackData: null } }, 'guestdrive');
+}
+function guestFinish() {
+  const w = world; if (!w || !sim || !sim.player) return;
+  const pl = sim.player, laps = pl.lapTimes.length, best = laps ? Math.min(...pl.lapTimes) : null;
+  const g = WC.guestDone(w, laps, best); sim.setPaused(true); saveWorld();
+  weekResult('Guest Drive', `${g ? `${g.team}'s ${g.car} · ${g.track}` : ''} · ${laps} lap${laps === 1 ? '' : 's'}`, [['Their car, their fuel, their tires', 0]],
+    `${best ? `<div class="row"><span>Best lap</span><span>${fmtTime(best, 3)}</span></div>` : ''}<p class="hub-note">${laps >= 5 ? 'They\'ll remember the name. Their email\'s on the computer.' : 'Short and sweet. Their email\'s on the computer.'}</p>`, 0);
 }
 // what the test day's run plan found (the gates' best lap, the brake markers out for the weekend)
 function testPlanRows() {
@@ -5970,7 +5992,8 @@ function enterRace() {
     const q = Math.round(sim.quali.time / 60), name = SESSION_NAME[sim.quali.kind].toUpperCase();
     hud.help(`<b>${name} &middot; ${q} MINUTES</b><br>Runs from the start line, the clock starts as you cross it. ${sim.quali.kind === 'practice' ? 'Learn the circuit and find your pace.' : 'Your fastest lap decides where you start the race.'}`, 7000);
   }
-  if (sim.mode === 'test' && raceReturn === 'testday') hud.help(lastRace.cfg.brief, 7000);
+  hud.ttLabel = raceReturn === 'guestdrive' ? 'GUEST DRIVE' : raceReturn === 'testday' ? 'TEST DAY' : null;
+  if (sim.mode === 'test' && (raceReturn === 'testday' || raceReturn === 'guestdrive')) hud.help(lastRace.cfg.brief, 7000);
   else if (sim.mode === 'test') {
     hud.help(device.kind === 'pad' ? '<b>TIME TRIAL</b><br>Set your fastest lap. <b>RT/LT</b> throttle &amp; brake, <b>left stick</b> steer, <b>Y</b> camera, <b>View</b> reset, <b>Start</b> pause.'
       : '<b>TIME TRIAL</b><br>Set your fastest lap. <b>W/S</b> throttle &amp; brake, <b>A/D</b> steer, <b>C</b> camera, <b>R</b> reset, <b>ESC</b> pause.', 7000);
@@ -6237,7 +6260,7 @@ function pauseInfo() {
       <p class="tip" style="margin:12px 0 0">${practice ? 'Practice doesn\'t set the grid: learn the circuit and find your pace.' : 'Your best lap sets your grid slot.'} Laps that break track limits don't count.</p>`;
     return;
   }
-  $('pause-sub').textContent = `${sim.track.name} · ${raceReturn === 'online' || sim.net ? 'the race goes on while this menu is open' : race ? (raceReturn === 'career' ? 'Challenge round ' + (career.round + 1) : raceReturn === 'world' ? `${WC.seriesById(world.player.series).name} round ${world.round + 1}` : raceReturn === 'gig' && gig ? WC.GIG_KINDS[gig.g.kind].name : 'Quick Race') : raceReturn === 'editor' ? 'Test drive' : raceReturn === 'testday' ? 'Test day' : 'Time Trial'}`;
+  $('pause-sub').textContent = `${sim.track.name} · ${raceReturn === 'online' || sim.net ? 'the race goes on while this menu is open' : race ? (raceReturn === 'career' ? 'Challenge round ' + (career.round + 1) : raceReturn === 'world' ? `${WC.seriesById(world.player.series).name} round ${world.round + 1}` : raceReturn === 'gig' && gig ? WC.GIG_KINDS[gig.g.kind].name : 'Quick Race') : raceReturn === 'editor' ? 'Test drive' : raceReturn === 'testday' ? 'Test day' : raceReturn === 'guestdrive' ? 'Guest drive' : 'Time Trial'}`;
   const cell = (k, v) => `<div><small>${k}</small><b>${v}</b></div>`;
   const tyre = hs && hs.tyre ? `<span class="tyre-dot" style="background:${TYRE_COL[hs.tyre.c]}"></span>${hs.tyre.c}` : '&mdash;';
   const key = (kb, gp) => pad ? gp : kb;
@@ -6320,6 +6343,11 @@ function pause() {
     menus['s-pause'][0].setItems([
       { label: 'Resume', cls: 'action primary', action: resume }, photoItem, opts,
       { label: 'Skip The Drive', action: () => { sim.setPaused(false); finishDrive(); }, desc: 'Home already.' },
+    ]);
+  } else if (raceReturn === 'guestdrive') {
+    menus['s-pause'][0].setItems([
+      { label: 'Resume', cls: 'action primary', action: resume }, photoItem, opts,
+      { label: 'Hand It Back', action: () => guestFinish(), desc: 'Back to the pits, out of their car, and home. Five clean laps and they\'ll remember the name.' },
     ]);
   } else if (raceReturn === 'gig' || raceReturn === 'testday') {
     menus['s-pause'][0].setItems([
@@ -6991,4 +7019,4 @@ if (DEV) {
 function hitchFn(f, label) { return function (...a) { hitch.note(label); return hitch.time(label, () => f.apply(this, a)); }; }
 window.__svgp = { get world() { return world; }, get photo() { return photo; }, get hud() { return hud; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, handleRaceEvents, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { worldCar: () => worldCar(), startPressDay: () => startPressDay(), get pressDay() { return pressDay; }, switchCar: (k) => { switchCar(k); if (screen === 's-garage') { garage.setCar(settings.car); classicOnly(); } }, get carPush() { return carPush; }, startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), goToPoster: () => goToPoster(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); }, openHomeView: () => openHomeView(), startWalk: () => startWalk(), startPitWalk: () => startPitWalk(), get walk() { return walk; }, homeView: (o) => { Object.assign(hv, o); hvApply(); }, get hv() { return hv; }, devWalkGarage: (p) => devWalkGarage(p), startViewing: (b) => startViewing(b), endViewing: () => endViewing() } };
+  dbg: { worldCar: () => worldCar(), startPressDay: () => startPressDay(), get pressDay() { return pressDay; }, switchCar: (k) => { switchCar(k); if (screen === 's-garage') { garage.setCar(settings.car); classicOnly(); } }, get carPush() { return carPush; }, startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), goToPoster: () => goToPoster(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); }, openHomeView: () => openHomeView(), startWalk: () => startWalk(), startPitWalk: () => startPitWalk(), get walk() { return walk; }, homeView: (o) => { Object.assign(hv, o); hvApply(); }, get hv() { return hv; }, devWalkGarage: (p) => devWalkGarage(p), startViewing: (b) => startViewing(b), endViewing: () => endViewing(), guestFinish: () => guestFinish(), get dayPlanSrc() { return dayPlan.src; } } };

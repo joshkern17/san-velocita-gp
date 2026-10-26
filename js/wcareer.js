@@ -995,6 +995,7 @@ export function recordPlayerRound(w, res, log = [], use = null, story = null) {
   for (const r of known) if (r.pid !== 'P' && me) { const h = h2hOf(w, r.pid); h.races++; if (r.dnf && !me.dnf || (!me.dnf && me.pos < r.pos)) h.ahead++; else h.behind++; }
   const u = use || simUse(w), bill = w.money ? settleRound(w, u, me) : null;
   afterParts(w, u);
+  if (me && use) guestOffer(w, me); // (a podium: the rung above notices)
   // who reacts (character voices): Danny always; your teammate half the time; the rival owner now and then (with how
   // their cars did); your ex after a podium
   if (me && use) {
@@ -1837,6 +1838,56 @@ export function seriesShow(w, sid, keys) {
   return { cars, sponsors, prize: fundOf(w, sid)[0], teamPrize: teamFundOf(w, sid)[0], len: L,
     champ: champ ? { pid: champ, name: displayName(w, champ), year: last.year } : null, teamChamp: teamChamp ? { tid: teamChamp, name: w.teams[teamChamp].name } : null, front };
 }
+// ---------------- guest drives: an afternoon in a car from the rung above ----------------
+// Earned, never luck: your first podium of a season gets you noticed by a team in the series above, which asks you to
+// its test day (one of its circuits, its car, its livery). Say yes by email and it's a day in your planner till race
+// day; drive it (main.js startGuestDrive, the test day's mode) and they write back with what they made of it
+const teamAddr = (t) => `testing@${t.name.toLowerCase().replace(/&/g, 'and').replace(/[^a-z]+/g, '')}.sv`;
+export function guestOffer(w, me) {
+  if (w.guestOffer && (w.guestOffer.y !== w.year || w.guestOffer.r !== w.round + 1)) w.guestOffer = null; // (an old one, never answered)
+  const wk = w.round + 1; if (wk >= w.opts.len) return; // (the week after this round: the finale has none)
+  if (!me || me.dnf || me.pos > 3 || (w.guestDrive && w.guestDrive.y === w.year) || w.guestOffer) return;
+  const up = nextUp(w.player.series); if (!up || up.parked || up.cls === 'f1') return;
+  const tids = (w.series[up.id]?.teams || []).filter(tid => !w.teams[tid].mine); if (!tids.length) return;
+  const st = teamStandings(w, up.id), ranked = st.length && st[0].pts ? st.map(e => e.tid).filter(tid => tids.includes(tid)) : tids;
+  const tid = ranked[Math.min(ranked.length - 1, 1 + Math.floor(rng(w) * 3))], t = w.teams[tid]; // (a team from the middle of it: the front-runners don't need you)
+  const keys = up.cls === 'street' ? (w.streetCars || []).map(c => c.key) : ((w.carCat && w.carCat[up.cls]) || []).map(c => c.key); if (!keys.length) return;
+  const chassis = teamChassis(w, tid, keys), name = ((w.carCat && w.carCat[up.cls]) || w.streetCars || []).find(c => c.key === chassis)?.name || 'car';
+  const cal = w.series[up.id].cal.filter(c => !c.endur), track = (cal[wk % Math.max(1, cal.length)] || cal[0] || {}).name || up.tracks[0];
+  const R = w.series[w.player.series].cal[w.round], who = t.drivers.map(d => w.people[d]).filter(Boolean)[0];
+  w.guestOffer = { y: w.year, r: wk, sid: up.id, tid, chassis, car: name, track, team: t.name, by: who ? `${who.first} ${who.last}` : t.name };
+  mail(w, t.name, teamAddr(t), 'A test day', [`P${me.pos} at ${R.name}. People noticed. Well, one person did, and they run our test program.`,
+    `We're testing at ${track} this week and there's a seat for an afternoon in our ${name}. No charge, no promises, nobody's signing anything. Bring your own helmet.`,
+    `If it goes well, it goes well. ${t.name}, ${up.name}.`],
+    { guestOffer: true, choices: [['yes', `I'll be there`], ['no', 'Not this time']] });
+}
+export function answerGuest(w, key) {
+  const o = w.guestOffer; if (!o) return null; w.guestOffer = null;
+  if (key !== 'yes') return 'declined';
+  if (o.y !== w.year || o.r !== w.round) return 'late'; // (that week's gone)
+  w.guestDrive = { ...o, status: 'booked' };
+  return 'booked';
+}
+// booked, and still this round's week: a day in the planner
+export const guestDue = (w) => { const g = w.guestDrive; return g && g.status === 'booked' && g.y === w.year && g.r === w.round && daysLeft(w) > 0 ? g : null; };
+export function guestStart(w) { const g = guestDue(w); if (!g) return null; useDay(w, `Guest drive: ${g.team}'s ${g.car} at ${g.track}`, 0, 'Guest drive'); g.status = 'driving'; return g; }
+// how it went: laps and your best (s); they write back, and a run of clean laps gets you a name with them (and a bit
+// of one in the paddock)
+export function guestDone(w, laps, best) {
+  const g = w.guestDrive; if (!g || g.status !== 'driving') return null;
+  g.status = 'done'; g.laps = laps; g.best = best;
+  const t = w.teams[g.tid], fmt = (x) => `${Math.floor(x / 60)}:${(x % 60).toFixed(3).padStart(6, '0')}`;
+  const good = laps >= 5, some = laps >= 2;
+  if (good) { w.rep = clamp(repOf(w) + 2, 0, 100); g.liked = true; }
+  mail(w, t ? t.name : g.team, t ? teamAddr(t) : 'testing@team.sv', 'Thanks for coming down', [
+    good ? `${laps} laps${best ? `, best ${fmt(best)}` : ''}, and the car came back in one piece. The engineers said "huh", which from them is a lot.`
+      : some ? `${laps} laps${best ? `, best ${fmt(best)}` : ''}. Short, but you got a feel for it. That's what it was for.` : `You came, you sat in it, you went home. We've had worse afternoons. Not many.`,
+    `It's a different animal up here: more grip, more speed, more people shouting about money. ${good ? 'We\'ll remember the name.' : 'Come back when you\'re racing in it.'}`,
+    `${g.by}, ${g.team}`]);
+  if (good) news(w, `${w.player.name.toUpperCase()} TESTS FOR ${g.team.toUpperCase()}`, `${w.player.name} spent an afternoon in ${g.team}'s ${g.car} at ${g.track}. "Just a test," said the team. "Just a test," said ${w.player.name.split(' ')[0]}, grinning.`);
+  return g;
+}
+
 // what your car's worth to a dealer (a lease: nothing, it goes back)
 export function tradeIn(w) {
   if (!w.car || w.car.lease) return 0;

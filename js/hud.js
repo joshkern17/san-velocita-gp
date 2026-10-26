@@ -155,7 +155,7 @@ export class HUD {
       const c = Q.left <= 0 ? '<span class="qclock end">FLAG</span>' : `<span class="qclock${Q.left < 60 ? ' late' : ''}">${fmtTime(Math.ceil(Q.left), 0)}</span>`;
       this.set('pos', E.pos, c, true);
     }
-    else this.set('pos', E.pos, `<small class="tt">TIME TRIAL</small>`, true);
+    else this.set('pos', E.pos, `<small class="tt">${this.ttLabel || 'TIME TRIAL'}</small>`, true); // (ttLabel: a career's test day, a guest drive)
     // (a timed race: the race clock left, in the race's own hours, and the lap you're on)
     const ll = E.lap.previousElementSibling, lt = s.timed ? 'CLOCK' : 'LAP'; if (ll && ll.textContent !== lt) ll.textContent = lt;
     if (Q) this.set('lap', E.lap, `<span class="qstat">${Q.status}</span>`, true);
