@@ -819,7 +819,7 @@ export class Race {
         // 0.95 m is track limits, racecontrol.js. It was 1.1 m, never reached while the line kept 2 m in)
         const bad = !car.onRoad || wide || p.slipR > 0.3 + 0.4 * (p.p.slideOK ?? 0) || heading < 0.8 || Math.abs(car.s) > T.W[car.idx] / 2 + (this.opts.lineEdge === false ? 1.1 : 0.6); // (slideOK: a car driven sideways, a sprint car's slide is its cornering: past ~24° it's still too far)
         if (cool > 0) cool--;
-        else if (bad) { hits.push(car.idx); cool = 90; }
+        else if (bad) { hits.push(car.idx); cool = 90; if (this.learnHits) this.learnHits.push([rounds, Math.round(car.idx * T.ds), !car.onRoad ? 'off' : wide ? 'wide' : p.slipR > 0.3 + 0.4 * (p.p.slideOK ?? 0) ? 'slide' : heading < 0.8 ? 'heading' : 'edge', Math.round(p.u * 3.6), Math.round(V[car.idx] * 3.6)]); } // (learnHits: dev, [round, m, why, km/h, plan km/h])
         if (bad && p.speed < 6) flying((car.idx + 10) % N);
       }
       const used = 1 - Math.min(car.phys.tyre.wf, car.phys.tyre.wr);
