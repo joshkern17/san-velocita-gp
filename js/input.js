@@ -99,40 +99,68 @@ export function rightStick(dz = 0.18) {
   return [f(p.axes[2] || 0), f(p.axes[3] || 0)];
 }
 
-// Right-stick shifting (manual gearbox): flick the stick up to shift up, down to shift down. A flick is the stick out
-// past FLICK.out anywhere within FLICK.cone of straight up or down (so a sloppy diagonal still counts; a sideways push
-// doesn't), and it re-arms once the stick is back inside FLICK.back. The stick's read on a fast timer as well as every
-// frame, so a quick flick between two frames still counts and a run of quick ones (5th to 2nd) each count. For
-// FLICK.bounce ms after a flicked stick is back in the centre, a flick the other way is ignored: a stick let go springs
-// back past the centre. A flick has to be quick: the stick moved FLICK.travel of its range in the last FLICK.quick ms.
-// A drifting stick creeping out, or one shaken there by the rev limiter's buzz, isn't a shift (it was: upshifts on their
-// own, right at the limiter); measured as travel, not from the centre, as a stick that drifts up never quite gets back
-// there (that missed the upshifts). It re-arms inside FLICK.back.
+// Right-stick shifting (manual gearbox): flick the stick up to shift up, down to shift down. Measured from where the
+// stick rests, not from the middle: a drifting stick's rest is learned as you drive (FLICK.learn: followed while it's
+// near its rest and still, so a slow creep moves the rest with it and never shifts (nor one past where a rest can be:
+// it has to have moved FLICK.moved in the last FLICK.within ms); a flick, quick and far, doesn't move
+// it). A flick is the stick FLICK.out from its rest (less toward the edge it rests nearer), within FLICK.cone of straight up or down (a sloppy diagonal counts, a
+// sideways push doesn't); it re-arms back inside FLICK.back of the rest. For FLICK.bounce ms after a flicked stick is
+// back, a flick the other way is ignored (a stick let go springs back past its rest). Read on a fast timer as well as
+// every frame, so a quick flick between two frames counts and a run of them (5th to 2nd) each count.
+// (Before, 2026-10-26: thresholds from the middle. A stick drifting up past the re-arm ring never re-armed, and missed
+// most upshifts; a time limit on the flick missed the slower ones.) Each flick, and each one not taken, goes in
+// localStorage svgp.flickLog (serve.py mirrors it to saves/storage) with the stick's rest and how far it went.
 // main.js turns it on (stickShift.on) while you drive with a manual box, and takes the counts each frame (takeFlicks).
-const FLICK = { out: 0.6, back: 0.42, cone: 62 * Math.PI / 180, bounce: 50, every: 8, quick: 150, travel: 0.35 };
-export const stickShift = { on: false, up: 0, down: 0 };
-let flickArmed = true, flickDir = 0, flickBack = 0;
-const flickHist = []; // ([time, r]: the last FLICK.quick ms)
+const FLICK = { out: 0.5, back: 0.28, cone: 62 * Math.PI / 180, bounce: 50, every: 8, learn: 0.35, still: 0.6, restMax: 0.5, logN: 80, moved: 0.15, within: 300 };
+export const stickShift = { on: false, up: 0, down: 0, rest: [0, 0] };
+let flickArmed = true, flickDir = 0, flickBack = 0, flickLast = null, flickPeak = null;
+const flickLog = [], flickHist = []; let flickLogged = 0; // (flickHist: [time, x, y] for the last FLICK.within ms)
+function logFlick(e) {
+  flickLog.push({ t: Math.round(performance.now()), rest: stickShift.rest.map(v => +v.toFixed(2)), ...e }); if (flickLog.length > FLICK.logN) flickLog.shift();
+  if (performance.now() - flickLogged > 500) { flickLogged = performance.now(); try { localStorage.setItem('svgp.flickLog', JSON.stringify(flickLog)); } catch (er) {} }
+}
 function sampleFlick() {
   if (!stickShift.on) return;
   const p = pad(); if (!p) return;
-  const x = p.axes[2] || 0, y = p.axes[3] || 0, r = Math.hypot(x, y), now = performance.now();
-  flickHist.push([now, r]); while (flickHist.length && now - flickHist[0][0] > FLICK.quick) flickHist.shift();
-  if (r < FLICK.back) { if (!flickArmed) { flickArmed = true; flickBack = now; } return; }
-  if (!flickArmed || r < FLICK.out) return;
-  if (!flickHist.some(([, q]) => q <= r - FLICK.travel)) { flickArmed = false; return; } // (too slow out: drift, not a flick; back in first)
-  if (Math.atan2(Math.abs(x), Math.abs(y)) > FLICK.cone) return; // (0 = straight up / down)
-  const d = y < 0 ? 1 : -1;
+  const x = p.axes[2] || 0, y = p.axes[3] || 0, now = performance.now(), R = stickShift.rest;
+  const dt = flickLast ? Math.min(0.1, (now - flickLast[0]) / 1000) : 0;
+  const v = flickLast && dt > 0 ? Math.hypot(x - flickLast[1], y - flickLast[2]) / dt : 0; // (stick speed, range a second)
+  flickLast = [now, x, y];
+  flickHist.push([now, x, y]); while (flickHist.length && now - flickHist[0][0] > FLICK.within) flickHist.shift();
+  const dx = x - R[0], dy = y - R[1], r = Math.hypot(dx, dy);
+  // the rest: followed while the stick's near it and barely moving
+  if (r < FLICK.learn && v < FLICK.still && dt > 0) {
+    const a = 1 - Math.exp(-dt / 0.4); R[0] += dx * a; R[1] += dy * a;
+    const m = Math.hypot(R[0], R[1]); if (m > FLICK.restMax) { R[0] *= FLICK.restMax / m; R[1] *= FLICK.restMax / m; }
+  }
+  if (r < FLICK.back) {
+    if (!flickArmed) { flickArmed = true; flickBack = now; }
+    if (flickPeak) { logFlick({ ...flickPeak, ok: false, why: 'short' }); flickPeak = null; } // (out a way, never far enough)
+    return;
+  }
+  if (!flickArmed) return;
+  // (out: less where the rest leaves less room: a stick resting 45% up has 55% of travel left above it)
+  const room = dy < 0 ? 1 + Math.min(0, R[1]) : 1 - Math.max(0, R[1]), out = Math.max(FLICK.back + 0.1, Math.min(FLICK.out, 0.7 * room));
+  if (r < out) { if (r > FLICK.back + 0.08 && (!flickPeak || r > flickPeak.r)) flickPeak = { r: +r.toFixed(2), x: +x.toFixed(2), y: +y.toFixed(2) }; return; }
+  flickPeak = null;
+  // (and it got there just now: moved FLICK.moved in the last FLICK.within ms; a thumb creeping it out doesn't shift)
+  if (!flickHist.some(([, hx, hy]) => Math.hypot(x - hx, y - hy) >= FLICK.moved)) { flickArmed = false; logFlick({ r: +r.toFixed(2), x: +x.toFixed(2), y: +y.toFixed(2), ok: false, why: 'creep' }); return; }
+  const side = Math.atan2(Math.abs(dx), Math.abs(dy)) > FLICK.cone;
+  const d = dy < 0 ? 1 : -1;
   flickArmed = false;
-  if (d !== flickDir && now - flickBack < FLICK.bounce) return; // (the spring-back from the last one)
+  if (side) { logFlick({ r: +r.toFixed(2), x: +x.toFixed(2), y: +y.toFixed(2), ok: false, why: 'sideways' }); return; }
+  if (d !== flickDir && now - flickBack < FLICK.bounce) { logFlick({ r: +r.toFixed(2), d, ok: false, why: 'bounce' }); return; }
   flickDir = d;
   if (d > 0) stickShift.up++; else stickShift.down++;
+  logFlick({ r: +r.toFixed(2), d, ok: true });
   useDevice('pad');
 }
 setInterval(sampleFlick, FLICK.every);
 export function setStickShift(on) {
   if (on === stickShift.on) return;
-  stickShift.on = on; stickShift.up = stickShift.down = 0; flickArmed = false; // (a stick held when it turns on waits for the centre)
+  stickShift.on = on; stickShift.up = stickShift.down = 0; flickArmed = false; flickLast = null; flickPeak = null; // (a stick held when it turns on waits for its rest)
+  // (the rest carries over between races; a first guess from where the stick is now, if that's near the middle)
+  const p = on && pad(); if (p && !stickShift.learned) { const x = p.axes[2] || 0, y = p.axes[3] || 0; if (Math.hypot(x, y) < FLICK.restMax) { stickShift.rest = [x, y]; stickShift.learned = true; } }
 }
 // the flicks since last asked: { up, down }
 export function takeFlicks() {
