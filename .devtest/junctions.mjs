@@ -1,6 +1,7 @@
 // dev: where imported / drawn streets meet a track, from its file: junctions closer together than their mouths are
 // wide (aprons and sidewalk corners overlap: spikes), sidewalk corners that fold (a flare crossing itself), and street
-// pieces lying under the barrier or the runoff beside the track (a street alongside the track).
+// pieces lying under the barrier or the runoff beside the track (a street alongside the track), and aprons paving the
+// track itself.
 //   node --import ./tools/tracks/three-hook.mjs .devtest/junctions.mjs <file.svgp.json>
 import fs from 'node:fs';
 import { sampleTrack, analyzeTrack, buildPitLane } from '../js/track.js';
@@ -35,7 +36,22 @@ for (const pc of L.pieces) for (const s of pc.s) {
 }
 console.log(`streets (with their sidewalks) reaching the barrier line: ${under.size}`);
 for (const [k, u] of under) console.log(`  road ${k} (${t.roads[k].name || t.roads[k].hw}): ${u.n * 3} m of it, near ${u.x.toFixed(0)},${u.z.toFixed(0)} lap ${u.d.toFixed(0)} m`);
-if (!process.env.ZOOM) console.log(near.length || folds ? 'FAIL: mouths overlapping or folding' : 'PASS');
+// junction paving lying on the track itself (merged mouths once took the hull of their aprons, whose chord cut across
+// a bend: big asphalt bubbles over the curbs and the track), sampled every half metre
+const inPoly = (x, z, P) => { let o = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const a = P[i], b = P[j]; if ((a.z > z) !== (b.z > z) && x < (b.x - a.x) * (z - a.z) / (b.z - a.z) + a.x) o = !o; } return o; };
+let over = 0;
+J.forEach((jn, k) => {
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity; for (const p of jn.poly) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); }
+  let n = 0;
+  for (let x = x0; x <= x1; x += 0.5) for (let z = z0; z <= z1; z += 0.5) {
+    if (!inPoly(x, z, jn.poly)) continue;
+    let bi = -1, bd = Infinity; A.hash.query(x, z, 40, (i) => { const d = (x - T.X[i]) ** 2 + (z - T.Z[i]) ** 2; if (d < bd) { bd = d; bi = i; } });
+    if (bi >= 0 && Math.abs((x - T.X[bi]) * T.RX[bi] + (z - T.Z[bi]) * T.RZ[bi]) < T.W[bi] / 2 - 0.5) n++;
+  }
+  if (n * 0.25 > 2) { over++; console.log(`  junction ${k} (${t.roads[jn.road].name || t.roads[jn.road].hw}) paves ${(n * 0.25).toFixed(0)} m2 of the track at ${jn.x.toFixed(0)},${jn.z.toFixed(0)} lap ${T.D[jn.ti].toFixed(0)} m`); }
+});
+console.log(`aprons over the track: ${over}`);
+if (!process.env.ZOOM) console.log(near.length || folds || over ? 'FAIL: mouths overlapping, folding or over the track' : 'PASS');
 // a picture of one spot: ZOOM=x,z,half OUT=file.png  (track grey, street pieces dark blue, junction aprons yellow,
 // their sidewalk corners white, the barrier lines red, the raw street lines (track.roads) thin cyan)
 if (process.env.ZOOM) {

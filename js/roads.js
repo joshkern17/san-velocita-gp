@@ -166,6 +166,9 @@ function makeJunction(ss, a, dir, r, T, A, flareK = 1) {
     for (let k = 0; k <= 8; k++) { const u = k / 8, a1 = (1 - u) * (1 - u), b1 = 2 * u * (1 - u), c1 = u * u; curve.push([a1 * Ap[0] + b1 * K[0] + c1 * B[0], a1 * Ap[1] + b1 * K[1] + c1 * B[1]]); }
     return { sg, tA: t - tl, fB, curve };
   });
+  // (a point-to-point track's gap, between the end of the run-off and the back of the grid, isn't an edge to flare
+  // onto: a corner reaching past it ran off to the track's other end)
+  if (T.cut >= 0 && corners.some(c => { const d = wrapD(c.fB - fc.f, N), k = wrapD(T.cut + 0.5 - fc.f, N); return Math.sign(k) === Math.sign(d) && Math.abs(k) < Math.abs(d) + 1; })) return null;
   // the road proper ends before both flares start
   const limit = Math.min(corners[0].tA, corners[1].tA) - 0.3;
   let q = a;
@@ -190,9 +193,13 @@ function makeJunction(ss, a, dir, r, T, A, flareK = 1) {
   }
   for (let k = 8; k >= 0; k--) poly.push(tag(cm.curve[k], k === 8 ? cm.fB : undefined));
   poly.push(Eoff(-1));
+  // its outline in parts, for merging with a neighbor (mergeMouths): each flare from its road-end corner to the track
+  // edge, lo = the one at the mouth's start along the lap, hi = at its end; back = the road-end corners, hi then lo
+  const flare = (c) => [Eoff(c.sg), ...c.curve.map((p, k) => tag(p, k === 8 ? c.fB : undefined))];
+  const lo = flare(span > 0 ? cp : cm), hi = flare(span > 0 ? cm : cp), ends = [hi[0], lo[0]];
   // sidewalks sweeping round each flare: inner (kerb) line from E, out along the curve to the track edge
   const walks = r.walk > 0 ? corners.map(c => {
-    const pts = [Eoff(c.sg), ...c.curve.map((p, k) => tag(p, k === 8 ? c.fB : undefined))];
+    const pts = flare(c);
     return { pts, out: [c.sg * mx, c.sg * mz] };
   }) : [];
   // the road eases its height into the track edge over its last 30 m
@@ -208,7 +215,7 @@ function makeJunction(ss, a, dir, r, T, A, flareK = 1) {
   // own sidewalk (if it has one) resumes; the corner sidewalk runs on along the track edge to meet it there
   const fE = f0 + Math.abs(span), jbS = ((Math.ceil(f0) - 1) % N + N) % N, jbE = (Math.floor(fE) + 1) % N;
   walks.forEach((w, k) => { w.jb = (k === 0) === (span > 0) ? jbS : jbE; });
-  return { side, poly, walks, E, dir, hw, gapE, f0, span: Math.abs(span), n: Math.ceil(Math.abs(span)) + 1, ti: ci, x: C[0], z: C[1] };
+  return { side, poly, lo, hi, back: ends, walks, E, dir, hw, gapE, f0, span: Math.abs(span), n: Math.ceil(Math.abs(span)) + 1, ti: ci, x: C[0], z: C[1] };
 }
 
 // does a closed outline cross itself
@@ -220,10 +227,12 @@ function polyFolds(P) {
 }
 
 // Streets meeting the track at the same spot (an intersection the track turns through: its other arms all reach the
-// track at the corner) are one mouth, as the real intersection is: one paved area over all of them (the hull of
-// their aprons), the curved sidewalk corners only at its two outside ends, the track's edge line broken across the
-// lot. Apart, each street's sidewalk corners ran across the next street's mouth in spikes.
-function mergeMouths(J, T) {
+// track at the corner) are one mouth, as the real intersection is: one paved area over all of them, the curved
+// sidewalk corners only at its two outside ends, the track's edge line broken across the lot. Apart, each street's
+// sidewalk corners ran across the next street's mouth in spikes. The paved area is the first street's start-side
+// flare, the real track edge to the last street's end-side flare, then back across the road ends: never the hull of
+// the aprons, which on a bend cut its chord across the track and the corner's grass (big asphalt bubbles).
+function mergeMouths(J, T, A) {
   const N = T.N, GAP = 1.5; // (m between two mouths that still makes them one)
   const lo = (j) => j.f0, hi = (j) => j.f0 + j.span;
   for (const side of [-1, 1]) {
@@ -231,23 +240,66 @@ function mergeMouths(J, T) {
     for (let k = 0; k + 1 < list.length; k++) {
       const a = list[k], b = list[k + 1], walk = Math.max(a.walk || 0, b.walk || 0);
       if (wrapD(lo(b) - hi(a), N) * T.ds > GAP + walk * 2 || a.merged || b.merged) continue;
-      // b goes into a: the hull of both aprons (each vertex keeps its own height tag), a's start-side corner and
-      // b's end-side corner, a mouth from a's start to b's end
-      const pts = [...a.poly, ...b.poly], hull = hullXZ(pts);
-      const startW = a.walks.filter(w => w.jb === ((Math.ceil(a.f0) - 1) % N + N) % N), endW = b.walks.filter(w => w.jb === (Math.floor(b.f0 + b.span) + 1) % N);
-      const f0 = a.f0, span = Math.max(a.span, wrapD(hi(b) - a.f0, N));
-      Object.assign(a, { poly: hull, walks: [...startW, ...endW], span, n: Math.ceil(span) + 1, x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 });
+      // b goes into a: a's start-side flare, the track edge to the end of whichever mouth ends last (z: b, or a when
+      // b's mouth lies inside a's), z's end-side flare, then back across the road ends
+      const z = wrapD(hi(b) - hi(a), N) >= 0 ? b : a, span = wrapD(hi(z) - a.f0, N), edge = [];
+      for (let j = Math.floor(a.f0) + 1; j < a.f0 + span; j++) {
+        if (Math.abs(j - a.f0) < 0.15 || Math.abs(j - (a.f0 + span)) < 0.15) continue;
+        const [x, zz] = edgePt(T, j, side); edge.push({ x, z: zz, ti: ((j % N) + N) % N, w: 0 });
+      }
+      // (back by each street's road-end corners, or, if that crosses itself - streets meeting the track almost at the
+      // same point - straight from the end street's outer corner to the first's)
+      const S = a.lo[a.lo.length - 1], E = z.hi[z.hi.length - 1], outer = [...a.lo, ...edge, ...z.hi.slice().reverse()];
+      let back = z === b ? [...b.back, ...a.back] : [a.back[0], ...b.back, ...a.back.slice(1)], poly = [...outer, ...back.slice(1, -1)];
+      if (polyFolds(poly)) { back = [back[0], back[back.length - 1]]; poly = outer; }
+      // (still crossing itself - a street's own flare folds: the hull of both aprons with its chord on the track side
+      // swapped for the real edge, or else the hull taken along the lap and out from the edge)
+      if (polyFolds(poly)) poly = hullToEdge([...a.poly, ...b.poly], S, edge, E, T, A) || poly;
+      if (polyFolds(poly)) poly = hullAlong([...a.poly, ...b.poly, ...edge], a.f0, T, A);
+      if (polyFolds(poly)) continue; // (leave the two mouths apart)
+      const startW = a.walks.filter(w => w.jb === ((Math.ceil(a.f0) - 1) % N + N) % N), endW = z.walks.filter(w => w.jb === (Math.floor(hi(z)) + 1) % N);
+      Object.assign(a, { poly, hi: z.hi, back, walks: [...startW, ...endW], span, n: Math.ceil(span) + 1, x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 });
       b.merged = a; list[k + 1] = a; list.splice(k, 1); k--;
     }
   }
   for (let i = J.length - 1; i >= 0; i--) if (J[i].merged) J.splice(i, 1);
 }
-function hullXZ(P) { // (monotone chain; keeps the original vertex objects)
-  const p = P.slice().sort((a, b) => a.x - b.x || a.z - b.z), cr = (o, a, b) => (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x);
+// convex hull of outline vertices in track terms (x = metres along the lap from f0, y = metres out from the edge):
+// the edge is a straight line there, so every edge vertex stays on the hull and it never cuts across the track
+function hullAlong(P, f0, T, A) {
+  const N = T.N, seen = new Set(), p = [];
+  for (const v of P) {
+    const fr = trackFrame(v.x, v.z, T, A);
+    const q = { v, s: (f0 + wrapD((fr ? fr.f : v.ti) - f0, N)) * T.ds, g: v.w === 0 ? 0 : Math.max(0, fr ? fr.gap : 0) };
+    const k = q.s.toFixed(2) + ',' + q.g.toFixed(2); if (!seen.has(k)) { seen.add(k); p.push(q); }
+  }
+  p.sort((a, b) => a.s - b.s || a.g - b.g);
+  const cr = (o, a, b) => (a.s - o.s) * (b.g - o.g) - (a.g - o.g) * (b.s - o.s);
+  const lower = [], upper = []; // (lower: the edge, collinear vertices kept)
+  for (const q of p) { while (lower.length > 1 && cr(lower[lower.length - 2], lower[lower.length - 1], q) < 0) lower.pop(); lower.push(q); }
+  for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (upper.length > 1 && cr(upper[upper.length - 2], upper[upper.length - 1], q) <= 0) upper.pop(); upper.push(q); }
+  return lower.slice(0, -1).concat(upper.slice(0, -1)).map(q => q.v);
+}
+// the convex hull of outline vertices with its track side - the vertices on the edge, or the chord that cut across a
+// bend - replaced by the edge itself (S, the edge vertices, E); null if that doesn't make a clean outline
+function hullToEdge(P, S, edge, E, T, A) {
+  const p = [...P, S, E].sort((a, b) => a.x - b.x || a.z - b.z), cr = (o, a, b) => (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x);
   const lower = [], upper = [];
   for (const q of p) { while (lower.length > 1 && cr(lower[lower.length - 2], lower[lower.length - 1], q) <= 0) lower.pop(); lower.push(q); }
   for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (upper.length > 1 && cr(upper[upper.length - 2], upper[upper.length - 1], q) <= 0) upper.pop(); upper.push(q); }
-  return lower.slice(0, -1).concat(upper.slice(0, -1));
+  const H = lower.slice(0, -1).concat(upper.slice(0, -1)), n = H.length;
+  const gap = (x, z) => { const fr = trackFrame(x, z, T, A); return fr ? fr.gap : 99; };
+  const on = H.map(v => v.w === 0 || gap(v.x, v.z) < 0.3);
+  // the streets' side: the hull from just after its track-side run round to just before it
+  let k0 = on.findIndex((t, k) => t && !on[(k + 1) % n]);
+  if (k0 < 0) { // (no vertex on the edge: start after the hull side that dips furthest into the track)
+    let lo = Infinity; H.forEach((v, k) => { const w = H[(k + 1) % n], g = gap((v.x + w.x) / 2, (v.z + w.z) / 2); if (g < lo) { lo = g; k0 = k; } });
+  }
+  const R = [];
+  for (let k = 1; k <= n; k++) { const q = (k0 + k) % n; if (on[q]) break; R.push(H[q]); }
+  if (R.length + on.filter(Boolean).length !== n) return null; // (edge vertices in more than one run)
+  for (const P2 of [[...R, S, ...edge, E], [...R, E, ...edge.slice().reverse(), S]]) if (!polyFolds(P2)) return P2;
+  return null;
 }
 
 const pointInPoly = (x, z, P) => {
@@ -344,7 +396,7 @@ export function roadLayout(track, T, A) {
     }
     if (cur && cur.s.length >= 2) pieces.push(cur);
   });
-  mergeMouths(junctions, T);
+  mergeMouths(junctions, T, A);
   for (const jn of junctions) { // bounding boxes for hit tests
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
     for (const p of jn.poly) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); }
