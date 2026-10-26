@@ -314,6 +314,16 @@ export class GarageWalk {
     if (a.chair) this.spin(a.chair.o, a.chair.pivot, d);
   }
   // sat at the computer: the camera's the computer's now; you stay in the chair (hidden once the camera's halfway in)
+  // (on the way to the computer's chair when something takes the screen: stop where you are; false to whoever sent you)
+  cancelSit() {
+    const a = this.act; if (!a || a.kind !== 'sit' || (a.step !== 'walk' && a.step !== 'turn')) return;
+    this.act = null; this.me?.play('idle', { fade: 0.2 }); a.done(false);
+  }
+  // (still walking in through the door when something takes the screen: there already)
+  arrive() {
+    const a = this.act; if (!a || a.kind !== 'enter') return;
+    this.pos.x = a.stand.x; this.pos.z = a.stand.z; this.act = null; this.me?.play('idle', { fade: 0 });
+  }
   park() {
     this.active = false; if (this.pg.walker === this) this.pg.walker = null;
     this.pg.parked = this.me ? { object: this.me.object, me: this.me } : null;

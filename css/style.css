@@ -1826,6 +1826,24 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .wh-cell.bad b, .wh-cell.bad em { color: var(--sv-bad); }
 .wh-hint { margin: var(--s3) 0 0; max-width: 460px; font: 500 var(--t-caption)/1.4 var(--f-body); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; opacity: 0; transition: opacity .4s; }
 #s-hub.walking.still .wh-hint { opacity: 1; }
+/* the next rung up (main.js rungStrip): the car in front there, what getting in takes, ticked or not; on the hub card,
+   and on your feet only while you stand still, like the hint */
+.hub-rung { display: flex; gap: var(--s3); align-items: flex-start; margin-top: var(--s4); padding-top: var(--s3); border-top: 1px solid color-mix(in srgb, var(--sv-red) 45%, transparent); max-width: 460px; }
+.walk-hud .hub-rung { opacity: 0; transition: opacity .4s; padding: var(--s3); border-top: 0; border-left: 2px solid var(--sv-red); background: var(--sv-plate); }
+#s-hub.walking.still .walk-hud .hub-rung { opacity: 1; }
+.hub-rung img { flex: none; width: 132px; height: 86px; object-fit: cover; border: 1px solid color-mix(in srgb, var(--sv-red) 60%, transparent); box-shadow: var(--sv-glow-box); background: var(--sv-plate); }
+.hub-rung img:not([src]) { visibility: hidden; }
+.hub-rung > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.hub-rung small { font: 500 var(--t-small)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red-dim); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+.hub-rung b { font: 500 20px/1.05 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-hot); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; }
+.hub-rung .hr-car { font: 500 var(--t-caption)/1.2 var(--f-body); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hub-rung ul { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.hub-rung li { font: 500 var(--t-caption)/1.25 var(--f-body); color: var(--sv-red); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; }
+.hub-rung li i { display: inline-block; width: 16px; font-style: normal; }
+.hub-rung li.ok i { color: var(--sv-good); }
+.hub-rung li.on i { color: var(--sv-amber); }
+.hub-rung li.no i, .hub-rung li.open i { color: var(--sv-red-dim); }
+.hub-rung li em { font-style: normal; color: var(--sv-red-dim); }
 /* the season's next step (the setup, the launch, the next season): a button under the team, the way the menu led with it */
 .wh-step { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s4); padding: 10px 18px 10px 12px; background: var(--sv-plate); border: 0; border-left: 2px solid var(--sv-amber); cursor: pointer; pointer-events: auto;
   font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-amber); text-shadow: var(--sv-glow); transition: background var(--m-med); }

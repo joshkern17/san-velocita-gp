@@ -611,7 +611,7 @@ export class Computer {
     const kpis = `<div class="tx-kpis">${kpi('Balance', m && m.choice ? WC.money$(m.balance) : '&mdash;', lasts, (m && m.balance < 0) || (fz && fz.net < 0 && fz.runway < fz.left) ? 'bad' : '')}
       ${kpi('Next race', R ? `Round ${w.round + 1}` : 'Season over', R ? `${esc(R.name)} &middot; ${esc(R.weather)}` : `${w.year} is done`)}
       ${kpi('Championship', pos ? pos.value : '&mdash;', `${esc(WC.seriesById(w.player.series).name)} &middot; ${diff}`)}
-      ${sv && m ? kpi('Saving for', esc(ucf(sv.name)), m.balance >= sv.cost ? `${WC.money$(sv.cost)} &middot; <span class="pos">affordable</span>` : `${seg(m.balance / sv.cost, 'blue', 8)}<span>${WC.money$(sv.cost)}</span>`, 'long') : ''}</div>`;
+      ${sv && m ? kpi('Saving for', esc(ucf(sv.short || sv.name)), m.balance >= sv.cost ? `${WC.money$(sv.cost)} &middot; <span class="pos">affordable</span>` : `${seg(m.balance / sv.cost, 'blue', 8)}<span>${WC.money$(sv.cost)}</span>`, 'long') : ''}</div>`;
     const watch = B.watch.slice(0, 6).map(x => `<div class="tx-li ${x.bad ? 'bad' : 'warn'}"><i></i>${esc(x.text)}</div>`).join('') || '<div class="tx-li good"><i></i>Nothing urgent.</div>';
     const targets = B.targets.map(x => `<div class="tx-tg"><div><small>${esc(x.who)}</small><span>${esc(x.text)}</span></div>${x.amt ? `<b class="pos">+${WC.money$(x.amt)}</b>` : ''}</div>`).join('') || '<p class="tx-dim">No targets this weekend.</p>';
     const worst = P ? WC.PART_KEYS.slice().sort((a, b) => P[a].cond - P[b].cond)[0] : null, risk = P ? WC.failRisk(w) : 0;

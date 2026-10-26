@@ -2315,12 +2315,7 @@ const pc = new Computer({
     return null;
   },
   // a team's car, as it races: the model it runs in this series (keys: its class's cars) in its livery
-  teamPhoto: (tid) => {
-    const t = world.teams[tid], S = WC.seriesById(t.series); if (!S || S.cls === 'f1') return null;
-    const keys = carsOfClass(S.cls).map(chassisKey), ch = WC.teamChassis(world, tid, keys);
-    const cfg = t.mine ? { ...worldCar(), chassis: ch } : { ...teamCar(t, Math.max(0, world.series[t.series].teams.indexOf(tid))), chassis: ch };
-    return pc.src.photo({ id: `tm:${tid}:${ch}:${t.mine ? lookPhotoV : ''}`, cfg, look: 'track' });
-  },
+  teamPhoto: (tid) => teamShot(tid)?.src || null,
   classKeys: (cls) => carsOfClass(cls).map(chassisKey),
   trackMap: (name) => { const t = findCalTrack(name); return t ? tkThumb(t) : null; },
   carInfo: (chassis) => {
@@ -2333,8 +2328,22 @@ const pc = new Computer({
   sfx: { move: () => sfx.move(), select: () => sfx.select(), back: () => sfx.back() },
 });
 pitGarage.setScreen(pc.idle);
+// a team's car as it races: the model it runs in its series (picked from its class's cars) in its livery, in the pit
+// lane. { id, src }: src null until it's taken (then any <img data-ph=id> on screen gets it)
+function teamShot(tid) {
+  const t = world.teams[tid], S = t && WC.seriesById(t.series); if (!S || S.cls === 'f1') return null;
+  const keys = carsOfClass(S.cls).map(chassisKey), ch = WC.teamChassis(world, tid, keys);
+  const cfg = t.mine ? { ...worldCar(), chassis: ch } : { ...teamCar(t, Math.max(0, world.series[t.series].teams.indexOf(tid))), chassis: ch };
+  const id = `tm:${tid}:${ch}:${t.mine ? lookPhotoV : ''}`;
+  return { id, src: pc.src.photo({ id, cfg, look: 'track' }) };
+}
 const adPhotos = new Map(), photoQ = []; // (the computer's car photos: rendered once a session)
 let photoT2 = 0;
+// (one taken now, for a screen that doesn't redraw as photos come in: the Team Setup)
+function photoNow(ad) {
+  if (!adPhotos.has(ad.id)) { let src = null; try { src = carPhoto(ad.cfg || { ...settings.car, chassis: ad.chassis, main: ad.color, accent: 0xf2f2f2 }, ad.seed || parseInt(String(ad.id).replace(/\D/g, '').slice(0, 6), 10) || 1, ad.look); } catch (e) { console.warn('car photo', e); } adPhotos.set(ad.id, src); }
+  return adPhotos.get(ad.id);
+}
 function takePhotos() {
   const ad = photoQ[0]; if (!ad) return;
   const cfg = ad.cfg || { ...settings.car, chassis: ad.chassis, main: ad.color, accent: 0xf2f2f2 };
@@ -2343,6 +2352,7 @@ function takePhotos() {
   let src = null;
   try { src = carPhoto(cfg, ad.seed || parseInt(String(ad.id).replace(/\D/g, '').slice(0, 6), 10) || 1, ad.look); } catch (e) { console.warn('car photo', e); }
   adPhotos.set(ad.id, src);
+  if (src) for (const e of document.querySelectorAll('img[data-ph]')) if (e.dataset.ph === ad.id) e.src = src;
   clearTimeout(photoT2); photoT2 = setTimeout(() => { if (pc.isOpen) pc.render(); }, photoQ.length ? 400 : 30);
   if (photoQ.length) setTimeout(takePhotos, 16);
 }
@@ -2352,7 +2362,9 @@ function sitDown(app, arg) {
   // on your feet in the garage: walk round to the chair and sit down first (walk.park hands the camera back)
   if (walk.active && !walk.act && screen === 's-hub' && walk.deskSeat()) {
     if (walkPaused) pauseWalk(false);
-    walk.sit().then(() => { if (!walk.active || screen !== 's-hub') return; walk.park(); drawWalkTags(null); walkSat = true; $('s-hub').classList.remove('walking'); sitDown(app, arg); renderHints(); });
+    walk.sit().then((ok) => { if (ok === false || !walk.active || screen !== 's-hub') return;
+      if (pressDay.isOpen || tsw.isOpen || dayPlan.isOpen) { walk.resume(); return; } // (sat down just as something took the screen: back up, it's theirs)
+      walk.park(); drawWalkTags(null); walkSat = true; $('s-hub').classList.remove('walking'); sitDown(app, arg); renderHints(); });
     return;
   }
   pcSeat = true; phone.close(); phone.hide(); pcWant = [app, arg];
@@ -2390,7 +2402,7 @@ const tsw = new TeamSetup($('tsw'), {
   sfx: (k) => sfx[k] && sfx[k](),
   toast: (m) => toast(m, 4000),
   save: () => { saveWorld(); renderHints(); },
-  photo: (ad) => pc.src.photo(ad), carInfo: (c) => pc.src.carInfo(c),
+  photo: (ad) => photoNow(ad), carInfo: (c) => pc.src.carInfo(c), // (the setup draws its cards once: its photos are taken there and then)
   logo: (sid) => assets.get(logoOf({ sid })),
   // the season's circuits: the career's (its calendars are drawn from them) and every one there is
   tracks: () => ({ pool: worldPool(), all: allTracks() }),
@@ -2745,6 +2757,7 @@ function useSpot(s) {
 // (SPAWN) when the career's loaded. Stop Walking (the pause menu) keeps you off your feet till Walk Around
 let walkOff = false, walkStarting = false, walkHeld = false, walkIdle = 0, walkEntry = null;
 function holdWalk() {   // (off to the car, the list: you stand where you are, the camera's theirs)
+  if (walk.active && walk.act?.kind === 'enter') walk.arrive(); // (halfway in through the door: you're in)
   if (!walk.active || walk.act || screen !== 's-hub') return;
   walk.park(); walkHeld = true; walkPaused = false; drawWalkTags(null); $('s-hub').classList.remove('walking');
 }
@@ -2808,6 +2821,9 @@ function startWalk(from = null, quiet = false) {
     walkStarting = false;
     if (!ok) { $(screen).classList.remove('walking'); toast('The people aren\'t loaded.'); return; }
     if (coopGuest() && !from) { const h = walk.heading; walk.pos.x -= Math.cos(h) * 1.1; walk.pos.z += Math.sin(h) * 1.1; walk.push(); } // (co-op: the co-owner comes in beside the host, not on the same spot)
+    // (something took the screen while you were loading in: the Season Launch, the setup, the planner, the computer.
+    // Their holdWalk ran before there was anyone to hold, so stand still now, and hand them the camera)
+    if (screen === 's-hub' && (pressDay.isOpen || tsw.isOpen || dayPlan.isOpen || pcSeat || hubMode !== 'room')) holdWalk();
     renderHints();
   });
 }
@@ -3390,7 +3406,7 @@ function renderHub() {
     $('hub-card').innerHTML = `<div class="panel-title">The team</div>
       <div class="ti-grid three br-goals">${cell(gc, cp ? `${ord(cp)}<small> ${st[cp - 1].pts} PTS</small>` : '&mdash;')}${cell(gr, gr.value.length > 9 ? `<span class="br-long">${gr.value}</span>` : gr.value)}${cell(gm, `<span class="hub-roll ${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span>`)}</div>
       <p class="br-hint">${B.hint}</p>
-      <div class="panel-title br-att">Needs attention</div>${wt || '<div class="br-none">Nothing on fire.</div>'}`;
+      <div class="panel-title br-att">Needs attention</div>${wt || '<div class="br-none">Nothing on fire.</div>'}${rungStrip(w)}`;
   } else {
     const sum = w.seasons.at(-1), you = sum && sum.you, off = w.player.offer;
     $('hub-card').innerHTML = `<div class="panel-title">${w.year} &middot; SEASON COMPLETE</div><div class="season-pips">${pips}</div>
@@ -3478,6 +3494,15 @@ function renderWeekStrip() {
 // the button under the team while you walk (renderWalkHud): straight to the season's next step
 function walkStep() { const st = world && !coopGuest() && stepItems(world)[0]; if (!st) return false; sfx.select(); st.action(); return true; }
 document.addEventListener('click', (e) => { if (e.target.closest('.wh-step') && screen === 's-hub' && walk.active && !walk.act) walkStep(); });
+// the next rung up, in the garage: its name, the car in front there, and what getting in takes, each ticked or not
+// (state to look at, not an order: it's on the poster and the series' website too)
+function rungStrip(w) {
+  const R = WC.nextRung(w); if (!R) return '';
+  const sh = teamShot(R.front), car = WC.teamChassisNow(w, R.front), mark = { ok: '&#10003;', on: '&#9679;', open: '&#9675;', no: '&#10007;' };
+  return `<div class="hub-rung"><img data-ph="${sh ? sh.id : ''}" ${sh && sh.src ? `src="${sh.src}"` : ''} alt="">
+    <div><small>Next rung</small><b>${escP(R.name)}</b><span class="hr-car">${escP(w.teams[R.front].name)}${car && CARS[car] ? `, ${escP(CARS[car].name)}` : ''}</span>
+    <ul>${R.gates.map(g => `<li class="${g.state}"><i>${mark[g.state]}</i>${escP(g.label)}${g.now ? ` <em>${escP(g.now)}</em>` : ''}</li>`).join('')}</ul></div></div>`;
+}
 function renderWalkHud() {
   const w = world, hud = $('walk-hud'), nx = $('walk-next');
   if (!w || w.ended) { hud.innerHTML = nx.innerHTML = ''; return; }
@@ -3500,7 +3525,7 @@ function renderWalkHud() {
     <div class="wh-row"><div class="wh-cell main"><small>Team</small><b>${pos(ti, ts)}</b></div><div class="wh-cell"><small>You</small><b>${pos(di, ds)}</b></div>
     <div class="wh-cell"><small>${rep ? rep.label : 'Reputation'}</small><b>${rep ? rep.value : ''}</b></div>
     <div class="wh-cell ${mc}"><small>Bank</small><b>${WC.money$(bal)}</b>${runs !== null && runs < 6 ? `<em>${Math.max(0, runs)} round${runs === 1 ? '' : 's'} left</em>` : ''}</div></div>
-    <p class="wh-hint">${B.hint || ''}</p>${stepB}`;
+    <p class="wh-hint">${B.hint || ''}</p>${rungStrip(w)}${stepB}`;
   const wk = myWeek(w), R = S.cal[w.round], n = w.round + 1;
   nx.innerHTML = wk.left <= 0 ? `<b>Race day</b> Round ${n}${R.endur ? ', the ' + escP(WC.enduranceName(R)) : ` at ${escP(R.gp ? WC.GP_NAME : R.name)}`}: head out the door`
     : `<b>Next</b> Round ${n}${R.endur ? ', the ' + escP(WC.enduranceName(R)) : ` at ${escP(R.gp ? WC.GP_NAME : R.name)}`}, Saturday &middot; ${wk.left} day${wk.left === 1 ? '' : 's'} to spend`;
@@ -6827,6 +6852,9 @@ function frameBody(now) {
   } else if (PHONE_SCREENS.includes(screen)) {
     // World Career, your garage: the computer has the controls while you're sat at it, the phone while it's up (P / Y)
     walkTick(dt);
+    // (a screen over the garage while you're on your feet: no keys left held down, and you stand still once you're
+    // done getting up / walking in: they opened while you were mid-step, when holdWalk can't take you)
+    if (walk.active && (dayPlan.isOpen || tsw.isOpen || pressDay.isOpen)) { walk.input = {}; walk.cancelSit(); walk.arrive(); if (!walk.act) holdWalk(); }
     if (walk.active && !walkPaused && !dayPlan.isOpen && !tsw.isOpen && !pressDay.isOpen && !phone.isOpen) { if (!phoneInput()) walkInput(); else { walk.input = {}; drawWalkTags(null); renderHints(); } }
     else if (!endInput() && !tswInput() && !launchInput() && !dayInput() && !pcInput() && !phoneInput()) menuInput();
     pressDay.update(dt);

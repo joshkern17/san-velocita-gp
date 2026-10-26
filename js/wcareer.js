@@ -921,6 +921,19 @@ export function ladderNext(w) {
   const miss = seriesMissing(myTeam(w), up.id).map(([k, n]) => needName(k, n));
   return [`Next rung: ${upNames(sid)}. Finish top 3, or your team top 2.`, `${lic}${miss.length ? ` Entrants need ${miss.join(' and ')}.` : ''}`];
 }
+// the next rung, as state for the garage (no instructions): the series, the team in front there, and each gate: the
+// result (provisional through the season: 'on' while you're in the places), the license, what the premises need
+export function nextRung(w) {
+  const sid = w.player.series, up = nextUp(sid); if (!up) return null;
+  const off = w.player.offer, raced = w.series[sid].results.length, t = myTeam(w);
+  const di = seriesStandings(w, sid).findIndex(e => e.pid === 'P') + 1, ti = teamStandings(w, sid).findIndex(e => e.tid === w.player.team) + 1;
+  const res = off && !off.answer ? { label: 'Entry offered', state: 'ok' }
+    : { label: 'Top 3, or the team top 2', now: raced && di ? `You ${ord(di)}${ti ? `, team ${ord(ti)}` : ''}` : '', state: raced && ((di && di <= 3) || (ti && ti <= 2)) ? 'on' : 'open' }; // (on: in the places so far; open: not yet)
+  const gates = [res, { label: `${licName(licNeed(up.id))} license`, state: licOk(w, up.id) ? 'ok' : 'no' },
+    ...Object.entries(SERIES_NEEDS[up.id] || {}).map(([k, n]) => ({ label: needName(k, n).replace(/^an? /, '').replace(/^./, c => c.toUpperCase()), state: facLevel(t, k) >= n ? 'ok' : 'no' }))];
+  const st = teamStandings(w, up.id), last = w.seasons.at(-1), tc = last && last.teamChamps[up.id], tids = w.series[up.id].teams;
+  return { id: up.id, name: up.name, front: (st.length && st[0].pts ? st[0].tid : null) || (tc && tids.includes(tc) ? tc : tids[0]), gates };
+}
 // what getting into a series takes from where you are, in a line (the price lists of the series above yours)
 export function seriesGate(w, sid) {
   const S = seriesById(sid), here = seriesById(w.player.series), miss = seriesMissing(myTeam(w), sid).map(([k, n]) => needName(k, n));
@@ -3927,7 +3940,7 @@ export function savingFor(w) {
     const cost = miss.reduce((a, [k, n]) => { let c = 0; for (let l = facLevel(t, k) + (k === 'base' ? 1 : 0); l <= (k === 'base' ? n : n - 1); l++) c += FACILITIES[k].levels[l][1]; return a + c; }, 0);
     // (and a car for it: the cheapest lease's deposit, so the number's what getting in really takes)
     const S = seriesById(to), cars = S.car !== 'classifieds' ? customerCars(w, S) : [], dep = cars.length ? Math.min(...cars.map(c => c.deposit)) : 0;
-    return { name: `The ${S.name}`, cost: cost + dep, why: `The ${S.name} needs ${miss.map(([k, n]) => needName(k, n)).join(' and ')}${dep ? `, and a car (a lease deposit from ${money$(dep)})` : ''}: ${money$(cost + dep)} to get in.` };
+    return { name: `The ${S.name}`, short: `${S.name.replace(/ Championship$/, '')} entry`, cost: cost + dep, why: `The ${S.name} needs ${miss.map(([k, n]) => needName(k, n)).join(' and ')}${dep ? `, and a car (a lease deposit from ${money$(dep)})` : ''}: ${money$(cost + dep)} to get in.` };
   }
   const opts = FAC_KEYS.map(k => ({ k, nx: facNext(t, k) })).filter(x => x.nx && x.k !== 'tunnel' && facLevel(t, 'base') >= x.nx.needsBase).sort((a, b) => a.nx.cost - b.nx.cost);
   return opts[0] ? { name: opts[0].nx.name, cost: opts[0].nx.cost, why: '' } : null;

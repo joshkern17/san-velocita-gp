@@ -47,7 +47,7 @@ export function carPhoto(cfg, seed = 1, look = 'drive') {
   if (!R) setup();
   R.drive.visible = look !== 'track'; R.pit.visible = look === 'track';
   const rnd = (k) => { const x = Math.sin(seed * 12.9898 + k * 78.233) * 43758.5453; return x - Math.floor(x); };
-  if (R.car) { R.scene.remove(R.car.group); R.car.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+  if (R.car) { R.scene.remove(R.car.group); R.car.group.traverse(o => { if (o.geometry) o.geometry.dispose(); for (const m of [].concat(o.material || [])) { if (m.map && m.map.isCanvasTexture) m.map.dispose(); m.dispose(); } }); } // (its livery canvas too: a page of photos is a lot of cars)
   R.car = buildF1(cfg, { texSize: 512 });
   const cam = R.camera, a = 0.55 + rnd(2) * 0.3, d = look === 'track' ? 4.5 + rnd(3) * 0.4 : 5.6 + rnd(3) * 0.8; // (the pit lane: in close)
   R.car.group.rotation.y = a - 0.75 - rnd(1) * 0.3; // a front three-quarter, roughly
