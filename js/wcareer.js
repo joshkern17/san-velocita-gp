@@ -1888,6 +1888,17 @@ export function guestDone(w, laps, best) {
   return g;
 }
 
+// how quick your car is against your series (the Car tab's pace panel): the gap to the best car and to the middle of
+// the field, % of a lap (+ = they're quicker), and where you rank. Your data engineer gives you the numbers; without
+// one the Car tab says it in words
+export function carPace(w) {
+  const sid = w.player.series, tids = w.series[sid].teams, me = myTeam(w); if (!me || !w.car) return null;
+  const v = (t) => carValue(w, t), mine = v(me), others = tids.filter(tid => tid !== me.id).map(tid => ({ tid, v: v(w.teams[tid]) })).sort((a, b) => b.v - a.v);
+  if (!others.length) return null;
+  const pct = (x) => (x - mine) * 0.0275, med = others[Math.floor(others.length / 2)].v;
+  return { best: { tid: others[0].tid, name: w.teams[others[0].tid].name, gap: pct(others[0].v) }, median: pct(med), slowest: pct(others.at(-1).v),
+    rank: 1 + others.filter(o => o.v > mine).length, n: others.length + 1 };
+}
 // what your car's worth to a dealer (a lease: nothing, it goes back)
 export function tradeIn(w) {
   if (!w.car || w.car.lease) return 0;

@@ -307,6 +307,7 @@ export class Computer {
     if (a === 'proj') { this.curKey = 'proj:' + arg; this.src.team?.(a, arg); return; } // (the same: which car)
     if (a === 'build' || a === 'sellfac') { const k = a + ':' + arg; if (this.armed !== k) { this.armed = k; this.curKey = k; this.render(); this.src.sfx?.move?.(); return; } this.armed = null; this.src.team?.(a, arg); this.curKey = k; this.render(); return; }
     if (a === 'cars') { this.follow('customer', { s: arg, cc: null }); return; }
+    if (a === 'gosite') { this.follow('series', { s: arg, tab: 'home' }); return; } // (from Team: a series' website, Back comes back)
     if (a === 'viewp') { this.src.view?.(+arg); return; } // (a viewing: up from the desk, over there)
     if (a === 'crs') { this.hist = []; this.page = { s: arg, cc: null }; this.curKey = 'crs-' + arg; this.render(); this.src.sfx?.move?.(); return; }
     if (a === 'cc') { this.go({ cc: arg }); this.armed = null; this.src.sfx?.select?.(); return; }
@@ -681,18 +682,50 @@ export class Computer {
     const btn = (a, k, label, price = '') => { const on = this.armed === a + ':' + k;
       return `<button class="pc-btn sm tx-buy${on ? ' armed' : ''}" data-nav data-act="${a}" data-arg="${k}" data-key="${a}:${k}"><span>${on ? (price ? 'Confirm' : 'Sure?') : label}</span>${price ? `<b>${price}</b>` : ''}</button>`; };
     const mf = WC.mateOf(w) ? WC.people(w)[WC.mateOf(w).pid].first : '';
+    // condition: a row a part (its bar, its %, and the two jobs); the upgrades on it are listed on their own below
     const rows = WC.PART_KEYS.map(k => {
-      const p = P[k], c = p.cond, odd = odds[k], prog = w.car.lease && (k === 'engine' || k === 'gearbox');
-      // every upgrade on it, a line each (they stack), each with its own Remove
-      const fit = p.fits.map((f, i) => `<div class="tx-fit"><span>${chip(!mf ? 'Fitted' : (f.on || 'both') === 'both' ? 'Both cars' : f.on === 'mate' ? `${esc(mf)}'s` : 'Yours', 'blue')}<span><b>${esc(f.name)}</b>${f.used ? ' (used)' : ''} &middot; <i>"${esc(f.feel)}"</i>${f.measured ? `<span class="ws-meas">${esc(f.measured.by)} measures ${f.measured.val >= 0 ? '+' : ''}${(f.measured.val * 100).toFixed(1)}% ${f.measured.stat}${f.measured.lvl < 2 ? ' (roughly)' : ''}</span>` : ''}</span></span>${btn('unfit', `${k}|${i}`, 'Remove')}</div>`).join('');
-      return `<div class="tx-part${p.fits.length ? ' has-fit' : ''}"><b>${WC.PARTS[k].name}</b>${seg(c, condCls(c))}<span class="tx-pct ${condCls(c)}">${Math.round(c * 100)}%</span><small>${odd != null && lvl === 2 ? `${(odd * 100).toFixed(1)}% to fail` : ''}</small>
-        ${prog ? `<small class="tx-prog">Rebuilt by ${esc(w.car.lease.prog)}</small>` : `${btn('rebuild', k, 'Rebuild', WC.money$(WC.rebuildCost(w, k)))}${btn('newpart', k, 'New', WC.money$(WC.newPartCost(w, k)))}`}${fit}</div>`;
+      const p = P[k], c = p.cond, odd = odds[k], prog = w.car.lease && (k === 'engine' || k === 'gearbox'), n = p.fits.length;
+      return `<div class="cx-row"><div class="cx-name"><b>${WC.PARTS[k].name}</b>${n ? `<small>${n} upgrade${n === 1 ? '' : 's'}</small>` : ''}</div>${seg(c, condCls(c))}<span class="tx-pct ${condCls(c)}">${Math.round(c * 100)}%</span>
+        <small class="cx-odd">${prog ? `Rebuilt by ${esc(w.car.lease.prog)}` : odd != null && lvl === 2 ? `${(odd * 100).toFixed(1)}% to fail` : ''}</small>
+        <div class="cx-acts">${prog ? '' : `${btn('rebuild', k, 'Rebuild', WC.money$(WC.rebuildCost(w, k)))}${btn('newpart', k, 'New', WC.money$(WC.newPartCost(w, k)))}`}</div></div>`;
     }).join('');
-    return `<div class="tm tx-page">${pageHead('car', `${WC.seriesById(WC.startOf(w))?.cls === WC.carClsOf(w) || WC.carClsOf(w) === 'street' ? w.car.year + ' ' : ''}${esc(w.car.name)}`, m ? `Chief mechanic: ${esc(m.first)} ${esc(m.last)}` : 'No chief mechanic: a shop does rebuilds (pricier, only back to OK)', chip(`Failure risk: ${riskTxt}${lvl === 2 ? ` (${(risk * 100).toFixed(1)}%)` : ''}`, riskCls))}
+    // the upgrades: one line each (they stack), with how it feels, what's measured, whose car, and Remove
+    const fits = WC.PART_KEYS.flatMap(k => P[k].fits.map((f, i) => `<div class="cx-fit"><span class="cx-slot">${WC.PARTS[k].name}</span>
+      <div class="cx-fn"><b>${esc(f.name)}${f.used ? ' <small>(used)</small>' : ''}</b><span><i>"${esc(f.feel)}"</i>${f.measured ? ` &middot; <em>${esc(f.measured.by)}: ${f.measured.val >= 0 ? '+' : ''}${(f.measured.val * 100).toFixed(1)}% ${f.measured.stat}${f.measured.lvl < 2 ? ', roughly' : ''}</em>` : ''}</span></div>
+      ${mf ? chip((f.on || 'both') === 'both' ? 'Both cars' : f.on === 'mate' ? `${esc(mf)}'s` : 'Yours', 'blue') : ''}${btn('unfit', `${k}|${i}`, 'Remove')}</div>`)).join('');
+    const nFit = WC.PART_KEYS.reduce((a, k) => a + P[k].fits.length, 0), avg = WC.PART_KEYS.reduce((a, k) => a + P[k].cond, 0) / WC.PART_KEYS.length;
+    const head = pageHead('car', `${WC.seriesById(WC.startOf(w))?.cls === WC.carClsOf(w) || WC.carClsOf(w) === 'street' ? w.car.year + ' ' : ''}${esc(w.car.name)}`, m ? `Chief mechanic: ${esc(m.first)} ${esc(m.last)}` : 'No chief mechanic: a shop does rebuilds (pricier, only back to OK)',
+      `${kpi('Condition', `<span class="${condCls(avg)}">${Math.round(avg * 100)}%</span>`, 'on average')}${kpi('Failure risk', `<span class="${riskCls}">${riskTxt.replace(/^./, c => c.toUpperCase())}</span>`, lvl === 2 ? `${(risk * 100).toFixed(1)}% a race` : 'a race')}`);
+    return `<div class="tm tx-page">${head}
       ${this.carRules()}
+      ${this.pacePanel()}
       ${panel('Condition', rows, lvl === 2 ? `${esc(eng.first)}'s numbers` : 'Worn parts are slower, and can fail')}
-      <div class="tx-actions"><button class="pc-btn" data-nav data-act="ttab" data-arg="dev" data-key="todev">Development &rarr;</button><button class="pc-btn" data-nav data-act="open" data-arg="parts" data-key="toparts">Speed Parts Direct &rarr;</button><button class="pc-btn" data-nav data-act="open" data-arg="classifieds" data-key="tocl">Used parts on SVList &rarr;</button></div>
-      <p class="tx-note">You'll know how an upgrade feels. A data engineer can tell you what it really does.</p></div>`;
+      ${nFit ? panel(`Upgrades fitted &middot; ${nFit}`, fits, 'how it feels; a data engineer measures it') : ''}
+      <div class="tx-actions"><button class="pc-btn" data-nav data-act="ttab" data-arg="dev" data-key="todev">Development &rarr;</button><button class="pc-btn" data-nav data-act="open" data-arg="parts" data-key="toparts">Speed Parts Direct &rarr;</button><button class="pc-btn" data-nav data-act="open" data-arg="classifieds" data-key="tocl">Used parts on SVList &rarr;</button></div></div>`;
+  }
+  // pace: your car against your series (the best, the middle, % of a lap: your data engineer's numbers, or words
+  // without one), and the series above's cars against yours on paper (power, weight, power to weight)
+  pacePanel() {
+    const w = this.w, X = WC.carPace(w), lvl = WC.dataLevel(w), S = WC.seriesById(w.player.series), up = WC.nextUp(S.id);
+    if (!X) return '';
+    const word = (g) => g > 1.2 ? 'a long way off' : g > 0.6 ? 'well off' : g > 0.2 ? 'a little off' : g > -0.2 ? 'about level' : 'ahead';
+    // (quicker to the right: the scale runs from the slowest of you all to the quickest, a little over)
+    const lo = Math.min(0, X.slowest, X.median), hi = Math.max(0, X.best.gap), pad = Math.max(0.15, (hi - lo) * 0.12), at = (g) => 4 + (g - lo + pad) / (hi - lo + pad * 2) * 92;
+    const mark = (g, label, cls) => `<span class="cx-mk ${cls}" style="left:${at(g).toFixed(1)}%"><i></i><small>${label}</small></span>`;
+    const num = (g) => lvl >= 1 ? `${g >= 0 ? '+' : '&minus;'}${Math.abs(g).toFixed(2)}% a lap` : word(g);
+    const here = `<div class="cx-pace"><div class="cx-line"><small class="cx-q">quicker &rarr;</small>${mark(X.median, 'Middle', 'mid')}${mark(X.best.gap, 'Best', 'best')}${mark(0, 'You', 'you')}</div></div>
+      <div class="cx-pnums"><div><small>To the best (${esc(X.best.name)})</small><b>${num(X.best.gap)}</b></div><div><small>To the middle of the field</small><b>${num(X.median)}</b></div><div><small>Your car ranks</small><b>${lvl >= 1 ? `${X.rank} of ${X.n}` : X.rank <= 2 ? 'near the front' : X.rank > X.n - 2 ? 'near the back' : 'mid-pack'}</b></div></div>
+      ${lvl >= 1 ? '' : '<p class="cx-fine">Rough: your own feel from the driver\'s seat. A data engineer would put numbers on it.</p>'}`;
+    let above = '';
+    const mine = this.src.carInfo?.(w.car.chassis), cat = up && (w.carCat?.[up.cls] || (up.cls === 'street' ? (w.streetCars || []).map(c => ({ ...c, ...(this.src.carInfo?.(c.key) || {}) })) : []));
+    if (mine && cat && cat.length) {
+      const hp = cat.reduce((a, c) => a + (c.hp || 0), 0) / cat.length, kg = cat.reduce((a, c) => a + (c.kg || 0), 0) / cat.length, pw = hp / kg, mpw = mine.hp / mine.kg;
+      const bar = (label, a, b, fmt) => { const mx = Math.max(a, b) * 1.08; return `<div class="cx-cmp"><small>${label}</small><div><span class="cx-b you" style="width:${(a / mx * 100).toFixed(1)}%"><b>${fmt(a)}</b></span><span class="cx-b up" style="width:${(b / mx * 100).toFixed(1)}%"><b>${fmt(b)}</b></span></div></div>`; };
+      above = `<div class="cx-above"><div class="cx-ah"><b>The ${esc(up.name)}</b><span><i class="cx-key you"></i>Your ${esc(w.car.name)} <i class="cx-key up"></i>Their cars, on average</span></div>
+        ${bar('Power', mine.hp, hp, v => `${Math.round(v)} hp`)}${bar('Weight', mine.kg, kg, v => `${Math.round(v).toLocaleString('en-US')} kg`)}${bar('Power to weight', mpw * 1000, pw * 1000, v => `${Math.round(v)} hp a tonne`)}
+        <p class="cx-fine">${pw > mpw ? `About ${Math.round((pw / mpw - 1) * 100)}% more power for every kilo, and the grip to use it.` : 'On paper, not far off. In grip and brakes, they are.'} <span class="ss-link" data-nav data-act="gosite" data-arg="${up.id}" data-key="pace-site">The ${esc(up.name)} &rarr;</span></p></div>`;
+    }
+    return panel(`Pace &middot; ${esc(S.name)}`, here + above, lvl >= 1 ? 'your data engineer\'s numbers' : 'how it feels');
   }
   // GT and up: the lease, balance of performance, success ballast (as chips)
   carRules() {
@@ -1153,7 +1186,7 @@ export class Computer {
   // the styles the snapshot needs (the computer's own rules; it uses system fonts, so nothing to embed)
   css() {
     if (this._css) return this._css;
-    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl|tm|jb|tl|tr|ws|sp|tw|ov|hp|sw|dv|gg|cr|fc|pj|tx|wz|wk)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
+    const out = [], want = /#pc|\.(pc|nw|ss|db|bk|rg|cl|tm|jb|tl|tr|ws|sp|tw|ov|hp|sw|dv|gg|cr|fc|pj|tx|wz|wk|cx)(-|\b)/; // (the class prefixes of the computer's styles: a new site needs its prefix here)
     for (const sh of document.styleSheets) { let rules; try { rules = sh.cssRules; } catch (e) { continue; } for (const r of rules) if (r.selectorText && want.test(r.selectorText)) out.push(r.cssText); }
     return (this._css = out.join('\n'));
   }
