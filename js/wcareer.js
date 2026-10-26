@@ -1100,6 +1100,9 @@ export function nextSeason(w, trackPool) {
   for (const d of dealsOf(w).slice()) {
     if (wizardTitle && d.slot === 'title') continue; // (the season setup picks the title sponsor for the new series)
     const sp = sponsorById(d.sid), good = d.met >= d.misses && !(w.excluded && w.excluded[w.year]);
+    // (next season in a series too small for them: they step back)
+    const to = upTo ? upTo.id : w.player.series;
+    if (good && !reaches(w, sp, to)) { mail(w, sp.name, sponsorAddr(sp.name), `${w.year + 1} season`, [`Thank you for a good season. With the team in the ${seriesById(to).name} next year, it isn't the right fit for ${sp.name}, so we won't be renewing. When you're back in the ${seriesById(sp.reach).name}, we'd like to talk.`, sp.name]); continue; }
     if (good) mail(w, sp.name, sponsorAddr(sp.name), `${w.year + 1} season`, [`Thank you for a good season. We'd like to continue in ${w.year + 1} on the same terms.`, sp.name], { sponsorOffer: { sid: d.sid, slot: d.slot, fee: d.fee, bonus: d.bonus }, choices: [['yes', 'Renew'], ['no', 'Decline']] });
   }
   w.deals = [];
@@ -1289,7 +1292,7 @@ export const FACILITIES = {
   fab:    { name: 'Fabrication', levels: [['Fabrication bay', 30000, 300, 1], ['Composites shop', 200000, 1800, 2]], what: 'Chassis and aero projects go better; the composites shop makes them cheaper too.' },
   sim:    { name: 'Simulator', levels: [['Sim rig', 12000, 75, 0], ['Pro simulator', 250000, 2250, 2]], what: 'A day on the sim learns the next circuit (a setup worth having on the weekend).' },
   data:   { name: 'Data room', levels: [['Data room', 55000, 600, 1]], what: 'Your data engineer gets more out of it, and projects go a little better.' },
-  truck:  { name: 'Transporter', levels: [['Transporter', 60000, 750, 1]], what: 'Travel costs a third less. The GT Championship requires one.' },
+  truck:  { name: 'Transporter', levels: [['Transporter', 40000, 750, 1]], what: 'Travel costs a third less. The GT Championship requires one.' },
   tunnel: { name: 'Wind tunnel', levels: [['Wind tunnel time', 300000, 9000, 2], ['Own wind tunnel', 3000000, 30000, 3]], what: 'Formula aero development needs one.' },
 };
 export const FAC_KEYS = Object.keys(FACILITIES);
@@ -1600,7 +1603,7 @@ export const setupDone = (w) => !w.setup || w.setup.done;
 export const setupKind = (w) => (w.setup && w.setup.kind) || 'team';
 const BRAND = { clean: 'Family-run: hates seeing their name in a crash', top: 'Wants results, and says so', finish: 'Just wants to see the car at the end', gain: 'Likes a bit of action: overtakes', beat: 'Has a rival, and wants them beaten', lead: 'Wants their name at the front' };
 function newSetup(w) {
-  const local = SPONSOR_POOL.map((x, i) => sponsorById('sp' + i)).filter(sp => sp.rep <= 25 && sp.rep < 999 && (!sp.town || sp.town === w.home));
+  const local = SPONSOR_POOL.map((x, i) => sponsorById('sp' + i)).filter(sp => sp.rep <= 25 && sp.rep < 999 && (!sp.town || sp.town === w.home) && reaches(w, sp));
   const three = local.sort((a, b) => (a.town ? 0 : 1) - (b.town ? 0 : 1) || rng(w) - 0.5).slice(0, 3);
   // three shapes of deal: a big cheque from someone impatient, a steady one, a small one from someone patient
   const shapes = [{ k: 1.35, sign: 1, pat: -1, tag: 'Big money, impatient' }, { k: 1, sign: 2, pat: 0, tag: 'Steady' }, { k: 0.75, sign: 4, pat: 2, tag: 'Patient, big signing bonus' }];
@@ -1987,10 +1990,10 @@ function seatDeals(w) {
 // three title sponsors for a series you've just moved up to (the series' money, your reputation)
 function seasonSponsors(w) {
   const K = SPONSOR_K[w.player.series] || 1, rep = repOf(w);
-  const pool = SPONSOR_POOL.map((x, i) => sponsorById('sp' + i)).filter(sp => sp.rep <= rep + 10 && sp.rep < 999 && !sp.town && !SHADY.includes(sp.name)).sort((a, b) => b.rep - a.rep + (rng(w) - 0.5) * 20).slice(0, 3);
+  const pool = SPONSOR_POOL.map((x, i) => sponsorById('sp' + i)).filter(sp => sp.rep <= rep + 10 && sp.rep < 999 && !sp.town && !SHADY.includes(sp.name) && reaches(w, sp)).sort((a, b) => b.rep - a.rep + (rng(w) - 0.5) * 20).slice(0, 3);
   const shapes = [{ k: 1.3, sign: 1, pat: -1, tag: 'Big money, impatient' }, { k: 1, sign: 2, pat: 0, tag: 'Steady' }, { k: 0.75, sign: 4, pat: 2, tag: 'Patient, big signing bonus' }];
   // (and in a series where companies buy hospitality: a big one that pays the most, for a day of your week, every week)
-  if (seriesById(w.player.series).hosp) { const corp = SPONSOR_POOL.map((x, i) => sponsorById('sp' + i)).filter(sp => !pool.some(x => x.id === sp.id) && sp.rep <= rep + 10 && sp.rep < 999 && !sp.town && !SHADY.includes(sp.name)).sort((a, b) => b.fee - a.fee)[0];
+  if (seriesById(w.player.series).hosp) { const corp = SPONSOR_POOL.map((x, i) => sponsorById('sp' + i)).filter(sp => !pool.some(x => x.id === sp.id) && sp.rep <= rep + 10 && sp.rep < 999 && !sp.town && !SHADY.includes(sp.name) && reaches(w, sp)).sort((a, b) => b.fee - a.fee)[0];
     if (corp) { pool.push(corp); shapes.push({ k: 1.3, sign: 0, pat: 0, tag: 'Hospitality', hosp: true }); } }
   // (one base for all of them, so the deal's shape is what differs, not which company it is)
   const base = pool.slice(0, 3).reduce((a, sp) => a + sp.fee, 0) / Math.max(1, Math.min(3, pool.length));
@@ -3851,7 +3854,10 @@ export function briefing(w) {
   const n = st.length, up = nextUp(sid), upName = upNames(sid), fund = fundOf(w, sid);
   const amb = ambitionOf(w);
   goals.push({ label: 'Championship', value: raced ? `P${pos}` : '—', pct: raced ? (n - pos) / Math.max(1, n - 1) : 0, aim: amb ? (n - amb.t) / Math.max(1, n - 1) : null });
-  const rep = repOf(w), next = SPONSOR_POOL.map((x, k) => sponsorById('sp' + k)).filter(x => x.rep > rep && x.rep < 999 && (!x.town || x.town === w.home)).sort((a, b) => a.rep - b.rep)[0];
+  const rep = repOf(w), spAll = SPONSOR_POOL.map((x, k) => sponsorById('sp' + k)).filter(x => x.rep < 999 && (!x.town || x.town === w.home));
+  const next = spAll.filter(x => x.rep > rep && reaches(w, x)).sort((a, b) => a.rep - b.rep)[0];
+  // (the big names that already like you, waiting for a bigger series)
+  const waiting = spAll.filter(x => x.rep <= rep && !reaches(w, x)).sort((a, b) => seriesById(a.reach).tier - seriesById(b.reach).tier)[0];
   goals.push({ label: 'Reputation', value: STAND_WORDS(rep), pct: rep / 100 });
   goals.push({ label: 'Money', value: money$(w.money.balance), pct: clamp(r / 12, 0, 1) });
   // what you're saving for: what the series above asks for, else the next thing for the garage
@@ -3879,6 +3885,7 @@ export function briefing(w) {
   // (money first when it's running out, else what reputation unlocks)
   if (r < 6) hints.unshift(`Money lasts about ${Math.max(0, Math.floor(r))} round${Math.floor(r) === 1 ? '' : 's'}: work the week, keep your sponsors.`);
   else if (sv && sv.why) hints.push(sv.why);
+  else if (waiting) hints.push(`${waiting.name} would sponsor you in the ${seriesById(waiting.reach).name}: bigger series, bigger sponsors.`);
   else if (next) hints.push(`At reputation ${next.rep} bigger sponsors call (you're at ${rep}).`);
   const hint = hints.slice(0, watch.length >= 2 ? 1 : 2).join(' '); // (a busy card keeps it to one: the menu needs the room)
   return { targets, watch, goals, hint };
@@ -4739,7 +4746,12 @@ const SPONSOR_POOL = [
   ['Volt Rush Energy', null, 999, 4500, 9, ['seen'], 0x9ae01a], ['Cloud Nine Vapor', null, 999, 4500, 9, ['seen'], 0x8a5ae0], ['QuickCash Loans', null, 999, 4500, 9, ['seen'], 0x1fa040],
   ["Lucky Lou's Online Casino", null, 999, 4500, 9, ['seen'], 0xe0b020], ["Brian's Bathrooms & Kitchens", null, 999, 1300, 4, ['finish', 'clean'], 0x2a6ab8],
 ];
-const SPONSOR_K = { club: 1.2, street: 2, gt2: 2.5, gt: 3, groupc: 5, formula: 9 }; // (Street: enough that a mid-field team about breaks even, so seasons stuck there cost time, not the career)
+// how big a series a national sponsor needs before it's worth their money (exposure: the crowds, the TV, the
+// magazines). Your reputation gets them interested; the series gets them to sign. Local businesses back you anywhere
+const SPONSOR_REACH = { 'Hotline Pizza': 'street', 'Max Hardware': 'street', 'Sunrise Insurance': 'street', 'Volta Cola': 'gt2', 'Apex Energy': 'gt2', 'Velocita State Lottery': 'gt2', 'Gold Coast Airlines': 'gt', 'Triton Watches': 'gt' };
+// does a sponsor sign with a team in this series (yours by default)?
+const reaches = (w, sp, sid = w.player.series) => !sp.reach || (seriesById(sid)?.tier || 0) >= seriesById(sp.reach).tier;
+const SPONSOR_K = { club: 1.2, street: 2, gt2: 3.5, gt: 4.5, groupc: 6.5, formula: 9 }; // (Street: enough that a mid-field team about breaks even, so seasons stuck there cost time, not the career)
 const ASSOC_K = 0.45;
 export const SPONSOR_SLOTS = ['title', 'assoc', 'assoc'];
 export const sponsorName = (id) => sponsorById(id)?.name || '';
@@ -4748,7 +4760,7 @@ export const repOf = (w) => (w.rep ??= 15);
 export const dealsOf = (w) => (w.deals ??= []);
 // how many targets a sponsor lets you miss (the deal's own, from the setup wizard, or the sponsor's)
 export const patienceOf = (d) => d.patience ?? sponsorById(d.sid)?.patience ?? 9;
-const sponsorById = (id) => { const s = SPONSOR_POOL[+id.slice(2)]; return s && { id, name: s[0], town: s[1], rep: s[2], fee: s[3], patience: s[4], wants: s[5], color: s[6] }; };
+const sponsorById = (id) => { const s = SPONSOR_POOL[+id.slice(2)]; return s && { id, name: s[0], town: s[1], rep: s[2], fee: s[3], patience: s[4], wants: s[5], color: s[6], reach: SPONSOR_REACH[s[0]] || null }; };
 const sponsorAddr = (name) => `marketing@${name.toLowerCase().replace(/&/g, 'and').replace(/[^a-z]+/g, '')}.sv`;
 // what you're expected to manage this round: about where you stand in the championship (or mid-field to start)
 function expectedPos(w) {
@@ -4833,7 +4845,18 @@ function sponsorOffers(w, force = false) {
   if (!force && rng(w) > 0.3 + repOf(w) / 250) return;
   const S = seriesById(w.player.series), have = new Set([...deals.map(d => d.sid), ...(w.mail || []).filter(m => m.sponsorOffer && !m.answer).map(m => m.sponsorOffer.sid)]);
   if (stainOf(w)) return; // (nobody respectable signs with a team in the news for the wrong reasons)
-  const cands = SPONSOR_POOL.map((x, i) => sponsorById('sp' + i)).filter(sp => !have.has(sp.id) && sp.rep <= repOf(w) && (sp.town ? sp.town === w.home && S.local : true));
+  const all = SPONSOR_POOL.map((x, i) => sponsorById('sp' + i)).filter(sp => !have.has(sp.id) && sp.rep <= repOf(w) && (sp.town ? sp.town === w.home && S.local : true));
+  // (a big name that likes what it sees, in a series too small for it: it says so, once, and waits for you to move up)
+  const nods = (w.sponsorNods ??= {}), keen = all.filter(sp => !reaches(w, sp) && nods[sp.id] !== w.player.series).sort((a, b) => b.rep - a.rep)[0];
+  if (keen && rng(w) < 0.5) {
+    nods[keen.id] = w.player.series; const up = seriesById(keen.reach);
+    mail(w, keen.name, sponsorAddr(keen.name), `${w.teams[w.player.team].name}: one for the future`,
+      [`Hello,`, `We've been following your results, and we like what we see. We'd like our name on a car like yours.`,
+       `The honest answer is that the ${seriesById(w.player.series).name} doesn't reach enough people for a brand like ${keen.name}. Our marketing department has a chart. When you're racing in the ${up.name}, get in touch: we'd expect to pay around ${money$(Math.round(keen.fee * (SPONSOR_K[up.id] || 1) / 100) * 100)} a round for the title.`,
+       `Best of luck until then.`, keen.name]);
+    return;
+  }
+  const cands = all.filter(sp => reaches(w, sp));
   if (!cands.length) return;
   const sp = cands.sort((a, b) => b.rep - a.rep + (rng(w) - 0.5) * 30)[0];
   const title = !deals.some(d => d.slot === 'title') && (sp.rep >= 10 || !deals.length);

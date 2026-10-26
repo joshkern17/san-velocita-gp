@@ -243,6 +243,7 @@ function career(P, s) {
   }
   if (args.includes('--ledger')) { const cat = {}; for (const t of w.money.tx) { const k = t.what.replace(/^[^:]+: /, '').replace(/\(.*?\)|\d[\d,]*/g, '').replace(/ +/g, ' ').trim().slice(0, 34); cat[k] = (cat[k] || 0) + t.amt; } (globalThis.LEDGER ??= []).push(cat); }
   { const N = (re) => w.news.filter(x => x.y >= 2026 && re.test(x.head)).length; (globalThis.AINEWS ??= []).push([N(/BRINGS AN UPDATE/) / SEASONS, N(/NEW OWNERSHIP/) / SEASONS]); }
+  out.refused = (w.mail || []).filter(m => /cannot accept your entry/.test((m.body || []).join(' '))).length; out.offers = (w.mail || []).filter(m => m.offer).length;
   out.end = w.money.balance; out.work = (w.simWork || 0) / Math.max(1, out.rounds / 6); out.flags = { ...WC.record(w) }; out.rep = WC.repOf(w); out.arcs = (w.dir?.n || 0);
   out.dsq = w.series && Object.values(w.player.hist || []).length;
   return out;
@@ -259,6 +260,7 @@ if (GT) {
     const up = runs.filter(r => r.gtStart != null), broke = up.filter(r => r.broke != null);
     if (globalThis.LEDGER) { const sum = {}; for (const c of LEDGER) for (const [k, v] of Object.entries(c)) sum[k] = (sum[k] || 0) + v / LEDGER.length; for (const [k, v] of Object.entries(sum).sort((a, b) => a[1] - b[1])) if (Math.abs(v) > 8000) console.log(`   ${k.padEnd(36)} ${Math.round(v / 1000)}k`); globalThis.LEDGER = null; }
     if (SEASONLY) { const ok = runs.filter(r => r.broke == null); for (let y = 0; y < SEASONS; y++) { const sum = {}; for (const r of ok) for (const [k, v] of Object.entries(r.sl[y] || {})) sum[k] = (sum[k] || 0) + v / ok.length; const net = Object.values(sum).reduce((a, b) => a + b, 0); console.log(`  season ${y + 1} net ${k$(net)}: ${Object.entries(sum).sort((a, b) => a[1] - b[1]).filter(([, v]) => Math.abs(v) > 2000).map(([k, v]) => `${k} ${k$(v).trim()}`).join(', ')}`); } }
+    console.log(`         earned an offer ${runs.filter(r => r.offers).length}/${N}, entry refused (no facilities) at least once ${runs.filter(r => r.refused).length}/${N}`);
     console.log(`${name.padEnd(8)} moved up ${up.length}/${N}  broke in GT ${pct(broke.length / Math.max(1, up.length))}  entering GT ${k$(med(up.map(r => r.gtStart)))}  after GT season ${[0, 1].map(i => k$(med(up.map(r => r.gt[i])))).join(' ')}  lowest ${k$(med(up.map(r => r.low)))}`);
     console.log(`  GT seasons: finish ${[0, 1, 2].map(i => med(up.map(r => r.gtPos?.[i] ?? null)) ?? '-').join('/')}, car vs the median team ${[0, 1, 2].map(i => { const v = med(up.map(r => r.gtCar?.[i] ?? null)); return v == null ? '-' : (v > 0 ? '+' : '') + v.toFixed(2); }).join(' / ')}, top 3 ${[0, 1, 2].map(i => `${Math.round(up.filter(r => r.gtPos?.[i] && r.gtPos[i] <= 3).length / Math.max(1, up.length) * 100)}%`).join(' / ')}`);
     if (WORKSN.offers) { console.log(`  works support: offered ${WORKSN.offers}, took ${WORKSN.took}`); WORKSN.offers = 0; WORKSN.took = 0; }
