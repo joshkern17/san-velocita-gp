@@ -236,10 +236,10 @@ kbd.dpad:not(.h) { background: linear-gradient(currentColor, currentColor) cente
 #results-table td.p { font-family: var(--f-ui); font-weight: 400; }
 #results-table { font-size: 15px; }
 .result-card .row, #round-info .row { display: flex; justify-content: space-between; align-items: baseline; font: 500 var(--t-label)/2.1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-red); text-shadow: var(--sv-glow); -webkit-text-fill-color: transparent; background: linear-gradient(0deg, color-mix(in srgb, var(--sv-red) 40%, transparent) 0 1px, transparent 1px); }
-#round-info .rd-pen { margin-top: 14px; padding: 10px 0 2px; border-top: 2px solid color-mix(in srgb, var(--sv-red) 60%, transparent); } /* (the media pen: the question after the race, and what was said) */
-#round-info .rd-pen small { display: block; font: 500 var(--t-caption)/1.2 var(--f-ui); letter-spacing: var(--track-caption); text-transform: uppercase; color: var(--sv-amber); }
-#round-info .rd-pen p { margin: 6px 0; font: 500 var(--t-body)/1.35 var(--f-ui); letter-spacing: var(--track); color: var(--sv-hot); }
-#round-info .rd-pen b, #round-info .rd-pen em { display: block; font: 500 var(--t-label)/1.35 var(--f-ui); letter-spacing: var(--track); font-style: normal; color: var(--sv-red); }
+#round-pen .rd-pen { padding: 0; } #round-pen[hidden] { display: none; } /* (the media pen: the question after the race, and what was said) */
+#round-pen .rd-pen small { display: block; font: 500 var(--t-caption)/1.2 var(--f-ui); letter-spacing: var(--track-caption); text-transform: uppercase; color: var(--sv-amber); }
+#round-pen .rd-pen p { margin: 6px 0; font: 500 var(--t-body)/1.35 var(--f-ui); letter-spacing: var(--track); color: var(--sv-hot); }
+#round-pen .rd-pen b, #round-pen .rd-pen em { display: block; font: 500 var(--t-label)/1.35 var(--f-ui); letter-spacing: var(--track); font-style: normal; color: var(--sv-red); }
 .result-card .row span:last-child { color: var(--sv-hot); font: 500 18px var(--f-num); }
 .result-card:empty { display: none; }
 .pause-wrap { position: absolute; left: 5%; top: 19%; display: grid; grid-template-columns: 360px 440px; gap: 22px; align-items: start; }
@@ -894,8 +894,13 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .card .ico { position: absolute; bottom: 14px; right: 20px; font: 500 60px var(--f-ui); color: var(--sv-red-faint); }
 .card .take { position: absolute; left: 20px; bottom: 22px; font: 500 var(--t-label)/1 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; color: var(--sv-ink); background: var(--sv-amber); padding: 5px 10px 4px; border-radius: 3px; box-shadow: var(--sv-glow-fill); }
 .card .take:empty { display: none; }
-.round-wrap { position: absolute; left: 5%; right: 5%; top: 19%; display: grid; grid-template-columns: 1fr 360px; gap: 22px; align-items: start; }
-.round-side { display: grid; gap: 16px; }
+.round-wrap { position: absolute; left: 5%; right: 5%; top: 19%; bottom: 9%; display: grid; grid-template-columns: 1fr 360px; gap: 22px; align-items: start; }
+/* (held to the screen: a busy weekend's rows, the media pen and its answers ran off the bottom. The rows scroll; the
+   question and the answers stay in view) */
+.round-wrap > .panel { max-height: 100%; overflow-y: auto; scrollbar-width: none; }
+.round-side { display: flex; flex-direction: column; gap: 16px; max-height: 100%; min-height: 0; }
+.round-side > .panel { flex: none; }
+.round-side > #round-info { flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--sv-red) 60%, transparent) transparent; }
 #round-info { font: 500 var(--t-body)/1.9 var(--f-body); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; }
 #round-info p { margin: 0 0 8px; line-height: 1.5; }
 #round-info .big { font: 500 28px/1.2 var(--f-ui); letter-spacing: var(--track); text-transform: uppercase; text-align: center; margin: 6px 0; color: var(--sv-hot); }

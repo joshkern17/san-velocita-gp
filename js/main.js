@@ -2051,6 +2051,7 @@ function careerRoundDone(retired = false) {
   } else info += `<div class="row"><span>Points this race</span><span>${me ? me.pts : 0}</span></div>`;
   const champPos = CAREER.standingsList(c).findIndex(s => s.isPlayer) + 1;
   info += `<div class="row"><span>Championship</span><span>P${champPos} · ${c.standings[me?.name]?.pts ?? 0} pts</span></div>`;
+  $('round-pen').hidden = true; // (the media pen's: World Career rounds only)
   $('round-info').innerHTML = info;
   const next = () => {
     if (c.over) return showSeasonEnd();
@@ -2070,6 +2071,7 @@ function showSeasonEnd() {
   $('round-title').textContent = c.fired ? 'You’re Fired' : pos === 1 ? 'World Champion!' : 'Season Complete';
   $('round-sub').textContent = `${c.kind === 'gp' ? 'Grand Prix' : 'Career'} · final standings after ${c.results.length} round${c.results.length === 1 ? '' : 's'}`;
   $('round-table').innerHTML = standingsTable(c);
+  $('round-pen').hidden = true; // (the media pen's: World Career rounds only)
   $('round-info').innerHTML = c.fired
     ? `<div class="big bad">FIRED</div><p>The Team Principal ran out of patience after round ${c.results.length}.</p><div class="row"><span>Championship</span><span>P${pos}</span></div>`
     : `<div class="big-pos ${pos === 1 ? 'gold' : ''}">P${pos}<small>IN THE CHAMPIONSHIP</small></div><p>${pos === 1 ? 'You took the title. RESPECT +' : 'Next season, the title.'}</p>${c.kind === 'career' ? `<div class="row"><span>Budget left</span><span class="money">${money(c.money)}</span></div>` : ''}`;
@@ -4173,10 +4175,11 @@ function worldRoundDone(retired = false) {
     ${out.bill ? `<div class="row"><span>The weekend</span><span class="${out.bill.net < 0 ? 'bad' : 'ok'}">${out.bill.net > 0 ? '+' : ''}${WC.money$(out.bill.net)}</span></div><div class="row"><span>Bank balance</span><span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span></div>` : ''}
     ${WC.listFresh(w).filter(k => WC.RUNGS[k] && w.list.done[k]?.r >= round && w.list.done[k]?.y === w.year).map(k => `<div class="row"><span>Crossed off the list</span><span class="ok">${WC.RUNGS[k].text(w)}</span></div>`).join('')}
     ${promiseRows(w, round)}
-    ${n ? `<div class="row"><span>Phone</span><span>${n} new</span></div>` : ''}${penBlock(w)}`;
+    ${n ? `<div class="row"><span>Phone</span><span>${n} new</span></div>` : ''}`;
+  roundPen(w);
   if (coop && coop.host && coop.peer && sim.net) coop.net.sendTo(coop.peer, { t: 'cround', round, tg, res: res.map(r => ({ ...slimRow(r), pid: r.isPlayer ? 'P' : r.pid || null })), net: out.bill ? out.bill.net : null, w });
-  { const cont = { label: out.over ? 'Season Review' : 'Continue', cls: 'action primary', action: () => openHub() }, info = $('round-info').innerHTML;
-    const set = () => { const pen = penItems(w, () => { $('round-info').innerHTML = info.replace(/<div class="rd-pen">[\s\S]*$/, penBlock(w)); set(); }); menus['s-round'][0].setItems(pen.length ? [...pen, { ...cont, cls: 'action', label: `${cont.label}<small>ANSWER LATER</small>` }] : [cont]); };
+  { const cont = { label: out.over ? 'Season Review' : 'Continue', cls: 'action primary', action: () => out.over ? seasonReview() : openHub() };
+    const set = () => { const pen = penItems(w, () => { roundPen(w); set(); }); menus['s-round'][0].setItems(pen.length ? [...pen, { ...cont, cls: 'action', label: `${cont.label}<small>ANSWER LATER</small>` }] : [cont]); };
     set(); }
   // (co-op: the podium first, as offline; it was skipped while the race went on)
   if (!(sim.net && openPodium(() => show('s-round'), true))) show('s-round');
@@ -4368,13 +4371,14 @@ function sitOutRound() {
     return `<tr><td class="p">${posBadge(r.pos)}</td><td><span class="swatch" style="background:${hex(t.main ?? 0x888888)}"></span>${WC.displayName(w, r.pid, true)}</td><td>${t.name || ''}</td><td class="n">${r.pts ? '+' + r.pts : ''}</td></tr>`;
   }).join('');
   const st = WC.seriesStandings(w, sid), cp = st.findIndex(e => e.pid === 'P') + 1, n = WC.unread(w);
+  $('round-pen').hidden = true; // (the media pen's: World Career rounds only)
   $('round-info').innerHTML = `<div class="big-pos">DNS<small>DID NOT START</small></div>
     <div class="row"><span>Championship</span><span>${cp ? `${ord(cp)} &middot; ${st[cp - 1].pts} pts` : '&mdash;'}</span></div>
     <div class="row"><span>The weekend</span><span class="${out.bill.net < 0 ? 'bad' : 'ok'}">${out.bill.net > 0 ? '+' : ''}${WC.money$(out.bill.net)}</span></div>
     <div class="row"><span>Bank balance</span><span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span></div>
     ${promiseRows(w, out.round)}
     ${n ? `<div class="row"><span>Phone</span><span>${n} new</span></div>` : ''}`;
-  menus['s-round'][0].setItems([{ label: out.over ? 'Season Review' : 'Continue', cls: 'action primary', action: () => openHub() }]);
+  menus['s-round'][0].setItems([{ label: out.over ? 'Season Review' : 'Continue', cls: 'action primary', action: () => out.over ? seasonReview() : openHub() }]);
   fadeTo(() => show('s-round'), 200);
 }
 // the day planner: game UI over the garage (js/dayplan.js)
@@ -4697,6 +4701,7 @@ function weekResult(title, sub, rows, extra, net) {
   $('round-title').textContent = title;
   $('round-sub').textContent = sub;
   $('round-table').innerHTML = `<tr><th>ITEM</th><th class="r">AMOUNT</th></tr>` + (rows.length ? rows.map(([t, a]) => `<tr><td>${t}</td><td class="n ${a < 0 ? 'bad' : ''}">${a > 0 ? '+' : ''}${WC.money$(a)}</td></tr>`).join('') : '<tr><td>Nothing</td><td class="n">$0</td></tr>');
+  $('round-pen').hidden = true; // (the media pen's: World Career rounds only)
   $('round-info').innerHTML = `<div class="big-pos cash">${net >= 0 ? '+' : '&minus;'}${WC.money$(Math.abs(net))}<small>THE DAY</small></div>${extra}
     <div class="row"><span>Bank balance</span><span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span></div>
     <div class="row"><span>This week</span><span>${myWeek(w).left} day${myWeek(w).left === 1 ? '' : 's'} left</span></div>`;
@@ -5176,6 +5181,8 @@ function penBlock(w) {
   const them = w.coop && !penMine(w) ? (WCX.opOwner(w, 'answerPen') === 'C' ? WC.coopPerson(w)?.first : w.player.name.split(' ')[0]) : null;
   return `<div class="rd-pen"><small>The media pen &middot; ${escP(P.q.who.name)}, ${escP(P.q.who.outlet)}</small><p>${escP(P.q.q)}</p>${a ? `<b>&ldquo;${escP(a.text)}&rdquo;</b>` : P.ans === -1 ? '<b>No comment.</b>' : them ? `<em>${escP(them)} answers this one, as ${R ? R.name : 'the boss'}.</em>` : '<em>Your answer, below.</em>'}</div>`;
 }
+// the round screen's: its own panel over the answers (the rows above it scroll; the question doesn't)
+function roundPen(w) { const e = $('round-pen'), h = penBlock(w); e.innerHTML = h; e.hidden = !h; }
 // the answers as menu items (then: done), the tags each would earn in its line
 function penItems(w, done) {
   const P = WC.penOpen(w); if (!P || !penMine(w)) return [];
@@ -5504,9 +5511,9 @@ function coopGuestRound(m) {
     ${you ? `<div class="row"><span>${w.player.name.split(' ').pop()}</span><span>${you.dnf ? 'DNF' : 'P' + you.pos}</span></div>` : ''}
     ${m.tg && scored ? coopTargetRows(w, scored, m.tg, 'C') : ''}
     ${m.net != null ? `<div class="row"><span>The weekend</span><span class="${m.net < 0 ? 'bad' : 'ok'}">${m.net > 0 ? '+' : ''}${WC.money$(m.net)}</span></div><div class="row"><span>Bank balance</span><span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span></div>` : ''}`;
-  { const cont = { label: 'Continue', cls: 'action primary', action: () => { if (coop) coop.race = null; openHub(); } };
-    $('round-info').insertAdjacentHTML('beforeend', penBlock(w));
-    const set = () => { const pen = penItems(w, () => { $('round-info').querySelector('.rd-pen')?.remove(); $('round-info').insertAdjacentHTML('beforeend', penBlock(w)); set(); }); menus['s-round'][0].setItems(pen.length ? [...pen, { ...cont, cls: 'action', label: 'Continue<small>ANSWER LATER</small>' }] : [cont]); };
+  { const cont = { label: w.over ? 'Season Review' : 'Continue', cls: 'action primary', action: () => { if (coop) coop.race = null; if (w.over) seasonReview(); else openHub(); } };
+    roundPen(w);
+    const set = () => { const pen = penItems(w, () => { roundPen(w); set(); }); menus['s-round'][0].setItems(pen.length ? [...pen, { ...cont, cls: 'action', label: 'Continue<small>ANSWER LATER</small>' }] : [cont]); };
     set(); }
   if (!openPodium(() => show('s-round'), true)) show('s-round'); // (the podium first)
   if (mine && !mine.dnf && mine.pos <= 3) sfx.finish();
@@ -6760,6 +6767,7 @@ function frameBody(now) {
   const pad = pollGamepad();
   // right-stick shifting: only while you're driving with a manual box (input.js reads the stick between frames too)
   setStickShift(!!(screen === 'hud' && sim && !sim.paused && sim.player && settings.gearbox === 'manual' && settings.stickShift !== 'off'));
+  if (screen === 's-round') { const [, ry] = rightStick(); if (ry) for (const e of document.querySelectorAll('#round-info, #s-round .round-wrap > .panel')) e.scrollTop += ry * dt * 700; } // (the round's rows, when there's more than fits: the right stick scrolls them)
   if (walkSat && (screen !== 's-hub' || !pcSeat)) dropWalk(); // (gone somewhere else from the computer: nobody left in the chair)
   if (screen !== hubWas) { if (hubWas === 's-hub' && screen !== 's-hub' && world) walkEntry = /^s-(main|career|worlds?|boot)$/.test(screen) ? null : 'door'; hubWas = screen; }
   if (walkHeld && screen !== 's-hub') { walkHeld = false; walk.stop(); }
