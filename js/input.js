@@ -104,17 +104,19 @@ export function rightStick(dz = 0.18) {
 // doesn't), and it re-arms once the stick is back inside FLICK.back. The stick's read on a fast timer as well as every
 // frame, so a quick flick between two frames still counts and a run of quick ones (5th to 2nd) each count. For
 // FLICK.bounce ms after a flicked stick is back in the centre, a flick the other way is ignored: a stick let go springs
-// back past the centre.
+// back past the centre. A flick has to be quick (out from the centre in FLICK.quick ms): a drifting stick creeping out,
+// or one shaken there by the rev limiter's buzz, isn't a shift (it was: upshifts on their own, right at the limiter).
 // main.js turns it on (stickShift.on) while you drive with a manual box, and takes the counts each frame (takeFlicks).
-const FLICK = { out: 0.6, back: 0.32, cone: 62 * Math.PI / 180, bounce: 50, every: 8 };
+const FLICK = { out: 0.6, back: 0.32, cone: 62 * Math.PI / 180, bounce: 50, every: 8, quick: 150 };
 export const stickShift = { on: false, up: 0, down: 0 };
-let flickArmed = true, flickDir = 0, flickBack = 0;
+let flickArmed = true, flickDir = 0, flickBack = 0, flickIn = 0;
 function sampleFlick() {
   if (!stickShift.on) return;
   const p = pad(); if (!p) return;
   const x = p.axes[2] || 0, y = p.axes[3] || 0, r = Math.hypot(x, y), now = performance.now();
-  if (r < FLICK.back) { if (!flickArmed) { flickArmed = true; flickBack = now; } return; }
+  if (r < FLICK.back) { if (!flickArmed) { flickArmed = true; flickBack = now; } flickIn = now; return; }
   if (!flickArmed || r < FLICK.out) return;
+  if (now - flickIn > FLICK.quick) { flickArmed = false; return; } // (too slow out: drift, not a flick; back to the centre first)
   if (Math.atan2(Math.abs(x), Math.abs(y)) > FLICK.cone) return; // (0 = straight up / down)
   const d = y < 0 ? 1 : -1;
   flickArmed = false;
