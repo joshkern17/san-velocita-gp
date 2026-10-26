@@ -108,9 +108,10 @@ export function rightStick(dz = 0.18) {
 // Each shift, and each spring-back ignored, goes in localStorage svgp.flickLog (serve.py mirrors it to saves/storage):
 // the stick's x, y and how long it took from inside FLICK.back to out (ms). Logging only: it changes nothing.
 // main.js turns it on (stickShift.on) while you drive with a manual box, and takes the counts each frame (takeFlicks).
-const FLICK = { out: 0.6, back: 0.32, cone: 62 * Math.PI / 180, bounce: 50, every: 8 };
+const FLICK = { out: 0.6, back: 0.32, cone: 62 * Math.PI / 180, bounce: 90, every: 8, moved: 0.25, within: 100, drop: 0.3 };
 export const stickShift = { on: false, up: 0, down: 0 };
-let flickArmed = true, flickDir = 0, flickBack = 0, flickIn = 0;
+let flickArmed = true, flickDir = 0, flickBack = 0, flickIn = 0, flickPeak = 0;
+const flickHist = []; // ([time, x, y]: the last FLICK.within ms)
 const flickLog = []; let flickLogged = 0;
 function logFlick(e) {
   flickLog.push({ t: Math.round(performance.now()), ...e }); if (flickLog.length > 80) flickLog.shift();
@@ -120,11 +121,26 @@ function sampleFlick() {
   if (!stickShift.on) return;
   const p = pad(); if (!p) return;
   const x = p.axes[2] || 0, y = p.axes[3] || 0, r = Math.hypot(x, y), now = performance.now();
-  if (r < FLICK.back) { if (!flickArmed) { flickArmed = true; flickBack = now; } flickIn = now; return; }
+  flickHist.push([now, x, y]); while (flickHist.length && now - flickHist[0][0] > FLICK.within) flickHist.shift();
+  if (!flickArmed) flickPeak = Math.max(flickPeak, r);
+  // (re-arms back near the middle, or once a flick's let go: FLICK.drop under the furthest it went, for a stick that
+  // sits partly out after a creep)
+  if (r < FLICK.back || (!flickArmed && r < flickPeak - FLICK.drop)) {
+    if (!flickArmed) { flickArmed = true; flickBack = now; } // (let go: the spring-back window starts. Not when it next passes the middle: a
+    // stick left partly up and flicked down later read as springing back, Road Atlanta's two missed downshifts)
+    if (r < FLICK.back) { flickIn = now; flickHist.creep = false; }
+    return;
+  }
   if (!flickArmed || r < FLICK.out) return;
+  // (a flick is quick: the stick moved FLICK.moved in the last FLICK.within ms (how far it went, not how far from the
+  // middle: a flick down from a stick sitting up crosses the middle). The stick creeping out to the line
+  // over ~1 s is not a shift (Road Atlanta, 2026-10-26: five upshifts nobody asked for, each at exactly 0.60 after
+  // ~1000 ms; real flicks took 5-37 ms). It stays armed, so a real flick from there still counts)
+  if (!flickHist.some(([, hx, hy]) => Math.hypot(x - hx, y - hy) >= FLICK.moved)) { if (!flickHist.creep) { flickHist.creep = true; logFlick({ x: +x.toFixed(2), y: +y.toFixed(2), ms: Math.round(now - flickIn), ok: false, why: 'creep' }); } return; }
+  flickHist.creep = false;
   if (Math.atan2(Math.abs(x), Math.abs(y)) > FLICK.cone) return; // (0 = straight up / down)
   const d = y < 0 ? 1 : -1;
-  flickArmed = false;
+  flickArmed = false; flickPeak = r;
   const L = { x: +x.toFixed(2), y: +y.toFixed(2), ms: Math.round(now - flickIn), d };
   if (d !== flickDir && now - flickBack < FLICK.bounce) { logFlick({ ...L, ok: false }); return; } // (the spring-back from the last one)
   flickDir = d;
