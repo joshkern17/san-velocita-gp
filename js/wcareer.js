@@ -921,6 +921,29 @@ export function ladderNext(w) {
   const miss = seriesMissing(myTeam(w), up.id).map(([k, n]) => needName(k, n));
   return [`Next rung: ${upNames(sid)}. Finish top 3, or your team top 2.`, `${lic}${miss.length ? ` Entrants need ${miss.join(' and ')}.` : ''}`];
 }
+// ---------------- viewings: the next premises, empty, with the agent ----------------
+// A visit, not a move: w.viewing { base } while you're there (co-op: both of you go; the garage on each side builds
+// the premises it names). Nothing's bought; the Facilities tab is where you move
+const PREMISES_IDS = ['lockup', 'unit', 'workshop', 'factory'];
+const AGENT = { first: 'Marcy', last: 'Fenwick', firm: 'Fenwick Commercial Realty' };
+const VIEW_LINES = {
+  unit: ['Sixteen meters of clear span. In the business we call that a lot of meters.', 'The last tenant made custom surfboards. The smell is included at no extra charge.',
+    'The mezzanine\'s up the stairs. Great for an office, or for looking down on people.', 'Room for two benches. Your mechanic can stop working on the driveway.'],
+  workshop: ['Three bays, a proper office, and a trophy cabinet. Empty, for now. That\'s the dream part.', 'The previous team went into receivership. Lovely people. Terrible with money.',
+    'The roller doors actually roll. You\'d be amazed how rare that is.', 'Big enough that people start calling it "the shop" and you start calling it "the facility".'],
+  factory: ['The technology center, on the lake. The ducks are not included in the lease. Legally.', 'The Boulevard\'s for your cars. All of them, eventually. Picture it.',
+    'Wind tunnel bay, clean room, a machine shop. The coffee machine alone costs more than your first car.', 'I\'m contractually obliged to say the price with a straight face. Watch.'],
+};
+export function viewingOf(w, base = w.viewing?.base ?? facLevel(myTeam(w), 'base') + 1) {
+  const L = FACILITIES.base.levels, n = facLevel(myTeam(w), 'base'); if (!L[base] || base <= n) return null;
+  const id = PREMISES_IDS[base], first = w.player.name.split(' ')[0], wants = SERIES.filter(S => !S.parked && (SERIES_NEEDS[S.id]?.base ?? -1) === base).map(S => S.name);
+  return { base, id, name: L[base][0], cost: L[base][1], upkeep: L[base][2], benches: 1 + Math.min(2, base), now: L[n][0], wants, agent: AGENT,
+    lines: [`${AGENT.first} ${AGENT.last}, ${AGENT.firm}. You must be ${first}. Come in, mind the step.`, ...(VIEW_LINES[id] || []),
+      `${money$(L[base][1])} to move in, ${money$(L[base][2])} a round after that. Take your time. The door's where you left it.`] };
+}
+export function viewStart(w, base) { if (!viewingOf(w, base)) return false; w.viewing = { base }; return true; }
+export function viewEnd(w) { if (!w.viewing) return false; delete w.viewing; return true; }
+
 // the next rung, as state for the garage (no instructions): the series, the team in front there, and each gate: the
 // result (provisional through the season: 'on' while you're in the places), the license, what the premises need
 export function nextRung(w) {

@@ -1268,7 +1268,7 @@ export class PitGarage {
   update(dt) {
     if (!this.active) return;
     this.t += dt;
-    if (this.listMesh) this.listMesh.visible = this.mode === 'home'; // (only at home: not in a race weekend's pit box)
+    if (this.listMesh) this.listMesh.visible = this.mode === 'home' && !this.away; // (only at home: not in a race weekend's pit box, nor somewhere you're only visiting)
     if (this.memGroup) this.memGroup.visible = this.mode === 'home';
     if (this.noticeMesh) { if (this.noticeOn && this.noticeRoom !== this.custom) this.placeNotice(); this.noticeMesh.visible = this.noticeOn && this.mode === 'home'; }
     for (const ch of this.people || []) {

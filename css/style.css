@@ -1826,6 +1826,7 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .wh-cell.bad b, .wh-cell.bad em { color: var(--sv-bad); }
 .wh-hint { margin: var(--s3) 0 0; max-width: 460px; font: 500 var(--t-caption)/1.4 var(--f-body); color: var(--sv-red-dim); text-shadow: var(--sv-glow-body); -webkit-text-fill-color: transparent; opacity: 0; transition: opacity .4s; }
 #s-hub.walking.still .wh-hint { opacity: 1; }
+.wh-hint.view { opacity: 1; } /* (a viewing: what it is and where moving's done, always) */
 /* the next rung up (main.js rungStrip): the car in front there, what getting in takes, ticked or not; on the hub card,
    and on your feet only while you stand still, like the hint */
 .hub-rung { display: flex; gap: var(--s3); align-items: flex-start; margin-top: var(--s4); padding-top: var(--s3); border-top: 1px solid color-mix(in srgb, var(--sv-red) 45%, transparent); max-width: 460px; }

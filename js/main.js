@@ -57,7 +57,7 @@ const WC = new Proxy(WCX, { get(m, k) {
 } });
 // (what the co-owner may do on their own: their own days, their own work on the car, and whatever their role runs
 // (WC.opOwner); the rest they suggest. The season itself, the email that isn't a role's, the host's)
-const GUEST_OPS = new Set(['roleDay', 'rebuildSelf', 'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan', 'coopAnswer', 'propose', 'approveProp', 'declineProp']);
+const GUEST_OPS = new Set(['viewStart', 'viewEnd', 'roleDay', 'rebuildSelf', 'coopDay', 'coopAsk', 'coopCancelAsk', 'coopTogether', 'coopGigTake', 'coopGigDone', 'coopInterview', 'coopDoPlan', 'coopAnswer', 'propose', 'approveProp', 'declineProp']);
 const guestMay = (w, fn) => GUEST_OPS.has(fn) || (w && w.coop && WCX.opOwner(w, fn) === 'C');
 import { Phone } from './phone.js';
 import { Net, PROTO } from './net.js';
@@ -2317,6 +2317,7 @@ const pc = new Computer({
   // a team's car, as it races: the model it runs in this series (keys: its class's cars) in its livery
   teamPhoto: (tid) => teamShot(tid)?.src || null,
   classKeys: (cls) => carsOfClass(cls).map(chassisKey),
+  view: (base) => { sfx.select(); startViewing(base); }, // (viewSync gets you up from the desk)
   trackMap: (name) => { const t = findCalTrack(name); return t ? tkThumb(t) : null; },
   carInfo: (chassis) => {
     const id = carId({ chassis }), C = CARS[id]; if (!C) return null;
@@ -2541,7 +2542,7 @@ function hubTick(dt) {
   // (only when it wants you, or you're pointing at it: the sheet itself is always on the wall, and the computer's tag is
   // just below it)
   const lm = menus['s-hub'][0], lHot = listHover || /^The List/.test(lm.items[lm.i]?.label || ''), lNew = !!world && (WC.listWants(world) || WC.listFresh(world).length > 0);
-  const lt = $('list-tag'), la = world && founded(world) && (lHot || lNew) && !pcSeat && hubMode === 'room' && pitGarage.atRoom && !phone.isOpen ? pitGarage.listAnchor() : null;
+  const lt = $('list-tag'), la = world && founded(world) && !world.viewing && (lHot || lNew) && !pcSeat && hubMode === 'room' && pitGarage.atRoom && !phone.isOpen ? pitGarage.listAnchor() : null;
   lt.hidden = !la;
   if (la) {
     const z = hubZoom(); lt.style.left = la.x / z + 'px'; lt.style.top = la.y / z + 'px';
@@ -2709,7 +2710,40 @@ function walkSpots() {
   const door = out.find(s => s.key === 'door'); if (door) Object.defineProperty(door, 'label', { get: doorLabel });
   const car = out.find(s => s.key === 'car'); if (car) Object.defineProperty(car, 'alt', { get: () => !coopGuest() && dayAt('car').length ? 'Spend the day' : null }); // (the co-owner's car: its day's what selecting it does)
   for (const s of out) if (['computer', 'car', 'list', 'door', 'poster', 'tires'].includes(s.key)) Object.defineProperty(s, 'want', { get: () => wantOf(s.key) });
+  if (screen === 's-hub' && world && world.viewing) return out.filter(s => s.key === 'door'); // (a viewing: nothing here's yours yet, only the way out)
   return out;
+}
+// ---- viewings (WC.viewStart): the premises above yours, empty, with the agent; co-op, both of you go ----
+// world.viewing says where you are; viewSync makes the garage match (on each side: the host's save carries it to the
+// friend), behind a fade: off your feet, the room swapped, in at the door
+let viewShown = null, viewT = 0;
+function startViewing(base) {
+  if (!world || world.viewing) return;
+  if (coopGuest()) { coopSend('viewStart', [base]); return; }
+  if (!WC.viewStart(world, base)) { sfx.error(); return; }
+  saveWorld(); viewSync();
+}
+function endViewing() {
+  if (!world || !world.viewing) return;
+  if (coopGuest()) { coopSend('viewEnd', []); return; }
+  WC.viewEnd(world); saveWorld(); viewSync();
+}
+function viewSync() {
+  if (!world || screen !== 's-hub') return;
+  const want = world.viewing ? world.viewing.base : null; if (want === viewShown) return;
+  viewShown = want;
+  fadeTo(async () => {
+    dropWalk(); if (walk.active || walkHeld) { walk.stop(); walkHeld = false; } walkPaused = false; walkOff = false; walkIdle = 0; drawWalkTags(null);
+    if (pcSeat) { pcSeat = false; pc.close(); } if (tsw.isOpen) tsw.close(); if (dayPlan.isOpen) dayPlan.close();
+    $('s-hub').classList.remove('seated', 'at-car', 'wizard', 'planning', 'at-list', 'walking'); hubMode = 'room'; optSub = false; pitGarage.setView('room');
+    pitGarage.away = !!world.viewing; // (your List stays at home)
+    const h = homeKit(world); pitGarage.pickRoom(h); pitGarage.showCar(!world.viewing && !!world.car); pitGarage.setCar2(h.car2);
+    pitGarage.setCrew(homeCrewOf(world), homeBusy(world)); pitGarage.setPeople(world.viewing ? [] : mateInRoom(world));
+    await pitGarage.roomReady();
+    walkEntry = 'door'; renderHub(); renderHubMenu(); renderHints();
+    if (world.viewing) { const V = WC.viewingOf(world); if (V) toast(`<b>${escP(V.agent.first)}</b> ${escP(V.lines[0])}`, 5000); }
+    clearInterval(viewT); if (world.viewing) viewT = setInterval(() => { if (world && world.viewing && screen === 's-hub') renderWalkHud(); else clearInterval(viewT); }, 7000); // (the agent's patter, line by line)
+  }, 300);
 }
 // what a spot does: in a career, the hub menu's own item; in the preview, nothing (it says what it'd be)
 // the setup step you're on, if it's done at the computer (the hub menu's first item)
@@ -2732,6 +2766,7 @@ function useSpot(s) {
   if (screen === 's-homeview') { sfx.select(); toast(`In a career: <b>${s.label}</b>.`, 1800); return; }
   // the door: out for the day (the planner, with what's away from the garage); no days left, what's next (race day)
   if (s.key === 'door') {
+    if (world.viewing) { endViewing(); return; }
     // (the season's over: out the door is the next one, once you've answered the SVMA)
     if (world.over) {
       if (offerPending(world)) { sfx.error(); toast('First the SVMA\'s offer: it\'s in your email, on the computer.', 2200); return; }
@@ -2795,6 +2830,7 @@ function dayAt(where) {
 function doorLabel() {
   if (!world || screen !== 's-hub') return 'Head out';
   const w = world, wk = myWeek(w);
+  if (w.viewing) return `Back to the ${WC.FACILITIES.base.levels[WC.facLevel(WC.myTeam(w), 'base')][0].toLowerCase()}`;
   if (w.over) return `Start the ${w.year + 1} season`;
   if (wk.left <= 0) return hubItem(/^Round \d+: Race/) ? `Race day: round ${w.round + 1}` : 'Head out';
   const ch = dayAt('door'), ev = ch.find(o => /^ev|^din/.test(o.key) && o.tag === 'Today'), bk = ch.filter(o => /^bk|^pl/.test(o.key)).length;
@@ -3243,6 +3279,7 @@ function hubCar() {
 // what's in the garage at home (js/garagekit.js): your premises, the facilities you've bought (each one a station in the
 // room) and car two in the second bay
 function homeKit(w) {
+  if (w.viewing) return { premises: PREMISES[w.viewing.base] || PREMISES[0], stations: [], car2: null }; // (a viewing: the place, empty)
   const t = w.teams[w.player.team], c2 = w.car && WC.car2Of(w), car = hubCar();
   return { premises: PREMISES[WC.facLevel(t, 'base')] || PREMISES[0], stations: WC.FAC_KEYS.flatMap(k => stationKeys(k, WC.facLevel(t, k))),
     car2: c2 ? (w.coop ? coopCar() : car2Look({ ...car, number: (car.number || 7) % 99 + 1 })) : null };   // (on its own model when it has one: co-op, the co-owner's pick)
@@ -3256,6 +3293,7 @@ function crewPerson(key, role, first, team) {
   return { key, role, look: poloOf(team), face: faceForName(first, key) };
 }
 function homeCrewOf(w) {
+  if (w.viewing) return [{ key: 'agent', role: 'manager', look: 'polo_navy', face: faceForName('Marcy', 'agent') }]; // (a viewing: just the agent)
   const t = w.teams[w.player.team]; if (!t) return [];
   const out = (w.staff || []).filter(x => x.role in { mechanic: 1, engineer: 1, manager: 1 }).map(x => ({ ...crewPerson(x.id, x.role, x.first, t), ...(x.danny ? { look: 'tee_blue' } : {}) }));
   const m = WC.mateOf(w), p = m && w.people[m.pid];
@@ -3265,7 +3303,7 @@ function homeCrewOf(w) {
 // the stations in use: the dyno and the lift for engine work, the welding table for chassis and aero, the lift for the
 // rest; the data room's screens on while you've a data engineer
 function homeBusy(w) {
-  const out = new Set();
+  const out = new Set(); if (w.viewing) return [];
   for (const x of (w.projects || []).filter(p => !p.done && !p.shop)) {
     if (x.area === 'engine') out.add('dyno'); else if (x.area === 'chassis' || x.area === 'aero') { out.add('fab'); out.add('fab2'); }
     if (x.area === 'aero') out.add('tunnel2');   // (the factory's: the model in the tunnel, a part in the autoclave)
@@ -3279,6 +3317,8 @@ function homeBusy(w) {
 function syncHome() { if (world && pitGarage.active && pitGarage.mode === 'home') { const h = homeKit(world); pitGarage.pickRoom(h); pitGarage.setPeople(mateInRoom(world)); pitGarage.setCar2(h.car2); pitGarage.setCrew(homeCrewOf(world), homeBusy(world)); pitGarage.setTyres(founded(world) ? { ...WC.stockOf(world) } : null); } }
 function enterHub() {
   disposeSim(); updateLogoShown();
+  if (world.viewing && !coop) delete world.viewing; // (a viewing's a visit: back in, you're home)
+  viewShown = world.viewing ? world.viewing.base : null; pitGarage.away = !!world.viewing;
   const t = world.teams[world.player.team];
   if (world.livery) { t.main = world.livery.main; t.accent = world.livery.accent; }
   pitGarage.openHome(hubCar(), { main: t.main, accent: t.accent, name: t.name }, homeKit(world)); pitGarage.showCar(!!world.car);
@@ -3370,6 +3410,7 @@ async function settleHub() {
 function renderHub() {
   if (world && !world.carCat) WC.setCarCatalog(world, carCatalog());
   if (!world) return;
+  viewSync();
   if (screen === 's-hub' || pitGarage.mode === 'home') { pitGarage.setPeople(mateInRoom(world)); pitGarage.setCrew(homeCrewOf(world), homeBusy(world)); }
   const w = world, sid = w.player.series, S = w.series[sid];
   $('hub-title').textContent = w.teams[w.player.team].name;
@@ -3380,7 +3421,7 @@ function renderHub() {
   const bank = w.money && w.money.choice ? cellW('Bank', `<span class="${w.money.balance < 0 ? 'bad' : ''}">${WC.money$(w.money.balance)}</span>`) : cellW('Bank', '&mdash;');
   const F = w.founding || {};
   pitGarage.setNotice(WC.bankNote(w)?.stage >= 2);
-  pitGarage.setMemories(WC.memoriesOf(w)); // (the clippings, trophies, bills, the license and the SVMA poster)
+  pitGarage.setMemories(w.viewing ? null : WC.memoriesOf(w)); // (a viewing: none of yours. Else the clippings, trophies, bills, the license and the SVMA poster)
   if (walk.active && !!pitGarage.posterFrame !== walk.spots.some(x => x.key === 'poster')) walk.spots = walkSpots(); // (the poster's gone up, or moved, while you're on your feet)
   if (w.ended) {
     const E = w.ended, bank = E.why === 'bank';
@@ -3514,6 +3555,14 @@ function renderWalkHud() {
   const w = world, hud = $('walk-hud'), nx = $('walk-next');
   if (!w || w.ended) { hud.innerHTML = nx.innerHTML = ''; return; }
   // (getting going, and the season's end: just what's next, and where)
+  if (w.viewing) {
+    const V = WC.viewingOf(w); if (!V) { hud.innerHTML = nx.innerHTML = ''; return; }
+    hud.innerHTML = `<div class="wh-team">Viewing &middot; ${escP(V.agent.firm)}</div><div class="wh-row"><div class="wh-cell main"><small>Premises</small><b>${escP(V.name)}</b></div>
+      <div class="wh-cell"><small>To move in</small><b>${WC.money$(V.cost)}</b></div><div class="wh-cell"><small>A round</small><b>${WC.money$(V.upkeep)}</b></div><div class="wh-cell"><small>Benches</small><b>${V.benches}</b></div></div>
+      <p class="wh-hint view">${V.wants.length ? `The ${escP(V.wants.join(' and the '))} ask${V.wants.length === 1 ? 's' : ''} for one. ` : ''}You're in the ${escP(V.now.toLowerCase())} now. Moving's on the computer: Team, Facilities.</p>`;
+    nx.innerHTML = `<b>${escP(V.agent.first)}</b> ${escP(V.lines[Math.floor(performance.now() / 7000) % V.lines.length])}`;
+    return;
+  }
   const su = setupItem(), st = coopGuest() ? null : stepItems(w)[0];
   // (the season's next step, as a button under the team: the setup, the launch, the next season. Tab / View, or click)
   const stepB = st ? `<button class="wh-step" type="button"><span class="wh-key">${hintKeys('step')}</span>${String(st.label).replace(/<[^>]+>.*$/, '')}</button>` : '';
@@ -3609,6 +3658,7 @@ function renderHubMenu() {
   if (hubMode === 'car') return renderCarMenu();
   if (hubMode === 'list') return renderListMenu();
   if (hubMode === 'tires') return renderTyreMenu();
+  if (world.viewing) { const m = menus['s-hub'][0], V = WC.viewingOf(world); m.setItems([{ label: doorLabel(), cls: 'action', action: () => endViewing(), desc: V ? `The ${V.name.toLowerCase()}: ${WC.money$(V.cost)} to move in, ${WC.money$(V.upkeep)} a round. Moving is on the computer (Team, Facilities).` : '' }]); m.render?.(); return; }
   if (hubMode === 'poster') { const m = menus['s-hub'][0]; m.setItems([{ label: 'Back to the garage', cls: 'action', action: () => leavePoster(), desc: 'The ladder, and where you are on it.' }]); return; }
   if (coopGuest()) return renderGuestMenu();
   if (world.ended) { // (the team's finished: what's left is reading about it)
@@ -4170,6 +4220,10 @@ function dayChoices(w, canRace) {
       money: `−${$(WC.selfCost(w, worst))}`, mcls: 'neg', effect: `${WC.PARTS[worst].name} ${Math.round(c * 100)}% &rarr; about ${Math.round(to * 100)}%`,
       vis: { type: 'bar', label: WC.PARTS[worst].name, from: c, to: Math.max(c, to), text: `${Math.round(c * 100)}% → ~${Math.round(to * 100)}%` },
       run: () => { const was = P[worst].cond; WC.rebuildSelf(w, worst); return { amt: -WC.selfCost(w, worst), line: `Rebuilt the ${WC.PARTS[worst].name.toLowerCase()}`, note: `${Math.round(was * 100)}% &rarr; ${Math.round(P[worst].cond * 100)}%` }; } }); }
+  // a viewing: the next premises up, with the agent (doesn't use the day; co-op, you both go)
+  { const V = WC.viewingOf(w); if (V && !w.viewing) out.push({ key: 'view', short: 'Viewing', tag: 'Free', head: `View the ${V.name.toLowerCase()}`,
+    desc: `${V.agent.first} ${V.agent.last} of ${V.agent.firm} will show you round. ${$(V.cost)} to move in, ${$(V.upkeep)} a round.${w.coop ? ' You both go.' : ''}`,
+    money: 'Free', time: 'Doesn\'t use the day', effect: 'A look round', go: true, goLabel: 'Go and see it', run: () => startViewing(V.base) }); }
   // development: a day on a project under way (or, with none, the list of them on the computer)
   const proj = (w.projects || []).find(x => !x.done && !x.shop);
   if (proj) { const mr = WC.mechRate(w), mine = 1 + WC.facLevel(WC.myTeam(w), 'tools') * 0.25, pg = proj.prog || 0;
@@ -6937,4 +6991,4 @@ if (DEV) {
 function hitchFn(f, label) { return function (...a) { hitch.note(label); return hitch.time(label, () => f.apply(this, a)); }; }
 window.__svgp = { get world() { return world; }, get photo() { return photo; }, get hud() { return hud; }, get phone() { return phone; }, get pc() { return pc; }, get post() { return post; }, get sim() { return sim; }, get editor() { return editor; }, get net() { return net; }, get lobby() { return lobby; }, get garage() { return garage; }, settings, startRace, handleRaceEvents, openEditor, show, get screen() { return screen; },
   open: { review: (from) => openLapReview(from), setup: () => openSetup(), career: () => openCareer(), online: () => openOnline(), garage: () => openGarage(), options: () => openOptions('s-main'), help: () => show('s-help'), credits: () => { fillCredits(); show('s-credits'); }, main: () => show('s-main') },
-  dbg: { worldCar: () => worldCar(), startPressDay: () => startPressDay(), get pressDay() { return pressDay; }, switchCar: (k) => { switchCar(k); if (screen === 's-garage') { garage.setCar(settings.car); classicOnly(); } }, get carPush() { return carPush; }, startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), goToPoster: () => goToPoster(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); }, openHomeView: () => openHomeView(), startWalk: () => startWalk(), startPitWalk: () => startPitWalk(), get walk() { return walk; }, homeView: (o) => { Object.assign(hv, o); hvApply(); }, get hv() { return hv; }, devWalkGarage: (p) => devWalkGarage(p) } };
+  dbg: { worldCar: () => worldCar(), startPressDay: () => startPressDay(), get pressDay() { return pressDay; }, switchCar: (k) => { switchCar(k); if (screen === 's-garage') { garage.setCar(settings.car); classicOnly(); } }, get carPush() { return carPush; }, startWeekend: (t, race, ret, format = 'quali', len = [1200, 600]) => startWeekend(t, race, ret, format, len), get pitGarage() { return pitGarage; }, careerRoundDone: (r) => careerRoundDone(r), showResults: () => showResults(), openDraft: () => openDraft(), openShop: () => openShop(), showSeasonEnd: () => showSeasonEnd(), get career() { return career; }, gigTrack: (g) => gigTrack(g), startGig: (g) => startGig(g), get gig() { return gig; }, runVoices: () => runVoices(), get opening() { return opening; }, openOpening: (extra) => openOpening(null, extra), startDriveHome: () => startDriveHome(() => {}), get drive() { return drive; }, voiceState, startWorldRound: () => startWorldRound(), renderHub: () => renderHub(), startWorld: (opening = false) => startWorld(!opening), openPodium: (n) => openPodium(n || (() => show('s-main'))), openTeamSetup: () => openTeamSetup(), get tsw() { return tsw; }, get dayPlan() { return dayPlan; }, openDayPlan: () => openDayPlan(true), sitDown: (a, x) => sitDown(a, x), standUp: () => standUp(), openHub: () => openHub(), get ending() { return ending; }, openEndingPreview: () => openEndingPreview(), goToList: () => goToList(), goToPoster: () => goToPoster(), get listPaper() { return listPaper; }, get coop() { return coop; }, coopHost: () => coopHost(), coopOp: (fn, ...a) => WC[fn](world, ...a), playWorld: (w) => { world = w; openHub(); }, openHomeView: () => openHomeView(), startWalk: () => startWalk(), startPitWalk: () => startPitWalk(), get walk() { return walk; }, homeView: (o) => { Object.assign(hv, o); hvApply(); }, get hv() { return hv; }, devWalkGarage: (p) => devWalkGarage(p), startViewing: (b) => startViewing(b), endViewing: () => endViewing() } };
