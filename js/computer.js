@@ -254,7 +254,7 @@ export class Computer {
     if (a === 'close') { this.back(); return; }
     if (a === 'back') { this.back(); return; }
     if (a === 'mail') { this.page = { mail: arg }; this.markRead(arg); this.curKey = 'mail-' + arg; this.render(); this.src.sfx?.select?.(); return; }
-    if (a === 'reply') { const [id, key] = arg.split(':'), m = this.w.mail.find(x => x.id === id); if (m && !m.answer) { this.src.answer(m, key); this.curKey = null; this.render(); } return; }
+    if (a === 'reply') { const i = arg.indexOf(':'), id = arg.slice(0, i), key = arg.slice(i + 1), m = this.w.mail.find(x => x.id === id); if (m && !m.answer) { this.src.answer(m, key); this.curKey = null; this.render(); } return; }
     // answering the press (character voices on): a tone, or what you typed
     if (a === 'press' || a === 'presstype') {
       const [id, intent] = arg.split(':'), m = this.w.mail.find(x => x.id === id); if (!m || m.replied || m.pressBusy) return;

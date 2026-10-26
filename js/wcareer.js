@@ -1104,7 +1104,9 @@ export function answerOffer(w, ans, to) {
   const off = w.player.offer; if (!off) return;
   if (String(ans).startsWith('move:')) { to = ans.slice(5); ans = 'move'; } // (the one email with every series: 'move:<id>')
   if (ans === 'stay' && to === 'multi') { off.answer = 'stay'; off.no = [...(off.opts || [off.to])]; return; }
-  const id = typeof to === 'string' ? to : off.to, opts = off.opts || [off.to];
+  const opts = off.opts || [off.to];
+  let id = typeof to === 'string' ? to : off.to;
+  if (id === 'multi') { if (opts.length !== 1) return; id = opts[0]; } // (a bare 'move' to the email with every series: only means something with one)
   if (ans === 'move') { off.to = id; off.answer = 'move'; off.no = []; return; }
   if (off.answer === 'move' && off.to !== id) return;
   off.no = [...new Set([...(off.no || []), id])];
@@ -5570,6 +5572,9 @@ export function loadWorld(id) {
     }
     retireCars(w);
     gt2Moves(w);
+    // (the email with every series answered as a bare 'move' (a reply cut at its colon): a move up to 'multi', no such series)
+    const off = w.player && w.player.offer;
+    if (off && off.to === 'multi' && off.answer === 'move') { const o = off.opts || []; if (o.length === 1) off.to = o[0]; else off.answer = null; for (const m of w.mail || []) if (m.offer === 'multi' && m.answer === 'move') m.answer = o.length === 1 ? 'move:' + o[0] : null; }
     return w;
   } catch (e) { return null; }
 }
