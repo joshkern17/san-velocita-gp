@@ -39,6 +39,7 @@ export class Launch {
     this.D = WC.pressDayOf(w); this.qi = this.D.answers.filter(a => a != null).length; this.sel = 0;
     if (!this.follow) this.tell({ ev: 'open', D: this.D });   // (the co-owner's game opens it too)
     this.isOpen = true; this.phase = 'load'; this.t = 0;
+    this.hooks = {}; this.drivers = [];   // (premises with no room for the set yet, EVENT_AT: the day goes on without one)
     const T = this.src.team(), S = WC.seriesById(w.player.series);
     this.el.innerHTML = `<div class="pd-vig"></div>
       <header class="tsw-head pd-head"><h1>Season Launch</h1><p>${esc(T.name)} &middot; ${esc(S.name)} &middot; ${w.year}</p></header>

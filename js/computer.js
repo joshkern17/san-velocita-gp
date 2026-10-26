@@ -325,7 +325,9 @@ export class Computer {
     desk.innerHTML = `<div class="pc-wall"><b>${esc(team.name)}</b><small>${esc(WC.seriesById(w.player.series).name)} &middot; ${w.year}</small></div>` +
       APPS.filter(a => !a.hidden).map((a, k) => `<div class="pc-icon" data-nav data-act="app" data-arg="${a.id}" data-key="app-${a.id}" style="left:${ICON_X + Math.floor(k / ICON_ROWS) * ICON_COL}px;top:${ICON_Y + (k % ICON_ROWS) * ICON_STEP}px">${iconSvg(a.id)}<span>${a.label}</span>${a.id === 'mail' && nMail ? `<em>${nMail}</em>` : ''}</div>`).join('');
     const app = APPS.find(a => a.id === this.app);
-    task.innerHTML = `<span class="pc-start">SV</span>${app ? `<span class="pc-tb on">${app.site ? 'Internet' : app.label}</span>` : ''}<span class="pc-clock">${esc(this.clock())}</span>`;
+    // (the balance, in the tray: on screen whatever's open, so you can see it while you spend)
+    const m = w.money, bal = m && m.choice ? `<span class="pc-bal${m.balance < 0 ? ' neg' : ''}" title="Your balance">${WC.money$(m.balance)}</span>` : '';
+    task.innerHTML = `<span class="pc-start">SV</span>${app ? `<span class="pc-tb on">${app.site ? 'Internet' : app.label}</span>` : ''}${bal}<span class="pc-clock">${esc(this.clock())}</span>`;
     win.hidden = !app;
     if (app) {
       // re-drawing the same page (a field changed, a list item picked) keeps its panes scrolled where they were
@@ -1202,6 +1204,7 @@ export class Computer {
     g.fillStyle = '#e6e3da'; g.fillRect(4, H - TASK_H + 4, 44, TASK_H - 8);
     g.fillStyle = '#111'; g.textAlign = 'center'; g.font = "bold 13px Arial, sans-serif"; g.fillText('SV', 26, H - 10);
     g.textAlign = 'right'; g.font = "13px Arial, sans-serif"; g.fillText(this.clock(), W - 12, H - 10);
+    { const m = this.w && this.w.money; if (m && m.choice) { const cw = g.measureText(this.clock()).width; g.font = "bold 13px Arial, sans-serif"; g.fillStyle = m.balance < 0 ? '#b81c10' : '#111'; g.fillText(WC.money$(m.balance), W - 12 - cw - 30, H - 10); } }
     this.idleDirty = true;
   }
 }

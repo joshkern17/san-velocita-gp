@@ -1551,6 +1551,9 @@ body.gig-on .hud-fun:not(:empty) { display: block; }
 .pc-task { position: absolute; left: 0; right: 0; bottom: 0; height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 4px; background: #c3c0b6; border-top: 2px solid #fff; }
 .pc-start, .pc-tb { height: 22px; padding: 0 10px; display: flex; align-items: center; background: #e6e3da; border: 2px outset #f4f2ec; font-weight: bold; }
 .pc-tb { font-weight: normal; min-width: 140px; border-style: inset; background: #d8d5cc; }
+.pc-bal { margin-left: auto; padding: 0 10px; height: 22px; display: flex; align-items: center; border: 1px inset #f4f2ec; font-weight: bold; font-variant-numeric: tabular-nums; }
+.pc-bal.neg { color: #b81c10; }
+.pc-bal + .pc-clock { margin-left: 0; }
 .pc-clock { margin-left: auto; padding: 0 10px; height: 22px; display: flex; align-items: center; border: 1px inset #f4f2ec; }
 /* a window (always maximised) */
 .pc-win { position: absolute; inset: 0 0 30px 0; display: flex; flex-direction: column; background: #c3c0b6; border: 2px outset #f4f2ec; }
