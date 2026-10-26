@@ -331,9 +331,11 @@ export class RaceControl {
   }
 
   // ---------- black and orange flag: a car with a wing hanging off has to come in for repairs ----------
+  // (broken: the damage the flag's for)
+  broken(car) { const d = car.phys.dmg; return !!this.race.damageK && (d.fw >= 0.72 || d.rw >= 0.72 || d.ch >= 0.85); }
   meatball(car) {
     if (!this.race.damageK || car.finished || car.dsq || car.wreck) return;
-    const d = car.phys.dmg, broken = d.fw >= 0.72 || d.rw >= 0.72 || d.ch >= 0.85;
+    const broken = this.broken(car);
     if (!broken) { if (car.mo) { car.mo = null; if (car.isPlayer) this.say('Repairs done · black and orange flag withdrawn', { me: true, cls: 'g' }); } return; }
     if (!car.mo) {
       car.mo = { lap: car.lap + 1 }; // (this lap and the next)
@@ -363,6 +365,15 @@ export class RaceControl {
           if (!quicker && (f.lap - c.lap < 1 || lead < L * 0.5)) continue;
           const gap = ((c.idx - f.idx + N) % N) * T.ds; // f is this far behind c on the road
           if (gap > 0 && gap < (quicker ? 55 : 70) && (!by || gap < by.gap)) by = { car: f, gap, cls: quicker && !(f.lap - c.lap >= 1 && lead >= L * 0.5) };
+        }
+        // an AI car limping round broken (what the black and orange flag is for: a wing hanging off, the chassis bent):
+        // anyone on its tail is let by like a quicker class, holding its line, no penalty. Raced as a rival it held up
+        // the field: at Mount Panorama (2026-10-26) Krol, leading with the car broken, had three cars stuck behind him
+        // for a lap; in a seeded rerun one car in a lap got by, the rest only when he pitted
+        if (!by && c.ai && !c.isPlayer && this.broken(c)) for (const f of race.cars) {
+          if (f === c || f.gone || f.finished || f.pitting) continue;
+          const gap = ((c.idx - f.idx + N) % N) * T.ds;
+          if (gap > 0 && gap < 55 && (!by || gap < by.gap)) by = { car: f, gap, cls: true };
         }
       }
       // how fast they're closing (smoothed): the flag comes out once they're right there, or coming at us quickly; a car
