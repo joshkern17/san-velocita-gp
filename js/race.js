@@ -60,6 +60,8 @@ const diffFor = (opts) => { const D = (CARS[opts.cast && !opts.car ? opts.cast[0
 // lap: one more speed plan per car, learned once and kept), till the best of them is at it; each entry's gap then grows
 // by what the lift made up, less their own over (techFor). So the best of a series is still quickest, by what their
 // rating says, and a top team that keeps developing keeps gaining, instead of all of them waiting at the limit.
+// the classes whose speed plans count one practice incident once (learnLimits)
+const ONE_HIT = new Set(['gt1', 'gt2', 'groupc', 'f1']);
 const LIFT = 0.02, LIFT_T = 0.75, LIFT_MAX = 3; // (measured, Summit Point 2026-10-26: +2% grip 0.65-0.9% of a lap; a plan per grip is noisy, +-0.5%, so 1% steps were lost in it)
 function liftFor(D, entries) {
   const best = Math.max(0, ...Object.values(entries || {}).map(e => +e.over || 0)); if (best < 0.1) return D;
@@ -670,6 +672,7 @@ export class Race {
   tryLine(id, O) {
     const savedCars = this.cars, savedLine = this.line, { grip, power } = this.lineGrip(), lk = grip === 1 ? id : `${id}|g${grip}`;
     this.cars = this.cars || []; this.line = O; this.limits = {};
+    this.learnCls = CARS[id].cls;
     const V = this.learnLimits(this.forTrack(CARS[id].spec), grip), meta = { w: this.wearPerM, g: this.refGrip }, rounds = this.learnRounds;
     this.limits[lk] = V; (this.limitMeta ||= {})[id] = meta;
     const t = this.simLap(id, { tyre: this.condTyre(), grip, power });
@@ -734,6 +737,7 @@ export class Race {
       else if (!hit && (hit = loadPlan(key))) LIMITS_CACHE.set(key, hit);
       if (hit) { this.limits[lk] = hit.V; if (grip === 1 || !(this.limitMeta || {})[id]) (this.limitMeta ||= {})[id] = hit.meta; this.learnRounds = hit.rounds; return hit.V; }
       const prev = this.lineV, w = this.wearPerM, rg = this.refGrip;
+      this.learnCls = CARS[id].cls; // (which class the plan's for: oneHitFor)
       this.limits[lk] = this.learnLimits(this.forTrack(CARS[id].spec), grip);
       const meta = { w: this.wearPerM, g: this.refGrip }; // (tyre use / grip of this car here: for its strategy)
       if (grip === 1 || !(this.limitMeta || {})[id]) (this.limitMeta ||= {})[id] = meta;
@@ -750,8 +754,9 @@ export class Race {
     // (the plan is learned on a line fitted to the race's main car: whose line it is is part of the key)
     // (a car whose spec was reworked carries a rev: what was learned for it before is no use now)
     const rv = (k) => CARS[k]?.rev ? `${k}r${CARS[k].rev}` : k;
-    return `${this.track.name}|${T.N}|${h}|${this.rain ? 1 : 0}${this.dirt ? 'd' : ''}|${rv(id)}${this.opts.lineKind === 'old' ? '' : `|l${LINE_VERSION}${this.opts.kerbMargin === false ? 'nk' : this.opts.kerbMargin != null ? 'k' + this.opts.kerbMargin : ''}${this.opts.lineEdge != null ? `e${this.opts.lineEdge}` : ''}|on${rv(owner)}`}|cs`; // (cs: plans capped at the speed seen, learnLimits)
+    return `${this.track.name}|${T.N}|${h}|${this.rain ? 1 : 0}${this.dirt ? 'd' : ''}|${rv(id)}${this.opts.lineKind === 'old' ? '' : `|l${LINE_VERSION}${this.opts.kerbMargin === false ? 'nk' : this.opts.kerbMargin != null ? 'k' + this.opts.kerbMargin : ''}${this.opts.lineEdge != null ? `e${this.opts.lineEdge}` : ''}|on${rv(owner)}`}|cs${this.oneHitFor(CARS[id]?.cls) ? '|oh' : ''}`; // (cs: plans capped at the speed seen, learnLimits; oh: one hit an incident)
   }
+  oneHitFor(cls) { return this.opts.oneHit ?? ONE_HIT.has(cls); }
   learnLimits(spec = CARSPEC, gripEdge = 1) {
     const T = this.T, N = T.N, grip = (this.rain ? 0.97 : 1) * (this.dirt ? SURFACES.dirt[0] * (spec.dirtGrip ?? 1) : 1); // (dirtGrip: physics.js)
     const vmax = Math.min(95, spec.gears[spec.gears.length - 1] * 0.99);
@@ -803,7 +808,7 @@ export class Race {
       if (rounds === 0 || T.open) flying(0);
       car.phys.fitTyres(this.condTyre()); car.phys.wearK = 1;
       const hits = [];
-      let dist = 0, lastIdx = car.idx, cool = 0;
+      let dist = 0, lastIdx = car.idx, cool = 0, rec = 0; const oneHit = this.oneHitFor(this.learnCls);
       seen = new Float32Array(N);
       for (let f = 0; f < 60 * 150 && dist < (T.open ? T.raceL : T.L); f++) {
         const ctl = this.aiControls(car, 1 / 60);
@@ -818,8 +823,14 @@ export class Race {
         // (and the centre 0.6 m past the white line: the line runs two wheels over it, but nearly all four is a run wide -
         // 0.95 m is track limits, racecontrol.js. It was 1.1 m, never reached while the line kept 2 m in)
         const bad = !car.onRoad || wide || p.slipR > 0.3 + 0.4 * (p.p.slideOK ?? 0) || heading < 0.8 || Math.abs(car.s) > T.W[car.idx] / 2 + (this.opts.lineEdge === false ? 1.1 : 0.6); // (slideOK: a car driven sideways, a sprint car's slide is its cornering: past ~24° it's still too far)
+        // (one incident, one hit: after a hit, none till the car's back on the road and up to speed, 1 s of it. Counted
+        // every 1.5 s while it recovered, one crash in Road Atlanta's Esses on a first lap took 5-6 hits at 30-90 km/h
+        // under a 250 km/h plan, each cutting the 140 m before it for good. Race classes only (ONE_HIT): seeded Road
+        // Atlanta, GT1 0.6 s a lap quicker (the field's middle 1 s), F1 the same; street cars slightly slower, so not them.
+        // opts.oneHit true / false: every class / none)
+        if (rec) { if (!bad && p.u > V[car.idx] * 0.7) { if (++rec > 60) rec = 0; } else rec = 1; }
         if (cool > 0) cool--;
-        else if (bad) { hits.push(car.idx); cool = 90; if (this.learnHits) this.learnHits.push([rounds, Math.round(car.idx * T.ds), !car.onRoad ? 'off' : wide ? 'wide' : p.slipR > 0.3 + 0.4 * (p.p.slideOK ?? 0) ? 'slide' : heading < 0.8 ? 'heading' : 'edge', Math.round(p.u * 3.6), Math.round(V[car.idx] * 3.6)]); } // (learnHits: dev, [round, m, why, km/h, plan km/h])
+        else if (bad && !rec) { hits.push(car.idx); cool = 90; if (oneHit) rec = 1; if (this.learnHits) this.learnHits.push([rounds, Math.round(car.idx * T.ds), !car.onRoad ? 'off' : wide ? 'wide' : p.slipR > 0.3 + 0.4 * (p.p.slideOK ?? 0) ? 'slide' : heading < 0.8 ? 'heading' : 'edge', Math.round(p.u * 3.6), Math.round(V[car.idx] * 3.6)]); } // (learnHits: dev, [round, m, why, km/h, plan km/h])
         if (bad && p.speed < 6) flying((car.idx + 10) % N);
       }
       const used = 1 - Math.min(car.phys.tyre.wf, car.phys.tyre.wr);
