@@ -4579,12 +4579,17 @@ export class Race {
     const aMax = p.p.mu * (9.81 + (p.p.kd / p.p.mass) * u * u) * 0.85;
     const ahead = Math.round(LINE_TILES.ahead / T.ds), behind = Math.round(LINE_TILES.behind / T.ds);
     // how hard to brake at each point ahead: the plan's, raised if you're too fast to make it (lowered if you're slow)
+    // (only where the reference really drops between you and there: a corner coming. Faster than it down a straight -
+    // it's 94% of an AI lap's speed - every point just ahead read as one you couldn't slow for in the metre left: a
+    // yellow block sat in front of you, moving with you, 2026-10-26)
+    let top = 0;
     for (let k = -behind; k < ahead; k++) {
       const i = (pl.idx + k + N) % N;
       let s = this.lineBase[i];
       if (k > 0) {
         const d = k * T.ds, v = this.refV[i];
-        if (u > v) {
+        top = Math.max(top, v);
+        if (u > v && d >= 5 && top - v > 2) {
           const r = (u * u - v * v) / (2 * d) / aMax;
           if (r > 0.35) s = Math.max(s, Math.min(1, 0.35 + (r - 0.35) / 0.4 * 0.65));
         } else if (s > 0.6 && u < v * 0.9) s = 0.5;
