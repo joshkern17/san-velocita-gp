@@ -53,12 +53,25 @@ export function sessionFile(sim) {
   };
 }
 
-// a session's over (main.js disposeSim): save it if you drove at least a lap
+// a session's over (main.js disposeSim): save it if you drove at least a lap. The same file each time (sim.sessName,
+// from when it was first saved): a race is saved as it goes too (sessionTick), and the last save wins
 export function saveSession(sim) {
   if (!sim || !sim.player || !sim.aiRec || !sim.sessLaps || !sim.sessLaps.length || location.port !== '8000') return;
   try {
-    const f = sessionFile(sim), stamp = f.when.slice(0, 16).replace(/[-:T]/g, '');
-    const name = `${stamp}_${f.track.name}_${f.session.kind}_${f.player.carId}`;
-    fetch('/__session?name=' + encodeURIComponent(name), { method: 'POST', body: JSON.stringify(f) }).catch(() => {});
+    const f = sessionFile(sim);
+    sim.sessName ||= `${f.when.slice(0, 16).replace(/[-:T]/g, '')}_${f.track.name}_${f.session.kind}_${f.player.carId}`;
+    fetch('/__session?name=' + encodeURIComponent(sim.sessName), { method: 'POST', body: JSON.stringify(f) }).catch(() => {});
   } catch (e) { console.warn('session file', e); }
+}
+// a race, saved as it goes (each frame, main.js): after each lap you finish and every 30 s of the race, a moment
+// later (it's a few MB to put together: not at the line as you cross it). So a race you give up on and quit,
+// or close the game out of, still leaves its file up to the last lap. (Races only: practice and qualifying put a lap of
+// the AI's together for their file, too much to do every lap)
+export function sessionTick(sim) {
+  if (!sim || sim.mode !== 'race' || sim.quali || !sim.sessLaps || !sim.sessLaps.length || location.port !== '8000' || sim.sessWait) return;
+  const n = sim.sessLaps.length, t = sim.raceTime || 0;
+  if (n === sim.sessN && t - (sim.sessT || 0) < 30) return;
+  sim.sessN = n; sim.sessT = t; sim.sessWait = true;
+  const go = () => { sim.sessWait = false; if (!sim.disposed) saveSession(sim); };
+  setTimeout(go, 1500); // (not requestIdleCallback: a page drawing a race every frame is never idle, and it never came)
 }

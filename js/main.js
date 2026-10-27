@@ -12,7 +12,7 @@ import { WheelSetup } from './wheelsetup.js';
 import { ffb, ffbSend } from './ffb.js';
 import { lapKey, lapsFor, loadPB, referenceLap, analyze } from './telemetry.js';
 import { radioMenu, ask as askEngineer } from './radioask.js';
-import { saveSession } from './session.js';
+import { saveSession, sessionTick } from './session.js';
 import { drawChart, drawMap, notesHtml, fmtGap, fmtSpeed, drawLineMap, lineMapHit, lineMapZoom, lineMapPan, chartHit, popHtml, boardZones, lineRange, setScramble, tipText } from './lapreview.js';
 import { garbleTree } from './garble.js';
 import { AIDS, AID_KEYS, PRESETS, PRESET_VALS, aidsOf, presetOf, applyPreset, aidBonus, AID_RULES, AID_RULE_DESC, limitAids } from './aids.js';
@@ -454,7 +454,7 @@ function commentaryName() {
   const sur = String(settings.driverName || '').trim().split(' ').pop(), slug = slugName(sur);
   return slug && has(slug) ? { commentaryName: slug, commentaryLabel: sur.toUpperCase() } : {};
 }
-function disposeSim() { driftHud.hide(); voStopAll(); if (sim) { quitPitWalk(); pitGarage.leaveTrack(); saveSession(sim); sim.dispose(); sim = null; } }
+function disposeSim() { driftHud.hide(); voStopAll(); if (sim) { quitPitWalk(); pitGarage.leaveTrack(); saveSession(sim); sim.disposed = true; sim.dispose(); sim = null; } }
 
 // ---------------- boot ----------------
 let booted = false;
@@ -6773,6 +6773,7 @@ function frameBody(now) {
   if (walkHeld && screen !== 's-hub') { walkHeld = false; walk.stop(); }
   if (walk.active && screen !== 's-hub' && screen !== 's-homeview' && screen !== 's-pitgarage') { walk.stop(); walkPaused = false; drawWalkTags(null); document.querySelectorAll('.screen.walking').forEach(e => e.classList.remove('walking')); } // (out the door: a race, a gig)
   if (screen === 'hud' && sim && !sim.paused) {
+  if (screen === 'hud' && sim) sessionTick(sim); // (the race's session file, saved as it goes)
     const ctl = window.__autopilot && sim.player ? sim.aiControlsFor(sim.player, dt) : driveControls(pad);
     const flicks = takeFlicks();
     const press = {
