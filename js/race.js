@@ -3336,6 +3336,7 @@ export class Race {
   // ---------- AI ----------
   aiControls(car, dt) {
     const T = this.T, N = T.N, p = car.phys, ai = car.ai;
+    if (!car.pitting && ai.pitOff) ai.pitOff = 0; // (the way into the pits' offset: only while on the way in)
     const u = Math.max(0, p.u);
     // ---- racecraft ----
     let slowTo = Infinity;
@@ -3492,7 +3493,7 @@ export class Race {
       ai.wOff = (ai.wOff || 0) + (ai.wTgt - (ai.wOff || 0)) * Math.min(1, dt * 0.6);
     }
     // the pass's spot across the road (held by racecraft.js), reached at no more than ~2.2 m/s sideways, and let go of gently
-    const base = this.line[j] + ai.bias + ai.over + ai.def + (ai.wOff || 0), pw = pp && pp.at != null ? pp.at - base : 0, po = ai.pOff || 0;
+    const base = this.line[j] + ai.bias + ai.over + ai.def + (ai.wOff || 0) + (ai.pitOff || 0), pw = pp && pp.at != null ? pp.at - base : 0, po = ai.pOff || 0;
     const pv = pp && (pp.stage === 'out' || pp.stage === 'dive' && !pp.own) ? 3.5 : 2.2; // (pulling out of a tow, or lunging down the inside: a quick, decided move)
     ai.pOff = po + Math.max(-pv * dt, Math.min(pv * dt, (pw - po) * (pp && pp.at != null ? 5 : 1.6) * dt));
     // (off the racing line: part-way to the side line that way, sideLines; not the racing line moved over)
@@ -4048,7 +4049,18 @@ export class Race {
         // the limiter holds you to the pit speed until the line at the end of the lane
         car.ctl = this.pitLimiter(car, this.brakeAssist(car, controls));
       } else if (car.pitting && this.pit) {
-        car.ctl = this.pitControls(car, dt);
+        // (an AI on its way in, before the pit lane starts: still driven by its racing brain, eased over to the pit side
+        // (ai.pitOff), at the pit approach's speed. pitControls' own steering - a point 14 m ahead, nothing for the
+        // corner - took nearly every car at Thunderhill a metre past the white line at 90-130 km/h and into the wall at
+        // the lane's start, 2026-10-26: 14 offs and 9 wall hits for 11 stops. opts.pitApproach false: as before)
+        const P = this.pitControls(car, dt), ai = car.ai;
+        if (ai && !car.isPlayer && car.pitPhase === 'in' && this.pit.REG[car.idx] < 0 && this.opts.pitApproach !== false) {
+          const N = this.T.N, toEntry = ((this.pit.start - car.idx + N) % N) * this.T.ds, early = toEntry < 300 ? Math.min(1, (300 - toEntry) / 180) : 0;
+          const want = early * (this.pit.side * (this.T.W[car.idx] / 2 - 1.3) - this.line[car.idx]);
+          ai.pitOff = (ai.pitOff || 0) + (want - (ai.pitOff || 0)) * Math.min(1, dt * 3);
+          const A = this.aiControls(car, dt);
+          car.ctl = { ...A, throttle: Math.min(A.throttle, P.throttle), brake: Math.max(A.brake || 0, P.brake || 0) };
+        } else { if (ai) ai.pitOff = 0; car.ctl = P; }
       } else if (car.isPlayer) {
         if (this.state === 'finished') {
           // the game has your car now (the cool-down lap): an easy pace, and from here on it can't cost you (damage)
