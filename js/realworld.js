@@ -184,7 +184,15 @@ export function loadLandmarks(root, L, groundHeight, night) {
     for (const node of [...g.scene.children]) {
       const key = node.name.replace(/^LM_/, ''), it = items.get(key);
       let y = 0;
-      if (it) { // (the highest ground under it: its corners, edges' middles, its middle)
+      if (it && it.drape) { // (laid on the ground itself, every vertex: its heights in the model are over the ground, 0 = on it)
+        node.updateMatrixWorld(true); const v = new THREE.Vector3(), inv = new THREE.Matrix4();
+        node.traverse((o) => {
+          if (!o.isMesh) return;
+          const P = o.geometry.attributes.position; inv.copy(o.matrixWorld).invert();
+          for (let k = 0; k < P.count; k++) { v.fromBufferAttribute(P, k).applyMatrix4(o.matrixWorld); v.y += groundHeight(v.x, v.z); v.applyMatrix4(inv); P.setXYZ(k, v.x, v.y, v.z); }
+          P.needsUpdate = true; o.geometry.computeBoundingBox(); o.geometry.computeBoundingSphere(); o.userData.drape = true;
+        });
+      } else if (it) { // (the highest ground under it: its corners, edges' middles, its middle)
         const c = Math.cos(it.rot || 0), s2 = Math.sin(it.rot || 0); y = -Infinity;
         for (const [u, v] of [[0, 0], [1, 1], [1, -1], [-1, 1], [-1, -1], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
           const du = u * it.hw, dv = v * it.hd; y = Math.max(y, groundHeight(it.x + du * c - dv * s2, it.z + du * s2 + dv * c));
@@ -200,6 +208,8 @@ export function loadLandmarks(root, L, groundHeight, night) {
         if (o.geometry.boundingSphere.radius > 40) for (const m of [].concat(o.material)) big.add(m);
       });
     }
+    // (a draped piece drawn over the ground it lies on, never through it where the ground's triangles bulge between its vertices)
+    g.scene.traverse((o) => { if (o.isMesh && o.userData.drape) for (const m of [].concat(o.material)) { m.polygonOffset = true; m.polygonOffsetFactor = -4; m.polygonOffsetUnits = -4; } });
     // (the PSX vertex snap everywhere; the texture wobble only on smaller faces, big ones would swim)
     for (const m of mats.values()) { applyPSXMaterial(m, { snap: true, affine: m.map && !big.has(m) ? 0.6 : 0 }); m.userData.psx = true; }
     g.scene.name = 'landmarks'; root.add(g.scene);

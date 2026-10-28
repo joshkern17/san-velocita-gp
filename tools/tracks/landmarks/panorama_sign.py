@@ -1,8 +1,10 @@
 # The MOUNT PANORAMA / BATHURST sign on the hillside below Skyline (white letters of painted rocks, laid on the slope,
 # read from down the hill), for the user's Mount Panorama custom track. Each letter is set in a heavy sans at the
 # centre, angle and cap height traced off the aerial photo (panorama_sign.json), then cut into a 2 m grid and laid on
-# the game's own ground there (models/landmarks/src/panorama_sign_ground.json: world.groundHeight sampled every metre),
-# so it hugs the hill instead of floating off it.
+# whatever ground the game has there: the model is flat (heights over the ground) and the item is `drape`, so
+# js/realworld.js lifts every vertex onto the ground as it loads (the editor's ground and the race's differ by metres
+# on this slope). models/landmarks/src/panorama_sign_ground.json (world.groundHeight sampled every metre) is only for
+# previewing it on the hill here.
 #   /Applications/Blender.app/Contents/MacOS/Blender -b --python-exit-code 1 --python tools/tracks/landmarks/panorama_sign.py
 # Writes models/landmarks/panorama_sign.glb + .json (the track's landmarks: { url, items }).
 import bpy, bmesh, math, os, sys, json
@@ -14,7 +16,7 @@ from garagelib import grimy_tile, vnoise, fbm
 
 CID = 'panorama_sign'
 FONT = '/System/Library/Fonts/Supplemental/Arial Black.ttf'
-LIFT, SKIRT, CELL, GAP = 0.14, 0.5, 2.5, 1.6   # top over the ground, sides down into it, grid, least gap between letters
+LIFT, SKIRT, CELL, GAP = 0.2, 0.6, 2.5, 1.6   # top over the ground, sides down into it, grid, least gap between letters
 args = K.setup(CID, seed=1989)
 lay = json.load(open(os.path.join(K.HERE, CID + '.json')))['letters']
 gnd = json.load(open(os.path.join(K.ROOT, 'models', 'landmarks', 'src', CID + '_ground.json')))
@@ -27,12 +29,12 @@ def ground(x, z):  # the game's ground height (bilinear over the 1 m samples)
     return float((H[j, i] * (1 - u) + H[j, i + 1] * u) * (1 - v) + (H[j + 1, i] * (1 - u) + H[j + 1, i + 1] * u) * v)
 
 
-# one root for the sign: the game seats it at the highest ground of its footprint, so the letters are built down from that
+# one root for the sign (draped: the game seats each vertex on the ground; seat is only for the --preview)
 xs = [l['x'] for l in lay]; zs = [l['z'] for l in lay]
 cx, cz = (min(xs) + max(xs)) / 2, (min(zs) + max(zs)) / 2
 hw, hd = (max(xs) - min(xs)) / 2 + 14, (max(zs) - min(zs)) / 2 + 14
 seat = max(ground(cx + u * hw, cz + v * hd) for u in (-1, 0, 1) for v in (-1, 0, 1)) - 0.05   # (js/realworld.js loadLandmarks)
-r = K.root('sign', cx, cz, hw, hd, 0.0, kind='sign')
+r = K.root('sign', cx, cz, hw, hd, 0.0, kind='sign'); K.LM[-1]['drape'] = True
 
 # painted rocks: a stone tile turned white, a little dirt through it
 rock = grimy_tile('Lk_SignRock', 'stone_01.png', dirt=0.18, tint=(0.93, 0.93, 0.9))
@@ -87,7 +89,8 @@ for ax, lo, hi in ((0, mn.x, mxv.x), (1, mn.y, mxv.y)):
         bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=co, plane_no=no)
         c += CELL
 bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method='BEAUTY', ngon_method='BEAUTY')
-for v in bm.verts: v.co.z = ground(v.co.x, -v.co.y) + LIFT - seat
+PREVIEW = '--preview' in args   # (on the hill in Blender, as the game will lay it; the export is always flat)
+for v in bm.verts: v.co.z = LIFT + (ground(v.co.x, -v.co.y) - seat if PREVIEW else 0)
 # the rim: walls down into the hill so no edge shows a gap on the slope
 rim = [e for e in bm.edges if e.is_boundary]
 ext = bmesh.ops.extrude_edge_only(bm, edges=rim)
