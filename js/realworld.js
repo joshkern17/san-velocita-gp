@@ -167,7 +167,8 @@ function loadRefModel(root, M) {
 // highest under its footprint (items: x, z, hw, hd, rot), a plinth hidden in it where the ground falls away. PS1 look:
 // Lambert, nearest-sampled textures, the baked light in the vertex colours, cut-outs for railings and trusses; the
 // windows' glow and the boards' screens lit at night.
-function loadLandmarks(root, L, groundHeight, night) {
+// (also on a track of the editor's that carries its own: track.landmarks, world.js)
+export function loadLandmarks(root, L, groundHeight, night) {
   const items = new Map(L.items.map(it => [it.key, it]));
   new GLTFLoader().loadAsync(L.url).then((g) => {
     const mats = new Map();

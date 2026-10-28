@@ -13,7 +13,7 @@ import { buildGrass, grassMask, GRASS_COLORS } from './grass.js';
 import { placeTrackProps, buildStartGantry, beamCone, beamMaterial, buildCatchFence, CROWDS } from './trackprops.js';
 import { runoffLayout, isRunoffPaint, strokeDist, strokeBox, RUN_RES, RUN_SD, runoffKind, RUN_NAT, RUN_GRASS, RUN_PAVED, EDGE_STRIP } from './runoff.js';
 import { buildCourthouse, buildBusiness } from './landmarks.js';
-import { addRealWorld, addWater, addStreams } from './realworld.js';
+import { addRealWorld, addWater, addStreams, loadLandmarks } from './realworld.js';
 import { waterLevel, carveWater, inWater, carveStreams } from './water.js';
 import { BUSINESSES } from './zones.js';
 import { getBuildingTextures } from './textures.js';
@@ -1504,6 +1504,7 @@ export function* buildWorldSteps(track, T, A, opts = {}) {
   buildFootprints(root, foot, night, groundHeight, rng);
   if (plinths.length) buildPlinths(root, plinths, tx);
   const realW = track.real ? addRealWorld(root, track, T, { groundHeight, night }) : null; // real circuits: sea, tunnels, Ferris wheels
+  if (!track.real && track.landmarks && track.landmarks.url) loadLandmarks(root, track.landmarks, groundHeight, night); // (a custom track's own models: Mount Panorama's hillside sign)
   const waterW = waterL.length ? addWater(root, waterL, night) : null; // lakes, ponds, rivers (any track with them imported)
   let streamW = null; // (the streams' water: not over a road or the track, where they run through a culvert)
   try { if (streams.length) streamW = addStreams(root, streams, groundHeight, (x, z, h) => (roadL && roadL.onRoad(x, z, h + 1)) || !pointClear(x, z, h + 1, T, A), night); }

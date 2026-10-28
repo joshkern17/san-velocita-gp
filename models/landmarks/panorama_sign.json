@@ -1,0 +1,16 @@
+{
+"url": "models/landmarks/panorama_sign.glb",
+"grounds": null,
+"items": [
+{
+"key": "sign",
+"x": -511.9,
+"z": 1040.8,
+"hw": 85.3,
+"hd": 59.02,
+"rot": 0.0,
+"kind": "sign"
+}
+],
+"standLines": []
+}
