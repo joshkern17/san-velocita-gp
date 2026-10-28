@@ -509,6 +509,8 @@ export class PitLife {
     const inside = this.laneBB.isEmpty() || (this.laneBB.distanceToPoint(cam) < 250 && front);
     if (inside !== this.inside) { this.inside = inside; for (const o of this.rooms) o.visible = inside; }
     for (const g of this.root.children) if (g.name === 'BoxDress' || g.name === 'PitProps') g.visible = inside;
+    // (the pit wall's stands: specks from across the circuit, ~90 draws; Mount Panorama looks down on them from Skyline)
+    if (this.wall) this.wall.root.visible = this.laneBB.isEmpty() || this.laneBB.distanceToPoint(cam) < 700;
     for (const b of this.boxes) {
       b.cars = race.cars.filter(c => race.boxSlot(c.teamIdx) === b.k); // (online, cars come and go)
       if (signs) this.refreshSign(b);

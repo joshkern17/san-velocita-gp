@@ -26,8 +26,8 @@ const F1 = JSON.parse(fs.readFileSync(path.join(HERE, 'f1-circuits.json'), 'utf8
 const argv = process.argv.slice(2), refAt = argv.indexOf('--ref'), REF = refAt >= 0 ? JSON.parse(fs.readFileSync(argv[refAt + 1], 'utf8')) : null;
 if (refAt >= 0) argv.splice(refAt, 2);
 const want = argv;
-const list = want.length ? CATALOG.filter(c => want.includes(c.id)) : CATALOG;
-if (!list.length) { console.error('no such circuit: ' + want.join(' ')); process.exit(1); }
+const list = (want.length ? CATALOG.filter(c => want.includes(c.id)) : CATALOG).filter(c => !c.own); // (a hand-made one is only listed: catalog.mjs own)
+if (!list.length && !(want.length && CATALOG.some(c => c.own && want.includes(c.id)))) { console.error('no such circuit: ' + want.join(' ')); process.exit(1); }
 
 // ---------- 1. the layout from OSM ----------
 function guideOf(c) {

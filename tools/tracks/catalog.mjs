@@ -19,6 +19,8 @@
 //             runoff) stays put when the line is edited
 //   lap:      a measured lap file (tools/tracks/ref/<id>.lap.json: { pts: [{ lat, lon, w }] }, start line first) used
 //             as the layout as it is, centre line and widths (a layout the map doesn't have: measured off a reference)
+//   own:      true: a circuit made by hand in the editor (tracks/real/<id>.json is the file itself, kept as made): the
+//             build never bakes it from the map, only lists it
 //   maxGrade: the steepest the real road gets (default 0.18): the elevation data is coarse and smears hillsides
 //             into the road profile, so it's fitted smooth and never steeper than this (js/terrain.js roadProfile)
 // Data: © OpenStreetMap contributors (ODbL); outlines from bacinger/f1-circuits (MIT).
@@ -167,6 +169,11 @@ export const CATALOG = [
     guide: { f1: 'Indianapolis Motor Speedway' }, lap: 'indy', geo: [39.794157, -86.236038], photoFit: false, roads: RACEWAY, skip: PIT, width: 14,
     env: { theme: 'grass', time: 'day', weather: 'clear', laps: 3, opponents: 11, setting: { kind: 'none', flora: 'mixed', seed: 1909 } },
     scatter: { mix: 'mixed', r: 60, d: 0.06 },
+  },
+  {
+    // (the user's own, drawn in the editor and fitted to the map's roads + the real start, pits and stands, 2026-10-27;
+    // the hillside sign: tools/tracks/landmarks/panorama_sign.py)
+    id: 'panorama', name: 'Mount Panorama', country: 'Australia', category: 'classic', own: true,
   },
   {
     id: 'haruna', name: 'Mt. Haruna Downhill', country: 'Japan', category: 'touge', open: true,
